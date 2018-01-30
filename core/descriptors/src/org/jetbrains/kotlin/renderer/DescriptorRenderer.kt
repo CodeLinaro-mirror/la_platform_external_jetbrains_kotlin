@@ -222,6 +222,7 @@ interface DescriptorRendererOptions {
     var renderUnabbreviatedType: Boolean
     var includeAdditionalModifiers: Boolean
     var parameterNamesInFunctionalTypes: Boolean
+    var renderFunctionContracts: Boolean
 }
 
 object ExcludedTypeAnnotations {
@@ -262,8 +263,8 @@ enum class DescriptorRendererModifier(val includeByDefault: Boolean) {
     INNER(true),
     MEMBER_KIND(true),
     DATA(true),
-    HEADER(true),
-    IMPL(true),
+    EXPECT(true),
+    ACTUAL(true),
     ;
 
     companion object {

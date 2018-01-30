@@ -17,14 +17,19 @@
 package org.jetbrains.kotlin.psi.psiUtil
 
 import com.intellij.injected.editor.VirtualFileWindow
+import com.intellij.lang.ASTNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
+import com.intellij.psi.impl.source.tree.TreeUtil
 import com.intellij.psi.search.PsiSearchScopeUtil
 import com.intellij.psi.search.SearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFileAnnotationList
+import org.jetbrains.kotlin.psi.KtModifierList
+import org.jetbrains.kotlin.psi.KtModifierListOwner
 import java.util.*
 
 // NOTE: in this file we collect only LANGUAGE INDEPENDENT methods working with PSI and not modifying it
@@ -380,3 +385,27 @@ fun PsiElement.before(element: PsiElement) = textRange.endOffset <= element.text
 
 inline fun <reified T : PsiElement> PsiElement.getLastParentOfTypeInRow() = parents.takeWhile { it is T }.lastOrNull() as? T
 
+fun KtModifierListOwner.hasExpectModifier() = hasModifier(KtTokens.HEADER_KEYWORD) || hasModifier(KtTokens.EXPECT_KEYWORD)
+fun KtModifierList.hasExpectModifier() = hasModifier(KtTokens.HEADER_KEYWORD) || hasModifier(KtTokens.EXPECT_KEYWORD)
+
+fun KtModifierListOwner.hasActualModifier() = hasModifier(KtTokens.IMPL_KEYWORD) || hasModifier(KtTokens.ACTUAL_KEYWORD)
+fun KtModifierList.hasActualModifier() = hasModifier(KtTokens.IMPL_KEYWORD) || hasModifier(KtTokens.ACTUAL_KEYWORD)
+
+fun ASTNode.children() = generateSequence(firstChildNode) { node -> node.treeNext }
+fun ASTNode.parents() = generateSequence(treeParent) { node -> node.treeParent }
+
+fun ASTNode.siblings(forward: Boolean = true): Sequence<ASTNode> {
+    if (forward) {
+        return generateSequence(treeNext) { it.treeNext }
+    } else {
+        return generateSequence(treePrev) { it.treePrev }
+    }
+}
+
+fun ASTNode.leaves(forward: Boolean = true): Sequence<ASTNode> {
+    if (forward) {
+        return generateSequence(TreeUtil.nextLeaf(this)) { TreeUtil.nextLeaf(it) }
+    } else {
+        return generateSequence(TreeUtil.prevLeaf(this)) { TreeUtil.prevLeaf(it) }
+    }
+}

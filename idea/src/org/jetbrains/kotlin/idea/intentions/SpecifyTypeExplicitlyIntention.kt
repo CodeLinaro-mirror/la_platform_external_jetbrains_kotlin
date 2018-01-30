@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,16 @@ package org.jetbrains.kotlin.idea.intentions
 
 import com.intellij.codeInsight.intention.LowPriorityAction
 import com.intellij.codeInsight.template.*
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.idea.caches.resolve.analyze
 import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
 import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
 import org.jetbrains.kotlin.idea.core.ShortenReferences
@@ -36,13 +37,10 @@ import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.idea.util.getResolutionScope
 import org.jetbrains.kotlin.idea.util.getResolvableApproximations
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
-import org.jetbrains.kotlin.psi.psiUtil.endOffset
-import org.jetbrains.kotlin.psi.psiUtil.getElementTextWithContext
-import org.jetbrains.kotlin.psi.psiUtil.startOffset
-import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.typeUtil.makeNotNullable
 import org.jetbrains.kotlin.utils.ifEmpty
 
 class SpecifyTypeExplicitlyIntention :
@@ -88,7 +86,7 @@ class SpecifyTypeExplicitlyIntention :
                 else -> return null
             }
 
-            if (declaration.containingClassOrObject?.isLocal ?: false) return null
+            if (declaration.containingClassOrObject?.isLocal == true) return null
 
             val callable = declaration.resolveToDescriptorIfAny() as? CallableDescriptor ?: return null
             if (publicAPIOnly && !callable.visibility.isPublicAPI) return null
@@ -103,8 +101,13 @@ class SpecifyTypeExplicitlyIntention :
         }
 
         fun getTypeForDeclaration(declaration: KtCallableDeclaration): KotlinType {
-            val descriptor = declaration.analyze()[BindingContext.DECLARATION_TO_DESCRIPTOR, declaration]
-            val type = (descriptor as? CallableDescriptor)?.returnType
+            val descriptor = declaration.resolveToDescriptorIfAny()
+            val type = (descriptor as? CallableDescriptor)?.let {
+                if (it.overriddenDescriptors.firstOrNull()?.returnType?.isMarkedNullable == false)
+                    it.returnType?.makeNotNullable()
+                else
+                    it.returnType
+            }
             if (type != null && type.isError && descriptor is PropertyDescriptor) {
                 return descriptor.setterType ?: ErrorUtils.createErrorType("null type")
             }
@@ -134,10 +137,24 @@ class SpecifyTypeExplicitlyIntention :
                 }
             }.ifEmpty { return null }
 
-            return object : ChooseValueExpression<KotlinType>(types, types.first()) {
-                override fun getLookupString(element: KotlinType) = IdeDescriptorRenderers.SOURCE_CODE_SHORT_NAMES_IN_TYPES.renderType(element)
-                override fun getResult(element: KotlinType) = IdeDescriptorRenderers.SOURCE_CODE.renderType(element)
+            if (ApplicationManager.getApplication().isUnitTestMode) {
+                // This helps to be sure no nullable types are suggested
+                if (contextElement.containingKtFile.findDescendantOfType<PsiComment>()?.takeIf {
+                        it.text == "// CHOOSE_NULLABLE_TYPE_IF_EXISTS"
+                    } != null) {
+                    val targetType = types.firstOrNull { it.isMarkedNullable } ?: types.first()
+                    return TypeChooseValueExpression(listOf(targetType), targetType)
+                }
             }
+
+            return TypeChooseValueExpression(types, types.first())
+        }
+
+        // Explicit class is used because of KT-20460
+        private class TypeChooseValueExpression(items: List<KotlinType>, defaultItem: KotlinType) :
+                ChooseValueExpression<KotlinType>(items, defaultItem) {
+            override fun getLookupString(element: KotlinType) = IdeDescriptorRenderers.SOURCE_CODE_SHORT_NAMES_IN_TYPES.renderType(element)
+            override fun getResult(element: KotlinType) = IdeDescriptorRenderers.SOURCE_CODE.renderType(element)
         }
 
         fun addTypeAnnotation(editor: Editor?, declaration: KtCallableDeclaration, exprType: KotlinType) {
@@ -149,18 +166,32 @@ class SpecifyTypeExplicitlyIntention :
             }
         }
 
-        fun createTypeReferencePostprocessor(declaration: KtCallableDeclaration): TemplateEditingAdapter {
+        @JvmOverloads
+        fun createTypeReferencePostprocessor(declaration: KtCallableDeclaration,
+                                             iterator: Iterator<KtCallableDeclaration>? = null,
+                                             editor: Editor? = null): TemplateEditingAdapter {
             return object : TemplateEditingAdapter() {
                 override fun templateFinished(template: Template?, brokenOff: Boolean) {
                     val typeRef = declaration.typeReference
                     if (typeRef != null && typeRef.isValid) {
-                        runWriteAction { ShortenReferences.DEFAULT.process(typeRef) }
+                        runWriteAction {
+                            ShortenReferences.DEFAULT.process(typeRef)
+                            if (iterator != null && editor != null) addTypeAnnotationWithTemplate(editor, iterator)
+                        }
                     }
                 }
             }
         }
 
-        private fun addTypeAnnotationWithTemplate(editor: Editor, declaration: KtCallableDeclaration, exprType: KotlinType) {
+        fun addTypeAnnotationWithTemplate(editor: Editor, iterator: Iterator<KtCallableDeclaration>?) {
+            if (iterator == null || !iterator.hasNext()) return
+            val declaration = iterator.next()
+            val exprType = getTypeForDeclaration(declaration)
+            addTypeAnnotationWithTemplate(editor, declaration, exprType, iterator)
+        }
+
+        private fun addTypeAnnotationWithTemplate(editor: Editor, declaration: KtCallableDeclaration, exprType: KotlinType,
+                                                  iterator: Iterator<KtCallableDeclaration>? = null) {
             assert(!exprType.isError) { "Unexpected error type, should have been checked before: " + declaration.getElementTextWithContext() + ", type = " + exprType }
 
             val project = declaration.project
@@ -177,7 +208,10 @@ class SpecifyTypeExplicitlyIntention :
 
             editor.caretModel.moveToOffset(newTypeRef.node.startOffset)
 
-            TemplateManager.getInstance(project).startTemplate(editor, builder.buildInlineTemplate(), createTypeReferencePostprocessor(declaration))
+            TemplateManager.getInstance(project).startTemplate(
+                    editor,
+                    builder.buildInlineTemplate(),
+                    createTypeReferencePostprocessor(declaration, iterator, editor))
         }
     }
 }

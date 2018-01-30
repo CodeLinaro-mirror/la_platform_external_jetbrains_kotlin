@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.resolve.calls.components
 
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.ReceiverParameterDescriptor
 import org.jetbrains.kotlin.resolve.calls.model.*
@@ -25,14 +26,15 @@ import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 // very initial state of component
 // todo: handle all diagnostic inside DiagnosticReporterByTrackingStrategy
 // move it to frontend module
-class AdditionalDiagnosticReporter {
+class AdditionalDiagnosticReporter(private val languageVersionSettings: LanguageVersionSettings) {
 
     fun reportAdditionalDiagnostics(
             candidate: ResolvedCallAtom,
             resultingDescriptor: CallableDescriptor,
-            kotlinDiagnosticsHolder: KotlinDiagnosticsHolder
+            kotlinDiagnosticsHolder: KotlinDiagnosticsHolder,
+            diagnostics: Collection<KotlinCallDiagnostic>
     ) {
-        reportSmartCasts(candidate, resultingDescriptor, kotlinDiagnosticsHolder)
+        reportSmartCasts(candidate, resultingDescriptor, kotlinDiagnosticsHolder, diagnostics)
     }
 
     private fun createSmartCastDiagnostic(
@@ -50,7 +52,8 @@ class AdditionalDiagnosticReporter {
     private fun reportSmartCastOnReceiver(
             candidate: ResolvedCallAtom,
             receiver: SimpleKotlinCallArgument?,
-            parameter: ReceiverParameterDescriptor?
+            parameter: ReceiverParameterDescriptor?,
+            diagnostics: Collection<KotlinCallDiagnostic>
     ): SmartCastDiagnostic? {
         if (receiver == null || parameter == null) return null
         val expectedType = parameter.type.unwrap().let { if (receiver.isSafeCall) it.makeNullableAsSpecified(true) else it }
@@ -59,11 +62,11 @@ class AdditionalDiagnosticReporter {
 
         // todo may be we have smart cast to Int?
         return smartCastDiagnostic.takeIf {
-            candidate.diagnostics.filterIsInstance<UnsafeCallError>().none {
+            diagnostics.filterIsInstance<UnsafeCallError>().none {
                 it.receiver == receiver
             }
             &&
-            candidate.diagnostics.filterIsInstance<UnstableSmartCast>().none {
+            diagnostics.filterIsInstance<UnstableSmartCast>().none {
                 it.argument == receiver
             }
         }
@@ -72,16 +75,22 @@ class AdditionalDiagnosticReporter {
     private fun reportSmartCasts(
             candidate: ResolvedCallAtom,
             resultingDescriptor: CallableDescriptor,
-            kotlinDiagnosticsHolder: KotlinDiagnosticsHolder
+            kotlinDiagnosticsHolder: KotlinDiagnosticsHolder,
+            diagnostics: Collection<KotlinCallDiagnostic>
     ) {
-        kotlinDiagnosticsHolder.addDiagnosticIfNotNull(reportSmartCastOnReceiver(candidate, candidate.extensionReceiverArgument, resultingDescriptor.extensionReceiverParameter))
-        kotlinDiagnosticsHolder.addDiagnosticIfNotNull(reportSmartCastOnReceiver(candidate, candidate.dispatchReceiverArgument, resultingDescriptor.dispatchReceiverParameter))
+        kotlinDiagnosticsHolder.addDiagnosticIfNotNull(
+                reportSmartCastOnReceiver(candidate, candidate.extensionReceiverArgument, resultingDescriptor.extensionReceiverParameter, diagnostics)
+        )
+        kotlinDiagnosticsHolder.addDiagnosticIfNotNull(
+                reportSmartCastOnReceiver(candidate, candidate.dispatchReceiverArgument, resultingDescriptor.dispatchReceiverParameter, diagnostics)
+        )
 
         for (parameter in resultingDescriptor.valueParameters) {
             for (argument in candidate.argumentMappingByOriginal[parameter.original]?.arguments ?: continue) {
-                val smartCastDiagnostic = createSmartCastDiagnostic(candidate, argument, argument.getExpectedType(parameter)) ?: continue
+                val effectiveExpectedType = argument.getExpectedType(parameter, languageVersionSettings)
+                val smartCastDiagnostic = createSmartCastDiagnostic(candidate, argument, effectiveExpectedType) ?: continue
 
-                val thereIsUnstableSmartCastError = candidate.diagnostics.filterIsInstance<UnstableSmartCast>().any {
+                val thereIsUnstableSmartCastError = diagnostics.filterIsInstance<UnstableSmartCast>().any {
                     it.argument == argument
                 }
 

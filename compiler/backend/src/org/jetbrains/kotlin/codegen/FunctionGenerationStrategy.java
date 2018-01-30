@@ -20,6 +20,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.codegen.context.MethodContext;
 import org.jetbrains.kotlin.codegen.state.GenerationState;
 import org.jetbrains.kotlin.psi.KtDeclarationWithBody;
+import org.jetbrains.kotlin.psi.KtExpression;
+import org.jetbrains.kotlin.psi.psiUtil.PsiUtilsKt;
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 
@@ -31,6 +33,8 @@ public abstract class FunctionGenerationStrategy {
             @NotNull MethodContext context,
             @NotNull MemberCodegen<?> parentCodegen
     );
+
+    public abstract boolean skipNotNullAssertionsForParameters();
 
     public MethodVisitor wrapMethodVisitor(@NotNull MethodVisitor mv, int access, @NotNull String name, @NotNull String desc) {
         return mv;
@@ -49,7 +53,9 @@ public abstract class FunctionGenerationStrategy {
 
         @Override
         public void doGenerateBody(@NotNull ExpressionCodegen codegen, @NotNull JvmMethodSignature signature) {
-            codegen.returnExpression(declaration.getBodyExpression());
+            KtExpression bodyExpression = declaration.getBodyExpression();
+            assert bodyExpression != null : "Function has no body: " + PsiUtilsKt.getElementTextWithContext(declaration);
+            codegen.returnExpression(bodyExpression);
         }
     }
 
@@ -70,6 +76,12 @@ public abstract class FunctionGenerationStrategy {
         ) {
             ExpressionCodegen codegen = new ExpressionCodegen(mv, frameMap, signature.getReturnType(), context, state, parentCodegen);
             doGenerateBody(codegen, signature);
+        }
+
+        @Override
+        public boolean skipNotNullAssertionsForParameters() {
+            // Assume the strategy injects non-null checks for parameters by default
+            return false;
         }
 
         public abstract void doGenerateBody(@NotNull ExpressionCodegen codegen, @NotNull JvmMethodSignature signature);

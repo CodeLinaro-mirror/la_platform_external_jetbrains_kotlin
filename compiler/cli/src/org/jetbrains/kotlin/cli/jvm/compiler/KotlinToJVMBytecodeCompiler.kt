@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.cli.jvm.compiler
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.impl.PsiModificationTrackerImpl
@@ -128,7 +127,7 @@ object KotlinToJVMBytecodeCompiler {
         }
 
         val targetDescription = "in targets [" + chunk.joinToString { input -> input.getModuleName() + "-" + input.getModuleType() } + "]"
-        
+
         val result = repeatAnalysisIfNeeded(analyze(environment, targetDescription), environment, targetDescription)
         if (result == null || !result.shouldGenerateCode) return false
 
@@ -278,15 +277,15 @@ object KotlinToJVMBytecodeCompiler {
 
         return ExitCode.OK
     }
-    
+
     private fun repeatAnalysisIfNeeded(
-            result: AnalysisResult?, 
-            environment: KotlinCoreEnvironment, 
+            result: AnalysisResult?,
+            environment: KotlinCoreEnvironment,
             targetDescription: String?
     ): AnalysisResult? {
         if (result is AnalysisResult.RetryWithAdditionalJavaRoots) {
             val configuration = environment.configuration
-            
+
             val oldReadOnlyValue = configuration.isReadOnly
             configuration.isReadOnly = false
             configuration.addJavaSourceRoots(result.additionalJavaRoots)
@@ -307,7 +306,7 @@ object KotlinToJVMBytecodeCompiler {
             // Repeat analysis with additional Java roots (kapt generated sources)
             return analyze(environment, targetDescription)
         }
-        
+
         return result
     }
 
@@ -366,7 +365,7 @@ object KotlinToJVMBytecodeCompiler {
         val analyzerWithCompilerReport = AnalyzerWithCompilerReport(collector)
         analyzerWithCompilerReport.analyzeAndReport(sourceFiles) {
             val project = environment.project
-            val moduleOutputs = environment.configuration.get(JVMConfigurationKeys.MODULES)?.mapNotNull { module ->
+            val moduleOutputs = environment.configuration.get(JVMConfigurationKeys.MODULES)?.mapNotNullTo(hashSetOf()) { module ->
                 environment.findLocalFile(module.getOutputDirectory())
             }.orEmpty()
             val sourcesOnly = TopDownAnalyzerFacadeForJVM.newModuleSearchScope(project, sourceFiles)
@@ -403,14 +402,30 @@ object KotlinToJVMBytecodeCompiler {
     }
 
     class DirectoriesScope(
-            project: Project, private val directories: List<VirtualFile>
+            project: Project,
+            private val directories: Set<VirtualFile>
     ) : DelegatingGlobalSearchScope(GlobalSearchScope.allScope(project)) {
-        // TODO: optimize somehow?
-        override fun contains(file: VirtualFile) =
-                directories.any { directory -> VfsUtilCore.isAncestor(directory, file, false) }
+        private val fileSystems = directories.mapTo(hashSetOf(), VirtualFile::getFileSystem)
+
+        override fun contains(file: VirtualFile): Boolean {
+            if (file.fileSystem !in fileSystems) return false
+
+            var parent: VirtualFile = file
+            while (true) {
+                if (parent in directories) return true
+                parent = parent.parent ?: return false
+            }
+        }
 
         override fun toString() = "All files under: $directories"
     }
+
+    private fun GenerationState.Builder.withModule(module: Module?) =
+            apply {
+                targetId(module?.let { TargetId(it) })
+                moduleName(module?.getModuleName())
+                outDirectory(module?.let { File(it.getOutputDirectory()) })
+            }
 
     private fun generate(
             environment: KotlinCoreEnvironment,
@@ -420,20 +435,19 @@ object KotlinToJVMBytecodeCompiler {
             module: Module?
     ): GenerationState {
         val isKapt2Enabled = environment.project.getUserData(IS_KAPT2_ENABLED_KEY) ?: false
-        val generationState = GenerationState(
+        val generationState = GenerationState.Builder(
                 environment.project,
                 ClassBuilderFactories.binaries(isKapt2Enabled),
                 result.moduleDescriptor,
                 result.bindingContext,
                 sourceFiles,
-                configuration,
-                GenerationState.GenerateClassFilter.GENERATE_ALL,
-                if (configuration.getBoolean(JVMConfigurationKeys.IR)) JvmIrCodegenFactory else DefaultCodegenFactory,
-                module?.let(::TargetId),
-                module?.let(Module::getModuleName),
-                module?.let { File(it.getOutputDirectory()) },
-                createOutputFilesFlushingCallbackIfPossible(configuration)
+                configuration
         )
+                .codegenFactory(if (configuration.getBoolean(JVMConfigurationKeys.IR)) JvmIrCodegenFactory else DefaultCodegenFactory)
+                .withModule(module)
+                .onIndependentPartCompilationEnd(createOutputFilesFlushingCallbackIfPossible(configuration))
+                .build()
+
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
 
         val generationStart = PerformanceCounter.currentTime()

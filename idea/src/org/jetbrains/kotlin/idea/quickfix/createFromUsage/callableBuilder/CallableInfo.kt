@@ -19,7 +19,7 @@ package org.jetbrains.kotlin.idea.quickfix.createFromUsage.callableBuilder
 import com.intellij.psi.PsiElement
 import com.intellij.util.ArrayUtil
 import org.jetbrains.kotlin.descriptors.ClassDescriptorWithResolutionScopes
-import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptor
+import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
 import org.jetbrains.kotlin.idea.core.KotlinNameSuggester
 import org.jetbrains.kotlin.idea.quickfix.createFromUsage.createClass.ClassInfo
 import org.jetbrains.kotlin.idea.util.getResolutionScope
@@ -84,6 +84,15 @@ abstract class TypeInfo(val variance: Variance) {
         override val staticContextRequired: Boolean = true
     }
 
+    class OfThis(delegate: TypeInfo) : DelegatingTypeInfo(delegate)
+
+    val isOfThis: Boolean
+        get() = when (this) {
+            is OfThis -> true
+            is DelegatingTypeInfo -> delegate.isOfThis
+            else -> false
+        }
+
     open val substitutionsAllowed: Boolean = true
     open val staticContextRequired: Boolean = false
     open fun getPossibleNamesFromExpression(bindingContext: BindingContext): Array<String> = ArrayUtil.EMPTY_STRING_ARRAY
@@ -104,7 +113,7 @@ abstract class TypeInfo(val variance: Variance) {
             }
         }
         return when (containingElement) {
-            is KtClassOrObject -> (containingElement.resolveToDescriptor() as? ClassDescriptorWithResolutionScopes)?.scopeForMemberDeclarationResolution
+            is KtClassOrObject -> (containingElement.resolveToDescriptorIfAny() as? ClassDescriptorWithResolutionScopes)?.scopeForMemberDeclarationResolution
             is KtBlockExpression -> (containingElement.statements.firstOrNull() ?: containingElement).getResolutionScope()
             is KtElement -> containingElement.containingKtFile.getResolutionScope()
             else -> null
@@ -138,6 +147,8 @@ fun TypeInfo.forceNotNull(): TypeInfo {
 
     return (this as? ForcedNotNull) ?: ForcedNotNull(this)
 }
+
+fun TypeInfo.ofThis() = TypeInfo.OfThis(this)
 
 /**
  * Encapsulates information about a function parameter that is going to be created.

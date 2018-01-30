@@ -180,6 +180,22 @@ public abstract class StackValue {
     }
 
     @NotNull
+    public static StackValue integerConstant(int value, @NotNull Type type) {
+        if (type == Type.LONG_TYPE) {
+            return constant(Long.valueOf(value), type);
+        }
+        else if (type == Type.BYTE_TYPE || type == Type.SHORT_TYPE || type == Type.INT_TYPE) {
+            return constant(Integer.valueOf(value), type);
+        }
+        else if (type == Type.CHAR_TYPE) {
+            return constant(Character.valueOf((char) value), type);
+        }
+        else {
+            throw new AssertionError("Unexpected integer type: " + type);
+        }
+    }
+
+    @NotNull
     public static StackValue constant(@Nullable Object value, @NotNull Type type) {
         if (type == Type.BOOLEAN_TYPE) {
             assert value instanceof Boolean : "Value for boolean constant should have boolean type: " + value;
@@ -306,9 +322,11 @@ public abstract class StackValue {
             @Nullable CallableMethod setter,
             @NotNull StackValue receiver,
             @NotNull ExpressionCodegen codegen,
-            @Nullable ResolvedCall resolvedCall
+            @Nullable ResolvedCall resolvedCall,
+            boolean skipLateinitAssertion
     ) {
-        return new Property(descriptor, backingFieldOwner, getter, setter, isStaticBackingField, fieldName, type, receiver, codegen, resolvedCall);
+        return new Property(descriptor, backingFieldOwner, getter, setter, isStaticBackingField, fieldName, type, receiver, codegen,
+                            resolvedCall, skipLateinitAssertion);
     }
 
     @NotNull
@@ -514,8 +532,15 @@ public abstract class StackValue {
         }
 
         ReceiverValue callExtensionReceiver = resolvedCall.getExtensionReceiver();
+
+        boolean isImportedObjectMember = false;
+        if (descriptor instanceof ImportedFromObjectCallableDescriptor) {
+            isImportedObjectMember = true;
+            descriptor = ((ImportedFromObjectCallableDescriptor) descriptor).getCallableFromObject();
+        }
+
         if (callDispatchReceiver != null || callExtensionReceiver != null
-            || isLocalFunCall(callableMethod) || isCallToMemberObjectImportedByName(resolvedCall)) {
+            || isLocalFunCall(callableMethod) || isImportedObjectMember) {
             ReceiverParameterDescriptor dispatchReceiverParameter = descriptor.getDispatchReceiverParameter();
             ReceiverParameterDescriptor extensionReceiverParameter = descriptor.getExtensionReceiverParameter();
 
@@ -525,10 +550,10 @@ public abstract class StackValue {
 
             boolean hasExtensionReceiver = callExtensionReceiver != null;
             StackValue dispatchReceiver = platformStaticCallIfPresent(
-                    genReceiver(hasExtensionReceiver ? none() : receiver, codegen, resolvedCall, callableMethod, callDispatchReceiver, false),
+                    genReceiver(hasExtensionReceiver ? none() : receiver, codegen, descriptor, callableMethod, callDispatchReceiver, false),
                     descriptor
             );
-            StackValue extensionReceiver = genReceiver(receiver, codegen, resolvedCall, callableMethod, callExtensionReceiver, true);
+            StackValue extensionReceiver = genReceiver(receiver, codegen, descriptor, callableMethod, callExtensionReceiver, true);
             return CallReceiver.generateCallReceiver(
                     resolvedCall, codegen, callableMethod,
                     dispatchReceiverParameter, dispatchReceiver,
@@ -541,32 +566,30 @@ public abstract class StackValue {
     private static StackValue genReceiver(
             @NotNull StackValue receiver,
             @NotNull ExpressionCodegen codegen,
-            @NotNull ResolvedCall resolvedCall,
+            @NotNull CallableDescriptor descriptor,
             @Nullable Callable callableMethod,
             @Nullable ReceiverValue receiverValue,
             boolean isExtension
     ) {
+        DeclarationDescriptor containingDeclaration = descriptor.getContainingDeclaration();
         if (receiver == none()) {
             if (receiverValue != null) {
                 return codegen.generateReceiverValue(receiverValue, false);
             }
             else if (isLocalFunCall(callableMethod) && !isExtension) {
-                StackValue value = codegen.findLocalOrCapturedValue(resolvedCall.getResultingDescriptor().getOriginal());
-                assert value != null : "Local fun should be found in locals or in captured params: " + resolvedCall;
+                StackValue value = codegen.findLocalOrCapturedValue(descriptor.getOriginal());
+                assert value != null : "Local fun should be found in locals or in captured params: " + descriptor;
                 return value;
             }
-            else if (isCallToMemberObjectImportedByName(resolvedCall)) {
-                return singleton(((ImportedFromObjectCallableDescriptor) resolvedCall.getResultingDescriptor()).getContainingObject(), codegen.typeMapper);
+            else if (!isExtension && DescriptorUtils.isObject(containingDeclaration)) {
+                // Object member could be imported by name, in which case it has no explicit dispatch receiver
+                return singleton((ClassDescriptor) containingDeclaration, codegen.typeMapper);
             }
         }
         else if (receiverValue != null) {
             return receiver;
         }
         return none();
-    }
-
-    private static boolean isCallToMemberObjectImportedByName(@NotNull ResolvedCall resolvedCall) {
-        return resolvedCall.getResultingDescriptor() instanceof ImportedFromObjectCallableDescriptor;
     }
 
     private static StackValue platformStaticCallIfPresent(@NotNull StackValue resultReceiver, @NotNull CallableDescriptor descriptor) {
@@ -606,8 +629,8 @@ public abstract class StackValue {
         return field(FieldInfo.createForSingleton(classDescriptor, typeMapper), none());
     }
 
-    public static Field singletonViaInstance(ClassDescriptor classDescriptor, KotlinTypeMapper typeMapper) {
-        return field(FieldInfo.createSingletonViaInstance(classDescriptor, typeMapper), none());
+    public static Field createSingletonViaInstance(@NotNull ClassDescriptor classDescriptor, @NotNull KotlinTypeMapper typeMapper, @NotNull String name) {
+        return field(FieldInfo.createSingletonViaInstance(classDescriptor, typeMapper, name), none());
     }
 
     public static StackValue operation(Type type, Function1<InstructionAdapter, Unit> lambda) {
@@ -1187,20 +1210,17 @@ public abstract class StackValue {
         private final CallableMethod getter;
         private final CallableMethod setter;
         private final Type backingFieldOwner;
-
         private final PropertyDescriptor descriptor;
-
         private final String fieldName;
-        @NotNull private final ExpressionCodegen codegen;
-        @Nullable private final ResolvedCall resolvedCall;
+        private final ExpressionCodegen codegen;
+        private final ResolvedCall resolvedCall;
+        private final boolean skipLateinitAssertion;
 
         public Property(
-                @NotNull PropertyDescriptor descriptor, @Nullable Type backingFieldOwner,
-                @Nullable CallableMethod getter, @Nullable CallableMethod setter, boolean isStaticBackingField,
-                @Nullable String fieldName, @NotNull Type type,
-                @NotNull StackValue receiver,
-                @NotNull ExpressionCodegen codegen,
-                @Nullable ResolvedCall resolvedCall
+                @NotNull PropertyDescriptor descriptor, @Nullable Type backingFieldOwner, @Nullable CallableMethod getter,
+                @Nullable CallableMethod setter, boolean isStaticBackingField, @Nullable String fieldName, @NotNull Type type,
+                @NotNull StackValue receiver, @NotNull ExpressionCodegen codegen, @Nullable ResolvedCall resolvedCall,
+                boolean skipLateinitAssertion
         ) {
             super(type, isStatic(isStaticBackingField, getter), isStatic(isStaticBackingField, setter), receiver, true);
             this.backingFieldOwner = backingFieldOwner;
@@ -1210,6 +1230,7 @@ public abstract class StackValue {
             this.fieldName = fieldName;
             this.codegen = codegen;
             this.resolvedCall = resolvedCall;
+            this.skipLateinitAssertion = skipLateinitAssertion;
         }
 
         @Override
@@ -1221,7 +1242,9 @@ public abstract class StackValue {
 
                 v.visitFieldInsn(isStaticPut ? GETSTATIC : GETFIELD,
                                  backingFieldOwner.getInternalName(), fieldName, this.type.getDescriptor());
-                genNotNullAssertionForLateInitIfNeeded(v);
+                if (!skipLateinitAssertion) {
+                    genNotNullAssertionForLateInitIfNeeded(v);
+                }
                 coerceTo(type, v);
             }
             else {

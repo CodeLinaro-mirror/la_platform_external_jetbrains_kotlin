@@ -168,6 +168,18 @@ public class RenameTestGenerated extends AbstractRenameTest {
         doTest(fileName);
     }
 
+    @TestMetadata("classByPrimaryConstructor/classByPrimaryConstructor.test")
+    public void testClassByPrimaryConstructor_ClassByPrimaryConstructor() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/classByPrimaryConstructor/classByPrimaryConstructor.test");
+        doTest(fileName);
+    }
+
+    @TestMetadata("classByPrimaryConstructorWithSpace/classByPrimaryConstructorWithSpace.test")
+    public void testClassByPrimaryConstructorWithSpace_ClassByPrimaryConstructorWithSpace() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/classByPrimaryConstructorWithSpace/classByPrimaryConstructorWithSpace.test");
+        doTest(fileName);
+    }
+
     @TestMetadata("classUsagesInTextFiles/classUsagesInTextFiles.test")
     public void testClassUsagesInTextFiles_ClassUsagesInTextFiles() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/classUsagesInTextFiles/classUsagesInTextFiles.test");
@@ -195,6 +207,12 @@ public class RenameTestGenerated extends AbstractRenameTest {
     @TestMetadata("companionShortRef/companionShortRef.test")
     public void testCompanionShortRef_CompanionShortRef() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/companionShortRef/companionShortRef.test");
+        doTest(fileName);
+    }
+
+    @TestMetadata("funTextOccurrences/funTextOccurrences.test")
+    public void testFunTextOccurrences_FunTextOccurrences() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/funTextOccurrences/funTextOccurrences.test");
         doTest(fileName);
     }
 
@@ -663,6 +681,12 @@ public class RenameTestGenerated extends AbstractRenameTest {
     @TestMetadata("renameJavaClass/renameJavaClass.test")
     public void testRenameJavaClass_RenameJavaClass() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/renameJavaClass/renameJavaClass.test");
+        doTest(fileName);
+    }
+
+    @TestMetadata("renameJavaClassWithKtConstructorDelegation/renameJavaClassWithKtConstructorDelegation.test")
+    public void testRenameJavaClassWithKtConstructorDelegation_RenameJavaClassWithKtConstructorDelegation() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/renameJavaClassWithKtConstructorDelegation/renameJavaClassWithKtConstructorDelegation.test");
         doTest(fileName);
     }
 
@@ -1299,6 +1323,12 @@ public class RenameTestGenerated extends AbstractRenameTest {
     @TestMetadata("topLevelPropertyRedeclaration/topLevelPropertyRedeclaration.test")
     public void testTopLevelPropertyRedeclaration_TopLevelPropertyRedeclaration() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/topLevelPropertyRedeclaration/topLevelPropertyRedeclaration.test");
+        doTest(fileName);
+    }
+
+    @TestMetadata("valTextOccurrences/valTextOccurrences.test")
+    public void testValTextOccurrences_ValTextOccurrences() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/rename/valTextOccurrences/valTextOccurrences.test");
         doTest(fileName);
     }
 

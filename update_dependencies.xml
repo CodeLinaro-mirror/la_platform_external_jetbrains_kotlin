@@ -1,20 +1,20 @@
 <project xmlns:if="ant:if" xmlns:unless="ant:unless" name="Update Dependencies" default="update">
-    <!--171 -> as30-->
+    <!--173 -> as30-->
     <import file="common.xml" optional="false"/>
-    <import file="node_utils.xml" optional="false"/>
 
     <property name="automerge_dummy" value="This property is used to trick git merge. Do not delete empty lines around."/>
-    <property name="ideaVersion" value="171-SNAPSHOT"/>
+    <property name="ideaVersion" value="173.3942.27"/>
+    <property name="idea.repository.type" value="releases"/> <!-- releases or snapshots -->
     <property name="idea.kotlin.branch" value="rc"/>
 
-    <property name="android.studio.major.version" value="3.0"/>
+    <property name="android.studio.major.version" value="3.1"/>
 
     <!-- Uncomment this to download fixed version of Android Studio-->
     <!--<property name="android.studio.version" value="3.0.0.7"/>-->
     <!--<property name="android.studio.build.number" value="171.4195411"/>-->
 
     <!-- how to find this version in AndroidStudioApplicationInfo.xml: https://jetbrains.quip.com/4IQyAOhyghPb -->
-    <property name="android.studio.intellij-core.build.number" value="171.4249.39"/>
+    <property name="android.studio.intellij-core.build.number" value="173.3727.127"/>
 
     <property name="kotlin.bootstrap.branch" value=""/>
     <property name="kotlin.bootstrap.branch.locator" value=""/>
@@ -29,19 +29,6 @@
 
     <property name="sdk.version.prefix" value="IU" if:set="use.ultimate.by.default"/>
     <property name="sdk.version.prefix" value="IC" unless:set="use.ultimate.by.default"/>
-
-    <!-- Uncomment to enable force version increment in branch. Set override.version.disabled to temporary disable feature without commits -->
-    <!--
-    <property name="override.version.branch" value="${kotlin.bootstrap.branch.locator}"/>
-    <property name="override.version.url" value="https://teamcity.jetbrains.com/guestAuth/app/rest/builds/?locator=buildType:bt345,count:1,branch:${override.version.branch}"/>
-    -->
-    <!--<property name="override.version.disabled" value="true"/>-->
-
-    <condition property="kotlinc.executable.path" value="kotlinc.bat" else="kotlinc">
-        <os family="windows"/>
-    </condition>
-
-    <property name="uast.version" value="1.0.12"/>
 
     <property name="kotlinx.coroutines.version" value="0.14.1"/>
 
@@ -69,7 +56,7 @@
 
     <target name="jb_update" depends="fetch-third-party,fetch-annotations" description="Update dependencies for JB local network">
         <execute_update_with_idea_maven_artifacts
-            base.url="http://jetbrains-com-mirror.labs.intellij.net/intellij-repository/snapshots/com/jetbrains/intellij/idea"
+            base.url="http://jetbrains-com-mirror.labs.intellij.net/intellij-repository/${idea.repository.type}/com/jetbrains/intellij/idea"
             idea.maven.version="${ideaVersion}"/>
     </target>
 
@@ -117,7 +104,7 @@
         <sequential>
             <mkdir dir="${dependencies}/@{target.dir}"/>
 
-            <java classname="org.apache.ivy.Main">
+            <java classname="org.apache.ivy.Main" fork="true">
                 <arg value="-dependency"/>
                 <arg value="@{group}"/>
                 <arg value="@{artifact}"/>
@@ -194,8 +181,6 @@
     </target>
 
     <target name="fetch-third-party" depends="get-ivy-library, make-dependency-dirs, make-native-platform-uberjar">
-        <antcall target="override-version"/>
-
         <!-- ProGuard -->
         <get-maven-library prefix="net/sf/proguard" lib="proguard-base" version="5.3" target.jar.name.base="proguard" src="false"/>
         <get-maven-library prefix="net/sf/proguard" lib="proguard-anttask" version="5.3" target.jar.name.base="proguard-anttask" src="false"/>
@@ -224,7 +209,7 @@
         <untar src="${dependencies}/download/${android-sources.tgz}" dest="${dependencies}/dx-src" compression="gzip"/>
 
         <mkdir dir="${dependencies}/jflex"/>
-        <get src="https://raw.github.com/JetBrains/intellij-community/master/tools/lexer/jflex-1.7.0-SNAPSHOT.jar"
+        <get src="https://jetbrains.bintray.com/intellij-third-party-dependencies/org/jetbrains/intellij/deps/jflex/jflex/1.7.0/jflex-1.7.0.jar"
              dest="${dependencies}/jflex/JFlex.jar" usetimestamp="true"/>
         <get src="https://raw.github.com/JetBrains/intellij-community/master/tools/lexer/idea-flex.skeleton"
              dest="${dependencies}/jflex/idea-flex.skeleton" usetimestamp="true"/>
@@ -235,11 +220,11 @@
         <!-- jansi -->
         <get-maven-library prefix="org/fusesource/jansi" lib="jansi" version="1.16" target.jar.name.base="jansi"/>
 
-        <!-- Guava 19 sources-->
-        <get-maven-library prefix="com/google/guava" lib="guava" version="19.0" bin="false"/>
+        <!-- Guava 21 sources-->
+        <get-maven-library prefix="com/google/guava" lib="guava" version="21.0" bin="false"/>
 
         <!-- ASM -->
-        <get src="https://raw.github.com/JetBrains/intellij-community/171/lib/src/asm-src.zip"
+        <get src="https://raw.github.com/JetBrains/intellij-community/172/lib/src/asm-src.zip"
              dest="${dependencies}/asm-src.zip"/>
 
         <!-- Junit Sources -->
@@ -252,15 +237,14 @@
         <!-- Javaslang -->
         <get-maven-library prefix="io/javaslang" lib="javaslang" version="2.0.6"/>
 
-        <!-- Uast -->
-        <property name="uast.server" value="http://dl.bintray.com/kotlin/uast"/>
-        <get-maven-library prefix="org/jetbrains/uast" lib="uast-tests" version="${uast.version}" target.jar.name.base="uast-tests" server="${uast.server}"/>
-
         <get-maven-library-with-dependencies
             group="org.robolectric"
             artifact="robolectric"
-            version="3.3.2"
+            version="3.1"
             target.dir="robolectric"/>
+
+        <get-maven-library prefix="org/apache/maven" lib="maven-ant-tasks" version="2.1.3"
+                           target.jar.name.base="maven-ant-tasks" download="${dependencies}/robolectric" />
 
         <!-- kotlinx.coroutines -->
         <get-maven-library prefix="org/jetbrains/kotlinx" lib="kotlinx-coroutines-core" version="${kotlinx.coroutines.version}"
@@ -280,53 +264,6 @@
             <mapper type="flatten"/>
         </unzip>
 
-        <local name="download.bootstrap.compiler"/>
-        <condition property="download.bootstrap.compiler">
-            <or>
-                <not>
-                    <isset property="teamcity.version"/>
-                </not>
-                <and>
-                    <istrue value="${kotlin.bootstrap.locator.force}"/>
-                    <istrue value="${bootstrap.build.no.tests}"/>
-                </and>
-            </or>
-        </condition>
-
-        <sequential if:set="download.bootstrap.compiler">
-            <!-- Download bootstrap compiler for local build -->
-            <download_teamcity_artifact
-                teamcity.server.url="https://teamcity.jetbrains.com"
-                build.locator.request="${kotlin.bootstrap.locator}"
-                artifact.path="kotlin-plugin-{build.number}.zip"
-                dest="${dependencies}/download/bootstrap-compiler.zip"
-                build.number.pattern="[\w-+\.]+"
-                usetimestamp="true"/>
-
-            <delete dir="${dependencies}/bootstrap-compiler" failonerror="false"/>
-            <unzip src="${dependencies}/download/bootstrap-compiler.zip" dest="${dependencies}/bootstrap-compiler"/>
-        </sequential>
-
-        <sequential unless:set="download.bootstrap.compiler">
-            <available file="${dependencies}/bootstrap-compiler/Kotlin" property="have.bootstrap.compiler"/>
-            <fail message="Bootstrap compiler is expected to be downloaded to '${dependencies}/bootstrap-compiler' by TeamCity" unless:set="have.bootstrap.compiler"/>
-            <echo message="Bootstrap compiler found in '${dependencies}/bootstrap-compiler'" if:set="have.bootstrap.compiler"/>
-        </sequential>
-
-        <local name="bootstrap.need.chmod"/>
-        <condition property="bootstrap.need.chmod">
-            <or>
-                <isset property="isMac" />
-                <isset property="isLinux" />
-            </or>
-        </condition>
-
-        <!-- Java can't manipulate permissions -->
-        <exec executable="find" if:set="bootstrap.need.chmod">
-            <arg value="${dependencies}/bootstrap-compiler/Kotlin/kotlinc/bin"/>
-            <arg line="-name 'kotlin*' ! -name '*.bat' -exec chmod a+x '{}' ;"/>
-        </exec>
-
         <get-protobuf-and-rename-packages/>
 
         <download_teamcity_artifact
@@ -338,11 +275,6 @@
             build.number.pattern="\d+\s-\sKotlin\s[\w-+\.]+"
         />
 
-        <!-- node.js -->
-        <antcall target="download-nodejs-and-npm"/>
-
-        <!-- JSON.org -->
-        <get src="https://repo.maven.apache.org/maven2/org/json/json/20160807/json-20160807.jar" dest="${dependencies}/json-org.jar"/>
     </target>
 
     <macrodef name="get-protobuf-and-rename-packages">
@@ -637,7 +569,7 @@
                 <resources>
                     <file file="@{download.dir.intellij-core}/intellij-core.jar"/>
                     <file file="@{download.dir.intellij-core}/annotations.jar"/>
-                    <file file="@{download.dir.intellij-core}/guava-19.0.jar"/>
+                    <file file="@{download.dir.intellij-core}/guava-21.0.jar"/>
                     <file file="@{download.dir.intellij-core}/picocontainer.jar"/>
                     <file file="@{download.dir.intellij-core}/trove4j.jar"/>
 
@@ -648,11 +580,13 @@
                     <file file="@{idea.dir}/lib/xpp3-1.1.4-min.jar"/>
                     <file file="@{idea.dir}/lib/asm-all.jar"/>
                     <file file="@{idea.dir}/lib/snappy-in-java-0.5.1.jar"/>
+                    <file file="@{idea.dir}/lib/streamex-0.6.5.jar"/>
 
                         <!-- TODO temporary workaround since util-rt is not packaged into intellij-core.jar -->
-                        <file file="@{idea.dir}/lib/util.jar"/>
+                    <file file="@{idea.dir}/lib/util.jar"/>
                     </resources>
-                </copy></sequential>
+            </copy>
+        </sequential>
     </macrodef>
 
     <macrodef name="copy_intellij_jps_files">
@@ -769,7 +703,7 @@
                 <mkdir dir="${core.dir}"/>
                 <get src="${content.base.url}/core/intellij-core.jar" dest="${core.dir}/intellij-core.jar"/>
                 <get src="${content.base.url}/core/annotations.jar" dest="${core.dir}/annotations.jar"/>
-                <get src="${content.base.url}/core/guava-19.0.jar" dest="${core.dir}/guava-19.0.jar"/>
+                <get src="${content.base.url}/core/guava-21.0.jar" dest="${core.dir}/guava-21.0.jar"/>
                 <get src="${content.base.url}/core/picocontainer.jar" dest="${core.dir}/picocontainer.jar"/>
                 <get src="${content.base.url}/core/trove4j.jar" dest="${core.dir}/trove4j.jar"/>
 
@@ -860,7 +794,7 @@
                     <tokenfilter>
                         <filetokenizer/>
                         <replaceregex
-                            pattern="^(.*)https?://dl\.google\.com/dl/android/studio/ide-zips/(${android.studio.major.version}\.[\d\.]+)/android-studio-ide(.*)$"
+                            pattern="^(.*?)https?://dl\.google\.com/dl/android/studio/ide-zips/(${android.studio.major.version}\.[\d\.]+)/android-studio-ide(.*)$"
                             replace="\2" flags="s"/>
                     </tokenfilter>
                 </filterchain>
@@ -871,7 +805,7 @@
                     <tokenfilter>
                         <filetokenizer/>
                         <replaceregex
-                            pattern="^(.*)https?://dl\.google\.com/dl/android/studio/ide-zips/${android.studio.major.version}\.[\d\.]+/android-studio-ide-([\d\.]+)-(.*)$"
+                            pattern="^(.*?)https?://dl\.google\.com/dl/android/studio/ide-zips/${android.studio.major.version}\.[\d\.]+/android-studio-ide-([\d\.]+)-(.*)$"
                             replace="\2" flags="s"/>
                     </tokenfilter>
                 </filterchain>
@@ -924,11 +858,14 @@
         </exec>
 
         <exec executable="chmod" if:set="android.studio.linux">
+            <arg value="-R"/>
             <arg value="a+x"/>
-            <arg path="${android.destination.dir}/bin/fsnotifier"/>
-            <arg path="${android.destination.dir}/bin/fsnotifier64"/>
-            <arg path="${android.destination.dir}/bin/inspect.sh"/>
-            <arg path="${android.destination.dir}/bin/studio.sh"/>
+            <arg path="${android.destination.dir}/bin/"/>
+            <!-- Needed to run gradle -->
+            <arg path="${android.destination.dir}/jre/bin/"/>
+            <arg path="${android.destination.dir}/jre/lib/"/>
+            <arg path="${android.destination.dir}/jre/jre/bin/"/>
+            <arg path="${android.destination.dir}/jre/jre/lib/"/>
         </exec>
 
         <!--
@@ -974,49 +911,5 @@
         <mkdir dir="${android.destination.dir}/core-analysis"/>
         <copy file="${android.download.dir}/intellij-core/intellij-core-analysis.jar"
               tofile="${android.destination.dir}/core-analysis/intellij-core-analysis.jar"/>
-    </target>
-
-    <target name="override-version">
-        <condition property="need.version.override">
-            <and>
-                <isset property="override.version.url"/>
-                <equals arg1="${override.version.branch}" arg2="${teamcity.build.branch}"/>
-                <not>
-                    <isset property="override.version.disabled"/>
-                </not>
-                <not>
-                    <istrue value="${bootstrap.build.no.tests}"/>
-                </not>
-                <isset property="teamcity.version"/>
-            </and>
-        </condition>
-
-        <sequential if:set="need.version.override">
-            <local name="override.version.build.number"/>
-            <loadresource property="override.version.build.number">
-                <url url="${override.version.url}"/>
-                <filterchain>
-                    <tokenfilter>
-                        <filetokenizer/>
-                        <replaceregex pattern="^(.*)\snumber=&quot;([\w-+\.]+)&quot;(.*)$" replace="\2" flags="s"/>
-                    </tokenfilter>
-                </filterchain>
-            </loadresource>
-
-            <echo message="URL: ${override.version.url} Version: ${override.version.build.number}"/>
-
-            <exec executable="${dependencies}/bootstrap-compiler/Kotlin/kotlinc/bin/${kotlinc.executable.path}" failonerror="false">
-                <arg value="-cp"/>
-                <arg value="${dependencies}/bootstrap-compiler/Kotlin/kotlinc/lib/kotlin-compiler.jar"/>
-                <arg value="-script"/>
-                <arg value="${generators}/infrastructure/increment-version.kts"/>
-                <arg value="${override.version.build.number}"/>
-                <arg value="${dependencies}/updated-version.txt"/>
-            </exec>
-
-            <loadfile property="updated.version.number" srcFile="${dependencies}/updated-version.txt"/>
-
-            <echo message="##teamcity[buildNumber '${updated.version.number}']"/>
-        </sequential>
     </target>
 </project>

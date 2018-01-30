@@ -84,6 +84,12 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
         doTest(fileName);
     }
 
+    @TestMetadata("copySamOnInline.kt")
+    public void testCopySamOnInline() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/copySamOnInline.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("coroutinesBinary.kt")
     public void testCoroutinesBinary() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/coroutinesBinary.kt");
@@ -93,6 +99,18 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
     @TestMetadata("defaultConstructor.kt")
     public void testDefaultConstructor() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/defaultConstructor.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("defaultLambdaRegeneration.kt")
+    public void testDefaultLambdaRegeneration() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/defaultLambdaRegeneration.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("defaultLambdaRegeneration2.kt")
+    public void testDefaultLambdaRegeneration2() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/defaultLambdaRegeneration2.kt");
         doTest(fileName);
     }
 
@@ -138,6 +156,24 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
         doTest(fileName);
     }
 
+    @TestMetadata("jvmPackageName.kt")
+    public void testJvmPackageName() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/jvmPackageName.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("jvmPackageNameInRootPackage.kt")
+    public void testJvmPackageNameInRootPackage() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/jvmPackageNameInRootPackage.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("jvmPackageNameWithJvmName.kt")
+    public void testJvmPackageNameWithJvmName() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/jvmPackageNameWithJvmName.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("jvmStaticInObject.kt")
     public void testJvmStaticInObject() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/jvmStaticInObject.kt");
@@ -165,6 +201,12 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
     @TestMetadata("multifileClassInlineFunctionAccessingProperty.kt")
     public void testMultifileClassInlineFunctionAccessingProperty() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/multifileClassInlineFunctionAccessingProperty.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("multifileClassWithTypealias.kt")
+    public void testMultifileClassWithTypealias() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/multifileClassWithTypealias.kt");
         doTest(fileName);
     }
 
@@ -231,6 +273,12 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
     @TestMetadata("starImportEnum.kt")
     public void testStarImportEnum() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/starImportEnum.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("targetedJvmName.kt")
+    public void testTargetedJvmName() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/compileKotlinAgainstKotlin/targetedJvmName.kt");
         doTest(fileName);
     }
 

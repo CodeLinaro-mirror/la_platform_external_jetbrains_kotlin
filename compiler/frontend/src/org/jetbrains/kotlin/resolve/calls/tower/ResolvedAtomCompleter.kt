@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.BindingTrace
+import org.jetbrains.kotlin.resolve.DeprecationResolver
 import org.jetbrains.kotlin.resolve.TemporaryBindingTrace
 import org.jetbrains.kotlin.resolve.calls.ArgumentTypeResolver
 import org.jetbrains.kotlin.resolve.calls.checkers.CallCheckerContext
@@ -37,7 +38,10 @@ import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowInfo
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.resolve.calls.tasks.TracingStrategyImpl
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker
-import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.IndexedParametersSubstitution
+import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.UnwrappedType
+import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.expressions.DoubleColonExpressionResolver
 import org.jetbrains.kotlin.types.expressions.ExpressionTypingServices
 import org.jetbrains.kotlin.types.typeUtil.asTypeProjection
@@ -51,16 +55,17 @@ class ResolvedAtomCompleter(
         private val expressionTypingServices: ExpressionTypingServices,
         private val argumentTypeResolver: ArgumentTypeResolver,
         private val doubleColonExpressionResolver: DoubleColonExpressionResolver,
-        languageVersionSettings: LanguageVersionSettings
+        languageVersionSettings: LanguageVersionSettings,
+        deprecationResolver: DeprecationResolver
 ) {
-    private val callCheckerContext = CallCheckerContext(topLevelCallContext, languageVersionSettings)
+    private val callCheckerContext = CallCheckerContext(topLevelCallContext, languageVersionSettings, deprecationResolver)
 
-    fun completeAndReport(resolvedAtom: ResolvedAtom) {
+    private fun complete(resolvedAtom: ResolvedAtom) {
         when (resolvedAtom) {
             is ResolvedCollectionLiteralAtom -> completeCollectionLiteralCalls(resolvedAtom)
             is ResolvedCallableReferenceAtom -> completeCallableReference(resolvedAtom)
             is ResolvedLambdaAtom -> completeLambda(resolvedAtom)
-            is ResolvedCallAtom -> completeResolvedCall(resolvedAtom)
+            is ResolvedCallAtom -> completeResolvedCall(resolvedAtom, emptyList())
         }
     }
 
@@ -68,14 +73,14 @@ class ResolvedAtomCompleter(
         for (subKtPrimitive in resolvedAtom.subResolvedAtoms) {
             completeAll(subKtPrimitive)
         }
-        completeAndReport(resolvedAtom)
+        complete(resolvedAtom)
     }
 
-    fun completeResolvedCall(resolvedCallAtom: ResolvedCallAtom): ResolvedCall<*>? {
+    fun completeResolvedCall(resolvedCallAtom: ResolvedCallAtom, diagnostics: Collection<KotlinCallDiagnostic>): ResolvedCall<*>? {
         if (resolvedCallAtom.atom.psiKotlinCall is PSIKotlinCallForVariable) return null
 
-        val resolvedCall = kotlinToResolvedCallTransformer.transformToResolvedCall<CallableDescriptor>(resolvedCallAtom, trace, resultSubstitutor)
-        kotlinToResolvedCallTransformer.bindAndReport(topLevelCallContext, trace, resolvedCall)
+        val resolvedCall = kotlinToResolvedCallTransformer.transformToResolvedCall<CallableDescriptor>(resolvedCallAtom, trace, resultSubstitutor, diagnostics)
+        kotlinToResolvedCallTransformer.bindAndReport(topLevelCallContext, trace, resolvedCall, diagnostics)
         kotlinToResolvedCallTransformer.runCallCheckers(resolvedCall, callCheckerContext)
 
         val lastCall = if (resolvedCall is VariableAsFunctionResolvedCall) resolvedCall.functionCall else resolvedCall
@@ -97,7 +102,7 @@ class ResolvedAtomCompleter(
                                 .replaceBindingTrace(trace)
 
                 val argumentExpression = resultValueArgument.valueArgument.getArgumentExpression() ?: continue
-                kotlinToResolvedCallTransformer.updateRecordedType(argumentExpression, newContext)
+                kotlinToResolvedCallTransformer.updateRecordedType(argumentExpression, newContext, true)
             }
     }
 

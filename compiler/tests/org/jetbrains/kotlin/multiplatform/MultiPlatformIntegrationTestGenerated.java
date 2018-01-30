@@ -54,6 +54,12 @@ public class MultiPlatformIntegrationTestGenerated extends AbstractMultiPlatform
         doTest(fileName);
     }
 
+    @TestMetadata("explicitActualOnOverrideOfAbstractMethod")
+    public void testExplicitActualOnOverrideOfAbstractMethod() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/explicitActualOnOverrideOfAbstractMethod/");
+        doTest(fileName);
+    }
+
     @TestMetadata("genericDeclarations")
     public void testGenericDeclarations() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/genericDeclarations/");
@@ -96,6 +102,18 @@ public class MultiPlatformIntegrationTestGenerated extends AbstractMultiPlatform
         doTest(fileName);
     }
 
+    @TestMetadata("jsNameClash")
+    public void testJsNameClash() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/jsNameClash/");
+        doTest(fileName);
+    }
+
+    @TestMetadata("jvmMultifileClass")
+    public void testJvmMultifileClass() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/jvmMultifileClass/");
+        doTest(fileName);
+    }
+
     @TestMetadata("missingOverload")
     public void testMissingOverload() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/missingOverload/");
@@ -111,6 +129,12 @@ public class MultiPlatformIntegrationTestGenerated extends AbstractMultiPlatform
     @TestMetadata("simpleNoImplKeywordOnTopLevelFunction")
     public void testSimpleNoImplKeywordOnTopLevelFunction() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/simpleNoImplKeywordOnTopLevelFunction/");
+        doTest(fileName);
+    }
+
+    @TestMetadata("weakIncompatibilityWithoutActualModifier")
+    public void testWeakIncompatibilityWithoutActualModifier() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/multiplatform/weakIncompatibilityWithoutActualModifier/");
         doTest(fileName);
     }
 

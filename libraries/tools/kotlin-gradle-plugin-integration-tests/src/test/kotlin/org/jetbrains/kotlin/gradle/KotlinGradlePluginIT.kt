@@ -17,18 +17,17 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
-import org.jetbrains.kotlin.com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.util.io.FileUtil
 import org.jetbrains.kotlin.gradle.plugin.CopyClassesToJavaOutputStatus
 import org.jetbrains.kotlin.gradle.tasks.USING_INCREMENTAL_COMPILATION_MESSAGE
-import org.jetbrains.kotlin.gradle.util.checkBytecodeContains
-import org.jetbrains.kotlin.gradle.util.getFileByName
-import org.jetbrains.kotlin.gradle.util.getFilesByNames
-import org.jetbrains.kotlin.gradle.util.modify
+import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.util.*
 import org.junit.Test
 import java.io.File
 import java.util.zip.ZipFile
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class KotlinGradleIT: BaseGradleIT() {
@@ -265,6 +264,19 @@ class KotlinGradleIT: BaseGradleIT() {
     }
 
     @Test
+    fun testIncrementalCompilationLogLevel() {
+        val infoProject = Project("kotlinProject", GRADLE_VERSION, minLogLevel = LogLevel.INFO)
+        infoProject.build("build") {
+            assertContains(USING_INCREMENTAL_COMPILATION_MESSAGE)
+        }
+
+        val lifecycleProject = Project("kotlinProject", GRADLE_VERSION, minLogLevel = LogLevel.LIFECYCLE)
+        lifecycleProject.build("build") {
+            assertNotContains(USING_INCREMENTAL_COMPILATION_MESSAGE)
+        }
+    }
+
+    @Test
     fun testConvertJavaToKotlin() {
         val project = Project("convertBetweenJavaAndKotlin", GRADLE_VERSION)
         project.setupWorkingDir()
@@ -373,28 +385,6 @@ class KotlinGradleIT: BaseGradleIT() {
         }
     }
 
-
-    @Test
-    fun testMultiplatformCompile() {
-        val project = Project("multiplatformProject", GRADLE_VERSION)
-
-        project.build("build") {
-            assertSuccessful()
-            assertContains(":lib:compileKotlinCommon",
-                    ":lib:compileTestKotlinCommon",
-                    ":libJvm:compileKotlin",
-                    ":libJvm:compileTestKotlin",
-                    ":libJs:compileKotlin2Js",
-                    ":libJs:compileTestKotlin2Js")
-            assertFileExists("lib/build/classes/main/foo/PlatformClass.kotlin_metadata")
-            assertFileExists("lib/build/classes/test/foo/PlatformTest.kotlin_metadata")
-            assertFileExists("libJvm/build/classes/main/foo/PlatformClass.class")
-            assertFileExists("libJvm/build/classes/test/foo/PlatformTest.class")
-            assertFileExists("libJs/build/classes/main/libJs.js")
-            assertFileExists("libJs/build/classes/test/libJs_test.js")
-        }
-    }
-
     @Test
     fun testFreeCompilerArgs() {
         val project = Project("kotlinProject", GRADLE_VERSION)
@@ -467,15 +457,22 @@ class KotlinGradleIT: BaseGradleIT() {
 
     @Test
     fun testOmittedStdlibVersion() {
-        val project = Project("kotlinProject", "2.3")
+        val project = Project("kotlinProject", "4.4")
         project.setupWorkingDir()
         File(project.projectDir, "build.gradle").modify {
-            it.replace("kotlin-stdlib:\$kotlin_version", "kotlin-stdlib").apply { check(!equals(it)) }
+            it.replace("kotlin-stdlib:\$kotlin_version", "kotlin-stdlib").apply { check(!equals(it)) } + "\n" + """
+            apply plugin: 'maven'
+            install.repositories { maven { url "file://${'$'}buildDir/repo" } }
+            """.trimIndent()
         }
 
-        project.build("build") {
+        project.build("build", "install") {
             assertSuccessful()
             assertContains(":compileKotlin", ":compileTestKotlin")
+            val pomLines = File(project.projectDir, "build/poms/pom-default.xml").readLines()
+            val stdlibVersionLineNumber = pomLines.indexOfFirst { "<artifactId>kotlin-stdlib</artifactId>" in it } + 1
+            val versionLine = pomLines[stdlibVersionLineNumber]
+            assertTrue { "<version>${defaultBuildOptions().kotlinVersion}</version>" in versionLine }
         }
     }
 
@@ -486,6 +483,27 @@ class KotlinGradleIT: BaseGradleIT() {
 
         project.build("build", "clean", options = options) {
             assertSuccessful()
+        }
+    }
+
+    @Test
+    fun testIncrementalTestCompile() {
+        val project = Project("kotlinProject", GRADLE_VERSION)
+        val options = defaultBuildOptions().copy(incremental = true)
+
+        project.build("build", options = options) {
+            assertSuccessful()
+        }
+
+        val joinerKt = project.projectDir.getFileByName("KotlinGreetingJoiner.kt")
+        joinerKt.modify {
+            it.replace("class KotlinGreetingJoiner", "internal class KotlinGreetingJoiner")
+        }
+
+        project.build("build", options = options) {
+            assertSuccessful()
+            val testJoinerKt = project.projectDir.getFileByName("TestKotlinGreetingJoiner.kt")
+            assertCompiledKotlinSources(project.relativize(joinerKt, testJoinerKt))
         }
     }
 
@@ -656,6 +674,62 @@ class KotlinGradleIT: BaseGradleIT() {
                 check(copyClassesToJavaOutput = null,
                         expectBuildCacheWarning = false,
                         expectGradleLowVersionWarning = true)
+            }
+        }
+    }
+
+    @Test
+    fun testSrcDirTaskDependency() {
+        Project("simpleProject", "4.1").apply {
+            setupWorkingDir()
+            File(projectDir, "build.gradle").appendText("""${'\n'}
+                task generateSources {
+                    outputs.dir('generated')
+                    doLast {
+                        def file = new File('generated/test/TestClass.java')
+                        file.parentFile.mkdirs()
+                        file.text = ""${'"'}
+                            package test;
+
+                            public class TestClass { }
+                        ""${'"'}
+                    }
+                }
+                sourceSets.main.java.srcDir(tasks.generateSources)
+                """.trimIndent())
+            File(projectDir, "src/main/kotlin/helloWorld.kt").appendText("""${'\n'}
+                fun usageOfGeneratedSource() = test.TestClass()
+                """.trimIndent())
+
+            build("build") {
+                assertSuccessful()
+            }
+        }
+    }
+
+    @Test
+    fun testSourceJar() {
+        Project("simpleProject", "4.1").apply {
+            setupWorkingDir()
+            val additionalSrcDir = "src/additional/kotlin/"
+
+            File(projectDir, additionalSrcDir).mkdirs()
+            File(projectDir, "$additionalSrcDir/additionalSource.kt").writeText("fun hello() = 123")
+
+            File(projectDir, "build.gradle").appendText("""${'\n'}
+                task sourcesJar(type: Jar) {
+                    from sourceSets.main.allSource
+                    classifier 'source'
+                    duplicatesStrategy = 'fail' // fail in case of Java source duplication, see KT-17564
+                }
+
+                sourceSets.main.kotlin.srcDir('$additionalSrcDir') // test that additional srcDir is included
+                """.trimIndent())
+
+            build("sourcesJar") {
+                assertSuccessful()
+                val sourcesJar = ZipFile(File(projectDir, "build/libs/simpleProject-source.jar"))
+                assertNotNull(sourcesJar.getEntry("additionalSource.kt"))
             }
         }
     }

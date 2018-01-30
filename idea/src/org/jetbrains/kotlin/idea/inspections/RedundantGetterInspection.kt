@@ -20,8 +20,9 @@ import com.intellij.codeInspection.*
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElementVisitor
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
 
-class RedundantGetterInspection : AbstractKotlinInspection() {
+class RedundantGetterInspection : AbstractKotlinInspection(), CleanupLocalInspectionTool {
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean, session: LocalInspectionToolSession): PsiElementVisitor {
         return object : KtVisitorVoid() {
             override fun visitPropertyAccessor(accessor: KtPropertyAccessor) {
@@ -61,6 +62,13 @@ private class RemoveRedundantGetterFix : LocalQuickFix {
 
     override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
         val accessor = descriptor.psiElement as? KtPropertyAccessor ?: return
+        val property = accessor.property
+
+        val accessorTypeReference = accessor.returnTypeReference
+        if (accessorTypeReference != null && property.typeReference == null && property.initializer == null) {
+            property.typeReference = accessorTypeReference
+        }
+
         accessor.delete()
     }
 }

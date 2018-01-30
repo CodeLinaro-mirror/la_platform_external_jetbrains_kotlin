@@ -34,9 +34,9 @@ abstract class AbstractImportsTest : KotlinLightCodeInsightFixtureTestCase() {
     override fun getProjectDescriptor(): LightProjectDescriptor = KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE
 
     protected fun doTest(testPath: String) {
-        val settingManager = CodeStyleSettingsManager.getInstance()
+        val settingManager = CodeStyleSettingsManager.getInstance(project)
         val tempSettings = settingManager.currentSettings.clone()
-        settingManager.temporarySettings = tempSettings
+        settingManager.setTemporarySettings(tempSettings)
 
         val codeStyleSettings = KotlinCodeStyleSettings.getInstance(project)
 

@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.lexer.KtTokens;
 import org.jetbrains.kotlin.name.Name;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.psi.psiUtil.KtPsiUtilKt;
+import org.jetbrains.kotlin.psi.psiUtil.PsiUtilsKt;
 import org.jetbrains.kotlin.psi.synthetics.SyntheticClassOrObjectDescriptor;
 import org.jetbrains.kotlin.resolve.BindingContext;
 import org.jetbrains.kotlin.resolve.BindingTrace;
@@ -90,8 +91,8 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
     private final ClassKind kind;
     private final boolean isInner;
     private final boolean isData;
-    private final boolean isHeader;
-    private final boolean isImpl;
+    private final boolean isExpect;
+    private final boolean isActual;
 
     private final Annotations annotations;
     private final Annotations danglingAnnotations;
@@ -165,10 +166,10 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
 
         this.isInner = modifierList != null && modifierList.hasModifier(INNER_KEYWORD) && !isIllegalInner(this);
         this.isData = modifierList != null && modifierList.hasModifier(KtTokens.DATA_KEYWORD);
-        this.isImpl = modifierList != null && modifierList.hasModifier(KtTokens.IMPL_KEYWORD);
+        this.isActual = modifierList != null && PsiUtilsKt.hasActualModifier(modifierList);
 
-        this.isHeader = modifierList != null && modifierList.hasModifier(KtTokens.HEADER_KEYWORD) ||
-                        containingDeclaration instanceof ClassDescriptor && ((ClassDescriptor) containingDeclaration).isHeader();
+        this.isExpect = modifierList != null && PsiUtilsKt.hasExpectModifier(modifierList) ||
+                        containingDeclaration instanceof ClassDescriptor && ((ClassDescriptor) containingDeclaration).isExpect();
 
         // Annotation entries are taken from both own annotations (if any) and object literal annotations (if any)
         List<KtAnnotationEntry> annotationEntries = new ArrayList<>();
@@ -497,13 +498,13 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
     }
 
     @Override
-    public boolean isHeader() {
-        return isHeader;
+    public boolean isExpect() {
+        return isExpect;
     }
 
     @Override
-    public boolean isImpl() {
-        return isImpl;
+    public boolean isActual() {
+        return isActual;
     }
 
     @NotNull
@@ -526,7 +527,7 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
     @Override
     public String toString() {
         // not using DescriptorRenderer to preserve laziness
-        return (isHeader ? "header " : isImpl ? "impl " : "") + "class " + getName().toString();
+        return (isExpect ? "expect " : isActual ? "actual " : "") + "class " + getName().toString();
     }
 
     @Override
@@ -606,6 +607,19 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
             }
         }
 
+        @Override
+        protected void reportScopesLoopError(@NotNull KotlinType type) {
+            PsiElement reportOn = DescriptorToSourceUtils.getSourceFromDescriptor(type.getConstructor().getDeclarationDescriptor());
+
+            if (reportOn instanceof KtClass) {
+                reportOn = ((KtClass) reportOn).getNameIdentifier();
+            }
+
+            if (reportOn != null) {
+                c.getTrace().report(CYCLIC_SCOPES_WITH_COMPANION.on(reportOn));
+            }
+        }
+
         private void reportCyclicInheritanceHierarchyError(
                 @NotNull BindingTrace trace,
                 @NotNull ClassDescriptor classDescriptor,
@@ -650,18 +664,13 @@ public class LazyClassDescriptor extends ClassDescriptorBase implements ClassDes
         }
 
         @Override
-        public boolean isFinal() {
-            return getModality() == Modality.FINAL;
-        }
-
-        @Override
         public boolean isDenotable() {
             return true;
         }
 
         @Override
         @NotNull
-        public ClassifierDescriptor getDeclarationDescriptor() {
+        public ClassDescriptor getDeclarationDescriptor() {
             return LazyClassDescriptor.this;
         }
 

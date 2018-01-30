@@ -20,14 +20,18 @@ import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.analyzer.LanguageSettingsProvider
 import org.jetbrains.kotlin.analyzer.ModuleInfo
+import org.jetbrains.kotlin.cli.common.arguments.Jsr305Parser
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
-import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.config.AnalysisFlag
+import org.jetbrains.kotlin.config.KotlinFacetSettingsProvider
+import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.config.TargetPlatformVersion
 import org.jetbrains.kotlin.idea.caches.resolve.LibraryInfo
 import org.jetbrains.kotlin.idea.caches.resolve.ModuleSourceInfo
 import org.jetbrains.kotlin.idea.project.getLanguageVersionSettings
 import org.jetbrains.kotlin.idea.project.languageVersionSettings
 import org.jetbrains.kotlin.idea.project.targetPlatform
-import org.jetbrains.kotlin.utils.Jsr305State
 
 object IDELanguageSettingsProvider : LanguageSettingsProvider {
     override fun getLanguageVersionSettings(moduleInfo: ModuleInfo, project: Project): LanguageVersionSettings =
@@ -41,13 +45,13 @@ object IDELanguageSettingsProvider : LanguageSettingsProvider {
         val map = mutableMapOf<AnalysisFlag<*>, Any>()
         for (module in ModuleManager.getInstance(project).modules) {
             val settings = KotlinFacetSettingsProvider.getInstance(project).getSettings(module) ?: continue
-            val compilerArguments = settings.compilerArguments as? K2JVMCompilerArguments ?: continue
+            val compilerArguments = settings.mergedCompilerArguments as? K2JVMCompilerArguments ?: continue
 
-            val jsr305state = Jsr305State.findByDescription(compilerArguments.jsr305)
-            if (jsr305state != null && jsr305state != Jsr305State.IGNORE) {
-                map.put(AnalysisFlag.jsr305, jsr305state)
-                break
-            }
+            val jsr305State = Jsr305Parser(MessageCollector.NONE).parse(
+                compilerArguments.jsr305,
+                compilerArguments.supportCompatqualCheckerFrameworkAnnotations
+            )
+            map.put(AnalysisFlag.jsr305, jsr305State)
         }
         return map
     }

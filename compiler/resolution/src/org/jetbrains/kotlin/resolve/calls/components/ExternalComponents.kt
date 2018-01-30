@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.resolve.calls.tower.ImplicitScopeTower
+import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValueWithSmartCastInfo
 import org.jetbrains.kotlin.types.UnwrappedType
 
 // stateless component
@@ -36,7 +37,7 @@ interface KotlinResolutionStatelessCallbacks {
 
 // This components hold state (trace). Work with this carefully.
 interface KotlinResolutionCallbacks {
-    fun analyzeAndGetLambdaResultArguments(
+    fun analyzeAndGetLambdaReturnArguments(
             lambdaArgument: LambdaKotlinCallArgument,
             isSuspend: Boolean,
             receiverType: UnwrappedType?,
@@ -45,4 +46,8 @@ interface KotlinResolutionCallbacks {
     ): List<SimpleKotlinCallArgument>
 
     fun bindStubResolvedCallForCandidate(candidate: ResolvedCallAtom)
+
+    fun createReceiverWithSmartCastInfo(resolvedAtom: ResolvedCallAtom): ReceiverValueWithSmartCastInfo?
+
+    fun isCompileTimeConstant(resolvedAtom: ResolvedCallAtom, expectedType: UnwrappedType): Boolean
 }

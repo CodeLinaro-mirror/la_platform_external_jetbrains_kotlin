@@ -1,12 +1,22 @@
 package org.jetbrains.uast.test.kotlin
 
 import com.intellij.psi.PsiModifier
+import com.intellij.testFramework.UsefulTestCase
+import org.jetbrains.kotlin.asJava.toLightAnnotation
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.psi.KtUserType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
+import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.uast.*
+import org.jetbrains.uast.kotlin.KotlinUastLanguagePlugin
 import org.jetbrains.uast.test.env.findElementByText
+import org.jetbrains.uast.test.env.findElementByTextFromPsi
+import org.jetbrains.uast.visitor.AbstractUastVisitor
 import org.junit.Assert
 import org.junit.Test
 
@@ -22,6 +32,10 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
             val toAttribute = annotation.findAttributeValue("to")!!
             assertEquals(toAttribute.evaluate(), 0)
             KtUsefulTestCase.assertInstanceOf(annotation.psi.toUElement(), UAnnotation::class.java)
+            KtUsefulTestCase.assertInstanceOf(
+                    annotation.psi.cast<KtAnnotationEntry>().toLightAnnotation().toUElement(),
+                    UAnnotation::class.java
+            )
             KtUsefulTestCase.assertInstanceOf(toAttribute.uastParent, UNamedExpression::class.java)
             KtUsefulTestCase.assertInstanceOf(toAttribute.psi.toUElement()?.uastParent, UNamedExpression::class.java)
         }
@@ -68,6 +82,27 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
         }
     }
 
+    @Test fun testSAM() {
+        doTest("SAM") { _, file ->
+            assertNull(file.findElementByText<ULambdaExpression>("{ /* Not SAM */ }").functionalInterfaceType)
+
+            assertEquals("java.lang.Runnable",
+                         file.findElementByText<ULambdaExpression>("{/* Variable */}").functionalInterfaceType?.canonicalText)
+
+            assertEquals("java.lang.Runnable",
+                         file.findElementByText<ULambdaExpression>("{/* Assignment */}").functionalInterfaceType?.canonicalText)
+
+            assertEquals("java.lang.Runnable",
+                          file.findElementByText<ULambdaExpression>("{/* Type Cast */}").functionalInterfaceType?.canonicalText)
+
+            assertEquals("java.lang.Runnable",
+                         file.findElementByText<ULambdaExpression>("{/* Argument */}").functionalInterfaceType?.canonicalText)
+
+            assertEquals("java.lang.Runnable",
+                         file.findElementByText<ULambdaExpression>("{/* Return */}").functionalInterfaceType?.canonicalText)
+        }
+    }
+
     @Test fun testParameterPropertyWithAnnotation() {
         doTest("ParameterPropertyWithAnnotation") { _, file ->
             val test1 = file.classes.find { it.name == "Test1" }!!
@@ -85,16 +120,24 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
 
             val test2 = file.classes.find { it.name == "Test2" }!!
             val constructor2 = test2.methods.find { it.name == "Test2" }!!
-            assertFalse(constructor2.uastParameters.first().annotations.any { it.qualifiedName == "MyAnnotation" })
+            assertFalse(constructor2.uastParameters.first().annotations.any { it.qualifiedName?.startsWith("MyAnnotation") ?: false })
 
             val getter2 = test2.methods.find { it.name == "getBar" }!!
             getter2.annotations.single { it.qualifiedName == "MyAnnotation" }
 
             val setter2 = test2.methods.find { it.name == "setBar" }!!
-            setter2.annotations.single { it.qualifiedName == "MyAnnotation" }
-            setter2.uastParameters.first().annotations.single { it.qualifiedName == "MyAnnotation" }
+            setter2.annotations.single { it.qualifiedName == "MyAnnotation2" }
+            setter2.uastParameters.first().annotations.single { it.qualifiedName == "MyAnnotation3" }
 
-            test2.fields.find { it.name == "bar" }!!.annotations.single { it.qualifiedName == "MyAnnotation" }
+            test2.fields.find { it.name == "bar" }!!.annotations.single { it.qualifiedName == "MyAnnotation5" }
+        }
+    }
+
+    @Test fun testConvertTypeInAnnotation() {
+        doTest("TypeInAnnotation") { _, file ->
+            val index = file.psi.text.indexOf("Test")
+            val element = file.psi.findElementAt(index)!!.getParentOfType<KtUserType>(false)!!
+            assertNotNull(element.getUastParentOfType(UAnnotation::class.java))
         }
     }
 
@@ -112,4 +155,79 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
             assertEquals(42, witDefaultValue.findAttributeValue(null)!!.evaluate())
         }
     }
+
+    @Test fun testIfCondition() {
+        doTest("IfStatement") { _, file ->
+            val psiFile = file.psi
+            val element = psiFile.findElementAt(psiFile.text.indexOf("\"abc\""))!!
+            val binaryExpression = element.getParentOfType<KtBinaryExpression>(false)!!
+            val uBinaryExpression = KotlinUastLanguagePlugin().convertElementWithParent(binaryExpression, null)!!
+            UsefulTestCase.assertInstanceOf(uBinaryExpression.uastParent, UIfExpression::class.java)
+        }
+    }
+
+    @Test
+    fun testWhenStringLiteral() {
+        doTest("WhenStringLiteral") { _, file ->
+
+            file.findElementByTextFromPsi<ULiteralExpression>("abc").let { literalExpression ->
+                val psi = literalExpression.psi!!
+                Assert.assertTrue(psi is KtLiteralStringTemplateEntry)
+                UsefulTestCase.assertInstanceOf(literalExpression.uastParent, USwitchClauseExpressionWithBody::class.java)
+            }
+
+            file.findElementByTextFromPsi<ULiteralExpression>("def").let { literalExpression ->
+                val psi = literalExpression.psi!!
+                Assert.assertTrue(psi is KtLiteralStringTemplateEntry)
+                UsefulTestCase.assertInstanceOf(literalExpression.uastParent, USwitchClauseExpressionWithBody::class.java)
+            }
+
+            file.findElementByTextFromPsi<ULiteralExpression>("def1").let { literalExpression ->
+                val psi = literalExpression.psi!!
+                Assert.assertTrue(psi is KtLiteralStringTemplateEntry)
+                UsefulTestCase.assertInstanceOf(literalExpression.uastParent, UBlockExpression::class.java)
+            }
+
+
+        }
+    }
+
+    @Test
+    fun testWhenAndDestructing() {
+        doTest("WhenAndDestructing") { _, file ->
+
+            file.findElementByTextFromPsi<UExpression>("val (bindingContext, statementFilter) = arr").let { e ->
+                val uBlockExpression = e.getParentOfType<UBlockExpression>()
+                Assert.assertNotNull(uBlockExpression)
+                val uMethod = uBlockExpression!!.getParentOfType<UMethod>()
+                Assert.assertNotNull(uMethod)
+            }
+
+        }
+    }
+
+    @Test
+    fun testBrokenMethodTypeResolve() {
+        doTest("BrokenMethod") { _, file ->
+
+            file.accept(object : AbstractUastVisitor() {
+                override fun visitCallExpression(node: UCallExpression): Boolean {
+                    node.returnType
+                    return false
+                }
+            })
+        }
+    }
+
+    @Test
+    fun testSimpleAnnotated() {
+        doTest("SimpleAnnotated") { _, file ->
+            file.findElementByTextFromPsi<UField>("@SinceKotlin(\"1.0\")\n    val property: String = \"Mary\"").let { field ->
+                val annotation = field.annotations.assertedFind("kotlin.SinceKotlin") { it.qualifiedName }
+                Assert.assertEquals(annotation.findDeclaredAttributeValue("version")?.evaluateString(), "1.0")
+            }
+        }
+    }
 }
+
+fun <T, R> Iterable<T>.assertedFind(value: R, transform: (T) -> R): T = find { transform(it) == value } ?: throw AssertionError("'$value' not found, only ${this.joinToString { transform(it).toString() }}")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,5 +95,45 @@ class InlayTypeHintsTest : KotlinLightCodeInsightFixtureTestCase() {
                        override fun hasNext()<hint text=": Boolean" /> = true
                   }
               }""")
+    }
+
+    fun testAnonymousObjectNoBaseType() {
+        HintType.LOCAL_VARIABLE_HINT.option.set(true)
+        check("""fun foo() {
+                val o = object {
+                    val x: Int = 0
+                }
+              }""")
+    }
+
+    fun testDestructuring() {
+        HintType.LOCAL_VARIABLE_HINT.option.set(true)
+        check("""fun main(args: Array<String>) {
+                val (a: String, b: String, c: String) = x()
+            }
+
+            fun x() :Triple<String, String,String> {
+                return Triple(<hint text="first:" />"A", <hint text="second:" />"B", <hint text="third:" />"C")
+            }""")
+    }
+
+    fun testSAMConstructor() {
+        HintType.PROPERTY_HINT.option.set(true)
+        check("""val x = Runnable { }""")
+    }
+
+    fun testNestedClassImports() {
+        HintType.PROPERTY_HINT.option.set(true)
+        check(
+            """import kotlin.collections.Map.Entry
+                    val entries<hint text=": Set<Entry<Int, String>>" /> = mapOf(1 to "1").entries"""
+        )
+    }
+
+    fun testNestedClassWithoutImport() {
+        HintType.PROPERTY_HINT.option.set(true)
+        check(
+            """val entries<hint text=": Set<Map.Entry<Int, String>>" /> = mapOf(1 to "1").entries"""
+        )
     }
 }
