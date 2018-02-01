@@ -388,11 +388,7 @@ object KeywordCompletion {
                         else -> return true
                     }
 
-                    val modifierParents = ModifierCheckerCore.possibleParentTargetMap[keywordTokenType]
-                    if (modifierParents != null && parentTarget !in modifierParents) return false
-
-                    val deprecatedParents = ModifierCheckerCore.deprecatedParentTargetMap[keywordTokenType]
-                    if (deprecatedParents != null && parentTarget in deprecatedParents) return false
+                    if (!ModifierCheckerCore.isPossibleParentTarget(keywordTokenType, parentTarget, languageVersionSettings)) return false
 
                     return true
                 }
@@ -426,7 +422,8 @@ object KeywordCompletion {
     private fun isModifierSupportedAtLanguageLevel(keyword: KtKeywordToken, languageVersionSettings: LanguageVersionSettings): Boolean {
         val feature = when (keyword) {
             KtTokens.TYPE_ALIAS_KEYWORD -> LanguageFeature.TypeAliases
-            KtTokens.HEADER_KEYWORD, KtTokens.IMPL_KEYWORD -> LanguageFeature.MultiPlatformProjects
+            KtTokens.HEADER_KEYWORD, KtTokens.IMPL_KEYWORD -> return false
+            KtTokens.EXPECT_KEYWORD, KtTokens.ACTUAL_KEYWORD -> LanguageFeature.MultiPlatformProjects
             KtTokens.SUSPEND_KEYWORD -> LanguageFeature.Coroutines
             else -> return true
         }
@@ -449,6 +446,17 @@ object KeywordCompletion {
         else {
             return true
         }
+    }
+
+    private fun isModifierParentSupportedAtLanguageLevel(
+            keyword: KtKeywordToken,
+            target: KotlinTarget,
+            languageVersionSettings: LanguageVersionSettings
+    ): Boolean {
+        if (keyword == KtTokens.INNER_KEYWORD && target == ENUM_ENTRY) {
+            return languageVersionSettings.supportsFeature(LanguageFeature.InnerClassInEnumEntryClass)
+        }
+        return true
     }
 
     // builds text within scope (or from the start of the file) before position element excluding almost all declarations

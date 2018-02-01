@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@ object DirectiveBasedActionUtils {
         UsefulTestCase.assertEmpty("Irrelevant actions should not be specified in ACTION directive for they are not checked anyway",
                                    expectedActions.filter { isIrrelevantAction(it) })
 
+        if (InTextDirectivesUtils.findLinesWithPrefixesRemoved(file.text, "// IGNORE_IRRELEVANT_ACTIONS").isNotEmpty()) {
+            return
+        }
+
         val actualActions = availableActions.map { it.text }.sorted()
 
         UsefulTestCase.assertOrderedEquals("Some unexpected actions available at current position. Use // ACTION: directive",
@@ -77,10 +81,12 @@ object DirectiveBasedActionUtils {
             "Edit cleanup profile settings",
             "Fix all '",
             "Cleanup code",
+            "Go to ",
             "Show local variable type hints",
             "Show function return type hints",
             "Show property type hints",
             "Show parameter type hints",
-            "Show argument name hints"
+            "Show argument name hints",
+            "Show hints for suspending calls"
     )
 }

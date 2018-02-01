@@ -16,6 +16,8 @@
 
 package org.jetbrains.kotlin.asJava.elements
 
+import com.intellij.openapi.diagnostic.Attachment
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.*
@@ -37,6 +39,8 @@ import org.jetbrains.kotlin.resolve.calls.model.VarargValueArgument
 import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.types.TypeUtils
 
+private val LOG = Logger.getInstance("#org.jetbrains.kotlin.asJava.elements.lightAnnotations")
+
 abstract class KtLightAbstractAnnotation(parent: PsiElement, computeDelegate: () -> PsiAnnotation) :
         KtLightElementBase(parent), PsiAnnotation, KtLightElement<KtCallElement, PsiAnnotation> {
     override val clsDelegate by lazyPub(computeDelegate)
@@ -48,6 +52,12 @@ abstract class KtLightAbstractAnnotation(parent: PsiElement, computeDelegate: ()
     override fun getMetaData() = clsDelegate.metaData
 
     override fun getParameterList() = clsDelegate.parameterList
+
+    override fun canNavigate(): Boolean = super<KtLightElementBase>.canNavigate()
+
+    override fun canNavigateToSource(): Boolean = super<KtLightElementBase>.canNavigateToSource()
+
+    override fun navigate(requestFocus: Boolean) = super<KtLightElementBase>.navigate(requestFocus)
 
     open fun fqNameMatches(fqName: String): Boolean = qualifiedName == fqName
 }
@@ -135,8 +145,14 @@ class KtLightAnnotationForSourceEntry(
 
             is VarargValueArgument ->
                 memberValue.unwrapArray(resolvedArgument.arguments)
-                ?: resolvedArgument.arguments.first().asElement().parent.parent.let {
-                    it.asKtCall() ?: it
+                ?: resolvedArgument.arguments.first().asElement().let {
+                    (it as? KtValueArgument)
+                            ?.takeIf {
+                                it.getSpreadElement() != null ||
+                                it.getArgumentName() != null ||
+                                it.getArgumentExpression() is KtCollectionLiteralExpression
+                            }
+                            ?.getArgumentExpression() ?: it.parent
                 }
 
             else -> error("resolvedArgument: ${resolvedArgument.javaClass} cant be processed")
@@ -181,9 +197,25 @@ class KtLightAnnotationForSourceEntry(
             valueOrigin: AnnotationValueOrigin
     ) : LightElementValue<PsiArrayInitializerMemberValue>(delegate, parent, valueOrigin), PsiArrayInitializerMemberValue {
         private val _initializers by lazyPub {
-            delegate.initializers.mapIndexed { i, it ->
-                wrapAnnotationValue(it, this, {
-                    (originalExpression as KtCallElement).valueArguments[i].getArgumentExpression()!!
+            delegate.initializers.mapIndexed { i, memberValue ->
+                wrapAnnotationValue(memberValue, this, {
+                    originalExpression.let { ktOrigin ->
+                        when {
+                            ktOrigin is KtValueArgumentList -> ktOrigin.arguments.getOrNull(i)?.getArgumentExpression()
+                            ktOrigin is KtCallElement -> ktOrigin.valueArguments.getOrNull(i)?.getArgumentExpression()
+                            ktOrigin is KtCollectionLiteralExpression -> ktOrigin.getInnerExpressions().getOrNull(i)
+                            delegate.initializers.size == 1 -> ktOrigin
+                            else -> null
+                        }.also {
+                            if (it == null)
+                                LOG.error("error wrapping ${memberValue.javaClass} for ${ktOrigin?.javaClass} in ${ktOrigin?.containingFile}",
+                                          Attachment(
+                                              "source_fragments.txt",
+                                              "origin: '${psiReport(ktOrigin)}', delegate: ${psiReport(delegate)}, parent: ${psiReport(parent)}"
+                                          )
+                                )
+                        }
+                    }
                 })
             }.toTypedArray()
         }
@@ -191,22 +223,26 @@ class KtLightAnnotationForSourceEntry(
         override fun getInitializers() = _initializers
     }
 
-    private fun wrapAnnotationValue(value: PsiAnnotationMemberValue, parent: PsiElement, ktOrigin: AnnotationValueOrigin): PsiAnnotationMemberValue {
-        return when {
-            value is PsiLiteralExpression && value.value is String -> LightStringLiteral(value, parent, ktOrigin)
-            value is PsiClassObjectAccessExpression -> LightClassLiteral(value, parent, ktOrigin)
-            value is PsiExpression -> LightExpressionValue(value, parent, ktOrigin)
-            value is PsiArrayInitializerMemberValue -> LightArrayInitializerValue(value, parent, ktOrigin)
-            value is PsiAnnotation -> KtLightAnnotationForSourceEntry(
-                    value.qualifiedName!!,
-                    ktOrigin().let {
-                        it?.asKtCall() ?: throw UnsupportedOperationException("cant convert $it to KtCallElement")
-                    },
-                    parent, { value }
-            )
-            else -> LightElementValue(value, parent, ktOrigin)
-        }
-    }
+    private fun wrapAnnotationValue(value: PsiAnnotationMemberValue, parent: PsiElement, ktOrigin: AnnotationValueOrigin): PsiAnnotationMemberValue =
+            when {
+                value is PsiLiteralExpression && value.value is String -> LightStringLiteral(value, parent, ktOrigin)
+                value is PsiClassObjectAccessExpression -> LightClassLiteral(value, parent, ktOrigin)
+                value is PsiExpression -> LightExpressionValue(value, parent, ktOrigin)
+                value is PsiArrayInitializerMemberValue -> LightArrayInitializerValue(value, parent, ktOrigin)
+                value is PsiAnnotation -> {
+                    val origin = ktOrigin()
+                    val ktCallElement = origin?.asKtCall()
+                    val qualifiedName = value.qualifiedName
+                    if (qualifiedName != null && ktCallElement != null)
+                        KtLightAnnotationForSourceEntry(qualifiedName, ktCallElement, parent, { value })
+                    else {
+                        LOG.error("can't convert ${origin?.javaClass} to KtCallElement in ${origin?.containingFile} (value = ${value.javaClass})",
+                                  Attachment("source_fragments.txt", "origin: '${psiReport(origin)}', value: '${psiReport(value)}'"))
+                        LightElementValue(value, parent, ktOrigin) // or maybe create a LightErrorAnnotationMemberValue instead?
+                    }
+                }
+                else -> LightElementValue(value, parent, ktOrigin)
+            }
 
     override fun isPhysical() = true
 
@@ -258,6 +294,12 @@ class KtLightNonExistentAnnotation(parent: KtLightElement<*, *>) : KtLightElemen
     override fun findDeclaredAttributeValue(attributeName: String?) = null
     override fun getMetaData() = null
     override fun getParameterList() = KtLightEmptyAnnotationParameterList(this)
+
+    override fun canNavigate(): Boolean = super<KtLightElementBase>.canNavigate()
+
+    override fun canNavigateToSource(): Boolean = super<KtLightElementBase>.canNavigateToSource()
+
+    override fun navigate(requestFocus: Boolean) = super<KtLightElementBase>.navigate(requestFocus)
 }
 
 class KtLightEmptyAnnotationParameterList(parent: PsiElement) : KtLightElementBase(parent), PsiAnnotationParameterList {
@@ -297,3 +339,14 @@ private fun KtElement.getResolvedCall(): ResolvedCall<out CallableDescriptor>? {
 }
 
 private fun PsiElement.asKtCall(): KtCallElement? = (this as? KtElement)?.getResolvedCall()?.call?.callElement as? KtCallElement
+
+private fun psiReport(psiElement: PsiElement?): String {
+    if (psiElement == null) return "null"
+    val text = try {
+        psiElement.text
+    }
+    catch (e: Exception) {
+        "${e.javaClass.simpleName}:${e.message}"
+    }
+    return "${psiElement.javaClass.canonicalName}[$text]"
+}

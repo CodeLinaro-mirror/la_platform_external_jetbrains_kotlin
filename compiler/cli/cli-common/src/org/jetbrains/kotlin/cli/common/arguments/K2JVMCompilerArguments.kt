@@ -16,11 +16,10 @@
 
 package org.jetbrains.kotlin.cli.common.arguments
 
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.AnalysisFlag
+import org.jetbrains.kotlin.config.JVMConstructorCallNormalizationMode
 import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.utils.Jsr305State
 
 class K2JVMCompilerArguments : CommonCompilerArguments() {
     companion object {
@@ -67,7 +66,7 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var scriptTemplates: Array<String>? by FreezableVar(null)
 
-    @Argument(value = "-module-name", description = "Module name")
+    @Argument(value = "-module-name", valueDescription = "<name>", description = "Name of the generated .kotlin_module file")
     var moduleName: String? by FreezableVar(null)
 
     @GradleOption(DefaultValues.JvmTargetVersions::class)
@@ -104,8 +103,18 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xno-param-assertions", description = "Don't generate not-null assertions on parameters of methods accessible from Java")
     var noParamAssertions: Boolean by FreezableVar(false)
 
+    @Argument(value = "-Xstrict-java-nullability-assertions", description = "Generate nullability assertions for non-null Java expressions")
+    var strictJavaNullabilityAssertions: Boolean by FreezableVar(false)
+
     @Argument(value = "-Xno-optimize", description = "Disable optimizations")
     var noOptimize: Boolean by FreezableVar(false)
+
+    @Argument(
+            value = "-Xnormalize-constructor-calls",
+            valueDescription = "{disable|enable}",
+            description = "Normalize constructor calls (disable: don't normalize; enable: normalize), default is disable"
+    )
+    var constructorCallNormalizationMode: String? by FreezableVar(JVMConstructorCallNormalizationMode.DEFAULT.description)
 
     @Argument(value = "-Xreport-perf", description = "Report detailed performance statistics")
     var reportPerf: Boolean by FreezableVar(false)
@@ -165,30 +174,46 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     @Argument(
             value = "-Xjsr305",
             deprecatedName = "-Xjsr305-annotations",
-            valueDescription = "{ignore|strict|warn}",
-            description = "Specify global behavior for JSR-305 nullability annotations: ignore, treat as other supported nullability annotations, or report a warning"
+            valueDescription = "{ignore/strict/warn}" +
+                               "|under-migration:{ignore/strict/warn}" +
+                               "|@<fq.name>:{ignore/strict/warn}",
+            description = "Specify behavior for JSR-305 nullability annotations:\n" +
+                          "-Xjsr305={ignore/strict/warn}                   globally (all non-@UnderMigration annotations)\n" +
+                          "-Xjsr305=under-migration:{ignore/strict/warn}   all @UnderMigration annotations\n" +
+                          "-Xjsr305=@<fq.name>:{ignore/strict/warn}        annotation with the given fully qualified class name\n" +
+                          "Modes:\n" +
+                          "  * ignore\n" +
+                          "  * strict (experimental; treat as other supported nullability annotations)\n" +
+                          "  * warn (report a warning)"
     )
-    var jsr305: String? by FreezableVar(Jsr305State.DEFAULT.description)
+    var jsr305: Array<String>? by FreezableVar(null)
+
+    @Argument(
+        value = "-Xsupport-compatqual-checker-framework-annotations",
+        valueDescription = "enable|disable",
+        description =
+        """
+Specify behavior for Checker Framework compatqual annotations (NullableDecl/NonNullDecl).
+Default value is 'enable'
+"""
+    )
+    var supportCompatqualCheckerFrameworkAnnotations: String? by FreezableVar(null)
+
+    @Argument(
+            value = "-Xno-exception-on-explicit-equals-for-boxed-null",
+            description = "Do not throw NPE on explicit 'equals' call for null receiver of platform boxed primitive type"
+    )
+    var noExceptionOnExplicitEqualsForBoxedNull by FreezableVar(false)
 
     // Paths to output directories for friend modules.
     var friendPaths: Array<String>? by FreezableVar(null)
 
     override fun configureAnalysisFlags(collector: MessageCollector): MutableMap<AnalysisFlag<*>, Any> {
         val result = super.configureAnalysisFlags(collector)
-
-        if (jsr305 == "enable") {
-            collector.report(
-                    CompilerMessageSeverity.STRONG_WARNING,
-                    "Option 'enable' for -Xjsr305 flag is deprecated. Please use 'strict' instead"
-            )
-            result.put(AnalysisFlag.jsr305, Jsr305State.STRICT)
-        }
-        else {
-            Jsr305State.findByDescription(jsr305)?.let {
-                result.put(AnalysisFlag.jsr305, it)
-            }
-        }
-
+        result[AnalysisFlag.jsr305] = Jsr305Parser(collector).parse(
+            jsr305,
+            supportCompatqualCheckerFrameworkAnnotations
+        )
         return result
     }
 }

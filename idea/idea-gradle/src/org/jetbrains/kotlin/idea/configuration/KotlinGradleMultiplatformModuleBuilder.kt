@@ -38,9 +38,9 @@ class KotlinGradleMultiplatformModuleBuilder : GradleModuleBuilder() {
 
     override fun getBuilderId() = "kotlin.gradle.multiplatform"
 
-    override fun getNodeIcon() = KotlinIcons.SMALL_LOGO
+    override fun getNodeIcon() = KotlinIcons.MPP
 
-    override fun getPresentableName() = "Kotlin (Multiplatform)"
+    override fun getPresentableName() = "Kotlin (Multiplatform - Experimental)"
 
     override fun getDescription() =
             "Multiplatform projects allow reusing the same code between multiple platforms supported by Kotlin. Such projects are built with Gradle."
@@ -89,7 +89,7 @@ class KotlinGradleMultiplatformModuleBuilder : GradleModuleBuilder() {
         val buildGradle = moduleDir.createChildData(null, "build.gradle")
         val buildScriptData = BuildScriptDataBuilder(buildGradle)
         supportProvider.addSupport(buildScriptData, sdk)
-        buildScriptData.addDependencyNotation("implement project(\":\")")
-        VfsUtil.saveText(buildGradle, buildScriptData.build())
+        buildScriptData.addDependencyNotation("expectedBy project(\":\")")
+        VfsUtil.saveText(buildGradle, buildScriptData.buildConfigurationPart() + buildScriptData.buildMainPart())
     }
 }

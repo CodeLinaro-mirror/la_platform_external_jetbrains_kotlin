@@ -205,6 +205,14 @@ public class DirectiveTestUtils {
 
     private static final DirectiveHandler COUNT_NULLS = new CountNodesDirective<>("CHECK_NULLS_COUNT", JsNullLiteral.class);
 
+    private static final DirectiveHandler COUNT_NEW = new CountNodesDirective<>("CHECK_NEW_COUNT", JsNew.class);
+
+    private static final DirectiveHandler COUNT_CASES = new CountNodesDirective<>("CHECK_CASES_COUNT", JsCase.class);
+
+    private static final DirectiveHandler COUNT_IF = new CountNodesDirective<>("CHECK_IF_COUNT", JsIf.class);
+
+    private static final DirectiveHandler COUNT_DEBUGGER = new CountNodesDirective<>("CHECK_DEBUGGER_COUNT", JsDebugger.class);
+
     private static final DirectiveHandler NOT_REFERENCED = new DirectiveHandler("CHECK_NOT_REFERENCED") {
         @Override
         void processEntry(@NotNull JsNode ast, @NotNull ArgumentsHelper arguments) throws Exception {
@@ -299,6 +307,27 @@ public class DirectiveTestUtils {
         }
     };
 
+    private static final DirectiveHandler DECLARES_VARIABLE = new DirectiveHandler("DECLARES_VARIABLE") {
+        @Override
+        void processEntry(@NotNull JsNode ast, @NotNull ArgumentsHelper arguments) throws Exception {
+            String functionName = arguments.getNamedArgument("function");
+            String varName = arguments.getNamedArgument("name");
+            JsFunction function = AstSearchUtil.getFunction(ast, functionName);
+            boolean[] varDeclared = new boolean[1];
+            function.accept(new RecursiveJsVisitor() {
+                @Override
+                public void visit(@NotNull JsVars.JsVar x) {
+                    super.visit(x);
+                    if (x.getName().getIdent().equals(varName)) {
+                        varDeclared[0] = true;
+                    }
+                }
+            });
+
+            assertTrue("Function " + functionName + " does not declare variable " + varName, varDeclared[0]);
+        }
+    };
+
     private static final List<DirectiveHandler> DIRECTIVE_HANDLERS = Arrays.asList(
             FUNCTION_CONTAINS_NO_CALLS,
             FUNCTION_NOT_CALLED,
@@ -316,10 +345,15 @@ public class DirectiveTestUtils {
             COUNT_VARS,
             COUNT_BREAKS,
             COUNT_NULLS,
+            COUNT_NEW,
+            COUNT_CASES,
+            COUNT_IF,
+            COUNT_DEBUGGER,
             NOT_REFERENCED,
             HAS_INLINE_METADATA,
             HAS_NO_INLINE_METADATA,
-            HAS_NO_CAPTURED_VARS
+            HAS_NO_CAPTURED_VARS,
+            DECLARES_VARIABLE
     );
 
     public static void processDirectives(@NotNull JsNode ast, @NotNull String sourceCode) throws Exception {

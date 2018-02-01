@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -263,6 +263,12 @@ public class InspectionTestGenerated extends AbstractInspectionTest {
             doTest(fileName);
         }
 
+        @TestMetadata("naming/objectProperty/inspectionData/inspections.test")
+        public void testNaming_objectProperty_inspectionData_Inspections_test() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/inspections/naming/objectProperty/inspectionData/inspections.test");
+            doTest(fileName);
+        }
+
         @TestMetadata("naming/privateProperty/inspectionData/inspections.test")
         public void testNaming_privateProperty_inspectionData_Inspections_test() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/inspections/naming/privateProperty/inspectionData/inspections.test");
@@ -320,6 +326,12 @@ public class InspectionTestGenerated extends AbstractInspectionTest {
         @TestMetadata("redundantSemicolon/inspectionData/inspections.test")
         public void testRedundantSemicolon_inspectionData_Inspections_test() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/inspections/redundantSemicolon/inspectionData/inspections.test");
+            doTest(fileName);
+        }
+
+        @TestMetadata("redundantSuspendModifier/inspectionData/inspections.test")
+        public void testRedundantSuspendModifier_inspectionData_Inspections_test() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/inspections/redundantSuspendModifier/inspectionData/inspections.test");
             doTest(fileName);
         }
 

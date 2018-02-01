@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.codegen
 
+import com.intellij.openapi.diagnostic.Attachment
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.psi.psiUtil.getElementTextWithContext
@@ -23,7 +24,7 @@ import org.jetbrains.kotlin.psi.psiUtil.getElementTextWithContext
 object ExceptionLogger {
     @JvmStatic
     fun logDescriptorNotFound(problemDescription: String, psi: PsiElement): AssertionError {
-        LOG.error(problemDescription, psi.getElementTextWithContext())
+        LOG.error(problemDescription, Attachment("psi.kt", psi.getElementTextWithContext()))
         throw AssertionError(problemDescription)
     }
 

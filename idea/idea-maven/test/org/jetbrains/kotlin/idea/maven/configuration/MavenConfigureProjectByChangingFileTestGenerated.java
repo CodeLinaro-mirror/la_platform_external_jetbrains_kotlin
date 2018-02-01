@@ -44,6 +44,12 @@ public class MavenConfigureProjectByChangingFileTestGenerated extends AbstractMa
             doTestWithMaven(fileName);
         }
 
+        @TestMetadata("jreLib")
+        public void testJreLib() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/idea-maven/testData/configurator/jvm/jreLib/");
+            doTestWithMaven(fileName);
+        }
+
         @TestMetadata("libraryMissed")
         public void testLibraryMissed() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/idea-maven/testData/configurator/jvm/libraryMissed/");
@@ -77,6 +83,12 @@ public class MavenConfigureProjectByChangingFileTestGenerated extends AbstractMa
         @TestMetadata("simpleProjectSnapshot")
         public void testSimpleProjectSnapshot() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/idea-maven/testData/configurator/jvm/simpleProjectSnapshot/");
+            doTestWithMaven(fileName);
+        }
+
+        @TestMetadata("withJava9ModuleInfo")
+        public void testWithJava9ModuleInfo() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/idea-maven/testData/configurator/jvm/withJava9ModuleInfo/");
             doTestWithMaven(fileName);
         }
     }

@@ -88,7 +88,7 @@ public class SamWrapperCodegen {
                 /* isExternal = */ false
         );
         // e.g. compare(T, T)
-        SimpleFunctionDescriptor erasedInterfaceFunction = samType.getAbstractMethod().getOriginal().copy(
+        SimpleFunctionDescriptor erasedInterfaceFunction = samType.getOriginalAbstractMethod().copy(
                 classDescriptor,
                 Modality.FINAL,
                 Visibilities.PUBLIC,
@@ -167,7 +167,7 @@ public class SamWrapperCodegen {
 
         // generate sam bridges
         // TODO: erasedInterfaceFunction is actually not an interface function, but function in generated class
-        SimpleFunctionDescriptor originalInterfaceErased = samType.getAbstractMethod().getOriginal();
+        SimpleFunctionDescriptor originalInterfaceErased = samType.getOriginalAbstractMethod();
         SimpleFunctionDescriptorImpl descriptorForBridges = SimpleFunctionDescriptorImpl
                 .create(erasedInterfaceFunction.getContainingDeclaration(), erasedInterfaceFunction.getAnnotations(), originalInterfaceErased.getName(),
                         CallableMemberDescriptor.Kind.DECLARATION, erasedInterfaceFunction.getSource());
@@ -185,6 +185,8 @@ public class SamWrapperCodegen {
     private FqName getWrapperName(@NotNull KtFile containingFile) {
         FqName fileClassFqName = JvmFileClassUtil.getFileClassInfoNoResolve(containingFile).getFileClassFqName();
         JavaClassDescriptor descriptor = samType.getJavaClassDescriptor();
+        //Change sam wrapper name template carefully cause it's used in inliner:
+        // see isSamWrapper/isSamWrapperConstructorCall in inlineCodegenUtils.kt
         int hash = PackagePartClassUtils.getPathHashCode(containingFile.getVirtualFile()) * 31 +
                 DescriptorUtils.getFqNameSafe(descriptor).hashCode();
         String shortName = String.format(

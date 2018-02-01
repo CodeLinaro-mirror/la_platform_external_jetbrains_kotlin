@@ -137,7 +137,7 @@ fun addDebugExpressionIntoTmpFileForExtractFunction(originalFile: KtFile, codeFr
     return contentElementsInTmpFile
 }
 
-private var PsiElement.IS_CONTEXT_ELEMENT: Boolean by NotNullableCopyableUserDataProperty(Key.create("IS_CONTEXT_ELEMENT"), false)
+private var PsiElement.IS_CONTEXT_ELEMENT: Boolean by NotNullablePsiCopyableUserDataProperty(Key.create("IS_CONTEXT_ELEMENT"), false)
 
 private fun KtCodeFragment.markContextElement() {
     getOriginalContext()?.IS_CONTEXT_ELEMENT = true
@@ -151,7 +151,7 @@ private fun KtFile.findContextElement(): KtElement? {
     return this.findDescendantOfType { it.IS_CONTEXT_ELEMENT == true }
 }
 
-private var PsiElement.DEBUG_SMART_CAST: PsiElement? by CopyableUserDataProperty(Key.create("DEBUG_SMART_CAST"))
+private var PsiElement.DEBUG_SMART_CAST: PsiElement? by CopyablePsiUserDataProperty(Key.create("DEBUG_SMART_CAST"))
 
 private fun KtCodeFragment.markSmartCasts() {
     val bindingContext = runInReadActionWithWriteActionPriorityWithPCE { analyzeFully() }
@@ -289,12 +289,19 @@ private fun findElementBefore(contextElement: PsiElement): PsiElement? {
                 wrapInLambdaCall(delegateExpressionOrInitializer)
             }
             else {
-                val getter = contextElement.getter!!
-                if (!getter.hasBlockBody()) {
-                    wrapInLambdaCall(getter.bodyExpression!!)
+                val getter = contextElement.getter
+                val bodyExpression = getter?.bodyExpression
+
+                if (getter != null && bodyExpression != null) {
+                    if (!getter.hasBlockBody()) {
+                        wrapInLambdaCall(bodyExpression)
+                    }
+                    else {
+                        (bodyExpression as KtBlockExpression).statements.first()
+                    }
                 }
                 else {
-                    (getter.bodyExpression as KtBlockExpression).statements.first()
+                    contextElement
                 }
             }
         }

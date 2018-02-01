@@ -236,6 +236,24 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
             doIntroduceVariableTest(fileName);
         }
 
+        @TestMetadata("kt21530_withConstructorParam.kt")
+        public void testKt21530_withConstructorParam() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceVariable/kt21530_withConstructorParam.kt");
+            doIntroduceVariableTest(fileName);
+        }
+
+        @TestMetadata("kt21530_withGlobal.kt")
+        public void testKt21530_withGlobal() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceVariable/kt21530_withGlobal.kt");
+            doIntroduceVariableTest(fileName);
+        }
+
+        @TestMetadata("kt21530_withParam.kt")
+        public void testKt21530_withParam() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceVariable/kt21530_withParam.kt");
+            doIntroduceVariableTest(fileName);
+        }
+
         @TestMetadata("LoopRange.kt")
         public void testLoopRange() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceVariable/LoopRange.kt");
@@ -3173,6 +3191,12 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
             doIntroducePropertyTest(fileName);
         }
 
+        @TestMetadata("kt21530.kt")
+        public void testKt21530() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceProperty/kt21530.kt");
+            doIntroducePropertyTest(fileName);
+        }
+
         @TestMetadata("primaryConstructorParameterReference.kt")
         public void testPrimaryConstructorParameterReference() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceProperty/primaryConstructorParameterReference.kt");
@@ -3344,9 +3368,27 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
             KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/refactoring/introduceParameter"), Pattern.compile("^(.+)\\.(kt|kts)$"), TargetBackend.ANY, true);
         }
 
+        @TestMetadata("annotationArgument.kt")
+        public void testAnnotationArgument() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/annotationArgument.kt");
+            doIntroduceSimpleParameterTest(fileName);
+        }
+
         @TestMetadata("assignment.kt")
         public void testAssignment() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/assignment.kt");
+            doIntroduceSimpleParameterTest(fileName);
+        }
+
+        @TestMetadata("avoidClassDuplicatingParameters.kt")
+        public void testAvoidClassDuplicatingParameters() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/avoidClassDuplicatingParameters.kt");
+            doIntroduceSimpleParameterTest(fileName);
+        }
+
+        @TestMetadata("avoidFunDuplicatingParameters.kt")
+        public void testAvoidFunDuplicatingParameters() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/avoidFunDuplicatingParameters.kt");
             doIntroduceSimpleParameterTest(fileName);
         }
 
@@ -3494,6 +3536,12 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
             doIntroduceSimpleParameterTest(fileName);
         }
 
+        @TestMetadata("inDefaultValue.kt")
+        public void testInDefaultValue() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/inDefaultValue.kt");
+            doIntroduceSimpleParameterTest(fileName);
+        }
+
         @TestMetadata("lambdaArgument.kt")
         public void testLambdaArgument() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/lambdaArgument.kt");
@@ -3587,6 +3635,12 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
         @TestMetadata("substituteInfixCall.kt")
         public void testSubstituteInfixCall() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/substituteInfixCall.kt");
+            doIntroduceSimpleParameterTest(fileName);
+        }
+
+        @TestMetadata("superCallArgument.kt")
+        public void testSuperCallArgument() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceParameter/superCallArgument.kt");
             doIntroduceSimpleParameterTest(fileName);
         }
 
@@ -4235,6 +4289,12 @@ public class ExtractionTestGenerated extends AbstractExtractionTest {
         @TestMetadata("typesExtractedWithFunctionalType.kt")
         public void testTypesExtractedWithFunctionalType() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceTypeAlias/typesExtractedWithFunctionalType.kt");
+            doIntroduceTypeAliasTest(fileName);
+        }
+
+        @TestMetadata("unmatchedNullability.kt")
+        public void testUnmatchedNullability() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/refactoring/introduceTypeAlias/unmatchedNullability.kt");
             doIntroduceTypeAliasTest(fileName);
         }
 

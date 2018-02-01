@@ -38,9 +38,11 @@ class CliJavaModuleFinder(jrtFileSystemRoot: VirtualFile?) : JavaModuleFinder {
             modulesRoot?.findChild(name)?.let(this::findSystemModule) ?: userModules[name]
 
     private fun findSystemModule(moduleRoot: VirtualFile): JavaModule.Explicit? {
-        /*val file = moduleRoot.findChild(PsiJavaModule.MODULE_INFO_CLS_FILE) ?: return null
+        /*
+        val file = moduleRoot.findChild(PsiJavaModule.MODULE_INFO_CLS_FILE) ?: return null
         val moduleInfo = JavaModuleInfo.read(file) ?: return null
-        return JavaModule.Explicit(moduleInfo, moduleRoot, file, isBinary = true)*/
+        return JavaModule.Explicit(moduleInfo, listOf(JavaModule.Root(moduleRoot, isBinary = true)), file)
+        */
         return null
     }
 }

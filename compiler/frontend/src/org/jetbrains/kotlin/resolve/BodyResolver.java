@@ -166,8 +166,8 @@ public class BodyResolver {
             @NotNull KtSecondaryConstructor constructor,
             @NotNull ClassConstructorDescriptor descriptor
     ) {
-        if (descriptor.isHeader() || isEffectivelyExternal(descriptor)) {
-            // For header and external classes, we do not resolve constructor delegation calls because they are prohibited
+        if (descriptor.isExpect() || isEffectivelyExternal(descriptor)) {
+            // For expected and external classes, we do not resolve constructor delegation calls because they are prohibited
             return DataFlowInfo.Companion.getEMPTY();
         }
 
@@ -304,7 +304,11 @@ public class BodyResolver {
                     KotlinType expectedType = supertype != null ? supertype : NO_EXPECTED_TYPE;
                     typeInferrer.getType(scope, delegateExpression, expectedType, outerDataFlowInfo, trace);
                 }
-                if (primaryConstructor == null) {
+
+                if (descriptor.isExpect()) {
+                    trace.report(IMPLEMENTATION_BY_DELEGATION_IN_EXPECT_CLASS.on(specifier));
+                }
+                else if (primaryConstructor == null) {
                     trace.report(UNSUPPORTED.on(specifier, "Delegation without primary constructor is not supported"));
                 }
             }
@@ -315,6 +319,9 @@ public class BodyResolver {
                 PsiElement elementToMark = valueArgumentList == null ? call : valueArgumentList;
                 if (descriptor.getKind() == ClassKind.INTERFACE) {
                     trace.report(SUPERTYPE_INITIALIZED_IN_INTERFACE.on(elementToMark));
+                }
+                if (descriptor.isExpect()) {
+                    trace.report(SUPERTYPE_INITIALIZED_IN_EXPECTED_CLASS.on(elementToMark));
                 }
                 KtTypeReference typeReference = call.getTypeReference();
                 if (typeReference == null) return;
@@ -367,7 +374,7 @@ public class BodyResolver {
                     descriptor.getUnsubstitutedPrimaryConstructor() != null &&
                     superClass.getKind() != ClassKind.INTERFACE &&
                     !superClass.getConstructors().isEmpty() &&
-                    !descriptor.isHeader() && !isEffectivelyExternal(descriptor) &&
+                    !descriptor.isExpect() && !isEffectivelyExternal(descriptor) &&
                     !ErrorUtils.isError(superClass)
                 ) {
                     trace.report(SUPERTYPE_NOT_INITIALIZED.on(specifier));
@@ -382,7 +389,10 @@ public class BodyResolver {
 
         if (ktClass instanceof KtEnumEntry && DescriptorUtils.isEnumEntry(descriptor) && ktClass.getSuperTypeListEntries().isEmpty()) {
             assert scopeForConstructor != null : "Scope for enum class constructor should be non-null: " + descriptor;
-            resolveConstructorCallForEnumEntryWithoutInitializer((KtEnumEntry) ktClass, descriptor, scopeForConstructor, outerDataFlowInfo);
+            resolveConstructorCallForEnumEntryWithoutInitializer(
+                    (KtEnumEntry) ktClass, descriptor,
+                    scopeForConstructor, outerDataFlowInfo, primaryConstructorDelegationCall
+            );
         }
 
         for (KtSuperTypeListEntry delegationSpecifier : ktClass.getSuperTypeListEntries()) {
@@ -423,12 +433,13 @@ public class BodyResolver {
             @NotNull KtEnumEntry ktEnumEntry,
             @NotNull ClassDescriptor enumEntryDescriptor,
             @NotNull LexicalScope scopeForConstructor,
-            @NotNull DataFlowInfo outerDataFlowInfo
+            @NotNull DataFlowInfo outerDataFlowInfo,
+            @NotNull ResolvedCall<?>[] primaryConstructorDelegationCall
     ) {
         assert enumEntryDescriptor.getKind() == ClassKind.ENUM_ENTRY : "Enum entry expected: " + enumEntryDescriptor;
         ClassDescriptor enumClassDescriptor = (ClassDescriptor) enumEntryDescriptor.getContainingDeclaration();
         if (enumClassDescriptor.getKind() != ClassKind.ENUM_CLASS) return;
-        if (enumClassDescriptor.isHeader()) return;
+        if (enumClassDescriptor.isExpect()) return;
 
         List<ClassConstructorDescriptor> applicableConstructors = DescriptorUtilsKt.getConstructorForEmptyArgumentsList(enumClassDescriptor);
         if (applicableConstructors.size() != 1) {
@@ -441,7 +452,11 @@ public class BodyResolver {
         Call call = CallMaker.makeConstructorCallWithoutTypeArguments(ktCallEntry);
         trace.record(BindingContext.TYPE, ktCallEntry.getTypeReference(), enumClassDescriptor.getDefaultType());
         trace.record(BindingContext.CALL, ktEnumEntry, call);
-        callResolver.resolveFunctionCall(trace, scopeForConstructor, call, NO_EXPECTED_TYPE, outerDataFlowInfo, false);
+        OverloadResolutionResults<FunctionDescriptor> results =
+                callResolver.resolveFunctionCall(trace, scopeForConstructor, call, NO_EXPECTED_TYPE, outerDataFlowInfo, false);
+        if (primaryConstructorDelegationCall[0] == null) {
+            primaryConstructorDelegationCall[0] = results.getResultingCall();
+        }
     }
 
     // Returns a set of enum or sealed types of which supertypeOwner is an entry or a member
@@ -539,10 +554,21 @@ public class BodyResolver {
                         trace.report(DATA_CLASS_CANNOT_HAVE_CLASS_SUPERTYPES.on(typeReference));
                         addSupertype = false;
                     }
-                    else if (DescriptorUtils.isSubclass(classDescriptor, builtIns.getThrowable()) &&
-                             !supertypeOwner.getDeclaredTypeParameters().isEmpty()) {
-                        trace.report(GENERIC_THROWABLE_SUBCLASS.on(ktClassOrObject.getTypeParameterList()));
-                        addSupertype = false;
+                    else if (DescriptorUtils.isSubclass(classDescriptor, builtIns.getThrowable())) {
+                        if (!supertypeOwner.getDeclaredTypeParameters().isEmpty()) {
+                            trace.report(GENERIC_THROWABLE_SUBCLASS.on(ktClassOrObject.getTypeParameterList()));
+                            addSupertype = false;
+                        }
+                        else if (!supertypeOwner.getTypeConstructor().getParameters().isEmpty()) {
+                            if (languageVersionSettings
+                                    .supportsFeature(LanguageFeature.ProhibitInnerClassesOfGenericClassExtendingThrowable)) {
+                                trace.report(INNER_CLASS_OF_GENERIC_THROWABLE_SUBCLASS.on(ktClassOrObject));
+                                addSupertype = false;
+                            }
+                            else {
+                                trace.report(INNER_CLASS_OF_GENERIC_THROWABLE_SUBCLASS_WARNING.on(ktClassOrObject));
+                            }
+                        }
                     }
 
                     if (classAppeared) {
@@ -617,8 +643,8 @@ public class BodyResolver {
         if (classDescriptor.getConstructors().isEmpty()) {
             trace.report(ANONYMOUS_INITIALIZER_IN_INTERFACE.on(anonymousInitializer));
         }
-        if (classDescriptor.isHeader()) {
-            trace.report(HEADER_DECLARATION_WITH_BODY.on(anonymousInitializer));
+        if (classDescriptor.isExpect()) {
+            trace.report(EXPECTED_DECLARATION_WITH_BODY.on(anonymousInitializer));
         }
     }
 

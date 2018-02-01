@@ -1,13 +1,5 @@
 <idea-plugin>
   <extensions defaultExtensionNs="com.intellij">
-      <psi.referenceContributor
-          language="kotlin"
-          implementation="org.jetbrains.kotlin.idea.spring.references.KotlinSpringReferenceContributor"
-          order="before kotlinFilePathReferenceContributor" />
-      <psi.referenceContributor
-          language="kotlin"
-          implementation="org.jetbrains.kotlin.idea.jam.KotlinJamReferenceContributor"
-          order="before kotlinFilePathReferenceContributor" />
 
       <multiHostInjector implementation="org.jetbrains.kotlin.idea.spring.el.KotlinSpringELInjector"/>
 
@@ -19,7 +11,7 @@
                        groupBundle="resources.messages.SpringBundle"
                        groupKey="inspection.group.code"
                        groupPath="Spring,Spring Core"
-                       enabledByDefault="true"
+                       enabledByDefault="false"
                        level="WARNING"/>
       <localInspection language="kotlin"
                        displayName="Spring Facet Code Configuration (Kotlin)"

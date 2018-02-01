@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,12 +80,44 @@ open class LazyClassMemberScope(
         }
 
         addDataClassMethods(result, location)
+        addSyntheticFunctions(result, location)
         addSyntheticCompanionObject(result, location)
         addSyntheticNestedClasses(result, location)
 
         result.trimToSize()
         return result
     }
+
+    private val _variableNames: MutableSet<Name>
+        by lazy(LazyThreadSafetyMode.PUBLICATION) {
+            mutableSetOf<Name>().apply {
+                addAll(declarationProvider.getDeclarationNames())
+                thisDescriptor.typeConstructor.supertypes.flatMapTo(this) {
+                    it.memberScope.getVariableNames()
+                }
+            }
+        }
+
+    private val _functionNames: MutableSet<Name>
+            by lazy(LazyThreadSafetyMode.PUBLICATION) {
+                mutableSetOf<Name>().apply {
+                    addAll(declarationProvider.getDeclarationNames())
+                    thisDescriptor.typeConstructor.supertypes.flatMapTo(this) {
+                        it.memberScope.getFunctionNames()
+                    }
+
+                    addAll(getDataClassRelatedFunctionNames())
+                }
+            }
+
+    private fun getDataClassRelatedFunctionNames(): Collection<Name> {
+        val declarations = mutableListOf<DeclarationDescriptor>()
+        addDataClassMethods(declarations, NoLookupLocation.WHEN_GET_ALL_DESCRIPTORS)
+        return declarations.map { it.name }
+    }
+
+    override fun getVariableNames() = _variableNames
+    override fun getFunctionNames() = _functionNames
 
     private interface MemberExtractor<out T : CallableMemberDescriptor> {
         fun extract(extractFrom: KotlinType, name: Name): Collection<T>
@@ -220,6 +252,10 @@ open class LazyClassMemberScope(
         result.add(descriptor)
     }
 
+    private fun addSyntheticFunctions(result: MutableCollection<DeclarationDescriptor>, location: LookupLocation) {
+        result.addAll(c.syntheticResolveExtension.getSyntheticFunctionNames(thisDescriptor).flatMap { getContributedFunctions(it, location) }.toList())
+    }
+
     private fun addSyntheticNestedClasses(result: MutableCollection<DeclarationDescriptor>, location: LookupLocation) {
         result.addAll(c.syntheticResolveExtension.getSyntheticNestedClassNames(thisDescriptor).mapNotNull { getContributedClassifier(it, location) }.toList())
     }
@@ -338,11 +374,8 @@ open class LazyClassMemberScope(
 
         val hasPrimaryConstructor = classOrObject.hasExplicitPrimaryConstructor()
         if (!hasPrimaryConstructor) {
-            when (thisDescriptor.kind) {
-                ClassKind.INTERFACE -> return null
-                ClassKind.OBJECT, ClassKind.ENUM_CLASS -> if (thisDescriptor.isHeader) return null
-                else -> {}
-            }
+            if (thisDescriptor.isExpect && !DescriptorUtils.isEnumEntry(thisDescriptor)) return null
+            if (DescriptorUtils.isInterface(thisDescriptor)) return null
         }
 
         if (DescriptorUtils.canHaveDeclaredConstructors(thisDescriptor) || hasPrimaryConstructor) {

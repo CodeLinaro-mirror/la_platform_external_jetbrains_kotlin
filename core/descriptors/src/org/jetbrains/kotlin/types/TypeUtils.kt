@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.inference.isCaptured
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
+import org.jetbrains.kotlin.types.checker.NewCapturedType
+import org.jetbrains.kotlin.types.checker.NewTypeVariableConstructor
 import java.util.*
 
 enum class TypeNullability {
@@ -201,3 +203,8 @@ fun KotlinType.containsTypeProjectionsInTopLevelArguments(): Boolean {
     val possiblyInnerType = buildPossiblyInnerType() ?: return false
     return possiblyInnerType.arguments.any { it.isStarProjection || it.projectionKind != Variance.INVARIANT }
 }
+
+fun UnwrappedType.canHaveUndefinedNullability(): Boolean =
+        constructor is NewTypeVariableConstructor ||
+        constructor.declarationDescriptor is TypeParameterDescriptor ||
+        this is NewCapturedType

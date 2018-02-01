@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,14 @@ import com.intellij.codeHighlighting.Pass
 import com.intellij.codeInsight.daemon.GutterIconNavigationHandler
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
+import com.intellij.codeInsight.daemon.NavigateAction
 import com.intellij.codeInsight.daemon.impl.LineMarkerNavigator
 import com.intellij.codeInsight.daemon.impl.MarkerType
 import com.intellij.codeInsight.daemon.impl.PsiElementListNavigator
 import com.intellij.codeInsight.navigation.ListBackgroundUpdaterTask
 import com.intellij.icons.AllIcons
+import com.intellij.ide.util.PsiClassOrFunctionalExpressionListCellRenderer
+import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
@@ -34,18 +37,22 @@ import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.search.searches.ClassInheritorsSearch
 import org.jetbrains.kotlin.asJava.LightClassUtil
-import org.jetbrains.kotlin.asJava.getAccessorLightMethods
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.MemberDescriptor
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.idea.KotlinIcons
 import org.jetbrains.kotlin.idea.caches.resolve.findModuleDescriptor
+import org.jetbrains.kotlin.idea.caches.resolve.lightClasses.KtFakeLightClass
+import org.jetbrains.kotlin.idea.caches.resolve.lightClasses.KtFakeLightMethod
 import org.jetbrains.kotlin.idea.core.isInheritable
 import org.jetbrains.kotlin.idea.core.isOverridable
 import org.jetbrains.kotlin.idea.core.toDescriptor
-import org.jetbrains.kotlin.idea.highlighter.allImplementingCompatibleModules
+import org.jetbrains.kotlin.idea.facet.implementedDescriptor
+import org.jetbrains.kotlin.idea.facet.implementingDescriptors
+import org.jetbrains.kotlin.idea.search.declarationsSearch.toPossiblyFakeLightMethods
 import org.jetbrains.kotlin.idea.util.ProjectRootsUtil
+import org.jetbrains.kotlin.idea.util.module
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import java.awt.event.MouseEvent
@@ -98,15 +105,21 @@ class KotlinLineMarkerProvider : LineMarkerProvider {
         for (element in elements) {
             if (element !is KtNamedDeclaration) continue
 
-            if (element.hasModifier(KtTokens.HEADER_KEYWORD)) {
-                collectImplementationMarkers(element, result)
+            if (element.isExpectDeclaration()) {
+                collectActualMarkers(element, result)
             }
-            else if (element.hasModifier(KtTokens.IMPL_KEYWORD)) {
-                collectHeaderMarkers(element, result)
+            else if (element.isActualDeclaration()) {
+                collectExpectedMarkers(element, result)
             }
         }
     }
 }
+
+internal fun KtNamedDeclaration.isExpectDeclaration(): Boolean =
+        (toDescriptor() as? MemberDescriptor)?.isExpect == true
+
+internal fun KtNamedDeclaration.isActualDeclaration(): Boolean =
+        (toDescriptor() as? MemberDescriptor)?.isActual == true
 
 private val OVERRIDING_MARK: Icon = AllIcons.Gutter.OverridingMethod
 private val IMPLEMENTING_MARK: Icon = AllIcons.Gutter.ImplementingMethod
@@ -129,12 +142,20 @@ interface TestableLineMarkerNavigator {
     fun getTargetsPopupDescriptor(element: PsiElement?): NavigationPopupDescriptor?
 }
 
+private class SubclassRenderer: PsiClassOrFunctionalExpressionListCellRenderer() {
+    override fun getComparingObject(element: NavigatablePsiElement?): Comparable<Nothing> {
+        val baseText = super.getComparingObject(element)
+        val moduleName = element?.module?.name ?: return baseText
+        return "$baseText [$moduleName]"
+    }
+}
+
 private val SUBCLASSED_CLASS = MarkerType(
         "SUBCLASSED_CLASS",
         { getPsiClass(it)?.let { MarkerType.getSubclassedClassTooltip(it) } },
         object : LineMarkerNavigator() {
             override fun browse(e: MouseEvent?, element: PsiElement?) {
-                getPsiClass(element)?.let { MarkerType.navigateToSubclassedClass(e, it) }
+                getPsiClass(element)?.let { MarkerType.navigateToSubclassedClass(e, it, SubclassRenderer()) }
             }
         })
 
@@ -180,22 +201,25 @@ private val OVERRIDDEN_PROPERTY = object : MarkerType(
     }
 }
 
-private val PLATFORM_IMPLEMENTATION = MarkerType(
-        "PLATFORM_IMPLEMENTATION",
-        { it?.let { getPlatformImplementationTooltip(it.parent as KtDeclaration) } },
+private val PsiElement.markerDeclaration
+    get() = (this as? KtDeclaration) ?: (parent as? KtDeclaration)
+
+private val PLATFORM_ACTUAL = MarkerType(
+        "PLATFORM_ACTUAL",
+        { it?.let { getPlatformActualTooltip(it.markerDeclaration) } },
         object : LineMarkerNavigator() {
             override fun browse(e: MouseEvent?, element: PsiElement?) {
-                element?.let { navigateToPlatformImplementation(e, it.parent as KtDeclaration) }
+                element?.let { navigateToPlatformActual(e, it.markerDeclaration) }
             }
         }
 )
 
-private val HEADER_DECLARATION = MarkerType(
-        "HEADER_DECLARATION",
-        { it?.let { getHeaderDeclarationTooltip(it.parent as KtDeclaration) } },
+private val EXPECTED_DECLARATION = MarkerType(
+        "EXPECTED_DECLARATION",
+        { it?.let { getExpectedDeclarationTooltip(it.markerDeclaration) } },
         object : LineMarkerNavigator() {
             override fun browse(e: MouseEvent?, element: PsiElement?) {
-                element?.let { navigateToHeaderDeclaration(it.parent as KtDeclaration) }
+                element?.let { navigateToExpectedDeclaration(it.markerDeclaration) }
             }
         }
 )
@@ -219,15 +243,21 @@ private fun collectSuperDeclarationMarkers(declaration: KtDeclaration, result: M
     // NOTE: Don't store descriptors in line markers because line markers are not deleted while editing other files and this can prevent
     // clearing the whole BindingTrace.
 
-    result.add(LineMarkerInfo(
-            anchor,
-            anchor.textRange,
-            if (implements) IMPLEMENTING_MARK else OVERRIDING_MARK,
-            Pass.LINE_MARKERS,
-            SuperDeclarationMarkerTooltip,
-            SuperDeclarationMarkerNavigationHandler(),
-            GutterIconRenderer.Alignment.RIGHT
-    ))
+    val lineMarkerInfo = LineMarkerInfo(
+        anchor,
+        anchor.textRange,
+        if (implements) IMPLEMENTING_MARK else OVERRIDING_MARK,
+        Pass.LINE_MARKERS,
+        SuperDeclarationMarkerTooltip,
+        SuperDeclarationMarkerNavigationHandler(),
+        GutterIconRenderer.Alignment.RIGHT
+    )
+    NavigateAction.setNavigateAction(
+        lineMarkerInfo,
+        if (declaration is KtNamedFunction) "Go to super method" else "Go to super property",
+        IdeActions.ACTION_GOTO_SUPER
+    )
+    result.add(lineMarkerInfo)
 }
 
 private fun collectInheritedClassMarker(element: KtClass, result: MutableCollection<LineMarkerInfo<*>>) {
@@ -235,21 +265,27 @@ private fun collectInheritedClassMarker(element: KtClass, result: MutableCollect
         return
     }
 
-    val lightClass = element.toLightClass() ?: return
+    val lightClass = element.toLightClass() ?: KtFakeLightClass(element)
 
     if (ClassInheritorsSearch.search(lightClass, false).findFirst() == null) return
 
     val anchor = element.nameIdentifier ?: element
 
-    result.add(LineMarkerInfo(
-            anchor,
-            anchor.textRange,
-            if (element.isInterface()) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
-            Pass.LINE_MARKERS,
-            SUBCLASSED_CLASS.tooltip,
-            SUBCLASSED_CLASS.navigationHandler,
-            GutterIconRenderer.Alignment.RIGHT
-    ))
+    val lineMarkerInfo = LineMarkerInfo(
+        anchor,
+        anchor.textRange,
+        if (element.isInterface()) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
+        Pass.LINE_MARKERS,
+        SUBCLASSED_CLASS.tooltip,
+        SUBCLASSED_CLASS.navigationHandler,
+        GutterIconRenderer.Alignment.RIGHT
+    )
+    NavigateAction.setNavigateAction(
+        lineMarkerInfo,
+        if (element.isInterface()) "Go to implementations" else "Go to subclasses",
+        IdeActions.ACTION_GOTO_IMPLEMENTATION
+    )
+    result.add(lineMarkerInfo)
 }
 
 private fun collectOverriddenPropertyAccessors(properties: Collection<KtNamedDeclaration>,
@@ -257,10 +293,7 @@ private fun collectOverriddenPropertyAccessors(properties: Collection<KtNamedDec
     val mappingToJava = HashMap<PsiElement, KtNamedDeclaration>()
     for (property in properties) {
         if (property.isOverridable()) {
-            val accessorsPsiMethods = property.getAccessorLightMethods()
-            for (psiMethod in accessorsPsiMethods) {
-                mappingToJava.put(psiMethod, property)
-            }
+            property.toPossiblyFakeLightMethods().forEach { mappingToJava.put(it, property) }
             mappingToJava[property] = property
         }
     }
@@ -272,65 +305,91 @@ private fun collectOverriddenPropertyAccessors(properties: Collection<KtNamedDec
 
         val anchor = (property as? PsiNameIdentifierOwner)?.nameIdentifier ?: property
 
-        result.add(LineMarkerInfo(
-                anchor,
-                anchor.textRange,
-                if (isImplemented(property)) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
-                Pass.LINE_MARKERS,
-                OVERRIDDEN_PROPERTY.tooltip,
-                OVERRIDDEN_PROPERTY.navigationHandler,
-                GutterIconRenderer.Alignment.RIGHT
-        ))
+        val lineMarkerInfo = LineMarkerInfo(
+            anchor,
+            anchor.textRange,
+            if (isImplemented(property)) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
+            Pass.LINE_MARKERS,
+            OVERRIDDEN_PROPERTY.tooltip,
+            OVERRIDDEN_PROPERTY.navigationHandler,
+            GutterIconRenderer.Alignment.RIGHT
+        )
+        NavigateAction.setNavigateAction(
+            lineMarkerInfo,
+            "Go to overridden properties",
+            IdeActions.ACTION_GOTO_IMPLEMENTATION
+        )
+        result.add(lineMarkerInfo)
     }
 }
 
-private fun collectImplementationMarkers(declaration: KtNamedDeclaration,
-                                         result: MutableCollection<LineMarkerInfo<*>>) {
+private val KtNamedDeclaration.expectOrActualAnchor
+    get() =
+        nameIdentifier
+        ?: (this as? KtConstructor<*>)?.let {
+            it.getConstructorKeyword() ?: it.getValueParameterList()?.leftParenthesis
+        }
+        ?: this
+
+private fun collectActualMarkers(declaration: KtNamedDeclaration,
+                                 result: MutableCollection<LineMarkerInfo<*>>) {
 
     val descriptor = declaration.toDescriptor() as? MemberDescriptor ?: return
     val commonModuleDescriptor = declaration.containingKtFile.findModuleDescriptor()
 
-    if (commonModuleDescriptor.allImplementingCompatibleModules.none { it.hasImplementationsOf(descriptor) }) return
+    if (commonModuleDescriptor.implementingDescriptors.none { it.hasActualsFor(descriptor) }) return
 
-    val anchor = declaration.nameIdentifier ?: declaration
+    val anchor = declaration.expectOrActualAnchor
 
-    result.add(LineMarkerInfo(
-            anchor,
-            anchor.textRange,
-            KotlinIcons.FROM_HEADER,
-            Pass.LINE_MARKERS,
-            PLATFORM_IMPLEMENTATION.tooltip,
-            PLATFORM_IMPLEMENTATION.navigationHandler,
-            GutterIconRenderer.Alignment.RIGHT
-    ))
+    val lineMarkerInfo = LineMarkerInfo(
+        anchor,
+        anchor.textRange,
+        KotlinIcons.FROM_EXPECTED,
+        Pass.LINE_MARKERS,
+        PLATFORM_ACTUAL.tooltip,
+        PLATFORM_ACTUAL.navigationHandler,
+        GutterIconRenderer.Alignment.RIGHT
+    )
+    NavigateAction.setNavigateAction(
+        lineMarkerInfo,
+        "Go to actual declarations",
+        null
+    )
+    result.add(lineMarkerInfo)
 }
 
-private fun collectHeaderMarkers(declaration: KtNamedDeclaration,
-                                 result: MutableCollection<LineMarkerInfo<*>>) {
+private fun collectExpectedMarkers(declaration: KtNamedDeclaration,
+                                   result: MutableCollection<LineMarkerInfo<*>>) {
 
     val descriptor = declaration.toDescriptor() as? MemberDescriptor ?: return
     val platformModuleDescriptor = declaration.containingKtFile.findModuleDescriptor()
-    val commonModuleDescriptor = platformModuleDescriptor.commonModuleOrNull() ?: return
+    val commonModuleDescriptor = platformModuleDescriptor.implementedDescriptor ?: return
     if (!commonModuleDescriptor.hasDeclarationOf(descriptor)) return
 
-    val anchor = declaration.nameIdentifier ?: declaration
+    val anchor = declaration.expectOrActualAnchor
 
-    result.add(LineMarkerInfo(
-            anchor,
-            anchor.textRange,
-            KotlinIcons.FROM_IMPL,
-            Pass.LINE_MARKERS,
-            HEADER_DECLARATION.tooltip,
-            HEADER_DECLARATION.navigationHandler,
-            GutterIconRenderer.Alignment.RIGHT
-    ))
+    val lineMarkerInfo = LineMarkerInfo(
+        anchor,
+        anchor.textRange,
+        KotlinIcons.FROM_ACTUAL,
+        Pass.LINE_MARKERS,
+        EXPECTED_DECLARATION.tooltip,
+        EXPECTED_DECLARATION.navigationHandler,
+        GutterIconRenderer.Alignment.RIGHT
+    )
+    NavigateAction.setNavigateAction(
+        lineMarkerInfo,
+        "Go to expected declaration",
+        null
+    )
+    result.add(lineMarkerInfo)
 }
 
 private fun collectOverriddenFunctions(functions: Collection<KtNamedFunction>, result: MutableCollection<LineMarkerInfo<*>>) {
     val mappingToJava = HashMap<PsiElement, KtNamedFunction>()
     for (function in functions) {
         if (function.isOverridable()) {
-            val method = LightClassUtil.getLightClassMethod(function)
+            val method = LightClassUtil.getLightClassMethod(function) ?: KtFakeLightMethod.get(function)
             if (method != null) {
                 mappingToJava.put(method, function)
             }
@@ -345,13 +404,19 @@ private fun collectOverriddenFunctions(functions: Collection<KtNamedFunction>, r
 
         val anchor = function.nameIdentifier ?: function
 
-        result.add(LineMarkerInfo(
-                anchor,
-                anchor.textRange,
-                if (isImplemented(function)) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
-                Pass.LINE_MARKERS, OVERRIDDEN_FUNCTION.tooltip,
-                OVERRIDDEN_FUNCTION.navigationHandler,
-                GutterIconRenderer.Alignment.RIGHT
-        ))
+        val lineMarkerInfo = LineMarkerInfo(
+            anchor,
+            anchor.textRange,
+            if (isImplemented(function)) IMPLEMENTED_MARK else OVERRIDDEN_MARK,
+            Pass.LINE_MARKERS, OVERRIDDEN_FUNCTION.tooltip,
+            OVERRIDDEN_FUNCTION.navigationHandler,
+            GutterIconRenderer.Alignment.RIGHT
+        )
+        NavigateAction.setNavigateAction(
+            lineMarkerInfo,
+            "Go to overridden methods",
+            IdeActions.ACTION_GOTO_IMPLEMENTATION
+        )
+        result.add(lineMarkerInfo)
     }
 }

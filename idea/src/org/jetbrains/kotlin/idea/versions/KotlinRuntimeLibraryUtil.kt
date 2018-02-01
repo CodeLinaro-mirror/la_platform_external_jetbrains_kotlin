@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.projectRoots.JavaSdk
 import com.intellij.openapi.projectRoots.JavaSdkVersion
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.*
@@ -42,6 +41,7 @@ import com.intellij.util.indexing.ScalarIndexExtension
 import com.intellij.util.text.VersionComparatorUtil
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.idea.KotlinPluginUtil
 import org.jetbrains.kotlin.idea.configuration.*
 import org.jetbrains.kotlin.idea.framework.JavaRuntimeDetectionUtil
@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.idea.framework.isExternalLibrary
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.idea.util.projectStructure.allModules
+import org.jetbrains.kotlin.idea.util.projectStructure.version
 import org.jetbrains.kotlin.idea.util.runWithAlternativeResolveEnabled
 import org.jetbrains.kotlin.idea.vfilefinder.KotlinJavaScriptMetaFileIndex
 import org.jetbrains.kotlin.idea.vfilefinder.hasSomethingInPackage
@@ -60,6 +61,7 @@ import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.LibraryUtils
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
+import java.io.IOException
 import java.util.*
 
 fun getLibraryRootsWithAbiIncompatibleKotlinClasses(module: Module): Collection<BinaryVersionedFile<JvmMetadataVersion>> {
@@ -128,7 +130,15 @@ private fun updateJar(
     }
 
     val jarFileToReplace = getLocalJar(fileToReplace)!!
-    val newVFile = replaceFile(jarPath, jarFileToReplace)
+    val newVFile = try {
+        replaceFile(jarPath, jarFileToReplace)
+    } catch (e: IOException) {
+        Messages.showErrorDialog(project,
+                                 "Failed to update $jarPath: ${e.message}",
+                                 "Library update failed")
+        return
+    }
+
     if (newVFile != null) {
         val model = library.modifiableModel
         runWriteAction {
@@ -176,10 +186,22 @@ enum class LibraryJarDescriptor(val jarName: String,
     REFLECT_JAR(PathUtil.KOTLIN_JAVA_REFLECT_JAR, OrderRootType.CLASSES, false, KotlinPaths::getReflectPath),
     SCRIPT_RUNTIME_JAR(PathUtil.KOTLIN_JAVA_SCRIPT_RUNTIME_JAR, OrderRootType.CLASSES, true, KotlinPaths::getScriptRuntimePath),
     TEST_JAR(PathUtil.KOTLIN_TEST_JAR, OrderRootType.CLASSES, false, KotlinPaths::getKotlinTestPath),
+
+    @Deprecated("RUNTIME_JDK7_JAR should be used since 1.2")
     RUNTIME_JRE7_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JRE7_JAR, OrderRootType.CLASSES, false),
+    RUNTIME_JDK7_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JDK7_JAR, OrderRootType.CLASSES, false),
+
+    @Deprecated("RUNTIME_JDK8_JAR should be used since 1.2")
     RUNTIME_JRE8_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JRE8_JAR, OrderRootType.CLASSES, false),
+    RUNTIME_JDK8_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JDK8_JAR, OrderRootType.CLASSES, false),
+
+    @Deprecated("RUNTIME_JDK7_SOURCES_JAR should be used since 1.2")
     RUNTIME_JRE7_SOURCES_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JRE7_SRC_JAR, OrderRootType.SOURCES, false),
+    RUNTIME_JDK7_SOURCES_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JDK7_SRC_JAR, OrderRootType.SOURCES, false),
+
+    @Deprecated("RUNTIME_JDK8_SOURCES_JAR should be used since 1.2")
     RUNTIME_JRE8_SOURCES_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JRE8_SRC_JAR, OrderRootType.SOURCES, false),
+    RUNTIME_JDK8_SOURCES_JAR(PathUtil.KOTLIN_JAVA_RUNTIME_JDK8_SRC_JAR, OrderRootType.SOURCES, false),
 
     RUNTIME_SRC_JAR(PathUtil.KOTLIN_JAVA_STDLIB_SRC_JAR, OrderRootType.SOURCES, false, KotlinPaths::getStdlibSourcesPath) {
         override fun findExistingJar(library: Library): VirtualFile? {
@@ -201,40 +223,8 @@ enum class LibraryJarDescriptor(val jarName: String,
     fun getPathInPlugin() = getPath(PathUtil.kotlinPathsForIdeaPlugin)
 }
 
-fun bundledRuntimeVersion(): String {
-    return bundledRuntimeBuildNumber ?: pluginRuntimeVersion(KotlinPluginUtil.getPluginVersion())
-}
+fun bundledRuntimeVersion(): String = KotlinCompilerVersion.VERSION
 
-private val bundledRuntimeBuildNumber: String? by lazy {
-    val file = PathUtil.kotlinPathsForIdeaPlugin.buildNumberFile
-    if (file.exists()) file.readText().trim() else null
-}
-
-private val PLUGIN_VERSIONS_SEPARATORS = arrayOf("Idea", "IJ", "release", "dev", "Studio")
-
-fun pluginRuntimeVersion(pluginVersion: String): String {
-    var placeToSplit = -1
-
-    for (separator in PLUGIN_VERSIONS_SEPARATORS) {
-        val ideaPatternIndex = StringUtil.indexOf(pluginVersion, separator)
-        if (ideaPatternIndex >= 2 && Character.isDigit(pluginVersion[ideaPatternIndex - 2])) {
-            placeToSplit = ideaPatternIndex - 1
-            break
-        }
-    }
-
-    if (placeToSplit == -1) {
-        for (i in 1..pluginVersion.length - 1) {
-            val ch = pluginVersion[i]
-            if (Character.isLetter(ch) && pluginVersion[i - 1] == '.') {
-                placeToSplit = i - 1
-                break
-            }
-        }
-    }
-
-    return if (placeToSplit != -1) pluginVersion.substring(0, placeToSplit) else pluginVersion
-}
 
 fun getLocalJar(kotlinRuntimeJar: VirtualFile?): VirtualFile? {
     if (kotlinRuntimeJar == null) return null
@@ -334,10 +324,18 @@ fun getStdlibArtifactId(sdk: Sdk?, version: String): String {
         return MAVEN_STDLIB_ID
     }
 
-    val sdkVersion = sdk?.let { JavaSdk.getInstance().getVersion(it) }
-    return when (sdkVersion) {
-        JavaSdkVersion.JDK_1_8, JavaSdkVersion.JDK_1_9 -> MAVEN_STDLIB_ID_JRE8
-        JavaSdkVersion.JDK_1_7 -> MAVEN_STDLIB_ID_JRE7
+    val sdkVersion = sdk?.version
+    if (hasJdkLikeUpdatedRuntime(version)) {
+        return when {
+            sdkVersion != null && sdkVersion.isAtLeast(JavaSdkVersion.JDK_1_8) -> MAVEN_STDLIB_ID_JDK8
+            sdkVersion == JavaSdkVersion.JDK_1_7 -> MAVEN_STDLIB_ID_JDK7
+            else -> MAVEN_STDLIB_ID
+        }
+    }
+
+    return when {
+        sdkVersion != null && sdkVersion.isAtLeast(JavaSdkVersion.JDK_1_8) -> MAVEN_STDLIB_ID_JRE8
+        sdkVersion == JavaSdkVersion.JDK_1_7 -> MAVEN_STDLIB_ID_JRE7
         else -> MAVEN_STDLIB_ID
     }
 }
@@ -346,22 +344,80 @@ fun getDefaultJvmTarget(sdk: Sdk?, version: String): JvmTarget? {
     if (!hasJreSpecificRuntime(version)) {
         return null
     }
-    val sdkVersion = sdk?.let { JavaSdk.getInstance().getVersion(it) }
+    val sdkVersion = sdk?.version
     if (sdkVersion != null && sdkVersion.isAtLeast(JavaSdkVersion.JDK_1_8)) {
         return JvmTarget.JVM_1_8
     }
     return null
 }
 
+fun hasJdkLikeUpdatedRuntime(version: String): Boolean =
+        VersionComparatorUtil.compare(version, "1.2.0-rc-39") >= 0 ||
+        isSnapshot(version) ||
+        version == "default_version" /* for tests */
+
 fun hasJreSpecificRuntime(version: String): Boolean =
         VersionComparatorUtil.compare(version, "1.1.0") >= 0 ||
         isSnapshot(version) ||
         version == "default_version" /* for tests */
 
-val MAVEN_STDLIB_ID = "kotlin-stdlib"
-val MAVEN_STDLIB_ID_JRE7 = "kotlin-stdlib-jre7"
-val MAVEN_STDLIB_ID_JRE8 = "kotlin-stdlib-jre8"
-val MAVEN_JS_STDLIB_ID = "kotlin-stdlib-js"
+val MAVEN_STDLIB_ID = PathUtil.KOTLIN_JAVA_STDLIB_NAME
+
+val MAVEN_STDLIB_ID_JRE7 = PathUtil.KOTLIN_JAVA_RUNTIME_JRE7_NAME
+val MAVEN_STDLIB_ID_JDK7 = PathUtil.KOTLIN_JAVA_RUNTIME_JDK7_NAME
+
+val MAVEN_STDLIB_ID_JRE8 = PathUtil.KOTLIN_JAVA_RUNTIME_JRE8_NAME
+val MAVEN_STDLIB_ID_JDK8 = PathUtil.KOTLIN_JAVA_RUNTIME_JDK8_NAME
+
+val MAVEN_JS_STDLIB_ID = PathUtil.JS_LIB_NAME
+val MAVEN_JS_TEST_ID = PathUtil.KOTLIN_TEST_JS_NAME
+
 val MAVEN_OLD_JS_STDLIB_ID = "kotlin-js-library"
 val MAVEN_COMMON_STDLIB_ID = "kotlin-stdlib-common" // TODO: KotlinCommonMavenConfigurator
+val MAVEN_TEST_ID = PathUtil.KOTLIN_TEST_NAME
+val MAVEN_TEST_JUNIT_ID = "kotlin-test-junit"
+val MAVEN_COMMON_TEST_ID = "kotlin-test-common"
+val MAVEN_COMMON_TEST_ANNOTATIONS_ID = "kotlin-test-annotations-common"
+
 val LOG = Logger.getInstance("org.jetbrains.kotlin.idea.versions.KotlinRuntimeLibraryUtilKt")
+
+data class LibInfo(
+        val groupId: String,
+        val name: String
+)
+
+data class DeprecatedLibInfo(
+        val old: LibInfo,
+        val new: LibInfo,
+        val outdatedAfterVersion: String,
+        val message: String
+)
+
+private fun deprecatedLib(
+        oldGroupId: String,
+        oldName: String,
+        newGroupId: String = oldGroupId,
+        newName: String = oldName,
+        outdatedAfterVersion: String,
+        message: String): DeprecatedLibInfo {
+    return DeprecatedLibInfo(
+            old = LibInfo(groupId = oldGroupId, name = oldName),
+            new = LibInfo(groupId = newGroupId, name = newName),
+            outdatedAfterVersion = outdatedAfterVersion,
+            message = message
+    )
+}
+
+val DEPRECATED_LIBRARIES_INFORMATION = listOf(
+        deprecatedLib(
+                oldGroupId = "org.jetbrains.kotlin",
+                oldName = PathUtil.KOTLIN_JAVA_RUNTIME_JRE7_NAME, newName = PathUtil.KOTLIN_JAVA_RUNTIME_JDK7_NAME,
+                outdatedAfterVersion = "1.2.0-rc-39",
+                message = "${PathUtil.KOTLIN_JAVA_RUNTIME_JRE7_NAME} is deprecated since 1.2.0 and should be replaced with ${PathUtil.KOTLIN_JAVA_RUNTIME_JDK7_NAME}"),
+
+        deprecatedLib(
+                oldGroupId = "org.jetbrains.kotlin",
+                oldName = PathUtil.KOTLIN_JAVA_RUNTIME_JRE8_NAME, newName = PathUtil.KOTLIN_JAVA_RUNTIME_JDK8_NAME,
+                outdatedAfterVersion = "1.2.0-rc-39",
+                message = "${PathUtil.KOTLIN_JAVA_RUNTIME_JRE8_NAME} is deprecated since 1.2.0 and should be replaced with ${PathUtil.KOTLIN_JAVA_RUNTIME_JDK8_NAME}")
+)

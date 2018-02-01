@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.container.useImpl
 import org.jetbrains.kotlin.container.useInstance
 import org.jetbrains.kotlin.context.ModuleContext
 import org.jetbrains.kotlin.extensions.StorageComponentContainerContributor
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.*
@@ -127,6 +128,7 @@ fun createContainerForLazyLocalClassifierAnalyzer(
 
     useInstance(localClassDescriptorHolder)
     useInstance(lookupTracker)
+    useInstance(ExpectActualTracker.DoNothing)
 
     useImpl<LazyTopDownAnalyzer>()
 
@@ -170,7 +172,7 @@ fun createLazyResolveSession(moduleContext: ModuleContext, files: Collection<KtF
                 moduleContext,
                 FileBasedDeclarationProviderFactory(moduleContext.storageManager, files),
                 BindingTraceContext(),
-                TargetPlatform.Default,
+                TargetPlatform.Common,
                 TargetPlatformVersion.NoVersion,
                 CompilerEnvironment,
                 LanguageVersionSettingsImpl.DEFAULT
