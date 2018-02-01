@@ -60,7 +60,7 @@ class UseExpressionBodyInspection(private val convertEmptyToUnit: Boolean) : Abs
         val toHighlight = valueStatement.toHighlight()
         return when {
             valueStatement !is KtReturnExpression -> Status(toHighlight, "block body", INFORMATION)
-            valueStatement.returnedExpression is KtWhenExpression -> Status(toHighlight, "'return when'", GENERIC_ERROR_OR_WARNING)
+            valueStatement.returnedExpression is KtWhenExpression -> Status(toHighlight, "'return when'", INFORMATION)
             valueStatement.isOneLiner() -> Status(toHighlight, "one-line return", GENERIC_ERROR_OR_WARNING)
             else -> Status(toHighlight, "return", INFORMATION)
         }
@@ -72,17 +72,28 @@ class UseExpressionBodyInspection(private val convertEmptyToUnit: Boolean) : Abs
                     super.visitDeclaration(declaration)
 
                     declaration as? KtDeclarationWithBody ?: return
-                    val (toHighlight, suffix, highlightType) = statusFor(declaration) ?: return
+                    val (toHighlightElement, suffix, highlightType) = statusFor(declaration) ?: return
+                    // Change range to start with left brace
+                    val hasHighlighting = highlightType != INFORMATION
+                    val toHighlightRange = toHighlightElement?.textRange?.let {
+                        if (hasHighlighting) {
+                            it
+                        }
+                        else {
+                            // Extend range to [left brace..end of highlight element]
+                            val offset = (declaration.blockExpression()?.lBrace?.startOffset ?: it.startOffset) - it.startOffset
+                            it.shiftRight(offset).grown(-offset)
+                        }
+                    }
 
-                    val problemDescriptor = holder.manager.createProblemDescriptor(
+                    holder.registerProblemWithoutOfflineInformation(
                             declaration,
-                            toHighlight?.textRange?.shiftRight(-declaration.startOffset),
                             "Use expression body instead of $suffix",
-                            highlightType,
                             isOnTheFly,
+                            highlightType,
+                            toHighlightRange?.shiftRight(-declaration.startOffset),
                             ConvertToExpressionBodyFix()
                     )
-                    holder.registerProblem(problemDescriptor)
                 }
             }
 

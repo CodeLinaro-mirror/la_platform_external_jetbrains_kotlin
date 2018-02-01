@@ -48,6 +48,7 @@ class LazyTopDownAnalyzer(
         private val qualifiedExpressionResolver: QualifiedExpressionResolver,
         private val identifierChecker: IdentifierChecker,
         private val languageVersionSettings: LanguageVersionSettings,
+        private val deprecationResolver: DeprecationResolver,
         private val classifierUsageCheckers: Iterable<ClassifierUsageChecker>
 ) {
     fun analyzeDeclarations(
@@ -215,7 +216,7 @@ class LazyTopDownAnalyzer(
 
         resolveImportsInAllFiles(c)
 
-        ClassifierUsageChecker.check(declarations, trace, languageVersionSettings, classifierUsageCheckers)
+        ClassifierUsageChecker.check(declarations, trace, languageVersionSettings, deprecationResolver, classifierUsageCheckers)
 
         return c
     }
@@ -228,8 +229,12 @@ class LazyTopDownAnalyzer(
 
     private fun resolveImportsInAllFiles(c: TopDownAnalysisContext) {
         for (file in c.files + c.scripts.keys.map { it.containingKtFile }) {
-            fileScopeProvider.getImportResolver(file).forceResolveAllImports()
+            resolveImportsInFile(file)
         }
+    }
+
+    fun resolveImportsInFile(file: KtFile) {
+        fileScopeProvider.getImportResolver(file).forceResolveAllImports()
     }
 
     private fun createTypeAliasDescriptors(c: TopDownAnalysisContext, topLevelFqNames: Multimap<FqName, KtElement>, typeAliases: List<KtTypeAlias>) {

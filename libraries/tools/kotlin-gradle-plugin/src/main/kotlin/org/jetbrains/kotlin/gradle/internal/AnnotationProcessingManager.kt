@@ -22,20 +22,21 @@ import org.gradle.api.UnknownDomainObjectException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.api.tasks.compile.JavaCompile
-import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.com.intellij.lang.Language
-import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
-import org.jetbrains.kotlin.com.intellij.psi.PsiFileFactory
-import org.jetbrains.kotlin.com.intellij.psi.PsiJavaFile
-import org.jetbrains.kotlin.com.intellij.psi.impl.PsiFileFactoryImpl
-import org.jetbrains.kotlin.config.CompilerConfiguration
+//import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
+//import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+//import com.intellij.lang.Language
+//import com.intellij.openapi.util.Disposer
+//import com.intellij.psi.PsiFileFactory
+//import com.intellij.psi.PsiJavaFile
+//import com.intellij.psi.impl.PsiFileFactoryImpl
+//import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptionsImpl
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
 import org.jetbrains.kotlin.gradle.tasks.kapt.generateAnnotationProcessorWrapper
 import org.jetbrains.kotlin.gradle.tasks.kapt.generateKotlinAptAnnotation
+import org.jetbrains.kotlin.gradle.tasks.isBuildCacheSupported
 import java.io.File
 import java.io.IOException
 import java.util.zip.ZipFile
@@ -75,8 +76,13 @@ internal fun Project.initKapt(
         kotlinAfterJavaTask.source(kaptManager.aptOutputDir)
         subpluginEnvironment.addSubpluginOptions(this, kotlinAfterJavaTask, javaTask, null, androidProjectHandler, null)
 
-        javaTask.doLast {
-            moveGeneratedJavaFilesToCorrespondingDirectories(kaptManager.aptOutputDir)
+//        javaTask.doLast {
+//            moveGeneratedJavaFilesToCorrespondingDirectories(kaptManager.aptOutputDir)
+//        }
+
+        if (isBuildCacheSupported()) {
+            // Since Kapt1 is about to be dropped, disable the cache for it:
+            kotlinAfterJavaTask.outputs.doNotCacheIf("Caching is not supported with deprecated Kapt1") { true }
         }
     } else {
         kotlinAfterJavaTask = null
@@ -103,6 +109,12 @@ internal fun Project.initKapt(
     }
 
     kotlinTask.kaptOptions.annotationsFile = kaptManager.getAnnotationFile()
+
+    if (isBuildCacheSupported()) {
+        // Since Kapt1 is about to be dropped, disable the cache for it:
+        kotlinTask.outputs.doNotCacheIf("Caching is not supported with deprecated Kapt1") { true }
+    }
+
     return kotlinAfterJavaTask
 }
 
@@ -392,27 +404,27 @@ class AnnotationProcessingManager(
 // Previously this worked because generated files were added to classpath.
 // However in that case incremental compilation worked unreliable with generated files.
 // The solution is to post-process generated java files and move them to corresponding packages
-fun moveGeneratedJavaFilesToCorrespondingDirectories(generatedJavaSourceRoot: File) {
-    val javaFiles = generatedJavaSourceRoot.walk().filter { it.extension.equals("java", ignoreCase = true) }.toList()
-
-    if (javaFiles.isEmpty()) return
-
-    val rootDisposable = Disposer.newDisposable()
-    val configuration = CompilerConfiguration()
-    val environment = KotlinCoreEnvironment.createForProduction(rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
-    val project = environment.project
-    val psiFileFactory = PsiFileFactory.getInstance(project) as PsiFileFactoryImpl
-
-    for (javaFile in javaFiles) {
-        val psiFile = psiFileFactory.createFileFromText(javaFile.nameWithoutExtension, Language.findLanguageByID("JAVA")!!, javaFile.readText())
-        val packageName = (psiFile as? PsiJavaFile)?.packageName ?: continue
-        val expectedDir = File(generatedJavaSourceRoot, packageName.replace('.', '/'))
-        val expectedFile = File(expectedDir, javaFile.name)
-
-        if (javaFile != expectedFile) {
-            expectedFile.parentFile.mkdirs()
-            javaFile.copyTo(expectedFile, overwrite = true)
-            javaFile.delete()
-        }
-    }
-}
+//fun moveGeneratedJavaFilesToCorrespondingDirectories(generatedJavaSourceRoot: File) {
+//    val javaFiles = generatedJavaSourceRoot.walk().filter { it.extension.equals("java", ignoreCase = true) }.toList()
+//
+//    if (javaFiles.isEmpty()) return
+//
+//    val rootDisposable = Disposer.newDisposable()
+//    val configuration = CompilerConfiguration()
+//    val environment = KotlinCoreEnvironment.createForProduction(rootDisposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
+//    val project = environment.project
+//    val psiFileFactory = PsiFileFactory.getInstance(project) as PsiFileFactoryImpl
+//
+//    for (javaFile in javaFiles) {
+//        val psiFile = psiFileFactory.createFileFromText(javaFile.nameWithoutExtension, Language.findLanguageByID("JAVA")!!, javaFile.readText())
+//        val packageName = (psiFile as? PsiJavaFile)?.packageName ?: continue
+//        val expectedDir = File(generatedJavaSourceRoot, packageName.replace('.', '/'))
+//        val expectedFile = File(expectedDir, javaFile.name)
+//
+//        if (javaFile != expectedFile) {
+//            expectedFile.parentFile.mkdirs()
+//            javaFile.copyTo(expectedFile, overwrite = true)
+//            javaFile.delete()
+//        }
+//    }
+//}

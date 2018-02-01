@@ -28,6 +28,7 @@ import com.intellij.openapi.roots.impl.libraries.LibraryEx
 import com.intellij.openapi.roots.libraries.Library
 import com.intellij.openapi.util.AsyncResult
 import org.jdom.Element
+import org.jdom.Text
 import org.jetbrains.idea.maven.importing.MavenImporter
 import org.jetbrains.idea.maven.importing.MavenRootModelAdapter
 import org.jetbrains.idea.maven.model.MavenPlugin
@@ -39,15 +40,14 @@ import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
-import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.config.LanguageVersion
-import org.jetbrains.kotlin.config.TargetPlatformKind
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.extensions.ProjectExtensionDescriptor
 import org.jetbrains.kotlin.idea.facet.*
 import org.jetbrains.kotlin.idea.framework.detectLibraryKind
 import org.jetbrains.kotlin.idea.framework.libraryKind
 import org.jetbrains.kotlin.idea.maven.configuration.KotlinMavenConfigurator
+import org.jetbrains.kotlin.utils.SmartList
+import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
 import java.util.*
 
@@ -160,7 +160,22 @@ class KotlinMavenImporter : MavenImporter(KOTLIN_PLUGIN_GROUP_ID, KOTLIN_PLUGIN_
             }
         }
 
-        val additionalArgs = configuration?.getChild("args")?.getChildren("arg")?.mapNotNull { it.text }.orEmpty()
+        val additionalArgs = SmartList<String>().apply {
+            val argsElement = configuration?.getChild("args")
+
+            argsElement?.content?.forEach { argElement ->
+                when (argElement) {
+                    is Text -> {
+                        argElement.text?.let { addAll(splitArgumentString(it)) }
+                    }
+                    is Element -> {
+                        if (argElement.name == "arg") {
+                            addIfNotNull(argElement.text)
+                        }
+                    }
+                }
+            }
+        }
         parseCommandLineArguments(additionalArgs, arguments)
 
         return ArgumentUtils.convertArgumentsToStringList(arguments)
@@ -176,7 +191,7 @@ class KotlinMavenImporter : MavenImporter(KOTLIN_PLUGIN_GROUP_ID, KOTLIN_PLUGIN_
         val mavenPlugin = mavenProject.findPlugin(KotlinMavenConfigurator.GROUP_ID, KotlinMavenConfigurator.MAVEN_PLUGIN_ID) ?: return
         val compilerVersion = mavenPlugin.version ?: LanguageVersion.LATEST_STABLE.versionString
         val kotlinFacet = module.getOrCreateFacet(modifiableModelsProvider, false)
-        val platform = detectPlatformByExecutions(mavenProject) ?: detectPlatformByLibraries(mavenProject)
+        val platform = detectPlatform(mavenProject)
 
         kotlinFacet.configureFacet(compilerVersion, LanguageFeature.Coroutines.defaultState, platform, modifiableModelsProvider)
         val configuredPlatform = kotlinFacet.configuration.settings.targetPlatformKind!!
@@ -190,7 +205,12 @@ class KotlinMavenImporter : MavenImporter(KOTLIN_PLUGIN_GROUP_ID, KOTLIN_PLUGIN_
             parseCompilerArgumentsToFacet(executionArguments, emptyList(), kotlinFacet, modifiableModelsProvider)
         }
         MavenProjectImportHandler.getInstances(module.project).forEach { it(kotlinFacet, mavenProject) }
+        setImplementedModuleName(kotlinFacet, mavenProject, module)
+        kotlinFacet.noVersionAutoAdvance()
     }
+
+    private fun detectPlatform(mavenProject: MavenProject) = detectPlatformByExecutions(mavenProject) ?:
+                                                             detectPlatformByLibraries(mavenProject)
 
     private fun detectPlatformByExecutions(mavenProject: MavenProject): TargetPlatformKind<*>? {
         return mavenProject.findPlugin(KOTLIN_PLUGIN_GROUP_ID, KOTLIN_PLUGIN_ARTIFACT_ID)?.executions?.flatMap { it.goals }?.mapNotNull { goal ->
@@ -254,6 +274,18 @@ class KotlinMavenImporter : MavenImporter(KOTLIN_PLUGIN_GROUP_ID, KOTLIN_PLUGIN_
                 plugin.configurationElement.sourceDirectories().map { SourceType.PROD to it } +
                 plugin.executions.flatMap { execution -> execution.configurationElement.sourceDirectories().map { execution.sourceType() to it } }
             }.distinct()
+
+    private fun setImplementedModuleName(kotlinFacet: KotlinFacet, mavenProject: MavenProject, module: Module) {
+        if (kotlinFacet.configuration.settings.targetPlatformKind == TargetPlatformKind.Common) {
+            kotlinFacet.configuration.settings.implementedModuleName = null
+        } else {
+            val manager = MavenProjectsManager.getInstance(module.project)
+            val mavenDependencies = mavenProject.dependencies.mapNotNull { manager?.findProject(it) }
+            val implemented = mavenDependencies.singleOrNull { detectPlatformByExecutions(it) == TargetPlatformKind.Common }
+
+            kotlinFacet.configuration.settings.implementedModuleName = implemented?.let { manager.findModule(it)?.name ?: it.displayName }
+        }
+    }
 }
 
 private fun MavenPlugin.isKotlinPlugin() = groupId == KotlinMavenImporter.KOTLIN_PLUGIN_GROUP_ID && artifactId == KotlinMavenImporter.KOTLIN_PLUGIN_ARTIFACT_ID

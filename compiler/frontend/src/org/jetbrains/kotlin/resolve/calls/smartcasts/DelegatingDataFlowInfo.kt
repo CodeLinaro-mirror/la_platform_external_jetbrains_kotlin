@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,17 @@
 
 package org.jetbrains.kotlin.resolve.calls.smartcasts
 
-import com.google.common.collect.SetMultimap
 import com.google.common.collect.LinkedHashMultimap
+import com.google.common.collect.SetMultimap
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.resolve.calls.smartcasts.Nullability.NOT_NULL
-import org.jetbrains.kotlin.types.KotlinType
-import org.jetbrains.kotlin.types.TypeUtils
-import org.jetbrains.kotlin.types.isError
-import org.jetbrains.kotlin.types.isFlexible
-import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
-import org.jetbrains.kotlin.utils.newLinkedHashSetWithExpectedSize
+import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.NewCapturedTypeConstructor
 import org.jetbrains.kotlin.types.typeUtil.contains
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
+import org.jetbrains.kotlin.utils.newLinkedHashSetWithExpectedSize
 import java.util.*
 
 internal class DelegatingDataFlowInfo private constructor(
@@ -96,9 +93,14 @@ internal class DelegatingDataFlowInfo private constructor(
             nullability: Nullability,
             languageVersionSettings: LanguageVersionSettings,
             typeInfo: SetMultimap<DataFlowValue, KotlinType>? = null,
-            affectReceiver: Boolean = true
+            affectReceiver: Boolean = true,
+            // TODO: remove me in version 1.3! I'm very dirty hack!
+            // In normal circumstances this should be always true
+            recordUnstable: Boolean = true
     ): Boolean {
-        map.put(value, nullability)
+        if (value.isStable || recordUnstable) {
+            map.put(value, nullability)
+        }
 
         val identifierInfo = value.identifierInfo
         if (affectReceiver && !nullability.canBeNull() &&
@@ -108,7 +110,8 @@ internal class DelegatingDataFlowInfo private constructor(
                     val receiverType = identifierInfo.receiverType
                     if (identifierInfo.safe && receiverType != null) {
                         val receiverValue = DataFlowValue(identifierInfo.receiverInfo, receiverType)
-                        putNullabilityAndTypeInfo(map, receiverValue, nullability, languageVersionSettings, typeInfo)
+                        putNullabilityAndTypeInfo(map, receiverValue, nullability,
+                                                  languageVersionSettings, typeInfo, recordUnstable = recordUnstable)
                     }
                 }
                 is IdentifierInfo.SafeCast -> {
@@ -118,12 +121,16 @@ internal class DelegatingDataFlowInfo private constructor(
                         languageVersionSettings.supportsFeature(LanguageFeature.SafeCastCheckBoundSmartCasts)) {
 
                         val subjectValue = DataFlowValue(identifierInfo.subjectInfo, subjectType)
-                        putNullabilityAndTypeInfo(map, subjectValue, nullability, languageVersionSettings, typeInfo)
-                        typeInfo?.put(subjectValue, targetType)
+                        putNullabilityAndTypeInfo(map, subjectValue, nullability,
+                                                  languageVersionSettings, typeInfo, recordUnstable = false)
+                        if (subjectValue.isStable) {
+                            typeInfo?.put(subjectValue, targetType)
+                        }
                     }
                 }
                 is IdentifierInfo.Variable -> identifierInfo.bound?.let {
-                    putNullabilityAndTypeInfo(map, it, nullability, languageVersionSettings, typeInfo)
+                    putNullabilityAndTypeInfo(map, it, nullability,
+                                              languageVersionSettings, typeInfo, recordUnstable = recordUnstable)
                 }
             }
         }
@@ -131,10 +138,15 @@ internal class DelegatingDataFlowInfo private constructor(
         return nullability != getCollectedNullability(value)
     }
 
-    override fun getCollectedTypes(key: DataFlowValue) = getCollectedTypes(key, true)
+    override fun getCollectedTypes(key: DataFlowValue, languageVersionSettings: LanguageVersionSettings) =
+            getCollectedTypes(key, true, languageVersionSettings)
 
-    private fun getCollectedTypes(key: DataFlowValue, enrichWithNotNull: Boolean): Set<KotlinType> {
-        val types = collectTypesFromMeAndParents(key)
+    private fun getCollectedTypes(
+            key: DataFlowValue,
+            enrichWithNotNull: Boolean,
+            languageVersionSettings: LanguageVersionSettings
+    ): Set<KotlinType> {
+        val types = collectTypesFromMeAndParents(key, languageVersionSettings)
         if (!enrichWithNotNull || getCollectedNullability(key).canBeNull()) {
             return types
         }
@@ -142,20 +154,34 @@ internal class DelegatingDataFlowInfo private constructor(
         val enrichedTypes = newLinkedHashSetWithExpectedSize<KotlinType>(types.size + 1)
         val originalType = key.type
         for (type in types) {
-            enrichedTypes.add(TypeUtils.makeNotNullable(type))
+            enrichedTypes.add(type.makeReallyNotNullIfNeeded(languageVersionSettings))
         }
-        if (originalType.isMarkedNullable) {
-            enrichedTypes.add(TypeUtils.makeNotNullable(originalType))
+        if (originalType.canBeDefinitelyNotNullOrNotNull(languageVersionSettings)) {
+            enrichedTypes.add(originalType.makeReallyNotNullIfNeeded(languageVersionSettings))
         }
 
         return enrichedTypes
     }
 
-    override fun getStableTypes(key: DataFlowValue) = getStableTypes(key, true)
+    override fun getStableTypes(key: DataFlowValue, languageVersionSettings: LanguageVersionSettings) =
+            getStableTypes(key, true, languageVersionSettings)
 
-    private fun getStableTypes(key: DataFlowValue, enrichWithNotNull: Boolean) =
-            if (!key.isStable) LinkedHashSet() else getCollectedTypes(key, enrichWithNotNull)
+    private fun getStableTypes(key: DataFlowValue, enrichWithNotNull: Boolean, languageVersionSettings: LanguageVersionSettings) =
+            if (!key.isStable) LinkedHashSet() else getCollectedTypes(key, enrichWithNotNull, languageVersionSettings)
 
+    private fun KotlinType.canBeDefinitelyNotNullOrNotNull(settings: LanguageVersionSettings): Boolean {
+        return if (settings.supportsFeature(LanguageFeature.NewInference))
+            this.isMarkedNullable || DefinitelyNotNullType.makesSenseToBeDefinitelyNotNull(this.unwrap())
+        else
+            this.isMarkedNullable
+    }
+
+    private fun KotlinType.makeReallyNotNullIfNeeded(settings: LanguageVersionSettings): KotlinType {
+        return if (settings.supportsFeature(LanguageFeature.NewInference))
+            this.unwrap().makeDefinitelyNotNullOrNotNull()
+        else
+            TypeUtils.makeNotNullable(this)
+    }
     /**
      * Call this function to clear all data flow information about
      * the given data flow value.
@@ -174,7 +200,7 @@ internal class DelegatingDataFlowInfo private constructor(
         putNullabilityAndTypeInfo(nullability, a, nullabilityOfB, languageVersionSettings, affectReceiver = false)
 
         val newTypeInfo = newTypeInfo()
-        var typesForB = getStableTypes(b)
+        var typesForB = getStableTypes(b, languageVersionSettings)
         // Own type of B must be recorded separately, e.g. for a constant
         // But if its type is the same as A, there is no reason to do it
         // because own type is not saved in this set
@@ -201,8 +227,8 @@ internal class DelegatingDataFlowInfo private constructor(
 
         // NB: == has no guarantees of type equality, see KT-11280 for the example
         if (identityEquals || !nullabilityOfA.canBeNonNull() || !nullabilityOfB.canBeNonNull()) {
-            newTypeInfo.putAll(a, getStableTypes(b, false))
-            newTypeInfo.putAll(b, getStableTypes(a, false))
+            newTypeInfo.putAll(a, getStableTypes(b, false, languageVersionSettings))
+            newTypeInfo.putAll(b, getStableTypes(a, false, languageVersionSettings))
             if (a.type != b.type) {
                 // To avoid recording base types of own type
                 if (!a.type.isSubtypeOf(b.type)) {
@@ -218,7 +244,7 @@ internal class DelegatingDataFlowInfo private constructor(
         return if (changed) create(this, resultNullabilityInfo, if (newTypeInfo.isEmpty) EMPTY_TYPE_INFO else newTypeInfo) else this
     }
 
-    private fun collectTypesFromMeAndParents(value: DataFlowValue): Set<KotlinType> {
+    private fun collectTypesFromMeAndParents(value: DataFlowValue, languageVersionSettings: LanguageVersionSettings): Set<KotlinType> {
         val types = LinkedHashSet<KotlinType>()
 
         var current: DataFlowInfo? = this
@@ -228,7 +254,7 @@ internal class DelegatingDataFlowInfo private constructor(
                 current = if (value == current.valueWithGivenTypeInfo) null else current.parent
             }
             else {
-                types.addAll(current.getCollectedTypes(value))
+                types.addAll(current.getCollectedTypes(value, languageVersionSettings))
                 break
             }
         }
@@ -256,7 +282,7 @@ internal class DelegatingDataFlowInfo private constructor(
             value: DataFlowValue, type: KotlinType, languageVersionSettings: LanguageVersionSettings
     ): DataFlowInfo {
         if (value.type == type) return this
-        if (getCollectedTypes(value).contains(type)) return this
+        if (getCollectedTypes(value, languageVersionSettings).contains(type)) return this
         if (!value.type.isFlexible() && value.type.isSubtypeOf(type)) return this
         val newTypeInfo = newTypeInfo()
         newTypeInfo.put(value, type)

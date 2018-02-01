@@ -170,6 +170,7 @@ class KotlinFacetEditorGeneralTab(
             val fieldNamesToCheck = when (platform) {
                 is TargetPlatformKind.Jvm -> jvmUIExposedFields
                 is TargetPlatformKind.JavaScript -> jsUIExposedFields
+                is TargetPlatformKind.Common-> metadataUIExposedFields
                 else -> commonUIExposedFields
             }
 
@@ -243,10 +244,7 @@ class KotlinFacetEditorGeneralTab(
 
     private fun restrictAPIVersions() {
         with(editor.compilerConfigurable) {
-            val targetPlatform = editor.targetPlatformComboBox.selectedItem as TargetPlatformKind<*>?
-            val libraryLevel = getLibraryLanguageLevel(editorContext.module, editorContext.rootModel, targetPlatform)
-            val versionUpperBound = minOf(selectedLanguageVersion, libraryLevel)
-            restrictAPIVersions(versionUpperBound)
+            restrictAPIVersions(selectedLanguageVersionView.version)
         }
     }
 

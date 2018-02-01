@@ -21,8 +21,8 @@ import org.gradle.BuildResult
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.logging.Logging
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.com.intellij.openapi.vfs.impl.ZipHandler
-import org.jetbrains.kotlin.com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
+import com.intellij.openapi.vfs.impl.ZipHandler
+import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import org.jetbrains.kotlin.compilerRunner.DELETED_SESSION_FILE_PREFIX
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerRunner
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
@@ -72,7 +72,7 @@ internal class KotlinGradleBuildServices private constructor(gradle: Gradle): Bu
     private val log = Logging.getLogger(this.javaClass)
     private val cleanup = CompilerServicesCleanup()
     private var startMemory: Long? = null
-    private val workingDir: File by lazy { File(gradle.rootProject.buildDir, "kotlin-build").apply { mkdirs() } }
+    internal val workingDir: File by lazy { File(gradle.rootProject.buildDir, "kotlin-build").apply { mkdirs() } }
     private val buildCacheStorage: BuildCacheStorage by lazy { BuildCacheStorage(workingDir) }
     private val shouldReportMemoryUsage = System.getProperty(SHOULD_REPORT_MEMORY_USAGE_PROPERTY) != null
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.jetbrains.kotlin.cli.js;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.ExceptionUtil;
 import com.intellij.util.SmartList;
@@ -45,7 +45,10 @@ import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser;
 import org.jetbrains.kotlin.config.*;
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker;
 import org.jetbrains.kotlin.incremental.components.LookupTracker;
+import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider;
+import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer;
 import org.jetbrains.kotlin.incremental.js.TranslationResultValue;
 import org.jetbrains.kotlin.js.analyze.TopDownAnalyzerFacadeForJS;
 import org.jetbrains.kotlin.js.analyzer.JsAnalysisResult;
@@ -56,11 +59,9 @@ import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding;
 import org.jetbrains.kotlin.js.facade.K2JSTranslator;
 import org.jetbrains.kotlin.js.facade.MainCallParameters;
 import org.jetbrains.kotlin.js.facade.TranslationResult;
-import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver;
 import org.jetbrains.kotlin.js.facade.TranslationUnit;
 import org.jetbrains.kotlin.js.facade.exceptions.TranslationException;
-import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider;
-import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer;
+import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver;
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.serialization.js.ModuleKind;
@@ -71,9 +72,7 @@ import org.jetbrains.kotlin.utils.StringsKt;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.jetbrains.kotlin.cli.common.ExitCode.COMPILATION_ERROR;
 import static org.jetbrains.kotlin.cli.common.ExitCode.OK;
@@ -168,8 +167,8 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             return COMPILATION_ERROR;
         }
 
-        ExitCode plugLoadResult = PluginCliParser.loadPluginsSafe(arguments, configuration);
-        if (plugLoadResult != ExitCode.OK) return plugLoadResult;
+        ExitCode pluginLoadResult = PluginCliParser.loadPluginsSafe(arguments, configuration);
+        if (pluginLoadResult != ExitCode.OK) return pluginLoadResult;
 
         configuration.put(JSConfigurationKeys.LIBRARIES, configureLibraries(arguments, paths, messageCollector));
 
@@ -252,8 +251,20 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             }
         }
 
+        File outputDir = outputFile.getParentFile();
+        if (outputDir == null) {
+            outputDir = outputFile.getAbsoluteFile().getParentFile();
+        }
+        try {
+            config.getConfiguration().put(JSConfigurationKeys.OUTPUT_DIR, outputDir.getCanonicalFile());
+        }
+        catch (IOException e) {
+            messageCollector.report(ERROR, "Could not resolve output directory", null);
+            return ExitCode.COMPILATION_ERROR;
+        }
+
         if (config.getConfiguration().getBoolean(JSConfigurationKeys.SOURCE_MAP)) {
-            checkDuplicateSourceFileNames(messageCollector, sourcesFiles, config.getSourceMapRoots());
+            checkDuplicateSourceFileNames(messageCollector, sourcesFiles, config);
         }
 
         MainCallParameters mainCallParameters = createMainCallParameters(arguments.getMain());
@@ -281,11 +292,6 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             return ExitCode.COMPILATION_ERROR;
         }
 
-        File outputDir = outputFile.getParentFile();
-        if (outputDir == null) {
-            outputDir = outputFile.getAbsoluteFile().getParentFile();
-        }
-
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled();
 
         OutputUtilsKt.writeAll(outputFiles, outputDir, messageCollector,
@@ -297,12 +303,11 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
     private static void checkDuplicateSourceFileNames(
             @NotNull MessageCollector log,
             @NotNull List<KtFile> sourceFiles,
-            @NotNull List<String> sourceRoots
+            @NotNull JsConfig config
     ) {
-        if (sourceRoots.isEmpty()) return;
+        if (config.getSourceMapRoots().isEmpty()) return;
 
-        List<File> sourceRootFiles = sourceRoots.stream().map(File::new).collect(Collectors.toList());
-        SourceFilePathResolver pathResolver = new SourceFilePathResolver(sourceRootFiles);
+        SourceFilePathResolver pathResolver = SourceFilePathResolver.create(config);
         Map<String, String> pathMap = new HashMap<>();
         Set<String> duplicatePaths = new HashSet<>();
 
@@ -358,17 +363,21 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
                 configuration.put(JSConfigurationKeys.SOURCE_MAP_PREFIX, arguments.getSourceMapPrefix());
             }
 
-            String sourceMapSourceRoots = arguments.getSourceMapSourceRoots() != null ?
-                                          arguments.getSourceMapSourceRoots() :
-                                          calculateSourceMapSourceRoot(messageCollector, arguments);
-            List<String> sourceMapSourceRootList = StringUtil.split(sourceMapSourceRoots, File.pathSeparator);
-            configuration.put(JSConfigurationKeys.SOURCE_MAP_SOURCE_ROOTS, sourceMapSourceRootList);
+            String sourceMapSourceRoots = arguments.getSourceMapBaseDirs();
+            if (sourceMapSourceRoots == null && StringUtil.isNotEmpty(arguments.getSourceMapPrefix())) {
+                sourceMapSourceRoots = calculateSourceMapSourceRoot(messageCollector, arguments);
+            }
+
+            if (sourceMapSourceRoots != null) {
+                List<String> sourceMapSourceRootList = StringUtil.split(sourceMapSourceRoots, File.pathSeparator);
+                configuration.put(JSConfigurationKeys.SOURCE_MAP_SOURCE_ROOTS, sourceMapSourceRootList);
+            }
         }
         else {
             if (arguments.getSourceMapPrefix() != null) {
                 messageCollector.report(WARNING, "source-map-prefix argument has no effect without source map", null);
             }
-            if (arguments.getSourceMapSourceRoots() != null) {
+            if (arguments.getSourceMapBaseDirs() != null) {
                 messageCollector.report(WARNING, "source-map-source-root argument has no effect without source map", null);
             }
         }
@@ -408,6 +417,11 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
         LookupTracker lookupTracker = services.get(LookupTracker.class);
         if (lookupTracker != null) {
             configuration.put(CommonConfigurationKeys.LOOKUP_TRACKER, lookupTracker);
+        }
+
+        ExpectActualTracker expectActualTracker = services.get(ExpectActualTracker.class);
+        if (expectActualTracker != null) {
+            configuration.put(CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER, expectActualTracker);
         }
 
         String sourceMapEmbedContentString = arguments.getSourceMapEmbedSources();

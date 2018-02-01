@@ -27,10 +27,10 @@ import com.intellij.util.IncorrectOperationException
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.parsing.KotlinParserDefinition
 import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
+import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
 import org.jetbrains.kotlin.psi.stubs.KotlinFileStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtPlaceHolderStubElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
@@ -49,6 +49,9 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
 
     @Volatile
     private var hasTopLeveCallables: Boolean? = null
+
+    @Volatile
+    private var pathCached: String? = null
 
     val importList: KtImportList?
         get() = findChildByTypeOrClass(KtStubElementTypes.IMPORT_LIST, KtImportList::class.java)
@@ -76,8 +79,18 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
             return if (ast != null) ast.psi as KtPackageDirective else null
         }
 
-    val packageFqName: FqName
+    var packageFqName: FqName
         get() = stub?.getPackageFqName() ?: packageFqNameByTree
+        set(value) {
+            val packageDirective = packageDirective
+            if (packageDirective != null) {
+                packageDirective.fqName = value
+            }
+            else {
+                val newPackageDirective = KtPsiFactory(this).createPackageDirectiveIfNeeded(value) ?: return
+                addAfter(newPackageDirective, null)
+            }
+        }
 
     val packageFqNameByTree: FqName
         get() = packageDirectiveByTree?.fqName ?: FqName.ROOT
@@ -92,6 +105,15 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
             }
 
             return result
+        }
+
+    val virtualFilePath
+        get(): String {
+            pathCached?.let { return it }
+
+            return virtualFile.path.also {
+                pathCached = it
+            }
         }
 
     val isScriptByTree: Boolean
@@ -146,11 +168,7 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
 
     override fun getClasses(): Array<PsiClass> {
         val fileClassProvider = ServiceManager.getService(project, KtFileClassProvider::class.java)
-        // TODO We don't currently support finding light classes for scripts
-        return if (fileClassProvider != null && !isScript()) {
-            fileClassProvider.getFileClasses(this)
-        }
-        else PsiClass.EMPTY_ARRAY
+        return fileClassProvider?.getFileClasses(this) ?: PsiClass.EMPTY_ARRAY
     }
 
     override fun setPackageName(packageName: String) {}
@@ -160,6 +178,7 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
         super<PsiFileBase>.clearCaches()
         isScript = null
         hasTopLeveCallables = null
+        pathCached = null
     }
 
     fun isScript(): Boolean = stub?.isScript() ?: isScriptByTree
@@ -171,7 +190,7 @@ open class KtFile(viewProvider: FileViewProvider, val isCompiled: Boolean) :
             (it is KtProperty ||
              it is KtNamedFunction ||
              it is KtScript ||
-             it is KtTypeAlias) && !it.hasModifier(KtTokens.HEADER_KEYWORD)
+             it is KtTypeAlias) && !it.hasExpectModifier()
         }
 
         hasTopLeveCallables = result

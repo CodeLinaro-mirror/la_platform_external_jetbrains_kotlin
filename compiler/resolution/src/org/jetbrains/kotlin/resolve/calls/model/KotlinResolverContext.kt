@@ -18,10 +18,11 @@ package org.jetbrains.kotlin.resolve.calls.model
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.ReflectionTypes
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.resolve.calls.components.*
-import org.jetbrains.kotlin.resolve.calls.inference.addSubsystemForArgument
+import org.jetbrains.kotlin.resolve.calls.inference.addSubsystemFromArgument
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintInjector
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
@@ -40,7 +41,8 @@ class KotlinCallComponents(
         val typeArgumentsToParametersMapper: TypeArgumentsToParametersMapper,
         val constraintInjector: ConstraintInjector,
         val reflectionTypes: ReflectionTypes,
-        val builtIns: KotlinBuiltIns
+        val builtIns: KotlinBuiltIns,
+        val languageVersionSettings: LanguageVersionSettings
 )
 
 class SimpleCandidateFactory(
@@ -52,12 +54,12 @@ class SimpleCandidateFactory(
 
     init {
         val baseSystem = NewConstraintSystemImpl(callComponents.constraintInjector, callComponents.builtIns)
-        baseSystem.addSubsystemForArgument(kotlinCall.explicitReceiver)
-        baseSystem.addSubsystemForArgument(kotlinCall.dispatchReceiverForInvokeExtension)
+        baseSystem.addSubsystemFromArgument(kotlinCall.explicitReceiver)
+        baseSystem.addSubsystemFromArgument(kotlinCall.dispatchReceiverForInvokeExtension)
         for (argument in kotlinCall.argumentsInParenthesis) {
-            baseSystem.addSubsystemForArgument(argument)
+            baseSystem.addSubsystemFromArgument(argument)
         }
-        baseSystem.addSubsystemForArgument(kotlinCall.externalArgument)
+        baseSystem.addSubsystemFromArgument(kotlinCall.externalArgument)
 
         this.baseSystem = baseSystem.asReadOnlyStorage()
     }
@@ -162,7 +164,7 @@ enum class KotlinCallKind(vararg resolutionPart: ResolutionPart) {
             CheckVisibility,
             CheckInfixResolutionPart,
             CheckOperatorResolutionPart,
-            CheckAbstractSuperCallPart,
+            CheckSuperExpressionCallPart,
             NoTypeArguments,
             NoArguments,
             CreateFreshVariablesSubstitutor,
@@ -173,7 +175,7 @@ enum class KotlinCallKind(vararg resolutionPart: ResolutionPart) {
             CheckInstantiationOfAbstractClass,
             CheckVisibility,
             CheckInfixResolutionPart,
-            CheckAbstractSuperCallPart,
+            CheckSuperExpressionCallPart,
             MapTypeArguments,
             MapArguments,
             ArgumentsToCandidateParameterDescriptor,

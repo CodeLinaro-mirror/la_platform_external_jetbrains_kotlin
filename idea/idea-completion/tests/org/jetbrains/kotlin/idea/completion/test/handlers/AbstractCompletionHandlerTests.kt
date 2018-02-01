@@ -41,7 +41,7 @@ abstract class AbstractCompletionHandlerTest(private val defaultCompletionType: 
 
         val settingManager = CodeStyleSettingsManager.getInstance()
         val tempSettings = settingManager.currentSettings.clone()
-        settingManager.temporarySettings = tempSettings
+        settingManager.setTemporarySettings(tempSettings)
         try {
             val fileText = FileUtil.loadFile(File(testPath))
             assertTrue("\"<caret>\" is missing in file \"$testPath\"", fileText.contains("<caret>"));
@@ -78,7 +78,7 @@ abstract class AbstractCompletionHandlerTest(private val defaultCompletionType: 
                 }
             }
 
-            doTestWithTextLoaded(completionType, invocationCount, lookupString, itemText, tailText, completionChar, testPath + ".after")
+            doTestWithTextLoaded(completionType, invocationCount, lookupString, itemText, tailText, completionChar, File(testPath).name + ".after")
         }
         finally {
             settingManager.dropTemporarySettings()

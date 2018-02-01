@@ -55,19 +55,37 @@ enum class LanguageFeature(
     DeprecatedFieldForInvisibleCompanionObject(KOTLIN_1_2),
     NullabilityAssertionOnExtensionReceiver(KOTLIN_1_2),
     SafeCastCheckBoundSmartCasts(KOTLIN_1_2),
-    BooleanElvisBoundSmartCasts(KOTLIN_1_2),
     CapturedInClosureSmartCasts(KOTLIN_1_2),
     LateinitTopLevelProperties(KOTLIN_1_2),
     LateinitLocalVariables(KOTLIN_1_2),
+    InnerClassInEnumEntryClass(KOTLIN_1_2),
     CallableReferencesToClassMembersWithEmptyLHS(KOTLIN_1_2),
+    ThrowNpeOnExplicitEqualsForBoxedNull(KOTLIN_1_2),
+    JvmPackageName(KOTLIN_1_2),
+    AssigningArraysToVarargsInNamedFormInAnnotations(KOTLIN_1_2),
+    ExpectedTypeFromCast(KOTLIN_1_2),
+    DefaultMethodsCallFromJava6TargetError(KOTLIN_1_2),
 
+    BooleanElvisBoundSmartCasts(KOTLIN_1_3),
+    ReturnsEffect(KOTLIN_1_3),
+    CallsInPlaceEffect(KOTLIN_1_3),
     RestrictionOfValReassignmentViaBackingField(KOTLIN_1_3),
+    NestedClassesInEnumEntryShouldBeInner(KOTLIN_1_3),
+    ProhibitDataClassesOverridingCopy(KOTLIN_1_3),
+    RestrictionOfWrongAnnotationsWithUseSiteTargetsOnTypes(KOTLIN_1_3),
+    ProhibitInnerClassesOfGenericClassExtendingThrowable(KOTLIN_1_3),
+    ProperVisibilityForCompanionObjectInstanceField(KOTLIN_1_3),
+    ProperForInArrayLoopRangeVariableAssignmentSemantic(KOTLIN_1_3),
+
+    StrictJavaNullabilityAssertions(sinceVersion = null, defaultState = State.DISABLED),
 
     // Experimental features
 
     Coroutines(KOTLIN_1_1, ApiVersion.KOTLIN_1_1, "https://kotlinlang.org/docs/diagnostics/experimental-coroutines", State.ENABLED_WITH_WARNING),
 
     MultiPlatformProjects(sinceVersion = null, defaultState = State.DISABLED),
+
+    NewInference(sinceVersion = KOTLIN_1_3, defaultState = State.DISABLED),
 
     ;
 
@@ -115,7 +133,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware {
         fun fromFullVersionString(str: String) = str.split(".", "-").let { if (it.size >= 2) fromVersionString("${it[0]}.${it[1]}") else null }
 
         @JvmField
-        val LATEST_STABLE = KOTLIN_1_1
+        val LATEST_STABLE = KOTLIN_1_2
     }
 }
 
@@ -172,4 +190,13 @@ class LanguageVersionSettingsImpl @JvmOverloads constructor(
         @JvmField
         val DEFAULT = LanguageVersionSettingsImpl(LanguageVersion.LATEST_STABLE, ApiVersion.LATEST_STABLE)
     }
+}
+
+fun LanguageVersionSettings.isPreRelease(): Boolean =
+        languageVersion.isPreRelease()
+
+fun LanguageVersion.isPreRelease(): Boolean {
+    if (!isStable) return true
+
+    return KotlinCompilerVersion.isPreRelease() && this == LanguageVersion.LATEST_STABLE
 }

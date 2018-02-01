@@ -98,8 +98,8 @@ class DynamicCallableDescriptors(storageManager: StorageManager, builtIns: Kotli
                 SourceElement.NO_SOURCE,
                 /* lateInit = */ false,
                 /* isConst = */ false,
-                /* isHeader = */ false,
-                /* isImpl = */ false,
+                /* isExpect = */ false,
+                /* isActual = */ false,
                 /* isExternal = */ false,
                 /* isDelegated = */ false
         )
@@ -136,6 +136,7 @@ class DynamicCallableDescriptors(storageManager: StorageManager, builtIns: Kotli
                 Modality.FINAL,
                 Visibilities.PUBLIC
         )
+        functionDescriptor.setHasSynthesizedParameterNames(true)
         return functionDescriptor
     }
 

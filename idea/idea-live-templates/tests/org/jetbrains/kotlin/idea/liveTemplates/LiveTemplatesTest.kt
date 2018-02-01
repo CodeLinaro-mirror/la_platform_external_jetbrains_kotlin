@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.codeInsight.template.impl.TemplateManagerImpl
 import com.intellij.codeInsight.template.impl.TemplateState
 import com.intellij.ide.DataManager
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.editor.actionSystem.EditorActionManager
 import com.intellij.testFramework.LightProjectDescriptor
@@ -74,6 +73,14 @@ class LiveTemplatesTest : KotlinLightCodeInsightFixtureTestCase() {
         paremeterless()
     }
 
+    fun testSoutf() {
+        paremeterless()
+    }
+
+    fun testSoutf_InCompanion() {
+        paremeterless()
+    }
+
     fun testSerr() {
         paremeterless()
     }
@@ -85,7 +92,7 @@ class LiveTemplatesTest : KotlinLightCodeInsightFixtureTestCase() {
     fun testSoutv() {
         start()
 
-        assertStringItems("ASSERTIONS_ENABLED", "args", "defaultBlockSize", "defaultBufferSize", "minimumBlockSize", "x", "y")
+        assertStringItems("DEFAULT_BUFFER_SIZE", "args", "x", "y")
         typeAndNextTab("y")
 
         checkAfter()
@@ -190,7 +197,7 @@ class LiveTemplatesTest : KotlinLightCodeInsightFixtureTestCase() {
     fun testIter() {
         start()
 
-        assertStringItems("args", "myList", "o", "str", "stream")
+        assertStringItems("args", "myList", "o", "str")
         type("args")
         nextTab(2)
 

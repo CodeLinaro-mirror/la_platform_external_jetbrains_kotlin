@@ -77,7 +77,6 @@ import java.util.Set;
 
 import static org.jetbrains.kotlin.builtins.KotlinBuiltIns.isNullableAny;
 import static org.jetbrains.kotlin.codegen.AsmUtil.*;
-import static org.jetbrains.kotlin.codegen.JvmCodegenUtil.isAnnotationOrJvmInterfaceWithoutDefaults;
 import static org.jetbrains.kotlin.codegen.JvmCodegenUtil.isJvm8InterfaceWithDefaultsMember;
 import static org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings.METHOD_FOR_FUNCTION;
 import static org.jetbrains.kotlin.descriptors.CallableMemberDescriptor.Kind.DECLARATION;
@@ -101,7 +100,7 @@ public class FunctionCodegen {
     private final Function1<DeclarationDescriptor, Boolean> IS_PURE_INTERFACE_CHECKER = new Function1<DeclarationDescriptor, Boolean>() {
         @Override
         public Boolean invoke(DeclarationDescriptor descriptor) {
-            return JvmCodegenUtil.isAnnotationOrJvmInterfaceWithoutDefaults(descriptor, state);
+            return JvmCodegenUtil.isInterfaceWithoutDefaults(descriptor, state);
         }
     };
 
@@ -137,7 +136,8 @@ public class FunctionCodegen {
                         state,
                         CoroutineCodegenUtilKt.<FunctionDescriptor>unwrapInitialDescriptorForSuspendFunction(functionDescriptor),
                         function,
-                        v.getThisName()
+                        v.getThisName(),
+                        state.getConstructorCallNormalizationMode()
                 );
             }
             else {
@@ -223,9 +223,8 @@ public class FunctionCodegen {
 
         generateMethodAnnotations(functionDescriptor, asmMethod, mv);
 
-        JvmMethodSignature signature = typeMapper.mapSignatureSkipGeneric(functionDescriptor);
-        generateParameterAnnotations(functionDescriptor, mv, signature);
-        GenerateJava8ParameterNamesKt.generateParameterNames(functionDescriptor, mv, signature, state, (flags & ACC_SYNTHETIC) != 0);
+        generateParameterAnnotations(functionDescriptor, mv, jvmSignature);
+        GenerateJava8ParameterNamesKt.generateParameterNames(functionDescriptor, mv, jvmSignature, state, (flags & ACC_SYNTHETIC) != 0);
 
         generateBridges(functionDescriptor);
 
@@ -558,7 +557,7 @@ public class FunctionCodegen {
             mv.visitLabel(methodEntry);
             context.setMethodStartLabel(methodEntry);
 
-            if (!KotlinTypeMapper.isAccessor(functionDescriptor)) {
+            if (!strategy.skipNotNullAssertionsForParameters()) {
                 genNotNullAssertionsForParameters(new InstructionAdapter(mv), parentCodegen.state, functionDescriptor, frameMap);
             }
 
@@ -835,7 +834,9 @@ public class FunctionCodegen {
         }
     }
 
-    private static String renderByteCodeIfAvailable(MethodVisitor mv) {
+    @SuppressWarnings("WeakerAccess") // Useful in debug
+    @Nullable
+    public static String renderByteCodeIfAvailable(@NotNull MethodVisitor mv) {
         String bytecode = null;
 
         if (mv instanceof TransformationMethodVisitor) {
@@ -863,7 +864,7 @@ public class FunctionCodegen {
     public void generateBridges(@NotNull FunctionDescriptor descriptor) {
         if (descriptor instanceof ConstructorDescriptor) return;
         if (owner.getContextKind() == OwnerKind.DEFAULT_IMPLS) return;
-        if (isAnnotationOrJvmInterfaceWithoutDefaults(descriptor.getContainingDeclaration(), state)) return;
+        if (IS_PURE_INTERFACE_CHECKER.invoke(descriptor.getContainingDeclaration())) return;
 
         // equals(Any?), hashCode(), toString() never need bridges
         if (isMethodOfAny(descriptor)) return;
@@ -1380,6 +1381,11 @@ public class FunctionCodegen {
                         stackValue.put(delegateMethod.getReturnType(), iv);
 
                         iv.areturn(delegateMethod.getReturnType());
+                    }
+
+                    @Override
+                    public boolean skipNotNullAssertionsForParameters() {
+                        return false;
                     }
                 }
         );

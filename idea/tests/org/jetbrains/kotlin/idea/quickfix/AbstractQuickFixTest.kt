@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,10 @@ import java.io.IOException
 abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
     @Throws(Exception::class)
     protected fun doTest(beforeFileName: String) {
-        enableInspections(beforeFileName)
+        val beforeFileText = FileUtil.loadFile(File(beforeFileName))
+        configureLanguageVersion(beforeFileText, project, module)
+
+        enableInspections(beforeFileName, beforeFileText)
 
         doKotlinQuickFixTest(beforeFileName)
         checkForUnexpectedErrors()
@@ -67,6 +70,13 @@ abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
 
     }
 
+    private fun getPathAccordingToPackage(name: String, text: String): String {
+        val packagePath = text.lines().let { it.find { it.trim().startsWith("package") } }
+                                  ?.removePrefix("package")
+                                  ?.trim()?.replace(".", "/") ?: ""
+        return packagePath + "/" + name
+    }
+
     private fun doKotlinQuickFixTest(beforeFileName: String) {
         val testFile = File(beforeFileName)
         CommandProcessor.getInstance().executeCommand(project, {
@@ -84,13 +94,22 @@ abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
 
                 expectedErrorMessage = InTextDirectivesUtils.findStringWithPrefixes(fileText, "// SHOULD_FAIL_WITH: ")
                 val contents = StringUtil.convertLineSeparators(fileText)
-                myFixture.configureByText(testFile.canonicalFile.name, contents)
+                var fileName = testFile.canonicalFile.name
+                val putIntoPackageFolder = InTextDirectivesUtils.findStringWithPrefixes(fileText, "// FORCE_PACKAGE_FOLDER") != null
+                if (putIntoPackageFolder) {
+                    fileName = getPathAccordingToPackage(fileName, contents)
+                    myFixture.addFileToProject(fileName, contents)
+                    myFixture.configureByFile(fileName)
+                }
+                else {
+                    myFixture.configureByText(fileName, contents)
+                }
 
                 checkForUnexpectedActions()
 
                 configExtra(fileText)
 
-                applyAction(contents, testFile.canonicalPath)
+                applyAction(contents, fileName)
 
                 UsefulTestCase.assertEmpty(expectedErrorMessage)
             }
@@ -101,9 +120,11 @@ abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
                 throw e
             }
             catch (e: Throwable) {
-                if (expectedErrorMessage == null || expectedErrorMessage != e.message) {
-                    e.printStackTrace()
-                    TestCase.fail(getTestName(true))
+                if (expectedErrorMessage == null) {
+                    throw e
+                }
+                else {
+                    Assert.assertEquals("Wrong exception message", expectedErrorMessage, e.message)
                 }
             }
             finally {
@@ -115,8 +136,7 @@ abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
         }, "", "")
     }
 
-    private fun applyAction(contents: String, testFullPath: String) {
-        val fileName = testFullPath.substringAfterLast(File.separatorChar, "")
+    private fun applyAction(contents: String, fileName: String) {
         val actionHint = ActionHint.parse(myFixture.file, contents.replace("\${file}", fileName, ignoreCase = true))
         val intention = findActionWithText(actionHint.expectedText)
         if (actionHint.shouldPresent()) {
@@ -129,19 +149,18 @@ abstract class AbstractQuickFixTest : KotlinLightCodeInsightFixtureTestCase() {
             UIUtil.dispatchAllInvocationEvents()
 
             if (!shouldBeAvailableAfterExecution()) {
-                assertNull("Action '${actionHint.expectedText}' is still available after its invocation in test " + testFullPath,
+                assertNull("Action '${actionHint.expectedText}' is still available after its invocation in test " + fileName,
                             findActionWithText(actionHint.expectedText))
             }
 
-            myFixture.checkResultByFile(File(testFullPath).name + ".after")
+            myFixture.checkResultByFile(File(fileName).name + ".after")
         }
         else {
             assertNull("Action with text ${actionHint.expectedText} is present, but should not", intention)
         }
     }
 
-    private fun enableInspections(beforeFileName: String) {
-        val beforeFileText = FileUtil.loadFile(File(beforeFileName))
+    private fun enableInspections(beforeFileName: String, beforeFileText: String) {
         val toolsStrings = InTextDirectivesUtils.findListWithPrefixes(beforeFileText, "TOOL:")
         if (toolsStrings.isNotEmpty()) {
             val inspections =  toolsStrings.map { toolFqName ->

@@ -23,6 +23,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import org.jetbrains.kotlin.asJava.builder.LightClassConstructionContext
 import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.container.useImpl
 import org.jetbrains.kotlin.container.useInstance
@@ -41,6 +42,7 @@ import org.jetbrains.kotlin.idea.compiler.IDELanguageSettingsProvider
 import org.jetbrains.kotlin.idea.project.IdeaEnvironment
 import org.jetbrains.kotlin.idea.project.ResolveElementCache
 import org.jetbrains.kotlin.idea.stubindex.KotlinOverridableInternalMembersShortNameIndex
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -57,7 +59,6 @@ import org.jetbrains.kotlin.resolve.calls.results.OverloadResolutionResults
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowInfoFactory
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker
 import org.jetbrains.kotlin.resolve.constants.evaluate.ConstantExpressionEvaluator
-import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatform
 import org.jetbrains.kotlin.resolve.lazy.FileScopeProviderImpl
 import org.jetbrains.kotlin.resolve.lazy.ForceResolveUtil
@@ -129,12 +130,47 @@ object IDELightClassContexts {
         return IDELightClassConstructionContext(resolveSession.bindingContext, resolveSession.moduleDescriptor, EXACT)
     }
 
+    fun contextForScript(script: KtScript): LightClassConstructionContext {
+        val resolutionFacade = script.getResolutionFacade()
+        val bindingContext = resolutionFacade.analyze(script)
+
+        val descriptor = bindingContext[BindingContext.SCRIPT, script]
+        if (descriptor == null) {
+            LOG.warn("No script descriptor in context for script: " + script.getElementTextWithContext())
+            return IDELightClassConstructionContext(bindingContext, resolutionFacade.moduleDescriptor, EXACT)
+        }
+
+        ForceResolveUtil.forceResolveAllContents(descriptor)
+
+        return IDELightClassConstructionContext(bindingContext, resolutionFacade.moduleDescriptor, EXACT)
+    }
+
     fun lightContextForClassOrObject(classOrObject: KtClassOrObject): LightClassConstructionContext? {
         if (!isDummyResolveApplicable(classOrObject)) return null
 
         val resolveSession = setupAdHocResolve(classOrObject.project, classOrObject.getResolutionFacade().moduleDescriptor, listOf(classOrObject.containingKtFile))
 
         ForceResolveUtil.forceResolveAllContents(resolveSession.resolveToDescriptor(classOrObject))
+
+        return IDELightClassConstructionContext(resolveSession.bindingContext, resolveSession.moduleDescriptor, LIGHT)
+    }
+
+    fun lightContextForFacade(files: List<KtFile>): LightClassConstructionContext {
+        val representativeFile = files.first()
+        val resolveSession = setupAdHocResolve(representativeFile.project, representativeFile.getResolutionFacade().moduleDescriptor, files)
+
+        forceResolvePackageDeclarations(files, resolveSession)
+
+        return IDELightClassConstructionContext(resolveSession.bindingContext, resolveSession.moduleDescriptor, LIGHT)
+    }
+
+    fun lightContextForScript(script: KtScript): LightClassConstructionContext {
+        val resolveSession = setupAdHocResolve(
+                script.project,
+                script.getResolutionFacade().moduleDescriptor,
+                listOf(script.containingKtFile))
+
+        ForceResolveUtil.forceResolveAllContents(resolveSession.resolveToDescriptor(script))
 
         return IDELightClassConstructionContext(resolveSession.bindingContext, resolveSession.moduleDescriptor, LIGHT)
     }
@@ -193,15 +229,6 @@ object IDELightClassContexts {
         return result
     }
 
-    fun lightContextForFacade(files: List<KtFile>): LightClassConstructionContext {
-        val representativeFile = files.first()
-        val resolveSession = setupAdHocResolve(representativeFile.project, representativeFile.getResolutionFacade().moduleDescriptor, files)
-
-        forceResolvePackageDeclarations(files, resolveSession)
-
-        return IDELightClassConstructionContext(resolveSession.bindingContext, resolveSession.moduleDescriptor, LIGHT)
-    }
-
     fun forceResolvePackageDeclarations(files: Collection<KtFile>, session: ResolveSession) {
         for (file in files) {
             if (file.isScript()) continue
@@ -250,7 +277,7 @@ object IDELightClassContexts {
         val sm = LockBasedStorageManager.NO_LOCKS
         val moduleDescriptor = ModuleDescriptorImpl(realWorldModule.name, sm, realWorldModule.builtIns)
 
-        setupDependencies(moduleDescriptor, realWorldModule)
+        moduleDescriptor.setDependencies(moduleDescriptor, moduleDescriptor.builtIns.builtInsModule)
 
         val moduleInfo = files.first().getModuleInfo()
         val container = createContainer("LightClassStub", JvmPlatform) {
@@ -262,10 +289,12 @@ object IDELightClassContexts {
 
             useInstance(GlobalSearchScope.EMPTY_SCOPE)
             useInstance(LookupTracker.DO_NOTHING)
+            useInstance(ExpectActualTracker.DoNothing)
             useImpl<FileScopeProviderImpl>()
             useInstance(IDELanguageSettingsProvider.getLanguageVersionSettings(moduleInfo, project))
             useInstance(FileBasedDeclarationProviderFactory(sm, files))
 
+            useInstance(CodegenAffectingAnnotations(realWorldModule))
             useImpl<AdHocAnnotationResolver>()
 
             useInstance(object : WrappedTypeFactory(sm) {
@@ -287,27 +316,25 @@ object IDELightClassContexts {
         return resolveSession
     }
 
-    private fun setupDependencies(moduleDescriptor: ModuleDescriptorImpl, realWorldModule: ModuleDescriptor) {
-        val jvmFieldClass = realWorldModule.getPackage(FqName("kotlin.jvm")).memberScope
-                .getContributedClassifier(Name.identifier("JvmField"), NoLookupLocation.FROM_IDE)
+    class CodegenAffectingAnnotations(private val realModule: ModuleDescriptor) {
+        fun get(name: String): ClassDescriptor? {
+            val annotationFqName = annotationsThatAffectCodegen.firstOrNull { it.shortName().asString() == name } ?: return null
+            return realModule.getPackage(annotationFqName.parent()).memberScope
+                    .getContributedClassifier(annotationFqName.shortName(), NoLookupLocation.FROM_IDE) as? ClassDescriptor
+        }
 
-        if (jvmFieldClass != null) {
-            moduleDescriptor.setDependencies(moduleDescriptor, jvmFieldClass.module as ModuleDescriptorImpl, moduleDescriptor.builtIns.builtInsModule)
-        }
-        else {
-            moduleDescriptor.setDependencies(moduleDescriptor, moduleDescriptor.builtIns.builtInsModule)
-        }
+        // see JvmPlatformAnnotations.kt, JvmFlagAnnotations.kt, also PsiModifier.MODIFIERS
+        private val annotationsThatAffectCodegen = listOf(
+                "JvmField", "JvmOverloads", "JvmName", "JvmStatic",
+                "Synchronized", "Transient", "Volatile", "Strictfp"
+        ).map { FqName("kotlin.jvm").child(Name.identifier(it)) } + FqName("kotlin.PublishedApi") + FqName("kotlin.Deprecated") + FqName("kotlin.internal.InlineOnly")
+
     }
 
-    // see JvmPlatformAnnotations.kt, JvmFlagAnnotations.kt, also PsiModifier.MODIFIERS
-    private val annotationsThatAffectCodegen = listOf(
-            "JvmField", "JvmOverloads", "JvmName", "JvmStatic",
-            "Synchronized", "Transient", "Volatile", "Strictfp"
-    ).map { FqName("kotlin.jvm").child(Name.identifier(it)) } + FqName("kotlin.PublishedApi") + FqName("kotlin.Deprecated")
-
     class AdHocAnnotationResolver(
-            private val moduleDescriptor: ModuleDescriptor,
+            private val codegenAffectingAnnotations: CodegenAffectingAnnotations,
             private val callResolver: CallResolver,
+            private val languageVersionSettings: LanguageVersionSettings,
             constantExpressionEvaluator: ConstantExpressionEvaluator,
             storageManager: StorageManager
     ) : AnnotationResolverImpl(callResolver, constantExpressionEvaluator, storageManager) {
@@ -319,14 +346,7 @@ object IDELightClassContexts {
         private fun annotationClassByEntry(entryElement: KtAnnotationEntry): ClassDescriptor? {
             val annotationTypeReferencePsi = entryElement.calleeExpression?.constructorReferenceExpression ?: return null
             val referencedName = annotationTypeReferencePsi.getReferencedName()
-            for (annotationFqName in annotationsThatAffectCodegen) {
-                if (referencedName == annotationFqName.shortName().asString()) {
-                    moduleDescriptor.getPackage(annotationFqName.parent()).memberScope
-                            .getContributedClassifier(annotationFqName.shortName(), NoLookupLocation.FROM_IDE)?.let { return it as? ClassDescriptor }
-
-               }
-            }
-            return null
+            return codegenAffectingAnnotations.get(referencedName)
         }
 
         override fun resolveAnnotationCall(annotationEntry: KtAnnotationEntry, scope: LexicalScope, trace: BindingTrace): OverloadResolutionResults<FunctionDescriptor> {
@@ -338,7 +358,7 @@ object IDELightClassContexts {
                     BasicCallResolutionContext.create(
                             trace, scope, CallMaker.makeCall(null, null, annotationEntry), TypeUtils.NO_EXPECTED_TYPE,
                             DataFlowInfoFactory.EMPTY, ContextDependency.INDEPENDENT, CheckArgumentTypesMode.CHECK_VALUE_ARGUMENTS,
-                            true
+                            true, languageVersionSettings
                     ),
                     annotationEntry.calleeExpression!!.constructorReferenceExpression!!,
                     annotationConstructor.returnType

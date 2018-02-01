@@ -16,7 +16,6 @@
 
 package org.jetbrains.kotlin.idea.refactoring.inline
 
-import com.intellij.codeInsight.TargetElementUtil
 import com.intellij.lang.Language
 import com.intellij.lang.refactoring.InlineActionHandler
 import com.intellij.openapi.application.ApplicationManager
@@ -31,12 +30,11 @@ import com.intellij.refactoring.util.CommonRefactoringUtil
 import com.intellij.util.containers.MultiMap
 import org.jetbrains.kotlin.descriptors.ValueDescriptor
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptor
+import org.jetbrains.kotlin.idea.caches.resolve.unsafeResolveToDescriptor
 import org.jetbrains.kotlin.idea.codeInliner.CodeToInline
 import org.jetbrains.kotlin.idea.codeInliner.PropertyUsageReplacementStrategy
 import org.jetbrains.kotlin.idea.project.builtIns
 import org.jetbrains.kotlin.idea.refactoring.checkConflictsInteractively
-import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.references.ReferenceAccess
 import org.jetbrains.kotlin.idea.references.readWriteAccess
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -87,7 +85,7 @@ class KotlinInlineValHandler(private val withPrompt: Boolean) : InlineActionHand
         val readReplacement: CodeToInline?
         val writeReplacement: CodeToInline?
         val assignmentToDelete: KtBinaryExpression?
-        val descriptor = declaration.resolveToDescriptor() as ValueDescriptor
+        val descriptor = declaration.unsafeResolveToDescriptor() as ValueDescriptor
         val isTypeExplicit = declaration.typeReference != null
         if (getter == null && setter == null) {
             val initialization = extractInitialization(declaration, referenceExpressions, project, editor) ?: return
@@ -184,8 +182,7 @@ class KotlinInlineValHandler(private val withPrompt: Boolean) : InlineActionHand
             hasHighlightings: Boolean
     ) {
         val replacementStrategy = PropertyUsageReplacementStrategy(readReplacement, writeReplacement)
-
-        val reference = editor?.let { TargetElementUtil.findReference(it, it.caretModel.offset) } as? KtSimpleNameReference
+        val reference = editor?.findSimpleNameReference()
 
         val dialog = KotlinInlineValDialog(declaration, reference, replacementStrategy, assignmentToDelete, withPreview = withPrompt)
 

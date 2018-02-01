@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.config.LanguageFeature.ArrayLiteralsInAnnotations
 import org.jetbrains.kotlin.idea.intentions.isArrayOfMethod
 import org.jetbrains.kotlin.idea.project.languageVersionSettings
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 
 class ReplaceArrayOfWithLiteralInspection : AbstractKotlinInspection() {
 
@@ -43,7 +44,10 @@ class ReplaceArrayOfWithLiteralInspection : AbstractKotlinInspection() {
 
                 val parent = expression.parent
                 when (parent) {
-                    is KtValueArgument -> parent.parent.parent as? KtAnnotationEntry ?: return
+                    is KtValueArgument -> {
+                        if (parent.parent.parent !is KtAnnotationEntry) return
+                        if (parent.getSpreadElement() != null && !parent.isNamed()) return
+                    }
                     is KtParameter -> {
                         val constructor = parent.parent.parent as? KtPrimaryConstructor ?: return
                         val containingClass = constructor.getContainingClassOrObject()
@@ -69,6 +73,10 @@ class ReplaceArrayOfWithLiteralInspection : AbstractKotlinInspection() {
         override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
             val calleeExpression = descriptor.psiElement as KtExpression
             val callExpression = calleeExpression.parent as KtCallExpression
+
+            val valueArgument = callExpression.getParentOfType<KtValueArgument>(false)
+            valueArgument?.getSpreadElement()?.delete()
+
             val arguments = callExpression.valueArguments
             val arrayLiteral = KtPsiFactory(callExpression).buildExpression {
                 appendFixedText("[")
@@ -80,6 +88,7 @@ class ReplaceArrayOfWithLiteralInspection : AbstractKotlinInspection() {
                 }
                 appendFixedText("]")
             } as KtCollectionLiteralExpression
+
             callExpression.replace(arrayLiteral)
         }
     }

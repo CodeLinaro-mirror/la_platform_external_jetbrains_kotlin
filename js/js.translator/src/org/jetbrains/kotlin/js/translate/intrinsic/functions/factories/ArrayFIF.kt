@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.builtins.getValueParameterTypesFromFunctionType
 import org.jetbrains.kotlin.builtins.isBuiltinFunctionalType
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
+import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor
 import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.backend.ast.metadata.descriptor
 import org.jetbrains.kotlin.js.backend.ast.metadata.inlineStrategy
@@ -61,7 +62,7 @@ object ArrayFIF : CompositeFIF() {
     val LENGTH_PROPERTY_INTRINSIC = BuiltInPropertyIntrinsic("length")
 
     @JvmStatic
-    fun typedArraysEnabled(config: JsConfig) = config.configuration.getBoolean(JSConfigurationKeys.TYPED_ARRAYS_ENABLED)
+    fun typedArraysEnabled(config: JsConfig) = config.configuration.get(JSConfigurationKeys.TYPED_ARRAYS_ENABLED, true)
 
     fun castOrCreatePrimitiveArray(ctx: TranslationContext, type: PrimitiveType?, arg: JsArrayLiteral): JsExpression {
         if (type == null || !typedArraysEnabled(ctx.config)) return arg
@@ -192,8 +193,12 @@ object ArrayFIF : CompositeFIF() {
             }
             invocation.inlineStrategy = InlineStrategy.IN_PLACE
             val descriptor = callInfo.resolvedCall.resultingDescriptor.original
-            invocation.descriptor = descriptor
-            context.addInlineCall(descriptor)
+            val resolvedDescriptor = when (descriptor) {
+                is TypeAliasConstructorDescriptor -> descriptor.underlyingConstructorDescriptor
+                else -> descriptor
+            }
+            invocation.descriptor = resolvedDescriptor
+            context.addInlineCall(resolvedDescriptor)
             invocation
         }
     }

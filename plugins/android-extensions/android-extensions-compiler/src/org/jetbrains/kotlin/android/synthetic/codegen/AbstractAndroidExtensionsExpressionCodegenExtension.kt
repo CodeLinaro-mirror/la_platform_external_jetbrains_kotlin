@@ -34,7 +34,6 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtElement
-import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperClassOrAny
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
@@ -64,6 +63,7 @@ abstract class AbstractAndroidExtensionsExpressionCodegenExtension : ExpressionC
             val classOrObject: KtClassOrObject,
             val containerOptions: ContainerOptionsProxy)
 
+    protected abstract fun isEnabled(element: KtElement?): Boolean
     protected abstract fun isExperimental(element: KtElement?): Boolean
     protected abstract fun getGlobalCacheImpl(element: KtElement?): CacheImplementation
 
@@ -103,11 +103,12 @@ abstract class AbstractAndroidExtensionsExpressionCodegenExtension : ExpressionC
         }
 
         if (containerOptions.containerType == AndroidContainerType.UNKNOWN) return null
+        val actualReceiver = StackValue.receiver(resolvedCall, receiver, c.codegen, null)
 
         return StackValue.functionCall(Type.VOID_TYPE) {
             val bytecodeClassName = c.typeMapper.mapType(container).internalName
 
-            receiver.put(c.typeMapper.mapType(container), it)
+            actualReceiver.put(c.typeMapper.mapType(container), it)
             it.invokevirtual(bytecodeClassName, CLEAR_CACHE_METHOD_NAME, "()V", false)
         }
     }
@@ -152,8 +153,10 @@ abstract class AbstractAndroidExtensionsExpressionCodegenExtension : ExpressionC
         val classBuilder = codegen.v
         val targetClass = codegen.myClass as? KtClass ?: return
 
+        if (!isEnabled(targetClass)) return
+
         val container = codegen.descriptor
-        if (container.kind != ClassKind.CLASS || container.isInner || DescriptorUtils.isLocal(container)) return
+        if (container.kind != ClassKind.CLASS && container.kind != ClassKind.OBJECT) return
 
         val containerOptions = ContainerOptionsProxy.create(container)
         if (containerOptions.getCacheOrDefault(targetClass) == NO_CACHE) return

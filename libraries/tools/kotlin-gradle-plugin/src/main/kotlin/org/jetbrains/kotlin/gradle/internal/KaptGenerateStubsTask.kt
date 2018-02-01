@@ -16,10 +16,12 @@
 
 package org.jetbrains.kotlin.gradle.internal
 
-import org.gradle.api.tasks.SourceTask
+import com.intellij.openapi.util.io.FileUtil
+import org.gradle.api.tasks.*
 import org.gradle.api.tasks.incremental.IncrementalTaskInputs
-import org.jetbrains.kotlin.com.intellij.openapi.util.io.FileUtil
+import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.gradle.plugin.kotlinDebug
+import org.jetbrains.kotlin.gradle.plugin.kotlinWarn
 import org.jetbrains.kotlin.gradle.tasks.FilteringSourceRootsContainer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.incremental.ChangedFiles
@@ -28,13 +30,24 @@ import org.jetbrains.kotlin.incremental.destinationAsFile
 import org.jetbrains.kotlin.incremental.pathsAsStringRelativeTo
 import java.io.File
 
+@CacheableTask
 open class KaptGenerateStubsTask : KotlinCompile() {
     override val sourceRootsContainer = FilteringSourceRootsContainer(emptyList(), { isSourceRootAllowed(it) })
 
+    @get:Internal
     internal lateinit var kotlinCompileTask: KotlinCompile
 
+    @get:OutputDirectory
     lateinit var stubsDir: File
+
+    @get:Internal
     lateinit var generatedSourcesDir: File
+
+    @get:Classpath @get:InputFiles
+    lateinit var kaptClasspath: List<File>
+
+    @get:Classpath @get:InputFiles @Suppress("unused")
+    internal val kotlinTaskPluginClasspath get() = kotlinCompileTask.pluginClasspath
 
     override fun source(vararg sources: Any?): SourceTask? {
         return super.source(sourceRootsContainer.add(sources))
@@ -51,6 +64,25 @@ open class KaptGenerateStubsTask : KotlinCompile() {
                !source.isInside(generatedSourcesDir)
     }
 
+    override fun setupCompilerArgs(args: K2JVMCompilerArguments, defaultsOnly: Boolean) {
+        kotlinCompileTask.setupCompilerArgs(args)
+        args.pluginClasspaths = (pluginClasspath + args.pluginClasspaths!!).toSet().toTypedArray()
+        args.pluginOptions = (pluginOptions.arguments + args.pluginOptions!!).toTypedArray()
+        args.verbose = project.hasProperty("kapt.verbose") && project.property("kapt.verbose").toString().toBoolean() == true
+        args.classpathAsList = this.compileClasspath.toList()
+        args.destinationAsFile = this.destinationDir
+    }
+
+    override fun clearOutputsBeforeNonIncrementalBuild() {
+        super.clearOutputsBeforeNonIncrementalBuild()
+
+        if (!stubsDir.deleteRecursively()) {
+            logger.kotlinWarn("Could not delete $stubsDir")
+        }
+
+        stubsDir.mkdirs()
+    }
+
     override fun execute(inputs: IncrementalTaskInputs) {
         val sourceRoots = kotlinCompileTask.getSourceRoots()
         val allKotlinSources = sourceRoots.kotlinSourceFiles
@@ -63,14 +95,7 @@ open class KaptGenerateStubsTask : KotlinCompile() {
         }
 
         sourceRoots.log(this.name, logger)
-        val args = createCompilerArgs()
-
-        kotlinCompileTask.setupCompilerArgs(args)
-        args.pluginClasspaths = (pluginOptions.classpath + args.pluginClasspaths!!).toSet().toTypedArray()
-        args.pluginOptions = (pluginOptions.arguments + args.pluginOptions!!).toTypedArray()
-        args.verbose = project.hasProperty("kapt.verbose") && project.property("kapt.verbose").toString().toBoolean() == true
-        args.classpathAsList = this.compileClasspath.toList()
-        args.destinationAsFile = this.destinationDir
+        val args = prepareCompilerArguments()
 
         compilerCalled = true
         callCompiler(args, sourceRoots, ChangedFiles(inputs))

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ public class TypeUtils {
         }
         TypeConstructor typeConstructor = classifierDescriptor.getTypeConstructor();
         List<TypeProjection> arguments = getDefaultTypeProjections(typeConstructor.getParameters());
-        return KotlinTypeFactory.simpleType(
+        return KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
                 Annotations.Companion.getEMPTY(),
                 typeConstructor,
                 arguments,
@@ -346,7 +346,7 @@ public class TypeUtils {
     }
 
     public static boolean equalTypes(@NotNull KotlinType a, @NotNull KotlinType b) {
-        return KotlinTypeChecker.DEFAULT.isSubtypeOf(a, b) && KotlinTypeChecker.DEFAULT.isSubtypeOf(b, a);
+        return KotlinTypeChecker.DEFAULT.equalTypes(a, b);
     }
 
     public static boolean dependsOnTypeParameters(@NotNull KotlinType type, @NotNull Collection<TypeParameterDescriptor> typeParameters) {
@@ -392,6 +392,11 @@ public class TypeUtils {
         FlexibleType flexibleType = unwrappedType instanceof FlexibleType ? (FlexibleType) unwrappedType : null;
         if (flexibleType != null
             && (contains(flexibleType.getLowerBound(), isSpecialType) || contains(flexibleType.getUpperBound(), isSpecialType))) {
+            return true;
+        }
+
+        if (unwrappedType instanceof DefinitelyNotNullType &&
+            contains(((DefinitelyNotNullType) unwrappedType).getOriginal(), isSpecialType)) {
             return true;
         }
 

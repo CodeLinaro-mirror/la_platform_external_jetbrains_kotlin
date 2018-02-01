@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,6 +66,18 @@ public class TypingIndentationTestBaseGenerated extends AbstractTypingIndentatio
 
         public void testAllFilesPresentInDirectSettings() throws Exception {
             KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/indentationOnNewline"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("Annotation.after.kt")
+        public void testAnnotation() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/indentationOnNewline/Annotation.after.kt");
+            doNewlineTest(fileName);
+        }
+
+        @TestMetadata("ArgumentListNormalIndent.after.kt")
+        public void testArgumentListNormalIndent() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/indentationOnNewline/ArgumentListNormalIndent.after.kt");
+            doNewlineTest(fileName);
         }
 
         @TestMetadata("AssignmentAfterEq.after.kt")

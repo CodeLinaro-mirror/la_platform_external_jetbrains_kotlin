@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.ClosureCodegen
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.codegen.intrinsics.IntrinsicMethods
+import org.jetbrains.kotlin.codegen.optimization.ApiVersionCallsPreprocessingMethodTransformer
 import org.jetbrains.kotlin.codegen.optimization.FixStackWithLabelNormalizationMethodTransformer
 import org.jetbrains.kotlin.codegen.optimization.common.InsnSequence
 import org.jetbrains.kotlin.codegen.optimization.common.isMeaningful
@@ -46,7 +47,8 @@ class MethodInliner(
         private val errorPrefix: String,
         private val sourceMapper: SourceMapper,
         private val inlineCallSiteInfo: InlineCallSiteInfo,
-        private val inlineOnlySmapSkipper: InlineOnlySmapSkipper? //non null only for root
+        private val inlineOnlySmapSkipper: InlineOnlySmapSkipper?, //non null only for root
+        private val shouldPreprocessApiVersionCalls: Boolean = false
 ) {
     private val typeMapper = inliningContext.state.typeMapper
     private val invokeCalls = ArrayList<InvokeCall>()
@@ -162,7 +164,9 @@ class MethodInliner(
                     result.merge(transformResult)
                     result.addChangedType(oldClassName, newClassName)
 
-                    if (inliningContext.isInliningLambda && transformationInfo!!.canRemoveAfterTransformation()) {
+                    if (inliningContext.isInliningLambda &&
+                        inliningContext.lambdaInfo !is DefaultLambda && //never delete default lambda classes
+                        transformationInfo!!.canRemoveAfterTransformation()) {
                         // this class is transformed and original not used so we should remove original one after inlining
                         result.addClassToRemove(oldClassName)
                     }
@@ -178,7 +182,7 @@ class MethodInliner(
             }
 
             override fun anew(type: Type) {
-                if (isAnonymousClass(type.internalName)) {
+                if (isSamWrapper(type.internalName) || isAnonymousClass(type.internalName)) {
                     handleAnonymousObjectRegeneration()
                 }
 
@@ -218,15 +222,20 @@ class MethodInliner(
                     setLambdaInlining(true)
                     val lambdaSMAP = info.node.classSMAP
 
-                    val sourceMapper = if (inliningContext.classRegeneration && !inliningContext.isInliningLambda)
-                        NestedSourceMapper(sourceMapper, lambdaSMAP.intervals, lambdaSMAP.sourceInfo)
-                    else
-                        InlineLambdaSourceMapper(sourceMapper.parent!!, info.node)
+                    val childSourceMapper =
+                            if (inliningContext.classRegeneration && !inliningContext.isInliningLambda)
+                                NestedSourceMapper(sourceMapper, lambdaSMAP.intervals, lambdaSMAP.sourceInfo)
+                            else if (info is DefaultLambda) {
+                                NestedSourceMapper(sourceMapper.parent!!, lambdaSMAP.intervals, lambdaSMAP.sourceInfo)
+                            }
+                            else InlineLambdaSourceMapper(sourceMapper.parent!!, info.node)
+
                     val inliner = MethodInliner(
                             info.node.node, lambdaParameters, inliningContext.subInlineLambda(info),
-                            newCapturedRemapper, true /*cause all calls in same module as lambda*/,
+                            newCapturedRemapper,
+                            if (info is DefaultLambda) isSameModule else true /*cause all nested objects in same module as lambda*/,
                             "Lambda inlining " + info.lambdaClassType.internalName,
-                            sourceMapper, inlineCallSiteInfo, null
+                            childSourceMapper, inlineCallSiteInfo, null
                     )
 
                     val varRemapper = LocalVarRemapper(lambdaParameters, valueParamShift)
@@ -240,7 +249,7 @@ class MethodInliner(
                     StackValue.onStack(info.invokeMethod.returnType).put(bridge.returnType, this)
                     setLambdaInlining(false)
                     addInlineMarker(this, false)
-                    sourceMapper.endMapping()
+                    childSourceMapper.endMapping()
                     inlineOnlySmapSkipper?.markCallSiteLineNumber(remappingMethodAdapter)
                 }
                 else if (isAnonymousConstructorCall(owner, name)) { //TODO add method
@@ -394,9 +403,9 @@ class MethodInliner(
     ): MethodNode {
         val processingNode = prepareNode(node, finallyDeepShift)
 
-        normalizeLocalReturns(processingNode, labelOwner)
+        preprocessNodeBeforeInline(processingNode, labelOwner)
 
-        val sources = analyzeMethodNodeWithoutMandatoryTransformations(processingNode)
+        val sources = analyzeMethodNodeBeforeInline(processingNode)
 
         val toDelete = SmartSet.create<AbstractInsnNode>()
         val instructions = processingNode.instructions
@@ -428,12 +437,15 @@ class MethodInliner(
                         val lambdaInfo = getLambdaIfExistsAndMarkInstructions(sourceValue, true, instructions, sources, toDelete)
                         invokeCalls.add(InvokeCall(lambdaInfo, currentFinallyDeep))
                     }
+                    else if (isSamWrapperConstructorCall(owner, name)) {
+                        transformations.add(SamWrapperTransformationInfo(owner, inliningContext, isAlreadyRegenerated(owner)))
+                    }
                     else if (isAnonymousConstructorCall(owner, name)) {
                         val lambdaMapping = HashMap<Int, LambdaInfo>()
 
                         var offset = 0
                         var capturesAnonymousObjectThatMustBeRegenerated = false
-                        for (i in 0..paramCount - 1) {
+                        for (i in 0 until paramCount) {
                             val sourceValue = frame.getStack(firstParameterIndex + i)
                             val lambdaInfo = getLambdaIfExistsAndMarkInstructions(sourceValue, false, instructions, sources, toDelete
                             )
@@ -508,7 +520,19 @@ class MethodInliner(
         return processingNode
     }
 
-    private fun normalizeLocalReturns(node: MethodNode, labelOwner: LabelOwner) {
+    private fun preprocessNodeBeforeInline(node: MethodNode, labelOwner: LabelOwner) {
+        try {
+            FixStackWithLabelNormalizationMethodTransformer().transform("fake", node)
+        }
+        catch (e: Throwable) {
+            throw wrapException(e, node, "couldn't inline method call")
+        }
+
+        if (shouldPreprocessApiVersionCalls) {
+            val targetApiVersion = inliningContext.state.languageVersionSettings.apiVersion
+            ApiVersionCallsPreprocessingMethodTransformer(targetApiVersion).transform("fake", node)
+        }
+
         val frames = analyzeMethodNodeBeforeInline(node)
 
         val localReturnsNormalizer = LocalReturnsNormalizer()
@@ -538,17 +562,6 @@ class MethodInliner(
         if (type == null || type.sort != Type.OBJECT) return false
         val info = inliningContext.findAnonymousObjectTransformationInfo(type.internalName)
         return info != null && info.shouldRegenerate(true)
-    }
-
-    private fun analyzeMethodNodeBeforeInline(node: MethodNode): Array<Frame<SourceValue>?> {
-        try {
-            FixStackWithLabelNormalizationMethodTransformer().transform("fake", node)
-        }
-        catch (e: Throwable) {
-            throw wrapException(e, node, "couldn't inline method call")
-        }
-
-        return analyzeMethodNodeWithoutMandatoryTransformations(node)
     }
 
     private fun buildConstructorInvocation(
@@ -729,7 +742,7 @@ class MethodInliner(
             )
         }
 
-        private fun analyzeMethodNodeWithoutMandatoryTransformations(node: MethodNode): Array<Frame<SourceValue>?> {
+        private fun analyzeMethodNodeBeforeInline(node: MethodNode): Array<Frame<SourceValue>?> {
             val analyzer = object : Analyzer<SourceValue>(SourceInterpreter()) {
                 override fun newFrame(nLocals: Int, nStack: Int): Frame<SourceValue> {
                     return object : Frame<SourceValue>(nLocals, nStack) {

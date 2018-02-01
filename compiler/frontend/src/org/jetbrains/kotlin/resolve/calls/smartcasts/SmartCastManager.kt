@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.resolve.calls.smartcasts
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.diagnostics.Errors.SMARTCAST_IMPOSSIBLE
 import org.jetbrains.kotlin.psi.Call
@@ -30,25 +31,20 @@ import org.jetbrains.kotlin.resolve.calls.context.ResolutionContext
 import org.jetbrains.kotlin.resolve.scopes.receivers.ImplicitReceiver
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.types.KotlinType
-import org.jetbrains.kotlin.types.TypeIntersector
 import org.jetbrains.kotlin.types.TypeUtils
 import java.util.*
 
 class SmartCastManager {
 
-    private fun getSmartCastVariants(
-            receiverToCast: ReceiverValue,
-            context: ResolutionContext<*>
-    ): List<KotlinType> =
-            getSmartCastVariants(receiverToCast, context.trace.bindingContext, context.scope.ownerDescriptor, context.dataFlowInfo)
-
     fun getSmartCastVariants(
             receiverToCast: ReceiverValue,
             bindingContext: BindingContext,
             containingDeclarationOrModule: DeclarationDescriptor,
-            dataFlowInfo: DataFlowInfo
+            dataFlowInfo: DataFlowInfo,
+            languageVersionSettings: LanguageVersionSettings
     ): List<KotlinType> {
-        val variants = getSmartCastVariantsExcludingReceiver(bindingContext, containingDeclarationOrModule, dataFlowInfo, receiverToCast)
+        val variants = getSmartCastVariantsExcludingReceiver(
+                bindingContext, containingDeclarationOrModule, dataFlowInfo, receiverToCast, languageVersionSettings)
         val result = ArrayList<KotlinType>(variants.size + 1)
         result.add(receiverToCast.type)
         result.addAll(variants)
@@ -65,7 +61,8 @@ class SmartCastManager {
         return getSmartCastVariantsExcludingReceiver(context.trace.bindingContext,
                                                      context.scope.ownerDescriptor,
                                                      context.dataFlowInfo,
-                                                     receiverToCast)
+                                                     receiverToCast,
+                                                     context.languageVersionSettings)
     }
 
     /**
@@ -75,35 +72,47 @@ class SmartCastManager {
             bindingContext: BindingContext,
             containingDeclarationOrModule: DeclarationDescriptor,
             dataFlowInfo: DataFlowInfo,
-            receiverToCast: ReceiverValue
+            receiverToCast: ReceiverValue,
+            languageVersionSettings: LanguageVersionSettings
     ): Collection<KotlinType> {
         val dataFlowValue = DataFlowValueFactory.createDataFlowValue(receiverToCast, bindingContext, containingDeclarationOrModule)
-        return dataFlowInfo.getCollectedTypes(dataFlowValue)
+        return dataFlowInfo.getCollectedTypes(dataFlowValue, languageVersionSettings)
     }
 
-    fun isSubTypeBySmartCastIgnoringNullability(
+    fun getSmartCastReceiverResult(
             receiverArgument: ReceiverValue,
             receiverParameterType: KotlinType,
             context: ResolutionContext<*>
-    ): Boolean {
-        val smartCastTypes = getSmartCastVariants(receiverArgument, context)
-        return getSmartCastSubType(TypeUtils.makeNullable(receiverParameterType), smartCastTypes) != null
+    ): ReceiverSmartCastResult? {
+        getSmartCastReceiverResultWithGivenNullability(receiverArgument, receiverParameterType, context)?.let {
+            return it
+        }
+
+        val nullableParameterType = TypeUtils.makeNullable(receiverParameterType)
+        return when {
+            getSmartCastReceiverResultWithGivenNullability(receiverArgument, nullableParameterType, context) == null -> null
+            else -> ReceiverSmartCastResult.SMARTCAST_NEEDED_OR_NOT_NULL_EXPECTED
+        }
     }
 
-    private fun getSmartCastSubType(
+    private fun getSmartCastReceiverResultWithGivenNullability(
+            receiverArgument: ReceiverValue,
             receiverParameterType: KotlinType,
-            smartCastTypes: Collection<KotlinType>
-    ): KotlinType? {
-        val subTypes = smartCastTypes
-                .filter { ArgumentTypeResolver.isSubtypeOfForArgumentType(it, receiverParameterType) }
-                .distinct()
-        if (subTypes.isEmpty()) return null
+            context: ResolutionContext<*>
+    ): ReceiverSmartCastResult? =
+            when {
+                ArgumentTypeResolver.isSubtypeOfForArgumentType(receiverArgument.type, receiverParameterType) ->
+                    ReceiverSmartCastResult.OK
+                getSmartCastVariantsExcludingReceiver(context, receiverArgument).any {
+                    ArgumentTypeResolver.isSubtypeOfForArgumentType(it, receiverParameterType)
+                } ->
+                    ReceiverSmartCastResult.SMARTCAST_NEEDED_OR_NOT_NULL_EXPECTED
+                else -> null
+            }
 
-        val intersection = TypeIntersector.intersectTypes(subTypes)
-        if (intersection == null || !intersection.constructor.isDenotable) {
-            return receiverParameterType
-        }
-        return intersection
+    enum class ReceiverSmartCastResult {
+        OK,
+        SMARTCAST_NEEDED_OR_NOT_NULL_EXPECTED
     }
 
     companion object {
@@ -159,7 +168,7 @@ class SmartCastManager {
                 recordExpressionType: Boolean
         ): SmartCastResult? {
             val calleeExpression = call?.calleeExpression
-            for (possibleType in c.dataFlowInfo.getCollectedTypes(dataFlowValue)) {
+            for (possibleType in c.dataFlowInfo.getCollectedTypes(dataFlowValue, c.languageVersionSettings)) {
                 if (ArgumentTypeResolver.isSubtypeOfForArgumentType(possibleType, expectedType) && (additionalPredicate == null || additionalPredicate(possibleType))) {
                     if (expression != null) {
                         recordCastOrError(expression, possibleType, c.trace, dataFlowValue, call, recordExpressionType)

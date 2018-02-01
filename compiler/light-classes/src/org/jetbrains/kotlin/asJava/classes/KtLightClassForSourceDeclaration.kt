@@ -31,7 +31,9 @@ import com.intellij.psi.search.SearchScope
 import com.intellij.psi.stubs.IStubElementType
 import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.util.CachedValue
+import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker.OUT_OF_CODE_BLOCK_MODIFICATION_COUNT
 import com.intellij.util.IncorrectOperationException
 import com.intellij.util.containers.ContainerUtil
 import org.jetbrains.annotations.NonNls
@@ -50,7 +52,6 @@ import org.jetbrains.kotlin.asJava.elements.KtLightPsiReferenceList
 import org.jetbrains.kotlin.asJava.hasInterfaceDefaultImpls
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
 import org.jetbrains.kotlin.name.FqName
@@ -59,6 +60,7 @@ import org.jetbrains.kotlin.platform.JavaToKotlinClassMap
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.debugText.getDebugText
 import org.jetbrains.kotlin.psi.psiUtil.getElementTextWithContext
+import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
 import org.jetbrains.kotlin.psi.stubs.KotlinClassOrObjectStub
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import java.util.*
@@ -91,7 +93,7 @@ abstract class KtLightClassForSourceDeclaration(protected val classOrObject: KtC
 
     private fun getJavaFileStub(): PsiJavaFileStub = getLightClassDataHolder().javaFileStub
 
-    protected fun getDescriptor(): ClassDescriptor? {
+    fun getDescriptor(): ClassDescriptor? {
         return LightClassGenerationSupport.getInstance(project).resolveToDescriptor(classOrObject) as? ClassDescriptor
     }
 
@@ -104,8 +106,6 @@ abstract class KtLightClassForSourceDeclaration(protected val classOrObject: KtC
     }
 
     private val _containingFile: PsiFile by lazyPub {
-        classOrObject.containingFile.virtualFile ?: error("No virtual file for " + classOrObject.text)
-
         object : FakeFileForLightClass(
                 classOrObject.containingKtFile,
                 { if (classOrObject.isTopLevel()) this else create(getOutermostClassOrObject(classOrObject))!! },
@@ -333,8 +333,14 @@ abstract class KtLightClassForSourceDeclaration(protected val classOrObject: KtC
                 FINAL_KEYWORD to PsiModifier.FINAL)
 
 
-        fun create(classOrObject: KtClassOrObject): KtLightClassForSourceDeclaration? {
-            if (classOrObject.containingKtFile.isScript() || classOrObject.hasModifier(KtTokens.HEADER_KEYWORD)) {
+        fun create(classOrObject: KtClassOrObject): KtLightClassForSourceDeclaration? =
+                CachedValuesManager.getCachedValue(classOrObject) {
+                    CachedValueProvider.Result
+                            .create(createNoCache(classOrObject), OUT_OF_CODE_BLOCK_MODIFICATION_COUNT)
+                }
+
+        fun createNoCache(classOrObject: KtClassOrObject): KtLightClassForSourceDeclaration? {
+            if (classOrObject.hasExpectModifier()) {
                 return null
             }
 
@@ -366,10 +372,11 @@ abstract class KtLightClassForSourceDeclaration(protected val classOrObject: KtC
         }
 
         fun getLightClassDataHolder(classOrObject: KtClassOrObject): LightClassDataHolder.ForClass {
-            return getLightClassCachedValue(classOrObject).value
+            return classOrObject.containingKtFile.script?.let { KtLightClassForScript.getLightClassCachedValue(it).value } ?:
+                   getLightClassCachedValue(classOrObject).value
         }
 
-        fun getLightClassCachedValue(classOrObject: KtClassOrObject): CachedValue<LightClassDataHolder.ForClass> {
+        private fun getLightClassCachedValue(classOrObject: KtClassOrObject): CachedValue<LightClassDataHolder.ForClass> {
             var value =
                     getOutermostClassOrObject(classOrObject).getUserData(JAVA_API_STUB) // stub computed for outer class can be used for inner/nested
                     ?: classOrObject.getUserData(JAVA_API_STUB)
@@ -482,13 +489,13 @@ fun getOutermostClassOrObject(classOrObject: KtClassOrObject): KtClassOrObject {
 
 interface LightClassInheritanceHelper {
     fun isInheritor(
-            lightClass: KtLightClassForSourceDeclaration,
+            lightClass: KtLightClass,
             baseClass: PsiClass,
             checkDeep: Boolean
     ): ImpreciseResolveResult
 
     object NoHelp : LightClassInheritanceHelper {
-        override fun isInheritor(lightClass: KtLightClassForSourceDeclaration, baseClass: PsiClass, checkDeep: Boolean) = UNSURE
+        override fun isInheritor(lightClass: KtLightClass, baseClass: PsiClass, checkDeep: Boolean) = UNSURE
     }
 
     companion object {

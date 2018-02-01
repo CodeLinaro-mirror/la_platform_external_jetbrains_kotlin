@@ -23,11 +23,15 @@ import com.intellij.openapi.projectRoots.JavaSdk
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.roots.LibraryOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.impl.libraries.LibraryEx
 import com.intellij.openapi.util.text.StringUtil
+import junit.framework.TestCase
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.idea.compiler.configuration.KotlinCommonCompilerArgumentsHolder
 import org.jetbrains.kotlin.idea.configuration.ConfigureKotlinStatus
 import org.jetbrains.kotlin.idea.configuration.ModuleSourceRootMap
 import org.jetbrains.kotlin.idea.configuration.allConfigurators
@@ -39,15 +43,15 @@ import org.junit.Assert
 import org.junit.Test
 import java.io.File
 
+internal fun GradleImportingTestCase.facetSettings(moduleName: String) = KotlinFacet.get(getModule(moduleName))!!.configuration.settings
+
+internal val GradleImportingTestCase.facetSettings: KotlinFacetSettings
+    get() = facetSettings("project")
+
+internal val GradleImportingTestCase.testFacetSettings: KotlinFacetSettings
+    get() = facetSettings("project_test")
+
 class GradleFacetImportTest : GradleImportingTestCase() {
-    private fun facetSettings(moduleName: String) = KotlinFacet.get(getModule(moduleName))!!.configuration.settings
-
-    private val facetSettings: KotlinFacetSettings
-        get() = facetSettings("project_main")
-
-    private val testFacetSettings: KotlinFacetSettings
-        get() = facetSettings("project_test")
-
     @Test
     fun testJvmImport() {
         createProjectSubFile("build.gradle", """
@@ -86,20 +90,25 @@ class GradleFacetImportTest : GradleImportingTestCase() {
         with (facetSettings) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.1", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
             Assert.assertEquals(TargetPlatformKind.Jvm[JvmTarget.JVM_1_8], targetPlatformKind)
             Assert.assertEquals("1.7", (compilerArguments as K2JVMCompilerArguments).jvmTarget)
             Assert.assertEquals("-Xdump-declarations-to=tmp -Xsingle-module",
                                 compilerSettings!!.additionalArguments)
         }
+/*
         with (testFacetSettings) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.0", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
             Assert.assertEquals(TargetPlatformKind.Jvm[JvmTarget.JVM_1_6], targetPlatformKind)
             Assert.assertEquals("1.6", (compilerArguments as K2JVMCompilerArguments).jvmTarget)
             Assert.assertEquals("-Xdump-declarations-to=tmpTest",
                                 compilerSettings!!.additionalArguments)
         }
-
+*/
         assertAllModulesConfigured()
     }
 
@@ -194,6 +203,7 @@ compileTestKotlin {
             Assert.assertEquals("-Xdump-declarations-to=tmp -Xsingle-module",
                                 compilerSettings!!.additionalArguments)
         }
+/*
         with (testFacetSettings) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.0", apiLevel!!.versionString)
@@ -202,6 +212,7 @@ compileTestKotlin {
             Assert.assertEquals("-Xdump-declarations-to=tmpTest",
                                 compilerSettings!!.additionalArguments)
         }
+*/
     }
 
     @Test
@@ -255,6 +266,7 @@ compileTestKotlin {
         """)
         importProject()
 
+/*
         with (facetSettings("project_myMain")) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.1", apiLevel!!.versionString)
@@ -271,7 +283,7 @@ compileTestKotlin {
             Assert.assertEquals("-Xdump-declarations-to=tmpTest",
                                 compilerSettings!!.additionalArguments)
         }
-
+*/
         assertAllModulesConfigured()
     }
 
@@ -328,7 +340,7 @@ compileTestKotlin {
             }
         """)
         importProject()
-
+/*
         with (facetSettings("project_myMain")) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.1", apiLevel!!.versionString)
@@ -345,6 +357,7 @@ compileTestKotlin {
             Assert.assertEquals("-Xdump-declarations-to=tmpTest",
                                 compilerSettings!!.additionalArguments)
         }
+*/
     }
 
     @Test
@@ -462,6 +475,8 @@ compileTestKotlin {
         with (facetSettings) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.1", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
             Assert.assertEquals(TargetPlatformKind.JavaScript, targetPlatformKind)
             with(compilerArguments as K2JSCompilerArguments) {
                 Assert.assertEquals(true, sourceMap)
@@ -470,10 +485,12 @@ compileTestKotlin {
             Assert.assertEquals("-main callMain",
                                 compilerSettings!!.additionalArguments)
         }
-
+/*
         with (testFacetSettings) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.0", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
             Assert.assertEquals(TargetPlatformKind.JavaScript, targetPlatformKind)
             with(compilerArguments as K2JSCompilerArguments) {
                 Assert.assertEquals(false, sourceMap)
@@ -482,10 +499,11 @@ compileTestKotlin {
             Assert.assertEquals("-main callTest",
                                 compilerSettings!!.additionalArguments)
         }
-
-        val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
-        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library
+*/
+        val rootManager = ModuleRootManager.getInstance(getModule("project"))
+        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().first().library
         assertEquals(JSLibraryKind, (stdlib as LibraryEx).kind)
+        assertTrue(stdlib.getFiles(OrderRootType.CLASSES).isNotEmpty())
 
         assertAllModulesConfigured()
     }
@@ -527,7 +545,7 @@ compileTestKotlin {
             Assert.assertEquals(TargetPlatformKind.JavaScript, targetPlatformKind)
         }
 
-        val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
+        val rootManager = ModuleRootManager.getInstance(getModule("project"))
         val stdlib = rootManager.orderEntries
                 .filterIsInstance<LibraryOrderEntry>()
                 .map { it.library as LibraryEx }
@@ -586,7 +604,7 @@ compileTestKotlin {
             }
         """)
         importProject()
-
+/*
         with (facetSettings("project_myMain")) {
             Assert.assertEquals("1.1", languageLevel!!.versionString)
             Assert.assertEquals("1.1", apiLevel!!.versionString)
@@ -610,7 +628,7 @@ compileTestKotlin {
             Assert.assertEquals("-main callTest",
                                 compilerSettings!!.additionalArguments)
         }
-
+*/
         assertAllModulesConfigured()
     }
 
@@ -711,10 +729,10 @@ compileTestKotlin {
             Assert.assertEquals(TargetPlatformKind.JavaScript, targetPlatformKind)
         }
 
-        val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
+        val rootManager = ModuleRootManager.getInstance(getModule("project"))
         val libraries = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().mapNotNull { it.library as LibraryEx }
-        assertEquals(JSLibraryKind, libraries.single { it.name?.contains("kotlin-stdlib-js") == true }.kind)
-        assertEquals(CommonLibraryKind, libraries.single { it.name?.contains("kotlin-stdlib-common") == true }.kind)
+        assertEquals(JSLibraryKind, libraries.first { it.name?.contains("kotlin-stdlib-js") == true }.kind)
+        assertEquals(CommonLibraryKind, libraries.first { it.name?.contains("kotlin-stdlib-common") == true }.kind)
     }
 
     @Test
@@ -755,8 +773,8 @@ compileTestKotlin {
             Assert.assertEquals(TargetPlatformKind.Common, targetPlatformKind)
         }
 
-        val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
-        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library
+        val rootManager = ModuleRootManager.getInstance(getModule("project"))
+        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().first().library
         assertEquals(CommonLibraryKind, (stdlib as LibraryEx).kind)
     }
 
@@ -798,8 +816,9 @@ compileTestKotlin {
         }
 
         val rootManager = ModuleRootManager.getInstance(getModule("project"))
-        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().mapTo(HashSet()) { it.library }.single()
-        assertEquals(CommonLibraryKind, (stdlib as LibraryEx).kind)
+        rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().mapTo(HashSet()) { it.library }.first {
+            (it as LibraryEx).kind == CommonLibraryKind
+        }
     }
 
     @Test
@@ -906,14 +925,11 @@ compileTestKotlin {
             buildscript {
                 repositories {
                     mavenCentral()
-                    maven {
-                        url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
-                    }
                 }
 
                 dependencies {
-                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
-                    classpath("org.jetbrains.kotlin:kotlin-allopen:1.1.0")
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.2.10")
+                    classpath("org.jetbrains.kotlin:kotlin-allopen:1.2.10")
                 }
             }
 
@@ -932,6 +948,46 @@ compileTestKotlin {
                            "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.transaction.annotation.Transactional",
                            "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.scheduling.annotation.Async",
                            "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.cache.annotation.Cacheable"),
+                    compilerArguments!!.pluginOptions!!.toList()
+            )
+        }
+    }
+
+    @Test
+    fun testNoArgInvokeInitializers() {
+        createProjectSubFile("build.gradle", """
+            group 'Again'
+            version '1.0-SNAPSHOT'
+
+            buildscript {
+                repositories {
+                    mavenCentral()
+                }
+
+                dependencies {
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.2.10")
+                    classpath("org.jetbrains.kotlin:kotlin-noarg:1.2.10")
+                }
+            }
+
+            apply plugin: 'kotlin'
+            apply plugin: "kotlin-noarg"
+
+            noArg {
+                invokeInitializers = true
+                annotation("NoArg")
+            }
+        """)
+        importProject()
+
+        with (facetSettings) {
+            Assert.assertEquals(
+                    "-version",
+                    compilerSettings!!.additionalArguments
+            )
+            Assert.assertEquals(
+                    listOf("plugin:org.jetbrains.kotlin.noarg:annotation=NoArg",
+                           "plugin:org.jetbrains.kotlin.noarg:invokeInitializers=true"),
                     compilerArguments!!.pluginOptions!!.toList()
             )
         }
@@ -1062,7 +1118,8 @@ compileTestKotlin {
         }
 
         val rootManager = ModuleRootManager.getInstance(getModule("js-module"))
-        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library
+        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library!!
+        assertTrue(stdlib.getFiles(OrderRootType.CLASSES).isNotEmpty())
         assertEquals(JSLibraryKind, (stdlib as LibraryEx).kind)
     }
 
@@ -1188,10 +1245,10 @@ compileTestKotlin {
         """)
         importProject()
 
-        Assert.assertNotNull(KotlinFacet.get(getModule("gr01_main")))
-        Assert.assertNotNull(KotlinFacet.get(getModule("gr01_test")))
-        Assert.assertNull(KotlinFacet.get(getModule("m1_main")))
-        Assert.assertNull(KotlinFacet.get(getModule("m1_test")))
+        Assert.assertNotNull(KotlinFacet.get(getModule("gr01")))
+//        Assert.assertNotNull(KotlinFacet.get(getModule("gr01_test")))
+        Assert.assertNull(KotlinFacet.get(getModule("m1")))
+//        Assert.assertNull(KotlinFacet.get(getModule("m1_test")))
     }
 
     @Test
@@ -1304,7 +1361,7 @@ compileTestKotlin {
             """)
             importProject()
 
-            val moduleSDK = ModuleRootManager.getInstance(getModule("project_main")).sdk!!
+            val moduleSDK = ModuleRootManager.getInstance(getModule("project")).sdk!!
             Assert.assertTrue(moduleSDK.sdkType is JavaSdk)
             Assert.assertEquals("myJDK", moduleSDK.name)
             Assert.assertEquals("my/path/to/jdk", moduleSDK.homePath)
@@ -1317,6 +1374,419 @@ compileTestKotlin {
                 }
             }.execute()
         }
+    }
+
+    @Test
+    fun testImplementsDependency() {
+        createProjectSubFile(
+                "build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-common'
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib-common:1.1.0"
+                }
+
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "settings.gradle",
+                """
+                    rootProject.name = 'MultiTest'
+                    include 'MultiTest-jvm', 'MultiTest-js'
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "MultiTest-js/build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-js'
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib-js:1.1.0"
+                    implement project(":")
+                }
+
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "MultiTest-jvm/build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-jvm'
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib:1.1.0"
+                    implement project(":")
+                }
+
+                """.trimIndent()
+        )
+
+        importProject()
+/*
+        Assert.assertEquals("MultiTest_main", facetSettings("MultiTest-jvm_main").implementedModuleName)
+        Assert.assertEquals("MultiTest_test", facetSettings("MultiTest-jvm_test").implementedModuleName)
+        Assert.assertEquals("MultiTest_main", facetSettings("MultiTest-js_main").implementedModuleName)
+        Assert.assertEquals("MultiTest_test", facetSettings("MultiTest-js_test").implementedModuleName)
+*/
+    }
+
+    @Test
+    fun testImplementsDependencyWithCustomSourceSets() {
+        createProjectSubFile(
+                "build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-common'
+
+                sourceSets {
+                    myMain {
+                        kotlin {
+                            srcDir 'src'
+                        }
+                    }
+                    myTest {
+                        kotlin {
+                            srcDir 'test'
+                        }
+                    }
+                }
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib-common:1.1.0"
+                }
+
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "settings.gradle",
+                """
+                    rootProject.name = 'MultiTest'
+                    include 'MultiTest-jvm', 'MultiTest-js'
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "MultiTest-js/build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-js'
+
+                sourceSets {
+                    myMain {
+                        kotlin {
+                            srcDir 'src'
+                        }
+                    }
+                    myTest {
+                        kotlin {
+                            srcDir 'test'
+                        }
+                    }
+                }
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib-js:1.1.0"
+                    implement project(":")
+                }
+
+                """.trimIndent()
+        )
+        createProjectSubFile(
+                "MultiTest-jvm/build.gradle",
+                """
+                buildscript {
+                    repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+                    dependencies {
+                        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                    }
+                }
+
+                apply plugin: 'kotlin-platform-jvm'
+
+                sourceSets {
+                    myMain {
+                        kotlin {
+                            srcDir 'src'
+                        }
+                    }
+                    myTest {
+                        kotlin {
+                            srcDir 'test'
+                        }
+                    }
+                }
+
+                repositories {
+                        mavenCentral()
+                        maven {
+                            url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                        }
+                    }
+
+                dependencies {
+                    compile "org.jetbrains.kotlin:kotlin-stdlib:1.1.0"
+                    implement project(":")
+                }
+
+                """.trimIndent()
+        )
+
+        importProject()
+/*
+        Assert.assertEquals("MultiTest_myMain", facetSettings("MultiTest-jvm_myMain").implementedModuleName)
+        Assert.assertEquals("MultiTest_myTest", facetSettings("MultiTest-jvm_myTest").implementedModuleName)
+        Assert.assertEquals("MultiTest_myMain", facetSettings("MultiTest-js_myMain").implementedModuleName)
+        Assert.assertEquals("MultiTest_myTest", facetSettings("MultiTest-js_myTest").implementedModuleName)
+*/
+    }
+
+    @Test
+    fun testAPIVersionExceedingLanguageVersion() {
+        createProjectSubFile("build.gradle", """
+            buildscript {
+                repositories {
+                    mavenCentral()
+                    maven {
+                        url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                    }
+                }
+
+                dependencies {
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                }
+            }
+
+            apply plugin: 'kotlin'
+
+            dependencies {
+                compile "org.jetbrains.kotlin:kotlin-stdlib:1.1.0"
+            }
+
+            compileKotlin {
+                kotlinOptions.languageVersion = "1.1"
+                kotlinOptions.apiVersion = "1.2"
+            }
+        """)
+        importProject()
+
+        with (facetSettings) {
+            Assert.assertEquals("1.1", languageLevel!!.versionString)
+            Assert.assertEquals("1.1", apiLevel!!.versionString)
+        }
+
+        assertAllModulesConfigured()
+    }
+
+    @Test
+    fun testIgnoreProjectLanguageAndAPIVersion() {
+        KotlinCommonCompilerArgumentsHolder.getInstance(myProject).update {
+            languageVersion = "1.0"
+            apiVersion = "1.0"
+        }
+
+        createProjectSubFile("build.gradle", """
+            buildscript {
+                repositories {
+                    mavenCentral()
+                    maven {
+                        url 'http://dl.bintray.com/kotlin/kotlin-eap-1.1'
+                    }
+                }
+
+                dependencies {
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.1.0")
+                }
+            }
+
+            apply plugin: 'kotlin'
+
+            dependencies {
+                compile "org.jetbrains.kotlin:kotlin-stdlib:1.1.0"
+            }
+        """)
+        importProject()
+
+        with (facetSettings) {
+            Assert.assertEquals("1.1", languageLevel!!.versionString)
+            Assert.assertEquals("1.1", apiLevel!!.versionString)
+        }
+
+        assertAllModulesConfigured()
+    }
+
+    @Test
+    fun testCommonArgumentsImport() {
+        createProjectSubFile("build.gradle", """
+            group 'Again'
+            version '1.0-SNAPSHOT'
+
+            buildscript {
+                repositories {
+                    mavenCentral()
+                    maven {
+                        url 'http://dl.bintray.com/kotlin/kotlin-eap-1.2'
+                    }
+                }
+
+                dependencies {
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.2.0-rc-39")
+                }
+            }
+
+            apply plugin: 'kotlin-platform-common'
+
+            repositories {
+                mavenCentral()
+                maven {
+                    url 'http://dl.bintray.com/kotlin/kotlin-eap-1.2'
+                }
+            }
+
+            dependencies {
+                compile "org.jetbrains.kotlin:kotlin-stdlib-common:1.2.0-rc-39"
+            }
+
+            compileKotlinCommon{
+                kotlinOptions {
+                    languageVersion = 1.1
+                    apiVersion = 1.0
+                    freeCompilerArgs += ["-cp", "my/classpath"]
+                    freeCompilerArgs += ["-d", "my/destination"]
+                }
+            }
+
+            compileTestKotlinCommon{
+                kotlinOptions {
+                    languageVersion = 1.1
+                    apiVersion = 1.0
+                    freeCompilerArgs += ["-cp", "my/test/classpath"]
+                    freeCompilerArgs += ["-d", "my/test/destination"]
+                }
+            }
+
+        """)
+        importProject()
+
+        with (facetSettings) {
+            Assert.assertEquals("1.1", languageLevel!!.versionString)
+            Assert.assertEquals("1.0", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
+            Assert.assertEquals(TargetPlatformKind.Common, targetPlatformKind)
+            Assert.assertEquals("my/classpath", (compilerArguments as K2MetadataCompilerArguments).classpath)
+            Assert.assertEquals("my/destination", (compilerArguments as K2MetadataCompilerArguments).destination)
+        }
+
+        with (facetSettings("project_test")) {
+            Assert.assertEquals("1.1", languageLevel!!.versionString)
+            Assert.assertEquals("1.0", apiLevel!!.versionString)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceLanguageVersion)
+            Assert.assertFalse(compilerArguments!!.autoAdvanceApiVersion)
+            Assert.assertEquals(TargetPlatformKind.Common, targetPlatformKind)
+            Assert.assertEquals("my/test/classpath", (compilerArguments as K2MetadataCompilerArguments).classpath)
+            Assert.assertEquals("my/test/destination", (compilerArguments as K2MetadataCompilerArguments).destination)
+        }
+
+        val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
+        val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library
+        assertEquals(CommonLibraryKind, (stdlib as LibraryEx).kind)
     }
 
     private fun assertAllModulesConfigured() {

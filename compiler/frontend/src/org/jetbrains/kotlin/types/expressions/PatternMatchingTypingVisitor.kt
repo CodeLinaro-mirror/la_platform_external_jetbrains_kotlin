@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.calls.checkers.RttiExpressionInformation
 import org.jetbrains.kotlin.resolve.calls.checkers.RttiOperation
 import org.jetbrains.kotlin.resolve.calls.context.ContextDependency.INDEPENDENT
+import org.jetbrains.kotlin.resolve.calls.smartcasts.ConditionalDataFlowInfo
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowInfo
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValue
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValueFactory
@@ -101,7 +102,8 @@ class PatternMatchingTypingVisitor internal constructor(facade: ExpressionTyping
             DataFlowValueFactory.createDataFlowValue(it, subjectType, contextAfterSubject)
         } ?: DataFlowValue.nullValue(components.builtIns)
 
-        val possibleTypesForSubject = subjectTypeInfo?.dataFlowInfo?.getStableTypes(subjectDataFlowValue) ?: emptySet()
+        val possibleTypesForSubject = subjectTypeInfo?.dataFlowInfo?.getStableTypes(
+                subjectDataFlowValue, components.languageVersionSettings) ?: emptySet()
         checkSmartCastsInSubjectIfRequired(expression, contextBeforeSubject, subjectType, possibleTypesForSubject)
 
         val dataFlowInfoForEntries = analyzeConditionsInWhenEntries(expression, contextAfterSubject, subjectDataFlowValue, subjectType)
@@ -367,8 +369,11 @@ class PatternMatchingTypingVisitor internal constructor(facade: ExpressionTyping
             override fun visitWhenConditionWithExpression(condition: KtWhenConditionWithExpression) {
                 val expression = condition.expression
                 if (expression != null) {
-                    newDataFlowInfo = checkTypeForExpressionCondition(
+                    val basicDataFlowInfo = checkTypeForExpressionCondition(
                             context, expression, subjectType, subjectExpression == null, subjectDataFlowValue)
+                    val moduleDescriptor = DescriptorUtils.getContainingModule(context.scope.ownerDescriptor)
+                    val dataFlowInfoFromES = components.effectSystem.getDataFlowInfoWhenEquals(subjectExpression, expression, context.trace, moduleDescriptor)
+                    newDataFlowInfo = basicDataFlowInfo.and(dataFlowInfoFromES)
                 }
             }
 
@@ -378,8 +383,6 @@ class PatternMatchingTypingVisitor internal constructor(facade: ExpressionTyping
         })
         return newDataFlowInfo
     }
-
-    private class ConditionalDataFlowInfo(val thenInfo: DataFlowInfo, val elseInfo: DataFlowInfo = thenInfo)
 
     private fun checkTypeForExpressionCondition(
             context: ExpressionTypingContext,
@@ -461,7 +464,7 @@ class PatternMatchingTypingVisitor internal constructor(facade: ExpressionTyping
     ) {
         if (subjectType.containsError() || targetType.containsError()) return
 
-        val possibleTypes = DataFlowAnalyzer.getAllPossibleTypes(subjectType, context, subjectDataFlowValue)
+        val possibleTypes = DataFlowAnalyzer.getAllPossibleTypes(subjectType, context, subjectDataFlowValue, context.languageVersionSettings)
         if (CastDiagnosticsUtil.isRefinementUseless(possibleTypes, targetType, false)) {
             context.trace.report(Errors.USELESS_IS_CHECK.on(isCheck, !negated))
         }

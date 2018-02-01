@@ -21,10 +21,11 @@
 package kotlin.text
 
 import kotlin.comparisons.*
+import kotlin.internal.contracts.*
 
 
 /**
- * Returns a sub sequence of this char sequence having leading and trailing characters matching the [predicate] trimmed.
+ * Returns a sub sequence of this char sequence having leading and trailing characters matching the [predicate] removed.
  */
 public inline fun CharSequence.trim(predicate: (Char) -> Boolean): CharSequence {
     var startIndex = 0
@@ -53,13 +54,13 @@ public inline fun CharSequence.trim(predicate: (Char) -> Boolean): CharSequence 
 }
 
 /**
- * Returns a string with leading and trailing characters matching the [predicate] trimmed.
+ * Returns a string having leading and trailing characters matching the [predicate] removed.
  */
 public inline fun String.trim(predicate: (Char) -> Boolean): String
         = (this as CharSequence).trim(predicate).toString()
 
 /**
- * Returns a sub sequence of this char sequence having leading characters matching the [predicate] trimmed.
+ * Returns a sub sequence of this char sequence having leading characters matching the [predicate] removed.
  */
 public inline fun CharSequence.trimStart(predicate: (Char) -> Boolean): CharSequence {
     for (index in this.indices)
@@ -70,13 +71,13 @@ public inline fun CharSequence.trimStart(predicate: (Char) -> Boolean): CharSequ
 }
 
 /**
- * Returns a string with leading characters matching the [predicate] trimmed.
+ * Returns a string having leading characters matching the [predicate] removed.
  */
 public inline fun String.trimStart(predicate: (Char) -> Boolean): String
         = (this as CharSequence).trimStart(predicate).toString()
 
 /**
- * Returns a sub sequence of this char sequence having trailing characters matching the [predicate] trimmed.
+ * Returns a sub sequence of this char sequence having trailing characters matching the [predicate] removed.
  */
 public inline fun CharSequence.trimEnd(predicate: (Char) -> Boolean): CharSequence {
     for (index in this.indices.reversed())
@@ -87,48 +88,48 @@ public inline fun CharSequence.trimEnd(predicate: (Char) -> Boolean): CharSequen
 }
 
 /**
- * Returns a string with trailing characters matching the [predicate] trimmed.
+ * Returns a string having trailing characters matching the [predicate] removed.
  */
 public inline fun String.trimEnd(predicate: (Char) -> Boolean): String
         = (this as CharSequence).trimEnd(predicate).toString()
 
 /**
- * Returns a sub sequence of this char sequence having leading and trailing characters from the [chars] array trimmed.
+ * Returns a sub sequence of this char sequence having leading and trailing characters from the [chars] array removed.
  */
 public fun CharSequence.trim(vararg chars: Char): CharSequence = trim { it in chars }
 
 /**
- * Returns a string with leading and trailing characters from the [chars] array trimmed.
+ * Returns a string having leading and trailing characters from the [chars] array removed.
  */
 public fun String.trim(vararg chars: Char): String = trim { it in chars }
 
 /**
- * Returns a sub sequence of this char sequence having leading and trailing characters from the [chars] array trimmed.
+ * Returns a sub sequence of this char sequence having leading characters from the [chars] array removed.
  */
 public fun CharSequence.trimStart(vararg chars: Char): CharSequence = trimStart { it in chars }
 
 /**
- * Returns a string with leading and trailing characters from the [chars] array trimmed.
+ * Returns a string having leading characters from the [chars] array removed.
  */
 public fun String.trimStart(vararg chars: Char): String = trimStart { it in chars }
 
 /**
- * Returns a sub sequence of this char sequence having trailing characters from the [chars] array trimmed.
+ * Returns a sub sequence of this char sequence having trailing characters from the [chars] array removed.
  */
 public fun CharSequence.trimEnd(vararg chars: Char): CharSequence = trimEnd { it in chars }
 
 /**
- * Returns a string with trailing characters from the [chars] array trimmed.
+ * Returns a string having trailing characters from the [chars] array removed.
  */
 public fun String.trimEnd(vararg chars: Char): String = trimEnd { it in chars }
 
 /**
- * Returns a sub sequence of this char sequence having leading and trailing whitespace trimmed.
+ * Returns a sub sequence of this char sequence having leading and trailing whitespace removed.
  */
 public fun CharSequence.trim(): CharSequence = trim(Char::isWhitespace)
 
 /**
- * Returns a string with leading and trailing whitespace trimmed.
+ * Returns a string having leading and trailing whitespace removed.
  */
 @kotlin.internal.InlineOnly
 public inline fun String.trim(): String = (this as CharSequence).trim().toString()
@@ -139,7 +140,7 @@ public inline fun String.trim(): String = (this as CharSequence).trim().toString
 public fun CharSequence.trimStart(): CharSequence = trimStart(Char::isWhitespace)
 
 /**
- * Returns a string with leading whitespace removed.
+ * Returns a string having leading whitespace removed.
  */
 @kotlin.internal.InlineOnly
 public inline fun String.trimStart(): String = (this as CharSequence).trimStart().toString()
@@ -150,7 +151,7 @@ public inline fun String.trimStart(): String = (this as CharSequence).trimStart(
 public fun CharSequence.trimEnd(): CharSequence = trimEnd(Char::isWhitespace)
 
 /**
- * Returns a string with trailing whitespace removed.
+ * Returns a string having trailing whitespace removed.
  */
 @kotlin.internal.InlineOnly
 public inline fun String.trimEnd(): String = (this as CharSequence).trimEnd().toString()
@@ -225,7 +226,13 @@ public fun String.padEnd(length: Int, padChar: Char = ' '): String
  * Returns `true` if this nullable char sequence is either `null` or empty.
  */
 @kotlin.internal.InlineOnly
-public inline fun CharSequence?.isNullOrEmpty(): Boolean = this == null || this.length == 0
+public inline fun CharSequence?.isNullOrEmpty(): Boolean {
+    contract {
+        returns(false) implies (this@isNullOrEmpty != null)
+    }
+
+    return this == null || this.length == 0
+}
 
 /**
  * Returns `true` if this char sequence is empty (contains no characters).
@@ -253,7 +260,13 @@ public inline fun CharSequence.isNotBlank(): Boolean = !isBlank()
  * Returns `true` if this nullable char sequence is either `null` or empty or consists solely of whitespace characters.
  */
 @kotlin.internal.InlineOnly
-public inline fun CharSequence?.isNullOrBlank(): Boolean = this == null || this.isBlank()
+public inline fun CharSequence?.isNullOrBlank(): Boolean {
+    contract {
+        returns(false) implies (this@isNullOrBlank != null)
+    }
+
+    return this == null || this.isBlank()
+}
 
 /**
  * Iterator for characters of the given char sequence.

@@ -43,7 +43,7 @@ import org.jetbrains.kotlin.descriptors.impl.SimpleFunctionDescriptorImpl
 import org.jetbrains.kotlin.descriptors.impl.TypeParameterDescriptorImpl
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeFullyAndGetResult
 import org.jetbrains.kotlin.idea.caches.resolve.getJavaClassDescriptor
-import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptor
+import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
 import org.jetbrains.kotlin.idea.codeInsight.CodeInsightUtils
 import org.jetbrains.kotlin.idea.core.*
 import org.jetbrains.kotlin.idea.imports.importableFqName
@@ -463,6 +463,10 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
                         else if (isExtension) "private "
                         else ""
 
+                val isExpectClassMember by lazy {
+                    containingElement is KtClassOrObject && (containingElement.resolveToDescriptorIfAny() as? ClassDescriptor)?.isExpect ?: false
+                }
+
                 val declaration: KtNamedDeclaration = when (callableInfo.kind) {
                     CallableKind.FUNCTION, CallableKind.SECONDARY_CONSTRUCTOR -> {
                         val body = when {
@@ -473,6 +477,7 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
                             containingElement is KtObjectDeclaration && containingElement.isCompanion()
                                 && containingElement.parent.parent is KtClass
                                 && (containingElement.parent.parent as KtClass).hasModifier(KtTokens.EXTERNAL_KEYWORD) -> ""
+                            isExpectClassMember -> ""
                             else -> "{}"
 
                         }
@@ -517,7 +522,7 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
                     CallableKind.PROPERTY -> {
                         val isVar = (callableInfo as PropertyInfo).writable
                         val valVar = if (isVar) "var" else "val"
-                        val accessors = if (isExtension) {
+                        val accessors = if (isExtension && !isExpectClassMember) {
                             buildString {
                                 append("\nget() {}")
                                 if (isVar) {
@@ -619,7 +624,7 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
         private fun postprocessDeclaration(declaration: KtNamedDeclaration) {
             if (callableInfo is PropertyInfo && callableInfo.isLateinitPreferred) {
                 if (declaration.containingClassOrObject == null) return
-                val propertyDescriptor = declaration.resolveToDescriptor() as? PropertyDescriptor ?: return
+                val propertyDescriptor = declaration.resolveToDescriptorIfAny() as? PropertyDescriptor ?: return
                 val returnType = propertyDescriptor.returnType ?: return
                 if (TypeUtils.isNullableType(returnType) || KotlinBuiltIns.isPrimitiveType(returnType)) return
                 declaration.addModifier(KtTokens.LATEINIT_KEYWORD)

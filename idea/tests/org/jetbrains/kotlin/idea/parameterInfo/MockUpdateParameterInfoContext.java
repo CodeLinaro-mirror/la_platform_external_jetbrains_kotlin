@@ -54,6 +54,11 @@ public class MockUpdateParameterInfoContext implements UpdateParameterInfoContex
     }
 
     @Override
+    public Object getHighlightedParameter() {
+        return null;
+    }
+
+    @Override
     public void setCurrentParameter(int index) {
         myCurrentParameter = index;
     }
@@ -79,6 +84,21 @@ public class MockUpdateParameterInfoContext implements UpdateParameterInfoContex
     @Override
     public Object[] getObjectsToView() {
         return ArrayUtil.EMPTY_OBJECT_ARRAY;
+    }
+
+    @Override
+    public boolean isPreservedOnHintHidden() {
+        return false;
+    }
+
+    @Override
+    public void setPreservedOnHintHidden(boolean value) {
+
+    }
+
+    @Override
+    public boolean isInnermostContext() {
+        return false;
     }
 
     @Override

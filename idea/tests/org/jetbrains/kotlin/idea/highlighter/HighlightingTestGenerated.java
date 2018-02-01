@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
+ * Copyright 2010-2018 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,6 +102,12 @@ public class HighlightingTestGenerated extends AbstractHighlightingTest {
         doTest(fileName);
     }
 
+    @TestMetadata("NonNullAssertion.kt")
+    public void testNonNullAssertion() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/highlighter/NonNullAssertion.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("Object.kt")
     public void testObject() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/highlighter/Object.kt");
@@ -114,9 +120,21 @@ public class HighlightingTestGenerated extends AbstractHighlightingTest {
         doTest(fileName);
     }
 
+    @TestMetadata("SyntheticExtensionProperty.kt")
+    public void testSyntheticExtensionProperty() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/highlighter/SyntheticExtensionProperty.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("Todo.kt")
     public void testTodo() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/highlighter/Todo.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("TypeAlias.kt")
+    public void testTypeAlias() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/highlighter/TypeAlias.kt");
         doTest(fileName);
     }
 
