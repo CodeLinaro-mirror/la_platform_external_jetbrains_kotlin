@@ -253,12 +253,12 @@ fun reportTarget6InheritanceErrorIfNeeded(
     }
 }
 
-fun CallableDescriptor.isJvmStaticInObjectOrClass(): Boolean =
+fun CallableDescriptor.isJvmStaticInObjectOrClassOrInterface(): Boolean =
         isJvmStaticIn {
             DescriptorUtils.isNonCompanionObject(it) ||
             // This is necessary because for generation of @JvmStatic methods from companion of class A
             // we create a synthesized descriptor containing in class A
-            DescriptorUtils.isClassOrEnumClass(it)
+            DescriptorUtils.isClassOrEnumClass(it) || DescriptorUtils.isInterface(it)
         }
 
 fun CallableDescriptor.isJvmStaticInCompanionObject(): Boolean =
@@ -429,7 +429,7 @@ fun ExpressionCodegen.generateCallSingleArgument(call: ResolvedCall<out Callable
 
 fun ClassDescriptor.isPossiblyUninitializedSingleton() =
         DescriptorUtils.isEnumEntry(this) ||
-        DescriptorUtils.isCompanionObject(this) && DescriptorUtils.isInterface(this.containingDeclaration)
+        DescriptorUtils.isCompanionObject(this) && JvmCodegenUtil.isJvmInterface(this.containingDeclaration)
 
 val CodegenContext<*>.parentContextsWithSelf
     get() = generateSequence(this) { it.parentContext }

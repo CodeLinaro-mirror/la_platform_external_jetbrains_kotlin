@@ -132,7 +132,7 @@ class KotlinGradleLibraryDataService : AbstractProjectDataService<LibraryData, V
             val ideLibrary = modelsProvider.findIdeLibrary(libraryDataNode.data) ?: continue
 
             val modifiableModel = modelsProvider.getModifiableLibraryModel(ideLibrary) as LibraryEx.ModifiableModelEx
-            if (anyNonJvmModules) {
+            if (anyNonJvmModules || ideLibrary.name?.looksAsNonJvmLibraryName() == true) {
                 detectLibraryKind(modifiableModel.getFiles(OrderRootType.CLASSES))?.let { modifiableModel.kind = it }
             }
             else if (ideLibrary is LibraryImpl && (ideLibrary.kind is JSLibraryKind || ideLibrary.kind is CommonLibraryKind)) {
@@ -140,6 +140,8 @@ class KotlinGradleLibraryDataService : AbstractProjectDataService<LibraryData, V
             }
         }
     }
+
+    private fun String.looksAsNonJvmLibraryName() = nonJvmSuffixes.any { it in this }
 
     private fun resetLibraryKind(modifiableModel: LibraryEx.ModifiableModelEx) {
         try {
@@ -161,6 +163,8 @@ class KotlinGradleLibraryDataService : AbstractProjectDataService<LibraryData, V
 
     companion object {
         val LOG = Logger.getInstance(KotlinGradleLibraryDataService::class.java)
+
+        val nonJvmSuffixes = listOf("-common", "-js", "-native", "-kjsm")
     }
 }
 
@@ -215,7 +219,7 @@ fun configureFacetByGradleModule(
 
     with(kotlinFacet.configuration.settings) {
         implementedModuleName = getImplementedModuleName(moduleNode, sourceSetName, ideModule.project)
-        testOutputPath = getExplicitTestOutputPath(moduleNode, platformKind)
+        testOutputPath = getExplicitOutputPath(moduleNode, platformKind, "test")
     }
 
     kotlinFacet.noVersionAutoAdvance()
@@ -240,9 +244,9 @@ private fun getImplementedModuleName(moduleNode: DataNode<ModuleData>, sourceSet
     return "$baseModuleName$delimiter$sourceSetName"
 }
 
-private fun getExplicitTestOutputPath(moduleNode: DataNode<ModuleData>, platformKind: TargetPlatformKind<*>?): String? {
+private fun getExplicitOutputPath(moduleNode: DataNode<ModuleData>, platformKind: TargetPlatformKind<*>?, sourceSet: String): String? {
     if (platformKind !is TargetPlatformKind.JavaScript) return null
-    val k2jsArgumentList = moduleNode.compilerArgumentsBySourceSet?.get("test")?.currentArguments ?: return null
+    val k2jsArgumentList = moduleNode.compilerArgumentsBySourceSet?.get(sourceSet)?.currentArguments ?: return null
     return K2JSCompilerArguments().apply { parseCommandLineArguments(k2jsArgumentList, this) }.outputFile
 }
 
