@@ -19,7 +19,6 @@ configurePublishing(project)
 repositories {
     jcenter()
     mavenLocal()
-    maven { url 'http://repository.jetbrains.com/utils/' }
     maven { url 'https://maven.google.com' }
 }
 
@@ -48,6 +47,7 @@ dependencies {
     runtime project(path: ':kotlin-annotation-processing-gradle', configuration: "runtimeJar")
     runtime project(path: ':kotlin-android-extensions', configuration: 'runtimeJar')
     runtime project(path: ':kotlin-compiler-runner', configuration: 'runtimeJar')
+    runtime project(':kotlin-reflect')
 
     agp25CompileOnly 'com.android.tools.build:gradle:3.0.0-alpha1'
     agp25CompileOnly 'org.codehaus.groovy:groovy-all:2.4.12'

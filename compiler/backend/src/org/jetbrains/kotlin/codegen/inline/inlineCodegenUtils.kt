@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.codegen.inline
 
 import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.kotlin.backend.common.descriptors.substitute
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.BaseExpressionCodegen
@@ -28,6 +29,7 @@ import org.jetbrains.kotlin.codegen.context.CodegenContext
 import org.jetbrains.kotlin.codegen.context.CodegenContextUtil
 import org.jetbrains.kotlin.codegen.context.InlineLambdaContext
 import org.jetbrains.kotlin.codegen.context.MethodContext
+import org.jetbrains.kotlin.codegen.coroutines.unwrapInitialDescriptorForSuspendFunction
 import org.jetbrains.kotlin.codegen.intrinsics.classId
 import org.jetbrains.kotlin.codegen.optimization.common.intConstant
 import org.jetbrains.kotlin.codegen.state.GenerationState
@@ -43,14 +45,16 @@ import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCache
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
+import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.ENUM_TYPE
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.JAVA_CLASS_TYPE
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.kotlin.resolve.source.PsiSourceElement
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedCallableMemberDescriptor
-import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 import org.jetbrains.org.objectweb.asm.tree.*
@@ -87,6 +91,8 @@ private const val INLINE_MARKER_FINALLY_START = "finallyStart"
 private const val INLINE_MARKER_FINALLY_END = "finallyEnd"
 private const val INLINE_MARKER_BEFORE_SUSPEND_ID = 0
 private const val INLINE_MARKER_AFTER_SUSPEND_ID = 1
+private const val INLINE_MARKER_RETURNS_UNIT = 2
+private const val INLINE_MARKER_FAKE_CONTINUATION = 3
 private val INTRINSIC_ARRAY_CONSTRUCTOR_TYPE = AsmUtil.asmTypeByClassId(classId)
 
 internal fun getMethodNode(
@@ -386,6 +392,26 @@ internal fun addInlineMarker(v: InstructionAdapter, isStartNotEnd: Boolean) {
     )
 }
 
+internal fun addReturnsUnitMarkerIfNecessary(v: InstructionAdapter, resolvedCall: ResolvedCall<*>) {
+    val wrapperDescriptor = resolvedCall.candidateDescriptor.safeAs<FunctionDescriptor>() ?: return
+    val unsubstitutedDescriptor = wrapperDescriptor.unwrapInitialDescriptorForSuspendFunction()
+
+    val typeSubstitutor = TypeSubstitutor.create(
+            unsubstitutedDescriptor.typeParameters
+                    .withIndex()
+                    .associateBy({ it.value.typeConstructor }) {
+                        TypeProjectionImpl(resolvedCall.typeArguments[wrapperDescriptor.typeParameters[it.index]] ?: return)
+                    }
+    )
+
+    val substitutedDescriptor = unsubstitutedDescriptor.substitute(typeSubstitutor) ?: return
+    val returnType = substitutedDescriptor.returnType ?: return
+
+    if (KotlinBuiltIns.isUnit(returnType)) {
+        addReturnsUnitMarker(v)
+    }
+}
+
 internal fun addSuspendMarker(v: InstructionAdapter, isStartNotEnd: Boolean) {
     v.iconst(if (isStartNotEnd) INLINE_MARKER_BEFORE_SUSPEND_ID else INLINE_MARKER_AFTER_SUSPEND_ID)
     v.visitMethodInsn(
@@ -395,8 +421,35 @@ internal fun addSuspendMarker(v: InstructionAdapter, isStartNotEnd: Boolean) {
     )
 }
 
+private fun addReturnsUnitMarker(v: InstructionAdapter) {
+    v.iconst(INLINE_MARKER_RETURNS_UNIT)
+    v.visitMethodInsn(
+            Opcodes.INVOKESTATIC, INLINE_MARKER_CLASS_NAME,
+            "mark",
+            "(I)V", false
+    )
+}
+
+/* There are contexts when the continuation does not yet exist, for example, in inline lambdas, which are going to
+ * be inlined into suspendable functions.
+ * In such cases we just generate the marker which is going to be replaced with real continuation on generating state machine.
+ * See [CoroutineTransformerMethodVisitor] for more info.
+ */
+internal fun addFakeContinuationMarker(v: InstructionAdapter) {
+    v.iconst(INLINE_MARKER_FAKE_CONTINUATION)
+    v.invokestatic(
+        INLINE_MARKER_CLASS_NAME,
+        "mark",
+        "(I)V", false
+    )
+    v.aconst(null)
+}
+
 internal fun isBeforeSuspendMarker(insn: AbstractInsnNode) = isSuspendMarker(insn, INLINE_MARKER_BEFORE_SUSPEND_ID)
 internal fun isAfterSuspendMarker(insn: AbstractInsnNode) = isSuspendMarker(insn, INLINE_MARKER_AFTER_SUSPEND_ID)
+internal fun isReturnsUnitMarker(insn: AbstractInsnNode) = isSuspendMarker(insn, INLINE_MARKER_RETURNS_UNIT)
+internal fun isFakeContinuationMarker(insn: AbstractInsnNode) =
+    insn.previous != null && isSuspendMarker(insn.previous, INLINE_MARKER_FAKE_CONTINUATION) && insn.opcode == Opcodes.ACONST_NULL
 
 private fun isSuspendMarker(insn: AbstractInsnNode, id: Int) =
         isInlineMarker(insn, "mark") && insn.previous.intConstant == id

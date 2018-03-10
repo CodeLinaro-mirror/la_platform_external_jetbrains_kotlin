@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,13 +51,13 @@ open class ConvertToStringTemplateIntention : SelfTargetingOffsetIndependentInte
         fun shouldSuggestToConvert(expression: KtBinaryExpression): Boolean {
             val entries = buildReplacement(expression).entries
             return entries.none { it is KtBlockStringTemplateEntry }
-                   && !entries.all { it is KtLiteralStringTemplateEntry || it is KtEscapeStringTemplateEntry }
-                   && entries.count { it is KtLiteralStringTemplateEntry } > 1
-                   && !expression.textContains('\n')
+                    && !entries.all { it is KtLiteralStringTemplateEntry || it is KtEscapeStringTemplateEntry }
+                    && entries.count { it is KtLiteralStringTemplateEntry } >= 1
+                    && !expression.textContains('\n')
         }
 
         @JvmStatic
-        fun buildReplacement(expression: KtBinaryExpression): KtStringTemplateExpression {
+        protected fun buildReplacement(expression: KtBinaryExpression): KtStringTemplateExpression {
             val rightText = buildText(expression.right, false)
             return fold(expression.left, rightText, KtPsiFactory(expression))
         }
@@ -75,7 +75,7 @@ open class ConvertToStringTemplateIntention : SelfTargetingOffsetIndependentInte
             }
         }
 
-        private fun buildText(expr: KtExpression?, forceBraces: Boolean): String {
+        fun buildText(expr: KtExpression?, forceBraces: Boolean): String {
             if (expr == null) return ""
             val expression = KtPsiUtil.safeDeparenthesize(expr)
             val expressionText = expression.text
@@ -130,7 +130,7 @@ open class ConvertToStringTemplateIntention : SelfTargetingOffsetIndependentInte
             return "\${$expressionText}"
         }
 
-        fun isApplicableToNoParentCheck(expression: KtBinaryExpression): Boolean {
+        private fun isApplicableToNoParentCheck(expression: KtBinaryExpression): Boolean {
             if (expression.operationToken != KtTokens.PLUS) return false
             val expressionType = expression.analyze(BodyResolveMode.PARTIAL).getType(expression)
             if (!KotlinBuiltIns.isString(expressionType)) return false

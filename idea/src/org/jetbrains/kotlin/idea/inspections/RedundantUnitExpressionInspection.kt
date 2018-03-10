@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.idea.inspections
@@ -20,34 +9,56 @@ import com.intellij.codeInspection.*
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElementVisitor
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.idea.caches.resolve.analyze
+import org.jetbrains.kotlin.idea.intentions.loopToCallChain.previousStatement
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypesAndPredicate
+import org.jetbrains.kotlin.psi.psiUtil.lastBlockStatementOrThis
+import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.types.typeUtil.isUnit
 
 class RedundantUnitExpressionInspection : AbstractKotlinInspection(), CleanupLocalInspectionTool {
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean, session: LocalInspectionToolSession): PsiElementVisitor {
-        return object : KtVisitorVoid() {
-
-            override fun visitReferenceExpression(expression: KtReferenceExpression) {
-                super.visitReferenceExpression(expression)
-
-                if (KotlinBuiltIns.FQ_NAMES.unit.shortName() != (expression as? KtNameReferenceExpression)?.getReferencedNameAsName()) {
-                    return
-                }
-
-                val parent = expression.parent
-                if (parent !is KtReturnExpression && parent !is KtBlockExpression) return
-
-                // Do not report just 'Unit' in function literals (return@label Unit is OK even in literals)
-                if (parent is KtBlockExpression && parent.getParentOfType<KtFunctionLiteral>(strict = true) != null) return
-
-                holder.registerProblem(expression,
-                                       "Redundant 'Unit'",
-                                       ProblemHighlightType.LIKE_UNUSED_SYMBOL,
-                                       RemoveRedundantUnitFix())
+        return referenceExpressionVisitor(fun(expression) {
+            if (expression.isRedundantUnit()) {
+                holder.registerProblem(
+                    expression,
+                    "Redundant 'Unit'",
+                    ProblemHighlightType.LIKE_UNUSED_SYMBOL,
+                    RemoveRedundantUnitFix()
+                )
             }
-        }
+        })
     }
 }
+
+private fun KtReferenceExpression.isRedundantUnit(): Boolean {
+    if (!isUnitLiteral()) return false
+    val parent = this.parent ?: return false
+    if (parent is KtReturnExpression) return true
+    if (parent is KtBlockExpression) {
+        // Do not report just 'Unit' in function literals (return@label Unit is OK even in literals)
+        if (parent.getParentOfType<KtFunctionLiteral>(strict = true) != null) return false
+
+        if (this == parent.lastBlockStatementOrThis()) {
+            val prev = this.previousStatement() ?: return true
+            if (prev.isUnitLiteral()) return true
+            val prevType = prev.getResolvedCall(analyze())?.resultingDescriptor?.returnType
+            if (prevType != null) {
+                return prevType.isUnit()
+            }
+            if (prev !is KtDeclaration) return false
+            if (prev !is KtFunction) return true
+            return parent.getParentOfTypesAndPredicate(true, KtIfExpression::class.java, KtWhenExpression::class.java) { true } == null
+        }
+        return true
+    }
+    return false
+}
+
+private fun KtExpression.isUnitLiteral(): Boolean =
+    KotlinBuiltIns.FQ_NAMES.unit.shortName() == (this as? KtNameReferenceExpression)?.getReferencedNameAsName()
 
 private class RemoveRedundantUnitFix : LocalQuickFix {
     override fun getName() = "Remove redundant 'Unit'"

@@ -40,7 +40,7 @@ class QuickFixMultiModuleTest : AbstractQuickFixMultiModuleTest() {
         doQuickFixTest()
     }
 
-    private fun doTestHeaderWithJvmAndJs() {
+    private fun doTestHeaderWithJvmAndJs(expectName: String = "header") {
         doMultiPlatformTest(impls = *arrayOf("jvm" to TargetPlatformKind.Jvm[JvmTarget.JVM_1_6], "js" to TargetPlatformKind.JavaScript))
     }
 
@@ -71,6 +71,11 @@ class QuickFixMultiModuleTest : AbstractQuickFixMultiModuleTest() {
 
     @Test
     fun testClassSomeProperties() {
+        doMultiPlatformTest()
+    }
+
+    @Test
+    fun testCompanionAbsence() {
         doMultiPlatformTest()
     }
 
@@ -258,4 +263,16 @@ class QuickFixMultiModuleTest : AbstractQuickFixMultiModuleTest() {
 
     @Test
     fun testCreateVarInExpectClass() = doMultiPlatformTest()
+
+    @Test
+    fun testConvertExpectSealedClassToEnum() = doTestHeaderWithJvmAndJs("header")
+
+    @Test
+    fun testConvertActualSealedClassToEnum() = doTestHeaderWithJvmAndJs("js")
+
+    @Test
+    fun testConvertExpectEnumToSealedClass() = doTestHeaderWithJvmAndJs("header")
+
+    @Test
+    fun testConvertActualEnumToSealedClass() = doTestHeaderWithJvmAndJs("js")
 }

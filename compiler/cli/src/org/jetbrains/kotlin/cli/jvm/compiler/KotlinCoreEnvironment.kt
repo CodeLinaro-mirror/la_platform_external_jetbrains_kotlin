@@ -29,8 +29,6 @@ import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.lang.MetaLanguage
 import com.intellij.lang.java.JavaParserDefinition
 import com.intellij.lang.jvm.facade.JvmElementProvider
-import com.intellij.lang.jvm.facade.JvmFacade
-import com.intellij.lang.jvm.facade.JvmFacadeImpl
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.TransactionGuard
 import com.intellij.openapi.application.TransactionGuardImpl
@@ -100,6 +98,7 @@ import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
 import org.jetbrains.kotlin.parsing.KotlinParserDefinition
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.CodeAnalyzerInitializer
+import org.jetbrains.kotlin.resolve.ModuleAnnotationsResolver
 import org.jetbrains.kotlin.resolve.extensions.SyntheticResolveExtension
 import org.jetbrains.kotlin.resolve.jvm.KotlinJavaPsiFacade
 import org.jetbrains.kotlin.resolve.jvm.extensions.AnalysisHandlerExtension
@@ -276,6 +275,7 @@ class KotlinCoreEnvironment private constructor(
         return JvmPackagePartProvider(configuration.languageVersionSettings, scope).apply {
             addRoots(initialRoots)
             packagePartProviders += this
+            (ModuleAnnotationsResolver.getInstance(project) as CliModuleAnnotationsResolver).addPackagePartProvider(this)
         }
     }
 
@@ -509,7 +509,6 @@ class KotlinCoreEnvironment private constructor(
         }
 
         private fun registerApplicationExtensionPointsAndExtensionsFrom(configuration: CompilerConfiguration, configFilePath: String) {
-
             fun File.hasConfigFile(configFile: String): Boolean =
                     if (isDirectory) File(this, "META-INF" + File.separator + configFile).exists()
                     else try {
@@ -524,9 +523,9 @@ class KotlinCoreEnvironment private constructor(
             val pluginRoot =
                     configuration.get(CLIConfigurationKeys.INTELLIJ_PLUGIN_ROOT)?.let(::File)
                     ?: configuration.get(CLIConfigurationKeys.COMPILER_JAR_LOCATOR)?.compilerJar
-                    ?: PathUtil.pathUtilJar.takeIf { it.hasConfigFile(configFilePath) }
+                    ?: PathUtil.getResourcePathForClass(this::class.java).takeIf { it.hasConfigFile(configFilePath) }
                     // hack for load extensions when compiler run directly from project directory (e.g. in tests)
-                    ?: File("idea/src").takeIf { it.hasConfigFile(configFilePath) }
+                    ?: File("compiler/cli/src").takeIf { it.hasConfigFile(configFilePath) }
                     ?: throw IllegalStateException("Unable to find extension point configuration $configFilePath")
 
             CoreApplicationEnvironment.registerExtensionPointAndExtensions(pluginRoot, configFilePath, Extensions.getRootArea())
@@ -567,6 +566,7 @@ class KotlinCoreEnvironment private constructor(
                 registerService(ScriptDependenciesProvider::class.java, CliScriptDependenciesProvider(projectEnvironment.project, scriptDefinitionProvider))
                 registerService(KotlinJavaPsiFacade::class.java, KotlinJavaPsiFacade(this))
                 registerService(KtLightClassForFacade.FacadeStubCache::class.java, KtLightClassForFacade.FacadeStubCache(this))
+                registerService(ModuleAnnotationsResolver::class.java, CliModuleAnnotationsResolver())
                 if (messageCollector != null) {
                     registerService(ScriptReportSink::class.java, CliScriptReportSink(messageCollector))
                 }

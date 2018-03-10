@@ -366,29 +366,43 @@ class MultiplatformProjectImportingTest : GradleImportingTestCase() {
             }
         """)
 
-        importProject()
+        val isResolveModulePerSourceSet = getCurrentExternalProjectSettings().isResolveModulePerSourceSet
 
-        assertModuleModuleDepScope("project1_test", "project1_main", DependencyScope.COMPILE)
+        try {
+            currentExternalProjectSettings.isResolveModulePerSourceSet = true
+            importProject()
 
-        assertModuleModuleDepScope("project2_main", "project1_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project1_test", "project1_main", DependencyScope.COMPILE)
 
-        assertModuleModuleDepScope("project2_test", "project2_main", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project2_test", "project1_test", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project2_test", "project1_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project2_main", "project1_main", DependencyScope.COMPILE)
 
-        assertModuleModuleDepScope("project2_custom", "project1_custom", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project2_test", "project2_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project2_test", "project1_test", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project2_test", "project1_main", DependencyScope.COMPILE)
 
-        assertModuleModuleDepScope("project3_main", "project2_main", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_main", "project1_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project2_custom", "project1_custom", DependencyScope.COMPILE)
 
-        assertModuleModuleDepScope("project3_test", "project3_main", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_test", "project2_test", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_test", "project2_main", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_test", "project1_test", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_test", "project1_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_main", "project2_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_main", "project1_main", DependencyScope.COMPILE)
 
-        assertModuleModuleDepScope("project3_custom", "project1_custom", DependencyScope.COMPILE)
-        assertModuleModuleDepScope("project3_custom", "project2_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_test", "project3_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_test", "project2_test", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_test", "project2_main", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_test", "project1_test", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_test", "project1_main", DependencyScope.COMPILE)
+
+            assertModuleModuleDepScope("project3_custom", "project1_custom", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3_custom", "project2_main", DependencyScope.COMPILE)
+
+            currentExternalProjectSettings.isResolveModulePerSourceSet = false
+            importProject()
+
+            assertModuleModuleDepScope("project2", "project1", DependencyScope.COMPILE)
+            assertModuleModuleDepScope("project3", "project2", DependencyScope.TEST, DependencyScope.PROVIDED, DependencyScope.RUNTIME)
+            assertModuleModuleDepScope("project3", "project1", DependencyScope.COMPILE)
+        } finally {
+            currentExternalProjectSettings.isResolveModulePerSourceSet = isResolveModulePerSourceSet
+        }
     }
 
     @Test
@@ -529,6 +543,57 @@ class MultiplatformProjectImportingTest : GradleImportingTestCase() {
         TestCase.assertEquals(
                 projectPath + "/project2/build/classes/test/project2_test.js",
                 PathUtil.toSystemIndependentName(KotlinFacet.get (getModule("project2_test"))!!.configuration.settings.testOutputPath)
+        )
+    }
+
+    @Test
+    fun testJsProductionOutputFile() {
+        createProjectSubFile(
+                "settings.gradle",
+                "include ':project1', ':project2', ':project3'"
+        )
+
+        val kotlinVersion = "1.1.51"
+
+        createProjectSubFile("build.gradle", """
+            buildscript {
+                repositories {
+                    jcenter()
+                    maven { url 'https://maven.google.com' }
+                }
+
+                dependencies {
+                    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+                    classpath 'com.android.tools.build:gradle:2.3.3'
+                }
+            }
+
+            project('project1') {
+                apply plugin: 'kotlin-platform-common'
+            }
+
+            project('project2') {
+                repositories {
+                    mavenCentral()
+                }
+
+                apply plugin: 'kotlin-platform-js'
+
+                dependencies {
+                    implement project(':project1')
+                }
+            }
+        """)
+
+        importProject()
+
+        TestCase.assertEquals(
+                projectPath + "/project2/build/classes/main/project2.js",
+                PathUtil.toSystemIndependentName(KotlinFacet.get (getModule("project2_main"))!!.configuration.settings.productionOutputPath)
+        )
+        TestCase.assertEquals(
+                projectPath + "/project2/build/classes/main/project2.js",
+                PathUtil.toSystemIndependentName(KotlinFacet.get (getModule("project2_test"))!!.configuration.settings.productionOutputPath)
         )
     }
 

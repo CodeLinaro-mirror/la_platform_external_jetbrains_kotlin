@@ -57,7 +57,6 @@ dependencies {
     testCompile(ideaSdkDeps("openapi", "idea", "util", "asm-all", "commons-httpclient-3.1-patched"))
 
     testRuntime(projectDist(":kotlin-reflect"))
-    testRuntime(projectDist(":kotlin-compiler"))
     testRuntime(projectDist(":kotlin-daemon-client"))
     testRuntime(preloadedDeps("dx", subdir = "android-5.0/lib"))
     testRuntime(ideaSdkCoreDeps("*.jar"))
@@ -74,14 +73,6 @@ sourceSets {
         projectDefault()
         // not yet ready
 //        java.srcDir("tests-ir-jvm/tests")
-    }
-}
-
-val jar: Jar by tasks
-jar.apply {
-    from(the<JavaPluginConvention>().sourceSets.getByName("main").output)
-    from("../idea/src").apply {
-        include("META-INF/extensions/compiler.xml")
     }
 }
 

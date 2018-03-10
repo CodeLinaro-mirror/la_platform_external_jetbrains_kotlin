@@ -23,6 +23,7 @@ import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.PsiManager
 import junit.framework.TestCase
+import org.jetbrains.kotlin.checkers.parseLanguageVersionSettings
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
@@ -46,7 +47,10 @@ import org.jetbrains.kotlin.js.dce.InputFile
 import org.jetbrains.kotlin.js.dce.InputResource
 import org.jetbrains.kotlin.js.facade.*
 import org.jetbrains.kotlin.js.parser.parse
-import org.jetbrains.kotlin.js.parser.sourcemaps.*
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapError
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapLocationRemapper
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapParser
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapSuccess
 import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver
 import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.test.utils.*
@@ -115,6 +119,7 @@ abstract class BasicBoxTest(
                 val outputFileName = module.outputFileName(outputDir) + ".js"
                 generateJavaScriptFile(file.parent, module, outputFileName, dependencies, friends, modules.size > 1,
                                        ENABLE_MULTIPLATFORM.matcher(fileContent).find(),
+                                       !SKIP_SOURCEMAP_REMAPPING.matcher(fileContent).find(),
                                        outputPrefixFile, outputPostfixFile, mainCallParameters)
 
                 if (!module.name.endsWith(OLD_MODULE_SUFFIX)) Pair(outputFileName, module) else null
@@ -282,6 +287,7 @@ abstract class BasicBoxTest(
             friends: List<String>,
             multiModule: Boolean,
             multiplatform: Boolean,
+            remap: Boolean,
             outputPrefixFile: File?,
             outputPostfixFile: File?,
             mainCallParameters: MainCallParameters
@@ -305,11 +311,11 @@ abstract class BasicBoxTest(
 
         val incrementalData = IncrementalData()
         translateFiles(psiFiles.map(TranslationUnit::SourceFile), outputFile, config, outputPrefixFile, outputPostfixFile,
-                       mainCallParameters, incrementalData)
+                       mainCallParameters, incrementalData, remap)
 
         if (module.hasFilesToRecompile) {
-            checkIncrementalCompilation(sourceDirs, module, kotlinFiles, dependencies, friends, multiModule, multiplatform, outputFile,
-                                        outputPrefixFile, outputPostfixFile, mainCallParameters, incrementalData)
+            checkIncrementalCompilation(sourceDirs, module, kotlinFiles, dependencies, friends, multiModule, multiplatform, remap,
+                                        outputFile, outputPrefixFile, outputPostfixFile, mainCallParameters, incrementalData)
         }
     }
 
@@ -321,6 +327,7 @@ abstract class BasicBoxTest(
             friends: List<String>,
             multiModule: Boolean,
             multiplatform: Boolean,
+            remap: Boolean,
             outputFile: File,
             outputPrefixFile: File?,
             outputPostfixFile: File?,
@@ -346,7 +353,7 @@ abstract class BasicBoxTest(
         val recompiledOutputFile = File(outputFile.parentFile, outputFile.nameWithoutExtension + "-recompiled.js")
 
         translateFiles(translationUnits, recompiledOutputFile, recompiledConfig, outputPrefixFile, outputPostfixFile,
-                       mainCallParameters, incrementalData)
+                       mainCallParameters, incrementalData, remap)
 
         val originalOutput = FileUtil.loadFile(outputFile)
         val recompiledOutput = removeRecompiledSuffix(FileUtil.loadFile(recompiledOutputFile))
@@ -403,7 +410,8 @@ abstract class BasicBoxTest(
             outputPrefixFile: File?,
             outputPostfixFile: File?,
             mainCallParameters: MainCallParameters,
-            incrementalData: IncrementalData
+            incrementalData: IncrementalData,
+            remap: Boolean
     ) {
         val translator = K2JSTranslator(config)
         val translationResult = translator.translateUnits(ExceptionThrowingReporter, units, mainCallParameters)
@@ -446,7 +454,7 @@ abstract class BasicBoxTest(
         }
 
         processJsProgram(translationResult.program, units.filterIsInstance<TranslationUnit.SourceFile>().map { it.file })
-        checkSourceMap(outputFile, translationResult.program)
+        checkSourceMap(outputFile, translationResult.program, remap)
     }
 
     private fun processJsProgram(program: JsProgram, psiFiles: List<KtFile>) {
@@ -456,7 +464,7 @@ abstract class BasicBoxTest(
         program.verifyAst()
     }
 
-    private fun checkSourceMap(outputFile: File, program: JsProgram) {
+    private fun checkSourceMap(outputFile: File, program: JsProgram, remap: Boolean) {
         val generatedProgram = JsProgram()
         generatedProgram.globalBlock.statements += program.globalBlock.statements.map { it.deepCopy() }
         generatedProgram.accept(object : RecursiveJsVisitor() {
@@ -491,12 +499,14 @@ abstract class BasicBoxTest(
             is SourceMapError -> error("Could not parse source map: ${sourceMapParseResult.message}")
         }
 
-        val remapper = SourceMapLocationRemapper(sourceMap)
-        remapper.remap(parsedProgram)
+        if (remap) {
+            val remapper = SourceMapLocationRemapper(sourceMap)
+            remapper.remap(parsedProgram)
 
-        val codeWithRemappedLines = parsedProgram.toStringWithLineNumbers()
+            val codeWithRemappedLines = parsedProgram.toStringWithLineNumbers()
 
-        TestCase.assertEquals(codeWithLines, codeWithRemappedLines)
+            TestCase.assertEquals(codeWithLines, codeWithRemappedLines)
+        }
     }
 
     private fun removeLocationFromBlocks(program: JsProgram) {
@@ -524,9 +534,8 @@ abstract class BasicBoxTest(
         val configuration = environment.configuration.copy()
 
         configuration.put(CommonConfigurationKeys.DISABLE_INLINE, module.inliningDisabled)
-        module.languageVersion?.let { languageVersion ->
-            configuration.languageVersionSettings =
-                    LanguageVersionSettingsImpl(languageVersion, LanguageVersionSettingsImpl.DEFAULT.apiVersion)
+        module.languageVersionSettings?.let { languageVersionSettings ->
+            configuration.languageVersionSettings = languageVersionSettings
         }
 
         configuration.put(JSConfigurationKeys.LIBRARIES, JsConfig.JS_STDLIB + JsConfig.JS_KOTLIN_TEST + dependencies)
@@ -640,11 +649,10 @@ abstract class BasicBoxTest(
             KotlinTestUtils.mkdirs(temporaryFile.parentFile)
             temporaryFile.writeText(text, Charsets.UTF_8)
 
-            val version = InTextDirectivesUtils.findStringWithPrefixes(text, "// LANGUAGE_VERSION:")
-            if (version != null) {
-                assert(currentModule.languageVersion == null) { "Should not specify LANGUAGE_VERSION twice" }
-                currentModule.languageVersion = LanguageVersion.fromVersionString(version)
-            }
+            val old = currentModule.languageVersionSettings
+            val new = parseLanguageVersionSettings(directives)
+            assert(old == null || old == new) { "Should not specify language version settings twice:\n$old\n$new" }
+            currentModule.languageVersionSettings = new
 
             SOURCE_MAP_SOURCE_EMBEDDING.find(text)?.let { match ->
                 currentModule.sourceMapSourceEmbedding = SourceMapSourceEmbedding.valueOf(match.groupValues[1])
@@ -677,7 +685,7 @@ abstract class BasicBoxTest(
         var moduleKind = ModuleKind.PLAIN
         var inliningDisabled = false
         val files = mutableListOf<TestFile>()
-        var languageVersion: LanguageVersion? = null
+        var languageVersionSettings: LanguageVersionSettings? = null
         var sourceMapSourceEmbedding = SourceMapSourceEmbedding.NEVER
 
         val hasFilesToRecompile get() = files.any { it.recompile }
@@ -707,6 +715,7 @@ abstract class BasicBoxTest(
         private val NO_INLINE_PATTERN = Pattern.compile("^// *NO_INLINE *$", Pattern.MULTILINE)
         private val SKIP_NODE_JS = Pattern.compile("^// *SKIP_NODE_JS *$", Pattern.MULTILINE)
         private val SKIP_MINIFICATION = Pattern.compile("^// *SKIP_MINIFICATION *$", Pattern.MULTILINE)
+        private val SKIP_SOURCEMAP_REMAPPING = Pattern.compile("^// *SKIP_SOURCEMAP_REMAPPING *$", Pattern.MULTILINE)
         private val EXPECTED_REACHABLE_NODES_DIRECTIVE = "EXPECTED_REACHABLE_NODES"
         private val EXPECTED_REACHABLE_NODES = Pattern.compile("^// *$EXPECTED_REACHABLE_NODES_DIRECTIVE: *([0-9]+) *$", Pattern.MULTILINE)
         private val RECOMPILE_PATTERN = Pattern.compile("^// *RECOMPILE *$", Pattern.MULTILINE)
