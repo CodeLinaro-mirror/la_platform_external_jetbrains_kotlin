@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.idea.configuration.allConfigurators
 import org.jetbrains.kotlin.idea.facet.KotlinFacet
 import org.jetbrains.kotlin.idea.framework.CommonLibraryKind
 import org.jetbrains.kotlin.idea.framework.JSLibraryKind
+import org.jetbrains.kotlin.idea.framework.KotlinSdkType
 import org.jetbrains.kotlin.idea.util.projectStructure.allModules
 import org.junit.Assert
 import org.junit.Test
@@ -505,6 +506,9 @@ compileTestKotlin {
         assertEquals(JSLibraryKind, (stdlib as LibraryEx).kind)
         assertTrue(stdlib.getFiles(OrderRootType.CLASSES).isNotEmpty())
 
+        Assert.assertTrue(ModuleRootManager.getInstance(getModule("project_main")).sdk!!.sdkType is KotlinSdkType)
+        Assert.assertTrue(ModuleRootManager.getInstance(getModule("project_test")).sdk!!.sdkType is KotlinSdkType)
+
         assertAllModulesConfigured()
     }
 
@@ -947,7 +951,9 @@ compileTestKotlin {
                     listOf("plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.stereotype.Component",
                            "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.transaction.annotation.Transactional",
                            "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.scheduling.annotation.Async",
-                           "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.cache.annotation.Cacheable"),
+                           "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.cache.annotation.Cacheable",
+                           "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.boot.test.context.SpringBootTest",
+                           "plugin:org.jetbrains.kotlin.allopen:annotation=org.springframework.validation.annotation.Validated"),
                     compilerArguments!!.pluginOptions!!.toList()
             )
         }
@@ -1787,6 +1793,9 @@ compileTestKotlin {
         val rootManager = ModuleRootManager.getInstance(getModule("project_main"))
         val stdlib = rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>().single().library
         assertEquals(CommonLibraryKind, (stdlib as LibraryEx).kind)
+
+        Assert.assertTrue(ModuleRootManager.getInstance(getModule("project_main")).sdk!!.sdkType is KotlinSdkType)
+        Assert.assertTrue(ModuleRootManager.getInstance(getModule("project_test")).sdk!!.sdkType is KotlinSdkType)
     }
 
     private fun assertAllModulesConfigured() {

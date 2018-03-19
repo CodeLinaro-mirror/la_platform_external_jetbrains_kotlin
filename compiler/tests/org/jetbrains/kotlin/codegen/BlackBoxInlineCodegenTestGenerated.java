@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen;
@@ -1013,6 +1002,69 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
         @TestMetadata("simpleExtension.kt")
         public void testSimpleExtension() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/complexStack/simpleExtension.kt");
+            doTest(fileName);
+        }
+    }
+
+    @TestMetadata("compiler/testData/codegen/boxInline/contracts")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Contracts extends AbstractBlackBoxInlineCodegenTest {
+        public void testAllFilesPresentInContracts() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/codegen/boxInline/contracts"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("complexInitializer.kt")
+        public void testComplexInitializer() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/complexInitializer.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("complexInitializerWithStackTransformation.kt")
+        public void testComplexInitializerWithStackTransformation() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/complexInitializerWithStackTransformation.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("definiteLongValInitialization.kt")
+        public void testDefiniteLongValInitialization() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/definiteLongValInitialization.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("definiteNestedValInitialization.kt")
+        public void testDefiniteNestedValInitialization() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/definiteNestedValInitialization.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("definiteValInitialization.kt")
+        public void testDefiniteValInitialization() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/definiteValInitialization.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("nonLocalReturn.kt")
+        public void testNonLocalReturn() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/nonLocalReturn.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("nonLocalReturnWithCycle.kt")
+        public void testNonLocalReturnWithCycle() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/nonLocalReturnWithCycle.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("propertyInitialization.kt")
+        public void testPropertyInitialization() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/propertyInitialization.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("valInitializationAndUsageInNestedLambda.kt")
+        public void testValInitializationAndUsageInNestedLambda() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/boxInline/contracts/valInitializationAndUsageInNestedLambda.kt");
             doTest(fileName);
         }
     }

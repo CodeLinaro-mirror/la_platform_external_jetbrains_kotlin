@@ -1,23 +1,10 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.idea.compiler.configuration;
 
-import com.intellij.compiler.options.ComparingUtils;
-import com.intellij.compiler.server.BuildManager;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.module.Module;
@@ -142,7 +129,7 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
                     new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            restrictAPIVersions(getSelectedLanguageVersionView().getVersion());
+                            restrictAPIVersions(getSelectedLanguageVersionView());
                         }
                     }
             );
@@ -302,11 +289,17 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
 
         fileChooser.addBrowseFolderListener(title, null, null,
                                             new FileChooserDescriptor(forFiles, !forFiles, false, false, false, false),
-                                            TextComponentAccessor.TEXT_FIELD_WHOLE_TEXT, false);
+                                            TextComponentAccessor.TEXT_FIELD_WHOLE_TEXT);
     }
 
-    private static boolean isModified(@NotNull TextFieldWithBrowseButton chooser, @Nullable String currentValue) {
-        return !StringUtil.equals(StringUtil.nullize(chooser.getText(), true), currentValue);
+    private static boolean isModifiedWithNullize(@NotNull TextFieldWithBrowseButton chooser, @Nullable String currentValue) {
+        return !StringUtil.equals(
+                StringUtil.nullize(chooser.getText(), true),
+                StringUtil.nullize(currentValue, true));
+    }
+
+    private static boolean isModified(@NotNull TextFieldWithBrowseButton chooser, @NotNull String currentValue) {
+        return !StringUtil.equals(chooser.getText(), currentValue);
     }
 
     private void updateOutputDirEnabled() {
@@ -321,8 +314,10 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
     }
 
     @SuppressWarnings("unchecked")
-    public void restrictAPIVersions(LanguageVersion upperBound) {
-        LanguageVersion selectedAPIVersion = getSelectedAPIVersionView().getVersion();
+    public void restrictAPIVersions(VersionView upperBoundView) {
+        VersionView selectedAPIView = getSelectedAPIVersionView();
+        LanguageVersion selectedAPIVersion = selectedAPIView.getVersion();
+        LanguageVersion upperBound = upperBoundView.getVersion();
         List<VersionView> permittedAPIVersions = new ArrayList<>(LanguageVersion.values().length + 1);
         if (isLessOrEqual(VersionView.LatestStable.INSTANCE.getVersion(), upperBound)) {
             permittedAPIVersions.add(VersionView.LatestStable.INSTANCE);
@@ -337,8 +332,8 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
         );
         apiVersionComboBox.setSelectedItem(
                 VersionComparatorUtil.compare(selectedAPIVersion.getVersionString(), upperBound.getVersionString()) <= 0
-                ? selectedAPIVersion
-                : ApiVersion.createByLanguageVersion(upperBound)
+                ? selectedAPIView
+                : upperBoundView
         );
     }
 
@@ -426,25 +421,25 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
 
     @Override
     public boolean isModified() {
-        return ComparingUtils.isModified(reportWarningsCheckBox, !commonCompilerArguments.getSuppressWarnings()) ||
+        return isModified(reportWarningsCheckBox, !commonCompilerArguments.getSuppressWarnings()) ||
                !getSelectedLanguageVersionView().equals(KotlinFacetSettingsKt.getLanguageVersionView(commonCompilerArguments)) ||
                !getSelectedAPIVersionView().equals(KotlinFacetSettingsKt.getApiVersionView(commonCompilerArguments)) ||
                !coroutineSupportComboBox.getSelectedItem().equals(CoroutineSupport.byCompilerArguments(commonCompilerArguments)) ||
-               ComparingUtils.isModified(additionalArgsOptionsField, compilerSettings.getAdditionalArguments()) ||
-               ComparingUtils.isModified(scriptTemplatesField, compilerSettings.getScriptTemplates()) ||
-               ComparingUtils.isModified(scriptTemplatesClasspathField, compilerSettings.getScriptTemplatesClasspath()) ||
-               ComparingUtils.isModified(copyRuntimeFilesCheckBox, compilerSettings.getCopyJsLibraryFiles()) ||
+               !additionalArgsOptionsField.getText().equals(compilerSettings.getAdditionalArguments()) ||
+               isModified(scriptTemplatesField, compilerSettings.getScriptTemplates()) ||
+               isModified(scriptTemplatesClasspathField, compilerSettings.getScriptTemplatesClasspath()) ||
+               isModified(copyRuntimeFilesCheckBox, compilerSettings.getCopyJsLibraryFiles()) ||
                isModified(outputDirectory, compilerSettings.getOutputDirectoryForJsLibraryFiles()) ||
 
                (compilerWorkspaceSettings != null &&
-                (ComparingUtils.isModified(enablePreciseIncrementalCheckBox, compilerWorkspaceSettings.getPreciseIncrementalEnabled()) ||
-                 ComparingUtils.isModified(keepAliveCheckBox, compilerWorkspaceSettings.getEnableDaemon()))) ||
+                (isModified(enablePreciseIncrementalCheckBox, compilerWorkspaceSettings.getPreciseIncrementalEnabled()) ||
+                 isModified(keepAliveCheckBox, compilerWorkspaceSettings.getEnableDaemon()))) ||
 
-               ComparingUtils.isModified(generateSourceMapsCheckBox, k2jsCompilerArguments.getSourceMap()) ||
-               ComparingUtils.isModified(outputPrefixFile, StringUtil.notNullize(k2jsCompilerArguments.getOutputPrefix())) ||
-               ComparingUtils.isModified(outputPostfixFile, StringUtil.notNullize(k2jsCompilerArguments.getOutputPostfix())) ||
+               isModified(generateSourceMapsCheckBox, k2jsCompilerArguments.getSourceMap()) ||
+               isModifiedWithNullize(outputPrefixFile, k2jsCompilerArguments.getOutputPrefix()) ||
+               isModifiedWithNullize(outputPostfixFile, k2jsCompilerArguments.getOutputPostfix()) ||
                !getSelectedModuleKind().equals(getModuleKindOrDefault(k2jsCompilerArguments.getModuleKind())) ||
-               ComparingUtils.isModified(sourceMapPrefix, StringUtil.notNullize(k2jsCompilerArguments.getSourceMapPrefix())) ||
+               isModified(sourceMapPrefix, StringUtil.notNullize(k2jsCompilerArguments.getSourceMapPrefix())) ||
                !getSelectedSourceMapSourceEmbedding().equals(
                        getSourceMapSourceEmbeddingOrDefault(k2jsCompilerArguments.getSourceMapEmbedSources())) ||
                !getSelectedJvmVersion().equals(getJvmVersionOrDefault(k2jvmCompilerArguments.getJvmTarget()));
@@ -551,7 +546,9 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
             KotlinCompilerSettings.Companion.getInstance(project).setSettings(compilerSettings);
         }
 
-        BuildManager.getInstance().clearState(project);
+        for (ClearBuildStateExtension extension : ClearBuildStateExtension.getExtensions()) {
+            extension.clearState(project);
+        }
     }
 
     @Override
@@ -563,7 +560,7 @@ public class KotlinCompilerConfigurableTab implements SearchableConfigurable, Co
     public void reset() {
         reportWarningsCheckBox.setSelected(!commonCompilerArguments.getSuppressWarnings());
         languageVersionComboBox.setSelectedItem(KotlinFacetSettingsKt.getLanguageVersionView(commonCompilerArguments));
-        restrictAPIVersions(getSelectedLanguageVersionView().getVersion());
+        restrictAPIVersions(getSelectedLanguageVersionView());
         apiVersionComboBox.setSelectedItem(KotlinFacetSettingsKt.getApiVersionView(commonCompilerArguments));
         coroutineSupportComboBox.setSelectedItem(CoroutineSupport.byCompilerArguments(commonCompilerArguments));
         additionalArgsOptionsField.setText(compilerSettings.getAdditionalArguments());

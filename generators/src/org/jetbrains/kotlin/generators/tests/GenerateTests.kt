@@ -98,6 +98,7 @@ import org.jetbrains.kotlin.idea.highlighter.*
 import org.jetbrains.kotlin.idea.imports.AbstractJsOptimizeImportsTest
 import org.jetbrains.kotlin.idea.imports.AbstractJvmOptimizeImportsTest
 import org.jetbrains.kotlin.idea.inspections.AbstractLocalInspectionTest
+import org.jetbrains.kotlin.idea.inspections.AbstractMultiFileLocalInspectionTest
 import org.jetbrains.kotlin.idea.intentions.AbstractConcatenatedStringGeneratorTest
 import org.jetbrains.kotlin.idea.intentions.AbstractIntentionTest
 import org.jetbrains.kotlin.idea.intentions.AbstractIntentionTest2
@@ -125,6 +126,7 @@ import org.jetbrains.kotlin.idea.refactoring.safeDelete.AbstractMultiModuleSafeD
 import org.jetbrains.kotlin.idea.refactoring.safeDelete.AbstractSafeDeleteTest
 import org.jetbrains.kotlin.idea.repl.AbstractIdeReplCompletionTest
 import org.jetbrains.kotlin.idea.resolve.*
+import org.jetbrains.kotlin.idea.script.AbstractScriptConfigurationCompletionTest
 import org.jetbrains.kotlin.idea.script.AbstractScriptConfigurationHighlightingTest
 import org.jetbrains.kotlin.idea.script.AbstractScriptConfigurationNavigationTest
 import org.jetbrains.kotlin.idea.slicer.AbstractSlicerLeafGroupingTest
@@ -138,14 +140,10 @@ import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterForWebDemoTest
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterMultiFileTest
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterSingleFileTest
-import org.jetbrains.kotlin.js.test.AbstractDceTest
-import org.jetbrains.kotlin.js.test.AbstractJsLineNumberTest
-import org.jetbrains.kotlin.js.test.semantics.*
-import org.jetbrains.kotlin.jvm.compiler.*
-import org.jetbrains.kotlin.jvm.compiler.javac.AbstractLoadJava8UsingJavacTest
-import org.jetbrains.kotlin.jvm.compiler.javac.AbstractLoadJavaUsingJavacTest
-import org.jetbrains.kotlin.jvm.runtime.AbstractJvm8RuntimeDescriptorLoaderTest
-import org.jetbrains.kotlin.jvm.runtime.AbstractJvmRuntimeDescriptorLoaderTest
+//import org.jetbrains.kotlin.jps.build.*
+//import org.jetbrains.kotlin.jps.build.android.AbstractAndroidJpsTestCase
+//import org.jetbrains.kotlin.jps.incremental.AbstractJsProtoComparisonTest
+//import org.jetbrains.kotlin.jps.incremental.AbstractJvmProtoComparisonTest
 import org.jetbrains.kotlin.kapt3.test.AbstractClassFileToSourceStubConverterTest
 import org.jetbrains.kotlin.kapt3.test.AbstractKotlinKaptContextTest
 import org.jetbrains.kotlin.noarg.AbstractBlackBoxCodegenTestForNoArg
@@ -320,6 +318,7 @@ fun main(args: Array<String>) {
         testClass<AbstractInspectionTest> {
             model("intentions", pattern = "^(inspections\\.test)$", singleClass = true)
             model("inspections", pattern = "^(inspections\\.test)$", singleClass = true)
+            model("inspectionsLocal", pattern = "^(inspections\\.test)$", singleClass = true)
         }
 
         testClass<AbstractLocalInspectionTest> {
@@ -460,6 +459,10 @@ fun main(args: Array<String>) {
 
         testClass<AbstractMultiFileIntentionTest> {
             model("multiFileIntentions", extension = "test", singleClass = true, filenameStartsLowerCase = true)
+        }
+
+        testClass<AbstractMultiFileLocalInspectionTest> {
+            model("multiFileLocalInspections", extension = "test", singleClass = true, filenameStartsLowerCase = true)
         }
 
         testClass<AbstractMultiFileInspectionTest> {
@@ -705,6 +708,10 @@ fun main(args: Array<String>) {
 
         testClass<AbstractScriptConfigurationNavigationTest> {
             model("script/definition/navigation", extension = null, recursive = false)
+        }
+
+        testClass<AbstractScriptConfigurationCompletionTest> {
+            model("script/definition/completion", extension = null, recursive = false)
         }
 
         testClass<AbstractNameSuggestionProviderTest> {

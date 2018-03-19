@@ -28,6 +28,7 @@ import com.intellij.usageView.UsageViewBundle
 import com.intellij.usageView.UsageViewDescriptor
 import org.jetbrains.kotlin.idea.codeInliner.UsageReplacementStrategy
 import org.jetbrains.kotlin.idea.codeInliner.replaceUsages
+import org.jetbrains.kotlin.idea.refactoring.pullUp.deleteWithCompanion
 import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.stubindex.KotlinSourceFilterScope
 import org.jetbrains.kotlin.idea.util.application.runReadAction
@@ -70,7 +71,7 @@ class KotlinInlineCallableProcessor(
                 postAction = {
                     if (deleteAfter) {
                         if (usages.size == simpleNameUsages.size) {
-                            declaration.delete()
+                            declaration.deleteWithCompanion()
                             statementToDelete?.delete()
                         }
                         else {

@@ -21,6 +21,7 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.impl.source.codeStyle.CodeEditUtil
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
+import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.extensions.DeclarationAttributeAltererExtension
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
@@ -31,10 +32,8 @@ import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
-import org.jetbrains.kotlin.psi.psiUtil.getLambdaArgumentName
-import org.jetbrains.kotlin.psi.psiUtil.hasBody
-import org.jetbrains.kotlin.psi.psiUtil.visibilityModifierType
+import org.jetbrains.kotlin.psi.addRemoveModifier.MODIFIERS_ORDER
+import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.psi.typeRefHelpers.setReceiverTypeReference
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.OverridingUtil
@@ -42,6 +41,7 @@ import org.jetbrains.kotlin.resolve.calls.callUtil.getValueArgumentsInParenthese
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.isError
+import org.jetbrains.kotlin.utils.SmartList
 
 @Suppress("UNCHECKED_CAST")
 inline fun <reified T : PsiElement> PsiElement.replaced(newElement: T): T {
@@ -101,6 +101,32 @@ private fun shouldLambdaParameterBeNamed(args: List<ValueArgument>, callExpr: Kt
     return if (calee.valueParameters.any { it.isVarArg }) true else calee.valueParameters.size - 1 > args.size
 }
 
+fun KtCallExpression.getLastLambdaExpression(): KtLambdaExpression? {
+    if (lambdaArguments.isNotEmpty()) return null
+    return valueArguments.lastOrNull()?.getArgumentExpression()?.unpackFunctionLiteral()
+}
+
+fun KtCallExpression.canMoveLambdaOutsideParentheses(): Boolean {
+    if (getLastLambdaExpression() == null) return false
+
+    val callee = calleeExpression
+    if (callee is KtNameReferenceExpression) {
+        val bindingContext = analyze(BodyResolveMode.PARTIAL)
+        val targets = bindingContext[BindingContext.REFERENCE_TARGET, callee]?.let { listOf(it) }
+                ?: bindingContext[BindingContext.AMBIGUOUS_REFERENCE_TARGET, callee]
+                ?: listOf()
+        val candidates = targets.filterIsInstance<FunctionDescriptor>()
+        // if there are functions among candidates but none of them have last function parameter then not show the intention
+        if (candidates.isNotEmpty() && candidates.none {
+            val lastParameter = it.valueParameters.lastOrNull()
+            lastParameter != null && lastParameter.type.isFunctionType
+        }) {
+            return false
+        }
+    }
+
+    return true
+}
 
 fun KtCallExpression.moveFunctionLiteralOutsideParentheses() {
     assert(lambdaArguments.isEmpty())
@@ -233,7 +259,10 @@ fun KtDeclaration.implicitVisibility(): KtModifierKeywordToken? =
 fun KtModifierListOwner.canBePrivate() = modifierList?.hasModifier(KtTokens.ABSTRACT_KEYWORD) != true
 
 fun KtModifierListOwner.canBeProtected(): Boolean {
-    val parent = this.parent
+    val parent = when (this) {
+        is KtPropertyAccessor -> this.property.parent
+        else -> this.parent
+    }
     return when (parent) {
         is KtClassBody -> parent.parent is KtClass
         is KtParameterList -> parent.parent is KtPrimaryConstructor
@@ -405,4 +434,28 @@ fun KtParameter.setDefaultValue(newDefaultValue: KtExpression): PsiElement? {
     val psiFactory = KtPsiFactory(this)
     val eq = equalsToken ?: add(psiFactory.createEQ())
     return addAfter(newDefaultValue, eq) as KtExpression
+}
+
+fun KtModifierList.appendModifier(modifier: KtModifierKeywordToken) {
+    add(KtPsiFactory(this).createModifier(modifier))
+}
+
+fun KtModifierList.normalize(): KtModifierList {
+    val psiFactory = KtPsiFactory(this)
+    return psiFactory.createEmptyModifierList().also { newList ->
+        val modifiers = SmartList<PsiElement>()
+        allChildren.forEach {
+            val elementType = it.node.elementType
+            when {
+                it is KtAnnotation || it is KtAnnotationEntry -> newList.add(it)
+                elementType is KtModifierKeywordToken -> {
+                    if (elementType == KtTokens.DEFAULT_VISIBILITY_KEYWORD) return@forEach
+                    if (elementType == KtTokens.FINALLY_KEYWORD && !hasModifier(KtTokens.OVERRIDE_KEYWORD)) return@forEach
+                    modifiers.add(it)
+                }
+            }
+        }
+        modifiers.sortBy { MODIFIERS_ORDER.indexOf(it.node.elementType) }
+        modifiers.forEach { newList.add(it) }
+    }
 }

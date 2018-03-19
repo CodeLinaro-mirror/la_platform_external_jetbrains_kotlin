@@ -20,6 +20,7 @@ import com.intellij.codeInsight.completion.*
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementDecorator
 import com.intellij.openapi.editor.Document
+import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.util.Key
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.patterns.PsiJavaPatterns.elementType
@@ -231,8 +232,9 @@ class KotlinCompletionContributor : CompletionContributor() {
 
     private fun performCompletion(parameters: CompletionParameters, result: CompletionResultSet) {
         val position = parameters.position
-        if (position.containingFile !is KtFile) return
-        if ((parameters.originalFile as KtFile).doNotComplete ?: false) return
+        val parametersOriginFile = parameters.originalFile
+        if (position.containingFile !is KtFile || parametersOriginFile !is KtFile) return
+        if (parametersOriginFile.doNotComplete == true) return
 
         val toFromOriginalFileMapper = ToFromOriginalFileMapper.create(parameters)
 
@@ -279,7 +281,9 @@ class KotlinCompletionContributor : CompletionContributor() {
             return
         }
 
-        if (PropertyKeyCompletion.perform(parameters, result)) return
+        for (extension in KotlinCompletionExtension.EP_NAME.getExtensions()) {
+            if (extension.perform(parameters, result)) return
+        }
 
         fun addPostProcessor(session: CompletionSession) {
             if (lookupElementPostProcessor != null) {
@@ -465,5 +469,14 @@ class KotlinCompletionContributor : CompletionContributor() {
 
     private fun isInSimpleStringTemplate(tokenBefore: PsiElement?): Boolean {
         return tokenBefore?.parents?.firstIsInstanceOrNull<KtStringTemplateExpression>()?.isPlain() ?: false
+    }
+}
+
+abstract class KotlinCompletionExtension {
+    abstract fun perform(parameters: CompletionParameters, result: CompletionResultSet): Boolean
+
+    companion object {
+        val EP_NAME: ExtensionPointName<KotlinCompletionExtension> =
+                ExtensionPointName.create<KotlinCompletionExtension>("org.jetbrains.kotlin.completionExtension")
     }
 }

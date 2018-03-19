@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.idea.refactoring
@@ -72,15 +61,18 @@ import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
 import org.jetbrains.kotlin.idea.caches.resolve.getJavaMemberDescriptor
-import org.jetbrains.kotlin.idea.caches.resolve.unsafeResolveToDescriptor
 import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
+import org.jetbrains.kotlin.idea.caches.resolve.unsafeResolveToDescriptor
 import org.jetbrains.kotlin.idea.codeInsight.DescriptorToSourceUtilsIde
-import org.jetbrains.kotlin.idea.core.*
+import org.jetbrains.kotlin.idea.core.ShortenReferences
+import org.jetbrains.kotlin.idea.core.getPackage
+import org.jetbrains.kotlin.idea.core.quoteSegmentsIfNeeded
 import org.jetbrains.kotlin.idea.core.util.showYesNoCancelDialog
 import org.jetbrains.kotlin.idea.highlighter.markers.actualsForExpected
 import org.jetbrains.kotlin.idea.highlighter.markers.liftToExpected
 import org.jetbrains.kotlin.idea.intentions.RemoveCurlyBracesFromTemplateIntention
 import org.jetbrains.kotlin.idea.j2k.IdeaJavaToKotlinServices
+import org.jetbrains.kotlin.idea.project.languageVersionSettings
 import org.jetbrains.kotlin.idea.refactoring.changeSignature.KotlinValVar
 import org.jetbrains.kotlin.idea.refactoring.changeSignature.toValVar
 import org.jetbrains.kotlin.idea.refactoring.memberInfo.KtPsiClassWrapper
@@ -96,9 +88,7 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.codeFragmentUtil.suppressDiagnosticsInDebugMode
 import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.renderer.DescriptorRenderer
-import org.jetbrains.kotlin.resolve.AnalyzingUtils
-import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.DescriptorUtils
+import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.calls.callUtil.getCallWithAssert
 import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
@@ -718,9 +708,9 @@ fun invokeOnceOnCommandFinish(action: () -> Unit) {
     commandProcessor.addCommandListener(listener)
 }
 
-fun FqNameUnsafe.hasIdentifiersOnly(): Boolean = pathSegments().all { KotlinNameSuggester.isIdentifier(it.asString().quoteIfNeeded()) }
+fun FqNameUnsafe.hasIdentifiersOnly(): Boolean = pathSegments().all { it.asString().quoteIfNeeded().isIdentifier() }
 
-fun FqName.hasIdentifiersOnly(): Boolean = pathSegments().all { KotlinNameSuggester.isIdentifier(it.asString().quoteIfNeeded()) }
+fun FqName.hasIdentifiersOnly(): Boolean = pathSegments().all { it.asString().quoteIfNeeded().isIdentifier() }
 
 fun PsiNamedElement.isInterfaceClass(): Boolean = when (this) {
     is KtClass -> isInterface()
@@ -805,6 +795,15 @@ fun dropOverrideKeywordIfNecessary(element: KtNamedDeclaration) {
     }
 }
 
+fun dropOperatorKeywordIfNecessary(element: KtNamedDeclaration) {
+    val callableDescriptor = element.resolveToDescriptorIfAny() as? CallableDescriptor ?: return
+    val diagnosticHolder = BindingTraceContext()
+    OperatorModifierChecker.check(element, callableDescriptor, diagnosticHolder, element.languageVersionSettings)
+    if (diagnosticHolder.bindingContext.diagnostics.any { it.factory == Errors.INAPPLICABLE_OPERATOR_MODIFIER }) {
+        element.removeModifier(KtTokens.OPERATOR_KEYWORD)
+    }
+}
+
 fun getQualifiedTypeArgumentList(
         initializer: KtExpression,
         context: BindingContext = initializer.analyze(BodyResolveMode.PARTIAL)
@@ -835,6 +834,7 @@ internal fun DeclarationDescriptor.getThisLabelName(): String {
     if (this is AnonymousFunctionDescriptor) {
         val function = source.getPsi() as? KtFunction
         val argument = function?.parent as? KtValueArgument
+                ?: (function?.parent as? KtLambdaExpression)?.parent as? KtValueArgument
         val callElement = argument?.getStrictParentOfType<KtCallElement>()
         val callee = callElement?.calleeExpression as? KtSimpleNameExpression
         if (callee != null) return callee.text
@@ -924,7 +924,7 @@ fun checkSuperMethods(
 
 fun checkSuperMethodsWithPopup(
         declaration: KtNamedDeclaration,
-        deepestSuperMethods: List<PsiMethod>,
+        deepestSuperMethods: List<PsiElement>,
         actionString: String,
         editor: Editor,
         action: (List<PsiElement>) -> Unit
@@ -933,7 +933,12 @@ fun checkSuperMethodsWithPopup(
 
     val superMethod = deepestSuperMethods.first()
 
-    val superClass = superMethod.containingClass ?: return action(listOf(declaration))
+    val (superClass, isAbstract) = when (superMethod) {
+        is PsiMember -> superMethod.containingClass to superMethod.hasModifierProperty(PsiModifier.ABSTRACT)
+        is KtNamedDeclaration -> superMethod.containingClassOrObject to superMethod.isAbstract()
+        else -> null
+    } ?: return action(listOf(declaration))
+    if (superClass == null) return action(listOf(declaration))
 
     if (ApplicationManager.getApplication().isUnitTestMode) return action(deepestSuperMethods)
 
@@ -956,7 +961,7 @@ fun checkSuperMethodsWithPopup(
     val renameCurrent = actionString + " only current $kind"
     val title = buildString {
         append(declaration.name)
-        append(if (superMethod.hasModifierProperty(PsiModifier.ABSTRACT)) " implements " else " overrides ")
+        append(if (isAbstract) " implements " else " overrides ")
         append(ElementDescriptionUtil.getElementDescription(superMethod, UsageViewTypeLocation.INSTANCE))
         append(" of ")
         append(SymbolPresentationUtil.getSymbolPresentableText(superClass))

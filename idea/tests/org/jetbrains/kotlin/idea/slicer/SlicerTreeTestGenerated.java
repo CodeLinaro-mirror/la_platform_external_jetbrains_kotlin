@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.idea.slicer;
@@ -69,6 +58,30 @@ public class SlicerTreeTestGenerated extends AbstractSlicerTreeTest {
     @TestMetadata("inflow/delegateGetter.kt")
     public void testInflow_DelegateGetter() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/delegateGetter.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("inflow/delegateToJavaGetter.kt")
+    public void testInflow_DelegateToJavaGetter() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/delegateToJavaGetter.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("inflow/diamondHierarchyJKMiddleClassFun.kt")
+    public void testInflow_DiamondHierarchyJKMiddleClassFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/diamondHierarchyJKMiddleClassFun.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("inflow/diamondHierarchyJKMiddleInterfaceFun.kt")
+    public void testInflow_DiamondHierarchyJKMiddleInterfaceFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/diamondHierarchyJKMiddleInterfaceFun.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("inflow/diamondHierarchyJKRootInterfaceFun.kt")
+    public void testInflow_DiamondHierarchyJKRootInterfaceFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/diamondHierarchyJKRootInterfaceFun.kt");
         doTest(fileName);
     }
 
@@ -324,6 +337,12 @@ public class SlicerTreeTestGenerated extends AbstractSlicerTreeTest {
         doTest(fileName);
     }
 
+    @TestMetadata("inflow/settersViaJavaDelegate.kt")
+    public void testInflow_SettersViaJavaDelegate() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/settersViaJavaDelegate.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("inflow/topLevelVal.kt")
     public void testInflow_TopLevelVal() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/inflow/topLevelVal.kt");
@@ -372,9 +391,39 @@ public class SlicerTreeTestGenerated extends AbstractSlicerTreeTest {
         doTest(fileName);
     }
 
+    @TestMetadata("outflow/callArgumentKJK.kt")
+    public void testOutflow_CallArgumentKJK() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/callArgumentKJK.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("outflow/cast.kt")
     public void testOutflow_Cast() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/cast.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("outflow/defaultExplicitPrimaryConstructorCalls.kt")
+    public void testOutflow_DefaultExplicitPrimaryConstructorCalls() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/defaultExplicitPrimaryConstructorCalls.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("outflow/diamondHierarchyJKLeafClassFun.kt")
+    public void testOutflow_DiamondHierarchyJKLeafClassFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/diamondHierarchyJKLeafClassFun.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("outflow/diamondHierarchyJKMiddleClassFun.kt")
+    public void testOutflow_DiamondHierarchyJKMiddleClassFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/diamondHierarchyJKMiddleClassFun.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("outflow/diamondHierarchyJKMiddleInterfaceFun.kt")
+    public void testOutflow_DiamondHierarchyJKMiddleInterfaceFun() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/diamondHierarchyJKMiddleInterfaceFun.kt");
         doTest(fileName);
     }
 
@@ -492,6 +541,12 @@ public class SlicerTreeTestGenerated extends AbstractSlicerTreeTest {
         doTest(fileName);
     }
 
+    @TestMetadata("outflow/jvmFieldMemberPropertyJavaUsages.kt")
+    public void testOutflow_JvmFieldMemberPropertyJavaUsages() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/jvmFieldMemberPropertyJavaUsages.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("outflow/lambdaResult.kt")
     public void testOutflow_LambdaResult() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/lambdaResult.kt");
@@ -555,6 +610,12 @@ public class SlicerTreeTestGenerated extends AbstractSlicerTreeTest {
     @TestMetadata("outflow/overridingFunctionResult.kt")
     public void testOutflow_OverridingFunctionResult() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/overridingFunctionResult.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("outflow/overridingFunctionResultWithJava.kt")
+    public void testOutflow_OverridingFunctionResultWithJava() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/slicer/outflow/overridingFunctionResultWithJava.kt");
         doTest(fileName);
     }
 
