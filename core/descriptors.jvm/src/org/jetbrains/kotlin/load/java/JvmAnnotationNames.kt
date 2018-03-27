@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.name.FqName
 
 val NULLABLE_ANNOTATIONS = listOf(
         JvmAnnotationNames.JETBRAINS_NULLABLE_ANNOTATION,
-        FqName("androidx.annotation.Nullable"),
         FqName("android.support.annotation.Nullable"),
         FqName("com.android.annotations.Nullable"),
         FqName("org.eclipse.jdt.annotation.Nullable"),
@@ -39,7 +38,6 @@ val JAVAX_CHECKFORNULL_ANNOTATION = FqName("javax.annotation.CheckForNull")
 val NOT_NULL_ANNOTATIONS = listOf(
         JvmAnnotationNames.JETBRAINS_NOT_NULL_ANNOTATION,
         FqName("edu.umd.cs.findbugs.annotations.NonNull"),
-        FqName("androidx.annotation.NonNull"),
         FqName("android.support.annotation.NonNull"),
         FqName("com.android.annotations.NonNull"),
         FqName("org.eclipse.jdt.annotation.NonNull"),

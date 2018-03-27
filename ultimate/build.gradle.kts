@@ -1,3 +1,5 @@
+/*
+
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.jvm.tasks.Jar
@@ -87,7 +89,7 @@ dependencies {
     testRuntime(ideaUltimateSdkDeps("*.jar"))
     testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "properties"))
     testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "coverage"))
-    testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "maven"))
+    //testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "maven"))
     testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "android"))
     testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "testng"))
     testRuntime(ideaUltimatePluginDeps("*.jar", plugin = "IntelliLang"))
@@ -172,3 +174,6 @@ projectTest {
 }
 
 val generateTests by generator("org.jetbrains.kotlin.tests.GenerateUltimateTestsKt")
+
+
+*/

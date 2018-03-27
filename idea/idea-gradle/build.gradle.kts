@@ -3,7 +3,7 @@ apply { plugin("kotlin") }
 dependencies {
 
     compileOnly(ideaSdkDeps("openapi", "idea", "external-system-rt", "forms_rt"))
-    compileOnly(ideaPluginDeps("gradle-tooling-api", "gradle", "gradle-base-services", plugin = "gradle"))
+    compileOnly(ideaPluginDeps("gradle-api", "gradle", plugin = "gradle"))
     compileOnly(ideaPluginDeps("Groovy", plugin = "Groovy"))
 
     compileOnly(project(":idea"))
@@ -18,7 +18,7 @@ dependencies {
 
     testCompile(projectTests(":idea"))
     testCompile(project(":idea:idea-test-framework"))
-    testCompile(ideaPluginDeps("gradle-wrapper", "gradle-base-services", "gradle-tooling-extension-impl", "gradle-tooling-api", "gradle", plugin = "gradle"))
+    testCompile(ideaPluginDeps("gradle-wrapper", "gradle-tooling-extension-impl", "gradle-api", "gradle", plugin = "gradle"))
     testCompile(ideaPluginDeps("Groovy", plugin = "Groovy"))
     testCompileOnly(ideaSdkDeps("groovy-all", "idea_rt"))
 
@@ -32,6 +32,7 @@ dependencies {
     testRuntime(project(":allopen-ide-plugin"))
     testRuntime(project(":noarg-ide-plugin"))
 
+    testRuntime(ideaSdkDeps("resources"))
     testRuntime(ideaSdkDeps("*.jar"))
 
     testRuntime(ideaPluginDeps("*.jar", plugin = "junit"))
@@ -40,8 +41,9 @@ dependencies {
     testRuntime(ideaPluginDeps("*.jar", plugin = "gradle"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "Groovy"))
     testRuntime(ideaPluginDeps("jacocoant", plugin = "coverage"))
-    testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
+    //testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "android"))
+    testRuntime(ideaPluginDeps("*.jar", plugin = "smali"))
 }
 
 sourceSets {

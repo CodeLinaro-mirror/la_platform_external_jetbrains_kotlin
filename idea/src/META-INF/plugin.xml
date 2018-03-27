@@ -6,7 +6,7 @@
   <version>@snapshot@</version>
   <vendor url="http://www.jetbrains.com">JetBrains</vendor>
 
-  <idea-version since-build="173.1" until-build="173.*"/>
+  <idea-version since-build="173.4548.29" until-build="173.*"/>
 
   <depends>com.intellij.modules.platform</depends>
 
@@ -20,6 +20,8 @@
   <depends optional="true" config-file="i18n.xml">com.intellij.java-i18n</depends>
   <depends optional="true" config-file="injection.xml">org.intellij.intelliLang</depends>
   <depends optional="true" config-file="decompiler.xml">org.jetbrains.java.decompiler</depends>
+
+  <!-- DEPENDS-ON-AS-PLACEHOLDER -->
 
   <!-- ULTIMATE-PLUGIN-PLACEHOLDER -->
 

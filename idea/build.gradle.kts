@@ -49,12 +49,13 @@ dependencies {
     testCompile(project(":idea:idea-maven")) { isTransitive = false }
     testCompile(commonDep("junit:junit"))
 
-    testCompileOnly(ideaPluginDeps("gradle-base-services", "gradle-tooling-extension-impl", "gradle-wrapper", plugin = "gradle"))
+    testCompileOnly(ideaPluginDeps("gradle-api", "gradle-tooling-extension-impl", "gradle-wrapper", plugin = "gradle"))
     testCompileOnly(ideaPluginDeps("Groovy", plugin = "Groovy"))
-    testCompileOnly(ideaPluginDeps("maven", "maven-server-api", plugin = "maven"))
+    //testCompileOnly(ideaPluginDeps("maven", "maven-server-api", plugin = "maven"))
 
     testCompileOnly(ideaSdkDeps("groovy-all", "velocity", "gson", "jsr305", "idea_rt"))
 
+    testRuntime(ideaSdkDeps("resources"))
     testRuntime(ideaSdkDeps("*.jar"))
 
     testRuntime(ideaPluginDeps("*.jar", plugin = "junit"))
@@ -62,8 +63,9 @@ dependencies {
     testRuntime(ideaPluginDeps("*.jar", plugin = "gradle"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "Groovy"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "coverage"))
-    testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
+    //testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "android"))
+    testRuntime(ideaPluginDeps("*.jar", plugin = "smali"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "testng"))
 
     testRuntime(project(":plugins:kapt3-idea")) { isTransitive = false }

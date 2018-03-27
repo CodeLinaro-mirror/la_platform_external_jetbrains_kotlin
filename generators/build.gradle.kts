@@ -36,13 +36,14 @@ dependencies {
     compile(projectTests(":plugins:uast-kotlin"))
     compile(projectTests(":js:js.tests"))
     compile(projectTests(":generators:test-generator"))
-    compile(ideaSdkDeps("jps-build-test", subdir = "jps/test"))
+    //compile(ideaSdkDeps("jps-build-test", subdir = "jps/test"))
     compileOnly(project(":kotlin-reflect-api"))
     testCompile(project(":idea:idea-test-framework")) { isTransitive = false }
     testCompile(project(":compiler:incremental-compilation-impl"))
     testCompile(commonDep("junit:junit"))
     testCompile(ideaSdkDeps("openapi", "idea"))
     testRuntime(projectDist(":kotlin-reflect"))
+    testRuntime(ideaSdkDeps("resources"))
     testRuntime(ideaSdkDeps("*.jar"))
     testRuntime(ideaPluginDeps("idea-junit", "resources_en", plugin = "junit"))
     testRuntime(ideaPluginDeps("IntelliLang", plugin = "IntelliLang"))
@@ -54,8 +55,9 @@ dependencies {
     testRuntime(ideaPluginDeps("*.jar", plugin = "Groovy"))
     testRuntime(ideaPluginDeps("coverage", "jacocoant", plugin = "coverage"))
     testRuntime(ideaPluginDeps("java-decompiler", plugin = "java-decompiler"))
-    testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
+    //testRuntime(ideaPluginDeps("*.jar", plugin = "maven"))
     testRuntime(ideaPluginDeps("*.jar", plugin = "android"))
+    testRuntime(ideaPluginDeps("*.jar", plugin = "smali"))
 }
 
 sourceSets {
