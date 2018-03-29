@@ -120,12 +120,6 @@
       <add-to-group group-id="KotlinToolsGroup" anchor="last"/>
     </action>
 
-    <action id="KotlinInternalMode" class="org.jetbrains.kotlin.idea.actions.internal.KotlinInternalModeToggleAction">
-      <add-to-group group-id="KotlinToolsGroup" anchor="last"/>
-    </action>
-
-
-
     <group id="KotlinInternalGroup" popup="true" text="Internal" icon="/general/balloonWarning.png"
            class="org.jetbrains.kotlin.idea.actions.internal.KotlinInternalActionGroup">
 
