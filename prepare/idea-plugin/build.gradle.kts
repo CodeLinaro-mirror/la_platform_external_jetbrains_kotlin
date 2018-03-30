@@ -87,7 +87,11 @@ dependencies {
     sideJars(project(":kotlin-compiler-client-embeddable"))
     sideJars(commonDep("io.javaslang", "javaslang"))
     sideJars(commonDep("javax.inject"))
-    sideJars(preloadedDeps("markdown", "kotlinx-coroutines-core", "kotlinx-coroutines-jdk8"))
+    sideJars(preloadedDeps("markdown"))
+    // We need to have our copy of coroutines in the plugin,
+    // otherwise CoroutineContext and other coroutine stuff is loaded from wrong kotlin-runtime, which leads to runtime LinkageErrors
+    // It's preferable to have same version of coroutines library, otherwise tests may fail
+    sideJars(ideaSdkDeps("kotlinx-coroutines-core", "kotlinx-coroutines-jdk8"))
 }
 
 val jar = runtimeJar(task<ShadowJar>("shadowJar")) {
