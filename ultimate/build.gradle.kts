@@ -40,7 +40,7 @@ dependencies {
 
     compile(ideaUltimatePreloadedDeps("*.jar", subdir = "nodejs_plugin/NodeJS/lib"))
     compile(ideaUltimateSdkCoreDeps("annotations", "trove4j", "intellij-core"))
-    compile(ideaUltimateSdkDeps("openapi", "idea", "util", "jdom"))
+    compile(ideaUltimateSdkDeps("openapi", "idea", "util", "jdom", "platform-api", "platform-impl", "java-api", "java-impl"))
     compile(ideaUltimatePluginDeps("*.jar", plugin = "CSS"))
     compile(ideaUltimatePluginDeps("*.jar", plugin = "DatabaseTools"))
     compile(ideaUltimatePluginDeps("*.jar", plugin = "JavaEE"))
@@ -65,7 +65,7 @@ dependencies {
     testCompile(projectTests(":generators:test-generator"))
     testCompile(commonDep("junit:junit"))
     testCompile(ideaUltimateSdkDeps("gson"))
-    testCompile(preloadedDeps("kotlinx-coroutines-core"))
+    testCompile(ideaSdkDeps("kotlinx-coroutines-core"))
 
     testRuntime(projectDist(":kotlin-reflect"))
     testRuntime(projectDist(":kotlin-script-runtime"))

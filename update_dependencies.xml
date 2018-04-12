@@ -3,7 +3,7 @@
     <import file="common.xml" optional="false"/>
 
     <property name="automerge_dummy" value="This property is used to trick git merge. Do not delete empty lines around."/>
-    <property name="ideaVersion" value="173.4127.27"/>
+    <property name="ideaVersion" value="181.3007.14"/>
     <property name="idea.repository.type" value="releases"/> <!-- releases or snapshots -->
     <property name="idea.kotlin.branch" value="rc"/>
 
@@ -29,8 +29,6 @@
 
     <property name="sdk.version.prefix" value="IU" if:set="use.ultimate.by.default"/>
     <property name="sdk.version.prefix" value="IC" unless:set="use.ultimate.by.default"/>
-
-    <property name="kotlinx.coroutines.version" value="0.20"/>
 
     <property name="generators" value="${basedir}/generators"/>
 
@@ -245,14 +243,6 @@
 
         <get-maven-library prefix="org/apache/maven" lib="maven-ant-tasks" version="2.1.3"
                            target.jar.name.base="maven-ant-tasks" download="${dependencies}/robolectric" />
-
-        <!-- kotlinx.coroutines -->
-        <get-maven-library prefix="org/jetbrains/kotlinx" lib="kotlinx-coroutines-core" version="${kotlinx.coroutines.version}"
-                           target.jar.name.base="kotlinx-coroutines-core" server="http://dl.bintray.com/kotlin/kotlinx/"/>
-
-        <get-maven-library prefix="org/jetbrains/kotlinx" lib="kotlinx-coroutines-jdk8" version="${kotlinx.coroutines.version}"
-                           target.jar.name.base="kotlinx-coroutines-jdk8" server="http://dl.bintray.com/kotlin/kotlinx/"/>
-
 
         <delete file="${dependencies}/android.jar" failonerror="false"/>
         <get src="http://dl-ssl.google.com/android/repository/android-19_r02.zip"
@@ -537,16 +527,46 @@
 
                 <delete dir="@{idea.dir}/plugins/Kotlin"/>
 
-                <echo message="@{download.dir.intellij-core}/intellij-core-analysis.jar"/>
+                <mkdir dir="@{core}"/>
+                <copy todir="@{core}" flatten="true" verbose="true">
+                    <resources>
+                        <file file="@{download.dir.intellij-core}/intellij-core.jar"/>
+                        <file file="@{download.dir.intellij-core}/annotations.jar"/>
+                        <file file="@{download.dir.intellij-core}/guava-21.0.jar"/>
+                        <file file="@{download.dir.intellij-core}/picocontainer.jar"/>
 
-                <mkdir dir="@{core-analysis}"/>
-                <copy file="@{download.dir.intellij-core}/intellij-core-analysis.jar"
-                      tofile="@{core-analysis}/intellij-core-analysis.jar"
-                      verbose="true"/>
+                        <file file="@{idea.dir}/lib/jdom.jar"/>
+                        <file file="@{idea.dir}/lib/jna.jar"/>
+                        <file file="@{idea.dir}/lib/log4j.jar"/>
+                        <file file="@{idea.dir}/lib/xstream-1.4.8.jar"/>
+                        <file file="@{idea.dir}/lib/xpp3-1.1.4-min.jar"/>
+                        <file file="@{idea.dir}/lib/asm-all.jar"/>
+                        <file file="@{idea.dir}/lib/snappy-in-java-0.5.1.jar"/>
+                        <file file="@{idea.dir}/lib/streamex-0.6.5.jar"/>
+                        <file file="@{idea.dir}/lib/trove4j.jar"/>
 
-                <copy_intellij_core_files core="@{core}" download.dir.intellij-core="@{download.dir.intellij-core}" idea.dir="@{idea.dir}" />
+                        <!-- TODO temporary workaround since util-rt is not packaged into intellij-core.jar -->
+                        <file file="@{idea.dir}/lib/util.jar"/>
+                    </resources>
+                </copy>
 
-                <copy_intellij_jps_files download.dir.jps-standalone="@{download.dir.jps-standalone}" jps="@{jps}" />
+                <mkdir dir="@{jps}"/>
+                <copy todir="@{jps}" flatten="true" verbose="true">
+                    <resources>
+                        <file file="@{download.dir.jps-standalone}/groovy-jps-plugin.jar"/>
+                        <file file="@{download.dir.jps-standalone}/groovy_rt.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jdom.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jgoodies-forms.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jna.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jps-builders.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jps-builders-6.jar"/>
+                        <file file="@{download.dir.jps-standalone}/jps-model.jar"/>
+                        <file file="@{download.dir.jps-standalone}/log4j.jar"/>
+                        <file file="@{download.dir.jps-standalone}/nanoxml-2.2.3.jar"/>
+                        <file file="@{download.dir.jps-standalone}/ui-designer-jps-plugin.jar"/>
+                        <file file="@{download.dir.jps-standalone}/util.jar"/>
+                    </resources>
+                </copy>
 
                 <mkdir dir="@{jps-test}"/>
                 <copy file="@{download.file.archive.jps-build-test}" tofile="@{jps-test}/jps-build-test.jar"/>

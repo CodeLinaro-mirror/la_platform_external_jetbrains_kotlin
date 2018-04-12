@@ -32,14 +32,15 @@ dependencies {
 
     compile(ideaSdkCoreDeps("intellij-core", "util", "annotations"))
 
-    compileOnly(ideaSdkDeps("openapi", "idea", "velocity", "boot", "gson", "swingx-core", "jsr305", "forms_rt"))
+    compileOnly(ideaSdkDeps("openapi", "idea", "platform-api", "velocity", "boot", "gson", "swingx-core", "jsr305", "forms_rt"))
 
     compile(ideaPluginDeps("IntelliLang", plugin = "IntelliLang"))
     compile(ideaPluginDeps("copyright", plugin = "copyright"))
     compile(ideaPluginDeps("properties", plugin = "properties"))
     compile(ideaPluginDeps("java-i18n", plugin = "java-i18n"))
 
-    compile(preloadedDeps("markdown", "kotlinx-coroutines-core"))
+    compile(preloadedDeps("markdown"))
+    compile(ideaSdkDeps("kotlinx-coroutines-core"))
 
     testCompile(project(":kotlin-test:kotlin-test-junit"))
     testCompile(projectTests(":compiler:tests-common"))

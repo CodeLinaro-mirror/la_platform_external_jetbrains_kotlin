@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.synthetic.SyntheticJavaPropertyDescriptor
 import org.jetbrains.kotlin.utils.addToStdlib.constant
 import org.jetbrains.uast.*
+import org.jetbrains.uast.kotlin.declarations.KotlinUIdentifier
 import org.jetbrains.uast.visitor.UastVisitor
 
 open class KotlinUSimpleReferenceExpression(
@@ -101,7 +102,7 @@ open class KotlinUSimpleReferenceExpression(
             private val resolvedCall: ResolvedCall<*>,
             private val accessorDescriptor: DeclarationDescriptor,
             val setterValue: KtExpression?
-    ) : UCallExpression, JvmDeclarationUElement {
+    ) : UCallExpressionEx, JvmDeclarationUElement {
         override val methodName: String?
             get() = accessorDescriptor.name.asString()
 
@@ -126,7 +127,7 @@ open class KotlinUSimpleReferenceExpression(
         }
 
         override val methodIdentifier: UIdentifier?
-            get() = UIdentifier(uastParent.psi, this)
+            get() = KotlinUIdentifier(uastParent.psi, this)
 
         override val classReference: UReferenceExpression?
             get() = null
@@ -140,6 +141,8 @@ open class KotlinUSimpleReferenceExpression(
             else
                 emptyList()
         }
+
+        override fun getArgumentForParameter(i: Int): UExpression? = valueArguments.getOrNull(i)
 
         override val typeArgumentCount: Int
             get() = resolvedCall.typeArguments.size

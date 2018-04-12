@@ -18,7 +18,10 @@ package org.jetbrains.kotlin.idea.quickfix.crossLanguage
 
 import com.intellij.codeInsight.intention.IntentionAction
 import com.intellij.codeInsight.intention.QuickFixFactory
-import com.intellij.lang.jvm.*
+import com.intellij.lang.jvm.JvmClass
+import com.intellij.lang.jvm.JvmElement
+import com.intellij.lang.jvm.JvmModifier
+import com.intellij.lang.jvm.JvmModifiersOwner
 import com.intellij.lang.jvm.actions.*
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
@@ -56,6 +59,7 @@ import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeParameterImpl
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.visibilityModifierType
 import org.jetbrains.kotlin.resolve.annotations.JVM_FIELD_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.annotations.JVM_STATIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.types.KotlinType
@@ -159,14 +163,14 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
     private inline fun <reified T : KtElement> JvmElement.toKtElement() = sourceElement?.unwrapped as? T
 
-    private fun fakeParametersExpressions(parameters: List<JvmParameter>, project: Project): Array<PsiExpression>? =
+    private fun fakeParametersExpressions(parameters: ExpectedParameters, project: Project): Array<PsiExpression>? =
             when {
                 parameters.isEmpty() -> emptyArray()
                 else -> JavaPsiFacade
                         .getElementFactory(project)
                         .createParameterList(
-                                parameters.map { it.name }.toTypedArray(),
-                                parameters.map { it.type as? PsiType ?: return null }.toTypedArray()
+                            parameters.map { it.first.names.firstOrNull() }.toTypedArray(),
+                            parameters.map { JvmPsiConversionHelper.getInstance(project).asPsiType(it) ?: return null }.toTypedArray()
                         )
                         .parameters
                         .map(::FakeExpressionFromParameter)
@@ -241,10 +245,15 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
         val modifier = request.modifier
         val shouldPresent = request.shouldPresent
-        val (kToken, shouldPresentMapped) = if (JvmModifier.FINAL == modifier)
-            KtTokens.OPEN_KEYWORD to !shouldPresent
-        else
-            javaPsiModifiersMapping[modifier] to shouldPresent
+        //TODO: make similar to `createAddMethodActions`
+        val (kToken, shouldPresentMapped) = when {
+            modifier == JvmModifier.FINAL -> KtTokens.OPEN_KEYWORD to !shouldPresent
+            modifier == JvmModifier.PUBLIC && shouldPresent ->
+                kModifierOwner.visibilityModifierType()
+                    ?.takeIf { it != KtTokens.DEFAULT_VISIBILITY_KEYWORD }
+                    ?.let { it to false } ?: return emptyList()
+            else -> javaPsiModifiersMapping[modifier] to shouldPresent
+        }
         if (kToken == null) return emptyList()
 
         val action = if (shouldPresentMapped)
@@ -254,19 +263,17 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
         return listOfNotNull(action)
     }
 
-    override fun createAddConstructorActions(targetClass: JvmClass, request: MemberRequest.Constructor): List<IntentionAction> {
+    override fun createAddConstructorActions(targetClass: JvmClass, request: CreateConstructorRequest): List<IntentionAction> {
         val targetKtClass = targetClass.toKtClassOrFile() as? KtClass ?: return emptyList()
-
-        if (request.typeParameters.isNotEmpty()) return emptyList()
 
         val modifierBuilder = ModifierBuilder(targetKtClass).apply { addJvmModifiers(request.modifiers) }
         if (!modifierBuilder.isValid) return emptyList()
-
         val resolutionFacade = targetKtClass.getResolutionFacade()
         val nullableAnyType = resolutionFacade.moduleDescriptor.builtIns.nullableAnyType
+        val helper = JvmPsiConversionHelper.getInstance(targetKtClass.project)
         val parameterInfos = request.parameters.mapIndexed { index, param ->
-            val ktType = (param.type as? PsiType)?.resolveToKotlinType(resolutionFacade) ?: nullableAnyType
-            val name = param.name ?: "arg${index + 1}"
+            val ktType = helper.asPsiType(param)?.resolveToKotlinType(resolutionFacade) ?: nullableAnyType
+            val name = param.first.names.firstOrNull() ?: "arg${index + 1}"
             ParameterInfo(TypeInfo(ktType, Variance.IN_VARIANCE), listOf(name))
         }
         val needPrimary = !targetKtClass.hasExplicitPrimaryConstructor()
@@ -387,3 +394,6 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
         return listOf(action)
     }
 }
+
+private fun JvmPsiConversionHelper.asPsiType(param: ExpectedParameter): PsiType? =
+    param.second.firstOrNull()?.theType?.let { convertType(it) }

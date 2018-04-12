@@ -22,6 +22,7 @@ import com.intellij.lang.jvm.JvmModifier
 import com.intellij.lang.jvm.actions.*
 import com.intellij.lang.jvm.types.JvmSubstitutor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Pair.pair
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiJvmSubstitutor
 import com.intellij.psi.PsiSubstitutor
@@ -110,13 +111,80 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
         """.trim(), true)
     }
 
+    fun testMakePrivatePublic() {
+        myFixture.configureByText(
+            "foo.kt", """class Foo {
+                        |    private fun <caret>bar(){}
+                        |}""".trim().trimMargin()
+        )
+
+        myFixture.launchAction(
+            createModifierActions(
+                myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.PUBLIC, true)
+            ).findWithText("Remove 'private' modifier")
+        )
+        myFixture.checkResult(
+            """class Foo {
+              |    fun <caret>bar(){}
+              |}""".trim().trimMargin(), true
+        )
+    }
+
+    fun testMakeProtectedPublic() {
+        myFixture.configureByText(
+            "foo.kt", """open class Foo {
+                        |    protected fun <caret>bar(){}
+                        |}""".trim().trimMargin()
+        )
+
+        myFixture.launchAction(
+            createModifierActions(
+                myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.PUBLIC, true)
+            ).findWithText("Remove 'protected' modifier")
+        )
+        myFixture.checkResult(
+            """open class Foo {
+              |    fun <caret>bar(){}
+              |}""".trim().trimMargin(), true
+        )
+    }
+
+    fun testMakeInternalPublic() {
+        myFixture.configureByText(
+            "foo.kt", """class Foo {
+                        |    internal fun <caret>bar(){}
+                        |}""".trim().trimMargin()
+        )
+
+        myFixture.launchAction(
+            createModifierActions(
+                myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.PUBLIC, true)
+            ).findWithText("Remove 'internal' modifier")
+        )
+        myFixture.checkResult(
+            """class Foo {
+              |    fun <caret>bar(){}
+              |}""".trim().trimMargin(), true
+        )
+    }
+
+    fun testDontMakePublicPublic() {
+        myFixture.configureByText(
+            "foo.kt", """class Foo {
+                        |    fun <caret>bar(){}
+                        |}""".trim().trimMargin()
+        )
+
+        assertEmpty(createModifierActions(myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.PUBLIC, true)))
+    }
+
     fun testDontMakeFunInObjectsOpen() {
         myFixture.configureByText("foo.kt", """
         object Foo {
             fun bar<caret>(){}
         }
         """.trim())
-        Assert.assertTrue(createModifierActions(myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.FINAL, false)).isEmpty())
+        assertEmpty(createModifierActions(myFixture.atCaret(), MemberRequest.Modifier(JvmModifier.FINAL, false)))
     }
 
     fun testAddVoidVoidMethod() {
@@ -177,8 +245,7 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
 
         myFixture.launchAction(
                 createConstructorActions(
-                        myFixture.atCaret(),
-                        MemberRequest.Constructor(parameters = makeParams(PsiType.INT))
+                    myFixture.atCaret(), constructorRequest(project, listOf(pair("param0", PsiType.INT as PsiType)))
                 ).findWithText("Add primary constructor to 'Foo'")
         )
         myFixture.checkResult("""
@@ -195,8 +262,8 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
 
         myFixture.launchAction(
                 createConstructorActions(
-                        myFixture.atCaret(),
-                        MemberRequest.Constructor(parameters = makeParams(PsiType.INT))
+                    myFixture.atCaret(),
+                    constructorRequest(project, listOf(pair("param0", PsiType.INT as PsiType)))
                 ).findWithText("Add secondary constructor to 'Foo'")
         )
         myFixture.checkResult("""
@@ -216,8 +283,8 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
 
         myFixture.launchAction(
                 createConstructorActions(
-                        myFixture.atCaret(),
-                        MemberRequest.Constructor(parameters = makeParams(PsiType.INT))
+                    myFixture.atCaret(),
+                    constructorRequest(project, listOf(pair("param0", PsiType.INT as PsiType)))
                 ).findWithText("Add 'int' as 1st parameter to method 'Foo'")
         )
         myFixture.checkResult("""
@@ -234,8 +301,8 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
 
         myFixture.launchAction(
                 createConstructorActions(
-                        myFixture.atCaret(),
-                        MemberRequest.Constructor()
+                    myFixture.atCaret(),
+                    constructorRequest(project, emptyList())
                 ).findWithText("Remove 1st parameter from method 'Foo'")
         )
         myFixture.checkResult("""

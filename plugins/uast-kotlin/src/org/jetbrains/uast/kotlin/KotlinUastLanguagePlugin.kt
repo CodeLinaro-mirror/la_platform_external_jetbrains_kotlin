@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
 import org.jetbrains.uast.*
+import org.jetbrains.uast.kotlin.declarations.KotlinUIdentifier
 import org.jetbrains.uast.kotlin.declarations.KotlinUMethod
 import org.jetbrains.uast.kotlin.expressions.*
 import org.jetbrains.uast.kotlin.psi.UastKotlinPsiParameter
@@ -277,8 +278,12 @@ internal object KotlinConverter {
         is KtContainerNode -> unwrapElements(element.parent)
         is KtSimpleNameStringTemplateEntry -> unwrapElements(element.parent)
         is KtLightParameterList -> unwrapElements(element.parent)
+        is KtTypeElement -> unwrapElements(element.parent)
         else -> element
     }
+
+    private val identifiersTokens =
+        setOf(KtTokens.IDENTIFIER, KtTokens.CONSTRUCTOR_KEYWORD, KtTokens.THIS_KEYWORD, KtTokens.SUPER_KEYWORD, KtTokens.OBJECT_KEYWORD)
 
     internal fun convertPsiElement(element: PsiElement?,
                                    givenParent: UElement?,
@@ -337,8 +342,10 @@ internal object KotlinConverter {
             is KtImportDirective -> el<UImportStatement>(build(::KotlinUImportStatement))
             else -> {
                 if (element is LeafPsiElement) {
-                    if (element.elementType == KtTokens.IDENTIFIER)
-                    el<UIdentifier>(build(::UIdentifier))
+                    if (element.elementType in identifiersTokens)
+                        if (element.elementType != KtTokens.OBJECT_KEYWORD || element.getParentOfType<KtObjectDeclaration>(false)?.nameIdentifier == null)
+                            el<UIdentifier>(build(::KotlinUIdentifier))
+                        else null
                     else if (element.elementType == KtTokens.LBRACKET && element.parent is KtCollectionLiteralExpression)
                         el<UIdentifier> {
                             UIdentifier(
@@ -350,9 +357,7 @@ internal object KotlinConverter {
                             )
                         }
                     else null
-                } else {
-                    null
-                }
+                } else null
             }
         }}
     }
