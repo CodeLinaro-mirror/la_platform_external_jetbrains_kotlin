@@ -25,6 +25,7 @@ import com.intellij.lang.jvm.JvmModifiersOwner
 import com.intellij.lang.jvm.actions.*
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
+import com.intellij.psi.codeStyle.SuggestedNameInfo
 import com.intellij.psi.impl.source.tree.java.PsiReferenceExpressionImpl
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForSourceDeclaration
@@ -59,6 +60,7 @@ import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeParameterImpl
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.visibilityModifierType
 import org.jetbrains.kotlin.resolve.annotations.JVM_FIELD_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.annotations.JVM_STATIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.types.KotlinType
@@ -162,7 +164,7 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
     private inline fun <reified T : KtElement> JvmElement.toKtElement() = sourceElement?.unwrapped as? T
 
-    private fun fakeParametersExpressions(parameters: ExpectedParameters, project: Project): Array<PsiExpression>? =
+    private fun fakeParametersExpressions(parameters: List<Pair<SuggestedNameInfo, List<ExpectedType>>>, project: Project): Array<PsiExpression>? =
             when {
                 parameters.isEmpty() -> emptyArray()
                 else -> JavaPsiFacade
@@ -244,10 +246,15 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
         val modifier = request.modifier
         val shouldPresent = request.shouldPresent
-        val (kToken, shouldPresentMapped) = if (JvmModifier.FINAL == modifier)
-            KtTokens.OPEN_KEYWORD to !shouldPresent
-        else
-            javaPsiModifiersMapping[modifier] to shouldPresent
+        //TODO: make similar to `createAddMethodActions`
+        val (kToken, shouldPresentMapped) = when {
+            modifier == JvmModifier.FINAL -> KtTokens.OPEN_KEYWORD to !shouldPresent
+            modifier == JvmModifier.PUBLIC && shouldPresent ->
+                kModifierOwner.visibilityModifierType()
+                    ?.takeIf { it != KtTokens.DEFAULT_VISIBILITY_KEYWORD }
+                    ?.let { it to false } ?: return emptyList()
+            else -> javaPsiModifiersMapping[modifier] to shouldPresent
+        }
         if (kToken == null) return emptyList()
 
         val action = if (shouldPresentMapped)
@@ -265,7 +272,8 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
         val resolutionFacade = targetKtClass.getResolutionFacade()
         val nullableAnyType = resolutionFacade.moduleDescriptor.builtIns.nullableAnyType
         val helper = JvmPsiConversionHelper.getInstance(targetKtClass.project)
-        val parameterInfos = request.parameters.mapIndexed { index, param ->
+        val parameters = request.parameters as List<Pair<SuggestedNameInfo, List<ExpectedType>>>
+        val parameterInfos = parameters.mapIndexed { index, param: Pair<SuggestedNameInfo, List<ExpectedType>> ->
             val ktType = helper.asPsiType(param)?.resolveToKotlinType(resolutionFacade) ?: nullableAnyType
             val name = param.first.names.firstOrNull() ?: "arg${index + 1}"
             ParameterInfo(TypeInfo(ktType, Variance.IN_VARIANCE), listOf(name))
@@ -287,7 +295,7 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
             val primaryConstructor = targetKtClass.primaryConstructor ?: return@run null
             val lightMethod = primaryConstructor.toLightMethods().firstOrNull() ?: return@run null
             val project = targetKtClass.project
-            val fakeParametersExpressions = fakeParametersExpressions(request.parameters, project) ?: return@run null
+            val fakeParametersExpressions = fakeParametersExpressions(parameters, project) ?: return@run null
             QuickFixFactory.getInstance()
                     .createChangeMethodSignatureFromUsageFix(
                             lightMethod,
@@ -368,7 +376,8 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
         val resolutionFacade = targetContainer.getResolutionFacade()
         val returnTypeInfo = request.returnType.toKotlinTypeInfo(resolutionFacade)
-        val parameterInfos = request.parameters.map { (suggestedNames, expectedTypes) ->
+        val parameters = request.parameters as List<Pair<SuggestedNameInfo, List<ExpectedType>>>
+        val parameterInfos = parameters.map { (suggestedNames, expectedTypes) ->
             ParameterInfo(expectedTypes.toKotlinTypeInfo(resolutionFacade), suggestedNames.names.toList())
         }
         val functionInfo = FunctionInfo(
@@ -389,5 +398,5 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
     }
 }
 
-private fun JvmPsiConversionHelper.asPsiType(param: ExpectedParameter): PsiType? =
+private fun JvmPsiConversionHelper.asPsiType(param: Pair<SuggestedNameInfo, List<ExpectedType>>): PsiType? =
     param.second.firstOrNull()?.theType?.let { convertType(it) }
