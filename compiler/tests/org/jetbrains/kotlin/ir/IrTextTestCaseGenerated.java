@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -276,6 +276,12 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             doTest(fileName);
         }
 
+        @TestMetadata("localClassWithOverrides.kt")
+        public void testLocalClassWithOverrides() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/localClassWithOverrides.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("localDelegatedProperties.kt")
         public void testLocalDelegatedProperties() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/localDelegatedProperties.kt");
@@ -316,6 +322,33 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
         public void testTypeAlias() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/typeAlias.kt");
             doTest(fileName);
+        }
+
+        @TestMetadata("compiler/testData/ir/irText/declarations/multiplatform")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class Multiplatform extends AbstractIrTextTestCase {
+            public void testAllFilesPresentInMultiplatform() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/ir/irText/declarations/multiplatform"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.ANY, true);
+            }
+
+            @TestMetadata("expectClassInherited.kt")
+            public void testExpectClassInherited() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/multiplatform/expectClassInherited.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("expectedEnumClass.kt")
+            public void testExpectedEnumClass() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/multiplatform/expectedEnumClass.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("expectedSealedClass.kt")
+            public void testExpectedSealedClass() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/multiplatform/expectedSealedClass.kt");
+                doTest(fileName);
+            }
         }
 
         @TestMetadata("compiler/testData/ir/irText/declarations/parameters")
@@ -383,6 +416,18 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             @TestMetadata("propertyAccessors.kt")
             public void testPropertyAccessors() throws Exception {
                 String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/parameters/propertyAccessors.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("typeParameterBeforeBound.kt")
+            public void testTypeParameterBeforeBound() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/parameters/typeParameterBeforeBound.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("typeParameterBoundedBySubclass.kt")
+            public void testTypeParameterBoundedBySubclass() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/declarations/parameters/typeParameterBoundedBySubclass.kt");
                 doTest(fileName);
             }
         }
@@ -588,6 +633,12 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             doTest(fileName);
         }
 
+        @TestMetadata("castToTypeParameter.kt")
+        public void testCastToTypeParameter() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/castToTypeParameter.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("catchParameterAccess.kt")
         public void testCatchParameterAccess() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/catchParameterAccess.kt");
@@ -732,6 +783,12 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             doTest(fileName);
         }
 
+        @TestMetadata("implicitCastToTypeParameter.kt")
+        public void testImplicitCastToTypeParameter() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/implicitCastToTypeParameter.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("in.kt")
         public void testIn() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/in.kt");
@@ -771,6 +828,12 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
         @TestMetadata("kt16905.kt")
         public void testKt16905() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/kt16905.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("kt23030.kt")
+        public void testKt23030() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/kt23030.kt");
             doTest(fileName);
         }
 
@@ -942,6 +1005,12 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             doTest(fileName);
         }
 
+        @TestMetadata("typeParameterClassLiteral.kt")
+        public void testTypeParameterClassLiteral() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/typeParameterClassLiteral.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("values.kt")
         public void testValues() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/values.kt");
@@ -994,6 +1063,81 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
         public void testWhileDoWhile() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/whileDoWhile.kt");
             doTest(fileName);
+        }
+
+        @TestMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class FloatingPointComparisons extends AbstractIrTextTestCase {
+            public void testAllFilesPresentInFloatingPointComparisons() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/ir/irText/expressions/floatingPointComparisons"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.ANY, true);
+            }
+
+            @TestMetadata("comparableWithDoubleOrFloat.kt")
+            public void testComparableWithDoubleOrFloat() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/comparableWithDoubleOrFloat.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("eqeqRhsConditionPossiblyAffectingLhs.kt")
+            public void testEqeqRhsConditionPossiblyAffectingLhs() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/eqeqRhsConditionPossiblyAffectingLhs.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("floatingPointCompareTo.kt")
+            public void testFloatingPointCompareTo() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/floatingPointCompareTo.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("floatingPointEqeq.kt")
+            public void testFloatingPointEqeq() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/floatingPointEqeq.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("floatingPointEquals.kt")
+            public void testFloatingPointEquals() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/floatingPointEquals.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("floatingPointExcleq.kt")
+            public void testFloatingPointExcleq() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/floatingPointExcleq.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("floatingPointLess.kt")
+            public void testFloatingPointLess() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/floatingPointLess.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("nullableAnyAsIntToDouble.kt")
+            public void testNullableAnyAsIntToDouble() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/nullableAnyAsIntToDouble.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("nullableFloatingPointEqeq.kt")
+            public void testNullableFloatingPointEqeq() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/nullableFloatingPointEqeq.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("typeParameterWithPrimitiveNumericSupertype.kt")
+            public void testTypeParameterWithPrimitiveNumericSupertype() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/typeParameterWithPrimitiveNumericSupertype.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("whenByFloatingPoint.kt")
+            public void testWhenByFloatingPoint() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/expressions/floatingPointComparisons/whenByFloatingPoint.kt");
+                doTest(fileName);
+            }
         }
     }
 
@@ -1149,9 +1293,21 @@ public class IrTextTestCaseGenerated extends AbstractIrTextTestCase {
             doTest(fileName);
         }
 
+        @TestMetadata("javaMethod.kt")
+        public void testJavaMethod() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/stubs/javaMethod.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("javaNestedClass.kt")
         public void testJavaNestedClass() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/stubs/javaNestedClass.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("javaStaticMethod.kt")
+        public void testJavaStaticMethod() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/ir/irText/stubs/javaStaticMethod.kt");
             doTest(fileName);
         }
 

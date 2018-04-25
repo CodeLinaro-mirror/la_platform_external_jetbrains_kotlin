@@ -74,7 +74,6 @@ private inline fun toArrayImpl(
                 newSize = MAX_SIZE // try max array size that VM can allocate
             }
             result = Arrays.copyOf(result, newSize)
-
         } else {
             if (!iter.hasNext()) return trim(result, i) // ended too early (allocated array too big)
         }

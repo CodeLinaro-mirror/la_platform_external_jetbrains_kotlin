@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -46,6 +46,12 @@ public class DumpDeclarationsTestGenerated extends AbstractDumpDeclarationsTest 
     @TestMetadata("interfaces.kt")
     public void testInterfaces() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/dumpDeclarations/interfaces.kt");
+        doTest(fileName);
+    }
+
+    @TestMetadata("intermediateAbstractSuspendFunction.kt")
+    public void testIntermediateAbstractSuspendFunction() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/dumpDeclarations/intermediateAbstractSuspendFunction.kt");
         doTest(fileName);
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -169,15 +169,33 @@ public class AndroidBytecodeShapeTestGenerated extends AbstractAndroidBytecodeSh
         doTest(fileName);
     }
 
+    @TestMetadata("supportExtensionFunctionsFragmentAndroidx")
+    public void testSupportExtensionFunctionsFragmentAndroidx() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("plugins/android-extensions/android-extensions-compiler/testData/codegen/bytecodeShape/supportExtensionFunctionsFragmentAndroidx/");
+        doTest(fileName);
+    }
+
     @TestMetadata("supportSimpleFragment")
     public void testSupportSimpleFragment() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("plugins/android-extensions/android-extensions-compiler/testData/codegen/bytecodeShape/supportSimpleFragment/");
         doTest(fileName);
     }
 
+    @TestMetadata("supportSimpleFragmentAndroidx")
+    public void testSupportSimpleFragmentAndroidx() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("plugins/android-extensions/android-extensions-compiler/testData/codegen/bytecodeShape/supportSimpleFragmentAndroidx/");
+        doTest(fileName);
+    }
+
     @TestMetadata("supportSimpleFragmentProperty")
     public void testSupportSimpleFragmentProperty() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("plugins/android-extensions/android-extensions-compiler/testData/codegen/bytecodeShape/supportSimpleFragmentProperty/");
+        doTest(fileName);
+    }
+
+    @TestMetadata("supportSimpleFragmentPropertyAndroidx")
+    public void testSupportSimpleFragmentPropertyAndroidx() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("plugins/android-extensions/android-extensions-compiler/testData/codegen/bytecodeShape/supportSimpleFragmentPropertyAndroidx/");
         doTest(fileName);
     }
 

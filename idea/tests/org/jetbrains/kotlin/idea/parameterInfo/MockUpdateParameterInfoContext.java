@@ -104,7 +104,7 @@ public class MockUpdateParameterInfoContext implements UpdateParameterInfoContex
 
     @Override
     public UserDataHolderEx getCustomContext() {
-        throw new UnsupportedOperationException("MockUpdateParameterInfoContext.getCustomContext");
+        return null;
     }
 
     @Override

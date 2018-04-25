@@ -302,7 +302,7 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
         myFixture.launchAction(
                 createConstructorActions(
                     myFixture.atCaret(),
-                    constructorRequest(project, emptyList())
+                    constructorRequest(project, listOf(pair("param0", PsiType.INT as PsiType)))
                 ).findWithText("Remove 1st parameter from method 'Foo'")
         )
         myFixture.checkResult("""

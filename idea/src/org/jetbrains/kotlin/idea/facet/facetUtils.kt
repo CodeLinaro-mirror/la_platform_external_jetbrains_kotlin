@@ -35,7 +35,7 @@ import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.idea.caches.resolve.*
+import org.jetbrains.kotlin.idea.caches.project.*
 import org.jetbrains.kotlin.idea.compiler.configuration.Kotlin2JsCompilerArgumentsHolder
 import org.jetbrains.kotlin.idea.compiler.configuration.Kotlin2JvmCompilerArgumentsHolder
 import org.jetbrains.kotlin.idea.compiler.configuration.KotlinCommonCompilerArgumentsHolder
@@ -47,8 +47,7 @@ import kotlin.reflect.KProperty1
 
 private fun getDefaultTargetPlatform(module: Module, rootModel: ModuleRootModel?): TargetPlatformKind<*> {
     for (platform in TargetPlatformKind.ALL_PLATFORMS) {
-        if (platform.version == TargetPlatformVersion.NoVersion &&
-            getRuntimeLibraryVersions(module, rootModel, platform).isNotEmpty()) {
+        if (getRuntimeLibraryVersions(module, rootModel, platform).isNotEmpty()) {
             return platform
         }
     }
@@ -123,17 +122,8 @@ val mavenLibraryIdToPlatform: Map<String, TargetPlatformKind<*>> by lazy {
             .toMap()
 }
 
-private fun Module.findImplementedModuleName(modelsProvider: IdeModifiableModelsProvider): String? {
-    val facetModel = modelsProvider.getModifiableFacetModel(this)
-    val facet = facetModel.findFacet(KotlinFacetType.TYPE_ID, KotlinFacetType.INSTANCE.defaultFacetName)
-    return facet?.configuration?.settings?.implementedModuleName
-}
-
-private fun Module.findImplementingModules(modelsProvider: IdeModifiableModelsProvider): List<Module> {
-    return modelsProvider.modules.filter { module ->
-        module.findImplementedModuleName(modelsProvider) == name
-    }
-}
+internal fun Module.findImplementingModules(modelsProvider: IdeModifiableModelsProvider) =
+    modelsProvider.modules.filter { name in it.findImplementedModuleNames(modelsProvider) }
 
 val Module.implementingModules: List<Module>
     get() = cached(CachedValueProvider {
@@ -144,11 +134,11 @@ val Module.implementingModules: List<Module>
     })
 
 private fun Module.getModuleInfo(baseModuleSourceInfo: ModuleSourceInfo): ModuleSourceInfo? =
-        when (baseModuleSourceInfo) {
-            is ModuleProductionSourceInfo -> productionSourceInfo()
-            is ModuleTestSourceInfo -> testSourceInfo()
-            else -> null
-        }
+    when (baseModuleSourceInfo) {
+        is ModuleProductionSourceInfo -> productionSourceInfo()
+        is ModuleTestSourceInfo -> testSourceInfo()
+        else -> null
+    }
 
 private fun Module.findImplementingModuleInfos(moduleSourceInfo: ModuleSourceInfo): List<ModuleSourceInfo> {
     val modelsProvider = IdeModifiableModelsProviderImpl(project)
@@ -173,17 +163,13 @@ val ModuleDescriptor.implementingDescriptors: List<ModuleDescriptor>
         })
     }
 
-val ModuleDescriptor.implementedDescriptor: ModuleDescriptor?
+val ModuleDescriptor.implementedDescriptors: List<ModuleDescriptor>
     get() {
-        val moduleSourceInfo = getCapability(ModuleInfo.Capability) as? ModuleSourceInfo ?: return null
-        val module = moduleSourceInfo.module
+        val moduleSourceInfo = getCapability(ModuleInfo.Capability) as? ModuleSourceInfo ?: return emptyList()
 
-        val modelsProvider = IdeModifiableModelsProviderImpl(module.project)
-        val implementedModuleName = module.findImplementedModuleName(modelsProvider)
-        val implementedModule = implementedModuleName?.let { modelsProvider.findIdeModule(it) }
-        val implementedModuleInfo = implementedModule?.getModuleInfo(moduleSourceInfo)
-        return implementedModuleInfo?.let {
-            KotlinCacheService.getInstance(module.project).getResolutionFacadeByModuleInfo(it, it.platform)?.moduleDescriptor
+        return moduleSourceInfo.expectedBy.mapNotNull {
+            KotlinCacheService.getInstance(moduleSourceInfo.module.project)
+                .getResolutionFacadeByModuleInfo(it, it.platform)?.moduleDescriptor
         }
     }
 

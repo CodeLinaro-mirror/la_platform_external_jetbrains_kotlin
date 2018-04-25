@@ -8,6 +8,7 @@ where advanced options include:
   -Xnormalize-constructor-calls={disable|enable}
                              Normalize constructor calls (disable: don't normalize; enable: normalize), default is disable
   -Xdump-declarations-to=<path> Path to JSON file to dump Java to Kotlin declaration mappings
+  -Xenable-jvm-default       Allow to use '@JvmDefault' for JVM default method support
   -Xmultifile-parts-inherit  Compile multifile classes as a hierarchy of parts and facade
   -Xmodule-path=<path>       Paths where to find Java 9+ modules
   -Xjavac-arguments=<option[,]> Java compiler arguments
@@ -36,12 +37,11 @@ where advanced options include:
   -Xstrict-java-nullability-assertions
                              Generate nullability assertions for non-null Java expressions
   -Xsupport-compatqual-checker-framework-annotations=enable|disable
-
                              Specify behavior for Checker Framework compatqual annotations (NullableDecl/NonNullDecl).
                              Default value is 'enable'
-
   -Xuse-javac                Use javac for Java source and class files analysis
   -Xuse-old-class-files-reading Use old class files reading implementation (may slow down the build and should be used in case of problems with the new implementation)
+  -Xuse-type-table           Use type table in metadata serialization
   -Xallow-kotlin-package     Allow compiling code in package 'kotlin' and allow not requiring kotlin.stdlib in module-info
   -Xcoroutines={enable|warn|error}
                              Enable coroutines or report warnings or errors on declarations and use sites of 'suspend' modifier
@@ -54,6 +54,7 @@ where advanced options include:
   -Xno-check-actual          Do not check presence of 'actual' modifier in multi-platform projects
   -Xno-inline                Disable method inlining
   -Xplugin=<path>            Load plugins from the given classpath
+  -Xproper-ieee754-comparisons Generate proper IEEE 754 comparisons in all cases if values are statically known to be of primitive numeric types
   -Xread-deserialized-contracts Enable reading of contracts from metadata
   -Xrepeat=<count>           Repeat compilation (for performance analysis)
   -Xreport-output-files      Report source to output files mapping

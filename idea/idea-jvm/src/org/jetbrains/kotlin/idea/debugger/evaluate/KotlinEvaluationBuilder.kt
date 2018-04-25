@@ -57,7 +57,7 @@ import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.diagnostics.Severity
 import org.jetbrains.kotlin.diagnostics.rendering.DefaultErrorMessages
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.idea.caches.resolve.getJavaClassDescriptor
+import org.jetbrains.kotlin.idea.caches.resolve.util.getJavaClassDescriptor
 import org.jetbrains.kotlin.idea.core.quoteSegmentsIfNeeded
 import org.jetbrains.kotlin.idea.debugger.DebuggerUtils
 import org.jetbrains.kotlin.idea.debugger.evaluate.KotlinDebuggerCaches.CompiledDataDescriptor
@@ -280,7 +280,7 @@ class KotlinEvaluator(val codeFragment: KtCodeFragment, val sourcePosition: Sour
                             .zip(argumentTypes)
                             .map { (value, type) ->
                                 // Make argument type classes prepared for sure
-                                eval.loadClass(type, classLoader)
+                                eval.loadClassByName(type.className, classLoader)
                                 boxOrUnboxArgumentIfNeeded(eval, value, type).asJdiValue(vm, type)
                             }
 
@@ -288,7 +288,7 @@ class KotlinEvaluator(val codeFragment: KtCodeFragment, val sourcePosition: Sour
                     mainClass.invokeMethod(thread, mainClass.methods().single(), args, invokePolicy)
                 }
             } catch (e: Throwable) {
-                LOG.debug("Unable to evaluate expression with compilation", e)
+                LOG.error("Unable to evaluate expression with compilation", e)
                 return null
             }
         }

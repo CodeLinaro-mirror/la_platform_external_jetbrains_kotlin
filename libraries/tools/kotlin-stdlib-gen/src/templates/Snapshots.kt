@@ -100,9 +100,9 @@ object Snapshots : TemplateGroupBase() {
         platforms(Platform.JVM)
     } builder {
         typeParam("T: Comparable<T>")
-        doc { "Returns a [SortedSet] of all ${f.element.pluralize()}." }
-        returns("SortedSet<T>")
-        body { "return toCollection(TreeSet<T>())" }
+        doc { "Returns a [SortedSet][java.util.SortedSet] of all ${f.element.pluralize()}." }
+        returns("java.util.SortedSet<T>")
+        body { "return toCollection(java.util.TreeSet<T>())" }
     }
 
     val f_toSortedSet_comparator = fn("toSortedSet(comparator: Comparator<in T>)") {
@@ -111,13 +111,13 @@ object Snapshots : TemplateGroupBase() {
     } builder {
         doc {
             """
-                Returns a [SortedSet] of all ${f.element.pluralize()}.
+                Returns a [SortedSet][java.util.SortedSet] of all ${f.element.pluralize()}.
 
                 Elements in the set returned are sorted according to the given [comparator].
             """
         }
-        returns("SortedSet<T>")
-        body { "return toCollection(TreeSet<T>(comparator))" }
+        returns("java.util.SortedSet<T>")
+        body { "return toCollection(java.util.TreeSet<T>(comparator))" }
     }
 
     val f_toMutableList = fn("toMutableList()") {

@@ -367,7 +367,32 @@ public class KotlinTestUtils {
     }
 
     public static File findAndroidApiJar() {
-        return new File(getHomeDirectory(), "dependencies/android.jar");
+        String androidJarProp = System.getProperty("android.jar");
+        File androidJarFile = androidJarProp == null ? null : new File(androidJarProp);
+        if (androidJarFile == null || !androidJarFile.isFile()) {
+            throw new RuntimeException(
+                    "Unable to get a valid path from 'android.jar' property (" +
+                    androidJarProp +
+                    "), please point it to the 'android.jar' file location");
+        }
+        return androidJarFile;
+    }
+
+    @NotNull
+    public static File findAndroidSdk() {
+        String androidSdkProp = System.getProperty("android.sdk");
+        File androidSdkDir = androidSdkProp == null ? null : new File(androidSdkProp);
+        if (androidSdkDir == null || !androidSdkDir.isDirectory()) {
+            throw new RuntimeException(
+                    "Unable to get a valid path from 'android.sdk' property (" +
+                    androidSdkProp +
+                    "), please point it to the android SDK location");
+        }
+        return androidSdkDir;
+    }
+
+    public static String getAndroidSdkSystemIndependentPath() {
+        return com.intellij.util.PathUtil.toSystemIndependentName(findAndroidSdk().getAbsolutePath());
     }
 
     public static File getAnnotationsJar() {
@@ -558,7 +583,7 @@ public class KotlinTestUtils {
             JvmContentRootsKt.addJvmClasspathRoot(configuration, ForTestCompileRuntime.kotlinTestJarForTests());
         }
         else if (configurationKind.getWithMockRuntime()) {
-            JvmContentRootsKt.addJvmClasspathRoot(configuration, ForTestCompileRuntime.mockRuntimeJarForTests());
+            JvmContentRootsKt.addJvmClasspathRoot(configuration, ForTestCompileRuntime.minimalRuntimeJarForTests());
             JvmContentRootsKt.addJvmClasspathRoot(configuration, ForTestCompileRuntime.scriptRuntimeJarForTests());
         }
         if (configurationKind.getWithReflection()) {
