@@ -32,8 +32,6 @@ class Java8OverrideImplementTest : AbstractOverrideImplementTest() {
     override fun getProjectDescriptor() = KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE_FULL_JDK
 
     fun testOverrideCollectionStream() {
-        // TODO: Fix this test, it hangs for 2 hours on TeamCity
-        // doOverrideFileTest("stream")
-        assert(false)
+        doOverrideFileTest("stream")
     }
 }

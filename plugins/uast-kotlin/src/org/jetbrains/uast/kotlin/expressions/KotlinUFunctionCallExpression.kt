@@ -73,19 +73,8 @@ class KotlinUFunctionCallExpression(
     }
 
     override val methodIdentifier by lz {
-        val calleeExpression = psi.calleeExpression
-        when (calleeExpression) {
-            null -> null
-            is KtNameReferenceExpression ->
-                KotlinUIdentifier(calleeExpression.getReferencedNameElement(), this)
-            is KtConstructorDelegationReferenceExpression ->
-                KotlinUIdentifier(calleeExpression.firstChild ?: calleeExpression, this)
-            is KtConstructorCalleeExpression ->
-                KotlinUIdentifier(
-                    calleeExpression.constructorReferenceExpression?.getReferencedNameElement() ?: calleeExpression, this
-                )
-            else -> KotlinUIdentifier(calleeExpression, this)
-        }
+        val calleeExpression = psi.calleeExpression ?: return@lz null
+        KotlinUIdentifier(calleeExpression, this)
     }
 
     override val valueArgumentCount: Int
@@ -112,7 +101,7 @@ class KotlinUFunctionCallExpression(
     }
 
     private fun createVarargsHolder(arguments: List<ValueArgument>, parent: UElement?): KotlinUExpressionList =
-        KotlinUExpressionList(null, UastSpecialExpressionKind.VARARGS, parent).apply {
+        KotlinUExpressionList(null, VARARGS, parent).apply {
             expressions = arguments.map { KotlinConverter.convertOrEmpty(it.getArgumentExpression(), parent) }
         }
 
@@ -171,3 +160,6 @@ class KotlinUFunctionCallExpression(
     }
 
 }
+
+@Deprecated("will be replaced by one from uast api when it comes")
+val VARARGS = UastSpecialExpressionKind("varargs")

@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen;
@@ -47,10 +36,7 @@ import org.jetbrains.kotlin.name.Name;
 import org.jetbrains.kotlin.platform.JavaToKotlinClassMap;
 import org.jetbrains.kotlin.platform.JavaToKotlinClassMap.PlatformMutabilityMapping;
 import org.jetbrains.kotlin.psi.*;
-import org.jetbrains.kotlin.resolve.BindingContext;
-import org.jetbrains.kotlin.resolve.DelegationResolver;
-import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils;
-import org.jetbrains.kotlin.resolve.DescriptorUtils;
+import org.jetbrains.kotlin.resolve.*;
 import org.jetbrains.kotlin.resolve.calls.callUtil.CallUtilKt;
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall;
 import org.jetbrains.kotlin.resolve.calls.model.VariableAsFunctionResolvedCall;
@@ -85,6 +71,7 @@ import static org.jetbrains.kotlin.resolve.BindingContextUtils.getDelegationCons
 import static org.jetbrains.kotlin.resolve.BindingContextUtils.getNotNull;
 import static org.jetbrains.kotlin.resolve.DescriptorToSourceUtils.descriptorToDeclaration;
 import static org.jetbrains.kotlin.resolve.DescriptorUtils.*;
+import static org.jetbrains.kotlin.resolve.annotations.AnnotationUtilKt.hasJvmDefaultAnnotation;
 import static org.jetbrains.kotlin.resolve.jvm.AsmTypes.JAVA_STRING_TYPE;
 import static org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE;
 import static org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin.NO_ORIGIN;
@@ -230,7 +217,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
 
     @Override
     protected void generateDefaultImplsIfNeeded() {
-        if (isInterface(descriptor) && !isLocal && (!JvmCodegenUtil.isJvm8InterfaceWithDefaults(descriptor, state) || state.getGenerateDefaultImplsForJvm8())) {
+        if (isInterface(descriptor) && !isLocal) {
             Type defaultImplsType = state.getTypeMapper().mapDefaultImpls(descriptor);
             ClassBuilder defaultImplsBuilder =
                     state.getFactory().newVisitor(JvmDeclarationOriginKt.DefaultImpls(myClass.getPsiOrParent(), descriptor), defaultImplsType, myClass.getContainingKtFile());
@@ -241,6 +228,54 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
             ClassContext defaultImplsContext = parentContext.intoDefaultImplsClass(descriptor, (ClassContext) context, state);
             new InterfaceImplBodyCodegen(myClass, defaultImplsContext, defaultImplsBuilder, state, this).generate();
         }
+    }
+
+    @Override
+    protected void generateErasedInlineClassIfNeeded() {
+        if (!(myClass instanceof KtClass)) return;
+        if (!descriptor.isInline()) return;
+
+        Type erasedInlineClassType = state.getTypeMapper().mapErasedInlineClass(descriptor);
+        ClassBuilder builder = state.getFactory().newVisitor(
+                JvmDeclarationOriginKt.ErasedInlineClassOrigin(myClass.getPsiOrParent(), descriptor),
+                erasedInlineClassType,
+                myClass.getContainingKtFile()
+        );
+
+        CodegenContext parentContext = context.getParentContext();
+        assert parentContext != null : "Parent context of inline class declaration should not be null";
+
+        ClassContext erasedInlineClassContext = parentContext.intoWrapperForErasedInlineClass(descriptor, state);
+        new ErasedInlineClassBodyCodegen((KtClass) myClass, erasedInlineClassContext, builder, state, this).generate();
+    }
+
+    @Override
+    protected void generateUnboxMethodForInlineClass() {
+        if (!(myClass instanceof KtClass)) return;
+        if (!descriptor.isInline()) return;
+
+        Type ownerType = typeMapper.mapClass(descriptor);
+        ValueParameterDescriptor inlinedValue = InlineClassesUtilsKt.underlyingRepresentation(this.descriptor);
+        if (inlinedValue == null) return;
+
+        Type valueType = typeMapper.mapType(inlinedValue.getType());
+        SimpleFunctionDescriptor functionDescriptor = InlineClassDescriptorResolver.INSTANCE.createUnboxFunctionDescriptor(this.descriptor);
+        assert functionDescriptor != null : "FunctionDescriptor for unbox method should be not null during codegen";
+
+        functionCodegen.generateMethod(
+                JvmDeclarationOriginKt.UnboxMethodOfInlineClass(functionDescriptor), functionDescriptor,
+                new FunctionGenerationStrategy.CodegenBased(state) {
+                    @Override
+                    public void doGenerateBody(
+                            @NotNull ExpressionCodegen codegen, @NotNull JvmMethodSignature signature
+                    ) {
+                        InstructionAdapter iv = codegen.v;
+                        iv.load(0, OBJECT_TYPE);
+                        iv.getfield(ownerType.getInternalName(), inlinedValue.getName().asString(), valueType.getDescriptor());
+                        iv.areturn(valueType);
+                    }
+                }
+        );
     }
 
     @Override
@@ -366,9 +401,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
 
         generateDelegates(delegationFieldsInfo);
 
-        if (!isInterface(descriptor)  || kind == OwnerKind.DEFAULT_IMPLS) {
-            generateSyntheticAccessors();
-        }
+        generateSyntheticAccessors();
 
         generateEnumMethods();
 
@@ -863,7 +896,15 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                 deprecatedFieldForInvisibleCompanionObject &&
                 !properVisibilityForCompanionObjectInstanceField &&
                 (properFieldVisibilityFlag & (ACC_PRIVATE | ACC_PROTECTED)) != 0;
-        int fieldAccessFlags = ACC_PUBLIC | ACC_STATIC | ACC_FINAL;
+        boolean doNotGeneratePublic =
+                properVisibilityForCompanionObjectInstanceField && (properFieldVisibilityFlag & (ACC_PRIVATE | ACC_PROTECTED)) != 0;
+        int fieldAccessFlags;
+        if (doNotGeneratePublic) {
+            fieldAccessFlags = ACC_STATIC | ACC_FINAL;
+        }
+        else {
+            fieldAccessFlags = ACC_PUBLIC | ACC_STATIC | ACC_FINAL;
+        }
         if (properVisibilityForCompanionObjectInstanceField) {
             fieldAccessFlags |= properFieldVisibilityFlag;
         }
@@ -974,8 +1015,10 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
     private void copyFieldFromCompanionObject(PropertyDescriptor propertyDescriptor) {
         ExpressionCodegen codegen = createOrGetClInitCodegen();
         StackValue property = codegen.intermediateValueForProperty(propertyDescriptor, false, null, StackValue.none());
-        StackValue.Field field = StackValue
-                .field(property.type, classAsmType, propertyDescriptor.getName().asString(), true, StackValue.none(), propertyDescriptor);
+        StackValue.Field field = StackValue.field(
+                property.type, property.kotlinType, classAsmType, propertyDescriptor.getName().asString(),
+                true, StackValue.none(), propertyDescriptor
+        );
         field.store(property, codegen.v);
     }
 
@@ -1361,23 +1404,15 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
     }
 
     private void generateTraitMethods() {
-        if (isInterfaceWithoutDefaults(descriptor, state)) return;
+        if (isInterface(descriptor)) return;
 
-        List<FunctionDescriptor> restrictedInheritance = new ArrayList<>();
         for (Map.Entry<FunctionDescriptor, FunctionDescriptor> entry : CodegenUtil.getNonPrivateTraitMethods(descriptor).entrySet()) {
             FunctionDescriptor interfaceFun = entry.getKey();
             //skip java 8 default methods
-            if (!CodegenUtilKt.isDefinitelyNotDefaultImplsMethod(interfaceFun) && !isJvm8InterfaceWithDefaultsMember(interfaceFun, state)) {
-                if (state.isJvm8TargetWithDefaults() && !JvmCodegenUtil.isJvm8InterfaceWithDefaults(interfaceFun.getContainingDeclaration(), state)) {
-                    restrictedInheritance.add(interfaceFun);
-                }
-                else {
-                    generateDelegationToDefaultImpl(interfaceFun, entry.getValue());
-                }
+            if (!CodegenUtilKt.isDefinitelyNotDefaultImplsMethod(interfaceFun) && !hasJvmDefaultAnnotation(interfaceFun)) {
+                generateDelegationToDefaultImpl(interfaceFun, entry.getValue());
             }
         }
-
-        CodegenUtilKt.reportTarget6InheritanceErrorIfNeeded(descriptor, myClass.getPsiOrParent(), restrictedInheritance, state);
     }
 
     private void generateDelegationToDefaultImpl(@NotNull  FunctionDescriptor interfaceFun, @NotNull  FunctionDescriptor inheritedFun) {

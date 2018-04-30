@@ -39,28 +39,15 @@ import org.junit.Assert
 
 class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
     private class SimpleMethodRequest(
-        project: Project,
-        private val methodName: String,
-        private val modifiers: Collection<JvmModifier> = emptyList(),
-        private val returnType: ExpectedTypes = emptyList(),
-        private val annotations: Collection<AnnotationRequest> = emptyList(),
-        private val parameters: List<Pair<SuggestedNameInfo, List<ExpectedType>>> = emptyList(),
-        private val targetSubstitutor: JvmSubstitutor = PsiJvmSubstitutor(project, PsiSubstitutor.EMPTY)
+            project: Project,
+            override val methodName: String,
+            override val modifiers: Collection<JvmModifier> = emptyList(),
+            override val returnType: ExpectedTypes = emptyList(),
+            override val annotations: Collection<AnnotationRequest> = emptyList(),
+            override val parameters: List<ExpectedParameter> = emptyList(),
+            override val targetSubstitutor: JvmSubstitutor = PsiJvmSubstitutor(project, PsiSubstitutor.EMPTY)
     ) : CreateMethodRequest {
-        override fun getTargetSubstitutor(): JvmSubstitutor = targetSubstitutor
-
-        override fun getModifiers() = modifiers
-
-        override fun getMethodName() = methodName
-
-        override fun getAnnotations() = annotations
-
-        override fun getParameters() = parameters
-
-        override fun getReturnType() = returnType
-
-        override fun isValid(): Boolean = true
-
+        override val isValid: Boolean = true
     }
 
     private class NameInfo(vararg names: String) : SuggestedNameInfo(names)
@@ -315,7 +302,7 @@ class CommonIntentionActionsTest : LightPlatformCodeInsightFixtureTestCase() {
         myFixture.launchAction(
                 createConstructorActions(
                     myFixture.atCaret(),
-                    constructorRequest(project, emptyList())
+                    constructorRequest(project, listOf(pair("param0", PsiType.INT as PsiType)))
                 ).findWithText("Remove 1st parameter from method 'Foo'")
         )
         myFixture.checkResult("""

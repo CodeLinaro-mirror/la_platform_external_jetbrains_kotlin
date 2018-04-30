@@ -27,6 +27,7 @@ import com.intellij.refactoring.rename.RenamePsiElementProcessor
 import com.intellij.usageView.UsageInfo
 import org.jetbrains.kotlin.asJava.namedUnwrappedElement
 import org.jetbrains.kotlin.asJava.toLightMethods
+import org.jetbrains.kotlin.asJava.unwrapped
 import org.jetbrains.kotlin.idea.highlighter.markers.actualsForExpected
 import org.jetbrains.kotlin.idea.highlighter.markers.liftToExpected
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions
@@ -58,7 +59,7 @@ abstract class RenameKotlinPsiProcessor : RenamePsiElementProcessor() {
         return references
     }
 
-    override fun getQualifiedNameAfterRename(element: PsiElement, newName: String, nonJava: Boolean): String? {
+    override fun getQualifiedNameAfterRename(element: PsiElement, newName: String?, nonJava: Boolean): String? {
         if (!nonJava) return newName
 
         val qualifiedName = when (element) {
@@ -69,7 +70,9 @@ abstract class RenameKotlinPsiProcessor : RenamePsiElementProcessor() {
         return PsiUtilCore.getQualifiedNameAfterRename(qualifiedName, newName)
     }
 
-    override fun prepareRenaming(element: PsiElement, newName: String, allRenames: MutableMap<PsiElement, String>, scope: SearchScope) {
+    override fun prepareRenaming(element: PsiElement, newName: String?, allRenames: MutableMap<PsiElement, String>, scope: SearchScope) {
+        if (newName == null) return
+
         val safeNewName = newName.quoteIfNeeded()
 
         if (!newName.isIdentifier()) {
@@ -91,10 +94,12 @@ abstract class RenameKotlinPsiProcessor : RenamePsiElementProcessor() {
         val ref = reference as? PsiPolyVariantReference ?: return false
         val refElement = ref.element
         return refElement.parents.any { (it is KtImportDirective && !it.isAllUnder) || (it is PsiImportStaticStatement && !it.isOnDemand) }
-               && ref.multiResolve(false).size > 1
+               && ref.multiResolve(false).mapNotNullTo(HashSet()) { it.element?.unwrapped }.size > 1
     }
 
-    override fun getPostRenameCallback(element: PsiElement, newName: String, elementListener: RefactoringElementListener): Runnable? {
+    override fun getPostRenameCallback(element: PsiElement, newName: String?, elementListener: RefactoringElementListener?): Runnable? {
+        if (newName == null) return null
+
         return Runnable {
             element.ambiguousImportUsages?.forEach {
                 val ref = it.reference as? PsiPolyVariantReference ?: return@forEach

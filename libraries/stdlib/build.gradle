@@ -3,7 +3,10 @@ description = 'Kotlin Standard Library'
 apply plugin: 'kotlin'
 
 configureJvm6Project(project)
+configureDist(project)
 configurePublishing(project)
+
+project.ext["jpsLibraryPath"] = rootProject.distLibDir
 
 sourceSets {
     annotations {
@@ -28,9 +31,19 @@ sourceSets {
             srcDir 'src'
         }
     }
+    experimental {
+        kotlin {
+            srcDir "experimental"
+        }
+    }
     test {
         kotlin {
             srcDir 'test'
+        }
+    }
+    java9 {
+        java {
+            srcDir 'jvm/java9'
         }
     }
 }
@@ -54,19 +67,25 @@ task originalStdlibJar(type: Jar) {
 }
 
 jar {
-    manifestAttributes(manifest, project, 'Main')
+    manifestAttributes(manifest, project, 'Main', true)
     from("${rootDir}/dist/builtins")
     from sourceSets.builtins.output
+    from sourceSets.experimental.output
+    // TODO: enable as soon as this doesn't cause D8/DX to crash
+    // from sourceSets.java9.output
 }
 
 task distJar(type: Jar) {
     baseName = 'dist-kotlin-stdlib'
     version = null
-    manifestAttributes(manifest, project, 'Main')
+    manifestAttributes(manifest, project, 'Main', true)
     from("${rootDir}/dist/builtins")
     from sourceSets.annotations.output
     from sourceSets.builtins.output
     from sourceSets.main.output
+    from sourceSets.experimental.output
+    // TODO: enable as soon as this doesn't cause D8/DX to crash
+    // from sourceSets.java9.output
 }
 
 task builtinsJar(type: Jar) {
@@ -134,5 +153,21 @@ compileKotlin {
         ]
     }
 }
+
+compileExperimentalKotlin {
+    kotlinOptions {
+        languageVersion = "1.3"
+        apiVersion = "1.3"
+        freeCompilerArgs = [
+                "-version",
+                "-Xallow-kotlin-package",
+                "-Xmultifile-parts-inherit",
+                "-Xdump-declarations-to=${buildDir}/stdlib-experimental-declarations.json",
+                "-module-name", "kotlin-stdlib-experimental"
+        ]
+    }
+}
+
+compileJava9Sources(project, 'kotlin.stdlib', [sourceSets.builtins.output, sourceSets.main.output])
 
 kotlin.experimental.coroutines 'enable'

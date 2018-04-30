@@ -555,7 +555,7 @@ abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationT
         project.afterEvaluate { project ->
             if (project != null) {
                 val androidPluginIds = listOf("android", "com.android.application", "android-library", "com.android.library",
-                        "com.android.test", "com.android.feature")
+                        "com.android.test", "com.android.feature", "com.android.dynamic-feature")
                 val plugin = androidPluginIds.asSequence()
                                      .mapNotNull { project.plugins.findPlugin(it) as? BasePlugin }
                                      .firstOrNull()
@@ -690,7 +690,9 @@ internal fun configureJavaTask(kotlinTask: KotlinCompile, javaTask: AbstractComp
     // Make Gradle check if the javaTask is up-to-date based on the Kotlin classes
     javaTask.inputsCompatible.run {
         if (isBuildCacheSupported()) {
-            dir(kotlinTask.destinationDir).withNormalizer(CompileClasspathNormalizer::class.java)
+            dir(kotlinTask.destinationDir)
+                .withNormalizer(CompileClasspathNormalizer::class.java)
+                .withPropertyName("${kotlinTask.name}OutputClasses")
         }
         else {
             dirCompatible(kotlinTask.destinationDir)

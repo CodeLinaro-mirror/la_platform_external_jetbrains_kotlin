@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -6612,7 +6612,7 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
             catch (Throwable ignore) {
                 return;
             }
-            throw new AssertionError("Looks like this test can be unmuted. Remove IGNORE_BACKEND directive for that.");
+            throw new AssertionError("Looks like this test can be unmuted. Remove IGNORE_BACKEND directive or add it to whitelist for that.");
         }
 
         @TestMetadata("passMemberOrExtFromNative.kt")
@@ -6630,7 +6630,7 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
             catch (Throwable ignore) {
                 return;
             }
-            throw new AssertionError("Looks like this test can be unmuted. Remove IGNORE_BACKEND directive for that.");
+            throw new AssertionError("Looks like this test can be unmuted. Remove IGNORE_BACKEND directive or add it to whitelist for that.");
         }
 
         @TestMetadata("passTopLevelFunctionFromNative.kt")
@@ -6828,6 +6828,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("byteAndShortConversions.kt")
         public void testByteAndShortConversions() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("js/js.translator/testData/box/number/byteAndShortConversions.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("constantPropagation.kt")
+        public void testConstantPropagation() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("js/js.translator/testData/box/number/constantPropagation.kt");
             doTest(fileName);
         }
 

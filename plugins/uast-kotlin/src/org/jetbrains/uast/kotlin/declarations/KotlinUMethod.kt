@@ -32,7 +32,7 @@ import org.jetbrains.uast.kotlin.*
 open class KotlinUMethod(
         psi: KtLightMethod,
         givenParent: UElement?
-) : KotlinAbstractUElement(givenParent), UAnnotationMethod, UMethodTypeSpecific, UAnchorOwner, JavaUElementWithComments, PsiMethod by psi {
+) : KotlinAbstractUElement(givenParent), UAnnotationMethod, JavaUElementWithComments, PsiMethod by psi {
     override val psi: KtLightMethod = unwrap<UMethod, KtLightMethod>(psi)
 
     override val javaPsi = psi
@@ -72,19 +72,12 @@ open class KotlinUMethod(
         uParameters
     }
 
-    override val uastAnchor by lazy {
-        KotlinUIdentifier(
+    override val uastAnchor: UElement
+        get() = KotlinUIdentifier(
             nameIdentifier,
-            sourcePsi.let { sourcePsi ->
-                when (sourcePsi) {
-                    is PsiNameIdentifierOwner -> sourcePsi.nameIdentifier
-                    is KtObjectDeclaration -> sourcePsi.getObjectKeyword()
-                    else -> sourcePsi?.navigationElement
-                }
-            },
+            (sourcePsi as? PsiNameIdentifierOwner)?.nameIdentifier ?: sourcePsi?.navigationElement,
             this
         )
-    }
 
 
     override val uastBody by lz {
@@ -104,9 +97,9 @@ open class KotlinUMethod(
     override val isOverride: Boolean
         get() = (kotlinOrigin as? KtCallableDeclaration)?.hasModifier(KtTokens.OVERRIDE_KEYWORD) ?: false
 
-    override fun getBody(): PsiCodeBlock? = super<UAnnotationMethod>.getBody()
+    override fun getBody(): PsiCodeBlock? = super.getBody()
 
-    override fun getOriginalElement(): PsiElement? = super<UAnnotationMethod>.getOriginalElement()
+    override fun getOriginalElement(): PsiElement? = super.getOriginalElement()
 
     override fun equals(other: Any?) = other is KotlinUMethod && psi == other.psi
 

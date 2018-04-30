@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -264,6 +264,12 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
             doTest(fileName);
         }
 
+        @TestMetadata("file.kt")
+        public void testFile() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/file.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("fromLib.kt")
         public void testFromLib() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/fromLib.kt");
@@ -287,6 +293,102 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/noBackingField.kt");
             doTest(fileName);
         }
+
+        @TestMetadata("use-site_delegate.kt")
+        public void testUse_site_delegate() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_delegate.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field.kt")
+        public void testUse_site_field() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_member.kt")
+        public void testUse_site_field_member() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_member.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_member_with_delegate.kt")
+        public void testUse_site_field_member_with_delegate() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_member_with_delegate.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_member_without_backing.kt")
+        public void testUse_site_field_member_without_backing() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_member_without_backing.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_toplevel.kt")
+        public void testUse_site_field_toplevel() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_toplevel.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_toplevel_with_delegate.kt")
+        public void testUse_site_field_toplevel_with_delegate() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_toplevel_with_delegate.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_field_toplevel_without_backing.kt")
+        public void testUse_site_field_toplevel_without_backing() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_field_toplevel_without_backing.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_file.kt")
+        public void testUse_site_file() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_file.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_get.kt")
+        public void testUse_site_get() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_get.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_invalid.kt")
+        public void testUse_site_invalid() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_invalid.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_param.kt")
+        public void testUse_site_param() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_param.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_property.kt")
+        public void testUse_site_property() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_property.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_receiver.kt")
+        public void testUse_site_receiver() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_receiver.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_set.kt")
+        public void testUse_site_set() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_set.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("use-site_setparam.kt")
+        public void testUse_site_setparam() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addAnnotationTarget/use-site_setparam.kt");
+            doTest(fileName);
+        }
     }
 
     @TestMetadata("idea/testData/quickfix/addCrossinline")
@@ -300,6 +402,12 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
         @TestMetadata("basic.kt")
         public void testBasic() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addCrossinline/basic.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("suspend.kt")
+        public void testSuspend() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addCrossinline/suspend.kt");
             doTest(fileName);
         }
     }
@@ -642,6 +750,27 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
         @TestMetadata("basic.kt")
         public void testBasic() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addInlineToReifiedFunctionFix/basic.kt");
+            doTest(fileName);
+        }
+    }
+
+    @TestMetadata("idea/testData/quickfix/addJvmDefault")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class AddJvmDefault extends AbstractQuickFixTest {
+        public void testAllFilesPresentInAddJvmDefault() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/addJvmDefault"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("functionOverride.kt")
+        public void testFunctionOverride() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addJvmDefault/functionOverride.kt");
+            doTest(fileName);
+        }
+
+        @TestMetadata("propertyOverride.kt")
+        public void testPropertyOverride() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/addJvmDefault/propertyOverride.kt");
             doTest(fileName);
         }
     }
@@ -1337,6 +1466,33 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/autoImports/unresolvedReferenceInCall.kt");
             doTest(fileName);
         }
+
+        @TestMetadata("idea/testData/quickfix/autoImports/kt21515")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class Kt21515 extends AbstractQuickFixTest {
+            public void testAllFilesPresentInKt21515() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/autoImports/kt21515"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+            }
+
+            @TestMetadata("callableReferenceFromDeprecated.kt")
+            public void testCallableReferenceFromDeprecated() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/autoImports/kt21515/callableReferenceFromDeprecated.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("classifierFromCompanionObjectDeprecationEnabled.kt")
+            public void testClassifierFromCompanionObjectDeprecationEnabled() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/autoImports/kt21515/classifierFromCompanionObjectDeprecationEnabled.kt");
+                doTest(fileName);
+            }
+
+            @TestMetadata("constructorFromDeprecated.kt")
+            public void testConstructorFromDeprecated() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/autoImports/kt21515/constructorFromDeprecated.kt");
+                doTest(fileName);
+            }
+        }
     }
 
     @TestMetadata("idea/testData/quickfix/canBeParameter")
@@ -1933,6 +2089,12 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
                     doTest(fileName);
                 }
 
+                @TestMetadata("callInWhenEntry.kt")
+                public void testCallInWhenEntry() throws Exception {
+                    String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/callExpression/callInWhenEntry.kt");
+                    doTest(fileName);
+                }
+
                 @TestMetadata("callNoReceiver.kt")
                 public void testCallNoReceiver() throws Exception {
                     String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/callExpression/callNoReceiver.kt");
@@ -2324,6 +2486,45 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
                 public void testTraitWithQualifier() throws Exception {
                     String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/traitWithQualifier.kt");
                     doTest(fileName);
+                }
+
+                @TestMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515")
+                @TestDataPath("$PROJECT_ROOT")
+                @RunWith(JUnit3RunnerWithInners.class)
+                public static class Kt21515 extends AbstractQuickFixTest {
+                    public void testAllFilesPresentInKt21515() throws Exception {
+                        KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+                    }
+
+                    @TestMetadata("callableReferenceOnClass.kt")
+                    public void testCallableReferenceOnClass() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515/callableReferenceOnClass.kt");
+                        doTest(fileName);
+                    }
+
+                    @TestMetadata("callableReferenceOnClassWithCompanion.kt")
+                    public void testCallableReferenceOnClassWithCompanion() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515/callableReferenceOnClassWithCompanion.kt");
+                        doTest(fileName);
+                    }
+
+                    @TestMetadata("callableReferenceOnObject.kt")
+                    public void testCallableReferenceOnObject() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515/callableReferenceOnObject.kt");
+                        doTest(fileName);
+                    }
+
+                    @TestMetadata("constructor.kt")
+                    public void testConstructor() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515/constructor.kt");
+                        doTest(fileName);
+                    }
+
+                    @TestMetadata("typeReference.kt")
+                    public void testTypeReference() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createClass/importDirective/kt21515/typeReference.kt");
+                        doTest(fileName);
+                    }
                 }
             }
 
@@ -3345,6 +3546,12 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
                         doTest(fileName);
                     }
 
+                    @TestMetadata("classMemberInFunctionLiteralWithReceiver.kt")
+                    public void testClassMemberInFunctionLiteralWithReceiver() throws Exception {
+                        String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createFunction/call/typeArguments/classMemberInFunctionLiteralWithReceiver.kt");
+                        doTest(fileName);
+                    }
+
                     @TestMetadata("classMemberPartialSubstitution.kt")
                     public void testClassMemberPartialSubstitution() throws Exception {
                         String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createFunction/call/typeArguments/classMemberPartialSubstitution.kt");
@@ -3491,6 +3698,18 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
             public static class DelegateAccessors extends AbstractQuickFixTest {
                 public void testAllFilesPresentInDelegateAccessors() throws Exception {
                     KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/createFromUsage/createFunction/delegateAccessors"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+                }
+
+                @TestMetadata("localVal.kt")
+                public void testLocalVal() throws Exception {
+                    String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createFunction/delegateAccessors/localVal.kt");
+                    doTest(fileName);
+                }
+
+                @TestMetadata("localVar.kt")
+                public void testLocalVar() throws Exception {
+                    String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/createFromUsage/createFunction/delegateAccessors/localVar.kt");
+                    doTest(fileName);
                 }
 
                 @TestMetadata("val.kt")
@@ -8970,6 +9189,12 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
             doTest(fileName);
         }
 
+        @TestMetadata("labeledReturn.kt")
+        public void testLabeledReturn() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/redundantIf/labeledReturn.kt");
+            doTest(fileName);
+        }
+
         @TestMetadata("negate.kt")
         public void testNegate() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/redundantIf/negate.kt");
@@ -9022,6 +9247,21 @@ public class QuickFixTestGenerated extends AbstractQuickFixTest {
 
         public void testAllFilesPresentInRedundantSemicolon() throws Exception {
             KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/redundantSemicolon"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+        }
+    }
+
+    @TestMetadata("idea/testData/quickfix/redundantSuspend")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class RedundantSuspend extends AbstractQuickFixTest {
+        public void testAllFilesPresentInRedundantSuspend() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/quickfix/redundantSuspend"), Pattern.compile("^([\\w\\-_]+)\\.kt$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("inline.kt")
+        public void testInline() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("idea/testData/quickfix/redundantSuspend/inline.kt");
+            doTest(fileName);
         }
     }
 

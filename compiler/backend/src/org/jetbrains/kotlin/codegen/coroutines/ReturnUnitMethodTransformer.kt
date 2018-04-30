@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.utils.keysToMap
 import org.jetbrains.kotlin.utils.sure
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.tree.*
+import org.jetbrains.org.objectweb.asm.tree.analysis.SourceInterpreter
 
 /*
  * Replace POP with ARETURN iff
@@ -47,7 +48,7 @@ object ReturnUnitMethodTransformer : MethodTransformer() {
 
         val pops = methodNode.instructions.asSequence().filter { it.opcode == Opcodes.POP }.toList()
         val popSuccessors = findSuccessors(methodNode, pops)
-        val sourceInsns = findSourceInstructions(internalClassName, methodNode, pops)
+        val sourceInsns = findSourceInstructions(internalClassName, methodNode, pops, ignoreCopy = true)
         val safePops = filterOutUnsafes(popSuccessors, units, sourceInsns)
 
         // Replace POP with ARETURN for tail call optimization
@@ -106,29 +107,33 @@ object ReturnUnitMethodTransformer : MethodTransformer() {
     private fun isSuspendingCallReturningUnit(node: AbstractInsnNode): Boolean =
         node.safeAs<MethodInsnNode>()?.next?.next?.let(::isReturnsUnitMarker) == true
 
-    private fun findSourceInstructions(
-        internalClassName: String,
-        methodNode: MethodNode,
-        pops: Collection<AbstractInsnNode>
-    ): Map<AbstractInsnNode, Collection<AbstractInsnNode>> {
-        val frames = analyze(internalClassName, methodNode, IgnoringCopyOperationSourceInterpreter())
-        return pops.keysToMap {
-            val index = methodNode.instructions.indexOf(it)
-            if (isUnreachable(index, frames)) return@keysToMap emptySet<AbstractInsnNode>()
-            frames[index].getStack(0).insns
-        }
-    }
-
     // Find { GETSTATIC kotlin/Unit.INSTANCE, ARETURN } sequences
     // Result is list of GETSTATIC kotlin/Unit.INSTANCE instructions
     private fun findReturnUnitSequences(methodNode: MethodNode): Collection<AbstractInsnNode> =
         methodNode.instructions.asSequence().filter { it.isUnitInstance() && it.next?.opcode == Opcodes.ARETURN }.toList()
 
-    private fun findReturnsUnitMarks(methodNode: MethodNode): Collection<AbstractInsnNode> =
+    internal fun findReturnsUnitMarks(methodNode: MethodNode): Collection<AbstractInsnNode> =
         methodNode.instructions.asSequence().filter(::isReturnsUnitMarker).toList()
 
-    private fun cleanUpReturnsUnitMarkers(methodNode: MethodNode, unitMarks: Collection<AbstractInsnNode>) {
+    internal fun cleanUpReturnsUnitMarkers(methodNode: MethodNode, unitMarks: Collection<AbstractInsnNode>) {
         unitMarks.forEach { methodNode.instructions.removeAll(listOf(it.previous, it)) }
     }
 }
 
+internal fun findSourceInstructions(
+    internalClassName: String,
+    methodNode: MethodNode,
+    insns: Collection<AbstractInsnNode>,
+    ignoreCopy: Boolean
+): Map<AbstractInsnNode, Collection<AbstractInsnNode>> {
+    val frames = MethodTransformer.analyze(
+        internalClassName,
+        methodNode,
+        if (ignoreCopy) IgnoringCopyOperationSourceInterpreter() else SourceInterpreter()
+    )
+    return insns.keysToMap {
+        val index = methodNode.instructions.indexOf(it)
+        if (isUnreachable(index, frames)) return@keysToMap emptySet<AbstractInsnNode>()
+        frames[index].getStack(0).insns
+    }
+}

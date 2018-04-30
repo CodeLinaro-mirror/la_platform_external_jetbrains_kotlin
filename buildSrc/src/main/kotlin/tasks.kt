@@ -24,6 +24,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.extra
 import org.gradle.kotlin.dsl.task
 import org.gradle.kotlin.dsl.the
+import org.gradle.kotlin.dsl.*
 import java.lang.Character.isLowerCase
 import java.lang.Character.isUpperCase
 
@@ -66,8 +67,8 @@ fun Project.projectTest(taskName: String = "test", body: Test.() -> Unit = {}): 
 
     dependsOn(":test-instrumenter:jar")
 
-    jvmArgs("-ea", "-XX:+HeapDumpOnOutOfMemoryError", "-Xmx1100m", "-XX:+UseCodeCacheFlushing", "-XX:ReservedCodeCacheSize=128m", "-Djna.nosys=true")
-    maxHeapSize = "1100m"
+    jvmArgs("-ea", "-XX:+HeapDumpOnOutOfMemoryError", "-Xmx1600m", "-XX:+UseCodeCacheFlushing", "-XX:ReservedCodeCacheSize=128m", "-Djna.nosys=true")
+    maxHeapSize = "1600m"
     systemProperty("idea.is.unit.test", "true")
     environment("NO_FS_ROOTS_ACCESS_CHECK", "true")
     environment("PROJECT_CLASSES_DIRS", the<JavaPluginConvention>().sourceSets.getByName("test").output.classesDirs.asPath)
@@ -81,3 +82,41 @@ private inline fun String.isFirstChar(f: (Char) -> Boolean) = isNotEmpty() && f(
 
 inline fun <reified T : Task> Project.getOrCreateTask(taskName: String, body: T.() -> Unit): T =
         (tasks.findByName(taskName)?.let { it as T } ?: task<T>(taskName)).apply { body() }
+
+object TaskUtils {
+    fun useAndroidSdk(task: Task) {
+        task.useAndroidConfiguration(systemPropertyName = "android.sdk", configName = "androidSdk")
+    }
+
+    fun useAndroidJar(task: Task) {
+        task.useAndroidConfiguration(systemPropertyName = "android.jar", configName = "androidJar")
+    }
+}
+
+private fun Task.useAndroidConfiguration(systemPropertyName: String, configName: String) {
+    val configuration = with(project) {
+        configurations.getOrCreate(configName)
+            .also {
+                dependencies.add(
+                    configName,
+                    dependencies.project(":custom-dependencies:android-sdk", configuration = configName)
+                )
+            }
+    }
+
+    dependsOn(configuration)
+
+    if (this is Test) {
+        doFirst {
+            systemProperty(systemPropertyName, configuration.singleFile.canonicalPath)
+        }
+    }
+}
+
+fun Task.useAndroidSdk() {
+    TaskUtils.useAndroidSdk(this)
+}
+
+fun Task.useAndroidJar() {
+    TaskUtils.useAndroidJar(this)
+}

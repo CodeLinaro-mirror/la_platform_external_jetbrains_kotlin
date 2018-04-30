@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -384,6 +384,12 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("kotlinPackage.args")
         public void testKotlinPackage() throws Exception {
             String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/cli/jvm/kotlinPackage.args");
+            doJvmTest(fileName);
+        }
+
+        @TestMetadata("kt22304.args")
+        public void testKt22304() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/cli/jvm/kt22304.args");
             doJvmTest(fileName);
         }
 

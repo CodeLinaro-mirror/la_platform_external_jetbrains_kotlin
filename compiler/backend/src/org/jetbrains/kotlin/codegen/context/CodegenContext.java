@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen.context;
@@ -38,6 +27,8 @@ import java.util.*;
 import static org.jetbrains.kotlin.codegen.AsmUtil.getVisibilityAccessFlag;
 import static org.jetbrains.kotlin.codegen.JvmCodegenUtil.isNonDefaultInterfaceMember;
 import static org.jetbrains.kotlin.descriptors.annotations.AnnotationUtilKt.isEffectivelyInlineOnly;
+import static org.jetbrains.kotlin.resolve.annotations.AnnotationUtilKt.hasJvmDefaultAnnotation;
+import static org.jetbrains.kotlin.resolve.jvm.annotations.AnnotationUtilKt.isCallableMemberWithJvmDefaultAnnotation;
 import static org.jetbrains.org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.jetbrains.org.objectweb.asm.Opcodes.ACC_PROTECTED;
 
@@ -349,6 +340,10 @@ public abstract class CodegenContext<T extends DeclarationDescriptor> {
         return new ClosureContext(typeMapper, jvmViewOfSuspendLambda, this, localLookup, originalSuspendLambdaDescriptor);
     }
 
+    public ClassContext intoWrapperForErasedInlineClass(ClassDescriptor descriptor, GenerationState state) {
+        return new ClassContext(state.getTypeMapper(), descriptor, OwnerKind.ERASED_INLINE_CLASS, this, null);
+    }
+
     @Nullable
     public CodegenContext getParentContext() {
         return parentContext;
@@ -421,7 +416,7 @@ public abstract class CodegenContext<T extends DeclarationDescriptor> {
             @NotNull D descriptor,
             @Nullable ClassDescriptor superCallTarget,
             @NotNull GenerationState state) {
-        if (superCallTarget != null && !isNonDefaultInterfaceMember(descriptor, state)) {
+        if (superCallTarget != null && !isNonDefaultInterfaceMember(descriptor)) {
             CodegenContext afterInline = getFirstCrossInlineOrNonInlineContext();
             CodegenContext c = afterInline.findParentContextWithDescriptor(superCallTarget);
             assert c != null : "Couldn't find a context for a super-call: " + descriptor;
@@ -576,10 +571,13 @@ public abstract class CodegenContext<T extends DeclarationDescriptor> {
         CodegenContext properContext = getFirstCrossInlineOrNonInlineContext();
         DeclarationDescriptor enclosing = descriptor.getContainingDeclaration();
         boolean isInliningContext = properContext.isInlineMethodContext();
+        boolean sameJvmDefault = hasJvmDefaultAnnotation(descriptor) ==
+                                 isCallableMemberWithJvmDefaultAnnotation(properContext.contextDescriptor) ||
+                                 properContext.contextDescriptor instanceof AccessorForCallableDescriptor;
         if (!isInliningContext && (
                 !properContext.hasThisDescriptor() ||
-                enclosing == properContext.getThisDescriptor() ||
-                enclosing == properContext.getClassOrPackageParentContext().getContextDescriptor())) {
+                ((enclosing == properContext.getThisDescriptor()) && sameJvmDefault) ||
+                ((enclosing == properContext.getClassOrPackageParentContext().getContextDescriptor()) && sameJvmDefault))) {
             return descriptor;
         }
         return (D) properContext.accessibleDescriptorIfNeeded(descriptor, superCallTarget, isInliningContext);
@@ -630,6 +628,11 @@ public abstract class CodegenContext<T extends DeclarationDescriptor> {
         if (descriptorContext == null) {
             return descriptor;
         }
+
+        if (hasJvmDefaultAnnotation(descriptor) && descriptorContext instanceof DefaultImplsClassContext) {
+            descriptorContext = ((DefaultImplsClassContext) descriptorContext).getInterfaceContext();
+        }
+
         if (descriptor instanceof PropertyDescriptor) {
             PropertyDescriptor propertyDescriptor = (PropertyDescriptor) descriptor;
             int propertyAccessFlag = getVisibilityAccessFlag(descriptor);

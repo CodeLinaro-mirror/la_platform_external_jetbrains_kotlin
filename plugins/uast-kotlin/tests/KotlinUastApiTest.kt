@@ -219,10 +219,9 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
     @Test
     fun testSimpleAnnotated() {
         doTest("SimpleAnnotated") { _, file ->
-            file.findElementByTextFromPsi<UField>("@kotlin.SinceKotlin(\"1.0\")\n    val property: String = \"Mary\"").let { field ->
+            file.findElementByTextFromPsi<UField>("@SinceKotlin(\"1.0\")\n    val property: String = \"Mary\"").let { field ->
                 val annotation = field.annotations.assertedFind("kotlin.SinceKotlin") { it.qualifiedName }
-                Assert.assertEquals("1.0", annotation.findDeclaredAttributeValue("version")?.evaluateString())
-                Assert.assertEquals("SinceKotlin", annotation.cast<UAnchorOwner>().uastAnchor?.sourcePsi?.text)
+                Assert.assertEquals(annotation.findDeclaredAttributeValue("version")?.evaluateString(), "1.0")
             }
         }
     }
@@ -304,7 +303,6 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
                 val lightAnnotation = convertedUAnnotation.getAsJavaPsiElement(PsiAnnotation::class.java)
                         ?: throw AssertionError("can't get lightAnnotation from $convertedUAnnotation")
                 assertEquals("Annotation", lightAnnotation.qualifiedName)
-                assertEquals("Annotation", (convertedUAnnotation as UAnchorOwner).uastAnchor?.sourcePsi?.text)
             }
     }
 
