@@ -1,8 +1,7 @@
 
-/*
-
-
-apply { plugin("kotlin") }
+plugins {
+    kotlin("jvm")
+}
 
 dependencies {
     compileOnly(project(":idea"))
@@ -24,7 +23,3 @@ if (intellijUltimateEnabled) {
         dependsOn(":dist", ":ideaPlugin", ":ultimate:ideaUltimatePlugin")
     }
 }
-
-
-
-*/

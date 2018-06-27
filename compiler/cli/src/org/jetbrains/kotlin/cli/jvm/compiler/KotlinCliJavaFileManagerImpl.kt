@@ -245,12 +245,10 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
         return result
     }
 
-/*
     override fun findModules(moduleName: String, scope: GlobalSearchScope): Collection<PsiJavaModule> {
         // TODO
         return emptySet()
     }
-*/
 
     override fun getNonTrivialPackagePrefixes(): Collection<String> = emptyList()
 

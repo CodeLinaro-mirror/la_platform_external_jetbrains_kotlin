@@ -25,6 +25,7 @@ import com.intellij.lang.jvm.JvmModifiersOwner
 import com.intellij.lang.jvm.actions.*
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
+import com.intellij.psi.codeStyle.SuggestedNameInfo
 import com.intellij.psi.impl.source.tree.java.PsiReferenceExpressionImpl
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForSourceDeclaration
@@ -62,6 +63,7 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.visibilityModifierType
 import org.jetbrains.kotlin.resolve.annotations.JVM_FIELD_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.annotations.JVM_STATIC_ANNOTATION_FQ_NAME
+import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.typeUtil.supertypes
@@ -163,7 +165,7 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
     private inline fun <reified T : KtElement> JvmElement.toKtElement() = sourceElement?.unwrapped as? T
 
-    private fun fakeParametersExpressions(parameters: ExpectedParameters, project: Project): Array<PsiExpression>? =
+    private fun fakeParametersExpressions(parameters: List<Pair<SuggestedNameInfo, List<ExpectedType>>>, project: Project): Array<PsiExpression>? =
             when {
                 parameters.isEmpty() -> emptyArray()
                 else -> JavaPsiFacade
@@ -210,7 +212,8 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
                 ClassKind.CLASS,
                 emptyList(),
                 SourceElement.NO_SOURCE,
-                false
+                false,
+                LockBasedStorageManager.NO_LOCKS
         )
         val typeParameterResolver = object : TypeParameterResolver {
             override fun resolveTypeParameter(javaTypeParameter: JavaTypeParameter): TypeParameterDescriptor? {
@@ -271,7 +274,8 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
         val resolutionFacade = targetKtClass.getResolutionFacade()
         val nullableAnyType = resolutionFacade.moduleDescriptor.builtIns.nullableAnyType
         val helper = JvmPsiConversionHelper.getInstance(targetKtClass.project)
-        val parameterInfos = request.parameters.mapIndexed { index, param ->
+        val parameters = request.parameters as List<Pair<SuggestedNameInfo, List<ExpectedType>>>
+        val parameterInfos = parameters.mapIndexed { index, param: Pair<SuggestedNameInfo, List<ExpectedType>> ->
             val ktType = helper.asPsiType(param)?.resolveToKotlinType(resolutionFacade) ?: nullableAnyType
             val name = param.first.names.firstOrNull() ?: "arg${index + 1}"
             ParameterInfo(TypeInfo(ktType, Variance.IN_VARIANCE), listOf(name))
@@ -284,16 +288,17 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
                 modifierList = modifierBuilder.modifierList,
                 withBody = true
         )
+        val targetClassName = targetClass.name
         val addConstructorAction = object : CreateCallableFromUsageFix<KtElement>(targetKtClass, listOf(constructorInfo)) {
             override fun getFamilyName() = "Add method"
-            override fun getText() = "Add ${if (needPrimary) "primary" else "secondary"} constructor to '${targetClass.name}'"
+            override fun getText() = "Add ${if (needPrimary) "primary" else "secondary"} constructor to '$targetClassName'"
         }
 
         val changePrimaryConstructorAction = run {
             val primaryConstructor = targetKtClass.primaryConstructor ?: return@run null
             val lightMethod = primaryConstructor.toLightMethods().firstOrNull() ?: return@run null
             val project = targetKtClass.project
-            val fakeParametersExpressions = fakeParametersExpressions(request.parameters, project) ?: return@run null
+            val fakeParametersExpressions = fakeParametersExpressions(parameters, project) ?: return@run null
             QuickFixFactory.getInstance()
                     .createChangeMethodSignatureFromUsageFix(
                             lightMethod,
@@ -374,26 +379,29 @@ class KotlinElementActionsFactory : JvmElementActionsFactory() {
 
         val resolutionFacade = targetContainer.getResolutionFacade()
         val returnTypeInfo = request.returnType.toKotlinTypeInfo(resolutionFacade)
-        val parameterInfos = request.parameters.map { (suggestedNames, expectedTypes) ->
+        val parameters = request.parameters as List<Pair<SuggestedNameInfo, List<ExpectedType>>>
+        val parameterInfos = parameters.map { (suggestedNames, expectedTypes) ->
             ParameterInfo(expectedTypes.toKotlinTypeInfo(resolutionFacade), suggestedNames.names.toList())
         }
+        val methodName = request.methodName
         val functionInfo = FunctionInfo(
-                request.methodName,
-                TypeInfo.Empty,
-                returnTypeInfo,
-                listOf(targetContainer),
-                parameterInfos,
-                isForCompanion = JvmModifier.STATIC in request.modifiers,
-                modifierList = modifierBuilder.modifierList,
-                preferEmptyBody = true
+            methodName,
+            TypeInfo.Empty,
+            returnTypeInfo,
+            listOf(targetContainer),
+            parameterInfos,
+            isForCompanion = JvmModifier.STATIC in request.modifiers,
+            modifierList = modifierBuilder.modifierList,
+            preferEmptyBody = true
         )
+        val targetClassName = targetClass.name
         val action = object : CreateCallableFromUsageFix<KtElement>(targetContainer, listOf(functionInfo)) {
             override fun getFamilyName() = "Add method"
-            override fun getText() = "Add method '${request.methodName}' to '${targetClass.name}'"
+            override fun getText() = "Add method '$methodName' to '$targetClassName'"
         }
         return listOf(action)
     }
 }
 
-private fun JvmPsiConversionHelper.asPsiType(param: ExpectedParameter): PsiType? =
+private fun JvmPsiConversionHelper.asPsiType(param: Pair<SuggestedNameInfo, List<ExpectedType>>): PsiType? =
     param.second.firstOrNull()?.theType?.let { convertType(it) }

@@ -106,16 +106,6 @@ class Android25ProjectHandler(kotlinConfigurationTools: KotlinConfigurationTools
     override fun addJavaSourceDirectoryToVariantModel(variantData: BaseVariant, javaSourceDirectory: File) =
             variantData.addJavaSourceFoldersToModel(javaSourceDirectory)
 
-    override fun configureMultiProjectIc(project: Project,
-                                         variantData: BaseVariant,
-                                         javaTask: AbstractCompile,
-                                         kotlinTask: KotlinCompile,
-                                         kotlinAfterJavaTask: KotlinCompile?) {
-        //todo: No easy solution because of the absence of the output information in library modules
-        // Though it is affordable not to implement this for the first previews, because the impact is tolerable
-        // to some degree -- the dependent projects will rebuild non-incrementally when a library project changes
-    }
-
     override fun getResDirectories(variantData: BaseVariant): List<File> {
         return variantData.mergeResources?.computeResourceSetList0() ?: emptyList()
     }
@@ -138,6 +128,15 @@ class Android25ProjectHandler(kotlinConfigurationTools: KotlinConfigurationTools
             variantData.registerExternalAptJavaOutput(kaptSourceOutput)
             variantData.dataBindingDependencyArtifactsIfSupported?.let { kaptTask.dependsOn(it) }
         }
+
+        override val annotationProcessorOptionProviders: List<*>
+            get() = try {
+                // Public API added in Android Gradle Plugin 3.2.0-alpha15:
+                val apOptions = variantData.javaCompileOptions.annotationProcessorOptions
+                apOptions.javaClass.getMethod("getCompilerArgumentProviders").invoke(apOptions) as List<*>
+            } catch (e: NoSuchMethodException) {
+                emptyList<Any>()
+            }
     }
 
     //TODO A public API is expected for this purpose. Once it is available, use the public API

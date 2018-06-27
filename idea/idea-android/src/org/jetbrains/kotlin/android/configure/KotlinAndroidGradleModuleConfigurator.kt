@@ -5,10 +5,8 @@
 
 package org.jetbrains.kotlin.android.configure
 
-import com.android.tools.idea.gradle.project.sync.GradleSyncInvoker
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleUtil
-import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.JavaSdkVersion
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootManager
@@ -34,17 +32,20 @@ class KotlinAndroidGradleModuleConfigurator internal constructor() : KotlinWithG
 
     override val kotlinPluginName: String = KOTLIN_ANDROID
 
+    override fun getKotlinPluginExpression(forKotlinDsl: Boolean): String =
+        if (forKotlinDsl) "kotlin(\"android\")" else "id 'org.jetbrains.kotlin.android' "
+
     override fun addElementsToFile(file: PsiFile, isTopLevelProjectFile: Boolean, version: String): Boolean {
-        val manipulator = getManipulator(file)
+        val manipulator = getManipulator(file, false)
         val sdk = ModuleUtil.findModuleForPsiElement(file)?.let { ModuleRootManager.getInstance(it).sdk }
         val jvmTarget = getJvmTarget(sdk, version)
-
         return if (isTopLevelProjectFile) {
-            manipulator.configureProjectBuildScript(version)
+            manipulator.configureProjectBuildScript(kotlinPluginName, version)
         }
         else {
             manipulator.configureModuleBuildScript(
                     kotlinPluginName,
+                    getKotlinPluginExpression(file.isKtDsl()),
                     getStdlibArtifactName(sdk, version),
                     version,
                     jvmTarget
@@ -62,13 +63,6 @@ class KotlinAndroidGradleModuleConfigurator internal constructor() : KotlinWithG
         }
 
         return super.getStdlibArtifactName(sdk, version)
-    }
-
-    @JvmSuppressWildcards
-    override fun configure(project: Project, excludeModules: Collection<Module>) {
-        super.configure(project, excludeModules)
-        // Sync after changing build scripts
-        GradleSyncInvoker.getInstance().requestProjectSync(project, GradleSyncInvoker.Request.projectModified())
     }
 
     companion object {

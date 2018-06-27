@@ -21,6 +21,7 @@ import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiType
 import org.jetbrains.kotlin.asJava.LightClassUtil
 import org.jetbrains.kotlin.asJava.toLightClass
+import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.psi.*
@@ -73,8 +74,19 @@ class KotlinUFunctionCallExpression(
     }
 
     override val methodIdentifier by lz {
-        val calleeExpression = psi.calleeExpression ?: return@lz null
-        KotlinUIdentifier(calleeExpression, this)
+        val calleeExpression = psi.calleeExpression
+        when (calleeExpression) {
+            null -> null
+            is KtNameReferenceExpression ->
+                KotlinUIdentifier(calleeExpression.getReferencedNameElement(), this)
+            is KtConstructorDelegationReferenceExpression ->
+                KotlinUIdentifier(calleeExpression.firstChild ?: calleeExpression, this)
+            is KtConstructorCalleeExpression ->
+                KotlinUIdentifier(
+                    calleeExpression.constructorReferenceExpression?.getReferencedNameElement() ?: calleeExpression, this
+                )
+            else -> KotlinUIdentifier(calleeExpression, this)
+        }
     }
 
     override val valueArgumentCount: Int
@@ -86,24 +98,9 @@ class KotlinUFunctionCallExpression(
         val resolvedCall = resolvedCall ?: return null
         val actualParamIndex = if (resolvedCall.extensionReceiver == null) i else i - 1
         if (actualParamIndex == -1) return receiver
-        val (parameter, resolvedArgument) = resolvedCall.valueArguments.entries.find { it.key.index == actualParamIndex } ?: return null
-        val arguments = resolvedArgument.arguments
-        if (arguments.isEmpty()) return null
-        if (arguments.size == 1) {
-            val argument = arguments.single()
-            val expression = argument.getArgumentExpression()
-            if (parameter.varargElementType != null && argument.getSpreadElement() == null) {
-                return createVarargsHolder(arguments, this)
-            }
-            return KotlinConverter.convertOrEmpty(expression, this)
-        }
-        return createVarargsHolder(arguments, this)
+        return getArgumentExpressionByIndex(actualParamIndex, resolvedCall, this)
     }
 
-    private fun createVarargsHolder(arguments: List<ValueArgument>, parent: UElement?): KotlinUExpressionList =
-        KotlinUExpressionList(null, VARARGS, parent).apply {
-            expressions = arguments.map { KotlinConverter.convertOrEmpty(it.getArgumentExpression(), parent) }
-        }
 
     override val typeArgumentCount: Int
         get() = psi.typeArguments.size
@@ -161,5 +158,26 @@ class KotlinUFunctionCallExpression(
 
 }
 
-@Deprecated("will be replaced by one from uast api when it comes")
-val VARARGS = UastSpecialExpressionKind("varargs")
+internal fun getArgumentExpressionByIndex(
+    actualParamIndex: Int,
+    resolvedCall: ResolvedCall<out CallableDescriptor>,
+    parent: UElement
+): UExpression? {
+    val (parameter, resolvedArgument) = resolvedCall.valueArguments.entries.find { it.key.index == actualParamIndex } ?: return null
+    val arguments = resolvedArgument.arguments
+    if (arguments.isEmpty()) return null
+    if (arguments.size == 1) {
+        val argument = arguments.single()
+        val expression = argument.getArgumentExpression()
+        if (parameter.varargElementType != null && argument.getSpreadElement() == null) {
+            return createVarargsHolder(arguments, parent)
+        }
+        return KotlinConverter.convertOrEmpty(expression, parent)
+    }
+    return createVarargsHolder(arguments, parent)
+}
+
+private fun createVarargsHolder(arguments: List<ValueArgument>, parent: UElement?): KotlinUExpressionList =
+    KotlinUExpressionList(null, UastSpecialExpressionKind.VARARGS, parent).apply {
+        expressions = arguments.map { KotlinConverter.convertOrEmpty(it.getArgumentExpression(), parent) }
+    }

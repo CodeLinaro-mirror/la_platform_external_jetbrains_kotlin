@@ -7,22 +7,25 @@ package org.jetbrains.kotlin.incremental.parsing
 
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.UsefulTestCase
+import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
 
-class ClassesFqNamesTest {
+class ClassesFqNamesTest : KtUsefulTestCase() {
     private lateinit var workingDir: File
 
     @Before
-    fun setUp() {
+    override fun setUp() {
+        super.setUp()
         workingDir = FileUtil.createTempDirectory("ClassesFqNamesTest", null)
     }
 
     @After
-    fun tearDown() {
+    override fun tearDown() {
         workingDir.deleteRecursively()
+        super.tearDown()
     }
 
     @Test
@@ -33,6 +36,56 @@ class ClassesFqNamesTest {
                 package test
 
                 class Foo""".trimIndent()
+        )
+    }
+
+    @Test
+    fun testComplexPackage() {
+        doTest(
+            setOf("foo.bar.юникод.Foo"),
+            """
+                // package simpleComment
+                package foo . bar . `юникод`
+                /*
+                    package multiLineComment
+                */
+
+                class Foo""".trimIndent()
+        )
+    }
+
+    @Test
+    fun testDifferentTypeOfClasses() {
+        doTest(
+            setOf("test.C", "test.I", "test.O", "test.E", "test.A"),
+            """
+                package test
+
+                class C
+                interface I
+                object O
+                enum class E
+                annotation class A
+                typealias T""".trimIndent()
+        )
+    }
+
+    @Test
+    fun testLocalClass() {
+        doTest(
+            setOf("test.Foo"),
+            """
+                package test
+
+                fun f() {
+                    class Fizz
+                }
+
+                class Foo {
+                    fun m() {
+                        class Buzz
+                    }
+                }""".trimIndent()
         )
     }
 

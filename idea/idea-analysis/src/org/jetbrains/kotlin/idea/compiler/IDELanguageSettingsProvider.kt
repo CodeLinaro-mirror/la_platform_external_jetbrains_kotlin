@@ -41,12 +41,12 @@ import org.jetbrains.kotlin.script.KotlinScriptDefinition
 
 object IDELanguageSettingsProvider : LanguageSettingsProvider {
     override fun getLanguageVersionSettings(moduleInfo: ModuleInfo, project: Project): LanguageVersionSettings =
-        when {
-            moduleInfo is ModuleSourceInfo -> moduleInfo.module.languageVersionSettings
-            moduleInfo is LibraryInfo -> project.getLanguageVersionSettings(extraAnalysisFlags = getExtraAnalysisFlags(project))
-            moduleInfo is ScriptModuleInfo -> getVersionLanguageSettingsForScripts(project, moduleInfo.scriptDefinition)
-            moduleInfo is ScriptDependenciesModuleInfo && moduleInfo.scriptModuleInfo != null ->
-                getVersionLanguageSettingsForScripts(project, moduleInfo.scriptModuleInfo.scriptDefinition)
+        when (moduleInfo) {
+            is ModuleSourceInfo -> moduleInfo.module.languageVersionSettings
+            is LibraryInfo -> project.getLanguageVersionSettings(extraAnalysisFlags = getExtraAnalysisFlags(project))
+            is ScriptModuleInfo -> getVersionLanguageSettingsForScripts(project, moduleInfo.scriptDefinition)
+            is ScriptDependenciesInfo.ForFile -> getVersionLanguageSettingsForScripts(project, moduleInfo.scriptDefinition)
+            is PlatformModuleInfo -> moduleInfo.platformModule.module.languageVersionSettings
             else -> project.getLanguageVersionSettings()
         }
 

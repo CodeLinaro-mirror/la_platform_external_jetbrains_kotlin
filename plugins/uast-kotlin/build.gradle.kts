@@ -1,6 +1,8 @@
 
-apply { plugin("kotlin") }
-apply { plugin("jps-compatible") }
+plugins {
+    kotlin("jvm")
+    id("jps-compatible")
+}
 
 dependencies {
     compile(projectDist(":kotlin-stdlib"))
@@ -10,7 +12,7 @@ dependencies {
     compile(project(":compiler:frontend.java"))
     compile(project(":compiler:light-classes"))
     compile(project(":idea:idea-core"))
-    compileOnly(intellijDep()) { includeJars("openapi", "java-api", "java-impl", "idea", "util", "extensions", "asm-all") }
+    compileOnly(intellijDep()) { includeJars("openapi", "idea", "java-api", "java-impl", "platform-api", "platform-impl", "util", "extensions", "asm-all") }
 
     testCompile(projectDist(":kotlin-test:kotlin-test-jvm"))
     testCompile(projectTests(":compiler:tests-common"))
@@ -18,7 +20,7 @@ dependencies {
     testCompile(project(":compiler:util"))
     testCompile(project(":compiler:cli"))
     testCompile(projectTests(":idea:idea-test-framework"))
-    testCompileOnly(intellijDep()) { includeJars("idea_rt", "java-api", "java-impl") }
+    testCompileOnly(intellijDep()) { includeJars("java-api", "java-impl", "idea_rt") }
 
     testRuntime(projectDist(":kotlin-reflect"))
     testRuntime(project(":idea:idea-android"))
@@ -27,6 +29,7 @@ dependencies {
     testRuntime(project(":sam-with-receiver-ide-plugin"))
     testRuntime(project(":allopen-ide-plugin"))
     testRuntime(project(":noarg-ide-plugin"))
+    testRuntime(project(":kotlin-scripting-idea"))
     testRuntime(project(":plugins:android-extensions-ide"))
     testRuntime(project(":plugins:kapt3-idea"))
     testRuntime(intellijDep())
@@ -45,7 +48,4 @@ testsJar {}
 
 projectTest {
     workingDir = rootDir
-    doFirst {
-        systemProperty("idea.home.path", intellijRootDir().canonicalPath)
-    }
 }
