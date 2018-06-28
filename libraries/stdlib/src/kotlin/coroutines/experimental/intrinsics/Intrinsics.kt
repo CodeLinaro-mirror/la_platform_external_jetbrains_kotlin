@@ -4,6 +4,7 @@
  */
 
 @file:kotlin.jvm.JvmName("IntrinsicsKt")
+@file:kotlin.jvm.JvmMultifileClass
 
 package kotlin.coroutines.experimental.intrinsics
 
@@ -30,7 +31,7 @@ import kotlin.coroutines.experimental.*
 @kotlin.internal.InlineOnly
 @Suppress("UNUSED_PARAMETER")
 public suspend inline fun <T> suspendCoroutineOrReturn(crossinline block: (Continuation<T>) -> Any?): T =
-        suspendCoroutineUninterceptedOrReturn { cont -> block(cont.intercepted()) }
+    suspendCoroutineUninterceptedOrReturn { cont -> block(cont.intercepted()) }
 
 /**
  * Obtains the current continuation instance inside suspend functions and either suspends
@@ -41,7 +42,7 @@ public suspend inline fun <T> suspendCoroutineOrReturn(crossinline block: (Conti
 @SinceKotlin("1.2")
 @kotlin.internal.InlineOnly
 public suspend inline fun <T> suspendCoroutineUninterceptedOrReturn(crossinline block: (Continuation<T>) -> Any?): T =
-        throw NotImplementedError("Implementation of suspendCoroutineUninterceptedOrReturn is intrinsic")
+    throw NotImplementedError("Implementation of suspendCoroutineUninterceptedOrReturn is intrinsic")
 
 /**
  * Intercept continuation with [ContinuationInterceptor].
@@ -49,104 +50,11 @@ public suspend inline fun <T> suspendCoroutineUninterceptedOrReturn(crossinline 
 @SinceKotlin("1.2")
 @kotlin.internal.InlineOnly
 public inline fun <T> Continuation<T>.intercepted(): Continuation<T> =
-        throw NotImplementedError("Implementation of intercepted is intrinsic")
-
-/**
- * Continuation context of current coroutine.
- *
- * This allows the user code to not pass an extra [CoroutineContext] parameter in basic coroutine builders
- * like [launch](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/launch.html)
- * and [async](https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.experimental/async.html),
- * but still provide easy access to coroutine context.
- */
-@SinceKotlin("1.2")
-@Suppress("WRONG_MODIFIER_TARGET")
-@Deprecated(
-    "Use kotlin.coroutines.experimental.coroutineContext instead",
-    ReplaceWith("kotlin.coroutines.experimental.coroutineContext"),
-    DeprecationLevel.ERROR
-)
-public suspend inline val coroutineContext: CoroutineContext
-    get() {
-        throw NotImplementedError("Implemented as intrinsic")
-    }
+    throw NotImplementedError("Implementation of intercepted is intrinsic")
 
 /**
  * This value is used as a return value of [suspendCoroutineOrReturn] `block` argument to state that
  * the execution was suspended and will not return any result immediately.
  */
 @SinceKotlin("1.1")
-public val COROUTINE_SUSPENDED: Any = Any()
-
-// JVM declarations
-
-/**
- * Creates a coroutine without receiver and with result type [T].
- * This function creates a new, fresh instance of suspendable computation every time it is invoked.
- *
- * To start executing the created coroutine, invoke `resume(Unit)` on the returned [Continuation] instance.
- * The [completion] continuation is invoked when coroutine completes with result or exception.
- *
- * This function is _unchecked_. Repeated invocation of any resume function on the resulting continuation corrupts the
- * state machine of the coroutine and may result in arbitrary behaviour or exception.
- */
-@SinceKotlin("1.1")
-@kotlin.jvm.JvmVersion
-public fun <T> (suspend () -> T).createCoroutineUnchecked(
-        completion: Continuation<T>
-): Continuation<Unit> =
-        if (this !is kotlin.coroutines.experimental.jvm.internal.CoroutineImpl)
-            buildContinuationByInvokeCall(completion) {
-                @Suppress("UNCHECKED_CAST")
-                (this as Function1<Continuation<T>, Any?>).invoke(completion)
-            }
-        else
-            (this.create(completion) as kotlin.coroutines.experimental.jvm.internal.CoroutineImpl).facade
-
-/**
- * Creates a coroutine with receiver type [R] and result type [T].
- * This function creates a new, fresh instance of suspendable computation every time it is invoked.
- *
- * To start executing the created coroutine, invoke `resume(Unit)` on the returned [Continuation] instance.
- * The [completion] continuation is invoked when coroutine completes with result or exception.
- *
- * This function is _unchecked_. Repeated invocation of any resume function on the resulting continuation corrupts the
- * state machine of the coroutine and may result in arbitrary behaviour or exception.
- */
-@SinceKotlin("1.1")
-@kotlin.jvm.JvmVersion
-public fun <R, T> (suspend R.() -> T).createCoroutineUnchecked(
-        receiver: R,
-        completion: Continuation<T>
-): Continuation<Unit> =
-        if (this !is kotlin.coroutines.experimental.jvm.internal.CoroutineImpl)
-            buildContinuationByInvokeCall(completion) {
-                @Suppress("UNCHECKED_CAST")
-                (this as Function2<R, Continuation<T>, Any?>).invoke(receiver, completion)
-            }
-        else
-            (this.create(receiver, completion) as kotlin.coroutines.experimental.jvm.internal.CoroutineImpl).facade
-
-// INTERNAL DEFINITIONS
-
-@kotlin.jvm.JvmVersion
-private inline fun <T> buildContinuationByInvokeCall(
-        completion: Continuation<T>,
-        crossinline block: () -> Any?
-): Continuation<Unit> {
-    val continuation =
-            object : Continuation<Unit> {
-                override val context: CoroutineContext
-                    get() = completion.context
-
-                override fun resume(value: Unit) {
-                    processBareContinuationResume(completion, block)
-                }
-
-                override fun resumeWithException(exception: Throwable) {
-                    completion.resumeWithException(exception)
-                }
-            }
-
-    return kotlin.coroutines.experimental.jvm.internal.interceptContinuationIfNeeded(completion.context, continuation)
-}
+public expect val COROUTINE_SUSPENDED: Any // get() = CoroutineSuspendedMarker

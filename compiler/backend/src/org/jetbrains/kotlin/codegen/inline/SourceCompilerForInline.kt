@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCallWithAssert
+import org.jetbrains.kotlin.resolve.isInlineClass
 import org.jetbrains.kotlin.resolve.jvm.annotations.isCallableMemberWithJvmDefaultAnnotation
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -198,7 +199,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
             else -> FunctionGenerationStrategy.FunctionDefault(state, expression as KtDeclarationWithBody)
         }
 
-        FunctionCodegen.generateMethodBody(adapter, descriptor, context, jvmMethodSignature, strategy, parentCodegen)
+        FunctionCodegen.generateMethodBody(adapter, descriptor, context, jvmMethodSignature, strategy, parentCodegen, state.jvmDefaultMode)
 
         if (isLambda) {
             codegen.propagateChildReifiedTypeParametersUsages(parentCodegen.reifiedTypeParametersUsages)
@@ -442,11 +443,14 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
                 }
                 is ClassDescriptor -> {
                     val kind =
-                        if (DescriptorUtils.isInterface(descriptor) &&
-                            innerDescriptor !is ClassDescriptor && !innerDescriptor.isCallableMemberWithJvmDefaultAnnotation()
-                        )
-                            OwnerKind.DEFAULT_IMPLS
-                        else OwnerKind.IMPLEMENTATION
+                        when {
+                            DescriptorUtils.isInterface(descriptor) && innerDescriptor !is ClassDescriptor &&
+                                    !innerDescriptor.isCallableMemberWithJvmDefaultAnnotation() -> OwnerKind.DEFAULT_IMPLS
+
+                            descriptor.isInlineClass() -> OwnerKind.ERASED_INLINE_CLASS
+
+                            else -> OwnerKind.IMPLEMENTATION
+                        }
 
                     additionalInners.addIfNotNull(
                         InnerClassConsumer.classForInnerClassRecord(descriptor, kind == OwnerKind.DEFAULT_IMPLS)

@@ -7,6 +7,16 @@ import org.gradle.api.publish.ivy.internal.publication.DefaultIvyPublicationIden
 import org.gradle.api.publish.ivy.internal.publisher.IvyDescriptorFileGenerator
 import java.io.File
 import org.gradle.internal.os.OperatingSystem
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath("com.github.jengelman.gradle.plugins:shadow:${property("versions.shadow")}")
+    }
+}
 
 val intellijUltimateEnabled: Boolean by rootProject.extra
 val intellijRepo: String by rootProject.extra
@@ -18,8 +28,12 @@ val intellijSeparateSdks: Boolean by rootProject.extra
 val installIntellijCommunity = !intellijUltimateEnabled || intellijSeparateSdks
 val installIntellijUltimate = intellijUltimateEnabled
 
-val platformBaseVersion = intellijVersion.substringBefore('.', "").takeIf { it.isNotEmpty() }
-        ?: error("Invalid IDEA version $intellijVersion")
+val intellijVersionDelimiterIndex = intellijVersion.indexOfAny(charArrayOf('.', '-'))
+if (intellijVersionDelimiterIndex == -1) {
+    error("Invalid IDEA version $intellijVersion")
+}
+
+val platformBaseVersion = intellijVersion.substring(0, intellijVersionDelimiterIndex)
 
 logger.info("intellijUltimateEnabled: $intellijUltimateEnabled")
 
@@ -83,7 +97,12 @@ dependencies {
         }
     }
     sources("com.jetbrains.intellij.idea:ideaIC:$intellijVersion:sources@jar")
-    `asm-shaded-sources`("asmsources:asm-src:$platformBaseVersion@zip")
+    if (platformBaseVersion == "182") {
+        // There is no asm sources for 182 yet
+        `asm-shaded-sources`("asmsources:asm-src:181@zip")
+    } else {
+        `asm-shaded-sources`("asmsources:asm-src:$platformBaseVersion@zip")
+    }
     `jps-standalone`("com.jetbrains.intellij.idea:jps-standalone:$intellijVersion")
     `jps-build-test`("com.jetbrains.intellij.idea:jps-build-test:$intellijVersion")
     `intellij-core`("com.jetbrains.intellij.idea:intellij-core:$intellijVersion")
@@ -123,10 +142,7 @@ fun removePathPrefix(path: String): String {
 val unzipIntellijSdk by tasks.creating {
     configureExtractFromConfigurationTask(intellij, pathRemap = { removePathPrefix(it) }) {
         zipTree(it.singleFile).matching {
-            if (OperatingSystem.current().isMacOsX && androidStudioRelease != null) {
-                exclude("Android Studio*.app/Contents/plugins/Kotlin/**")
-            }
-            exclude("plugins/Kotlin/**")
+            exclude("**/plugins/Kotlin/**")
         }
     }
 }
@@ -143,13 +159,22 @@ val unzipIntellijCore by tasks.creating { configureExtractFromConfigurationTask(
 
 val unzipJpsStandalone by tasks.creating { configureExtractFromConfigurationTask(`jps-standalone`) { zipTree(it.singleFile) } }
 
-val copyIntellijSdkSources by tasks.creating {
-    configureExtractFromConfigurationTask(sources) { it.singleFile }
+val copyAsmShadedSources by tasks.creating(Copy::class.java) {
+    from(`asm-shaded-sources`)
+    rename(".zip", ".jar")
+    destinationDir = File(repoDir, `asm-shaded-sources`.name)
+}
+
+val copyIntellijSdkSources by tasks.creating(ShadowJar::class.java) {
+    from(copyAsmShadedSources)
+    from(sources)
+    baseName = "ideaIC"
+    version = intellijVersion
+    classifier = "sources"
+    destinationDir = File(repoDir, sources.name)
 }
 
 val copyJpsBuildTest by tasks.creating { configureExtractFromConfigurationTask(`jps-build-test`) { it.singleFile } }
-
-val copyAsmShadedSources by tasks.creating { configureExtractFromConfigurationTask(`asm-shaded-sources`) { it.singleFile } }
 
 val unzipNodeJSPlugin by tasks.creating { configureExtractFromConfigurationTask(`plugins-NodeJS`) { zipTree(it.singleFile) } }
 

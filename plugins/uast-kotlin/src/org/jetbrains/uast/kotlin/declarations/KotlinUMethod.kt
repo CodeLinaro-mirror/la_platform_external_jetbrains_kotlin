@@ -32,7 +32,10 @@ import org.jetbrains.uast.kotlin.*
 open class KotlinUMethod(
         psi: KtLightMethod,
         givenParent: UElement?
-) : KotlinAbstractUElement(givenParent), UAnnotationMethod, JavaUElementWithComments, PsiMethod by psi {
+) : KotlinAbstractUElement(givenParent), UAnnotationMethod, UMethodTypeSpecific, UAnchorOwner, JavaUElementWithComments, PsiMethod by psi {
+    override val comments: List<UComment>
+        get() = super<KotlinAbstractUElement>.comments
+
     override val psi: KtLightMethod = unwrap<UMethod, KtLightMethod>(psi)
 
     override val javaPsi = psi
@@ -72,12 +75,19 @@ open class KotlinUMethod(
         uParameters
     }
 
-    override val uastAnchor: UElement
-        get() = KotlinUIdentifier(
+    override val uastAnchor by lazy {
+        KotlinUIdentifier(
             nameIdentifier,
-            (sourcePsi as? PsiNameIdentifierOwner)?.nameIdentifier ?: sourcePsi?.navigationElement,
+            sourcePsi.let { sourcePsi ->
+                when (sourcePsi) {
+                    is PsiNameIdentifierOwner -> sourcePsi.nameIdentifier
+                    is KtObjectDeclaration -> sourcePsi.getObjectKeyword()
+                    else -> sourcePsi?.navigationElement
+                }
+            },
             this
         )
+    }
 
 
     override val uastBody by lz {
@@ -91,15 +101,26 @@ open class KotlinUMethod(
             else -> null
         } ?: return@lz null
 
-        getLanguagePlugin().convertElement(bodyExpression, this) as? UExpression
+        when (bodyExpression) {
+            !is KtBlockExpression -> {
+                KotlinUBlockExpression.KotlinLazyUBlockExpression(this, { block ->
+                    val implicitReturn = KotlinUImplicitReturnExpression(block)
+                    val uBody = getLanguagePlugin().convertElement(bodyExpression, implicitReturn) as? UExpression
+                            ?: return@KotlinLazyUBlockExpression emptyList()
+                    listOf(implicitReturn.apply { returnExpression = uBody })
+                })
+
+            }
+            else -> getLanguagePlugin().convertElement(bodyExpression, this) as? UExpression
+        }
     }
 
     override val isOverride: Boolean
         get() = (kotlinOrigin as? KtCallableDeclaration)?.hasModifier(KtTokens.OVERRIDE_KEYWORD) ?: false
 
-    override fun getBody(): PsiCodeBlock? = super.getBody()
+    override fun getBody(): PsiCodeBlock? = super<UAnnotationMethod>.getBody()
 
-    override fun getOriginalElement(): PsiElement? = super.getOriginalElement()
+    override fun getOriginalElement(): PsiElement? = super<UAnnotationMethod>.getOriginalElement()
 
     override fun equals(other: Any?) = other is KotlinUMethod && psi == other.psi
 

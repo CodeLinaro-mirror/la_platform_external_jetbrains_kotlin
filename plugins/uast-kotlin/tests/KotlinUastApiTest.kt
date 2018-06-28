@@ -6,7 +6,6 @@ import com.intellij.testFramework.UsefulTestCase
 import org.jetbrains.kotlin.asJava.toLightAnnotation
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
-import org.jetbrains.kotlin.psi.psiUtil.getValueParameterList
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.uast.*
@@ -219,9 +218,10 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
     @Test
     fun testSimpleAnnotated() {
         doTest("SimpleAnnotated") { _, file ->
-            file.findElementByTextFromPsi<UField>("@SinceKotlin(\"1.0\")\n    val property: String = \"Mary\"").let { field ->
+            file.findElementByTextFromPsi<UField>("@kotlin.SinceKotlin(\"1.0\")\n    val property: String = \"Mary\"").let { field ->
                 val annotation = field.annotations.assertedFind("kotlin.SinceKotlin") { it.qualifiedName }
-                Assert.assertEquals(annotation.findDeclaredAttributeValue("version")?.evaluateString(), "1.0")
+                Assert.assertEquals("1.0", annotation.findDeclaredAttributeValue("version")?.evaluateString())
+                Assert.assertEquals("SinceKotlin", annotation.cast<UAnchorOwner>().uastAnchor?.sourcePsi?.text)
             }
         }
     }
@@ -303,6 +303,7 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
                 val lightAnnotation = convertedUAnnotation.getAsJavaPsiElement(PsiAnnotation::class.java)
                         ?: throw AssertionError("can't get lightAnnotation from $convertedUAnnotation")
                 assertEquals("Annotation", lightAnnotation.qualifiedName)
+                assertEquals("Annotation", (convertedUAnnotation as UAnchorOwner).uastAnchor?.sourcePsi?.text)
             }
     }
 
@@ -336,6 +337,7 @@ class KotlinUastApiTest : AbstractKotlinUastTest() {
         )
         assertArguments(listOf("\"%i %i %i\"", "\"\".chunked(2).toTypedArray()"), "format(\"%i %i %i\", *\"\".chunked(2).toTypedArray())")
         assertArguments(listOf("\"def\"", "8", "7.0"), "with2Receivers(8, 7.0F)")
+        assertArguments(listOf("\"foo\"", "1"), "object : Parent(b = 1, a = \"foo\")\n")
     }
 
 }

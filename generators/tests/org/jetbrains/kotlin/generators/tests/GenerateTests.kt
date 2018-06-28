@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.android.configure.AbstractConfigureProjectTest
 import org.jetbrains.kotlin.android.folding.AbstractAndroidResourceFoldingTest
 import org.jetbrains.kotlin.android.intention.AbstractAndroidIntentionTest
 import org.jetbrains.kotlin.android.intention.AbstractAndroidResourceIntentionTest
+import org.jetbrains.kotlin.android.lint.AbstractKotlinLintTest
 import org.jetbrains.kotlin.android.parcel.AbstractParcelBytecodeListingTest
 import org.jetbrains.kotlin.android.quickfix.AbstractAndroidLintQuickfixTest
 import org.jetbrains.kotlin.android.quickfix.AbstractAndroidQuickFixMultiFileTest
@@ -51,6 +52,8 @@ import org.jetbrains.kotlin.idea.AbstractSmartSelectionTest
 import org.jetbrains.kotlin.idea.actions.AbstractGotoTestOrCodeActionTest
 import org.jetbrains.kotlin.idea.caches.resolve.AbstractIdeCompiledLightClassTest
 import org.jetbrains.kotlin.idea.caches.resolve.AbstractIdeLightClassTest
+import org.jetbrains.kotlin.idea.caches.resolve.AbstractMultiModuleLineMarkerTest
+import org.jetbrains.kotlin.idea.caches.resolve.AbstractMultiPlatformHighlightingTest
 import org.jetbrains.kotlin.idea.codeInsight.*
 import org.jetbrains.kotlin.idea.codeInsight.generate.AbstractCodeInsightActionTest
 import org.jetbrains.kotlin.idea.codeInsight.generate.AbstractGenerateHashCodeAndEqualsActionTest
@@ -107,9 +110,12 @@ import org.jetbrains.kotlin.idea.intentions.declarations.AbstractJoinLinesTest
 import org.jetbrains.kotlin.idea.internal.AbstractBytecodeToolWindowTest
 import org.jetbrains.kotlin.idea.kdoc.AbstractKDocHighlightingTest
 import org.jetbrains.kotlin.idea.kdoc.AbstractKDocTypingTest
+import org.jetbrains.kotlin.idea.maven.AbstractKotlinMavenInspectionTest
+import org.jetbrains.kotlin.idea.maven.configuration.AbstractMavenConfigureProjectByChangingFileTest
 import org.jetbrains.kotlin.idea.navigation.*
 import org.jetbrains.kotlin.idea.parameterInfo.AbstractParameterInfoTest
 import org.jetbrains.kotlin.idea.quickfix.AbstractQuickFixMultiFileTest
+import org.jetbrains.kotlin.idea.quickfix.AbstractQuickFixMultiModuleTest
 import org.jetbrains.kotlin.idea.quickfix.AbstractQuickFixTest
 import org.jetbrains.kotlin.idea.refactoring.AbstractNameSuggestionProviderTest
 import org.jetbrains.kotlin.idea.refactoring.copy.AbstractCopyTest
@@ -141,10 +147,10 @@ import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterForWebDemoTest
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterMultiFileTest
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterSingleFileTest
-//import org.jetbrains.kotlin.jps.build.*
-//import org.jetbrains.kotlin.jps.build.android.AbstractAndroidJpsTestCase
-//import org.jetbrains.kotlin.jps.incremental.AbstractJsProtoComparisonTest
-//import org.jetbrains.kotlin.jps.incremental.AbstractJvmProtoComparisonTest
+import org.jetbrains.kotlin.jps.build.*
+import org.jetbrains.kotlin.jps.build.android.AbstractAndroidJpsTestCase
+import org.jetbrains.kotlin.jps.incremental.AbstractJsProtoComparisonTest
+import org.jetbrains.kotlin.jps.incremental.AbstractJvmProtoComparisonTest
 import org.jetbrains.kotlin.kapt3.test.AbstractClassFileToSourceStubConverterTest
 import org.jetbrains.kotlin.kapt3.test.AbstractKotlinKaptContextTest
 import org.jetbrains.kotlin.noarg.AbstractBlackBoxCodegenTestForNoArg
@@ -545,6 +551,10 @@ fun main(args: Array<String>) {
             model("codeInsight/lineMarker")
         }
 
+        testClass<AbstractMultiModuleLineMarkerTest> {
+            model("multiModuleLineMarker", extension = null, recursive = false)
+        }
+
         testClass<AbstractShortenRefsTest> {
             model("shortenRefs", pattern = KT_WITHOUT_DOTS_IN_NAME)
         }
@@ -634,6 +644,26 @@ fun main(args: Array<String>) {
             model("multiFileHighlighting", recursive = false)
         }
 
+        testClass<AbstractMultiPlatformHighlightingTest> {
+            model("multiModuleHighlighting/multiplatform/", recursive = false, extension = null)
+        }
+
+        testClass<AbstractQuickFixMultiModuleTest> {
+            model("multiModuleQuickFix", recursive = false, extension = null)
+        }
+
+        testClass<AbstractKotlinGotoImplementationMultiModuleTest> {
+            model("navigation/implementations/multiModule", recursive = false, extension = null)
+        }
+
+        testClass<AbstractKotlinGotoRelatedSymbolMultiModuleTest> {
+            model("navigation/relatedSymbols/multiModule", recursive = false, extension = null)
+        }
+
+        testClass<AbstractKotlinGotoSuperMultiModuleTest> {
+            model("navigation/gotoSuper/multiModule", recursive = false, extension = null)
+        }
+
         testClass<AbstractExtractionTest> {
             model("refactoring/introduceVariable", pattern = KT_OR_KTS, testMethod = "doIntroduceVariableTest")
             model("refactoring/extractFunction", pattern = KT_OR_KTS, testMethod = "doExtractFunctionTest")
@@ -710,6 +740,7 @@ fun main(args: Array<String>) {
 
         testClass<AbstractScriptConfigurationHighlightingTest> {
             model("script/definition/highlighting", extension = null, recursive = false)
+            model("script/definition/complex", extension = null, recursive = false, testMethod = "doComplexTest")
         }
 
         testClass<AbstractScriptConfigurationNavigationTest> {
@@ -743,9 +774,6 @@ fun main(args: Array<String>) {
         }
     }
 
-    /*
-    // Maven and Gradle are not relevent for AS branch
-
     testGroup("idea/idea-maven/test", "idea/idea-maven/testData") {
         testClass<AbstractMavenConfigureProjectByChangingFileTest> {
             model("configurator/jvm", extension = null, recursive = false, testMethod = "doTestWithMaven")
@@ -763,8 +791,6 @@ fun main(args: Array<String>) {
             model("configuration/gsk", extension = null, recursive = false, testMethod = "doTestGradle")
         }
     }
-
-    */
 
     testGroup("idea/tests", "compiler/testData") {
         testClass<AbstractResolveByStubTest> {
@@ -862,6 +888,10 @@ fun main(args: Array<String>) {
         testClass<AbstractCompletionIncrementalResolveTest> {
             model("incrementalResolve")
         }
+
+        testClass<AbstractMultiPlatformCompletionTest> {
+            model("multiPlatform", recursive = false, extension = null)
+        }
     }
 
     //TODO: move these tests into idea-completion module
@@ -890,7 +920,7 @@ fun main(args: Array<String>) {
             model("fileOrElement", extension = "java")
         }
     }
-/*  There is no jps in AS
+
     testGroup("jps-plugin/jps-tests/test", "jps-plugin/testData") {
         testClass<AbstractIncrementalJpsTest> {
             model("incremental/multiModule", extension = null, excludeParentDirs = true)
@@ -940,7 +970,7 @@ fun main(args: Array<String>) {
             model("comparison/jsOnly", extension = null, excludeParentDirs = true)
         }
     }
-*/
+
     testGroup("compiler/incremental-compilation-impl/test", "jps-plugin/testData") {
         testClass<AbstractIncrementalJvmCompilerRunnerTest> {
             model("incremental/pureKotlin", extension = null, recursive = false)
@@ -1084,6 +1114,10 @@ fun main(args: Array<String>) {
             model("android/quickfix", pattern = """^(\w+)\.((before\.Main\.\w+)|(test))$""", testMethod = "doTestWithExtraFile")
         }
 
+        testClass<AbstractKotlinLintTest> {
+            model("android/lint", excludeParentDirs = true)
+        }
+
         testClass<AbstractAndroidLintQuickfixTest> {
             model("android/lintQuickfix", pattern = "^([\\w\\-_]+)\\.kt$")
         }
@@ -1096,11 +1130,10 @@ fun main(args: Array<String>) {
             model("android/gutterIcon")
         }
     }
-/*
+
     testGroup("plugins/android-extensions/android-extensions-jps/test", "plugins/android-extensions/android-extensions-jps/testData") {
         testClass<AbstractAndroidJpsTestCase> {
             model("android", recursive = false, extension = null)
         }
     }
-*/
 }

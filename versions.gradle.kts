@@ -1,9 +1,9 @@
 
-extra["versions.intellijSdk"] = "181.2784.17"
+extra["versions.intellijSdk"] = "181.4892.42"
 extra["versions.androidBuildTools"] = "r23.0.1"
-extra["versions.idea.NodeJS"] = "181.2784.17"
-extra["versions.androidStudioRelease"] = "3.2.0.9"
-extra["versions.androidStudioBuild"] = "181.4705630"
+extra["versions.idea.NodeJS"] = "181.3494.12"
+//extra["versions.androidStudioRelease"] = "3.1.0.5"
+//extra["versions.androidStudioBuild"] = "173.4506631"
 
 val gradleJars = listOf(
     "gradle-api",
@@ -31,6 +31,7 @@ when (platform) {
         extra["versions.jar.kxml2"] = "2.3.0"
         extra["versions.jar.streamex"] = "0.6.5"
         extra["versions.jar.gson"] = "2.8.2"
+        extra["versions.jar.oro"] = "2.0.8"
         for (jar in gradleJars) {
             extra["versions.jar.$jar"] = "4.4"
         }
@@ -95,20 +96,6 @@ when (platform) {
         extra["versions.jar.gson"] = "2.8.2"
         for (jar in gradleJars) {
             extra["versions.jar.$jar"] = "4.0"
-        }
-
-        extra["ignore.jar.common"] = true
-        extra["ignore.jar.lombok-ast"] = true
-    }
-    "AS32" -> {
-        extra["versions.jar.guava"] = "21.0"
-        extra["versions.jar.groovy-all"] = "2.4.12"
-        extra["versions.jar.swingx-core"] = "1.6.2-2"
-        extra["versions.jar.kxml2"] = "2.3.0"
-        extra["versions.jar.streamex"] = "0.6.5"
-        extra["versions.jar.gson"] = "2.8.2"
-        for (jar in gradleJars) {
-            extra["versions.jar.$jar"] = "4.4"
         }
 
         extra["ignore.jar.common"] = true

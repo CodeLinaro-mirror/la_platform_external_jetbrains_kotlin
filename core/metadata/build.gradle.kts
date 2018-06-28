@@ -1,14 +1,16 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-apply { plugin("kotlin") }
-apply { plugin("jps-compatible") }
+plugins {
+    kotlin("jvm")
+    id("jps-compatible")
+}
 
 jvmTarget = "1.6"
 javaHome = rootProject.extra["JDK_16"] as String
 
 dependencies {
     compile(protobufLite())
-    compile(project(":kotlin-stdlib"))
+    compile(projectDist(":kotlin-stdlib"))
 }
 
 sourceSets {

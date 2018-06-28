@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,9 +23,7 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns;
 import org.jetbrains.kotlin.codegen.binding.CalculatedClosure;
 import org.jetbrains.kotlin.codegen.binding.CodegenBinding;
 import org.jetbrains.kotlin.codegen.context.*;
-import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenForLambda;
-import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenUtilKt;
-import org.jetbrains.kotlin.codegen.coroutines.ResolvedCallWithRealDescriptor;
+import org.jetbrains.kotlin.codegen.coroutines.*;
 import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension;
 import org.jetbrains.kotlin.codegen.inline.*;
 import org.jetbrains.kotlin.codegen.intrinsics.*;
@@ -358,9 +356,14 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         return (ScriptContext) context;
     }
 
-    public StackValue genLazy(KtElement expr, Type type) {
+    private StackValue genLazy(KtElement expr, Type type) {
         StackValue value = gen(expr);
         return StackValue.coercion(value, type, null);
+    }
+
+    private StackValue genLazy(KtElement expr, Type type, KotlinType kotlinType) {
+        StackValue value = gen(expr);
+        return StackValue.coercion(value, type, kotlinType);
     }
 
     private StackValue genStatement(KtElement statement) {
@@ -877,7 +880,10 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
                     constantValue.append(String.valueOf(compileTimeConstant.getValue()));
                 }
                 else {
-                    result.add(new StringTemplateEntry.Constant(constantValue.toString()));
+                    String accumulatedConstantValue = constantValue.toString();
+                    if (accumulatedConstantValue.length() > 0) {
+                        result.add(new StringTemplateEntry.Constant(accumulatedConstantValue));
+                    }
                     constantValue.setLength(0);
 
                     result.add(new StringTemplateEntry.Expression(entryExpression));
@@ -1238,7 +1244,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
     @Nullable
     public StackValue genCoroutineInstanceForSuspendLambda(@NotNull FunctionDescriptor suspendFunction) {
-        if (!(suspendFunction instanceof AnonymousFunctionDescriptor)) return null;
+        if (!CoroutineCodegenUtilKt.isSuspendLambdaOrLocalFunction(suspendFunction)) return null;
 
         ClassDescriptor suspendLambdaClassDescriptor = bindingContext.get(CodegenBinding.CLASS_FOR_CALLABLE, suspendFunction);
         assert suspendLambdaClassDescriptor != null : "Coroutine class descriptor should not be null";
@@ -1936,7 +1942,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
     }
 
     private CodegenContext getBackingFieldContext(
-            @NotNull FieldAccessorKind accessorKind,
+            @NotNull AccessorKind accessorKind,
             @NotNull DeclarationDescriptor containingDeclaration
     ) {
         switch (accessorKind) {
@@ -1986,22 +1992,22 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         DeclarationDescriptor containingDeclaration = propertyDescriptor.getContainingDeclaration();
 
         boolean isBackingFieldInClassCompanion = JvmAbi.isPropertyWithBackingFieldInOuterClass(propertyDescriptor);
-        FieldAccessorKind fieldAccessorKind;
+        AccessorKind fieldAccessorKind;
         if (skipLateinitAssertion) {
-            fieldAccessorKind = FieldAccessorKind.LATEINIT_INTRINSIC;
+            fieldAccessorKind = AccessorKind.LATEINIT_INTRINSIC;
         }
         else if (isBackingFieldInClassCompanion &&
                  (forceField ||
                   (Visibilities.isPrivate(propertyDescriptor.getVisibility()) &&
                    isDefaultAccessor(propertyDescriptor.getGetter()) && isDefaultAccessor(propertyDescriptor.getSetter())))) {
-            fieldAccessorKind = FieldAccessorKind.IN_CLASS_COMPANION;
+            fieldAccessorKind = AccessorKind.IN_CLASS_COMPANION;
         }
         else if ((syntheticBackingField &&
                   context.getFirstCrossInlineOrNonInlineContext().getParentContext().getContextDescriptor() != containingDeclaration)) {
-            fieldAccessorKind = FieldAccessorKind.FIELD_FROM_LOCAL;
+            fieldAccessorKind = AccessorKind.FIELD_FROM_LOCAL;
         }
         else {
-            fieldAccessorKind = FieldAccessorKind.NORMAL;
+            fieldAccessorKind = AccessorKind.NORMAL;
         }
         boolean isStaticBackingField = DescriptorUtils.isStaticDeclaration(propertyDescriptor) ||
                                        AsmUtil.isInstancePropertyWithStaticBackingField(propertyDescriptor);
@@ -2016,7 +2022,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
         CodegenContext backingFieldContext = getBackingFieldContext(fieldAccessorKind, containingDeclaration);
         boolean isPrivateProperty =
-                fieldAccessorKind != FieldAccessorKind.NORMAL &&
+                fieldAccessorKind != AccessorKind.NORMAL &&
                 (AsmUtil.getVisibilityForBackingField(propertyDescriptor, isDelegatedProperty) & ACC_PRIVATE) != 0;
         DeclarationDescriptor ownerDescriptor;
         boolean skipPropertyAccessors;
@@ -2027,7 +2033,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         boolean directAccessToSetter = couldUseDirectAccessToProperty(propertyDescriptor, false, isDelegatedProperty, context,
                                                                               state.getShouldInlineConstVals());
 
-        if (fieldAccessorKind == FieldAccessorKind.LATEINIT_INTRINSIC) {
+        if (fieldAccessorKind == AccessorKind.LATEINIT_INTRINSIC) {
             skipPropertyAccessors = !isPrivateProperty || context.getClassOrPackageParentContext() == backingFieldContext;
 
             if (!skipPropertyAccessors) {
@@ -2036,7 +2042,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             }
             ownerDescriptor = propertyDescriptor;
         }
-        else if (fieldAccessorKind == FieldAccessorKind.IN_CLASS_COMPANION || fieldAccessorKind == FieldAccessorKind.FIELD_FROM_LOCAL) {
+        else if (fieldAccessorKind == AccessorKind.IN_CLASS_COMPANION || fieldAccessorKind == AccessorKind.FIELD_FROM_LOCAL) {
             // Do not use accessor 'access<property name>$cp' when the property can be accessed directly by its backing field.
             skipPropertyAccessors = skipAccessorsForPrivateFieldInOuterClass ||
                                     (directAccessToGetter && (!propertyDescriptor.isVar() || directAccessToSetter));
@@ -2239,9 +2245,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
     @NotNull
     public StackValue invokeFunction(@NotNull Call call, @NotNull ResolvedCall<?> resolvedCall, @NotNull StackValue receiver) {
         ResolvedCallWithRealDescriptor callWithRealDescriptor =
-                CoroutineCodegenUtilKt.replaceSuspensionFunctionWithRealDescriptor(
-                        resolvedCall, state.getProject(), state.getBindingContext()
-                );
+                CoroutineCodegenUtilKt.replaceSuspensionFunctionWithRealDescriptor(resolvedCall, state);
         if (callWithRealDescriptor != null) {
             prepareCoroutineArgumentForSuspendCall(resolvedCall, callWithRealDescriptor.getFakeContinuationExpression());
             return invokeFunction(callWithRealDescriptor.getResolvedCall(), receiver);
@@ -2354,7 +2358,8 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             @NotNull CallGenerator callGenerator,
             @NotNull ArgumentGenerator argumentGenerator
     ) {
-        boolean isSuspendNoInlineCall = CoroutineCodegenUtilKt.isSuspendNoInlineCall(resolvedCall, this);
+        boolean isSuspendNoInlineCall =
+                CoroutineCodegenUtilKt.isSuspendNoInlineCall(resolvedCall, this, state.getLanguageVersionSettings());
         boolean isConstructor = resolvedCall.getResultingDescriptor() instanceof ConstructorDescriptor;
         if (!(callableMethod instanceof IntrinsicWithSpecialReceiver)) {
             putReceiverAndInlineMarkerIfNeeded(callableMethod, resolvedCall, receiver, isSuspendNoInlineCall, isConstructor);
@@ -2505,7 +2510,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         FunctionDescriptor original =
                 CoroutineCodegenUtilKt.getOriginalSuspendFunctionView(
                         unwrapInitialSignatureDescriptor(DescriptorUtils.unwrapFakeOverride((FunctionDescriptor) descriptor.getOriginal())),
-                        bindingContext
+                        bindingContext, state
                 );
         if (isDefaultCompilation) {
             return new InlineCodegenForDefaultBody(original, this, state, new PsiSourceCompilerForInline(this, callElement));
@@ -2749,7 +2754,13 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             }
             else {
                 cur = getNotNullParentContextForMethod(cur);
-                result = cur.getOuterExpression(result, false);
+                // for now the script codegen only passes this branch, since the method context for script constructor is defined using function context
+                if (cur instanceof ScriptContext && !(thisOrOuterClass instanceof ScriptDescriptor)) {
+                    return ((ScriptContext) cur).getOuterReceiverExpression(result, thisOrOuterClass);
+                }
+                else {
+                    result = cur.getOuterExpression(result, false);
+                }
             }
 
             cur = cur.getEnclosingClassContext();
@@ -3002,7 +3013,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             return StackValue.coercion(generateSafeQualifiedExpression((KtSafeQualifiedExpression) expression, ifnull), type, kotlinType);
         }
         else {
-            return genLazy(expression, type);
+            return genLazy(expression, type, kotlinType);
         }
     }
 
@@ -3579,9 +3590,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             ResolvedCall<?> resolvedCall = CallUtilKt.getResolvedCallWithAssert(expression, bindingContext);
 
             ResolvedCallWithRealDescriptor callWithRealDescriptor =
-                    CoroutineCodegenUtilKt.replaceSuspensionFunctionWithRealDescriptor(
-                            resolvedCall, state.getProject(), state.getBindingContext()
-                    );
+                    CoroutineCodegenUtilKt.replaceSuspensionFunctionWithRealDescriptor(resolvedCall, state);
             if (callWithRealDescriptor != null) {
                 prepareCoroutineArgumentForSuspendCall(resolvedCall, callWithRealDescriptor.getFakeContinuationExpression());
                 resolvedCall = callWithRealDescriptor.getResolvedCall();

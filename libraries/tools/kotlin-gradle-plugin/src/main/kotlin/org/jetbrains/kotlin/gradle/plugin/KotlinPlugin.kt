@@ -20,16 +20,20 @@ import org.gradle.api.plugins.InvalidPluginException
 import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.plugins.JavaPluginConvention
-import org.gradle.api.tasks.*
+import org.gradle.api.tasks.CompileClasspathNormalizer
+import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetOutput
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptionsImpl
 import org.jetbrains.kotlin.gradle.internal.*
 import org.jetbrains.kotlin.gradle.internal.Kapt3GradleSubplugin.Companion.getKaptGeneratedClassesDir
 import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.*
-import org.jetbrains.kotlin.incremental.configureMultiProjectIncrementalCompilation
+import org.jetbrains.kotlin.scripting.gradle.ScriptingGradleSubplugin
 import java.io.File
 import java.net.URL
 import java.util.*
@@ -128,8 +132,7 @@ internal class Kotlin2JvmSourceSetProcessor(
         sourceSet: SourceSet,
         tasksProvider: KotlinTasksProvider,
         kotlinSourceSetProvider: KotlinSourceSetProvider,
-        private val kotlinPluginVersion: String,
-        private val kotlinGradleBuildServices: KotlinGradleBuildServices
+        private val kotlinPluginVersion: String
 ) : KotlinSourceSetProcessor<KotlinCompile>(
         project, javaBasePlugin, sourceSet, tasksProvider, kotlinSourceSetProvider,
         dslExtensionName = KOTLIN_DSL_NAME,
@@ -188,11 +191,6 @@ internal class Kotlin2JvmSourceSetProcessor(
                     syncOutputTask = createSyncOutputTask(project, kotlinTask, javaTask, kotlinAfterJavaTask, sourceSetName)
                 }
 
-                val artifactFile = project.tryGetSingleArtifact()
-                configureMultiProjectIncrementalCompilation(project, kotlinTask, javaTask, kotlinAfterJavaTask,
-                        kotlinGradleBuildServices.artifactDifferenceRegistryProvider,
-                        artifactFile)
-
                 if (project.pluginManager.hasPlugin("java-library") && sourceSetName == SourceSet.MAIN_SOURCE_SET_NAME) {
                     val (classesProviderTask, classesDirectory) = when {
                         isSeparateClassesDirSupported -> (kotlinAfterJavaTask ?: kotlinTask).let { it to it.destinationDir }
@@ -202,26 +200,8 @@ internal class Kotlin2JvmSourceSetProcessor(
                     registerKotlinOutputForJavaLibrary(classesDirectory, classesProviderTask)
                 }
 
-                // To make Gradle read this location from the task's @LocalState property and clean it on cache hit:
-                kotlinTask.buildServicesWorkingDir = Callable { kotlinGradleBuildServices.workingDir }
             }
         }
-    }
-
-    private fun Project.tryGetSingleArtifact(): File? {
-        val log = logger
-        log.kotlinDebug { "Trying to determine single artifact for project $path" }
-
-        val archives = configurations.findByName("archives")
-        if (archives == null) {
-            log.kotlinDebug { "Could not find 'archives' configuration for project $path" }
-            return null
-        }
-
-        val artifacts = archives.artifacts.files.files
-        log.kotlinDebug { "All artifacts for project $path: [${artifacts.joinToString()}]" }
-
-        return if (artifacts.size == 1) artifacts.first() else null
     }
 
     private fun registerKotlinOutputForJavaLibrary(outputDir: File, taskDependency: Task): Boolean {
@@ -356,8 +336,6 @@ internal class KotlinCommonSourceSetProcessor(
             project.tasks.findByName(sourceSet.classesTaskName)!!.dependsOn(kotlinTask)
             // can be missing (e.g. in case of tests)
             project.tasks.findByName(sourceSet.jarTaskName)?.dependsOn(kotlinTask)
-            val javaTask = project.tasks.findByName(sourceSet.compileJavaTaskName)
-            project.tasks.remove(javaTask)
 
             appliedPlugins
                     .flatMap { it.getSubpluginKotlinTasks(project, kotlinTask) }
@@ -384,6 +362,7 @@ internal abstract class AbstractKotlinPlugin(
 
         configureSourceSetDefaults(project, javaBasePlugin, javaPluginConvention)
         configureDefaultVersionsResolutionStrategy(project)
+        configureClassInspectionForIC(project)
     }
 
     open protected fun configureSourceSetDefaults(
@@ -416,19 +395,38 @@ internal abstract class AbstractKotlinPlugin(
             }
         }
     }
+
+    private fun configureClassInspectionForIC(project: Project) {
+        val classesTask = project.tasks.findByName(JavaPlugin.CLASSES_TASK_NAME)
+        val jarTask = project.tasks.findByName(JavaPlugin.JAR_TASK_NAME)
+
+        if (classesTask == null || jarTask !is Jar) {
+            project.logger.info(
+                "Could not configure class inspection task " +
+                        "(classes task = ${classesTask?.javaClass?.canonicalName}, " +
+                        "jar task = ${classesTask?.javaClass?.canonicalName}"
+            )
+            return
+        }
+        val inspectTask = project.tasks.create("inspectClassesForKotlinIC", InspectClassesForMultiModuleIC::class.java)
+        inspectTask.sourceSetName = SourceSet.MAIN_SOURCE_SET_NAME
+        inspectTask.jarTask = jarTask
+        inspectTask.dependsOn(classesTask)
+        jarTask.dependsOn(inspectTask)
+    }
 }
 
 internal open class KotlinPlugin(
         tasksProvider: KotlinTasksProvider,
         kotlinSourceSetProvider: KotlinSourceSetProvider,
-        kotlinPluginVersion: String,
-        private val kotlinGradleBuildServices: KotlinGradleBuildServices
+        kotlinPluginVersion: String
 ) : AbstractKotlinPlugin(tasksProvider, kotlinSourceSetProvider, kotlinPluginVersion) {
     override fun buildSourceSetProcessor(project: Project, javaBasePlugin: JavaBasePlugin, sourceSet: SourceSet, kotlinPluginVersion: String) =
-            Kotlin2JvmSourceSetProcessor(project, javaBasePlugin, sourceSet, tasksProvider, kotlinSourceSetProvider, kotlinPluginVersion, kotlinGradleBuildServices)
+            Kotlin2JvmSourceSetProcessor(project, javaBasePlugin, sourceSet, tasksProvider, kotlinSourceSetProvider, kotlinPluginVersion)
 
     override fun apply(project: Project) {
         project.createKaptExtension()
+        project.pluginManager.apply(ScriptingGradleSubplugin::class.java)
         super.apply(project)
     }
 }
@@ -454,8 +452,7 @@ internal open class Kotlin2JsPlugin(
 internal open class KotlinAndroidPlugin(
         val tasksProvider: KotlinTasksProvider,
         private val kotlinSourceSetProvider: KotlinSourceSetProvider,
-        private val kotlinPluginVersion: String,
-        private val kotlinGradleBuildServices: KotlinGradleBuildServices
+        private val kotlinPluginVersion: String
 ) : Plugin<Project> {
 
     override fun apply(project: Project) {
@@ -470,8 +467,7 @@ internal open class KotlinAndroidPlugin(
         val kotlinTools = KotlinConfigurationTools(
                 kotlinSourceSetProvider,
                 tasksProvider,
-                kotlinPluginVersion,
-                kotlinGradleBuildServices)
+                kotlinPluginVersion)
 
         val legacyVersionThreshold = "2.5.0"
 
@@ -492,17 +488,12 @@ internal open class KotlinAndroidPlugin(
 
 class KotlinConfigurationTools internal constructor(val kotlinSourceSetProvider: KotlinSourceSetProvider,
                                                     val kotlinTasksProvider: KotlinTasksProvider,
-                                                    val kotlinPluginVersion: String,
-                                                    val kotlinGradleBuildServices: KotlinGradleBuildServices)
+                                                    val kotlinPluginVersion: String)
 
 /** Part of Android configuration, that works only with the old public API.
  * @see [LegacyAndroidAndroidProjectHandler] that is implemented with the old internal API and [AndroidGradle25VariantProcessor] that works
  *       with the new public API */
 abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationTools: KotlinConfigurationTools) {
-
-    protected val artifactDifferenceRegistryProvider get() =
-            kotlinConfigurationTools.kotlinGradleBuildServices.artifactDifferenceRegistryProvider
-
     protected val logger = Logging.getLogger(this.javaClass)
 
     abstract fun forEachVariant(project: Project, action: (V) -> Unit): Unit
@@ -524,12 +515,6 @@ abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationT
                                            javaTask: AbstractCompile,
                                            kotlinTask: KotlinCompile,
                                            kotlinAfterJavaTask: KotlinCompile?): Unit
-
-    protected abstract fun configureMultiProjectIc(project: Project,
-                                                   variantData: V,
-                                                   javaTask: AbstractCompile,
-                                                   kotlinTask: KotlinCompile,
-                                                   kotlinAfterJavaTask: KotlinCompile?)
 
     protected abstract fun wrapVariantDataForKapt(variantData: V): KaptVariantData<V>
 
@@ -555,7 +540,7 @@ abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationT
         project.afterEvaluate { project ->
             if (project != null) {
                 val androidPluginIds = listOf("android", "com.android.application", "android-library", "com.android.library",
-                        "com.android.test", "com.android.feature", "com.android.dynamic-feature")
+                        "com.android.test", "com.android.feature", "com.android.dynamic-feature", "com.android.instantapp")
                 val plugin = androidPluginIds.asSequence()
                                      .mapNotNull { project.plugins.findPlugin(it) as? BasePlugin }
                                      .firstOrNull()
@@ -648,8 +633,6 @@ abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationT
         wireKotlinTasks(project, androidPlugin, androidExt, variantData, javaTask,
                 kotlinTask, kotlinAfterJavaTask)
 
-        configureMultiProjectIc(project, variantData, javaTask, kotlinTask, kotlinAfterJavaTask)
-
         val appliedPlugins = subpluginEnvironment.addSubpluginOptions(
                 project, kotlinTask, javaTask, wrapVariantDataForKapt(variantData), this, null)
 
@@ -673,6 +656,8 @@ abstract class AbstractAndroidProjectHandler<V>(private val kotlinConfigurationT
 }
 
 internal fun configureJavaTask(kotlinTask: KotlinCompile, javaTask: AbstractCompile, logger: Logger) {
+    kotlinTask.javaOutputDir = javaTask.destinationDir
+
     // Gradle Java IC in older Gradle versions (before 2.14) cannot check .class directories updates.
     // To make it work, reset the up-to-date status of compileJava with this flag.
     kotlinTask.anyClassesCompiled = false
@@ -849,6 +834,8 @@ internal fun Task.registerSubpluginOptionsAsInputs(subpluginId: String, subplugi
         optionsGroup.forEachIndexed { index, option ->
             val indexSuffix = if (optionsGroup.size > 1) ".$index" else ""
             when (option) {
+                is InternalSubpluginOption -> Unit
+
                 is CompositeSubpluginOption -> {
                     val subpluginIdWithWrapperKey = "$subpluginId.${optionKey}$indexSuffix"
                     registerSubpluginOptionsAsInputs(subpluginIdWithWrapperKey, option.originalOptions)
