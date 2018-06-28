@@ -16,11 +16,9 @@
 
 package org.jetbrains.kotlin.cli.common.arguments
 
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.config.AnalysisFlag
-import org.jetbrains.kotlin.config.JVMConstructorCallNormalizationMode
-import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.*
 
 class K2JVMCompilerArguments : CommonCompilerArguments() {
     companion object {
@@ -124,9 +122,6 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var constructorCallNormalizationMode: String? by FreezableVar(JVMConstructorCallNormalizationMode.DEFAULT.description)
 
-    @Argument(value = "-Xreport-perf", description = "Report detailed performance statistics")
-    var reportPerf: Boolean by FreezableVar(false)
-
     @Argument(
         value = "-Xbuild-file",
         deprecatedName = "-module",
@@ -228,8 +223,23 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var noExceptionOnExplicitEqualsForBoxedNull by FreezableVar(false)
 
-    @Argument(value = "-Xenable-jvm-default", description = "Allow to use '@JvmDefault' for JVM default method support")
-    var enableJvmDefault: Boolean by FreezableVar(false)
+    @Argument(
+        value = "-Xjvm-default",
+        valueDescription = "{disable|enable|compatibility}",
+        description = "Allow to use '@JvmDefault' annotation for JVM default method support.\n" +
+                "-Xjvm-default=disable         Prohibit usages of @JvmDefault\n" +
+                "-Xjvm-default=enable          Allow usages of @JvmDefault; only generate the default method\n" +
+                "                              in the interface (annotating an existing method can break binary compatibility)\n" +
+                "-Xjvm-default=compatibility   Allow usages of @JvmDefault; generate a compatibility accessor\n" +
+                "                              in the 'DefaultImpls' class in addition to the interface method"
+    )
+    var jvmDefault: String by FreezableVar(JvmDefaultMode.DEFAULT.description)
+
+    @Argument(value = "-Xdisable-default-scripting-plugin", description = "Do not enable scripting plugin by default")
+    var disableDefaultScriptingPlugin: Boolean by FreezableVar(false)
+
+    @Argument(value = "-Xdisable-standard-script", description = "Disable standard kotlin script support")
+    var disableStandardScript: Boolean by FreezableVar(false)
 
     // Paths to output directories for friend modules.
     var friendPaths: Array<String>? by FreezableVar(null)
@@ -240,7 +250,12 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
             jsr305,
             supportCompatqualCheckerFrameworkAnnotations
         )
-        result[AnalysisFlag.enableJvmDefault] = enableJvmDefault
+        JvmDefaultMode.fromStringOrNull(jvmDefault)?.let { result[AnalysisFlag.jvmDefaultMode] = it }
+                ?: collector.report(
+                    CompilerMessageSeverity.ERROR,
+                    "Unknown @JvmDefault mode: $jvmDefault, " +
+                            "supported modes: ${JvmDefaultMode.values().map { it.description }}"
+                )
         return result
     }
 

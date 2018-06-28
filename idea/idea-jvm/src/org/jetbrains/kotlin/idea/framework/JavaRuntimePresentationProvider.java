@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.idea.framework;
 
 import com.intellij.framework.library.LibraryVersionProperties;
 import com.intellij.openapi.roots.libraries.LibraryPresentationProvider;
-import com.intellij.openapi.roots.libraries.LibraryProperties;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

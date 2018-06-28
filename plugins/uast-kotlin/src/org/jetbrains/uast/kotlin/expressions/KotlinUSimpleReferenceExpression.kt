@@ -97,12 +97,12 @@ open class KotlinUSimpleReferenceExpression(
     }
 
     class KotlinAccessorCallExpression(
-            override val psi: KtElement,
-            override val uastParent: KotlinUSimpleReferenceExpression,
-            private val resolvedCall: ResolvedCall<*>,
-            private val accessorDescriptor: DeclarationDescriptor,
-            val setterValue: KtExpression?
-    ) : UCallExpressionEx, JvmDeclarationUElement {
+        override val psi: KtSimpleNameExpression,
+        override val uastParent: KotlinUSimpleReferenceExpression,
+        private val resolvedCall: ResolvedCall<*>,
+        private val accessorDescriptor: DeclarationDescriptor,
+        val setterValue: KtExpression?
+    ) : UCallExpressionEx, JvmDeclarationUElementPlaceholder {
         override val methodName: String?
             get() = accessorDescriptor.name.asString()
 
@@ -126,8 +126,7 @@ open class KotlinUSimpleReferenceExpression(
             type.toPsiType(this, psi, boxed = true)
         }
 
-        override val methodIdentifier: UIdentifier?
-            get() = KotlinUIdentifier(uastParent.psi, this)
+        override val methodIdentifier: UIdentifier? by lazy { KotlinUIdentifier(psi.getReferencedNameElement(), this) }
 
         override val classReference: UReferenceExpression?
             get() = null

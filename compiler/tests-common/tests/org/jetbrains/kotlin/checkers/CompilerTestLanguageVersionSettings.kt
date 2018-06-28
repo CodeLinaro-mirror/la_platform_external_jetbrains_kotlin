@@ -28,7 +28,7 @@ const val API_VERSION_DIRECTIVE = "API_VERSION"
 
 const val EXPERIMENTAL_DIRECTIVE = "EXPERIMENTAL"
 const val USE_EXPERIMENTAL_DIRECTIVE = "USE_EXPERIMENTAL"
-const val ENABLE_JVM_DEFAULT = "ENABLE_JVM_DEFAULT"
+const val JVM_DEFAULT_MODE = "JVM_DEFAULT_MODE"
 
 data class CompilerTestLanguageVersionSettings(
         private val initialLanguageFeatures: Map<LanguageFeature, LanguageFeature.State>,
@@ -41,6 +41,8 @@ data class CompilerTestLanguageVersionSettings(
 
     override fun getFeatureSupport(feature: LanguageFeature): LanguageFeature.State =
             languageFeatures[feature] ?: delegate.getFeatureSupport(feature)
+
+    override fun isPreRelease(): Boolean = languageVersion.isPreRelease()
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> getFlag(flag: AnalysisFlag<T>): T = analysisFlags[flag] as T? ?: flag.defaultValue
@@ -58,7 +60,7 @@ fun parseLanguageVersionSettings(directiveMap: Map<String, String>): LanguageVer
     val languageFeaturesString = directiveMap[LANGUAGE_DIRECTIVE]
     val experimental = directiveMap[EXPERIMENTAL_DIRECTIVE]?.split(' ')?.let { AnalysisFlag.experimental to it }
     val useExperimental = directiveMap[USE_EXPERIMENTAL_DIRECTIVE]?.split(' ')?.let { AnalysisFlag.useExperimental to it }
-    val enableJvmDefault = AnalysisFlag.enableJvmDefault to directiveMap.containsKey(ENABLE_JVM_DEFAULT)
+    val enableJvmDefault = directiveMap[JVM_DEFAULT_MODE]?.let { AnalysisFlag.jvmDefaultMode to JvmDefaultMode.fromStringOrNull(it)!! }
 
     if (apiVersionString == null && languageFeaturesString == null && experimental == null && useExperimental == null) return null
 

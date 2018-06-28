@@ -1,12 +1,15 @@
 description = 'Kotlin Test'
 
 apply plugin: 'kotlin-platform-jvm'
+apply plugin: 'pill-configurable'
 
 configureJvm6Project(project)
 configureDist(project)
 configurePublishing(project)
 
-project.ext["jpsLibraryPath"] = rootProject.distLibDir
+pill {
+    importAsLibrary = true
+}
 
 sourceSets {
     java9
@@ -37,9 +40,8 @@ dist {
 }
 
 compileKotlin {
-    // TODO: Why "-Xmulti-platfrom" ?
     kotlinOptions.freeCompilerArgs = ["-Xallow-kotlin-package", "-Xnormalize-constructor-calls=enable",
-                                      "-Xmulti-platform", "-module-name", project.archivesBaseName]
+                                      "-module-name", project.archivesBaseName]
 }
 
 compileTestKotlin {

@@ -96,8 +96,8 @@ sealed class ArtifactElement {
 }
 
 fun generateKotlinPluginArtifactFile(rootProject: Project): PFile {
-    val mainIdeaPluginTask = rootProject.tasks.getByName("ideaPlugin") as Copy
-    val gradleArtifactDir = mainIdeaPluginTask.destinationDir
+    val mainIdeaPluginTask = rootProject.tasks.getByName("ideaPlugin")
+    val gradleArtifactDir = File(rootProject.extra["ideaPluginDir"] as File, "lib")
 
     val ideaPluginTasks = mainIdeaPluginTask.taskDependencies
         .getDependencies(mainIdeaPluginTask)
@@ -153,7 +153,10 @@ fun generateKotlinPluginArtifactFile(rootProject: Project): PFile {
                         .findByName(EmbeddedComponents.CONFIGURATION_NAME)?.resolvedConfiguration
 
                     if (embeddedComponents != null) {
-                        for ((_, _, dependency) in listOf(embeddedComponents to Scope.COMPILE).collectDependencies()) {
+                        val configuration = CollectedConfiguration(embeddedComponents, Scope.COMPILE)
+                        for (dependencyInfo in listOf(configuration).collectDependencies()) {
+                            val dependency = (dependencyInfo as? DependencyInfo.ResolvedDependencyInfo)?.dependency ?: continue
+
                             if (dependency.configuration == "runtimeElements") {
                                 archiveForJar.add(ModuleOutput(dependency.moduleName + ".src"))
                             } else if (dependency.configuration == "tests-jar" || dependency.configuration == "jpsTest") {

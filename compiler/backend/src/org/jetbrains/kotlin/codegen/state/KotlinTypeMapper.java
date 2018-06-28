@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,6 +10,7 @@ import com.intellij.psi.PsiElement;
 import kotlin.Pair;
 import kotlin.Unit;
 import kotlin.collections.CollectionsKt;
+import kotlin.reflect.KType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.builtins.BuiltInsPackageFragment;
@@ -84,6 +85,7 @@ public class KotlinTypeMapper {
     private final IncompatibleClassTracker incompatibleClassTracker;
     private final String moduleName;
     private final boolean isJvm8Target;
+    private final boolean isReleaseCoroutines;
 
     private final TypeMappingConfiguration<Type> typeMappingConfiguration = new TypeMappingConfiguration<Type>() {
         @NotNull
@@ -111,6 +113,11 @@ public class KotlinTypeMapper {
                 throw new IllegalStateException(generateErrorMessageForErrorType(kotlinType, descriptor));
             }
         }
+
+        @Override
+        public boolean releaseCoroutines() {
+            return isReleaseCoroutines;
+        }
     };
 
     private static final TypeMappingConfiguration<Type> staticTypeMappingConfiguration = new TypeMappingConfiguration<Type>() {
@@ -136,6 +143,11 @@ public class KotlinTypeMapper {
         public void processErrorType(@NotNull KotlinType kotlinType, @NotNull ClassDescriptor descriptor) {
             throw new IllegalStateException(generateErrorMessageForErrorType(kotlinType, descriptor));
         }
+
+        @Override
+        public boolean releaseCoroutines() {
+            return false;
+        }
     };
 
     public KotlinTypeMapper(
@@ -145,12 +157,26 @@ public class KotlinTypeMapper {
             @NotNull String moduleName,
             boolean isJvm8Target
     ) {
+        this(bindingContext, classBuilderMode, incompatibleClassTracker, moduleName, isJvm8Target, false);
+    }
+
+    public KotlinTypeMapper(
+            @NotNull BindingContext bindingContext,
+            @NotNull ClassBuilderMode classBuilderMode,
+            @NotNull IncompatibleClassTracker incompatibleClassTracker,
+            @NotNull String moduleName,
+            boolean isJvm8Target,
+            boolean isReleaseCoroutines
+    ) {
         this.bindingContext = bindingContext;
         this.classBuilderMode = classBuilderMode;
         this.incompatibleClassTracker = incompatibleClassTracker;
         this.moduleName = moduleName;
         this.isJvm8Target = isJvm8Target;
+        this.isReleaseCoroutines = isReleaseCoroutines;
     }
+
+    public static final boolean RELEASE_COROUTINES_DEFAULT = false;
 
     @NotNull
     public BindingContext getBindingContext() {
@@ -169,7 +195,8 @@ public class KotlinTypeMapper {
     @NotNull
     private Type mapOwner(@NotNull DeclarationDescriptor descriptor, boolean publicFacade) {
         if (isLocalFunction(descriptor)) {
-            return asmTypeForAnonymousClass(bindingContext, (FunctionDescriptor) descriptor);
+            return asmTypeForAnonymousClass(bindingContext,
+                                            CoroutineCodegenUtilKt.unwrapInitialDescriptorForSuspendFunction((FunctionDescriptor) descriptor));
         }
 
         if (descriptor instanceof ConstructorDescriptor) {
@@ -292,10 +319,21 @@ public class KotlinTypeMapper {
         ClassId classId = DescriptorUtilsKt.getClassId(classDescriptor);
         assert classId != null : "Deserialized class should have a ClassId: " + classDescriptor;
 
+        String nestedClass;
         if (isInterface(classDescriptor)) {
+            nestedClass = JvmAbi.DEFAULT_IMPLS_SUFFIX;
+        }
+        else if (classDescriptor.isInline()) {
+            nestedClass = JvmAbi.ERASED_INLINE_CLASS_SUFFIX;
+        }
+        else {
+            nestedClass = null;
+        }
+
+        if (nestedClass != null) {
             FqName relativeClassName = classId.getRelativeClassName();
             //TODO test nested trait fun inlining
-            String defaultImplsClassName = relativeClassName.shortName().asString() + JvmAbi.DEFAULT_IMPLS_SUFFIX;
+            String defaultImplsClassName = relativeClassName.shortName().asString() + nestedClass;
             return new ClassId(classId.getPackageFqName(), Name.identifier(defaultImplsClassName));
         }
 
@@ -361,7 +399,9 @@ public class KotlinTypeMapper {
         }
 
         if (CoroutineCodegenUtilKt.isSuspendFunctionNotSuspensionView(descriptor)) {
-            return mapReturnType(CoroutineCodegenUtilKt.getOrCreateJvmSuspendFunctionView((SimpleFunctionDescriptor) descriptor), sw);
+            return mapReturnType(
+                    CoroutineCodegenUtilKt.getOrCreateJvmSuspendFunctionView((SimpleFunctionDescriptor) descriptor, isReleaseCoroutines),
+                    sw);
         }
 
         if (TypeSignatureMappingKt.hasVoidReturnType(descriptor)) {
@@ -1119,7 +1159,7 @@ public class KotlinTypeMapper {
         }
 
         if (f instanceof TypeAliasConstructorDescriptor) {
-            return mapSignature(((TypeAliasConstructorDescriptor) f).getUnderlyingConstructorDescriptor(), kind, skipGenericSignature);
+            return mapSignature(((TypeAliasConstructorDescriptor) f).getUnderlyingConstructorDescriptor().getOriginal(), kind, skipGenericSignature);
         }
 
         if (f instanceof FunctionImportedFromObject) {
@@ -1127,7 +1167,8 @@ public class KotlinTypeMapper {
         }
 
         if (CoroutineCodegenUtilKt.isSuspendFunctionNotSuspensionView(f)) {
-            return mapSignature(CoroutineCodegenUtilKt.getOrCreateJvmSuspendFunctionView(f), kind, skipGenericSignature);
+            return mapSignature(CoroutineCodegenUtilKt.getOrCreateJvmSuspendFunctionView(f, isReleaseCoroutines), kind,
+                                skipGenericSignature);
         }
 
         return mapSignatureWithCustomParameters(f, kind, f.getValueParameters(), skipGenericSignature, hasSpecialBridge);
@@ -1563,13 +1604,26 @@ public class KotlinTypeMapper {
     }
 
     @NotNull
-    public JvmMethodSignature mapScriptSignature(@NotNull ScriptDescriptor script, @NotNull List<ScriptDescriptor> importedScripts) {
+    public JvmMethodSignature mapScriptSignature(
+            @NotNull ScriptDescriptor script,
+            @NotNull List<ScriptDescriptor> importedScripts,
+            List<? extends KType> implicitReceivers,
+            List<? extends Pair<String, ? extends KType>> environmentVariables
+    ) {
         JvmSignatureWriter sw = new BothSignatureWriter(BothSignatureWriter.Mode.METHOD);
 
         sw.writeParametersStart();
 
         if (importedScripts.size() > 0) {
             writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getArray().getDefaultType(), null);
+        }
+
+        if (implicitReceivers.size() > 0) {
+            writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getArray().getDefaultType(), null);
+        }
+
+        if (environmentVariables.size() > 0) {
+            writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getMap().getDefaultType(), null);
         }
 
         for (ValueParameterDescriptor valueParameter : script.getUnsubstitutedPrimaryConstructor().getValueParameters()) {

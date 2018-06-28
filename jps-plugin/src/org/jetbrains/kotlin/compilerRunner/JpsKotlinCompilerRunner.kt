@@ -20,10 +20,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 import org.jetbrains.jps.api.GlobalOptions
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.KOTLIN_COMPILER_ENVIRONMENT_KEEPALIVE_PROPERTY
-import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.mergeBeans
+import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.config.CompilerSettings
 import org.jetbrains.kotlin.config.additionalArgumentsAsList
 import org.jetbrains.kotlin.daemon.client.CompileServiceSession
@@ -86,6 +83,20 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
         }
     )
 
+    fun runK2MetadataCompiler(
+        commonArguments: CommonCompilerArguments,
+        k2MetadataArguments: K2MetadataCompilerArguments,
+        compilerSettings: CompilerSettings,
+        environment: JpsCompilerEnvironment,
+        sourceFiles: Collection<File>
+    ) {
+        val arguments = mergeBeans(commonArguments, XmlSerializerUtil.createCopy(k2MetadataArguments))
+        arguments.freeArgs = sourceFiles.map { it.absolutePath }
+        withCompilerSettings(compilerSettings) {
+            runCompiler(K2METADATA_COMPILER, arguments, environment)
+        }
+    }
+
     fun runK2JvmCompiler(
         commonArguments: CommonCompilerArguments,
         k2jvmArguments: K2JVMCompilerArguments,
@@ -106,7 +117,7 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
         compilerSettings: CompilerSettings,
         environment: JpsCompilerEnvironment,
         sourceFiles: Collection<File>,
-        sourceRoots: Collection<File>,
+        sourceMapRoots: Collection<File>,
         libraries: List<String>,
         friendModules: List<String>,
         outputFile: File
@@ -119,7 +130,7 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
 
         setupK2JsArguments(outputFile, sourceFiles, libraries, friendModules, arguments)
         if (arguments.sourceMap) {
-            arguments.sourceMapBaseDirs = sourceRoots.joinToString(File.pathSeparator) { it.path }
+            arguments.sourceMapBaseDirs = sourceMapRoots.joinToString(File.pathSeparator) { it.path }
         }
 
         log.debug("K2JS: arguments after setup" + ArgumentUtils.convertArgumentsToStringList(arguments))
@@ -163,7 +174,16 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
             requestedCompilationResults = emptyArray()
         )
         return doWithDaemon(environment) { sessionId, daemon ->
-            daemon.compile(sessionId, withAdditionalCompilerArgs(compilerArgs), options, JpsCompilerServicesFacadeImpl(environment), null)
+            environment.withProgressReporter { progress ->
+                progress.compilationStarted()
+                daemon.compile(
+                    sessionId,
+                    withAdditionalCompilerArgs(compilerArgs),
+                    options,
+                    JpsCompilerServicesFacadeImpl(environment),
+                    null
+                )
+            }
         }?.let { exitCodeFromProcessExitCode(it) }
     }
 
@@ -237,7 +257,10 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
         if (System.getProperty(GlobalOptions.COMPILE_PARALLEL_OPTION, "false").toBoolean())
             System.setProperty(KOTLIN_COMPILER_ENVIRONMENT_KEEPALIVE_PROPERTY, "true")
 
-        val rc = CompilerRunnerUtil.invokeExecMethod(compilerClassName, withAdditionalCompilerArgs(compilerArgs), environment, out)
+        val rc = environment.withProgressReporter { progress ->
+            progress.compilationStarted()
+            CompilerRunnerUtil.invokeExecMethod(compilerClassName, withAdditionalCompilerArgs(compilerArgs), environment, out)
+        }
 
         // exec() returns an ExitCode object, class of which is loaded with a different class loader,
         // so we take it's contents through reflection
@@ -281,6 +304,7 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
 
     override fun getDaemonConnection(environment: JpsCompilerEnvironment): CompileServiceSession? =
         getOrCreateDaemonConnection {
+            environment.progressReporter.progress("connecting to daemon")
             val libPath = CompilerRunnerUtil.getLibPath(environment.kotlinPaths, environment.messageCollector)
             val compilerPath = File(libPath, "kotlin-compiler.jar")
             val toolsJarPath = CompilerRunnerUtil.jdkToolsJar
@@ -289,6 +313,10 @@ class JpsKotlinCompilerRunner : KotlinCompilerRunner<JpsCompilerEnvironment>() {
 
             val clientFlagFile = KotlinCompilerClient.getOrCreateClientFlagFile(daemonOptions)
             val sessionFlagFile = makeAutodeletingFlagFile("compiler-jps-session-", File(daemonOptions.runFilesPathOrDefault))
-            newDaemonConnection(compilerId, clientFlagFile, sessionFlagFile, environment, daemonOptions)
+
+            environment.withProgressReporter { progress ->
+                progress.progress("connecting to daemon")
+                newDaemonConnection(compilerId, clientFlagFile, sessionFlagFile, environment, daemonOptions)
+            }
         }
 }

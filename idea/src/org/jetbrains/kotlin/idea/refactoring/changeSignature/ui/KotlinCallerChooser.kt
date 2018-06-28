@@ -24,7 +24,6 @@ import com.intellij.psi.PsiReference
 import com.intellij.psi.search.searches.MethodReferencesSearch
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.refactoring.changeSignature.CallerChooserBase
-import com.intellij.refactoring.changeSignature.MemberNodeBase
 import com.intellij.refactoring.changeSignature.MethodNodeBase
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.JBColor
@@ -55,9 +54,8 @@ class KotlinCallerChooser(
         previousTree: Tree?,
         callback: Consumer<Set<PsiElement>>
 ): CallerChooserBase<PsiElement>(declaration, project, title, previousTree, "dummy." + KotlinFileType.EXTENSION, callback) {
-    override fun createTreeNode(method: PsiElement?, called: com.intellij.util.containers.HashSet<PsiElement>, cancelCallback: Runnable?): KotlinMethodNode {
-        return KotlinMethodNode(method, called, myProject, cancelCallback ?: Runnable {})
-    }
+    override fun createTreeNodeFor(method: PsiElement?, called: HashSet<PsiElement>?, cancelCallback: Runnable?) =
+        KotlinMethodNode(method, called ?: HashSet(), myProject, cancelCallback ?: Runnable {})
 
     override fun findDeepestSuperMethods(method: PsiElement) =
             method.toLightMethods().singleOrNull()?.findDeepestSuperMethods()

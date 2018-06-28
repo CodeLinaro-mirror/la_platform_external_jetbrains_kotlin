@@ -20,7 +20,6 @@ include ":kotlin-build-common",
         ":kotlin-preloader",
         ":kotlin-runner",
         ":compiler:container",
-        ":compiler:conditional-preprocessor",
         ":compiler:resolution",
         ":compiler:serialization",
         ":compiler:psi",
@@ -32,6 +31,7 @@ include ":kotlin-build-common",
         ":compiler:ir.tree",
         ":compiler:ir.psi2ir",
         ":compiler:ir.ir2cfg",
+        ":compiler:backend.js",
         ":compiler:backend-common",
         ":compiler:backend",
         ":compiler:plugin-api",
@@ -89,6 +89,7 @@ include ":kotlin-build-common",
         ":noarg-ide-plugin",
         ":kotlin-sam-with-receiver-compiler-plugin",
         ":sam-with-receiver-ide-plugin",
+        ":kotlin-imports-dumper-compiler-plugin",
         ":kotlin-source-sections-compiler-plugin",
         ":plugins:uast-kotlin",
         ":plugins:uast-kotlin-idea",
@@ -100,6 +101,7 @@ include ":kotlin-build-common",
         ":kotlin-test:kotlin-test-annotations-common",
         ":kotlin-test:kotlin-test-jvm",
         ":kotlin-test:kotlin-test-junit",
+        ":kotlin-test:kotlin-test-junit5",
         ":kotlin-test:kotlin-test-testng",
         ":kotlin-test:kotlin-test-js",
         ":kotlin-test:kotlin-test-js:kotlin-test-js-it",
@@ -117,6 +119,7 @@ include ":kotlin-build-common",
         ":prepare:formatter",
         ":prepare:ide-lazy-resolver",
         ":prepare:idea-plugin",
+        ":prepare:cidr-plugin",
         ":android-lint",
         ":kotlin-compiler",
         ":kotlin-compiler-embeddable",
@@ -142,6 +145,7 @@ include ":kotlin-build-common",
         ":examples:annotation-processor-example",
         ":kotlin-script-util",
         ":kotlin-annotation-processing",
+        ":kotlin-annotation-processing-base",
         ":kotlin-annotation-processing-runtime",
         ":kotlin-annotation-processing-gradle",
         ":kotlin-annotation-processing-embeddable",
@@ -149,13 +153,26 @@ include ":kotlin-build-common",
         ":examples:kotlin-jsr223-daemon-local-eval-example",
         ":kotlin-annotations-jvm",
         ":kotlin-annotations-android",
+        ":kotlin-scripting-common",
+        ":kotlin-scripting-misc",
+        ":kotlin-scripting-jvm",
+        ":kotlin-scripting-jvm-host",
+        ":kotlin-scripting-compiler",
+        ":kotlin-scripting-idea",
+        ":kotlin-scripting-gradle",
+        ":examples:scripting-jvm-simple-script",
+        ":examples:scripting-jvm-simple-script-host",
+        ":examples:scripting-jvm-maven-deps",
+        ":examples:scripting-jvm-maven-deps-host",
         ":pill:generate-all-tests",
+        ":libraries:kotlin-prepush-hook",
         ":include:kotlin-compiler",
 
         // plugin markers:
         ':kotlin-gradle-plugin:plugin-marker',
         ':kotlin-allopen:plugin-marker',
         ':kotlin-noarg:plugin-marker',
+        ':kotlin-scripting-gradle:plugin-marker',
         ":test-instrumenter"
 
 def isTeamcityBuild = hasProperty("teamcity") || System.getenv("TEAMCITY_VERSION") != null
@@ -176,11 +193,12 @@ project(':kotlin-test:kotlin-test-common').projectDir = "$rootDir/libraries/kotl
 project(':kotlin-test:kotlin-test-annotations-common').projectDir = "$rootDir/libraries/kotlin.test/annotations-common" as File
 project(':kotlin-test:kotlin-test-jvm').projectDir = "$rootDir/libraries/kotlin.test/jvm" as File
 project(':kotlin-test:kotlin-test-junit').projectDir = "$rootDir/libraries/kotlin.test/junit" as File
+project(':kotlin-test:kotlin-test-junit5').projectDir = "$rootDir/libraries/kotlin.test/junit5" as File
 project(':kotlin-test:kotlin-test-testng').projectDir = "$rootDir/libraries/kotlin.test/testng" as File
 project(':kotlin-test:kotlin-test-js').projectDir = "$rootDir/libraries/kotlin.test/js" as File
 project(':kotlin-test:kotlin-test-js:kotlin-test-js-it').projectDir = "$rootDir/libraries/kotlin.test/js/it" as File
 project(':kotlin-stdlib-common').projectDir = "$rootDir/libraries/stdlib/common" as File
-project(':kotlin-stdlib').projectDir = "$rootDir/libraries/stdlib" as File
+project(':kotlin-stdlib').projectDir = "$rootDir/libraries/stdlib/jvm" as File
 project(':kotlin-stdlib-js').projectDir = "$rootDir/libraries/stdlib/js" as File
 project(':kotlin-stdlib-jre7').projectDir = "$rootDir/libraries/stdlib/jre7" as File
 project(':kotlin-stdlib-jre8').projectDir = "$rootDir/libraries/stdlib/jre8" as File
@@ -204,6 +222,7 @@ project(':kotlin-ant').projectDir = "$rootDir/ant" as File
 project(':compiler:ir.tree').projectDir = "$rootDir/compiler/ir/ir.tree" as File
 project(':compiler:ir.psi2ir').projectDir = "$rootDir/compiler/ir/ir.psi2ir" as File
 project(':compiler:ir.ir2cfg').projectDir = "$rootDir/compiler/ir/ir.ir2cfg" as File
+project(':compiler:backend.js').projectDir = "$rootDir/compiler/ir/backend.js" as File
 project(':kotlin-jps-plugin').projectDir = "$rootDir/prepare/jps-plugin" as File
 project(':idea:idea-android-output-parser').projectDir = "$rootDir/idea/idea-android/idea-android-output-parser" as File
 project(':plugins:android-extensions-compiler').projectDir = "$rootDir/plugins/android-extensions/android-extensions-compiler" as File
@@ -235,16 +254,31 @@ project(':kotlin-script-util').projectDir = "$rootDir/libraries/tools/kotlin-scr
 project(':kotlin-annotation-processing-gradle').projectDir = "$rootDir/libraries/tools/kotlin-annotation-processing" as File
 project(':kotlin-annotation-processing-embeddable').projectDir = "$rootDir/prepare/kotlin-annotation-processing-embeddable" as File
 project(':kotlin-annotation-processing').projectDir = "$rootDir/plugins/kapt3/kapt3-compiler" as File
+project(':kotlin-annotation-processing-base').projectDir = "$rootDir/plugins/kapt3/kapt3-base" as File
 project(':kotlin-annotation-processing-runtime').projectDir = "$rootDir/plugins/kapt3/kapt3-runtime" as File
 project(':plugins:kapt3-idea').projectDir = "$rootDir/plugins/kapt3/kapt3-idea" as File
 project(':examples:kotlin-jsr223-local-example').projectDir = "$rootDir/libraries/examples/kotlin-jsr223-local-example" as File
 project(':examples:kotlin-jsr223-daemon-local-eval-example').projectDir = "$rootDir/libraries/examples/kotlin-jsr223-daemon-local-eval-example" as File
 project(':kotlin-annotations-jvm').projectDir = "$rootDir/libraries/tools/kotlin-annotations-jvm" as File
 project(':kotlin-annotations-android').projectDir = "$rootDir/libraries/tools/kotlin-annotations-android" as File
+project(':kotlin-scripting-common').projectDir = "$rootDir/libraries/scripting/common" as File
+project(':kotlin-scripting-misc').projectDir = "$rootDir/libraries/scripting/misc" as File
+project(':kotlin-scripting-jvm').projectDir = "$rootDir/libraries/scripting/jvm" as File
+project(':kotlin-scripting-jvm-host').projectDir = "$rootDir/libraries/scripting/jvm-host" as File
+project(':kotlin-scripting-compiler').projectDir = "$rootDir/plugins/scripting/scripting-cli" as File
+project(':kotlin-scripting-idea').projectDir = "$rootDir/plugins/scripting/scripting-idea" as File
+project(':kotlin-scripting-gradle').projectDir = "$rootDir/plugins/scripting/scripting-gradle" as File
+project(':examples:scripting-jvm-simple-script').projectDir = "$rootDir/libraries/examples/scripting/jvm-simple-script/script" as File
+project(':examples:scripting-jvm-simple-script-host').projectDir = "$rootDir/libraries/examples/scripting/jvm-simple-script/host" as File
+project(':examples:scripting-jvm-maven-deps').projectDir = "$rootDir/libraries/examples/scripting/jvm-maven-deps/script" as File
+project(':examples:scripting-jvm-maven-deps-host').projectDir = "$rootDir/libraries/examples/scripting/jvm-maven-deps/host" as File
 project(':pill:generate-all-tests').projectDir = "$rootDir/plugins/pill/generate-all-tests" as File
+project(':kotlin-imports-dumper-compiler-plugin').projectDir = "$rootDir/plugins/imports-dumper" as File
+project(':libraries:kotlin-prepush-hook').projectDir = "$rootDir/libraries/tools/kotlin-prepush-hook" as File
 
 // plugin markers:
 project(':kotlin-gradle-plugin:plugin-marker').projectDir = file("$rootDir/libraries/tools/kotlin-gradle-plugin/plugin-marker")
 project(':kotlin-allopen:plugin-marker').projectDir = file("$rootDir/libraries/tools/kotlin-allopen/plugin-marker")
 project(':kotlin-noarg:plugin-marker').projectDir = file("$rootDir/libraries/tools/kotlin-noarg/plugin-marker")
+project(':kotlin-scripting-gradle:plugin-marker').projectDir = file("$rootDir/plugins/scripting/scripting-gradle/plugin-marker")
 

@@ -41,6 +41,8 @@ import org.jetbrains.kotlin.idea.compiler.configuration.Kotlin2JvmCompilerArgume
 import org.jetbrains.kotlin.idea.compiler.configuration.KotlinCommonCompilerArgumentsHolder
 import org.jetbrains.kotlin.idea.compiler.configuration.KotlinCompilerSettings
 import org.jetbrains.kotlin.idea.framework.KotlinSdkType
+import org.jetbrains.kotlin.idea.project.internalNewInferenceArg
+import org.jetbrains.kotlin.idea.project.internalSamConversionForKotlinFunctionsArg
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.idea.versions.*
 import kotlin.reflect.KProperty1
@@ -121,57 +123,6 @@ val mavenLibraryIdToPlatform: Map<String, TargetPlatformKind<*>> by lazy {
             .sortedByDescending { it.first.length }
             .toMap()
 }
-
-internal fun Module.findImplementingModules(modelsProvider: IdeModifiableModelsProvider) =
-    modelsProvider.modules.filter { name in it.findImplementedModuleNames(modelsProvider) }
-
-val Module.implementingModules: List<Module>
-    get() = cached(CachedValueProvider {
-        CachedValueProvider.Result(
-                findImplementingModules(IdeModifiableModelsProviderImpl(project)),
-                ProjectRootModificationTracker.getInstance(project)
-        )
-    })
-
-private fun Module.getModuleInfo(baseModuleSourceInfo: ModuleSourceInfo): ModuleSourceInfo? =
-    when (baseModuleSourceInfo) {
-        is ModuleProductionSourceInfo -> productionSourceInfo()
-        is ModuleTestSourceInfo -> testSourceInfo()
-        else -> null
-    }
-
-private fun Module.findImplementingModuleInfos(moduleSourceInfo: ModuleSourceInfo): List<ModuleSourceInfo> {
-    val modelsProvider = IdeModifiableModelsProviderImpl(project)
-    val implementingModules = findImplementingModules(modelsProvider)
-    return implementingModules.mapNotNull { it.getModuleInfo(moduleSourceInfo) }
-}
-
-val ModuleDescriptor.implementingDescriptors: List<ModuleDescriptor>
-    get() {
-        val moduleSourceInfo = getCapability(ModuleInfo.Capability) as? ModuleSourceInfo ?: return emptyList()
-        val module = moduleSourceInfo.module
-        return module.cached(CachedValueProvider {
-            val implementingModuleInfos = module.findImplementingModuleInfos(moduleSourceInfo)
-            val implementingModuleDescriptors = implementingModuleInfos.mapNotNull {
-                KotlinCacheService.getInstance(module.project).getResolutionFacadeByModuleInfo(it, it.platform)?.moduleDescriptor
-            }
-            CachedValueProvider.Result(
-                    implementingModuleDescriptors,
-                    *(implementingModuleInfos.map { it.createModificationTracker() } +
-                      ProjectRootModificationTracker.getInstance(module.project)).toTypedArray()
-            )
-        })
-    }
-
-val ModuleDescriptor.implementedDescriptors: List<ModuleDescriptor>
-    get() {
-        val moduleSourceInfo = getCapability(ModuleInfo.Capability) as? ModuleSourceInfo ?: return emptyList()
-
-        return moduleSourceInfo.expectedBy.mapNotNull {
-            KotlinCacheService.getInstance(moduleSourceInfo.module.project)
-                .getResolutionFacadeByModuleInfo(it, it.platform)?.moduleDescriptor
-        }
-    }
 
 fun Module.getOrCreateFacet(modelsProvider: IdeModifiableModelsProvider,
                             useProjectSettings: Boolean,
@@ -282,7 +233,7 @@ fun parseCompilerArgumentsToFacet(
         arguments: List<String>,
         defaultArguments: List<String>,
         kotlinFacet: KotlinFacet,
-        modelsProvider: IdeModifiableModelsProvider?
+        modelsProvider: IdeModifiableModelsProvider
 ) {
     with(kotlinFacet.configuration.settings) {
         val compilerArguments = this.compilerArguments ?: return
@@ -298,8 +249,7 @@ fun parseCompilerArgumentsToFacet(
         // Retain only fields exposed (and not explicitly ignored) in facet configuration editor.
         // The rest is combined into string and stored in CompilerSettings.additionalArguments
 
-        if (modelsProvider != null)
-            kotlinFacet.module.configureSdkIfPossible(compilerArguments, modelsProvider)
+        kotlinFacet.module.configureSdkIfPossible(compilerArguments, modelsProvider)
 
         val primaryFields = compilerArguments.primaryFields
         val ignoredFields = compilerArguments.ignoredFields
@@ -307,7 +257,7 @@ fun parseCompilerArgumentsToFacet(
         fun exposeAsAdditionalArgument(property: KProperty1<CommonCompilerArguments, Any?>) =
                 property.name !in primaryFields && property.get(compilerArguments) != property.get(defaultCompilerArguments)
 
-        val additionalArgumentsString = with(compilerArguments::class.java.newInstance()) {
+        var additionalArgumentsString = with(compilerArguments::class.java.newInstance()) {
             copyFieldsSatisfying(compilerArguments, this) { exposeAsAdditionalArgument(it) && it.name !in ignoredFields }
             ArgumentUtils.convertArgumentsToStringList(this).joinToString(separator = " ") {
                 if (StringUtil.containsWhitespaces(it) || it.startsWith('"')) {
@@ -315,6 +265,11 @@ fun parseCompilerArgumentsToFacet(
                 } else it
             }
         }
+
+        // XXX: this is temporary hack specifically for 1.2.50
+        if (arguments.contains(internalNewInferenceArg)) additionalArgumentsString += " $internalNewInferenceArg"
+        if (arguments.contains(internalSamConversionForKotlinFunctionsArg)) additionalArgumentsString += " $internalSamConversionForKotlinFunctionsArg"
+
         compilerSettings?.additionalArguments =
                 if (additionalArgumentsString.isNotEmpty()) additionalArgumentsString else CompilerSettings.DEFAULT_ADDITIONAL_ARGUMENTS
 

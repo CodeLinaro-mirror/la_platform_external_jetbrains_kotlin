@@ -30,7 +30,8 @@ import org.jetbrains.uast.kotlin.declarations.KotlinUIdentifier
 import org.jetbrains.uast.kotlin.declarations.KotlinUMethod
 import org.jetbrains.uast.kotlin.declarations.UastLightIdentifier
 
-abstract class AbstractKotlinUClass(givenParent: UElement?) : KotlinAbstractUElement(givenParent), UClass, JvmDeclarationUElement {
+abstract class AbstractKotlinUClass(givenParent: UElement?) : KotlinAbstractUElement(givenParent), UClassTypeSpecific, UAnchorOwner,
+    JvmDeclarationUElementPlaceholder {
 
     override val uastDeclarations by lz {
         mutableListOf<UDeclaration>().apply {
@@ -79,8 +80,13 @@ open class KotlinUClass private constructor(
 
     override fun getContainingFile(): PsiFile? = unwrapFakeFileForLightClass(psi.containingFile)
 
-    override val uastAnchor: UElement
-        get() = KotlinUIdentifier(nameIdentifier, ktClass?.nameIdentifier, this)
+    override val uastAnchor by lazy { getIdentifierSourcePsi()?.let { KotlinUIdentifier(nameIdentifier, it, this) } }
+
+    private fun getIdentifierSourcePsi(): PsiElement? {
+        ktClass?.nameIdentifier?.let { return it }
+        (ktClass as? KtObjectDeclaration)?.getObjectKeyword()?.let { return it }
+        return null
+    }
 
     override fun getInnerClasses(): Array<UClass> {
         // filter DefaultImpls to avoid processing same methods from original interface multiple times
@@ -164,6 +170,14 @@ open class KotlinConstructorUMethod(
         }
     }
 
+    override val uastAnchor: KotlinUIdentifier by lazy {
+        KotlinUIdentifier(
+            psi.nameIdentifier,
+            if (isPrimary) ktClass?.nameIdentifier else (psi.kotlinOrigin as? KtSecondaryConstructor)?.getConstructorKeyword(),
+            this
+        )
+    }
+
     override val javaPsi = psi
 
     override val sourcePsi = psi.kotlinOrigin
@@ -211,10 +225,9 @@ class KotlinUAnonymousClass(
 
     override fun getContainingFile(): PsiFile = unwrapFakeFileForLightClass(psi.containingFile)
 
-    override val uastAnchor: UElement?
-        get() {
-            val ktClassOrObject = (psi.originalElement as? KtLightClass)?.kotlinOrigin as? KtObjectDeclaration ?: return null
-            return KotlinUIdentifier(ktClassOrObject.getObjectKeyword(), this)
+    override val uastAnchor by lazy {
+        val ktClassOrObject = (psi.originalElement as? KtLightClass)?.kotlinOrigin as? KtObjectDeclaration ?: return@lazy null
+        KotlinUIdentifier(ktClassOrObject.getObjectKeyword(), this)
         }
 
 }
@@ -227,8 +240,7 @@ class KotlinScriptUClass(
 
     override fun getNameIdentifier(): PsiIdentifier? = UastLightIdentifier(psi, psi.kotlinOrigin)
 
-    override val uastAnchor: UElement
-        get() = KotlinUIdentifier(nameIdentifier, sourcePsi?.nameIdentifier, this)
+    override val uastAnchor by lazy { KotlinUIdentifier(nameIdentifier, sourcePsi?.nameIdentifier, this) }
 
     override val javaPsi: PsiClass = psi
 

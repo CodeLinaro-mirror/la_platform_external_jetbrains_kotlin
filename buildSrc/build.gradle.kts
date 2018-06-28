@@ -3,7 +3,6 @@ buildscript {
     val buildSrcKotlinVersion: String by extra(findProperty("buildSrc.kotlin.version")?.toString() ?: embeddedKotlinVersion)
     val buildSrcKotlinRepo: String? by extra(findProperty("buildSrc.kotlin.repo") as String?)
     extra["versions.shadow"] = "2.0.2"
-    extra["versions.intellij-plugin"] = "0.3.0-SNAPSHOT"
     extra["versions.native-platform"] = "0.14"
 
     repositories {
@@ -29,6 +28,20 @@ apply {
 
 plugins {
     `kotlin-dsl`
+    `java-gradle-plugin`
+}
+
+gradlePlugin {
+    (plugins) {
+        "pill-configurable" {
+            id = "pill-configurable"
+            implementationClass = "org.jetbrains.kotlin.pill.PillConfigurablePlugin"
+        }
+        "jps-compatible" {
+            id = "jps-compatible"
+            implementationClass = "org.jetbrains.kotlin.pill.JpsCompatiblePlugin"
+        }
+    }
 }
 
 fun Project.getBooleanProperty(name: String): Boolean? = this.findProperty(name)?.let {
@@ -55,7 +68,7 @@ repositories {
     extra["buildSrcKotlinRepo"]?.let {
         maven(url = it)
     }
-    maven(url = "https://repo.gradle.org/gradle/libs-releases-local") // for native-platform
+    maven(url = "https://repo.gradle.org/gradle/ext-releases-local") // for native-platform
     jcenter()
 }
 
