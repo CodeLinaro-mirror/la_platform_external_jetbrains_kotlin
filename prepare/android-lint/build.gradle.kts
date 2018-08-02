@@ -3,7 +3,7 @@ description = "Kotlin Android Lint"
 
 plugins {
     `java-base`
-    id("pill-configurable")
+    id("jps-compatible")
 }
 
 val projectsToShadow = listOf(

@@ -75,6 +75,7 @@ class GroovyBuildScriptManipulator(
                         with(KotlinWithGradleConfigurator.getManipulator(it)) {
                             addPluginRepository(repository)
                             addMavenCentralPluginRepository()
+                            addPluginRepository(DEFAULT_GRADLE_PLUGIN_REPOSITORY)
                         }
                     }
                 }
@@ -251,7 +252,7 @@ class GroovyBuildScriptManipulator(
     private fun getGroovyDependencySnippet(
         artifactName: String,
         withVersion: Boolean
-    ) = "implementation \"org.jetbrains.kotlin:$artifactName${if (withVersion) ":\$kotlin_version" else ""}\""
+    ) = "compile \"org.jetbrains.kotlin:$artifactName${if (withVersion) ":\$kotlin_version" else ""}\""
 
     private fun getApplyPluginDirective(pluginName: String) = "apply plugin: '$pluginName'"
 

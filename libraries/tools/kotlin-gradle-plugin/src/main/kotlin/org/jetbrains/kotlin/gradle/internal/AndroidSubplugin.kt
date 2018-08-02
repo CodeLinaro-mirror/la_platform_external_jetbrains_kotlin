@@ -47,12 +47,10 @@ class AndroidExtensionsSubpluginIndicator : Plugin<Project> {
     }
 
     private fun addAndroidExtensionsRuntimeIfNeeded(project: Project) {
-        val kotlinPluginWrapper = project.plugins.findPlugin(KotlinAndroidPluginWrapper::class.java) ?: run {
-            project.logger.error("'kotlin-android' plugin should be enabled before 'kotlin-android-extensions'")
+        val kotlinPluginVersion = project.getKotlinPluginVersion() ?: run {
+            project.logger.error("Kotlin plugin should be enabled before 'kotlin-android-extensions'")
             return
         }
-
-        val kotlinPluginVersion = kotlinPluginWrapper.kotlinPluginVersion
 
         project.configurations.all { configuration ->
             val name = configuration.name
@@ -129,7 +127,9 @@ class AndroidSubplugin : KotlinGradleSubplugin<KotlinCompile> {
 
         addVariant(mainSourceSet)
 
-        val flavorSourceSets = AndroidGradleWrapper.getProductFlavorsSourceSets(androidExtension).filterNotNull()
+        val flavorSourceSets = androidExtension.productFlavors
+            .mapNotNull { androidExtension.sourceSets.findByName(it.name) }
+
         for (sourceSet in flavorSourceSets) {
             addVariant(sourceSet)
         }
@@ -207,7 +207,9 @@ class AndroidSubplugin : KotlinGradleSubplugin<KotlinCompile> {
                 addSourceSetAsVariant(flavorName)
             }
 
-            addSourceSetAsVariant(variantName)
+            if (buildTypeName != variantName && buildTypeName != flavorName) {
+                addSourceSetAsVariant(variantName)
+            }
         }
 
         return wrapPluginOptions(pluginOptions, "configuration")
@@ -261,9 +263,8 @@ class AndroidSubplugin : KotlinGradleSubplugin<KotlinCompile> {
 
     override fun getCompilerPluginId() = "org.jetbrains.kotlin.android"
 
-    override fun getGroupName() = "org.jetbrains.kotlin"
-
-    override fun getArtifactName() = "kotlin-android-extensions"
+    override fun getPluginArtifact(): SubpluginArtifact =
+        JetBrainsSubpluginArtifact(artifactId = "kotlin-android-extensions")
 
     private fun File.parseXml(): Document {
         val factory = DocumentBuilderFactory.newInstance()

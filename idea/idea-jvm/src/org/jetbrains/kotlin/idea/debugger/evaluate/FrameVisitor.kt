@@ -118,7 +118,8 @@ class FrameVisitor(val context: EvaluationContextImpl) {
         val sourceFileText = runReadAction { sourceFile?.text }
 
         if (sourceName != null && sourceFileText != null) {
-            LOG.error("$message\n\n$locationText", mergeAttachments(Attachment(sourceName, sourceFileText)))
+            val attachments = mergeAttachments(Attachment(sourceName, sourceFileText), Attachment("location.txt", locationText))
+            LOG.error(message, attachments)
         }
 
         throw EvaluateExceptionUtil.createEvaluateException(message)

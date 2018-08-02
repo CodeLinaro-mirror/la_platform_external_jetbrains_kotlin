@@ -2,11 +2,11 @@ buildscript {
     repositories {
         mavenCentral()
         maven {
-            url('https://dl.bintray.com/jetbrains/intellij-plugin-service/')
+            url('https://dl.bintray.com/jetbrains/plugin-repository-rest-client/')
         }
     }
     dependencies {
-        classpath 'org.jetbrains.intellij:plugin-repository-rest-client:0.4.28'
+        classpath 'org.jetbrains.intellij:plugin-repository-rest-client:0.1.15'
     }
 }
 

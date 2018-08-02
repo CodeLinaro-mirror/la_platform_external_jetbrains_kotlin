@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.asJava.classes.FakeLightClassForFileOfPackage
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.idea.caches.lightClasses.KtLightClassForDecompiledDeclaration
+import org.jetbrains.kotlin.idea.core.isInTestSourceContentKotlinAware
 import org.jetbrains.kotlin.idea.core.script.ScriptDependenciesManager
 import org.jetbrains.kotlin.idea.core.script.scriptRelatedModuleName
 import org.jetbrains.kotlin.idea.util.ProjectRootsUtil
@@ -31,7 +32,7 @@ import org.jetbrains.kotlin.utils.sure
 import org.jetbrains.kotlin.utils.yieldIfNotNull
 import kotlin.coroutines.experimental.buildSequence
 
-var PsiFile.moduleInfo: ModuleInfo? by UserDataProperty(Key.create("MODULE_INFO"))
+var PsiFile.forcedModuleInfo: ModuleInfo? by UserDataProperty(Key.create("FORCED_MODULE_INFO"))
 
 fun PsiElement.getModuleInfo(): IdeaModuleInfo = this.collectInfos(ModuleInfoCollector.NotNullTakeFirst)
 
@@ -135,7 +136,7 @@ private sealed class ModuleInfoCollector<out T>(
 }
 
 private fun <T> PsiElement.collectInfos(c: ModuleInfoCollector<T>): T {
-    (containingFile?.moduleInfo as? IdeaModuleInfo)?.let {
+    (containingFile?.forcedModuleInfo as? IdeaModuleInfo)?.let {
         return c.onResult(it)
     }
 
@@ -155,7 +156,7 @@ private fun <T> PsiElement.collectInfos(c: ModuleInfoCollector<T>): T {
         return c.onFailure("Should not analyze element: $text in file ${containingKtFile.name}\n$it")
     }
 
-    val explicitModuleInfo = containingKtFile?.moduleInfo ?: (containingKtFile?.originalFile as? KtFile)?.moduleInfo
+    val explicitModuleInfo = containingKtFile?.forcedModuleInfo ?: (containingKtFile?.originalFile as? KtFile)?.forcedModuleInfo
     if (explicitModuleInfo is IdeaModuleInfo) {
         return c.onResult(explicitModuleInfo)
     }
@@ -204,17 +205,18 @@ private inline fun <T> collectInfosByVirtualFile(
     isScript: Boolean = getScriptDefinition(virtualFile, project) != null,
     onOccurrence: (IdeaModuleInfo?) -> T
 ): T {
-    if (isScript) {
-        getScriptDefinition(virtualFile, project)?.let {
-            onOccurrence(ScriptModuleInfo(project, virtualFile, it))
-        }
-    }
 
     val projectFileIndex = ProjectFileIndex.SERVICE.getInstance(project)
 
     val moduleRelatedModuleInfo = getModuleRelatedModuleInfo(projectFileIndex, virtualFile)
     if (moduleRelatedModuleInfo != null) {
         onOccurrence(moduleRelatedModuleInfo)
+    }
+
+    if (moduleRelatedModuleInfo == null && isScript) {
+        getScriptDefinition(virtualFile, project)?.let {
+            onOccurrence(ScriptModuleInfo(project, virtualFile, it))
+        }
     }
 
     projectFileIndex.getOrderEntriesForFile(virtualFile).forEach {
@@ -241,7 +243,7 @@ private fun getModuleRelatedModuleInfo(projectFileIndex: ProjectFileIndex, virtu
     val module = projectFileIndex.getModuleForFile(virtualFile)
     if (module != null && !module.isDisposed) {
         val moduleFileIndex = ModuleRootManager.getInstance(module).fileIndex
-        if (moduleFileIndex.isInTestSourceContent(virtualFile)) {
+        if (moduleFileIndex.isInTestSourceContentKotlinAware(virtualFile)) {
             return module.testSourceInfo()
         } else if (moduleFileIndex.isInSourceContentWithoutInjected(virtualFile)) {
             return module.productionSourceInfo()
