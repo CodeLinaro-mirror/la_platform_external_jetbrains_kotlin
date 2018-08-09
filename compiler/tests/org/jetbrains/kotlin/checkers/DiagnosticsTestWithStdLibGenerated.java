@@ -776,6 +776,29 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
         }
     }
 
+    @TestMetadata("compiler/testData/diagnostics/testsWithStdLib/assert")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Assert extends AbstractDiagnosticsTestWithStdLib {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInAssert() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/diagnostics/testsWithStdLib/assert"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("cast.kt")
+        public void testCast() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/assert/cast.kt");
+        }
+
+        @TestMetadata("safeCall.kt")
+        public void testSafeCall() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/assert/safeCall.kt");
+        }
+    }
+
     @TestMetadata("compiler/testData/diagnostics/testsWithStdLib/builtins")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -1474,6 +1497,18 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
             runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendCoroutineUnavailableWithOldAPI.kt");
         }
 
+        @TestMetadata("suspendCovarianJavaOverride.kt")
+        public void testSuspendCovarianJavaOverride_1_2() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendCovarianJavaOverride.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+        }
+
+        @TestMetadata("suspendCovarianJavaOverride.kt")
+        public void testSuspendCovarianJavaOverride_1_3() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendCovarianJavaOverride.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+        }
+
         @TestMetadata("suspendDestructuring.kt")
         public void testSuspendDestructuring() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendDestructuring.kt");
@@ -1496,9 +1531,40 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
             doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
         }
 
+        @TestMetadata("suspendJavaImplementationFromDifferentClass.kt")
+        public void testSuspendJavaImplementationFromDifferentClass_1_2() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendJavaImplementationFromDifferentClass.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+        }
+
+        @TestMetadata("suspendJavaImplementationFromDifferentClass.kt")
+        public void testSuspendJavaImplementationFromDifferentClass_1_3() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendJavaImplementationFromDifferentClass.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+        }
+
+        @TestMetadata("suspendJavaOverrides.kt")
+        public void testSuspendJavaOverrides_1_2() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendJavaOverrides.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+        }
+
+        @TestMetadata("suspendJavaOverrides.kt")
+        public void testSuspendJavaOverrides_1_3() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendJavaOverrides.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+        }
+
         @TestMetadata("suspendLambda.kt")
-        public void testSuspendLambda() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendLambda.kt");
+        public void testSuspendLambda_1_2() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendLambda.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+        }
+
+        @TestMetadata("suspendLambda.kt")
+        public void testSuspendLambda_1_3() throws Exception {
+            String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/suspendLambda.kt");
+            doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
         }
 
         @TestMetadata("suspendOverridability.kt")
@@ -1561,6 +1627,11 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
             @TestMetadata("kt15516.kt")
             public void testKt15516() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/inference/kt15516.kt");
+            }
+
+            @TestMetadata("nestedSuspendCallInsideLambda.kt")
+            public void testNestedSuspendCallInsideLambda() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/inference/nestedSuspendCallInsideLambda.kt");
             }
 
             @TestMetadata("recursiveGenerators.kt")
@@ -1807,6 +1878,18 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
                 doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
             }
 
+            @TestMetadata("memberExtension.kt")
+            public void testMemberExtension_1_2() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/memberExtension.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+            }
+
+            @TestMetadata("memberExtension.kt")
+            public void testMemberExtension_1_3() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/memberExtension.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+            }
+
             @TestMetadata("notRelatedFun.kt")
             public void testNotRelatedFun_1_2() throws Exception {
                 String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/notRelatedFun.kt");
@@ -1816,6 +1899,18 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
             @TestMetadata("notRelatedFun.kt")
             public void testNotRelatedFun_1_3() throws Exception {
                 String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/notRelatedFun.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+            }
+
+            @TestMetadata("outerYield.kt")
+            public void testOuterYield_1_2() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/outerYield.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+            }
+
+            @TestMetadata("outerYield.kt")
+            public void testOuterYield_1_3() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/outerYield.kt");
                 doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
             }
 
@@ -1840,6 +1935,18 @@ public class DiagnosticsTestWithStdLibGenerated extends AbstractDiagnosticsTestW
             @TestMetadata("simpleForbidden.kt")
             public void testSimpleForbidden_1_3() throws Exception {
                 String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/simpleForbidden.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
+            }
+
+            @TestMetadata("wrongEnclosingFunction.kt")
+            public void testWrongEnclosingFunction_1_2() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/wrongEnclosingFunction.kt");
+                doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines.experimental");
+            }
+
+            @TestMetadata("wrongEnclosingFunction.kt")
+            public void testWrongEnclosingFunction_1_3() throws Exception {
+                String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/diagnostics/testsWithStdLib/coroutines/restrictSuspension/wrongEnclosingFunction.kt");
                 doTestWithCoroutinesPackageReplacement(fileName, "kotlin.coroutines");
             }
         }

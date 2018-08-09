@@ -573,7 +573,8 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
                     iv.ifne(ne);
                 }
                 else {
-                    StackValue value = genEqualsForExpressionsOnStack(KtTokens.EQEQ, StackValue.onStack(asmType), StackValue.onStack(asmType));
+                    StackValue value =
+                            genEqualsForExpressionsOnStack(KtTokens.EQEQ, StackValue.onStack(asmType), StackValue.onStack(asmType));
                     value.put(Type.BOOLEAN_TYPE, iv);
                     iv.ifeq(ne);
                 }

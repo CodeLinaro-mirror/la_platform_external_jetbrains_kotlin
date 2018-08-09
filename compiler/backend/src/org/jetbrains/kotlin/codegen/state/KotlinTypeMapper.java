@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil;
 import org.jetbrains.kotlin.load.java.BuiltinMethodsWithSpecialGenericSignature;
 import org.jetbrains.kotlin.load.java.BuiltinMethodsWithSpecialGenericSignature.SpecialSignatureInfo;
 import org.jetbrains.kotlin.load.java.JvmAbi;
-import org.jetbrains.kotlin.load.java.JvmBytecodeBinaryVersion;
 import org.jetbrains.kotlin.load.java.SpecialBuiltinMembers;
 import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor;
 import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor;
@@ -40,6 +39,7 @@ import org.jetbrains.kotlin.load.java.descriptors.UtilKt;
 import org.jetbrains.kotlin.load.java.lazy.descriptors.LazyJavaPackageFragment;
 import org.jetbrains.kotlin.load.kotlin.*;
 import org.jetbrains.kotlin.load.kotlin.incremental.IncrementalPackageFragmentProvider.IncrementalMultifileClassPackageFragment;
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmBytecodeBinaryVersion;
 import org.jetbrains.kotlin.name.*;
 import org.jetbrains.kotlin.platform.JavaToKotlinClassMap;
 import org.jetbrains.kotlin.psi.KtExpression;
@@ -881,7 +881,7 @@ public class KotlinTypeMapper {
 
                 FunctionDescriptor overriddenSpecialBuiltinFunction =
                         SpecialBuiltinMembers.getOverriddenBuiltinReflectingJvmDescriptor(functionDescriptor.getOriginal());
-                FunctionDescriptor functionToCall = overriddenSpecialBuiltinFunction != null && !superCall
+                FunctionDescriptor functionToCall = overriddenSpecialBuiltinFunction != null && !superCall && !toInlinedErasedClass
                                                     ? overriddenSpecialBuiltinFunction.getOriginal()
                                                     : functionDescriptor.getOriginal();
 
@@ -948,7 +948,8 @@ public class KotlinTypeMapper {
     }
 
     public static boolean isAccessor(@Nullable CallableMemberDescriptor descriptor) {
-        return descriptor instanceof AccessorForCallableDescriptor<?>;
+        return descriptor instanceof AccessorForCallableDescriptor<?> ||
+                descriptor instanceof AccessorForCompanionObjectInstanceFieldDescriptor;
     }
 
     public static boolean isStaticAccessor(@Nullable CallableMemberDescriptor descriptor) {
@@ -1257,7 +1258,7 @@ public class KotlinTypeMapper {
 
         JvmMethodGenericSignature signature = sw.makeJvmMethodSignature(mapFunctionName(f));
 
-        if (kind != OwnerKind.DEFAULT_IMPLS && !hasSpecialBridge) {
+        if (kind != OwnerKind.DEFAULT_IMPLS && kind != OwnerKind.ERASED_INLINE_CLASS && !hasSpecialBridge) {
             SpecialSignatureInfo specialSignatureInfo = BuiltinMethodsWithSpecialGenericSignature.getSpecialSignatureInfo(f);
 
             if (specialSignatureInfo != null) {
@@ -1606,9 +1607,7 @@ public class KotlinTypeMapper {
     @NotNull
     public JvmMethodSignature mapScriptSignature(
             @NotNull ScriptDescriptor script,
-            @NotNull List<ScriptDescriptor> importedScripts,
-            List<? extends KType> implicitReceivers,
-            List<? extends Pair<String, ? extends KType>> environmentVariables
+            @NotNull List<ScriptDescriptor> importedScripts
     ) {
         JvmSignatureWriter sw = new BothSignatureWriter(BothSignatureWriter.Mode.METHOD);
 
@@ -1616,14 +1615,6 @@ public class KotlinTypeMapper {
 
         if (importedScripts.size() > 0) {
             writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getArray().getDefaultType(), null);
-        }
-
-        if (implicitReceivers.size() > 0) {
-            writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getArray().getDefaultType(), null);
-        }
-
-        if (environmentVariables.size() > 0) {
-            writeParameter(sw, DescriptorUtilsKt.getModule(script).getBuiltIns().getMap().getDefaultType(), null);
         }
 
         for (ValueParameterDescriptor valueParameter : script.getUnsubstitutedPrimaryConstructor().getValueParameters()) {
@@ -1676,13 +1667,21 @@ public class KotlinTypeMapper {
         }
 
         @Nullable
-        public static String internalNameWithoutModuleSuffix(@NotNull String name) {
+        public static String demangleInternalName(@NotNull String name) {
             int indexOfDollar = name.indexOf('$');
-            if (indexOfDollar == -1) {
-                return null;
-            }
+            return indexOfDollar >= 0 ? name.substring(0, indexOfDollar) : null;
+        }
 
-            return name.substring(0, indexOfDollar) + '$';
+        @Nullable
+        public static String getModuleNameSuffix(@NotNull String name) {
+            int indexOfDollar = name.indexOf('$');
+            return indexOfDollar >= 0 ? name.substring(indexOfDollar + 1) : null;
+        }
+
+        @Nullable
+        public static String internalNameWithoutModuleSuffix(@NotNull String name) {
+            String demangledName = demangleInternalName(name);
+            return demangledName != null ? demangledName + '$' : null;
         }
     }
 }

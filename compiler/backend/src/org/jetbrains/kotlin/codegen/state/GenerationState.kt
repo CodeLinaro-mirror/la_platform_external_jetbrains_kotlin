@@ -51,7 +51,8 @@ class GenerationState private constructor(
     moduleName: String?,
     val outDirectory: File?,
     private val onIndependentPartCompilationEnd: GenerationStateEventCallback,
-    wantsDiagnostics: Boolean
+    wantsDiagnostics: Boolean,
+    val jvmBackendClassResolver: JvmBackendClassResolver
 ) {
 
     class Builder(
@@ -94,11 +95,16 @@ class GenerationState private constructor(
         fun wantsDiagnostics(v: Boolean) =
             apply { wantsDiagnostics = v }
 
+        var jvmBackendClassResolver: JvmBackendClassResolver = JvmBackendClassResolverForModuleWithDependencies(module); private set
+        fun jvmBackendClassResolver(v: JvmBackendClassResolver) =
+            apply { jvmBackendClassResolver = v }
+
         fun build() =
             GenerationState(
                 project, builderFactory, module, bindingContext, files, configuration,
                 generateDeclaredClassFilter, codegenFactory, targetId,
-                moduleName, outDirectory, onIndependentPartCompilationEnd, wantsDiagnostics
+                moduleName, outDirectory, onIndependentPartCompilationEnd, wantsDiagnostics,
+                jvmBackendClassResolver
             )
     }
 
@@ -209,6 +215,7 @@ class GenerationState private constructor(
         configuration.getBoolean(JVMConfigurationKeys.DISABLE_RECEIVER_ASSERTIONS) ||
                 !languageVersionSettings.supportsFeature(LanguageFeature.NullabilityAssertionOnExtensionReceiver)
     val isParamAssertionsDisabled: Boolean = configuration.getBoolean(JVMConfigurationKeys.DISABLE_PARAM_ASSERTIONS)
+    val assertionsMode: JVMAssertionsMode = configuration.get(JVMConfigurationKeys.ASSERTIONS_MODE, JVMAssertionsMode.DEFAULT)
     val isInlineDisabled: Boolean = configuration.getBoolean(CommonConfigurationKeys.DISABLE_INLINE)
     val useTypeTableInSerializer: Boolean = configuration.getBoolean(JVMConfigurationKeys.USE_TYPE_TABLE)
     val inheritMultifileParts: Boolean = configuration.getBoolean(JVMConfigurationKeys.INHERIT_MULTIFILE_PARTS)
@@ -228,12 +235,12 @@ class GenerationState private constructor(
 
     val jvmDefaultMode = languageVersionSettings.getFlag(AnalysisFlag.jvmDefaultMode)
 
-    init {
-        val disableOptimization = configuration.get(JVMConfigurationKeys.DISABLE_OPTIMIZATION, false)
+    val disableOptimization = configuration.get(JVMConfigurationKeys.DISABLE_OPTIMIZATION, false)
 
+    init {
         this.interceptedBuilderFactory = builderFactory
             .wrapWith(
-                { OptimizationClassBuilderFactory(it, disableOptimization, constructorCallNormalizationMode) },
+                { OptimizationClassBuilderFactory(it, this) },
                 {
                     BuilderFactoryForDuplicateSignatureDiagnostics(
                         it, this.bindingContext, diagnostics, this.moduleName,

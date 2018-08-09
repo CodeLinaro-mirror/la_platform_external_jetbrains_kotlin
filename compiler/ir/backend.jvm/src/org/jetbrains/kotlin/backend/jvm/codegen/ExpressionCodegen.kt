@@ -17,21 +17,20 @@ import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner
 import org.jetbrains.kotlin.codegen.inline.ReifiedTypeParametersUsages
 import org.jetbrains.kotlin.codegen.inline.TypeParameterMappings
 import org.jetbrains.kotlin.codegen.intrinsics.JavaClassProperty
+import org.jetbrains.kotlin.codegen.pseudoInsns.fakeAlwaysFalseIfeq
 import org.jetbrains.kotlin.codegen.pseudoInsns.fixStackAndJump
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrTypeAlias
-import org.jetbrains.kotlin.ir.declarations.IrVariable
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.resolve.DescriptorUtils
+import org.jetbrains.kotlin.resolve.DescriptorUtils.isEnumClass
 import org.jetbrains.kotlin.resolve.calls.components.hasDefaultValue
 import org.jetbrains.kotlin.resolve.inline.InlineUtil
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
@@ -107,22 +106,39 @@ class ExpressionCodegen(
 
     val state = classCodegen.state
 
+    private val sourceManager = classCodegen.context.psiSourceManager
+
+    private val fileEntry = sourceManager.getFileEntry(irFunction.fileParent)
+
     fun generate() {
         mv.visitCode()
+        irFunction.markLineNumber(true)
         val info = BlockInfo.create()
-        val result = irFunction.body?.accept(this, info)
-//        result?.apply {
-//            coerce(this.type, irFunction.body!!.as)
-//        }
+        val result = irFunction.body!!.accept(this, info)
+
+        irFunction.markLineNumber(false)
+
         val returnType = typeMapper.mapReturnType(irFunction.descriptor)
-        if (returnType == Type.VOID_TYPE) {
-            //for implicit return
-            mv.areturn(Type.VOID_TYPE)
-        } else if (irFunction.body is IrExpressionBody) {
+        if (irFunction.body is IrExpressionBody) {
             mv.areturn(returnType)
+            //TODO merge branch inside next one
+        } else if (!endsWithReturn(irFunction.body!!)) {
+            if (returnType == Type.VOID_TYPE) {
+                mv.areturn(returnType)
+            } else {
+                StackValue.none().put(returnType, null, mv)
+                mv.areturn(returnType)
+            }
         }
         writeLocalVariablesInTable(info)
         mv.visitEnd()
+    }
+
+    private fun endsWithReturn(body: IrBody): Boolean {
+        val lastStatement = if (body is IrStatementContainer) {
+            body.statements.lastOrNull() ?: body
+        } else body
+        return lastStatement is IrReturn
     }
 
     override fun visitBlockBody(body: IrBlockBody, data: BlockInfo): StackValue {
@@ -160,7 +176,7 @@ class ExpressionCodegen(
             //coerceNotToUnit(r.type, Type.VOID_TYPE)
             exp.accept(this, data)
         }
-        return coerceNotToUnit(result.type, expression.asmType)
+        return coerceNotToUnit(result.type, expression.type)
     }
 
     override fun visitMemberAccess(expression: IrMemberAccessExpression, data: BlockInfo): StackValue {
@@ -231,6 +247,8 @@ class ExpressionCodegen(
 
         callGenerator.beforeValueParametersStart()
         val defaultMask = DefaultCallArgs(callable.valueParameterTypes.size)
+        val enumConstructorDefaultArgsShift =
+            if (expression.descriptor is ConstructorDescriptor && isEnumClass(expression.descriptor.containingDeclaration)) 2 else 0
         expression.descriptor.valueParameters.forEachIndexed { i, parameterDescriptor ->
             val arg = expression.getValueArgument(i)
             val parameterType = callable.valueParameterTypes[i]
@@ -246,7 +264,7 @@ class ExpressionCodegen(
                         i,
                         this@ExpressionCodegen
                     )
-                    defaultMask.mark(i)
+                    defaultMask.mark(i - enumConstructorDefaultArgsShift/*TODO switch to separate lower*/)
                 }
                 else -> {
                     assert(parameterDescriptor.varargElementType != null)
@@ -279,8 +297,7 @@ class ExpressionCodegen(
             mv.aconst(null)
             mv.athrow()
         } else if (expression.descriptor !is ConstructorDescriptor) {
-            val expectedTypeOnStack = returnType?.let { typeMapper.mapType(it) } ?: callable.returnType
-            return coerceNotToUnit(callable.returnType, expectedTypeOnStack)
+            return returnType?.run { coerceNotToUnit(callable.returnType, this) } ?: onStack(callable.returnType)
         }
 
         return expression.onStack
@@ -513,11 +530,6 @@ class ExpressionCodegen(
         }
     }
 
-
-    fun markNewLabel(): Label {
-        return Label().apply { mv.visitLabel(this) }
-    }
-
     override fun visitReturn(expression: IrReturn, data: BlockInfo): StackValue {
         val value = expression.value.apply {
             gen(this, returnType, data)
@@ -526,6 +538,7 @@ class ExpressionCodegen(
         val afterReturnLabel = Label()
         generateFinallyBlocksIfNeeded(returnType, afterReturnLabel, data)
 
+        expression.markLineNumber(false)
         mv.areturn(returnType)
         mv.mark(afterReturnLabel)
         mv.nop()/*TODO check RESTORE_STACK_IN_TRY_CATCH processor*/
@@ -534,10 +547,10 @@ class ExpressionCodegen(
 
 
     override fun visitWhen(expression: IrWhen, data: BlockInfo): StackValue =
-        genIfWithBranches(expression.branches[0], data, expression.asmType, expression.branches.drop(1))
+        genIfWithBranches(expression.branches[0], data, expression.type, expression.branches.drop(1))
 
 
-    private fun genIfWithBranches(branch: IrBranch, data: BlockInfo, type: Type, otherBranches: List<IrBranch>): StackValue {
+    private fun genIfWithBranches(branch: IrBranch, data: BlockInfo, type: KotlinType, otherBranches: List<IrBranch>): StackValue {
         val elseLabel = Label()
         val condition = branch.condition
         val thenBranch = branch.result
@@ -572,8 +585,8 @@ class ExpressionCodegen(
         val asmType = expression.typeOperand.asmType
         when (expression.operator) {
             IrTypeOperator.IMPLICIT_COERCION_TO_UNIT -> {
-                expression.argument.accept(this, data)
-                coerce(expression.argument.asmType, Type.VOID_TYPE, mv)
+                val result = expression.argument.accept(this, data)
+                coerce(result.type, Type.VOID_TYPE, mv)
                 return none()
             }
 
@@ -602,13 +615,14 @@ class ExpressionCodegen(
             }
 
             IrTypeOperator.IMPLICIT_NOTNULL -> {
-                gen(expression.argument, asmType, data)
+                val value = gen(expression.argument, data)
                 mv.dup()
                 mv.visitLdcInsn("TODO provide message for IMPLICIT_NOTNULL") /*TODO*/
                 mv.invokestatic(
                     "kotlin/jvm/internal/Intrinsics", "checkExpressionValueIsNotNull",
                     "(Ljava/lang/Object;Ljava/lang/String;)V", false
                 )
+                StackValue.onStack(value.type).put(asmType, mv)
             }
 
             IrTypeOperator.IMPLICIT_INTEGER_COERCION -> {
@@ -647,6 +661,8 @@ class ExpressionCodegen(
         if (!(condition is IrConst<*> && condition.value == true)) {
             gen(condition, data)
             BranchedValue.condJump(StackValue.onStack(condition.asmType), endLabel, true, mv)
+        } else {
+            mv.fakeAlwaysFalseIfeq(endLabel)
         }
 
         with(LoopInfo(loop, continueLabel, endLabel)) {
@@ -704,6 +720,9 @@ class ExpressionCodegen(
         val entry = markNewLabel()
         val endLabel = Label()
         val continueLabel = Label()
+
+        mv.fakeAlwaysFalseIfeq(continueLabel)
+        mv.fakeAlwaysFalseIfeq(endLabel)
 
         with(LoopInfo(loop, continueLabel, endLabel)) {
             data.addInfo(this)
@@ -933,10 +952,11 @@ class ExpressionCodegen(
 
     }
 
-    private fun coerceNotToUnit(fromType: Type, toType: Type): StackValue {
-        if (toType != AsmTypes.UNIT_TYPE) {
-            coerce(fromType, toType, mv)
-            return onStack(toType)
+    private fun coerceNotToUnit(fromType: Type, toType: KotlinType): StackValue {
+        val asmType = toType.asmType
+        if (asmType != AsmTypes.UNIT_TYPE || TypeUtils.isNullableType(toType)) {
+            coerce(fromType, asmType, mv)
+            return onStack(asmType)
         }
         return onStack(fromType)
     }
@@ -1066,6 +1086,12 @@ class ExpressionCodegen(
 
     override fun markLineNumberAfterInlineIfNeeded() {
         //TODO
+    }
+
+    private fun markNewLabel() = Label().apply { mv.visitLabel(this) }
+
+    private fun IrElement.markLineNumber(startOffset: Boolean) {
+        mv.visitLineNumber(fileEntry.getLineNumber(if (startOffset) this.startOffset else endOffset) + 1, markNewLabel())
     }
 }
 

@@ -61,3 +61,9 @@ testsJar()
 projectTest {
     workingDir = rootDir
 }
+
+runtimeJar {
+    archiveName = "maven-ide.jar"
+}
+
+ideaPlugin()

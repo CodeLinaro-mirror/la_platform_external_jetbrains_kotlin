@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.android.synthetic.idea.androidExtensionsIsExperiment
 import org.jetbrains.kotlin.android.synthetic.res.*
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
-import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameUnsafe
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstance
 
@@ -67,10 +66,7 @@ class IDEAndroidLayoutXmlFileManager(val module: Module) : AndroidLayoutXmlFileM
         val psiManager = PsiManager.getInstance(project)
         val layouts = layoutGroup.layouts.map { psiFile ->
             // Sometimes due to a race of later-invoked runnables, the PsiFile can be invalidated; make sure to refresh if possible,
-            val layout = when {
-                psiFile.isValid -> psiFile
-                else -> runReadAction { psiManager.findFile(psiFile.virtualFile) }
-            }
+            val layout = if (psiFile.isValid) psiFile else psiManager.findFile(psiFile.virtualFile)
 
             val resources = arrayListOf<AndroidResource>()
             layout?.accept(AndroidXmlVisitor { id, widgetType, attribute ->

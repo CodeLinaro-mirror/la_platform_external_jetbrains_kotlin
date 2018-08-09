@@ -6,7 +6,9 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.ConventionTask
 import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.gradle.tasks.*
-import org.jetbrains.kotlin.incremental.isJavaFile
+import org.jetbrains.kotlin.gradle.utils.isJavaFile
+import org.jetbrains.kotlin.gradle.utils.isParentOf
+import org.jetbrains.kotlin.gradle.utils.toSortedPathsArray
 import java.io.File
 
 @CacheableTask

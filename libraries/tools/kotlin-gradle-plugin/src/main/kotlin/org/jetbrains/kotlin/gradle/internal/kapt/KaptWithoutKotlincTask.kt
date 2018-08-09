@@ -8,9 +8,12 @@ package org.jetbrains.kotlin.gradle.internal
 import org.gradle.api.tasks.*
 import org.gradle.workers.IsolationMode
 import org.gradle.workers.WorkerExecutor
+import org.jetbrains.kotlin.gradle.internal.Kapt3KotlinGradleSubplugin.Companion.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME
+import org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper
 import org.jetbrains.kotlin.gradle.tasks.clearOutputDirectories
 import org.jetbrains.kotlin.gradle.tasks.findKotlinStdlibClasspath
 import org.jetbrains.kotlin.gradle.tasks.findToolsJar
+import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
 import java.io.Serializable
 import java.net.URLClassLoader
@@ -19,15 +22,9 @@ import javax.inject.Inject
 open class KaptWithoutKotlincTask @Inject constructor(private val workerExecutor: WorkerExecutor) : KaptTask() {
     @get:InputFiles
     @get:Classpath
-    lateinit var annotationProcessingJars: List<File>
-
-    @get:Internal
-    lateinit var projectDir: File
-
-    @Input
-    fun getProjectDirPath(): String {
-        return projectDir.toRelativeString(project.rootProject.projectDir)
-    }
+    @Suppress("unused")
+    val kaptJars: Collection<File>
+        get() = project.configurations.getByName(KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME).resolve()
 
     @get:Input
     var isVerbose: Boolean = false
@@ -50,9 +47,14 @@ open class KaptWithoutKotlincTask @Inject constructor(private val workerExecutor
 
         clearOutputDirectories()
 
+        val compileClasspath = classpath.files.toMutableList()
+        if (project.plugins.none { it is KotlinAndroidPluginWrapper }) {
+            compileClasspath.addAll(0, PathUtil.getJdkClassesRootsFromCurrentJre())
+        }
+
         val paths = KaptPathsForWorker(
-            projectDir,
-            classpath.files.toList(),
+            project.projectDir,
+            compileClasspath,
             kaptClasspath.files.toList(),
             javaSourceRoots.toList(),
             destinationDir,
@@ -68,7 +70,7 @@ open class KaptWithoutKotlincTask @Inject constructor(private val workerExecutor
             javacOptions
         )
 
-        val kaptClasspath = annotationProcessingJars + findKotlinStdlibClasspath(project)
+        val kaptClasspath = kaptJars + findKotlinStdlibClasspath(project)
 
         workerExecutor.submit(KaptExecution::class.java) { config ->
             config.isolationMode = IsolationMode.PROCESS

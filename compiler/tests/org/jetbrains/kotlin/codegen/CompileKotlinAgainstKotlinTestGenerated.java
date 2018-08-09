@@ -206,6 +206,11 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
         runTest("compiler/testData/compileKotlinAgainstKotlin/nestedObject.kt");
     }
 
+    @TestMetadata("optionalAnnotation.kt")
+    public void testOptionalAnnotation() throws Exception {
+        runTest("compiler/testData/compileKotlinAgainstKotlin/optionalAnnotation.kt");
+    }
+
     @TestMetadata("platformTypes.kt")
     public void testPlatformTypes() throws Exception {
         runTest("compiler/testData/compileKotlinAgainstKotlin/platformTypes.kt");
@@ -219,6 +224,11 @@ public class CompileKotlinAgainstKotlinTestGenerated extends AbstractCompileKotl
     @TestMetadata("recursiveGeneric.kt")
     public void testRecursiveGeneric() throws Exception {
         runTest("compiler/testData/compileKotlinAgainstKotlin/recursiveGeneric.kt");
+    }
+
+    @TestMetadata("reflectTopLevelFunctionOtherFile.kt")
+    public void testReflectTopLevelFunctionOtherFile() throws Exception {
+        runTest("compiler/testData/compileKotlinAgainstKotlin/reflectTopLevelFunctionOtherFile.kt");
     }
 
     @TestMetadata("sealedClass.kt")
