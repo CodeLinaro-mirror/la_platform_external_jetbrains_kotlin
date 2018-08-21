@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.idea.compiler.configuration
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.StoragePathMacros.PROJECT_CONFIG_DIR
+import com.intellij.openapi.progress.util.BackgroundTaskUtil
 import com.intellij.openapi.project.Project
 import com.intellij.util.ReflectionUtil
 import com.intellij.util.messages.Topic
@@ -43,7 +44,7 @@ abstract class BaseKotlinCompilerSettings<T : Freezable> protected constructor(p
             _settings = value
 
             ApplicationManager.getApplication().invokeLater {
-                project.messageBus.syncPublisher(KotlinCompilerSettingsListener.TOPIC).settingsChanged(value)
+                BackgroundTaskUtil.syncPublisher(project, KotlinCompilerSettingsListener.TOPIC).settingsChanged(value)
             }
         }
 
@@ -79,7 +80,7 @@ abstract class BaseKotlinCompilerSettings<T : Freezable> protected constructor(p
         }
 
         ApplicationManager.getApplication().invokeLater {
-            project.messageBus.syncPublisher(KotlinCompilerSettingsListener.TOPIC).settingsChanged(settings)
+            BackgroundTaskUtil.syncPublisher(project, KotlinCompilerSettingsListener.TOPIC).settingsChanged(settings)
         }
     }
 
