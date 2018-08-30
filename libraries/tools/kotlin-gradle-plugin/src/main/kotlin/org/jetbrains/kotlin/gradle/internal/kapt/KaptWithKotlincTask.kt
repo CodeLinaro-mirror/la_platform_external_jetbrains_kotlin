@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.internal
 
 import com.intellij.openapi.util.text.StringUtil
 import org.gradle.api.GradleException
+import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
@@ -19,6 +20,8 @@ import org.jetbrains.kotlin.gradle.tasks.CompilerPluginOptions
 import org.jetbrains.kotlin.gradle.tasks.GradleMessageCollector
 import org.jetbrains.kotlin.gradle.tasks.clearOutputDirectories
 import org.jetbrains.kotlin.gradle.tasks.throwGradleExceptionIfError
+import org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH_CONFIGURATION_NAME
+import org.jetbrains.kotlin.gradle.utils.toSortedPathsArray
 
 open class KaptWithKotlincTask : KaptTask(), CompilerArgumentAwareWithInput<K2JVMCompilerArguments> {
     @get:Internal
@@ -31,14 +34,15 @@ open class KaptWithKotlincTask : KaptTask(), CompilerArgumentAwareWithInput<K2JV
 
     @get:Classpath
     @get:InputFiles
-    internal val pluginClasspath get() = pluginOptions.classpath
+    val pluginClasspath: FileCollection
+        get() = project.configurations.getByName(PLUGIN_CLASSPATH_CONFIGURATION_NAME)
 
     override fun createCompilerArgs(): K2JVMCompilerArguments = K2JVMCompilerArguments()
 
     override fun setupCompilerArgs(args: K2JVMCompilerArguments, defaultsOnly: Boolean) {
         kotlinCompileTask.setupCompilerArgs(args)
 
-        args.pluginClasspaths = (pluginClasspath + args.pluginClasspaths!!).toSet().toTypedArray()
+        args.pluginClasspaths = pluginClasspath.toSortedPathsArray()
 
         val pluginOptionsWithKapt: CompilerPluginOptions = pluginOptions.withWrappedKaptOptions(withApClasspath = kaptClasspath)
         args.pluginOptions = (pluginOptionsWithKapt.arguments + args.pluginOptions!!).toTypedArray()

@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.android.quickfix.AbstractAndroidQuickFixMultiFileTes
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidBoxTest
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidBytecodeShapeTest
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidSyntheticPropertyDescriptorTest
-import org.jetbrains.kotlin.annotation.AbstractAnnotationProcessorBoxTest
 import org.jetbrains.kotlin.checkers.AbstractJavaAgainstKotlinBinariesCheckerTest
 import org.jetbrains.kotlin.checkers.AbstractJavaAgainstKotlinSourceCheckerTest
 import org.jetbrains.kotlin.checkers.AbstractJsCheckerTest
@@ -149,6 +148,7 @@ import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterMultiFileTest
 import org.jetbrains.kotlin.j2k.AbstractJavaToKotlinConverterSingleFileTest
 import org.jetbrains.kotlin.jps.build.*
 import org.jetbrains.kotlin.jps.build.android.AbstractAndroidJpsTestCase
+import org.jetbrains.kotlin.jps.build.dependeciestxt.actualizeMppJpsIncTestCaseDirs
 import org.jetbrains.kotlin.jps.incremental.AbstractJsProtoComparisonTest
 import org.jetbrains.kotlin.jps.incremental.AbstractJvmProtoComparisonTest
 import org.jetbrains.kotlin.kapt3.test.AbstractClassFileToSourceStubConverterTest
@@ -229,7 +229,11 @@ fun main(args: Array<String>) {
         }
 
         testClass<AbstractParameterInfoTest> {
-            model("parameterInfo", recursive = true, excludeDirs = listOf("withLib1/sharedLib", "withLib2/sharedLib", "withLib3/sharedLib"))
+            model(
+                "parameterInfo",
+                pattern = "^([\\w\\-_]+)\\.kt$", recursive = true,
+                excludeDirs = listOf("withLib1/sharedLib", "withLib2/sharedLib", "withLib3/sharedLib")
+            )
         }
 
         testClass<AbstractKotlinGotoTest> {
@@ -551,6 +555,10 @@ fun main(args: Array<String>) {
             model("codeInsight/lineMarker")
         }
 
+        testClass<AbstractLineMarkersTestInLibrarySources> {
+            model("codeInsightInLibrary/lineMarker", testMethod = "doTestWithLibrary")
+        }
+
         testClass<AbstractMultiModuleLineMarkerTest> {
             model("multiModuleLineMarker", extension = null, recursive = false)
         }
@@ -673,8 +681,8 @@ fun main(args: Array<String>) {
             model("refactoring/introduceJavaParameter", extension = "java", testMethod = "doIntroduceJavaParameterTest")
             model("refactoring/introduceTypeParameter", pattern = KT_OR_KTS, testMethod = "doIntroduceTypeParameterTest")
             model("refactoring/introduceTypeAlias", pattern = KT_OR_KTS, testMethod = "doIntroduceTypeAliasTest")
-            model("refactoring/extractSuperclass", pattern = KT_OR_KTS, testMethod = "doExtractSuperclassTest")
-            model("refactoring/extractInterface", pattern = KT_OR_KTS, testMethod = "doExtractInterfaceTest")
+            model("refactoring/extractSuperclass", pattern = KT_OR_KTS_WITHOUT_DOTS_IN_NAME, testMethod = "doExtractSuperclassTest")
+            model("refactoring/extractInterface", pattern = KT_OR_KTS_WITHOUT_DOTS_IN_NAME, testMethod = "doExtractInterfaceTest")
         }
 
         testClass<AbstractPullUpTest> {
@@ -930,6 +938,15 @@ fun main(args: Array<String>) {
             model("incremental/classHierarchyAffected", extension = null, excludeParentDirs = true)
         }
 
+        actualizeMppJpsIncTestCaseDirs(testDataRoot, "incremental/multiplatform/multiModule")
+
+        testClass<AbstractMultiplatformJpsTest> {
+            model(
+                "incremental/multiplatform/multiModule", extension = null, excludeParentDirs = true,
+                testClassName = "MultiplatformMultiModule", recursive = true
+            )
+        }
+
         testClass<AbstractJvmLookupTrackerTest> {
             model("incremental/lookupTracker/jvm", extension = null, recursive = false)
         }
@@ -991,10 +1008,10 @@ fun main(args: Array<String>) {
         }
 
         testClass<AbstractIncrementalMultiplatformJvmCompilerRunnerTest> {
-            model("incremental/multiplatform", extension = null, excludeParentDirs = true)
+            model("incremental/multiplatform/singleModule", extension = null, excludeParentDirs = true)
         }
         testClass<AbstractIncrementalMultiplatformJsCompilerRunnerTest> {
-            model("incremental/multiplatform", extension = null, excludeParentDirs = true)
+            model("incremental/multiplatform/singleModule", extension = null, excludeParentDirs = true)
         }
     }
 
@@ -1014,12 +1031,6 @@ fun main(args: Array<String>) {
 
         testClass<AbstractParcelBytecodeListingTest> {
             model("parcel/codegen")
-        }
-    }
-
-    testGroup("plugins/annotation-collector/test", "plugins/annotation-collector/testData") {
-        testClass<AbstractAnnotationProcessorBoxTest> {
-            model("collectToFile", recursive = false, extension = null)
         }
     }
 

@@ -182,6 +182,7 @@ interface DescriptorRendererOptions {
     var classWithPrimaryConstructor: Boolean
     var verbose: Boolean
     var unitReturnType: Boolean
+    var enhancedTypes: Boolean
     var withoutReturnType: Boolean
     var normalizedVisibilities: Boolean
     var renderDefaultVisibility: Boolean
@@ -214,6 +215,7 @@ interface DescriptorRendererOptions {
     var includeAdditionalModifiers: Boolean
     var parameterNamesInFunctionalTypes: Boolean
     var renderFunctionContracts: Boolean
+    var presentableUnresolvedTypes: Boolean
 }
 
 object ExcludedTypeAnnotations {

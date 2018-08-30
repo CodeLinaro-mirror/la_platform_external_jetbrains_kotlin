@@ -15,29 +15,32 @@ import java.io.File
 class ScriptingGradleProjectImportHandler : GradleProjectImportHandler {
 
     val compilerPluginId = ScriptingCommandLineProcessor.PLUGIN_ID
-    val gradlePluginJar = "scripting-gradle"
+    val gradlePluginJars = listOf(
+        "scripting-gradle", // obsolete artifact name, only for compatibility with 1.2.5x, where it was introduced (and immediately dropped afterwards)
+        "scripting-compiler",
+        "scripting-compiler-embeddable"
+    )
 
     override fun importBySourceSet(
         facet: KotlinFacet,
         sourceSetNode: com.intellij.openapi.externalSystem.model.DataNode<GradleSourceSetData>
     ) {
-        modifyCompilerArgumentsForPlugin(facet, compilerPluginId, gradlePluginJar)
+        modifyCompilerArgumentsForPlugin(facet, compilerPluginId, gradlePluginJars)
     }
 
     override fun importByModule(
         facet: KotlinFacet,
         moduleNode: com.intellij.openapi.externalSystem.model.DataNode<com.intellij.openapi.externalSystem.model.project.ModuleData>
     ) {
-        modifyCompilerArgumentsForPlugin(facet, compilerPluginId, gradlePluginJar)
+        modifyCompilerArgumentsForPlugin(facet, compilerPluginId, gradlePluginJars)
     }
 }
 
 // NOTE: partially copied from idePluginUtil.kt, it is not possible to reuse it right now without refactoring
-// TODO: implement more abstract helpers for plugins support
 internal fun modifyCompilerArgumentsForPlugin(
     facet: KotlinFacet,
     compilerPluginId: String,
-    pluginJarName: String
+    pluginJarNames: List<String>
 ) {
     val facetSettings = facet.configuration.settings
 
@@ -50,12 +53,17 @@ internal fun modifyCompilerArgumentsForPlugin(
     val oldAllPluginOptions = (commonArguments.pluginOptions ?: emptyArray()).filterTo(mutableListOf()) { !it.startsWith("plugin:$compilerPluginId:") }
     val newAllPluginOptions = oldAllPluginOptions // + newOptionsForPlugin
 
+    val filterRegexes = pluginJarNames.map {
+        "(kotlin-)?(maven-)?$it-.*\\.jar".toRegex()
+    }
     val oldPluginClasspaths = (commonArguments.pluginClasspaths ?: emptyArray()).filterTo(mutableListOf()) {
         val lastIndexOfFile = it.lastIndexOfAny(charArrayOf('/', File.separatorChar))
         if (lastIndexOfFile < 0) {
             return@filterTo true
         }
-        !it.drop(lastIndexOfFile + 1).matches("(kotlin-)?(maven-)?$pluginJarName-.*\\.jar".toRegex())
+        !it.drop(lastIndexOfFile + 1).let { fileName ->
+            filterRegexes.any { fileName.matches(it) }
+        }
     }
 
     // TODO: find out how to make it - see comment to the newOptionsForPlugin above

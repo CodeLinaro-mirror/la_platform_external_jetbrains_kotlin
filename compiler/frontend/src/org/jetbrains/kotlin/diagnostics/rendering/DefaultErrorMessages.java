@@ -357,6 +357,7 @@ public class DefaultErrorMessages {
         MAP.put(API_NOT_AVAILABLE, "This declaration is only available since Kotlin {0} and cannot be used with the specified API version {1}", STRING, STRING);
 
         MAP.put(MISSING_DEPENDENCY_CLASS, "Cannot access class ''{0}''. Check your module classpath for missing or conflicting dependencies", TO_STRING);
+        MAP.put(MISSING_SCRIPT_BASE_CLASS, "Cannot access script base class ''{0}''. Check your module classpath for missing or conflicting dependencies", TO_STRING);
         MAP.put(MISSING_SCRIPT_RECEIVER_CLASS, "Cannot access implicit script receiver class ''{0}''. Check your module classpath for missing or conflicting dependencies", TO_STRING);
         MAP.put(MISSING_SCRIPT_ENVIRONMENT_PROPERTY_CLASS, "Cannot access script environment property class ''{0}''. Check your module classpath for missing or conflicting dependencies", TO_STRING);
         MAP.put(PRE_RELEASE_CLASS, "{0} is compiled by a pre-release version of Kotlin and cannot be loaded by this version of the compiler", TO_STRING);
@@ -382,6 +383,7 @@ public class DefaultErrorMessages {
         MAP.put(RESOLUTION_TO_CLASSIFIER, "{2}", NAME, TO_STRING, STRING);
         MAP.put(NOT_A_CLASS, "Not a class");
         MAP.put(ILLEGAL_ESCAPE_SEQUENCE, "Illegal escape sequence");
+        MAP.put(UNSIGNED_LITERAL_WITHOUT_DECLARATIONS_ON_CLASSPATH, "Type of the constant expression cannot be resolved. Please make sure you have the required dependencies for unsigned types in the classpath");
 
         MAP.put(RESERVED_SYNTAX_IN_CALLABLE_REFERENCE_LHS, "Left-hand side of callable reference matches expression syntax reserved for future releases");
 
@@ -392,6 +394,7 @@ public class DefaultErrorMessages {
 
         MAP.put(DEPRECATED_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} is deprecated", RENDER_TYPE, RENDER_TYPE);
         MAP.put(IMPLICIT_BOXING_IN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} can be unstable because of implicit boxing", RENDER_TYPE, RENDER_TYPE);
+        MAP.put(FORBIDDEN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} is forbidden", RENDER_TYPE, RENDER_TYPE);
 
         MAP.put(DEPRECATED_BINARY_MOD, "Deprecated convention for ''{0}''. Use ''{1}''", NAME, STRING);
         MAP.put(DEPRECATED_BINARY_MOD_AS_REM, "''%'' is resolved to deprecated ''{0}'' operator. Replace with ''.{0}'' or add operator ''{1}''", NAME, STRING);
@@ -543,6 +546,7 @@ public class DefaultErrorMessages {
         MAP.put(REDUNDANT_ELSE_IN_WHEN, "'when' is exhaustive so 'else' is redundant here");
         MAP.put(COMMA_IN_WHEN_CONDITION_WITHOUT_ARGUMENT, "Deprecated syntax. Use '||' instead of commas in when-condition for 'when' without argument");
         MAP.put(DUPLICATE_LABEL_IN_WHEN, "Duplicate label in when");
+        MAP.put(ILLEGAL_DECLARATION_IN_WHEN_SUBJECT, "Illegal variable declaration in 'when' subject: {0}. Should be a simple val with an initializer", STRING);
 
         MAP.put(NO_ELSE_IN_WHEN, "''when'' expression must be exhaustive, add necessary {0}", RENDER_WHEN_MISSING_CASES);
         MAP.put(NON_EXHAUSTIVE_WHEN, "''when'' expression on enum is recommended to be exhaustive, add {0}", RENDER_WHEN_MISSING_CASES);
@@ -619,6 +623,8 @@ public class DefaultErrorMessages {
         }, DECLARATION_NAME);
         MAP.put(SMARTCAST_IMPOSSIBLE,
                 "Smart cast to ''{0}'' is impossible, because ''{1}'' is a {2}", RENDER_TYPE, STRING, STRING);
+        MAP.put(DEPRECATED_SMARTCAST,
+                "Smart cast to ''{0}'' is deprecated, because ''{1}'' is a {2}", RENDER_TYPE, STRING, STRING);
         MAP.put(ALWAYS_NULL, "The result of the expression is always null");
 
         MAP.put(MISSING_CONSTRUCTOR_KEYWORD, "Use 'constructor' keyword after modifiers of primary constructor");
@@ -882,7 +888,7 @@ public class DefaultErrorMessages {
         MAP.put(DECLARATION_CANT_BE_INLINED, "'inline' modifier is not allowed on virtual members. Only private or final members can be inlined");
         MAP.put(OVERRIDE_BY_INLINE, "Override by an inline function");
         MAP.put(REIFIED_TYPE_PARAMETER_IN_OVERRIDE, "Override by a function with reified type parameter");
-        MAP.put(NOTHING_TO_INLINE, "Expected performance impact of inlining ''{0}'' can be insignificant. Inlining works best for functions with lambda parameters", SHORT_NAMES_IN_TYPES);
+        MAP.put(NOTHING_TO_INLINE, "Expected performance impact of inlining ''{0}'' is insignificant. Inlining works best for functions with parameters of functional types", SHORT_NAMES_IN_TYPES);
         MAP.put(USAGE_IS_NOT_INLINABLE, "Illegal usage of inline-parameter ''{0}'' in ''{1}''. Add ''noinline'' modifier to the parameter declaration", ELEMENT_TEXT, SHORT_NAMES_IN_TYPES);
         MAP.put(NULLABLE_INLINE_PARAMETER, "Inline-parameter ''{0}'' of ''{1}'' must not be nullable. Add ''noinline'' modifier to the parameter declaration or make its type not nullable", ELEMENT_TEXT, SHORT_NAMES_IN_TYPES);
         MAP.put(RECURSION_IN_INLINE, "Inline function ''{1}'' cannot be recursive", ELEMENT_TEXT, SHORT_NAMES_IN_TYPES);

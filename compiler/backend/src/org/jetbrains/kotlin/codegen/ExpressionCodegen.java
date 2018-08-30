@@ -23,7 +23,9 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns;
 import org.jetbrains.kotlin.codegen.binding.CalculatedClosure;
 import org.jetbrains.kotlin.codegen.binding.CodegenBinding;
 import org.jetbrains.kotlin.codegen.context.*;
-import org.jetbrains.kotlin.codegen.coroutines.*;
+import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenForLambda;
+import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenUtilKt;
+import org.jetbrains.kotlin.codegen.coroutines.ResolvedCallWithRealDescriptor;
 import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension;
 import org.jetbrains.kotlin.codegen.inline.*;
 import org.jetbrains.kotlin.codegen.intrinsics.*;
@@ -38,9 +40,9 @@ import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper;
 import org.jetbrains.kotlin.codegen.when.SwitchCodegen;
 import org.jetbrains.kotlin.codegen.when.SwitchCodegenProvider;
 import org.jetbrains.kotlin.config.ApiVersion;
+import org.jetbrains.kotlin.config.JVMAssertionsMode;
 import org.jetbrains.kotlin.config.LanguageFeature;
 import org.jetbrains.kotlin.descriptors.*;
-import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor;
 import org.jetbrains.kotlin.descriptors.impl.LocalVariableDescriptor;
 import org.jetbrains.kotlin.descriptors.impl.SyntheticFieldDescriptor;
 import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor;
@@ -59,6 +61,7 @@ import org.jetbrains.kotlin.resolve.calls.callUtil.CallUtilKt;
 import org.jetbrains.kotlin.resolve.calls.model.*;
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker;
 import org.jetbrains.kotlin.resolve.calls.util.FakeCallableDescriptorForObject;
+import org.jetbrains.kotlin.resolve.calls.util.FakeCallableDescriptorForTypeAliasObject;
 import org.jetbrains.kotlin.resolve.calls.util.UnderscoreUtilKt;
 import org.jetbrains.kotlin.resolve.checkers.PrimitiveNumericComparisonInfo;
 import org.jetbrains.kotlin.resolve.constants.*;
@@ -127,7 +130,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
      * When we create a temporary variable to hold some value not to compute it many times
      * we put it into this map to emit access to that variable instead of evaluating the whole expression
      */
-    public final Map<KtElement, StackValue> tempVariables = Maps.newHashMap();
+    public final Map<KtElement, StackValue> tempVariables = new HashMap<>();
 
     private int myLastLineNumber = -1;
     private boolean shouldMarkLineNumbers = true;
@@ -491,12 +494,12 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
             Label end = new Label();
 
-            gen(thenExpression, asmType);
+            gen(thenExpression, asmType, kotlinType);
 
             v.goTo(end);
             v.mark(elseLabel);
 
-            gen(elseExpression, asmType);
+            gen(elseExpression, asmType, kotlinType);
 
             markLineNumber(expression, isStatement);
             v.mark(end);
@@ -1736,6 +1739,9 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
                                                 resolvedCall, false);
         }
 
+        if (descriptor instanceof FakeCallableDescriptorForTypeAliasObject) {
+            descriptor = ((FakeCallableDescriptorForTypeAliasObject) descriptor).getTypeAliasDescriptor();
+        }
         if (descriptor instanceof TypeAliasDescriptor) {
             ClassDescriptor classDescriptor = ((TypeAliasDescriptor) descriptor).getClassDescriptor();
             if (classDescriptor == null) {
@@ -1749,6 +1755,9 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             ClassDescriptor classDescriptor = (ClassDescriptor) descriptor;
             if (shouldGenerateSingletonAsThisOrOuterFromContext(classDescriptor)) {
                 return generateThisOrOuterFromContext(classDescriptor, false, false);
+            }
+            if (isCompanionObject(classDescriptor) && !couldUseDirectAccessToCompanionObject(classDescriptor, context)) {
+                return generateAccessorCallForCompanionObject(classDescriptor);
             }
             if (isObject(classDescriptor)) {
                 return StackValue.singleton(classDescriptor, typeMapper);
@@ -2358,6 +2367,11 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             @NotNull CallGenerator callGenerator,
             @NotNull ArgumentGenerator argumentGenerator
     ) {
+        if (AssertCodegenUtilKt.isAssertCall(resolvedCall) && !state.getAssertionsMode().equals(JVMAssertionsMode.LEGACY)) {
+            AssertCodegenUtilKt.generateAssert(state.getAssertionsMode(), resolvedCall, this, parentCodegen);
+            return;
+        }
+
         boolean isSuspendNoInlineCall =
                 CoroutineCodegenUtilKt.isSuspendNoInlineCall(resolvedCall, this, state.getLanguageVersionSettings());
         boolean isConstructor = resolvedCall.getResultingDescriptor() instanceof ConstructorDescriptor;
@@ -2601,8 +2615,11 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
                 else if (isPossiblyUninitializedSingleton(receiverDescriptor) && isInsideSingleton(receiverDescriptor)) {
                     return generateThisOrOuterFromContext(receiverDescriptor, false, false);
                 }
-                else {
+                else if (couldUseDirectAccessToCompanionObject(receiverDescriptor, context)) {
                     return StackValue.singleton(receiverDescriptor, typeMapper);
+                }
+                else {
+                    return generateAccessorCallForCompanionObject(receiverDescriptor);
                 }
             }
             else if (receiverDescriptor instanceof ScriptDescriptor) {
@@ -2629,6 +2646,41 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         else {
             throw new UnsupportedOperationException("Unsupported receiver value: " + receiverValue);
         }
+    }
+
+    @NotNull
+    private StackValue generateAccessorCallForCompanionObject(@NotNull ClassDescriptor companionObjectDescriptor) {
+        DeclarationDescriptor hostClassDescriptor = companionObjectDescriptor.getContainingDeclaration();
+        assert hostClassDescriptor instanceof ClassDescriptor :
+                "Containing declaration of the companion object " + companionObjectDescriptor +
+                ": expected a class, actual: " + hostClassDescriptor;
+
+        CodegenContext hostClassContext = context;
+        while (hostClassContext.getContextDescriptor() != hostClassDescriptor) {
+            hostClassContext = hostClassContext.getParentContext();
+            assert hostClassContext != null :
+                    "Host class context for " + hostClassDescriptor + " not found in context hierarchy for " + context;
+        }
+
+        hostClassContext.markCompanionObjectDescriptorWithAccessorRequired(companionObjectDescriptor);
+
+        Type hostClassType = typeMapper.mapClass((ClassifierDescriptor) hostClassDescriptor);
+        Type companionObjectType = typeMapper.mapClass(companionObjectDescriptor);
+
+        // TODO given that we actually have corresponding AccessorForCompanionObjectInstanceFieldDescriptor,
+        // it might be a better idea to use general method call generation
+        return StackValue.operation(
+                companionObjectType,
+                companionObjectDescriptor.getDefaultType(),
+                v -> {
+                    v.invokestatic(
+                            hostClassType.getInternalName(),
+                            getCompanionObjectAccessorName(companionObjectDescriptor),
+                            Type.getMethodDescriptor(companionObjectType),
+                            /* itf */ false
+                    );
+                    return null;
+                });
     }
 
     @NotNull
@@ -3135,10 +3187,10 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             @Nullable KtExpression left,
             @Nullable KtExpression right,
             @NotNull IElementType opToken,
-            @Nullable StackValue pregeneratedLeft,
+            @Nullable StackValue pregeneratedSubject,
             @Nullable PrimitiveNumericComparisonInfo primitiveNumericComparisonInfo
     ) {
-        Type leftType = expressionType(left);
+        Type leftType = pregeneratedSubject != null ? pregeneratedSubject.type : expressionType(left);
         Type rightType = expressionType(right);
 
         if (KtPsiUtil.isNullConstant(left)) {
@@ -3146,7 +3198,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         }
 
         if (KtPsiUtil.isNullConstant(right)) {
-            return genCmpWithNull(left, opToken, pregeneratedLeft);
+            return genCmpWithNull(left, opToken, pregeneratedSubject);
         }
 
         if (isIntZero(left, leftType) && isIntPrimitive(rightType)) {
@@ -3154,23 +3206,23 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         }
 
         if (isIntZero(right, rightType) && isIntPrimitive(leftType)) {
-            return genCmpWithZero(left, opToken, pregeneratedLeft);
+            return genCmpWithZero(left, opToken, pregeneratedSubject);
         }
 
-        if (pregeneratedLeft == null && left instanceof KtSafeQualifiedExpression &&
+        if (pregeneratedSubject == null && left instanceof KtSafeQualifiedExpression &&
             isSelectorPureNonNullType((KtSafeQualifiedExpression) left) && isPrimitive(rightType)) {
             return genCmpSafeCallToPrimitive((KtSafeQualifiedExpression) left, right, rightType, opToken);
         }
 
         if (isPrimitive(leftType) && right instanceof KtSafeQualifiedExpression &&
             isSelectorPureNonNullType(((KtSafeQualifiedExpression) right))) {
-            return genCmpPrimitiveToSafeCall(left, leftType, (KtSafeQualifiedExpression) right, opToken, pregeneratedLeft);
+            return genCmpPrimitiveToSafeCall(left, leftType, (KtSafeQualifiedExpression) right, opToken, pregeneratedSubject);
         }
 
         if (BoxedToPrimitiveEquality.isApplicable(opToken, leftType, rightType)) {
             return BoxedToPrimitiveEquality.create(
                     opToken,
-                    genLazyUnlessProvided(pregeneratedLeft, left, leftType), leftType,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
                     genLazy(right, rightType), rightType,
                     myFrameMap
             );
@@ -3179,7 +3231,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         if (PrimitiveToBoxedEquality.isApplicable(opToken, leftType, rightType)) {
             return PrimitiveToBoxedEquality.create(
                     opToken,
-                    genLazyUnlessProvided(pregeneratedLeft, left, leftType), leftType,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
                     genLazy(right, rightType), rightType
             );
         }
@@ -3187,7 +3239,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         if (PrimitiveToObjectEquality.isApplicable(opToken, leftType, rightType)) {
             return PrimitiveToObjectEquality.create(
                     opToken,
-                    genLazyUnlessProvided(pregeneratedLeft, left, leftType), leftType,
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType), leftType,
                     genLazy(right, rightType), rightType
             );
         }
@@ -3204,27 +3256,33 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             return StackValue.cmp(
                     opToken,
                     operandType,
-                    genLazyUnlessProvided(pregeneratedLeft, left, leftType),
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType),
                     genLazy(right, rightType)
             );
         }
 
         if ((opToken == KtTokens.EQEQ || opToken == KtTokens.EXCLEQ) &&
-            (isEnumClass(bindingContext.getType(left).getConstructor().getDeclarationDescriptor()) ||
-             isEnumClass(bindingContext.getType(right).getConstructor().getDeclarationDescriptor()))) {
+            (isEnumExpression(left) || isEnumExpression(right))) {
             // Reference equality can be used for enums.
             return StackValue.cmp(
                     opToken == KtTokens.EQEQ ? KtTokens.EQEQEQ : KtTokens.EXCLEQEQEQ,
                     OBJECT_TYPE,
-                    genLazyUnlessProvided(pregeneratedLeft, left, leftType),
+                    genLazyUnlessProvided(pregeneratedSubject, left, leftType),
                     genLazy(right, rightType)
             );
         }
 
         return genEqualsForExpressionsPreferIeee754Arithmetic(
-                left, right, opToken, leftType, rightType, pregeneratedLeft, primitiveNumericComparisonInfo
+                left, right, opToken, leftType, rightType, pregeneratedSubject, primitiveNumericComparisonInfo
         );
     }
+
+    private boolean isEnumExpression(@Nullable KtExpression expression) {
+        KotlinType expressionType = bindingContext.getType(expression);
+        if (expressionType == null) return false;
+        return isEnumClass(expressionType.getConstructor().getDeclarationDescriptor());
+    }
+
 
     private boolean isSelectorPureNonNullType(@NotNull KtSafeQualifiedExpression safeExpression) {
         KtExpression expression = safeExpression.getSelectorExpression();
@@ -4484,12 +4542,12 @@ The "returned" value of try expression with no finally is either the last expres
     }
 
     public StackValue generateWhenExpression(KtWhenExpression expression, boolean isStatement) {
-        KtExpression expr = expression.getSubjectExpression();
-        Type subjectType = expressionType(expr);
-
         Type resultType = isStatement ? Type.VOID_TYPE : expressionType(expression);
 
         return StackValue.operation(resultType, v -> {
+            KtProperty subjectVariable = expression.getSubjectVariable();
+            KtExpression subjectExpression = expression.getSubjectExpression();
+
             SwitchCodegen switchCodegen = switchCodegenProvider.buildAppropriateSwitchCodegenIfPossible(
                     expression, isStatement, CodegenUtil.isExhaustive(bindingContext, expression, isStatement)
             );
@@ -4498,12 +4556,31 @@ The "returned" value of try expression with no finally is either the last expres
                 return null;
             }
 
-            int subjectLocal = expr != null ? myFrameMap.enterTemp(subjectType) : -1;
-            if (subjectLocal != -1) {
-                gen(expr, subjectType);
-                tempVariables.put(expr, StackValue.local(subjectLocal, subjectType));
+            int subjectLocal;
+            Type subjectType;
+            VariableDescriptor subjectVariableDescriptor = null;
+            if (subjectVariable != null) {
+                subjectVariableDescriptor = bindingContext.get(BindingContext.VARIABLE, subjectVariable);
+                assert subjectVariableDescriptor != null : "Unresolved subject variable: " + subjectVariable.getName();
+                subjectType = asmType(subjectVariableDescriptor.getType());
+                subjectLocal = myFrameMap.enter(subjectVariableDescriptor, subjectType);
+                visitProperty(subjectVariable, null);
+                tempVariables.put(subjectExpression, StackValue.local(subjectLocal, subjectType));
+            }
+            else if (subjectExpression != null) {
+                subjectType = expressionType(subjectExpression);
+                subjectLocal = myFrameMap.enterTemp(subjectType);
+                gen(subjectExpression, subjectType);
+                tempVariables.put(subjectExpression, StackValue.local(subjectLocal, subjectType));
                 v.store(subjectLocal, subjectType);
             }
+            else {
+                subjectLocal = -1;
+                subjectType = Type.VOID_TYPE;
+            }
+
+            Label begin = new Label();
+            v.mark(begin);
 
             Label end = new Label();
             boolean hasElse = KtPsiUtil.checkWhenExpressionHasSingleElse(expression);
@@ -4519,7 +4596,7 @@ The "returned" value of try expression with no finally is either the last expres
                 if (!whenEntry.isElse()) {
                     KtWhenCondition[] conditions = whenEntry.getConditions();
                     for (int i = 0; i < conditions.length; i++) {
-                        StackValue conditionValue = generateWhenCondition(expr, subjectType, subjectLocal, conditions[i]);
+                        StackValue conditionValue = generateWhenCondition(subjectExpression, subjectType, subjectLocal, conditions[i]);
                         BranchedValue.Companion.condJump(conditionValue, nextCondition, true, v);
                         if (i < conditions.length - 1) {
                             v.goTo(thisEntry);
@@ -4544,8 +4621,17 @@ The "returned" value of try expression with no finally is either the last expres
             markLineNumber(expression, isStatement);
             v.mark(end);
 
-            myFrameMap.leaveTemp(subjectType);
-            tempVariables.remove(expr);
+            if (subjectVariableDescriptor != null) {
+                myFrameMap.leave(subjectVariableDescriptor);
+                v.visitLocalVariable(
+                        subjectVariableDescriptor.getName().asString(), subjectType.getDescriptor(), null,
+                        begin, end, subjectLocal
+                );
+            }
+            else {
+                myFrameMap.leaveTemp(subjectType);
+            }
+            tempVariables.remove(subjectExpression);
             return null;
         });
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
  */
 
@@ -92,6 +92,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
 
     private ExpressionCodegen clInit;
     private NameGenerator inlineNameGenerator;
+    private boolean jvmAssertFieldGenerated;
 
     private DefaultSourceMapper sourceMapper;
 
@@ -111,6 +112,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         this.functionCodegen = new FunctionCodegen(context, v, state, this);
         this.propertyCodegen = new PropertyCodegen(context, v, functionCodegen, this);
         this.parentCodegen = parentCodegen;
+        this.jvmAssertFieldGenerated = false;
     }
 
     protected MemberCodegen(@NotNull MemberCodegen<T> wrapped, T declaration, FieldOwnerContext codegenContext) {
@@ -706,6 +708,30 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
                 generateSyntheticAccessor(accessor);
             }
         }
+
+        AccessorForCompanionObjectInstanceFieldDescriptor accessorForCompanionObjectInstanceFieldDescriptor =
+                context.getAccessorForCompanionObjectDescriptorIfRequired();
+        if (accessorForCompanionObjectInstanceFieldDescriptor != null) {
+            generateSyntheticAccessorForCompanionObject(accessorForCompanionObjectInstanceFieldDescriptor);
+        }
+    }
+
+    private void generateSyntheticAccessorForCompanionObject(@NotNull AccessorForCompanionObjectInstanceFieldDescriptor accessor) {
+        ClassDescriptor companionObjectDescriptor = accessor.getCompanionObjectDescriptor();
+        DeclarationDescriptor hostClassDescriptor = companionObjectDescriptor.getContainingDeclaration();
+        assert hostClassDescriptor instanceof ClassDescriptor : "Class descriptor expected: " + hostClassDescriptor;
+        functionCodegen.generateMethod(
+                Synthetic(null, companionObjectDescriptor),
+                accessor,
+                new FunctionGenerationStrategy.CodegenBased(state) {
+                    @Override
+                    public void doGenerateBody(@NotNull ExpressionCodegen codegen, @NotNull JvmMethodSignature signature) {
+                        Type companionObjectType = typeMapper.mapClass(companionObjectDescriptor);
+                        StackValue.singleton(companionObjectDescriptor, typeMapper).put(companionObjectType, codegen.v);
+                        codegen.v.areturn(companionObjectType);
+                    }
+                }
+        );
     }
 
     private void generateSyntheticAccessor(@NotNull AccessorForCallableDescriptor<?> accessorForCallableDescriptor) {
@@ -901,4 +927,11 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
             return Unit.INSTANCE;
         });
     }
+
+    public void generateAssertField() {
+        if (jvmAssertFieldGenerated) return;
+        AssertCodegenUtilKt.generateAssertionsDisabledFieldInitialization(this);
+        jvmAssertFieldGenerated = true;
+    }
+
 }

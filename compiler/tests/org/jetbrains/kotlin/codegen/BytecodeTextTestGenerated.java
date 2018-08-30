@@ -274,6 +274,11 @@ public class BytecodeTextTestGenerated extends AbstractBytecodeTextTest {
         runTest("compiler/testData/codegen/bytecodeText/noSuperCheckInDefaultConstuctor.kt");
     }
 
+    @TestMetadata("noSyntheticAccessorForPrivateCompanionObjectWhenNotRequired.kt")
+    public void testNoSyntheticAccessorForPrivateCompanionObjectWhenNotRequired() throws Exception {
+        runTest("compiler/testData/codegen/bytecodeText/noSyntheticAccessorForPrivateCompanionObjectWhenNotRequired.kt");
+    }
+
     @TestMetadata("noWrapperForMethodReturningPrimitive.kt")
     public void testNoWrapperForMethodReturningPrimitive() throws Exception {
         runTest("compiler/testData/codegen/bytecodeText/noWrapperForMethodReturningPrimitive.kt");
@@ -422,6 +427,11 @@ public class BytecodeTextTestGenerated extends AbstractBytecodeTextTest {
         @TestMetadata("fold.kt")
         public void testFold() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/boxingOptimization/fold.kt");
+        }
+
+        @TestMetadata("inlineClassesAndInlinedLambda.kt")
+        public void testInlineClassesAndInlinedLambda() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/boxingOptimization/inlineClassesAndInlinedLambda.kt");
         }
 
         @TestMetadata("intCompareTo.kt")
@@ -955,6 +965,11 @@ public class BytecodeTextTestGenerated extends AbstractBytecodeTextTest {
         @TestMetadata("byte.kt")
         public void testByte() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/constants/byte.kt");
+        }
+
+        @TestMetadata("inlineUnsignedIntConstant.kt")
+        public void testInlineUnsignedIntConstant() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/constants/inlineUnsignedIntConstant.kt");
         }
 
         @TestMetadata("kt9532.kt")
@@ -2799,6 +2814,26 @@ public class BytecodeTextTestGenerated extends AbstractBytecodeTextTest {
         @TestMetadata("simpleConstValsInsideWhen.kt")
         public void testSimpleConstValsInsideWhen() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/when/simpleConstValsInsideWhen.kt");
+        }
+
+        @TestMetadata("subjectValHasLocalVariableSlot.kt")
+        public void testSubjectValHasLocalVariableSlot() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/when/subjectValHasLocalVariableSlot.kt");
+        }
+
+        @TestMetadata("subjectValInEnumWhenHasLocalVariableSlot.kt")
+        public void testSubjectValInEnumWhenHasLocalVariableSlot() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/when/subjectValInEnumWhenHasLocalVariableSlot.kt");
+        }
+
+        @TestMetadata("subjectValInIntWhenHasLocalVariableSlot.kt")
+        public void testSubjectValInIntWhenHasLocalVariableSlot() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/when/subjectValInIntWhenHasLocalVariableSlot.kt");
+        }
+
+        @TestMetadata("subjectValInStringWhenHasLocalVariableSlot.kt")
+        public void testSubjectValInStringWhenHasLocalVariableSlot() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/when/subjectValInStringWhenHasLocalVariableSlot.kt");
         }
 
         @TestMetadata("whenNull.kt")

@@ -22,7 +22,6 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.PsiJavaFile
-import org.jetbrains.kotlin.annotation.AnnotationFileUpdater
 import org.jetbrains.kotlin.build.GeneratedFile
 import org.jetbrains.kotlin.build.GeneratedJvmClass
 import org.jetbrains.kotlin.build.JvmSourceRoot
@@ -57,7 +56,8 @@ fun makeIncrementally(
         messageCollector: MessageCollector = MessageCollector.NONE,
         reporter: ICReporter = EmptyICReporter
 ) {
-    val versions = commonCacheVersions(cachesDir) + standaloneCacheVersion(cachesDir)
+    val isIncremental = IncrementalCompilation.isEnabledForJvm()
+    val versions = commonCacheVersions(cachesDir, isIncremental) + standaloneCacheVersion(cachesDir, isIncremental)
 
     val kotlinExtensions = listOf("kt", "kts")
     val allExtensions = kotlinExtensions + listOf("java")
@@ -87,7 +87,7 @@ object EmptyICReporter : ICReporter {
 }
 
 inline fun <R> withIC(enabled: Boolean = true, fn: ()->R): R {
-    val isEnabledBackup = IncrementalCompilation.isEnabled()
+    val isEnabledBackup = IncrementalCompilation.isEnabledForJvm()
     IncrementalCompilation.setIsEnabled(enabled)
 
     try {
@@ -103,7 +103,6 @@ class IncrementalJvmCompilerRunner(
         private val javaSourceRoots: Set<JvmSourceRoot>,
         cacheVersions: List<CacheVersion>,
         reporter: ICReporter,
-        private var kaptAnnotationsFileUpdater: AnnotationFileUpdater? = null,
         private val usePreciseJavaTracking: Boolean,
         private val buildHistoryFile: File,
         localStateDirs: Collection<File>,
@@ -116,7 +115,7 @@ class IncrementalJvmCompilerRunner(
         localStateDirs = localStateDirs
 ) {
     override fun isICEnabled(): Boolean =
-            IncrementalCompilation.isEnabled()
+            IncrementalCompilation.isEnabledForJvm()
 
     override fun createCacheManager(args: K2JVMCompilerArguments): IncrementalJvmCachesManager =
             IncrementalJvmCachesManager(cacheDirectory, File(args.destination), reporter)
@@ -311,28 +310,14 @@ class IncrementalJvmCompilerRunner(
     }
 
     override fun preBuildHook(args: K2JVMCompilerArguments, compilationMode: CompilationMode) {
-        when (compilationMode) {
-            is CompilationMode.Incremental -> {
-                val destinationDir = args.destinationAsFile
-                destinationDir.mkdirs()
-                args.classpathAsList = listOf(destinationDir) + args.classpathAsList
-            }
-            is CompilationMode.Rebuild -> {
-                // there is no point in updating annotation file since all files will be compiled anyway
-                kaptAnnotationsFileUpdater = null
-            }
+        if (compilationMode is CompilationMode.Incremental) {
+            val destinationDir = args.destinationAsFile
+            destinationDir.mkdirs()
+            args.classpathAsList = listOf(destinationDir) + args.classpathAsList
         }
     }
 
-    override fun postCompilationHook(exitCode: ExitCode) {
-        if (exitCode == ExitCode.OK) {
-            // TODO: Is it ok that argument always was an empty list?
-            kaptAnnotationsFileUpdater?.updateAnnotations(emptyList())
-        }
-        else {
-            kaptAnnotationsFileUpdater?.revert()
-        }
-    }
+    override fun postCompilationHook(exitCode: ExitCode) {}
 
     override fun updateCaches(
             services: Services,

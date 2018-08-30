@@ -84,7 +84,6 @@
                         <configuration>
                             <outputDirectory>${annotation-processing.target-resource}/META-INF</outputDirectory>
                             <resources>
-                                <resource><directory>${annotation-processing.base.src}/META-INF</directory></resource>
                                 <resource><directory>${annotation-processing.src}/META-INF</directory></resource>
                             </resources>
                         </configuration>

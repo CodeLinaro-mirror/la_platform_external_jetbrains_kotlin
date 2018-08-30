@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen.inline
@@ -104,7 +93,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
     override val lookupLocation = KotlinLookupLocation(callElement)
 
 
-    override val callElementText by lazy {
+    override val callElementText: String by lazy {
         callElement.text
     }
 
@@ -214,7 +203,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
         mappings: List<FileMapping>
     ): SMAP {
         val containingFile = declaration.containingFile
-        CodegenUtil.getLineNumberForElement(containingFile, true) ?: error("Couldn't extract line count in " + containingFile)
+        CodegenUtil.getLineNumberForElement(containingFile, true) ?: error("Couldn't extract line count in $containingFile")
 
         return SMAP(mappings)
     }
@@ -257,6 +246,10 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
                 innerClasses.addAll(parentAsInnerClasses)
             }
         }
+
+        override fun generateAssertField() {
+            delegate.generateAssertField()
+        }
     }
 
     override fun doCreateMethodNodeFromSource(
@@ -268,7 +261,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
         val element = DescriptorToSourceUtils.descriptorToDeclaration(callableDescriptor)
 
         if (!(element is KtNamedFunction || element is KtPropertyAccessor)) {
-            throw IllegalStateException("Couldn't find declaration for function " + callableDescriptor)
+            throw IllegalStateException("Couldn't find declaration for function $callableDescriptor")
         }
         val inliningFunction = element as KtDeclarationWithBody?
 
@@ -293,7 +286,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
                 false
             )
             if (element !is KtNamedFunction) {
-                throw IllegalStateException("Property accessors with default parameters not supported " + callableDescriptor)
+                throw IllegalStateException("Property accessors with default parameters not supported $callableDescriptor")
             }
             FunctionCodegen.generateDefaultImplBody(
                 methodContext, callableDescriptor, maxCalcAdapter, DefaultParameterValueLoader.DEFAULT,
@@ -423,7 +416,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
                 return PackageContext(descriptor, state.rootContext, null, sourceFile)
             }
 
-            val container = descriptor.containingDeclaration ?: error("No container for descriptor: " + descriptor)
+            val container = descriptor.containingDeclaration ?: error("No container for descriptor: $descriptor")
             val parent = getContext(
                 container,
                 descriptor,
@@ -461,7 +454,7 @@ class PsiSourceCompilerForInline(private val codegen: ExpressionCodegen, overrid
                     parent.intoFunction(descriptor)
                 }
                 else -> {
-                    throw IllegalStateException("Couldn't build context for " + descriptor)
+                    throw IllegalStateException("Couldn't build context for $descriptor")
                 }
             }
 

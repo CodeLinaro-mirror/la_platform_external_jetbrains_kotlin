@@ -61,7 +61,7 @@ testsJar()
 
 val testForWebDemo by task<Test> {
     include("**/*JavaToKotlinConverterForWebDemoTestGenerated*")
-    classpath = the<JavaPluginConvention>().sourceSets["test"].runtimeClasspath
+    classpath = testSourceSet.runtimeClasspath
     workingDir = rootDir
 }
 val cleanTestForWebDemo by tasks
@@ -71,6 +71,8 @@ test.apply {
     exclude("**/*JavaToKotlinConverterForWebDemoTestGenerated*")
     dependsOn(testForWebDemo)
 }
+
 val cleanTest by tasks
 cleanTest.dependsOn(cleanTestForWebDemo)
 
+ideaPlugin()
