@@ -1,4 +1,4 @@
-// IGNORE_BACKEND_MULTI_MODULE: JVM_IR
+// This test depends on line numbers
 // WITH_RUNTIME
 // FILE: 1.kt
 
@@ -83,17 +83,6 @@ test/_1Kt$inlineMe1$2$run$1
 *E
 
 // FILE: 2.smap
-SMAP
-2.kt
-Kotlin
-*S Kotlin
-*F
-+ 1 2.kt
-_2Kt$builder$1
-*L
-1#1,29:1
-*E
-
 SMAP
 2.kt
 Kotlin

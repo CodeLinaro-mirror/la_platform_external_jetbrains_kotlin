@@ -9,6 +9,8 @@ import com.intellij.debugger.impl.DescriptorTestCase
 import com.intellij.debugger.impl.OutputChecker
 import com.intellij.execution.configurations.JavaParameters
 import com.intellij.execution.process.ProcessOutputTypes
+import com.intellij.jarRepository.JarRepositoryManager
+import com.intellij.jarRepository.RemoteRepositoryDescription
 import com.intellij.openapi.roots.LibraryOrderEntry
 import com.intellij.openapi.roots.ModifiableRootModel
 import com.intellij.openapi.roots.ModuleRootManager
@@ -21,7 +23,7 @@ import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.psi.PsiFile
 import com.intellij.testFramework.EdtTestUtil
 import com.intellij.xdebugger.XDebugSession
-import org.jetbrains.kotlin.codegen.CodegenTestCase.TestFile
+import org.jetbrains.idea.maven.aether.ArtifactKind
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.idea.debugger.evaluate.KotlinDebuggerCaches
@@ -31,18 +33,19 @@ import org.jetbrains.kotlin.idea.debugger.test.util.KotlinOutputChecker
 import org.jetbrains.kotlin.idea.debugger.test.util.LogPropagator
 import org.jetbrains.kotlin.idea.test.ConfigLibraryUtil
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
-import org.jetbrains.kotlin.test.KotlinTestUtils
-import org.jetbrains.kotlin.test.TestMetadata
-import org.jetbrains.kotlin.test.isIgnoredInDatabaseWithLog
+import org.jetbrains.kotlin.test.*
+import org.jetbrains.kotlin.test.KotlinBaseTest.TestFile
 import org.jetbrains.kotlin.test.testFramework.runWriteAction
 import org.junit.ComparisonFailure
 import java.io.File
+import org.jetbrains.jps.model.library.JpsMavenRepositoryLibraryDescriptor as JpsMavenRepositoryLibraryDescriptor
 
 internal const val KOTLIN_LIBRARY_NAME = "KotlinLibrary"
 internal const val TEST_LIBRARY_NAME = "TestLibrary"
 
 class TestFiles(val originalFile: File, val wholeFile: TestFile, files: List<TestFile>) : List<TestFile> by files
 
+@WithMutedInDatabaseRunTest
 abstract class KotlinDescriptorTestCase : DescriptorTestCase() {
     private lateinit var testAppDirectory: File
     private lateinit var sourcesOutputDirectory: File
@@ -104,12 +107,14 @@ abstract class KotlinDescriptorTestCase : DescriptorTestCase() {
 
         val rawJvmTarget = preferences[DebuggerPreferenceKeys.JVM_TARGET]
         val jvmTarget = JvmTarget.fromString(rawJvmTarget) ?: error("Invalid JVM target value: $rawJvmTarget")
-        val applyDexPatch = preferences[DebuggerPreferenceKeys.EMULATE_DEX]
 
-        val compilerFacility = DebuggerTestCompilerFacility(testFiles, jvmTarget, applyDexPatch)
+        val compilerFacility = DebuggerTestCompilerFacility(testFiles, jvmTarget)
 
         for (library in preferences[DebuggerPreferenceKeys.ATTACH_LIBRARY]) {
-            compilerFacility.compileExternalLibrary(library, librarySrcDirectory, libraryOutputDirectory)
+            if (library.startsWith("maven("))
+                addMavenDependency(compilerFacility, library)
+            else
+                compilerFacility.compileExternalLibrary(library, librarySrcDirectory, libraryOutputDirectory)
         }
 
         compilerFacility.compileLibrary(librarySrcDirectory, libraryOutputDirectory)
@@ -125,13 +130,16 @@ abstract class KotlinDescriptorTestCase : DescriptorTestCase() {
         doMultiFileTest(testFiles, preferences)
     }
 
+    open fun addMavenDependency(compilerFacility: DebuggerTestCompilerFacility, library: String) {
+    }
+
     private fun createTestFiles(wholeFile: File, wholeFileContents: String): TestFiles {
-        val testFiles = org.jetbrains.kotlin.test.TestFiles.createTestFiles<Void, TestFile>(
+        val testFiles = org.jetbrains.kotlin.test.TestFiles.createTestFiles(
             wholeFile.name,
             wholeFileContents,
             object : org.jetbrains.kotlin.test.TestFiles.TestFileFactoryNoModules<TestFile>() {
-                override fun create(fileName: String, text: String, directives: Map<String, String>): TestFile {
-                    return TestFile(fileName, text)
+                override fun create(fileName: String, text: String, directives: Directives): TestFile {
+                    return TestFile(fileName, text, directives)
                 }
             }
         )
@@ -223,10 +231,9 @@ abstract class KotlinDescriptorTestCase : DescriptorTestCase() {
         return super.getData(dataId)
     }
 
-    override fun shouldRunTest(): Boolean {
-        return super.shouldRunTest() && !isIgnoredInDatabaseWithLog(this)
+    override fun runTest() {
+        runTest { super.runTest() }
     }
 
-    private fun getTestDirectoryPath(): String = javaClass.getAnnotation(TestMetadata::class.java).value
+    protected fun getTestDirectoryPath(): String = javaClass.getAnnotation(TestMetadata::class.java).value
 }
-

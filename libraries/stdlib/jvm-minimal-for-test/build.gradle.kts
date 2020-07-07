@@ -43,7 +43,8 @@ val copySources by task<Sync> {
         .include("kotlin/util/Standard.kt",
                  "kotlin/internal/Annotations.kt",
                  "kotlin/contracts/ContractBuilder.kt",
-                 "kotlin/contracts/Effect.kt")
+                 "kotlin/contracts/Effect.kt",
+                 "kotlin/annotations/Experimental.kt")
     into(File(buildDir, "src"))
 }
 
@@ -60,8 +61,8 @@ tasks.withType<KotlinCompile> {
             "kotlin-stdlib",
             "-Xallow-kotlin-package",
             "-Xmulti-platform",
-            "-Xuse-experimental=kotlin.contracts.ExperimentalContracts",
-            "-Xuse-experimental=kotlin.Experimental"
+            "-Xopt-in=kotlin.RequiresOptIn",
+            "-Xopt-in=kotlin.contracts.ExperimentalContracts"
         )
     }
 }

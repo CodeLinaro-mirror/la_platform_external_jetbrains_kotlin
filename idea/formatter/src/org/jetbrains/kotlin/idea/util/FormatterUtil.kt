@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,15 +8,15 @@ package org.jetbrains.kotlin.idea.util
 import com.intellij.formatting.ASTBlock
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.codeStyle.CodeStyleSettings
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.util.PsiUtil
 import org.jetbrains.kotlin.idea.core.formatter.KotlinCodeStyleSettings
-import org.jetbrains.kotlin.idea.formatter.kotlinCustomSettings
-import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
-import org.jetbrains.kotlin.psi.KtFunctionLiteral
-import org.jetbrains.kotlin.psi.KtWhenEntry
-import org.jetbrains.kotlin.psi.psiUtil.endOffset
+import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.psiUtil.nextLeaf
+import org.jetbrains.kotlin.psi.psiUtil.prevLeaf
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
 
 /*
@@ -47,40 +47,19 @@ fun PsiElement.getLineCount(): Int {
 
 fun PsiElement.isMultiline() = getLineCount() > 1
 
-fun KtFunctionLiteral.needTrailingComma(settings: CodeStyleSettings, checkExistingTrailingComma: Boolean = true): Boolean =
-    needTrailingComma(
-        settings = settings,
-        trailingComma = { if (checkExistingTrailingComma) valueParameterList?.trailingComma else null },
-        globalStartOffset = { valueParameterList?.startOffset },
-        globalEndOffset = { arrow?.endOffset }
-    )
+fun PsiElement?.isLineBreak() = this is PsiWhiteSpace && StringUtil.containsLineBreak(text)
 
-fun KtWhenEntry.needTrailingComma(settings: CodeStyleSettings, checkExistingTrailingComma: Boolean = true): Boolean = needTrailingComma(
-    settings = settings,
-    trailingComma = { if (checkExistingTrailingComma) trailingComma else null },
-    additionalCheck = { !isElse },
-    globalEndOffset = { arrow?.endOffset }
-)
+fun PsiElement.leafIgnoringWhitespace(forward: Boolean = true, skipEmptyElements: Boolean = true) =
+    leaf(forward) { (!skipEmptyElements || it.textLength != 0) && it !is PsiWhiteSpace }
 
-fun KtDestructuringDeclaration.needTrailingComma(settings: CodeStyleSettings, checkExistingTrailingComma: Boolean = true): Boolean =
-    needTrailingComma(
-        settings = settings,
-        trailingComma = { if (checkExistingTrailingComma) trailingComma else null },
-        globalStartOffset = { lPar?.startOffset },
-        globalEndOffset = { rPar?.endOffset }
-    )
+fun PsiElement.leafIgnoringWhitespaceAndComments(forward: Boolean = true, skipEmptyElements: Boolean = true) =
+    leaf(forward) { (!skipEmptyElements || it.textLength != 0) && it !is PsiWhiteSpace && it !is PsiComment }
 
-fun <T : PsiElement> T.needTrailingComma(
-    settings: CodeStyleSettings,
-    trailingComma: T.() -> PsiElement?,
-    additionalCheck: () -> Boolean = { true },
-    globalStartOffset: T.() -> Int? = PsiElement::startOffset,
-    globalEndOffset: T.() -> Int? = PsiElement::endOffset
-) = (trailingComma() != null || settings.kotlinCustomSettings.ALLOW_TRAILING_COMMA) && additionalCheck() && run(fun(): Boolean {
-    val startOffset = globalStartOffset() ?: return false
-    val endOffset = globalEndOffset() ?: return false
-    return containsLineBreakInThis(startOffset, endOffset)
-})
+fun PsiElement.leaf(forward: Boolean = true, filter: (PsiElement) -> Boolean): PsiElement? =
+    if (forward) nextLeaf(filter)
+    else prevLeaf(filter)
+
+val PsiElement.isComma: Boolean get() = PsiUtil.getElementType(this) == KtTokens.COMMA
 
 fun PsiElement.containsLineBreakInThis(globalStartOffset: Int, globalEndOffset: Int): Boolean {
     val textRange = TextRange.create(globalStartOffset, globalEndOffset).shiftLeft(startOffset)

@@ -5,12 +5,14 @@
 
 package org.jetbrains.kotlin.idea.quickfix.replaceWith
 
+import com.intellij.openapi.diagnostic.ControlFlowException
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.idea.analysis.analyzeInContext
 import org.jetbrains.kotlin.idea.caches.resolve.resolveImportReference
 import org.jetbrains.kotlin.idea.codeInliner.CodeToInline
 import org.jetbrains.kotlin.idea.codeInliner.CodeToInlineBuilder
+import org.jetbrains.kotlin.idea.core.unwrapIfFakeOverride
 import org.jetbrains.kotlin.idea.project.findAnalyzerServices
 import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.references.mainReference
@@ -42,10 +44,7 @@ object ReplaceWithAnnotationAnalyzer {
         resolutionFacade: ResolutionFacade,
         reformat: Boolean
     ): CodeToInline? {
-        val originalDescriptor = when (symbolDescriptor) {
-            is CallableMemberDescriptor -> DescriptorUtils.unwrapFakeOverride(symbolDescriptor)
-            else -> symbolDescriptor
-        }.original
+        val originalDescriptor = symbolDescriptor.unwrapIfFakeOverride().original
         return analyzeOriginal(annotation, originalDescriptor, resolutionFacade, reformat)
     }
 
@@ -59,6 +58,7 @@ object ReplaceWithAnnotationAnalyzer {
         val expression = try {
             psiFactory.createExpression(annotation.pattern)
         } catch (t: Throwable) {
+            if (t is ControlFlowException) throw t
             return null
         }
 
@@ -82,6 +82,7 @@ object ReplaceWithAnnotationAnalyzer {
         val typeReference = try {
             psiFactory.createType(annotation.pattern)
         } catch (e: Exception) {
+            if (e is ControlFlowException) throw e
             return null
         }
         if (typeReference.typeElement !is KtUserType) return null
@@ -133,7 +134,7 @@ object ReplaceWithAnnotationAnalyzer {
         languageVersionSettings: LanguageVersionSettings
     ): List<ImportingScope> {
         val allDefaultImports =
-            resolutionFacade.frontendService<TargetPlatform>().findAnalyzerServices
+            resolutionFacade.frontendService<TargetPlatform>().findAnalyzerServices(resolutionFacade.project)
                 .getDefaultImports(languageVersionSettings, includeLowPriorityImports = true)
         val (allUnderImports, aliasImports) = allDefaultImports.partition { it.isAllUnder }
         // this solution doesn't support aliased default imports with a different alias

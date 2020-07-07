@@ -20,6 +20,8 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptionsImpl
 import org.jetbrains.kotlin.gradle.tasks.FilteringSourceRootsContainer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.SourceRoots
@@ -32,6 +34,8 @@ import java.io.File
 @CacheableTask
 open class KaptGenerateStubsTask : KotlinCompile() {
     override val sourceRootsContainer = FilteringSourceRootsContainer(emptyList(), { isSourceRootAllowed(it) })
+
+    override val kotlinOptions: KotlinJvmOptions = KotlinJvmOptionsImpl()
 
     @get:Internal
     @field:Transient // can't serialize task references in Gradle instant execution state
@@ -92,7 +96,7 @@ open class KaptGenerateStubsTask : KotlinCompile() {
         args.pluginOptions = (pluginOptionsWithKapt.arguments + args.pluginOptions!!).toTypedArray()
 
         args.verbose = project.hasProperty("kapt.verbose") && project.property("kapt.verbose").toString().toBoolean() == true
-        args.classpathAsList = this.compileClasspath.toList()
+        args.classpathAsList = this.compileClasspath.filter { it.exists() }.toList()
         args.destinationAsFile = this.destinationDir
     }
 

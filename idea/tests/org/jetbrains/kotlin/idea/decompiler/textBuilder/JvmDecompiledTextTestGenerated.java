@@ -28,6 +28,11 @@ public class JvmDecompiledTextTestGenerated extends AbstractJvmDecompiledTextTes
         KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/decompiler/decompiledTextJvm"), Pattern.compile("^([^\\.]+)$"), null, true);
     }
 
+    @TestMetadata("EnumWithQuotes")
+    public void testEnumWithQuotes() throws Exception {
+        runTest("idea/testData/decompiler/decompiledTextJvm/EnumWithQuotes/");
+    }
+
     @TestMetadata("Modifiers")
     public void testModifiers() throws Exception {
         runTest("idea/testData/decompiler/decompiledTextJvm/Modifiers/");
@@ -38,6 +43,16 @@ public class JvmDecompiledTextTestGenerated extends AbstractJvmDecompiledTextTes
         runTest("idea/testData/decompiler/decompiledTextJvm/MultifileClass/");
     }
 
+    @TestMetadata("PackageWithQuotes")
+    public void testPackageWithQuotes() throws Exception {
+        runTest("idea/testData/decompiler/decompiledTextJvm/PackageWithQuotes/");
+    }
+
+    @TestMetadata("ParameterName")
+    public void testParameterName() throws Exception {
+        runTest("idea/testData/decompiler/decompiledTextJvm/ParameterName/");
+    }
+
     @TestMetadata("TestKt")
     public void testTestKt() throws Exception {
         runTest("idea/testData/decompiler/decompiledTextJvm/TestKt/");
@@ -46,6 +61,19 @@ public class JvmDecompiledTextTestGenerated extends AbstractJvmDecompiledTextTes
     @TestMetadata("TypeAliases")
     public void testTypeAliases() throws Exception {
         runTest("idea/testData/decompiler/decompiledTextJvm/TypeAliases/");
+    }
+
+    @TestMetadata("idea/testData/decompiler/decompiledTextJvm/EnumWithQuotes")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class EnumWithQuotes extends AbstractJvmDecompiledTextTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInEnumWithQuotes() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/decompiler/decompiledTextJvm/EnumWithQuotes"), Pattern.compile("^([^\\.]+)$"), null, true);
+        }
     }
 
     @TestMetadata("idea/testData/decompiler/decompiledTextJvm/Modifiers")
@@ -71,6 +99,32 @@ public class JvmDecompiledTextTestGenerated extends AbstractJvmDecompiledTextTes
 
         public void testAllFilesPresentInMultifileClass() throws Exception {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/decompiler/decompiledTextJvm/MultifileClass"), Pattern.compile("^([^\\.]+)$"), null, true);
+        }
+    }
+
+    @TestMetadata("idea/testData/decompiler/decompiledTextJvm/PackageWithQuotes")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class PackageWithQuotes extends AbstractJvmDecompiledTextTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInPackageWithQuotes() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/decompiler/decompiledTextJvm/PackageWithQuotes"), Pattern.compile("^([^\\.]+)$"), null, true);
+        }
+    }
+
+    @TestMetadata("idea/testData/decompiler/decompiledTextJvm/ParameterName")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class ParameterName extends AbstractJvmDecompiledTextTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInParameterName() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("idea/testData/decompiler/decompiledTextJvm/ParameterName"), Pattern.compile("^([^\\.]+)$"), null, true);
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -68,7 +68,6 @@ import static org.jetbrains.kotlin.codegen.CodegenUtilKt.isNonGenericToArray;
 import static org.jetbrains.kotlin.codegen.JvmCodegenUtil.*;
 import static org.jetbrains.kotlin.codegen.binding.CodegenBinding.enumEntryNeedSubclass;
 import static org.jetbrains.kotlin.codegen.binding.CodegenBinding.getDelegatedLocalVariableMetadata;
-import static org.jetbrains.kotlin.codegen.inline.InlineCodegenUtilsKt.initDefaultSourceMappingIfNeeded;
 import static org.jetbrains.kotlin.load.java.JvmAbi.*;
 import static org.jetbrains.kotlin.resolve.BindingContext.INDEXED_LVALUE_GET;
 import static org.jetbrains.kotlin.resolve.BindingContext.INDEXED_LVALUE_SET;
@@ -228,7 +227,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
 
         v.visitSource(myClass.getContainingKtFile().getName(), null);
 
-        initDefaultSourceMappingIfNeeded(context, this, state);
+        initDefaultSourceMappingIfNeeded();
 
         writeEnclosingMethod();
 
@@ -1176,7 +1175,7 @@ public class ImplementationBodyCodegen extends ClassBodyCodegen {
         if (!fieldInfo.generateField) return;
 
         v.newField(JvmDeclarationOrigin.NO_ORIGIN, ACC_PRIVATE | ACC_FINAL | ACC_SYNTHETIC,
-                   fieldInfo.name, fieldInfo.type.getDescriptor(), /*TODO*/null, null);
+                   fieldInfo.name, fieldInfo.type.getDescriptor(), fieldInfo.genericSignature, null);
     }
 
     private void generateDelegates(

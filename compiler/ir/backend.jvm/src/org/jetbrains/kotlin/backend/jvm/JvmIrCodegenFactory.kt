@@ -17,14 +17,17 @@
 package org.jetbrains.kotlin.backend.jvm
 
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
+import org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.MultifileClassCodegen
 import org.jetbrains.kotlin.codegen.PackageCodegen
 import org.jetbrains.kotlin.codegen.PackageCodegenImpl
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
+import org.jetbrains.kotlin.ir.descriptors.IrFunctionFactory
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.generateTypicalIrProviderList
 import org.jetbrains.kotlin.name.FqName
@@ -38,15 +41,20 @@ class JvmIrCodegenFactory(private val phaseConfig: PhaseConfig) : CodegenFactory
     }
 
     fun generateModuleInFrontendIRMode(
-        state: GenerationState, irModuleFragment: IrModuleFragment, symbolTable: SymbolTable, sourceManager: PsiSourceManager
+        state: GenerationState,
+        irModuleFragment: IrModuleFragment,
+        symbolTable: SymbolTable,
+        sourceManager: PsiSourceManager,
+        createCodegen: (IrClass, JvmBackendContext, IrFunction?) -> ClassCodegen?,
     ) {
+        irModuleFragment.irBuiltins.functionFactory = IrFunctionFactory(irModuleFragment.irBuiltins, symbolTable)
         val extensions = JvmGeneratorExtensions()
         val irProviders = generateTypicalIrProviderList(
             irModuleFragment.descriptor, irModuleFragment.irBuiltins, symbolTable, extensions = extensions
         )
-        ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
+
         JvmBackendFacade.doGenerateFilesInternal(
-            state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions
+            state, irModuleFragment, symbolTable, sourceManager, phaseConfig, irProviders, extensions, createCodegen
         )
     }
 

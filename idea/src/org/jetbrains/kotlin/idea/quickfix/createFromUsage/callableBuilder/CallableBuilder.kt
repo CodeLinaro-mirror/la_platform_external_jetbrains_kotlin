@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.impl.MutablePackageFragmentDescriptor
 import org.jetbrains.kotlin.descriptors.impl.SimpleFunctionDescriptorImpl
 import org.jetbrains.kotlin.descriptors.impl.TypeParameterDescriptorImpl
+import org.jetbrains.kotlin.idea.KotlinBundle
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeWithAllCompilerChecks
 import org.jetbrains.kotlin.idea.caches.resolve.analyzeWithContent
 import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
@@ -68,6 +69,7 @@ import org.jetbrains.kotlin.types.TypeUtils
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.typeUtil.isAnyOrNullableAny
+import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
 import org.jetbrains.kotlin.types.typeUtil.isUnit
 import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
@@ -274,9 +276,9 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
                 }
                 null
             } else {
-                val dialog = object : DialogWithEditor(project, "Create from usage", "") {
+                val dialog = object : DialogWithEditor(project, KotlinBundle.message("fix.create.from.usage.dialog.title"), "") {
                     override fun doOKAction() {
-                        project.executeWriteCommand("Premature end of template") {
+                        project.executeWriteCommand(KotlinBundle.message("premature.end.of.template")) {
                             TemplateManagerImpl.getTemplateState(editor)?.gotoEnd(false)
                         }
                         super.doOKAction()
@@ -540,7 +542,7 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
                                     psiFactory.createEnumEntry("$safeName${if (hasParameters) "()" else " "}")
                                 }
                                 else -> {
-                                    val openMod = if (open) "open " else ""
+                                    val openMod = if (open && kind != ClassKind.INTERFACE) "open " else ""
                                     val innerMod = if (inner || isInsideInnerOrLocalClass()) "inner " else ""
                                     val typeParamList = when (kind) {
                                         ClassKind.PLAIN_CLASS, ClassKind.INTERFACE -> "<>"
@@ -581,12 +583,27 @@ class CallableBuilder(val config: CallableBuilderConfiguration) {
 
                 if (declarationInPlace is KtSecondaryConstructor) {
                     val containingClass = declarationInPlace.containingClassOrObject!!
-                    if (containingClass.primaryConstructorParameters.isNotEmpty()) {
+                    val primaryConstructorParameters = containingClass.primaryConstructorParameters
+                    if (primaryConstructorParameters.isNotEmpty()) {
                         declarationInPlace.replaceImplicitDelegationCallWithExplicit(true)
                     } else if ((receiverClassDescriptor as ClassDescriptor).getSuperClassOrAny().constructors
                             .all { it.valueParameters.isNotEmpty() }
                     ) {
                         declarationInPlace.replaceImplicitDelegationCallWithExplicit(false)
+                    }
+                    if (declarationInPlace.valueParameters.size > primaryConstructorParameters.size) {
+                        val hasCompatibleTypes = primaryConstructorParameters.zip(callableInfo.parameterInfos).all { (primary, secondary) ->
+                            val primaryType = currentFileContext[BindingContext.TYPE, primary.typeReference] ?: return@all false
+                            val secondaryType = computeTypeCandidates(secondary.typeInfo).firstOrNull()?.theType ?: return@all false
+                            secondaryType.isSubtypeOf(primaryType)
+                        }
+                        if (hasCompatibleTypes) {
+                            val delegationCallArgumentList = declarationInPlace.getDelegationCall().valueArgumentList
+                            primaryConstructorParameters.forEach {
+                                val name = it.name
+                                if (name != null) delegationCallArgumentList?.addArgument(psiFactory.createArgument(name))
+                            }
+                        }
                     }
                 }
 
@@ -1145,9 +1162,24 @@ internal fun <D : KtNamedDeclaration> placeDeclarationInContainer(
     when (declaration) {
         is KtEnumEntry -> {
             val prevEnumEntry = declarationInPlace.siblings(forward = false, withItself = false).firstIsInstanceOrNull<KtEnumEntry>()
-            if ((prevEnumEntry?.prevSibling as? PsiWhiteSpace)?.text?.contains('\n') == true) {
-                val parent = declarationInPlace.parent
-                parent.addBefore(psiFactory.createNewLine(), declarationInPlace)
+            if (prevEnumEntry != null) {
+                if ((prevEnumEntry.prevSibling as? PsiWhiteSpace)?.text?.contains('\n') == true) {
+                    declarationInPlace.parent.addBefore(psiFactory.createNewLine(), declarationInPlace)
+                }
+                val comma = psiFactory.createComma()
+                if (prevEnumEntry.allChildren.any { it.node.elementType == KtTokens.COMMA }) {
+                    declarationInPlace.add(comma)
+                } else {
+                    prevEnumEntry.add(comma)
+                }
+                val semicolon = prevEnumEntry.allChildren.firstOrNull { it.node?.elementType == KtTokens.SEMICOLON }
+                if (semicolon != null) {
+                    (semicolon.prevSibling as? PsiWhiteSpace)?.text?.let {
+                        declarationInPlace.add(psiFactory.createWhiteSpace(it))
+                    }
+                    declarationInPlace.add(psiFactory.createSemicolon())
+                    semicolon.delete()
+                }
             }
         }
         !is KtPrimaryConstructor -> {

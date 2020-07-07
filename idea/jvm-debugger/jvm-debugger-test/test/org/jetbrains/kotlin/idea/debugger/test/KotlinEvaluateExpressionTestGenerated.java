@@ -260,6 +260,11 @@ public class KotlinEvaluateExpressionTestGenerated extends AbstractKotlinEvaluat
             runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/javaStaticMethods.kt");
         }
 
+        @TestMetadata("kClass.kt")
+        public void testKClass() throws Exception {
+            runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/kClass.kt");
+        }
+
         @TestMetadata("kt12206BasePropertyWithoutBackingField.kt")
         public void testKt12206BasePropertyWithoutBackingField() throws Exception {
             runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/kt12206BasePropertyWithoutBackingField.kt");
@@ -305,6 +310,11 @@ public class KotlinEvaluateExpressionTestGenerated extends AbstractKotlinEvaluat
             runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/kt31709.kt");
         }
 
+        @TestMetadata("kt36404.kt")
+        public void testKt36404() throws Exception {
+            runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/kt36404.kt");
+        }
+
         @TestMetadata("kt5554OnlyIntsShouldBeCoerced.kt")
         public void testKt5554OnlyIntsShouldBeCoerced() throws Exception {
             runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/kt5554OnlyIntsShouldBeCoerced.kt");
@@ -348,6 +358,11 @@ public class KotlinEvaluateExpressionTestGenerated extends AbstractKotlinEvaluat
         @TestMetadata("nestedInlineArguments.kt")
         public void testNestedInlineArguments() throws Exception {
             runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/nestedInlineArguments.kt");
+        }
+
+        @TestMetadata("nonAssignmentLValue.kt")
+        public void testNonAssignmentLValue() throws Exception {
+            runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/nonAssignmentLValue.kt");
         }
 
         @TestMetadata("nothing.kt")
@@ -902,6 +917,11 @@ public class KotlinEvaluateExpressionTestGenerated extends AbstractKotlinEvaluat
             @TestMetadata("inlineFunThisKotlinVariables.kt")
             public void testInlineFunThisKotlinVariables() throws Exception {
                 runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/frame/inlineFunThisKotlinVariables.kt");
+            }
+
+            @TestMetadata("lambdaAsValueArgument.kt")
+            public void testLambdaAsValueArgument() throws Exception {
+                runTest("idea/jvm-debugger/jvm-debugger-test/testData/evaluation/singleBreakpoint/frame/lambdaAsValueArgument.kt");
             }
 
             @TestMetadata("lambdaFun1.kt")

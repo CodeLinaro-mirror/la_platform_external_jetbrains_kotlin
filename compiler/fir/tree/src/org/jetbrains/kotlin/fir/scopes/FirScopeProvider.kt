@@ -8,12 +8,10 @@ package org.jetbrains.kotlin.fir.scopes
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 
 abstract class FirScopeProvider {
     abstract fun getUseSiteMemberScope(
         klass: FirClass<*>,
-        substitutor: ConeSubstitutor,
         useSiteSession: FirSession,
         scopeSession: ScopeSession
     ): FirScope
@@ -23,4 +21,27 @@ abstract class FirScopeProvider {
         useSiteSession: FirSession,
         scopeSession: ScopeSession
     ): FirScope?
+
+    abstract fun getNestedClassifierScope(
+        klass: FirClass<*>,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession
+    ): FirScope?
+
+    fun getStaticScope(
+        klass: FirClass<*>,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession
+    ): FirScope? {
+        val nestedClassifierScope = getNestedClassifierScope(klass, useSiteSession, scopeSession)
+        val callableScope = getStaticMemberScopeForCallables(klass, useSiteSession, scopeSession)
+
+        return when {
+            nestedClassifierScope != null && callableScope != null ->
+                FirReadOnlyCompositeScope(listOf(nestedClassifierScope, callableScope))
+            else -> nestedClassifierScope ?: callableScope
+        }
+    }
 }
+
+private class FirReadOnlyCompositeScope(override val scopes: Iterable<FirScope>) : FirIterableScope()

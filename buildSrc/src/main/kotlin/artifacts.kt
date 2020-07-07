@@ -9,10 +9,12 @@ import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.BasePluginConvention
+import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.Upload
 import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.jvm.tasks.Jar
+import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.kotlin.dsl.*
 
 
@@ -64,6 +66,8 @@ fun Project.runtimeJarArtifactBy(task: Task, artifactRef: Any, body: Configurabl
     }
 }
 
+fun Project.runtimeJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> = runtimeJar(getOrCreateTask("jar", body), { })
+
 fun <T : Jar> Project.runtimeJar(task: TaskProvider<T>, body: T.() -> Unit = {}): TaskProvider<T> {
     tasks.named<Jar>("jar").configure {
         removeArtifacts(configurations.getOrCreate("archives"), this)
@@ -82,8 +86,6 @@ fun <T : Jar> Project.runtimeJar(task: TaskProvider<T>, body: T.() -> Unit = {})
     }
     return task
 }
-
-fun Project.runtimeJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> = runtimeJar(getOrCreateTask("jar", body), { })
 
 fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     val task = tasks.register<Jar>("sourcesJar") {
@@ -153,6 +155,81 @@ fun Project.publish(body: Upload.() -> Unit = {}): Upload {
     return (tasks.getByName("uploadArchives") as Upload).apply {
         body()
     }
+}
+
+fun Project.idePluginDependency(block: () -> Unit) {
+    val shouldActivate = rootProject.findProperty("publish.ide.plugin.dependencies")?.toString()?.toBoolean() == true
+    if (shouldActivate) {
+        block()
+    }
+}
+
+fun Project.publishProjectJars(projects: List<String>, libraryDependencies: List<String> = emptyList()) {
+    apply<JavaPlugin>()
+
+    val fatJarContents by configurations.creating
+
+    dependencies {
+        for (projectName in projects) {
+            fatJarContents(project(projectName)) { isTransitive = false }
+        }
+
+        for (libraryDependency in libraryDependencies) {
+            fatJarContents(libraryDependency)
+        }
+    }
+
+    publish()
+
+    val jar: Jar by tasks
+
+    jar.apply {
+        dependsOn(fatJarContents)
+
+        from {
+            fatJarContents.map(::zipTree)
+        }
+    }
+
+    sourcesJar {
+        from {
+            projects.map {
+                project(it).mainSourceSet.allSource
+            }
+        }
+    }
+
+    javadocJar()
+}
+
+fun Project.publishTestJar(projectName: String) {
+    apply<JavaPlugin>()
+
+    val fatJarContents by configurations.creating
+
+    dependencies {
+        fatJarContents(project(projectName, configuration = "tests-jar")) { isTransitive = false }
+    }
+
+    publish()
+
+    val jar: Jar by tasks
+
+    jar.apply {
+        dependsOn(fatJarContents)
+
+        from {
+            fatJarContents.map(::zipTree)
+        }
+    }
+
+    sourcesJar {
+        from {
+            project(projectName).testSourceSet.allSource
+        }
+    }
+
+    javadocJar()
 }
 
 fun ConfigurationContainer.getOrCreate(name: String): Configuration = findByName(name) ?: create(name)

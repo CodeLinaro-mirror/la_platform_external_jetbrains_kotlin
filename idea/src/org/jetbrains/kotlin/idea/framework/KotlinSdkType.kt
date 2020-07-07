@@ -5,12 +5,14 @@
 
 package org.jetbrains.kotlin.idea.framework
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.projectRoots.*
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.projectRoots.impl.SdkConfigurationUtil
 import com.intellij.util.Consumer
 import org.jdom.Element
+import org.jetbrains.kotlin.idea.KotlinBundle
 import org.jetbrains.kotlin.idea.KotlinIcons
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.idea.versions.bundledRuntimeVersion
@@ -26,7 +28,7 @@ class KotlinSdkType : SdkType("KotlinSDK") {
             get() = PathUtil.kotlinPathsForIdeaPlugin.homePath.absolutePath
 
         @JvmOverloads
-        fun setUpIfNeeded(checkIfNeeded: () -> Boolean = { true }) {
+        fun setUpIfNeeded(disposable: Disposable? = null, checkIfNeeded: () -> Boolean = { true }) {
             val projectSdks: Array<Sdk> = ProjectJdkTable.getInstance().allJdks
             if (projectSdks.any { it.sdkType is KotlinSdkType }) return
             if (!checkIfNeeded()) return // do not create Kotlin SDK
@@ -39,13 +41,17 @@ class KotlinSdkType : SdkType("KotlinSDK") {
             ApplicationManager.getApplication().invokeAndWait {
                 runWriteAction {
                     if (ProjectJdkTable.getInstance().allJdks.any { it.sdkType is KotlinSdkType }) return@runWriteAction
-                    ProjectJdkTable.getInstance().addJdk(newJdk)
+                    if (disposable != null) {
+                        ProjectJdkTable.getInstance().addJdk(newJdk, disposable)
+                    } else {
+                        ProjectJdkTable.getInstance().addJdk(newJdk)
+                    }
                 }
             }
         }
     }
 
-    override fun getPresentableName() = "Kotlin SDK"
+    override fun getPresentableName() = KotlinBundle.message("framework.name.kotlin.sdk")
 
     override fun getIcon() = KotlinIcons.SMALL_LOGO
 
@@ -76,5 +82,9 @@ class KotlinSdkType : SdkType("KotlinSDK") {
 
     override fun saveAdditionalData(additionalData: SdkAdditionalData, additional: Element) {
 
+    }
+
+    override fun allowCreationByUser(): Boolean {
+        return false
     }
 }

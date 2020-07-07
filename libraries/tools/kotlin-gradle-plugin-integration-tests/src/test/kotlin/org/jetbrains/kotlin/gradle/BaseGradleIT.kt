@@ -11,6 +11,7 @@ import org.jdom.output.Format
 import org.jdom.output.XMLOutputter
 import org.jetbrains.kotlin.gradle.model.ModelContainer
 import org.jetbrains.kotlin.gradle.model.ModelFetcherBuildAction
+import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.test.util.trimTrailingWhitespaces
 import org.junit.After
@@ -167,17 +168,9 @@ abstract class BaseGradleIT {
             assert(version != runnerGradleVersion) { "Not stopping Gradle daemon v$version as it matches the runner version" }
             println("Stopping gradle daemon v$version")
 
-            val envVariables = if (GradleVersion.version(version) < GradleVersion.version("5.0")) {
-                // Gradle versions below 5.0 do not support running on JDK11, and some of the tests
-                // set JAVA_HOME to JDK11. This makes sure we are using JDK8 when stopping those daemons.
-                environmentVariables + mapOf("JAVA_HOME" to System.getenv()["JDK_18"]!!)
-            } else {
-                environmentVariables
-            }
-
             val wrapperDir = gradleWrappers[version] ?: error("Was asked to stop unknown daemon $version")
             val cmd = createGradleCommand(wrapperDir, arrayListOf("-stop"))
-            val result = runProcess(cmd, wrapperDir, envVariables)
+            val result = runProcess(cmd, wrapperDir, environmentVariables)
             assert(result.isSuccessful) { "Could not stop daemon: $result" }
             DaemonRegistry.unregister(version)
         }
@@ -198,6 +191,7 @@ abstract class BaseGradleIT {
         val daemonOptionSupported: Boolean = true,
         val incremental: Boolean? = null,
         val incrementalJs: Boolean? = null,
+        val incrementalJsKlib: Boolean? = null,
         val jsIrBackend: Boolean? = null,
         val androidHome: File? = null,
         val javaHome: File? = null,
@@ -210,10 +204,16 @@ abstract class BaseGradleIT {
         val usePreciseJavaTracking: Boolean? = null,
         val withBuildCache: Boolean = false,
         val kaptOptions: KaptOptions? = null,
-        val parallelTasksInProject: Boolean? = null
+        val parallelTasksInProject: Boolean? = null,
+        val jsCompilerType: KotlinJsCompilerType? = null
     )
 
-    data class KaptOptions(val verbose: Boolean, val useWorkers: Boolean, val incrementalKapt: Boolean = false, val includeCompileClasspath: Boolean = true)
+    data class KaptOptions(
+        val verbose: Boolean,
+        val useWorkers: Boolean,
+        val incrementalKapt: Boolean = false,
+        val includeCompileClasspath: Boolean = true
+    )
 
     open inner class Project(
         val projectName: String,
@@ -479,6 +479,12 @@ abstract class BaseGradleIT {
         }
     }
 
+    fun CompiledProject.assertTasksExecutedByPrefix(taskPrefixes: Iterable<String>) {
+        for (prefix in taskPrefixes) {
+            assertContainsRegex("(Executing actions for task|Executing task) '$prefix\\w*'".toRegex())
+        }
+    }
+
     fun CompiledProject.assertTasksExecuted(vararg tasks: String) {
         assertTasksExecuted(tasks.toList())
     }
@@ -521,6 +527,18 @@ abstract class BaseGradleIT {
         }
     }
 
+    fun CompiledProject.assertTasksRegisteredByPrefix(taskPrefixes: Iterable<String>) {
+        for (prefix in taskPrefixes) {
+            assertContainsRegex("'Register task $prefix\\w*'".toRegex())
+        }
+    }
+
+    fun CompiledProject.assertTasksNotRegisteredByPrefix(taskPrefixes: Iterable<String>) {
+        for (prefix in taskPrefixes) {
+            assertNotContains("'Register task $prefix\\w*'".toRegex())
+        }
+    }
+
     fun CompiledProject.assertTasksNotRealized(vararg tasks: String) {
         for (task in tasks) {
             assertNotContains("'Realize task $task'")
@@ -535,6 +553,12 @@ abstract class BaseGradleIT {
     fun CompiledProject.assertTasksSkipped(vararg tasks: String) {
         for (task in tasks) {
             assertContains("Skipping task '$task'")
+        }
+    }
+
+    fun CompiledProject.assertTasksSkippedByPrefix(taskPrefixes: Iterable<String>) {
+        for (prefix in taskPrefixes) {
+            assertContainsRegex("Skipping task '$prefix\\w*'".toRegex())
         }
     }
 
@@ -621,9 +645,18 @@ Finished executing task ':$taskName'|
         }.single()
 
     fun Project.gradleSettingsScript(): File =
-        listOf("settings.gradle", "settings.gradle.kts").mapNotNull {
-            File(projectDir, it).takeIf(File::exists)
-        }.single()
+        listOf("settings.gradle", "settings.gradle.kts").map {
+            File(projectDir, it)
+        }.run {
+            singleOrNull { it.exists() } ?: first()
+        }
+
+    fun Project.gradleProperties(): File =
+        File(projectDir, "gradle.properties").also { file ->
+            if (!file.exists()) {
+                file.createNewFile()
+            }
+        }
 
     /**
      * @param assertionFileName path to xml with expected test results, relative to test resources root
@@ -696,7 +729,7 @@ Finished executing task ':$taskName'|
     }
 
     private fun prettyPrintXml(uglyXml: String): String =
-            XMLOutputter(Format.getPrettyFormat()).outputString(SAXBuilder().build(uglyXml.reader()))
+        XMLOutputter(Format.getPrettyFormat()).outputString(SAXBuilder().build(uglyXml.reader()))
 
     private fun Project.createGradleTailParameters(options: BuildOptions, params: Array<out String> = arrayOf()): List<String> =
         params.toMutableList().apply {
@@ -720,6 +753,7 @@ Finished executing task ':$taskName'|
                 add("-Pkotlin.incremental=$it")
             }
             options.incrementalJs?.let { add("-Pkotlin.incremental.js=$it") }
+            options.incrementalJsKlib?.let { add("-Pkotlin.incremental.js.klib=$it") }
             options.jsIrBackend?.let { add("-Pkotlin.js.useIrBackend=$it") }
             options.usePreciseJavaTracking?.let { add("-Pkotlin.incremental.usePreciseJavaTracking=$it") }
             options.androidGradlePluginVersion?.let { add("-Pandroid_tools_version=$it") }
@@ -749,6 +783,10 @@ Finished executing task ':$taskName'|
 
             options.parallelTasksInProject?.let {
                 add("-Pkotlin.parallel.tasks.in.project=$it")
+            }
+
+            options.jsCompilerType?.let {
+                add("-Pkotlin.js.compiler=$it")
             }
 
             // Workaround: override a console type set in the user machine gradle.properties (since Gradle 4.3):

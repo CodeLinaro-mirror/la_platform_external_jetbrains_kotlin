@@ -5,10 +5,10 @@ class Outer {
     val property = ""
     
     class Nested {
-        fun f() = function()
-        fun g() = property
-        fun h() = this@Outer.function()
-        fun i() = this@Outer.property
+        fun f() = <!UNRESOLVED_REFERENCE!>function<!>()
+        fun g() = <!UNRESOLVED_REFERENCE!>property<!>
+        fun h() = this@Outer.<!UNRESOLVED_REFERENCE!>function<!>()
+        fun i() = this@Outer.<!UNRESOLVED_REFERENCE!>property<!>
     }
     
     inner class Inner {

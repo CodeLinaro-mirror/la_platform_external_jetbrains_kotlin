@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.OverridableMember
 
 interface IrSymbolOwner : IrElement {
     val symbol: IrSymbol
@@ -33,7 +34,9 @@ interface IrMetadataSourceOwner : IrElement {
 }
 
 interface IrDeclaration : IrStatement, IrMutableAnnotationContainer, IrMetadataSourceOwner {
+    @Deprecated("Please use IR declaration properties and not its descriptor properties")
     val descriptor: DeclarationDescriptor
+
     var origin: IrDeclarationOrigin
 
     var parent: IrDeclarationParent
@@ -47,7 +50,7 @@ interface IrSymbolDeclaration<out S : IrSymbol> : IrDeclaration, IrSymbolOwner {
 }
 
 interface IrOverridableDeclaration<S : IrSymbol> : IrDeclaration {
-    val overriddenSymbols: MutableList<S>
+    var overriddenSymbols: List<S>
 }
 
 interface IrDeclarationWithVisibility : IrDeclaration {
@@ -58,3 +61,4 @@ interface IrDeclarationWithName : IrDeclaration {
     val name: Name
 }
 
+interface IrOverridableMember: OverridableMember, IrDeclarationWithVisibility, IrDeclarationWithName, IrSymbolOwner

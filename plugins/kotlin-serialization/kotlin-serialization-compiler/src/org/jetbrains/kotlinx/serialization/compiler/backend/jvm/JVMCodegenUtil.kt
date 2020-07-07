@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlinx.serialization.compiler.backend.jvm
@@ -83,11 +72,11 @@ internal fun InstructionAdapter.genValidateProperty(index: Int, bitMaskAddress: 
     iconst(0)
 }
 
-internal fun InstructionAdapter.genExceptionThrow(exceptionClass: String, message: String) {
-    anew(Type.getObjectType(exceptionClass))
+internal fun InstructionAdapter.genMissingFieldExceptionThrow(fieldName: String) {
+    anew(Type.getObjectType(serializationExceptionMissingFieldName))
     dup()
-    aconst(message)
-    invokespecial(exceptionClass, "<init>", "(Ljava/lang/String;)V", false)
+    aconst(fieldName)
+    invokespecial(serializationExceptionMissingFieldName, "<init>", "(Ljava/lang/String;)V", false)
     checkcast(Type.getObjectType("java/lang/Throwable"))
     athrow()
 }
@@ -101,21 +90,21 @@ fun InstructionAdapter.genKOutputMethodCall(
     val sti = generator.getSerialTypeInfo(property, propertyType)
     val useSerializer = if (fromClassStartVar == null) stackValueSerializerInstanceFromSerializer(classCodegen, sti, generator)
     else stackValueSerializerInstanceFromClass(classCodegen, sti, fromClassStartVar, generator)
-    val actualType = if (!sti.unit) ImplementationBodyCodegen.genPropertyOnStack(
+    val actualType = ImplementationBodyCodegen.genPropertyOnStack(
         this,
         expressionCodegen.context,
         property.descriptor,
         propertyOwnerType,
         ownerVar,
         classCodegen.state
-    ) else null
+    )
     actualType?.type?.let { type -> StackValue.coerce(type, sti.type, this) }
     invokeinterface(
         kOutputType.internalName,
         CallingConventions.encode + sti.elementMethodPrefix + (if (useSerializer) "Serializable" else "") + CallingConventions.elementPostfix,
         "(" + descType.descriptor + "I" +
                 (if (useSerializer) kSerialSaverType.descriptor else "") +
-                (if (sti.unit) "" else sti.type.descriptor) + ")V"
+                (sti.type.descriptor) + ")V"
     )
 }
 
@@ -137,7 +126,7 @@ internal fun InstructionAdapter.buildInternalConstructorDesc(
         load(propVar, propertyType)
         propVar += propertyType.size
     }
-    constructorDesc.append("Lkotlinx/serialization/$SERIAL_CTOR_MARKER_NAME;)V")
+    constructorDesc.append("Lkotlinx/serialization/internal/$SERIAL_CTOR_MARKER_NAME;)V")
     aconst(null)
     return constructorDesc.toString()
 }
@@ -287,12 +276,35 @@ internal fun AbstractSerialGenerator.stackValueSerializerInstance(codegen: Class
 
         val serialName = kType.serialName()
         when (serializer.classId) {
-            enumSerializerId, contextSerializerId, polymorphicSerializerId -> {
+            enumSerializerId -> {
+                aconst(serialName)
+                signature.append("Ljava/lang/String;")
+                val enumJavaType = codegen.typeMapper.mapType(kType, null, TypeMappingMode.GENERIC_ARGUMENT)
+                val javaEnumArray = Type.getType("[Ljava/lang/Enum;")
+                invokestatic(enumJavaType.internalName, "values","()[${enumJavaType.descriptor}", false)
+                checkcast(javaEnumArray)
+                signature.append(javaEnumArray.descriptor)
+            }
+            contextSerializerId, polymorphicSerializerId -> {
                 // a special way to instantiate enum -- need a enum KClass reference
                 // GENERIC_ARGUMENT forces boxing in order to obtain KClass
                 aconst(codegen.typeMapper.mapType(kType, null, TypeMappingMode.GENERIC_ARGUMENT))
                 AsmUtil.wrapJavaClassIntoKClass(this)
                 signature.append(AsmTypes.K_CLASS_TYPE.descriptor)
+                if (serializer.classId == contextSerializerId && serializer.constructors.any { it.valueParameters.size == 3 }) {
+                    // append new additional arguments
+                    val fallbackDefaultSerializer = findTypeSerializer(module, kType)
+                    if (fallbackDefaultSerializer != null) {
+                        instantiate(kType to fallbackDefaultSerializer, writeSignature = false)
+                    } else {
+                        aconst(null)
+                    }
+                    signature.append(kSerializerType.descriptor)
+                    fillArray(kSerializerType, argSerializers) { _, serializer ->
+                        instantiate(serializer, writeSignature = false)
+                    }
+                    signature.append(kSerializerArrayType.descriptor)
+                }
             }
             referenceArraySerializerId -> {
                 // a special way to instantiate reference array serializer -- need an element KClass reference
@@ -361,7 +373,7 @@ internal fun AbstractSerialGenerator.stackValueSerializerInstance(codegen: Class
 
 fun InstructionAdapter.wrapStackValueIntoNullableSerializer() =
     invokestatic(
-        "kotlinx/serialization/internal/NullableSerializerKt", "makeNullable",
+        "kotlinx/serialization/builtins/BuiltinSerializersKt", "getNullable",
         "(" + kSerializerType.descriptor + ")" + kSerializerType.descriptor, false
     )
 
@@ -385,9 +397,8 @@ class JVMSerialTypeInfo(
     property: SerializableProperty,
     val type: Type,
     nn: String,
-    serializer: ClassDescriptor? = null,
-    unit: Boolean = false
-) : SerialTypeInfo(property, nn, serializer, unit)
+    serializer: ClassDescriptor? = null
+) : SerialTypeInfo(property, nn, serializer)
 
 fun AbstractSerialGenerator.getSerialTypeInfo(property: SerializableProperty, type: Type): JVMSerialTypeInfo {
     fun SerializableInfo(serializer: ClassDescriptor?) =
@@ -442,8 +453,6 @@ fun AbstractSerialGenerator.getSerialTypeInfo(property: SerializableProperty, ty
             // no explicit serializer for this property. Check other built in types
             if (KotlinBuiltIns.isString(property.type))
                 return JVMSerialTypeInfo(property, Type.getType("Ljava/lang/String;"), "String")
-            if (KotlinBuiltIns.isUnit(property.type))
-                return JVMSerialTypeInfo(property, Type.getType("Lkotlin/Unit;"), "Unit", unit = true)
             // todo: more efficient enum support here, but only for enums that don't define custom serializer
             // otherwise, it is a serializer for some other type
             val serializer = property.serializableWith?.toClassDescriptor

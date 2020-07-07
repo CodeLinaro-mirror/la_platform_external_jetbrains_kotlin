@@ -28,6 +28,8 @@ import gnu.trove.THashSet;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.kotlin.test.KotlinTestUtils;
+import org.jetbrains.kotlin.test.WithMutedInDatabaseRunTest;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,8 +38,7 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.Collection;
 
-import static org.jetbrains.kotlin.test.MuteWithDatabaseKt.isIgnoredInDatabaseWithLog;
-
+@WithMutedInDatabaseRunTest
 public abstract class KotlinLightCodeInsightFixtureTestCaseBase extends LightCodeInsightFixtureTestCase {
     @NotNull
     @Override
@@ -58,11 +59,6 @@ public abstract class KotlinLightCodeInsightFixtureTestCaseBase extends LightCod
 
     protected final Collection<File> myFilesToDelete = new THashSet<>();
     private final TempFiles myTempFiles = new TempFiles(myFilesToDelete);
-
-    @Override
-    protected boolean shouldRunTest() {
-        return super.shouldRunTest() && !isIgnoredInDatabaseWithLog(this);
-    }
 
     @Override
     protected void tearDown() throws Exception {
@@ -101,4 +97,9 @@ public abstract class KotlinLightCodeInsightFixtureTestCaseBase extends LightCod
         return LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file);
     }
 
+    @Override
+    protected void runTest() throws Throwable {
+        //noinspection Convert2MethodRef
+        KotlinTestUtils.runTestWithThrowable(this, () -> super.runTest());
+    }
 }

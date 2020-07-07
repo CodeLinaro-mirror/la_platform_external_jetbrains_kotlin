@@ -31,34 +31,46 @@ import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.common.output.OutputFileCollection
 import org.jetbrains.kotlin.backend.common.output.SimpleOutputFileCollection
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
+import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
+import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensions
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.jvmPhases
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.checkKotlinPackageUsage
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.OUTPUT
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.WARNING
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.OutputMessageUtil
 import org.jetbrains.kotlin.cli.common.output.writeAll
+import org.jetbrains.kotlin.cli.common.toLogger
 import org.jetbrains.kotlin.cli.jvm.config.*
-import org.jetbrains.kotlin.codegen.*
+import org.jetbrains.kotlin.codegen.ClassBuilderFactories
+import org.jetbrains.kotlin.codegen.CodegenFactory
+import org.jetbrains.kotlin.codegen.DefaultCodegenFactory
+import org.jetbrains.kotlin.codegen.KotlinCodegenFacade
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.GenerationStateEventCallback
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.Fir2IrConverter
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmClassCodegen
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmKotlinMangler
 import org.jetbrains.kotlin.fir.builder.RawFirBuilder
+import org.jetbrains.kotlin.fir.extensions.BunchOfRegisteredExtensions
+import org.jetbrains.kotlin.fir.extensions.extensionService
+import org.jetbrains.kotlin.fir.extensions.registerExtensions
 import org.jetbrains.kotlin.fir.java.FirJavaModuleBasedSession
 import org.jetbrains.kotlin.fir.java.FirLibrarySession
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.firProvider
-import org.jetbrains.kotlin.fir.resolve.impl.FirProviderImpl
-import org.jetbrains.kotlin.fir.resolve.transformers.FirTotalResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.providers.impl.FirProviderImpl
+import org.jetbrains.kotlin.fir.resolve.transformers.FirTotalResolveProcessor
 import org.jetbrains.kotlin.idea.MainFunctionDetector
+import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
+import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmManglerDesc
 import org.jetbrains.kotlin.javac.JavacWrapper
 import org.jetbrains.kotlin.load.kotlin.ModuleVisibilityManager
 import org.jetbrains.kotlin.modules.Module
@@ -73,10 +85,7 @@ import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.resolve.jvm.KotlinJavaPsiFacade
 import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatformAnalyzerServices
 import org.jetbrains.kotlin.utils.newLinkedHashMapWithExpectedSize
-import org.jetbrains.kotlin.utils.tryConstructClassFromStringArgs
 import java.io.File
-import java.lang.reflect.InvocationTargetException
-import java.net.URLClassLoader
 
 object KotlinToJVMBytecodeCompiler {
     private fun writeOutput(
@@ -315,7 +324,7 @@ object KotlinToJVMBytecodeCompiler {
             }
 
             val moduleInfo = FirJvmModuleInfo(module.getModuleName())
-            val session: FirSession = FirJavaModuleBasedSession(moduleInfo, provider, scope).also {
+            val session: FirSession = FirJavaModuleBasedSession.create(moduleInfo, provider, scope).also {
                 val dependenciesInfo = FirJvmModuleInfo(Name.special("<dependencies>"))
                 moduleInfo.dependencies.add(dependenciesInfo)
                 val librariesScope = ProjectScope.getLibrariesScope(project)
@@ -323,24 +332,32 @@ object KotlinToJVMBytecodeCompiler {
                     dependenciesInfo, provider, librariesScope,
                     project, environment.createPackagePartProvider(librariesScope)
                 )
-
+                it.extensionService.registerExtensions(BunchOfRegisteredExtensions.empty())
             }
             val firProvider = (session.firProvider as FirProviderImpl)
             val builder = RawFirBuilder(session, firProvider.kotlinScopeProvider, stubMode = false)
-            val resolveTransformer = FirTotalResolveTransformer()
+            val resolveTransformer = FirTotalResolveProcessor(session)
             val firFiles = ktFiles.map {
                 val firFile = builder.buildFirFile(it)
                 firProvider.recordFile(firFile)
                 firFile
             }.also {
                 try {
-                    resolveTransformer.processFiles(it)
+                    resolveTransformer.process(it)
                 } catch (e: Exception) {
                     throw e
                 }
             }
-            val (moduleFragment, symbolTable, sourceManager) =
-                Fir2IrConverter.createModuleFragment(session, firFiles, moduleConfiguration.languageVersionSettings)
+
+            val signaturer = IdSignatureDescriptor(JvmManglerDesc())
+
+            val (moduleFragment, symbolTable, sourceManager, components) =
+                Fir2IrConverter.createModuleFragment(
+                    session, resolveTransformer.scopeSession, firFiles,
+                    moduleConfiguration.languageVersionSettings, signaturer = signaturer,
+                    generatorExtensions = JvmGeneratorExtensions(),
+                    mangler = FirJvmKotlinMangler(session)
+                )
             val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
 
             val codegenFactory = JvmIrCodegenFactory(moduleConfiguration.get(CLIConfigurationKeys.PHASE_CONFIG) ?: PhaseConfig(jvmPhases))
@@ -356,6 +373,8 @@ object KotlinToJVMBytecodeCompiler {
                 createOutputFilesFlushingCallbackIfPossible(moduleConfiguration)
             ).isIrBackend(
                 true
+            ).jvmBackendClassResolver(
+                FirJvmBackendClassResolver(components)
             ).build()
 
             ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
@@ -363,7 +382,11 @@ object KotlinToJVMBytecodeCompiler {
             val performanceManager = environment.configuration.get(CLIConfigurationKeys.PERF_MANAGER)
             performanceManager?.notifyGenerationStarted()
             generationState.beforeCompile()
-            codegenFactory.generateModuleInFrontendIRMode(generationState, moduleFragment, symbolTable, sourceManager)
+            codegenFactory.generateModuleInFrontendIRMode(
+                generationState, moduleFragment, symbolTable, sourceManager
+            ) { irClass, context, parentFunction ->
+                FirJvmClassCodegen(irClass, context, parentFunction, session)
+            }
             CodegenFactory.doCheckCancelled(generationState)
             generationState.factory.done()
             performanceManager?.notifyGenerationFinished(
@@ -434,26 +457,6 @@ object KotlinToJVMBytecodeCompiler {
         }
     }
 
-    fun compileAndExecuteScript(environment: KotlinCoreEnvironment, scriptArgs: List<String>): ExitCode {
-        val scriptClass = compileScript(environment) ?: return ExitCode.COMPILATION_ERROR
-
-        try {
-            try {
-                tryConstructClassFromStringArgs(scriptClass, scriptArgs)
-                    ?: throw RuntimeException("unable to find appropriate constructor for class ${scriptClass.name} accepting arguments $scriptArgs\n")
-            } finally {
-                // NB: these lines are required (see KT-9546) but aren't covered by tests
-                System.out.flush()
-                System.err.flush()
-            }
-        } catch (e: Throwable) {
-            reportExceptionFromScript(e)
-            return ExitCode.SCRIPT_EXECUTION_ERROR
-        }
-
-        return ExitCode.OK
-    }
-
     private fun repeatAnalysisIfNeeded(
         result: AnalysisResult?,
         environment: KotlinCoreEnvironment,
@@ -487,42 +490,6 @@ object KotlinToJVMBytecodeCompiler {
         return result
     }
 
-    private fun reportExceptionFromScript(exception: Throwable) {
-        // expecting InvocationTargetException from constructor invocation with cause that describes the actual cause
-        val stream = System.err
-        val cause = exception.cause
-        if (exception !is InvocationTargetException || cause == null) {
-            exception.printStackTrace(stream)
-            return
-        }
-        stream.println(cause)
-        val fullTrace = cause.stackTrace
-        for (i in 0 until fullTrace.size - exception.stackTrace.size) {
-            stream.println("\tat " + fullTrace[i])
-        }
-    }
-
-    fun compileScript(environment: KotlinCoreEnvironment, parentClassLoader: ClassLoader? = null): Class<*>? {
-        val state = analyzeAndGenerate(environment) ?: return null
-
-        try {
-            val urls = environment.configuration.getList(CLIConfigurationKeys.CONTENT_ROOTS).mapNotNull { root ->
-                when (root) {
-                    is JvmModulePathRoot -> root.file // TODO: only add required modules
-                    is JvmClasspathRoot -> root.file
-                    else -> null
-                }
-            }.map { it.toURI().toURL() }
-
-            val classLoader = GeneratedClassLoader(state.factory, parentClassLoader ?: URLClassLoader(urls.toTypedArray(), null))
-
-            val script = environment.getSourceFiles()[0].script ?: error("Script must be parsed")
-            return classLoader.loadClass(script.fqName.asString())
-        } catch (e: Exception) {
-            throw RuntimeException("Failed to evaluate script: $e", e)
-        }
-    }
-
     @Suppress("MemberVisibilityCanBePrivate") // Used in ExecuteKotlinScriptMojo
     fun analyzeAndGenerate(environment: KotlinCoreEnvironment): GenerationState? {
         val result = repeatAnalysisIfNeeded(analyze(environment, null), environment, null) ?: return null
@@ -542,6 +509,10 @@ object KotlinToJVMBytecodeCompiler {
         val performanceManager = environment.configuration.get(CLIConfigurationKeys.PERF_MANAGER)
         performanceManager?.notifyAnalysisStarted()
 
+        val resolvedKlibs = environment.configuration.get(JVMConfigurationKeys.KLIB_PATHS)?.let { klibPaths ->
+            jvmResolveLibraries(klibPaths, collector.toLogger())
+        }?.getFullList() ?: emptyList()
+
         val analyzerWithCompilerReport = AnalyzerWithCompilerReport(collector, environment.configuration.languageVersionSettings)
         analyzerWithCompilerReport.analyzeAndReport(sourceFiles) {
             val project = environment.project
@@ -558,7 +529,8 @@ object KotlinToJVMBytecodeCompiler {
                 NoScopeRecordCliBindingTrace(),
                 environment.configuration,
                 environment::createPackagePartProvider,
-                sourceModuleSearchScope = scope
+                sourceModuleSearchScope = scope,
+                klibList = resolvedKlibs
             )
         }
 
@@ -607,8 +579,17 @@ object KotlinToJVMBytecodeCompiler {
         sourceFiles: List<KtFile>,
         module: Module?
     ): GenerationState {
-        val isIR = configuration.getBoolean(JVMConfigurationKeys.IR) ||
-                configuration.getBoolean(CommonConfigurationKeys.USE_FIR)
+        // The IR backend does not handle .kts files yet.
+        var isIR = (configuration.getBoolean(JVMConfigurationKeys.IR) ||
+                configuration.getBoolean(CommonConfigurationKeys.USE_FIR))
+        val anyKts = sourceFiles.any { it.isScript() }
+        if (isIR && anyKts) {
+            environment.messageCollector.report(
+                STRONG_WARNING,
+                "IR backend does not support .kts scripts, switching to old JVM backend"
+            )
+            isIR = false
+        }
         val generationState = GenerationState.Builder(
             environment.project,
             ClassBuilderFactories.BINARIES,

@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.diagnostics.reportDiagnosticOnce
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isNull
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.callUtil.getCalleeExpressionIfAny
 import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.callUtil.reportTrailingLambdaErrorOr
 import org.jetbrains.kotlin.resolve.calls.context.BasicCallResolutionContext
@@ -32,6 +33,10 @@ import org.jetbrains.kotlin.resolve.constants.evaluate.ConstantExpressionEvaluat
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.scopes.receivers.ExpressionReceiver
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.checker.intersectWrappedTypes
+import org.jetbrains.kotlin.types.expressions.ControlStructureTypingUtils
+import org.jetbrains.kotlin.types.typeUtil.isNullableNothing
+import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -73,6 +78,18 @@ class DiagnosticReporterByTrackingStrategy(
                     trace.report(factory.on(it, typeVariable.originalTypeParameter))
                 }
             }
+            CandidateChosenUsingOverloadResolutionByLambdaAnnotation::class.java -> {
+                trace.report(CANDIDATE_CHOSEN_USING_OVERLOAD_RESOLUTION_BY_LAMBDA_ANNOTATION.on(psiKotlinCall.psiCall.callElement))
+            }
+            CompatibilityWarning::class.java -> {
+                val callElement = psiKotlinCall.psiCall.callElement
+                trace.report(
+                    COMPATIBILITY_WARNING.on(
+                        callElement.getCalleeExpressionIfAny() ?: callElement,
+                        (diagnostic as CompatibilityWarning).candidate
+                    )
+                )
+            }
         }
     }
 
@@ -103,9 +120,14 @@ class DiagnosticReporterByTrackingStrategy(
     override fun onCallReceiver(callReceiver: SimpleKotlinCallArgument, diagnostic: KotlinCallDiagnostic) {
         when (diagnostic.javaClass) {
             UnsafeCallError::class.java -> {
-                val implicitInvokeCheck = (callReceiver as? ReceiverExpressionKotlinCallArgument)?.isForImplicitInvoke
-                    ?: callReceiver.receiver.receiverValue.type.isExtensionFunctionType
-                tracingStrategy.unsafeCall(trace, callReceiver.receiver.receiverValue.type, implicitInvokeCheck)
+                val unsafeCallErrorDiagnostic = diagnostic.cast<UnsafeCallError>()
+                val isForImplicitInvoke = when (callReceiver) {
+                    is ReceiverExpressionKotlinCallArgument -> callReceiver.isForImplicitInvoke
+                    else -> unsafeCallErrorDiagnostic.isForImplicitInvoke
+                            || callReceiver.receiver.receiverValue.type.isExtensionFunctionType
+                }
+
+                tracingStrategy.unsafeCall(trace, callReceiver.receiver.receiverValue.type, isForImplicitInvoke)
             }
 
             SuperAsExtensionReceiver::class.java -> {
@@ -120,7 +142,8 @@ class DiagnosticReporterByTrackingStrategy(
     override fun onCallArgument(callArgument: KotlinCallArgument, diagnostic: KotlinCallDiagnostic) {
         when (diagnostic.javaClass) {
             SmartCastDiagnostic::class.java -> reportSmartCast(diagnostic as SmartCastDiagnostic)
-            UnstableSmartCast::class.java -> reportUnstableSmartCast(diagnostic as UnstableSmartCast)
+            UnstableSmartCastDiagnosticError::class.java,
+            UnstableSmartCastResolutionError::class.java -> reportUnstableSmartCast(diagnostic as UnstableSmartCast)
             TooManyArguments::class.java -> {
                 trace.reportTrailingLambdaErrorOr(callArgument.psiExpression) { expr ->
                     TOO_MANY_ARGUMENTS.on(expr, (diagnostic as TooManyArguments).descriptor)
@@ -138,8 +161,8 @@ class DiagnosticReporterByTrackingStrategy(
             NoneCallableReferenceCandidates::class.java -> {
                 val expression = diagnostic.cast<NoneCallableReferenceCandidates>()
                     .argument.safeAs<CallableReferenceKotlinCallArgumentImpl>()?.ktCallableReferenceExpression
-                reportIfNonNull(expression) {
-                    trace.report(UNRESOLVED_REFERENCE.on(it.callableReference, it.callableReference))
+                if (expression != null) {
+                    trace.report(UNRESOLVED_REFERENCE.on(expression.callableReference, expression.callableReference))
                 }
             }
 
@@ -147,19 +170,20 @@ class DiagnosticReporterByTrackingStrategy(
                 val ambiguityDiagnostic = diagnostic as CallableReferenceCandidatesAmbiguity
                 val expression = ambiguityDiagnostic.argument.psiExpression.safeAs<KtCallableReferenceExpression>()
                 val candidates = ambiguityDiagnostic.candidates.map { it.candidate }
-                reportIfNonNull(expression) {
-                    trace.reportDiagnosticOnce(CALLABLE_REFERENCE_RESOLUTION_AMBIGUITY.on(it.callableReference, candidates))
-                    trace.record(BindingContext.AMBIGUOUS_REFERENCE_TARGET, it.callableReference, candidates)
+                if (expression != null) {
+                    trace.reportDiagnosticOnce(CALLABLE_REFERENCE_RESOLUTION_AMBIGUITY.on(expression.callableReference, candidates))
+                    trace.record(BindingContext.AMBIGUOUS_REFERENCE_TARGET, expression.callableReference, candidates)
                 }
             }
 
             ArgumentTypeMismatchDiagnostic::class.java -> {
                 require(diagnostic is ArgumentTypeMismatchDiagnostic)
-                reportIfNonNull(callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()) {
-                    if (it.isNull()) {
-                        trace.reportDiagnosticOnce(NULL_FOR_NONNULL_TYPE.on(it, diagnostic.expectedType))
+                val expression = callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()
+                if (expression != null) {
+                    if (expression.isNull() && expression is KtConstantExpression) {
+                        trace.reportDiagnosticOnce(NULL_FOR_NONNULL_TYPE.on(expression, diagnostic.expectedType))
                     } else {
-                        trace.report(TYPE_MISMATCH.on(it, diagnostic.expectedType, diagnostic.actualType))
+                        trace.report(TYPE_MISMATCH.on(expression, diagnostic.expectedType, diagnostic.actualType))
                     }
                 }
             }
@@ -182,11 +206,35 @@ class DiagnosticReporterByTrackingStrategy(
             ResolvedToSamWithVarargDiagnostic::class.java -> {
                 trace.report(TYPE_INFERENCE_CANDIDATE_WITH_SAM_AND_VARARG.on(callArgument.psiCallArgument.valueArgument.asElement()))
             }
-        }
-    }
 
-    private fun <T> reportIfNonNull(element: T?, report: (T) -> Unit) {
-        if (element != null) report(element)
+            NotEnoughInformationForLambdaParameter::class.java -> {
+                val unknownParameterTypeDiagnostic = diagnostic as NotEnoughInformationForLambdaParameter
+                val lambdaArgument = unknownParameterTypeDiagnostic.lambdaArgument
+                val parameterIndex = unknownParameterTypeDiagnostic.parameterIndex
+
+                val argumentExpression = KtPsiUtil.deparenthesize(lambdaArgument.psiCallArgument.valueArgument.getArgumentExpression())
+
+                val valueParameters = when (argumentExpression) {
+                    is KtLambdaExpression -> argumentExpression.valueParameters
+                    is KtNamedFunction -> argumentExpression.valueParameters // for anonymous functions
+                    else -> return
+                }
+
+                val parameter = valueParameters.getOrNull(parameterIndex)
+                if (parameter != null) {
+                    trace.report(CANNOT_INFER_PARAMETER_TYPE.on(parameter))
+                }
+            }
+
+            CompatibilityWarningOnArgument::class.java -> {
+                trace.report(
+                    COMPATIBILITY_WARNING.on(
+                        callArgument.psiCallArgument.valueArgument.asElement(),
+                        (diagnostic as CompatibilityWarningOnArgument).candidate
+                    )
+                )
+            }
+        }
     }
 
     override fun onCallArgumentName(callArgument: KotlinCallArgument, diagnostic: KotlinCallDiagnostic) {
@@ -213,7 +261,9 @@ class DiagnosticReporterByTrackingStrategy(
         when (diagnostic.javaClass) {
             NonVarargSpread::class.java -> {
                 val spreadElement = callArgument.safeAs<ExpressionKotlinCallArgumentImpl>()?.valueArgument?.getSpreadElement()
-                reportIfNonNull(spreadElement) { trace.report(NON_VARARG_SPREAD.on(it)) }
+                if (spreadElement != null) {
+                    trace.report(NON_VARARG_SPREAD.on(spreadElement))
+                }
             }
         }
     }
@@ -230,10 +280,12 @@ class DiagnosticReporterByTrackingStrategy(
                 )
                 val dataFlowValue = dataFlowValueFactory.createDataFlowValue(expressionArgument.receiver.receiverValue, context)
                 val call = if (call.callElement is KtBinaryExpression) null else call
-                smartCastManager.checkAndRecordPossibleCast(
-                    dataFlowValue, smartCastDiagnostic.smartCastType, argumentExpression, context, call,
-                    recordExpressionType = false
-                )
+                if (!expressionArgument.valueArgument.isExternal()) {
+                    smartCastManager.checkAndRecordPossibleCast(
+                        dataFlowValue, smartCastDiagnostic.smartCastType, argumentExpression, context, call,
+                        recordExpressionType = false
+                    )
+                } else null
             }
             is ReceiverExpressionKotlinCallArgument -> {
                 trace.markAsReported()
@@ -259,8 +311,19 @@ class DiagnosticReporterByTrackingStrategy(
     }
 
     private fun reportUnstableSmartCast(unstableSmartCast: UnstableSmartCast) {
-        // todo hack -- remove it after removing SmartCastManager
-        reportSmartCast(SmartCastDiagnostic(unstableSmartCast.argument, unstableSmartCast.targetType, null))
+        val dataFlowValue = dataFlowValueFactory.createDataFlowValue(unstableSmartCast.argument.receiver.receiverValue, context)
+        val possibleTypes = unstableSmartCast.argument.receiver.typesFromSmartCasts
+        val argumentExpression = unstableSmartCast.argument.psiExpression ?: return
+
+        require(possibleTypes.isNotEmpty()) { "Receiver for unstable smart cast without possible types" }
+        trace.report(
+            SMARTCAST_IMPOSSIBLE.on(
+                argumentExpression,
+                intersectWrappedTypes(possibleTypes),
+                argumentExpression.text,
+                dataFlowValue.kind.description
+            )
+        )
     }
 
     override fun constraintError(diagnostic: KotlinCallDiagnostic) {
@@ -273,6 +336,7 @@ class DiagnosticReporterByTrackingStrategy(
                         is ArgumentConstraintPosition -> position.argument
                         is ReceiverConstraintPosition -> position.argument
                         is LHSArgumentConstraintPosition -> position.argument
+                        is LambdaArgumentConstraintPosition -> position.lambda.atom
                         else -> null
                     }
                 argument?.let {
@@ -309,12 +373,15 @@ class DiagnosticReporterByTrackingStrategy(
 
                 (position as? ExpectedTypeConstraintPosition)?.let {
                     val call = it.topLevelCall.psiKotlinCall.psiCall.callElement.safeAs<KtExpression>()
-                    reportIfNonNull(call) {
+                    val inferredType =
+                        if (!constraintError.lowerKotlinType.isNullableNothing()) constraintError.lowerKotlinType
+                        else constraintError.upperKotlinType.makeNullable()
+                    if (call != null) {
                         trace.report(
                             Errors.TYPE_MISMATCH.on(
-                                it,
+                                call,
                                 constraintError.upperKotlinType,
-                                constraintError.lowerKotlinType
+                                inferredType
                             )
                         )
                     }
@@ -376,6 +443,9 @@ class DiagnosticReporterByTrackingStrategy(
                     }
                 ) return
 
+                if (isSpecialFunction(error.resolvedAtom))
+                    return
+
                 val expression = when (val atom = error.resolvedAtom.atom) {
                     is PSIKotlinCall -> atom.psiCall.calleeExpression
                     is PSIKotlinCallArgument -> atom.valueArgument.getArgumentExpression()
@@ -389,6 +459,14 @@ class DiagnosticReporterByTrackingStrategy(
                 }
                 trace.reportDiagnosticOnce(NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER.on(expression, typeVariableName))
             }
+        }
+    }
+
+    private fun isSpecialFunction(atom: ResolvedAtom): Boolean {
+        if (atom !is ResolvedCallAtom) return false
+
+        return ControlStructureTypingUtils.ResolveConstruct.values().any { specialFunction ->
+            specialFunction.specialFunctionName == atom.candidateDescriptor.name
         }
     }
 

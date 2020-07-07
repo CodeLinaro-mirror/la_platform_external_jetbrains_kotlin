@@ -19,11 +19,9 @@ package org.jetbrains.kotlin.psi2ir.transformations
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.builtins.isSuspendFunctionType
-import org.jetbrains.kotlin.descriptors.CallableDescriptor
-import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor
+import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -32,17 +30,26 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.impl.originalKotlinType
+import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.TypeTranslator
-import org.jetbrains.kotlin.ir.util.coerceToUnitIfNeeded
+import org.jetbrains.kotlin.ir.util.coerceToUnit
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi2ir.containsNull
+import org.jetbrains.kotlin.psi2ir.findSingleFunction
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorContext
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorExtensions
+import org.jetbrains.kotlin.psi2ir.generators.getSubstitutedFunctionTypeForSamType
+import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.typeUtil.*
@@ -53,7 +60,8 @@ fun insertImplicitCasts(element: IrElement, context: GeneratorContext) {
         context.irBuiltIns,
         context.typeTranslator,
         context.callToSubstitutedDescriptorMap,
-        context.extensions
+        context.extensions,
+        context.symbolTable
     ).run(element)
 }
 
@@ -61,29 +69,48 @@ internal class InsertImplicitCasts(
     private val builtIns: KotlinBuiltIns,
     private val irBuiltIns: IrBuiltIns,
     private val typeTranslator: TypeTranslator,
-    private val callToSubstitutedDescriptorMap: Map<IrMemberAccessExpression, CallableDescriptor>,
-    private val generatorExtensions: GeneratorExtensions
+    private val callToSubstitutedDescriptorMap: Map<IrDeclarationReference, CallableDescriptor>,
+    private val generatorExtensions: GeneratorExtensions,
+    private val symbolTable: SymbolTable
 ) : IrElementTransformerVoid() {
 
     private val expectedFunctionExpressionReturnType = hashMapOf<FunctionDescriptor, IrType>()
-    private val returnExpressionsToBePostprocessed = arrayListOf<IrReturn>()
 
     fun run(element: IrElement) {
         element.transformChildrenVoid(this)
-        for (irReturn in returnExpressionsToBePostprocessed) {
-            postprocessReturnExpression(irReturn)
-        }
+        postprocessReturnExpressions(element)
     }
 
-    private fun postprocessReturnExpression(irReturn: IrReturn) {
-        val returnTarget = irReturn.returnTarget
-        val expectedReturnType = expectedFunctionExpressionReturnType[returnTarget] ?: return
-        irReturn.value = irReturn.value.cast(expectedReturnType)
+    private fun postprocessReturnExpressions(element: IrElement) {
+        // We need to re-create type parameter context for casts of postprocessed return values.
+        element.acceptChildrenVoid(object : IrElementVisitorVoid {
+            override fun visitReturn(expression: IrReturn) {
+                super.visitReturn(expression)
+                val expectedReturnType = expectedFunctionExpressionReturnType[expression.returnTarget] ?: return
+                expression.value = expression.value.cast(expectedReturnType)
+            }
+
+            override fun visitClass(declaration: IrClass) {
+                typeTranslator.buildWithScope(declaration) {
+                    super.visitClass(declaration)
+                }
+            }
+
+            override fun visitFunction(declaration: IrFunction) {
+                typeTranslator.buildWithScope(declaration) {
+                    super.visitFunction(declaration)
+                }
+            }
+
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+            }
+        })
     }
 
     private fun KotlinType.toIrType() = typeTranslator.translateType(this)
 
-    private val IrMemberAccessExpression.substitutedDescriptor
+    private val IrDeclarationReference.substitutedDescriptor
         get() = callToSubstitutedDescriptorMap[this] ?: symbol.descriptor as CallableDescriptor
 
     override fun visitCallableReference(expression: IrCallableReference): IrExpression {
@@ -146,7 +173,7 @@ internal class InsertImplicitCasts(
         body.transformPostfix {
             statements.forEachIndexed { i, irStatement ->
                 if (irStatement is IrExpression) {
-                    body.statements[i] = irStatement.coerceToUnit()
+                    body.statements[i] = irStatement.coerceToUnit(irBuiltIns)
                 }
             }
         }
@@ -162,7 +189,7 @@ internal class InsertImplicitCasts(
                         if (i == lastIndex)
                             irStatement.cast(type)
                         else
-                            irStatement.coerceToUnit()
+                            irStatement.coerceToUnit(irBuiltIns)
                 }
             }
         }
@@ -170,42 +197,43 @@ internal class InsertImplicitCasts(
     override fun visitReturn(expression: IrReturn): IrExpression =
         expression.transformPostfix {
             value = if (expression.returnTargetSymbol is IrConstructorSymbol) {
-                value.coerceToUnit()
+                value.coerceToUnit(irBuiltIns)
             } else {
                 val returnTargetDescriptor = expression.returnTarget
                 val isLambdaReturnValue = returnTargetDescriptor is AnonymousFunctionDescriptor
-                if (isLambdaReturnValue) {
-                    returnExpressionsToBePostprocessed.add(expression)
-                }
                 value.cast(returnTargetDescriptor.returnType, isLambdaReturnValue = isLambdaReturnValue)
             }
         }
 
     override fun visitSetVariable(expression: IrSetVariable): IrExpression =
         expression.transformPostfix {
-            value = value.cast(expression.symbol.descriptor.type)
+            value = value.cast(expression.symbol.owner.type)
         }
 
     override fun visitGetField(expression: IrGetField): IrExpression =
         expression.transformPostfix {
-            receiver = receiver?.cast(getEffectiveDispatchReceiverType(expression.symbol.descriptor))
+            receiver = receiver?.cast(getEffectiveDispatchReceiverType(expression.substitutedDescriptor))
         }
 
     override fun visitSetField(expression: IrSetField): IrExpression =
         expression.transformPostfix {
-            receiver = receiver?.cast(getEffectiveDispatchReceiverType(expression.symbol.descriptor))
-            value = value.cast(expression.symbol.descriptor.type)
+            val substituted = expression.substitutedDescriptor as PropertyDescriptor
+            receiver = receiver?.cast(getEffectiveDispatchReceiverType(substituted))
+            value = value.cast(substituted.type)
         }
 
     override fun visitVariable(declaration: IrVariable): IrVariable =
         declaration.transformPostfix {
-            initializer = initializer?.cast(declaration.descriptor.type)
+            initializer = initializer?.cast(declaration.type)
         }
 
-    override fun visitField(declaration: IrField): IrStatement =
-        declaration.transformPostfix {
-            initializer?.coerceInnerExpression(descriptor.type)
+    override fun visitField(declaration: IrField): IrStatement {
+        return typeTranslator.withTypeErasure(declaration.correspondingPropertySymbol?.descriptor ?: declaration.descriptor) {
+            declaration.transformPostfix {
+                initializer?.coerceInnerExpression(descriptor.type)
+            }
         }
+    }
 
     override fun visitFunction(declaration: IrFunction): IrStatement =
         typeTranslator.buildWithScope(declaration) {
@@ -232,7 +260,7 @@ internal class InsertImplicitCasts(
     override fun visitLoop(loop: IrLoop): IrExpression =
         loop.transformPostfix {
             condition = condition.cast(builtIns.booleanType)
-            body = body?.coerceToUnit()
+            body = body?.coerceToUnit(irBuiltIns)
         }
 
     override fun visitThrow(expression: IrThrow): IrExpression =
@@ -248,11 +276,8 @@ internal class InsertImplicitCasts(
                 aCatch.result = aCatch.result.cast(type)
             }
 
-            finallyExpression = finallyExpression?.coerceToUnit()
+            finallyExpression = finallyExpression?.coerceToUnit(irBuiltIns)
         }
-
-    private fun KotlinType.getSubstitutedFunctionTypeForSamType() =
-        generatorExtensions.samConversion.getSubstitutedFunctionTypeForSamType(this)
 
     override fun visitTypeOperator(expression: IrTypeOperatorCall): IrExpression =
         when (expression.operator) {
@@ -301,18 +326,18 @@ internal class InsertImplicitCasts(
             null
 
     private fun IrExpression.cast(
-        expectedType: KotlinType?,
-        originalExpectedType: KotlinType? = expectedType,
+        possiblyNonDenotableExpectedType: KotlinType?,
+        originalExpectedType: KotlinType? = possiblyNonDenotableExpectedType,
         isLambdaReturnValue: Boolean = false
     ): IrExpression {
-        if (expectedType == null) return this
-        if (expectedType.isError) return this
+        if (possiblyNonDenotableExpectedType == null) return this
+        if (possiblyNonDenotableExpectedType.isError) return this
+
+        val expectedType = typeTranslator.approximate(possiblyNonDenotableExpectedType)
 
         if (this is IrFunctionExpression && originalExpectedType != null) {
             recordExpectedLambdaReturnTypeIfAppropriate(expectedType, originalExpectedType)
         }
-
-        // TODO here we can have non-denotable KotlinTypes (both in 'this@cast.type' and 'expectedType').
 
         val notNullableExpectedType = expectedType.makeNotNullable()
 
@@ -322,7 +347,7 @@ internal class InsertImplicitCasts(
 
         return when {
             expectedType.isUnit() ->
-                coerceToUnit()
+                coerceToUnit(irBuiltIns)
 
             valueType.isDynamic() && !expectedType.isDynamic() ->
                 if (expectedType.isNullableAny())
@@ -330,17 +355,17 @@ internal class InsertImplicitCasts(
                 else
                     implicitCast(expectedType, IrTypeOperator.IMPLICIT_DYNAMIC_CAST)
 
-            (valueType.isNullabilityFlexible() && valueType.containsNull()) && !expectedType.containsNull() ->
+            valueType.isNullabilityFlexible() && valueType.containsNull() && !expectedType.acceptsNullValues() ->
                 implicitNonNull(valueType, expectedType)
 
-            (valueType.hasEnhancedNullability() && !isLambdaReturnValue) && !expectedType.containsNull() ->
+            (valueType.hasEnhancedNullability() && !isLambdaReturnValue) && !expectedType.acceptsNullValues() ->
                 implicitNonNull(valueType, expectedType)
 
             KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, expectedType.makeNullable()) ->
                 this
 
             KotlinBuiltIns.isInt(valueType) && notNullableExpectedType.isBuiltInIntegerType() ->
-                implicitCast(notNullableExpectedType, IrTypeOperator.IMPLICIT_INTEGER_COERCION)
+                coerceIntToAnotherIntegerType(notNullableExpectedType)
 
             else -> {
                 val targetType = if (!valueType.containsNull()) notNullableExpectedType else expectedType
@@ -363,6 +388,9 @@ internal class InsertImplicitCasts(
         }
     }
 
+    private fun KotlinType.acceptsNullValues() =
+        containsNull() || hasEnhancedNullability()
+
     private fun KotlinType.hasEnhancedNullability() =
         generatorExtensions.enhancedNullability.hasEnhancedNullability(this)
 
@@ -372,28 +400,74 @@ internal class InsertImplicitCasts(
         return implicitCast(nonNullValueType, IrTypeOperator.IMPLICIT_NOTNULL).cast(expectedType)
     }
 
-    private fun IrExpression.implicitCast(
-        targetType: KotlinType,
-        typeOperator: IrTypeOperator
-    ): IrExpression {
+    private fun IrExpression.implicitCast(targetType: KotlinType, typeOperator: IrTypeOperator): IrExpression {
         val irType = targetType.toIrType()
-        return IrTypeOperatorCallImpl(
-            startOffset,
-            endOffset,
-            irType,
-            typeOperator,
-            irType,
-            this
-        )
+        return IrTypeOperatorCallImpl(startOffset, endOffset, irType, typeOperator, irType, this)
     }
 
-    private fun IrExpression.coerceToUnit(): IrExpression {
-        val valueType = getKotlinType(this)
-        return coerceToUnitIfNeeded(valueType, irBuiltIns)
+    private fun IrExpression.coerceIntToAnotherIntegerType(targetType: KotlinType): IrExpression {
+        if (!type.originalKotlinType!!.isInt()) throw AssertionError("Expression of type 'kotlin.Int' expected: $this")
+        if (targetType.isInt()) return this
+        return if (this is IrConst<*>) {
+            val value = this.value as Int
+            val irType = targetType.toIrType()
+            when {
+                targetType.isByte() -> IrConstImpl.byte(startOffset, endOffset, irType, value.toByte())
+                targetType.isShort() -> IrConstImpl.short(startOffset, endOffset, irType, value.toShort())
+                targetType.isLong() -> IrConstImpl.long(startOffset, endOffset, irType, value.toLong())
+                KotlinBuiltIns.isUByte(targetType) -> IrConstImpl.byte(startOffset, endOffset, irType, value.toByte())
+                KotlinBuiltIns.isUShort(targetType) -> IrConstImpl.short(startOffset, endOffset, irType, value.toShort())
+                KotlinBuiltIns.isUInt(targetType) -> IrConstImpl.int(startOffset, endOffset, irType, value)
+                KotlinBuiltIns.isULong(targetType) -> IrConstImpl.long(startOffset, endOffset, irType, value.toLong())
+                else -> throw AssertionError("Unexpected target type for integer coercion: $targetType")
+            }
+        } else {
+            when {
+                targetType.isByte() -> invokeIntegerCoercionFunction(targetType, "toByte")
+                targetType.isShort() -> invokeIntegerCoercionFunction(targetType, "toShort")
+                targetType.isLong() -> invokeIntegerCoercionFunction(targetType, "toLong")
+                KotlinBuiltIns.isUByte(targetType) -> invokeUnsignedIntegerCoercionFunction(targetType, "toUByte")
+                KotlinBuiltIns.isUShort(targetType) -> invokeUnsignedIntegerCoercionFunction(targetType, "toUShort")
+                KotlinBuiltIns.isUInt(targetType) -> invokeUnsignedIntegerCoercionFunction(targetType, "toUInt")
+                KotlinBuiltIns.isULong(targetType) -> invokeUnsignedIntegerCoercionFunction(targetType, "toULong")
+                else -> throw AssertionError("Unexpected target type for integer coercion: $targetType")
+            }
+        }
     }
 
-    private fun getKotlinType(irExpression: IrExpression) =
-        irExpression.type.originalKotlinType!!
+    private fun IrExpression.invokeIntegerCoercionFunction(targetType: KotlinType, coercionFunName: String): IrExpression {
+        val coercionFunction = builtIns.int.unsubstitutedMemberScope.findSingleFunction(Name.identifier(coercionFunName))
+        return IrCallImpl(
+            startOffset, endOffset,
+            targetType.toIrType(),
+            symbolTable.referenceSimpleFunction(coercionFunction),
+            typeArgumentsCount = 0, valueArgumentsCount = 0
+        ).also { irCall ->
+            irCall.dispatchReceiver = this
+        }
+    }
+
+    private fun IrExpression.invokeUnsignedIntegerCoercionFunction(targetType: KotlinType, coercionFunName: String): IrExpression {
+        // 'toUByte', 'toUShort', 'toUInt', 'toULong' are top-level extension functions in 'kotlin' package.
+        // There are several such functions (one for each built-in integer type: Byte, Short, Int, Long),
+        // we need one that takes Int.
+        val coercionFunction = targetType.constructor.declarationDescriptor!!.module
+            .getPackage(KotlinBuiltIns.BUILT_INS_PACKAGE_FQ_NAME)
+            .memberScope.getContributedFunctions(Name.identifier(coercionFunName), NoLookupLocation.FROM_BACKEND)
+            .find {
+                val extensionReceiver = it.extensionReceiverParameter
+                extensionReceiver != null && extensionReceiver.type.isInt()
+            }
+            ?: throw AssertionError("Coercion function '$coercionFunName' not found")
+        return IrCallImpl(
+            startOffset, endOffset,
+            targetType.toIrType(),
+            symbolTable.referenceSimpleFunction(coercionFunction),
+            typeArgumentsCount = 0, valueArgumentsCount = 0
+        ).also { irCall ->
+            irCall.extensionReceiver = this
+        }
+    }
 
     private fun KotlinType.isBuiltInIntegerType(): Boolean =
         KotlinBuiltIns.isByte(this) ||

@@ -14,6 +14,7 @@ import com.intellij.openapi.roots.LanguageLevelProjectExtension;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.registry.Registry;
+import com.intellij.openapi.util.registry.RegistryValue;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
@@ -116,19 +117,28 @@ public abstract class AbstractFormatterTest extends KotlinLightIdeaTestCase {
     }
 
     public void doTest(@NotNull String expectedFileNameWithExtension) throws Exception {
-        doTest(expectedFileNameWithExtension, false);
+        doTest(expectedFileNameWithExtension, false, false);
     }
 
     public void doTestInverted(@NotNull String expectedFileNameWithExtension) throws Exception {
-        doTest(expectedFileNameWithExtension, true);
+        doTest(expectedFileNameWithExtension, true, false);
     }
 
-    public void doTest(@NotNull String expectedFileNameWithExtension, boolean inverted) throws Exception {
+    public void doTestInvertedCallSite(@NotNull String expectedFileNameWithExtension) throws Exception {
+        doTest(expectedFileNameWithExtension, true, false);
+    }
+
+    public void doTestCallSite(@NotNull String expectedFileNameWithExtension) throws Exception {
+        doTest(expectedFileNameWithExtension, false, true);
+    }
+
+    public void doTest(@NotNull String expectedFileNameWithExtension, boolean inverted, boolean callSite) throws Exception {
         String testFileName = expectedFileNameWithExtension.substring(0, expectedFileNameWithExtension.indexOf("."));
         String testFileExtension = expectedFileNameWithExtension.substring(expectedFileNameWithExtension.lastIndexOf("."));
         String originalFileText = FileUtil.loadFile(new File(testFileName + testFileExtension), true);
 
         CodeStyleSettings codeStyleSettings = CodeStyle.getSettings(getProject_());
+        KotlinCodeStyleSettings customSettings = codeStyleSettings.getCustomSettings(KotlinCodeStyleSettings.class);
         try {
             Integer rightMargin = InTextDirectivesUtils.getPrefixedInt(originalFileText, "// RIGHT_MARGIN: ");
             if (rightMargin != null) {
@@ -137,7 +147,7 @@ public abstract class AbstractFormatterTest extends KotlinLightIdeaTestCase {
 
             Boolean trailingComma = InTextDirectivesUtils.getPrefixedBoolean(originalFileText, "// TRAILING_COMMA: ");
             if (trailingComma != null) {
-                codeStyleSettings.getCustomSettings(KotlinCodeStyleSettings.class).ALLOW_TRAILING_COMMA = trailingComma;
+                customSettings.ALLOW_TRAILING_COMMA = trailingComma;
             }
 
             SettingsConfigurator configurator = FormatSettingsUtil.createConfigurator(originalFileText, codeStyleSettings);
@@ -148,6 +158,7 @@ public abstract class AbstractFormatterTest extends KotlinLightIdeaTestCase {
                 configurator.configureInvertedSettings();
             }
 
+            customSettings.ALLOW_TRAILING_COMMA_ON_CALL_SITE = callSite;
             doTextTest(originalFileText, new File(expectedFileNameWithExtension), testFileExtension);
         }
         finally {

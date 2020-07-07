@@ -43,7 +43,7 @@ import org.jetbrains.kotlin.checkers.CompilerTestLanguageVersionSettingsKt;
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys;
 import org.jetbrains.kotlin.cli.common.config.ContentRootsKt;
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot;
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation;
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation;
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity;
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector;
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
@@ -69,6 +69,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -97,7 +98,7 @@ public class KotlinTestUtils {
 
     private static final List<File> filesToDelete = new ArrayList<>();
 
-    static final Pattern DIRECTIVE_PATTERN = Pattern.compile("^//\\s*!([\\w_]+)(:\\s*(.*)$)?", Pattern.MULTILINE);
+    private static final Pattern DIRECTIVE_PATTERN = Pattern.compile("^//\\s*[!]?([A-Z_]+)(:[ \\t]*(.*))?$", Pattern.MULTILINE);
 
     private KotlinTestUtils() {
     }
@@ -307,7 +308,7 @@ public class KotlinTestUtils {
 
             @Override
             public void report(
-                    @NotNull CompilerMessageSeverity severity, @NotNull String message, @Nullable CompilerMessageLocation location
+                    @NotNull CompilerMessageSeverity severity, @NotNull String message, @Nullable CompilerMessageSourceLocation location
             ) {
                 if (severity == CompilerMessageSeverity.ERROR) {
                     String prefix = location == null
@@ -446,7 +447,7 @@ public class KotlinTestUtils {
             tags.add(new TagsTestDataUtil.TagInfo<>(selectionEnd, false, "selection"));
         }
 
-        String afterText = TagsTestDataUtil.insertTagsInText(tags, editor.getDocument().getText());
+        String afterText = TagsTestDataUtil.insertTagsInText(tags, editor.getDocument().getText(), (TagsTestDataUtil.TagInfo t) -> null);
 
         assertEqualsToFile(expectedFile, afterText);
     }
@@ -524,14 +525,17 @@ public class KotlinTestUtils {
     }
 
     @NotNull
-    public static Map<String, String> parseDirectives(String expectedText) {
-        Map<String, String> directives = new HashMap<>();
+    public static Directives parseDirectives(String expectedText) {
+        return parseDirectives(expectedText, new Directives());
+    }
+
+    @NotNull
+    public static Directives parseDirectives(String expectedText, @NotNull Directives directives) {
         Matcher directiveMatcher = DIRECTIVE_PATTERN.matcher(expectedText);
         while (directiveMatcher.find()) {
             String name = directiveMatcher.group(1);
             String value = directiveMatcher.group(3);
-            String oldValue = directives.put(name, value);
-            Assert.assertNull("Directive overwritten: " + name + " old value: " + oldValue + " new value: " + value, oldValue);
+            directives.put(name, value);
         }
         return directives;
     }
@@ -549,7 +553,7 @@ public class KotlinTestUtils {
         List<String> files = TestFiles.createTestFiles("", content, new TestFiles.TestFileFactoryNoModules<String>() {
             @NotNull
             @Override
-            public String create(@NotNull String fileName, @NotNull String text, @NotNull Map<String, String> directives) {
+            public String create(@NotNull String fileName, @NotNull String text, @NotNull Directives directives) {
                 int firstLineEnd = text.indexOf('\n');
                 return StringUtil.trimTrailing(text.substring(firstLineEnd + 1));
             }
@@ -717,6 +721,18 @@ public class KotlinTestUtils {
         MuteWithDatabaseKt.runTest(testCase, test);
     }
 
+    public static void runTestWithThrowable(@NotNull TestCase testCase, @NotNull RunnableWithThrowable test) {
+        MuteWithDatabaseKt.runTest(testCase, () -> {
+            try {
+                test.run();
+            }
+            catch (Throwable throwable) {
+                throw new IllegalStateException(throwable);
+            }
+            return null;
+        });
+    }
+
     // In this test runner version the `testDataFile` parameter is annotated by `TestDataFile`.
     // So only file paths passed to this parameter will be used in navigation actions, like "Navigate to testdata" and "Related Symbol..."
     public static void runTest(DoTest test, TargetBackend targetBackend, @TestDataFile String testDataFile) throws Exception {
@@ -740,7 +756,7 @@ public class KotlinTestUtils {
     }
 
     private static void runTestImpl(@NotNull DoTest test, @Nullable TestCase testCase, String testDataFilePath) throws Exception {
-        if (testCase != null) {
+        if (testCase != null && !isRunTestOverridden(testCase)) {
             Function0<Unit> wrapWithMuteInDatabase = MuteWithDatabaseKt.wrapWithMuteInDatabase(testCase, () -> {
                 try {
                     test.invoke(testDataFilePath);
@@ -755,11 +771,20 @@ public class KotlinTestUtils {
                 return;
             }
         }
+        MuteWithFileKt.testWithMuteInFile(test, testCase).invoke(testDataFilePath);
+    }
 
-        DoTest wrappedTest = testCase != null ?
-                             MuteWithFileKt.testWithMuteInFile(test, testCase) :
-                             MuteWithFileKt.testWithMuteInFile(test, "");
-        wrappedTest.invoke(testDataFilePath);
+    private static boolean isRunTestOverridden(TestCase testCase) {
+        Class<?> type = testCase.getClass();
+        while (type != null) {
+            for (Annotation annotation : type.getDeclaredAnnotations()) {
+                if (annotation.annotationType().equals(WithMutedInDatabaseRunTest.class)) {
+                    return true;
+                }
+            }
+            type = type.getSuperclass();
+        }
+        return false;
     }
 
     private static DoTest testWithCustomIgnoreDirective(DoTest test, TargetBackend targetBackend, String ignoreDirective) throws Exception {

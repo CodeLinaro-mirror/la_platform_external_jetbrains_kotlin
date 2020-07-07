@@ -1,13 +1,9 @@
-/*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
- * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
- */
-
 import tasks.WriteCopyrightToFile
 
 plugins {
     kotlin("jvm")
     id("jps-compatible")
+    application
 }
 
 val runtimeOnly by configurations
@@ -15,26 +11,32 @@ val compileOnly by configurations
 runtimeOnly.extendsFrom(compileOnly)
 
 dependencies {
-    compile(project(":compiler:psi"))
     compile(project(":compiler:frontend.common"))
     compile(project(":core:descriptors"))
     compile(project(":compiler:fir:cones"))
-    compile(project(":compiler:ir.tree"))
+    compile(project(":compiler:resolution"))
 
     compileOnly(intellijCoreDep()) { includeJars("intellij-core", "guava", rootProject = rootProject) }
+    Platform[193].orLower {
+        compileOnly(intellijDep()) { includeJars("picocontainer", rootProject = rootProject) }
+    }
     compileOnly(intellijDep()) {
-        includeJars("trove4j", "picocontainer", rootProject = rootProject)
+        includeJars("trove4j", rootProject = rootProject)
     }
 
     Platform[192].orHigher {
         runtimeOnly(intellijCoreDep()) { includeJars("jdom") }
     }
-    implementation(kotlin("reflect"))
+    implementation(project(":kotlin-reflect"))
 }
 
 val writeCopyright by task<WriteCopyrightToFile> {
     outputFile = file("$buildDir/copyright/notice.txt")
     commented = true
+}
+
+application {
+    mainClassName = "org.jetbrains.kotlin.fir.tree.generator.MainKt"
 }
 
 val processResources by tasks
@@ -46,5 +48,13 @@ sourceSets {
         resources.srcDir("$buildDir/copyright")
     }
     "test" {}
+}
+
+allprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
+        kotlinOptions {
+            freeCompilerArgs += "-Xskip-metadata-version-check"
+        }
+    }
 }
 

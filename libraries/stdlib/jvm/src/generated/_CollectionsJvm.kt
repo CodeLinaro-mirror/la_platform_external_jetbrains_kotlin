@@ -40,18 +40,50 @@ public actual fun <T> MutableList<T>.reverse(): Unit {
 }
 
 /**
- * Returns a [SortedSet][java.util.SortedSet] of all elements.
+ * Returns a new [SortedSet][java.util.SortedSet] of all elements.
  */
 public fun <T : Comparable<T>> Iterable<T>.toSortedSet(): java.util.SortedSet<T> {
     return toCollection(java.util.TreeSet<T>())
 }
 
 /**
- * Returns a [SortedSet][java.util.SortedSet] of all elements.
+ * Returns a new [SortedSet][java.util.SortedSet] of all elements.
  * 
  * Elements in the set returned are sorted according to the given [comparator].
  */
 public fun <T> Iterable<T>.toSortedSet(comparator: Comparator<in T>): java.util.SortedSet<T> {
     return toCollection(java.util.TreeSet<T>(comparator))
+}
+
+/**
+ * Returns the sum of all values produced by [selector] function applied to each element in the collection.
+ */
+@SinceKotlin("1.4")
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@kotlin.jvm.JvmName("sumOfBigDecimal")
+@kotlin.internal.InlineOnly
+public inline fun <T> Iterable<T>.sumOf(selector: (T) -> java.math.BigDecimal): java.math.BigDecimal {
+    var sum: java.math.BigDecimal = 0.toBigDecimal()
+    for (element in this) {
+        sum += selector(element)
+    }
+    return sum
+}
+
+/**
+ * Returns the sum of all values produced by [selector] function applied to each element in the collection.
+ */
+@SinceKotlin("1.4")
+@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+@OverloadResolutionByLambdaReturnType
+@kotlin.jvm.JvmName("sumOfBigInteger")
+@kotlin.internal.InlineOnly
+public inline fun <T> Iterable<T>.sumOf(selector: (T) -> java.math.BigInteger): java.math.BigInteger {
+    var sum: java.math.BigInteger = 0.toBigInteger()
+    for (element in this) {
+        sum += selector(element)
+    }
+    return sum
 }
 

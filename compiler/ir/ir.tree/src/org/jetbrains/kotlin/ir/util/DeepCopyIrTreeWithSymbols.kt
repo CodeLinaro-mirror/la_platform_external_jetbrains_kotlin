@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.ir.util
@@ -73,22 +62,22 @@ open class DeepCopyIrTreeWithSymbols(
         }
     }
 
-    private fun mapDeclarationOrigin(origin: IrDeclarationOrigin) = origin
-    private fun mapStatementOrigin(origin: IrStatementOrigin?) = origin
+    protected fun mapDeclarationOrigin(origin: IrDeclarationOrigin) = origin
+    protected fun mapStatementOrigin(origin: IrStatementOrigin?) = origin
 
-    private inline fun <reified T : IrElement> T.transform() =
+    protected inline fun <reified T : IrElement> T.transform() =
         transform(this@DeepCopyIrTreeWithSymbols, null) as T
 
-    private inline fun <reified T : IrElement> List<T>.transform() =
+    protected inline fun <reified T : IrElement> List<T>.transform() =
         map { it.transform() }
 
-    private inline fun <reified T : IrElement> List<T>.transformTo(destination: MutableList<T>) =
+    protected inline fun <reified T : IrElement> List<T>.transformTo(destination: MutableList<T>) =
         mapTo(destination) { it.transform() }
 
-    private fun <T : IrDeclarationContainer> T.transformDeclarationsTo(destination: T) =
+    protected fun <T : IrDeclarationContainer> T.transformDeclarationsTo(destination: T) =
         declarations.transformTo(destination.declarations)
 
-    private fun IrType.remapType() = typeRemapper.remapType(this)
+    protected fun IrType.remapType() = typeRemapper.remapType(this)
 
     override fun visitElement(element: IrElement): IrElement =
         throw IllegalArgumentException("Unsupported element type: $element")
@@ -152,7 +141,7 @@ open class DeepCopyIrTreeWithSymbols(
         ).apply {
             transformAnnotations(declaration)
             copyTypeParametersFrom(declaration)
-            declaration.superTypes.mapTo(superTypes) {
+            superTypes = declaration.superTypes.map {
                 it.remapType()
             }
             thisReceiver = declaration.thisReceiver?.transform()
@@ -176,9 +165,10 @@ open class DeepCopyIrTreeWithSymbols(
             isFakeOverride = declaration.isFakeOverride,
             isOperator = declaration.isOperator
         ).apply {
-            declaration.overriddenSymbols.mapTo(overriddenSymbols) {
+            overriddenSymbols = declaration.overriddenSymbols.map {
                 symbolRemapper.getReferencedFunction(it) as IrSimpleFunctionSymbol
             }
+            copyAttributes(declaration)
             transformFunctionChildren(declaration)
         }
 
@@ -206,13 +196,13 @@ open class DeepCopyIrTreeWithSymbols(
                 dispatchReceiverParameter = declaration.dispatchReceiverParameter?.transform()
                 extensionReceiverParameter = declaration.extensionReceiverParameter?.transform()
                 returnType = typeRemapper.remapType(declaration.returnType)
-                declaration.valueParameters.transformTo(valueParameters)
+                valueParameters = declaration.valueParameters.transform()
                 body = declaration.body?.transform()
             }
         }
 
-    private fun IrMutableAnnotationContainer.transformAnnotations(declaration: IrAnnotationContainer) {
-        declaration.annotations.transformTo(annotations)
+    protected fun IrMutableAnnotationContainer.transformAnnotations(declaration: IrAnnotationContainer) {
+        annotations = declaration.annotations.transform()
     }
 
     override fun visitProperty(declaration: IrProperty): IrProperty =
@@ -231,10 +221,13 @@ open class DeepCopyIrTreeWithSymbols(
             isExternal = declaration.isExternal
         ).apply {
             transformAnnotations(declaration)
-            this.backingField = declaration.backingField?.transform()
-            this.getter = declaration.getter?.transform()
-            this.setter = declaration.setter?.transform()
-            this.backingField?.let {
+            this.backingField = declaration.backingField?.transform()?.also {
+                it.correspondingPropertySymbol = symbol
+            }
+            this.getter = declaration.getter?.transform()?.also {
+                it.correspondingPropertySymbol = symbol
+            }
+            this.setter = declaration.setter?.transform()?.also {
                 it.correspondingPropertySymbol = symbol
             }
         }
@@ -253,7 +246,7 @@ open class DeepCopyIrTreeWithSymbols(
             isFakeOverride = declaration.isFakeOverride
         ).apply {
             transformAnnotations(declaration)
-            declaration.overriddenSymbols.mapTo(overriddenSymbols) {
+            overriddenSymbols = declaration.overriddenSymbols.map {
                 symbolRemapper.getReferencedField(it)
             }
             initializer = declaration.initializer?.transform()
@@ -264,7 +257,9 @@ open class DeepCopyIrTreeWithSymbols(
             declaration.startOffset, declaration.endOffset,
             mapDeclarationOrigin(declaration.origin),
             symbolRemapper.getDeclaredLocalDelegatedProperty(declaration.symbol),
-            declaration.type.remapType()
+            declaration.name,
+            declaration.type.remapType(),
+            declaration.isVar
         ).apply {
             transformAnnotations(declaration)
             delegate = declaration.delegate.transform()
@@ -327,8 +322,8 @@ open class DeepCopyIrTreeWithSymbols(
             transformAnnotations(declaration)
         }
 
-    private fun IrTypeParametersContainer.copyTypeParametersFrom(other: IrTypeParametersContainer) {
-        other.typeParameters.mapTo(this.typeParameters) {
+    protected fun IrTypeParametersContainer.copyTypeParametersFrom(other: IrTypeParametersContainer) {
+        this.typeParameters = other.typeParameters.map {
             copyTypeParameter(it)
         }
 
@@ -584,12 +579,14 @@ open class DeepCopyIrTreeWithSymbols(
 
     override fun visitFunctionReference(expression: IrFunctionReference): IrFunctionReference {
         val symbol = symbolRemapper.getReferencedFunction(expression.symbol)
+        val reflectionTarget = expression.reflectionTarget?.let { symbolRemapper.getReferencedFunction(it) }
         return IrFunctionReferenceImpl(
             expression.startOffset, expression.endOffset,
             expression.type.remapType(),
             symbol,
             expression.typeArgumentsCount,
             expression.valueArgumentsCount,
+            reflectionTarget,
             mapStatementOrigin(expression.origin)
         ).apply {
             copyRemappedTypeArgumentsFrom(expression)

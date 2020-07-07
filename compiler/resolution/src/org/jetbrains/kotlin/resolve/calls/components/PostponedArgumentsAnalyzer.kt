@@ -13,8 +13,11 @@ import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.annotations.FilteredAnnotations
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.addSubsystemFromArgument
-import org.jetbrains.kotlin.resolve.calls.inference.model.*
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
+import org.jetbrains.kotlin.resolve.calls.inference.model.CoroutinePosition
+import org.jetbrains.kotlin.resolve.calls.inference.model.LambdaArgumentConstraintPosition
 import org.jetbrains.kotlin.resolve.calls.model.*
+import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.UnwrappedType
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.builtIns
@@ -32,6 +35,7 @@ class PostponedArgumentsAnalyzer(
         fun canBeProper(type: KotlinTypeMarker): Boolean
 
         fun hasUpperOrEqualUnitConstraint(type: KotlinTypeMarker): Boolean
+        fun hasEqualNothingConstraint(type: KotlinTypeMarker): Boolean
 
         // mutable operations
         fun addOtherSystem(otherSystem: ConstraintStorage)
@@ -51,7 +55,7 @@ class PostponedArgumentsAnalyzer(
 
             is LambdaWithTypeVariableAsExpectedTypeAtom ->
                 analyzeLambda(
-                    c, resolutionCallbacks, argument.transformToResolvedLambda(c.getBuilder()), diagnosticsHolder
+                    c, resolutionCallbacks, argument.transformToResolvedLambda(c.getBuilder(), diagnosticsHolder), diagnosticsHolder
                 )
 
             is ResolvedCallableReferenceAtom ->
@@ -63,22 +67,33 @@ class PostponedArgumentsAnalyzer(
         }
     }
 
-    private fun analyzeLambda(
+    data class SubstitutorAndStubsForLambdaAnalysis(
+        val stubsForPostponedVariables: Map<TypeVariableMarker, StubTypeMarker>,
+        val substitute: (KotlinType) -> UnwrappedType
+    )
+
+    fun Context.createSubstituteFunctorForLambdaAnalysis(): SubstitutorAndStubsForLambdaAnalysis {
+        val stubsForPostponedVariables = bindingStubsForPostponedVariables()
+        val currentSubstitutor = buildCurrentSubstitutor(stubsForPostponedVariables.mapKeys { it.key.freshTypeConstructor(this) })
+        return SubstitutorAndStubsForLambdaAnalysis(stubsForPostponedVariables) {
+            currentSubstitutor.safeSubstitute(this, it) as UnwrappedType
+        }
+    }
+
+    fun analyzeLambda(
         c: Context,
         resolutionCallbacks: KotlinResolutionCallbacks,
         lambda: ResolvedLambdaAtom,
-        diagnosticHolder: KotlinDiagnosticsHolder
-    ) {
-        val stubsForPostponedVariables = c.bindingStubsForPostponedVariables()
-        val currentSubstitutor = c.buildCurrentSubstitutor(stubsForPostponedVariables.mapKeys { it.key.freshTypeConstructor(c) })
-
-        fun substitute(type: UnwrappedType) = currentSubstitutor.safeSubstitute(c, type) as UnwrappedType
+        diagnosticHolder: KotlinDiagnosticsHolder,
+    ): ReturnArgumentsAnalysisResult {
+        val substitutorAndStubsForLambdaAnalysis = c.createSubstituteFunctorForLambdaAnalysis()
+        val substitute = substitutorAndStubsForLambdaAnalysis.substitute
 
         // Expected type has a higher priority against which lambda should be analyzed
         // Mostly, this is needed to report more specific diagnostics on lambda parameters
         fun expectedOrActualType(expected: UnwrappedType?, actual: UnwrappedType?): UnwrappedType? {
-            val expectedSubstituted = expected?.let(::substitute)
-            return if (expectedSubstituted != null && c.canBeProper(expectedSubstituted)) expectedSubstituted else actual?.let(::substitute)
+            val expectedSubstituted = expected?.let(substitute)
+            return if (expectedSubstituted != null && c.canBeProper(expectedSubstituted)) expectedSubstituted else actual?.let(substitute)
         }
 
         val builtIns = c.getBuilder().builtIns
@@ -100,7 +115,7 @@ class PostponedArgumentsAnalyzer(
         val parameters =
             expectedParametersToMatchAgainst?.mapIndexed { index, expected ->
                 expectedOrActualType(expected, lambda.parameters.getOrNull(index)) ?: builtIns.nothingType
-            } ?: lambda.parameters.map(::substitute)
+            } ?: lambda.parameters.map(substitute)
 
         val rawReturnType = lambda.returnType
 
@@ -108,7 +123,7 @@ class PostponedArgumentsAnalyzer(
             c.canBeProper(rawReturnType) -> substitute(rawReturnType)
 
             // For Unit-coercion
-            c.hasUpperOrEqualUnitConstraint(rawReturnType) -> builtIns.unitType
+            c.hasUpperOrEqualUnitConstraint(rawReturnType) && !c.hasEqualNothingConstraint(rawReturnType) -> builtIns.unitType
 
             else -> null
         }
@@ -118,37 +133,69 @@ class PostponedArgumentsAnalyzer(
             else FilteredAnnotations(annotations, true) { it != KotlinBuiltIns.FQ_NAMES.extensionFunctionType }
         }
 
-        val (returnArguments, inferenceSession) = resolutionCallbacks.analyzeAndGetLambdaReturnArguments(
+        val returnArgumentsAnalysisResult = resolutionCallbacks.analyzeAndGetLambdaReturnArguments(
             lambda.atom,
             lambda.isSuspend,
             receiver,
             parameters,
             expectedTypeForReturnArguments,
             convertedAnnotations ?: Annotations.EMPTY,
-            stubsForPostponedVariables.cast()
+            substitutorAndStubsForLambdaAnalysis.stubsForPostponedVariables.cast(),
         )
+        applyResultsOfAnalyzedLambdaToCandidateSystem(c, lambda, returnArgumentsAnalysisResult, diagnosticHolder, substitute)
+        return returnArgumentsAnalysisResult
+    }
 
+    fun applyResultsOfAnalyzedLambdaToCandidateSystem(
+        c: Context,
+        lambda: ResolvedLambdaAtom,
+        returnArgumentsAnalysisResult: ReturnArgumentsAnalysisResult,
+        diagnosticHolder: KotlinDiagnosticsHolder,
+        substitute: (KotlinType) -> UnwrappedType = c.createSubstituteFunctorForLambdaAnalysis().substitute
+    ) {
+        val (returnArgumentsInfo, inferenceSession, hasInapplicableCallForBuilderInference) =
+            returnArgumentsAnalysisResult
+
+        if (hasInapplicableCallForBuilderInference) {
+            c.getBuilder().removePostponedVariables()
+            return
+        }
+
+        val returnArguments = returnArgumentsInfo.nonErrorArguments
         returnArguments.forEach { c.addSubsystemFromArgument(it) }
 
-        val subResolvedKtPrimitives = returnArguments.map {
+        val lastExpression = returnArgumentsInfo.lastExpression
+        val allReturnArguments =
+            if (lastExpression != null && returnArgumentsInfo.lastExpressionCoercedToUnit && c.addSubsystemFromArgument(lastExpression)) {
+                returnArguments + lastExpression
+            } else {
+                returnArguments
+            }
+
+        val subResolvedKtPrimitives = allReturnArguments.map {
             resolveKtPrimitive(
-                c.getBuilder(), it, lambda.returnType.let(::substitute), diagnosticHolder, isReceiver = false
+                c.getBuilder(), it, lambda.returnType.let(substitute),
+                diagnosticHolder, ReceiverInfo.notReceiver, convertedType = null,
+                inferenceSession
             )
         }
 
-        if (returnArguments.isEmpty()) {
+        if (!returnArgumentsInfo.returnArgumentsExist) {
             val unitType = lambda.returnType.builtIns.unitType
-            val lambdaReturnType = lambda.returnType.let(::substitute)
-            c.getBuilder().addSubtypeConstraint(lambdaReturnType, unitType, LambdaArgumentConstraintPosition(lambda))
+            val lambdaReturnType = lambda.returnType.let(substitute)
             c.getBuilder().addSubtypeConstraint(unitType, lambdaReturnType, LambdaArgumentConstraintPosition(lambda))
         }
 
-        lambda.setAnalyzedResults(returnArguments, subResolvedKtPrimitives)
+        lambda.setAnalyzedResults(returnArgumentsInfo, subResolvedKtPrimitives)
 
         if (inferenceSession != null) {
             val storageSnapshot = c.getBuilder().currentStorage()
 
-            val postponedVariables = inferenceSession.inferPostponedVariables(lambda, storageSnapshot)
+            val postponedVariables = inferenceSession.inferPostponedVariables(lambda, storageSnapshot, diagnosticHolder)
+            if (postponedVariables == null) {
+                c.getBuilder().removePostponedVariables()
+                return
+            }
 
             for ((constructor, resultType) in postponedVariables) {
                 val variableWithConstraints = storageSnapshot.notFixedTypeVariables[constructor] ?: continue

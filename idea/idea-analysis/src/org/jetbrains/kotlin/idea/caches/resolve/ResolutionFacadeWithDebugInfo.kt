@@ -14,6 +14,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiNamedElement
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.analyzer.ModuleInfo
+import org.jetbrains.kotlin.analyzer.ResolverForProject
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.idea.caches.project.IdeaModuleInfo
@@ -89,6 +90,10 @@ private class ResolutionFacadeWithDebugInfo(
         }
     }
 
+    override fun getResolverForProject(): ResolverForProject<out ModuleInfo> {
+        return delegate.getResolverForProject()
+    }
+
     override fun <T : Any> getFrontendService(moduleDescriptor: ModuleDescriptor, serviceClass: Class<T>): T {
         return wrapExceptions({ ResolvingWhat(serviceClass = serviceClass, moduleDescriptor = moduleDescriptor) }) {
             delegate.getFrontendService(moduleDescriptor, serviceClass)
@@ -120,6 +125,7 @@ private class KotlinIdeaResolutionException(
         })
         for (element in resolvingWhat.elements.withIndex()) {
             withAttachment("element${element.index}.kt", element.value.text)
+            withAttachment("file${element.index}.kt", element.value.containingFile.text)
         }
     }
 }

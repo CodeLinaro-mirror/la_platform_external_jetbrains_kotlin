@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.idea.core.script.ScriptDefinitionsManager;
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings;
+import org.jetbrains.kotlin.idea.KotlinBundle;
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinition;
 
 import javax.swing.*;
@@ -24,7 +25,6 @@ public class KotlinScriptingSettingsConfigurable implements SearchableConfigurab
 
     private JPanel root;
     private JPanel panelScriptDefinitionsChooser;
-    private JCheckBox scriptDependenciesAutoReload;
 
     private KotlinScriptDefinitionsModel model;
 
@@ -54,19 +54,18 @@ public class KotlinScriptingSettingsConfigurable implements SearchableConfigurab
 
     @Override
     public boolean isModified() {
-        return isModified(scriptDependenciesAutoReload, settings.isAutoReloadEnabled())
-               || isScriptDefinitionsChanged();
+        return isScriptDefinitionsChanged();
     }
 
     @Override
     public void apply() {
-        settings.setAutoReloadEnabled(scriptDependenciesAutoReload.isSelected());
-
         if (isScriptDefinitionsChanged()) {
-            for (KotlinScriptDefinitionsModelDescriptor item : model.getItems()) {
+            for (ModelDescriptor item : model.getItems()) {
                 ScriptDefinition definition = item.getDefinition();
-                settings.setOrder(definition, model.getItems().indexOf(item));
+                int order = model.getItems().indexOf(item);
+                settings.setOrder(definition, order);
                 settings.setEnabled(definition, item.isEnabled());
+                settings.setAutoReloadConfigurations(definition, item.getAutoReloadConfigurations());
             }
 
             manager.reorderScriptDefinitions();
@@ -75,14 +74,15 @@ public class KotlinScriptingSettingsConfigurable implements SearchableConfigurab
 
     @Override
     public void reset() {
-        scriptDependenciesAutoReload.setSelected(settings.isAutoReloadEnabled());
-
         model.setDefinitions(manager.getAllDefinitions(), settings);
     }
 
     private boolean isScriptDefinitionsChanged() {
-        for (KotlinScriptDefinitionsModelDescriptor item : model.getItems()) {
+        for (ModelDescriptor item : model.getItems()) {
             if (settings.isScriptDefinitionEnabled(item.getDefinition()) != item.isEnabled()) {
+                return true;
+            }
+            if (settings.autoReloadConfigurations(item.getDefinition()) != item.getAutoReloadConfigurations()) {
                 return true;
             }
         }
@@ -93,7 +93,7 @@ public class KotlinScriptingSettingsConfigurable implements SearchableConfigurab
     @Override
     @Nls
     public String getDisplayName() {
-        return "Kotlin Scripting";
+        return KotlinBundle.message("script.name.kotlin.scripting");
     }
 
     @Override

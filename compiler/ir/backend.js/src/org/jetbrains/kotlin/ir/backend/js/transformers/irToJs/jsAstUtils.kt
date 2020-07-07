@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
 import org.jetbrains.kotlin.backend.common.ir.isElseBranch
 import org.jetbrains.kotlin.backend.common.ir.isSuspend
+import org.jetbrains.kotlin.ir.backend.js.lower.InteropCallableReferenceLowering
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
@@ -54,18 +55,19 @@ fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerat
 
     declaration.extensionReceiverParameter?.let { function.addParameter(functionContext.getNameForValueDeclaration(it)) }
     functionParams.forEach { function.addParameter(it) }
-    if (declaration.descriptor.isSuspend) {
+    if (declaration.isSuspend) {
         function.addParameter(JsName(Namer.CONTINUATION)) // TODO: Use namer?
     }
 
     return function
 }
 
-private fun isNativeInvoke(call: IrCall): Boolean {
+private fun isNativeInvoke(receiver: JsExpression?, call: IrCall): Boolean {
+    if (receiver == null || receiver is JsThisRef) return false
     val simpleFunction = call.symbol.owner as? IrSimpleFunction ?: return false
     val receiverType = simpleFunction.dispatchReceiverParameter?.type ?: return false
 
-    if (simpleFunction.isSuspend) return false
+    if (call.origin === InteropCallableReferenceLowering.Companion.EXPLICIT_INVOKE) return false
 
     return simpleFunction.name == OperatorNameConventions.INVOKE && receiverType.isFunctionTypeOrSubtype()
 }
@@ -102,7 +104,7 @@ fun translateCall(
         }
     }
 
-    if (isNativeInvoke(expression)) {
+    if (isNativeInvoke(jsDispatchReceiver, expression)) {
         return JsInvocation(jsDispatchReceiver!!, arguments)
     }
 
@@ -206,6 +208,8 @@ fun translateCallArguments(expression: IrMemberAccessExpression, context: JsGene
         val argument = expression.getValueArgument(index)
         val result = argument?.accept(transformer, context)
         if (result == null) {
+            if (context.staticContext.backendContext.es6mode) return@mapTo JsPrefixOperation(JsUnaryOperator.VOID, JsIntLiteral(2))
+
             assert(expression is IrFunctionAccessExpression && expression.symbol.owner.isExternalOrInheritedFromExternal())
             JsPrefixOperation(JsUnaryOperator.VOID, JsIntLiteral(1))
         } else
@@ -226,8 +230,8 @@ fun defineProperty(receiver: JsExpression, name: String, value: () -> JsExpressi
 
 fun defineProperty(receiver: JsExpression, name: String, getter: JsExpression?, setter: JsExpression? = null) =
     defineProperty(receiver, name) {
-        val literal = JsObjectLiteral(true)
-        literal.apply {
+        JsObjectLiteral(true).apply {
+            propertyInitializers += JsPropertyInitializer(JsStringLiteral("configurable"), JsBooleanLiteral(true))
             if (getter != null)
                 propertyInitializers += JsPropertyInitializer(JsStringLiteral("get"), getter)
             if (setter != null)

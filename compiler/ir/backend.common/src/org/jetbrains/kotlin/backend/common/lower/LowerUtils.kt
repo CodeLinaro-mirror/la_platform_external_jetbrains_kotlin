@@ -156,6 +156,12 @@ open class IrBuildingTransformer(private val context: BackendContext) : IrElemen
             return super.visitAnonymousInitializer(declaration)
         }
     }
+
+    override fun visitEnumEntry(declaration: IrEnumEntry): IrStatement {
+        withBuilder(declaration.symbol) {
+            return super.visitEnumEntry(declaration)
+        }
+    }
 }
 
 fun IrConstructor.callsSuper(irBuiltIns: IrBuiltIns): Boolean {
@@ -185,7 +191,7 @@ fun IrConstructor.callsSuper(irBuiltIns: IrBuiltIns): Boolean {
             else if (delegatingClass.descriptor != constructedClass.descriptor)
                 throw AssertionError(
                     "Expected either call to another constructor of the class being constructed or" +
-                            " call to super class constructor. But was: $delegatingClass"
+                            " call to super class constructor. But was: $delegatingClass with '${delegatingClass.name}' name"
                 )
         }
     })

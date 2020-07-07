@@ -19,7 +19,10 @@ package org.jetbrains.kotlin.jps.build
 import org.jetbrains.jps.builders.JpsBuildTestCase
 import org.jetbrains.jps.model.library.JpsLibrary
 import org.jetbrains.kotlin.compilerRunner.JpsKotlinCompilerRunner
+import org.jetbrains.kotlin.test.WithMutedInDatabaseRunTest
+import org.jetbrains.kotlin.test.runTest
 
+@WithMutedInDatabaseRunTest
 abstract class BaseKotlinJpsBuildTestCase : JpsBuildTestCase() {
     @Throws(Exception::class)
     override fun setUp() {
@@ -40,5 +43,11 @@ abstract class BaseKotlinJpsBuildTestCase : JpsBuildTestCase() {
 
     protected fun requireLibrary(library: KotlinJpsLibrary) = libraries.getOrPut(library.id) {
         library.create(myProject)
+    }
+
+    override fun runTest() {
+        runTest {
+            super.runTest()
+        }
     }
 }

@@ -8,21 +8,24 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.collectEnumEntries
+import org.jetbrains.kotlin.fir.declarations.modality
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
-import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.firSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.fir.types.ConeLookupTagBasedType
 import org.jetbrains.kotlin.fir.types.ConeNullability
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.lowerBoundIfFlexible
 import org.jetbrains.kotlin.fir.visitors.*
 import org.jetbrains.kotlin.name.ClassId
 
@@ -42,11 +45,13 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
             return whenExpression
         }
 
-        val typeRef = (whenExpression.subjectVariable?.returnTypeRef
-            ?: (whenExpression.subject as? FirQualifiedAccessExpression)?.typeRef) as? FirResolvedTypeRef
+        val typeRef = whenExpression.subjectVariable?.returnTypeRef
+            ?: whenExpression.subject?.typeRef
             ?: return null
 
-        val lookupTag = (typeRef.type as? ConeLookupTagBasedType)?.lookupTag ?: return null
+        // TODO: add some report logic about flexible type (see WHEN_ENUM_CAN_BE_NULL_IN_JAVA diagnostic in old frontend)
+        val type = (typeRef as? FirResolvedTypeRef)?.type?.lowerBoundIfFlexible() ?: return null
+        val lookupTag = (type as? ConeLookupTagBasedType)?.lookupTag ?: return null
         val nullable = typeRef.type.nullability == ConeNullability.NULLABLE
         val isExhaustive = when {
             ((lookupTag as? ConeClassLikeLookupTag)?.classId == bodyResolveComponents.session.builtinTypes.booleanType.id) -> {
@@ -57,7 +62,7 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
                 val klass = lookupTag.toSymbol(bodyResolveComponents.session)?.fir as? FirRegularClass ?: return null
                 when {
                     klass.classKind == ClassKind.ENUM_CLASS -> checkEnumExhaustiveness(whenExpression, klass, nullable)
-                    klass.modality == Modality.SEALED -> checkSealedClassExhaustiveness(whenExpression, klass as FirSealedClass, nullable)
+                    klass.modality == Modality.SEALED -> checkSealedClassExhaustiveness(whenExpression, klass, nullable)
                     else -> return null
                 }
             }
@@ -116,11 +121,16 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
 
     // ------------------------ Sealed class exhaustiveness ------------------------
 
-    private fun checkSealedClassExhaustiveness(whenExpression: FirWhenExpression, sealedClass: FirSealedClass, nullable: Boolean): Boolean {
-        if (sealedClass.inheritors.isEmpty()) return true
+    private fun checkSealedClassExhaustiveness(
+        whenExpression: FirWhenExpression,
+        sealedClass: FirRegularClass,
+        nullable: Boolean
+    ): Boolean {
+        val inheritors = sealedClass.sealedInheritors
+        if (inheritors.isNullOrEmpty()) return true
         val data = SealedExhaustivenessData(
             sealedClass.session.firSymbolProvider,
-            sealedClass.inheritors.toMutableSet(),
+            inheritors.toMutableSet(),
             !nullable
         )
         for (branch in whenExpression.branches) {
@@ -147,8 +157,16 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
         override fun visitOperatorCall(operatorCall: FirOperatorCall, data: SealedExhaustivenessData) {
             if (operatorCall.operation == FirOperation.EQ) {
                 val argument = operatorCall.arguments[1]
-                if (argument is FirConstExpression<*> && argument.value == null) {
-                    data.containsNull = true
+                when (argument) {
+                    is FirConstExpression<*> -> {
+                        if (argument.value == null) {
+                            data.containsNull = true
+                        }
+                    }
+
+                    is FirResolvedQualifier -> {
+                        argument.typeRef.accept(this, data)
+                    }
                 }
             }
         }

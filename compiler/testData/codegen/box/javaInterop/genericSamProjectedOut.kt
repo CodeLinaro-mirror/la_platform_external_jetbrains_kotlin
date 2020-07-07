@@ -1,4 +1,4 @@
-// IGNORE_BACKEND_FIR: JVM_IR
+// !LANGUAGE: -NewInference
 // TARGET_BACKEND: JVM
 // WITH_RUNTIME
 // FILE: example/Hello.java

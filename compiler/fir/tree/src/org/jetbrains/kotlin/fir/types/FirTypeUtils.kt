@@ -10,9 +10,17 @@ import org.jetbrains.kotlin.fir.expressions.FirConstKind
 import org.jetbrains.kotlin.fir.symbols.StandardClassIds
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
 import org.jetbrains.kotlin.name.ClassId
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 inline fun <reified T : ConeKotlinType> FirTypeRef.coneTypeUnsafe() = (this as FirResolvedTypeRef).type as T
-inline fun <reified T : ConeKotlinType> FirTypeRef.coneTypeSafe() = (this as? FirResolvedTypeRef)?.type as? T
+@OptIn(ExperimentalContracts::class)
+inline fun <reified T : ConeKotlinType> FirTypeRef.coneTypeSafe(): T? {
+    contract {
+        returnsNotNull() implies (this@coneTypeSafe is FirResolvedTypeRef)
+    }
+    return (this as? FirResolvedTypeRef)?.type as? T
+}
 
 val FirTypeRef.isAny: Boolean get() = isBuiltinType(StandardClassIds.Any, false)
 val FirTypeRef.isNullableAny: Boolean get() = isBuiltinType(StandardClassIds.Any, true)
@@ -20,6 +28,11 @@ val FirTypeRef.isNothing: Boolean get() = isBuiltinType(StandardClassIds.Nothing
 val FirTypeRef.isNullableNothing: Boolean get() = isBuiltinType(StandardClassIds.Nothing, true)
 val FirTypeRef.isUnit: Boolean get() = isBuiltinType(StandardClassIds.Unit, false)
 val FirTypeRef.isBoolean: Boolean get() = isBuiltinType(StandardClassIds.Boolean, false)
+val FirTypeRef.isEnum: Boolean get() = isBuiltinType(StandardClassIds.Enum, false)
+val FirTypeRef.isArrayType: Boolean
+    get() =
+        isBuiltinType(StandardClassIds.Array, false) ||
+                StandardClassIds.primitiveArrayTypeByElementType.values.any { isBuiltinType(it, false) }
 
 private fun FirTypeRef.isBuiltinType(classId: ClassId, isNullable: Boolean): Boolean {
     val type = when (this) {
@@ -37,12 +50,6 @@ val FirFunctionTypeRef.parametersCount: Int
         valueParameters.size
 
 const val EXTENSION_FUNCTION_ANNOTATION = "kotlin/ExtensionFunctionType"
-
-fun FirTypeRef.isExtensionFunctionType(): Boolean {
-    return annotations.any {
-        it.isExtensionFunctionAnnotationCall
-    }
-}
 
 val FirAnnotationCall.isExtensionFunctionAnnotationCall: Boolean
     get() = (this as? FirAnnotationCall)?.let {
@@ -63,5 +70,10 @@ fun ConeClassLikeType.toConstKind(): FirConstKind<*>? = when (lookupTag.classId)
     StandardClassIds.Short -> FirConstKind.Short
     StandardClassIds.Int -> FirConstKind.Int
     StandardClassIds.Long -> FirConstKind.Long
+
+    StandardClassIds.UInt -> FirConstKind.UnsignedInt
+    StandardClassIds.ULong -> FirConstKind.UnsignedLong
+    StandardClassIds.UShort -> FirConstKind.UnsignedShort
+    StandardClassIds.UByte -> FirConstKind.UnsignedByte
     else -> null
 }

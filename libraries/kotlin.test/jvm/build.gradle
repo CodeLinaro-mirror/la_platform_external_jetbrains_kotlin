@@ -1,16 +1,11 @@
 description = 'Kotlin Test'
 
 apply plugin: 'kotlin-platform-jvm'
-apply plugin: 'pill-configurable'
 
 configureJvm6Project(project)
 configurePublishing(project)
 
-pill {
-    importAsLibrary = true
-}
-
-def includeJava9 = BuildPropertiesKt.getKotlinBuildProperties(project).includeJava9
+def includeJava9 = BuildPropertiesExtKt.getIncludeJava9(project.kotlinBuildProperties)
 
 sourceSets {
     if (includeJava9) {
@@ -28,9 +23,10 @@ dependencies {
 archivesBaseName = 'kotlin-test'
 
 jar {
-    manifestAttributes(manifest, project, 'Test' /*true*/)
-    // TODO: enable as soon as this doesn't cause D8/DX to crash
-    // from sourceSets.java9.output
+    manifestAttributes(manifest, project, 'Test', true)
+    if (includeJava9) {
+        from sourceSets.java9.output
+    }
 }
 
 task modularJar(type: Jar) {
@@ -39,9 +35,6 @@ task modularJar(type: Jar) {
     classifier = 'modular'
 
     from zipTree(jar.outputs.files.singleFile)
-    if (includeJava9) {
-        from sourceSets.java9.output
-    }
 }
 
 artifacts {
@@ -54,7 +47,7 @@ javadocJar()
 
 compileKotlin {
     kotlinOptions.freeCompilerArgs = ["-Xallow-kotlin-package", "-Xnormalize-constructor-calls=enable",
-                                      "-Xuse-experimental=kotlin.contracts.ExperimentalContracts",
+                                      "-Xopt-in=kotlin.contracts.ExperimentalContracts",
                                       "-module-name", project.archivesBaseName, ]
 }
 

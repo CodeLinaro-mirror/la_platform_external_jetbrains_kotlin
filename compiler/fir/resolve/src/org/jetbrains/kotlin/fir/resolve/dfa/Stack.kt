@@ -10,11 +10,12 @@ import org.jetbrains.kotlin.fir.FirSymbolOwner
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 
-interface Stack<T> {
-    val size: Int
-    fun top(): T
-    fun pop(): T
-    fun push(value: T)
+abstract class Stack<T> {
+    abstract val size: Int
+    abstract fun top(): T
+    abstract fun pop(): T
+    abstract fun push(value: T)
+    abstract fun reset()
 }
 
 fun <T> stackOf(vararg values: T): Stack<T> = StackImpl(*values)
@@ -22,7 +23,7 @@ val Stack<*>.isEmpty: Boolean get() = size == 0
 val Stack<*>.isNotEmpty: Boolean get() = size != 0
 fun <T> Stack<T>.topOrNull(): T? = if (size == 0) null else top()
 
-private class StackImpl<T>(vararg values: T) : Stack<T> {
+private class StackImpl<T>(vararg values: T) : Stack<T>() {
     private val stack = mutableListOf(*values)
 
     override fun top(): T = stack[stack.size - 1]
@@ -33,9 +34,12 @@ private class StackImpl<T>(vararg values: T) : Stack<T> {
     }
 
     override val size: Int get() = stack.size
+    override fun reset() {
+        stack.clear()
+    }
 }
 
-class NodeStorage<T : FirElement, N : CFGNode<T>>() : Stack<N> {
+class NodeStorage<T : FirElement, N : CFGNode<T>> : Stack<N>(){
     private val stack: Stack<N> = StackImpl()
     private val map: MutableMap<T, N> = mutableMapOf()
 
@@ -55,9 +59,14 @@ class NodeStorage<T : FirElement, N : CFGNode<T>>() : Stack<N> {
     operator fun get(key: T): N? {
         return map[key]
     }
+
+    override fun reset() {
+        stack.reset()
+        map.clear()
+    }
 }
 
-class SymbolBasedNodeStorage<T, N : CFGNode<T>> : Stack<N> where T : FirElement {
+class SymbolBasedNodeStorage<T, N : CFGNode<T>> : Stack<N>() where T : FirElement {
     private val stack: Stack<N> = StackImpl()
     private val map: MutableMap<FirBasedSymbol<*>, N> = mutableMapOf()
 
@@ -76,5 +85,10 @@ class SymbolBasedNodeStorage<T, N : CFGNode<T>> : Stack<N> where T : FirElement 
 
     operator fun get(key: FirBasedSymbol<*>): N? {
         return map[key]
+    }
+
+    override fun reset() {
+        stack.reset()
+        map.clear()
     }
 }

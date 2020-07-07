@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,27 +15,25 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrExternalPackageFragmentSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.isLong
-import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.findDeclaration
 import org.jetbrains.kotlin.ir.util.kotlinPackageFqn
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi2ir.findSingleFunction
-import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.util.*
 
 class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendContext) {
 
-    private val externalPackageFragmentSymbol = IrExternalPackageFragmentSymbolImpl(context.internalPackageFragmentDescriptor)
-    val externalPackageFragment = IrExternalPackageFragmentImpl(externalPackageFragmentSymbol)
+    val externalPackageFragment = IrExternalPackageFragmentImpl.createEmptyExternalPackageFragment(
+        context.builtIns.builtInsModule, FqName("kotlin.js.internal")
+    )
 
     // TODO: Should we drop operator intrinsics in favor of IrDynamicOperatorExpression?
 
@@ -96,7 +94,7 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     // Type checks:
 
     val jsInstanceOf = binOpBool("jsInstanceOf")
-    val jsTypeOf = unOp("jsTypeOf", irBuiltIns.stringType)
+    val jsTypeOf = getInternalFunction("jsTypeOf")
 
     // Number conversions:
 
@@ -146,11 +144,18 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     val jsObjectCreate = defineObjectCreateIntrinsic() // Object.create
     val jsCode = getInternalFunction("js") // js("<code>")
     val jsHashCode = getInternalFunction("hashCode")
+    val jsGetNumberHashCode = getInternalFunction("getNumberHashCode")
     val jsGetObjectHashCode = getInternalFunction("getObjectHashCode")
+    val jsGetStringHashCode = getInternalFunction("getStringHashCode")
     val jsToString = getInternalFunction("toString")
     val jsAnyToString = getInternalFunction("anyToString")
     val jsCompareTo = getInternalFunction("compareTo")
     val jsEquals = getInternalFunction("equals")
+    val jsConstruct = getInternalFunction("construct")
+    val jsNewTarget = unOp("jsNewTarget")
+    val jsEmptyObject = unOp("emptyObject")
+    val jsOpenInitializerBox = binOp("openInitializerBox")
+    val es6DefaultType = defineEs6DefaultTypeIntrinsic().symbol
 
     val jsImul = getInternalFunction("imul")
 
@@ -194,12 +199,12 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     val anyConstructorSymbol = anyClassSymbol.constructors.single()
 
     val jsObjectClassSymbol = getInternalClassWithoutPackage("kotlin.js.JsObject")
-    val jsObjectConstructorSymbol by lazy { jsObjectClassSymbol.constructors.single() }
+    val jsObjectConstructorSymbol by lazy2 { jsObjectClassSymbol.constructors.single() }
 
-    val uByteClassSymbol by lazy { getInternalClassWithoutPackage("kotlin.UByte") }
-    val uShortClassSymbol by lazy { getInternalClassWithoutPackage("kotlin.UShort") }
-    val uIntClassSymbol by lazy { getInternalClassWithoutPackage("kotlin.UInt") }
-    val uLongClassSymbol by lazy { getInternalClassWithoutPackage("kotlin.ULong") }
+    val uByteClassSymbol by lazy2 { getInternalClassWithoutPackage("kotlin.UByte") }
+    val uShortClassSymbol by lazy2 { getInternalClassWithoutPackage("kotlin.UShort") }
+    val uIntClassSymbol by lazy2 { getInternalClassWithoutPackage("kotlin.UInt") }
+    val uLongClassSymbol by lazy2 { getInternalClassWithoutPackage("kotlin.ULong") }
 
     val unreachable = defineUnreachableIntrinsic()
 
@@ -274,16 +279,16 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     // TODO move CharSequence-related stiff to IntrinsifyCallsLowering
     val charSequenceClassSymbol = context.symbolTable.referenceClass(context.getClass(FqName("kotlin.CharSequence")))
-    val charSequenceLengthPropertyGetterSymbol by lazy {
+    val charSequenceLengthPropertyGetterSymbol by lazy2 {
         with(charSequenceClassSymbol.owner.declarations) {
             filterIsInstance<IrProperty>().firstOrNull { it.name.asString() == "length" }?.getter ?:
             filterIsInstance<IrFunction>().first { it.name.asString() == "<get-length>" }
         }.symbol
     }
-    val charSequenceGetFunctionSymbol by lazy {
+    val charSequenceGetFunctionSymbol by lazy2 {
         charSequenceClassSymbol.owner.declarations.filterIsInstance<IrFunction>().single { it.name.asString() == "get" }.symbol
     }
-    val charSequenceSubSequenceFunctionSymbol by lazy {
+    val charSequenceSubSequenceFunctionSymbol by lazy2 {
         charSequenceClassSymbol.owner.declarations.filterIsInstance<IrFunction>().single { it.name.asString() == "subSequence" }.symbol
     }
 
@@ -294,6 +299,8 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     val jsBoxIntrinsic = getInternalFunction("boxIntrinsic")
     val jsUnboxIntrinsic = getInternalFunction("unboxIntrinsic")
+
+    val captureStack = getInternalFunction("captureStack")
 
     // Helpers:
 
@@ -319,6 +326,14 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
         return externalPackageFragment.addFunction {
             name = Name.identifier("Object\$create")
             origin = JsLoweredDeclarationOrigin.JS_INTRINSICS_STUB
+        }.apply {
+            returnType = addTypeParameter("T", irBuiltIns.anyType).defaultType
+        }
+    }
+
+    private fun defineEs6DefaultTypeIntrinsic(): IrSimpleFunction {
+        return externalPackageFragment.addFunction {
+            name = Name.identifier("DefaultType")
         }.apply {
             returnType = addTypeParameter("T", irBuiltIns.anyType).defaultType
         }

@@ -28,6 +28,11 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLib"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
+    @TestMetadata("funConstructorCallJS.kt")
+    public void testFunConstructorCallJS() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithJsStdLib/funConstructorCallJS.kt");
+    }
+
     @TestMetadata("implementingFunction.kt")
     public void testImplementingFunction() throws Exception {
         runTest("compiler/testData/diagnostics/testsWithJsStdLib/implementingFunction.kt");
@@ -51,6 +56,11 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
     @TestMetadata("runtimeAnnotations.kt")
     public void testRuntimeAnnotations() throws Exception {
         runTest("compiler/testData/diagnostics/testsWithJsStdLib/runtimeAnnotations.kt");
+    }
+
+    @TestMetadata("unsafeCastFunctionOnDynamicType.kt")
+    public void testUnsafeCastFunctionOnDynamicType() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithJsStdLib/unsafeCastFunctionOnDynamicType.kt");
     }
 
     @TestMetadata("wrongMultipleInheritance.kt")
@@ -324,6 +334,54 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         }
     }
 
+    @TestMetadata("compiler/testData/diagnostics/testsWithJsStdLib/export")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Export extends AbstractDiagnosticsTestWithJsStdLib {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInExport() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLib/export"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @TestMetadata("extendingNonExportedType.kt")
+        public void testExtendingNonExportedType() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/extendingNonExportedType.kt");
+        }
+
+        @TestMetadata("jsExportOnNestedDeclarations.kt")
+        public void testJsExportOnNestedDeclarations() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/jsExportOnNestedDeclarations.kt");
+        }
+
+        @TestMetadata("secondaryConstructorWithoutJsName.kt")
+        public void testSecondaryConstructorWithoutJsName() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/secondaryConstructorWithoutJsName.kt");
+        }
+
+        @TestMetadata("unexportableTypesInSignature.kt")
+        public void testUnexportableTypesInSignature() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/unexportableTypesInSignature.kt");
+        }
+
+        @TestMetadata("unexportableTypesInTypeParameters.kt")
+        public void testUnexportableTypesInTypeParameters() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/unexportableTypesInTypeParameters.kt");
+        }
+
+        @TestMetadata("wrongExportedDeclaration.kt")
+        public void testWrongExportedDeclaration() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/wrongExportedDeclaration.kt");
+        }
+
+        @TestMetadata("wrongExportedDeclarationInExportedFile.kt")
+        public void testWrongExportedDeclarationInExportedFile() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/wrongExportedDeclarationInExportedFile.kt");
+        }
+    }
+
     @TestMetadata("compiler/testData/diagnostics/testsWithJsStdLib/inline")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -413,11 +471,6 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
 
         public void testAllFilesPresentInModule() throws Exception {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLib/module"), Pattern.compile("^(.+)\\.kt$"), null, true);
-        }
-
-        @TestMetadata("coroutineProhibitedMigration.kt")
-        public void testCoroutineProhibitedMigration() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/module/coroutineProhibitedMigration.kt");
         }
 
         @TestMetadata("dualModuleFromUmd.kt")
@@ -679,6 +732,11 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         @TestMetadata("extensionFunctionArgumentOrReturnType.kt")
         public void testExtensionFunctionArgumentOrReturnType() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/native/extensionFunctionArgumentOrReturnType.kt");
+        }
+
+        @TestMetadata("externalFunInterface.kt")
+        public void testExternalFunInterface() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/native/externalFunInterface.kt");
         }
 
         @TestMetadata("externalInterfaceNested.kt")
@@ -1063,6 +1121,11 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         @TestMetadata("reflectionApi.kt")
         public void testReflectionApi() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/reflection/reflectionApi.kt");
+        }
+
+        @TestMetadata("typeOfWithNonReifiedParameter.kt")
+        public void testTypeOfWithNonReifiedParameter() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/reflection/typeOfWithNonReifiedParameter.kt");
         }
     }
 }

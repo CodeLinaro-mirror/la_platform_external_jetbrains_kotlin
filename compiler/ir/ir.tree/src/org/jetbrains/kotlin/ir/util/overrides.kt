@@ -10,7 +10,10 @@ import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.MetadataSource
+import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.impl.IrUninitializedType
 
 fun SymbolTable.declareSimpleFunctionWithOverrides(
     startOffset: Int,
@@ -18,16 +21,25 @@ fun SymbolTable.declareSimpleFunctionWithOverrides(
     origin: IrDeclarationOrigin,
     descriptor: FunctionDescriptor
 ) =
-    declareSimpleFunction(startOffset, endOffset, origin, descriptor).also { declaration ->
+    declareSimpleFunction(descriptor) {
+        IrFunctionImpl(
+            startOffset, endOffset, origin, it,
+            returnType = IrUninitializedType,
+            descriptor = descriptor,
+            name = nameProvider.nameForDeclaration(descriptor),
+        ).apply {
+            metadata = MetadataSource.Function(descriptor)
+        }
+    }.also { declaration ->
         generateOverriddenFunctionSymbols(declaration, this)
     }
 
 
 fun generateOverriddenFunctionSymbols(
     declaration: IrSimpleFunction,
-    symbolTable: SymbolTable
+    symbolTable: ReferenceSymbolTable
 ) {
-    declaration.descriptor.overriddenDescriptors.mapTo(declaration.overriddenSymbols) {
+    declaration.overriddenSymbols = declaration.descriptor.overriddenDescriptors.map {
         symbolTable.referenceSimpleFunction(it.original)
     }
 }
@@ -49,7 +61,7 @@ fun generateOverriddenFieldSymbols(
     symbolTable: SymbolTable,
     hasBackingField: (PropertyDescriptor) -> Boolean
 ) {
-    declaration.descriptor.overriddenDescriptors.mapNotNullTo(declaration.overriddenSymbols) {
+    declaration.overriddenSymbols = declaration.descriptor.overriddenDescriptors.mapNotNull {
         if (hasBackingField(it)) {
             symbolTable.referenceField(it.original)
         } else null

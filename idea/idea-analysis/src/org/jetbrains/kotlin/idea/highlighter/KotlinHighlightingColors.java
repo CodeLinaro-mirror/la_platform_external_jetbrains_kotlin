@@ -60,7 +60,7 @@ public class KotlinHighlightingColors {
     public static final TextAttributesKey TRAIT = createTextAttributesKey("KOTLIN_TRAIT", DefaultLanguageHighlighterColors.INTERFACE_NAME);
     public static final TextAttributesKey ANNOTATION = createTextAttributesKey("KOTLIN_ANNOTATION", JavaHighlightingColors.ANNOTATION_NAME_ATTRIBUTES);
     public static final TextAttributesKey OBJECT = createTextAttributesKey("KOTLIN_OBJECT", CLASS);
-    public static final TextAttributesKey ENUM_ENTRY = createTextAttributesKey("KOTLIN_ENUM_ENTRY", DefaultLanguageHighlighterColors.INSTANCE_FIELD);
+    public static final TextAttributesKey ENUM_ENTRY = createTextAttributesKey("KOTLIN_ENUM_ENTRY", DefaultLanguageHighlighterColors.STATIC_FIELD);
     public static final TextAttributesKey TYPE_ALIAS = createTextAttributesKey("KOTLIN_TYPE_ALIAS", CLASS);
 
     // variable kinds
@@ -99,6 +99,7 @@ public class KotlinHighlightingColors {
     public static final TextAttributesKey DEBUG_INFO = createTextAttributesKey("KOTLIN_DEBUG_INFO");
     public static final TextAttributesKey RESOLVED_TO_ERROR = createTextAttributesKey("KOTLIN_RESOLVED_TO_ERROR");
     public static final TextAttributesKey NAMED_ARGUMENT = createTextAttributesKey("KOTLIN_NAMED_ARGUMENT");
+    public static final TextAttributesKey ANNOTATION_ATTRIBUTE_NAME_ATTRIBUTES = createTextAttributesKey("KOTLIN_ANNOTATION_ATTRIBUTE_NAME_ATTRIBUTES", JavaHighlightingColors.ANNOTATION_ATTRIBUTE_NAME_ATTRIBUTES);
 
     private KotlinHighlightingColors() {
     }

@@ -19,9 +19,7 @@ package org.jetbrains.kotlin.idea.parameterInfo
 import com.intellij.codeInsight.CodeInsightBundle
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.lang.parameterInfo.*
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
-import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.util.PsiTreeUtil
@@ -35,6 +33,7 @@ import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
 import org.jetbrains.kotlin.idea.core.OptionalParametersHelper
 import org.jetbrains.kotlin.idea.core.resolveCandidates
 import org.jetbrains.kotlin.idea.resolve.ResolutionFacade
+import org.jetbrains.kotlin.idea.resolve.frontendService
 import org.jetbrains.kotlin.idea.util.ShadowedDeclarationsFilter
 import org.jetbrains.kotlin.lexer.KtSingleValueToken
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -53,6 +52,7 @@ import org.jetbrains.kotlin.resolve.calls.components.hasDefaultValue
 import org.jetbrains.kotlin.resolve.calls.model.ArgumentMatch
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.calls.util.DelegatingCall
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.types.KotlinType
@@ -184,23 +184,12 @@ abstract class KotlinParameterInfoWithCallHandlerBase<TArgumentList : KtElement,
         val parameterIndex = getParameterIndex(context, argumentList)
         context.setCurrentParameter(parameterIndex)
 
-        val bindingContext = argumentList.analyze(BodyResolveMode.PARTIAL)
-        val call = findCall(argumentList, bindingContext) ?: return
-        val resolutionFacade = argumentList.getResolutionFacade()
+        runReadAction {
+            val bindingContext = argumentList.analyze(BodyResolveMode.PARTIAL)
+            val call = findCall(argumentList, bindingContext) ?: return@runReadAction
+            val resolutionFacade = argumentList.getResolutionFacade()
 
-        val task = Runnable {
-            runReadAction {
-                context.objectsToView.forEach { resolveCallInfo(it as CallInfo, call, bindingContext, resolutionFacade) }
-            }
-        }
-
-        if (ApplicationManager.getApplication()?.isDispatchThread == true) {
-            ProgressManager.getInstance().runProcessWithProgressSynchronously(
-                task,
-                "Calculating parameter info", true, argumentList.project
-            )
-        } else {
-            task.run()
+            context.objectsToView.forEach { resolveCallInfo(it as CallInfo, call, bindingContext, resolutionFacade) }
         }
     }
 
@@ -291,9 +280,7 @@ abstract class KotlinParameterInfoWithCallHandlerBase<TArgumentList : KtElement,
 
         val color = if (itemToShow.isResolvedToDescriptor) GREEN_BACKGROUND else context.defaultParameterColor
 
-        val isDeprecated = KotlinBuiltIns.isDeprecated(substitutedDescriptor)
-
-        context.setupUIComponentPresentation(text, boldStartOffset, boldEndOffset, isGrey, isDeprecated, false, color)
+        context.setupUIComponentPresentation(text, boldStartOffset, boldEndOffset, isGrey, itemToShow.isDeprecatedAtCallSite, false, color)
 
         return true
     }
@@ -386,7 +373,8 @@ abstract class KotlinParameterInfoWithCallHandlerBase<TArgumentList : KtElement,
         var dummyArgument: ValueArgument? = null,
         var dummyResolvedCall: ResolvedCall<FunctionDescriptor>? = null,
         var isResolvedToDescriptor: Boolean = false,
-        var isGreyArgumentIndex: Int = -1
+        var isGreyArgumentIndex: Int = -1,
+        var isDeprecatedAtCallSite: Boolean = false
     )
 
     private fun resolveCallInfo(
@@ -430,6 +418,8 @@ abstract class KotlinParameterInfoWithCallHandlerBase<TArgumentList : KtElement,
                     !argument.hasError(bindingContext) /* ignore arguments that have error type */
         }
 
+        val isDeprecated = resolutionFacade.frontendService<DeprecationResolver>().getDeprecations(resultingDescriptor).isNotEmpty()
+
         with(info) {
             this.call = call
             this.resolvedCall = resolvedCall
@@ -438,6 +428,7 @@ abstract class KotlinParameterInfoWithCallHandlerBase<TArgumentList : KtElement,
             this.dummyResolvedCall = dummyResolvedCall
             this.isResolvedToDescriptor = resolvedToDescriptor
             this.isGreyArgumentIndex = isGreyArgumentIndex
+            this.isDeprecatedAtCallSite = isDeprecated
         }
     }
 

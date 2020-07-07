@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.ir.declarations.impl
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
+import org.jetbrains.kotlin.ir.declarations.impl.carriers.TypeParameterCarrier
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrTypeParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
@@ -38,41 +39,22 @@ class IrTypeParameterImpl(
     override val isReified: Boolean,
     override val variance: Variance
 ) :
-    IrDeclarationBase(startOffset, endOffset, origin),
-    IrTypeParameter {
-
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        symbol: IrTypeParameterSymbol
-    ) :
-            this(
-                startOffset, endOffset, origin, symbol,
-                symbol.descriptor.name,
-                symbol.descriptor.index,
-                symbol.descriptor.isReified,
-                symbol.descriptor.variance
-            )
-
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        symbol: IrTypeParameterSymbol,
-        name: Name,
-        index: Int,
-        variance: Variance
-    ) : this(startOffset, endOffset, origin, symbol, name, index, symbol.descriptor.isReified, variance)
+    IrDeclarationBase<TypeParameterCarrier>(startOffset, endOffset, origin),
+    IrTypeParameter,
+    TypeParameterCarrier {
 
     @Deprecated("Use constructor which takes symbol instead of descriptor")
     constructor(
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        descriptor: TypeParameterDescriptor
-    ) :
-            this(startOffset, endOffset, origin, IrTypeParameterSymbolImpl(descriptor))
+        descriptor: TypeParameterDescriptor,
+        name: Name = descriptor.name,
+        symbol: IrTypeParameterSymbol = IrTypeParameterSymbolImpl(descriptor)
+    ) : this(
+        startOffset, endOffset, origin, symbol, name,
+        index = descriptor.index, isReified = descriptor.isReified, variance = descriptor.variance
+    )
 
     init {
         symbol.bind(this)

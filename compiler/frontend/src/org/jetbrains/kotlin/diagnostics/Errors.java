@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,6 +16,9 @@ import org.jetbrains.kotlin.config.LanguageVersion;
 import org.jetbrains.kotlin.config.LanguageVersionSettings;
 import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.diagnostics.rendering.DeclarationWithDiagnosticComponents;
+import org.jetbrains.kotlin.diagnostics.rendering.DefaultErrorMessages;
+import org.jetbrains.kotlin.diagnostics.rendering.DiagnosticFactoryToRendererMap;
+import org.jetbrains.kotlin.diagnostics.rendering.DiagnosticRenderer;
 import org.jetbrains.kotlin.lexer.KtKeywordToken;
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken;
 import org.jetbrains.kotlin.lexer.KtTokens;
@@ -97,6 +100,12 @@ public interface Errors {
     DiagnosticFactory3<PsiElement, DeclarationDescriptor, VersionRequirement.Version, Pair<LanguageVersion, String>>
             VERSION_REQUIREMENT_DEPRECATION_ERROR = DiagnosticFactory3.create(ERROR);
 
+    DiagnosticFactory0<PsiElement> DEPRECATED_SINCE_KOTLIN_WITHOUT_DEPRECATED = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> DEPRECATED_SINCE_KOTLIN_WITH_DEPRECATED_LEVEL = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> DEPRECATED_SINCE_KOTLIN_WITH_UNORDERED_VERSIONS = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> DEPRECATED_SINCE_KOTLIN_WITHOUT_ARGUMENTS = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> DEPRECATED_SINCE_KOTLIN_OUTSIDE_KOTLIN_SUBPACKAGE = DiagnosticFactory0.create(ERROR);
+
     DiagnosticFactory2<PsiElement, String, String> API_NOT_AVAILABLE = DiagnosticFactory2.create(ERROR);
 
     DiagnosticFactory1<PsiElement, FqName> MISSING_DEPENDENCY_CLASS = DiagnosticFactory1.create(ERROR);
@@ -109,6 +118,7 @@ public interface Errors {
     DiagnosticFactory1<PsiElement, String> MISSING_IMPORTED_SCRIPT_PSI = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, String> MISSING_SCRIPT_PROVIDED_PROPERTY_CLASS = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, String> PRE_RELEASE_CLASS = DiagnosticFactory1.create(ERROR);
+    DiagnosticFactory1<PsiElement, String> IR_COMPILED_CLASS = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory2<PsiElement, String, IncompatibleVersionErrorData<?>> INCOMPATIBLE_CLASS = DiagnosticFactory2.create(ERROR);
 
     //Elements with "INVISIBLE_REFERENCE" error are marked as unresolved, unlike elements with "INVISIBLE_MEMBER" error
@@ -208,9 +218,10 @@ public interface Errors {
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, String> DEPRECATED_MODIFIER_FOR_TARGET = DiagnosticFactory2.create(WARNING);
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, KtModifierKeywordToken> DEPRECATED_MODIFIER = DiagnosticFactory2.create(WARNING);
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, String> REDUNDANT_MODIFIER_FOR_TARGET = DiagnosticFactory2.create(WARNING);
-    DiagnosticFactory0<KtDeclaration> NO_EXPLICIT_VISIBILITY_IN_API_MODE = DiagnosticFactory0.create(ERROR, DECLARATION_MODIFIERS_AND_NAME);
+    DiagnosticFactory0<KtDeclaration> NO_EXPLICIT_VISIBILITY_IN_API_MODE = DiagnosticFactory0.create(ERROR, DECLARATION_START_TO_NAME);
     DiagnosticFactory0<KtNamedDeclaration> NO_EXPLICIT_RETURN_TYPE_IN_API_MODE = DiagnosticFactory0.create(ERROR, DECLARATION_NAME);
-    DiagnosticFactory0<KtDeclaration> NO_EXPLICIT_VISIBILITY_IN_API_MODE_WARNING = DiagnosticFactory0.create(WARNING, DECLARATION_MODIFIERS_AND_NAME);
+    DiagnosticFactory0<KtDeclaration> NO_EXPLICIT_VISIBILITY_IN_API_MODE_WARNING = DiagnosticFactory0.create(WARNING,
+                                                                                                             DECLARATION_START_TO_NAME);
     DiagnosticFactory0<KtNamedDeclaration> NO_EXPLICIT_RETURN_TYPE_IN_API_MODE_WARNING = DiagnosticFactory0.create(WARNING, DECLARATION_NAME);
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, String> WRONG_MODIFIER_CONTAINING_DECLARATION = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, String> DEPRECATED_MODIFIER_CONTAINING_DECLARATION = DiagnosticFactory2.create(WARNING);
@@ -357,6 +368,14 @@ public interface Errors {
 
     DiagnosticFactory0<PsiElement> RESULT_CLASS_IN_RETURN_TYPE = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory1<PsiElement, String> RESULT_CLASS_WITH_NULLABLE_OPERATOR = DiagnosticFactory1.create(ERROR);
+
+    // Fun interfaces
+
+    DiagnosticFactory0<PsiElement> FUN_INTERFACE_WRONG_COUNT_OF_ABSTRACT_MEMBERS = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> FUN_INTERFACE_CANNOT_HAVE_ABSTRACT_PROPERTIES = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> FUN_INTERFACE_ABSTRACT_METHOD_WITH_TYPE_PARAMETERS = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> FUN_INTERFACE_ABSTRACT_METHOD_WITH_DEFAULT_VALUE = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> FUN_INTERFACE_CONSTRUCTOR_REFERENCE = DiagnosticFactory0.create(ERROR);
 
     // Secondary constructors
 
@@ -669,6 +688,7 @@ public interface Errors {
     DiagnosticFactory0<KtNamedDeclaration> ACTUAL_MISSING = DiagnosticFactory0.create(ERROR, ACTUAL_DECLARATION_NAME);
 
     DiagnosticFactory0<PsiElement> OPTIONAL_EXPECTATION_NOT_ON_EXPECTED = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> NESTED_OPTIONAL_EXPECTATION = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<PsiElement> OPTIONAL_DECLARATION_OUTSIDE_OF_ANNOTATION_ENTRY = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<PsiElement> OPTIONAL_DECLARATION_USAGE_IN_NON_COMMON_SOURCE = DiagnosticFactory0.create(ERROR);
 
@@ -746,6 +766,9 @@ public interface Errors {
     DiagnosticFactory1<PsiElement, TypeParameterDescriptor> TYPE_PARAMETER_AS_REIFIED_ARRAY_WARNING = DiagnosticFactory1.create(WARNING);
     DiagnosticFactory1<PsiElement, KotlinType> REIFIED_TYPE_FORBIDDEN_SUBSTITUTION = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, KotlinType> REIFIED_TYPE_UNSAFE_SUBSTITUTION = DiagnosticFactory1.create(WARNING);
+    DiagnosticFactory0<KtElement> CANDIDATE_CHOSEN_USING_OVERLOAD_RESOLUTION_BY_LAMBDA_ANNOTATION = DiagnosticFactory0.create(WARNING);
+
+    DiagnosticFactory1<KtElement, CallableDescriptor> COMPATIBILITY_WARNING = DiagnosticFactory1.create(WARNING);
 
     DiagnosticFactory3<KtReferenceExpression, ClassifierDescriptor, WrongResolutionToClassifier, String> RESOLUTION_TO_CLASSIFIER =
             DiagnosticFactory3.create(ERROR);
@@ -771,7 +794,8 @@ public interface Errors {
 
     DiagnosticFactory0<KtExpression> TYPE_INFERENCE_FAILED_ON_SPECIAL_CONSTRUCT = DiagnosticFactory0.create(ERROR, SPECIAL_CONSTRUCT_TOKEN);
 
-    DiagnosticFactory0<PsiElement> IMPLICIT_NOTHING_AS_TYPE_PARAMETER = DiagnosticFactory0.create(WARNING);
+    DiagnosticFactory0<PsiElement> IMPLICIT_NOTHING_TYPE_ARGUMENT_IN_RETURN_POSITION = DiagnosticFactory0.create(WARNING);
+    DiagnosticFactory0<PsiElement> IMPLICIT_NOTHING_TYPE_ARGUMENT_AGAINST_NOT_NOTHING_EXPECTED_TYPE = DiagnosticFactory0.create(WARNING);
 
     // Reflection
 
@@ -865,6 +889,8 @@ public interface Errors {
 
     DiagnosticFactory2<PsiElement, FunctionDescriptor, String> OPERATOR_MODIFIER_REQUIRED = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory2<PsiElement, FunctionDescriptor, String> INFIX_MODIFIER_REQUIRED = DiagnosticFactory2.create(ERROR);
+
+    DiagnosticFactory2<PsiElement, FunctionDescriptor, String> PROPERTY_AS_OPERATOR = DiagnosticFactory2.create(ERROR);
 
     DiagnosticFactory2<PsiElement, KtModifierKeywordToken, String> INAPPLICABLE_MODIFIER = DiagnosticFactory2.create(ERROR);
 
@@ -1145,6 +1171,14 @@ public interface Errors {
         }
 
         public static void initializeFactoryNames(@NotNull Class<?> aClass) {
+            initializeFactoryNamesAndDefaultErrorMessages(aClass, DiagnosticFactoryToRendererMap::new);
+        }
+
+        public static void initializeFactoryNamesAndDefaultErrorMessages(
+                @NotNull Class<?> aClass,
+                @NotNull DefaultErrorMessages.Extension defaultErrorMessages
+        ) {
+            DiagnosticFactoryToRendererMap diagnosticToRendererMap = defaultErrorMessages.getMap();
             for (Field field : aClass.getFields()) {
                 if (Modifier.isStatic(field.getModifiers())) {
                     try {
@@ -1152,6 +1186,9 @@ public interface Errors {
                         if (value instanceof DiagnosticFactory) {
                             DiagnosticFactory<?> factory = (DiagnosticFactory<?>)value;
                             factory.setName(field.getName());
+
+                            //noinspection rawtypes, unchecked
+                            factory.setDefaultRenderer((DiagnosticRenderer) diagnosticToRendererMap.get(factory));
                         }
                     }
                     catch (IllegalAccessException e) {
@@ -1159,6 +1196,7 @@ public interface Errors {
                     }
                 }
             }
+
         }
 
         private static final Initializer INSTANCE = new Initializer();

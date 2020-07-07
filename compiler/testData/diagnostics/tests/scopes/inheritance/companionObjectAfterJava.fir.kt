@@ -32,7 +32,7 @@ class D: C() {
         D.<!UNRESOLVED_REFERENCE!>foo<!>()
 
         <!UNRESOLVED_REFERENCE!>A_<!>()
-        A.A_()
+        A.<!UNRESOLVED_REFERENCE!>A_<!>()
         A.Companion.A_()
         C.<!UNRESOLVED_REFERENCE!>A_<!>()
         D.<!UNRESOLVED_REFERENCE!>A_<!>()
@@ -43,8 +43,8 @@ class D: C() {
         C.<!UNRESOLVED_REFERENCE!>bar<!>()
         D.<!UNRESOLVED_REFERENCE!>bar<!>()
 
-        B_()
-        B.B_()
+        <!UNRESOLVED_REFERENCE!>B_<!>()
+        B.<!UNRESOLVED_REFERENCE!>B_<!>()
         B.Companion.B_()
         C.<!UNRESOLVED_REFERENCE!>B_<!>()
         D.<!UNRESOLVED_REFERENCE!>B_<!>()

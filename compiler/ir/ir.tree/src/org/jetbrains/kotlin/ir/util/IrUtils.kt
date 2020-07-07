@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.ir.util
 
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.descriptors.impl.DeclarationDescriptorVisitorEmptyBodies
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.*
@@ -21,6 +22,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.psiUtil.endOffset
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
+import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.resolve.source.PsiSourceElement
 import org.jetbrains.kotlin.types.KotlinType
@@ -152,6 +154,16 @@ fun IrExpression.isTrueConst() = this is IrConst<*> && this.kind == IrConstKind.
 
 fun IrExpression.isFalseConst() = this is IrConst<*> && this.kind == IrConstKind.Boolean && this.value == false
 
+fun IrExpression.isIntegerConst(value: Int) = this is IrConst<*> && this.kind == IrConstKind.Int && this.value == value
+
+fun IrExpression.coerceToUnit(builtins: IrBuiltIns): IrExpression {
+    val valueType = getKotlinType(this)
+    return coerceToUnitIfNeeded(valueType, builtins)
+}
+
+private fun getKotlinType(irExpression: IrExpression) =
+    irExpression.type.toKotlinType()
+
 fun IrExpression.coerceToUnitIfNeeded(valueType: KotlinType, irBuiltIns: IrBuiltIns): IrExpression {
     return if (KotlinTypeChecker.DEFAULT.isSubtypeOf(valueType, irBuiltIns.unitType.toKotlinType()))
         this
@@ -224,16 +236,6 @@ val IrClass.defaultType: IrSimpleType
 
 val IrSimpleFunction.isSynthesized: Boolean get() = descriptor.kind == CallableMemberDescriptor.Kind.SYNTHESIZED
 
-val IrDeclaration.isReal: Boolean get() = !isFakeOverride
-
-val IrDeclaration.isFakeOverride: Boolean
-    get() = when (this) {
-        is IrSimpleFunction -> isFakeOverride
-        is IrProperty -> isFakeOverride
-        is IrField -> isFakeOverride
-        else -> false
-    }
-
 fun IrClass.isSubclassOf(ancestor: IrClass): Boolean {
 
     val alreadyVisited = mutableSetOf<IrClass>()
@@ -250,45 +252,6 @@ fun IrClass.isSubclassOf(ancestor: IrClass): Boolean {
     return this.hasAncestorInSuperTypes()
 }
 
-fun IrSimpleFunction.collectRealOverrides(): Set<IrSimpleFunction> {
-    if (isReal) return setOf(this)
-
-    val visited = mutableSetOf<IrSimpleFunction>()
-    val realOverrides = mutableSetOf<IrSimpleFunction>()
-
-    fun collectRealOverrides(func: IrSimpleFunction) {
-        if (!visited.add(func)) return
-
-        if (func.isReal) {
-            realOverrides += func
-        } else {
-            func.overriddenSymbols.forEach { collectRealOverrides(it.owner) }
-        }
-    }
-
-    overriddenSymbols.forEach { collectRealOverrides(it.owner) }
-
-    fun excludeRepeated(func: IrSimpleFunction) {
-        if (!visited.add(func)) return
-
-        func.overriddenSymbols.forEach {
-            realOverrides.remove(it.owner)
-            excludeRepeated(it.owner)
-        }
-    }
-
-    visited.clear()
-    realOverrides.toList().forEach { excludeRepeated(it) }
-
-    return realOverrides
-}
-
-// This implementation is from kotlin-native
-// TODO: use this implementation instead of any other
-fun IrSimpleFunction.resolveFakeOverride(): IrSimpleFunction? {
-    return collectRealOverrides().singleOrNull { it.modality != Modality.ABSTRACT }
-}
-
 fun IrSimpleFunction.isOrOverridesSynthesized(): Boolean {
     if (isSynthesized) return true
 
@@ -303,16 +266,6 @@ fun IrSimpleFunction.findInterfaceImplementation(): IrSimpleFunction? {
     if (isOrOverridesSynthesized()) return null
 
     return resolveFakeOverride()?.run { if (parentAsClass.isInterface) this else null }
-}
-
-fun IrField.resolveFakeOverride(): IrField? {
-    var toVisit = setOf(this)
-    val nonOverridden = mutableSetOf<IrField>()
-    while (toVisit.isNotEmpty()) {
-        nonOverridden += toVisit.filter { it.overriddenSymbols.isEmpty() }
-        toVisit = toVisit.flatMap { it.overriddenSymbols }.map { it.owner }.toSet()
-    }
-    return nonOverridden.singleOrNull()
 }
 
 val IrClass.isAnnotationClass get() = kind == ClassKind.ANNOTATION_CLASS
@@ -371,11 +324,13 @@ fun IrAnnotationContainer.hasAnnotation(symbol: IrClassSymbol) =
 val IrConstructor.constructedClassType get() = (parent as IrClass).thisReceiver?.type!!
 
 fun IrFunction.isFakeOverriddenFromAny(): Boolean {
-    if (origin != IrDeclarationOrigin.FAKE_OVERRIDE) {
+    val simpleFunction = this as? IrSimpleFunction ?: return false
+
+    if (!simpleFunction.isFakeOverride) {
         return (parent as? IrClass)?.thisReceiver?.type?.isAny() ?: false
     }
 
-    return (this as IrSimpleFunction).overriddenSymbols.all { it.owner.isFakeOverriddenFromAny() }
+    return simpleFunction.overriddenSymbols.all { it.owner.isFakeOverriddenFromAny() }
 }
 
 fun IrCall.isSuperToAny() = superQualifierSymbol?.let { this.symbol.owner.isFakeOverriddenFromAny() } ?: false
@@ -544,35 +499,18 @@ fun IrFunctionAccessExpression.copyTypeAndValueArgumentsFrom(
     src: IrFunctionAccessExpression,
     receiversAsArguments: Boolean = false,
     argumentsAsReceivers: Boolean = false
-) = copyTypeAndValueArgumentsFrom(
-    src,
-    src.symbol.owner,
-    symbol.owner,
-    receiversAsArguments,
-    argumentsAsReceivers
-)
+) {
+    copyTypeArgumentsFrom(src)
+    copyValueArgumentsFrom(src, src.symbol.owner, symbol.owner, receiversAsArguments, argumentsAsReceivers)
+}
 
-fun IrFunctionReference.copyTypeAndValueArgumentsFrom(
-    src: IrFunctionReference,
-    receiversAsArguments: Boolean = false,
-    argumentsAsReceivers: Boolean = false
-) = copyTypeAndValueArgumentsFrom(
-    src,
-    src.symbol.owner,
-    symbol.owner,
-    receiversAsArguments,
-    argumentsAsReceivers
-)
-
-private fun IrMemberAccessExpression.copyTypeAndValueArgumentsFrom(
+fun IrMemberAccessExpression.copyValueArgumentsFrom(
     src: IrMemberAccessExpression,
     srcFunction: IrFunction,
     destFunction: IrFunction,
     receiversAsArguments: Boolean = false,
     argumentsAsReceivers: Boolean = false
 ) {
-    copyTypeArgumentsFrom(src)
-
     var destValueArgumentIndex = 0
     var srcValueArgumentIndex = 0
 
@@ -616,6 +554,15 @@ val IrDeclaration.fileOrNull: IrFile?
 val IrDeclaration.file: IrFile
     get() = fileOrNull ?: TODO("Unknown file")
 
+val IrDeclaration.parentClassOrNull: IrClass?
+    get() = parent.let {
+        when (it) {
+            is IrClass -> it
+            is IrDeclaration -> it.parentClassOrNull
+            else -> null
+        }
+    }
+
 val IrFunction.allTypeParameters: List<IrTypeParameter>
     get() = if (this is IrConstructor)
         parentAsClass.typeParameters + typeParameters
@@ -632,3 +579,45 @@ val IrFunctionReference.typeSubstitutionMap: Map<IrTypeParameterSymbol, IrType>
 
 val IrFunctionAccessExpression.typeSubstitutionMap: Map<IrTypeParameterSymbol, IrType>
     get() = getTypeSubstitutionMap(symbol.owner)
+
+// Note: there is not enough information in a descriptor to choose between an enum entry and its corresponding class,
+// so the entry itself is chosen in that case.
+fun SymbolTable.referenceMember(descriptor: DeclarationDescriptor, correspondingClassForEnum: Boolean = false): IrSymbol =
+    descriptor.accept(
+        object : DeclarationDescriptorVisitorEmptyBodies<IrSymbol, Unit?>() {
+            override fun visitClassDescriptor(descriptor: ClassDescriptor, data: Unit?) =
+                if (DescriptorUtils.isEnumEntry(descriptor) && !correspondingClassForEnum)
+                    referenceEnumEntry(descriptor)
+                else
+                    referenceClass(descriptor)
+
+            override fun visitConstructorDescriptor(constructorDescriptor: ConstructorDescriptor, data: Unit?) =
+                referenceConstructor(descriptor as ClassConstructorDescriptor)
+
+            override fun visitFunctionDescriptor(descriptor: FunctionDescriptor, data: Unit?) = referenceSimpleFunction(descriptor)
+
+            override fun visitPropertyDescriptor(descriptor: PropertyDescriptor, data: Unit?) = referenceProperty(descriptor)
+
+            override fun visitTypeParameterDescriptor(descriptor: TypeParameterDescriptor, data: Unit?) = referenceTypeParameter(descriptor)
+
+            override fun visitTypeAliasDescriptor(descriptor: TypeAliasDescriptor, data: Unit?) = referenceTypeAlias(descriptor)
+
+            override fun visitDeclarationDescriptor(descriptor: DeclarationDescriptor?, data: Unit?): IrSymbol {
+                throw AssertionError("Unexpected member descriptor: $descriptor")
+            }
+        },
+        null
+    )
+
+fun SymbolTable.findOrDeclareExternalPackageFragment(descriptor: PackageFragmentDescriptor) =
+    referenceExternalPackageFragment(descriptor).also {
+        if (!it.isBound) {
+            declareExternalPackageFragment(descriptor)
+        }
+    }.owner
+
+val IrDeclaration.isFileClass: Boolean
+    get() = origin == IrDeclarationOrigin.FILE_CLASS || origin == IrDeclarationOrigin.SYNTHETIC_FILE_CLASS
+
+val IrValueDeclaration.isImmutable: Boolean
+    get() = this is IrValueParameter || this is IrVariable && !isVar

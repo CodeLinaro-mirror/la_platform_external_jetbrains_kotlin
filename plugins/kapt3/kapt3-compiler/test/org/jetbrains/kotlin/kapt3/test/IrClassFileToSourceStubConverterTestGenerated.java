@@ -89,6 +89,16 @@ public class IrClassFileToSourceStubConverterTestGenerated extends AbstractIrCla
         runTest("plugins/kapt3/kapt3-compiler/testData/converter/defaultImpls.kt");
     }
 
+    @TestMetadata("defaultParameterValueOff.kt")
+    public void testDefaultParameterValueOff() throws Exception {
+        runTest("plugins/kapt3/kapt3-compiler/testData/converter/defaultParameterValueOff.kt");
+    }
+
+    @TestMetadata("defaultParameterValueOn.kt")
+    public void testDefaultParameterValueOn() throws Exception {
+        runTest("plugins/kapt3/kapt3-compiler/testData/converter/defaultParameterValueOn.kt");
+    }
+
     @TestMetadata("deprecated.kt")
     public void testDeprecated() throws Exception {
         runTest("plugins/kapt3/kapt3-compiler/testData/converter/deprecated.kt");
@@ -287,6 +297,11 @@ public class IrClassFileToSourceStubConverterTestGenerated extends AbstractIrCla
     @TestMetadata("kt28306.kt")
     public void testKt28306() throws Exception {
         runTest("plugins/kapt3/kapt3-compiler/testData/converter/kt28306.kt");
+    }
+
+    @TestMetadata("kt34569.kt")
+    public void testKt34569() throws Exception {
+        runTest("plugins/kapt3/kapt3-compiler/testData/converter/kt34569.kt");
     }
 
     @TestMetadata("lazyProperty.kt")

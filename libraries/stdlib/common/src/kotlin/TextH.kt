@@ -1,9 +1,11 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package kotlin.text
+
+import kotlin.internal.LowPriorityInOverloadResolution
 
 expect class Regex {
     constructor(pattern: String)
@@ -76,6 +78,7 @@ expect fun Char.isLowSurrogate(): Boolean
  * Converts the characters in the specified array to a string.
  */
 @SinceKotlin("1.2")
+@Deprecated("Use CharArray.concatToString() instead", ReplaceWith("chars.concatToString()"))
 public expect fun String(chars: CharArray): String
 
 /**
@@ -85,13 +88,14 @@ public expect fun String(chars: CharArray): String
  * or `offset + length` is out of [chars] array bounds.
  */
 @SinceKotlin("1.2")
+@Deprecated("Use CharArray.concatToString(startIndex, endIndex) instead", ReplaceWith("chars.concatToString(offset, offset + length)"))
 public expect fun String(chars: CharArray, offset: Int, length: Int): String
 
 /**
  * Concatenates characters in this [CharArray] into a String.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun CharArray.concatToString(): String
 
 /**
@@ -103,15 +107,15 @@ public expect fun CharArray.concatToString(): String
  * @throws IndexOutOfBoundsException if [startIndex] is less than zero or [endIndex] is greater than the size of this array.
  * @throws IllegalArgumentException if [startIndex] is greater than [endIndex].
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun CharArray.concatToString(startIndex: Int = 0, endIndex: Int = this.size): String
 
 /**
  * Returns a [CharArray] containing characters of this string.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.toCharArray(): CharArray
 
 /**
@@ -123,8 +127,8 @@ public expect fun String.toCharArray(): CharArray
  * @throws IndexOutOfBoundsException if [startIndex] is less than zero or [endIndex] is greater than the length of this string.
  * @throws IllegalArgumentException if [startIndex] is greater than [endIndex].
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.toCharArray(startIndex: Int = 0, endIndex: Int = this.length): CharArray
 
 /**
@@ -132,8 +136,8 @@ public expect fun String.toCharArray(startIndex: Int = 0, endIndex: Int = this.l
  *
  * Malformed byte sequences are replaced by the replacement char `\uFFFD`.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun ByteArray.decodeToString(): String
 
 /**
@@ -147,8 +151,8 @@ public expect fun ByteArray.decodeToString(): String
  * @throws IllegalArgumentException if [startIndex] is greater than [endIndex].
  * @throws CharacterCodingException if the byte array contains malformed UTF-8 byte sequence and [throwOnInvalidSequence] is true.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun ByteArray.decodeToString(
     startIndex: Int = 0,
     endIndex: Int = this.size,
@@ -160,8 +164,8 @@ public expect fun ByteArray.decodeToString(
  *
  * Any malformed char sequence is replaced by the replacement byte sequence.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.encodeToByteArray(): ByteArray
 
 /**
@@ -175,8 +179,8 @@ public expect fun String.encodeToByteArray(): ByteArray
  * @throws IllegalArgumentException if [startIndex] is greater than [endIndex].
  * @throws CharacterCodingException if this string contains malformed char sequence and [throwOnInvalidSequence] is true.
  */
-@SinceKotlin("1.3")
-@ExperimentalStdlibApi
+@SinceKotlin("1.4")
+@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.encodeToByteArray(
     startIndex: Int = 0,
     endIndex: Int = this.length,
@@ -204,8 +208,26 @@ public expect fun String.toUpperCase(): String
  * @sample samples.text.Strings.toLowerCase
  */
 public expect fun String.toLowerCase(): String
+
+/**
+ * Returns a copy of this string having its first letter titlecased using the rules of the default locale,
+ * or the original string if it's empty or already starts with a title case letter.
+ *
+ * The title case of a character is usually the same as its upper case with several exceptions.
+ * The particular list of characters with the special title case form depends on the underlying platform.
+ *
+ * @sample samples.text.Strings.capitalize
+ */
 public expect fun String.capitalize(): String
+
+/**
+ * Returns a copy of this string having its first letter lowercased using the rules of the default locale,
+ * or the original string if it's empty or already starts with a lower case letter.
+ *
+ * @sample samples.text.Strings.decapitalize
+ */
 public expect fun String.decapitalize(): String
+
 public expect fun CharSequence.repeat(n: Int): String
 
 
@@ -282,9 +304,17 @@ public expect val String.Companion.CASE_INSENSITIVE_ORDER: Comparator<String>
 
 
 /**
- * Returns `true` if the contents of this string is equal to the word "true", ignoring case, and `false` otherwise.
+ * Returns `true` if the content of this string is equal to the word "true", ignoring case, and `false` otherwise.
  */
-expect fun String.toBoolean(): Boolean
+@LowPriorityInOverloadResolution
+@kotlin.internal.InlineOnly
+public inline fun String.toBoolean(): Boolean = this.toBoolean()
+
+/**
+ * Returns `true` if this string is not `null` and its content is equal to the word "true", ignoring case, and `false` otherwise.
+ */
+@SinceKotlin("1.4")
+public expect fun String?.toBoolean(): Boolean
 
 /**
  * Parses the string as a signed [Byte] number and returns the result.

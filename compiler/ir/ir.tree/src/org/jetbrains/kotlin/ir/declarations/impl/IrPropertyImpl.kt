@@ -16,35 +16,115 @@
 
 package org.jetbrains.kotlin.ir.declarations.impl
 
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.carriers.PropertyCarrier
+import org.jetbrains.kotlin.ir.descriptors.WrappedPropertyDescriptor
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.descriptorUtil.isEffectivelyExternal
 
-@Suppress("DEPRECATION_ERROR")
+abstract class IrPropertyCommonImpl(
+    startOffset: Int,
+    endOffset: Int,
+    origin: IrDeclarationOrigin,
+    override val name: Name,
+    override val visibility: Visibility,
+    override val modality: Modality,
+    override val isVar: Boolean,
+    override val isConst: Boolean,
+    override val isLateinit: Boolean,
+    override val isDelegated: Boolean,
+    override val isExternal: Boolean,
+    override val isExpect: Boolean,
+    override val isFakeOverride: Boolean = origin == IrDeclarationOrigin.FAKE_OVERRIDE
+) : IrDeclarationBase<PropertyCarrier>(startOffset, endOffset, origin),
+    IrProperty,
+    PropertyCarrier {
+
+    abstract override val descriptor: PropertyDescriptor
+
+    override var backingFieldField: IrField? = null
+
+    override var backingField: IrField?
+        get() = getCarrier().backingFieldField
+        set(v) {
+            if (backingField !== v) {
+                setCarrier().backingFieldField = v
+            }
+        }
+
+    override var getterField: IrSimpleFunction? = null
+
+    override var getter: IrSimpleFunction?
+        get() = getCarrier().getterField
+        set(v) {
+            if (getter !== v) {
+                setCarrier().getterField = v
+            }
+        }
+
+    override var setterField: IrSimpleFunction? = null
+
+    override var setter: IrSimpleFunction?
+        get() = getCarrier().setterField
+        set(v) {
+            if (setter !== v) {
+                setCarrier().setterField = v
+            }
+        }
+
+
+    override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
+        return visitor.visitProperty(this, data)
+    }
+
+    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
+        backingField?.accept(visitor, data)
+        getter?.accept(visitor, data)
+        setter?.accept(visitor, data)
+    }
+
+    override var metadataField: MetadataSource? = null
+
+    override var metadata: MetadataSource?
+        get() = getCarrier().metadataField
+        set(v) {
+            if (metadata !== v) {
+                setCarrier().metadataField = v
+            }
+        }
+
+    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
+        backingField = backingField?.transform(transformer, data) as? IrField
+        getter = getter?.run { transform(transformer, data) as IrSimpleFunction }
+        setter = setter?.run { transform(transformer, data) as IrSimpleFunction }
+    }
+}
+
 class IrPropertyImpl(
     startOffset: Int,
     endOffset: Int,
     origin: IrDeclarationOrigin,
     override val symbol: IrPropertySymbol,
-    override val name: Name = symbol.descriptor.name,
-    override val visibility: Visibility = symbol.descriptor.visibility,
-    override val modality: Modality = symbol.descriptor.modality,
-    override val isVar: Boolean = symbol.descriptor.isVar,
-    override val isConst: Boolean = symbol.descriptor.isConst,
-    override val isLateinit: Boolean = symbol.descriptor.isLateInit,
-    override val isDelegated: Boolean = @Suppress("DEPRECATION") symbol.descriptor.isDelegated,
-    override val isExternal: Boolean = symbol.descriptor.isEffectivelyExternal(),
-    override val isExpect: Boolean = symbol.descriptor.isExpect,
+    override val name: Name,
+    override val visibility: Visibility,
+    override val modality: Modality,
+    override val isVar: Boolean,
+    override val isConst: Boolean,
+    override val isLateinit: Boolean,
+    override val isDelegated: Boolean,
+    override val isExternal: Boolean,
+    override val isExpect: Boolean = false,
     override val isFakeOverride: Boolean = origin == IrDeclarationOrigin.FAKE_OVERRIDE
-) : IrDeclarationBase(startOffset, endOffset, origin),
-    IrProperty {
+) : IrPropertyCommonImpl(startOffset, endOffset, origin, name, visibility, modality, isVar, isConst, isLateinit, isDelegated, isExternal, isExpect, isFakeOverride) {
 
     @Deprecated(message = "Don't use descriptor-based API for IrProperty", level = DeprecationLevel.WARNING)
     constructor(
@@ -52,23 +132,25 @@ class IrPropertyImpl(
         endOffset: Int,
         origin: IrDeclarationOrigin,
         descriptor: PropertyDescriptor,
-        name: Name,
-        visibility: Visibility,
-        modality: Modality,
-        isVar: Boolean,
-        isConst: Boolean,
-        isLateinit: Boolean,
-        isDelegated: Boolean,
-        isExternal: Boolean
+        symbol: IrPropertySymbol = IrPropertySymbolImpl(descriptor),
+        name: Name = descriptor.name,
+        visibility: Visibility = descriptor.visibility,
+        modality: Modality = descriptor.modality,
+        isVar: Boolean = descriptor.isVar,
+        isConst: Boolean = descriptor.isConst,
+        isLateinit: Boolean = descriptor.isLateInit,
+        isDelegated: Boolean = descriptor.isDelegated,
+        isExternal: Boolean = descriptor.isExternal
     ) : this(
         startOffset, endOffset, origin,
-        IrPropertySymbolImpl(descriptor),
+        symbol,
         name, visibility, modality,
         isVar = isVar,
         isConst = isConst,
         isLateinit = isLateinit,
         isDelegated = isDelegated,
-        isExternal = isExternal
+        isExternal = isExternal,
+        isExpect = descriptor.isExpect
     )
 
     @Suppress("DEPRECATION")
@@ -81,7 +163,9 @@ class IrPropertyImpl(
         descriptor: PropertyDescriptor
     ) : this(
         startOffset, endOffset, origin, descriptor,
-        descriptor.name, descriptor.visibility, descriptor.modality,
+        name = descriptor.name,
+        visibility = descriptor.visibility,
+        modality = descriptor.modality,
         isVar = descriptor.isVar,
         isConst = descriptor.isConst,
         isLateinit = descriptor.isLateInit,
@@ -130,28 +214,37 @@ class IrPropertyImpl(
     init {
         symbol.bind(this)
     }
-
     override val descriptor: PropertyDescriptor = symbol.descriptor
+}
 
-    override var backingField: IrField? = null
-    override var getter: IrSimpleFunction? = null
-    override var setter: IrSimpleFunction? = null
+class IrFakeOverridePropertyImpl(
+    startOffset: Int,
+    endOffset: Int,
+    origin: IrDeclarationOrigin,
+    name: Name,
+    override var visibility: Visibility,
+    override var modality: Modality,
+    isVar: Boolean,
+    isConst: Boolean,
+    isLateinit: Boolean,
+    isDelegated: Boolean,
+    isExternal: Boolean,
+    isExpect: Boolean,
+) : IrPropertyCommonImpl(startOffset, endOffset, origin, name, visibility, modality, isVar, isConst, isLateinit,
+    isDelegated, isExternal, isExpect, isFakeOverride = true)
+{
+    private var _symbol: IrPropertySymbol? = null
 
-    override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
-        return visitor.visitProperty(this, data)
-    }
+    override val symbol: IrPropertySymbol
+        get() = _symbol ?: error("$this has not acquired a symbol yet")
 
-    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
-        backingField?.accept(visitor, data)
-        getter?.accept(visitor, data)
-        setter?.accept(visitor, data)
-    }
+    override val descriptor get() =
+        _symbol?.descriptor ?: WrappedPropertyDescriptor()
 
-    override var metadata: MetadataSource? = null
-
-    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
-        backingField = backingField?.transform(transformer, data) as? IrField
-        getter = getter?.run { transform(transformer, data) as IrSimpleFunction }
-        setter = setter?.run { transform(transformer, data) as IrSimpleFunction }
+    fun acquireSymbol(symbol: IrPropertySymbol) {
+        assert(_symbol == null) { "$this already has symbol _symbol" }
+        _symbol = symbol
+        symbol.bind(this)
+        (symbol.descriptor as? WrappedPropertyDescriptor)?.bind(this)
     }
 }

@@ -320,6 +320,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
             runTest("nj2k/testData/newJ2k/arrayType/arrayInitializationStatementWithDimension3d.java");
         }
 
+        @TestMetadata("arrayInitializationStatementWithDimensionAndSpace.java")
+        public void testArrayInitializationStatementWithDimensionAndSpace() throws Exception {
+            runTest("nj2k/testData/newJ2k/arrayType/arrayInitializationStatementWithDimensionAndSpace.java");
+        }
+
         @TestMetadata("arrayInitializationStatementWithDimensionExplicit.java")
         public void testArrayInitializationStatementWithDimensionExplicit() throws Exception {
             runTest("nj2k/testData/newJ2k/arrayType/arrayInitializationStatementWithDimensionExplicit.java");
@@ -1580,6 +1585,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
             runTest("nj2k/testData/newJ2k/detectProperties/IsPrefix.java");
         }
 
+        @TestMetadata("IsPrefixSetterCall.java")
+        public void testIsPrefixSetterCall() throws Exception {
+            runTest("nj2k/testData/newJ2k/detectProperties/IsPrefixSetterCall.java");
+        }
+
         @TestMetadata("JavaKeywordPropertyName.java")
         public void testJavaKeywordPropertyName() throws Exception {
             runTest("nj2k/testData/newJ2k/detectProperties/JavaKeywordPropertyName.java");
@@ -1852,6 +1862,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         @TestMetadata("fieldsWithPrimaryPrivateConstructor.java")
         public void testFieldsWithPrimaryPrivateConstructor() throws Exception {
             runTest("nj2k/testData/newJ2k/enum/fieldsWithPrimaryPrivateConstructor.java");
+        }
+
+        @TestMetadata("implicitlyPrivateConstructorsEnum.java")
+        public void testImplicitlyPrivateConstructorsEnum() throws Exception {
+            runTest("nj2k/testData/newJ2k/enum/implicitlyPrivateConstructorsEnum.java");
         }
 
         @TestMetadata("internalEnum.java")
@@ -2565,6 +2580,59 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         @TestMetadata("varVararg.java")
         public void testVarVararg() throws Exception {
             runTest("nj2k/testData/newJ2k/function/varVararg.java");
+        }
+    }
+
+    @TestMetadata("nj2k/testData/newJ2k/functionalInterfaces")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class FunctionalInterfaces extends AbstractNewJavaToKotlinConverterSingleFileTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        @TestMetadata("AbstractGetter1.java")
+        public void testAbstractGetter1() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/AbstractGetter1.java");
+        }
+
+        @TestMetadata("AbstractGetter2.java")
+        public void testAbstractGetter2() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/AbstractGetter2.java");
+        }
+
+        @TestMetadata("AbstractGetterNoFunctionalInterfaceAnnotation.java")
+        public void testAbstractGetterNoFunctionalInterfaceAnnotation() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/AbstractGetterNoFunctionalInterfaceAnnotation.java");
+        }
+
+        public void testAllFilesPresentInFunctionalInterfaces() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("nj2k/testData/newJ2k/functionalInterfaces"), Pattern.compile("^([^\\.]+)\\.java$"), null, true);
+        }
+
+        @TestMetadata("InterfacesHierarchy.java")
+        public void testInterfacesHierarchy() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/InterfacesHierarchy.java");
+        }
+
+        @TestMetadata("MyRunnable.java")
+        public void testMyRunnable() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/MyRunnable.java");
+        }
+
+        @TestMetadata("NoFunctionalInterfaceAnnotation.java")
+        public void testNoFunctionalInterfaceAnnotation() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/NoFunctionalInterfaceAnnotation.java");
+        }
+
+        @TestMetadata("NoFunctionalInterfaceConversionEnabled.java")
+        public void testNoFunctionalInterfaceConversionEnabled() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/NoFunctionalInterfaceConversionEnabled.java");
+        }
+
+        @TestMetadata("SamMethodWithGenerics.java")
+        public void testSamMethodWithGenerics() throws Exception {
+            runTest("nj2k/testData/newJ2k/functionalInterfaces/SamMethodWithGenerics.java");
         }
     }
 
@@ -3591,6 +3659,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
             runTest("nj2k/testData/newJ2k/methodCallExpression/conflictJavaMethodCallWithExplicitImports.java");
         }
 
+        @TestMetadata("defaultParamsWithVararg.java")
+        public void testDefaultParamsWithVararg() throws Exception {
+            runTest("nj2k/testData/newJ2k/methodCallExpression/defaultParamsWithVararg.java");
+        }
+
         @TestMetadata("emptyCall.java")
         public void testEmptyCall() throws Exception {
             runTest("nj2k/testData/newJ2k/methodCallExpression/emptyCall.java");
@@ -4059,6 +4132,16 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
 
         public void testAllFilesPresentInObjectLiteral() throws Exception {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("nj2k/testData/newJ2k/objectLiteral"), Pattern.compile("^([^\\.]+)\\.java$"), null, true);
+        }
+
+        @TestMetadata("kt-36149.java")
+        public void testKt_36149() throws Exception {
+            runTest("nj2k/testData/newJ2k/objectLiteral/kt-36149.java");
+        }
+
+        @TestMetadata("kt-36152.java")
+        public void testKt_36152() throws Exception {
+            runTest("nj2k/testData/newJ2k/objectLiteral/kt-36152.java");
         }
 
         @TestMetadata("MyFrame.java")
@@ -4636,6 +4719,11 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
             runTest("nj2k/testData/newJ2k/superExpression/classAextendsB.java");
         }
 
+        @TestMetadata("kotlinSuperClassWithImplicitConstructor.java")
+        public void testKotlinSuperClassWithImplicitConstructor() throws Exception {
+            runTest("nj2k/testData/newJ2k/superExpression/kotlinSuperClassWithImplicitConstructor.java");
+        }
+
         @TestMetadata("superStatement.java")
         public void testSuperStatement() throws Exception {
             runTest("nj2k/testData/newJ2k/superExpression/superStatement.java");
@@ -5195,6 +5283,16 @@ public class NewJavaToKotlinConverterSingleFileTestGenerated extends AbstractNew
         @TestMetadata("capturedWildcardTypeAsLambdaParameter.java")
         public void testCapturedWildcardTypeAsLambdaParameter() throws Exception {
             runTest("nj2k/testData/newJ2k/types/capturedWildcardTypeAsLambdaParameter.java");
+        }
+
+        @TestMetadata("nullType.java")
+        public void testNullType() throws Exception {
+            runTest("nj2k/testData/newJ2k/types/nullType.java");
+        }
+
+        @TestMetadata("recursiveType.java")
+        public void testRecursiveType() throws Exception {
+            runTest("nj2k/testData/newJ2k/types/recursiveType.java");
         }
 
         @TestMetadata("unusedCapturedWildcardTypeInSAM.java")

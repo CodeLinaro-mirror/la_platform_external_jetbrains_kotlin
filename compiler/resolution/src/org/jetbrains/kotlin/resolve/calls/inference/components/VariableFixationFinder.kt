@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.resolve.calls.inference.components
 import org.jetbrains.kotlin.resolve.calls.inference.components.KotlinConstraintSystemCompleter.ConstraintSystemCompletionMode
 import org.jetbrains.kotlin.resolve.calls.inference.components.KotlinConstraintSystemCompleter.ConstraintSystemCompletionMode.PARTIAL
 import org.jetbrains.kotlin.resolve.calls.inference.model.Constraint
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
 import org.jetbrains.kotlin.resolve.calls.inference.model.DeclaredUpperBoundConstraintPosition
 import org.jetbrains.kotlin.resolve.calls.inference.model.VariableWithConstraints
 import org.jetbrains.kotlin.resolve.calls.model.PostponedResolvedAtomMarker
@@ -86,6 +87,13 @@ class VariableFixationFinder(
         }
     }
 
+    fun Context.variableHasTrivialOrNonProperConstraints(variable: TypeConstructorMarker): Boolean {
+        return notFixedTypeVariables[variable]?.constraints?.all { constraint ->
+            val isProperConstraint = isProperArgumentConstraint(constraint)
+            isProperConstraint && trivialConstraintTypeInferenceOracle.isNotInterestingConstraint(constraint) || !isProperConstraint
+        } ?: false
+    }
+
     private fun Context.findTypeVariableForFixation(
         allTypeVariables: List<TypeConstructorMarker>,
         postponedArguments: List<PostponedResolvedAtomMarker>,
@@ -113,18 +121,13 @@ class VariableFixationFinder(
 
     private fun Context.hasDependencyToOtherTypeVariables(typeVariable: TypeConstructorMarker): Boolean {
         for (constraint in notFixedTypeVariables[typeVariable]?.constraints ?: return false) {
-            if (constraint.type.lowerBoundIfFlexible().argumentsCount() != 0 && constraint.type.contains { notFixedTypeVariables.containsKey(it.typeConstructor()) }) {
-                return true
+            val dependencyPresenceCondition = { type: KotlinTypeMarker ->
+                type.typeConstructor() != typeVariable && notFixedTypeVariables.containsKey(type.typeConstructor())
             }
+            if (constraint.type.lowerBoundIfFlexible().argumentsCount() != 0 && constraint.type.contains(dependencyPresenceCondition))
+                return true
         }
         return false
-    }
-
-    private fun Context.variableHasTrivialOrNonProperConstraints(variable: TypeConstructorMarker): Boolean {
-        return notFixedTypeVariables[variable]?.constraints?.all { constraint ->
-            val isProperConstraint = isProperArgumentConstraint(constraint)
-            isProperConstraint && trivialConstraintTypeInferenceOracle.isNotInterestingConstraint(constraint) || !isProperConstraint
-        } ?: false
     }
 
     private fun Context.variableHasProperArgumentConstraints(variable: TypeConstructorMarker): Boolean =

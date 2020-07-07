@@ -104,11 +104,6 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
                 runTest("js/js.translator/testData/box/callableReference/function/classMemberAndNonExtensionCompatibility.kt");
             }
 
-            @TestMetadata("classMemberDirectCache.kt")
-            public void testClassMemberDirectCache() throws Exception {
-                runTest("js/js.translator/testData/box/callableReference/function/classMemberDirectCache.kt");
-            }
-
             @TestMetadata("classMemberOverridden.kt")
             public void testClassMemberOverridden() throws Exception {
                 runTest("js/js.translator/testData/box/callableReference/function/classMemberOverridden.kt");
@@ -1375,6 +1370,94 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         }
     }
 
+    @TestMetadata("js/js.translator/testData/box/es6classes")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Es6classes extends AbstractIrBoxJsTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest0(this::doTest, TargetBackend.JS_IR, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInEs6classes() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/es6classes"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+
+        @TestMetadata("builtItTypes.kt")
+        public void testBuiltItTypes() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/builtItTypes.kt");
+        }
+
+        @TestMetadata("defaultPrimary.kt")
+        public void testDefaultPrimary() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/defaultPrimary.kt");
+        }
+
+        @TestMetadata("defaultPrimaryExtendsAny.kt")
+        public void testDefaultPrimaryExtendsAny() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/defaultPrimaryExtendsAny.kt");
+        }
+
+        @TestMetadata("defaultPrimaryExtendsExternal.kt")
+        public void testDefaultPrimaryExtendsExternal() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/defaultPrimaryExtendsExternal.kt");
+        }
+
+        @TestMetadata("defaultPrimaryWithSuper.kt")
+        public void testDefaultPrimaryWithSuper() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/defaultPrimaryWithSuper.kt");
+        }
+
+        @TestMetadata("delegation.kt")
+        public void testDelegation() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/delegation.kt");
+        }
+
+        @TestMetadata("fieldAccess.kt")
+        public void testFieldAccess() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/fieldAccess.kt");
+        }
+
+        @TestMetadata("inheritedFromExternalBySecondaryCtor.kt")
+        public void testInheritedFromExternalBySecondaryCtor() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/inheritedFromExternalBySecondaryCtor.kt");
+        }
+
+        @TestMetadata("inheritedFromExternalClass.kt")
+        public void testInheritedFromExternalClass() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/inheritedFromExternalClass.kt");
+        }
+
+        @TestMetadata("initBlocks.kt")
+        public void testInitBlocks() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/initBlocks.kt");
+        }
+
+        @TestMetadata("innerClasses.kt")
+        public void testInnerClasses() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/innerClasses.kt");
+        }
+
+        @TestMetadata("isInitializedFieldBeforeObjectCreation.kt")
+        public void testIsInitializedFieldBeforeObjectCreation() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/isInitializedFieldBeforeObjectCreation.kt");
+        }
+
+        @TestMetadata("primaryToSecondary.kt")
+        public void testPrimaryToSecondary() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/primaryToSecondary.kt");
+        }
+
+        @TestMetadata("typeCorrectness.kt")
+        public void testTypeCorrectness() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/typeCorrectness.kt");
+        }
+
+        @TestMetadata("unboxChain.kt")
+        public void testUnboxChain() throws Exception {
+            runTest("js/js.translator/testData/box/es6classes/unboxChain.kt");
+        }
+    }
+
     @TestMetadata("js/js.translator/testData/box/examples")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -2138,6 +2221,11 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
                 runTest("js/js.translator/testData/box/expression/function/manglingClashWithFunctionsWithoutParameters.kt");
             }
 
+            @TestMetadata("manglingImportedFromObjectWithNI.kt")
+            public void testManglingImportedFromObjectWithNI() throws Exception {
+                runTest("js/js.translator/testData/box/expression/function/manglingImportedFromObjectWithNI.kt");
+            }
+
             @TestMetadata("manglingStability.kt")
             public void testManglingStability() throws Exception {
                 runTest("js/js.translator/testData/box/expression/function/manglingStability.kt");
@@ -2531,6 +2619,11 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
             @TestMetadata("safeCallComputesExpressionOnlyOnce.kt")
             public void testSafeCallComputesExpressionOnlyOnce() throws Exception {
                 runTest("js/js.translator/testData/box/expression/misc/safeCallComputesExpressionOnlyOnce.kt");
+            }
+
+            @TestMetadata("stackTraceCapturing.kt")
+            public void testStackTraceCapturing() throws Exception {
+                runTest("js/js.translator/testData/box/expression/misc/stackTraceCapturing.kt");
             }
 
             @TestMetadata("stringInterpolationEvaluationOrder.kt")
@@ -4644,6 +4737,24 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         }
     }
 
+    @TestMetadata("js/js.translator/testData/box/intrinsics")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Intrinsics extends AbstractIrBoxJsTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest0(this::doTest, TargetBackend.JS_IR, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInIntrinsics() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/intrinsics"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+
+        @TestMetadata("typeof.kt")
+        public void testTypeof() throws Exception {
+            runTest("js/js.translator/testData/box/intrinsics/typeof.kt");
+        }
+    }
+
     @TestMetadata("js/js.translator/testData/box/java")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -4938,9 +5049,19 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
             runTest("js/js.translator/testData/box/jsModule/externalClassWithDefaults.kt");
         }
 
+        @TestMetadata("externalConstructor.kt")
+        public void testExternalConstructor() throws Exception {
+            runTest("js/js.translator/testData/box/jsModule/externalConstructor.kt");
+        }
+
         @TestMetadata("externalFunction.kt")
         public void testExternalFunction() throws Exception {
             runTest("js/js.translator/testData/box/jsModule/externalFunction.kt");
+        }
+
+        @TestMetadata("externalFunctionNameClash.kt")
+        public void testExternalFunctionNameClash() throws Exception {
+            runTest("js/js.translator/testData/box/jsModule/externalFunctionNameClash.kt");
         }
 
         @TestMetadata("externalFunctionPlain.kt")
@@ -6220,6 +6341,11 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
             runTest("js/js.translator/testData/box/objectDeclaration/kt3684.kt");
         }
 
+        @TestMetadata("kt37386.kt")
+        public void testKt37386() throws Exception {
+            runTest("js/js.translator/testData/box/objectDeclaration/kt37386.kt");
+        }
+
         @TestMetadata("lambdaInObjectInsideObject.kt")
         public void testLambdaInObjectInsideObject() throws Exception {
             runTest("js/js.translator/testData/box/objectDeclaration/lambdaInObjectInsideObject.kt");
@@ -6452,6 +6578,11 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("classUsesPackageProperties.kt")
         public void testClassUsesPackageProperties() throws Exception {
             runTest("js/js.translator/testData/box/propertyAccess/classUsesPackageProperties.kt");
+        }
+
+        @TestMetadata("configurable.kt")
+        public void testConfigurable() throws Exception {
+            runTest("js/js.translator/testData/box/propertyAccess/configurable.kt");
         }
 
         @TestMetadata("customGetter.kt")
@@ -6713,6 +6844,16 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
             runTest("js/js.translator/testData/box/reflection/external.kt");
         }
 
+        @TestMetadata("findAssociatedObject.kt")
+        public void testFindAssociatedObject() throws Exception {
+            runTest("js/js.translator/testData/box/reflection/findAssociatedObject.kt");
+        }
+
+        @TestMetadata("findAssociatedObject_oldBE.kt")
+        public void testFindAssociatedObject_oldBE() throws Exception {
+            runTest("js/js.translator/testData/box/reflection/findAssociatedObject_oldBE.kt");
+        }
+
         @TestMetadata("kClass.kt")
         public void testKClass() throws Exception {
             runTest("js/js.translator/testData/box/reflection/kClass.kt");
@@ -6776,6 +6917,16 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/regression"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
         }
 
+        @TestMetadata("companionObjectInExternalInterface.kt")
+        public void testCompanionObjectInExternalInterface() throws Exception {
+            runTest("js/js.translator/testData/box/regression/companionObjectInExternalInterface.kt");
+        }
+
+        @TestMetadata("enumEntryInitOrder.kt")
+        public void testEnumEntryInitOrder() throws Exception {
+            runTest("js/js.translator/testData/box/regression/enumEntryInitOrder.kt");
+        }
+
         @TestMetadata("kt2470.kt")
         public void testKt2470() throws Exception {
             runTest("js/js.translator/testData/box/regression/kt2470.kt");
@@ -6784,6 +6935,11 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("tmpInsidePrimaryConstructor.kt")
         public void testTmpInsidePrimaryConstructor() throws Exception {
             runTest("js/js.translator/testData/box/regression/tmpInsidePrimaryConstructor.kt");
+        }
+
+        @TestMetadata("wrappers.kt")
+        public void testWrappers() throws Exception {
+            runTest("js/js.translator/testData/box/regression/wrappers.kt");
         }
 
         @TestMetadata("js/js.translator/testData/box/regression/stdlibTestSnippets")

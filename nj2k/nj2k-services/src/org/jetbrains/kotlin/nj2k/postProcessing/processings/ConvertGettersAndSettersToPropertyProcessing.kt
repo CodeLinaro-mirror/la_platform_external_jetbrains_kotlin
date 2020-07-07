@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.idea.references.readWriteAccess
 import org.jetbrains.kotlin.idea.resolve.ResolutionFacade
+import org.jetbrains.kotlin.idea.search.usagesSearch.descriptor
 import org.jetbrains.kotlin.idea.util.CommentSaver
 import org.jetbrains.kotlin.idea.util.IdeDescriptorRenderers
 import org.jetbrains.kotlin.idea.util.application.runReadAction
@@ -42,6 +43,7 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperClassNotAny
 import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperInterfaces
+import org.jetbrains.kotlin.resolve.sam.getSingleAbstractMethodOrNull
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 import org.jetbrains.kotlin.resolve.scopes.getDescriptorsFiltered
 import org.jetbrains.kotlin.types.KotlinType
@@ -55,6 +57,11 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.utils.mapToIndex
 
 class ConvertGettersAndSettersToPropertyProcessing : ElementsBasedPostProcessing() {
+    override val options: PostProcessingOptions =
+        PostProcessingOptions(
+            disablePostprocessingFormatting = false // without it comment saver will make the file invalid :(
+        )
+
     override fun runProcessing(elements: List<PsiElement>, converterContext: NewJ2kConverterContext) {
         val ktElements = elements.filterIsInstance<KtElement>()
         val resolutionFacade = runReadAction {
@@ -194,8 +201,9 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
 
     private fun KtParameter.rename(newName: String) {
         val renamer = RenamePsiElementProcessor.forElement(this)
+        val findReferences = findReferences(renamer)
         val usageInfos =
-            renamer.findReferences(this, false).mapNotNull { reference ->
+            findReferences.mapNotNull { reference ->
                 val element = reference.element
                 val isBackingField = element is KtNameReferenceExpression &&
                         element.text == KtTokens.FIELD_KEYWORD.value
@@ -233,6 +241,7 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
             modifiers
         )
         ktSetter.filterModifiers()
+        val propertyName = property.name
         if (setter is RealSetter) {
             setter.function.forAllUsages { usage ->
                 val callExpression = usage.getStrictParentOfType<KtCallExpression>() ?: return@forAllUsages
@@ -240,10 +249,10 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
                 val newValue = callExpression.valueArguments.single()
                 if (qualifier != null) {
                     qualifier.replace(
-                        factory.createExpression("${qualifier.receiverExpression.text}.${setter.name} = ${newValue.text}")
+                        factory.createExpression("${qualifier.receiverExpression.text}.$propertyName = ${newValue.text}")
                     )
                 } else {
-                    callExpression.replace(factory.createExpression("${setter.name} = ${newValue.text}"))
+                    callExpression.replace(factory.createExpression("$propertyName = ${newValue.text}"))
                 }
             }
         }
@@ -258,10 +267,11 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
 
     private fun KtExpression.isReferenceToThis() =
         when (this) {
-            is KtThisExpression -> instanceReference.resolve() == getStrictParentOfType<KtClassOrObject>()
-            is KtReferenceExpression -> resolve() == getStrictParentOfType<KtClassOrObject>()
-            else -> false
-        }
+            is KtThisExpression -> instanceReference
+            is KtReferenceExpression -> this
+            is KtQualifiedExpression -> selectorExpression as? KtReferenceExpression
+            else -> null
+        }?.resolve() == getStrictParentOfType<KtClassOrObject>()
 
     private fun KtElement.usages(scope: PsiElement? = null) =
         searcher.search(this, scope)
@@ -375,15 +385,18 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
                 val realProperty = group.firstIsInstanceOrNull<RealProperty>()
                 val name = realGetter?.name ?: realSetter?.name!!
 
-                val superDeclarationOwner = (realGetter?.function ?: realSetter?.function)
+                val functionDescriptor = (realGetter?.function ?: realSetter?.function)
                     ?.resolveToDescriptorIfAny(resolutionFacade)
+
+                if (functionDescriptor != null && isSamDescriptor(functionDescriptor)) return@mapNotNull null
+
+                val superDeclarationOwner = functionDescriptor
                     ?.overriddenDescriptors
                     ?.firstOrNull()
                     ?.findPsi()
                     ?.safeAs<KtDeclaration>()
                     ?.containingClassOrObject
 
-                collectingState.propertyNameToSuperType[superDeclarationOwner to name]
                 val type = collectingState.propertyNameToSuperType[superDeclarationOwner to name]
                     ?: calculatePropertyType(
                         realGetter?.function,
@@ -398,6 +411,11 @@ private class ConvertGettersAndSettersToPropertyStatefulProcessing(
                     type
                 )
             }
+    }
+
+    private fun KtClassOrObject.isSamDescriptor(functionDescriptor: FunctionDescriptor): Boolean {
+        val classDescriptor = descriptor as? ClassDescriptor ?: return false
+        return getSingleAbstractMethodOrNull(classDescriptor) == functionDescriptor
     }
 
     private fun List<PropertyData>.filterGettersAndSetters(

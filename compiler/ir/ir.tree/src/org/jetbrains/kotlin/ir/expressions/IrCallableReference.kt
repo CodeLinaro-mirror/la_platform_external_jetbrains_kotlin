@@ -17,12 +17,21 @@
 package org.jetbrains.kotlin.ir.expressions
 
 import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.name.Name
 
-interface IrCallableReference : IrMemberAccessExpression
-
-interface IrFunctionReference : IrCallableReference {
-    override val symbol: IrFunctionSymbol
+interface IrCallableReference : IrMemberAccessExpression {
+    val referencedName: Name
 }
+
+interface IrFunctionReference : IrCallableReference, IrFunctionAccessExpression {
+    val reflectionTarget: IrFunctionSymbol?
+}
+
+val IrFunctionReference.isWithReflection: Boolean
+    get() = reflectionTarget != null
+
+val IrFunctionReference.isAdapterWithReflection: Boolean
+    get() = reflectionTarget != null && reflectionTarget != symbol
 
 interface IrPropertyReference : IrCallableReference {
     override val symbol: IrPropertySymbol

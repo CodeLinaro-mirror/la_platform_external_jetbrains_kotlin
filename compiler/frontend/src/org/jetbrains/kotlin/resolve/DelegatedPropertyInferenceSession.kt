@@ -81,7 +81,8 @@ class DelegatedPropertyInferenceSession(
 
     override fun inferPostponedVariables(
         lambda: ResolvedLambdaAtom,
-        initialStorage: ConstraintStorage
+        initialStorage: ConstraintStorage,
+        diagnosticsHolder: KotlinDiagnosticsHolder
     ): Map<TypeConstructor, UnwrappedType> = emptyMap()
 
     override fun writeOnlyStubs(callInfo: SingleCallResolutionResult): Boolean = false
@@ -89,7 +90,7 @@ class DelegatedPropertyInferenceSession(
     override fun shouldCompleteResolvedSubAtomsOf(resolvedCallAtom: ResolvedCallAtom) = true
 }
 
-object InferenceSessionForExistingCandidates : InferenceSession {
+class InferenceSessionForExistingCandidates(private val resolveReceiverIndependently: Boolean) : InferenceSession {
     override fun shouldRunCompletion(candidate: KotlinResolutionCandidate): Boolean {
         return !ErrorUtils.isError(candidate.resolvedCall.candidateDescriptor)
     }
@@ -101,7 +102,8 @@ object InferenceSessionForExistingCandidates : InferenceSession {
     override fun currentConstraintSystem(): ConstraintStorage = ConstraintStorage.Empty
     override fun inferPostponedVariables(
         lambda: ResolvedLambdaAtom,
-        initialStorage: ConstraintStorage
+        initialStorage: ConstraintStorage,
+        diagnosticsHolder: KotlinDiagnosticsHolder
     ): Map<TypeConstructor, UnwrappedType> = emptyMap()
 
     override fun writeOnlyStubs(callInfo: SingleCallResolutionResult): Boolean = false
@@ -109,4 +111,10 @@ object InferenceSessionForExistingCandidates : InferenceSession {
     override fun shouldCompleteResolvedSubAtomsOf(resolvedCallAtom: ResolvedCallAtom): Boolean {
         return !ErrorUtils.isError(resolvedCallAtom.candidateDescriptor)
     }
+
+    override fun computeCompletionMode(
+        candidate: KotlinResolutionCandidate
+    ): KotlinConstraintSystemCompleter.ConstraintSystemCompletionMode? = null
+
+    override fun resolveReceiverIndependently(): Boolean = resolveReceiverIndependently
 }

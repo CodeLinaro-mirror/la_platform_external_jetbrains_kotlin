@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns.FQ_NAMES
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.codegen.*
-import org.jetbrains.kotlin.codegen.inline.DefaultSourceMapper
+import org.jetbrains.kotlin.codegen.inline.SourceMapper
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
+import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.IrSimpleType
@@ -68,7 +69,7 @@ fun IrFrameMap.leave(irDeclaration: IrSymbolOwner): Int {
 
 val IrClass.isJvmInterface get() = isAnnotationClass || isInterface
 
-internal val IrDeclaration.fileParent: IrFile
+val IrDeclaration.fileParent: IrFile
     get() {
         val myParent = parent
         return when (myParent) {
@@ -80,15 +81,14 @@ internal val IrDeclaration.fileParent: IrFile
 internal val DeclarationDescriptorWithSource.psiElement: PsiElement?
     get() = (source as? PsiSourceElement)?.psi
 
-fun JvmBackendContext.getSourceMapper(declaration: IrClass): DefaultSourceMapper {
+fun JvmBackendContext.getSourceMapper(declaration: IrClass): SourceMapper {
     val sourceManager = this.psiSourceManager
     val fileEntry = sourceManager.getFileEntry(declaration.fileParent)
-    check(fileEntry != null) { "No PSI file entry found for class: ${declaration.dump()}" }
     // NOTE: apparently inliner requires the source range to cover the
     //       whole file the class is declared in rather than the class only.
     // TODO: revise
-    val endLineNumber = fileEntry.getSourceRangeInfo(0, fileEntry.maxOffset).endLineNumber
-    return DefaultSourceMapper(
+    val endLineNumber = fileEntry?.getSourceRangeInfo(0, fileEntry.maxOffset)?.endLineNumber ?: 0
+    return SourceMapper(
         SourceInfo.createInfoForIr(
             endLineNumber + 1,
             typeMapper.mapClass(declaration).internalName,
@@ -181,6 +181,10 @@ private fun IrDeclarationWithVisibility.specialCaseVisibility(kind: OwnerKind?):
     }
 
 //    if (memberDescriptor.isEffectivelyInlineOnly()) {
+    if (this is IrFunction && isReifiable()) {
+        return Opcodes.ACC_PUBLIC
+    }
+
     if (isEffectivelyInlineOnly()) {
         return Opcodes.ACC_PRIVATE
     }
@@ -290,7 +294,7 @@ private fun IrDeclarationWithVisibility.isPrivateInlineSuspend(): Boolean =
 fun IrFunction.isInlineOnly() =
     isInline && hasAnnotation(INLINE_ONLY_ANNOTATION_FQ_NAME)
 
-private fun IrFunction.isReifiable() = typeParameters.any { it.isReified }
+fun IrFunction.isReifiable() = typeParameters.any { it.isReified }
 
 // Borrowed with modifications from ImplementationBodyCodegen.java
 
@@ -369,9 +373,6 @@ internal fun getSignature(
 */
 fun IrClass.getVisibilityAccessFlagForClass(): Int {
     /* Original had a check for SyntheticClassDescriptorForJava, never invoked in th IR backend. */
-    if (isOptionalAnnotationClass()) {
-        return AsmUtil.NO_FLAG_PACKAGE_PRIVATE
-    }
     if (kind == ClassKind.ENUM_ENTRY) {
         return AsmUtil.NO_FLAG_PACKAGE_PRIVATE
     }
@@ -425,3 +426,9 @@ val IrFunction.deprecationFlags: Int
         val propertyFlags = (this as? IrSimpleFunction)?.correspondingPropertySymbol?.owner?.deprecationFlags ?: 0
         return originFlags or propertyFlags or (this as IrAnnotationContainer).deprecationFlags
     }
+
+val IrDeclaration.psiElement: PsiElement?
+    get() = (descriptor as? DeclarationDescriptorWithSource)?.psiElement
+
+val IrMemberAccessExpression.psiElement: PsiElement?
+    get() = (symbol.descriptor.original as? DeclarationDescriptorWithSource)?.psiElement

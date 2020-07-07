@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.annotations.KotlinRetention
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildClass
@@ -54,13 +53,9 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
     // TODO: import IR structures from the library?
 
-    private val annotationPackage: IrPackageFragment = IrExternalPackageFragmentImpl(
-        IrExternalPackageFragmentSymbolImpl(
-            EmptyPackageFragmentDescriptor(
-                context.ir.irModule.descriptor,
-                FqName("java.lang.annotation")
-            )
-        )
+    private val annotationPackage: IrPackageFragment = IrExternalPackageFragmentImpl.createEmptyExternalPackageFragment(
+        context.ir.irModule.descriptor,
+        FqName("java.lang.annotation")
     )
 
     private fun buildAnnotationClass(
@@ -133,17 +128,14 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
     }
 
     private fun generateDocumentedAnnotation(irClass: IrClass) {
-        if (irClass.hasAnnotation(KotlinBuiltIns.FQ_NAMES.mustBeDocumented) &&
-            !irClass.hasAnnotation(FqName("java.lang.annotation.Documented"))
-        ) {
-            return
-        }
+        if (!irClass.hasAnnotation(KotlinBuiltIns.FQ_NAMES.mustBeDocumented) ||
+            irClass.hasAnnotation(FqName("java.lang.annotation.Documented"))
+        ) return
 
-        irClass.annotations.add(
+        irClass.annotations +=
             IrConstructorCallImpl.fromSymbolOwner(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, documentedConstructor.returnType, documentedConstructor.symbol, 0
             )
-        )
     }
 
     private val annotationRetentionMap = mapOf(
@@ -160,7 +152,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
         val kotlinRetentionPolicy = kotlinRetentionPolicyName?.let { KotlinRetention.valueOf(it) }
         val javaRetentionPolicy = kotlinRetentionPolicy?.let { annotationRetentionMap[it] } ?: rpRuntime
 
-        irClass.annotations.add(
+        irClass.annotations +=
             IrConstructorCallImpl.fromSymbolOwner(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, retentionConstructor.returnType, retentionConstructor.symbol, 0
             ).apply {
@@ -171,7 +163,6 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
                     )
                 )
             }
-        )
     }
 
     private val jvm6TargetMap = mutableMapOf(
@@ -192,15 +183,9 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
     )
 
     private val annotationTargetMaps: Map<JvmTarget, Map<KotlinTarget, IrEnumEntry>> =
-        mapOf(
-            JvmTarget.JVM_1_6 to jvm6TargetMap,
-            JvmTarget.JVM_1_8 to jvm8TargetMap,
-            JvmTarget.JVM_9 to jvm8TargetMap,
-            JvmTarget.JVM_10 to jvm8TargetMap,
-            JvmTarget.JVM_11 to jvm8TargetMap,
-            JvmTarget.JVM_12 to jvm8TargetMap,
-            JvmTarget.JVM_13 to jvm8TargetMap
-        )
+        JvmTarget.values().associate { target ->
+            target to (if (target == JvmTarget.JVM_1_6) jvm6TargetMap else jvm8TargetMap)
+        }
 
     private fun generateTargetAnnotation(irClass: IrClass) {
         if (irClass.hasAnnotation(FqName("java.lang.annotation.Target"))) return
@@ -223,13 +208,12 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
             )
         }
 
-        irClass.annotations.add(
+        irClass.annotations +=
             IrConstructorCallImpl.fromSymbolOwner(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, targetConstructor.returnType, targetConstructor.symbol, 0
             ).apply {
                 putValueArgument(0, vararg)
             }
-        )
         // TODO
     }
 }

@@ -7,57 +7,39 @@ package org.jetbrains.kotlin.idea.formatter
 
 import com.intellij.openapi.progress.ProgressIndicatorProvider
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.idea.formatter.trailingComma.TrailingCommaContext
+import org.jetbrains.kotlin.idea.formatter.trailingComma.TrailingCommaState
+import org.jetbrains.kotlin.idea.formatter.trailingComma.canAddTrailingComma
+import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFunctionLiteral
+import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 
 abstract class TrailingCommaVisitor : KtTreeVisitorVoid() {
-    override fun visitParameterList(list: KtParameterList) {
-        super.visitParameterList(list)
-        process(list)
-    }
-
-    override fun visitValueArgumentList(list: KtValueArgumentList) {
-        super.visitValueArgumentList(list)
-        process(list)
-    }
-
-    override fun visitArrayAccessExpression(expression: KtArrayAccessExpression) {
-        super.visitArrayAccessExpression(expression)
-        process(expression.indicesNode)
-    }
-
-    override fun visitTypeParameterList(list: KtTypeParameterList) {
-        super.visitTypeParameterList(list)
-        process(list)
-    }
-
-    override fun visitTypeArgumentList(typeArgumentList: KtTypeArgumentList) {
-        super.visitTypeArgumentList(typeArgumentList)
-        process(typeArgumentList)
-    }
-
-    override fun visitCollectionLiteralExpression(expression: KtCollectionLiteralExpression) {
-        super.visitCollectionLiteralExpression(expression)
-        process(expression)
-    }
-
-    override fun visitWhenEntry(jetWhenEntry: KtWhenEntry) {
-        super.visitWhenEntry(jetWhenEntry)
-        process(jetWhenEntry)
-    }
-
-    override fun visitDestructuringDeclaration(destructuringDeclaration: KtDestructuringDeclaration) {
-        super.visitDestructuringDeclaration(destructuringDeclaration)
-        process(destructuringDeclaration)
+    override fun visitKtElement(element: KtElement) {
+        super.visitKtElement(element)
+        // because KtFunctionLiteral contains KtParameterList
+        if (element !is KtFunctionLiteral && element.canAddTrailingComma()) {
+            runProcessIfApplicable(element)
+        }
     }
 
     override fun visitElement(element: PsiElement) {
-        if (recursively)
-            super.visitElement(element)
-        else
-            ProgressIndicatorProvider.checkCanceled()
+        ProgressIndicatorProvider.checkCanceled()
+
+        if (recursively) super.visitElement(element)
     }
 
-    protected abstract fun process(commaOwner: KtElement)
+    private fun runProcessIfApplicable(element: KtElement) {
+        val context = TrailingCommaContext.create(element)
+        if (context.state != TrailingCommaState.NOT_APPLICABLE) {
+            process(context)
+        }
+    }
+
+    /**
+     * [trailingCommaContext] doesn't contain a state [TrailingCommaState.NOT_APPLICABLE]
+     */
+    protected abstract fun process(trailingCommaContext: TrailingCommaContext)
 
     protected open val recursively: Boolean = true
 }

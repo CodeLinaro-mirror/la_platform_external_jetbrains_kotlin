@@ -18,9 +18,8 @@ package org.jetbrains.kotlin.ir.declarations.impl
 
 import org.jetbrains.kotlin.descriptors.ClassConstructorDescriptor
 import org.jetbrains.kotlin.descriptors.Visibility
-import org.jetbrains.kotlin.ir.declarations.IrConstructor
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
-import org.jetbrains.kotlin.ir.expressions.IrBody
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.carriers.ConstructorCarrier
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
@@ -40,13 +39,14 @@ class IrConstructorImpl(
     override val isPrimary: Boolean,
     isExpect: Boolean
 ) :
-    IrFunctionBase(
+    IrFunctionBase<ConstructorCarrier>(
         startOffset, endOffset, origin, name,
         visibility,
         isInline, isExternal, isExpect,
         returnType
     ),
-    IrConstructor {
+    IrConstructor,
+    ConstructorCarrier {
 
     constructor(
         startOffset: Int,
@@ -54,19 +54,17 @@ class IrConstructorImpl(
         origin: IrDeclarationOrigin,
         symbol: IrConstructorSymbol,
         returnType: IrType,
-        body: IrBody? = null
+        descriptor: ClassConstructorDescriptor,
+        name: Name = descriptor.name
     ) : this(
         startOffset, endOffset, origin, symbol,
-        symbol.descriptor.name,
-        symbol.descriptor.visibility,
-        returnType,
-        isInline = symbol.descriptor.isInline,
-        isExternal = symbol.descriptor.isEffectivelyExternal(),
-        isPrimary = symbol.descriptor.isPrimary,
-        isExpect = symbol.descriptor.isExpect
-    ) {
-        this.body = body
-    }
+        name = name, visibility = descriptor.visibility,
+        returnType = returnType,
+        isInline = descriptor.isInline,
+        isExternal = descriptor.isEffectivelyExternal(),
+        isPrimary = descriptor.isPrimary,
+        isExpect = descriptor.isExpect
+    )
 
     init {
         symbol.bind(this)

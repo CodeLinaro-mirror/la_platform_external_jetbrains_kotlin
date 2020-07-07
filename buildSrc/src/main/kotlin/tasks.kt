@@ -106,6 +106,11 @@ fun Project.projectTest(
     environment("PROJECT_BUILD_DIR", buildDir)
     systemProperty("jps.kotlin.home", rootProject.extra["distKotlinHomeDir"]!!)
     systemProperty("kotlin.ni", if (rootProject.hasProperty("newInferenceTests")) "true" else "false")
+    systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (rootProject.hasProperty("skipMutedTests")) "true" else "false")
+
+    if (Platform[202].orHigher()) {
+        systemProperty("idea.ignore.disabled.plugins", "true")
+    }
 
     var subProjectTempRoot: Path? = null
     doFirst {
@@ -153,6 +158,10 @@ object TaskUtils {
 
     fun useAndroidJar(task: Task) {
         task.useAndroidConfiguration(systemPropertyName = "android.jar", configName = "androidJar")
+    }
+
+    fun useAndroidEmulator(task: Task) {
+        task.useAndroidConfiguration(systemPropertyName = "android.sdk", configName = "androidEmulator")
     }
 }
 

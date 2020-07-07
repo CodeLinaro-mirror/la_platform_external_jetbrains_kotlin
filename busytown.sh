@@ -20,7 +20,7 @@ function set_java_home() {
             ;;
     esac
 }
-readonly R4A_BUILD_NUMBER=1.3.70
+readonly R4A_BUILD_NUMBER=1.4.0
 function copy_jar_into_maven_repo() {
     local SOURCE_JAR="$1"
     local MODULE_NAME="$2"
@@ -43,40 +43,40 @@ cd $PROG_DIR
 ./bunch-cli/bin/bunch switch as40
 
 # Build a custom version of Kotlin
-./gradlew writeVersions --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER
-./gradlew install ideaPlugin  :compiler:tests-common:testJar --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER -Dmaven.repo.local=$OUT_DIR/m2  -Pteamcity=true
+./gradlew writeVersions --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER -Pkotlin.test.is.pre.release=false -Dkotlin.test.is.pre.release=false -Dkotlin.compiler.execution.strategy="in-process"
+./gradlew install ideaPlugin  :compiler:tests-common:testJar --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER -Pkotlin.test.is.pre.release=false -Dkotlin.test.is.pre.release=false -Dkotlin.compiler.execution.strategy="in-process" -Dmaven.repo.local=$OUT_DIR/m2  -Pteamcity=true
 
 # Run tests
 rm -rf $DIST_DIR/host-test-reports
 mkdir $DIST_DIR/host-test-reports
 
-./gradlew --info --full-stacktrace --continue :compiler:test --tests *ParsingTestGenerated* -Pteamcity=true
+./gradlew --info --full-stacktrace --continue :compiler:test --tests *ParsingTestGenerated* -Pteamcity=true --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER -Pkotlin.test.is.pre.release=false -Dkotlin.test.is.pre.release=false -Dkotlin.compiler.execution.strategy="in-process"
 cd compiler/build/test-results/test
 zip -r $DIST_DIR/host-test-reports/compilerTests.zip *
 cd $PROG_DIR
 
-./gradlew  --info --full-stacktrace --continue :idea:test --tests *FormatterTestGenerated* -Pteamcity=true
+./gradlew  --info --full-stacktrace --continue :idea:test --tests *FormatterTestGenerated* -Pteamcity=true --no-daemon -Pbuild.number=$R4A_BUILD_NUMBER -PdeployVersion=$R4A_BUILD_NUMBER -Pkotlin.test.is.pre.release=false -Dkotlin.test.is.pre.release=false -Dkotlin.compiler.execution.strategy="in-process"
 cd idea/build/test-results/test
 zip -r $DIST_DIR/host-test-reports/ideaTests.zip *
 cd $PROG_DIR
 
 # Copy jar files that are not published in the build but are required by androidx.compose
 echo "Copying additional repositories"
-readonly INTELLIJ_SDK_VERSION=$(grep intellijSdk gradle/versions.properties | sed 's/^[^=]*=//')
-readonly ANDROID_STUDIO_BUILD=$(grep androidStudioBuild gradle/versions.properties | sed 's/^[^=]*=//')
-readonly INTELLIJ_DEPENDENCIES=dependencies/repo/kotlin.build
-if [ ! -f $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar ]; then
-    echo -e "\033[1;31mError: Could not determine intellij version, tried $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar\033[0m"
-    exit 1
-fi
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar kotlin-intellij-core
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/idea.jar kotlin-idea
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/idea_rt.jar kotlin-idea-rt
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/plugins/java/lib/java-impl.jar kotlin-java-impl
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/bootstrap.jar kotlin-bootstrap
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/openapi.jar kotlin-openapi
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/platform-api.jar kotlin-platform-api
-copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/platform-impl.jar kotlin-platform-impl
+#readonly INTELLIJ_SDK_VERSION=$(grep intellijSdk gradle/versions.properties | sed 's/^[^=]*=//')
+#readonly ANDROID_STUDIO_BUILD=$(grep androidStudioBuild gradle/versions.properties | sed 's/^[^=]*=//')
+#readonly INTELLIJ_DEPENDENCIES=dependencies/repo/kotlin.build
+#if [ ! -f $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar ]; then
+#    echo -e "\033[1;31mError: Could not determine intellij version, tried $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar\033[0m"
+#    exit 1
+#fi
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/intellij-core/$INTELLIJ_SDK_VERSION/artifacts/intellij-core.jar kotlin-intellij-core
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/idea.jar kotlin-idea
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/idea_rt.jar kotlin-idea-rt
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/plugins/java/lib/java-impl.jar kotlin-java-impl
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/bootstrap.jar kotlin-bootstrap
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/openapi.jar kotlin-openapi
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/platform-api.jar kotlin-platform-api
+#copy_jar_into_maven_repo $INTELLIJ_DEPENDENCIES/android-studio-ide/$ANDROID_STUDIO_BUILD/artifacts/lib/platform-impl.jar kotlin-platform-impl
 copy_jar_into_maven_repo dist/artifacts/ideaPlugin/Kotlin/lib/kotlin-plugin.jar kotlin-plugin
 copy_jar_into_maven_repo dist/artifacts/ideaPlugin/Kotlin/lib/jps/kotlin-jps-plugin.jar kotlin-jps-plugin
 copy_jar_into_maven_repo idea/idea-jps-common/build/libs/idea-jps-common-$R4A_BUILD_NUMBER.jar kotlin-jps-common-ide
@@ -92,8 +92,3 @@ rm -rf libraries/tools/kotlin-test-js-runner/node_modules/
 echo "tar'ing result m2.tar"
 tar cf $OUT_DIR/m2.tar -C $OUT_DIR m2
 mv $OUT_DIR/m2.tar $DIST_DIR
-cp -r dist/artifacts/ideaPlugin/Kotlin $OUT_DIR/Kotlin
-tar cf $OUT_DIR/Kotlin.tar -C $OUT_DIR Kotlin
-mv $OUT_DIR/Kotlin.tar $DIST_DIR
-
-

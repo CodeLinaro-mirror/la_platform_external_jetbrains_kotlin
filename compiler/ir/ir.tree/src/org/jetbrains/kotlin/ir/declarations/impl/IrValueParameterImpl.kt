@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.declarations.impl.carriers.ValueParameterCarrier
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
@@ -41,27 +42,9 @@ class IrValueParameterImpl(
     override val isCrossinline: Boolean,
     override val isNoinline: Boolean
 ) :
-    IrDeclarationBase(startOffset, endOffset, origin),
-    IrValueParameter {
-
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        symbol: IrValueParameterSymbol,
-        type: IrType,
-        varargElementType: IrType?
-    ) :
-            this(
-                startOffset, endOffset, origin,
-                symbol,
-                symbol.descriptor.name,
-                symbol.descriptor.safeAs<ValueParameterDescriptor>()?.index ?: -1,
-                type,
-                varargElementType,
-                symbol.descriptor.safeAs<ValueParameterDescriptor>()?.isCrossinline ?: false,
-                symbol.descriptor.safeAs<ValueParameterDescriptor>()?.isNoinline ?: false
-            )
+    IrDeclarationBase<ValueParameterCarrier>(startOffset, endOffset, origin),
+    IrValueParameter,
+    ValueParameterCarrier {
 
     constructor(
         startOffset: Int,
@@ -69,9 +52,17 @@ class IrValueParameterImpl(
         origin: IrDeclarationOrigin,
         descriptor: ParameterDescriptor,
         type: IrType,
-        varargElementType: IrType?
-    ) :
-            this(startOffset, endOffset, origin, IrValueParameterSymbolImpl(descriptor), type, varargElementType)
+        varargElementType: IrType?,
+        name: Name = descriptor.name,
+        symbol: IrValueParameterSymbol = IrValueParameterSymbolImpl(descriptor)
+    ) : this(
+        startOffset, endOffset, origin, symbol,
+        name,
+        index = descriptor.safeAs<ValueParameterDescriptor>()?.index ?: -1,
+        type = type, varargElementType = varargElementType,
+        isCrossinline = descriptor.safeAs<ValueParameterDescriptor>()?.isCrossinline ?: false,
+        isNoinline = descriptor.safeAs<ValueParameterDescriptor>()?.isNoinline ?: false
+    )
 
     override val descriptor: ParameterDescriptor = symbol.descriptor
 
@@ -79,7 +70,18 @@ class IrValueParameterImpl(
         symbol.bind(this)
     }
 
-    override var defaultValue: IrExpressionBody? = null
+    override var defaultValueField: IrExpressionBody? = null
+
+    override var defaultValue: IrExpressionBody?
+        get() = getCarrier().defaultValueField
+        set(v) {
+            if (defaultValue !== v) {
+                if (v is IrBodyBase<*>) {
+                    v.container = this
+                }
+                setCarrier().defaultValueField = v
+            }
+        }
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitValueParameter(this, data)

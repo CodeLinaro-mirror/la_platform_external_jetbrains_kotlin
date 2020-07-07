@@ -13,14 +13,16 @@ dependencies {
     compileOnly(project(":compiler:frontend"))
     compileOnly(project(":compiler:backend"))
     compileOnly(project(":compiler:ir.backend.common"))
+    compileOnly(project(":compiler:ir.psi2ir"))
     compileOnly(project(":js:js.frontend"))
     compileOnly(project(":js:js.translator"))
+    compileOnly(project(":kotlin-util-klib-metadata"))
 
     runtime(kotlinStdlib())
 
     testCompile(projectTests(":compiler:tests-common"))
     testCompile(commonDep("junit:junit"))
-    testCompile("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.11.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0-1.4.0-dev-5730") { isTransitive = false }
 
     testRuntimeOnly(intellijCoreDep()) { includeJars("intellij-core") }
 

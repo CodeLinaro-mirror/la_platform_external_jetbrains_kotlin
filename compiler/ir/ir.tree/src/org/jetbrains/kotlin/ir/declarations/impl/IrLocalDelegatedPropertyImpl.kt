@@ -17,10 +17,8 @@
 package org.jetbrains.kotlin.ir.declarations.impl
 
 import org.jetbrains.kotlin.descriptors.VariableDescriptorWithAccessors
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrLocalDelegatedProperty
-import org.jetbrains.kotlin.ir.declarations.IrVariable
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.carriers.LocalDelegatedPropertyCarrier
 import org.jetbrains.kotlin.ir.symbols.IrLocalDelegatedPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrLocalDelegatedPropertySymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
@@ -28,6 +26,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
 
+// TODO make not persistent
 class IrLocalDelegatedPropertyImpl(
     startOffset: Int,
     endOffset: Int,
@@ -37,79 +36,46 @@ class IrLocalDelegatedPropertyImpl(
     override val type: IrType,
     override val isVar: Boolean
 ) :
-    IrDeclarationBase(startOffset, endOffset, origin),
-    IrLocalDelegatedProperty {
+    IrDeclarationBase<LocalDelegatedPropertyCarrier>(startOffset, endOffset, origin),
+    IrLocalDelegatedProperty,
+    LocalDelegatedPropertyCarrier {
 
     init {
         symbol.bind(this)
     }
 
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        symbol: IrLocalDelegatedPropertySymbol,
-        type: IrType
-    ) : this(
-        startOffset, endOffset, origin, symbol,
-        symbol.descriptor.name,
-        type,
-        symbol.descriptor.isVar
-    )
-
-    @Deprecated("Creates unbound symbol")
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        descriptor: VariableDescriptorWithAccessors,
-        name: Name,
-        type: IrType,
-        isVar: Boolean
-    ) : this(
-        startOffset, endOffset, origin,
-        IrLocalDelegatedPropertySymbolImpl(descriptor),
-        name, type, isVar
-    )
-
-    @Deprecated("Creates unbound symbol")
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        descriptor: VariableDescriptorWithAccessors,
-        type: IrType
-    ) : this(
-        startOffset, endOffset, origin,
-        IrLocalDelegatedPropertySymbolImpl(descriptor),
-        descriptor.name, type, descriptor.isVar
-    )
-
-    @Suppress("DEPRECATION")
-    @Deprecated("Creates unbound symbol")
-    constructor(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        descriptor: VariableDescriptorWithAccessors,
-        type: IrType,
-        delegate: IrVariable,
-        getter: IrFunction,
-        setter: IrFunction?
-    ) : this(startOffset, endOffset, origin, descriptor, type) {
-        this.delegate = delegate
-        this.getter = getter
-        this.setter = setter
-    }
-
     override val descriptor: VariableDescriptorWithAccessors
         get() = symbol.descriptor
 
-    override lateinit var delegate: IrVariable
+    override var delegateField: IrVariable? = null
 
-    override lateinit var getter: IrFunction
+    override var delegate: IrVariable
+        get() = getCarrier().delegateField!!
+        set(v) {
+            if (getCarrier().delegateField !== v) {
+                setCarrier().delegateField = v
+            }
+        }
 
-    override var setter: IrFunction? = null
+    override var getterField: IrFunction? = null
+
+    override var getter: IrFunction
+        get() = getCarrier().getterField!!
+        set(v) {
+            if (getCarrier().getterField !== v) {
+                setCarrier().getterField = v
+            }
+        }
+
+    override var setterField: IrFunction? = null
+
+    override var setter: IrFunction?
+        get() = getCarrier().setterField
+        set(v) {
+            if (setter !== v) {
+                setCarrier().setterField = v
+            }
+        }
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitLocalDelegatedProperty(this, data)

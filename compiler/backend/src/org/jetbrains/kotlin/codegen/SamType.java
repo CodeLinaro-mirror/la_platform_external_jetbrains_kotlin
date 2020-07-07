@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.descriptors.ClassDescriptor;
 import org.jetbrains.kotlin.descriptors.ClassifierDescriptor;
 import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor;
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor;
-import org.jetbrains.kotlin.load.java.sam.SingleAbstractMethodUtils;
+import org.jetbrains.kotlin.load.java.sam.JavaSingleAbstractMethodUtils;
 import org.jetbrains.kotlin.resolve.sam.SamConversionResolverImplKt;
 import org.jetbrains.kotlin.types.KotlinType;
 import org.jetbrains.kotlin.types.typeUtil.TypeUtilsKt;
@@ -32,22 +32,36 @@ import org.jetbrains.kotlin.types.typeUtil.TypeUtilsKt;
 public class SamType {
     @Nullable
     public static SamType createByValueParameter(@NotNull ValueParameterDescriptor valueParameter) {
+        KotlinType singleArgumentType;
+        KotlinType originalSingleArgumentType;
+        KotlinType varargElementType = valueParameter.getVarargElementType();
+        if (varargElementType != null) {
+            singleArgumentType = varargElementType;
+            originalSingleArgumentType = valueParameter.getOriginal().getVarargElementType();
+            assert originalSingleArgumentType != null :
+                    "Value parameter and original value parameter have inconsistent varargs: " +
+                    valueParameter + "; " + valueParameter.getOriginal();
+        } else {
+            singleArgumentType = valueParameter.getType();
+            originalSingleArgumentType = valueParameter.getOriginal().getType();
+        }
+
         KotlinType originalTypeToUse =
                 // This can be true in case when the value parameter is in the method of a generic type with out-projection.
                 // We approximate Inv<Captured#1> to Nothing, while Inv itself can be a SAM interface safe to call here
                 // (see testData genericSamProjectedOut.kt for details)
-                KotlinBuiltIns.isNothing(valueParameter.getType())
+                KotlinBuiltIns.isNothing(singleArgumentType)
                 // In such a case we can't have a proper supertype since wildcards are not allowed there,
                 // so we use Nothing arguments instead that leads to a raw type used for a SAM wrapper.
                 // See org.jetbrains.kotlin.codegen.state.KotlinTypeMapper#writeGenericType to understand how
                 // raw types and Nothing arguments relate.
-                ? TypeUtilsKt.replaceArgumentsWithNothing(valueParameter.getOriginal().getType())
-                : valueParameter.getType();
+                ? TypeUtilsKt.replaceArgumentsWithNothing(originalSingleArgumentType)
+                : singleArgumentType;
 
         return create(TypeMapperUtilsKt.removeExternalProjections(originalTypeToUse));
     }
     public static SamType create(@NotNull KotlinType originalType) {
-        if (!SingleAbstractMethodUtils.isSamType(originalType)) return null;
+        if (!JavaSingleAbstractMethodUtils.isSamType(originalType)) return null;
         return new SamType(originalType);
     }
 
