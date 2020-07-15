@@ -1257,7 +1257,7 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         throw new IllegalStateException("Can't get outer value in " + this + " for " + d);
     }
 
-    protected StackValueWithLeaveTask generateBlock(
+    private StackValueWithLeaveTask generateBlock(
             @NotNull List<KtExpression> statements,
             boolean isStatement,
             @Nullable Label labelBeforeLastExpression,

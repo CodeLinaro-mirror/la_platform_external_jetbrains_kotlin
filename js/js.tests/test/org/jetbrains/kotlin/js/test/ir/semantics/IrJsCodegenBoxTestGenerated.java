@@ -1332,6 +1332,16 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
         public void testLackOfNullCheckOnNullableInsideBuild() throws Exception {
             runTest("compiler/testData/codegen/box/builderInference/lackOfNullCheckOnNullableInsideBuild.kt");
         }
+
+        @TestMetadata("substituteStubTypeIntoCR.kt")
+        public void testSubstituteStubTypeIntoCR() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/substituteStubTypeIntoCR.kt");
+        }
+
+        @TestMetadata("substituteStubTypeIntolambdaParameterDescriptor.kt")
+        public void testSubstituteStubTypeIntolambdaParameterDescriptor() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/substituteStubTypeIntolambdaParameterDescriptor.kt");
+        }
     }
 
     @TestMetadata("compiler/testData/codegen/box/builtinStubMethods")
@@ -22356,6 +22366,16 @@ public class IrJsCodegenBoxTestGenerated extends AbstractIrJsCodegenBoxTest {
                 @TestMetadata("innerGeneric.kt")
                 public void testInnerGeneric() throws Exception {
                     runTest("compiler/testData/codegen/box/reflection/typeOf/nonReifiedTypeParameters/innerGeneric.kt");
+                }
+
+                @TestMetadata("recursiveBoundWithInline.kt")
+                public void testRecursiveBoundWithInline() throws Exception {
+                    runTest("compiler/testData/codegen/box/reflection/typeOf/nonReifiedTypeParameters/recursiveBoundWithInline.kt");
+                }
+
+                @TestMetadata("recursiveBoundWithoutInline.kt")
+                public void testRecursiveBoundWithoutInline() throws Exception {
+                    runTest("compiler/testData/codegen/box/reflection/typeOf/nonReifiedTypeParameters/recursiveBoundWithoutInline.kt");
                 }
 
                 @TestMetadata("simpleClassParameter.kt")

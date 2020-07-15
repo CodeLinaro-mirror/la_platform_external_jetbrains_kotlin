@@ -11,15 +11,16 @@ readonly DIST_DIR="$(realpath $DIST)"
 function set_java_home() {
     case `uname -s` in
         Darwin)
-            export JAVA_HOME=../../../prebuilts/jdk/jdk8/darwin-x86
-            export JDK_9=../../../prebuilts/jdk/jdk9/darwin-x86
+            export JAVA_HOME=$(realpath "$PROG_DIR/../../../prebuilts/jdk/jdk8/darwin-x86")
+            export JDK_9=$(realpath "$PROG_DIR/../../../prebuilts/jdk/jdk9/darwin-x86")
             ;;
         *)
-            export JAVA_HOME=../../../prebuilts/jdk/jdk8/linux-x86
-            export JDK_9=../../../prebuilts/jdk/jdk9/linux-x86
+            export JAVA_HOME=$(realpath "$PROG_DIR/../../../prebuilts/jdk/jdk8/linux-x86")
+            export JDK_9=$(realpath "$PROG_DIR/../../../prebuilts/jdk/jdk9/linux-x86")
             ;;
     esac
 }
+
 readonly R4A_BUILD_NUMBER=1.4.0
 function copy_jar_into_maven_repo() {
     local SOURCE_JAR="$1"

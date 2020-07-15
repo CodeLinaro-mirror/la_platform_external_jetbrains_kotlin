@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.ir.types.impl.originalKotlinType
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.TypeTranslator
 import org.jetbrains.kotlin.ir.util.coerceToUnit
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -341,9 +342,7 @@ internal class InsertImplicitCasts(
 
         val notNullableExpectedType = expectedType.makeNotNullable()
 
-        // NOTE(lmr): originalKotlinType can sometimes be null and was causing a failure. Changing this
-        // to return this instead fixes it, but I am unsure if this is the proper fix.
-        val valueType = this.type.originalKotlinType ?: return this
+        val valueType = this.type.originalKotlinType ?: error("Expecting original kotlin type for IrType ${type.render()}")
 
         return when {
             expectedType.isUnit() ->

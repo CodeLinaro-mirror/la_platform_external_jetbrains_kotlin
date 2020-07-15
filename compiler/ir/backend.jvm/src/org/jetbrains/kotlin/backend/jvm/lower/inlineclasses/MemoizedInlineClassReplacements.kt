@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.backend.common.ir.copyTypeParameters
 import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
 import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
+import org.jetbrains.kotlin.backend.jvm.ir.isStaticInlineClassReplacement
 import org.jetbrains.kotlin.backend.jvm.lower.inlineclasses.InlineClassAbi.mangledNameFor
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.Modality
@@ -47,9 +48,14 @@ class MemoizedInlineClassReplacements(private val mangleReturnTypes: Boolean) {
                 // Don't mangle anonymous or synthetic functions
                 it.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA ||
                         (it.origin == IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR && it.visibility == Visibilities.LOCAL) ||
-                        it.origin == JvmLoweredDeclarationOrigin.STATIC_INLINE_CLASS_REPLACEMENT ||
-                        it.origin.isSynthetic ||
-                        it.isInlineClassFieldGetter -> null
+                        it.isStaticInlineClassReplacement ||
+                        it.origin.isSynthetic -> null
+
+                it.isInlineClassFieldGetter ->
+                    if (it.hasMangledReturnType)
+                        createMethodReplacement(it)
+                    else
+                        null
 
                 // Mangle all functions in the body of an inline class
                 it.parent.safeAs<IrClass>()?.isInline == true ->
@@ -183,10 +189,17 @@ class MemoizedInlineClassReplacements(private val mangleReturnTypes: Boolean) {
         body: IrFunctionImpl.() -> Unit
     ) = buildFunWithDescriptorForInlining(function.descriptor) {
         updateFrom(function)
-        origin = if (function.origin == IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER) {
-            JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD
-        } else {
-            replacementOrigin
+        if (function is IrConstructor) {
+            // The [updateFrom] call will set the modality to FINAL for constructors, while the JVM backend would use OPEN here.
+            modality = Modality.OPEN
+        }
+        origin = when {
+            function.origin == IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER ->
+                JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD
+            function is IrConstructor && function.constructedClass.isInline ->
+                JvmLoweredDeclarationOrigin.STATIC_INLINE_CLASS_CONSTRUCTOR
+            else ->
+                replacementOrigin
         }
         if (noFakeOverride) {
             isFakeOverride = false

@@ -100,7 +100,7 @@
     public protected *;
 }
 
--keep class com.google.common.** { *; }
+-keepclassmembers class com.google.common.** { *; }
 
 -keep class org.jetbrains.kotlin.container.** { *; }
 

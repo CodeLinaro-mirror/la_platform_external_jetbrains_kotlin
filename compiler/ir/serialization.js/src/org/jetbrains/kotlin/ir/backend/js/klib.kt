@@ -310,7 +310,6 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
 ): IrModuleFragment {
     val signaturer = IdSignatureDescriptor(JsManglerDesc)
     val psi2Ir = Psi2IrTranslator(languageVersionSettings, configuration, signaturer)
-    val irProviders = generateTypicalIrProviderList(moduleDescriptor, irBuiltIns, symbolTable)
 
     val extensions = IrGenerationExtension.getInstances(project)
 
