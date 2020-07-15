@@ -92,3 +92,11 @@ rm -rf libraries/tools/kotlin-test-js-runner/node_modules/
 echo "tar'ing result m2.tar"
 tar cf $OUT_DIR/m2.tar -C $OUT_DIR m2
 mv $OUT_DIR/m2.tar $DIST_DIR
+
+readonly GMAVEN_ARTIFACT_NAME=1.4.0-dev-withExperimentalGoogleExtensions-20200714
+pushd "$OUT_DIR/m2/org/jetbrains/kotlin/kotlin-compiler-embeddable"
+$PROG_DIR/dist/kotlinc/bin/kotlinc -script -cp "$PROG_DIR/reversion/lib/jdom2/jdom-2.0.6.jar" "$PROG_DIR/reversion/reversion.kts" . "$R4A_BUILD_NUMBER" "$GMAVEN_ARTIFACT_NAME"
+zip -r "kotlin-compiler-embeddable-$GMAVEN_ARTIFACT_NAME.zip" $GMAVEN_ARTIFACT_NAME
+mv "kotlin-compiler-embeddable-$GMAVEN_ARTIFACT_NAME.zip" "$DIST_DIR"
+popd
+
