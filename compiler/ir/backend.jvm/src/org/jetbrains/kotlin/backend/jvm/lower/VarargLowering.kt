@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 
 val varargPhase = makeIrFilePhase(
@@ -103,7 +102,7 @@ private class VarargLowering(val context: JvmBackendContext) : FileLoweringPass,
         context.createJvmIrBuilder(currentScope!!.scope.scopeOwnerSymbol, startOffset, endOffset)
 
     private val IrFunctionSymbol.isArrayOf: Boolean
-        get() = this.descriptor.name == Name.identifier("arrayOf") || owner.isArrayOf
+        get() = owner.isArrayOf
 
     private val IrFunctionSymbol.isEmptyArray: Boolean
         get() = owner.name.asString() == "emptyArray" &&

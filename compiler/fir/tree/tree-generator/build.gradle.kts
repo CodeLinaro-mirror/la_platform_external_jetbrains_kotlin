@@ -49,12 +49,3 @@ sourceSets {
     }
     "test" {}
 }
-
-allprojects {
-    tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
-        kotlinOptions {
-            freeCompilerArgs += "-Xskip-metadata-version-check"
-        }
-    }
-}
-

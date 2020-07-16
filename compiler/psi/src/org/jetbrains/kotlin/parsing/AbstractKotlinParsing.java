@@ -50,7 +50,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         }
     }
 
-    public final SemanticWhitespaceAwarePsiBuilder myBuilder;
+    protected final SemanticWhitespaceAwarePsiBuilder myBuilder;
 
     public AbstractKotlinParsing(SemanticWhitespaceAwarePsiBuilder builder) {
         this.myBuilder = builder;
@@ -65,11 +65,11 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         return myBuilder.rawLookup(-i);
     }
 
-    public boolean expect(KtToken expectation, String message) {
+    protected boolean expect(KtToken expectation, String message) {
         return expect(expectation, message, null);
     }
 
-    public PsiBuilder.Marker mark() {
+    protected PsiBuilder.Marker mark() {
         return myBuilder.mark();
     }
 
@@ -101,7 +101,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         error(message);
     }
 
-    public void errorWithRecovery(String message, TokenSet recoverySet) {
+    protected void errorWithRecovery(String message, TokenSet recoverySet) {
         IElementType tt = tt();
         if (recoverySet == null ||
             recoverySet.contains(tt) ||
@@ -114,7 +114,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         }
     }
 
-    public void errorAndAdvance(String message) {
+    protected void errorAndAdvance(String message) {
         errorAndAdvance(message, 1);
     }
 
@@ -128,7 +128,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         return myBuilder.eof();
     }
 
-    public void advance() {
+    protected void advance() {
         // TODO: how to report errors on bad characters? (Other than highlighting)
         myBuilder.advanceLexer();
     }
@@ -166,7 +166,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         return false;
     }
 
-    public boolean at(IElementType expectation) {
+    protected boolean at(IElementType expectation) {
         if (_at(expectation)) return true;
         IElementType token = tt();
         if (token == IDENTIFIER && expectation instanceof KtKeywordToken) {
@@ -207,11 +207,11 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         return false;
     }
 
-    public boolean atSet(IElementType... tokens) {
+    protected boolean atSet(IElementType... tokens) {
         return atSet(TokenSet.create(tokens));
     }
 
-    public boolean atSet(TokenSet set) {
+    protected boolean atSet(TokenSet set) {
         if (_atSet(set)) return true;
         IElementType token = tt();
         if (token == IDENTIFIER) {
@@ -233,7 +233,7 @@ import static org.jetbrains.kotlin.lexer.KtTokens.*;
         return false;
     }
 
-    public IElementType lookahead(int k) {
+    protected IElementType lookahead(int k) {
         return myBuilder.lookAhead(k);
     }
 

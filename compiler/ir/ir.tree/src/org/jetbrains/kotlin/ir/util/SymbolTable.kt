@@ -139,11 +139,9 @@ open class SymbolTable(
         inline fun referenced(d: D, orElse: () -> S): S {
             @Suppress("UNCHECKED_CAST")
             val d0 = d.original as D
-            // NOTE(lmr): Inner classes seem to fail this assertion right now. Commenting out
-            // appears to fix, but it is probably not fixing the underlying issue. See b/130241466
-//            assert(d0 === d) {
-//                "Non-original descriptor in declaration: $d\n\tExpected: $d0"
-//            }
+            assert(d0 === d) {
+                "Non-original descriptor in declaration: $d\n\tExpected: $d0"
+            }
             val s = get(d0)
             if (s == null) {
                 val new = orElse()

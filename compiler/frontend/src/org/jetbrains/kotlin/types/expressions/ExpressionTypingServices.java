@@ -15,8 +15,6 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings;
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor;
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor;
 import org.jetbrains.kotlin.descriptors.ScriptDescriptor;
-import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor;
-import org.jetbrains.kotlin.descriptors.impl.SimpleFunctionDescriptorImpl;
 import org.jetbrains.kotlin.lexer.KtTokens;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.psi.psiUtil.PsiUtilsKt;
@@ -34,7 +32,6 @@ import org.jetbrains.kotlin.types.KotlinType;
 import org.jetbrains.kotlin.types.expressions.typeInfoFactory.TypeInfoFactoryKt;
 import org.jetbrains.kotlin.util.slicedMap.WritableSlice;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -43,7 +40,7 @@ import static org.jetbrains.kotlin.types.expressions.CoercionStrategy.COERCION_T
 
 public class ExpressionTypingServices {
 
-    public final ExpressionTypingFacade expressionTypingFacade;
+    private final ExpressionTypingFacade expressionTypingFacade;
     private final ExpressionTypingComponents expressionTypingComponents;
 
     @NotNull private final AnnotationChecker annotationChecker;
@@ -211,7 +208,7 @@ public class ExpressionTypingServices {
 
         return r;
     }
-    
+
     @NotNull
     public KotlinType getBodyExpressionType(
             @NotNull BindingTrace trace,

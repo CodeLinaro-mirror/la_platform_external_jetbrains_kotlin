@@ -28,6 +28,4 @@ public interface ExpressionTypingFacade {
     
     @NotNull
     KotlinTypeInfo getTypeInfo(@NotNull KtExpression expression, ExpressionTypingContext context, boolean isStatement);
-
-    void checkType(@NotNull KtExpression expression, ExpressionTypingContext context);
 }

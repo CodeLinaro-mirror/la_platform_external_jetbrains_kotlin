@@ -139,7 +139,7 @@ private class QualifierScopeTowerProcessor<C : Candidate>(
 }
 
 private class NoExplicitReceiverScopeTowerProcessor<C : Candidate>(
-    val context: CandidateFactory<C>,
+    context: CandidateFactory<C>,
     val collectCandidates: CandidatesCollector
 ) : AbstractSimpleScopeTowerProcessor<C>(context) {
     override fun simpleProcess(data: TowerData): Collection<C> = when (data) {
