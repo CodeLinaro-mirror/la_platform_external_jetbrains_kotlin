@@ -101,3 +101,8 @@ zip -r "kotlin-compiler-embeddable-$GMAVEN_ARTIFACT_NAME.zip" $GMAVEN_ARTIFACT_N
 mv "kotlin-compiler-embeddable-$GMAVEN_ARTIFACT_NAME.zip" "$DIST_DIR"
 popd
 
+cp -r dist/artifacts/ideaPlugin/Kotlin $OUT_DIR/Kotlin
+tar cf $OUT_DIR/Kotlin.tar -C $OUT_DIR Kotlin
+mv $OUT_DIR/Kotlin.tar $DIST_DIR
+
+
