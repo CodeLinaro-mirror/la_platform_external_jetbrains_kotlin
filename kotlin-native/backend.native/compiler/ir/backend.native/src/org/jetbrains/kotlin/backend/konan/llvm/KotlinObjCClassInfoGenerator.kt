@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.konan.llvm
 import llvm.LLVMLinkage
 import llvm.LLVMSetLinkage
 import llvm.LLVMValueRef
+import org.jetbrains.kotlin.backend.common.ir.isFinalClass
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.getAnnotationStringValue
 import org.jetbrains.kotlin.backend.konan.ir.*
@@ -87,7 +88,7 @@ internal class KotlinObjCClassInfoGenerator(override val context: Context) : Con
                 .distinctBy { it.selector }
 
         allInitMethodsInfo.mapTo(this) {
-            ObjCMethodDesc(it.selector, it.encoding, context.llvm.missingInitImp)
+            ObjCMethodDesc(it.selector, it.encoding, context.llvm.missingInitImp.llvmValue)
         }
     }
 
@@ -126,7 +127,7 @@ internal class KotlinObjCClassInfoGenerator(override val context: Context) : Con
                 ObjCMethodDesc(
                         annotation.getAnnotationStringValue("selector"),
                         annotation.getAnnotationStringValue("encoding"),
-                        it.llvmFunction
+                        it.llvmFunction.llvmValue
                 )
             }
 

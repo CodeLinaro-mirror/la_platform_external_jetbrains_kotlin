@@ -4,21 +4,23 @@ plugins {
 }
 
 dependencies {
-    testCompile(projectTests(":compiler"))
+    testApi(projectTests(":compiler"))
+
     testImplementation(projectTests(":compiler:test-infrastructure"))
     testImplementation(projectTests(":compiler:tests-common-new"))
 
-    testCompile(intellijDep()) {
-        includeJars("groovy", "groovy-xml", rootProject = rootProject)
+    testApi(commonDependency("com.google.code.gson:gson"))
+    testApi(commonDependency("org.codehaus.groovy:groovy"))
+    testApi(commonDependency("org.codehaus.groovy:groovy-xml"))
+
+    api("org.jsoup:jsoup:1.14.2")
+
+    if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        testRuntimeOnly(files("${rootProject.projectDir}/dist/kotlinc/lib/kotlin-reflect.jar"))
     }
-    testCompile(intellijDep()) {
-        includeJars("gson", rootProject = rootProject)
-    }
-    testCompileOnly(intellijCoreDep()) { includeJars("intellij-core") }
-    testRuntimeOnly(intellijPluginDep("java"))
-    compile("org.jsoup:jsoup:1.10.3")
-    if (isIdeaActive) testRuntimeOnly(files("${rootProject.projectDir}/dist/kotlinc/lib/kotlin-reflect.jar"))
-    testRuntime(project(":kotlin-reflect"))
+
+    testRuntimeOnly(project(":kotlin-reflect"))
+    testRuntimeOnly(project(":core:descriptors.runtime"))
 
     testApiJUnit5(vintageEngine = true)
 }

@@ -5,19 +5,20 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.isEnumEntryInitializer
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.outerClassSymbol
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.declarations.utils.isEnumClass
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
@@ -71,10 +72,9 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
     // https://youtrack.jetbrains.com/issue/KT-11769
     override fun check(expression: FirQualifiedAccessExpression, context: CheckerContext, reporter: DiagnosticReporter) {
         val source = expression.source ?: return
-        if (source.kind is FirFakeSourceElementKind) return
+        if (source.kind is KtFakeSourceElementKind) return
 
-        val reference = expression.calleeReference as? FirResolvedNamedReference ?: return
-        val calleeSymbol = reference.resolvedSymbol
+        val calleeSymbol = expression.calleeReference.resolvedSymbol ?: return
         val calleeContainingClassSymbol = calleeSymbol.getContainingClassSymbol(context.session) as? FirRegularClassSymbol ?: return
         // We're looking for members/entries/companion object in an enum class or members in companion object of an enum class.
         val calleeIsInsideEnum = calleeContainingClassSymbol.isEnumClass
@@ -108,8 +108,9 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
             it.getContainingClassSymbol(context.session) == enumClassSymbol
         }?.symbol ?: return
 
-        val enumMemberProperties = enumClassSymbol.declarationSymbols.filterIsInstance<FirPropertySymbol>()
-        val enumEntries = enumClassSymbol.declarationSymbols.filterIsInstance<FirEnumEntrySymbol>()
+        val declarationSymbols = enumClassSymbol.declarationSymbols
+        val enumMemberProperties = declarationSymbols.filterIsInstance<FirPropertySymbol>()
+        val enumEntries = declarationSymbols.filterIsInstance<FirEnumEntrySymbol>()
 
         // When checking enum member properties, accesses to enum entries in lazy delegation is legitimate, e.g.,
         //   enum JvmTarget(...) {
@@ -226,7 +227,7 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
             if (property.delegate == null || property.delegate !is FirFunctionCall) return null
             val delegateCall = property.delegate as FirFunctionCall
             val calleeSymbol =
-                (delegateCall.calleeReference as? FirResolvedNamedReference)?.resolvedSymbol as? FirNamedFunctionSymbol ?: return null
+                delegateCall.calleeReference.resolvedSymbol as? FirNamedFunctionSymbol ?: return null
             if (calleeSymbol.callableId.asSingleFqName().asString() != "kotlin.lazy") return null
             val lazyCallArgument = delegateCall.argumentList.arguments.singleOrNull() as? FirLambdaArgumentExpression ?: return null
             return (lazyCallArgument.expression as? FirAnonymousFunctionExpression)?.anonymousFunction

@@ -1,6 +1,5 @@
 // FULL_JDK
-// WITH_RUNTIME
-// IGNORE_BACKEND: WASM
+// WITH_STDLIB
 
 interface Foo {
     val foos: List<Foo>

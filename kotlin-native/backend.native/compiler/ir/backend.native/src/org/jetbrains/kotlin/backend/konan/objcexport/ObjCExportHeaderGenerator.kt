@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.resolve.constants.ArrayValue
 import org.jetbrains.kotlin.resolve.constants.KClassValue
-import org.jetbrains.kotlin.resolve.deprecation.Deprecation
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.resolve.descriptorUtil.*
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
@@ -644,7 +644,7 @@ internal class ObjCExportTranslatorImpl(
                         }
                     }
                     MethodBridgeValueParameter.ErrorOutParameter -> "error"
-                    MethodBridgeValueParameter.SuspendCompletion -> "completionHandler"
+                    is MethodBridgeValueParameter.SuspendCompletion -> "completionHandler"
                 }
 
                 val uniqueName = unifyName(candidateName, usedNames)
@@ -655,14 +655,18 @@ internal class ObjCExportTranslatorImpl(
                     MethodBridgeValueParameter.ErrorOutParameter ->
                         ObjCPointerType(ObjCNullableReferenceType(ObjCClassType("NSError")), nullable = true)
 
-                    MethodBridgeValueParameter.SuspendCompletion -> {
-                        val resultType = when (val it = mapReferenceType(method.returnType!!, objCExportScope)) {
-                            is ObjCNonNullReferenceType -> ObjCNullableReferenceType(it, isNullableResult = false)
-                            is ObjCNullableReferenceType -> ObjCNullableReferenceType(it.nonNullType, isNullableResult = true)
+                    is MethodBridgeValueParameter.SuspendCompletion -> {
+                        val resultType = if (bridge.useUnitCompletion) {
+                            null
+                        } else {
+                            when (val it = mapReferenceType(method.returnType!!, objCExportScope)) {
+                                is ObjCNonNullReferenceType -> ObjCNullableReferenceType(it, isNullableResult = false)
+                                is ObjCNullableReferenceType -> ObjCNullableReferenceType(it.nonNullType, isNullableResult = true)
+                            }
                         }
                         ObjCBlockPointerType(
                                 returnType = ObjCVoidType,
-                                parameterTypes = listOf(
+                                parameterTypes = listOfNotNull(
                                         resultType,
                                         ObjCNullableReferenceType(ObjCClassType("NSError"))
                                 )
@@ -1339,7 +1343,7 @@ internal fun ClassDescriptor.needCompanionObjectProperty(namer: ObjCExportNamer,
 }
 
 
-private fun Deprecation.toDeprecationAttribute(): String {
+private fun DeprecationInfo.toDeprecationAttribute(): String {
     val attribute = when (deprecationLevel) {
         DeprecationLevelValue.WARNING -> "deprecated"
         DeprecationLevelValue.ERROR, DeprecationLevelValue.HIDDEN -> "unavailable"

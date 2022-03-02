@@ -36,7 +36,7 @@ sourceSets {
 compileCompilerKotlin {
     kotlinOptions.jvmTarget = "1.8"
     kotlinOptions.allWarningsAsErrors=true
-    kotlinOptions.freeCompilerArgs += ['-Xopt-in=kotlin.RequiresOptIn', '-Xopt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI', '-Xskip-prerelease-check']
+    kotlinOptions.freeCompilerArgs += ['-opt-in=kotlin.RequiresOptIn', '-opt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI', '-Xskip-prerelease-check']
 }
 
 compileCli_bcKotlin {
@@ -73,17 +73,12 @@ configurations {
     kotlin_reflect_jar
     kotlin_script_runtime_jar
     trove4j_jar
-    kotlinCommonSources
 
-    cli_bcRuntime {
-        extendsFrom compilerRuntime
-        extendsFrom kotlin_script_runtime_jar
+    cli_bcApiElements {
+        extendsFrom cli_bcApi
     }
 
-    cli_bc {
-        extendsFrom cli_bcRuntime
-    }
-    cli_bcCompile.extendsFrom compilerCompile
+    cli_bcApi.extendsFrom compilerApi
 }
 
 dependencies {
@@ -93,127 +88,38 @@ dependencies {
     kotlin_reflect_jar kotlinReflectModule
     kotlin_script_runtime_jar project(":kotlin-script-runtime")
 
-    [kotlinCommonStdlibModule, kotlinTestCommonModule, kotlinTestAnnotationsCommonModule].each {
-        kotlinCommonSources(it) { transitive = false }
+    compilerApi project(":kotlin-native:utilities:basic-utils")
+
+    compilerApi project(kotlinCompilerModule)
+    compilerApi project(":native:kotlin-native-utils")
+    compilerApi project(":core:descriptors")
+    compilerApi project(":compiler:ir.tree")
+    compilerApi project(":compiler:ir.tree.impl")
+    compilerApi project(":compiler:ir.backend.common")
+    compilerApi project(":compiler:util")
+    compilerApi project(":native:frontend.native")
+    compilerApi project(":compiler:cli-common")
+    compilerApi project(":compiler:cli")
+    compilerApi project(":kotlin-util-klib")
+    compilerApi project(":kotlin-util-klib-metadata")
+    compilerApi project(":compiler:ir.serialization.common")
+    compilerApi project(":compiler:ir.psi2ir")
+    use(IntellijDependenciesKt) {
+        compilerApi(intellijCore())
+        compileOnly(jpsModel())
     }
 
-    compilerCompile project(":kotlin-native:utilities:basic-utils")
-
-    compilerCompile project(kotlinCompilerModule)
-    compilerCompile project(":native:kotlin-native-utils")
-    compilerCompile project(":core:descriptors")
-    compilerCompile project(":compiler:ir.tree")
-    compilerCompile project(":compiler:ir.tree.impl")
-    compilerCompile project(":compiler:ir.backend.common")
-    compilerCompile project(":compiler:util")
-    compilerCompile project(":native:frontend.native")
-    compilerCompile project(":compiler:cli-common")
-    compilerCompile project(":compiler:cli")
-    compilerCompile project(":kotlin-util-klib")
-    compilerCompile project(":kotlin-util-klib-metadata")
-    compilerCompile project(":compiler:ir.serialization.common")
-    compilerCompile project(":compiler:ir.psi2ir")
-    use(LocalDependenciesKt) {
-        compilerCompile(intellijCoreDep()){
-            artifact {
-                name = "intellij-core"
-                type = "jar"
-            }
-        }
-        compilerCompile(intellijDep()){
-            artifact {
-                name = "util"
-                type = "jar"
-                //extention = "jar"
-            }
-        }
-        compileOnly(jpsStandalone())
-    }
-
-    compilerCompile kotlinNativeInterop['llvm'].configuration
-    compilerCompile kotlinNativeInterop['files'].configuration
+    compilerApi kotlinNativeInterop['llvm'].configuration
+    compilerApi kotlinNativeInterop['files'].configuration
 
 
-    cli_bcCompile sourceSets.compiler.output
+    cli_bcApi sourceSets.compiler.output
 
-    cli_bc sourceSets.cli_bc.output
+    cli_bcApiElements sourceSets.cli_bc.output
 }
 
 
 classes.dependsOn 'compilerClasses', 'cli_bcClasses'
-
-
-// These are just a couple of aliases
-task stdlib(dependsOn: "${hostName}Stdlib")
-
-def commonSrc = project(":kotlin-stdlib-common").files("src/kotlin", "src/generated", "../unsigned/src", "../src").files
-
-def interopRuntimeCommonSrc = project(':kotlin-native:Interop:Runtime').file('src/main/kotlin')
-
-final List<File> stdLibSrc = [
-        interopRuntimeCommonSrc,
-        project(':kotlin-native:Interop:Runtime').file('src/native/kotlin'),
-        project(':kotlin-native:Interop:JsRuntime').file('src/main/kotlin'),
-        project(':kotlin-native:runtime').file('src/main/kotlin')
-]
-
-// These files are built before the 'dist' is complete,
-// so we provide a custom value for --runtime
-
-targetList.each { target ->
-    def konanJvmArgs =  [*HostManager.regularJvmArgs]
-
-    def defaultArgs = ['-nopack', '-nostdlib', '-no-default-libs', '-no-endorsed-libs',
-                       //Uncomment this '-Werror' when common stdlib will be ready
-    ]
-    if (target != "wasm32") defaultArgs += '-g'
-    def konanArgs = [*defaultArgs,
-                     '-target', target,
-                     "-Xruntime=${project(':kotlin-native:runtime').file('build/bitcode/main/' + target + '/runtime.bc')}",
-                     *project.globalBuildArgs]
-
-    task("${target}Stdlib", type: JavaExec) {
-        main = 'org.jetbrains.kotlin.cli.bc.K2NativeKt'
-        // This task depends on distCompiler, so the compiler jar is already in the dist directory.
-        classpath = fileTree("${UtilsKt.getKotlinNativeDist(project)}/konan/lib") {
-            include "*.jar"
-        }
-        systemProperties "konan.home": UtilsKt.getKotlinNativeDist(project)
-        jvmArgs = konanJvmArgs
-        def testAnnotationCommon = project(":kotlin-test:kotlin-test-annotations-common").files("src/main/kotlin").files
-        def testCommon = project(":kotlin-test:kotlin-test-common").files("src/main/kotlin").files
-        args = [*konanArgs,
-                '-output', project(':kotlin-native:runtime').file("build/${target}Stdlib"),
-                '-produce', 'library', '-module-name', 'stdlib',
-                '-Xmulti-platform', '-Xopt-in=kotlin.RequiresOptIn',
-                '-Xopt-in=kotlin.contracts.ExperimentalContracts',
-                '-Xopt-in=kotlin.ExperimentalMultiplatform',
-                '-Xopt-in=kotlin.native.internal.InternalForKotlinNative',
-                '-Xopt-in=kotlin.native.SymbolNameIsDeprecated',
-                *commonSrc.toList(),
-                *testAnnotationCommon.toList(),
-                *testCommon.toList(),
-                "-Xcommon-sources=${commonSrc.join(',')}",
-                "-Xcommon-sources=${testAnnotationCommon.join(',')}",
-                "-Xcommon-sources=${testCommon.join(',')}",
-                "-Xcommon-sources=$interopRuntimeCommonSrc",
-                *stdLibSrc]
-        stdLibSrc.forEach { inputs.dir(it) }
-        commonSrc.forEach{
-            inputs.dir(it)
-        }
-        outputs.dir(project(':kotlin-native:runtime').file("build/${target}Stdlib"))
-
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
-        dependsOn ":kotlin-native:distCompiler"
-    }
-}
-
-task run {
-    doLast {
-        logger.quiet("Run the outer project 'demo' target to compile the test source.")
-    }
-}
 
 jar {
     from sourceSets.cli_bc.output,
@@ -238,6 +144,7 @@ task trove4jCopy(type: Copy) {
 externalJars.each { arg ->
     def jar = arg.replace('_', '-') // :(
     task("${arg}Copy", type: Copy) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         from configurations.getByName("kotlin_${arg}_jar") {
             include "kotlin-${jar}*.jar"
             rename "kotlin-${jar}(.*).jar", "kotlin-${jar}.jar"

@@ -1,8 +1,11 @@
-// IGNORE_BACKEND: WASM
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 // MODULE: lib
 // FILE: lib.kt
 
-inline class Z private constructor(private val value: Any?) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Z private constructor(private val value: Any?) {
     fun result(): String = value as String
 
     companion object {

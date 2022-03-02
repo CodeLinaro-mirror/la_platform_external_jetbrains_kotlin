@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -50,7 +50,7 @@ class FirScopeDumpHandler(testServices: TestServices) : FirAnalysisHandler(testS
 
     private fun SmartPrinter.processClass(fqName: String, session: FirSession, scopeSession: ScopeSession, module: TestModule) {
         val classId = ClassId.topLevel(FqName.fromSegments(fqName.split(".")))
-        val symbol = session.symbolProvider.getClassLikeSymbolByFqName(classId) ?: assertions.fail {
+        val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId) ?: assertions.fail {
             "Class $fqName not found in module ${module.name}"
         }
         val firClass = symbol.fir as? FirRegularClass ?: assertions.fail { "$fqName is not a class but ${symbol.fir.render()}" }

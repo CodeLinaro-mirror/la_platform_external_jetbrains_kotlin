@@ -27,7 +27,9 @@ import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.ResultingArtifact
+import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerTest
+import org.jetbrains.kotlin.test.utils.TransformersFunctions.Android
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JvmEnvironmentConfigurator
@@ -60,7 +62,7 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
     private val COMMON = FlavorConfig(TargetBackend.ANDROID,"common", 3)
     private val REFLECT = FlavorConfig(TargetBackend.ANDROID, "reflect", 1)
 
-    private val COMMON_IR = FlavorConfig(TargetBackend.ANDROID_IR, "common_ir", 3)
+    private val COMMON_IR = FlavorConfig(TargetBackend.ANDROID_IR, "common_ir", 4)
     private val REFLECT_IR = FlavorConfig(TargetBackend.ANDROID_IR,"reflect_ir", 1)
 
     class FlavorConfig(private val backend: TargetBackend, private val prefix: String, val limit: Int) {
@@ -412,6 +414,13 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
         useAdditionalService<TemporaryDirectoryManager>(::TemporaryDirectoryManagerImpl)
         useSourcePreprocessor(*AbstractKotlinCompilerTest.defaultPreprocessors.toTypedArray())
         useDirectives(*AbstractKotlinCompilerTest.defaultDirectiveContainers.toTypedArray())
+        class AndroidTransformingPreprocessor(testServices: TestServices) : SourceFilePreprocessor(testServices) {
+            override fun process(file: TestFile, content: String): String {
+                val transformers = Android.forAll + (Android.forSpecificFile[file.originalFile]?.let { listOf(it) } ?: emptyList())
+                return transformers.fold(content) { text, transformer -> transformer(text) }
+            }
+        }
+        useSourcePreprocessor({ AndroidTransformingPreprocessor(it) })
     }
 
     companion object {

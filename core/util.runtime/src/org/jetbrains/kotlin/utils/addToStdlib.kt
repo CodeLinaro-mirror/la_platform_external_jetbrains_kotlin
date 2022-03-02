@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.utils.addToStdlib
 
+import org.jetbrains.kotlin.utils.IDEAPlatforms
+import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
 import java.lang.reflect.Modifier
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -99,12 +101,29 @@ fun String.indexOfOrNull(char: Char, startIndex: Int = 0, ignoreCase: Boolean = 
 fun String.lastIndexOfOrNull(char: Char, startIndex: Int = lastIndex, ignoreCase: Boolean = false): Int? =
     lastIndexOf(char, startIndex, ignoreCase).takeIf { it >= 0 }
 
-@Deprecated(
+@IDEAPluginsCompatibilityAPI(
+    IDEAPlatforms._211,
+    IDEAPlatforms._212,
+    IDEAPlatforms._213,
     message = "Use firstNotNullOfOrNull from stdlib instead",
-    replaceWith = ReplaceWith("firstNotNullOfOrNull(transform)"),
-    level = DeprecationLevel.ERROR
+    plugins = "Android plugin in the IDEA, kotlin-ultimate.kotlin-ocswift"
 )
 inline fun <T, R : Any> Iterable<T>.firstNotNullResult(transform: (T) -> R?): R? {
+    for (element in this) {
+        val result = transform(element)
+        if (result != null) return result
+    }
+    return null
+}
+
+@IDEAPluginsCompatibilityAPI(
+    IDEAPlatforms._211,
+    IDEAPlatforms._212,
+    IDEAPlatforms._213,
+    message = "Use firstNotNullOfOrNull from stdlib instead",
+    plugins = "Android plugin in the IDEA"
+)
+inline fun <T, R : Any> Array<T>.firstNotNullResult(transform: (T) -> R?): R? {
     for (element in this) {
         val result = transform(element)
         if (result != null) return result
@@ -185,6 +204,20 @@ inline fun <K, V, VA : V> MutableMap<K, V>.getOrPut(key: K, defaultValue: (K) ->
     }
 }
 
+fun <T> Set<T>.compactIfPossible(): Set<T> =
+    when (size) {
+        0 -> emptySet()
+        1 -> setOf(single())
+        else -> this
+    }
+
+fun <K, V> Map<K, V>.compactIfPossible(): Map<K, V> =
+    when (size) {
+        0 -> emptyMap()
+        1 -> Collections.singletonMap(keys.single(), values.single())
+        else -> this
+    }
+
 inline fun <T> T.applyIf(`if`: Boolean, body: T.() -> T): T =
     if (`if`) body() else this
 
@@ -194,3 +227,30 @@ inline fun <T> Boolean.ifTrue(body: () -> T?): T? =
 
 inline fun <T> Boolean.ifFalse(body: () -> T?): T? =
     if (!this) body() else null
+
+inline fun <T, K> List<T>.flatGroupBy(keySelector: (T) -> Collection<K>): Map<K, List<T>> {
+    return flatGroupBy(keySelector, keyTransformer = { it }, valueTransformer = { it })
+}
+
+inline fun <T, U, K, V> List<T>.flatGroupBy(
+    keySelector: (T) -> Collection<U>,
+    keyTransformer: (U) -> K,
+    valueTransformer: (T) -> V
+): Map<K, List<V>> {
+    val result = mutableMapOf<K, MutableList<V>>()
+    for (element in this) {
+        val keys = keySelector(element)
+        val value = valueTransformer(element)
+        for (key in keys) {
+            val transformedKey = keyTransformer(key)
+            // Map.computeIfAbsent is missing in JDK 1.6
+            var list = result[transformedKey]
+            if (list == null) {
+                list = mutableListOf()
+                result[transformedKey] = list
+            }
+            list += value
+        }
+    }
+    return result
+}

@@ -1,7 +1,10 @@
 // IGNORE_BACKEND: JVM
-// WITH_RUNTIME
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class StringArray(val values: Array<String>)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class StringArray(val values: Array<String>)
 
 fun foo(a1: StringArray, a2: StringArray): String {
     var result = ""

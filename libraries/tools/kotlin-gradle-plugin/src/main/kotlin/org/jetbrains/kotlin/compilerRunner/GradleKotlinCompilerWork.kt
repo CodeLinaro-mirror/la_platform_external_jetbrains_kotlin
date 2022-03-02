@@ -21,7 +21,8 @@ import org.jetbrains.kotlin.gradle.report.*
 import org.jetbrains.kotlin.gradle.report.TaskExecutionInfo
 import org.jetbrains.kotlin.gradle.report.TaskExecutionProperties.ABI_SNAPSHOT
 import org.jetbrains.kotlin.gradle.report.TaskExecutionResult
-import org.jetbrains.kotlin.gradle.tasks.clearLocalState
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
+import org.jetbrains.kotlin.gradle.tasks.cleanOutputsAndLocalState
 import org.jetbrains.kotlin.gradle.tasks.throwGradleExceptionIfError
 import org.jetbrains.kotlin.gradle.utils.stackTraceAsString
 import org.jetbrains.kotlin.incremental.ChangedFiles
@@ -68,7 +69,8 @@ internal class GradleKotlinCompilerWorkArguments(
     val reportingSettings: ReportingSettings,
     val kotlinScriptExtensions: Array<String>,
     val allWarningsAsErrors: Boolean,
-    val daemonJvmArgs: List<String>?
+    val daemonJvmArgs: List<String>?,
+    val compilerExecutionStrategy: KotlinCompilerExecutionStrategy,
 ) : Serializable {
     companion object {
         const val serialVersionUID: Long = 0
@@ -85,14 +87,6 @@ internal class GradleKotlinCompilerWork @Inject constructor(
      */
     config: GradleKotlinCompilerWorkArguments
 ) : Runnable {
-
-    companion object {
-        init {
-            if (System.getProperty("org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.trace.loading") == "true") {
-                println("Loaded GradleKotlinCompilerWork")
-            }
-        }
-    }
 
     private val projectRootFile = config.projectFiles.projectRootFile
     private val clientIsAliveFlagFile = config.projectFiles.clientIsAliveFlagFile
@@ -112,6 +106,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
     private val metrics = if (reportingSettings.reportMetrics) BuildMetricsReporterImpl() else DoNothingBuildMetricsReporter
     private var icLogLines: List<String> = emptyList()
     private val daemonJvmArgs = config.daemonJvmArgs
+    private val compilerExecutionStrategy = config.compilerExecutionStrategy
 
     private val log: KotlinLogger =
         TaskLoggers.get(taskPath)?.let { GradleKotlinLogger(it).apply { debug("Using '$taskPath' logger") } }
@@ -163,8 +158,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
             kotlinDebug { "$taskPath Kotlin compiler args: ${compilerArgs.joinToString(" ")}" }
         }
 
-        val executionStrategy = kotlinCompilerExecutionStrategy()
-        if (executionStrategy == DAEMON_EXECUTION_STRATEGY) {
+        if (compilerExecutionStrategy == KotlinCompilerExecutionStrategy.DAEMON) {
             val daemonExitCode = compileWithDaemon(messageCollector)
 
             if (daemonExitCode != null) {
@@ -175,7 +169,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
         }
 
         val isGradleDaemonUsed = System.getProperty("org.gradle.daemon")?.let(String::toBoolean)
-        return if (executionStrategy == IN_PROCESS_EXECUTION_STRATEGY || isGradleDaemonUsed == false) {
+        return if (compilerExecutionStrategy == KotlinCompilerExecutionStrategy.IN_PROCESS || isGradleDaemonUsed == false) {
             compileInProcess(messageCollector)
         } else {
             compileOutOfProcess()
@@ -250,7 +244,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
         } catch (e: RemoteException) {
             log.warn("Unable to clear jar cache after compilation, maybe daemon is already down: $e")
         }
-        log.logFinish(DAEMON_EXECUTION_STRATEGY)
+        log.logFinish(KotlinCompilerExecutionStrategy.DAEMON)
         return exitCode
     }
 
@@ -319,7 +313,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
 
     private fun compileOutOfProcess(): ExitCode {
         metrics.addAttribute(BuildAttribute.OUT_OF_PROCESS_EXECUTION)
-        clearLocalState(outputFiles, log, metrics, reason = "out-of-process execution strategy is non-incremental")
+        cleanOutputsAndLocalState(outputFiles, log, metrics, reason = "out-of-process execution strategy is non-incremental")
 
         return metrics.measure(BuildTime.NON_INCREMENTAL_COMPILATION_OUT_OF_PROCESS) {
             runToolInSeparateProcess(compilerArgs, compilerClassName, compilerFullClasspath, log, buildDir)
@@ -328,7 +322,7 @@ internal class GradleKotlinCompilerWork @Inject constructor(
 
     private fun compileInProcess(messageCollector: MessageCollector): ExitCode {
         metrics.addAttribute(BuildAttribute.IN_PROCESS_EXECUTION)
-        clearLocalState(outputFiles, log, metrics, reason = "in-process execution strategy is non-incremental")
+        cleanOutputsAndLocalState(outputFiles, log, metrics, reason = "in-process execution strategy is non-incremental")
 
         metrics.startMeasure(BuildTime.NON_INCREMENTAL_COMPILATION_IN_PROCESS, System.nanoTime())
         // in-process compiler should always be run in a different thread
@@ -372,7 +366,16 @@ internal class GradleKotlinCompilerWork @Inject constructor(
             stream,
             exitCode
         )
-        log.logFinish(IN_PROCESS_EXECUTION_STRATEGY)
+        try {
+            metrics.measure(BuildTime.CLEAR_JAR_CACHE) {
+                val coreEnvironment = Class.forName("org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment", true, classLoader)
+                val dispose = coreEnvironment.getMethod("disposeApplicationEnvironment")
+                dispose.invoke(null)
+            }
+        } catch (e: Throwable) {
+            log.warn("Unable to clear jar cache after in-process compilation: $e")
+        }
+        log.logFinish(KotlinCompilerExecutionStrategy.IN_PROCESS)
         return exitCode
     }
 

@@ -44,6 +44,7 @@ internal abstract class KotlinJvmOptionsBase : org.jetbrains.kotlin.gradle.dsl.K
             javaParametersField = value
         }
 
+    @Deprecated(message = "This option is not working well with Gradle caching and will be removed in the future.", level = DeprecationLevel.WARNING)
     override var jdkHome: kotlin.String? = null
 
     internal var jvmTargetField: kotlin.String? = null

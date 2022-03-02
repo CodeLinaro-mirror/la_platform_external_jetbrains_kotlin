@@ -5,12 +5,27 @@
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.testing.native.*
 import org.jetbrains.kotlin.bitcode.CompileToBitcode
-import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
+import org.jetbrains.kotlin.gradle.plugin.konan.tasks.KonanCacheTask
+import org.jetbrains.kotlin.konan.properties.loadProperties
+import org.jetbrains.kotlin.konan.properties.saveProperties
 import org.jetbrains.kotlin.konan.target.*
+import org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS
+import org.jetbrains.kotlin.konan.target.Architecture as TargetArchitecture
+import org.jetbrains.kotlin.konan.file.File as KFile
+
+// These properties are used by the 'konan' plugin, thus we set them before applying it.
+val distDir: File by project
+val konanHome: String by extra(distDir.absolutePath)
+extra["org.jetbrains.kotlin.native.home"] = konanHome
 
 plugins {
     id("compile-to-bitcode")
     id("runtime-testing")
+    id("konan")
+}
+
+if (HostManager.host == KonanTarget.MACOS_ARM64) {
+    project.configureJvmToolchain(JdkMajorVersion.JDK_17)
 }
 
 googletest {
@@ -32,25 +47,28 @@ bitcode {
             "${target}StdAlloc",
             "${target}OptAlloc",
             "${target}Mimalloc",
+            "${target}Libbacktrace",
             "${target}Launcher",
             "${target}Debug",
-            "${target}Release",
+            "${target}SourceInfoCoreSymbolication",
+            "${target}SourceInfoLibbacktrace",
             "${target}Strict",
             "${target}Relaxed",
             "${target}ProfileRuntime",
             "${target}Objc",
             "${target}ExceptionsSupport",
             "${target}LegacyMemoryManager",
-            "${target}ExperimentalMemoryManagerNoop",
-            "${target}ExperimentalMemoryManagerStms",
+            "${target}ExperimentalMemoryManager",
             "${target}CommonGc",
             "${target}SameThreadMsGc",
+            "${target}ConcurrentMsGc",
             "${target}NoopGc"
         )
         includeRuntime()
     }
 
     create("mimalloc") {
+        val srcRoot = file("src/mimalloc")
         language = CompileToBitcode.Language.C
         includeFiles = listOf("**/*.c")
         excludeFiles += listOf("**/alloc-override*.c", "**/page-queue.c", "**/static.c", "**/bitmap.inc.c")
@@ -58,10 +76,51 @@ bitcode {
         compilerArgs.addAll(listOf("-DKONAN_MI_MALLOC=1", "-Wno-unknown-pragmas", "-ftls-model=initial-exec",
                 "-Wno-unused-function", "-Wno-error=atomic-alignment",
                 "-Wno-unused-parameter" /* for windows 32*/))
+        extraSanitizerArgs[SanitizerKind.THREAD] = listOf("-DMI_TSAN=1")
         headersDirs = files("$srcRoot/c/include")
 
         onlyIf { targetSupportsMimallocAllocator(target) }
     }
+
+    create("libbacktrace") {
+        val srcRoot = file("src/libbacktrace")
+        val targetInfo = HostManager().targetByName(target)
+        language = CompileToBitcode.Language.C
+        val useMachO = targetInfo.family.isAppleFamily
+        val useElf = targetInfo.family in listOf(Family.LINUX, Family.ANDROID)
+        includeFiles = listOfNotNull(
+                "atomic.c",
+                "backtrace.c",
+                "dwarf.c",
+                "elf.c".takeIf { useElf },
+                "fileline.c",
+                "macho.c".takeIf { useMachO },
+                "mmap.c",
+                "mmapio.c",
+                "posix.c",
+                "print.c",
+                "simple.c",
+                "sort.c",
+                "state.c"
+        )
+        srcDirs = files("$srcRoot/c")
+        val elfSize = when (targetInfo.architecture) {
+            TargetArchitecture.X64, TargetArchitecture.ARM64 -> 64
+            TargetArchitecture.X86, TargetArchitecture.ARM32,
+            TargetArchitecture.MIPS32, TargetArchitecture.MIPSEL32,
+            TargetArchitecture.WASM32 -> 32
+        }
+        compilerArgs.addAll(listOfNotNull(
+                "-funwind-tables",
+                "-W", "-Wall", "-Wwrite-strings", "-Wstrict-prototypes", "-Wmissing-prototypes",
+                "-Wold-style-definition", "-Wmissing-format-attribute", "-Wcast-qual", "-O2",
+                "-DBACKTRACE_ELF_SIZE=$elfSize".takeIf { useElf }, "-Wno-atomic-alignment"
+        ))
+        headersDirs = files("$srcRoot/c/include")
+
+        onlyIf { targetSupportsLibBacktrace(target) }
+    }
+
 
     create("launcher") {
         includeRuntime()
@@ -78,8 +137,14 @@ bitcode {
         includeRuntime()
     }
 
-    create("release") {
+    create("source_info_core_symbolication", file("src/source_info/core_symbolication")) {
         includeRuntime()
+        onlyIf { targetSupportsCoreSymbolication(target) }
+    }
+    create("source_info_libbacktrace", file("src/source_info/libbacktrace")) {
+        includeRuntime()
+        headersDirs += files("src/libbacktrace/c/include")
+        onlyIf { targetSupportsLibBacktrace(target) }
     }
 
     create("strict") {
@@ -106,13 +171,8 @@ bitcode {
         includeRuntime()
     }
 
-    create("experimental_memory_manager_noop", file("src/mm")) {
-        headersDirs += files("src/gc/noop/cpp", "src/gc/common/cpp")
-        includeRuntime()
-    }
-
-    create("experimental_memory_manager_stms", file("src/mm")) {
-        headersDirs += files("src/gc/stms/cpp", "src/gc/common/cpp")
+    create("experimental_memory_manager", file("src/mm")) {
+        headersDirs += files("src/gc/common/cpp")
         includeRuntime()
     }
 
@@ -130,6 +190,13 @@ bitcode {
         headersDirs += files("src/gc/stms/cpp", "src/gc/common/cpp", "src/mm/cpp")
         includeRuntime()
     }
+
+    create("concurrent_ms_gc", file("src/gc/cms")) {
+        headersDirs += files("src/gc/cms/cpp", "src/gc/common/cpp", "src/mm/cpp")
+        includeRuntime()
+
+        onlyIf { targetSupportsThreads(target) }
+    }
 }
 
 targetList.forEach { targetName ->
@@ -143,7 +210,6 @@ targetList.forEach { targetName ->
                 "${targetName}Runtime",
                 "${targetName}LegacyMemoryManager",
                 "${targetName}Strict",
-                "${targetName}Release",
                 "${targetName}StdAlloc",
                 "${targetName}Objc"
             )
@@ -159,7 +225,6 @@ targetList.forEach { targetName ->
                 "${targetName}Runtime",
                 "${targetName}LegacyMemoryManager",
                 "${targetName}Strict",
-                "${targetName}Release",
                 "${targetName}Mimalloc",
                 "${targetName}OptAlloc",
                 "${targetName}Objc"
@@ -174,10 +239,9 @@ targetList.forEach { targetName ->
             "${targetName}ExperimentalMMMimallocRuntimeTests",
             listOf(
                 "${targetName}Runtime",
-                "${targetName}ExperimentalMemoryManagerStms",
+                "${targetName}ExperimentalMemoryManager",
                 "${targetName}CommonGc",
                 "${targetName}SameThreadMsGc",
-                "${targetName}Release",
                 "${targetName}Mimalloc",
                 "${targetName}OptAlloc",
                 "${targetName}Objc"
@@ -193,10 +257,9 @@ targetList.forEach { targetName ->
             "${targetName}ExperimentalMMStdAllocRuntimeTests",
             listOf(
                 "${targetName}Runtime",
-                "${targetName}ExperimentalMemoryManagerStms",
+                "${targetName}ExperimentalMemoryManager",
                 "${targetName}CommonGc",
                 "${targetName}SameThreadMsGc",
-                "${targetName}Release",
                 "${targetName}StdAlloc",
                 "${targetName}Objc"
             )
@@ -208,13 +271,47 @@ targetList.forEach { targetName ->
     allTests.addAll(createTestTasks(
             project,
             targetName,
+            "${targetName}ExperimentalMMCmsMimallocRuntimeTests",
+            listOf(
+                    "${targetName}Runtime",
+                    "${targetName}ExperimentalMemoryManager",
+                    "${targetName}CommonGc",
+                    "${targetName}ConcurrentMsGc",
+                    "${targetName}Mimalloc",
+                    "${targetName}OptAlloc",
+                    "${targetName}Objc"
+            )
+    ) {
+        headersDirs += files("src/gc/cms/cpp", "src/gc/common/cpp", "src/mm/cpp")
+        includeRuntime()
+    })
+
+    allTests.addAll(createTestTasks(
+            project,
+            targetName,
+            "${targetName}ExperimentalMMCmsStdAllocRuntimeTests",
+            listOf(
+                    "${targetName}Runtime",
+                    "${targetName}ExperimentalMemoryManager",
+                    "${targetName}CommonGc",
+                    "${targetName}ConcurrentMsGc",
+                    "${targetName}StdAlloc",
+                    "${targetName}Objc"
+            )
+    ) {
+        headersDirs += files("src/gc/cms/cpp", "src/gc/common/cpp", "src/mm/cpp")
+        includeRuntime()
+    })
+
+    allTests.addAll(createTestTasks(
+            project,
+            targetName,
             "${targetName}ExperimentalMMNoOpMimallocRuntimeTests",
             listOf(
                 "${targetName}Runtime",
-                "${targetName}ExperimentalMemoryManagerNoop",
+                "${targetName}ExperimentalMemoryManager",
                 "${targetName}CommonGc",
                 "${targetName}NoopGc",
-                "${targetName}Release",
                 "${targetName}Mimalloc",
                 "${targetName}OptAlloc",
                 "${targetName}Objc"
@@ -230,10 +327,9 @@ targetList.forEach { targetName ->
             "${targetName}ExperimentalMMNoOpStdAllocRuntimeTests",
             listOf(
                 "${targetName}Runtime",
-                "${targetName}ExperimentalMemoryManagerNoop",
+                "${targetName}ExperimentalMemoryManager",
                 "${targetName}CommonGc",
                 "${targetName}NoopGc",
-                "${targetName}Release",
                 "${targetName}StdAlloc",
                 "${targetName}Objc"
             )
@@ -272,7 +368,7 @@ val hostExperimentalMMMimallocRuntimeTests by tasks.registering {
     dependsOn("${hostName}ExperimentalMMMimallocRuntimeTests")
 }
 
-val assemble by tasks.registering {
+val assemble by tasks.getting {
     dependsOn(tasks.withType(CompileToBitcode::class).matching {
         it.outputGroup == "main"
     })
@@ -284,7 +380,7 @@ val hostAssemble by tasks.registering {
     })
 }
 
-val clean by tasks.registering {
+val clean by tasks.getting {
     doFirst {
         delete(buildDir)
     }
@@ -316,3 +412,112 @@ val generateJsMath by tasks.registering {
         mathJs.appendText(generated.readText())
     }
 }
+
+// region: Stdlib
+
+val commonStdlibSrcDirs = project(":kotlin-stdlib-common")
+        .files(
+                "src/kotlin",
+                "src/generated",
+                "../unsigned/src",
+                "../src"
+        ).files
+val commonBuiltinsSrc = listOf(
+        "Progressions.kt", "ProgressionIterators.kt", "Range.kt", "Ranges.kt", "internal/progressionUtil.kt")
+        .map { "src/kotlin/$it" }
+        .let {
+            project(":core:builtins").files(it).files
+        }
+
+val interopRuntimeCommonSrcDir = project(":kotlin-native:Interop:Runtime").file("src/main/kotlin")
+val interopSrcDirs = listOf(
+        project(":kotlin-native:Interop:Runtime").file("src/native/kotlin"),
+        project(":kotlin-native:Interop:JsRuntime").file("src/main/kotlin")
+)
+
+val testAnnotationCommonSrcDir = project(":kotlin-test:kotlin-test-annotations-common").files("src/main/kotlin").files
+val testCommonSrcDir = project(":kotlin-test:kotlin-test-common").files("src/main/kotlin").files
+
+val stdLibSrcDirs =  interopSrcDirs + listOf(
+        project.file("src/main/kotlin"),
+        project(":kotlin-stdlib-common").file("../native-wasm/src/")
+)
+
+lateinit var stdlibBuildTask: TaskProvider<Task>
+
+konanArtifacts {
+    library("stdlib") {
+        baseDir(project.buildDir.resolve("stdlib"))
+
+        enableMultiplatform(true)
+        noStdLib(true)
+        noPack(true)
+        noDefaultLibs(true)
+        noEndorsedLibs(true)
+
+        extraOpts(project.globalBuildArgs)
+        extraOpts(
+                "-Werror",
+                "-module-name", "stdlib",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlin.contracts.ExperimentalContracts",
+                "-opt-in=kotlin.ExperimentalMultiplatform",
+                "-opt-in=kotlin.native.internal.InternalForKotlinNative",
+        )
+
+        srcFiles(commonBuiltinsSrc)
+        commonStdlibSrcDirs.forEach { commonSrcDir(it) }
+        testAnnotationCommonSrcDir.forEach { commonSrcDir(it) }
+        testCommonSrcDir.forEach { commonSrcDir(it) }
+        commonSrcDir(interopRuntimeCommonSrcDir)
+        stdLibSrcDirs.forEach { srcDir(it) }
+    }
+
+    stdlibBuildTask = project.findKonanBuildTask("stdlib", project.platformManager.hostPlatform.target).apply {
+        configure {
+            dependsOn(":kotlin-native:distCompiler")
+        }
+    }
+}
+
+targetList.forEach { targetName ->
+    tasks.register("${targetName}Stdlib", Copy::class.java) {
+        require(::stdlibBuildTask.isInitialized)
+        dependsOn(stdlibBuildTask)
+        dependsOn("${targetName}Runtime")
+
+        destinationDir = project.buildDir.resolve("${targetName}Stdlib")
+
+        from(project.buildDir.resolve("stdlib/${hostName}/stdlib"))
+        from(project.buildDir.resolve("bitcode/main/$targetName")) {
+            include("runtime.bc")
+            into("default/targets/$targetName/native")
+        }
+
+        if (targetName != hostName) {
+            doLast {
+                // Change target in manifest file
+                with(KFile(destinationDir.resolve("default/manifest").absolutePath)) {
+                    val props = loadProperties()
+                    props[KLIB_PROPERTY_NATIVE_TARGETS] = targetName
+                    saveProperties(props)
+                }
+            }
+        }
+    }
+
+    val cacheableTargetNames: List<String> by project
+
+    if (targetName in cacheableTargetNames) {
+        tasks.register("${targetName}StdlibCache", KonanCacheTask::class.java) {
+            target = targetName
+            originalKlib = project.buildDir.resolve("${targetName}Stdlib")
+            cacheRoot = project.buildDir.resolve("cache/$targetName").absolutePath
+
+            dependsOn("${targetName}Stdlib")
+            dependsOn(":kotlin-native:${targetName}CrossDistRuntime")
+        }
+    }
+}
+
+// endregion

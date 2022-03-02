@@ -87,15 +87,11 @@ class KotlinTypeMapper @JvmOverloads constructor(
     private val moduleName: String,
     val languageVersionSettings: LanguageVersionSettings,
     private val useOldInlineClassesManglingScheme: Boolean,
-    // temporary returned to preserve binary compatibility with Dagger in IDE
-    // https://android.googlesource.com/platform/tools/adt/idea/+/refs/heads/mirror-goog-studio-master-dev/dagger/src/com/android/tools/idea/dagger/DaggerAnnotatedElementsSearch.kt
-    private val incompatibleClassTracker: IncompatibleClassTracker = IncompatibleClassTracker.DoNothing,
     val jvmTarget: JvmTarget = JvmTarget.DEFAULT,
     private val isIrBackend: Boolean = false,
     private val typePreprocessor: ((KotlinType) -> KotlinType?)? = null,
     private val namePreprocessor: ((ClassDescriptor) -> String?)? = null
 ) : KotlinTypeMapperBase() {
-    private val isReleaseCoroutines = languageVersionSettings.supportsFeature(LanguageFeature.ReleaseCoroutines)
     val jvmDefaultMode = languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
     var useOldManglingRulesForFunctionAcceptingInlineClass: Boolean = useOldInlineClassesManglingScheme
         set(value) {
@@ -127,10 +123,6 @@ class KotlinTypeMapper @JvmOverloads constructor(
             if (classBuilderMode.generateBodies) {
                 throw IllegalStateException(generateErrorMessageForErrorType(kotlinType, descriptor))
             }
-        }
-
-        override fun releaseCoroutines(): Boolean {
-            return isReleaseCoroutines
         }
 
         override fun preprocessType(kotlinType: KotlinType): KotlinType? {
@@ -902,6 +894,10 @@ class KotlinTypeMapper @JvmOverloads constructor(
                 writeParameter(sw, JvmMethodParameterKind.THIS, thisIfNeeded, f)
             }
 
+            for (contextReceiverParameter in f.contextReceiverParameters) {
+                writeParameter(sw, JvmMethodParameterKind.CONTEXT_RECEIVER, contextReceiverParameter.type, f)
+            }
+
             val receiverParameter = f.extensionReceiverParameter
             if (receiverParameter != null) {
                 writeParameter(sw, JvmMethodParameterKind.RECEIVER, receiverParameter.type, f)
@@ -1212,14 +1208,10 @@ class KotlinTypeMapper @JvmOverloads constructor(
         return Method(name, desc)
     }
 
-    fun mapScriptSignature(script: ScriptDescriptor, importedScripts: List<ScriptDescriptor>): JvmMethodSignature {
+    fun mapScriptSignature(script: ScriptDescriptor): JvmMethodSignature {
         val sw = BothSignatureWriter(BothSignatureWriter.Mode.METHOD)
 
         sw.writeParametersStart()
-
-        if (importedScripts.isNotEmpty()) {
-            writeParameter(sw, script.module.builtIns.array.defaultType, null)
-        }
 
         for (valueParameter in script.unsubstitutedPrimaryConstructor.valueParameters) {
             writeParameter(sw, valueParameter.type, null)/* callableDescriptor = */

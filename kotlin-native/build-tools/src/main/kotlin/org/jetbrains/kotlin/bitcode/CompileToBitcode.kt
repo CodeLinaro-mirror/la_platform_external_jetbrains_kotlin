@@ -8,19 +8,64 @@ package org.jetbrains.kotlin.bitcode
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.*
+import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.ExecClang
-import org.jetbrains.kotlin.konan.target.Family
-import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.target.SanitizerKind
 import java.io.File
 import javax.inject.Inject
+import kotlinBuildProperties
+import isNativeRuntimeDebugInfoEnabled
+import org.gradle.api.Project
+import org.gradle.api.model.ObjectFactory
+import org.gradle.process.ExecOperations
+import org.gradle.workers.WorkAction
+import org.gradle.workers.WorkParameters
+import org.gradle.workers.WorkerExecutor
+import org.jetbrains.kotlin.konan.target.*
 
-open class CompileToBitcode @Inject constructor(
-        val srcRoot: File,
-        val folderName: String,
-        val target: String,
-        val outputGroup: String
+interface CompileToBitcodeParameters : WorkParameters {
+    var objDir: File
+    var target: String
+    var compilerExecutable: String
+    var compilerArgs: List<String>
+    var llvmLinkArgs: List<String>
+
+    var konanHome: File
+    var llvmDir: File
+    var experimentalDistribution: Boolean
+}
+
+abstract class CompileToBitcodeJob : WorkAction<CompileToBitcodeParameters> {
+    @get:Inject
+    abstract val objects: ObjectFactory
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    override fun execute() {
+        with(parameters) {
+            objDir.mkdirs()
+
+            val platformManager = PlatformManager(buildDistribution(konanHome.absolutePath), experimentalDistribution)
+            val execClang = ExecClang.create(objects, platformManager, llvmDir)
+
+            execClang.execKonanClang(target) {
+                workingDir = objDir
+                executable = compilerExecutable
+                args = compilerArgs
+            }
+
+            execOperations.exec {
+                executable = "${llvmDir.absolutePath}/bin/llvm-link"
+                args = llvmLinkArgs
+            }
+        }
+    }
+}
+
+abstract class CompileToBitcode @Inject constructor(
+        @Input val folderName: String,
+        @Input val target: String,
+        @Input val outputGroup: String
 ) : DefaultTask() {
 
     enum class Language {
@@ -28,29 +73,37 @@ open class CompileToBitcode @Inject constructor(
     }
 
     // Compiler args are part of compilerFlags so we don't register them as an input.
+    @Internal
     val compilerArgs = mutableListOf<String>()
     @Input
     val linkerArgs = mutableListOf<String>()
+    @Input
     var excludeFiles: List<String> = listOf(
             "**/*Test.cpp",
             "**/*TestSupport.cpp",
             "**/*Test.mm",
             "**/*TestSupport.mm"
     )
+    @Input
     var includeFiles: List<String> = listOf(
             "**/*.cpp",
             "**/*.mm"
     )
 
     // Source files and headers are registered as inputs by the `inputFiles` and `headers` properties.
-    var srcDirs: FileCollection = project.files(srcRoot.resolve("cpp"))
-    var headersDirs: FileCollection = srcDirs + project.files(srcRoot.resolve("headers"))
+    @Internal
+    var srcDirs: FileCollection = project.files()
+    @Internal
+    var headersDirs: FileCollection = project.files()
 
     @Input
     var language = Language.CPP
 
     @Input @Optional
     var sanitizer: SanitizerKind? = null
+
+    @Input @Optional
+    val extraSanitizerArgs = mutableMapOf<SanitizerKind, List<String>>()
 
     private val targetDir: File
         get() {
@@ -62,13 +115,14 @@ open class CompileToBitcode @Inject constructor(
             return project.buildDir.resolve("bitcode/$outputGroup/$target$sanitizerSuffix")
         }
 
-    @get:Input
+    @get:Internal
     val objDir
         get() = File(targetDir, folderName)
 
     private val KonanTarget.isMINGW
         get() = this.family == Family.MINGW
 
+    @get:Internal
     val executable
         get() = when (language) {
             Language.C -> "clang"
@@ -78,18 +132,28 @@ open class CompileToBitcode @Inject constructor(
     @get:Input
     val compilerFlags: List<String>
         get() {
-            val commonFlags = listOf("-c", "-emit-llvm") + headersDirs.map { "-I$it" }
+            val commonFlags = listOfNotNull(
+                    "-gdwarf-2".takeIf { project.kotlinBuildProperties.isNativeRuntimeDebugInfoEnabled },
+                    "-c", "-emit-llvm") + headersDirs.map { "-I$it" }
             val sanitizerFlags = when (sanitizer) {
                 null -> listOf()
                 SanitizerKind.ADDRESS -> listOf("-fsanitize=address")
                 SanitizerKind.THREAD -> listOf("-fsanitize=thread")
-            }
+            } + (extraSanitizerArgs[sanitizer] ?: emptyList())
             val languageFlags = when (language) {
-                Language.C ->
-                    // Used flags provided by original build of allocator C code.
-                    listOf("-std=gnu11", "-O3", "-Wall", "-Wextra", "-Werror")
+                Language.C -> {
+                    listOf("-std=gnu11", "-Wall", "-Wextra", "-Werror") +
+                    if (sanitizer != SanitizerKind.THREAD) {
+                        // Used flags provided by original build of allocator C code.
+                        listOf("-O3")
+                    } else {
+                        // Building with TSAN needs turning off extra optimizations.
+                        listOf("-O1")
+                    }
+                }
                 Language.CPP ->
                     listOfNotNull("-std=c++17", "-Werror", "-O2",
+                            "-fno-aligned-allocation", // TODO: Remove when all targets support aligned allocation in C++ runtime.
                             "-Wall", "-Wextra",
                             "-Wno-unused-parameter"  // False positives with polymorphic functions.
                     )
@@ -152,24 +216,27 @@ open class CompileToBitcode @Inject constructor(
     val outFile: File
         get() = File(targetDir, "${folderName}.bc")
 
+    @get:Inject
+    abstract val workerExecutor: WorkerExecutor
+
     @TaskAction
     fun compile() {
-        objDir.mkdirs()
-        val plugin = project.convention.getPlugin(ExecClang::class.java)
+        val workQueue = workerExecutor.noIsolation()
 
-        plugin.execKonanClang(target) {
-            workingDir = objDir
-            executable = executable
-            args = compilerFlags + inputFiles.map { it.absolutePath }
-        }
-
-        project.exec {
-            val llvmDir = project.findProperty("llvmDir")
-            executable = "$llvmDir/bin/llvm-link"
-            args = listOf("-o", outFile.absolutePath) + linkerArgs +
+        val parameters = { it: CompileToBitcodeParameters ->
+            it.objDir = objDir
+            it.target = target
+            it.compilerExecutable = executable
+            it.compilerArgs = compilerFlags + inputFiles.map { it.absolutePath }
+            it.llvmLinkArgs = listOf("-o", outFile.absolutePath) + linkerArgs +
                     inputFiles.map {
                         bitcodeFileForInputFile(it).absolutePath
                     }
+
+            it.konanHome = project.project(":kotlin-native").projectDir
+            it.llvmDir = project.file(project.findProperty("llvmDir")!!)
         }
+
+        workQueue.submit(CompileToBitcodeJob::class.java, parameters)
     }
 }

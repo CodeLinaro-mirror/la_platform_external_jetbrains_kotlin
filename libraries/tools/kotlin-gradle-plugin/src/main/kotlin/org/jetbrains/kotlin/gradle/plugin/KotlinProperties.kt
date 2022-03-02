@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.gradle.dsl.NativeCacheKind
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessageOutputStreamHandler.Companion.IGNORE_TCSM_OVERFLOW
 import org.jetbrains.kotlin.gradle.plugin.Kotlin2JsPlugin.Companion.NOWARN_2JS_FLAG
 import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType.Companion.jsCompilerProperty
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_CINTEROP_COMMONIZATION
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_GRANULAR_SOURCE_SETS_METADATA
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_HIERARCHICAL_STRUCTURE_BY_DEFAULT
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_HIERARCHICAL_STRUCTURE_SUPPORT
@@ -21,12 +22,10 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMultiplatformPlugin
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.targets.js.dukat.ExternalsOutputFormat
 import org.jetbrains.kotlin.gradle.targets.js.dukat.ExternalsOutputFormat.Companion.externalsOutputFormatProperty
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrOutputGranularity
 import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion
 import org.jetbrains.kotlin.gradle.targets.native.DisabledNativeTargetsReporter
-import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
-import org.jetbrains.kotlin.gradle.tasks.CompileUsingKotlinDaemon
-import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.SingleWarningPerBuild
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.presetName
@@ -59,9 +58,12 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
     kotlinDaemonJvmArgs?.let {
         task.kotlinDaemonJvmArguments.set(it.split("\\s+".toRegex()))
     }
+    if (!task.compilerExecutionStrategy.isPresent) {
+        task.compilerExecutionStrategy.set(kotlinCompilerExecutionStrategy)
+    }
 }
 
- internal class PropertiesProvider private constructor(private val project: Project) {
+internal class PropertiesProvider private constructor(private val project: Project) {
     private val localProperties: Properties by lazy {
         Properties().apply {
             val localPropertiesFile = project.rootProject.file("local.properties")
@@ -74,7 +76,19 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
     }
 
     val coroutines: Coroutines?
-        get() = property("kotlin.coroutines")?.let { Coroutines.byCompilerArgument(it) }
+        get() {
+            val propValue = property("kotlin.coroutines")?.let { Coroutines.byCompilerArgument(it) }
+            if (propValue != null) {
+                SingleWarningPerBuild.show(
+                    project,
+                    """
+                    'kotlin.coroutines' property does nothing since 1.5.0 release 
+                    and scheduled to be removed in Kotlin 1.7.0 release!    
+                    """.trimIndent()
+                )
+            }
+            return propValue
+        }
 
     val singleBuildMetricsFile: File?
         get() = property("kotlin.internal.single.build.metrics.file")?.let { File(it) }
@@ -102,6 +116,10 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
 
     val incrementalJsIr: Boolean
         get() = booleanProperty("kotlin.incremental.js.ir") ?: false
+
+    val jsIrOutputGranularity: KotlinJsIrOutputGranularity
+        get() = property("kotlin.js.ir.output.granularity")?.let { KotlinJsIrOutputGranularity.byArgument(it) }
+            ?: KotlinJsIrOutputGranularity.PER_MODULE
 
     val incrementalMultiplatform: Boolean?
         get() = booleanProperty("kotlin.incremental.multiplatform")
@@ -145,10 +163,12 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
 
     var mpp13XFlagsSetByPlugin: Boolean
         get() = booleanProperty("kotlin.internal.mpp.13X.flags.setByPlugin") ?: false
-        set(value) { project.extensions.extraProperties.set("kotlin.internal.mpp.13X.flags.setByPlugin") { "$value" } }
+        set(value) {
+            project.extensions.extraProperties.set("kotlin.internal.mpp.13X.flags.setByPlugin", "$value")
+        }
 
     val mppHierarchicalStructureByDefault: Boolean
-        get() = booleanProperty(KOTLIN_MPP_HIERARCHICAL_STRUCTURE_BY_DEFAULT) ?: false
+        get() = booleanProperty(KOTLIN_MPP_HIERARCHICAL_STRUCTURE_BY_DEFAULT) ?: true
 
     val enableCompatibilityMetadataVariant: Boolean
         get() = booleanProperty("kotlin.mpp.enableCompatibilityMetadataVariant") ?: !mppHierarchicalStructureByDefault
@@ -159,34 +179,17 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
     val mppStabilityNoWarn: Boolean?
         get() = booleanProperty(KotlinMultiplatformPlugin.STABILITY_NOWARN_FLAG)
 
+    val wasmStabilityNoWarn: Boolean
+        get() = booleanProperty("kotlin.wasm.stability.nowarn") ?: false
+
     val ignoreDisabledNativeTargets: Boolean?
         get() = booleanProperty(DisabledNativeTargetsReporter.DISABLE_WARNING_PROPERTY_NAME)
 
+    val ignoreAbsentAndroidMultiplatformTarget: Boolean
+        get() = booleanProperty("kotlin.mpp.absentAndroidTarget.nowarn") ?: false
+
     val ignoreIncorrectNativeDependencies: Boolean?
         get() = booleanProperty(KOTLIN_NATIVE_IGNORE_INCORRECT_DEPENDENCIES)
-
-    private val parallelTasksInProjectPropName = "kotlin.parallel.tasks.in.project"
-
-    /**
-     * Enables parallel tasks execution within a project with Workers API.
-     * Does not enable using actual worker proccesses
-     * (Kotlin Daemon can be shared which uses less memory)
-     */
-    val parallelTasksInProject: Boolean?
-        get() {
-            return if (property(parallelTasksInProjectPropName) != null) {
-                SingleWarningPerBuild.show(
-                    project,
-                    """
-                    Project property '$parallelTasksInProjectPropName' is deprecated.
-                    By default it depends on Gradle parallel project execution option value.
-                    """.trimIndent()
-                )
-                booleanProperty(parallelTasksInProjectPropName)
-            } else {
-                return project.gradle.startParameter.isParallelProjectExecutionEnabled
-            }
-        }
 
     /**
      * Enables individual test task reporting for aggregated test tasks.
@@ -263,6 +266,16 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
         get() = booleanProperty("kotlin.native.useEmbeddableCompilerJar") ?: false
 
     /**
+     * Allows a user to set project-wide options that will be passed to the K/N compiler via -Xbinary flag.
+     * E.g. setting kotlin.native.binary.memoryModel=experimental results in passing -Xbinary=memoryModel=experimental to the compiler.
+     * @return a map: property name without `kotlin.native.binary.` prefix -> property value
+     */
+    val nativeBinaryOptions: Map<String, String>
+        get() = propertiesWithPrefix(KOTLIN_NATIVE_BINARY_OPTION_PREFIX).mapKeys { (key, _) ->
+            key.removePrefix(KOTLIN_NATIVE_BINARY_OPTION_PREFIX)
+        }
+
+    /**
      * Allows a user to specify additional arguments of a JVM executing KLIB commonizer.
      */
     val commonizerJvmArgs: String?
@@ -272,7 +285,7 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
      * Enables experimental commonization of user defined c-interop libraries.
      */
     val enableCInteropCommonization: Boolean
-        get() = booleanProperty("kotlin.mpp.enableCInteropCommonization") ?: false
+        get() = booleanProperty(KOTLIN_MPP_ENABLE_CINTEROP_COMMONIZATION) ?: false
 
 
     val commonizerLogLevel: String?
@@ -368,6 +381,14 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
     val kotlinDaemonJvmArgs: String?
         get() = property("kotlin.daemon.jvmargs")
 
+    val kotlinCompilerExecutionStrategy: KotlinCompilerExecutionStrategy
+        get() {
+            val gradleProperty = property("kotlin.compiler.execution.strategy")
+            // system property is for backward compatibility
+            val value = (gradleProperty ?: System.getProperty("kotlin.compiler.execution.strategy"))?.toLowerCase()
+            return KotlinCompilerExecutionStrategy.fromProperty(value)
+        }
+
     private fun propertyWithDeprecatedVariant(propName: String, deprecatedPropName: String): String? {
         val deprecatedProperty = property(deprecatedPropName)
         if (deprecatedProperty != null) {
@@ -391,8 +412,25 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
             localProperties.getProperty(propName)
         }
 
-     object PropertyNames {
+    private fun propertiesWithPrefix(prefix: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        project.properties.forEach { (name, value) ->
+            if (name.startsWith(prefix) && value is String) {
+                result.put(name, value)
+            }
+        }
+        localProperties.forEach { (name, value) ->
+            if (name is String && name.startsWith(prefix) && value is String) {
+                // Project properties have higher priority.
+                result.putIfAbsent(name, value)
+            }
+        }
+        return result
+    }
+
+    object PropertyNames {
         const val KOTLIN_MPP_ENABLE_GRANULAR_SOURCE_SETS_METADATA = "kotlin.mpp.enableGranularSourceSetsMetadata"
+        const val KOTLIN_MPP_ENABLE_CINTEROP_COMMONIZATION = "kotlin.mpp.enableCInteropCommonization"
         const val KOTLIN_MPP_HIERARCHICAL_STRUCTURE_BY_DEFAULT = "kotlin.internal.mpp.hierarchicalStructureByDefault"
         const val KOTLIN_MPP_HIERARCHICAL_STRUCTURE_SUPPORT = "kotlin.mpp.hierarchicalStructureSupport"
         const val KOTLIN_NATIVE_DEPENDENCY_PROPAGATION = "kotlin.native.enableDependencyPropagation"
@@ -405,6 +443,8 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
 
         internal const val KOTLIN_NATIVE_IGNORE_INCORRECT_DEPENDENCIES = "kotlin.native.ignoreIncorrectDependencies"
 
+        private const val KOTLIN_NATIVE_BINARY_OPTION_PREFIX = "kotlin.native.binary."
+
         operator fun invoke(project: Project): PropertiesProvider =
             with(project.extensions.extraProperties) {
                 if (!has(CACHED_PROVIDER_EXT_NAME)) {
@@ -413,5 +453,7 @@ internal fun PropertiesProvider.mapKotlinDaemonProperties(task: CompileUsingKotl
                 return get(CACHED_PROVIDER_EXT_NAME) as? PropertiesProvider
                     ?: PropertiesProvider(project) // Fallback if multiple class loaders are involved
             }
+
+        internal val Project.kotlinPropertiesProvider get() = PropertiesProvider(this)
     }
 }

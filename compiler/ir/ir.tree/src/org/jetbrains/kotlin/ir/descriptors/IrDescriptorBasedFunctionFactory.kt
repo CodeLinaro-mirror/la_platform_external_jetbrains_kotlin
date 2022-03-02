@@ -86,7 +86,12 @@ class IrDescriptorBasedFunctionFactory(
     private val irBuiltIns: IrBuiltInsOverDescriptors,
     private val symbolTable: SymbolTable,
     private val typeTranslator: TypeTranslator,
+    getPackageFragment: ((PackageFragmentDescriptor) -> IrPackageFragment)? = null,
+    // Needed for JS and Wasm backends to "preload" interfaces that can referenced during lowerings
+    private val referenceFunctionsWhenKFunctionAreReferenced: Boolean = false,
 ) : IrAbstractDescriptorBasedFunctionFactory() {
+    val getPackageFragment =
+        getPackageFragment ?: symbolTable::declareExternalPackageFragmentIfNotExists
 
     // TODO: Lazieness
 
@@ -137,6 +142,9 @@ class IrDescriptorBasedFunctionFactory(
     }
 
     override fun kFunctionN(arity: Int, declarator: SymbolTable.((IrClassSymbol) -> IrClass) -> IrClass): IrClass {
+        if (referenceFunctionsWhenKFunctionAreReferenced)
+            functionN(arity)
+
         return kFunctionNMap.getOrPut(arity) {
             symbolTable.declarator { symbol ->
                 val descriptor = symbol.descriptor as FunctionClassDescriptor
@@ -147,6 +155,9 @@ class IrDescriptorBasedFunctionFactory(
     }
 
     override fun kSuspendFunctionN(arity: Int, declarator: SymbolTable.((IrClassSymbol) -> IrClass) -> IrClass): IrClass {
+        if (referenceFunctionsWhenKFunctionAreReferenced)
+            suspendFunctionN(arity)
+
         return kSuspendFunctionNMap.getOrPut(arity) {
             symbolTable.declarator { symbol ->
                 val descriptor = symbol.descriptor as FunctionClassDescriptor
@@ -232,18 +243,18 @@ class IrDescriptorBasedFunctionFactory(
 
     private val kotlinPackageFragment: IrPackageFragment by lazy {
         irBuiltIns.builtIns.getFunction(0).let {
-            symbolTable.declareExternalPackageFragmentIfNotExists(it.containingDeclaration as PackageFragmentDescriptor)
+            getPackageFragment(it.containingDeclaration as PackageFragmentDescriptor)
         }
     }
     private val kotlinCoroutinesPackageFragment: IrPackageFragment by lazy {
         irBuiltIns.builtIns.getSuspendFunction(0).let {
-            symbolTable.declareExternalPackageFragmentIfNotExists(it.containingDeclaration as PackageFragmentDescriptor)
+            getPackageFragment(it.containingDeclaration as PackageFragmentDescriptor)
         }
     }
 
     private val kotlinReflectPackageFragment: IrPackageFragment by lazy {
         irBuiltIns.kPropertyClass.descriptor.let {
-            symbolTable.declareExternalPackageFragmentIfNotExists(it.containingDeclaration as PackageFragmentDescriptor)
+            getPackageFragment(it.containingDeclaration as PackageFragmentDescriptor)
         }
     }
 
@@ -356,6 +367,7 @@ class IrDescriptorBasedFunctionFactory(
             newFunction.overriddenSymbols = descriptor.overriddenDescriptors.map { symbolTable.referenceSimpleFunction(it.original) }
             newFunction.dispatchReceiverParameter = descriptor.dispatchReceiverParameter?.let { newFunction.createValueParameter(it) }
             newFunction.extensionReceiverParameter = descriptor.extensionReceiverParameter?.let { newFunction.createValueParameter(it) }
+            newFunction.contextReceiverParametersCount = descriptor.contextReceiverParameters.size
             newFunction.valueParameters = descriptor.valueParameters.map { newFunction.createValueParameter(it) }
             newFunction.correspondingPropertySymbol = property
 

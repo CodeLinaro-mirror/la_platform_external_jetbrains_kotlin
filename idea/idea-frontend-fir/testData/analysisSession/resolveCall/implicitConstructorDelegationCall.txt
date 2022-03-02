@@ -1,3 +1,0 @@
-KtFunctionCall:
-argumentMapping = { 42 -> (i: kotlin.Int) }
-targetFunction = <constructor>(i: kotlin.Int): A

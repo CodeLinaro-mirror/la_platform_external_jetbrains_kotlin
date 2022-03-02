@@ -16,9 +16,17 @@ import org.jetbrains.kotlin.utils.newHashSetWithExpectedSize
 
 @Suppress("Reformat")
 object StandardNames {
+    @JvmField val BACKING_FIELD = Name.identifier("field")
+
+    @JvmField val DEFAULT_VALUE_PARAMETER = Name.identifier("value")
+
     @JvmField val ENUM_VALUES = Name.identifier("values")
 
     @JvmField val ENUM_VALUE_OF = Name.identifier("valueOf")
+
+    @JvmField val DATA_CLASS_COPY = Name.identifier("copy")
+
+    @JvmField val HASHCODE_NAME = Name.identifier("hashCode")
 
     @JvmField val CHAR_CODE = Name.identifier("code")
 
@@ -58,6 +66,8 @@ object StandardNames {
     @JvmField
     val TEXT_PACKAGE_FQ_NAME = BUILT_INS_PACKAGE_FQ_NAME.child(Name.identifier("text"))
 
+    val KOTLIN_INTERNAL_FQ_NAME = BUILT_INS_PACKAGE_FQ_NAME.child(Name.identifier("internal"))
+
     @JvmField
     val BUILT_INS_PACKAGE_FQ_NAMES = setOf(
         BUILT_INS_PACKAGE_FQ_NAME,
@@ -65,7 +75,7 @@ object StandardNames {
         RANGES_PACKAGE_FQ_NAME,
         ANNOTATION_PACKAGE_FQ_NAME,
         KOTLIN_REFLECT_FQ_NAME,
-        BUILT_INS_PACKAGE_FQ_NAME.child(Name.identifier("internal")),
+        KOTLIN_INTERNAL_FQ_NAME,
         COROUTINES_PACKAGE_FQ_NAME
     )
 
@@ -104,13 +114,18 @@ object StandardNames {
         @JvmField val deprecationLevel: FqName = fqName("DeprecationLevel")
         @JvmField val replaceWith: FqName = fqName("ReplaceWith")
         @JvmField val extensionFunctionType: FqName = fqName("ExtensionFunctionType")
+        @JvmField val contextFunctionTypeParams: FqName = fqName("ContextFunctionTypeParams")
         @JvmField val parameterName: FqName = fqName("ParameterName")
+        @JvmField val parameterNameClassId: ClassId = ClassId.topLevel(parameterName)
         @JvmField val annotation: FqName = fqName("Annotation")
         @JvmField val target: FqName = annotationName("Target")
+        @JvmField val targetClassId: ClassId = ClassId.topLevel(target)
         @JvmField val annotationTarget: FqName = annotationName("AnnotationTarget")
         @JvmField val annotationRetention: FqName = annotationName("AnnotationRetention")
         @JvmField val retention: FqName = annotationName("Retention")
+        @JvmField val retentionClassId: ClassId = ClassId.topLevel(retention)
         @JvmField val repeatable: FqName = annotationName("Repeatable")
+        @JvmField val repeatableClassId: ClassId = ClassId.topLevel(repeatable)
         @JvmField val mustBeDocumented: FqName = annotationName("MustBeDocumented")
         @JvmField val unsafeVariance: FqName = fqName("UnsafeVariance")
         @JvmField val publishedApi: FqName = fqName("PublishedApi")

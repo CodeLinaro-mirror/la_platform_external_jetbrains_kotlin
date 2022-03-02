@@ -30,6 +30,7 @@ import org.gradle.api.NonNullApi
 import org.gradle.api.Plugin
 import org.gradle.api.internal.file.FileResolver
 import org.gradle.api.internal.plugins.PotentialPlugin
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.internal.operations.BuildOperationExecutor
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.internal.reflect.Instantiator
@@ -120,15 +121,27 @@ fun Task.dependsOnPlatformLibs() {
             this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
             //this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-${it}Cache")
         }
+        if (this is KonanLinkTest) {
+            project.file(lib).dependencies().forEach {
+                this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
+            }
+        }
+        this.dependsOnDist()
     } ?: error("unsupported task : $this")
 }
 
 @Suppress("UNCHECKED_CAST")
-val Project.globalTestArgs: List<String>
-    get() = with(findProperty("globalTestArgs")) {
+private fun Project.groovyPropertyArrayToList(property: String): List<String> =
+        with(findProperty(property)) {
             if (this is Array<*>) this.toList() as List<String>
             else this as List<String>
-    }
+        }
+
+val Project.globalBuildArgs: List<String>
+    get() = project.groovyPropertyArrayToList("globalBuildArgs")
+
+val Project.globalTestArgs: List<String>
+    get() = project.groovyPropertyArrayToList("globalTestArgs")
 
 val Project.testTargetSupportsCodeCoverage: Boolean
     get() = this.testTarget.supportsCodeCoverage()
@@ -189,20 +202,60 @@ fun Project.getFilesToCompile(compile: List<String>, exclude: List<String>): Lis
 
 //region Task dependency.
 
-fun Project.findKonanBuildTask(artifact: String, target: KonanTarget): Task =
-    tasks.getByName("compileKonan${artifact.capitalize()}${target.name.capitalize()}")
+fun Project.findKonanBuildTask(artifact: String, target: KonanTarget): TaskProvider<Task> =
+    tasks.named("compileKonan${artifact.capitalize()}${target.name.capitalize()}")
 
 fun Project.dependsOnDist(taskName: String) {
     project.tasks.getByName(taskName).dependsOnDist()
 }
 
+fun TaskProvider<Task>.dependsOnDist() {
+    configure {
+        dependsOnDist()
+    }
+}
+
+fun Task.isDependsOnPlatformLibs(): Boolean {
+    return dependsOn.any {
+        it.toString().contains(":kotlin-native:platformLibs") ||
+                it.toString().contains(":kotlin-native:distPlatformLibs")
+    }
+}
+
+val Project.isDefaultNativeHome: Boolean
+    get() = kotlinNativeDist.absolutePath == project(":kotlin-native").file("dist").absolutePath
+
+private val Project.hasPlatformLibs: Boolean
+    get() {
+        if (!isDefaultNativeHome) {
+            return File(buildDistribution(project.kotlinNativeDist.absolutePath).platformLibs(project.testTarget))
+                    .exists()
+        }
+        return false
+    }
+
+private val Project.isCrossDist: Boolean
+    get() {
+        if (!isDefaultNativeHome) {
+            return File(buildDistribution(project.kotlinNativeDist.absolutePath).runtime(project.testTarget))
+                    .exists()
+        }
+        return false
+    }
+
 fun Task.dependsOnDist() {
-    dependsOn(":kotlin-native:dist")
     val target = project.testTarget
-    if (target != HostManager.host) {
-        // if a test_target property is set then tests should depend on a crossDist
-        // otherwise, runtime components would not be build for a target.
-        dependsOn(":kotlin-native:${target.name}CrossDist")
+    if (project.isDefaultNativeHome) {
+        dependsOn(":kotlin-native:dist")
+        if (target != HostManager.host) {
+            // if a test_target property is set then tests should depend on a crossDist
+            // otherwise, runtime components would not be build for a target.
+            dependsOn(":kotlin-native:${target.name}CrossDist")
+        }
+    } else {
+        if (!project.isCrossDist) {
+            dependsOn(":kotlin-native:${target.name}CrossDist")
+        }
     }
 }
 
@@ -237,10 +290,12 @@ fun Task.sameDependenciesAs(task: Task) {
  */
 fun Task.dependsOnKonanBuildingTask(artifact: String, target: KonanTarget) {
     val buildTask = project.findKonanBuildTask(artifact, target)
-    buildTask.konanOldPluginTaskDependenciesWalker {
-        dependsOnDist()
+    buildTask.get().apply {
+        konanOldPluginTaskDependenciesWalker {
+            dependsOnDist()
+        }
+        sameDependenciesAs(this@dependsOnKonanBuildingTask)
     }
-    buildTask.sameDependenciesAs(this)
     dependsOn(buildTask)
 }
 
@@ -325,6 +380,15 @@ fun compileSwift(project: Project, target: KonanTarget, sources: List<String>, o
 fun targetSupportsMimallocAllocator(targetName: String) =
         HostManager().targetByName(targetName).supportsMimallocAllocator()
 
+fun targetSupportsLibBacktrace(targetName: String) =
+        HostManager().targetByName(targetName).supportsLibBacktrace()
+
+fun targetSupportsCoreSymbolication(targetName: String) =
+        HostManager().targetByName(targetName).supportsCoreSymbolication()
+
+fun targetSupportsThreads(targetName: String) =
+        HostManager().targetByName(targetName).supportsThreads()
+
 fun Project.mergeManifestsByTargets(source: File, destination: File) {
     logger.info("Merging manifests: $source -> $destination")
 
@@ -388,7 +452,7 @@ fun Project.buildStaticLibrary(cSources: Collection<File>, output: File, objDir:
     val platform = platformManager.platform(testTarget)
 
     objDir.mkdirs()
-    ExecClang(project).execClangForCompilerTests(testTarget) {
+    ExecClang.create(project).execClangForCompilerTests(testTarget) {
         args = listOf("-c", *cSources.map { it.absolutePath }.toTypedArray())
         workingDir(objDir)
     }

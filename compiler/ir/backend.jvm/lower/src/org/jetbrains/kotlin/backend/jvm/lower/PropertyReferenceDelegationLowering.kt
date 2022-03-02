@@ -10,8 +10,8 @@ import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.parents
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
-import org.jetbrains.kotlin.backend.jvm.codegen.fileParent
 import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
+import org.jetbrains.kotlin.backend.jvm.ir.fileParent
 import org.jetbrains.kotlin.backend.jvm.lower.JvmPropertiesLowering.Companion.createSyntheticMethodForPropertyDelegate
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.Modality
@@ -35,6 +35,7 @@ internal val propertyReferenceDelegationPhase = makeIrFilePhase(
 
 private class PropertyReferenceDelegationLowering(val context: JvmBackendContext) : FileLoweringPass {
     override fun lower(irFile: IrFile) {
+        if (!context.state.generateOptimizedCallableReferenceSuperClasses) return
         irFile.transform(PropertyReferenceDelegationTransformer(context), null)
     }
 }
@@ -145,6 +146,7 @@ private class PropertyReferenceDelegationTransformer(val context: JvmBackendCont
             }.apply {
                 parent = oldField.parent
                 initializer = context.irFactory.createExpressionBody(it)
+                correspondingPropertySymbol = oldField.correspondingPropertySymbol
             }
         }
         val originalThis = parentAsClass.thisReceiver

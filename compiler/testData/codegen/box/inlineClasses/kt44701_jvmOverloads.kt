@@ -1,7 +1,10 @@
 // TARGET_BACKEND: JVM
 // IGNORE_BACKEND: JVM
-// WITH_RUNTIME
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class Location @JvmOverloads constructor(val value: String? = "OK")
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Location @JvmOverloads constructor(val value: String? = "OK")
 
 fun box(): String = Location().value!!

@@ -26,6 +26,8 @@ import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.ScriptDescriptor
 import org.jetbrains.kotlin.diagnostics.Diagnostic
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.DiagnosticSink
 import org.jetbrains.kotlin.idea.MainFunctionDetector
 import org.jetbrains.kotlin.load.java.components.JavaDeprecationSettings
@@ -40,7 +42,7 @@ import org.jetbrains.kotlin.psi.KtScript
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
 import org.jetbrains.kotlin.resolve.diagnostics.Diagnostics
-import org.jetbrains.kotlin.resolve.diagnostics.PrecomputedSuppressCache
+import org.jetbrains.kotlin.resolve.diagnostics.OnDemandSuppressCache
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKind.*
@@ -67,9 +69,10 @@ class GenerationState private constructor(
     private val onIndependentPartCompilationEnd: GenerationStateEventCallback,
     wantsDiagnostics: Boolean,
     val jvmBackendClassResolver: JvmBackendClassResolver,
-    val isIrBackend: Boolean
+    val isIrBackend: Boolean,
+    val ignoreErrors: Boolean,
+    val diagnosticReporter: DiagnosticReporter,
 ) {
-
     class Builder(
         private val project: Project,
         private val builderFactory: ClassBuilderFactory,
@@ -118,12 +121,21 @@ class GenerationState private constructor(
         fun isIrBackend(v: Boolean) =
             apply { isIrBackend = v }
 
+        var ignoreErrors: Boolean = false
+        fun ignoreErrors(v: Boolean): Builder =
+            apply { ignoreErrors = v }
+
+        var diagnosticReporter: DiagnosticReporter? = null
+        fun diagnosticReporter(v: DiagnosticReporter) =
+            apply { diagnosticReporter = v }
+
         fun build() =
             GenerationState(
                 project, builderFactory, module, bindingContext, files, configuration,
                 generateDeclaredClassFilter, codegenFactory, targetId,
                 moduleName, outDirectory, onIndependentPartCompilationEnd, wantsDiagnostics,
-                jvmBackendClassResolver, isIrBackend
+                jvmBackendClassResolver, isIrBackend, ignoreErrors,
+                diagnosticReporter ?: DiagnosticReporterFactory.createReporter()
             )
     }
 
@@ -186,7 +198,7 @@ class GenerationState private constructor(
     val extraJvmDiagnosticsTrace: BindingTrace =
         DelegatingBindingTrace(
             originalFrontendBindingContext, "For extra diagnostics in ${this::class.java}", false,
-            customSuppressCache = if (isIrBackend) PrecomputedSuppressCache(originalFrontendBindingContext, files) else null,
+            customSuppressCache = if (isIrBackend) OnDemandSuppressCache(originalFrontendBindingContext) else null,
         )
 
     private val interceptedBuilderFactory: ClassBuilderFactory
@@ -244,16 +256,11 @@ class GenerationState private constructor(
         this.moduleName,
         languageVersionSettings,
         useOldManglingSchemeForFunctionsWithInlineClassesInSignatures,
-        IncompatibleClassTracker.DoNothing,
         target,
         isIrBackend
     )
     val canReplaceStdlibRuntimeApiBehavior = languageVersionSettings.apiVersion <= ApiVersion.parse(KotlinVersion.CURRENT.toString())!!
-    val intrinsics: IntrinsicMethods = run {
-        val shouldUseConsistentEquals = languageVersionSettings.supportsFeature(LanguageFeature.ThrowNpeOnExplicitEqualsForBoxedNull) &&
-                !configuration.getBoolean(JVMConfigurationKeys.NO_EXCEPTION_ON_EXPLICIT_EQUALS_FOR_BOXED_NULL)
-        IntrinsicMethods(target, canReplaceStdlibRuntimeApiBehavior, shouldUseConsistentEquals)
-    }
+    val intrinsics: IntrinsicMethods = IntrinsicMethods(target, canReplaceStdlibRuntimeApiBehavior)
     val generateOptimizedCallableReferenceSuperClasses =
         languageVersionSettings.apiVersion >= ApiVersion.KOTLIN_1_4 &&
                 !configuration.getBoolean(JVMConfigurationKeys.NO_OPTIMIZED_CALLABLE_REFERENCES)
@@ -312,14 +319,6 @@ class GenerationState private constructor(
     val generateParametersMetadata: Boolean = configuration.getBoolean(JVMConfigurationKeys.PARAMETERS_METADATA)
 
     val shouldInlineConstVals = languageVersionSettings.supportsFeature(LanguageFeature.InlineConstVals)
-
-    val constructorCallNormalizationMode =
-        configuration.get(JVMConfigurationKeys.CONSTRUCTOR_CALL_NORMALIZATION_MODE) ?: run {
-            if (languageVersionSettings.supportsFeature(LanguageFeature.NormalizeConstructorCalls))
-                JVMConstructorCallNormalizationMode.ENABLE
-            else
-                JVMConstructorCallNormalizationMode.DISABLE
-        }
 
     val jvmDefaultMode = languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
 
@@ -411,6 +410,8 @@ class GenerationState private constructor(
             this[KOTLIN_1_5] = JvmMetadataVersion(1, 5, 1)
             this[KOTLIN_1_6] = JvmMetadataVersion.INSTANCE
             this[KOTLIN_1_7] = JvmMetadataVersion(1, 7, 0)
+            this[KOTLIN_1_8] = JvmMetadataVersion(1, 8, 0)
+            this[KOTLIN_1_9] = JvmMetadataVersion(1, 9, 0)
 
             check(size == LanguageVersion.values().size) {
                 "Please add mappings from the missing LanguageVersion instances to the corresponding JvmMetadataVersion " +

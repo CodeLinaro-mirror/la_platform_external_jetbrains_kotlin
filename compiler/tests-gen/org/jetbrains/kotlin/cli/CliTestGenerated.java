@@ -286,6 +286,21 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/extraArgumentPassedInObsoleteForm.args");
         }
 
+        @TestMetadata("extraBooleanArgumentEqualsFalse.args")
+        public void testExtraBooleanArgumentEqualsFalse() throws Exception {
+            runTest("compiler/testData/cli/jvm/extraBooleanArgumentEqualsFalse.args");
+        }
+
+        @TestMetadata("extraBooleanArgumentEqualsNonsense.args")
+        public void testExtraBooleanArgumentEqualsNonsense() throws Exception {
+            runTest("compiler/testData/cli/jvm/extraBooleanArgumentEqualsNonsense.args");
+        }
+
+        @TestMetadata("extraBooleanArgumentEqualsTrue.args")
+        public void testExtraBooleanArgumentEqualsTrue() throws Exception {
+            runTest("compiler/testData/cli/jvm/extraBooleanArgumentEqualsTrue.args");
+        }
+
         @TestMetadata("extraHelp.args")
         public void testExtraHelp() throws Exception {
             runTest("compiler/testData/cli/jvm/extraHelp.args");
@@ -571,6 +586,16 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/jvmDefaultAll.args");
         }
 
+        @TestMetadata("jvmDefaultCompatibility.args")
+        public void testJvmDefaultCompatibility() throws Exception {
+            runTest("compiler/testData/cli/jvm/jvmDefaultCompatibility.args");
+        }
+
+        @TestMetadata("jvmDefaultEnable.args")
+        public void testJvmDefaultEnable() throws Exception {
+            runTest("compiler/testData/cli/jvm/jvmDefaultEnable.args");
+        }
+
         @TestMetadata("jvmIrByDefault1_4.args")
         public void testJvmIrByDefault1_4() throws Exception {
             runTest("compiler/testData/cli/jvm/jvmIrByDefault1_4.args");
@@ -644,6 +669,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("mixingArgfilesAndUsualArgs.args")
         public void testMixingArgfilesAndUsualArgs() throws Exception {
             runTest("compiler/testData/cli/jvm/mixingArgfilesAndUsualArgs.args");
+        }
+
+        @TestMetadata("modulesWithDependencyCycle.args")
+        public void testModulesWithDependencyCycle() throws Exception {
+            runTest("compiler/testData/cli/jvm/modulesWithDependencyCycle.args");
         }
 
         @TestMetadata("multipleTextRangesInDiagnosticsOrder.args")
@@ -749,6 +779,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("recordAsSingleFileRoot.args")
         public void testRecordAsSingleFileRoot() throws Exception {
             runTest("compiler/testData/cli/jvm/recordAsSingleFileRoot.args");
+        }
+
+        @TestMetadata("requireKotlinCompilerVersion.args")
+        public void testRequireKotlinCompilerVersion() throws Exception {
+            runTest("compiler/testData/cli/jvm/requireKotlinCompilerVersion.args");
         }
 
         @TestMetadata("resultInReturnTypeSupportedByDefault15.args")

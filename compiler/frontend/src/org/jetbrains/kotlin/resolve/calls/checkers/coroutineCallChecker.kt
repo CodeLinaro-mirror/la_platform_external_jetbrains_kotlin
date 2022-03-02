@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtThisExpression
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.calls.callUtil.isCallableReference
+import org.jetbrains.kotlin.resolve.calls.util.isCallableReference
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.resolve.inline.InlineUtil
@@ -135,20 +135,6 @@ fun checkCoroutinesFeature(languageVersionSettings: LanguageVersionSettings, dia
             diagnosticHolder.report(Errors.UNSUPPORTED.on(reportOn, "cannot use release coroutines with api version less than 1.3"))
         }
         return
-    }
-    val diagnosticData = LanguageFeature.Coroutines to languageVersionSettings
-    when (languageVersionSettings.getFeatureSupport(LanguageFeature.Coroutines)) {
-        LanguageFeature.State.ENABLED -> {
-        }
-        LanguageFeature.State.ENABLED_WITH_WARNING -> {
-            diagnosticHolder.report(Errors.EXPERIMENTAL_FEATURE_WARNING.on(reportOn, diagnosticData))
-        }
-        LanguageFeature.State.ENABLED_WITH_ERROR -> {
-            diagnosticHolder.report(Errors.EXPERIMENTAL_FEATURE_ERROR.on(reportOn, diagnosticData))
-        }
-        LanguageFeature.State.DISABLED -> {
-            diagnosticHolder.report(Errors.UNSUPPORTED_FEATURE.on(reportOn, diagnosticData))
-        }
     }
 }
 

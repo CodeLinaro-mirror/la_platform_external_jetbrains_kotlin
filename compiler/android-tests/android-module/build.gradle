@@ -85,6 +85,10 @@ android {
             dimension "box"
         }
 
+        common_ir3 {
+            dimension "box"
+        }
+
         reflect_ir0 {
             dimension "box"
         }
@@ -108,7 +112,7 @@ tasks.withType(JavaCompile) {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['kotlin-test.jar', 'kotlin-stdlib.jar'])
-    androidTestImplementation 'junit:junit:4.12'
+    androidTestImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
 
     android.applicationVariants.all { variant ->

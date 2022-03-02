@@ -75,6 +75,13 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
             configuration.put(CommonConfigurationKeys.METADATA_VERSION, KlibMetadataVersion.INSTANCE)
         }
 
+        val relativePathBases = arguments.relativePathBases
+        if (relativePathBases != null) {
+            configuration.put(CommonConfigurationKeys.KLIB_RELATIVE_PATH_BASES, relativePathBases.toList())
+        }
+
+        configuration.put(CommonConfigurationKeys.KLIB_NORMALIZE_ABSOLUTE_PATH, arguments.normalizeAbsolutePath)
+
         try {
             val konanConfig = KonanConfig(project, configuration)
             ensureModuleName(konanConfig, environment)
@@ -99,7 +106,7 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
 
     val K2NativeCompilerArguments.isUsefulWithoutFreeArgs: Boolean
         get() = listTargets || listPhases || checkDependencies || !includes.isNullOrEmpty() ||
-                !librariesToCache.isNullOrEmpty() || libraryToAddToCache != null
+                !librariesToCache.isNullOrEmpty() || libraryToAddToCache != null || !exportedLibraries.isNullOrEmpty()
 
     fun Array<String>?.toNonNullList(): List<String> {
         return this?.asList<String>() ?: listOf<String>()
@@ -175,6 +182,7 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 arguments.manifestFile ?.let{ put(MANIFEST_FILE, it) }
                 arguments.runtimeFile ?.let{ put(RUNTIME_FILE, it) }
                 arguments.temporaryFilesDir?.let { put(TEMPORARY_FILES_DIR, it) }
+                put(SAVE_LLVM_IR, arguments.saveLlvmIr)
 
                 put(LIST_TARGETS, arguments.listTargets)
                 put(OPTIMIZATION, arguments.optimization)
@@ -205,7 +213,6 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 })
                 put(STATIC_FRAMEWORK, selectFrameworkType(configuration, arguments, outputKind))
                 put(OVERRIDE_CLANG_OPTIONS, arguments.clangOptions.toNonNullList())
-                put(ALLOCATION_MODE, arguments.allocator)
 
                 put(EXPORT_KDOC, arguments.exportKDoc)
 
@@ -233,10 +240,7 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 put(ENABLE_ASSERTIONS, arguments.enableAssertions)
 
                 val memoryModelFromArgument = when (arguments.memoryModel) {
-                    "relaxed" -> {
-                        configuration.report(STRONG_WARNING, "Relaxed memory model is not yet fully functional")
-                        MemoryModel.RELAXED
-                    }
+                    "relaxed" -> MemoryModel.RELAXED
                     "strict" -> MemoryModel.STRICT
                     "experimental" -> MemoryModel.EXPERIMENTAL
                     else -> {
@@ -260,6 +264,7 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                     CHECK_DEPENDENCIES,
                     configuration.kotlinSourceRoots.isNotEmpty()
                             || !arguments.includes.isNullOrEmpty()
+                            || !arguments.exportedLibraries.isNullOrEmpty()
                             || outputKind.isCache
                             || arguments.checkDependencies
                 )
@@ -302,30 +307,19 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                         DestroyRuntimeMode.ON_SHUTDOWN
                     }
                 })
-                val assertGcSupported = {
-                    if (memoryModel != MemoryModel.EXPERIMENTAL) {
-                        configuration.report(ERROR, "-Xgc is only supported for -memory-model experimental")
-                    }
+                if (arguments.gc != null && memoryModel != MemoryModel.EXPERIMENTAL) {
+                    configuration.report(ERROR, "-Xgc is only supported for -memory-model experimental")
                 }
-                put(GARBAGE_COLLECTOR, when (arguments.gc) {
-                    null -> GC.SAME_THREAD_MARK_AND_SWEEP
-                    "noop" -> {
-                        assertGcSupported()
-                        GC.NOOP
-                    }
-                    "stms" -> {
-                        assertGcSupported()
-                        GC.SAME_THREAD_MARK_AND_SWEEP
-                    }
+                putIfNotNull(GARBAGE_COLLECTOR, when (arguments.gc) {
+                    null -> null
+                    "noop" -> GC.NOOP
+                    "stms" -> GC.SAME_THREAD_MARK_AND_SWEEP
+                    "cms" -> GC.CONCURRENT_MARK_AND_SWEEP
                     else -> {
                         configuration.report(ERROR, "Unsupported GC ${arguments.gc}")
-                        GC.SAME_THREAD_MARK_AND_SWEEP
+                        null
                     }
                 })
-                if (memoryModel != MemoryModel.EXPERIMENTAL && arguments.gcAggressive) {
-                    configuration.report(ERROR, "-Xgc-aggressive is only supported for -memory-model experimental")
-                }
-                put(GARBAGE_COLLECTOR_AGRESSIVE, arguments.gcAggressive)
                 put(PROPERTY_LAZY_INITIALIZATION, when (arguments.propertyLazyInitialization) {
                     null -> {
                         when (memoryModel) {
@@ -340,6 +334,20 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                         false
                     }
                 })
+                put(ALLOCATION_MODE, when (arguments.allocator) {
+                    null -> {
+                        when (memoryModel) {
+                            MemoryModel.EXPERIMENTAL -> "mimalloc"
+                            else -> "std"
+                        }
+                    }
+                    "std" -> arguments.allocator!!
+                    "mimalloc" -> arguments.allocator!!
+                    else -> {
+                        configuration.report(ERROR, "Expected 'std' or 'mimalloc' for allocator")
+                        "std"
+                    }
+                })
                 put(WORKER_EXCEPTION_HANDLING, when (arguments.workerExceptionHandling) {
                     null -> if (memoryModel == MemoryModel.EXPERIMENTAL) WorkerExceptionHandling.USE_HOOK else WorkerExceptionHandling.LEGACY
                     "legacy" -> WorkerExceptionHandling.LEGACY
@@ -347,6 +355,15 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                     else -> {
                         configuration.report(ERROR, "Unsupported worker exception handling mode ${arguments.workerExceptionHandling}")
                         WorkerExceptionHandling.LEGACY
+                    }
+                })
+                put(LAZY_IR_FOR_CACHES, when (arguments.lazyIrForCaches) {
+                    null -> true
+                    "enable" -> true
+                    "disable" -> false
+                    else -> {
+                        configuration.report(ERROR, "Expected 'enable' or 'disable' for lazy IR usage for cached libraries")
+                        false
                     }
                 })
 
@@ -366,6 +383,8 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                     }
                 })
                 putIfNotNull(RUNTIME_LOGS, arguments.runtimeLogs)
+                putIfNotNull(BUNDLE_ID, parseBundleId(arguments, outputKind, configuration))
+                put(MEANINGFUL_BRIDGE_NAMES, arguments.meaningfulBridgeNames)
             }
         }
     }
@@ -569,13 +588,13 @@ private fun parseDebugPrefixMap(
     }
 }.toMap()
 
-private class BinaryOptionWithValue<T : Any>(val option: BinaryOption<T>, val value: T)
+class BinaryOptionWithValue<T : Any>(val option: BinaryOption<T>, val value: T)
 
 private fun <T : Any> CompilerConfiguration.put(binaryOptionWithValue: BinaryOptionWithValue<T>) {
     this.put(binaryOptionWithValue.option.compilerConfigurationKey, binaryOptionWithValue.value)
 }
 
-private fun parseBinaryOptions(
+fun parseBinaryOptions(
         arguments: K2NativeCompilerArguments,
         configuration: CompilerConfiguration
 ): List<BinaryOptionWithValue<*>> {
@@ -628,7 +647,20 @@ private fun parseKeyValuePairs(
     }
 }?.toMap()
 
-
+private fun parseBundleId(
+        arguments: K2NativeCompilerArguments,
+        outputKind: CompilerOutputKind,
+        configuration: CompilerConfiguration
+): String? {
+    val argumentValue = arguments.bundleId
+    return if (argumentValue != null && outputKind != CompilerOutputKind.FRAMEWORK) {
+        configuration.report(STRONG_WARNING, "Setting a bundle ID is only supported when producing a framework " +
+                "but the compiler is producing ${outputKind.name.lowercase()}")
+        null
+    } else {
+        argumentValue
+    }
+}
 
 fun main(args: Array<String>) = K2Native.main(args)
 fun mainNoExitWithGradleRenderer(args: Array<String>) = K2Native.mainNoExitWithGradleRenderer(args)

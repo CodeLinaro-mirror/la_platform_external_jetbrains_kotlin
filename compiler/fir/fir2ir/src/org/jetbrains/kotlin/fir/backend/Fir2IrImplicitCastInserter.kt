@@ -11,10 +11,9 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
 import org.jetbrains.kotlin.fir.references.FirReference
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -24,6 +23,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.parentAsClass
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 
 class Fir2IrImplicitCastInserter(
@@ -37,6 +37,8 @@ class Fir2IrImplicitCastInserter(
     override fun visitElement(element: FirElement, data: IrElement): IrElement {
         TODO("Should not be here: ${element::class}: ${element.render()}")
     }
+
+    override fun visitAnnotation(annotation: FirAnnotation, data: IrElement): IrElement = data
 
     override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: IrElement): IrElement = data
 
@@ -97,7 +99,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitExpression(expression: FirExpression, data: IrElement): IrElement {
         return when (expression) {
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
-            is FirUnitExpression -> (data as IrExpression).let { it.coerceToUnitIfNeeded(it.type, irBuiltIns) }
+            is FirUnitExpression -> (data as IrExpression).let { coerceToUnitIfNeeded(it, irBuiltIns) }
             else -> data
         }
     }
@@ -106,7 +108,7 @@ class Fir2IrImplicitCastInserter(
         return when (statement) {
             is FirTypeAlias -> data
             FirStubStatement -> data
-            is FirUnitExpression -> (data as IrExpression).let { it.coerceToUnitIfNeeded(it.type, irBuiltIns) }
+            is FirUnitExpression -> (data as IrExpression).let { coerceToUnitIfNeeded(it, irBuiltIns) }
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
             else -> statement.accept(this, data)
         }
@@ -201,23 +203,15 @@ class Fir2IrImplicitCastInserter(
                 insertImplicitCasts()
             }
             expectedType.isUnit -> {
-                coerceToUnitIfNeeded(type, irBuiltIns)
+                coerceToUnitIfNeeded(this, irBuiltIns)
             }
-            valueType.isNullabilityFlexible() && valueType.canBeNull && !expectedType.acceptsNullValues() -> {
-                insertImplicitNotNullCastIfNeeded(expression)
-            }
-            valueType.hasEnhancedNullability() && !expectedType.acceptsNullValues() -> {
+            typeCanBeEnhancedOrFlexibleNullable(valueType) && !expectedType.acceptsNullValues() -> {
                 insertImplicitNotNullCastIfNeeded(expression)
             }
             // TODO: coerceIntToAnotherIntegerType
             // TODO: even implicitCast call can be here?
             else -> this
         }
-    }
-
-    private fun FirTypeRef.isNullabilityFlexible(): Boolean {
-        val flexibility = coneTypeSafe<ConeFlexibleType>() ?: return false
-        return flexibility.lowerBound.isMarkedNullable != flexibility.upperBound.isMarkedNullable
     }
 
     private fun FirTypeRef.acceptsNullValues(): Boolean =
@@ -228,19 +222,7 @@ class Fir2IrImplicitCastInserter(
         // [TypeOperatorLowering] will retrieve the source (from start offset to end offset) as an assertion message.
         // Avoid type casting if we can't determine the source for some reasons, e.g., implicit `this` receiver.
         if (expression.source == null) return this
-        // Cast type massage 1. Remove @EnhancedNullability
-        // Cast type massage 2. Convert it to a non-null variant (in case of @FlexibleNullability)
-        val castType = type.removeAnnotations {
-            it.symbol.owner.parentAsClass.classId == CompilerConeAttributes.EnhancedNullability.ANNOTATION_CLASS_ID
-        }.withHasQuestionMark(false)
-        return IrTypeOperatorCallImpl(
-            this.startOffset,
-            this.endOffset,
-            castType,
-            IrTypeOperator.IMPLICIT_NOTNULL,
-            castType,
-            this
-        )
+        return implicitNotNullCast(this)
     }
 
     private fun IrContainerExpression.insertImplicitCasts(): IrContainerExpression {
@@ -250,7 +232,7 @@ class Fir2IrImplicitCastInserter(
         statements.forEachIndexed { i, irStatement ->
             if (irStatement !is IrErrorCallExpression && irStatement is IrExpression) {
                 if (i != lastIndex) {
-                    statements[i] = irStatement.coerceToUnitIfNeeded(irStatement.type, irBuiltIns)
+                    statements[i] = coerceToUnitIfNeeded(irStatement, irBuiltIns)
                 }
                 // TODO: for the last statement, need to cast to the return type if mismatched
             }
@@ -264,7 +246,7 @@ class Fir2IrImplicitCastInserter(
 
         statements.forEachIndexed { i, irStatement ->
             if (irStatement !is IrErrorCallExpression && irStatement is IrExpression) {
-                statements[i] = irStatement.coerceToUnitIfNeeded(irStatement.type, irBuiltIns)
+                statements[i] = coerceToUnitIfNeeded(irStatement, irBuiltIns)
             }
         }
         return this
@@ -286,14 +268,31 @@ class Fir2IrImplicitCastInserter(
         return data
     }
 
+    override fun visitWhenSubjectExpressionWithSmartcast(
+        whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast,
+        data: IrElement
+    ): IrElement {
+        return if (whenSubjectExpressionWithSmartcast.isStable) {
+            implicitCastOrExpression(data as IrExpression, whenSubjectExpressionWithSmartcast.typeRef)
+        } else {
+            data as IrExpression
+        }
+    }
+
+    override fun visitWhenSubjectExpressionWithSmartcastToNull(
+        whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull,
+        data: IrElement
+    ): IrElement {
+        // We don't want an implicit cast to Nothing?. This expression just encompasses nullability after null check.
+        return data
+    }
+
     internal fun implicitCastFromDispatchReceiver(
         original: IrExpression,
         originalTypeRef: FirTypeRef,
         calleeReference: FirReference,
     ): IrExpression {
-        val referencedDeclaration =
-            ((calleeReference as? FirResolvedNamedReference)?.resolvedSymbol as? FirCallableSymbol<*>)?.unwrapCallRepresentative()
-                ?.fir
+        val referencedDeclaration = (calleeReference.resolvedSymbol as? FirCallableSymbol<*>)?.unwrapCallRepresentative()?.fir
 
         val dispatchReceiverType =
             referencedDeclaration?.dispatchReceiverType as? ConeClassLikeType
@@ -324,27 +323,61 @@ class Fir2IrImplicitCastInserter(
         return implicitCast(original, castType)
     }
 
-    private fun implicitCast(original: IrExpression, castType: IrType): IrExpression {
-        return IrTypeOperatorCallImpl(
-            original.startOffset,
-            original.endOffset,
-            castType,
-            IrTypeOperator.IMPLICIT_CAST,
-            castType,
-            original
-        )
-    }
-
-    private fun IrExpression.coerceToUnitIfNeeded(valueType: IrType, irBuiltIns: IrBuiltIns): IrExpression {
-        return if (valueType.isUnit() || valueType.isNothing())
-            this
-        else
-            IrTypeOperatorCallImpl(
-                startOffset, endOffset,
-                irBuiltIns.unitType,
-                IrTypeOperator.IMPLICIT_COERCION_TO_UNIT,
-                irBuiltIns.unitType,
-                this
+    companion object {
+        private fun implicitCast(original: IrExpression, castType: IrType): IrExpression {
+            return IrTypeOperatorCallImpl(
+                original.startOffset,
+                original.endOffset,
+                castType,
+                IrTypeOperator.IMPLICIT_CAST,
+                castType,
+                original
             )
+        }
+
+        private fun coerceToUnitIfNeeded(original: IrExpression, irBuiltIns: IrBuiltIns): IrExpression {
+            val valueType = original.type
+            return if (valueType.isUnit() || valueType.isNothing())
+                original
+            else
+                IrTypeOperatorCallImpl(
+                    original.startOffset, original.endOffset,
+                    irBuiltIns.unitType,
+                    IrTypeOperator.IMPLICIT_COERCION_TO_UNIT,
+                    irBuiltIns.unitType,
+                    original
+                )
+        }
+
+        internal fun implicitNotNullCast(original: IrExpression): IrTypeOperatorCall {
+            // Cast type massage 1. Remove @EnhancedNullability
+            // Cast type massage 2. Convert it to a non-null variant (in case of @FlexibleNullability)
+            val castType = original.type.removeAnnotations {
+                val classId = it.symbol.owner.parentAsClass.classId
+                classId == StandardClassIds.Annotations.EnhancedNullability ||
+                        classId == StandardClassIds.Annotations.FlexibleNullability
+            }.withHasQuestionMark(false)
+            return IrTypeOperatorCallImpl(
+                original.startOffset,
+                original.endOffset,
+                castType,
+                IrTypeOperator.IMPLICIT_NOTNULL,
+                castType,
+                original
+            )
+        }
+
+        internal fun typeCanBeEnhancedOrFlexibleNullable(typeRef: FirTypeRef): Boolean {
+            return when {
+                typeRef.hasEnhancedNullability() -> true
+                typeRef.isNullabilityFlexible() && typeRef.canBeNull -> true
+                else -> false
+            }
+        }
+
+        private fun FirTypeRef.isNullabilityFlexible(): Boolean {
+            val flexibility = coneTypeSafe<ConeFlexibleType>() ?: return false
+            return flexibility.lowerBound.isMarkedNullable != flexibility.upperBound.isMarkedNullable
+        }
     }
 }

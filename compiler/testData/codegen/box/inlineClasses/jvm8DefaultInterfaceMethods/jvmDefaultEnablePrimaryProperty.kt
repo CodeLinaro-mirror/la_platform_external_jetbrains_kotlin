@@ -1,7 +1,10 @@
 // !JVM_DEFAULT_MODE: enable
 // TARGET_BACKEND: JVM
-// WITH_RUNTIME
+// WITH_STDLIB
 // JVM_TARGET: 1.8
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
 // FILE: jvmDefaultEnable.kt
 
 interface IFooBar {
@@ -11,9 +14,11 @@ interface IFooBar {
 
 interface IFooBar2 : IFooBar
 
-inline class Test1(override val bar: String): IFooBar
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Test1(override val bar: String): IFooBar
 
-inline class Test2(override val bar: String): IFooBar2
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Test2(override val bar: String): IFooBar2
 
 fun box(): String {
     val k = Test1("K")

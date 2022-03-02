@@ -59,7 +59,8 @@ class MemberDeserializer(private val c: DeserializationContext) {
             getDispatchReceiverParameter(),
             proto.receiverType(c.typeTable)?.let(local.typeDeserializer::type)?.let { receiverType ->
                 DescriptorFactory.createExtensionReceiverParameterForCallable(property, receiverType, receiverAnnotations)
-            }
+            },
+            proto.contextReceiverTypeList.map { it.toContextReceiver(local, property) }
         )
 
         // Per documentation on Property.getter_flags in metadata.proto, if an accessor flags field is absent, its value should be computed
@@ -131,12 +132,21 @@ class MemberDeserializer(private val c: DeserializationContext) {
         }
 
         if (Flags.HAS_CONSTANT.get(flags)) {
-            property.setCompileTimeInitializer(
+            property.setCompileTimeInitializerFactory {
                 c.storageManager.createNullableLazyValue {
                     val container = c.containingDeclaration.asProtoContainer()!!
                     c.components.annotationAndConstantLoader.loadPropertyConstant(container, proto, property.returnType)
                 }
-            )
+            }
+        }
+
+        if ((c.containingDeclaration as? ClassDescriptor)?.kind == ClassKind.ANNOTATION_CLASS) {
+            property.setCompileTimeInitializerFactory {
+                c.storageManager.createNullableLazyValue {
+                    val container = c.containingDeclaration.asProtoContainer()!!
+                    c.components.annotationAndConstantLoader.loadAnnotationDefaultValue(container, proto, property.returnType)
+                }
+            }
         }
 
         property.initialize(
@@ -151,6 +161,7 @@ class MemberDeserializer(private val c: DeserializationContext) {
     private fun DeserializedSimpleFunctionDescriptor.initializeWithCoroutinesExperimentalityStatus(
         extensionReceiverParameter: ReceiverParameterDescriptor?,
         dispatchReceiverParameter: ReceiverParameterDescriptor?,
+        contextReceiverParameters: List<ReceiverParameterDescriptor>,
         typeParameters: List<TypeParameterDescriptor>,
         unsubstitutedValueParameters: List<ValueParameterDescriptor>,
         unsubstitutedReturnType: KotlinType?,
@@ -161,6 +172,7 @@ class MemberDeserializer(private val c: DeserializationContext) {
         initialize(
             extensionReceiverParameter,
             dispatchReceiverParameter,
+            contextReceiverParameters,
             typeParameters,
             unsubstitutedValueParameters,
             unsubstitutedReturnType,
@@ -169,11 +181,6 @@ class MemberDeserializer(private val c: DeserializationContext) {
             userDataMap
         )
     }
-
-    private fun DeserializedMemberDescriptor.versionAndReleaseCoroutinesMismatch(): Boolean =
-        versionRequirements.none {
-            it.version == VersionRequirement.Version(1, 3) && it.kind == ProtoBuf.VersionRequirement.VersionKind.LANGUAGE_VERSION
-        }
 
     private fun loadOldFlags(oldFlags: Int): Int {
         val lowSixBits = oldFlags and 0x3f
@@ -205,6 +212,7 @@ class MemberDeserializer(private val c: DeserializationContext) {
                 DescriptorFactory.createExtensionReceiverParameterForCallable(function, receiverType, receiverAnnotations)
             },
             getDispatchReceiverParameter(),
+            proto.contextReceiverTypeList.mapNotNull { it.toContextReceiver(local, function) },
             local.typeDeserializer.ownTypeParameters,
             local.memberDeserializer.valueParameters(proto.valueParameterList, proto, AnnotatedCallableKind.FUNCTION),
             local.typeDeserializer.type(proto.returnType(c.typeTable)),
@@ -269,7 +277,7 @@ class MemberDeserializer(private val c: DeserializationContext) {
             ProtoEnumFlags.descriptorVisibility(Flags.VISIBILITY.get(proto.flags))
         )
         descriptor.returnType = classDescriptor.defaultType
-
+        descriptor.isExpect = classDescriptor.isExpect
         descriptor.setHasStableParameterNames(!Flags.IS_CONSTRUCTOR_WITH_NON_STABLE_PARAMETER_NAMES.get(proto.flags))
 
         return descriptor
@@ -343,5 +351,13 @@ class MemberDeserializer(private val c: DeserializationContext) {
         is PackageFragmentDescriptor -> ProtoContainer.Package(fqName, c.nameResolver, c.typeTable, c.containerSource)
         is DeserializedClassDescriptor -> thisAsProtoContainer
         else -> null // TODO: support annotations on lambdas and their parameters
+    }
+
+    private fun ProtoBuf.Type.toContextReceiver(
+        deserializationContext: DeserializationContext,
+        callableDescriptor: CallableDescriptor
+    ): ReceiverParameterDescriptor? {
+        val contextReceiverType = deserializationContext.typeDeserializer.type(this)
+        return DescriptorFactory.createContextReceiverParameterForCallable(callableDescriptor, contextReceiverType, Annotations.EMPTY)
     }
 }

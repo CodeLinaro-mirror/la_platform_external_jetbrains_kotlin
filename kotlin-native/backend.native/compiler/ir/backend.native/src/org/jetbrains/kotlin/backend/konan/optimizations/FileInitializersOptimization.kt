@@ -235,6 +235,7 @@ internal object FileInitializersOptimization {
         }
 
         private val executeImplSymbol = context.ir.symbols.executeImpl
+        private val coroutineLaunchpadSymbol = context.ir.symbols.coroutineLaunchpad
         private val getContinuationSymbol = context.ir.symbols.getContinuation
 
         private var dummySet = mutableSetOf<IrFunctionAccessExpression>()
@@ -325,6 +326,8 @@ internal object FileInitializersOptimization {
 
                 override fun visitFunctionReference(expression: IrFunctionReference, data: BitSet) = data
                 override fun visitVararg(expression: IrVararg, data: BitSet) = data
+
+                override fun visitConstantValue(expression: IrConstantValue, data: BitSet) = data
 
                 override fun visitBreak(jump: IrBreak, data: BitSet): BitSet {
                     intersectInitializedFiles(initializedFilesAtLoopsBreaks, jump.loop, data)
@@ -487,6 +490,13 @@ internal object FileInitializersOptimization {
                     return curData
                 }
 
+                private fun processCoroutineLaunchpad(expression: IrCall, data: BitSet): BitSet {
+                    val call = expression.getValueArgument(0)!!
+                    val continuation = expression.getValueArgument(1)!!
+                    val curData = continuation.accept(this, data)
+                    return call.accept(this, curData)
+                }
+
                 override fun visitFunctionAccess(expression: IrFunctionAccessExpression, data: BitSet) =
                         processCall(expression, expression.actualCallee, data)
 
@@ -497,6 +507,8 @@ internal object FileInitializersOptimization {
                         return processExecuteImpl(expression, data)
                     if (expression.symbol == getContinuationSymbol)
                         return data
+                    if (expression.symbol == coroutineLaunchpadSymbol)
+                        return processCoroutineLaunchpad(expression, data)
                     if (!expression.isVirtualCall)
                         return processCall(expression, expression.actualCallee, data)
                     val devirtualizedCallSite = virtualCallSites[expression] ?: return data

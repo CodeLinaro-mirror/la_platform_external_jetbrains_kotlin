@@ -8,6 +8,8 @@
 
 #include <cstddef>
 
+#include "Allocator.hpp"
+#include "GCScheduler.hpp"
 #include "ObjectFactory.hpp"
 #include "Types.h"
 #include "Utils.hpp"
@@ -23,6 +25,12 @@ namespace gc {
 // Stop-the-world Mark-and-Sweep that runs on mutator threads. Can support targets that do not have threads.
 class SameThreadMarkAndSweep : private Pinned {
 public:
+    enum class SafepointFlag {
+        kNone,
+        kNeedsSuspend,
+        kNeedsGC,
+    };
+
     class ObjectData {
     public:
         enum class Color {
@@ -41,56 +49,49 @@ public:
     class ThreadData : private Pinned {
     public:
         using ObjectData = SameThreadMarkAndSweep::ObjectData;
+        using Allocator = AllocatorWithGC<AlignedAllocator, ThreadData>;
 
-        explicit ThreadData(SameThreadMarkAndSweep& gc, mm::ThreadData& threadData) noexcept : gc_(gc), threadData_(threadData) {}
+        ThreadData(SameThreadMarkAndSweep& gc, mm::ThreadData& threadData, GCSchedulerThreadData& gcScheduler) noexcept :
+            gc_(gc), gcScheduler_(gcScheduler) {}
         ~ThreadData() = default;
 
-        void SafePointFunctionEpilogue() noexcept;
-        void SafePointLoopBody() noexcept;
-        void SafePointExceptionUnwind() noexcept;
+        void SafePointSlowPath(SafepointFlag flag) noexcept;
         void SafePointAllocation(size_t size) noexcept;
 
-        void PerformFullGC() noexcept;
+        void ScheduleAndWaitFullGC() noexcept;
+        void ScheduleAndWaitFullGCWithFinalizers() noexcept { ScheduleAndWaitFullGC(); }
 
         void OnOOM(size_t size) noexcept;
 
+        Allocator CreateAllocator() noexcept { return Allocator(AlignedAllocator(), *this); }
+
     private:
-        void SafePointRegular(size_t weight) noexcept;
-        void SafePointRegularSlowPath() noexcept;
 
         SameThreadMarkAndSweep& gc_;
-        mm::ThreadData& threadData_;
-        size_t allocatedBytes_ = 0;
-        size_t safePointsCounter_ = 0;
-        uint64_t timeOfLastGcUs_ = konan::getTimeMicros();
+        GCSchedulerThreadData& gcScheduler_;
     };
 
-    SameThreadMarkAndSweep() noexcept;
+    using Allocator = ThreadData::Allocator;
+
+    SameThreadMarkAndSweep(mm::ObjectFactory<SameThreadMarkAndSweep>& objectFactory, GCScheduler& gcScheduler) noexcept;
     ~SameThreadMarkAndSweep() = default;
 
-    void SetThreshold(size_t value) noexcept { threshold_ = value; }
-    size_t GetThreshold() noexcept { return threshold_; }
-
-    void SetAllocationThresholdBytes(size_t value) noexcept { allocationThresholdBytes_ = value; }
-    size_t GetAllocationThresholdBytes() noexcept { return allocationThresholdBytes_; }
-
-    void SetCooldownThresholdUs(uint64_t value) noexcept { cooldownThresholdUs_ = value; }
-    uint64_t GetCooldownThresholdUs() noexcept { return cooldownThresholdUs_; }
-
-    void SetAutoTune(bool value) noexcept { autoTune_ = value; }
-    bool GetAutoTune() noexcept { return autoTune_; }
-
 private:
-    mm::ObjectFactory<SameThreadMarkAndSweep>::FinalizerQueue PerformFullGC() noexcept;
+    // Returns `true` if GC has happened, and `false` if not (because someone else has suspended the threads).
+    bool PerformFullGC() noexcept;
 
     size_t epoch_ = 0;
     uint64_t lastGCTimestampUs_ = 0;
 
-    size_t threshold_ = 100000;  // Roughly 1 safepoint per 10ms (on a subset of examples on one particular machine).
-    size_t allocationThresholdBytes_ = 10 * 1024 * 1024;  // 10MiB by default.
-    uint64_t cooldownThresholdUs_ = 200 * 1000; // 200 milliseconds by default.
-    bool autoTune_ = false;
+    mm::ObjectFactory<SameThreadMarkAndSweep>& objectFactory_;
+    GCScheduler& gcScheduler_;
 };
+
+namespace internal {
+
+SameThreadMarkAndSweep::SafepointFlag loadSafepointFlag() noexcept;
+
+} // namespace internal
 
 } // namespace gc
 } // namespace kotlin

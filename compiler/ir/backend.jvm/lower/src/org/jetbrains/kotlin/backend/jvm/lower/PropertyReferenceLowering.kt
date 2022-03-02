@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclaration
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.*
-import org.jetbrains.kotlin.backend.jvm.codegen.parentClassId
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.backend.jvm.lower.FunctionReferenceLowering.Companion.calculateOwner
 import org.jetbrains.kotlin.backend.jvm.lower.FunctionReferenceLowering.Companion.calculateOwnerKClass
@@ -166,10 +165,11 @@ internal class PropertyReferenceLowering(val context: JvmBackendContext) : IrEle
 
     private fun propertyReferenceKind(expression: IrCallableReference<*>, mutable: Boolean, i: Int): PropertyReferenceKind {
         check(i in 0..2) { "Incorrect number of receivers ($i) for property reference: ${expression.render()}" }
+        val symbols = context.ir.symbols
         return PropertyReferenceKind(
-            context.ir.symbols.getPropertyReferenceClass(mutable, i, false),
-            context.ir.symbols.getPropertyReferenceClass(mutable, i, true),
-            context.ir.symbols.reflection.owner.functions.single {
+            symbols.getPropertyReferenceClass(mutable, i, false),
+            symbols.getPropertyReferenceClass(mutable, i, true),
+            symbols.reflection.owner.functions.single {
                 it.name.asString() == (if (mutable) "mutableProperty$i" else "property$i")
             }
         )
@@ -327,7 +327,7 @@ internal class PropertyReferenceLowering(val context: JvmBackendContext) : IrEle
             return createSpecializedKProperty(expression)
         }
         val referenceKind = propertyReferenceKindFor(expression)
-        return context.createJvmIrBuilder(currentScope!!.scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset).run {
+        return context.createJvmIrBuilder(currentScope!!, expression).run {
             val arity = when {
                 boundReceiver != null -> 5 // (receiver, jClass, name, desc, flags)
                 useOptimizedSuperClass -> 4 // (jClass, name, desc, flags)

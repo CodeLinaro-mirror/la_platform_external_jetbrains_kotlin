@@ -1093,7 +1093,14 @@ interface IrBuilderExtension {
 
         val typeParameters = ctorDecl.parentAsClass.typeParameters
         val substitutedReturnType = ctorDecl.returnType.substitute(typeParameters, typeArgs)
-        return irInvoke(null, ctor, typeArguments = typeArgs, valueArguments = args, returnTypeHint = substitutedReturnType)
+        return irInvoke(
+            null,
+            ctor,
+            // User may declare serializer with fixed type arguments, e.g. class SomeSerializer : KSerializer<ClosedRange<Float>>
+            typeArguments = typeArgs.takeIf { it.size == ctorDecl.typeParameters.size }.orEmpty(),
+            valueArguments = args.takeIf { it.size == ctorDecl.valueParameters.size }.orEmpty(),
+            returnTypeHint = substitutedReturnType
+        )
     }
 
     fun collectSerialInfoAnnotations(irClass: IrClass): List<IrConstructorCall> {
@@ -1128,9 +1135,10 @@ interface IrBuilderExtension {
         } ?: return null
 
         val adjustedArgs: List<IrExpression> =
-            if (baseClass.descriptor.isSealed() || baseClass.descriptor.modality == Modality.ABSTRACT) {
+            // if typeArgs.size == args.size then the serializer is custom - we need to use the actual serializers from the arguments
+            if ((typeArgs.size != args.size) && (baseClass.descriptor.isSealed() || baseClass.descriptor.modality == Modality.ABSTRACT)) {
                 val serializer = findStandardKotlinTypeSerializer(baseClass.module, context.irBuiltIns.unitType.toKotlinType())!!
-                // workaround for sealed and classes - the `serializer` function expects non-null serializers, but does not use them, so serializers of any type can be passed
+                // workaround for sealed and abstract classes - the `serializer` function expects non-null serializers, but does not use them, so serializers of any type can be passed
                 List(baseClass.typeParameters.size) { irGetObject(serializer) }
             } else {
                 args

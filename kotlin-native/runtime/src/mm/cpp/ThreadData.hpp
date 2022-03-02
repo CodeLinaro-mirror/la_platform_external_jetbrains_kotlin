@@ -11,7 +11,9 @@
 #include "GlobalData.hpp"
 #include "GlobalsRegistry.hpp"
 #include "GC.hpp"
+#include "GCScheduler.hpp"
 #include "ObjectFactory.hpp"
+#include "ExtraObjectDataFactory.hpp"
 #include "ShadowStack.hpp"
 #include "StableRefRegistry.hpp"
 #include "ThreadLocalStorage.hpp"
@@ -32,8 +34,8 @@ public:
         threadId_(threadId),
         globalsThreadQueue_(GlobalsRegistry::Instance()),
         stableRefThreadQueue_(StableRefRegistry::Instance()),
+        extraObjectDataThreadQueue_(ExtraObjectDataFactory::Instance()),
         gc_(GlobalData::Instance().gc(), *this),
-        objectFactoryThreadQueue_(GlobalData::Instance().objectFactory(), gc_),
         suspensionData_(ThreadState::kNative) {}
 
     ~ThreadData() = default;
@@ -46,11 +48,11 @@ public:
 
     StableRefRegistry::ThreadQueue& stableRefThreadQueue() noexcept { return stableRefThreadQueue_; }
 
+    ExtraObjectDataFactory::ThreadQueue& extraObjectDataThreadQueue() noexcept { return extraObjectDataThreadQueue_; }
+
     ThreadState state() noexcept { return suspensionData_.state(); }
 
     ThreadState setState(ThreadState state) noexcept { return suspensionData_.setState(state); }
-
-    ObjectFactory<gc::GC>::ThreadQueue& objectFactoryThreadQueue() noexcept { return objectFactoryThreadQueue_; }
 
     ShadowStack& shadowStack() noexcept { return shadowStack_; }
 
@@ -64,13 +66,15 @@ public:
         // TODO: These use separate locks, which is inefficient.
         globalsThreadQueue_.Publish();
         stableRefThreadQueue_.Publish();
-        objectFactoryThreadQueue_.Publish();
+        extraObjectDataThreadQueue_.Publish();
+        gc_.Publish();
     }
 
     void ClearForTests() noexcept {
         globalsThreadQueue_.ClearForTests();
         stableRefThreadQueue_.ClearForTests();
-        objectFactoryThreadQueue_.ClearForTests();
+        extraObjectDataThreadQueue_.ClearForTests();
+        gc_.ClearForTests();
     }
 
 private:
@@ -78,9 +82,9 @@ private:
     GlobalsRegistry::ThreadQueue globalsThreadQueue_;
     ThreadLocalStorage tls_;
     StableRefRegistry::ThreadQueue stableRefThreadQueue_;
+    ExtraObjectDataFactory::ThreadQueue extraObjectDataThreadQueue_;
     ShadowStack shadowStack_;
     gc::GC::ThreadData gc_;
-    ObjectFactory<gc::GC>::ThreadQueue objectFactoryThreadQueue_;
     KStdVector<std::pair<ObjHeader**, ObjHeader*>> initializingSingletons_;
     ThreadSuspensionData suspensionData_;
 };

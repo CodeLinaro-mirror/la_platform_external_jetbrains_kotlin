@@ -42,12 +42,13 @@ import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
+import org.jetbrains.kotlin.util.OperatorNameConventions
 
 @ObsoleteDescriptorBasedAPI
 class IrBuiltInsOverDescriptors(
     val builtIns: KotlinBuiltIns,
     private val typeTranslator: TypeTranslator,
-    private val symbolTable: SymbolTable
+    val symbolTable: SymbolTable
 ) : IrBuiltIns() {
     override val languageVersionSettings = typeTranslator.languageVersionSettings
 
@@ -95,9 +96,22 @@ class IrBuiltInsOverDescriptors(
 
         val symbol = symbolTable.declareSimpleFunctionIfNotExists(operatorDescriptor) {
             val operator = irFactory.createFunction(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR, it, Name.identifier(name), DescriptorVisibilities.PUBLIC, Modality.FINAL,
-                returnType, isInline = false, isExternal = false, isTailrec = false, isSuspend = false,
-                isOperator = false, isInfix = false, isExpect = false, isFakeOverride = false
+                UNDEFINED_OFFSET,
+                UNDEFINED_OFFSET,
+                BUILTIN_OPERATOR,
+                it,
+                Name.identifier(name),
+                DescriptorVisibilities.PUBLIC,
+                Modality.FINAL,
+                returnType,
+                isInline = false,
+                isExternal = false,
+                isTailrec = false,
+                isSuspend = false,
+                isOperator = false,
+                isInfix = false,
+                isExpect = false,
+                isFakeOverride = false
             )
             operator.parent = operatorsPackageFragment
             operatorsPackageFragment.declarations += operator
@@ -154,54 +168,58 @@ class IrBuiltInsOverDescriptors(
             returnKotlinType = typeParameterDescriptor.typeConstructor.makeNonNullType()
 
             initialize(
-                null, null, listOf(typeParameterDescriptor), listOf(valueParameterDescriptor), returnKotlinType,
+                null, null, listOf(), listOf(typeParameterDescriptor), listOf(valueParameterDescriptor), returnKotlinType,
                 Modality.FINAL, DescriptorVisibilities.PUBLIC
             )
         }
 
-        val typeParameterSymbol = IrTypeParameterSymbolImpl(typeParameterDescriptor)
-        val typeParameter = irFactory.createTypeParameter(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR, typeParameterSymbol, Name.identifier("T0"), 0, true, Variance.INVARIANT
-        ).apply {
-            superTypes += anyType
-        }
+        return symbolTable.declareSimpleFunctionIfNotExists(operatorDescriptor) { operatorSymbol ->
+            val typeParameter = symbolTable.declareGlobalTypeParameter(
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                BUILTIN_OPERATOR,
+                typeParameterDescriptor
+            ).apply {
+                superTypes += anyType
+            }
+            val typeParameterSymbol = typeParameter.symbol
 
-        val returnIrType = IrSimpleTypeBuilder().run {
-            classifier = typeParameterSymbol
-            kotlinType = returnKotlinType
-            hasQuestionMark = false
-            buildSimpleType()
-        }
+            val returnIrType = IrSimpleTypeBuilder().run {
+                classifier = typeParameterSymbol
+                kotlinType = returnKotlinType
+                hasQuestionMark = false
+                buildSimpleType()
+            }
 
-        val valueIrType = IrSimpleTypeBuilder().run {
-            classifier = typeParameterSymbol
-            kotlinType = valueKotlinType
-            hasQuestionMark = true
-            buildSimpleType()
-        }
+            val valueIrType = IrSimpleTypeBuilder().run {
+                classifier = typeParameterSymbol
+                kotlinType = valueKotlinType
+                hasQuestionMark = true
+                buildSimpleType()
+            }
 
-        return symbolTable.declareSimpleFunctionIfNotExists(operatorDescriptor) {
-            val operator = irFactory.createFunction(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR, it, name, DescriptorVisibilities.PUBLIC, Modality.FINAL, returnIrType,
+            irFactory.createFunction(
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR,
+                operatorSymbol, name,
+                DescriptorVisibilities.PUBLIC, Modality.FINAL,
+                returnIrType,
                 isInline = false, isExternal = false, isTailrec = false, isSuspend = false, isOperator = false, isInfix = false,
                 isExpect = false, isFakeOverride = false
-            )
-            operator.parent = operatorsPackageFragment
-            operatorsPackageFragment.declarations += operator
+            ).also { operator ->
+                operator.parent = operatorsPackageFragment
+                operatorsPackageFragment.declarations += operator
 
-            val valueParameterSymbol = IrValueParameterSymbolImpl(valueParameterDescriptor)
-            val valueParameter = irFactory.createValueParameter(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR, valueParameterSymbol, Name.identifier("arg0"), 0,
-                valueIrType, null, isCrossinline = false, isNoinline = false, isHidden = false, isAssignable = false
-            )
+                val valueParameterSymbol = IrValueParameterSymbolImpl(valueParameterDescriptor)
+                val valueParameter = irFactory.createValueParameter(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, BUILTIN_OPERATOR, valueParameterSymbol, Name.identifier("arg0"), 0,
+                    valueIrType, null, isCrossinline = false, isNoinline = false, isHidden = false, isAssignable = false
+                )
 
-            valueParameter.parent = operator
-            typeParameter.parent = operator
+                valueParameter.parent = operator
+                typeParameter.parent = operator
 
-            operator.valueParameters += valueParameter
-            operator.typeParameters += typeParameter
-
-            operator
+                operator.valueParameters += valueParameter
+                operator.typeParameters += typeParameter
+            }
         }.symbol
     }
 
@@ -264,6 +282,7 @@ class IrBuiltInsOverDescriptors(
     val string = builtIns.stringType
     override val stringType = string.toIrType()
     override val stringClass = builtIns.string.toIrSymbol()
+
     // TODO: check if correct
     override val charSequenceClass = findClass(Name.identifier("CharSequence"), "kotlin")!!
 
@@ -340,7 +359,8 @@ class IrBuiltInsOverDescriptors(
     override val doubleArray = builtIns.getPrimitiveArrayClassDescriptor(PrimitiveType.DOUBLE).toIrSymbol()
     override val booleanArray = builtIns.getPrimitiveArrayClassDescriptor(PrimitiveType.BOOLEAN).toIrSymbol()
 
-    override val primitiveArraysToPrimitiveTypes = PrimitiveType.values().associate { builtIns.getPrimitiveArrayClassDescriptor(it).toIrSymbol() to it }
+    override val primitiveArraysToPrimitiveTypes =
+        PrimitiveType.values().associate { builtIns.getPrimitiveArrayClassDescriptor(it).toIrSymbol() to it }
     override val primitiveTypesToPrimitiveArrays = primitiveArraysToPrimitiveTypes.map { (k, v) -> v to k }.toMap()
     override val primitiveArrayElementTypes = primitiveArraysToPrimitiveTypes.mapValues { primitiveTypeToIrType[it.value] }
     override val primitiveArrayForType = primitiveArrayElementTypes.asSequence().associate { it.value to it.key }
@@ -352,16 +372,24 @@ class IrBuiltInsOverDescriptors(
         }.toMap()
 
     override val lessFunByOperandType = primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.LESS)
-    override val lessOrEqualFunByOperandType = primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.LESS_OR_EQUAL)
-    override val greaterOrEqualFunByOperandType = primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.GREATER_OR_EQUAL)
-    override val greaterFunByOperandType = primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.GREATER)
+    override val lessOrEqualFunByOperandType =
+        primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.LESS_OR_EQUAL)
+    override val greaterOrEqualFunByOperandType =
+        primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.GREATER_OR_EQUAL)
+    override val greaterFunByOperandType =
+        primitiveIrTypesWithComparisons.defineComparisonOperatorForEachIrType(BuiltInOperatorNames.GREATER)
 
     override val ieee754equalsFunByOperandType =
         primitiveFloatingPointIrTypes.map {
-            it.classifierOrFail to defineOperator(BuiltInOperatorNames.IEEE754_EQUALS, booleanType, listOf(it.makeNullable(), it.makeNullable()))
+            it.classifierOrFail to defineOperator(
+                BuiltInOperatorNames.IEEE754_EQUALS,
+                booleanType,
+                listOf(it.makeNullable(), it.makeNullable())
+            )
         }.toMap()
 
-    val booleanNot = builtIns.boolean.unsubstitutedMemberScope.getContributedFunctions(Name.identifier("not"), NoLookupLocation.FROM_BACKEND).single()
+    val booleanNot =
+        builtIns.boolean.unsubstitutedMemberScope.getContributedFunctions(Name.identifier("not"), NoLookupLocation.FROM_BACKEND).single()
     override val booleanNotSymbol = symbolTable.referenceSimpleFunction(booleanNot)
 
     override val eqeqeqSymbol = defineOperator(BuiltInOperatorNames.EQEQEQ, booleanType, listOf(anyNType, anyNType))
@@ -370,8 +398,10 @@ class IrBuiltInsOverDescriptors(
     override val throwIseSymbol = defineOperator(BuiltInOperatorNames.THROW_ISE, nothingType, listOf())
     override val andandSymbol = defineOperator(BuiltInOperatorNames.ANDAND, booleanType, listOf(booleanType, booleanType))
     override val ororSymbol = defineOperator(BuiltInOperatorNames.OROR, booleanType, listOf(booleanType, booleanType))
-    override val noWhenBranchMatchedExceptionSymbol = defineOperator(BuiltInOperatorNames.NO_WHEN_BRANCH_MATCHED_EXCEPTION, nothingType, listOf())
-    override val illegalArgumentExceptionSymbol = defineOperator(BuiltInOperatorNames.ILLEGAL_ARGUMENT_EXCEPTION, nothingType, listOf(stringType))
+    override val noWhenBranchMatchedExceptionSymbol =
+        defineOperator(BuiltInOperatorNames.NO_WHEN_BRANCH_MATCHED_EXCEPTION, nothingType, listOf())
+    override val illegalArgumentExceptionSymbol =
+        defineOperator(BuiltInOperatorNames.ILLEGAL_ARGUMENT_EXCEPTION, nothingType, listOf(stringType))
 
     override val checkNotNullSymbol = defineCheckNotNullOperator()
 
@@ -406,6 +436,8 @@ class IrBuiltInsOverDescriptors(
         it.descriptor.extensionReceiverParameter == null && it.descriptor.dispatchReceiverParameter == null &&
                 it.descriptor.valueParameters.size == 1 && KotlinBuiltIns.isInt(it.descriptor.valueParameters[0].type)
     }
+
+    override val linkageErrorSymbol: IrSimpleFunctionSymbol = defineOperator("linkageError", nothingType, listOf(stringType))
 
     override val enumClass = builtIns.enum.toIrSymbol()
 
@@ -473,7 +505,7 @@ class IrBuiltInsOverDescriptors(
         }
     }
 
-    private fun <T: Any> getFunctionsByKey(
+    private fun <T : Any> getFunctionsByKey(
         name: Name,
         vararg packageNameSegments: String,
         makeKey: (SimpleFunctionDescriptor) -> T?
@@ -505,18 +537,36 @@ class IrBuiltInsOverDescriptors(
             } else null
         }
 
-    override val extensionToString: IrSimpleFunctionSymbol = findFunctions(Name.identifier("toString"), "kotlin").first {
+    override val extensionToString: IrSimpleFunctionSymbol = findFunctions(OperatorNameConventions.TO_STRING, "kotlin").first {
         val descriptor = it.descriptor
         descriptor is SimpleFunctionDescriptor && descriptor.dispatchReceiverParameter == null &&
                 descriptor.extensionReceiverParameter != null &&
-                KotlinBuiltIns.isNullableAny(descriptor.extensionReceiverParameter!!.type) && descriptor.valueParameters.size == 0
+                KotlinBuiltIns.isNullableAny(descriptor.extensionReceiverParameter!!.type) && descriptor.valueParameters.isEmpty()
     }
 
-    override val stringPlus: IrSimpleFunctionSymbol = findFunctions(Name.identifier("plus"), "kotlin").first {
+    override val memberToString: IrSimpleFunctionSymbol = findBuiltInClassMemberFunctions(
+        anyClass,
+        OperatorNameConventions.TO_STRING
+    ).single {
+        val descriptor = it.descriptor
+        descriptor is SimpleFunctionDescriptor && descriptor.valueParameters.isEmpty()
+    }
+
+    override val extensionStringPlus: IrSimpleFunctionSymbol = findFunctions(OperatorNameConventions.PLUS, "kotlin").first {
         val descriptor = it.descriptor
         descriptor is SimpleFunctionDescriptor && descriptor.dispatchReceiverParameter == null &&
                 descriptor.extensionReceiverParameter != null &&
                 KotlinBuiltIns.isStringOrNullableString(descriptor.extensionReceiverParameter!!.type) &&
+                descriptor.valueParameters.size == 1 &&
+                KotlinBuiltIns.isNullableAny(descriptor.valueParameters.first().type)
+    }
+
+    override val memberStringPlus: IrSimpleFunctionSymbol = findBuiltInClassMemberFunctions(
+        stringClass,
+        OperatorNameConventions.PLUS
+    ).single {
+        val descriptor = it.descriptor
+        descriptor is SimpleFunctionDescriptor &&
                 descriptor.valueParameters.size == 1 &&
                 KotlinBuiltIns.isNullableAny(descriptor.valueParameters.first().type)
     }

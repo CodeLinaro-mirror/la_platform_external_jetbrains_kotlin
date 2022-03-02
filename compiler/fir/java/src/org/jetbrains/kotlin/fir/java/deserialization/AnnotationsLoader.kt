@@ -14,9 +14,8 @@ import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.java.createConstantOrError
 import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
-import org.jetbrains.kotlin.fir.references.impl.FirReferencePlaceholderForResolvedAnnotations
 import org.jetbrains.kotlin.fir.resolve.providers.getClassDeclaredPropertySymbols
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -30,11 +29,12 @@ import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
 import org.jetbrains.kotlin.load.kotlin.findKotlinClass
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.constants.ClassLiteralValue
 
 internal class AnnotationsLoader(private val session: FirSession, private val kotlinClassFinder: KotlinClassFinder) {
     private fun loadAnnotation(
-        annotationClassId: ClassId, result: MutableList<FirAnnotationCall>,
+        annotationClassId: ClassId, result: MutableList<FirAnnotation>,
     ): KotlinJvmBinaryClass.AnnotationArgumentVisitor {
         val lookupTag = ConeClassLikeLookupTagImpl(annotationClassId)
 
@@ -80,17 +80,20 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 }
             }
 
-            override fun visitClassLiteral(name: Name, value: ClassLiteralValue) {
+            override fun visitClassLiteral(name: Name?, value: ClassLiteralValue) {
+                if (name == null) return
                 argumentMap[name] = buildGetClassCall {
                     argumentList = buildUnaryArgumentList(value.toFirClassReferenceExpression())
                 }
             }
 
-            override fun visitEnum(name: Name, enumClassId: ClassId, enumEntryName: Name) {
+            override fun visitEnum(name: Name?, enumClassId: ClassId, enumEntryName: Name) {
+                if (name == null) return
                 argumentMap[name] = enumClassId.toEnumEntryReferenceExpression(enumEntryName)
             }
 
-            override fun visitArray(name: Name): KotlinJvmBinaryClass.AnnotationArrayArgumentVisitor {
+            override fun visitArray(name: Name?): KotlinJvmBinaryClass.AnnotationArrayArgumentVisitor? {
+                if (name == null) return null
                 return object : KotlinJvmBinaryClass.AnnotationArrayArgumentVisitor {
                     private val elements = mutableListOf<FirExpression>()
 
@@ -110,8 +113,8 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                         )
                     }
 
-                    override fun visitAnnotation(classId: ClassId): KotlinJvmBinaryClass.AnnotationArgumentVisitor? {
-                        val list = mutableListOf<FirAnnotationCall>()
+                    override fun visitAnnotation(classId: ClassId): KotlinJvmBinaryClass.AnnotationArgumentVisitor {
+                        val list = mutableListOf<FirAnnotation>()
                         val visitor = loadAnnotation(classId, list)
                         return object : KotlinJvmBinaryClass.AnnotationArgumentVisitor by visitor {
                             override fun visitEnd() {
@@ -131,8 +134,9 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 }
             }
 
-            override fun visitAnnotation(name: Name, classId: ClassId): KotlinJvmBinaryClass.AnnotationArgumentVisitor {
-                val list = mutableListOf<FirAnnotationCall>()
+            override fun visitAnnotation(name: Name?, classId: ClassId): KotlinJvmBinaryClass.AnnotationArgumentVisitor? {
+                if (name == null) return null
+                val list = mutableListOf<FirAnnotation>()
                 val visitor = loadAnnotation(classId, list)
                 return object : KotlinJvmBinaryClass.AnnotationArgumentVisitor by visitor {
                     override fun visitEnd() {
@@ -148,18 +152,11 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 // resolved, since that class is only generated in the backend, and is not visible to the frontend.
                 if (isRepeatableWithImplicitContainer(lookupTag, argumentMap)) return
 
-                result += buildAnnotationCall {
+                result += buildAnnotation {
                     annotationTypeRef = lookupTag.toDefaultResolvedTypeRef()
-                    argumentList = buildArgumentList {
-                        for ((name, expression) in argumentMap) {
-                            arguments += buildNamedArgumentExpression {
-                                this.expression = expression
-                                this.name = name
-                                isSpread = false
-                            }
-                        }
+                    argumentMapping = buildAnnotationArgumentMapping {
+                        mapping.putAll(argumentMap)
                     }
-                    calleeReference = FirReferencePlaceholderForResolvedAnnotations
                 }
             }
 
@@ -172,7 +169,7 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
     private fun isRepeatableWithImplicitContainer(lookupTag: ConeClassLikeLookupTag, argumentMap: Map<Name, FirExpression>): Boolean {
         if (lookupTag.classId != SpecialJvmAnnotations.JAVA_LANG_ANNOTATION_REPEATABLE) return false
 
-        val getClassCall = argumentMap[Name.identifier("value")] as? FirGetClassCall ?: return false
+        val getClassCall = argumentMap[StandardClassIds.Annotations.ParameterNames.value] as? FirGetClassCall ?: return false
         val classReference = getClassCall.argument as? FirClassReferenceExpression ?: return false
         val containerType = classReference.classTypeRef.coneType as? ConeClassLikeType ?: return false
         val classId = containerType.lookupTag.classId
@@ -185,7 +182,7 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
     }
 
     internal fun loadAnnotationIfNotSpecial(
-        annotationClassId: ClassId, result: MutableList<FirAnnotationCall>,
+        annotationClassId: ClassId, result: MutableList<FirAnnotation>,
     ): KotlinJvmBinaryClass.AnnotationArgumentVisitor? {
         if (annotationClassId in SpecialJvmAnnotations.SPECIAL_ANNOTATIONS) return null
         return loadAnnotation(annotationClassId, result)

@@ -51,6 +51,9 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "_ZSt17rethrow_exceptionNSt15__exception_ptr13exception_ptrE", // std::rethrow_exception(std::__exception_ptr::exception_ptr)
         "_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_", // std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
         "_ZN9__gnu_cxx27__verbose_terminate_handlerEv", // __gnu_cxx::__verbose_terminate_handler()
+        "_Znwm", // new
+        "_Znwy",
+        "_ZdlPv", // delete
         "__mingw_vsnprintf",
         "__cxa_allocate_exception",
         "__cxa_begin_catch",
@@ -109,6 +112,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "malloc",
         "memcmp",
         "memmem",
+        "munmap",
+        "\x01_munmap",
         "nextafter",
         "nextafterf",
         "pow",
@@ -133,18 +138,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "bcmp",
 
         "dispatch_once",
-        "\x01_pthread_cond_init",
-        "_pthread_cond_init",
-        "pthread_cond_broadcast",
-        "pthread_cond_destroy",
-        "pthread_cond_signal",
-        "pthread_cond_init",
-        "pthread_create",
         "pthread_equal",
         "pthread_main_np",
-        "pthread_mutex_destroy",
-        "pthread_mutex_init",
-        "pthread_mutex_unlock",
         "pthread_self",
 
         "+[NSMethodSignature signatureWithObjCTypes:]",
@@ -156,7 +151,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "+[NSObject new]",
         "+[NSString stringWithFormat:]",
         "+[NSString stringWithUTF8String:]",
-        "+[NSValue valueWithPointer:]",
+        "-[NSPlaceholderValue initWithBytes:objCType:]",
         "-[NSException name]",
         "-[NSException reason]",
         "-[NSMethodSignature getArgumentTypeAtIndex:]",
@@ -168,6 +163,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "-[NSObject retain]",
         "-[NSPlaceholderString initWithBytes:length:encoding:]",
         "-[NSPlaceholderString initWithBytesNoCopy:length:encoding:freeWhenDone:]",
+        "-[NSValue init]",
         "-[NSValue pointerValue]",
         "-[__NSCFBoolean boolValue]",
         "-[__NSCFNumber doubleValue]",
@@ -179,6 +175,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "CFStringCreateCopy",
         "CFStringGetCharacters",
         "CFStringGetLength",
+        "_Block_object_assign",
         "class_addIvar",
         "class_addMethod",
         "class_addProtocol",
@@ -237,6 +234,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "llvm.memcpy.*",
         "llvm.memmove.*",
         "llvm.memset.*",
+        "llvm.objc.autorelease",
         "llvm.objc.autoreleaseReturnValue",
         "llvm.objc.retain",
         "llvm.objectsize.*",
@@ -249,6 +247,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "llvm.va_start",
         "llvm.x86.avx2.*",
         "llvm.x86.ssse3.*",
+        "llvm.x86.sse2.*",
         "llvm.uadd.sat.*",
         "llvm.aarch64.neon.*",
 
@@ -260,6 +259,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "GetCurrentProcess",
         "FlsFree",
         "K32GetProcessMemoryInfo",
+        "VirtualFree",
+        "madvise",
 };
 
 namespace {
@@ -320,7 +321,7 @@ constexpr int CALLED_LLVM_BUILTIN = -2;
  * should not be accessed. So before guard checking we need to check is thread destructor is running,
  * which requires special handling of recursive calls from this check.
  */
-extern "C" RUNTIME_NOTHROW void Kotlin_mm_checkStateAtExternalFunctionCall(const char* caller, const char *callee, const void *calleePtr) noexcept {
+extern "C" RUNTIME_NOTHROW RUNTIME_NODEBUG void Kotlin_mm_checkStateAtExternalFunctionCall(const char* caller, const char *callee, const void *calleePtr) noexcept {
     if (reinterpret_cast<int64_t>(calleePtr) == MSG_SEND_TO_NULL) return; // objc_sendMsg called on nil, it does nothing, so it's ok
     if (konan::isOnThreadExitNotSetOrAlreadyStarted()) return;
     static thread_local bool recursiveCallGuard = false;
@@ -342,7 +343,8 @@ extern "C" RUNTIME_NOTHROW void Kotlin_mm_checkStateAtExternalFunctionCall(const
 
     char buf[200];
     if (callee == nullptr) {
-        if (AddressToSymbol(calleePtr, buf, sizeof(buf))) {
+        ptrdiff_t unused;
+        if (AddressToSymbol(calleePtr, buf, sizeof(buf), unused)) {
             callee = buf;
         } else {
             callee = "unknown function";

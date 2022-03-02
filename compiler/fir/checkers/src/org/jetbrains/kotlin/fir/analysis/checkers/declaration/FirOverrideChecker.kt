@@ -5,22 +5,33 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.context.findClosest
+import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirOptInUsageBaseChecker
+import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirOptInUsageBaseChecker.Experimentality
+import org.jetbrains.kotlin.fir.analysis.checkers.outerClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
 import org.jetbrains.kotlin.fir.analysis.overridesBackwardCompatibilityHelper
+import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isFinal
 import org.jetbrains.kotlin.fir.declarations.utils.isOverride
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
+import org.jetbrains.kotlin.fir.originalOrSelf
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
+import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenFunctions
@@ -29,10 +40,8 @@ import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.*
-import org.jetbrains.kotlin.fir.types.ConeKotlinErrorType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.upperBoundIfFlexible
+import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.TypeCheckerState
 
@@ -47,7 +56,10 @@ object FirOverrideChecker : FirClassChecker() {
 
         for (it in declaration.declarations) {
             if (it is FirSimpleFunction || it is FirProperty) {
-                checkMember((it as FirCallableDeclaration).symbol, declaration, reporter, typeCheckerState, firTypeScope, context)
+                val callable = it as FirCallableDeclaration
+                withSuppressedDiagnostics(callable, context) {
+                    checkMember(callable.symbol, declaration, reporter, typeCheckerState, firTypeScope, context)
+                }
             }
         }
     }
@@ -159,13 +171,37 @@ object FirOverrideChecker : FirClassChecker() {
             it.ensureResolved(FirResolvePhase.STATUS)
             @OptIn(SymbolInternals::class)
             val fir = it.fir
-            visibilityChecker.isVisible(fir, context.session, file, containingDeclarations, null)
+            visibilityChecker.isVisible(
+                fir,
+                context.session,
+                file,
+                containingDeclarations,
+                null,
+                skipCheckForContainingClassVisibility = true
+            )
         }
         if (!hasVisibleBase) {
             //NB: Old FE reports this in an attempt to override private member,
             //while the new FE doesn't treat super's private members as overridable, so you won't get them here
             //instead you will get NOTHING_TO_OVERRIDE, which seems acceptable
             reporter.reportOn(source, FirErrors.CANNOT_OVERRIDE_INVISIBLE_MEMBER, this, overriddenSymbols.first(), context)
+        }
+    }
+
+    private fun FirCallableSymbol<*>.checkDeprecation(
+        reporter: DiagnosticReporter,
+        overriddenSymbols: List<FirCallableSymbol<*>>,
+        context: CheckerContext
+    ) {
+        val ownDeprecation = this.deprecation
+        if (ownDeprecation == null || ownDeprecation.isNotEmpty()) return
+        for (overriddenSymbol in overriddenSymbols) {
+            val deprecationInfoFromOverridden = overriddenSymbol.deprecation ?: continue
+            val deprecationFromOverriddenSymbol = deprecationInfoFromOverridden.all
+                ?: deprecationInfoFromOverridden.bySpecificSite?.values?.firstOrNull()
+                ?: continue
+            reporter.reportOn(source, FirErrors.OVERRIDE_DEPRECATION, overriddenSymbol, deprecationFromOverriddenSymbol, context)
+            return
         }
     }
 
@@ -222,7 +258,7 @@ object FirOverrideChecker : FirClassChecker() {
             val kind = member.source?.kind
             // Only report if the current member has real source or it's a member property declared inside the primary constructor.
 
-            if (kind is FirFakeSourceElementKind.DataClassGeneratedMembers) {
+            if (kind is KtFakeSourceElementKind.DataClassGeneratedMembers) {
                 overriddenMemberSymbols.find { it.isFinal }?.let { base ->
                     reporter.reportOn(
                         containingClass.source,
@@ -235,7 +271,7 @@ object FirOverrideChecker : FirClassChecker() {
                 return
             }
 
-            if (kind !is FirRealSourceElementKind && kind !is FirFakeSourceElementKind.PropertyFromParameter) return
+            if (kind !is KtRealSourceElementKind && kind !is KtFakeSourceElementKind.PropertyFromParameter) return
 
             val overridden = overriddenMemberSymbols.first().originalOrSelf()
             val originalContainingClassSymbol = overridden.containingClass()?.toSymbol(context.session) as? FirRegularClassSymbol ?: return
@@ -254,6 +290,8 @@ object FirOverrideChecker : FirClassChecker() {
             return
         }
 
+        checkOverriddenExperimentalities(member, overriddenMemberSymbols, context, reporter)
+
         checkModality(overriddenMemberSymbols)?.let {
             reporter.reportOverridingFinalMember(member, it, context)
         }
@@ -265,6 +303,8 @@ object FirOverrideChecker : FirClassChecker() {
         }
 
         member.checkVisibility(containingClass, reporter, overriddenMemberSymbols, context)
+
+        member.checkDeprecation(reporter, overriddenMemberSymbols, context)
 
         val restriction = member.checkReturnType(
             overriddenSymbols = overriddenMemberSymbols,
@@ -281,6 +321,53 @@ object FirOverrideChecker : FirClassChecker() {
                 }
             }
         }
+    }
+
+    @OptIn(SymbolInternals::class)
+    private fun checkOverriddenExperimentalities(
+        memberSymbol: FirCallableSymbol<*>,
+        overriddenMemberSymbols: List<FirCallableSymbol<*>>,
+        context: CheckerContext,
+        reporter: DiagnosticReporter
+    ) {
+        with(FirOptInUsageBaseChecker) {
+            val overriddenExperimentalities = mutableSetOf<Experimentality>()
+            val session = context.session
+            for (overriddenMemberSymbol in overriddenMemberSymbols) {
+                overriddenMemberSymbol.loadExperimentalitiesFromAnnotationTo(session, overriddenExperimentalities)
+            }
+            reportNotAcceptedOverrideExperimentalities(
+                overriddenExperimentalities, memberSymbol, context, reporter
+            )
+            for (annotation in memberSymbol.fir.annotations) {
+                val annotationType = annotation.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()
+                val lookupTag = annotationType?.lookupTag ?: continue
+                withSuppressedDiagnostics(annotation, context) {
+                    val useSiteTarget = annotation.useSiteTarget
+                    if (useSiteTarget == null || useSiteTarget == AnnotationUseSiteTarget.PROPERTY) {
+                        val experimentality = lookupTag.toFirRegularClassSymbol(session)?.loadExperimentalityForMarkerAnnotation()
+                        if (experimentality != null && experimentality !in overriddenExperimentalities && overriddenMemberSymbols.all {
+                                val ownerClassSymbol = it.dispatchReceiverClassOrNull()?.toFirRegularClassSymbol(session)
+                                ownerClassSymbol == null || !ownerClassSymbol.hasAnnotationItselfOrInParent(context, lookupTag.classId)
+                            }
+                        ) {
+                            val factory = if (session.languageVersionSettings.supportsFeature(LanguageFeature.OptInOnOverrideForbidden)) {
+                                FirErrors.OPT_IN_MARKER_ON_OVERRIDE
+                            } else {
+                                FirErrors.OPT_IN_MARKER_ON_OVERRIDE_WARNING
+                            }
+                            reporter.reportOn(annotation.source, factory, context)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private tailrec fun FirRegularClassSymbol.hasAnnotationItselfOrInParent(context: CheckerContext, classId: ClassId): Boolean {
+        if (getAnnotationByClassId(classId) != null) return true
+        val outerClassSymbol = outerClassSymbol(context) as? FirRegularClassSymbol ?: return false
+        return outerClassSymbol.hasAnnotationItselfOrInParent(context, classId)
     }
 
     private fun DiagnosticReporter.reportNothingToOverride(declaration: FirCallableSymbol<*>, context: CheckerContext) {

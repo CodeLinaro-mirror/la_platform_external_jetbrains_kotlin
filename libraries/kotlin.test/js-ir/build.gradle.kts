@@ -6,8 +6,8 @@ plugins {
 
 val commonMainSources by task<Sync> {
     from(
-        "$rootDir/libraries/kotlin.test/common/src",
-        "$rootDir/libraries/kotlin.test/annotations-common/src"
+        "$rootDir/libraries/kotlin.test/common/src/main",
+        "$rootDir/libraries/kotlin.test/annotations-common/src/main"
     )
     into("$buildDir/commonMainSources")
 }
@@ -49,8 +49,8 @@ kotlin {
 tasks.withType<KotlinCompile<*>>().configureEach {
     kotlinOptions.freeCompilerArgs += listOf(
         "-Xallow-kotlin-package",
-        "-Xopt-in=kotlin.ExperimentalMultiplatform",
-        "-Xopt-in=kotlin.contracts.ExperimentalContracts"
+        "-opt-in=kotlin.ExperimentalMultiplatform",
+        "-opt-in=kotlin.contracts.ExperimentalContracts"
     )
 }
 

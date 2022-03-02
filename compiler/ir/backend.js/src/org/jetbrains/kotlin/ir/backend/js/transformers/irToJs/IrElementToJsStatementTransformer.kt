@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
+import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.utils.JsGenerationContext
 import org.jetbrains.kotlin.ir.backend.js.utils.emptyScope
@@ -15,6 +16,7 @@ import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.types.isAny
 import org.jetbrains.kotlin.ir.util.constructedClassType
 import org.jetbrains.kotlin.ir.util.file
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.js.backend.ast.*
 
 @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
@@ -64,8 +66,11 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
 
     private fun IrExpression.maybeOptimizeIntoSwitch(context: JsGenerationContext, transformer: (JsExpression) -> JsStatement): JsStatement {
         if (this is IrWhen) {
-            val stmtTransformer = { stmt: JsStatement -> transformer((stmt as JsExpressionStatement).expression) }
-            SwitchOptimizer(context, stmtTransformer).tryOptimize(this)?.let { return it }
+            val stmtTransformer = { stmt: JsStatement ->
+                assert(stmt is JsExpressionStatement) { "${render()} is not a statement $stmt" }
+                transformer((stmt as JsExpressionStatement).expression)
+            }
+            SwitchOptimizer(context, isExpression = true, stmtTransformer).tryOptimize(this)?.let { return it }
         }
 
         return transformer(accept(IrElementToJsExpressionTransformer(), context))
@@ -79,9 +84,11 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
     }
 
     override fun visitSetValue(expression: IrSetValue, context: JsGenerationContext): JsStatement {
-        val ref = JsNameRef(context.getNameForValueDeclaration(expression.symbol.owner))
+        val owner = expression.symbol.owner
+        val ref = JsNameRef(context.getNameForValueDeclaration(owner))
         return expression.value
             .maybeOptimizeIntoSwitch(context) { jsAssignment(ref, it).withSource(expression, context).makeStmt() }
+            .also { context.staticContext.polyfills.visitDeclaration(owner) }
     }
 
     override fun visitReturn(expression: IrReturn, context: JsGenerationContext): JsStatement {
@@ -112,7 +119,7 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
                 JsBinaryOperation(JsBinaryOperator.ASG, varRef, expr).makeStmt()
             }
 
-            SwitchOptimizer(context, transformer).tryOptimize(value)?.let {
+            SwitchOptimizer(context, isExpression = true, transformer).tryOptimize(value)?.let {
                 return JsBlock(JsVars(JsVars.JsVar(varName)), it).withSource(declaration, context)
             }
         }
@@ -129,7 +136,17 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
 
     override fun visitCall(expression: IrCall, data: JsGenerationContext): JsStatement {
         if (data.checkIfJsCode(expression.symbol)) {
-            val statements = translateJsCodeIntoStatementList(expression.getValueArgument(0) ?: error("JsCode is expected"))!!
+            val statements = translateJsCodeIntoStatementList(
+                expression.getValueArgument(0)
+                    ?: compilationException(
+                        "JsCode is expected",
+                        expression
+                    ),
+                data.staticContext.backendContext
+            ) ?: compilationException(
+                "Cannot compute js code",
+                expression
+            )
             return when (statements.size) {
                 0 -> JsEmpty
                 1 -> statements.single().withSource(expression, data)
@@ -138,6 +155,7 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
             }
         }
         return translateCall(expression, data, IrElementToJsExpressionTransformer()).withSource(expression, data).makeStmt()
+            .also { data.staticContext.polyfills.visitDeclaration(expression.symbol.owner) }
     }
 
     override fun visitInstanceInitializerCall(expression: IrInstanceInitializerCall, context: JsGenerationContext): JsStatement {
@@ -168,7 +186,8 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
     override fun visitWhileLoop(loop: IrWhileLoop, context: JsGenerationContext): JsStatement {
         //TODO what if body null?
         val label = context.getNameForLoop(loop)
-        val loopStatement = JsWhile(loop.condition.accept(IrElementToJsExpressionTransformer(), context), loop.body?.accept(this, context))
+        val loopStatement = JsWhile(loop.condition.accept(IrElementToJsExpressionTransformer(), context),
+                                    loop.body?.accept(this, context) ?: JsEmpty)
         return label?.let { JsLabel(it, loopStatement) } ?: loopStatement
     }
 
@@ -176,7 +195,7 @@ class IrElementToJsStatementTransformer : BaseIrElementToJsNodeTransformer<JsSta
         //TODO what if body null?
         val label = context.getNameForLoop(loop)
         val loopStatement =
-            JsDoWhile(loop.condition.accept(IrElementToJsExpressionTransformer(), context), loop.body?.accept(this, context))
+            JsDoWhile(loop.condition.accept(IrElementToJsExpressionTransformer(), context), loop.body?.accept(this, context) ?: JsEmpty)
         return label?.let { JsLabel(it, loopStatement) } ?: loopStatement
     }
 }

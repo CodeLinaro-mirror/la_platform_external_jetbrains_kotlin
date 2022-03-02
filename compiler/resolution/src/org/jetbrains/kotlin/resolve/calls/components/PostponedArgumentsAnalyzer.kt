@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.resolve.calls.components
 
-import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.builtins.getReceiverTypeFromFunctionType
-import org.jetbrains.kotlin.builtins.getValueParameterTypesFromFunctionType
-import org.jetbrains.kotlin.builtins.isBuiltinFunctionalType
+import org.jetbrains.kotlin.builtins.*
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
@@ -25,7 +22,7 @@ import org.jetbrains.kotlin.types.typeUtil.builtIns
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 class PostponedArgumentsAnalyzer(
-    private val callableReferenceResolver: CallableReferenceResolver,
+    private val callableReferenceArgumentResolver: CallableReferenceArgumentResolver,
     private val languageVersionSettings: LanguageVersionSettings
 ) {
 
@@ -49,8 +46,10 @@ class PostponedArgumentsAnalyzer(
                     diagnosticsHolder
                 )
 
-            is ResolvedCallableReferenceAtom ->
-                callableReferenceResolver.processCallableReferenceArgument(c.getBuilder(), argument, diagnosticsHolder, resolutionCallbacks)
+            is ResolvedCallableReferenceArgumentAtom ->
+                callableReferenceArgumentResolver.processCallableReferenceArgument(
+                    c.getBuilder(), argument, diagnosticsHolder, resolutionCallbacks
+                )
 
             is ResolvedCollectionLiteralAtom -> TODO("Not supported")
 
@@ -92,9 +91,13 @@ class PostponedArgumentsAnalyzer(
 
         val expectedParameters = lambda.expectedType.valueParameters()
         val expectedReceiver = lambda.expectedType.receiver()
+        val expectedContextReceivers = lambda.expectedType.contextReceivers()
 
         val receiver = lambda.receiver?.let {
             expectedOrActualType(expectedReceiver ?: expectedParameters?.getOrNull(0), lambda.receiver)
+        }
+        val contextReceivers = lambda.contextReceivers.mapIndexedNotNull { i, contextReceiver ->
+            expectedOrActualType(expectedContextReceivers?.getOrNull(i), contextReceiver)
         }
 
         val expectedParametersToMatchAgainst = when {
@@ -129,6 +132,7 @@ class PostponedArgumentsAnalyzer(
             lambda.atom,
             lambda.isSuspend,
             receiver,
+            contextReceivers,
             parameters,
             expectedTypeForReturnArguments,
             convertedAnnotations ?: Annotations.EMPTY,
@@ -216,6 +220,10 @@ class PostponedArgumentsAnalyzer(
 
     private fun UnwrappedType?.receiver(): UnwrappedType? {
         return forFunctionalType { getReceiverTypeFromFunctionType()?.unwrap() }
+    }
+
+    private fun UnwrappedType?.contextReceivers(): List<UnwrappedType>? {
+        return forFunctionalType { getContextReceiverTypesFromFunctionType().map { it.unwrap() } }
     }
 
     private fun UnwrappedType?.valueParameters(): List<UnwrappedType>? {

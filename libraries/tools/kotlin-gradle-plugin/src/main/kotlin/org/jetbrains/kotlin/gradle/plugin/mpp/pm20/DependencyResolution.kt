@@ -13,9 +13,7 @@ import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.capabilities.Capability
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.getProjectStructureMetadata
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultLanguageSettingsBuilder
-import org.jetbrains.kotlin.gradle.utils.getOrPut
 import org.jetbrains.kotlin.gradle.utils.getOrPutRootProjectProperty
 import org.jetbrains.kotlin.project.model.*
 import java.util.*
@@ -159,19 +157,17 @@ internal fun ComponentIdentifier.matchesModule(module: KotlinModule): Boolean =
 
 internal fun ResolvedComponentResult.toModuleIdentifiers(): List<KotlinModuleIdentifier> {
     val classifiers = moduleClassifiersFromCapabilities(variants.flatMap { it.capabilities })
-    return classifiers.map { moduleClassifier ->
-        when (val id = id) {
-            is ProjectComponentIdentifier -> LocalModuleIdentifier(id.build.name, id.projectPath, moduleClassifier)
-            is ModuleComponentIdentifier -> id.toSingleModuleIdentifier()
-            else -> MavenModuleIdentifier(moduleVersion?.group.orEmpty(), moduleVersion?.name.orEmpty(), moduleClassifier)
-        }
-    }
+    return classifiers.map { moduleClassifier -> toModuleIdentifier(moduleClassifier) }
 }
 
 // FIXME this mapping doesn't have enough information to choose auxiliary modules
 internal fun ResolvedComponentResult.toSingleModuleIdentifier(): KotlinModuleIdentifier {
     val classifiers = moduleClassifiersFromCapabilities(variants.flatMap { it.capabilities })
     val moduleClassifier = classifiers.single() // FIXME handle multiple capabilities
+    return toModuleIdentifier(moduleClassifier)
+}
+
+private fun ResolvedComponentResult.toModuleIdentifier(moduleClassifier: String?): KotlinModuleIdentifier {
     return when (val id = id) {
         is ProjectComponentIdentifier -> LocalModuleIdentifier(id.build.name, id.projectPath, moduleClassifier)
         is ModuleComponentIdentifier -> id.toSingleModuleIdentifier()
@@ -214,3 +210,17 @@ internal fun ComponentIdentifier.matchesModuleIdentifier(id: KotlinModuleIdentif
         }
         else -> false
     }
+
+private fun getProjectStructureMetadata(
+    project: Project,
+    module: ResolvedComponentResult,
+    configuration: Configuration,
+    moduleIdentifier: KotlinModuleIdentifier? = null
+): KotlinProjectStructureMetadata? {
+    val extractor = if (moduleIdentifier != null)
+        MppDependencyProjectStructureMetadataExtractor.create(project, module, moduleIdentifier, configuration)
+    else
+        MppDependencyProjectStructureMetadataExtractor.create(project, module, configuration, resolveViaAvailableAt = true)
+
+    return extractor?.getProjectStructureMetadata()
+}

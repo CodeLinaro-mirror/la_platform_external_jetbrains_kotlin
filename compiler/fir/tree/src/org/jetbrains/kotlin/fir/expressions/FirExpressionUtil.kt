@@ -5,18 +5,19 @@
 
 package org.jetbrains.kotlin.fir.expressions
 
-import org.jetbrains.kotlin.fir.FirSourceElement
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildErrorExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildErrorLoop
 import org.jetbrains.kotlin.fir.expressions.impl.FirBlockImpl
-import org.jetbrains.kotlin.fir.expressions.impl.FirPartiallyResolvedArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.resolved
+import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
@@ -26,13 +27,13 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.ConstantValueKind
 
-inline val FirAnnotationCall.coneClassLikeType: ConeClassLikeType?
+inline val FirAnnotation.coneClassLikeType: ConeClassLikeType?
     get() = ((annotationTypeRef as? FirResolvedTypeRef)?.type as? ConeClassLikeType)
 
-inline val FirAnnotationCall.classId: ClassId?
+inline val FirAnnotation.classId: ClassId?
     get() = coneClassLikeType?.lookupTag?.classId
 
-fun <T> buildConstOrErrorExpression(source: FirSourceElement?, kind: ConstantValueKind<T>, value: T?, diagnostic: ConeDiagnostic): FirExpression =
+fun <T> buildConstOrErrorExpression(source: KtSourceElement?, kind: ConstantValueKind<T>, value: T?, diagnostic: ConeDiagnostic): FirExpression =
     value?.let {
         buildConstExpression(source, kind, it)
     } ?: buildErrorExpression {
@@ -53,13 +54,16 @@ inline val FirCall.resolvedArgumentMapping: Map<FirExpression, FirValueParameter
 inline val FirCall.argumentMapping: LinkedHashMap<FirExpression, FirValueParameter>?
     get() = when (val argumentList = argumentList) {
         is FirResolvedArgumentList -> argumentList.mapping
-        is FirPartiallyResolvedArgumentList -> argumentList.mapping
         else -> null
     }
 
 fun FirExpression.toResolvedCallableReference(): FirResolvedNamedReference? {
+    return toReference()?.resolved
+}
+
+fun FirExpression.toReference(): FirReference? {
     if (this is FirWrappedArgumentExpression) return expression.toResolvedCallableReference()
-    return (this as? FirResolvable)?.calleeReference as? FirResolvedNamedReference
+    return (this as? FirResolvable)?.calleeReference
 }
 
 fun FirExpression.toResolvedCallableSymbol(): FirCallableSymbol<*>? {
@@ -67,17 +71,17 @@ fun FirExpression.toResolvedCallableSymbol(): FirCallableSymbol<*>? {
 }
 
 fun FirReference.toResolvedCallableSymbol(): FirCallableSymbol<*>? {
-    return (this as? FirResolvedNamedReference)?.resolvedSymbol as? FirCallableSymbol<*>
+    return this.resolvedSymbol as? FirCallableSymbol<*>
 }
 
-fun buildErrorLoop(source: FirSourceElement?, diagnostic: ConeDiagnostic): FirErrorLoop {
+fun buildErrorLoop(source: KtSourceElement?, diagnostic: ConeDiagnostic): FirErrorLoop {
     return buildErrorLoop {
         this.source = source
         this.diagnostic = diagnostic
     }
 }
 
-fun buildErrorExpression(source: FirSourceElement?, diagnostic: ConeDiagnostic): FirErrorExpression {
+fun buildErrorExpression(source: KtSourceElement?, diagnostic: ConeDiagnostic): FirErrorExpression {
     return buildErrorExpression {
         this.source = source
         this.diagnostic = diagnostic
@@ -92,17 +96,6 @@ fun <D> FirBlock.transformStatementsIndexed(transformer: FirTransformer<D>, data
         }
     }
     return this
-}
-
-fun <D> FirBlock.transformAllStatementsExceptLast(transformer: FirTransformer<D>, data: D): FirBlock {
-    val threshold = statements.size - 1
-    return transformStatementsIndexed(transformer) { index ->
-        if (index < threshold) {
-            TransformData.Data(data)
-        } else {
-            TransformData.Nothing
-        }
-    }
 }
 
 fun FirBlock.replaceFirstStatement(statement: FirStatement): FirStatement {

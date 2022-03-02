@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.resolve.checkers
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.contracts.parsing.isEqualsDescriptor
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -15,9 +16,12 @@ import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.modalityModifier
 import org.jetbrains.kotlin.resolve.*
+import org.jetbrains.kotlin.resolve.calls.model.VariableAsFunctionResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameUnsafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.getAllSuperClassifiers
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.typeUtil.isNothing
 import org.jetbrains.kotlin.types.typeUtil.isTypeParameter
 import org.jetbrains.kotlin.types.typeUtil.isUnit
@@ -54,19 +58,25 @@ object InlineClassDeclarationChecker : DeclarationChecker {
         require(inlineOrValueKeyword != null) { "Declaration of inline class must have 'inline' keyword" }
 
         if (descriptor.isInner || DescriptorUtils.isLocal(descriptor)) {
-            trace.report(Errors.INLINE_CLASS_NOT_TOP_LEVEL.on(inlineOrValueKeyword))
+            trace.report(Errors.VALUE_CLASS_NOT_TOP_LEVEL.on(inlineOrValueKeyword))
             return
+        }
+
+        if (declaration.contextReceivers.isNotEmpty()) {
+            val contextReceiverList = declaration.getContextReceiverList()
+            requireNotNull(contextReceiverList) { "Declaration cannot have context receivers with no context receiver list" }
+            trace.report(Errors.INLINE_CLASS_CANNOT_HAVE_CONTEXT_RECEIVERS.on(contextReceiverList))
         }
 
         val modalityModifier = declaration.modalityModifier()
         if (modalityModifier != null && descriptor.modality != Modality.FINAL) {
-            trace.report(Errors.INLINE_CLASS_NOT_FINAL.on(modalityModifier))
+            trace.report(Errors.VALUE_CLASS_NOT_FINAL.on(modalityModifier))
             return
         }
 
         val primaryConstructor = declaration.primaryConstructor
         if (primaryConstructor == null) {
-            trace.report(Errors.ABSENCE_OF_PRIMARY_CONSTRUCTOR_FOR_INLINE_CLASS.on(inlineOrValueKeyword))
+            trace.report(Errors.ABSENCE_OF_PRIMARY_CONSTRUCTOR_FOR_VALUE_CLASS.on(inlineOrValueKeyword))
             return
         }
 
@@ -79,7 +89,7 @@ object InlineClassDeclarationChecker : DeclarationChecker {
         }
 
         if (!isParameterAcceptableForInlineClass(baseParameter)) {
-            trace.report(Errors.INLINE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER.on(baseParameter))
+            trace.report(Errors.VALUE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER.on(baseParameter))
             return
         }
 
@@ -87,26 +97,32 @@ object InlineClassDeclarationChecker : DeclarationChecker {
         val baseParameterTypeReference = baseParameter.typeReference
         if (baseParameterType != null && baseParameterTypeReference != null) {
             if (baseParameterType.isInapplicableParameterType()) {
-                trace.report(Errors.INLINE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE.on(baseParameterTypeReference, baseParameterType))
+                trace.report(Errors.VALUE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE.on(baseParameterTypeReference, baseParameterType))
                 return
             }
 
             if (baseParameterType.isRecursiveInlineClassType()) {
-                trace.report(Errors.INLINE_CLASS_CANNOT_BE_RECURSIVE.on(baseParameterTypeReference))
+                trace.report(Errors.VALUE_CLASS_CANNOT_BE_RECURSIVE.on(baseParameterTypeReference))
                 return
             }
         }
 
         for (supertypeEntry in declaration.superTypeListEntries) {
+            val typeReference = supertypeEntry.typeReference ?: continue
+            val type = trace[BindingContext.TYPE, typeReference] ?: continue
             if (supertypeEntry is KtDelegatedSuperTypeEntry) {
-                trace.report(Errors.INLINE_CLASS_CANNOT_IMPLEMENT_INTERFACE_BY_DELEGATION.on(supertypeEntry))
-                return
+                val resolvedCall = supertypeEntry.delegateExpression.getResolvedCall(trace.bindingContext) ?: continue
+                if (!context.languageVersionSettings.supportsFeature(LanguageFeature.InlineClassImplementationByDelegation) ||
+                    resolvedCall.resultingDescriptor !is ValueParameterDescriptor ||
+                    resolvedCall.resultingDescriptor.containingDeclaration != trace.bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, primaryConstructor]
+                ) {
+                    trace.report(Errors.VALUE_CLASS_CANNOT_IMPLEMENT_INTERFACE_BY_DELEGATION.on(supertypeEntry))
+                    return
+                }
             } else {
-                val typeReference = supertypeEntry.typeReference ?: continue
-                val type = trace[BindingContext.TYPE, typeReference] ?: continue
                 val typeDescriptor = type.constructor.declarationDescriptor ?: continue
                 if (!DescriptorUtils.isInterface(typeDescriptor)) {
-                    trace.report(Errors.INLINE_CLASS_CANNOT_EXTEND_CLASSES.on(typeReference))
+                    trace.report(Errors.VALUE_CLASS_CANNOT_EXTEND_CLASSES.on(typeReference))
                     return
                 }
             }
@@ -146,11 +162,11 @@ class PropertiesWithBackingFieldsInsideInlineClass : DeclarationChecker {
         if (!descriptor.containingDeclaration.isInlineClass()) return
 
         if (context.trace.get(BindingContext.BACKING_FIELD_REQUIRED, descriptor) == true) {
-            context.trace.report(Errors.PROPERTY_WITH_BACKING_FIELD_INSIDE_INLINE_CLASS.on(declaration))
+            context.trace.report(Errors.PROPERTY_WITH_BACKING_FIELD_INSIDE_VALUE_CLASS.on(declaration))
         }
 
         declaration.delegate?.let {
-            context.trace.report(Errors.DELEGATED_PROPERTY_INSIDE_INLINE_CLASS.on(it))
+            context.trace.report(Errors.DELEGATED_PROPERTY_INSIDE_VALUE_CLASS.on(it))
         }
     }
 }
@@ -163,7 +179,7 @@ class InnerClassInsideInlineClass : DeclarationChecker {
 
         if (!descriptor.containingDeclaration.isInlineClass()) return
 
-        context.trace.report(Errors.INNER_CLASS_INSIDE_INLINE_CLASS.on(declaration.modifierList!!.getModifier(KtTokens.INNER_KEYWORD)!!))
+        context.trace.report(Errors.INNER_CLASS_INSIDE_VALUE_CLASS.on(declaration.modifierList!!.getModifier(KtTokens.INNER_KEYWORD)!!))
     }
 }
 
@@ -185,7 +201,7 @@ class ReservedMembersAndConstructsForInlineClass : DeclarationChecker {
                 val functionName = descriptor.name.asString()
                 if (functionName in reservedFunctions) {
                     val nameIdentifier = ktFunction.nameIdentifier ?: return
-                    context.trace.report(Errors.RESERVED_MEMBER_INSIDE_INLINE_CLASS.on(nameIdentifier, functionName))
+                    context.trace.report(Errors.RESERVED_MEMBER_INSIDE_VALUE_CLASS.on(nameIdentifier, functionName))
                 }
             }
 
@@ -194,7 +210,7 @@ class ReservedMembersAndConstructsForInlineClass : DeclarationChecker {
                 val bodyExpression = secondaryConstructor.bodyExpression
                 if (secondaryConstructor.hasBlockBody() && bodyExpression is KtBlockExpression) {
                     val lBrace = bodyExpression.lBrace ?: return
-                    context.trace.report(Errors.SECONDARY_CONSTRUCTOR_WITH_BODY_INSIDE_INLINE_CLASS.on(lBrace))
+                    context.trace.report(Errors.SECONDARY_CONSTRUCTOR_WITH_BODY_INSIDE_VALUE_CLASS.on(lBrace))
                 }
             }
         }

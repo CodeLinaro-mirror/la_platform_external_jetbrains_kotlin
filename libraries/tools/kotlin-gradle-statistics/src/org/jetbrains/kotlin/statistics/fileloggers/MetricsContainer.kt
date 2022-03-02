@@ -93,15 +93,18 @@ class MetricsContainer : IStatisticsValuesConsumer {
     private fun processProjectName(subprojectName: String?, perProject: Boolean) =
         if (perProject && subprojectName != null) sha256(subprojectName) else null
 
+    private fun getProjectHash(perProject: Boolean, subprojectName: String?) =
+        if (subprojectName == null) null else processProjectName(subprojectName, perProject)
+
     override fun report(metric: BooleanMetrics, value: Boolean, subprojectName: String?) {
-        val projectHash = if (subprojectName == null) null else processProjectName(subprojectName, metric.perProject)
+        val projectHash = getProjectHash(metric.perProject, subprojectName)
         val metricContainer = booleanMetrics[MetricDescriptor(metric.name, projectHash)] ?: metric.type.newMetricContainer()
             .also { booleanMetrics[MetricDescriptor(metric.name, projectHash)] = it }
         metricContainer.addValue(metric.anonymization.anonymize(value))
     }
 
     override fun report(metric: NumericalMetrics, value: Long, subprojectName: String?) {
-        val projectHash = if (subprojectName == null) null else processProjectName(subprojectName, metric.perProject)
+        val projectHash = getProjectHash(metric.perProject, subprojectName)
         val metricContainer = numericalMetrics[MetricDescriptor(metric.name, projectHash)] ?: metric.type.newMetricContainer()
             .also { numericalMetrics[MetricDescriptor(metric.name, projectHash)] = it }
         metricContainer.addValue(metric.anonymization.anonymize(value))
@@ -116,7 +119,11 @@ class MetricsContainer : IStatisticsValuesConsumer {
 
     fun flush(trackingFile: IRecordLogger?) {
         if (trackingFile == null) return
-        for (entry in numericalMetrics.entries.union(booleanMetrics.entries).union(stringMetrics.entries)) {
+        val allMetrics = TreeMap<MetricDescriptor, IMetricContainer<out Any>>()
+        allMetrics.putAll(numericalMetrics)
+        allMetrics.putAll(booleanMetrics)
+        allMetrics.putAll(stringMetrics)
+        for (entry in allMetrics.entries) {
             val suffix = if (entry.key.projectHash == null) "" else ".${entry.key.projectHash}"
             trackingFile.append("${entry.key.name}$suffix=${entry.value.toStringRepresentation()}")
         }

@@ -5,17 +5,21 @@
 
 package kotlin
 
+// Char is a magic class.
+// Char is defined as a regular class, but we lower it as a value class.
+// See [org.jetbrains.kotlin.ir.backend.js.utils.JsInlineClassesUtils.isClassInlineLike] for explanation.
+
 /**
  * Represents a 16-bit Unicode character.
  * On the JVM, non-nullable values of this type are represented as values of the primitive type `char`.
  */
-// TODO: KT-35100
-//public inline class Char internal constructor (val value: Int) : Comparable<Char> {
-public class Char
-@SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
-constructor(code: UShort) : Comparable<Char> {
-    private val value: Int = code.toInt()
+public /*value*/ class Char
+@kotlin.internal.LowPriorityInOverloadResolution
+internal constructor(private val value: Int) : Comparable<Char> {
+
+    @SinceKotlin("1.5")
+    @WasExperimental(ExperimentalStdlibApi::class)
+    public constructor(code: UShort) : this(code.toInt())
 
     /**
      * Compares this value with the specified value for order.
@@ -77,10 +81,7 @@ constructor(code: UShort) : Comparable<Char> {
     public fun toDouble(): Double = value.toDouble()
 
     override fun equals(other: Any?): Boolean {
-        @Suppress("IMPLICIT_BOXING_IN_IDENTITY_EQUALS")
-        if (other === this) return true
         if (other !is Char) return false
-
         return this.value == other.value
     }
 

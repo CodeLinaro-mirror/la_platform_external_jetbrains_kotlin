@@ -88,6 +88,11 @@ fun Task.dependsOnKotlinGradlePluginPublish() {
     }
 }
 
+// Mixing JUnit4 and Junit5 in one module proved to be problematic, consider using separate modules instead
+enum class JUnitMode {
+    JUnit4, JUnit5
+}
+
 /**
  * @param parallel is redundant if @param jUnit5Enabled is true, because
  *   JUnit5 supports parallel test execution by itself, without gradle help
@@ -96,7 +101,7 @@ fun Project.projectTest(
     taskName: String = "test",
     parallel: Boolean = false,
     shortenTempRootName: Boolean = false,
-    jUnit5Enabled: Boolean = false,
+    jUnitMode: JUnitMode = JUnitMode.JUnit4,
     body: Test.() -> Unit = {}
 ): TaskProvider<Test> {
     val shouldInstrument = project.providers.gradleProperty("kotlin.test.instrumentation.disable")
@@ -105,8 +110,12 @@ fun Project.projectTest(
         evaluationDependsOn(":test-instrumenter")
     }
     return getOrCreateTask<Test>(taskName) {
+        dependsOn(":createIdeaHomeForTests")
+
         doFirst {
-            val commandLineIncludePatterns = (filter as? DefaultTestFilter)?.commandLineIncludePatterns ?: mutableSetOf()
+            if (jUnitMode == JUnitMode.JUnit5) return@doFirst
+
+            val commandLineIncludePatterns = commandLineIncludePatterns.toMutableSet()
             val patterns = filter.includePatterns + commandLineIncludePatterns
             if (patterns.isEmpty() || patterns.any { '*' in it }) return@doFirst
             patterns.forEach { pattern ->
@@ -136,29 +145,14 @@ fun Project.projectTest(
                     }
                 }
 
-                val parentNames = if (jUnit5Enabled) {
-                    /*
-                     * If we run test from inner test class with junit 5 we need
-                     *   to include all containing classes of our class
-                     */
-                    val nestedNames = classFileNameWithoutExtension.split("$")
-                    mutableListOf(nestedNames.first()).also {
-                        for (s in nestedNames.subList(1, nestedNames.size)) {
-                            it += "${it.last()}\$$s"
-                        }
-                    }
-                } else emptyList()
-
                 include { treeElement ->
                     val path = treeElement.path
                     if (treeElement.isDirectory) {
                         classFileNameWithoutExtension.startsWith(path)
                     } else {
-                        if (jUnit5Enabled) {
-                            path == classFileName || (path.endsWith(".class") && parentNames.any { path.startsWith(it) })
-                        } else {
-                            path == classFileName || (path.endsWith(".class") && path.startsWith("$classFileNameWithoutExtension$"))
-                        }
+                        if (path == classFileName) return@include true
+                        if (!path.endsWith(".class")) return@include false
+                        path.startsWith("$classFileNameWithoutExtension$")
                     }
                 }
             }
@@ -185,7 +179,8 @@ fun Project.projectTest(
 
         maxHeapSize = "1600m"
         systemProperty("idea.is.unit.test", "true")
-        systemProperty("idea.home.path", project.intellijRootDir().canonicalPath)
+        systemProperty("idea.home.path", project.ideaHomePathForTests().canonicalPath)
+        systemProperty("idea.use.native.fs.for.win", false)
         systemProperty("java.awt.headless", "true")
         environment("NO_FS_ROOTS_ACCESS_CHECK", "true")
         environment("PROJECT_CLASSES_DIRS", project.testSourceSet.output.classesDirs.asPath)
@@ -193,6 +188,10 @@ fun Project.projectTest(
         systemProperty("jps.kotlin.home", project.rootProject.extra["distKotlinHomeDir"]!!)
         systemProperty("kotlin.ni", if (project.rootProject.hasProperty("newInferenceTests")) "true" else "false")
         systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (project.rootProject.hasProperty("skipMutedTests")) "true" else "false")
+        project.kotlinBuildProperties.junit5NumberOfThreadsForParallelExecution?.let { n ->
+            systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
+            systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", n)
+        }
 
         systemProperty("idea.ignore.disabled.plugins", "true")
 
@@ -225,13 +224,16 @@ fun Project.projectTest(
             }
         }
 
-        if (parallel && !jUnit5Enabled) {
+        if (parallel && jUnitMode != JUnitMode.JUnit5) {
             maxParallelForks =
                 project.providers.gradleProperty("kotlin.test.maxParallelForks").forUseAtConfigurationTime().orNull?.toInt()
                     ?: (Runtime.getRuntime().availableProcessors() / if (project.kotlinBuildProperties.isTeamcityBuild) 2 else 4).coerceAtLeast(1)
         }
     }.apply { configure(body) }
 }
+
+val Test.commandLineIncludePatterns: Set<String>
+    get() = (filter as? DefaultTestFilter)?.commandLineIncludePatterns.orEmpty()
 
 private inline fun String.isFirstChar(f: (Char) -> Boolean) = isNotEmpty() && f(first())
 

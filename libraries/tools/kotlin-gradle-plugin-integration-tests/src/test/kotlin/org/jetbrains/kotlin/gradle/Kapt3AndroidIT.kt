@@ -134,13 +134,29 @@ class Kapt3Android70IT : Kapt3AndroidIT() {
     }
 }
 
-class Kapt3Android42IT : Kapt3BaseIT() {
+class Kapt3Android42IT : BaseGradleIT() {
+    companion object {
+        private val KAPT_SUCCESSFUL_REGEX = "Annotation processing complete, errors: 0".toRegex()
+    }
+
+    private fun kaptOptions(): KaptOptions =
+        KaptOptions(verbose = true, useWorkers = false)
+
+    private fun CompiledProject.assertKaptSuccessful() {
+        KAPT_SUCCESSFUL_REGEX.findAll(this.output).count() > 0
+    }
+
     override val defaultGradleVersion: GradleVersionRequired
         get() = GradleVersionRequired.AtLeast("6.7.1")
 
     override fun defaultBuildOptions(): BuildOptions =
-        super.defaultBuildOptions().copy(androidGradlePluginVersion = AGPVersion.v4_2_0)
-
+        super.defaultBuildOptions().copy(
+            kaptOptions = kaptOptions(),
+            warningMode = WarningMode.Summary,
+            androidHome = KtTestUtil.findAndroidSdk(),
+            androidGradlePluginVersion = AGPVersion.v4_2_0
+        )
+    
     /** Regression test for https://youtrack.jetbrains.com/issue/KT-44020. */
     @Test
     fun testDatabindingWithAndroidX() {
@@ -153,11 +169,24 @@ class Kapt3Android42IT : Kapt3BaseIT() {
     }
 }
 
-abstract class Kapt3AndroidIT : Kapt3BaseIT() {
+abstract class Kapt3AndroidIT : BaseGradleIT() {
+    companion object {
+        private val KAPT_SUCCESSFUL_REGEX = "Annotation processing complete, errors: 0".toRegex()
+    }
+
+    protected open fun kaptOptions(): KaptOptions =
+        KaptOptions(verbose = true, useWorkers = false)
+
+    fun CompiledProject.assertKaptSuccessful() {
+        KAPT_SUCCESSFUL_REGEX.findAll(this.output).count() > 0
+    }
+
     protected abstract val androidGradlePluginVersion: AGPVersion
 
     override fun defaultBuildOptions() =
         super.defaultBuildOptions().copy(
+            kaptOptions = kaptOptions(),
+            warningMode = WarningMode.Summary,
             androidHome = KtTestUtil.findAndroidSdk(),
             androidGradlePluginVersion = androidGradlePluginVersion
         )
@@ -347,6 +376,57 @@ abstract class Kapt3AndroidIT : Kapt3BaseIT() {
         build(":app:kaptDebugKotlin") {
             assertSuccessful()
             assertContainsRegex(Regex("AP options.*enable\\.some\\.test\\.option=true"))
+        }
+    }
+
+    @Test
+    fun generateStubsTaskShouldRunIncrementallyOnChangesInAndroidVariantJavaSources() {
+        with(Project("android-dagger", directoryPrefix = "kapt2")) {
+            setupWorkingDir()
+
+            val javaFile = projectDir.resolve("app/src/main/java/com/example/dagger/kotlin/Utils.java")
+            javaFile.writeText(
+                //language=Java
+                """
+                package com.example.dagger.kotlin;
+
+                class Utils {
+                    public String oneMethod() {
+                        return "fake!";
+                    }
+                }
+                """.trimIndent()
+            )
+
+            build(":app:kaptDebugKotlin") {
+                assertSuccessful()
+                assertTasksExecuted(":app:kaptGenerateStubsDebugKotlin")
+            }
+
+            javaFile.writeText(
+                //language=Java
+                """
+                package com.example.dagger.kotlin;
+
+                class Utils {
+                    public String oneMethod() {
+                        return "fake!";
+                    }
+                    
+                    public void anotherMethod() {
+                        int one = 1;
+                    }
+                }
+                """.trimIndent()
+            )
+
+            build(":app:kaptDebugKotlin") {
+                assertSuccessful()
+                assertTasksExecuted(":app:kaptGenerateStubsDebugKotlin")
+                assertNotContains(
+                    "The input changes require a full rebuild for incremental task ':app:kaptGenerateStubsDebugKotlin'."
+                )
+            }
         }
     }
 

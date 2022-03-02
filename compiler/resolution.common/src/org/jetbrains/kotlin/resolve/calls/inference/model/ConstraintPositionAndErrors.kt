@@ -41,6 +41,10 @@ abstract class ArgumentConstraintPosition<out T>(val argument: T) : ConstraintPo
     override fun toString(): String = "Argument $argument"
 }
 
+abstract class CallableReferenceConstraintPosition<out T>(val call: T) : ConstraintPosition(), OnlyInputTypeConstraintPosition {
+    override fun toString(): String = "Callable reference $call"
+}
+
 abstract class ReceiverConstraintPosition<T>(val argument: T) : ConstraintPosition(), OnlyInputTypeConstraintPosition {
     override fun toString(): String = "Receiver $argument"
 }
@@ -73,10 +77,11 @@ open class DelegatedPropertyConstraintPosition<T>(val topLevelCall: T) : Constra
 }
 
 data class IncorporationConstraintPosition(
-    val from: ConstraintPosition,
     val initialConstraint: InitialConstraint,
     var isFromDeclaredUpperBound: Boolean = false
 ) : ConstraintPosition() {
+    val from: ConstraintPosition get() = initialConstraint.position
+
     override fun toString(): String = "Incorporate $initialConstraint from position $from"
 }
 

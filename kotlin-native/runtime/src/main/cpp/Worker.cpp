@@ -130,7 +130,10 @@ struct JobCompare {
   }
 };
 
-typedef KStdOrderedSet<Job, JobCompare> DelayedJobSet;
+// Using multiset instead of regular set, because we compare the jobs only by `whenExecute`.
+// So if `whenExecute` of two different jobs is the same, the jobs are considered equivalent,
+// and set would simply drop one of them.
+typedef KStdOrderedMultiset<Job, JobCompare> DelayedJobSet;
 
 }  // namespace
 
@@ -141,6 +144,7 @@ class Worker {
         kind_(kind),
         exceptionHandling_(exceptionHandling) {
     name_ = customName != nullptr ? CreateStablePointer(customName) : nullptr;
+    kotlin::ThreadStateGuard guard(ThreadState::kNative);
     pthread_mutex_init(&lock_, nullptr);
     pthread_cond_init(&cond_, nullptr);
   }
@@ -160,7 +164,7 @@ class Worker {
 
   bool waitForQueueLocked(KLong timeoutMicroseconds, KLong* remaining);
 
-  JobKind processQueueElement(bool blocking);
+  RUNTIME_NODEBUG JobKind processQueueElement(bool blocking);
 
   bool park(KLong timeoutMicroseconds, bool process);
 
@@ -242,9 +246,9 @@ void waitInNativeState(pthread_cond_t* cond,
 
 class Locker {
 public:
-    explicit Locker(pthread_mutex_t* lock, bool switchThreadState = true) : lock_(lock) {
+    explicit Locker(pthread_mutex_t* lock, bool switchThreadState = true) : lock_(lock), switchThreadState_(switchThreadState) {
         if (switchThreadState) {
-            kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative);
+            kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative, true);
             pthread_mutex_lock(lock_);
         } else {
             // We may need to create a locker when the current thread is already unregistered in the memory subsystem.
@@ -252,28 +256,40 @@ public:
             pthread_mutex_lock(lock_);
         }
     }
-    Locker(pthread_mutex_t* lock, MemoryState* memoryState) : lock_(lock) {
-        kotlin::ThreadStateGuard guard(memoryState, kotlin::ThreadState::kNative);
+    Locker(pthread_mutex_t* lock, MemoryState* memoryState) : lock_(lock), memoryState_(memoryState) {
+        kotlin::ThreadStateGuard guard(memoryState, kotlin::ThreadState::kNative, true);
         pthread_mutex_lock(lock_);
     }
 
     ~Locker() {
+        kotlin::ThreadStateGuard guard;
+        if (switchThreadState_) {
+            if (memoryState_ != nullptr) {
+                guard = kotlin::ThreadStateGuard(memoryState_, ThreadState::kNative, true);
+            } else {
+                guard = kotlin::ThreadStateGuard(ThreadState::kNative, true);
+            }
+        }
         pthread_mutex_unlock(lock_);
     }
 
 private:
     pthread_mutex_t* lock_;
+    bool switchThreadState_ = true;
+    MemoryState* memoryState_ = nullptr;
 };
 
 class Future {
  public:
   Future(KInt id) : state_(SCHEDULED), id_(id) {
+    kotlin::ThreadStateGuard guard(ThreadState::kNative);
     pthread_mutex_init(&lock_, nullptr);
     pthread_cond_init(&cond_, nullptr);
   }
 
   ~Future() {
     clear();
+    kotlin::ThreadStateGuard guard(ThreadState::kNative);
     pthread_mutex_destroy(&lock_);
     pthread_cond_destroy(&cond_);
   }
@@ -323,6 +339,7 @@ class Future {
 class State {
  public:
   State() {
+    kotlin::ThreadStateGuard guard(ThreadState::kNative);
     pthread_mutex_init(&lock_, nullptr);
     pthread_cond_init(&cond_, nullptr);
 
@@ -332,6 +349,7 @@ class State {
   }
 
   ~State() {
+    kotlin::ThreadStateGuard guard(ThreadState::kNative);
     // TODO: some sanity check here?
     pthread_mutex_destroy(&lock_);
     pthread_cond_destroy(&cond_);
@@ -524,6 +542,7 @@ class State {
   }
 
   void signalAnyFuture() {
+    kotlin::AssertThreadState(ThreadState::kNative);
     {
       Locker locker(&lock_);
       currentVersion_++;
@@ -532,6 +551,7 @@ class State {
   }
 
   void signalAnyFuture(MemoryState* memoryState) {
+    kotlin::AssertThreadState(memoryState, ThreadState::kNative);
     {
       Locker locker(&lock_, memoryState);
       currentVersion_++;
@@ -635,6 +655,7 @@ State* theState() {
 }
 
 void Future::storeResultUnlocked(KNativePtr result, bool ok) {
+  kotlin::ThreadStateGuard guard(ThreadState::kNative);
   {
     Locker locker(&lock_);
     state_ = ok ? COMPUTED : THROWN;
@@ -648,6 +669,7 @@ void Future::storeResultUnlocked(KNativePtr result, bool ok) {
 }
 
 void Future::cancelUnlocked(MemoryState* memoryState) {
+  kotlin::ThreadStateGuard guard(memoryState, ThreadState::kNative);
   {
     Locker locker(&lock_, memoryState);
     state_ = CANCELLED;
@@ -893,6 +915,7 @@ Worker::~Worker() {
       DisposeStablePointerFor(memoryState_, name_);
   }
 
+  kotlin::ThreadStateGuard guard(memoryState_, ThreadState::kNative);
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&cond_);
 }
@@ -922,10 +945,12 @@ void* workerRoutine(void* argument) {
 }  // namespace
 
 void Worker::startEventLoop() {
+  kotlin::ThreadStateGuard guard(ThreadState::kNative);
   pthread_create(&thread_, nullptr, workerRoutine, this);
 }
 
 void Worker::putJob(Job job, bool toFront) {
+  kotlin::ThreadStateGuard guard(ThreadState::kNative);
   Locker locker(&lock_);
   if (toFront)
     queue_.push_front(job);
@@ -935,6 +960,7 @@ void Worker::putJob(Job job, bool toFront) {
 }
 
 void Worker::putDelayedJob(Job job) {
+  kotlin::ThreadStateGuard guard(ThreadState::kNative);
   Locker locker(&lock_);
   delayed_.insert(job);
   pthread_cond_signal(&cond_);
@@ -966,6 +992,9 @@ KLong Worker::checkDelayedLocked() {
   RuntimeAssert(job.kind == JOB_EXECUTE_AFTER, "Must be delayed job");
   auto now = konan::getTimeMicros();
   if (job.executeAfter.whenExecute <= now) {
+    // Note: `delayed_` is multiset sorted only by `whenExecute`.
+    // So using erase(it) instead of erase(job) is crucial,
+    // because the latter would remove all the jobs with the same `whenExecute`.
     delayed_.erase(it);
     queue_.push_back(job);
     return 0;
@@ -1052,21 +1081,22 @@ JobKind Worker::processQueueElement(bool blocking) {
       ObjHolder operationHolder, dummyHolder;
       KRef obj = DerefStablePointer(job.executeAfter.operation, operationHolder.slot());
       try {
-#if KONAN_OBJC_INTEROP
-        konan::AutoreleasePool autoreleasePool;
-#endif
-        WorkerLaunchpad(obj, dummyHolder.slot());
-      } catch (ExceptionObjHolder& e) {
+        #if KONAN_OBJC_INTEROP
+          konan::AutoreleasePool autoreleasePool;
+        #endif
+          WorkerLaunchpad(obj, dummyHolder.slot());
+      } catch(ExceptionObjHolder& e) {
         switch (exceptionHandling()) {
-            case WorkerExceptionHandling::kIgnore: break;
-            case WorkerExceptionHandling::kDefault:
-                kotlin::ProcessUnhandledException(e.GetExceptionObject());
-                break;
-            case WorkerExceptionHandling::kLog:
-                ReportUnhandledException(e.GetExceptionObject());
-                break;
+          case WorkerExceptionHandling::kIgnore: break;
+          case WorkerExceptionHandling::kDefault:
+              kotlin::ProcessUnhandledException(e.GetExceptionObject());
+              break;
+          case WorkerExceptionHandling::kLog:
+              ReportUnhandledException(e.GetExceptionObject());
+              break;
         }
       }
+
       DisposeStablePointer(job.executeAfter.operation);
       break;
     }
@@ -1076,15 +1106,21 @@ JobKind Worker::processQueueElement(bool blocking) {
       ObjHolder argumentHolder;
       ObjHolder resultHolder;
       KRef argument = AdoptStablePointer(job.regularJob.argument, argumentHolder.slot());
+      #if !KONAN_NO_EXCEPTIONS
+        FrameOverlay* currentFrame = getCurrentFrame();
+      #else
+        #error "Exceptions aren't supported!"
+      #endif
       try {
-#if KONAN_OBJC_INTEROP
-        konan::AutoreleasePool autoreleasePool;
-#endif
-        job.regularJob.function(argument, resultHolder.slot());
-        argumentHolder.clear();
-        // Transfer the result.
-        result = transfer(&resultHolder, job.regularJob.transferMode);
+        #if KONAN_OBJC_INTEROP
+          konan::AutoreleasePool autoreleasePool;
+        #endif
+          job.regularJob.function(argument, resultHolder.slot());
+          argumentHolder.clear();
+          // Transfer the result.
+          result = transfer(&resultHolder, job.regularJob.transferMode);
       } catch (ExceptionObjHolder& e) {
+        SetCurrentFrame(reinterpret_cast<ObjHeader**>(currentFrame));
         ok = false;
         switch (exceptionHandling()) {
             case WorkerExceptionHandling::kIgnore:
@@ -1172,6 +1208,7 @@ void Kotlin_Worker_freezeInternal(KRef object) {
 }
 
 KBoolean Kotlin_Worker_isFrozenInternal(KRef object) {
+  if (!compiler::freezingChecksEnabled()) return false;
   return object == nullptr || isPermanentOrFrozen(object);
 }
 

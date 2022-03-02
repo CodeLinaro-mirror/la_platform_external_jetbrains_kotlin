@@ -47,7 +47,8 @@ val jvmInlineClassPhase = makeIrFilePhase(
     // forLoopsPhase may produce UInt and ULong which are inline classes.
     // Standard library replacements are done on the unmangled names for UInt and ULong classes.
     // Collection stubs may require mangling by inline class rules.
-    prerequisite = setOf(forLoopsPhase, jvmStandardLibraryBuiltInsPhase, collectionStubMethodLowering)
+    // SAM wrappers may require mangling for fun interfaces with inline class parameters
+    prerequisite = setOf(forLoopsPhase, jvmBuiltInsPhase, collectionStubMethodLowering, singleAbstractMethodPhase),
 )
 
 /**
@@ -118,6 +119,11 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
             function.transformChildrenVoid()
             return null
         }
+
+        // If fun interface methods are already mangled, do not mangle them twice.
+        if (function is IrSimpleFunction && function.overriddenSymbols.any { it.owner.parentAsClass.isFun } &&
+            function.name.asString().substringAfterLast('-') == replacement.name.asString().substringAfterLast('-')
+        ) return null
 
         addBindingsFor(function, replacement)
         return when (function) {

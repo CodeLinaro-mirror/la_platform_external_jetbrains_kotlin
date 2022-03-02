@@ -1,11 +1,13 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
-// WASM_MUTE_REASON: PROPERTY_REFERENCES
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
 class Delegate {
     operator fun getValue(t: Any?, p: Any): String = "OK"
 }
 
-inline class Kla1(val default: Int) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Kla1(val default: Int) {
     fun getValue(): String {
         val prop by Delegate()
         return prop

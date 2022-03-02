@@ -10,20 +10,23 @@ import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.codegen.signature.JvmSignatureWriter
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.fir.*
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.FirSessionComponent
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.inference.*
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
@@ -108,7 +111,7 @@ class FirJvmTypeMapper(val session: FirSession) : TypeMappingContext<JvmSignatur
 
     private fun ConeClassLikeType.parentClassOrNull(): FirRegularClassSymbol? {
         val parentClassId = classId?.outerClassId ?: return null
-        return session.symbolProvider.getClassLikeSymbolByFqName(parentClassId) as? FirRegularClassSymbol?
+        return session.symbolProvider.getClassLikeSymbolByClassId(parentClassId) as? FirRegularClassSymbol?
     }
 
     private fun ConeClassLikeType.buildPossiblyInnerType(classifier: FirRegularClassSymbol?, index: Int): PossiblyInnerConeType? {
@@ -204,6 +207,11 @@ class ConeTypeSystemCommonBackendContextForTypeMapping(
         return this is ConeTypeParameterLookupTag
     }
 
+    override fun TypeConstructorMarker.asTypeParameter(): TypeParameterMarker {
+        require(isTypeParameter())
+        return this as ConeTypeParameterLookupTag
+    }
+
     override fun TypeConstructorMarker.defaultType(): ConeSimpleKotlinType {
         require(this is ConeClassifierLookupTag)
         return when (this) {
@@ -246,7 +254,7 @@ class ConeTypeSystemCommonBackendContextForTypeMapping(
 
     override fun TypeParameterMarker.representativeUpperBound(): ConeKotlinType {
         require(this is ConeTypeParameterLookupTag)
-        val bounds = this.typeParameterSymbol.fir.bounds.map { it.coneType }
+        val bounds = this.typeParameterSymbol.resolvedBounds.map { it.coneType }
         return bounds.firstOrNull {
             val classSymbol = it.safeAs<ConeClassLikeType>()?.fullyExpandedType(session)
                 ?.lookupTag?.toSymbol(session) as? FirRegularClassSymbol ?: return@firstOrNull false
@@ -256,12 +264,12 @@ class ConeTypeSystemCommonBackendContextForTypeMapping(
     }
 
     override fun continuationTypeConstructor(): ConeClassLikeLookupTag {
-        return symbolProvider.getClassLikeSymbolByFqName(StandardClassIds.Continuation)?.toLookupTag()
+        return symbolProvider.getClassLikeSymbolByClassId(StandardClassIds.Continuation)?.toLookupTag()
             ?: error("Continuation class not found")
     }
 
     override fun functionNTypeConstructor(n: Int): TypeConstructorMarker {
-        return symbolProvider.getClassLikeSymbolByFqName(StandardClassIds.FunctionN(n))?.toLookupTag()
+        return symbolProvider.getClassLikeSymbolByClassId(StandardClassIds.FunctionN(n))?.toLookupTag()
             ?: error("Function$n class not found")
     }
 }

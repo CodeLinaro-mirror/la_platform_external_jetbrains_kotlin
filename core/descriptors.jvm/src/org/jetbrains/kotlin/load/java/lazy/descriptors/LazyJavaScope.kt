@@ -174,6 +174,7 @@ abstract class LazyJavaScope(
                 DescriptorFactory.createExtensionReceiverParameterForCallable(functionDescriptorImpl, it, Annotations.EMPTY)
             },
             getDispatchReceiverParameter(),
+            emptyList(),
             effectiveSignature.typeParameters,
             effectiveSignature.valueParameters,
             effectiveSignature.returnType,
@@ -297,14 +298,20 @@ abstract class LazyJavaScope(
 
         val propertyType = getPropertyType(field)
 
-        propertyDescriptor.setType(propertyType, listOf(), getDispatchReceiverParameter(), null)
+        propertyDescriptor.setType(
+            propertyType,
+            listOf(),
+            getDispatchReceiverParameter(),
+            null,
+            emptyList()
+        )
 
         if (DescriptorUtils.shouldRecordInitializerForProperty(propertyDescriptor, propertyDescriptor.type)) {
-            propertyDescriptor.setCompileTimeInitializer(
+            propertyDescriptor.setCompileTimeInitializerFactory {
                 c.storageManager.createNullableLazyValue {
                     c.components.javaPropertyInitializerEvaluator.getInitializerConstant(field, propertyDescriptor)
                 }
-            )
+            }
         }
 
         c.components.javaResolverCache.recordField(field, propertyDescriptor)

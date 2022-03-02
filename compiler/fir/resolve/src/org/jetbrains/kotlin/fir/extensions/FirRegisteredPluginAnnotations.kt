@@ -23,6 +23,10 @@ abstract class FirRegisteredPluginAnnotations(val session: FirSession) : FirSess
 
     abstract val annotations: Set<AnnotationFqn>
     abstract val metaAnnotations: Set<AnnotationFqn>
+
+    val hasRegisteredAnnotations: Boolean
+        get() = annotations.isNotEmpty() || metaAnnotations.isNotEmpty()
+
     abstract fun getAnnotationsWithMetaAnnotation(metaAnnotation: AnnotationFqn): Collection<AnnotationFqn>
 
     abstract fun registerUserDefinedAnnotation(metaAnnotation: AnnotationFqn, annotationClasses: Collection<FirRegularClass>)
@@ -68,9 +72,24 @@ private class FirRegisteredPluginAnnotationsImpl(session: FirSession) : FirRegis
 
     @PluginServicesInitialization
     override fun initialize() {
+        val registrar = object : FirDeclarationPredicateRegistrar() {
+            val predicates = mutableListOf<DeclarationPredicate>()
+            override fun register(vararg predicates: DeclarationPredicate) {
+                this.predicates += predicates
+            }
+
+            override fun register(predicates: Collection<DeclarationPredicate>) {
+                this.predicates += predicates
+            }
+        }
+
         for (extension in session.extensionService.getAllExtensions()) {
-            if (extension !is FirPredicateBasedExtension) continue
-            val predicate = extension.predicate
+            with(extension) {
+                registrar.registerPredicates()
+            }
+        }
+
+        for (predicate in registrar.predicates) {
             annotations += predicate.annotations
             metaAnnotations += predicate.metaAnnotations
         }

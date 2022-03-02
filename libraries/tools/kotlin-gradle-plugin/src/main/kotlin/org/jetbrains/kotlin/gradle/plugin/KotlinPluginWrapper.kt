@@ -36,6 +36,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinPm20GradlePlugin
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinPm20ProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultKotlinSourceSetFactory
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
+import org.jetbrains.kotlin.gradle.report.BuildMetricsReporterService
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.addNpmDependencyExtension
@@ -50,7 +51,7 @@ import org.jetbrains.kotlin.statistics.metrics.StringMetrics
 import javax.inject.Inject
 import kotlin.reflect.KClass
 
-abstract class KotlinBasePluginWrapper: Plugin<Project> {
+abstract class KotlinBasePluginWrapper : Plugin<Project> {
 
     private val log = Logging.getLogger(this.javaClass)
 
@@ -91,6 +92,16 @@ abstract class KotlinBasePluginWrapper: Plugin<Project> {
         KotlinGradleBuildServices.registerIfAbsent(project).get()
 
         KotlinGradleBuildServices.detectKotlinPluginLoadedInMultipleProjects(project, kotlinPluginVersion)
+
+        val buildMetricReporter = BuildMetricsReporterService.registerIfAbsent(project, BuildMetricsReporterService.getStartParameters(project))
+
+        buildMetricReporter?.also { BuildEventsListenerRegistryHolder.getInstance(project).listenerRegistry.onTaskCompletion(it) }
+
+        project.tasks.withType(AbstractKotlinCompile::class.java).configureEach {
+            if (buildMetricReporter != null) {
+                it.buildMetricsReporterService.set(buildMetricReporter)
+            }
+        }
 
         project.createKotlinExtension(projectExtensionClass).apply {
             coreLibrariesVersion = kotlinPluginVersion
@@ -232,19 +243,9 @@ open class KotlinMultiplatformPluginWrapper : KotlinBasePluginWrapper() {
     override val projectExtensionClass: KClass<out KotlinMultiplatformExtension>
         get() = KotlinMultiplatformExtension::class
 
-    override fun whenBuildEvaluated(project: Project) = project.runProjectConfigurationHealthCheck {
-        val isNoTargetsInitialized = (project.kotlinExtension as KotlinMultiplatformExtension)
-            .targets
-            .none { it !is KotlinMetadataTarget }
-
-        if (isNoTargetsInitialized) {
-            throw GradleException(
-                """
-                Please initialize at least one Kotlin target in '${project.name} (${project.path})'.
-                Read more https://kotlinlang.org/docs/reference/building-mpp-with-gradle.html#setting-up-targets
-                """.trimIndent()
-            )
-        }
+    override fun whenBuildEvaluated(project: Project) {
+        project.runMissingAndroidTargetProjectConfigurationHealthCheck()
+        project.runMissingKotlinTargetsProjectConfigurationHealthCheck()
     }
 }
 

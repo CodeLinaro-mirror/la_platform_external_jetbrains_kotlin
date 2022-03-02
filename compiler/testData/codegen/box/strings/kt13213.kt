@@ -1,6 +1,5 @@
 // IGNORE_BACKEND: JVM
-// IGNORE_BACKEND: WASM
-// WITH_RUNTIME
+// WITH_STDLIB
 
 fun box(): String {
     val t = test.trim()

@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.load.java
 
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.name.FqName
 
 val JSPECIFY_NULLABLE = FqName("org.jspecify.nullness.Nullable")
@@ -74,12 +75,20 @@ val NULLABILITY_ANNOTATIONS = mutableSetOf<FqName>() +
         JSPECIFY_NULLNESS_UNKNOWN +
         JSPECIFY_NULL_MARKED
 
-val READ_ONLY_ANNOTATIONS = listOf(
+val READ_ONLY_ANNOTATIONS = setOf(
     JvmAnnotationNames.JETBRAINS_READONLY_ANNOTATION,
     JvmAnnotationNames.READONLY_ANNOTATION
 )
 
-val MUTABLE_ANNOTATIONS = listOf(
+val MUTABLE_ANNOTATIONS = setOf(
     JvmAnnotationNames.JETBRAINS_MUTABLE_ANNOTATION,
     JvmAnnotationNames.MUTABLE_ANNOTATION
 )
+
+val javaToKotlinNameMap: Map<FqName, FqName> =
+    mapOf(
+        JvmAnnotationNames.TARGET_ANNOTATION to StandardNames.FqNames.target,
+        JvmAnnotationNames.RETENTION_ANNOTATION to StandardNames.FqNames.retention,
+        JvmAnnotationNames.DEPRECATED_ANNOTATION to StandardNames.FqNames.deprecated,
+        JvmAnnotationNames.DOCUMENTED_ANNOTATION to StandardNames.FqNames.mustBeDocumented
+    )

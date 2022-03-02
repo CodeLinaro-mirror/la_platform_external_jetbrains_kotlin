@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.commonizer.cir
 
 import org.jetbrains.kotlin.commonizer.mergedtree.CirClassifierIndex
-import org.jetbrains.kotlin.commonizer.mergedtree.CirProvided
 import org.jetbrains.kotlin.commonizer.mergedtree.CirProvidedClassifiers
 import org.jetbrains.kotlin.commonizer.mergedtree.CirProvidedClassifiersByModules
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
@@ -44,7 +43,7 @@ class SimpleCirSupertypesResolverTest : KtInlineSourceCommonizerTestCase() {
             """
                 class Outer {
                     open inner class Inner
-                    class X: Inner()
+                    inner class X: Inner()
                 }
             """.trimIndent()
         )

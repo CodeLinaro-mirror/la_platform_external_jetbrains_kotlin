@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirLambdaArgumentExpression
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -18,8 +18,8 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 internal class FirLambdaArgumentExpressionImpl(
-    override val source: FirSourceElement?,
-    override val annotations: MutableList<FirAnnotationCall>,
+    override val source: KtSourceElement?,
+    override val annotations: MutableList<FirAnnotation>,
     override var expression: FirExpression,
 ) : FirLambdaArgumentExpression() {
     override val typeRef: FirTypeRef get() = expression.typeRef

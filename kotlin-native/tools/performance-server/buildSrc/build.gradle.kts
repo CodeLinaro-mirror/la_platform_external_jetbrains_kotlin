@@ -30,7 +30,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     }
 }
@@ -61,6 +61,11 @@ tasks.validatePlugins.configure {
 
 
 sourceSets["main"].withConvention(org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet::class) {
+    kotlin.filter.exclude("**/FileCheckTest.kt")
+    kotlin.filter.exclude("**/bitcode/**")
+    kotlin.filter.exclude("**/testing/**")
+    kotlin.filter.exclude("**/CompilationDatabase.kt")
+
     kotlin.srcDir("../../../build-tools/src/main/kotlin")
     kotlin.srcDir("../../../performance/buildSrc/src/main/kotlin")
     kotlin.srcDir("../../../shared/src/library/kotlin")
@@ -71,13 +76,11 @@ sourceSets["main"].withConvention(org.jetbrains.kotlin.gradle.plugin.KotlinSourc
 
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions.freeCompilerArgs +=
-        listOf("-Xopt-in=kotlin.RequiresOptIn",
-               "-Xskip-runtime-version-check",
-               "-Xopt-in=kotlin.ExperimentalStdlibApi")
+        listOf("-opt-in=kotlin.RequiresOptIn", "-opt-in=kotlin.ExperimentalStdlibApi")
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     api("org.jetbrains.kotlin:kotlin-native-utils:${project.bootstrapKotlinVersion}")
     api("org.jetbrains.kotlin:kotlin-util-klib:${project.bootstrapKotlinVersion}")
@@ -85,7 +88,7 @@ dependencies {
     val kotlinVersion = project.bootstrapKotlinVersion
     val ktorVersion = "1.2.1"
     val slackApiVersion = "1.2.0"
-    val shadowVersion = "5.1.0"
+    val shadowVersion = "7.1.1"
     val metadataVersion = "0.0.1-dev-10"
 
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
@@ -101,6 +104,6 @@ dependencies {
 
     // Located in <repo root>/shared and always provided by the composite build.
     //api("org.jetbrains.kotlin:kotlin-native-shared:$konanVersion")
-    implementation("com.github.jengelman.gradle.plugins:shadow:$shadowVersion")
+    implementation("gradle.plugin.com.github.johnrengelman:shadow:$shadowVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-metadata-klib:$metadataVersion")
 }

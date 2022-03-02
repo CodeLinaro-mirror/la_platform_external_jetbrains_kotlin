@@ -7,7 +7,8 @@ dependencies {
     implementation(project(":compiler:psi"))
     implementation(project(":compiler:frontend.java"))
     implementation(project(":core:compiler.common"))
-    implementation(intellijCoreDep()) { includeJars("intellij-core", rootProject = rootProject) }
+    implementation(project(":analysis:project-structure"))
+    implementation(intellijCore())
 }
 
 sourceSets {

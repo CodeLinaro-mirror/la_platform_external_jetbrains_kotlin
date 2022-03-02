@@ -20,12 +20,10 @@ import org.jetbrains.kotlin.fir.expressions.impl.*
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.Variance
@@ -44,7 +42,7 @@ fun FirElement.renderWithType(mode: FirRenderer.RenderMode = FirRenderer.RenderM
 fun FirElement.render(mode: FirRenderer.RenderMode = FirRenderer.RenderMode.Normal): String =
     buildString { this@render.accept(FirRenderer(this, mode)) }
 
-class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderMode.Normal) : FirVisitorVoid() {
+open class FirRenderer(builder: StringBuilder, protected val mode: RenderMode = RenderMode.Normal) : FirVisitorVoid() {
     companion object {
         private val visibilitiesToRenderEffectiveSet = setOf(
             Visibilities.Private, Visibilities.PrivateToThis, Visibilities.Internal,
@@ -200,10 +198,10 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
         annotationContainer.annotations.renderAnnotations()
     }
 
-    private fun List<FirAnnotationCall>.renderAnnotations() {
+    private fun List<FirAnnotation>.renderAnnotations() {
         if (!mode.renderAnnotation) return
         for (annotation in this) {
-            visitAnnotationCall(annotation)
+            visitAnnotation(annotation)
         }
     }
 
@@ -383,7 +381,6 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
                     memberDeclaration.typeParameters.renderTypeParameters()
                 }
             }
-            else -> {}
         }
     }
 
@@ -440,11 +437,12 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
     private fun Any.renderAsDeclarationAttributeValue() = when (this) {
         is FirCallableSymbol<*> -> callableId.toString()
         is FirClassLikeSymbol<*> -> classId.asString()
+        is FirProperty -> symbol.callableId.toString()
         else -> toString()
     }
 
 
-    private fun List<FirDeclaration>.renderDeclarations() {
+    protected fun List<FirDeclaration>.renderDeclarations() {
         renderInBraces {
             for (declaration in this) {
                 declaration.accept(this@FirRenderer)
@@ -472,6 +470,10 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
         regularClass.annotations.renderAnnotations()
         visitMemberDeclaration(regularClass)
         renderSupertypes(regularClass)
+        renderClassDeclarations(regularClass)
+    }
+
+    protected open fun renderClassDeclarations(regularClass: FirRegularClass) {
         regularClass.declarations.renderDeclarations()
     }
 
@@ -517,6 +519,12 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
         if (!mode.renderPropertyAccessors) return
         println()
         pushIndent()
+
+        if (property.hasExplicitBackingField) {
+            property.backingField?.accept(this)
+            println()
+        }
+
         property.getter?.accept(this)
         if (property.getter?.body == null) {
             println()
@@ -528,6 +536,17 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
             }
         }
         popIndent()
+    }
+
+    override fun visitBackingField(backingField: FirBackingField) {
+        print(backingField.visibility.asString() + " ")
+        print("<explicit backing field>: ")
+        backingField.returnTypeRef.accept(this)
+
+        backingField.initializer?.let {
+            print(" = ")
+            it.accept(this)
+        }
     }
 
     override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
@@ -550,6 +569,11 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
             print("actual ")
         }
         constructor.renderDeclarationData()
+
+        constructor.dispatchReceiverType?.let {
+            print(it.render())
+            print(".")
+        }
         print("constructor")
         constructor.typeParameters.renderTypeParameters()
         constructor.valueParameters.renderParameters()
@@ -602,6 +626,12 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
             print(".")
         }
         print("<anonymous>")
+        if (anonymousFunction.valueParameters.isEmpty() &&
+            anonymousFunction.hasExplicitParameterList &&
+            anonymousFunction.returnTypeRef is FirImplicitTypeRef
+        ) {
+            print("(<no-parameters>)")
+        }
         anonymousFunction.valueParameters.renderParameters()
         print(": ")
         anonymousFunction.returnTypeRef.accept(this)
@@ -939,17 +969,51 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
     }
 
     override fun visitAnnotationCall(annotationCall: FirAnnotationCall) {
+        visitAnnotation(annotationCall)
+    }
+
+    override fun visitAnnotation(annotation: FirAnnotation) {
         print("@")
-        annotationCall.useSiteTarget?.let {
+        annotation.useSiteTarget?.let {
             print(it.name)
             print(":")
         }
-        annotationCall.annotationTypeRef.accept(this)
-        visitCall(annotationCall)
-        if (annotationCall.useSiteTarget == AnnotationUseSiteTarget.FILE) {
+        annotation.annotationTypeRef.accept(this)
+        when (annotation) {
+            is FirAnnotationCall -> if (annotation.calleeReference.let { it is FirResolvedNamedReference || it is FirErrorNamedReference }) {
+                annotation.renderArgumentMapping()
+            } else {
+                visitCall(annotation)
+            }
+            else -> annotation.renderArgumentMapping()
+        }
+        if (annotation.useSiteTarget == AnnotationUseSiteTarget.FILE) {
             println()
         } else {
             print(" ")
+        }
+    }
+
+    private fun FirAnnotation.renderArgumentMapping() {
+        print("(")
+        if (mode.renderCallArguments) {
+            argumentMapping.mapping.renderSeparated()
+        } else {
+            if (argumentMapping.mapping.isNotEmpty()) {
+                print("...")
+            }
+        }
+        print(")")
+    }
+
+    private fun Map<Name, FirElement>.renderSeparated() {
+        for ((index, element) in this.entries.withIndex()) {
+            val (name, argument) = element
+            if (index > 0) {
+                print(", ")
+            }
+            print("$name = ")
+            argument.accept(this@FirRenderer)
         }
     }
 
@@ -1074,7 +1138,7 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
 
     override fun visitBackingFieldReference(backingFieldReference: FirBackingFieldReference) {
         print("F|")
-        print(backingFieldReference.resolvedSymbol.callableId)
+        print(backingFieldReference.resolvedSymbol.fir.propertySymbol.callableId)
         print("|")
     }
 
@@ -1378,7 +1442,10 @@ class FirRenderer(builder: StringBuilder, private val mode: RenderMode = RenderM
 
     override fun visitPackageDirective(packageDirective: FirPackageDirective) {
         if (mode.renderPackageDirective) {
-            println("package ${packageDirective.packageFqName.asString()}")
+            if (!packageDirective.packageFqName.isRoot) {
+                println("package ${packageDirective.packageFqName.asString()}")
+                println()
+            }
         }
     }
 }

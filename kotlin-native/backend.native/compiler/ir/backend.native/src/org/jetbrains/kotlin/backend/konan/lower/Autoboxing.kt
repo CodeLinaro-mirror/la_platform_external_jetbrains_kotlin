@@ -23,12 +23,14 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrPropertyImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstantPrimitiveImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.transformStatement
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.isNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
@@ -48,7 +50,6 @@ internal class Autoboxing(val context: Context) : FileLoweringPass {
 }
 
 private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTransformer(
-        context.builtIns,
         context.ir.symbols,
         context.irBuiltIns
 ) {
@@ -87,18 +88,6 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
     }
 
     override fun IrExpression.useAs(type: IrType): IrExpression {
-        if (this.isNullConst() && type.isNullablePointer()) {
-            // TODO: consider using IrConst with proper type.
-            return IrCallImpl.fromSymbolDescriptor(
-                    startOffset,
-                    endOffset,
-                    symbols.getNativeNullPtr.owner.returnType,
-                    symbols.getNativeNullPtr,
-                    symbols.getNativeNullPtr.owner.typeParameters.size,
-                    symbols.getNativeNullPtr.owner.valueParameters.size
-            ).uncheckedCast(type)
-        }
-
         val actualType = when (this) {
             is IrCall -> {
                 if (this.symbol.owner.isSuspend) irBuiltIns.anyNType
@@ -121,9 +110,6 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
         }
         return this.adaptIfNecessary(actualType, type)
     }
-
-    private fun IrType.isNullablePointer(): Boolean =
-            this.containsNull() && this.computePrimitiveBinaryTypeOrNull() == PrimitiveBinaryType.POINTER
 
     private val IrFunctionAccessExpression.target: IrFunction get() = when (this) {
         is IrCall -> this.callTarget
@@ -158,6 +144,15 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
         return if (conversion == null) {
             this
         } else {
+            when (this) {
+                is IrConst<*> -> IrConstantPrimitiveImpl(this.startOffset, this.endOffset, this)
+                is IrConstantPrimitive, is IrConstantObject -> this
+                is IrConstantValue -> TODO("Boxing/unboxing of ${this::class.qualifiedName} is not supported")
+                else -> null
+            }?.let {
+                it.type = expectedType
+                return it
+            }
             val parameter = conversion.owner.explicitParameters.single()
             val argument = this.uncheckedCast(parameter.type)
 
@@ -311,30 +306,6 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
         return declaration
     }
 
-    override fun visitCall(expression: IrCall): IrExpression {
-        expression.transformChildrenVoid(this)
-        // Make replacement only in optimized builds due to separate compilation and possibility to get broken
-        // debug information.
-        if (!context.shouldOptimize())
-            return expression
-
-        val property = expression.symbol.owner.correspondingPropertySymbol?.owner ?: return expression
-
-        property.parent.let {
-            if (it is IrClass && it.isInline && property.backingField != null) {
-                expression.dispatchReceiver?.let { receiver ->
-                    return builder.at(expression)
-                            .irCall(symbols.reinterpret, expression.type, listOf(receiver.type, expression.type))
-                            .apply {
-                                extensionReceiver = receiver
-                            }
-                }
-            }
-        }
-
-        return expression
-    }
-
     private fun IrBuilderWithScope.irIsNull(expression: IrExpression): IrExpression {
         val binary = expression.type.computeBinaryType()
         return when (binary) {
@@ -358,7 +329,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
 
         function.body = builder.irBlockBody(function) {
             val valueToBox = function.valueParameters[0]
-            if (valueToBox.type.containsNull()) {
+            if (valueToBox.type.isNullable()) {
                 +irIfThen(
                         condition = irIsNull(irGet(valueToBox)),
                         thenPart = irReturn(irNull())
@@ -401,7 +372,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
 
         function.body = builder.irBlockBody(function) {
             val boxParameter = function.valueParameters.single()
-            if (boxParameter.type.containsNull()) {
+            if (boxParameter.type.isNullable()) {
                 +irIfThen(
                         condition = irEqeqeq(irGet(boxParameter), irNull()),
                         thenPart = irReturn(irNullPointerOrReference(function.returnType))
@@ -457,7 +428,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
         this.at(expression)
         val loweredConstructor = this@InlineClassTransformer.context.getLoweredInlineClassConstructor(callee)
         return if (callee.isPrimary) this.irBlock {
-            val argument = irTemporary(expression.getValueArgument(0)!!)
+            val argument = irTemporary(expression.getValueArgument(0)!!, irType = loweredConstructor.valueParameters.single().type)
             +irCall(loweredConstructor).apply {
                 putValueArgument(0, irGet(argument))
             }

@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.fir.declarations
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
@@ -24,18 +24,18 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 sealed class FirVariable : FirCallableDeclaration(), FirStatement {
-    abstract override val source: FirSourceElement?
+    abstract override val source: KtSourceElement?
     abstract override val moduleData: FirModuleData
     abstract override val resolvePhase: FirResolvePhase
     abstract override val origin: FirDeclarationOrigin
     abstract override val attributes: FirDeclarationAttributes
-    abstract override val returnTypeRef: FirTypeRef
     abstract override val typeParameters: List<FirTypeParameterRef>
     abstract override val status: FirDeclarationStatus
+    abstract override val returnTypeRef: FirTypeRef
     abstract override val receiverTypeRef: FirTypeRef?
     abstract override val deprecation: DeprecationsPerUseSite?
     abstract override val containerSource: DeserializedContainerSource?
-    abstract override val dispatchReceiverType: ConeKotlinType?
+    abstract override val dispatchReceiverType: ConeSimpleKotlinType?
     abstract val name: Name
     abstract override val symbol: FirVariableSymbol<out FirVariable>
     abstract val initializer: FirExpression?
@@ -44,7 +44,8 @@ sealed class FirVariable : FirCallableDeclaration(), FirStatement {
     abstract val isVal: Boolean
     abstract val getter: FirPropertyAccessor?
     abstract val setter: FirPropertyAccessor?
-    abstract override val annotations: List<FirAnnotationCall>
+    abstract val backingField: FirBackingField?
+    abstract override val annotations: List<FirAnnotation>
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitVariable(this, data)
 
@@ -62,11 +63,15 @@ sealed class FirVariable : FirCallableDeclaration(), FirStatement {
 
     abstract fun replaceInitializer(newInitializer: FirExpression?)
 
-    abstract override fun <D> transformReturnTypeRef(transformer: FirTransformer<D>, data: D): FirVariable
+    abstract fun replaceGetter(newGetter: FirPropertyAccessor?)
+
+    abstract fun replaceSetter(newSetter: FirPropertyAccessor?)
 
     abstract override fun <D> transformTypeParameters(transformer: FirTransformer<D>, data: D): FirVariable
 
     abstract override fun <D> transformStatus(transformer: FirTransformer<D>, data: D): FirVariable
+
+    abstract override fun <D> transformReturnTypeRef(transformer: FirTransformer<D>, data: D): FirVariable
 
     abstract override fun <D> transformReceiverTypeRef(transformer: FirTransformer<D>, data: D): FirVariable
 
@@ -77,6 +82,8 @@ sealed class FirVariable : FirCallableDeclaration(), FirStatement {
     abstract fun <D> transformGetter(transformer: FirTransformer<D>, data: D): FirVariable
 
     abstract fun <D> transformSetter(transformer: FirTransformer<D>, data: D): FirVariable
+
+    abstract fun <D> transformBackingField(transformer: FirTransformer<D>, data: D): FirVariable
 
     abstract override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirVariable
 

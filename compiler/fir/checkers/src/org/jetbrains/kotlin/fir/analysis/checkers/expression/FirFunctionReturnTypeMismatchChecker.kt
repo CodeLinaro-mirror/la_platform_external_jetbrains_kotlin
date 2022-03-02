@@ -7,19 +7,17 @@ package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.isSubtypeForTypeMismatch
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULL_FOR_NONNULL_TYPE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.RETURN_TYPE_MISMATCH
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SMARTCAST_IMPOSSIBLE
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.isExhaustive
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.types.SmartcastStability
 
 object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
     override fun check(expression: FirReturnExpression, context: CheckerContext, reporter: DiagnosticReporter) {
@@ -38,7 +36,9 @@ object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
             if (resultExpression.isNullLiteral && functionReturnType.nullability == ConeNullability.NOT_NULL) {
                 reporter.reportOn(resultExpression.source, NULL_FOR_NONNULL_TYPE, context)
             } else {
-                if (resultExpression is FirExpressionWithSmartcast && resultExpression.smartcastStability != SmartcastStability.STABLE_VALUE &&
+                val isDueToNullability =
+                    context.session.typeContext.isTypeMismatchDueToNullability(returnExpressionType, functionReturnType)
+                if (resultExpression is FirExpressionWithSmartcast && !resultExpression.isStable &&
                     isSubtypeForTypeMismatch(typeContext, subtype = resultExpression.smartcastType.coneType, supertype = functionReturnType)
                 ) {
                     reporter.reportOn(
@@ -47,6 +47,7 @@ object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
                         functionReturnType,
                         resultExpression,
                         resultExpression.smartcastStability.description,
+                        isDueToNullability,
                         context
                     )
                 } else {
@@ -56,6 +57,7 @@ object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
                         functionReturnType,
                         returnExpressionType,
                         targetElement,
+                        isDueToNullability,
                         context
                     )
                 }

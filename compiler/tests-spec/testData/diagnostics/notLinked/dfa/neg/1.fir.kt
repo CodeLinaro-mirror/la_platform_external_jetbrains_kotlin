@@ -1,6 +1,7 @@
 // !LANGUAGE: +NewInference
-// !DIAGNOSTICS: -UNUSED_EXPRESSION
+// !DIAGNOSTICS: -UNUSED_EXPRESSION -UNUSED_VARIABLE
 // SKIP_TXT
+// WITH_EXTENDED_CHECKERS
 
 // TESTCASE NUMBER: 1
 fun case_1(x: Any?) {
@@ -108,7 +109,7 @@ fun case_8(x: TypealiasNullableString) {
 }
 
 // TESTCASE NUMBER: 9
-fun case_9(x: TypealiasNullableString?) {
+fun case_9(x: TypealiasNullableString<!REDUNDANT_NULLABLE!>?<!>) {
     if (<!SENSELESS_COMPARISON!>x === null === null<!>) {
 
     } else if (<!USELESS_IS_CHECK!>false is Boolean<!>) {
@@ -138,7 +139,7 @@ fun case_10() {
 }
 
 // TESTCASE NUMBER: 11
-fun case_11(x: TypealiasNullableStringIndirect?, y: TypealiasNullableStringIndirect) {
+fun case_11(x: TypealiasNullableStringIndirect<!REDUNDANT_NULLABLE!>?<!>, y: TypealiasNullableStringIndirect) {
     val t: TypealiasNullableStringIndirect = null
 
     if (<!EQUALITY_NOT_APPLICABLE!>x == null is Boolean<!>) {
@@ -180,11 +181,11 @@ fun case_12(x: TypealiasNullableStringIndirect, y: TypealiasNullableStringIndire
 
 // TESTCASE NUMBER: 13
 fun case_13(x: <!UNRESOLVED_REFERENCE!>otherpackage.Case13<!>?) =
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Nothing")!>if ((x == null !is Boolean) !== true) {
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean")!>if ((x == null !is Boolean) !== true) {
         throw Exception()
     } else {
-        <!DEBUG_INFO_EXPRESSION_TYPE("ERROR CLASS: Symbol not found for otherpackage.Case13?")!>x<!>
-        <!DEBUG_INFO_EXPRESSION_TYPE("ERROR CLASS: Symbol not found for otherpackage.Case13?")!>x<!>.<!OVERLOAD_RESOLUTION_AMBIGUITY!>equals<!>(x)
+        <!DEBUG_INFO_EXPRESSION_TYPE("ERROR CLASS: Symbol not found for otherpackage.Case13? & kotlin.Boolean & ERROR CLASS: Symbol not found for otherpackage.Case13?")!>x<!>
+        <!DEBUG_INFO_EXPRESSION_TYPE("ERROR CLASS: Symbol not found for otherpackage.Case13? & kotlin.Boolean & ERROR CLASS: Symbol not found for otherpackage.Case13?")!>x<!>.equals(x)
     }<!>
 
 // TESTCASE NUMBER: 14

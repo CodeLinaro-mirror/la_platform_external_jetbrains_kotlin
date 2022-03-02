@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.test.runners
 
+import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TestJdkKind
@@ -16,7 +17,9 @@ import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.USE_LIGHT_T
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.WITH_EXTENDED_CHECKERS
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JDK_KIND
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_REFLECT
-import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.frontend.fir.FirFailingTestSuppressor
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
@@ -107,6 +110,12 @@ fun TestConfigurationBuilder.baseFirDiagnosticTestConfiguration(
         }
     }
 
+    forTestsMatching("compiler/testData/diagnostics/tests/testsWithExplicitApi/*") {
+        defaultDirectives {
+            LanguageSettingsDirectives.EXPLICIT_API_MODE with ExplicitApiMode.STRICT
+        }
+    }
+
     forTestsMatching(
         "compiler/fir/analysis-tests/testData/resolve/extendedCheckers/*" or
                 "compiler/testData/diagnostics/tests/controlFlowAnalysis/deadCode/*"
@@ -116,11 +125,17 @@ fun TestConfigurationBuilder.baseFirDiagnosticTestConfiguration(
         }
     }
 
-    forTestsMatching("compiler/testData/diagnostics/tests/testsWithJava15/*") {
+    forTestsMatching("compiler/testData/diagnostics/tests/testsWithJava17/*") {
         defaultDirectives {
-            JDK_KIND with TestJdkKind.FULL_JDK_15
+            JDK_KIND with TestJdkKind.FULL_JDK_17
             +WITH_STDLIB
             +WITH_REFLECT
+        }
+    }
+
+    forTestsMatching("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/*") {
+        defaultDirectives {
+            LANGUAGE with "+ExplicitBackingFields"
         }
     }
 }

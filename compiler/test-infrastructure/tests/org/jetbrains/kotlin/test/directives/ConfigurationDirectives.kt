@@ -11,4 +11,6 @@ object ConfigurationDirectives : SimpleDirectivesContainer() {
     val KOTLIN_CONFIGURATION_FLAGS by stringDirective(
         "List of kotlin configuration flags"
     )
+
+    val WITH_STDLIB by directive("Add Kotlin stdlib to classpath")
 }

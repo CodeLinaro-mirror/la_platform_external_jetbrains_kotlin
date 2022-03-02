@@ -18,12 +18,11 @@ import org.jetbrains.kotlin.fir.declarations.FirControlFlowGraphOwner
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirAnnotatedDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
-import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRefsOwner
 import org.jetbrains.kotlin.fir.declarations.FirTypeParametersOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
+import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
@@ -40,6 +39,7 @@ import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.FirBackingField
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.FirPackageDirective
@@ -66,10 +66,13 @@ import org.jetbrains.kotlin.fir.expressions.FirTryExpression
 import org.jetbrains.kotlin.fir.expressions.FirConstExpression
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.fir.types.FirStarProjection
+import org.jetbrains.kotlin.fir.types.FirPlaceholderProjection
 import org.jetbrains.kotlin.fir.types.FirTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.expressions.FirArgumentList
 import org.jetbrains.kotlin.fir.expressions.FirCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.expressions.FirComparisonExpression
 import org.jetbrains.kotlin.fir.expressions.FirTypeOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirAssignmentOperatorStatement
@@ -93,6 +96,8 @@ import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.FirComponentCall
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
+import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcast
+import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirSafeCallExpression
@@ -112,6 +117,8 @@ import org.jetbrains.kotlin.fir.expressions.FirStringConcatenationCall
 import org.jetbrains.kotlin.fir.expressions.FirThrowExpression
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpression
+import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcast
+import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirWrappedDelegateExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
@@ -192,18 +199,6 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(declaration, data)
     }
 
-    open fun transformAnnotatedDeclaration(annotatedDeclaration: FirAnnotatedDeclaration, data: D): FirAnnotatedDeclaration {
-        return transformElement(annotatedDeclaration, data)
-    }
-
-    open fun transformAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: D): FirAnonymousInitializer {
-        return transformElement(anonymousInitializer, data)
-    }
-
-    open fun transformTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: D): FirTypedDeclaration {
-        return transformElement(typedDeclaration, data)
-    }
-
     open fun transformTypeParameterRefsOwner(typeParameterRefsOwner: FirTypeParameterRefsOwner, data: D): FirTypeParameterRefsOwner {
         return transformElement(typeParameterRefsOwner, data)
     }
@@ -214,6 +209,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     open fun transformMemberDeclaration(memberDeclaration: FirMemberDeclaration, data: D): FirMemberDeclaration {
         return transformElement(memberDeclaration, data)
+    }
+
+    open fun transformAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: D): FirAnonymousInitializer {
+        return transformElement(anonymousInitializer, data)
+    }
+
+    open fun transformTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: D): FirTypedDeclaration {
+        return transformElement(typedDeclaration, data)
     }
 
     open fun transformCallableDeclaration(callableDeclaration: FirCallableDeclaration, data: D): FirCallableDeclaration {
@@ -278,6 +281,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     open fun transformPropertyAccessor(propertyAccessor: FirPropertyAccessor, data: D): FirStatement {
         return transformElement(propertyAccessor, data)
+    }
+
+    open fun transformBackingField(backingField: FirBackingField, data: D): FirStatement {
+        return transformElement(backingField, data)
     }
 
     open fun transformConstructor(constructor: FirConstructor, data: D): FirStatement {
@@ -384,6 +391,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(starProjection, data)
     }
 
+    open fun transformPlaceholderProjection(placeholderProjection: FirPlaceholderProjection, data: D): FirTypeProjection {
+        return transformElement(placeholderProjection, data)
+    }
+
     open fun transformTypeProjectionWithVariance(typeProjectionWithVariance: FirTypeProjectionWithVariance, data: D): FirTypeProjection {
         return transformElement(typeProjectionWithVariance, data)
     }
@@ -396,8 +407,16 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(call, data)
     }
 
+    open fun transformAnnotation(annotation: FirAnnotation, data: D): FirStatement {
+        return transformElement(annotation, data)
+    }
+
     open fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: D): FirStatement {
         return transformElement(annotationCall, data)
+    }
+
+    open fun transformAnnotationArgumentMapping(annotationArgumentMapping: FirAnnotationArgumentMapping, data: D): FirAnnotationArgumentMapping {
+        return transformElement(annotationArgumentMapping, data)
     }
 
     open fun transformComparisonExpression(comparisonExpression: FirComparisonExpression, data: D): FirStatement {
@@ -492,6 +511,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(thisReceiverExpression, data)
     }
 
+    open fun <E : FirExpression> transformWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast: FirWrappedExpressionWithSmartcast<E>, data: D): FirWrappedExpressionWithSmartcast<E> {
+        return transformElement(wrappedExpressionWithSmartcast, data)
+    }
+
+    open fun <E : FirExpression> transformWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>, data: D): FirWrappedExpressionWithSmartcastToNull<E> {
+        return transformElement(wrappedExpressionWithSmartcastToNull, data)
+    }
+
     open fun transformExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: D): FirStatement {
         return transformElement(expressionWithSmartcast, data)
     }
@@ -566,6 +593,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     open fun transformWhenSubjectExpression(whenSubjectExpression: FirWhenSubjectExpression, data: D): FirStatement {
         return transformElement(whenSubjectExpression, data)
+    }
+
+    open fun transformWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast, data: D): FirStatement {
+        return transformElement(whenSubjectExpressionWithSmartcast, data)
+    }
+
+    open fun transformWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull, data: D): FirStatement {
+        return transformElement(whenSubjectExpressionWithSmartcastToNull, data)
     }
 
     open fun transformWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression, data: D): FirStatement {
@@ -708,18 +743,6 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformDeclaration(declaration, data)
     }
 
-    final override fun visitAnnotatedDeclaration(annotatedDeclaration: FirAnnotatedDeclaration, data: D): FirAnnotatedDeclaration {
-        return transformAnnotatedDeclaration(annotatedDeclaration, data)
-    }
-
-    final override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: D): FirAnonymousInitializer {
-        return transformAnonymousInitializer(anonymousInitializer, data)
-    }
-
-    final override fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: D): FirTypedDeclaration {
-        return transformTypedDeclaration(typedDeclaration, data)
-    }
-
     final override fun visitTypeParameterRefsOwner(typeParameterRefsOwner: FirTypeParameterRefsOwner, data: D): FirTypeParameterRefsOwner {
         return transformTypeParameterRefsOwner(typeParameterRefsOwner, data)
     }
@@ -730,6 +753,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitMemberDeclaration(memberDeclaration: FirMemberDeclaration, data: D): FirMemberDeclaration {
         return transformMemberDeclaration(memberDeclaration, data)
+    }
+
+    final override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: D): FirAnonymousInitializer {
+        return transformAnonymousInitializer(anonymousInitializer, data)
+    }
+
+    final override fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: D): FirTypedDeclaration {
+        return transformTypedDeclaration(typedDeclaration, data)
     }
 
     final override fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration, data: D): FirCallableDeclaration {
@@ -794,6 +825,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor, data: D): FirStatement {
         return transformPropertyAccessor(propertyAccessor, data)
+    }
+
+    final override fun visitBackingField(backingField: FirBackingField, data: D): FirStatement {
+        return transformBackingField(backingField, data)
     }
 
     final override fun visitConstructor(constructor: FirConstructor, data: D): FirStatement {
@@ -900,6 +935,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformStarProjection(starProjection, data)
     }
 
+    final override fun visitPlaceholderProjection(placeholderProjection: FirPlaceholderProjection, data: D): FirTypeProjection {
+        return transformPlaceholderProjection(placeholderProjection, data)
+    }
+
     final override fun visitTypeProjectionWithVariance(typeProjectionWithVariance: FirTypeProjectionWithVariance, data: D): FirTypeProjection {
         return transformTypeProjectionWithVariance(typeProjectionWithVariance, data)
     }
@@ -912,8 +951,16 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformCall(call, data)
     }
 
+    final override fun visitAnnotation(annotation: FirAnnotation, data: D): FirStatement {
+        return transformAnnotation(annotation, data)
+    }
+
     final override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: D): FirStatement {
         return transformAnnotationCall(annotationCall, data)
+    }
+
+    final override fun visitAnnotationArgumentMapping(annotationArgumentMapping: FirAnnotationArgumentMapping, data: D): FirAnnotationArgumentMapping {
+        return transformAnnotationArgumentMapping(annotationArgumentMapping, data)
     }
 
     final override fun visitComparisonExpression(comparisonExpression: FirComparisonExpression, data: D): FirStatement {
@@ -1008,6 +1055,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformThisReceiverExpression(thisReceiverExpression, data)
     }
 
+    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast: FirWrappedExpressionWithSmartcast<E>, data: D): FirWrappedExpressionWithSmartcast<E> {
+        return transformWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast, data)
+    }
+
+    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>, data: D): FirWrappedExpressionWithSmartcastToNull<E> {
+        return transformWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull, data)
+    }
+
     final override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: D): FirStatement {
         return transformExpressionWithSmartcast(expressionWithSmartcast, data)
     }
@@ -1082,6 +1137,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitWhenSubjectExpression(whenSubjectExpression: FirWhenSubjectExpression, data: D): FirStatement {
         return transformWhenSubjectExpression(whenSubjectExpression, data)
+    }
+
+    final override fun visitWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast, data: D): FirStatement {
+        return transformWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast, data)
+    }
+
+    final override fun visitWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull, data: D): FirStatement {
+        return transformWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull, data)
     }
 
     final override fun visitWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression, data: D): FirStatement {

@@ -1,8 +1,14 @@
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
 var result = "Fail"
 
-inline class A(val value: String)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class A(val value: String)
 
-inline class B(val a: A) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class B(val a: A) {
     init {
         result = a.value
     }

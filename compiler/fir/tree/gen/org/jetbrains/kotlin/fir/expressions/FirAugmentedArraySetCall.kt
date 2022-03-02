@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.fir.expressions
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirPureAbstractElement
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.visitors.*
 
@@ -17,8 +17,8 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 abstract class FirAugmentedArraySetCall : FirPureAbstractElement(), FirStatement {
-    abstract override val source: FirSourceElement?
-    abstract override val annotations: List<FirAnnotationCall>
+    abstract override val source: KtSourceElement?
+    abstract override val annotations: List<FirAnnotation>
     abstract val assignCall: FirFunctionCall
     abstract val setGetBlock: FirBlock
     abstract val operation: FirOperation

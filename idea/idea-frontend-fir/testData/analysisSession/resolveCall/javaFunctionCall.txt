@@ -1,3 +1,0 @@
-KtFunctionCall:
-argumentMapping = {  }
-targetFunction = /JavaClass.javaMethod(): kotlin.Unit

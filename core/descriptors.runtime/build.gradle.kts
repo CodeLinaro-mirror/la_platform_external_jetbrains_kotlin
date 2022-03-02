@@ -22,12 +22,10 @@ dependencies {
     compileOnly(project(":core:descriptors"))
     compileOnly(project(":core:descriptors.jvm"))
 
-    testCompile(projectTests(":compiler:tests-common"))
-    testCompile(projectTests(":generators:test-generator"))
+    testApi(projectTests(":compiler:tests-common"))
+    testApi(projectTests(":generators:test-generator"))
 
-    testRuntimeOnly(intellijCoreDep()) { includeJars("intellij-core") }
-    testRuntimeOnly(intellijDep()) { includeJars("platform-concurrency") }
-    testRuntimeOnly(jpsStandalone()) { includeJars("jps-model") }
+    testApi(intellijCore())
 }
 
 sourceSets {

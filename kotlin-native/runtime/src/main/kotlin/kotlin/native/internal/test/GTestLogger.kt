@@ -8,7 +8,7 @@ package kotlin.native.internal.test
 internal class GTestLogger : TestLoggerWithStatistics() {
 
     private val Collection<TestSuite>.totalTestsNotIgnored: Int
-        get() = asSequence().filter { !it.ignored }.sumBy { it.testCases.values.count { !it.ignored } }
+        get() = asSequence().filter { !it.ignored }.sumOf { it.testCases.values.count { !it.ignored } }
 
     private val Collection<TestSuite>.totalNotIgnored: Int
         get() = filter { !it.ignored }.size
@@ -27,15 +27,20 @@ internal class GTestLogger : TestLoggerWithStatistics() {
         println("[----------] Global test environment tear-down") // Just hack to deal with GTest output parsers.
         println("[==========] $total tests from $totalSuites test cases ran. ($timeMillis ms total)")
         println("[  PASSED  ] $passed tests.")
+        if (ignored != 0) {
+            val testsAmount = if (ignored == 1) "1 test" else "$ignored tests"
+            println("[  SKIPPED ] $testsAmount, listed below:")
+            ignoredTests.forEach {
+                println("[  SKIPPED ] ${it.prettyName}")
+            }
+        }
         if (hasFailedTests) {
-            println("[  FAILED  ] $failed tests, listed below:")
+            val testsForm = if (failed == 1) "test" else "tests"
+            println("[  FAILED  ] $failed $testsForm, listed below:")
             failedTests.forEach {
                 println("[  FAILED  ] ${it.prettyName}")
             }
-            println("\n$failed FAILED TESTS")
-        }
-        if (ignored != 0) {
-            println("YOU HAVE $ignored DISABLED TEST(S)")
+            println("\n$failed FAILED ${testsForm.uppercase()}")
         }
     }
 

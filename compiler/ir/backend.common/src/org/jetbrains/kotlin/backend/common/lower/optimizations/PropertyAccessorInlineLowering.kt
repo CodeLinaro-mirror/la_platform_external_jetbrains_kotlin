@@ -20,35 +20,58 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
 import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
 import org.jetbrains.kotlin.backend.common.ir.isPure
+import org.jetbrains.kotlin.ir.util.resolveFakeOverride
+import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
-class PropertyAccessorInlineLowering(private val context: CommonBackendContext) : BodyLoweringPass {
+open class PropertyAccessorInlineLowering(
+    private val context: CommonBackendContext,
+) : BodyLoweringPass {
 
-    private val IrProperty.isSafeToInline: Boolean get() = isTopLevel || (modality === Modality.FINAL || visibility == DescriptorVisibilities.PRIVATE) || (parent as IrClass).modality === Modality.FINAL
+    fun IrProperty.isSafeToInlineInClosedWorld() =
+        isTopLevel || (modality === Modality.FINAL || visibility == DescriptorVisibilities.PRIVATE) || (parent as IrClass).modality === Modality.FINAL
+
+    open fun IrProperty.isSafeToInline(accessContainer: IrDeclaration): Boolean =
+        isSafeToInlineInClosedWorld()
 
     // TODO: implement general function inlining optimization and replace it with
-    private inner class AccessorInliner : IrElementTransformerVoid() {
+    private inner class AccessorInliner(val container: IrDeclaration) : IrElementTransformerVoid() {
 
         private val unitType = context.irBuiltIns.unitType
+
+        private fun canBeInlined(callee: IrSimpleFunction): Boolean {
+            val property = callee.correspondingPropertySymbol?.owner ?: return false
+
+            // Some devirtualization required here
+            if (!property.isSafeToInline(container)) return false
+
+            val parent = property.parent
+            if (parent is IrClass) {
+                // TODO: temporary workarounds
+                if (parent.isExpect || property.isExpect) return false
+                if (parent.parent is IrExternalPackageFragment) return false
+                if (context.inlineClassesUtils.isClassInlineLike(parent)) return false
+            }
+            if (property.isEffectivelyExternal()) return false
+            return true
+        }
 
         override fun visitCall(expression: IrCall): IrExpression {
             expression.transformChildrenVoid(this)
 
             val callee = expression.symbol.owner
-            val property = callee.correspondingPropertySymbol?.owner ?: return expression
 
-            // Some devirtualization required here
-            if (!property.isSafeToInline) return expression
+            if (!canBeInlined(callee)) return expression
 
-            val parent = property.parent
-            if (parent is IrClass) {
-                // TODO: temporary workarounds
-                if (parent.isExpect || property.isExpect) return expression
-                if (parent.parent is IrExternalPackageFragment) return expression
-                if (parent.isInline) return expression
+            var analyzedCallee = callee
+            while (analyzedCallee.isFakeOverride) {
+                analyzedCallee = analyzedCallee.resolveFakeOverride() ?: return expression
             }
-            if (property.isEffectivelyExternal()) return expression
+
+            if (!canBeInlined(analyzedCallee)) return expression
+
+            val property = analyzedCallee.correspondingPropertySymbol?.owner ?: return expression
 
             val backingField = property.backingField ?: return expression
 
@@ -58,8 +81,10 @@ class PropertyAccessorInlineLowering(private val context: CommonBackendContext) 
                 val constExpression = initializer.expression.deepCopyWithSymbols()
                 val receiver = expression.dispatchReceiver
                 if (receiver != null && !receiver.isPure(true)) {
-                    val builder = context.createIrBuilder(expression.symbol,
-                            expression.startOffset, expression.endOffset)
+                    val builder = context.createIrBuilder(
+                        expression.symbol,
+                        expression.startOffset, expression.endOffset
+                    )
                     return builder.irBlock(expression) {
                         +receiver
                         +constExpression
@@ -71,11 +96,11 @@ class PropertyAccessorInlineLowering(private val context: CommonBackendContext) 
 
 
             if (property.getter === callee) {
-                return tryInlineSimpleGetter(expression, callee, backingField) ?: expression
+                return tryInlineSimpleGetter(expression, analyzedCallee, backingField) ?: expression
             }
 
             if (property.setter === callee) {
-                return tryInlineSimpleSetter(expression, callee, backingField) ?: expression
+                return tryInlineSimpleSetter(expression, analyzedCallee, backingField) ?: expression
             }
 
             return expression
@@ -127,8 +152,14 @@ class PropertyAccessorInlineLowering(private val context: CommonBackendContext) 
 
         private fun isSimpleSetter(callee: IrSimpleFunction, backingField: IrField): Boolean {
             val body = callee.body?.let { it as IrBlockBody } ?: return false
-
-            val stmt = body.statements.singleOrNull() ?: return false
+            val statementsSizeCheck = when (body.statements.size) {
+                1 -> true
+                // In K/N backend this lowering should be called after devirtualization. At this point IrReturns are already added.
+                2 -> (body.statements[1] as? IrReturn)?.value?.type?.isUnit() == true
+                else -> false
+            }
+            if (!statementsSizeCheck) return false
+            val stmt = body.statements[0]
             val setFieldStmt = stmt as? IrSetField ?: return false
             if (setFieldStmt.symbol !== backingField.symbol) return false
 
@@ -151,6 +182,6 @@ class PropertyAccessorInlineLowering(private val context: CommonBackendContext) 
     }
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
-        irBody.transformChildrenVoid(AccessorInliner())
+        irBody.transformChildrenVoid(AccessorInliner(container))
     }
 }

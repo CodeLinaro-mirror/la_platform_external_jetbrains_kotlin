@@ -1,6 +1,5 @@
-// IGNORE_BACKEND: WASM
 // FULL_JDK
-// WITH_RUNTIME
+// WITH_STDLIB
 
 fun box(): String {
     val m = HashMap<String, String>()

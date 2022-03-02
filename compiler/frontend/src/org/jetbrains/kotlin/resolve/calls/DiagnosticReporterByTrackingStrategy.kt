@@ -16,18 +16,19 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isNull
 import org.jetbrains.kotlin.psi.psiUtil.lastBlockStatementOrThis
 import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.calls.callUtil.getCalleeExpressionIfAny
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
-import org.jetbrains.kotlin.resolve.calls.callUtil.reportTrailingLambdaErrorOr
 import org.jetbrains.kotlin.resolve.calls.context.BasicCallResolutionContext
 import org.jetbrains.kotlin.resolve.calls.inference.BuilderInferenceExpectedTypeConstraintPosition
 import org.jetbrains.kotlin.resolve.calls.inference.model.*
 import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowValueFactory
+import org.jetbrains.kotlin.resolve.calls.smartcasts.SingleSmartCast
 import org.jetbrains.kotlin.resolve.calls.smartcasts.SmartCastManager
 import org.jetbrains.kotlin.resolve.calls.tasks.TracingStrategy
 import org.jetbrains.kotlin.resolve.calls.tower.*
-import org.jetbrains.kotlin.resolve.calls.util.*
+import org.jetbrains.kotlin.resolve.calls.util.extractCallableReferenceExpression
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.reportTrailingLambdaErrorOr
 import org.jetbrains.kotlin.resolve.constants.CompileTimeConstantChecker
 import org.jetbrains.kotlin.resolve.constants.TypedCompileTimeConstant
 import org.jetbrains.kotlin.resolve.constants.evaluate.ConstantExpressionEvaluator
@@ -91,6 +92,32 @@ class DiagnosticReporterByTrackingStrategy(
                         (diagnostic as CompatibilityWarning).candidate
                     )
                 )
+            }
+            NoContextReceiver::class.java -> {
+                val callElement = psiKotlinCall.psiCall.callElement
+                trace.report(
+                    NO_CONTEXT_RECEIVER.on(
+                        callElement,
+                        (diagnostic as NoContextReceiver).receiverDescriptor.value.toString()
+                    )
+                )
+            }
+            MultipleArgumentsApplicableForContextReceiver::class.java -> {
+                val callElement = psiKotlinCall.psiCall.callElement
+                trace.report(
+                    MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER.on(
+                        callElement,
+                        (diagnostic as MultipleArgumentsApplicableForContextReceiver).receiverDescriptor.value.toString()
+                    )
+                )
+            }
+            ContextReceiverAmbiguity::class.java -> {
+                val callElement = psiKotlinCall.psiCall.callElement
+                trace.report(AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER.on(callElement))
+            }
+            UnsupportedContextualDeclarationCall::class.java -> {
+                val callElement = psiKotlinCall.psiCall.callElement
+                trace.report(UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL.on(callElement))
             }
         }
     }
@@ -170,16 +197,16 @@ class DiagnosticReporterByTrackingStrategy(
             MixingNamedAndPositionArguments::class.java ->
                 trace.report(MIXING_NAMED_AND_POSITIONED_ARGUMENTS.on(callArgument.psiCallArgument.valueArgument.asElement()))
 
-            NoneCallableReferenceCandidates::class.java -> {
-                val expression = diagnostic.cast<NoneCallableReferenceCandidates>()
+            NoneCallableReferenceCallCandidates::class.java -> {
+                val expression = diagnostic.cast<NoneCallableReferenceCallCandidates>()
                     .argument.safeAs<CallableReferenceKotlinCallArgumentImpl>()?.ktCallableReferenceExpression
                 if (expression != null) {
                     trace.report(UNRESOLVED_REFERENCE.on(expression.callableReference, expression.callableReference))
                 }
             }
 
-            CallableReferenceCandidatesAmbiguity::class.java -> {
-                val ambiguityDiagnostic = diagnostic as CallableReferenceCandidatesAmbiguity
+            CallableReferenceCallCandidatesAmbiguity::class.java -> {
+                val ambiguityDiagnostic = diagnostic as CallableReferenceCallCandidatesAmbiguity
                 val expression = when (val psiExpression = ambiguityDiagnostic.argument.psiExpression) {
                     is KtPsiUtil.KtExpressionWrapper -> psiExpression.baseExpression
                     else -> psiExpression
@@ -192,18 +219,14 @@ class DiagnosticReporterByTrackingStrategy(
                 }
             }
 
-            ArgumentNullabilityMismatchDiagnostic::class.java -> {
-                require(diagnostic is ArgumentNullabilityMismatchDiagnostic)
-                val expression = callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()?.let {
-                    KtPsiUtil.deparenthesize(it) ?: it
-                }
-                if (expression != null) {
-                    if (expression.isNull() && expression is KtConstantExpression) {
-                        trace.reportDiagnosticOnce(NULL_FOR_NONNULL_TYPE.on(expression, diagnostic.expectedType))
-                    } else {
-                        trace.report(TYPE_MISMATCH.on(expression, diagnostic.expectedType, diagnostic.actualType))
-                    }
-                }
+            ArgumentNullabilityErrorDiagnostic::class.java -> {
+                require(diagnostic is ArgumentNullabilityErrorDiagnostic)
+                reportNullabilityMismatchDiagnostic(callArgument, diagnostic)
+            }
+
+            ArgumentNullabilityWarningDiagnostic::class.java -> {
+                require(diagnostic is ArgumentNullabilityWarningDiagnostic)
+                reportNullabilityMismatchDiagnostic(callArgument, diagnostic)
             }
 
             CallableReferencesDefaultArgumentUsed::class.java -> {
@@ -211,14 +234,18 @@ class DiagnosticReporterByTrackingStrategy(
                     "diagnostic ($diagnostic) should have type CallableReferencesDefaultArgumentUsed"
                 }
 
-                diagnostic.argument.psiExpression?.let {
-                    trace.report(
-                        UNSUPPORTED_FEATURE.on(
-                            it, LanguageFeature.FunctionReferenceWithDefaultValueAsOtherType to context.languageVersionSettings
-                        )
-                    )
+                val callableReferenceExpression = diagnostic.argument.call.extractCallableReferenceExpression()
+
+                require(callableReferenceExpression != null) {
+                    "A call element must be callable reference for `CallableReferencesDefaultArgumentUsed`"
                 }
 
+                trace.report(
+                    UNSUPPORTED_FEATURE.on(
+                        callableReferenceExpression,
+                        LanguageFeature.FunctionReferenceWithDefaultValueAsOtherType to context.languageVersionSettings
+                    )
+                )
             }
 
             ResolvedToSamWithVarargDiagnostic::class.java -> {
@@ -356,17 +383,37 @@ class DiagnosticReporterByTrackingStrategy(
         val argumentExpression = unstableSmartCast.argument.psiExpression ?: return
 
         require(possibleTypes.isNotEmpty()) { "Receiver for unstable smart cast without possible types" }
+        val intersectWrappedTypes = intersectWrappedTypes(possibleTypes)
+        trace.record(BindingContext.UNSTABLE_SMARTCAST, argumentExpression, SingleSmartCast(null, intersectWrappedTypes))
         trace.report(
             SMARTCAST_IMPOSSIBLE.on(
                 argumentExpression,
-                intersectWrappedTypes(possibleTypes),
+                intersectWrappedTypes,
                 argumentExpression.text,
                 dataFlowValue.kind.description
             )
         )
     }
 
+    private fun reportCallableReferenceConstraintError(
+        error: NewConstraintMismatch,
+        rhsExpression: KtSimpleNameExpression
+    ) {
+        trace.report(TYPE_MISMATCH.on(rhsExpression, error.lowerKotlinType, error.upperKotlinType))
+    }
+
     private fun reportConstraintErrorByPosition(error: NewConstraintMismatch, position: ConstraintPosition) {
+        if (position is CallableReferenceConstraintPositionImpl) {
+            val callableReferenceExpression = position.callableReferenceCall.call.extractCallableReferenceExpression()
+
+            require(callableReferenceExpression != null) {
+                "There should be the corresponding callable reference expression for `CallableReferenceConstraintPositionImpl`"
+            }
+
+            reportCallableReferenceConstraintError(error, callableReferenceExpression.callableReference)
+            return
+        }
+
         val argument =
             when (position) {
                 is ArgumentConstraintPositionImpl -> position.argument
@@ -427,7 +474,7 @@ class DiagnosticReporterByTrackingStrategy(
         }
 
         (position as? ExplicitTypeParameterConstraintPositionImpl)?.let {
-            val typeArgumentReference = (it.typeArgument as SimpleTypeArgumentImpl).typeReference
+            val typeArgumentReference = (it.typeArgument as SimpleTypeArgumentImpl).typeProjection.typeReference ?: return@let
             val diagnosticFactory = if (isWarning) UPPER_BOUND_VIOLATED_WARNING else UPPER_BOUND_VIOLATED
             report(diagnosticFactory.on(typeArgumentReference, error.upperKotlinType, error.lowerKotlinType))
         }
@@ -535,6 +582,27 @@ class DiagnosticReporterByTrackingStrategy(
         }
     }
 
+    private fun reportNullabilityMismatchDiagnostic(callArgument: KotlinCallArgument, diagnostic: ArgumentNullabilityMismatchDiagnostic) {
+        val expression = callArgument.safeAs<PSIKotlinCallArgument>()?.valueArgument?.getArgumentExpression()?.let {
+            KtPsiUtil.deparenthesize(it) ?: it
+        }
+        if (expression != null) {
+            if (expression.isNull() && expression is KtConstantExpression) {
+                val factory = when (diagnostic) {
+                    is ArgumentNullabilityErrorDiagnostic -> NULL_FOR_NONNULL_TYPE
+                    is ArgumentNullabilityWarningDiagnostic -> NULL_FOR_NONNULL_TYPE_WARNING
+                }
+                trace.reportDiagnosticOnce(factory.on(expression, diagnostic.expectedType))
+            } else {
+                val factory = when (diagnostic) {
+                    is ArgumentNullabilityErrorDiagnostic -> TYPE_MISMATCH
+                    is ArgumentNullabilityWarningDiagnostic -> TYPE_MISMATCH_WARNING
+                }
+                trace.report(factory.on(expression, diagnostic.expectedType, diagnostic.actualType))
+            }
+        }
+    }
+
     private fun reportNotEnoughInformationForTypeParameterForSpecialCall(
         resolvedAtom: ResolvedCallAtom,
         error: NotEnoughInformationForTypeParameterImpl
@@ -575,7 +643,6 @@ class DiagnosticReporterByTrackingStrategy(
                 || it.constructor == uninferredTypeVariable.freshTypeConstructor(typeSystemContext)
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun getSubResolvedAtomsOfSpecialCallToReportUninferredTypeParameter(
         resolvedAtom: ResolvedAtom,
         uninferredTypeVariable: TypeVariableMarker

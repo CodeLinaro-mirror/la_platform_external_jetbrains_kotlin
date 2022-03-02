@@ -6,6 +6,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.Task
 import org.gradle.api.file.FileTree
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.language.base.plugins.LifecycleBasePlugin
@@ -14,6 +15,7 @@ import org.jetbrains.kotlin.konan.target.*
 import java.io.File
 
 import java.io.FileWriter
+import java.io.Serializable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -42,6 +44,7 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
     @Input
     var codesign: Boolean = true
 
+    @Input
     val testOutput: String = project.testOutputFramework
 
     @Input @Optional
@@ -66,7 +69,7 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
             var artifact: String = name,
             var library: String? = null,
             var opts: List<String> = emptyList()
-    )
+    ) : Serializable // Required for Gradle when using Framework as task input.
 
     /**
      * Used for the framework configuration in the task's closure.
@@ -100,13 +103,17 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
             this.map { language.filesFrom(it) }
                     .flatMap { it.files }
 
+    @get:Internal
     override val executable: String
         get() = Paths.get(testOutput, name, "swiftTestExecutable").toString()
 
+    @Internal
     override var doBeforeRun: Action<in Task>? = null
 
+    @Internal
     override var doBeforeBuild: Action<in Task>? = null
 
+    @get:Internal
     override val buildTasks: List<Task>
         get() = frameworks.map { project.tasks.getByName("compileKonan${it.name}") }
 
@@ -162,7 +169,16 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
                 "-F", frameworkParentDirPath,
                 "-Xcc", "-Werror" // To fail compilation on warnings in framework header.
         )
-        compileSwift(project, project.testTarget, sources, options + swiftExtraOpts, Paths.get(executable), fullBitcode)
+        // As of Xcode 13.1 swift passes wrong libclang_rt to simulator targets (similar to KT-47333).
+        // To workaround this problem, we explicitly provide the correct one.
+        val simulatorHack = if (project.testTargetConfigurables.targetTriple.isSimulator) {
+            project.platformManager.platform(project.testTarget).linker.provideCompilerRtLibrary("")?.let {
+                listOf("-Xlinker", it)
+            } ?: emptyList()
+        } else {
+            emptyList()
+        }
+        compileSwift(project, project.testTarget, sources, options + simulatorHack + swiftExtraOpts, Paths.get(executable), fullBitcode)
     }
 
     @TaskAction

@@ -6,37 +6,30 @@
 package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.*
+import com.intellij.psi.util.TypeConversionUtil
 import com.intellij.util.IncorrectOperationException
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.asJava.elements.KtLightMember
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
-import org.jetbrains.kotlin.idea.frontend.api.KtAnalysisSession
-import org.jetbrains.kotlin.idea.frontend.api.components.DefaultTypeClassIds
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtClassLikeSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtFunctionSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSimpleConstantValue
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSymbolWithModality
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSymbolWithVisibility
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtTypeAndAnnotations
-import org.jetbrains.kotlin.idea.frontend.api.types.*
-import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
+import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
+import org.jetbrains.kotlin.analysis.api.annotations.*
+import org.jetbrains.kotlin.analysis.api.base.KtConstantValue
+import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
+import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.markers.*
+import org.jetbrains.kotlin.analysis.api.types.*
+import org.jetbrains.kotlin.asJava.elements.psiType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.resolve.constants.KClassValue
 import java.util.*
 
 internal fun <L : Any> L.invalidAccess(): Nothing =
     error("Cls delegate shouldn't be accessed for fir light classes! Qualified name: ${javaClass.name}")
 
-
-internal fun KtAnalysisSession.mapSuperType(
-    type: KtTypeAndAnnotations,
-    psiContext: PsiElement,
-    kotlinCollectionAsIs: Boolean = false
-): PsiClassType? {
-    return mapSuperType(type.type, psiContext, kotlinCollectionAsIs)
-}
 
 internal fun KtAnalysisSession.mapSuperType(
     type: KtType,
@@ -46,7 +39,7 @@ internal fun KtAnalysisSession.mapSuperType(
     if (type !is KtNonErrorClassType) return null
     val psiType = type.asPsiType(
         psiContext,
-        if (kotlinCollectionAsIs) TypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS else TypeMappingMode.SUPER_TYPE,
+        if (kotlinCollectionAsIs) KtTypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS else KtTypeMappingMode.SUPER_TYPE,
     )
     return psiType as? PsiClassType
 }
@@ -182,19 +175,64 @@ private fun escapeString(str: String): String = buildString {
     }
 }
 
-private fun KtSimpleConstantValue<*>.asStringForPsiLiteral(): String =
-    when (val value = this.value) {
+internal fun KtAnnotationValue.toAnnotationMemberValue(parent: PsiElement): PsiAnnotationMemberValue? {
+    return when (this) {
+        is KtArrayAnnotationValue ->
+            FirPsiArrayInitializerMemberValue(sourcePsi, parent) { arrayLiteralParent ->
+                values.mapNotNull { element -> element.toAnnotationMemberValue(arrayLiteralParent) }
+            }
+        is KtAnnotationApplicationValue ->
+            FirLightSimpleAnnotation(
+                annotationValue.classId?.relativeClassName?.asString(),
+                parent,
+                annotationValue.arguments,
+                annotationValue.psi
+            )
+        is KtConstantAnnotationValue -> {
+            this.constantValue.createPsiLiteral(parent)?.let {
+                when (it) {
+                    is PsiLiteral -> FirPsiLiteral(sourcePsi, parent, it)
+                    else -> FirPsiExpression(sourcePsi, parent, it)
+                }
+            }
+        }
+        is KtEnumEntryAnnotationValue -> {
+            val fqName = this.callableId?.asSingleFqName()?.asString() ?: return null
+            val psiExpression = PsiElementFactory.getInstance(parent.project).createExpressionFromText(fqName, parent)
+            FirPsiExpression(sourcePsi, parent, psiExpression)
+        }
+        KtUnsupportedAnnotationValue -> null
+        is KtKClassAnnotationValue.KtErrorClassAnnotationValue -> null
+        is KtKClassAnnotationValue.KtLocalKClassAnnotationValue -> null
+        is KtKClassAnnotationValue.KtNonLocalKClassAnnotationValue -> toAnnotationMemberValue(parent)
+    }
+}
+
+private fun KtKClassAnnotationValue.KtNonLocalKClassAnnotationValue.toAnnotationMemberValue(parent: PsiElement): PsiExpression? {
+    val fqName = classId.asSingleFqName()
+    val canonicalText = psiType(
+        fqName.asString(), parent, boxPrimitiveType = false /* TODO value.arrayNestedness > 0*/,
+    ).let(TypeConversionUtil::erasure).getCanonicalText(false)
+    return try {
+        PsiElementFactory.getInstance(parent.project).createExpressionFromText("$canonicalText.class", parent)
+    } catch (_: IncorrectOperationException) {
+        null
+    }
+}
+
+private fun KtConstantValue.asStringForPsiLiteral(): String =
+    when (val value = value) {
         is String -> "\"${escapeString(value)}\""
         is Long -> "${value}L"
         is Float -> "${value}f"
         else -> value?.toString() ?: "null"
     }
 
-internal fun KtSimpleConstantValue<*>.createPsiLiteral(parent: PsiElement): PsiExpression? {
+
+internal fun KtConstantValue.createPsiLiteral(parent: PsiElement): PsiExpression? {
     val asString = asStringForPsiLiteral()
-    val instance = PsiElementFactory.getInstance(parent.project)
     return try {
-        instance.createExpressionFromText(asString, parent)
+        PsiElementFactory.getInstance(parent.project).createExpressionFromText(asString, parent)
     } catch (_: IncorrectOperationException) {
         null
     }

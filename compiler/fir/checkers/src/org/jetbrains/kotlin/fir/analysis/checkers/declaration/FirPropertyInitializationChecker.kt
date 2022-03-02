@@ -5,12 +5,12 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import org.jetbrains.kotlin.fir.analysis.cfa.TraverseDirection
-import org.jetbrains.kotlin.fir.analysis.cfa.collectDataForNode
+import org.jetbrains.kotlin.fir.analysis.cfa.util.TraverseDirection
+import org.jetbrains.kotlin.fir.analysis.cfa.util.collectDataForNode
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 object FirPropertyInitializationChecker : FirRegularClassChecker() {
-
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
         val properties = mutableSetOf<FirPropertySymbol>()
         val toReport = mutableSetOf<FirVariableAssignment>()
@@ -75,7 +74,6 @@ object FirPropertyInitializationChecker : FirRegularClassChecker() {
             }
         }
     }
-
 }
 
 private typealias Properties = Set<FirPropertySymbol>

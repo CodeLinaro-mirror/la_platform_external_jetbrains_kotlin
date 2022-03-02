@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.codegen.binding.CodegenBinding
 import org.jetbrains.kotlin.codegen.inline.addFakeContinuationMarker
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
-import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.coroutines.isSuspendLambda
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
@@ -98,12 +97,11 @@ const val CONTINUATION_VARIABLE_NAME = "\$continuation"
 // and fake `this` expression that used as argument for second parameter
 fun ResolvedCall<*>.replaceSuspensionFunctionWithRealDescriptor(
     project: Project,
-    bindingContext: BindingContext,
-    isReleaseCoroutines: Boolean
+    bindingContext: BindingContext
 ): ResolvedCallWithRealDescriptor? {
     if (this is VariableAsFunctionResolvedCall) {
         val replacedFunctionCall =
-            functionCall.replaceSuspensionFunctionWithRealDescriptor(project, bindingContext, isReleaseCoroutines)
+            functionCall.replaceSuspensionFunctionWithRealDescriptor(project, bindingContext)
                 ?: return null
 
         @Suppress("UNCHECKED_CAST")
@@ -147,9 +145,9 @@ fun ResolvedCall<*>.replaceSuspensionFunctionWithRealDescriptor(
         ExpressionValueArgument(arguments)
     )
 
-    val newTypeArguments = newCandidateDescriptor.typeParameters.map {
-        Pair(it, typeArguments[candidateDescriptor.typeParameters[it.index]]!!.asTypeProjection())
-    }.toMap()
+    val newTypeArguments = newCandidateDescriptor.typeParameters.associateWith {
+        typeArguments[candidateDescriptor.typeParameters[it.index]]!!.asTypeProjection()
+    }
 
     newCall.setSubstitutor(
         TypeConstructorSubstitution.createByParametersMap(newTypeArguments).buildSubstitutor()
@@ -161,8 +159,7 @@ fun ResolvedCall<*>.replaceSuspensionFunctionWithRealDescriptor(
 fun ResolvedCall<*>.replaceSuspensionFunctionWithRealDescriptor(state: GenerationState): ResolvedCallWithRealDescriptor? =
     replaceSuspensionFunctionWithRealDescriptor(
         state.project,
-        state.bindingContext,
-        state.languageVersionSettings.supportsFeature(LanguageFeature.ReleaseCoroutines)
+        state.bindingContext
     )
 
 private fun ResolvedCall<VariableDescriptor>.asMutableResolvedCall(bindingContext: BindingContext): MutableResolvedCall<VariableDescriptor> {
@@ -442,7 +439,9 @@ fun FunctionDescriptor.isSuspendLambdaOrLocalFunction() = this.isSuspend && when
     else -> false
 }
 
-fun FunctionDescriptor.isLocalSuspendFunctionNotSuspendLambda() = isSuspendLambdaOrLocalFunction() && this !is AnonymousFunctionDescriptor
+fun FunctionDescriptor.isLocalSuspendFunctionNotSuspendLambda(): Boolean =
+    isSuspendLambdaOrLocalFunction() && this !is AnonymousFunctionDescriptor
+
 @JvmField
 val CONTINUATION_ASM_TYPE = StandardNames.CONTINUATION_INTERFACE_FQ_NAME.topLevelClassAsmType()
 

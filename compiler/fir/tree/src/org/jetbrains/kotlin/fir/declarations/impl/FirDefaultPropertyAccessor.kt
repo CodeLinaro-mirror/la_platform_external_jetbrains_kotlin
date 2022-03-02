@@ -5,29 +5,35 @@
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildDefaultSetterValueParameter
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
+import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitUnitTypeRef
 import org.jetbrains.kotlin.name.Name
 
 @OptIn(FirImplementationDetail::class)
 abstract class FirDefaultPropertyAccessor(
-    source: FirSourceElement?,
+    source: KtSourceElement?,
     moduleData: FirModuleData,
     origin: FirDeclarationOrigin,
     propertyTypeRef: FirTypeRef,
     valueParameters: MutableList<FirValueParameter>,
+    propertySymbol: FirPropertySymbol,
     isGetter: Boolean,
     visibility: Visibility,
     modality: Modality = Modality.FINAL,
@@ -39,11 +45,11 @@ abstract class FirDefaultPropertyAccessor(
     resolvePhase = if (effectiveVisibility != null) FirResolvePhase.BODY_RESOLVE else FirResolvePhase.TYPES,
     origin,
     FirDeclarationAttributes(),
-    propertyTypeRef,
     status = if (effectiveVisibility == null)
         FirDeclarationStatusImpl(visibility, modality)
     else
         FirResolvedDeclarationStatusImpl(visibility, modality, effectiveVisibility),
+    propertyTypeRef,
     deprecation = null,
     containerSource = null,
     dispatchReceiverType = null,
@@ -51,6 +57,7 @@ abstract class FirDefaultPropertyAccessor(
     body = null,
     contractDescription = FirEmptyContractDescription,
     symbol,
+    propertySymbol,
     isGetter,
     annotations = mutableListOf(),
     typeParameters = mutableListOf(),
@@ -59,34 +66,43 @@ abstract class FirDefaultPropertyAccessor(
         get() = if (status is FirResolvedDeclarationStatus) FirResolvePhase.BODY_RESOLVE else FirResolvePhase.TYPES
         set(_) {}
 
+    override val dispatchReceiverType: ConeSimpleKotlinType?
+        get() = propertySymbol?.dispatchReceiverType
+
     final override var body: FirBlock?
         get() = null
         set(_) {}
 
     companion object {
         fun createGetterOrSetter(
-            source: FirSourceElement?,
+            source: KtSourceElement?,
             moduleData: FirModuleData,
             origin: FirDeclarationOrigin,
             propertyTypeRef: FirTypeRef,
             visibility: Visibility,
-            isGetter: Boolean
+            propertySymbol: FirPropertySymbol,
+            isGetter: Boolean,
+            parameterAnnotations: List<FirAnnotation> = emptyList(),
         ): FirDefaultPropertyAccessor {
             return if (isGetter) {
-                FirDefaultPropertyGetter(source, moduleData, origin, propertyTypeRef, visibility, Modality.FINAL)
+                FirDefaultPropertyGetter(source, moduleData, origin, propertyTypeRef, visibility, propertySymbol, Modality.FINAL)
             } else {
-                FirDefaultPropertySetter(source, moduleData, origin, propertyTypeRef, visibility, Modality.FINAL)
+                FirDefaultPropertySetter(
+                    source, moduleData, origin, propertyTypeRef, visibility, propertySymbol, Modality.FINAL,
+                    parameterAnnotations = parameterAnnotations
+                )
             }
         }
     }
 }
 
 class FirDefaultPropertyGetter(
-    source: FirSourceElement?,
+    source: KtSourceElement?,
     moduleData: FirModuleData,
     origin: FirDeclarationOrigin,
     propertyTypeRef: FirTypeRef,
     visibility: Visibility,
+    propertySymbol: FirPropertySymbol,
     modality: Modality = Modality.FINAL,
     effectiveVisibility: EffectiveVisibility? = null,
     symbol: FirPropertyAccessorSymbol = FirPropertyAccessorSymbol()
@@ -96,6 +112,7 @@ class FirDefaultPropertyGetter(
     origin,
     propertyTypeRef,
     valueParameters = mutableListOf(),
+    propertySymbol,
     isGetter = true,
     visibility = visibility,
     modality = modality,
@@ -104,14 +121,16 @@ class FirDefaultPropertyGetter(
 )
 
 class FirDefaultPropertySetter(
-    source: FirSourceElement?,
+    source: KtSourceElement?,
     moduleData: FirModuleData,
     origin: FirDeclarationOrigin,
     propertyTypeRef: FirTypeRef,
     visibility: Visibility,
+    propertySymbol: FirPropertySymbol,
     modality: Modality = Modality.FINAL,
     effectiveVisibility: EffectiveVisibility? = null,
-    symbol: FirPropertyAccessorSymbol = FirPropertyAccessorSymbol()
+    symbol: FirPropertyAccessorSymbol = FirPropertyAccessorSymbol(),
+    parameterAnnotations: List<FirAnnotation> = emptyList(),
 ) : FirDefaultPropertyAccessor(
     source,
     moduleData,
@@ -119,13 +138,15 @@ class FirDefaultPropertySetter(
     FirImplicitUnitTypeRef(source),
     valueParameters = mutableListOf(
         buildDefaultSetterValueParameter builder@{
-            this@builder.source = source
+            this@builder.source = source?.fakeElement(KtFakeSourceElementKind.DefaultAccessor)
             this@builder.moduleData = moduleData
             this@builder.origin = origin
             this@builder.returnTypeRef = propertyTypeRef
             this@builder.symbol = FirValueParameterSymbol(Name.special("<default-setter-parameter>"))
+            this@builder.annotations += parameterAnnotations
         }
     ),
+    propertySymbol,
     isGetter = false,
     visibility = visibility,
     modality = modality,

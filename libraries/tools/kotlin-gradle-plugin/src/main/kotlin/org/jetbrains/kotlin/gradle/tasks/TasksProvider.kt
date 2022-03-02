@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinCompilationData
 import org.jetbrains.kotlin.gradle.plugin.runOnceAfterEvaluated
 import org.jetbrains.kotlin.gradle.plugin.sources.applyLanguageSettingsToKotlinOptions
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
-import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLinkWithWorkers
 
 /**
  * Registers the task with [name] and [type] and initialization script [body]
@@ -79,6 +78,16 @@ internal inline fun <reified T : Task> Project.locateOrRegisterTask(name: String
     return project.locateTask(name) ?: project.registerTask(name, T::class.java, body = body)
 }
 
+internal inline fun <reified T : Task> Project.locateOrRegisterTask(
+    name: String,
+    args: List<Any> = emptyList(),
+    invokeWhenRegistered: (TaskProvider<T>.() -> Unit) = {},
+    noinline configureTask: (T.() -> Unit)? = null
+): TaskProvider<T> {
+    locateTask<T>(name)?.let { return it }
+    return registerTask(name, args, configureTask).also(invokeWhenRegistered)
+}
+
 internal open class KotlinTasksProvider {
     open fun registerKotlinJVMTask(
         project: Project,
@@ -87,12 +96,14 @@ internal open class KotlinTasksProvider {
         configureAction: (KotlinCompile) -> (Unit)
     ): TaskProvider<out KotlinCompile> {
         val properties = PropertiesProvider(project)
-        val taskClass = taskOrWorkersTask<KotlinCompile, KotlinCompileWithWorkers>(properties)
-        val kotlinCompile = project.registerTask(name, taskClass, constructorArgs = listOf(compilation.kotlinOptions))
+        val kotlinCompile = project.registerTask(
+            name,
+            KotlinCompile::class.java,
+            constructorArgs = listOf(compilation.kotlinOptions)
+        )
 
         val configurator = KotlinCompile.Configurator<KotlinCompile>(compilation, properties)
-        @Suppress("UNCHECKED_CAST")
-        configurator.runAtConfigurationTime(kotlinCompile as TaskProvider<KotlinCompile>, project)
+        configurator.runAtConfigurationTime(kotlinCompile, project)
 
         kotlinCompile.configure {
             configureAction(it)
@@ -110,8 +121,11 @@ internal open class KotlinTasksProvider {
         configureAction: (Kotlin2JsCompile) -> Unit
     ): TaskProvider<out Kotlin2JsCompile> {
         val properties = PropertiesProvider(project)
-        val taskClass = taskOrWorkersTask<Kotlin2JsCompile, Kotlin2JsCompileWithWorkers>(properties)
-        val result = project.registerTask(name, taskClass, constructorArgs = listOf(compilation.kotlinOptions)) {
+        val result = project.registerTask(
+            name,
+            Kotlin2JsCompile::class.java,
+            constructorArgs = listOf(compilation.kotlinOptions)
+        ) {
             configureAction(it)
             Kotlin2JsCompile.Configurator<Kotlin2JsCompile>(compilation).configure(it)
         }
@@ -126,8 +140,10 @@ internal open class KotlinTasksProvider {
         configureAction: (KotlinJsIrLink) -> Unit
     ): TaskProvider<out KotlinJsIrLink> {
         val properties = PropertiesProvider(project)
-        val taskClass = taskOrWorkersTask<KotlinJsIrLink, KotlinJsIrLinkWithWorkers>(properties)
-        val result = project.registerTask(name, taskClass) {
+        val result = project.registerTask(
+            name,
+            KotlinJsIrLink::class.java
+        ) {
             it.compilation = compilation
             configureAction(it)
             KotlinJsIrLink.Configurator(compilation).configure(it)
@@ -143,8 +159,11 @@ internal open class KotlinTasksProvider {
         configureAction: (KotlinCompileCommon) -> (Unit)
     ): TaskProvider<out KotlinCompileCommon> {
         val properties = PropertiesProvider(project)
-        val taskClass = taskOrWorkersTask<KotlinCompileCommon, KotlinCompileCommonWithWorkers>(properties)
-        val result = project.registerTask(name, taskClass, constructorArgs = listOf(compilation.kotlinOptions)) {
+        val result = project.registerTask(
+            name,
+            KotlinCompileCommon::class.java,
+            constructorArgs = listOf(compilation.kotlinOptions)
+        ) {
             configureAction(it)
             KotlinCompileCommon.Configurator(compilation).configure(it)
         }
@@ -167,9 +186,6 @@ internal open class KotlinTasksProvider {
             )
         }
     }
-
-    private inline fun <reified Task, reified WorkersTask : Task> taskOrWorkersTask(properties: PropertiesProvider): Class<out Task> =
-        if (properties.parallelTasksInProject != true) Task::class.java else WorkersTask::class.java
 }
 
 internal class AndroidTasksProvider : KotlinTasksProvider() {

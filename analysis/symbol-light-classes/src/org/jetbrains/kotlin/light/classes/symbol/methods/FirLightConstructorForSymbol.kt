@@ -8,8 +8,8 @@ package org.jetbrains.kotlin.light.classes.symbol
 import com.intellij.psi.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtConstructorSymbol
 
 internal class FirLightConstructorForSymbol(
     private val constructorSymbol: KtConstructorSymbol,
@@ -43,11 +43,18 @@ internal class FirLightConstructorForSymbol(
     override fun isDeprecated(): Boolean = _isDeprecated
 
     private val _modifiers: Set<String> by lazyPub {
-        setOf(constructorSymbol.toPsiVisibilityForMember(isTopLevel = false))
+        // FIR treats an enum entry as an anonymous object w/ its own ctor (not default one).
+        // On the other hand, FE 1.0 doesn't add anything; then ULC adds default ctor w/ package local visibility.
+        // Technically, an enum entry should not be instantiated anywhere else, and thus FIR's modeling makes sense.
+        // But, to be backward compatible, we manually force the visibility of enum entry ctor to be package private.
+        if (containingClass is FirLightClassForEnumEntry)
+            setOf(PsiModifier.PACKAGE_LOCAL)
+        else
+            setOf(constructorSymbol.toPsiVisibilityForMember(isTopLevel = false))
     }
 
     private val _modifierList: PsiModifierList by lazyPub {
-        FirLightClassModifierList(this, _modifiers, _annotations)
+        FirLightMemberModifierList(this, _modifiers, _annotations)
     }
 
     override fun getModifierList(): PsiModifierList = _modifierList

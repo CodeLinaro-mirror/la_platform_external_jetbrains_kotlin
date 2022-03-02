@@ -22,6 +22,8 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
+import org.gradle.work.Incremental
+import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptionsImpl
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
@@ -34,9 +36,15 @@ import org.jetbrains.kotlin.incremental.classpathAsList
 import org.jetbrains.kotlin.incremental.destinationAsFile
 import java.io.File
 import java.util.concurrent.Callable
+import javax.inject.Inject
 
 @CacheableTask
-abstract class KaptGenerateStubsTask : KotlinCompile(KotlinJvmOptionsImpl()) {
+abstract class KaptGenerateStubsTask @Inject constructor(
+    workerExecutor: WorkerExecutor
+): KotlinCompile(
+    KotlinJvmOptionsImpl(),
+    workerExecutor
+) {
 
     internal class Configurator(
         private val kotlinCompileTaskProvider: TaskProvider<KotlinCompile>,
@@ -46,7 +54,7 @@ abstract class KaptGenerateStubsTask : KotlinCompile(KotlinJvmOptionsImpl()) {
     ) : KotlinCompile.Configurator<KaptGenerateStubsTask>(kotlinCompilation, properties) {
 
         override fun getClasspathSnapshotDir(task: KaptGenerateStubsTask): Provider<Directory> =
-            task.project.objects.directoryProperty().dir(classpathSnapshotDir.path)
+            task.project.objects.directoryProperty().fileValue(classpathSnapshotDir)
 
         override fun configure(task: KaptGenerateStubsTask) {
             super.configure(task)
@@ -100,6 +108,16 @@ abstract class KaptGenerateStubsTask : KotlinCompile(KotlinJvmOptionsImpl()) {
 
     @get:Input
     abstract val verbose: Property<Boolean>
+
+    /**
+     * Changes in this additional sources will trigger stubs regeneration,
+     * but the sources themselves will not be used to find kapt annotations and generate stubs.
+     */
+    @get:InputFiles
+    @get:IgnoreEmptyDirectories
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    @get:Incremental
+    abstract val additionalSources: ConfigurableFileCollection
 
     override fun source(vararg sources: Any): SourceTask {
         return super.source(sourceRootsContainer.add(sources))

@@ -1,5 +1,4 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
-// WITH_RUNTIME
+// WITH_STDLIB
 // !LANGUAGE: -StrictOnlyInputTypesChecks
 
 fun foo(fn: () -> Boolean) {}

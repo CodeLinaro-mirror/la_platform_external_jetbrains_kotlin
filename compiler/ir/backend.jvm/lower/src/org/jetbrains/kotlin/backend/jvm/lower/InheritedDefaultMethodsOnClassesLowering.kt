@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
-import org.jetbrains.kotlin.backend.jvm.codegen.isJvmInterface
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.JvmDefaultMode
@@ -30,6 +29,9 @@ import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrTypeOperator
+import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
@@ -89,6 +91,7 @@ private class InheritedDefaultMethodsOnClassesLowering(val context: JvmBackendCo
         val irFunction = context.cachedDeclarations.getDefaultImplsRedirection(classOverride)
 
         val superMethod = firstSuperMethodFromKotlin(irFunction, interfaceImplementation).owner
+        val superClassType = superMethod.parentAsClass.defaultType
         val defaultImplFun = context.cachedDeclarations.getDefaultImplsFunction(superMethod)
         val classStartOffset = classOverride.parentAsClass.startOffset
         context.createIrBuilder(irFunction.symbol, classStartOffset, classStartOffset).apply {
@@ -101,7 +104,12 @@ private class InheritedDefaultMethodsOnClassesLowering(val context: JvmBackendCo
                         passTypeArgumentsFrom(irFunction, offset = superMethod.parentAsClass.typeParameters.size)
 
                         var offset = 0
-                        irFunction.dispatchReceiverParameter?.let { putValueArgument(offset++, irGet(it)) }
+                        irFunction.dispatchReceiverParameter?.let {
+                            putValueArgument(
+                                offset++,
+                                irGet(it).reinterpretAsDispatchReceiverOfType(superClassType)
+                            )
+                        }
                         irFunction.extensionReceiverParameter?.let { putValueArgument(offset++, irGet(it)) }
                         irFunction.valueParameters.mapIndexed { i, parameter -> putValueArgument(i + offset, irGet(parameter)) }
                     }
@@ -154,7 +162,8 @@ private class InterfaceSuperCallsLowering(val context: JvmBackendContext) : IrEl
     }
 
     override fun visitCall(expression: IrCall): IrExpression {
-        if (expression.superQualifierSymbol?.owner?.isInterface != true || expression.isSuperToAny()) {
+        val superQualifierClass = expression.superQualifierSymbol?.owner
+        if (superQualifierClass == null || !superQualifierClass.isInterface || expression.isSuperToAny()) {
             return super.visitCall(expression)
         }
 
@@ -163,9 +172,34 @@ private class InterfaceSuperCallsLowering(val context: JvmBackendContext) : IrEl
 
         val redirectTarget = context.cachedDeclarations.getDefaultImplsFunction(superCallee)
         val newCall = createDelegatingCallWithPlaceholderTypeArguments(expression, redirectTarget, context.irBuiltIns)
+        postprocessMovedThis(newCall)
         return super.visitCall(newCall)
     }
+
+    private fun postprocessMovedThis(irCall: IrCall) {
+        val movedThisParameter = irCall.symbol.owner.valueParameters
+            .find { it.origin == IrDeclarationOrigin.MOVED_DISPATCH_RECEIVER }
+            ?: return
+        val movedThisParameterIndex = movedThisParameter.index
+        irCall.putValueArgument(
+            movedThisParameterIndex,
+            irCall.getValueArgument(movedThisParameterIndex)?.reinterpretAsDispatchReceiverOfType(movedThisParameter.type)
+        )
+    }
 }
+
+// Given a dispatch receiver expression, wrap it in REINTERPRET_CAST to the given type,
+// unless it's a value of inline class (which could be boxed at this point).
+// Avoids a CHECKCAST on a moved dispatch receiver argument.
+internal fun IrExpression.reinterpretAsDispatchReceiverOfType(irType: IrType): IrExpression =
+    if (this.type.isInlineClassType())
+        this
+    else
+        IrTypeOperatorCallImpl(
+            this.startOffset, this.endOffset,
+            irType, IrTypeOperator.REINTERPRET_CAST, irType,
+            this
+        )
 
 internal val interfaceDefaultCallsPhase = makeIrFilePhase(
     lowering = ::InterfaceDefaultCallsLowering,

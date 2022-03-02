@@ -1,6 +1,6 @@
-// WITH_RUNTIME
+// WITH_STDLIB
 // SKIP_TXT
-// !DIAGNOSTICS: -CAST_NEVER_SUCCEEDS -UNCHECKED_CAST -UNUSED_PARAMETER -UNUSED_VARIABLE -EXPERIMENTAL_API_USAGE_ERROR -UNUSED_EXPRESSION
+// !DIAGNOSTICS: -CAST_NEVER_SUCCEEDS -UNCHECKED_CAST -UNUSED_PARAMETER -UNUSED_VARIABLE -OPT_IN_USAGE_ERROR -UNUSED_EXPRESSION
 
 import kotlin.experimental.ExperimentalTypeInference
 
@@ -17,6 +17,11 @@ class Foo6
 
 class Foo7<T>
 fun foo7() = null as Foo7<Int>
+
+fun poll0(flag: Boolean) {
+    val inv = <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.reflect.KFunction0<kotlin.Int>")!>if (flag) { ::bar2 } else { ::foo4 }<!>
+    inv()
+}
 
 fun poll1(flag: Boolean) {
     val inv = if (flag) { ::bar2 } else { ::foo2 }

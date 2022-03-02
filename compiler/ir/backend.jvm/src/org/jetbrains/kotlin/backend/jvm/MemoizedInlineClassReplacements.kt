@@ -9,11 +9,7 @@ import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.ir.copyTypeParameters
 import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
 import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
-import org.jetbrains.kotlin.backend.jvm.codegen.classFileContainsMethod
-import org.jetbrains.kotlin.backend.jvm.codegen.isJvmInterface
-import org.jetbrains.kotlin.backend.jvm.codegen.parentClassId
-import org.jetbrains.kotlin.backend.jvm.ir.isCompiledToJvmDefault
-import org.jetbrains.kotlin.backend.jvm.ir.isStaticInlineClassReplacement
+import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
@@ -53,11 +49,11 @@ class MemoizedInlineClassReplacements(
     val getReplacementFunction: (IrFunction) -> IrSimpleFunction? =
         storageManager.createMemoizedFunctionWithNullableValues {
             when {
-                // Don't mangle anonymous or synthetic functions
+                // Don't mangle anonymous or synthetic functions, except for generated SAM wrapper methods
                 (it.isLocal && it is IrSimpleFunction && it.overriddenSymbols.isEmpty()) ||
                         (it.origin == IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR && it.visibility == DescriptorVisibilities.LOCAL) ||
                         it.isStaticInlineClassReplacement ||
-                        it.origin.isSynthetic ->
+                        it.origin.isSynthetic && it.origin != IrDeclarationOrigin.SYNTHETIC_GENERATED_SAM_IMPLEMENTATION ->
                     null
 
                 it.isInlineClassFieldGetter ->
@@ -71,9 +67,8 @@ class MemoizedInlineClassReplacements(
                     when {
                         it.isRemoveAtSpecialBuiltinStub() ->
                             null
-                        it.isInlineClassMemberFakeOverriddenFromJvmDefaultInterfaceMethod() ->
-                            null
-                        it.origin == IrDeclarationOrigin.IR_BUILTINS_STUB ->
+                        it.isInlineClassMemberFakeOverriddenFromJvmDefaultInterfaceMethod() ||
+                                it.origin == IrDeclarationOrigin.IR_BUILTINS_STUB ->
                             createMethodReplacement(it)
                         else ->
                             createStaticReplacement(it)
@@ -81,10 +76,7 @@ class MemoizedInlineClassReplacements(
 
                 // Otherwise, mangle functions with mangled parameters, ignoring constructors
                 it is IrSimpleFunction && !it.isFromJava() && (it.hasMangledParameters || mangleReturnTypes && it.hasMangledReturnType) ->
-                    if (it.dispatchReceiverParameter != null)
-                        createMethodReplacement(it)
-                    else
-                        createStaticReplacement(it)
+                    createMethodReplacement(it)
 
                 else ->
                     null
@@ -182,9 +174,12 @@ class MemoizedInlineClassReplacements(
     private fun createMethodReplacement(function: IrFunction): IrSimpleFunction =
         buildReplacement(function, function.origin) {
             originalFunctionForMethodReplacement[this] = function
-            require(function.dispatchReceiverParameter != null && function is IrSimpleFunction)
             dispatchReceiverParameter = function.dispatchReceiverParameter?.copyTo(this, index = -1)
-            extensionReceiverParameter = function.extensionReceiverParameter?.copyTo(this, index = -1, name = Name.identifier("\$receiver"))
+            extensionReceiverParameter = function.extensionReceiverParameter?.copyTo(
+                // The function's name will be mangled, so preserve the old receiver name.
+                this, index = -1, name = Name.identifier(function.extensionReceiverName(context.state))
+            )
+            contextReceiverParametersCount = function.contextReceiverParametersCount
             valueParameters = function.valueParameters.mapIndexed { index, parameter ->
                 parameter.copyTo(this, index = index, defaultValue = null).also {
                     // Assuming that constructors and non-override functions are always replaced with the unboxed
@@ -206,16 +201,21 @@ class MemoizedInlineClassReplacements(
                     type = function.parentAsClass.defaultType, origin = IrDeclarationOrigin.MOVED_DISPATCH_RECEIVER
                 )
             }
+            if (function.contextReceiverParametersCount != 0) {
+                function.valueParameters.take(function.contextReceiverParametersCount).forEachIndexed { i, contextReceiver ->
+                    newValueParameters += contextReceiver.copyTo(
+                        this, index = newValueParameters.size, name = Name.identifier("contextReceiver$i"),
+                        origin = IrDeclarationOrigin.MOVED_CONTEXT_RECEIVER
+                    )
+                }
+            }
             function.extensionReceiverParameter?.let {
-                val baseName =
-                    (function as? IrSimpleFunction)?.correspondingPropertySymbol?.owner?.name?.asStringStripSpecialMarkers()
-                        ?: function.name
                 newValueParameters += it.copyTo(
-                    this, index = newValueParameters.size, name = Name.identifier("\$this\$$baseName"),
+                    this, index = newValueParameters.size, name = Name.identifier(function.extensionReceiverName(context.state)),
                     origin = IrDeclarationOrigin.MOVED_EXTENSION_RECEIVER
                 )
             }
-            for (parameter in function.valueParameters) {
+            for (parameter in function.valueParameters.drop(function.contextReceiverParametersCount)) {
                 newValueParameters += parameter.copyTo(this, index = newValueParameters.size, defaultValue = null).also {
                     // See comment next to a similar line above.
                     it.defaultValue = parameter.defaultValue?.patchDeclarationParents(this)
@@ -290,6 +290,7 @@ class MemoizedInlineClassReplacements(
                         parent = propertySymbol.owner.parent
                         copyAttributes(propertySymbol.owner)
                         annotations = propertySymbol.owner.annotations
+                        backingField = propertySymbol.owner.backingField
                     }
                 }
                 correspondingPropertySymbol = property.symbol

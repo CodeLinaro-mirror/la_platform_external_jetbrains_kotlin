@@ -5,12 +5,16 @@ plugins {
 }
 
 dependencies {
-    testCompile(intellijDep()) { includeJars("util") }
-    testCompile(project(":core:util.runtime"))
+    testApi(project(":core:util.runtime"))
     testApi(projectTests(":compiler:test-infrastructure-utils"))
-    testCompile(kotlinStdlib())
-    testCompile(commonDep("junit:junit"))
-    testCompile(project(":generators"))
+    testApi(kotlinStdlib())
+    testApi(commonDependency("junit:junit"))
+    testApiJUnit5()
+    testApi(project(":generators"))
+
+    testCompileOnly(project(":kotlin-reflect-api"))
+    testRuntimeOnly(project(":kotlin-reflect"))
+    testRuntimeOnly(project(":core:descriptors.runtime"))
 }
 
 sourceSets {

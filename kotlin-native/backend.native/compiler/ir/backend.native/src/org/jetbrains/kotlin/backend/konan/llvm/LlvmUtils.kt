@@ -341,7 +341,7 @@ fun parseBitcodeFile(path: String): LLVMModuleRef = memScoped {
 
     val res = LLVMCreateMemoryBufferWithContentsOfFile(path, bufRef.ptr, errorRef.ptr)
     if (res != 0) {
-        throw Error(errorRef.value?.toKString())
+        throw Error("Error parsing file $path : ${errorRef.value?.toKString()}")
     }
 
     val memoryBuffer = bufRef.value
@@ -435,6 +435,13 @@ internal fun getGlobalAliases(module: LLVMModuleRef) =
 
 internal fun getFunctions(module: LLVMModuleRef) =
         generateSequence(LLVMGetFirstFunction(module), { LLVMGetNextFunction(it) })
+
+internal fun getBasicBlocks(function: LLVMValueRef) =
+        generateSequence(LLVMGetFirstBasicBlock(function)) { LLVMGetNextBasicBlock(it) }
+
+internal fun getInstructions(block: LLVMBasicBlockRef) =
+        generateSequence(LLVMGetFirstInstruction(block)) { LLVMGetNextInstruction(it) }
+
 
 internal fun getGlobals(module: LLVMModuleRef) =
         generateSequence(LLVMGetFirstGlobal(module), { LLVMGetNextGlobal(it) })

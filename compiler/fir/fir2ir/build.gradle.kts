@@ -10,12 +10,14 @@ dependencies {
     compileOnly(project(":core:descriptors.jvm"))
     compileOnly(project(":compiler:fir:cones"))
     compileOnly(project(":compiler:fir:resolve"))
+    compileOnly(project(":compiler:fir:providers"))
+    compileOnly(project(":compiler:fir:semantics"))
     compileOnly(project(":compiler:fir:tree"))
     compileOnly(project(":compiler:ir.tree"))
     compileOnly(project(":compiler:ir.psi2ir"))
     compileOnly(project(":compiler:ir.backend.common"))
 
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    compileOnly(intellijCore())
 
     testCompileOnly(project(":kotlin-test:kotlin-test-jvm"))
     testCompileOnly(project(":kotlin-test:kotlin-test-junit"))
@@ -36,14 +38,15 @@ dependencies {
     testRuntimeOnly(project(":compiler:fir:fir2ir:jvm-backend"))
     testRuntimeOnly(project(":generators"))
 
-    testCompileOnly(intellijCoreDep()) { includeJars("intellij-core") }
-    testRuntimeOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    testCompileOnly(intellijCore())
+    testRuntimeOnly(intellijCore())
 
-    testRuntimeOnly(intellijDep()) {
-        includeJars("jna", rootProject = rootProject)
-    }
+    testRuntimeOnly(commonDependency("net.java.dev.jna:jna"))
+    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testRuntimeOnly(commonDependency("one.util:streamex"))
 
-    testRuntimeOnly(intellijDep()) { includeJars("intellij-deps-fastutil-8.4.1-4") }
+    testRuntimeOnly(jpsModel())
+    testRuntimeOnly(jpsModelImpl())
 }
 
 val generationRoot = projectDir.resolve("tests-gen")
@@ -59,7 +62,7 @@ sourceSets {
 tasks {
     val compileKotlin by existing(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class) {
         kotlinOptions {
-            freeCompilerArgs += "-Xopt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI"
+            freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI"
         }
     }
 }
@@ -71,7 +74,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(jUnit5Enabled = true) {
+projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()

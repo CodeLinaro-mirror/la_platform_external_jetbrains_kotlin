@@ -617,6 +617,11 @@ public class IncrementalJvmCompilerRunnerTestGenerated extends AbstractIncrement
             runTest("jps-plugin/testData/incremental/pureKotlin/secondaryConstructorInlined/");
         }
 
+        @TestMetadata("serializedSubClassAndChangedInterfaces")
+        public void testSerializedSubClassAndChangedInterfaces() throws Exception {
+            runTest("jps-plugin/testData/incremental/pureKotlin/serializedSubClassAndChangedInterfaces/");
+        }
+
         @TestMetadata("simpleClassDependency")
         public void testSimpleClassDependency() throws Exception {
             runTest("jps-plugin/testData/incremental/pureKotlin/simpleClassDependency/");
@@ -878,6 +883,11 @@ public class IncrementalJvmCompilerRunnerTestGenerated extends AbstractIncrement
         @TestMetadata("varianceChanged")
         public void testVarianceChanged() throws Exception {
             runTest("jps-plugin/testData/incremental/classHierarchyAffected/varianceChanged/");
+        }
+
+        @TestMetadata("withIntermediateBodiesChanged")
+        public void testWithIntermediateBodiesChanged() throws Exception {
+            runTest("jps-plugin/testData/incremental/classHierarchyAffected/withIntermediateBodiesChanged/");
         }
     }
 
@@ -1295,6 +1305,11 @@ public class IncrementalJvmCompilerRunnerTestGenerated extends AbstractIncrement
                 runTest("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantChanged/");
             }
 
+            @TestMetadata("constantPropertyChanged")
+            public void testConstantPropertyChanged() throws Exception {
+                runTest("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantPropertyChanged/");
+            }
+
             @TestMetadata("constantUnchanged")
             public void testConstantUnchanged() throws Exception {
                 runTest("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantUnchanged/");
@@ -1456,6 +1471,19 @@ public class IncrementalJvmCompilerRunnerTestGenerated extends AbstractIncrement
 
                 public void testAllFilesPresentInConstantChanged() throws Exception {
                     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantChanged"), Pattern.compile("^([^\\.]+)$"), null, TargetBackend.JVM_IR, true);
+                }
+            }
+
+            @TestMetadata("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantPropertyChanged")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class ConstantPropertyChanged extends AbstractIncrementalJvmCompilerRunnerTest {
+                private void runTest(String testDataFilePath) throws Exception {
+                    KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
+                }
+
+                public void testAllFilesPresentInConstantPropertyChanged() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantPropertyChanged"), Pattern.compile("^([^\\.]+)$"), null, TargetBackend.JVM_IR, true);
                 }
             }
 

@@ -618,7 +618,7 @@ class HierarchicalOptimisticNumbersTypeCommonizerTest : AbstractInlineSourcesCom
                 @UnsafeNumber(["a: kotlin.Int", "b: kotlin.Long"])
                 typealias B = A
                 @UnsafeNumber(["a: kotlin.Int", "b: kotlin.Long"])
-                typealias X = Int
+                typealias X = B
             """.trimIndent()
         )
     }
@@ -626,8 +626,8 @@ class HierarchicalOptimisticNumbersTypeCommonizerTest : AbstractInlineSourcesCom
     fun `test function with pure number types parameter`() {
         val result = commonize {
             outputTarget("(a, b)")
-            simpleSingleSourceTarget("a", "fun x(p: Int)")
-            simpleSingleSourceTarget("b", "fun x(p: Long)")
+            simpleSingleSourceTarget("a", "fun x(p: Int) {}")
+            simpleSingleSourceTarget("b", "fun x(p: Long) {}")
         }
 
         /*
@@ -649,14 +649,14 @@ class HierarchicalOptimisticNumbersTypeCommonizerTest : AbstractInlineSourcesCom
                 "a", """
                     typealias A = Int
                     typealias X = A
-                    fun x(p: X)
+                    fun x(p: X) {}
                 """.trimIndent()
             )
             simpleSingleSourceTarget(
                 "b", """
                     typealias B = Long
                     typealias X = B
-                    fun x(p: X)
+                    fun x(p: X) {}
                 """.trimIndent()
             )
         }
@@ -674,16 +674,11 @@ class HierarchicalOptimisticNumbersTypeCommonizerTest : AbstractInlineSourcesCom
         val result = commonize {
             outputTarget("(a, b)")
             registerDependency("a", "b", "(a, b)") { unsignedIntegers() }
-            simpleSingleSourceTarget("a", "val x: UInt = TODO()")
-            simpleSingleSourceTarget("b", "val x: ULong = TODO()")
+            simpleSingleSourceTarget("a", "val x: UInt = null!!")
+            simpleSingleSourceTarget("b", "val x: ULong = null!!")
         }
 
-        /*
-        Only commonize return types that were specified using a type-alias.
-        As with function value parameters, this is not a hard requirement.
-        It would also be reasonable to support this case.
-         */
-        result.assertCommonized("(a, b)", "")
+        result.assertCommonized("(a, b)", "expect val x: kotlin.UInt")
     }
 
     fun `test property with aliased number return type`() {
@@ -693,13 +688,13 @@ class HierarchicalOptimisticNumbersTypeCommonizerTest : AbstractInlineSourcesCom
             simpleSingleSourceTarget(
                 "a", """
                     typealias X = UShort
-                    val x: X = TODO()
+                    val x: X = null!!
                 """.trimIndent()
             )
             simpleSingleSourceTarget(
                 "b", """
                     typealias X = ULong
-                    val x: X = TODO()
+                    val x: X = null!!
                 """.trimIndent()
             )
         }

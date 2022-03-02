@@ -7,11 +7,10 @@ package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
-import org.jetbrains.kotlin.asJava.classes.FirLightClassForEnumEntry
 import org.jetbrains.kotlin.asJava.classes.cannotModify
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtEnumEntrySymbol
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtEnumEntrySymbol
 import org.jetbrains.kotlin.psi.KtEnumEntry
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 
@@ -22,7 +21,7 @@ internal class FirLightFieldForEnumEntry(
 ) : FirLightField(containingClass, lightMemberOrigin), PsiEnumConstant {
 
     private val _modifierList by lazyPub {
-        FirLightClassModifierList(
+        FirLightMemberModifierList(
             containingDeclaration = this@FirLightFieldForEnumEntry,
             modifiers = setOf(PsiModifier.STATIC, PsiModifier.FINAL, PsiModifier.PUBLIC),
             annotations = emptyList()
@@ -66,8 +65,8 @@ internal class FirLightFieldForEnumEntry(
 
     private val _type: PsiType by lazyPub {
         analyzeWithSymbolAsContext(enumEntrySymbol) {
-            enumEntrySymbol.annotatedType.type.asPsiType(this@FirLightFieldForEnumEntry)
-        }
+            enumEntrySymbol.returnType.asPsiType(this@FirLightFieldForEnumEntry)
+        } ?: nonExistentType()
     }
 
     override fun getType(): PsiType = _type

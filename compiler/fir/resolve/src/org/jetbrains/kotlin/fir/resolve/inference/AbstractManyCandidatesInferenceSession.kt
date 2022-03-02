@@ -11,41 +11,41 @@ import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
 import org.jetbrains.kotlin.fir.resolve.calls.candidate
-import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
+import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionContext
+import org.jetbrains.kotlin.types.model.StubTypeMarker
+import org.jetbrains.kotlin.types.model.TypeVariableMarker
 
 abstract class AbstractManyCandidatesInferenceSession(
     protected val resolutionContext: ResolutionContext
 ) : FirInferenceSession() {
-    private val errorCalls: MutableList<FirResolvable> = mutableListOf()
+    override fun fixSyntheticTypeVariableWithNotEnoughInformation(
+        typeVariable: TypeVariableMarker,
+        completionContext: ConstraintSystemCompletionContext
+    ) {
+    }
+
     protected val partiallyResolvedCalls: MutableList<Pair<FirResolvable, Candidate>> = mutableListOf()
     private val completedCalls: MutableSet<FirResolvable> = mutableSetOf()
 
     protected val components: BodyResolveComponents
         get() = resolutionContext.bodyResolveComponents
 
-    override val currentConstraintSystem: ConstraintStorage
-        get() = partiallyResolvedCalls.lastOrNull()
-            ?.second
-            ?.system
-            ?.currentStorage()
-            ?: ConstraintStorage.Empty
-
     override fun <T> addCompletedCall(call: T, candidate: Candidate) where T : FirResolvable, T : FirStatement {
         // do nothing
     }
 
-    final override fun <T> addPartiallyResolvedCall(call: T) where T : FirResolvable, T : FirStatement {
+    override fun <T> addPartiallyResolvedCall(call: T) where T : FirResolvable, T : FirStatement {
         partiallyResolvedCalls += call to call.candidate
     }
 
-    final override fun <T> addErrorCall(call: T) where T : FirResolvable, T : FirStatement {
-        errorCalls += call
-    }
-
-    final override fun <T> callCompleted(call: T): Boolean where T : FirResolvable, T : FirStatement {
-        return !completedCalls.add(call)
-    }
+    override fun registerStubTypes(map: Map<TypeVariableMarker, StubTypeMarker>) {}
 
     protected val FirResolvable.candidate: Candidate
         get() = candidate()!!
+
+    override fun clear() {
+        partiallyResolvedCalls.clear()
+        completedCalls.clear()
+    }
+
 }

@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-    testRuntimeOnly(intellijDep()) // Should come before compiler, because of "progarded" stuff needed for tests
     testImplementation(kotlinStdlib())
 
     testApiJUnit5()
@@ -17,6 +16,7 @@ dependencies {
     testImplementation(projectTests(":compiler:fir:fir2ir"))
     testImplementation(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testImplementation(projectTests(":compiler:visualizer"))
+    testImplementation(projectTests(":js:js.tests"))
     testImplementation(projectTests(":generators:test-generator"))
     testCompileOnly(project(":kotlin-reflect-api"))
     testRuntimeOnly(project(":kotlin-reflect"))

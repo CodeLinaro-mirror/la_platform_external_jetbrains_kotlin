@@ -1,6 +1,7 @@
+// FIR_IDENTICAL
 // TARGET_BACKEND: JVM
-// WITH_RUNTIME
-// !USE_EXPERIMENTAL: kotlin.experimental.ExperimentalTypeInference
+// WITH_STDLIB
+// !OPT_IN: kotlin.experimental.ExperimentalTypeInference
 
 import kotlin.experimental.ExperimentalTypeInference
 

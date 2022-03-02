@@ -49,6 +49,13 @@ public annotation class ExportForCompiler
 internal annotation class Frozen
 
 /**
+ * Similar to `@Frozen`, but works only for legacy MM. On the new MM this has no effect.
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.BINARY)
+internal annotation class FrozenLegacyMM
+
+/**
  * Fields of annotated class won't be sorted.
  */
 @Target(AnnotationTarget.CLASS)
@@ -99,6 +106,10 @@ internal annotation class PointsTo(vararg val onWhom: Int)
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
 internal annotation class TypedIntrinsic(val kind: String)
+
+@Target(AnnotationTarget.CONSTRUCTOR)
+@Retention(AnnotationRetention.BINARY)
+internal annotation class ConstantConstructorIntrinsic(val kind: String)
 
 /**
  * Indicates that `@SymbolName external` function is implemented in library-stored bitcode

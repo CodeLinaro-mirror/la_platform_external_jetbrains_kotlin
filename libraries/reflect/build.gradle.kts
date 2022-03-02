@@ -17,7 +17,7 @@ buildscript {
 }
 
 plugins {
-    java
+    `java-library`
 }
 
 configureJavaOnlyToolchain(JdkMajorVersion.JDK_1_6)
@@ -26,7 +26,6 @@ publish()
 
 val core = "$rootDir/core"
 val relocatedCoreSrc = "$buildDir/core-relocated"
-val libsDir = property("libsDir")
 
 val proguardDeps by configurations.creating
 val proguardAdditionalInJars by configurations.creating
@@ -35,10 +34,9 @@ val embedded by configurations
 embedded.isTransitive = false
 
 configurations.getByName("compileOnly").extendsFrom(embedded)
-val mainJar by configurations.creating
 
 dependencies {
-    compile(kotlinStdlib())
+    api(kotlinStdlib())
 
     proguardDeps(kotlinStdlib())
     proguardAdditionalInJars(project(":kotlin-annotations-jvm"))
@@ -66,6 +64,8 @@ class KotlinModuleShadowTransformer(private val logger: Logger) : Transformer {
     @Suppress("ArrayInDataClass")
     private data class Entry(val path: String, val bytes: ByteArray)
     private val data = mutableListOf<Entry>()
+
+    override fun getName() = "KotlinModuleShadowTransformer"
 
     override fun canTransformResource(element: FileTreeElement): Boolean =
             element.path.substringAfterLast(".") == KOTLIN_MODULE
@@ -121,7 +121,7 @@ val reflectShadowJar by task<ShadowJar> {
 val stripMetadata by tasks.registering {
     dependsOn(reflectShadowJar)
     val inputJar = provider { reflectShadowJar.get().outputs.files.singleFile }
-    val outputJar = File("$libsDir/kotlin-reflect-stripped.jar")
+    val outputJar = fileFrom(base.libsDirectory.asFile.get(), "${base.archivesName.get()}-$version-stripped.jar")
 
     inputs.file(inputJar).withNormalizer(ClasspathNormalizer::class.java)
 
@@ -139,14 +139,12 @@ val stripMetadata by tasks.registering {
     }
 }
 
-val proguardOutput = "$libsDir/${property("archivesBaseName")}-proguard.jar"
-
 val proguard by task<CacheableProguardTask> {
     dependsOn(stripMetadata)
 
     injars(mapOf("filter" to "!META-INF/versions/**"), stripMetadata.get().outputs.files)
     injars(mapOf("filter" to "!META-INF/**,!**/*.kotlin_builtins"), proguardAdditionalInJars)
-    outjars(proguardOutput)
+    outjars(fileFrom(base.libsDirectory.asFile.get(), "${base.archivesName.get()}-$version-proguard.jar"))
 
     javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_1_6))
     libraryjars(mapOf("filter" to "!META-INF/versions/**"), proguardDeps)
@@ -240,6 +238,7 @@ javadocJar()
 
 modularJar {
     dependsOn(intermediate)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {
         zipTree(intermediate.get().singleOutputFile())
     }
@@ -256,8 +255,8 @@ dexMethodCount {
 }
 
 artifacts {
-    listOf(mainJar.name, "runtime", "archives", "runtimeElements").forEach { configurationName ->
-        add(configurationName, result.get().outputs.files.singleFile) {
+    listOf("archives", "runtimeElements").forEach { configurationName ->
+        add(configurationName, provider { result.get().outputs.files.singleFile }) {
             builtBy(result)
         }
     }

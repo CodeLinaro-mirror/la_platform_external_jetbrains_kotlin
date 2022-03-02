@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.gradle.plugin.sources.KotlinDependencyScope
 import org.jetbrains.kotlin.gradle.plugin.sources.resolveAllDependsOnSourceSets
 import org.jetbrains.kotlin.gradle.plugin.sources.sourceSetDependencyConfigurationByScope
 import org.jetbrains.kotlin.gradle.plugin.sources.withAllDependsOnSourceSets
+import org.jetbrains.kotlin.gradle.targets.android.findAndroidTarget
 import org.jetbrains.kotlin.gradle.targets.jvm.JvmCompilationsTestRunSource
 import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.testing.KotlinTaskTestRun
@@ -43,7 +44,7 @@ internal fun customizeKotlinDependencies(project: Project) {
         configureKotlinTestDependency(project)
     }
     configureDefaultVersionsResolutionStrategy(project)
-    excludeStdlibCommonFromPlatformCompilations(project)
+    excludeStdlibAndKotlinTestCommonFromPlatformCompilations(project)
 }
 
 private fun configureDefaultVersionsResolutionStrategy(project: Project) {
@@ -58,18 +59,17 @@ private fun configureDefaultVersionsResolutionStrategy(project: Project) {
     }
 }
 
-//region stdlib
-private fun excludeStdlibCommonFromPlatformCompilations(project: Project) {
+private fun excludeStdlibAndKotlinTestCommonFromPlatformCompilations(project: Project) {
     val multiplatformExtension = project.multiplatformExtensionOrNull ?: return
 
     multiplatformExtension.targets.matching { it !is KotlinMetadataTarget }.all {
-        it.excludeStdlibCommonFromPlatformCompilations()
+        it.excludeStdlibAndKotlinTestCommonFromPlatformCompilations()
     }
 }
 
 // there several JVM-like targets, like KotlinWithJava, or KotlinAndroid, and they don't have common supertype
 // aside from KotlinTarget
-private fun KotlinTarget.excludeStdlibCommonFromPlatformCompilations() {
+private fun KotlinTarget.excludeStdlibAndKotlinTestCommonFromPlatformCompilations() {
     compilations.all {
         listOfNotNull(
             it.compileDependencyConfigurationName,
@@ -80,13 +80,16 @@ private fun KotlinTarget.excludeStdlibCommonFromPlatformCompilations() {
             // Additional configurations for (old) jvmWithJava-preset. Remove it when we drop it completely
             (it as? KotlinWithJavaCompilation<*>)?.apiConfigurationName
         ).forEach { configurationName ->
-            project.configurations.getByName(configurationName).exclude(
-                mapOf("group" to "org.jetbrains.kotlin", "module" to "kotlin-stdlib-common")
-            )
+            project.configurations.getByName(configurationName).apply {
+                exclude(mapOf("group" to "org.jetbrains.kotlin", "module" to "kotlin-stdlib-common"))
+                exclude(mapOf("group" to "org.jetbrains.kotlin", "module" to "kotlin-test-common"))
+                exclude(mapOf("group" to "org.jetbrains.kotlin", "module" to "kotlin-test-annotations-common"))
+            }
         }
     }
 }
 
+//region stdlib
 internal fun configureStdlibDefaultDependency(project: Project) = with(project) {
     if (!PropertiesProvider(project).stdlibDefaultDependency)
         return
@@ -138,6 +141,7 @@ private fun addStdlibToPm20Project(
                 KotlinPlatformType.common -> error("variants are not expected to be common")
                 KotlinPlatformType.jvm -> "kotlin-stdlib" // TODO get JDK from JVM variants
                 KotlinPlatformType.js -> "kotlin-stdlib-js"
+                KotlinPlatformType.wasm -> "kotlin-stdlib-wasm"
                 KotlinPlatformType.androidJvm -> null // TODO: expect support on the AGP side?
                 KotlinPlatformType.native -> null
             }
@@ -189,6 +193,7 @@ private fun chooseAndAddStdlibDependency(
             KotlinPlatformType.androidJvm ->
                 if (kotlinSourceSet.name == androidMainSourceSetName(project)) stdlibModuleForJvmCompilations(compilations) else null
             KotlinPlatformType.js -> "kotlin-stdlib-js"
+            KotlinPlatformType.wasm -> "kotlin-stdlib-wasm"
             KotlinPlatformType.native -> null
             KotlinPlatformType.common -> // there's no platform compilation that the source set is default for
                 "kotlin-stdlib-common"
@@ -202,15 +207,6 @@ private fun chooseAndAddStdlibDependency(
 
         if (stdlibModuleName != null && !moduleAddedInHierarchy)
             dependencies.add(project.kotlinDependency(stdlibModuleName, project.kotlinExtension.coreLibrariesVersion))
-    }
-}
-
-private fun Project.findAndroidTarget(): KotlinAndroidTarget? {
-    val kotlinExtension = project.kotlinExtension
-    return when (kotlinExtension) {
-        is KotlinMultiplatformExtension -> kotlinExtension.targets.withType(KotlinAndroidTarget::class.java).single()
-        is KotlinAndroidProjectExtension -> kotlinExtension.target
-        else -> null
     }
 }
 
@@ -346,6 +342,7 @@ private fun kotlinTestCapabilityForJvmSourceSet(project: Project, kotlinSourceSe
         }
     }
 
+    // TODO: Review Sergey Igushkin: https://youtrack.jetbrains.com/issue/KT-48885
     return "$KOTLIN_MODULE_GROUP:$KOTLIN_TEST_ROOT_MODULE_NAME-framework-${frameworks.singleOrNull() ?: return null}"
 }
 

@@ -5,9 +5,13 @@
 
 package org.jetbrains.kotlin.fir.declarations.utils
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.SourceElement
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyBackingField
+import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.name.Name
 
 private object IsFromVarargKey : FirDeclarationDataKey()
@@ -20,14 +24,13 @@ private object DanglingTypeConstraintsKey : FirDeclarationDataKey()
 var FirProperty.isFromVararg: Boolean? by FirDeclarationDataRegistry.data(IsFromVarargKey)
 var FirProperty.isReferredViaField: Boolean? by FirDeclarationDataRegistry.data(IsReferredViaField)
 var FirProperty.fromPrimaryConstructor: Boolean? by FirDeclarationDataRegistry.data(IsFromPrimaryConstructor)
-var FirTypeAlias.sourceElement: SourceElement? by FirDeclarationDataRegistry.data(SourceElementKey)
-var FirRegularClass.sourceElement: SourceElement? by FirDeclarationDataRegistry.data(SourceElementKey)
+var FirClassLikeDeclaration.sourceElement: SourceElement? by FirDeclarationDataRegistry.data(SourceElementKey)
 var FirRegularClass.moduleName: String? by FirDeclarationDataRegistry.data(ModuleNameKey)
 
 /**
  * Constraint without corresponding type argument
  */
-data class DanglingTypeConstraint(val name: Name, val source: FirSourceElement)
+data class DanglingTypeConstraint(val name: Name, val source: KtSourceElement)
 
 var <T> T.danglingTypeConstraints: List<DanglingTypeConstraint>?
         where T : FirDeclaration, T : FirTypeParameterRefsOwner
@@ -38,15 +41,42 @@ var <T> T.danglingTypeConstraints: List<DanglingTypeConstraint>?
 val FirMemberDeclaration.containerSource: SourceElement?
     get() = when (this) {
         is FirCallableDeclaration -> containerSource
-        is FirRegularClass -> sourceElement
-        is FirTypeAlias -> sourceElement
+        is FirClassLikeDeclaration -> sourceElement
     }
+
+val FirProperty.hasExplicitBackingField: Boolean
+    get() = backingField != null && backingField !is FirDefaultPropertyBackingField
+
+val FirPropertySymbol.hasExplicitBackingField: Boolean
+    get() = fir.hasExplicitBackingField
+
+fun FirProperty.getExplicitBackingField(): FirBackingField? {
+    return if (hasExplicitBackingField) {
+        backingField
+    } else {
+        null
+    }
+}
+
+fun FirPropertySymbol.getExplicitBackingField(): FirBackingField? {
+    return fir.getExplicitBackingField()
+}
+
+val FirProperty.canNarrowDownGetterType: Boolean
+    get() {
+        val backingFieldHasDifferentType = backingField != null && backingField?.returnTypeRef?.coneType != returnTypeRef.coneType
+        return backingFieldHasDifferentType && getter is FirDefaultPropertyGetter
+    }
+
+val FirPropertySymbol.canNarrowDownGetterType: Boolean
+    get() = fir.canNarrowDownGetterType
 
 // See [BindingContext.BACKING_FIELD_REQUIRED]
 val FirProperty.hasBackingField: Boolean
     get() {
         if (isAbstract) return false
         if (delegate != null) return false
+        if (hasExplicitBackingField) return true
         when (origin) {
             FirDeclarationOrigin.SubstitutionOverride -> return false
             FirDeclarationOrigin.IntersectionOverride -> return false

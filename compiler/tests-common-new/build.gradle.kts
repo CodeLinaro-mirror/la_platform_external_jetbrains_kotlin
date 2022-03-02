@@ -9,9 +9,8 @@ dependencies {
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:cli"))
     testImplementation(project(":compiler:ir.tree.impl"))
-    testImplementation(project(":compiler:backend.jvm.lower"))
     testImplementation(project(":compiler:backend.jvm.entrypoint"))
-    testImplementation(intellijCoreDep()) { includeJars("intellij-core") }
+    testImplementation(intellijCore())
 
     testCompileOnly(project(":kotlin-reflect-api"))
     testRuntimeOnly(project(":kotlin-reflect"))
@@ -25,12 +24,19 @@ dependencies {
     testApi(projectTests(":compiler:tests-compiler-utils"))
     testApi(projectTests(":compiler:tests-common-jvm6"))
 
-    testRuntimeOnly(intellijDep()) {
-        includeJars("jna", rootProject = rootProject)
-    }
+    /*
+     * Actually those dependencies are needed only at runtime, but they
+     *   declared as Api dependencies to propagate them to all modules
+     *   which depend on current one
+     */
+    testApi(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testApi(commonDependency("one.util:streamex"))
+    testApi(commonDependency("net.java.dev.jna:jna"))
+    testApi(jpsModel()) { isTransitive = false }
+    testApi(jpsModelImpl()) { isTransitive = false }
+    testApi(intellijJavaRt())
 
-    testRuntimeOnly(intellijDep()) { includeJars("intellij-deps-fastutil-8.4.1-4") }
-    testRuntimeOnly(toolsJar())
+    testApi(toolsJar())
 }
 
 val generationRoot = projectDir.resolve("tests-gen")
@@ -50,7 +56,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(jUnit5Enabled = true) {
+projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     jvmArgs!!.removeIf { it.contains("-Xmx") }

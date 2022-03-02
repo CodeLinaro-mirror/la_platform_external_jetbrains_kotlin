@@ -1,4 +1,5 @@
-// !USE_EXPERIMENTAL: kotlin.RequiresOptIn
+// FIR_IDENTICAL
+// !OPT_IN: kotlin.RequiresOptIn
 // !LANGUAGE: -OptInOnOverrideForbidden
 
 @RequiresOptIn(level = RequiresOptIn.Level.WARNING)
@@ -6,7 +7,7 @@
 annotation class E
 
 class My {
-    <!EXPERIMENTAL_ANNOTATION_ON_OVERRIDE_WARNING!>@E<!>
+    <!OPT_IN_MARKER_ON_OVERRIDE_WARNING!>@E<!>
     override fun hashCode() = 0
 }
 

@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.backend.konan.cgen.*
 import org.jetbrains.kotlin.backend.konan.descriptors.allOverriddenFunctions
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
 import org.jetbrains.kotlin.backend.konan.ir.*
-import org.jetbrains.kotlin.backend.konan.ir.isFinalClass
 import org.jetbrains.kotlin.backend.konan.llvm.IntrinsicType
 import org.jetbrains.kotlin.backend.konan.llvm.tryGetIntrinsicType
 import org.jetbrains.kotlin.backend.konan.serialization.resolveFakeOverrideMaybeAbstract
@@ -391,7 +390,7 @@ private class InteropLoweringPart1(val context: Context) : BaseInteropIrTransfor
     }
 
     private fun IrBuilderWithScope.interpretObjCPointer(expression: IrExpression, type: IrType): IrExpression {
-        val callee: IrFunctionSymbol = if (type.containsNull()) {
+        val callee: IrFunctionSymbol = if (type.isNullable()) {
             symbols.interopInterpretObjCPointerOrNull
         } else {
             symbols.interopInterpretObjCPointer
@@ -572,7 +571,7 @@ private class InteropLoweringPart1(val context: Context) : BaseInteropIrTransfor
     }
 
     private fun IrBuilderWithScope.ensureObjCReferenceNotNull(expression: IrExpression): IrExpression =
-            if (!expression.type.containsNull()) {
+            if (!expression.type.isNullable()) {
                 expression
             } else {
                 irBlock(resultType = expression.type) {
@@ -1095,10 +1094,10 @@ private class InteropTransformer(val context: Context, override val irFile: IrFi
                     }
 
                     val receiverClass = symbols.integerClasses.single {
-                        receiver.type.isSubtypeOf(it.owner.defaultType)
+                        receiver.type.isSubtypeOf(it.owner.defaultType, context.typeSystem)
                     }
                     val targetClass = symbols.integerClasses.single {
-                        typeOperand.isSubtypeOf(it.owner.defaultType)
+                        typeOperand.isSubtypeOf(it.owner.defaultType, context.typeSystem)
                     }
 
                     val conversionSymbol = receiverClass.functions.single {

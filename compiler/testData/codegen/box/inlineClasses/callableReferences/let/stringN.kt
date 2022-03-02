@@ -1,4 +1,9 @@
-inline class Value(val value: String?)
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Value(val value: String?)
 
 object Foo {
     fun foo(value: Value) {

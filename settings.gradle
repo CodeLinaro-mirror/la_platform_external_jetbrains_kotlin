@@ -28,7 +28,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
     }
 }
 
@@ -66,7 +66,29 @@ gradleEnterprise {
     }
 }
 
-BuildCacheKt.setupBuildCache(settings)
+buildCache {
+    local {
+        enabled = buildProperties.localBuildCacheEnabled
+        if (buildProperties.localBuildCacheDirectory != null) {
+            directory = buildProperties.localBuildCacheDirectory
+        }
+    }
+
+    if (buildProperties.buildCacheUrl != null) {
+        remote(HttpBuildCache) {
+            url = buildProperties.buildCacheUrl
+            push = buildProperties.pushToBuildCache
+            if (buildProperties.buildCacheUser != null && buildProperties.buildCachePassword != null) {
+                credentials.username = buildProperties.buildCacheUser
+                credentials.password = buildProperties.buildCachePassword
+            }
+
+            // ADM-44444
+            allowUntrustedServer = true
+            allowInsecureProtocol = true
+        }
+    }
+}
 
 // modules
 include ":benchmarks",
@@ -97,8 +119,10 @@ include ":benchmarks",
         ":compiler:visualizer:render-psi",
         ":compiler:frontend",
         ":compiler:frontend.common",
+        ":compiler:frontend.common-psi",
         ":compiler:frontend.java",
         ":compiler:frontend:cfg",
+        ":kotlin-compiler-runner-unshaded",
         ":kotlin-compiler-runner",
         ":compiler:cli-common",
         ":compiler:ir.tree",
@@ -116,6 +140,7 @@ include ":benchmarks",
         ":compiler:backend.wasm",
         ":compiler:backend.jvm",
         ":compiler:backend.jvm.lower",
+        ":compiler:backend.jvm.codegen",
         ":compiler:backend.jvm.entrypoint",
         ":compiler:backend-common",
         ":compiler:backend",
@@ -163,6 +188,7 @@ include ":benchmarks",
         ":compiler:compiler.version",
         ":dependencies:android-sdk",
         ":dependencies:tools-jar-api",
+        ":dependencies:intellij-core",
         ":plugins:android-extensions-compiler",
         ":kotlin-android-extensions",
         ":kotlin-android-extensions-runtime",
@@ -171,8 +197,9 @@ include ":benchmarks",
         ":kotlin-sam-with-receiver-compiler-plugin",
         ":kotlin-imports-dumper-compiler-plugin",
         ":kotlin-script-runtime",
-        ":plugins:fir:fir-plugin-prototype",
-        ":plugins:fir:fir-plugin-prototype:plugin-annotations",
+        ":plugins:fir-plugin-prototype",
+        ":plugins:fir-plugin-prototype:plugin-annotations",
+        ":plugins:fir-plugin-prototype:fir-plugin-ic-test",
         ":kotlin-test:kotlin-test-common",
         ":kotlin-test:kotlin-test-annotations-common",
         ":kotlin-test:kotlin-test-jvm",
@@ -210,6 +237,8 @@ include ":benchmarks",
         ":kotlin-gradle-plugin-test-utils-embeddable",
         ":kotlin-gradle-plugin-integration-tests",
         ":gradle:android-test-fixes",
+        ":gradle:regression-benchmark-templates",
+        ":gradle:regression-benchmarks",
         ":kotlin-tooling-metadata",
         ":kotlin-allopen",
         ":kotlin-noarg",
@@ -236,6 +265,7 @@ include ":benchmarks",
         ":kotlin-scripting-jvm-host",
         ":kotlin-scripting-intellij",
         ":kotlin-scripting-compiler",
+        ":kotlin-scripting-compiler-js",
         ":kotlin-scripting-compiler-embeddable",
         ":kotlin-scripting-compiler-impl",
         ":kotlin-scripting-compiler-impl-embeddable",
@@ -264,6 +294,9 @@ include ":benchmarks",
         ":kotlin-serialization-unshaded",
         ":wasm:wasm.ir"
 
+include ":kotlinx-atomicfu-compiler-plugin",
+        ":kotlinx-atomicfu-runtime",
+        ":atomicfu"
 
 include ":compiler:fir",
         ":compiler:fir:cones",
@@ -274,13 +307,14 @@ include ":compiler:fir",
         ":compiler:fir:raw-fir:light-tree2fir",
         ":compiler:fir:fir2ir",
         ":compiler:fir:fir2ir:jvm-backend",
+        ":compiler:fir:providers",
+        ":compiler:fir:semantics",
         ":compiler:fir:resolve",
         ":compiler:fir:fir-serialization",
         ":compiler:fir:fir-deserialization",
         ":compiler:fir:java",
         ":compiler:fir:modularized-tests",
         ":compiler:fir:dump",
-        ":compiler:fir:jvm",
         ":compiler:fir:checkers",
         ":compiler:fir:checkers:checkers.jvm",
         ":compiler:fir:checkers:checkers-component-generator",
@@ -327,10 +361,19 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:kotlin-compiler-tests-for-ide",
             ":prepare:ide-plugin-dependencies:low-level-api-fir-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-for-ide",
+            ":prepare:ide-plugin-dependencies:high-level-api-impl-base-for-ide",
+            ":prepare:ide-plugin-dependencies:high-level-api-impl-base-tests-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-fir-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-fir-tests-for-ide",
+            ":prepare:ide-plugin-dependencies:high-level-api-fe10-for-ide",
+            ":prepare:ide-plugin-dependencies:high-level-api-fe10-tests-for-ide",
             ":prepare:ide-plugin-dependencies:analysis-api-providers-for-ide",
-            ":prepare:ide-plugin-dependencies:symbol-light-classes-for-ide"
+            ":prepare:ide-plugin-dependencies:analysis-project-structure-for-ide",
+            ":prepare:ide-plugin-dependencies:symbol-light-classes-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-compiler-ir-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-compiler-common-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-compiler-fe10-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-compiler-fir-for-ide"
 }
 
 void intellij(String imlPath) {
@@ -371,6 +414,7 @@ if (attachedIntellijVersion == "212") { // Latest available platform in scope of
     intellij "j2k/new/tests/kotlin.j2k.new.tests.iml"
     intellij "j2k/new/kotlin.j2k.new.iml"
     intellij "fir-low-level-api-ide-impl/kotlin.fir.fir-low-level-api-ide-impl.iml"
+    intellij "fir-analysis-project-structure-ide-impl/kotlin.fir.analysis-project-structure-ide-impl.iml"
     intellij "analysis-api-providers-ide-impl/kotlin.fir.analysis-api-providers-ide-impl.iml"
     intellij "native/kotlin.native.iml"
     intellij "performance-tests/kotlin.performance-tests.iml"
@@ -440,13 +484,18 @@ if (attachedIntellijVersion == "212") { // Latest available platform in scope of
     intellij "jvm-run-configurations/kotlin.jvm-run-configurations.iml"
 }
 
-include ":generators:frontend-api-generator",
-        ":idea-frontend-fir:idea-fir-low-level-api",
-        ":idea-frontend-fir:idea-frontend-fir-generator",
-        ":idea-frontend-fir",
-        ":idea-frontend-api",
+include ":generators:analysis-api-generator",
+        ":analysis:low-level-api-fir",
+        ":analysis:analysis-api-fir:analysis-api-fir-generator",
+        ":analysis:analysis-api-fir",
+        ":analysis:analysis-api",
+        ":analysis:analysis-api-impl-barebone",
+        ":analysis:analysis-api-impl-base",
         ":analysis:analysis-api-providers",
-        ":analysis:symbol-light-classes"
+        ":analysis:analysis-internal-utils",
+        ":analysis:symbol-light-classes",
+        ":analysis:project-structure",
+        ":analysis:analysis-api-fe10"
 
 
 if (buildProperties.inJpsBuildIdeaSync) {
@@ -472,7 +521,10 @@ if (buildProperties.inJpsBuildIdeaSync) {
             ":kotlin-test",
             ":kotlin-test:kotlin-test-js",
             ":kotlin-test:kotlin-test-js-ir",
-            ":kotlin-test:kotlin-test-js:kotlin-test-js-it"
+            ":kotlin-test:kotlin-test-js:kotlin-test-js-it",
+            ":kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it",
+            ":kotlin-test:kotlin-test-wasm",
+            ":native:native.tests"
 
     project(':kotlin-stdlib-common').projectDir = "$rootDir/libraries/stdlib/common" as File
     project(':kotlin-stdlib').projectDir = "$rootDir/libraries/stdlib/jvm" as File
@@ -492,6 +544,9 @@ if (buildProperties.inJpsBuildIdeaSync) {
     project(':kotlin-test:kotlin-test-js').projectDir = "$rootDir/libraries/kotlin.test/js" as File
     project(':kotlin-test:kotlin-test-js-ir').projectDir = "$rootDir/libraries/kotlin.test/js-ir" as File
     project(':kotlin-test:kotlin-test-js:kotlin-test-js-it').projectDir = "$rootDir/libraries/kotlin.test/js/it" as File
+    project(':kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it').projectDir = "$rootDir/libraries/kotlin.test/js-ir/it" as File
+    project(':kotlin-test:kotlin-test-wasm').projectDir = "$rootDir/libraries/kotlin.test/wasm" as File
+    project(':native:native.tests').projectDir = "$rootDir/native/native.tests" as File
 }
 include ":compiler:android-tests"
 
@@ -524,6 +579,7 @@ project(':daemon-common-new').projectDir = "$rootDir/compiler/daemon/daemon-comm
 project(':kotlin-daemon-client').projectDir = "$rootDir/compiler/daemon/daemon-client" as File
 project(':kotlin-daemon-client-new').projectDir = "$rootDir/compiler/daemon/daemon-client-new" as File
 project(':kotlin-daemon-tests').projectDir = "$rootDir/compiler/daemon/daemon-tests" as File
+project(':kotlin-compiler-runner-unshaded').projectDir = "$rootDir/compiler/compiler-runner-unshaded" as File
 project(':kotlin-compiler-runner').projectDir = "$rootDir/compiler/compiler-runner" as File
 project(':kotlin-ant').projectDir = "$rootDir/ant" as File
 project(':compiler:ir.tree').projectDir = "$rootDir/compiler/ir/ir.tree" as File
@@ -537,6 +593,7 @@ project(':compiler:backend.js').projectDir = "$rootDir/compiler/ir/backend.js" a
 project(':compiler:backend.wasm').projectDir = "$rootDir/compiler/ir/backend.wasm" as File
 project(':compiler:backend.jvm').projectDir = "$rootDir/compiler/ir/backend.jvm" as File
 project(':compiler:backend.jvm.lower').projectDir = "$rootDir/compiler/ir/backend.jvm/lower" as File
+project(':compiler:backend.jvm.codegen').projectDir = "$rootDir/compiler/ir/backend.jvm/codegen" as File
 project(':compiler:backend.jvm.entrypoint').projectDir = "$rootDir/compiler/ir/backend.jvm/entrypoint" as File
 project(':compiler:ir.serialization.common').projectDir = "$rootDir/compiler/ir/serialization.common" as File
 project(':compiler:ir.serialization.jvm').projectDir = "$rootDir/compiler/ir/serialization.jvm" as File
@@ -569,6 +626,8 @@ project(':kotlin-gradle-plugin-model').projectDir = "$rootDir/libraries/tools/ko
 project(':kotlin-gradle-plugin-test-utils-embeddable').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-test-utils-embeddable" as File
 project(':kotlin-gradle-plugin-integration-tests').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-integration-tests" as File
 project(':gradle:android-test-fixes').projectDir = "$rootDir/libraries/tools/gradle/android-test-fixes" as File
+project(":gradle:regression-benchmark-templates").projectDir = "$rootDir/libraries/tools/gradle/regression-benchmark-templates" as File
+project(":gradle:regression-benchmarks").projectDir = "$rootDir/libraries/tools/gradle/regression-benchmarks" as File
 project(':kotlin-tooling-metadata').projectDir = "$rootDir/libraries/tools/kotlin-tooling-metadata" as File
 project(':kotlin-allopen').projectDir = "$rootDir/libraries/tools/kotlin-allopen" as File
 project(':kotlin-noarg').projectDir = "$rootDir/libraries/tools/kotlin-noarg" as File
@@ -602,6 +661,7 @@ project(':kotlin-scripting-jsr223-test').projectDir = "$rootDir/libraries/script
 project(':kotlin-scripting-jsr223').projectDir = "$rootDir/libraries/scripting/jsr223-embeddable" as File
 project(':kotlin-scripting-intellij').projectDir = "$rootDir/libraries/scripting/intellij" as File
 project(':kotlin-scripting-compiler').projectDir = "$rootDir/plugins/scripting/scripting-compiler" as File
+project(':kotlin-scripting-compiler-js').projectDir = "$rootDir/plugins/scripting/scripting-compiler-js" as File
 project(':kotlin-scripting-compiler-embeddable').projectDir = "$rootDir/plugins/scripting/scripting-compiler-embeddable" as File
 project(':kotlin-scripting-compiler-impl').projectDir = "$rootDir/plugins/scripting/scripting-compiler-impl" as File
 project(':kotlin-scripting-compiler-impl-embeddable').projectDir = "$rootDir/plugins/scripting/scripting-compiler-impl-embeddable" as File
@@ -627,10 +687,9 @@ project(':kotlinx-serialization-compiler-plugin').projectDir = file("$rootDir/pl
 project(':kotlin-serialization').projectDir = file("$rootDir/libraries/tools/kotlin-serialization")
 project(':kotlin-serialization-unshaded').projectDir = file("$rootDir/libraries/tools/kotlin-serialization-unshaded")
 
-project(":idea-frontend-fir:idea-fir-low-level-api").projectDir = "$rootDir/idea/idea-frontend-fir/idea-fir-low-level-api" as File
-project(":idea-frontend-fir:idea-frontend-fir-generator").projectDir = "$rootDir/idea/idea-frontend-fir/idea-frontend-fir-generator" as File
-project(":idea-frontend-fir").projectDir = "$rootDir/idea/idea-frontend-fir" as File
-project(":idea-frontend-api").projectDir = "$rootDir/idea/idea-frontend-api" as File
+project(':kotlinx-atomicfu-compiler-plugin').projectDir = file("$rootDir/plugins/atomicfu/atomicfu-compiler")
+project(':kotlinx-atomicfu-runtime').projectDir = file("$rootDir/plugins/atomicfu/atomicfu-runtime")
+project(':atomicfu').projectDir = file("$rootDir/libraries/tools/atomicfu")
 
 project(':kotlin-scripting-ide-services-unshaded').projectDir = "$rootDir/plugins/scripting/scripting-ide-services" as File
 project(':kotlin-scripting-ide-services-test').projectDir = "$rootDir/plugins/scripting/scripting-ide-services-test" as File

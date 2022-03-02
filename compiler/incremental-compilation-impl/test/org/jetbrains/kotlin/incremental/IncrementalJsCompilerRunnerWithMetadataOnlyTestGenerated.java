@@ -616,6 +616,11 @@ public class IncrementalJsCompilerRunnerWithMetadataOnlyTestGenerated extends Ab
             runTest("jps-plugin/testData/incremental/pureKotlin/secondaryConstructorInlined/");
         }
 
+        @TestMetadata("serializedSubClassAndChangedInterfaces")
+        public void testSerializedSubClassAndChangedInterfaces() throws Exception {
+            runTest("jps-plugin/testData/incremental/pureKotlin/serializedSubClassAndChangedInterfaces/");
+        }
+
         @TestMetadata("simpleClassDependency")
         public void testSimpleClassDependency() throws Exception {
             runTest("jps-plugin/testData/incremental/pureKotlin/simpleClassDependency/");
@@ -877,6 +882,11 @@ public class IncrementalJsCompilerRunnerWithMetadataOnlyTestGenerated extends Ab
         @TestMetadata("varianceChanged")
         public void testVarianceChanged() throws Exception {
             runTest("jps-plugin/testData/incremental/classHierarchyAffected/varianceChanged/");
+        }
+
+        @TestMetadata("withIntermediateBodiesChanged")
+        public void testWithIntermediateBodiesChanged() throws Exception {
+            runTest("jps-plugin/testData/incremental/classHierarchyAffected/withIntermediateBodiesChanged/");
         }
     }
 

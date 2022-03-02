@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.platform.CommonPlatforms
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
 import org.jetbrains.kotlin.test.Assertions
 import org.jetbrains.kotlin.test.TargetBackend
@@ -44,14 +45,14 @@ class ModuleStructureExtractorImpl(
     private val environmentConfigurators: List<EnvironmentConfigurator>
 ) : ModuleStructureExtractor(testServices, additionalSourceProviders, moduleStructureTransformers) {
     companion object {
-        private val allowedExtensionsForFiles = listOf(".kt", ".kts", ".java")
+        private val allowedExtensionsForFiles = listOf(".kt", ".kts", ".java", ".js", ".mjs")
 
         /*
-         * ([\w-]+) module name
+         * ([^()\n]+) module name
          * \((.*?)\) module dependencies
          * (\((.*?)\)(\((.*?)\))?)? module friendDependencies and dependsOnDependencies
          */
-        private val moduleDirectiveRegex = """([\w-]+)(\((.*?)\)(\((.*?)\)(\((.*?)\))?)?)?""".toRegex()
+        private val moduleDirectiveRegex = """([^()\n]+)(\((.*?)\)(\((.*?)\)(\((.*?)\))?)?)?""".toRegex()
     }
 
     override fun splitTestDataByModules(
@@ -85,9 +86,6 @@ class ModuleStructureExtractorImpl(
 
         private val defaultFileName: String
             get() = currentTestDataFile.name
-
-        private val defaultModuleName: String
-            get() = "main"
 
         private var currentModuleName: String? = null
         private var currentModuleTargetPlatform: TargetPlatform? = null
@@ -236,6 +234,24 @@ class ModuleStructureExtractorImpl(
                         }
                     }
                 }
+                ModuleStructureDirectives.JVM_TARGET -> {
+                    if (!defaultsProvider.defaultPlatform.isJvm()) return false
+                    if (currentModuleTargetPlatform != null) {
+                        assertions.fail { "Target platform already specified twice for module $currentModuleName" }
+                    }
+                    currentModuleTargetPlatform = if (values.size != 1) {
+                        assertions.fail { "JVM target should be single" }
+                    } else {
+                        when (values.single()) {
+                            "1.6" -> JvmPlatforms.jvm6
+                            "1.8" -> JvmPlatforms.jvm8
+                            "11" -> JvmPlatforms.jvm11
+                            "17" -> JvmPlatforms.jvm17
+                            else -> assertions.fail { "Incorrect value for JVM target" }
+                        }
+                    }
+                    return false // Workaround for FE and FIR
+                }
                 else -> return false
             }
 
@@ -300,7 +316,7 @@ class ModuleStructureExtractorImpl(
 
             val targetBackend = currentModuleTargetBackend ?: defaultsProvider.defaultTargetBackend
             currentModuleLanguageVersionSettingsBuilder.configureUsingDirectives(moduleDirectives, environmentConfigurators, targetBackend)
-            val moduleName = currentModuleName ?: defaultModuleName
+            val moduleName = currentModuleName ?: DEFAULT_MODULE_NAME
             val targetPlatform = currentModuleTargetPlatform ?: parseModulePlatformByName(moduleName) ?: defaultsProvider.defaultPlatform
             val testModule = TestModule(
                 name = moduleName,

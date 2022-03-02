@@ -21,15 +21,15 @@ FILE: annotated.kt
         ^foo IntegerLiteral(42)
     }
     public? final? data class Two : R|kotlin/Any| {
-        public? [ContainingClassKey=Two] constructor(x: Int, y: Int): R|Two| {
+        public? [ContainingClassKey=Two] constructor([CorrespondingProperty=/Two.x] x: Int, [CorrespondingProperty=/Two.y] y: Int): R|Two| {
             super<R|kotlin/Any|>()
         }
 
         public? final? [IsFromPrimaryConstructor=true] val x: Int = R|<local>/x|
-            public? get(): Int
+            [ContainingClassKey=Two] public? get(): Int
 
         public? final? [IsFromPrimaryConstructor=true] val y: Int = R|<local>/y|
-            public? get(): Int
+            [ContainingClassKey=Two] public? get(): Int
 
         public final operator fun component1(): Int
 

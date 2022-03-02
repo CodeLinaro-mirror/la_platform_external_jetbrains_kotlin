@@ -9,9 +9,13 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.expressions.builder.buildResolvedQualifier
-import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.calls.*
+import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
+import org.jetbrains.kotlin.fir.resolve.typeForQualifier
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultStarImportingScope
 import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectData
@@ -52,7 +56,8 @@ abstract class TowerScopeLevel {
             dispatchReceiverValue: ReceiverValue?,
             extensionReceiverValue: ReceiverValue?,
             scope: FirScope,
-            builtInExtensionFunctionReceiverValue: ReceiverValue? = null
+            builtInExtensionFunctionReceiverValue: ReceiverValue? = null,
+            objectsByName: Boolean = false
         )
     }
 }
@@ -222,7 +227,7 @@ class ScopeTowerLevel(
     private fun dispatchReceiverValue(candidate: FirCallableSymbol<*>): ReceiverValue? {
         candidate.fir.importedFromObjectData?.let { data ->
             val objectClassId = data.objectClassId
-            val symbol = session.symbolProvider.getClassLikeSymbolByFqName(objectClassId)
+            val symbol = session.symbolProvider.getClassLikeSymbolByClassId(objectClassId)
             if (symbol is FirRegularClassSymbol) {
                 val resolvedQualifier = buildResolvedQualifier {
                     packageFqName = objectClassId.packageFqName
@@ -235,9 +240,12 @@ class ScopeTowerLevel(
             }
         }
 
-        val lookupTag = candidate.dispatchReceiverClassOrNull()
+        if (candidate !is FirBackingFieldSymbol) {
+            return null
+        }
+
+        val lookupTag = candidate.fir.propertySymbol.dispatchReceiverClassOrNull()
         return when {
-            candidate !is FirBackingFieldSymbol -> null
             lookupTag != null -> {
                 bodyResolveComponents.implicitReceiverStack.lastDispatchReceiver { implicitReceiverValue ->
                     (implicitReceiverValue.type as? ConeClassLikeType)?.fullyExpandedType(session)?.lookupTag == lookupTag
@@ -335,7 +343,8 @@ class ScopeTowerLevel(
             processor.consumeCandidate(
                 it, dispatchReceiverValue = null,
                 extensionReceiverValue = null,
-                scope = scope
+                scope = scope,
+                objectsByName = true
             )
         }
         return if (empty) ProcessResult.SCOPE_EMPTY else ProcessResult.FOUND

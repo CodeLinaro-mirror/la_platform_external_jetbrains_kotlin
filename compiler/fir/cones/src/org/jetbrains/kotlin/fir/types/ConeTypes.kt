@@ -32,6 +32,20 @@ object ConeStarProjection : ConeTypeProjection() {
 
 sealed class ConeKotlinTypeProjection : ConeTypeProjection() {
     abstract val type: ConeKotlinType
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ConeKotlinTypeProjection) return false
+
+        if (kind != other.kind) return false
+        if (type != other.type) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return type.hashCode() * 31 + kind.hashCode()
+    }
 }
 
 data class ConeKotlinTypeProjectionIn(override val type: ConeKotlinType) : ConeKotlinTypeProjection() {
@@ -77,6 +91,7 @@ sealed class ConeKotlinType : ConeKotlinTypeProjection(), KotlinTypeMarker, Type
     final override fun toString(): String {
         return render()
     }
+
     abstract override fun equals(other: Any?): Boolean
     abstract override fun hashCode(): Int
 }
@@ -113,15 +128,9 @@ abstract class ConeClassLikeType : ConeLookupTagBasedType() {
 }
 
 open class ConeFlexibleType(
-    val lowerBound: ConeKotlinType,
-    val upperBound: ConeKotlinType
+    val lowerBound: ConeSimpleKotlinType,
+    val upperBound: ConeSimpleKotlinType
 ) : ConeKotlinType(), FlexibleTypeMarker {
-
-    init {
-        val message = { "Bounds violation: $lowerBound, $upperBound" }
-        require(lowerBound is SimpleTypeMarker, message)
-        require(upperBound is SimpleTypeMarker, message)
-    }
 
     override val typeArguments: Array<out ConeTypeProjection>
         get() = lowerBound.typeArguments
@@ -152,8 +161,19 @@ open class ConeFlexibleType(
 
 }
 
-fun ConeKotlinType.upperBoundIfFlexible() = (this as? ConeFlexibleType)?.upperBound ?: this
-fun ConeKotlinType.lowerBoundIfFlexible() = (this as? ConeFlexibleType)?.lowerBound ?: this
+fun ConeKotlinType.upperBoundIfFlexible(): ConeSimpleKotlinType {
+    return when (this) {
+        is ConeSimpleKotlinType -> this
+        is ConeFlexibleType -> upperBound
+    }
+}
+
+fun ConeKotlinType.lowerBoundIfFlexible(): ConeSimpleKotlinType {
+    return when (this) {
+        is ConeSimpleKotlinType -> this
+        is ConeFlexibleType -> lowerBound
+    }
+}
 
 class ConeCapturedTypeConstructor(
     val projection: ConeTypeProjection,
@@ -210,12 +230,30 @@ data class ConeCapturedType(
     }
 }
 
-data class ConeTypeVariableType(
+class ConeTypeVariableType(
     override val nullability: ConeNullability,
-    override val lookupTag: ConeClassifierLookupTag,
+    override val lookupTag: ConeTypeVariableTypeConstructor,
     override val attributes: ConeAttributes = ConeAttributes.Empty,
 ) : ConeLookupTagBasedType() {
     override val typeArguments: Array<out ConeTypeProjection> get() = emptyArray()
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ConeTypeVariableType) return false
+
+        if (nullability != other.nullability) return false
+        if (lookupTag != other.lookupTag) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = 0
+        result = 31 * result + nullability.hashCode()
+        result = 31 * result + lookupTag.hashCode()
+        return result
+    }
+
+
 }
 
 data class ConeDefinitelyNotNullType(val original: ConeKotlinType) : ConeSimpleKotlinType(), DefinitelyNotNullTypeMarker {
@@ -231,7 +269,10 @@ data class ConeDefinitelyNotNullType(val original: ConeKotlinType) : ConeSimpleK
     companion object
 }
 
-class ConeRawType(lowerBound: ConeKotlinType, upperBound: ConeKotlinType) : ConeFlexibleType(lowerBound, upperBound), RawTypeMarker
+class ConeRawType(
+    lowerBound: ConeSimpleKotlinType,
+    upperBound: ConeSimpleKotlinType
+) : ConeFlexibleType(lowerBound, upperBound), RawTypeMarker
 
 /*
  * Contract of the intersection type: it is flat. It means that
@@ -281,7 +322,15 @@ fun ConeIntersectionType.mapTypes(func: (ConeKotlinType) -> ConeKotlinType): Con
     return ConeIntersectionType(intersectedTypes.map(func), alternativeType?.let(func))
 }
 
-class ConeStubType(val variable: ConeTypeVariable, override val nullability: ConeNullability) : StubTypeMarker, ConeSimpleKotlinType() {
+data class ConeStubTypeConstructor(
+    val variable: ConeTypeVariable,
+    val isTypeVariableInSubtyping: Boolean,
+    val isForFixation: Boolean = false,
+) : TypeConstructorMarker
+
+sealed class ConeStubType(val constructor: ConeStubTypeConstructor, override val nullability: ConeNullability) : StubTypeMarker,
+    ConeSimpleKotlinType() {
+
     override val typeArguments: Array<out ConeTypeProjection>
         get() = emptyArray()
 
@@ -294,7 +343,7 @@ class ConeStubType(val variable: ConeTypeVariable, override val nullability: Con
 
         other as ConeStubType
 
-        if (variable != other.variable) return false
+        if (constructor != other.constructor) return false
         if (nullability != other.nullability) return false
 
         return true
@@ -302,10 +351,39 @@ class ConeStubType(val variable: ConeTypeVariable, override val nullability: Con
 
     override fun hashCode(): Int {
         var result = 0
-        result = 31 * result + variable.hashCode()
+        result = 31 * result + constructor.hashCode()
         result = 31 * result + nullability.hashCode()
         return result
     }
+}
+
+open class ConeStubTypeForChainInference(
+    constructor: ConeStubTypeConstructor,
+    nullability: ConeNullability
+) : ConeStubType(constructor, nullability) {
+    constructor(variable: ConeTypeVariable, nullability: ConeNullability) : this(
+        ConeStubTypeConstructor(
+            variable,
+            isTypeVariableInSubtyping = false
+        ), nullability
+    )
+}
+
+class ConeStubTypeForSyntheticFixation(
+    constructor: ConeStubTypeConstructor,
+    nullability: ConeNullability
+) : ConeStubTypeForChainInference(constructor, nullability)
+
+class ConeStubTypeForTypeVariableInSubtyping(
+    constructor: ConeStubTypeConstructor,
+    nullability: ConeNullability
+) : ConeStubType(constructor, nullability) {
+    constructor(variable: ConeTypeVariable, nullability: ConeNullability) : this(
+        ConeStubTypeConstructor(
+            variable,
+            isTypeVariableInSubtyping = true
+        ), nullability
+    )
 }
 
 open class ConeTypeVariable(name: String, originalTypeParameter: TypeParameterMarker? = null) : TypeVariableMarker {

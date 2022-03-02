@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.wasm.ir.*
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 
-class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
+class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule, val moduleName: String, val emitNameSection: Boolean) {
     var b: ByteWriter = ByteWriter.OutputStream(outputStream)
 
     fun appendWasmModule() {
@@ -41,6 +41,7 @@ class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
                         is WasmMemory -> appendMemory(it)
                         is WasmTable -> appendTable(it)
                         is WasmGlobal -> appendGlobal(it)
+                        is WasmTag -> appendTag(it)
                         else -> error("Unknown import kind ${it::class}")
                     }
                 }
@@ -64,7 +65,11 @@ class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
                 memories.forEach { appendMemory(it) }
             }
 
-            // Good
+            // tag section
+            appendSection(13u) {
+                appendVectorSize(tags.size)
+                tags.forEach { appendTag(it) }
+            }
 
             appendSection(6u) {
                 appendVectorSize(globals.size)
@@ -104,6 +109,73 @@ class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
                 appendVectorSize(data.size)
                 data.forEach { appendData(it) }
             }
+
+            //text section (should be placed after data)
+            if (emitNameSection) {
+                appendTextSection(definedFunctions)
+            }
+        }
+    }
+
+    private fun appendTextSection(definedFunctions: List<WasmFunction.Defined>) {
+        appendSection(0u) {
+            b.writeString("name")
+            appendSection(0u) {
+                b.writeString(moduleName)
+            }
+            appendSection(1u) {
+                appendVectorSize(definedFunctions.size)
+                definedFunctions.forEach {
+                    appendModuleFieldReference(it)
+                    b.writeString(it.name)
+                }
+            }
+            appendSection(2u) {
+                appendVectorSize(definedFunctions.size)
+                definedFunctions.forEach {
+                    appendModuleFieldReference(it)
+                    appendVectorSize(it.locals.size)
+                    it.locals.forEach { local ->
+                        b.writeVarUInt32(local.id)
+                        b.writeString(local.name)
+                    }
+                }
+            }
+
+            // Extended Name Section
+            // https://github.com/WebAssembly/extended-name-section/blob/main/document/core/appendix/custom.rst
+
+            appendSection(4u) {
+                appendVectorSize(module.gcTypes.size)
+                module.gcTypes.forEach {
+                    appendModuleFieldReference(it)
+                    b.writeString(it.name)
+                }
+            }
+
+            appendSection(7u) {
+                appendVectorSize(module.globals.size)
+                module.globals.forEach { global ->
+                    appendModuleFieldReference(global)
+                    b.writeString(global.name)
+                }
+            }
+
+            // Experimental fields name section
+            // https://github.com/WebAssembly/gc/issues/193
+            appendSection(10u) {
+                appendVectorSize(module.gcTypes.size)
+                module.gcTypes.forEach {
+                    if (it is WasmStructDeclaration) {
+                        appendModuleFieldReference(it)
+                        appendVectorSize(it.fields.size)
+                        it.fields.forEachIndexed { index, field ->
+                            b.writeVarUInt32(index)
+                            b.writeString(field.name)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -141,6 +213,7 @@ class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
             is WasmImmediate.DataIdx -> b.writeVarUInt32(x.value)
             is WasmImmediate.TableIdx -> b.writeVarUInt32(x.value.owner)
             is WasmImmediate.LabelIdx -> b.writeVarUInt32(x.value)
+            is WasmImmediate.TagIdx -> b.writeVarUInt32(x.value)
             is WasmImmediate.LabelIdxVector -> {
                 b.writeVarUInt32(x.value.size)
                 for (target in x.value) {
@@ -269,6 +342,18 @@ class WasmIrToBinary(outputStream: OutputStream, val module: WasmModule) {
         appendType(c.type)
         b.writeVarUInt1(c.isMutable)
         appendExpr(c.init)
+    }
+
+    private fun appendTag(t: WasmTag) {
+        if (t.importPair != null) {
+            b.writeString(t.importPair.moduleName)
+            b.writeString(t.importPair.declarationName)
+            b.writeByte(4)
+            return
+        }
+        b.writeByte(0) // attribute
+        assert(t.type.id != null) { "Unlinked tag id" }
+        b.writeVarUInt32(t.type.id!!)
     }
 
     private fun appendExpr(expr: Iterable<WasmInstr>) {

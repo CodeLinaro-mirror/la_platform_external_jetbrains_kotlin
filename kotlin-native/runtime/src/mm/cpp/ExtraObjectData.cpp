@@ -8,6 +8,7 @@
 #include "ObjectOps.hpp"
 #include "PointerBits.h"
 #include "Weak.h"
+#include "ExtraObjectDataFactory.hpp"
 
 #ifdef KONAN_OBJC_INTEROP
 #include "ObjCMMAPI.h"
@@ -42,27 +43,28 @@ mm::ExtraObjectData& mm::ExtraObjectData::Install(ObjHeader* object) noexcept {
 
     RuntimeCheck(!hasPointerBits(typeInfo, OBJECT_TAG_MASK), "Object must not be tagged");
 
-    auto* data = new ExtraObjectData(typeInfo);
+    auto *threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
+    auto& data = mm::ExtraObjectDataFactory::Instance().CreateExtraObjectDataForObject(threadData, object, typeInfo);
 
-    TypeInfo* old = __sync_val_compare_and_swap(&object->typeInfoOrMeta_, typeInfo, reinterpret_cast<TypeInfo*>(data));
+    TypeInfo* old = __sync_val_compare_and_swap(&object->typeInfoOrMeta_, typeInfo, reinterpret_cast<TypeInfo*>(&data));
     if (old != typeInfo) {
         // Somebody else created `mm::ExtraObjectData` for this object
-        delete data;
+        mm::ExtraObjectDataFactory::Instance().DestroyExtraObjectData(threadData, data);
         return *reinterpret_cast<mm::ExtraObjectData*>(old);
     }
 
-    return *data;
+    return data;
 }
 
-// static
-void mm::ExtraObjectData::Uninstall(ObjHeader* object) noexcept {
-    RuntimeAssert(object->has_meta_object(), "Object must have a meta object set");
+void mm::ExtraObjectData::Uninstall() noexcept {
+    auto *object = GetBaseObject();
+    *const_cast<const TypeInfo**>(&object->typeInfoOrMeta_) = typeInfo_;
+    RuntimeAssert(!object->has_meta_object(), "Object has metaobject after removing metaobject");
 
-    auto& data = ExtraObjectData::FromMetaObjHeader(object->meta_object());
-
-    *const_cast<const TypeInfo**>(&object->typeInfoOrMeta_) = data.typeInfo_;
-
-    delete &data;
+#ifdef KONAN_OBJC_INTEROP
+    Kotlin_ObjCExport_releaseAssociatedObject(associatedObject_);
+    associatedObject_ = nullptr;
+#endif
 }
 
 void mm::ExtraObjectData::DetachAssociatedObject() noexcept {
@@ -71,24 +73,30 @@ void mm::ExtraObjectData::DetachAssociatedObject() noexcept {
 #endif
 }
 
-bool mm::ExtraObjectData::HasWeakReferenceCounter() noexcept {
-    return weakReferenceCounter_ != nullptr;
+bool mm::ExtraObjectData::HasAssociatedObject() noexcept {
+#ifdef KONAN_OBJC_INTEROP
+    return associatedObject_ != nullptr;
+#else
+    return false;
+#endif
 }
+
 
 void mm::ExtraObjectData::ClearWeakReferenceCounter() noexcept {
     if (!HasWeakReferenceCounter()) return;
 
-    WeakReferenceCounterClear(weakReferenceCounter_);
+    auto *object = GetBaseObject();
+    WeakReferenceCounterClear(GetWeakReferenceCounter());
     // Not using `mm::SetHeapRef here`, because this code is called during sweep phase by the GC thread,
     // and so cannot affect marking.
     // TODO: Asserts on the above?
-    weakReferenceCounter_ = nullptr;
+    weakReferenceCounterOrBaseObject_ = object;
 }
 
 mm::ExtraObjectData::~ExtraObjectData() {
     RuntimeAssert(!HasWeakReferenceCounter(), "Object must have cleared weak references");
 
 #ifdef KONAN_OBJC_INTEROP
-    Kotlin_ObjCExport_releaseAssociatedObject(associatedObject_);
+    RuntimeAssert(associatedObject_ == nullptr, "Object must have cleared associated object");
 #endif
 }

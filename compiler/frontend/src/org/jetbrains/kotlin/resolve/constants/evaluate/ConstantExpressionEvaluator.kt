@@ -21,7 +21,10 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptorImpl
 import org.jetbrains.kotlin.diagnostics.DiagnosticFactory1
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.diagnostics.reportDiagnosticOnce
+import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.resolve.descriptorUtil.isCompanionObject
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.parsing.*
@@ -29,8 +32,8 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.BindingContext.COLLECTION_LITERAL_CALL
-import org.jetbrains.kotlin.resolve.calls.callResolverUtil.getEffectiveExpectedType
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getEffectiveExpectedType
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedValueArgument
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
@@ -48,14 +51,14 @@ import org.jetbrains.kotlin.types.isError
 import org.jetbrains.kotlin.types.typeUtil.isBoolean
 import org.jetbrains.kotlin.types.typeUtil.isSubtypeOf
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.math.BigInteger
 import java.util.*
 
 class ConstantExpressionEvaluator(
     internal val module: ModuleDescriptor,
     internal val languageVersionSettings: LanguageVersionSettings,
-    project: Project
+    project: Project,
+    internal val inlineConstTracker: InlineConstTracker = InlineConstTracker.DoNothing
 ) {
     private val moduleAnnotationsResolver = ModuleAnnotationsResolver.getInstance(project)
 
@@ -365,6 +368,17 @@ class ConstantExpressionEvaluator(
                 KotlinBuiltIns.isArray(type) -> isTypeParameterOrArrayOfTypeParameter(type.arguments.singleOrNull()?.type)
                 else -> type.constructor.declarationDescriptor is TypeParameterDescriptor
             }
+
+        fun isComplexBooleanConstant(
+            expression: KtExpression,
+            constant: CompileTimeConstant<*>
+        ): Boolean {
+            if (constant.isError) return false
+            val constantValue = constant.toConstantValue(constant.moduleDescriptor.builtIns.booleanType)
+            if (!constantValue.getType(constant.moduleDescriptor).isBoolean()) return false
+            if (expression is KtConstantExpression || constant.parameters.usesVariableAsConstant) return false
+            return true
+        }
     }
 }
 
@@ -382,6 +396,11 @@ private class ConstantExpressionEvaluatorVisitor(
     private val builtIns = constantExpressionEvaluator.module.builtIns
     private val defaultValueForDontCreateIntegerLiteralType =
         languageVersionSettings.supportsFeature(ApproximateIntegerLiteralTypesInReceiverPosition)
+    private val inlineConstTracker =
+        if (constantExpressionEvaluator.inlineConstTracker is InlineConstTracker.DoNothing)
+            null
+        else
+            constantExpressionEvaluator.inlineConstTracker
 
     fun evaluate(expression: KtExpression, expectedType: KotlinType?): CompileTimeConstant<*>? {
         val recordedCompileTimeConstant = ConstantExpressionEvaluator.getPossiblyErrorConstant(expression, trace.bindingContext)
@@ -400,24 +419,26 @@ private class ConstantExpressionEvaluatorVisitor(
         return null
     }
 
-    @Suppress("warnings")
     private fun shouldSkipComplexBooleanValue(
         expression: KtExpression,
         constant: CompileTimeConstant<*>
     ): Boolean {
-        if (constant.isError) return false
-        val constantValue = constant.toConstantValue(builtIns.booleanType)
-        if (!constantValue.getType(constantExpressionEvaluator.module).isBoolean()) return false
-        if (expression is KtConstantExpression || constant.parameters.usesVariableAsConstant) return false
+        if (!ConstantExpressionEvaluator.isComplexBooleanConstant(expression, constant)) {
+            return false
+        }
 
         if (languageVersionSettings.supportsFeature(LanguageFeature.ProhibitSimplificationOfNonTrivialConstBooleanExpressions)) {
             return true
         } else {
-            val parent = expression.parent
+            var parent = expression.parent
+            while (parent is KtParenthesizedExpression) {
+                parent = parent.parent
+            }
             if (
                 parent is KtWhenConditionWithExpression ||
                 parent is KtContainerNode && (parent.parent is KtWhileExpression || parent.parent is KtDoWhileExpression)
             ) {
+                val constantValue = constant.toConstantValue(builtIns.booleanType)
                 trace.report(Errors.NON_TRIVIAL_BOOLEAN_CONSTANT.on(expression, constantValue.value as Boolean))
             }
             return false
@@ -798,6 +819,14 @@ private class ConstantExpressionEvaluatorVisitor(
             return EnumValue(enumClassId, enumDescriptor.name).wrap()
         }
 
+        val variableDescriptor = enumDescriptor as? VariableDescriptor
+        if (variableDescriptor != null
+            && isPropertyCompileTimeConstant(variableDescriptor)
+            && !variableDescriptor.containingDeclaration.isCompanionObject()
+        ) {
+            reportInlineConst(expression, variableDescriptor)
+        }
+
         val resolvedCall = expression.getResolvedCall(trace.bindingContext)
         if (resolvedCall != null) {
             val callableDescriptor = resolvedCall.resultingDescriptor
@@ -825,6 +854,23 @@ private class ConstantExpressionEvaluatorVisitor(
             }
         }
         return null
+    }
+
+    private fun reportInlineConst(expression: KtSimpleNameExpression, variableDescriptor: VariableDescriptor) {
+        if (inlineConstTracker == null) return
+        val filePath = expression.containingFile.virtualFile?.path ?: return
+        val name = expression.getReferencedName()
+        val constType = variableDescriptor.type.toString()
+
+        // Transformation of fqName to the form "package.Outer$Inner"
+        val containingPackage = variableDescriptor.containingPackage()?.toString() ?: return
+        val fqName = variableDescriptor.containingDeclaration.fqNameSafe.asString()
+        val owner = if (fqName.startsWith("$containingPackage.")) {
+            containingPackage + "." + fqName.substring(containingPackage.length + 1).replace(".", "$")
+        } else {
+            fqName.replace(".", "$")
+        }
+        inlineConstTracker.report(filePath, owner, name, constType)
     }
 
     // TODO: Should be replaced with descriptor.isConst
@@ -1054,7 +1100,7 @@ private class ConstantExpressionEvaluatorVisitor(
         expectedType: KotlinType
     ): CompileTimeConstant<*> {
         if (parameters.isUnsignedNumberLiteral && !checkAccessibilityOfUnsignedTypes()) {
-            return UnsignedErrorValueTypeConstant(value, parameters)
+            return UnsignedErrorValueTypeConstant(value, constantExpressionEvaluator.module, parameters)
         }
 
         if (parameters.isUnsignedLongNumberLiteral) {

@@ -8,25 +8,23 @@ package org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.backend.common.BackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
-import org.jetbrains.kotlin.backend.common.deepCopyWithVariables
-import org.jetbrains.kotlin.backend.common.ir.copyTo
+import org.jetbrains.kotlin.backend.common.ir.addFakeOverrides
 import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
+import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.*
+import org.jetbrains.kotlin.ir.builders.declarations.addConstructor
+import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrGetValue
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrInstanceInitializerCallImpl
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrNull
-import org.jetbrains.kotlin.ir.types.isKClass
+import org.jetbrains.kotlin.ir.types.isArray
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
@@ -46,8 +44,26 @@ class AnnotationImplementationLowering(
     }
 }
 
-open class AnnotationImplementationTransformer(val context: BackendContext, val irFile: IrFile?) : IrElementTransformerVoidWithContext() {
+abstract class AnnotationImplementationTransformer(val context: BackendContext, val irFile: IrFile?) : IrElementTransformerVoidWithContext() {
     internal val implementations: MutableMap<IrClass, IrClass> = mutableMapOf()
+
+
+    override fun visitClassNew(declaration: IrClass): IrStatement {
+        declaration.takeIf { declaration.isAnnotationClass }?.constructors?.singleOrNull()?.apply {
+            // Compatibility hack. Now, frontend generates constructor body for annotations and makes them open
+            // but, if one gets annotation from pre-1.6.20 klib, it would have no constructor body and would be final,
+            // so we need to fix it
+            if (body == null) {
+                declaration.modality = Modality.OPEN
+                body = context.createIrBuilder(symbol)
+                    .irBlockBody(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET) {
+                        +irDelegatingConstructorCall(context.irBuiltIns.anyClass.owner.constructors.single())
+                        +IrInstanceInitializerCallImpl(startOffset, endOffset, declaration.symbol, context.irBuiltIns.unitType)
+                    }
+            }
+        }
+        return super.visitClassNew(declaration)
+    }
 
     override fun visitConstructorCall(expression: IrConstructorCall): IrExpression {
         val constructedClass = expression.type.classOrNull?.owner ?: return super.visitConstructorCall(expression)
@@ -66,6 +82,8 @@ open class AnnotationImplementationTransformer(val context: BackendContext, val 
         newCall.transformChildrenVoid() // for annotations in annotations
         return newCall
     }
+
+    open fun IrClass.platformSetup() {}
 
     private fun moveValueArgumentsUsingNames(source: IrConstructorCall, destination: IrConstructorCall) {
         val argumentsByName = source.getArgumentsWithIr().associateBy(
@@ -87,6 +105,8 @@ open class AnnotationImplementationTransformer(val context: BackendContext, val 
         val parentFqName = annotationClass.fqNameWhenAvailable!!.asString().replace('.', '_')
         val wrapperName = Name.identifier("annotationImpl\$$parentFqName$0")
         val subclass = context.irFactory.buildClass {
+            startOffset = SYNTHETIC_OFFSET
+            endOffset = SYNTHETIC_OFFSET
             name = wrapperName
             origin = ANNOTATION_IMPLEMENTATION
             // It can be seen from inline functions and multiple classes within one file
@@ -94,90 +114,29 @@ open class AnnotationImplementationTransformer(val context: BackendContext, val 
             // since declaration is synthetic anyway
             visibility = DescriptorVisibilities.INTERNAL
         }.apply {
-            parent = localDeclarationParent ?: irFile ?: error("irFile in transformer should be specified when creating synthetic implementation")
+            parent = localDeclarationParent ?: irFile
+                    ?: error("irFile in transformer should be specified when creating synthetic implementation")
             createImplicitParameterDeclarationWithWrappedDescriptor()
             superTypes = listOf(annotationClass.defaultType)
+            platformSetup()
         }
 
         val ctor = subclass.addConstructor {
+            startOffset = SYNTHETIC_OFFSET
+            endOffset = SYNTHETIC_OFFSET
             visibility = DescriptorVisibilities.PUBLIC
         }
-        val (originalProps, implementationProps) = implementAnnotationProperties(subclass, annotationClass, ctor)
-        implementEqualsAndHashCode(annotationClass, subclass, originalProps, implementationProps)
+        implementAnnotationPropertiesAndConstructor(subclass, annotationClass, ctor)
+        implementGeneratedFunctions(annotationClass, subclass)
         implementPlatformSpecificParts(annotationClass, subclass)
         return subclass
     }
 
-    fun implementAnnotationProperties(implClass: IrClass, annotationClass: IrClass, generatedConstructor: IrConstructor): Pair<List<IrProperty>, List<IrProperty>> {
-        val ctorBody = context.irFactory.createBlockBody(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET, listOf(
-                IrDelegatingConstructorCallImpl(
-                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.unitType, context.irBuiltIns.anyClass.constructors.single(),
-                    typeArgumentsCount = 0, valueArgumentsCount = 0
-                )
-            )
-        )
-
-        generatedConstructor.body = ctorBody
-
-        val properties = annotationClass.getAnnotationProperties()
-
-        return properties to properties.map { property ->
-
-            val propType = property.getter!!.returnType
-            val propName = property.name
-            val field = context.irFactory.buildField {
-                name = propName
-                type = propType
-                origin = ANNOTATION_IMPLEMENTATION
-                isFinal = true
-                visibility = DescriptorVisibilities.PRIVATE
-            }.also { it.parent = implClass }
-
-            val parameter = generatedConstructor.addValueParameter(propName.asString(), propType)
-            // VALUE_FROM_PARAMETER
-            val originalParameter = ((property.backingField?.initializer?.expression as? IrGetValue)?.symbol?.owner as? IrValueParameter)
-            if (originalParameter?.defaultValue != null) {
-                parameter.defaultValue = originalParameter.defaultValue!!.deepCopyWithVariables().also { it.transformChildrenVoid() }
-            }
-
-            ctorBody.statements += IrSetFieldImpl(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, field.symbol,
-                IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, implClass.thisReceiver!!.symbol),
-                IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, parameter.symbol),
-                context.irBuiltIns.unitType,
-            )
-
-            val prop = implClass.addProperty {
-                name = propName
-                isVar = false
-                origin = ANNOTATION_IMPLEMENTATION
-            }.apply {
-                field.correspondingPropertySymbol = this.symbol
-                backingField = field
-                parent = implClass
-            }
-
-            prop.addGetter {
-                name = propName  // Annotation value getter should be named 'x', not 'getX'
-                returnType = propType.kClassToJClassIfNeeded() // On JVM, annotation store j.l.Class even if declared with KClass
-                origin = ANNOTATION_IMPLEMENTATION
-                visibility = DescriptorVisibilities.PUBLIC
-                modality = Modality.FINAL
-            }.apply {
-                correspondingPropertySymbol = prop.symbol
-                dispatchReceiverParameter = implClass.thisReceiver!!.copyTo(this)
-                body = context.createIrBuilder(symbol).irBlockBody {
-                    var value: IrExpression = irGetField(irGet(dispatchReceiverParameter!!), field)
-                    if (propType.isKClass()) value = this.kClassExprToJClassIfNeeded(value)
-                    +irReturn(value)
-                }
-            }
-
-            prop
-        }
-
-    }
+    abstract fun implementAnnotationPropertiesAndConstructor(
+        implClass: IrClass,
+        annotationClass: IrClass,
+        generatedConstructor: IrConstructor
+    )
 
     fun IrClass.getAnnotationProperties(): List<IrProperty> {
         // For some weird reason, annotations defined in other IrFiles, do not have IrProperties in declarations.
@@ -188,31 +147,59 @@ open class AnnotationImplementationTransformer(val context: BackendContext, val 
             .mapNotNull { it.correspondingPropertySymbol?.owner }
     }
 
-    open fun IrType.kClassToJClassIfNeeded(): IrType = this
+    abstract fun getArrayContentEqualsSymbol(type: IrType): IrFunctionSymbol
 
-    open fun IrBuilderWithScope.kClassExprToJClassIfNeeded(irExpression: IrExpression): IrExpression = irExpression
+    fun generatedEquals(irBuilder: IrBlockBodyBuilder, type: IrType, arg1: IrExpression, arg2: IrExpression): IrExpression =
+        if (type.isArray() || type.isPrimitiveArray()) {
+            val requiredSymbol = getArrayContentEqualsSymbol(type)
+            irBuilder.irCall(
+                requiredSymbol
+            ).apply {
+                if (requiredSymbol.owner.extensionReceiverParameter != null) {
+                    extensionReceiver = arg1
+                    putValueArgument(0, arg2)
+                } else {
+                    putValueArgument(0, arg1)
+                    putValueArgument(1, arg2)
+                }
+            }
+        } else
+            irBuilder.irEquals(arg1, arg2)
 
-    open fun generatedEquals(irBuilder: IrBlockBodyBuilder, type: IrType, arg1: IrExpression, arg2: IrExpression): IrExpression =
-        irBuilder.irEquals(arg1, arg2)
+    open val forbidDirectFieldAccessInMethods = false
 
-    @Suppress("UNUSED_VARIABLE")
-    fun implementEqualsAndHashCode(annotationClass: IrClass, implClass: IrClass, originalProps: List<IrProperty>, childProps: List<IrProperty>) {
+    open fun generateFunctionBodies(
+        annotationClass: IrClass,
+        implClass: IrClass,
+        eqFun: IrSimpleFunction,
+        hcFun: IrSimpleFunction,
+        toStringFun: IrSimpleFunction,
+        generator: AnnotationImplementationMemberGenerator
+    ) {
+        val properties = annotationClass.getAnnotationProperties()
+        generator.generateEqualsUsingGetters(eqFun, annotationClass.defaultType, properties)
+        generator.generateHashCodeMethod(hcFun, properties)
+        generator.generateToStringMethod(toStringFun, properties)
+    }
+
+    fun implementGeneratedFunctions(annotationClass: IrClass, implClass: IrClass) {
         val creator = MethodsFromAnyGeneratorForLowerings(context, implClass, ANNOTATION_IMPLEMENTATION)
+        val eqFun = creator.createEqualsMethodDeclaration()
+        val hcFun = creator.createHashCodeMethodDeclaration()
+        val toStringFun = creator.createToStringMethodDeclaration()
+        if (annotationClass != implClass) {
+            implClass.addFakeOverrides(context.typeSystem)
+        }
+
         val generator = AnnotationImplementationMemberGenerator(
             context, implClass,
             nameForToString = "@" + annotationClass.fqNameWhenAvailable!!.asString(),
+            forbidDirectFieldAccess = forbidDirectFieldAccessInMethods
         ) { type, a, b ->
             generatedEquals(this, type, a, b)
         }
 
-        val eqFun = creator.createEqualsMethodDeclaration()
-        generator.generateEqualsUsingGetters(eqFun, annotationClass.defaultType, originalProps)
-
-        val hcFun = creator.createHashCodeMethodDeclaration()
-        generator.generateHashCodeMethod(hcFun, childProps)
-
-        val toStringFun = creator.createToStringMethodDeclaration()
-        generator.generateToStringMethod(toStringFun, childProps)
+        generateFunctionBodies(annotationClass, implClass, eqFun, hcFun, toStringFun, generator)
     }
 
     open fun implementPlatformSpecificParts(annotationClass: IrClass, implClass: IrClass) {}
@@ -222,8 +209,9 @@ class AnnotationImplementationMemberGenerator(
     backendContext: BackendContext,
     irClass: IrClass,
     val nameForToString: String,
+    forbidDirectFieldAccess: Boolean,
     val selectEquals: IrBlockBodyBuilder.(IrType, IrExpression, IrExpression) -> IrExpression,
-) : LoweringDataClassMemberGenerator(backendContext, irClass, ANNOTATION_IMPLEMENTATION) {
+) : LoweringDataClassMemberGenerator(backendContext, irClass, ANNOTATION_IMPLEMENTATION, forbidDirectFieldAccess) {
 
     override fun IrClass.classNameForToString(): String = nameForToString
 
@@ -234,18 +222,19 @@ class AnnotationImplementationMemberGenerator(
     override fun IrBuilderWithScope.shiftResultOfHashCode(irResultVar: IrVariable): IrExpression = irGet(irResultVar) // no default (* 31)
 
     override fun getHashCodeOf(builder: IrBuilderWithScope, property: IrProperty, irValue: IrExpression): IrExpression = with(builder) {
-        val propertyValueHashCode = getHashCodeOf(property.backingField!!.type, irValue)
+        val propertyValueHashCode = getHashCodeOf(property.type, irValue)
         val propertyNameHashCode = getHashCodeOf(backendContext.irBuiltIns.stringType, irString(property.name.toString()))
         val multiplied = irCallOp(context.irBuiltIns.intTimesSymbol, context.irBuiltIns.intType, propertyNameHashCode, irInt(127))
         return irCallOp(context.irBuiltIns.intXorSymbol, context.irBuiltIns.intType, multiplied, propertyValueHashCode)
     }
 
-    // Manual implementation of equals is required for two reasons:
+    // Manual implementation of equals is required for following reasons:
     // 1. `other` should be casted to interface instead of implementation
     // 2. Properties should be retrieved using getters without accessing backing fields
     //    (DataClassMembersGenerator typically tries to access fields)
+    // 3. Custom equals function should be used on properties
     fun generateEqualsUsingGetters(equalsFun: IrSimpleFunction, typeForEquals: IrType, properties: List<IrProperty>) = equalsFun.apply {
-        body = backendContext.createIrBuilder(symbol).irBlockBody {
+        body = backendContext.createIrBuilder(symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET).irBlockBody {
             val irType = typeForEquals
             fun irOther() = irGet(valueParameters[0])
             fun irThis() = irGet(dispatchReceiverParameter!!)
@@ -258,7 +247,7 @@ class AnnotationImplementationMemberGenerator(
             for (property in properties) {
                 val arg1 = property.get(irThis())
                 val arg2 = property.get(irGet(irType, otherWithCast.symbol))
-                +irIfThenReturnFalse(irNot(selectEquals(property.getter?.returnType ?: property.backingField!!.type, arg1, arg2)))
+                +irIfThenReturnFalse(irNot(selectEquals(property.type, arg1, arg2)))
             }
             +irReturnTrue()
         }

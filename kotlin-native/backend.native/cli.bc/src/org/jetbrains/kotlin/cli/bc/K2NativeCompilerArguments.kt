@@ -47,7 +47,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-manifest", valueDescription = "<path>", description = "Provide a maniferst addend file")
     var manifestFile: String? = null
 
-    @Argument(value="-memory-model", valueDescription = "<model>", description = "Memory model to use, 'strict', 'relaxed' and 'experimental' are currently supported")
+    @Argument(value="-memory-model", valueDescription = "<model>", description = "Memory model to use, 'strict' and 'experimental' are currently supported")
     var memoryModel: String? = "strict"
 
     @Argument(value="-module-name", deprecatedName = "-module_name", valueDescription = "<name>", description = "Specify a name for the compilation module")
@@ -101,6 +101,13 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     // The rest of the options are only interesting to the developers.
     // Make sure to prepend them with -X.
     // Keep the list lexically sorted.
+
+    @Argument(
+            value = "-Xbundle-id",
+            valueDescription = "<id>",
+            description = "Bundle ID to be set in Info.plist of a produced framework"
+    )
+    var bundleId: String? = null
 
     @Argument(
             value = "-Xcache-directory",
@@ -248,6 +255,9 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xtemporary-files-dir", deprecatedName = "--temporary_files_dir", valueDescription = "<path>", description = "Save temporary files to the given directory")
     var temporaryFilesDir: String? = null
 
+    @Argument(value = "-Xsave-llvm-ir", description = "Save result of Kotlin IR to LLVM IR translation to the temporary files directory.")
+    var saveLlvmIr: Boolean = false
+
     @Argument(value = "-Xverify-bitcode", deprecatedName = "--verify_bitcode", description = "Verify llvm bitcode after each method")
     var verifyBitCode: Boolean = false
 
@@ -289,7 +299,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     var clangOptions: Array<String>? = null
 
     @Argument(value="-Xallocator", valueDescription = "std | mimalloc", description = "Allocator used in runtime")
-    var allocator: String = "std"
+    var allocator: String? = null
 
     @Argument(value = "-Xmetadata-klib", description = "Produce a klib that only contains the declarations metadata")
     var metadataKlib: Boolean = false
@@ -320,9 +330,6 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value="-Xgc", valueDescription = "<gc>", description = "GC to use, 'noop' and 'stms' are currently supported. Works only with -memory-model experimental")
     var gc: String? = null
 
-    @Argument(value="-Xgc-aggressive", description = "Make GC agressive. Works only with -memory-model experimental")
-    var gcAggressive: Boolean = false
-
     @Argument(value = "-Xir-property-lazy-initialization", valueDescription = "{disable|enable}", description = "Initialize top level properties lazily per file")
     var propertyLazyInitialization: String? = null
 
@@ -351,10 +358,16 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xruntime-logs", valueDescription = "<tag1=level1,tag2=level2,...>", description = "Enable logging for runtime with tags.")
     var runtimeLogs: String? = null
 
+    @Argument(value = "-Xmeaningful-bridge-names", description = "(Unstable) Produce meaningful names for reverse bridges. Useful only for compiler tests.")
+    var meaningfulBridgeNames: Boolean = false
+
+    @Argument(value = "-Xlazy-ir-for-caches", valueDescription = "{disable|enable}", description = "Use lazy IR for cached libraries")
+    var lazyIrForCaches: String? = null
+
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> =
             super.configureAnalysisFlags(collector, languageVersion).also {
-                val useExperimental = it[AnalysisFlags.useExperimental] as List<*>
-                it[AnalysisFlags.useExperimental] = useExperimental + listOf("kotlin.ExperimentalUnsignedTypes")
+                val optInList = it[AnalysisFlags.optIn] as List<*>
+                it[AnalysisFlags.optIn] = optInList + listOf("kotlin.ExperimentalUnsignedTypes")
                 if (printIr)
                     phasesToDumpAfter = arrayOf("ALL")
             }

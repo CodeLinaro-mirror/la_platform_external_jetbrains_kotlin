@@ -23,7 +23,8 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
         value = "-classpath",
         shortName = "-cp",
         valueDescription = "<path>",
-        description = "List of directories and JAR/ZIP archives to search for user class files")
+        description = "List of directories and JAR/ZIP archives to search for user class files"
+    )
     var classpath: String? by NullableStringFreezableVar(null)
 
     @DeprecatedOption(removeAfter = "1.5", level = DeprecationLevel.ERROR)
@@ -50,7 +51,10 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
 
     @DeprecatedOption(removeAfter = "1.6", level = DeprecationLevel.ERROR)
     @GradleOption(DefaultValues.BooleanTrueDefault::class)
-    @Argument(value = "-no-stdlib", description = "Don't automatically include the Kotlin/JVM stdlib and Kotlin reflection into the classpath")
+    @Argument(
+        value = "-no-stdlib",
+        description = "Don't automatically include the Kotlin/JVM stdlib and Kotlin reflection into the classpath"
+    )
     var noStdlib: Boolean by FreezableVar(false)
 
     @DeprecatedOption(removeAfter = "1.5", level = DeprecationLevel.ERROR)
@@ -128,7 +132,8 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     var doNotClearBindingContext: Boolean by FreezableVar(false)
 
     @Argument(
-        value = "-Xparallel-backend-threads",
+        value = "-Xbackend-threads",
+        valueDescription = "<N>",
         description = "When using the IR backend, run lowerings by file in N parallel threads.\n" +
                 "0 means use a thread per processor core.\n" +
                 "Default value is 1"
@@ -161,20 +166,8 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var noParamAssertions: Boolean by FreezableVar(false)
 
-    @Argument(value = "-Xstrict-java-nullability-assertions", description = "Generate nullability assertions for non-null Java expressions")
-    var strictJavaNullabilityAssertions: Boolean by FreezableVar(false)
-
     @Argument(value = "-Xno-optimize", description = "Disable optimizations")
     var noOptimize: Boolean by FreezableVar(false)
-
-    @Argument(
-        value = "-Xnormalize-constructor-calls",
-        valueDescription = "{disable|enable}",
-        description = "Normalize constructor calls (disable: don't normalize; enable: normalize),\n" +
-                "default is 'disable' in language version 1.2 and below,\n" +
-                "'enable' since language version 1.3"
-    )
-    var constructorCallNormalizationMode: String? by NullableStringFreezableVar(null)
 
     @Argument(
         value = "-Xassertions", valueDescription = "{always-enable|always-disable|jvm|legacy}",
@@ -200,12 +193,6 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
 
     @Argument(value = "-Xuse-type-table", description = "Use type table in metadata serialization")
     var useTypeTable: Boolean by FreezableVar(false)
-
-    @Argument(
-        value = "-Xskip-runtime-version-check",
-        description = "Allow Kotlin runtime libraries of incompatible versions in the classpath"
-    )
-    var skipRuntimeVersionCheck: Boolean by FreezableVar(false)
 
     @Argument(
         value = "-Xuse-old-class-files-reading",
@@ -316,12 +303,6 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     var jspecifyAnnotations: String? by FreezableVar(null)
 
     @Argument(
-        value = "-Xno-exception-on-explicit-equals-for-boxed-null",
-        description = "Do not throw NPE on explicit 'equals' call for null receiver of platform boxed primitive type"
-    )
-    var noExceptionOnExplicitEqualsForBoxedNull by FreezableVar(false)
-
-    @Argument(
         value = "-Xjvm-default",
         valueDescription = "{all|all-compatibility|disable|enable|compatibility}",
         description = """Emit JVM default methods for interface declarations with bodies. Default is 'disable'.
@@ -351,9 +332,6 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
                                  in the DefaultImpls class in addition to the default interface method."""
     )
     var jvmDefault: String by FreezableVar(JvmDefaultMode.DEFAULT.description)
-
-    @Argument(value = "-Xjvm-default-allow-non-default-inheritance", description = "Allow inheritance from 'all*' modes for 'disable' one")
-    var jvmDefaultAllowDisableAgainstAll: Boolean by FreezableVar(false)
 
     @Argument(
         value = "-Xdefault-script-extension",
@@ -478,12 +456,6 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
     var repeatCompileModules: String? by NullableStringFreezableVar(null)
 
     @Argument(
-        value = "-Xuse-old-spilled-var-type-analysis",
-        description = "Use old, SourceInterpreter-based analysis for fields, used for spilled variables in coroutines"
-    )
-    var useOldSpilledVarTypeAnalysis: Boolean by FreezableVar(false)
-
-    @Argument(
         value = "-Xuse-14-inline-classes-mangling-scheme",
         description = "Use 1.4 inline classes mangling scheme instead of 1.4.30 one"
     )
@@ -512,9 +484,10 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
 
     @Argument(
         value = "-Xserialize-ir",
+        valueDescription = "{none|inline|all}",
         description = "Save IR to metadata (EXPERIMENTAL)"
     )
-    var serializeIr: Boolean by FreezableVar(false)
+    var serializeIr: String by FreezableVar("none")
 
     @Argument(
         value = "-Xvalidate-ir",
@@ -554,15 +527,11 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         result[AnalysisFlags.allowUnstableDependencies] = allowUnstableDependencies || useFir
         result[JvmAnalysisFlags.disableUltraLightClasses] = disableUltraLightClasses
         result[JvmAnalysisFlags.useIR] = !useOldBackend
-        result[JvmAnalysisFlags.jvmDefaultAllowNonDefaultInheritance] = jvmDefaultAllowDisableAgainstAll
         return result
     }
 
     override fun configureLanguageFeatures(collector: MessageCollector): MutableMap<LanguageFeature, LanguageFeature.State> {
         val result = super.configureLanguageFeatures(collector)
-        if (strictJavaNullabilityAssertions) {
-            result[LanguageFeature.StrictJavaNullabilityAssertions] = LanguageFeature.State.ENABLED
-        }
         if (typeEnhancementImprovementsInStrictMode) {
             result[LanguageFeature.TypeEnhancementImprovementsInStrictMode] = LanguageFeature.State.ENABLED
         }
@@ -571,20 +540,6 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         }
 
         return result
-    }
-
-    override fun checkIrSupport(languageVersionSettings: LanguageVersionSettings, collector: MessageCollector) {
-        if (!useIR || useOldBackend) return
-
-        if (languageVersionSettings.languageVersion < LanguageVersion.KOTLIN_1_3
-            || languageVersionSettings.apiVersion < ApiVersion.KOTLIN_1_3
-        ) {
-            collector.report(
-                CompilerMessageSeverity.STRONG_WARNING,
-                "IR backend does not support language or API version lower than 1.3. " +
-                        "This can lead to unexpected behavior or compilation failures"
-            )
-        }
     }
 
     override fun defaultLanguageVersion(collector: MessageCollector): LanguageVersion =

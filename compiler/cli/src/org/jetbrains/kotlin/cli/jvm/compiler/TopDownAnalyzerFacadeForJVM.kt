@@ -24,6 +24,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltIns
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltInsPackageFragmentProvider
+import org.jetbrains.kotlin.cli.jvm.config.ClassicFrontendSpecificJvmConfigurationKeys
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.container.ComponentProvider
 import org.jetbrains.kotlin.container.StorageComponentContainer
@@ -44,6 +45,7 @@ import org.jetbrains.kotlin.frontend.java.di.initJvmBuiltInsForTopDownAnalysis
 import org.jetbrains.kotlin.frontend.java.di.initialize
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.ir.backend.jvm.jvmLibrariesProvidedByDefault
 import org.jetbrains.kotlin.javac.components.JavacBasedClassFinder
 import org.jetbrains.kotlin.javac.components.JavacBasedSourceElementFactory
@@ -93,10 +95,11 @@ object TopDownAnalyzerFacadeForJVM {
         sourceModuleSearchScope: GlobalSearchScope = newModuleSearchScope(project, files),
         klibList: List<KotlinLibrary> = emptyList(),
         explicitModuleDependencyList: List<ModuleDescriptorImpl> = emptyList(),
-        explicitModuleFriendsList: List<ModuleDescriptorImpl> = emptyList()
+        explicitModuleFriendsList: List<ModuleDescriptorImpl> = emptyList(),
+        explicitCompilerEnvironment: TargetEnvironment = CompilerEnvironment
     ): AnalysisResult {
         val container = createContainer(
-            project, files, trace, configuration, packagePartProvider, declarationProviderFactory, CompilerEnvironment,
+            project, files, trace, configuration, packagePartProvider, declarationProviderFactory, explicitCompilerEnvironment,
             sourceModuleSearchScope, klibList, explicitModuleDependencyList = explicitModuleDependencyList,
             explicitModuleFriendsList = explicitModuleFriendsList
         )
@@ -159,6 +162,7 @@ object TopDownAnalyzerFacadeForJVM {
         val incrementalComponents = configuration.get(JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS)
         val lookupTracker = configuration.get(CommonConfigurationKeys.LOOKUP_TRACKER) ?: LookupTracker.DO_NOTHING
         val expectActualTracker = configuration.get(CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER) ?: ExpectActualTracker.DoNothing
+        val inlineConstTracker = configuration.get(CommonConfigurationKeys.INLINE_CONST_TRACKER) ?: InlineConstTracker.DoNothing
         val targetIds = configuration.get(JVMConfigurationKeys.MODULES)?.map(::TargetId)
 
         val separateModules = !configuration.getBoolean(JVMConfigurationKeys.USE_SINGLE_MODULE)
@@ -193,7 +197,7 @@ object TopDownAnalyzerFacadeForJVM {
             val dependenciesContainer = createContainerForLazyResolveWithJava(
                 jvmPlatform,
                 dependenciesContext, trace, DeclarationProviderFactory.EMPTY, dependencyScope, moduleClassResolver,
-                targetEnvironment, lookupTracker, expectActualTracker,
+                targetEnvironment, lookupTracker, expectActualTracker, inlineConstTracker,
                 packagePartProvider(dependencyScope), languageVersionSettings,
                 useBuiltInsProvider = true,
                 configureJavaClassFinder = configureJavaClassFinder,
@@ -228,11 +232,11 @@ object TopDownAnalyzerFacadeForJVM {
         val container = createContainerForLazyResolveWithJava(
             jvmPlatform,
             moduleContext, trace, declarationProviderFactory(storageManager, files), sourceScope, moduleClassResolver,
-            targetEnvironment, lookupTracker, expectActualTracker,
+            targetEnvironment, lookupTracker, expectActualTracker, inlineConstTracker,
             partProvider, languageVersionSettings,
             useBuiltInsProvider = true,
             configureJavaClassFinder = configureJavaClassFinder,
-            javaClassTracker = configuration[JVMConfigurationKeys.JAVA_CLASSES_TRACKER],
+            javaClassTracker = configuration[ClassicFrontendSpecificJvmConfigurationKeys.JAVA_CLASSES_TRACKER],
             implicitsResolutionFilter = implicitsResolutionFilter
         ).apply {
             initJvmBuiltInsForTopDownAnalysis()

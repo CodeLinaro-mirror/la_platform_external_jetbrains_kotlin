@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.tree.generator
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeImplementationConfigurator
 import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.Object
 import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.OpenClass
+import org.jetbrains.kotlin.fir.tree.generator.model.Type
 
 object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() {
     fun configureImplementations() {
@@ -38,6 +39,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             defaultFalse("hasLazyNestedClassifiers", withGetter = true)
         }
 
+        impl(anonymousInitializer) {
+            defaultEmptyList("annotations")
+        }
+
         impl(anonymousObject)
         noImpl(anonymousObjectExpression)
 
@@ -52,8 +57,8 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 delegate = "delegate"
             }
 
-            default("resolvedClassId") {
-                delegate = "relativeClassName"
+            default("resolvedParentClassId") {
+                delegate = "relativeParentClassName"
                 delegateCall = "let { ClassId(packageFqName, it, false) }"
                 withGetter = true
             }
@@ -73,10 +78,22 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             delegateFields(listOf("aliasName", "importedFqName", "isAllUnder", "source"), "delegate")
         }
 
-        impl(annotationCall) {
+        fun ImplementationContext.commonAnnotationConfig() {
+            defaultEmptyList("annotations")
             default("typeRef") {
                 value = "annotationTypeRef"
                 withGetter = true
+            }
+        }
+
+        impl(annotation) {
+            commonAnnotationConfig()
+        }
+
+        impl(annotationCall) {
+            commonAnnotationConfig()
+            default("argumentMapping") {
+                needAcceptAndTransform = false
             }
         }
 
@@ -176,6 +193,9 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         noImpl(expressionWithSmartcast)
         noImpl(expressionWithSmartcastToNull)
 
+        noImpl(whenSubjectExpressionWithSmartcast)
+        noImpl(whenSubjectExpressionWithSmartcastToNull)
+
         impl(getClassCall) {
             default("argument") {
                 value = "argumentList.arguments.first()"
@@ -183,15 +203,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             }
         }
 
-        val errorTypeRefImpl = impl(errorTypeRef) {
-            default("type", "ConeClassErrorType(diagnostic)")
-            default("annotations", "mutableListOf()")
-            useTypes(coneClassErrorTypeType)
-            default("delegatedTypeRef") {
-                needAcceptAndTransform = false
-            }
-        }
-
+        noImpl(errorTypeRef)
 
         impl(property) {
             default("isVal") {
@@ -199,7 +211,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 withGetter = true
             }
 
-            default("backingFieldSymbol", "FirBackingFieldSymbol(symbol.callableId)")
             useTypes(backingFieldSymbolType, delegateFieldSymbolType)
         }
 
@@ -215,7 +226,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 withGetter = true
             )
             default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
-            useTypes(errorTypeRefImpl)
+            useTypes(errorTypeRefImplType)
         }
 
         impl(field) {
@@ -276,14 +287,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(resolvedQualifier) {
             isMutable("packageFqName", "relativeClassFqName", "isNullableLHSForCallableReference")
-            default("classId") {
-                value = """
-                    |relativeClassFqName?.let {
-                    |    ClassId(packageFqName, it, false)
-                    |}
-                """.trimMargin()
-                withGetter = true
-            }
+            defaultClassIdFromRelativeClassName()
         }
 
         impl(resolvedReifiedParameterReference)
@@ -336,6 +340,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 withGetter = true
             }
             useTypes(modalityType)
+            kind = OpenClass
+        }
+
+        impl(backingField) {
             kind = OpenClass
         }
 
@@ -415,13 +423,13 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(errorExpression) {
             default("typeRef", "FirErrorTypeRefImpl(source, null, ConeStubDiagnostic(diagnostic))")
-            useTypes(errorTypeRefImpl, coneStubDiagnosticType)
+            useTypes(errorTypeRefImplType, coneStubDiagnosticType)
         }
 
         impl(errorFunction) {
             defaultNull("receiverTypeRef", "body", withGetter = true)
             default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
-            useTypes(errorTypeRefImpl)
+            useTypes(errorTypeRefImplType)
         }
 
         impl(functionTypeRef)
@@ -439,11 +447,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(errorNamedReference) {
             default("name", "Name.special(\"<\${diagnostic.reason}>\")")
-        }
-
-        impl(typeProjection, "FirTypePlaceholderProjection") {
-            kind = Object
-            noSource()
         }
 
         impl(breakExpression) {
@@ -489,12 +492,13 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             //
             // If this `FirResolvedQualifier` is a receiver expression of some other qualified access, the value is updated in
             // `FirCallResolver` according to the resolution result.
-            default("resolvedToCompanionObject", "(symbol?.fir as? FirRegularClass)?.companionObject != null")
+            default("resolvedToCompanionObject", "(symbol?.fir as? FirRegularClass)?.companionObjectSymbol != null")
             useTypes(regularClass)
         }
 
         impl(errorResolvedQualifier) {
             defaultFalse("resolvedToCompanionObject", withGetter = true)
+            defaultClassIdFromRelativeClassName()
         }
 
         noImpl(userTypeRef)
@@ -504,6 +508,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         noImpl(argumentList)
+        noImpl(annotationArgumentMapping)
 
         val implementationsWithoutStatusAndTypeParameters = listOf(
             "FirAnonymousFunctionImpl",
@@ -574,4 +579,17 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             useTypes(implicitTypeRefType)
         }
     }
+
+    private fun ImplementationContext.defaultClassIdFromRelativeClassName() {
+        default("classId") {
+            value = """
+                |relativeClassFqName?.let {
+                |    ClassId(packageFqName, it, false)
+                |}
+                """.trimMargin()
+            withGetter = true
+        }
+    }
 }
+
+

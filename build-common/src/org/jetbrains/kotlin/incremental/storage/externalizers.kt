@@ -22,45 +22,43 @@ import com.intellij.util.io.DataExternalizer
 import com.intellij.util.io.EnumeratorStringDescriptor
 import com.intellij.util.io.IOUtil
 import com.intellij.util.io.KeyDescriptor
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
-import org.jetbrains.kotlin.cli.common.toBooleanLenient
-import java.io.DataInput
-import java.io.DataInputStream
-import java.io.DataOutput
-import java.util.*
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.resolve.jvm.JvmClassName
+import java.io.*
 
-/**
- * Storage versioning:
- * 0 - only name and value hashes are saved
- * 1 - name and scope are saved
- */
-object LookupSymbolKeyDescriptor : KeyDescriptor<LookupSymbolKey> {
+class LookupSymbolKeyDescriptor(
+    /** If `true`, original values are saved; if `false`, only hashes are saved. */
+    private val storeFullFqNames: Boolean = false
+) : KeyDescriptor<LookupSymbolKey> {
+
     override fun read(input: DataInput): LookupSymbolKey {
-        val version = input.readByte()
-        return when (version.toInt()) {
-            0 -> {
-                val name = input.readUTF()
-                val scope = input.readUTF()
-                LookupSymbolKey(name.hashCode(), scope.hashCode(), name, scope)
-            }
-            1 -> {
-                val first = input.readInt()
-                val second = input.readInt()
-                LookupSymbolKey(first, second, "", "")
-            }
-            else -> throw RuntimeException("Unknown version of LookupSymbolKeyDescriptor=${version}")
+        // Note: The value of the storeFullFqNames variable below may or may not be the same as LookupSymbolKeyDescriptor.storeFullFqNames.
+        // Byte value `0` means storeFullFqNames == true, see `save` function below.
+        val storeFullFqNames = when (val byteValue = input.readByte().toInt()) {
+            0 -> true
+            1 -> false
+            else -> error("Unexpected byte value for storeFullFqNames: $byteValue")
+        }
+        return if (storeFullFqNames) {
+            val name = input.readUTF()
+            val scope = input.readUTF()
+            LookupSymbolKey(name.hashCode(), scope.hashCode(), name, scope)
+        } else {
+            val nameHash = input.readInt()
+            val scopeHash = input.readInt()
+            LookupSymbolKey(nameHash, scopeHash, "", "")
         }
     }
 
-    private val storeFullFqName = CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_CLASSPATH_SNAPSHOTS.value.toBooleanLenient() ?: false
-
     override fun save(output: DataOutput, value: LookupSymbolKey) {
-        if (storeFullFqName) {
-            output.writeByte(0)
+        // Write a Byte value `0` to represent storeFullFqNames == true for historical reasons (if we switch this value to `1` or write a
+        // Boolean instead, it might impact some tests).
+        output.writeByte(if (storeFullFqNames) 0 else 1)
+        if (storeFullFqNames) {
             output.writeUTF(value.name)
             output.writeUTF(value.scope)
         } else {
-            output.writeByte(1)
             output.writeInt(value.nameHash)
             output.writeInt(value.scopeHash)
         }
@@ -69,6 +67,45 @@ object LookupSymbolKeyDescriptor : KeyDescriptor<LookupSymbolKey> {
     override fun getHashCode(value: LookupSymbolKey): Int = value.hashCode()
 
     override fun isEqual(val1: LookupSymbolKey, val2: LookupSymbolKey): Boolean = val1 == val2
+}
+
+object FqNameExternalizer : DataExternalizer<FqName> {
+
+    override fun save(output: DataOutput, fqName: FqName) {
+        output.writeString(fqName.asString())
+    }
+
+    override fun read(input: DataInput): FqName {
+        return FqName(input.readString())
+    }
+}
+
+object ClassIdExternalizer : DataExternalizer<ClassId> {
+
+    override fun save(output: DataOutput, classId: ClassId) {
+        FqNameExternalizer.save(output, classId.packageFqName)
+        FqNameExternalizer.save(output, classId.relativeClassName)
+        output.writeBoolean(classId.isLocal)
+    }
+
+    override fun read(input: DataInput): ClassId {
+        return ClassId(
+            /* packageFqName */ FqNameExternalizer.read(input),
+            /* relativeClassName */ FqNameExternalizer.read(input),
+            /* isLocal */ input.readBoolean()
+        )
+    }
+}
+
+object JvmClassNameExternalizer : DataExternalizer<JvmClassName> {
+
+    override fun save(output: DataOutput, jvmClassName: JvmClassName) {
+        output.writeString(jvmClassName.internalName)
+    }
+
+    override fun read(input: DataInput): JvmClassName {
+        return JvmClassName.byInternalName(input.readString())
+    }
 }
 
 object ProtoMapValueExternalizer : DataExternalizer<ProtoMapValue> {
@@ -172,6 +209,32 @@ object ConstantExternalizer : DataExternalizer<Any> {
     }
 }
 
+fun <T> DataExternalizer<T>.saveToFile(file: File, value: T) {
+    return DataOutputStream(FileOutputStream(file).buffered()).use {
+        save(it, value)
+    }
+}
+
+fun <T> DataExternalizer<T>.loadFromFile(file: File): T {
+    return DataInputStream(FileInputStream(file).buffered()).use {
+        read(it)
+    }
+}
+
+fun <T> DataExternalizer<T>.toByteArray(value: T): ByteArray {
+    val byteArrayOutputStream = ByteArrayOutputStream()
+    DataOutputStream(byteArrayOutputStream.buffered()).use {
+        save(it, value)
+    }
+    return byteArrayOutputStream.toByteArray()
+}
+
+fun <T> DataExternalizer<T>.fromByteArray(byteArray: ByteArray): T {
+    return DataInputStream(ByteArrayInputStream(byteArray).buffered()).use {
+        read(it)
+    }
+}
+
 object IntExternalizer : DataExternalizer<Int> {
     override fun save(output: DataOutput, value: Int) = output.writeInt(value)
     override fun read(input: DataInput): Int = input.readInt()
@@ -186,7 +249,6 @@ object StringExternalizer : DataExternalizer<String> {
     override fun save(output: DataOutput, value: String) = IOUtil.writeString(value, output)
     override fun read(input: DataInput): String = IOUtil.readString(input)
 }
-
 
 // Should be consistent with org.jetbrains.jps.incremental.storage.PathStringDescriptor for correct work of portable caches
 object PathStringDescriptor : EnumeratorStringDescriptor() {
@@ -211,6 +273,17 @@ object PathStringDescriptor : EnumeratorStringDescriptor() {
     }
 }
 
+/**
+ * [DataExternalizer] for a [Collection].
+ *
+ * If you need a [DataExternalizer] for a more specific instance of [Collection] (e.g., [List]), use [ListExternalizer] or create another
+ * instance of [GenericCollectionExternalizer].
+ *
+ * Note: The implementations of this class and [GenericCollectionExternalizer] are similar but not exactly the same: the latter reads and
+ * writes the size of the collection to avoid resizing the collection when reading. Therefore, if we make this class extend
+ * [GenericCollectionExternalizer] to share code, we will need to update some expected files in tests as the serialized data will change
+ * slightly.
+ */
 open class CollectionExternalizer<T>(
     private val elementExternalizer: DataExternalizer<T>,
     private val newCollection: () -> MutableCollection<T>
@@ -239,26 +312,65 @@ fun DataOutput.writeString(value: String) = StringExternalizer.save(this, value)
 
 fun DataInput.readString(): String = StringExternalizer.read(this)
 
-class ListExternalizer<T>(
-    private val elementExternalizer: DataExternalizer<T>
-) : DataExternalizer<List<T>> {
+class NullableValueExternalizer<T>(private val valueExternalizer: DataExternalizer<T>) : DataExternalizer<T> {
 
-    override fun save(output: DataOutput, value: List<T>) {
-        output.writeInt(value.size)
-        value.forEach {
+    override fun save(output: DataOutput, value: T?) {
+        output.writeBoolean(value != null)
+        value?.let {
+            valueExternalizer.save(output, it)
+        }
+    }
+
+    override fun read(input: DataInput): T? {
+        return if (input.readBoolean()) {
+            valueExternalizer.read(input)
+        } else null
+    }
+}
+
+object ByteArrayExternalizer : DataExternalizer<ByteArray> {
+
+    override fun save(output: DataOutput, bytes: ByteArray) {
+        output.writeInt(bytes.size)
+        output.write(bytes)
+    }
+
+    override fun read(input: DataInput): ByteArray {
+        val size = input.readInt()
+        return ByteArray(size).also {
+            input.readFully(it, 0, size)
+        }
+    }
+}
+
+open class GenericCollectionExternalizer<T, C : Collection<T>>(
+    private val elementExternalizer: DataExternalizer<T>,
+    private val newCollection: (size: Int) -> MutableCollection<T>
+) : DataExternalizer<C> {
+
+    override fun save(output: DataOutput, collection: C) {
+        output.writeInt(collection.size)
+        collection.forEach {
             elementExternalizer.save(output, it)
         }
     }
 
-    override fun read(input: DataInput): List<T> {
+    override fun read(input: DataInput): C {
         val size = input.readInt()
-        val list = ArrayList<T>(size)
+        val collection = newCollection(size)
         repeat(size) {
-            list.add(elementExternalizer.read(input))
+            collection.add(elementExternalizer.read(input))
         }
-        return list
+        @Suppress("UNCHECKED_CAST")
+        return collection as C
     }
 }
+
+class ListExternalizer<T>(elementExternalizer: DataExternalizer<T>) :
+    GenericCollectionExternalizer<T, List<T>>(elementExternalizer, { size -> ArrayList(size) })
+
+class SetExternalizer<T>(elementExternalizer: DataExternalizer<T>) :
+    GenericCollectionExternalizer<T, Set<T>>(elementExternalizer, { size -> LinkedHashSet(size) })
 
 class LinkedHashMapExternalizer<K, V>(
     private val keyExternalizer: DataExternalizer<K>,
@@ -282,21 +394,5 @@ class LinkedHashMapExternalizer<K, V>(
             map[key] = value
         }
         return map
-    }
-}
-
-class NullableValueExternalizer<T>(private val valueExternalizer: DataExternalizer<T>) : DataExternalizer<T> {
-
-    override fun save(output: DataOutput, value: T?) {
-        output.writeBoolean(value != null)
-        value?.let {
-            valueExternalizer.save(output, it)
-        }
-    }
-
-    override fun read(input: DataInput): T? {
-        return if (input.readBoolean()) {
-            valueExternalizer.read(input)
-        } else null
     }
 }

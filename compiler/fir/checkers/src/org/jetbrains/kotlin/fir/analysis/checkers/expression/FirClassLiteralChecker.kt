@@ -5,18 +5,17 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.getChild
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRefsOwner
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
-import org.jetbrains.kotlin.fir.resolve.inference.inferenceComponents
+import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
@@ -28,12 +27,12 @@ import org.jetbrains.kotlin.resolve.checkers.OptInNames
 object FirClassLiteralChecker : FirGetClassCallChecker() {
     override fun check(expression: FirGetClassCall, context: CheckerContext, reporter: DiagnosticReporter) {
         val source = expression.source ?: return
-        if (source.kind is FirFakeSourceElementKind) return
+        if (source.kind is KtFakeSourceElementKind) return
         val argument = expression.argument
         if (argument is FirResolvedQualifier) {
             val classId = argument.classId
             if (classId == OptInNames.REQUIRES_OPT_IN_CLASS_ID || classId == OptInNames.OPT_IN_CLASS_ID) {
-                reporter.reportOn(argument.source, FirErrors.EXPERIMENTAL_CAN_ONLY_BE_USED_AS_ANNOTATION, context)
+                reporter.reportOn(argument.source, FirErrors.OPT_IN_CAN_ONLY_BE_USED_AS_ANNOTATION, context)
             }
         }
 
@@ -50,7 +49,7 @@ object FirClassLiteralChecker : FirGetClassCallChecker() {
         val isNullable = markedNullable ||
                 (argument as? FirResolvedQualifier)?.isNullableLHSForCallableReference == true ||
                 argument.typeRef.coneType.isMarkedNullable ||
-                argument.typeRef.coneType.isNullableTypeParameter(context.session.inferenceComponents.ctx)
+                argument.typeRef.coneType.isNullableTypeParameter(context.session.typeContext)
         if (isNullable) {
             if (argument.canBeDoubleColonLHSAsType) {
                 reporter.reportOn(source, FirErrors.NULLABLE_TYPE_IN_CLASS_LITERAL_LHS, context)
@@ -80,7 +79,7 @@ object FirClassLiteralChecker : FirGetClassCallChecker() {
             @OptIn(SymbolInternals::class)
             val typeParameters = (symbol?.fir as? FirTypeParameterRefsOwner)?.typeParameters
             // Among type parameter references, only count actual type parameter while discarding [FirOuterClassTypeParameterRef]
-            val expectedTypeArgumentSize = typeParameters?.filterIsInstance<FirTypeParameter>()?.size ?: 0
+            val expectedTypeArgumentSize = typeParameters?.count { it is FirTypeParameter } ?: 0
             if (expectedTypeArgumentSize != argument.typeArguments.size) {
                 // Will be reported as WRONG_NUMBER_OF_TYPE_ARGUMENTS
                 return
@@ -108,9 +107,7 @@ object FirClassLiteralChecker : FirGetClassCallChecker() {
 
     private val FirExpression.safeAsTypeParameterSymbol: FirTypeParameterSymbol?
         get() {
-            return ((this as? FirQualifiedAccessExpression)
-                ?.calleeReference as? FirResolvedNamedReference)
-                ?.resolvedSymbol as? FirTypeParameterSymbol
+            return (this as? FirQualifiedAccessExpression)?.calleeReference?.resolvedSymbol as? FirTypeParameterSymbol
         }
 
     private fun ConeKotlinType.isAllowedInClassLiteral(context: CheckerContext): Boolean =

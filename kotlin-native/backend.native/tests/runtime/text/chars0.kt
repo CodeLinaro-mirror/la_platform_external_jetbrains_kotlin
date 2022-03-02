@@ -7,7 +7,6 @@ package runtime.text.chars0
 
 import kotlin.test.*
 
-
 fun testIsSupplementaryCodePoint() {
     assertFalse(Char.isSupplementaryCodePoint(-1))
     for (c in 0..0xFFFF) {

@@ -1,6 +1,7 @@
 // IGNORE_BACKEND_FIR: JVM_IR
+// FIR status: expect/actual in the same module (ACTUAL_WITHOUT_EXPECT)
 // !LANGUAGE: +MultiPlatformProjects
-// !USE_EXPERIMENTAL: kotlin.ExperimentalMultiplatform
+// !OPT_IN: kotlin.ExperimentalMultiplatform
 // TARGET_BACKEND: JVM
 // FULL_JDK
 // WITH_STDLIB

@@ -11,16 +11,18 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.collectEnumEntries
 import org.jetbrains.kotlin.fir.analysis.checkers.fullyExpandedClass
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
 import org.jetbrains.kotlin.fir.resolve.substitution.chain
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirPackageMemberScope
-import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.Name
@@ -47,10 +49,10 @@ object FirExpectActualResolver {
                 var actualContainingClass: FirRegularClassSymbol? = null
                 val candidates = when {
                     classId != null -> {
-                        expectContainingClass = useSiteSession.dependenciesSymbolProvider.getClassLikeSymbolByFqName(classId)?.let {
+                        expectContainingClass = useSiteSession.dependenciesSymbolProvider.getClassLikeSymbolByClassId(classId)?.let {
                             it.fullyExpandedClass(it.moduleData.session)
                         }
-                        actualContainingClass = useSiteSession.symbolProvider.getClassLikeSymbolByFqName(classId)
+                        actualContainingClass = useSiteSession.symbolProvider.getClassLikeSymbolByClassId(classId)
                             ?.fullyExpandedClass(useSiteSession)
 
                         val expectTypeParameters = expectContainingClass?.typeParameterSymbols.orEmpty()
@@ -87,7 +89,7 @@ object FirExpectActualResolver {
             }
             is FirClassLikeSymbol<*> -> {
                 val expectClassSymbol = useSiteSession.dependenciesSymbolProvider
-                    .getClassLikeSymbolByFqName(actualSymbol.classId) as? FirRegularClassSymbol ?: return null
+                    .getClassLikeSymbolByClassId(actualSymbol.classId) as? FirRegularClassSymbol ?: return null
                 val compatibility = areCompatibleClassifiers(expectClassSymbol, actualSymbol, useSiteSession, scopeSession)
                 mapOf(compatibility to listOf(expectClassSymbol))
             }

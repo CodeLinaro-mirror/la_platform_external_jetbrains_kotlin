@@ -1,6 +1,6 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
-// WASM_MUTE_REASON: SAM_CONVERSIONS
-// !LANGUAGE: +InlineClasses
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
 fun <T> underlying(a: IC): T = bar(a) {
     (it.value as FooHolder).value as T
@@ -34,7 +34,8 @@ interface Foo
 
 class FooHolder(val value: Any): Foo
 
-inline class IC(val value: Foo): Foo {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IC(val value: Foo): Foo {
     fun <T> dispatchValue(): T = (value as FooHolder).value as T
 }
 

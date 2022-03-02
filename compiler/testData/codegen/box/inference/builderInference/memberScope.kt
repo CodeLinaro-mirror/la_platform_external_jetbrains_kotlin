@@ -1,9 +1,8 @@
 // !LANGUAGE: +UnrestrictedBuilderInference
-// !DIAGNOSTICS: -DEPRECATION -EXPERIMENTAL_IS_NOT_ENABLED
-// WITH_RUNTIME
+// !DIAGNOSTICS: -DEPRECATION -OPT_IN_IS_NOT_ENABLED
+// WITH_STDLIB
 // IGNORE_BACKEND_FIR: JVM_IR
-// DONT_TARGET_EXACT_BACKEND: WASM
-
+// FIR status: NONE_APPLICABLE at all equals calls
 import kotlin.experimental.ExperimentalTypeInference
 
 interface TestInterface<R> {
@@ -11,7 +10,7 @@ interface TestInterface<R> {
     fun get(): R
 }
 
-@UseExperimental(ExperimentalTypeInference::class)
+@OptIn(ExperimentalTypeInference::class)
 fun <R1> build(@BuilderInference block: TestInterface<R1>.() -> Unit) {}
 
 fun Any.test() {}

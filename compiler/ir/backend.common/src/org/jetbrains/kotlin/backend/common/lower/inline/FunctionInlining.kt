@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ScopeWithIr
 import org.jetbrains.kotlin.backend.common.ir.Symbols
 import org.jetbrains.kotlin.backend.common.ir.isPure
+import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.builtins.StandardNames
@@ -26,10 +27,7 @@ import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrReturnableBlockSymbolImpl
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.isNullable
-import org.jetbrains.kotlin.ir.types.typeOrNull
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
@@ -75,10 +73,16 @@ open class DefaultInlineFunctionResolver(open val context: CommonBackendContext)
 
 class FunctionInlining(
     val context: CommonBackendContext,
-    val inlineFunctionResolver: InlineFunctionResolver
+    val inlineFunctionResolver: InlineFunctionResolver,
+    val innerClassesSupport: InnerClassesSupport? = null
 ) : IrElementTransformerVoidWithContext(), BodyLoweringPass {
 
-    constructor(context: CommonBackendContext) : this(context, DefaultInlineFunctionResolver(context))
+    constructor(context: CommonBackendContext) : this(context, DefaultInlineFunctionResolver(context), null)
+    constructor(context: CommonBackendContext, innerClassesSupport: InnerClassesSupport) : this(
+        context,
+        DefaultInlineFunctionResolver(context),
+        innerClassesSupport
+    )
 
     private var containerScope: ScopeWithIr? = null
 
@@ -146,7 +150,6 @@ class FunctionInlining(
 
         fun inline() = inlineFunction(callSite, callee, true)
 
-
         private fun inlineFunction(
             callSite: IrFunctionAccessExpression,
             callee: IrFunction,
@@ -179,10 +182,11 @@ class FunctionInlining(
             }
 
             val evaluationStatements = evaluateArguments(callSite, copiedCallee)
-            val statements = (copiedCallee.body as IrBlockBody).statements
+            val statements = (copiedCallee.body as? IrBlockBody)?.statements
+                ?: error("Body not found for function ${callee.render()}")
 
             val irReturnableBlockSymbol = IrReturnableBlockSymbolImpl()
-            val endOffset = callee.endOffset
+            val endOffset = statements.lastOrNull()?.endOffset ?: callee.endOffset
             /* creates irBuilder appending to the end of the given returnable block: thus why we initialize
              * irBuilder with (..., endOffset, endOffset).
              */
@@ -241,10 +245,17 @@ class FunctionInlining(
                     return super.visitCall(expression)
 
                 return when {
-                    functionArgument is IrFunctionReference -> inlineFunctionReference(expression, functionArgument)
-                    functionArgument.isAdaptedFunctionReference() -> inlineAdaptedFunctionReference(expression, functionArgument as IrBlock)
-                    functionArgument is IrFunctionExpression -> inlineFunctionExpression(expression, functionArgument)
-                    else -> super.visitCall(expression)
+                    functionArgument is IrFunctionReference ->
+                        inlineFunctionReference(expression, functionArgument, functionArgument.symbol.owner)
+
+                    functionArgument.isAdaptedFunctionReference() ->
+                        inlineAdaptedFunctionReference(expression, functionArgument as IrBlock)
+
+                    functionArgument is IrFunctionExpression ->
+                        inlineFunctionExpression(expression, functionArgument)
+
+                    else ->
+                        super.visitCall(expression)
                 }
             }
 
@@ -260,10 +271,12 @@ class FunctionInlining(
             }
 
             fun inlineAdaptedFunctionReference(irCall: IrCall, irBlock: IrBlock): IrExpression {
-                val irFunction = irBlock.statements[0] as IrFunction
-                irFunction.transformChildrenVoid(this)
+                val irFunction = irBlock.statements[0].let {
+                    it.transformChildrenVoid(this)
+                    copyIrElement.copy(it) as IrFunction
+                }
                 val irFunctionReference = irBlock.statements[1] as IrFunctionReference
-                val inlinedFunctionReference = inlineFunctionReference(irCall, irFunctionReference)
+                val inlinedFunctionReference = inlineFunctionReference(irCall, irFunctionReference, irFunction)
                 return IrBlockImpl(
                     irCall.startOffset, irCall.endOffset,
                     inlinedFunctionReference.type, origin = null,
@@ -271,7 +284,11 @@ class FunctionInlining(
                 )
             }
 
-            fun inlineFunctionReference(irCall: IrCall, irFunctionReference: IrFunctionReference): IrExpression {
+            fun inlineFunctionReference(
+                irCall: IrCall,
+                irFunctionReference: IrFunctionReference,
+                inlinedFunction: IrFunction
+            ): IrExpression {
                 irFunctionReference.transformChildrenVoid(this)
 
                 val function = irFunctionReference.symbol.owner
@@ -290,14 +307,14 @@ class FunctionInlining(
                 }
 
                 val immediateCall = with(irCall) {
-                    when (function) {
+                    when (inlinedFunction) {
                         is IrConstructor -> {
-                            val classTypeParametersCount = function.parentAsClass.typeParameters.size
+                            val classTypeParametersCount = inlinedFunction.parentAsClass.typeParameters.size
                             IrConstructorCallImpl.fromSymbolOwner(
                                 startOffset,
                                 endOffset,
-                                function.returnType,
-                                function.symbol,
+                                inlinedFunction.returnType,
+                                inlinedFunction.symbol,
                                 classTypeParametersCount
                             )
                         }
@@ -305,13 +322,13 @@ class FunctionInlining(
                             IrCallImpl(
                                 startOffset,
                                 endOffset,
-                                function.returnType,
-                                function.symbol,
-                                function.typeParameters.size,
-                                function.valueParameters.size
+                                inlinedFunction.returnType,
+                                inlinedFunction.symbol,
+                                inlinedFunction.typeParameters.size,
+                                inlinedFunction.valueParameters.size
                             )
                         else ->
-                            error("Unknown function kind : ${function.render()}")
+                            error("Unknown function kind : ${inlinedFunction.render()}")
                     }
                 }.apply {
                     for (parameter in functionParameters) {
@@ -320,7 +337,7 @@ class FunctionInlining(
                                 val arg = boundFunctionParametersMap[parameter]!!
                                 if (arg is IrGetValueWithoutLocation)
                                     arg.withLocation(irCall.startOffset, irCall.endOffset)
-                                else arg
+                                else copyIrElement.copy(arg) as IrExpression
                             } else {
                                 if (unboundIndex == valueParameters.size && parameter.defaultValue != null)
                                     copyIrElement.copy(parameter.defaultValue!!.expression) as IrExpression
@@ -349,15 +366,15 @@ class FunctionInlining(
                             }
                         when (parameter) {
                             function.dispatchReceiverParameter ->
-                                this.dispatchReceiver = argument.implicitCastIfNeededTo(function.dispatchReceiverParameter!!.type)
+                                this.dispatchReceiver = argument.implicitCastIfNeededTo(inlinedFunction.dispatchReceiverParameter!!.type)
 
                             function.extensionReceiverParameter ->
-                                this.extensionReceiver = argument.implicitCastIfNeededTo(function.extensionReceiverParameter!!.type)
+                                this.extensionReceiver = argument.implicitCastIfNeededTo(inlinedFunction.extensionReceiverParameter!!.type)
 
                             else ->
                                 putValueArgument(
                                     parameter.index,
-                                    argument.implicitCastIfNeededTo(function.valueParameters[parameter.index].type)
+                                    argument.implicitCastIfNeededTo(inlinedFunction.valueParameters[parameter.index].type)
                                 )
                         }
                     }
@@ -407,6 +424,40 @@ class FunctionInlining(
                 }
         }
 
+
+        private fun ParameterToArgument.andAllOuterClasses(): List<ParameterToArgument> {
+            val allParametersReplacements = mutableListOf(this)
+
+            if (innerClassesSupport == null) return allParametersReplacements
+
+            var currentThisSymbol = parameter.symbol
+            var parameterClassDeclaration = parameter.type.classifierOrNull?.owner as? IrClass ?: return allParametersReplacements
+
+            while (parameterClassDeclaration.isInner) {
+                val outerClass = parameterClassDeclaration.parentAsClass
+                val outerClassThis = outerClass.thisReceiver ?: error("${outerClass.name} has a null `thisReceiver` property")
+
+                val parameterToArgument = ParameterToArgument(
+                    parameter = outerClassThis,
+                    argumentExpression = IrGetFieldImpl(
+                        UNDEFINED_OFFSET,
+                        UNDEFINED_OFFSET,
+                        innerClassesSupport.getOuterThisField(parameterClassDeclaration).symbol,
+                        outerClassThis.type,
+                        IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, currentThisSymbol)
+                    )
+                )
+
+                allParametersReplacements.add(parameterToArgument)
+
+                currentThisSymbol = outerClassThis.symbol
+                parameterClassDeclaration = outerClass
+            }
+
+
+            return allParametersReplacements
+        }
+
         // callee might be a copied version of callsite.symbol.owner
         private fun buildParameterToArgument(callSite: IrFunctionAccessExpression, callee: IrFunction): List<ParameterToArgument> {
 
@@ -416,7 +467,7 @@ class FunctionInlining(
                 parameterToArgument += ParameterToArgument(
                     parameter = callee.dispatchReceiverParameter!!,
                     argumentExpression = callSite.dispatchReceiver!!
-                )
+                ).andAllOuterClasses()
 
             val valueArguments =
                 callSite.symbol.owner.valueParameters.map { callSite.getValueArgument(it.index) }.toMutableList()

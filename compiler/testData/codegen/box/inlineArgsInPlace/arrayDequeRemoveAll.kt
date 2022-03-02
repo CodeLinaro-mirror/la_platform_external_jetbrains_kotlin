@@ -1,5 +1,4 @@
-// IGNORE_BACKEND: WASM
-// WITH_RUNTIME
+// WITH_STDLIB
 
 @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
 class ArrayDeque<E> : AbstractMutableList<E> {

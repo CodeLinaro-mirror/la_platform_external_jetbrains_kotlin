@@ -1,7 +1,6 @@
-// !LANGUAGE: +NewInference
-// WITH_RUNTIME
+// WITH_STDLIB
 // TARGET_BACKEND: JVM
-// DONT_TARGET_EXACT_BACKEND: WASM
+// IGNORE_BACKEND: WASM
 
 import kotlin.experimental.ExperimentalTypeInference
 

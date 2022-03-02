@@ -1,10 +1,10 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
+// IGNORE_BACKEND: WASM
 // WASM_MUTE_REASON: IGNORED_IN_JS
 // !LANGUAGE: +MultiPlatformProjects
 // IGNORE_BACKEND: JS_IR
 // IGNORE_BACKEND: JS_IR_ES6
 // IGNORE_BACKEND_FIR: JVM_IR
-// ^ FIR doesn't support actualization in same module
+// FIR status: expect/actual in the same module (ACTUAL_WITHOUT_EXPECT)
 // MODULE: lib
 // FILE: common.kt
 

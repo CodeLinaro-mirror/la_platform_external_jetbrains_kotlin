@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 class KonanConfigKeys {
     companion object {
         // Keep the list lexically sorted.
+        val BUNDLE_ID: CompilerConfigurationKey<String>
+                = CompilerConfigurationKey.create("bundle ID to be set in Info.plist of a produced framework")
         val CHECK_DEPENDENCIES: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("check dependencies and download the missing ones")
         val DEBUG: CompilerConfigurationKey<Boolean>
@@ -132,6 +134,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("target we compile for")
         val TEMPORARY_FILES_DIR: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("directory for temporary files")
+        val SAVE_LLVM_IR: CompilerConfigurationKey<Boolean>
+                = CompilerConfigurationKey.create("save LLVM IR")
         val VERIFY_BITCODE: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify bitcode")
         val VERIFY_IR: CompilerConfigurationKey<Boolean>
@@ -157,7 +161,6 @@ class KonanConfigKeys {
         val DESTROY_RUNTIME_MODE: CompilerConfigurationKey<DestroyRuntimeMode>
                 = CompilerConfigurationKey.create("when to destroy runtime")
         val GARBAGE_COLLECTOR: CompilerConfigurationKey<GC> = CompilerConfigurationKey.create("gc")
-        val GARBAGE_COLLECTOR_AGRESSIVE: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("turn on agressive GC mode")
         val CHECK_LLD_COMPATIBILITY: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("check compatibility with LLD")
         val PROPERTY_LAZY_INITIALIZATION: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("lazy top level properties initialization")
@@ -166,6 +169,8 @@ class KonanConfigKeys {
                 CompilerConfigurationKey.create("use external dependencies to enhance IR linker error messages")
         val LLVM_VARIANT: CompilerConfigurationKey<LlvmVariant?> = CompilerConfigurationKey.create("llvm variant")
         val RUNTIME_LOGS: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("enable runtime logging")
+        val LAZY_IR_FOR_CACHES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("use lazy IR for cached libraries")
+        val MEANINGFUL_BRIDGE_NAMES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("enable meaningful bridge names")
     }
 }
 

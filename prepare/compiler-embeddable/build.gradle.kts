@@ -25,12 +25,12 @@ dependencies {
     runtimeOnly(project(":kotlin-script-runtime"))
     runtimeOnly(project(":kotlin-reflect"))
     runtimeOnly(project(":kotlin-daemon-embeddable"))
-    runtimeOnly(commonDep("org.jetbrains.intellij.deps", "trove4j"))
+    runtimeOnly(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
     Platform[203].orHigher {
-        runtimeOnly(commonDep("net.java.dev.jna", "jna"))
+        runtimeOnly(commonDependency("net.java.dev.jna", "jna"))
     }
-    testCompile(commonDep("junit:junit"))
-    testCompile(project(":kotlin-test:kotlin-test-junit"))
+    testApi(commonDependency("junit:junit"))
+    testApi(project(":kotlin-test:kotlin-test-junit"))
     testCompilationClasspath(kotlinStdlib())
 }
 
@@ -40,8 +40,6 @@ sourceSets {
 }
 
 publish()
-
-noDefaultJar()
 
 // dummy is used for rewriting dependencies to the shaded packages in the embeddable compiler
 compilerDummyJar(compilerDummyForDependenciesRewriting("compilerDummy") {
@@ -55,8 +53,17 @@ val runtimeJar = runtimeJar(embeddableCompiler()) {
     mergeServiceFiles()
 }
 
-sourcesJar()
-javadocJar()
+sourcesJar {
+    val compilerTask = project(":kotlin-compiler").tasks.named<Jar>("sourcesJar")
+    dependsOn(compilerTask)
+    from(compilerTask.map { zipTree(it.archiveFile) })
+}
+
+javadocJar {
+    val compilerTask = project(":kotlin-compiler").tasks.named<Jar>("javadocJar")
+    dependsOn(compilerTask)
+    from(compilerTask.map { zipTree(it.archiveFile) })
+}
 
 projectTest {
     dependsOn(runtimeJar)
@@ -68,5 +75,4 @@ projectTest {
         systemProperty("compilationClasspath", testCompilationClasspathProvider.get())
     }
 }
-
 

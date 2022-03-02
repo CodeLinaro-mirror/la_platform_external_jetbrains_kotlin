@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.incremental
 
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtil.toSystemIndependentName
+import com.intellij.util.containers.CollectionFactory
 import com.intellij.util.io.BooleanDataDescriptor
 import com.intellij.util.io.EnumeratorStringDescriptor
 import gnu.trove.THashSet
@@ -25,7 +26,6 @@ import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.build.GeneratedJvmClass
 import org.jetbrains.kotlin.incremental.storage.*
 import org.jetbrains.kotlin.inline.inlineFunctionsJvmNames
-import org.jetbrains.kotlin.load.kotlin.FileBasedKotlinClass
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCache
 import org.jetbrains.kotlin.load.kotlin.incremental.components.JvmPackagePartProto
@@ -184,7 +184,9 @@ open class IncrementalJvmCache(
             KotlinClassHeader.Kind.CLASS -> {
                 if (sourceFiles != null) {
                     assert(sourceFiles.size == 1) { "Class is expected to have only one source file: $sourceFiles" }
-                    addToClassStorage(kotlinClassInfo, sourceFiles.first())
+                    addToClassStorage(kotlinClassInfo, sourceFiles.single())
+                } else {
+                    addToClassStorage(kotlinClassInfo, null)
                 }
 
                 protoMap.process(kotlinClassInfo, changesCollector)
@@ -196,10 +198,10 @@ open class IncrementalJvmCache(
         }
     }
 
-    fun saveJavaClassProto(source: File, serializedJavaClass: SerializedJavaClass, collector: ChangesCollector) {
+    fun saveJavaClassProto(source: File?, serializedJavaClass: SerializedJavaClass, collector: ChangesCollector) {
         val jvmClassName = JvmClassName.byClassId(serializedJavaClass.classId)
         javaSourcesProtoMap.process(jvmClassName, serializedJavaClass, collector)
-        sourceToClassesMap.add(source, jvmClassName)
+        source?.let { sourceToClassesMap.add(source, jvmClassName) }
         val (proto, nameResolver) = serializedJavaClass.toProtoData()
         addToClassStorage(proto, nameResolver, source)
 //        collector.addJavaProto(ClassProtoData(proto, nameResolver))
@@ -501,7 +503,7 @@ open class IncrementalJvmCache(
             value.dumpCollection()
     }
 
-    private fun addToClassStorage(classInfo: KotlinClassInfo, srcFile: File) {
+    private fun addToClassStorage(classInfo: KotlinClassInfo, srcFile: File?) {
         val (nameResolver, proto) = JvmProtoBufUtil.readClassDataFrom(classInfo.classHeaderData, classInfo.classHeaderStrings)
         addToClassStorage(proto, nameResolver, srcFile)
     }
@@ -546,7 +548,7 @@ open class IncrementalJvmCache(
 }
 
 private object PathCollectionExternalizer :
-    CollectionExternalizer<String>(PathStringDescriptor, { THashSet(FileUtil.PATH_HASHING_STRATEGY) })
+    CollectionExternalizer<String>(PathStringDescriptor, { THashSet(CollectionFactory.createFilePathSet()) })
 
 sealed class ChangeInfo(val fqName: FqName) {
     open class MembersChanged(fqName: FqName, val names: Collection<String>) : ChangeInfo(fqName) {
@@ -628,30 +630,19 @@ class KotlinClassInfo constructor(
     companion object {
 
         fun createFrom(kotlinClass: LocalFileKotlinClass): KotlinClassInfo {
-            return KotlinClassInfo(
-                kotlinClass.classId,
-                kotlinClass.classHeader.kind,
-                kotlinClass.classHeader.data ?: emptyArray(),
-                kotlinClass.classHeader.strings ?: emptyArray(),
-                kotlinClass.classHeader.multifileClassName,
-                getConstantsMap(kotlinClass.fileContents),
-                getInlineFunctionsMap(kotlinClass.classHeader, kotlinClass.fileContents)
-            )
+            return createFrom(kotlinClass.classId, kotlinClass.classHeader, kotlinClass.fileContents)
         }
 
-        /** Creates [KotlinClassInfo] from the given classContents, or returns `null` if the class is not a Kotlin class. */
-        fun tryCreateFrom(classContents: ByteArray): KotlinClassInfo? {
-            return FileBasedKotlinClass.create(classContents) { classId, _, classHeader, _ ->
-                KotlinClassInfo(
-                    classId,
-                    classHeader.kind,
-                    classHeader.data ?: emptyArray(),
-                    classHeader.strings ?: emptyArray(),
-                    classHeader.multifileClassName,
-                    getConstantsMap(classContents),
-                    getInlineFunctionsMap(classHeader, classContents)
-                )
-            }
+        fun createFrom(classId: ClassId, classHeader: KotlinClassHeader, classContents: ByteArray): KotlinClassInfo {
+            return KotlinClassInfo(
+                classId,
+                classHeader.kind,
+                classHeader.data ?: emptyArray(),
+                classHeader.strings ?: emptyArray(),
+                classHeader.multifileClassName,
+                getConstantsMap(classContents),
+                getInlineFunctionsMap(classHeader, classContents)
+            )
         }
     }
 }

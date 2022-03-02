@@ -21,6 +21,33 @@ private func testCallSimple() throws {
     try assertNil(error)
 }
 
+private func testUnitCallSimple() throws {
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    var result: KotlinUnit? = nil
+#endif
+    var error: Error? = nil
+    var completionCalled = 0
+
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    CoroutinesKt.unitSuspendFun { _result, _error in
+        completionCalled += 1
+        result = _result
+        error = _error
+    }
+#else
+    CoroutinesKt.unitSuspendFun { _error in
+        completionCalled += 1
+        error = _error
+    }
+#endif
+
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    try assertSame(actual: result, expected: KotlinUnit.shared)
+#endif
+    try assertEquals(actual: completionCalled, expected: 1)
+    try assertNil(error)
+}
+
 private func testCallSuspendFun(doSuspend: Bool, doThrow: Bool) throws {
     class C {}
     let expectedResult = C()
@@ -46,22 +73,87 @@ private func testCallSuspendFun(doSuspend: Bool, doThrow: Bool) throws {
     }
 }
 
+private func testCallUnitSuspendFun(doSuspend: Bool, doThrow: Bool) throws {
+    var completionCalled = 0
+    var result: AnyObject? = nil
+    var error: Error? = nil
+
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    CoroutinesKt.unitSuspendFun(doSuspend: doSuspend, doThrow: doThrow) { _result, _error in
+        completionCalled += 1
+        result = _result as AnyObject?
+        error = _error
+    }
+#else
+    CoroutinesKt.unitSuspendFun(doSuspend: doSuspend, doThrow: doThrow) { _error in
+        completionCalled += 1
+        error = _error
+    }
+#endif
+
+    try assertEquals(actual: completionCalled, expected: 1)
+
+    if doThrow {
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+        try assertNil(result)
+#endif
+        try assertTrue(error?.kotlinException is CoroutineException)
+    } else {
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+        try assertSame(actual: result, expected: KotlinUnit.shared)
+#endif
+        try assertNil(error)
+    }
+}
+
+private class WeakRefHolder {
+    weak var value: AnyObject? = nil
+}
+
+#if NO_GENERICS
+typealias AnyContinuationHolder = ContinuationHolder
+#else
+typealias AnyContinuationHolder = ContinuationHolder<AnyObject>
+#endif
+
+// This code is extracted to a function just to ensure that all local variables get released at the end.
+private func callSuspendFunAsync(
+    weakRefToObjectCapturedByCompletion: WeakRefHolder,
+    continuationHolder: AnyContinuationHolder,
+    completionHandler: @escaping (Any?, Error?) -> Void
+) throws {
+    class C {}
+    let capturedByCompletion = C()
+    weakRefToObjectCapturedByCompletion.value = capturedByCompletion
+
+    CoroutinesKt.suspendFunAsync(result: nil, continuationHolder: continuationHolder) { _result, _error in
+        try! assertSame(actual: capturedByCompletion, expected: weakRefToObjectCapturedByCompletion.value)
+        completionHandler(_result, _error)
+    }
+}
+
 private func testSuspendFuncAsync(doThrow: Bool) throws {
     var completionCalled = 0
     var result: AnyObject? = nil
     var error: Error? = nil
 
-#if NO_GENERICS
-    let continuationHolder = ContinuationHolder()
-#else
-    let continuationHolder = ContinuationHolder<AnyObject>()
-#endif
+    let continuationHolder = AnyContinuationHolder()
 
-    CoroutinesKt.suspendFunAsync(result: nil, continuationHolder: continuationHolder) { _result, _error in
-        completionCalled += 1
-        result = _result as AnyObject?
-        error = _error
+    let weakRefToObjectCapturedByCompletion = WeakRefHolder()
+    try assertTrue(weakRefToObjectCapturedByCompletion.value === nil)
+    try autoreleasepool {
+        try callSuspendFunAsync(
+            weakRefToObjectCapturedByCompletion: weakRefToObjectCapturedByCompletion,
+            continuationHolder: continuationHolder
+        ) { _result, _error in
+            completionCalled += 1
+            result = _result as AnyObject?
+            error = _error
+        }
     }
+    CoroutinesKt.gc()
+    // This assert checks that suspendFunAsync retains the completion handler:
+    try assertFalse(weakRefToObjectCapturedByCompletion.value === nil)
 
     try assertEquals(actual: completionCalled, expected: 0)
 
@@ -83,6 +175,85 @@ private func testSuspendFuncAsync(doThrow: Bool) throws {
         try assertSame(actual: result, expected: expectedResult)
         try assertNil(error)
     }
+
+#if !NOOP_GC
+    CoroutinesKt.gc()
+    // This assert checks that the completion handler gets properly released after all:
+    try assertTrue(weakRefToObjectCapturedByCompletion.value === nil)
+#endif
+}
+
+#if NO_GENERICS
+typealias UnitContinuationHolder = ContinuationHolder
+#else
+typealias UnitContinuationHolder = ContinuationHolder<KotlinUnit>
+#endif
+
+// This code is extracted to a function just to ensure that all local variables get released at the end.
+private func callUnitSuspendFunAsync(
+    weakRefToObjectCapturedByCompletion: WeakRefHolder,
+    continuationHolder: UnitContinuationHolder,
+    completionHandler: @escaping (Error?) -> Void
+) throws {
+    class C {}
+    let capturedByCompletion = C()
+    weakRefToObjectCapturedByCompletion.value = capturedByCompletion
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    CoroutinesKt.unitSuspendFunAsync(continuationHolder: continuationHolder) { _result, _error in
+        try! assertSame(actual: capturedByCompletion, expected: weakRefToObjectCapturedByCompletion.value)
+        completionHandler(_error)
+    }
+#else
+    CoroutinesKt.unitSuspendFunAsync(continuationHolder: continuationHolder) { _error in
+        try! assertSame(actual: capturedByCompletion, expected: weakRefToObjectCapturedByCompletion.value)
+        completionHandler(_error)
+    }
+#endif
+}
+
+private func testUnitSuspendFuncAsync(doThrow: Bool) throws {
+    var completionCalled = 0
+    var error: Error? = nil
+
+    let continuationHolder = UnitContinuationHolder()
+
+    let weakRefToObjectCapturedByCompletion = WeakRefHolder()
+    try assertTrue(weakRefToObjectCapturedByCompletion.value === nil)
+    try autoreleasepool {
+        try callUnitSuspendFunAsync(
+            weakRefToObjectCapturedByCompletion: weakRefToObjectCapturedByCompletion,
+            continuationHolder: continuationHolder
+        ) { _error in
+            completionCalled += 1
+            error = _error
+        }
+    }
+    CoroutinesKt.gc()
+    // This assert checks that unitSuspendFunAsync retains the completion handler:
+    try assertFalse(weakRefToObjectCapturedByCompletion.value === nil)
+
+    try assertEquals(actual: completionCalled, expected: 0)
+
+    if doThrow {
+        let exception = CoroutineException()
+        continuationHolder.resumeWithException(exception: exception)
+
+        try assertEquals(actual: completionCalled, expected: 1)
+
+        try assertSame(actual: error?.kotlinException as AnyObject?, expected: exception)
+    } else {
+        continuationHolder.resume(value: KotlinUnit.shared)
+
+        try assertEquals(actual: completionCalled, expected: 1)
+
+        try assertNil(error)
+    }
+
+#if !NOOP_GC
+    CoroutinesKt.gc()
+    // This assert checks that the completion handler gets properly released after all:
+    try assertTrue(weakRefToObjectCapturedByCompletion.value === nil)
+#endif
 }
 
 private func testCall() throws {
@@ -91,8 +262,16 @@ private func testCall() throws {
     try testCallSuspendFun(doSuspend: true, doThrow: true)
     try testCallSuspendFun(doSuspend: false, doThrow: true)
 
+    try testCallUnitSuspendFun(doSuspend: true, doThrow: false)
+    try testCallUnitSuspendFun(doSuspend: false, doThrow: false)
+    try testCallUnitSuspendFun(doSuspend: true, doThrow: true)
+    try testCallUnitSuspendFun(doSuspend: false, doThrow: true)
+
     try testSuspendFuncAsync(doThrow: false)
     try testSuspendFuncAsync(doThrow: true)
+
+    try testUnitSuspendFuncAsync(doThrow: false)
+    try testUnitSuspendFuncAsync(doThrow: true)
 }
 
 private func testCallSuspendFunChain(doSuspend: Bool, doThrow: Bool) throws {
@@ -237,7 +416,21 @@ private class SwiftSuspendBridge : AbstractSuspendBridge {
         completionHandler(value, nil)
     }
 
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    override func unit(value: KotlinInt, completionHandler: @escaping (KotlinUnit?, Error?) -> Void) {
+        completionHandler(KotlinUnit(), nil)
+    }
+#else
+    override func unit(value: KotlinInt, completionHandler: @escaping (Error?) -> Void) {
+        completionHandler(nil)
+    }
+#endif
+
     override func unitAsAny(value: KotlinInt, completionHandler: @escaping (KotlinUnit?, Error?) -> Void) {
+        completionHandler(KotlinUnit(), nil)
+    }
+
+    override func nullableUnit(value: KotlinInt, completionHandler: @escaping (KotlinUnit?, Error?) -> Void) {
         completionHandler(KotlinUnit(), nil)
     }
 
@@ -249,9 +442,15 @@ private class SwiftSuspendBridge : AbstractSuspendBridge {
         completionHandler(nil, E())
     }
 
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
     override func nothingAsUnit(value: KotlinInt, completionHandler: @escaping (KotlinNothing?, Error?) -> Void) {
         completionHandler(nil, E())
     }
+#else
+    override func nothingAsUnit(value: KotlinInt, completionHandler: @escaping (Error?) -> Void) {
+        completionHandler(E())
+    }
+#endif
 }
 
 private func testBridges() throws {
@@ -268,9 +467,11 @@ private func testBridges() throws {
 }
 
 private func testImplicitThrows1() throws {
-    var result: KotlinUnit? = nil
     var error: Error? = nil
     var completionCalled = 0
+
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    var result: KotlinUnit? = nil
 
     CoroutinesKt.throwCancellationException { _result, _error in
         completionCalled += 1
@@ -278,24 +479,40 @@ private func testImplicitThrows1() throws {
         error = _error
     }
 
-    try assertEquals(actual: completionCalled, expected: 1)
     try assertNil(result)
+#else
+    CoroutinesKt.throwCancellationException { _error in
+        completionCalled += 1
+        error = _error
+    }
+#endif
+
+    try assertEquals(actual: completionCalled, expected: 1)
     try assertTrue(error?.kotlinException is KotlinCancellationException)
 }
 
 private func testImplicitThrows2() throws {
-    var result: KotlinUnit? = nil
     var error: Error? = nil
     var completionCalled = 0
 
+#if LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT
+    var result: KotlinUnit? = nil
+
     ThrowCancellationExceptionImpl().throwCancellationException { _result, _error in
-        completionCalled += 1
-        result = _result
-        error = _error
+            completionCalled += 1
+            result = _result
+            error = _error
     }
 
-    try assertEquals(actual: completionCalled, expected: 1)
     try assertNil(result)
+#else
+    ThrowCancellationExceptionImpl().throwCancellationException { _error in
+        completionCalled += 1
+        error = _error
+    }
+#endif
+
+    try assertEquals(actual: completionCalled, expected: 1)
     try assertTrue(error?.kotlinException is KotlinCancellationException)
 }
 
@@ -338,8 +555,51 @@ private func testSuspendFunctionType1(f: KotlinSuspendFunction1) throws {
 private func testSuspendFunctionType() throws {
     try testSuspendFunctionType0(f: CoroutinesKt.getSuspendLambda0(), expectedResult: "lambda 0")
     try testSuspendFunctionType0(f: CoroutinesKt.getSuspendCallableReference0(), expectedResult: "callable reference 0")
+    try testSuspendFunctionType0(f: CoroutinesKt.getSuspendChild0(), expectedResult: "child 0")
     try testSuspendFunctionType1(f: CoroutinesKt.getSuspendLambda1())
     try testSuspendFunctionType1(f: CoroutinesKt.getSuspendCallableReference1())
+    try testSuspendFunctionType1(f: CoroutinesKt.getSuspendChild1())
+}
+
+private func testKSuspendFunctionType0(f: KotlinKSuspendFunction0, expectedResult: String) throws {
+    try assertTrue((f as AnyObject) is KotlinKSuspendFunction0)
+
+    var result: String? = nil
+    var error: Error? = nil
+    var completionCalled = 0
+
+    f.invoke { _result, _error in
+        completionCalled += 1
+        result = _result as? String
+        error = _error
+    }
+
+    try assertEquals(actual: completionCalled, expected: 1)
+    try assertEquals(actual: result, expected: expectedResult)
+    try assertNil(error)
+}
+
+private func testKSuspendFunctionType1(f: KotlinKSuspendFunction1) throws {
+    try assertTrue((f as AnyObject) is KotlinKSuspendFunction1)
+
+    var result: String? = nil
+    var error: Error? = nil
+    var completionCalled = 0
+
+    f.invoke(p1: "suspend function type") { _result, _error in
+        completionCalled += 1
+        result = _result as? String
+        error = _error
+    }
+
+    try assertEquals(actual: completionCalled, expected: 1)
+    try assertEquals(actual: result, expected: "suspend function type 1")
+    try assertNil(error)
+}
+
+private func testKSuspendFunctionType() throws {
+    try testKSuspendFunctionType0(f: CoroutinesKt.getKSuspendCallableReference0(), expectedResult: "callable reference 0")
+    try testKSuspendFunctionType1(f: CoroutinesKt.getKSuspendCallableReference1())
 }
 
 private func testSuspendFunctionSwiftImpl() throws {
@@ -369,6 +629,7 @@ class CoroutinesTests : SimpleTestProvider {
         super.init()
 
         test("TestCallSimple", testCallSimple)
+        test("TestCallUnitSimple", testUnitCallSimple)
         test("TestCall", testCall)
         test("TestCallChain", testCallChain)
         test("TestOverride", testOverride)
@@ -376,6 +637,7 @@ class CoroutinesTests : SimpleTestProvider {
         test("TestImplicitThrows1", testImplicitThrows1)
         test("TestImplicitThrows2", testImplicitThrows2)
         test("TestSuspendFunctionType", testSuspendFunctionType)
+        test("TestKSuspendFunctionType", testSuspendFunctionType)
         test("TestSuspendFunctionSwiftImpl", testSuspendFunctionSwiftImpl)
     }
 }

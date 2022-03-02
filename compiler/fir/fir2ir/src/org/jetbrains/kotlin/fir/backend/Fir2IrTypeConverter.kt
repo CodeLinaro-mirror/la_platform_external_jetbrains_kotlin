@@ -5,13 +5,14 @@
 
 package org.jetbrains.kotlin.fir.backend
 
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.declarations.getAnnotationsByClassId
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.classId
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.typeContext
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -24,6 +25,7 @@ import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.name.StandardClassIds.Annotations.ExtensionFunctionType
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.Variance
 
@@ -31,36 +33,40 @@ class Fir2IrTypeConverter(
     private val components: Fir2IrComponents
 ) : Fir2IrComponents by components {
 
-    internal val classIdToSymbolMap by lazy { mapOf(
-        StandardClassIds.Nothing to irBuiltIns.nothingClass,
-        StandardClassIds.Unit to irBuiltIns.unitClass,
-        StandardClassIds.Boolean to irBuiltIns.booleanClass,
-        StandardClassIds.String to irBuiltIns.stringClass,
-        StandardClassIds.Any to irBuiltIns.anyClass,
-        StandardClassIds.Long to irBuiltIns.longClass,
-        StandardClassIds.Int to irBuiltIns.intClass,
-        StandardClassIds.Short to irBuiltIns.shortClass,
-        StandardClassIds.Byte to irBuiltIns.byteClass,
-        StandardClassIds.Float to irBuiltIns.floatClass,
-        StandardClassIds.Double to irBuiltIns.doubleClass,
-        StandardClassIds.Char to irBuiltIns.charClass,
-        StandardClassIds.Array to irBuiltIns.arrayClass
-    )}
+    internal val classIdToSymbolMap by lazy {
+        mapOf(
+            StandardClassIds.Nothing to irBuiltIns.nothingClass,
+            StandardClassIds.Unit to irBuiltIns.unitClass,
+            StandardClassIds.Boolean to irBuiltIns.booleanClass,
+            StandardClassIds.String to irBuiltIns.stringClass,
+            StandardClassIds.Any to irBuiltIns.anyClass,
+            StandardClassIds.Long to irBuiltIns.longClass,
+            StandardClassIds.Int to irBuiltIns.intClass,
+            StandardClassIds.Short to irBuiltIns.shortClass,
+            StandardClassIds.Byte to irBuiltIns.byteClass,
+            StandardClassIds.Float to irBuiltIns.floatClass,
+            StandardClassIds.Double to irBuiltIns.doubleClass,
+            StandardClassIds.Char to irBuiltIns.charClass,
+            StandardClassIds.Array to irBuiltIns.arrayClass
+        )
+    }
 
-    internal val classIdToTypeMap by lazy { mapOf(
-        StandardClassIds.Nothing to irBuiltIns.nothingType,
-        StandardClassIds.Unit to irBuiltIns.unitType,
-        StandardClassIds.Boolean to irBuiltIns.booleanType,
-        StandardClassIds.String to irBuiltIns.stringType,
-        StandardClassIds.Any to irBuiltIns.anyType,
-        StandardClassIds.Long to irBuiltIns.longType,
-        StandardClassIds.Int to irBuiltIns.intType,
-        StandardClassIds.Short to irBuiltIns.shortType,
-        StandardClassIds.Byte to irBuiltIns.byteType,
-        StandardClassIds.Float to irBuiltIns.floatType,
-        StandardClassIds.Double to irBuiltIns.doubleType,
-        StandardClassIds.Char to irBuiltIns.charType
-    )}
+    internal val classIdToTypeMap by lazy {
+        mapOf(
+            StandardClassIds.Nothing to irBuiltIns.nothingType,
+            StandardClassIds.Unit to irBuiltIns.unitType,
+            StandardClassIds.Boolean to irBuiltIns.booleanType,
+            StandardClassIds.String to irBuiltIns.stringType,
+            StandardClassIds.Any to irBuiltIns.anyType,
+            StandardClassIds.Long to irBuiltIns.longType,
+            StandardClassIds.Int to irBuiltIns.intType,
+            StandardClassIds.Short to irBuiltIns.shortType,
+            StandardClassIds.Byte to irBuiltIns.byteType,
+            StandardClassIds.Float to irBuiltIns.floatType,
+            StandardClassIds.Double to irBuiltIns.doubleType,
+            StandardClassIds.Char to irBuiltIns.charType
+        )
+    }
 
     private val capturedTypeCache = mutableMapOf<ConeCapturedType, IrType>()
     private val errorTypeForCapturedTypeStub by lazy { createErrorType() }
@@ -94,28 +100,49 @@ class Fir2IrTypeConverter(
 
     fun ConeKotlinType.toIrType(
         typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT,
-        annotations: List<FirAnnotationCall> = emptyList(),
-        hasFlexibleNullability: Boolean = false
+        annotations: List<FirAnnotation> = emptyList(),
+        hasFlexibleNullability: Boolean = false,
+        addRawTypeAnnotation: Boolean = false
     ): IrType {
         return when (this) {
             is ConeKotlinErrorType -> createErrorType()
             is ConeLookupTagBasedType -> {
                 val typeAnnotations = mutableListOf<IrConstructorCall>()
                 typeAnnotations += with(annotationGenerator) { annotations.toIrAnnotations() }
-                val irSymbol = getBuiltInClassSymbol(classId)
-                    ?: lookupTag.toSymbol(session)?.toSymbol(session, classifierStorage, typeContext) {
-                        typeAnnotations += with(annotationGenerator) { it.toIrAnnotations() }
+
+                val irSymbol =
+                    getBuiltInClassSymbol(classId)
+                        ?: lookupTag.toSymbol(session)?.toSymbol(session, classifierStorage, typeContext) {
+                            typeAnnotations += with(annotationGenerator) { it.toIrAnnotations() }
+                        }
+                        ?: (lookupTag as? ConeClassLikeLookupTag)?.let(classifierStorage::getIrClassSymbolForNotFoundClass)
+                        ?: return createErrorType()
+
+                when {
+                    hasEnhancedNullability -> {
+                        builtIns.enhancedNullabilityAnnotationConstructorCall()?.let {
+                            typeAnnotations += it
+                        }
                     }
-                    ?: return createErrorType()
-                if (hasEnhancedNullability) {
-                    builtIns.enhancedNullabilityAnnotationConstructorCall()?.let {
-                        typeAnnotations += it
+                    hasFlexibleNullability -> {
+                        builtIns.flexibleNullabilityAnnotationConstructorCall()?.let {
+                            typeAnnotations += it
+                        }
                     }
-                } else if (hasFlexibleNullability) {
-                    builtIns.flexibleNullabilityAnnotationConstructorCall()?.let {
+                }
+
+                if (isExtensionFunctionType && annotations.getAnnotationsByClassId(ExtensionFunctionType).isEmpty()) {
+                    builtIns.extensionFunctionTypeAnnotationConstructorCall()?.let {
                         typeAnnotations += it
                     }
                 }
+
+                if (addRawTypeAnnotation) {
+                    builtIns.rawTypeAnnotationConstructorCall()?.let {
+                        typeAnnotations += it
+                    }
+                }
+
                 for (attributeAnnotation in attributes.customAnnotations) {
                     if (annotations.any { it.classId == attributeAnnotation.classId }) continue
                     typeAnnotations += callGenerator.convertToIrConstructorCall(attributeAnnotation) as? IrConstructorCall ?: continue
@@ -123,9 +150,19 @@ class Fir2IrTypeConverter(
                 val expandedType = fullyExpandedType(session)
                 val approximatedType = approximateType(expandedType)
                 IrSimpleTypeImpl(
-                    irSymbol, !typeContext.definitelyNotNull && approximatedType.isMarkedNullable,
-                    approximatedType.typeArguments.map { it.toIrTypeArgument(typeContext) },
-                    typeAnnotations
+                    irSymbol,
+                    hasQuestionMark = !typeContext.definitelyNotNull && approximatedType.isMarkedNullable,
+                    arguments = approximatedType.typeArguments.map { it.toIrTypeArgument(typeContext) },
+                    annotations = typeAnnotations
+                )
+            }
+            is ConeRawType -> {
+                // Upper bound has star projections here, so we take lower one
+                // (some reflection tests rely on this)
+                lowerBound.toIrType(
+                    typeContext,
+                    hasFlexibleNullability = lowerBound.nullability != upperBound.nullability,
+                    addRawTypeAnnotation = true
                 )
             }
             is ConeFlexibleType -> {

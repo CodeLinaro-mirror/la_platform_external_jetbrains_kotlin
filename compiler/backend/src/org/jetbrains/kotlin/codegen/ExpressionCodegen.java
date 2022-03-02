@@ -62,8 +62,8 @@ import org.jetbrains.kotlin.name.Name;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.psi.psiUtil.PsiUtilsKt;
 import org.jetbrains.kotlin.resolve.*;
-import org.jetbrains.kotlin.resolve.calls.callResolverUtil.CallResolverUtilKt;
-import org.jetbrains.kotlin.resolve.calls.callUtil.CallUtilKt;
+import org.jetbrains.kotlin.resolve.calls.util.CallResolverUtilKt;
+import org.jetbrains.kotlin.resolve.calls.util.CallUtilKt;
 import org.jetbrains.kotlin.resolve.calls.inference.CapturedTypeConstructorKt;
 import org.jetbrains.kotlin.resolve.calls.model.*;
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker;
@@ -118,6 +118,7 @@ import static org.jetbrains.kotlin.resolve.BindingContextUtils.getDelegationCons
 import static org.jetbrains.kotlin.resolve.BindingContextUtils.isBoxedLocalCapturedInClosure;
 import static org.jetbrains.kotlin.resolve.DescriptorUtils.*;
 import static org.jetbrains.kotlin.resolve.jvm.AsmTypes.*;
+import static org.jetbrains.kotlin.types.RangeUtilKt.isPrimitiveNumberClassDescriptor;
 import static org.jetbrains.kotlin.types.expressions.ExpressionTypingUtils.isFunctionExpression;
 import static org.jetbrains.kotlin.types.expressions.ExpressionTypingUtils.isFunctionLiteral;
 import static org.jetbrains.org.objectweb.asm.Opcodes.*;
@@ -331,8 +332,6 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
             StackValue stackValue = selector.accept(visitor, receiver);
 
-            stackValue = suspendFunctionTypeWrapperIfNeeded(selector, stackValue);
-
             stackValue = coerceAndBoxInlineClassIfNeeded(selector, stackValue);
 
             RuntimeAssertionInfo runtimeAssertionInfo = null;
@@ -355,32 +354,6 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         catch (Throwable e) {
             throw new CompilationException("Failed to generate expression: " + selector.getClass().getSimpleName(), e, selector);
         }
-    }
-
-    private StackValue suspendFunctionTypeWrapperIfNeeded(KtElement selector, StackValue stackValue) {
-        Type functionTypeForWrapper =
-                selector instanceof KtExpression
-                ? bindingContext.get(CodegenBinding.FUNCTION_TYPE_FOR_SUSPEND_WRAPPER, (KtExpression) selector)
-                : null;
-
-        if (functionTypeForWrapper == null) return stackValue;
-
-        StackValue stackValueToWrap = stackValue;
-        stackValue = new StackValue(stackValue.type, stackValue.kotlinType) {
-            @Override
-            public void putSelector(
-                    @NotNull Type type, @Nullable KotlinType kotlinType, @NotNull InstructionAdapter v
-            ) {
-                stackValueToWrap.put(functionTypeForWrapper, null, v);
-                invokeCoroutineMigrationMethod(
-                        v,
-                        "toExperimentalSuspendFunction",
-                        Type.getMethodDescriptor(functionTypeForWrapper, functionTypeForWrapper)
-                );
-                coerce(functionTypeForWrapper, type, v);
-            }
-        };
-        return stackValue;
     }
 
     private StackValue coerceAndBoxInlineClassIfNeeded(KtElement selector, StackValue stackValue) {
@@ -2617,19 +2590,6 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
                 : getContinuationParameterFromEnclosingSuspendFunction(resolvedCall);
 
         tempVariables.put(continuationExpression, coroutineInstanceValue);
-    }
-
-    private static void invokeCoroutineMigrationMethod(
-            @NotNull InstructionAdapter v,
-            String methodName,
-            String descriptor
-    ) {
-        v.invokestatic(
-                "kotlin/coroutines/experimental/migration/CoroutinesMigrationKt",
-                methodName,
-                descriptor,
-                false
-        );
     }
 
     private StackValue getContinuationParameterFromEnclosingSuspendFunction(@NotNull ResolvedCall<?> resolvedCall) {

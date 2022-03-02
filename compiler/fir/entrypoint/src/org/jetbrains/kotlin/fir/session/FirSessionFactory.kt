@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.session
 
-import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
@@ -15,17 +14,16 @@ import org.jetbrains.kotlin.fir.analysis.checkers.expression.ExpressionCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.type.TypeCheckers
 import org.jetbrains.kotlin.fir.analysis.checkersComponent
 import org.jetbrains.kotlin.fir.analysis.extensions.additionalCheckers
-import org.jetbrains.kotlin.fir.analysis.jvm.diagnostics.FirJvmDefaultErrorMessages
 import org.jetbrains.kotlin.fir.checkers.registerCommonCheckers
 import org.jetbrains.kotlin.fir.checkers.registerJvmCheckers
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.deserialization.SingleModuleDataProvider
-import org.jetbrains.kotlin.fir.extensions.BunchOfRegisteredExtensions
-import org.jetbrains.kotlin.fir.extensions.extensionService
-import org.jetbrains.kotlin.fir.extensions.registerExtensions
+import org.jetbrains.kotlin.fir.extensions.*
 import org.jetbrains.kotlin.fir.java.FirCliSession
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
-import org.jetbrains.kotlin.fir.java.deserialization.KotlinDeserializedJvmSymbolsProvider
+import org.jetbrains.kotlin.fir.java.JavaSymbolProvider
+import org.jetbrains.kotlin.fir.java.deserialization.JvmClassFileBasedSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
@@ -86,6 +84,7 @@ object FirSessionFactory {
         librariesScope: AbstractProjectFileSearchScope,
         lookupTracker: LookupTracker?,
         providerAndScopeForIncrementalCompilation: ProviderAndScopeForIncrementalCompilation?,
+        extensionRegistrars: List<FirExtensionRegistrar>,
         dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit = {},
         noinline sessionConfigurator: FirSessionConfigurator.() -> Unit = {},
     ): FirSession {
@@ -115,6 +114,7 @@ object FirSessionFactory {
             sourceScope,
             projectEnvironment,
             providerAndScopeForIncrementalCompilation,
+            extensionRegistrars,
             languageVersionSettings = languageVersionSettings,
             lookupTracker = lookupTracker,
             init = sessionConfigurator
@@ -127,6 +127,7 @@ object FirSessionFactory {
         scope: AbstractProjectFileSearchScope,
         projectEnvironment: AbstractProjectEnvironment,
         providerAndScopeForIncrementalCompilation: ProviderAndScopeForIncrementalCompilation?,
+        extensionRegistrars: List<FirExtensionRegistrar>,
         languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
         lookupTracker: LookupTracker? = null,
         init: FirSessionConfigurator.() -> Unit = {}
@@ -136,31 +137,40 @@ object FirSessionFactory {
             sessionProvider.registerSession(moduleData, this@session)
             registerModuleData(moduleData)
             registerCliCompilerOnlyComponents()
-            registerCommonJavaComponents()
             registerCommonComponents(languageVersionSettings)
+            registerCommonJavaComponents(projectEnvironment.getJavaModuleResolver())
             registerResolveComponents(lookupTracker)
             registerJavaSpecificResolveComponents()
 
             val kotlinScopeProvider = FirKotlinScopeProvider(::wrapScopeWithJvmMapped)
+            register(FirKotlinScopeProvider::class, kotlinScopeProvider)
 
             val firProvider = FirProviderImpl(this, kotlinScopeProvider)
             register(FirProvider::class, firProvider)
 
             val symbolProviderForBinariesFromIncrementalCompilation = providerAndScopeForIncrementalCompilation?.let {
-                val javaSymbolProvider = projectEnvironment.getJavaSymbolProvider(this, moduleData, it.scope)
-
-                KotlinDeserializedJvmSymbolsProvider(
+                JvmClassFileBasedSymbolProvider(
                     this@session,
                     SingleModuleDataProvider(moduleData),
                     kotlinScopeProvider,
                     it.packagePartProvider,
                     projectEnvironment.getKotlinClassFinder(it.scope),
-                    javaSymbolProvider,
-                    projectEnvironment.getJavaClassFinder(it.scope)
+                    projectEnvironment.getFirJavaFacade(this, moduleData, it.scope),
+                    defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
                 )
             }
 
+            FirSessionConfigurator(this).apply {
+                registerCommonCheckers()
+                registerJvmCheckers()
+                for (extensionRegistrar in extensionRegistrars) {
+                    registerExtensions(extensionRegistrar.configure())
+                }
+                init()
+            }.configure()
+
             val dependenciesSymbolProvider = FirDependenciesSymbolProviderImpl(this)
+            val generatedSymbolsProvider = FirSwitchableExtensionDeclarationsSymbolProvider.create(this)
             register(
                 FirSymbolProvider::class,
                 FirCompositeSymbolProvider(
@@ -168,23 +178,20 @@ object FirSessionFactory {
                     listOfNotNull(
                         firProvider.symbolProvider,
                         symbolProviderForBinariesFromIncrementalCompilation,
-                        projectEnvironment.getJavaSymbolProvider(this, moduleData, scope),
+                        generatedSymbolsProvider,
+                        JavaSymbolProvider(this, projectEnvironment.getFirJavaFacade(this, moduleData, scope)),
                         dependenciesSymbolProvider,
                     )
                 )
             )
+
+            generatedSymbolsProvider?.let { register(FirSwitchableExtensionDeclarationsSymbolProvider::class, it) }
 
             register(
                 FirDependenciesSymbolProvider::class,
                 dependenciesSymbolProvider
             )
 
-            FirJvmDefaultErrorMessages.installJvmErrorMessages()
-            FirSessionConfigurator(this).apply {
-                registerCommonCheckers()
-                registerJvmCheckers()
-                init()
-            }.configure()
             projectEnvironment.registerAsJavaElementFinder(this)
         }
     }
@@ -206,20 +213,18 @@ object FirSessionFactory {
 
             registerCliCompilerOnlyComponents()
             registerCommonComponents(languageVersionSettings)
-            registerCommonJavaComponents()
-
-            val javaSymbolProvider = projectEnvironment.getJavaSymbolProvider(this, moduleDataProvider.allModuleData.last(), scope)
+            registerCommonJavaComponents(projectEnvironment.getJavaModuleResolver())
 
             val kotlinScopeProvider = FirKotlinScopeProvider(::wrapScopeWithJvmMapped)
+            register(FirKotlinScopeProvider::class, kotlinScopeProvider)
 
-            val deserializedProviderForIncrementalCompilation = KotlinDeserializedJvmSymbolsProvider(
-                session = this,
-                moduleDataProvider = moduleDataProvider,
-                kotlinScopeProvider = kotlinScopeProvider,
-                packagePartProvider = packagePartProvider,
-                kotlinClassFinder = projectEnvironment.getKotlinClassFinder(scope),
-                javaSymbolProvider = javaSymbolProvider,
-                javaClassFinder = projectEnvironment.getJavaClassFinder(scope)
+            val classFileBasedSymbolProvider = JvmClassFileBasedSymbolProvider(
+                this,
+                moduleDataProvider,
+                kotlinScopeProvider,
+                packagePartProvider,
+                projectEnvironment.getKotlinClassFinder(scope),
+                projectEnvironment.getFirJavaFacade(this, moduleDataProvider.allModuleData.last(), scope)
             )
 
             val builtinsModuleData = createModuleDataForBuiltins(
@@ -231,10 +236,9 @@ object FirSessionFactory {
             val symbolProvider = FirCompositeSymbolProvider(
                 this,
                 listOf(
-                    deserializedProviderForIncrementalCompilation,
+                    classFileBasedSymbolProvider,
                     FirBuiltinSymbolProvider(this, builtinsModuleData, kotlinScopeProvider),
                     FirCloneableSymbolProvider(this, builtinsModuleData, kotlinScopeProvider),
-                    javaSymbolProvider, // TODO: looks like it can be removed
                     FirDependenciesSymbolProviderImpl(this)
                 )
             )

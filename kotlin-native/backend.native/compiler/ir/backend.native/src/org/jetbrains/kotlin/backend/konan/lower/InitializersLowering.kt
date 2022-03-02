@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.backend.common.ir.createDispatchReceiverParameter
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlockBody
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
-import org.jetbrains.kotlin.backend.konan.isNonGeneratedAnnotation
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.irDelegatingConstructorCall
@@ -40,6 +39,7 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
 
     private inner class InitializersTransformer(val irClass: IrClass) {
         val initializers = mutableListOf<IrStatement>()
+        val constInitializers = mutableListOf<IrStatement>()
 
         fun lowerInitializers() {
             collectAndRemoveInitializers()
@@ -66,30 +66,29 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
                     val startOffset = initializer.startOffset
                     val endOffset = initializer.endOffset
                     val initExpression = initializer.expression
-                    initializers.add(IrBlockImpl(startOffset, endOffset,
-                            context.irBuiltIns.unitType,
-                            IrStatementOrigin.INITIALIZE_FIELD,
-                            listOf(
-                                    IrSetFieldImpl(startOffset, endOffset, declaration.symbol,
-                                            IrGetValueImpl(
-                                                    startOffset, endOffset,
-                                                    irClass.thisReceiver!!.type, irClass.thisReceiver!!.symbol
-                                            ),
-                                            initExpression,
-                                            context.irBuiltIns.unitType,
-                                            IrStatementOrigin.INITIALIZE_FIELD)))
+                    val isConst = declaration.correspondingPropertySymbol?.owner?.isConst == true
+                    if (isConst)
+                        require(initExpression is IrConst<*>) { "Const val can only be initialized with a const: ${declaration.render()}" }
+                    (if (isConst) constInitializers else initializers).add(
+                            IrBlockImpl(startOffset, endOffset,
+                                    context.irBuiltIns.unitType,
+                                    IrStatementOrigin.INITIALIZE_FIELD,
+                                    listOf(
+                                            IrSetFieldImpl(startOffset, endOffset, declaration.symbol,
+                                                    IrGetValueImpl(
+                                                            startOffset, endOffset,
+                                                            irClass.thisReceiver!!.type, irClass.thisReceiver!!.symbol
+                                                    ),
+                                                    initExpression,
+                                                    context.irBuiltIns.unitType,
+                                                    IrStatementOrigin.INITIALIZE_FIELD)))
                     )
 
                     // We shall keep initializer for constants for compile-time instantiation.
                     // We suppose that if the property is const, then its initializer is IrConst.
                     // If this requirement isn't satisfied, then PropertyAccessorInlineLowering can fail.
-                    declaration.initializer =
-                            if (initExpression is IrConst<*> &&
-                                    declaration.correspondingPropertySymbol?.owner?.isConst == true) {
-                                IrExpressionBodyImpl(initExpression.shallowCopy())
-                            } else {
-                                null
-                            }
+                    declaration.initializer = if (isConst) IrExpressionBodyImpl(initExpression.shallowCopy()) else null
+
                     return declaration
                 }
             })
@@ -105,6 +104,7 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
             if (irClass.declarations.any { it is IrConstructor && it.isPrimary })
                 return null // Place initializers in the primary constructor.
 
+            val allInitializers = constInitializers + initializers
             val startOffset = irClass.startOffset
             val endOffset = irClass.endOffset
             val initializeFun =
@@ -130,10 +130,10 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
 
                     createDispatchReceiverParameter()
 
-                    body = IrBlockBodyImpl(startOffset, endOffset, initializers)
+                    body = IrBlockBodyImpl(startOffset, endOffset, allInitializers)
                 }
 
-            for (initializer in initializers) {
+            for (initializer in allInitializers) {
                 initializer.transformChildrenVoid(object : IrElementTransformerVoid() {
                     override fun visitGetValue(expression: IrGetValue): IrExpression {
                         if (expression.symbol == irClass.thisReceiver!!.symbol) {
@@ -154,16 +154,6 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
         }
 
         private fun lowerConstructors(initializeMethodSymbol: IrSimpleFunctionSymbol?) {
-            if (irClass.kind == ClassKind.ANNOTATION_CLASS) {
-                if (irClass.isNonGeneratedAnnotation()) return
-
-                val irConstructor = irClass.declarations.filterIsInstance<IrConstructor>().single()
-                assert(irConstructor.body == null)
-                irConstructor.body = context.createIrBuilder(irConstructor.symbol).irBlockBody(irConstructor) {
-                    +irDelegatingConstructorCall(context.irBuiltIns.anyClass.owner.constructors.single())
-                    +IrInstanceInitializerCallImpl(startOffset, endOffset, irClass.symbol, context.irBuiltIns.unitType)
-                }
-            }
             irClass.transformChildrenVoid(object : IrElementTransformerVoid() {
 
                 override fun visitClass(declaration: IrClass): IrStatement {
@@ -180,10 +170,11 @@ internal class InitializersLowering(val context: CommonBackendContext) : ClassLo
                         when {
                             it is IrInstanceInitializerCall -> {
                                 if (initializeMethodSymbol == null) {
+                                    val allInitializers = constInitializers + initializers
                                     assert(declaration.isPrimary)
-                                    for (initializer in initializers)
+                                    for (initializer in allInitializers)
                                         initializer.setDeclarationsParent(declaration)
-                                    initializers
+                                    allInitializers
                                 } else {
                                     val startOffset = it.startOffset
                                     val endOffset = it.endOffset

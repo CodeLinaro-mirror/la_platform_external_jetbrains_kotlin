@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.descriptors.impl.AbstractTypeParameterDescriptor
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.inference.CapturedType
 import org.jetbrains.kotlin.resolve.constants.IntegerLiteralTypeConstructor
@@ -27,6 +28,9 @@ import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.*
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.types.typeUtil.isSignedOrUnsignedNumberType as classicIsSignedOrUnsignedNumberType
+import org.jetbrains.kotlin.types.typeUtil.isStubTypeForVariableInSubtyping as isSimpleTypeStubTypeForVariableInSubtyping
+import org.jetbrains.kotlin.types.typeUtil.isStubTypeForBuilderInference as isSimpleTypeStubTypeForBuilderInference
+import org.jetbrains.kotlin.types.typeUtil.isStubType as isSimpleTypeStubType
 
 interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSystemCommonBackendContext {
     override fun TypeConstructorMarker.isDenotable(): Boolean {
@@ -42,6 +46,11 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     override fun TypeConstructorMarker.isLocalType(): Boolean {
         require(this is TypeConstructor, this::errorMessage)
         return declarationDescriptor?.classId?.isLocal == true
+    }
+
+    override fun TypeConstructorMarker.isAnonymous(): Boolean {
+        require(this is TypeConstructor, this::errorMessage)
+        return declarationDescriptor?.classId?.shortClassName == SpecialNames.ANONYMOUS
     }
 
     override val TypeVariableTypeConstructorMarker.typeParameter: TypeParameterMarker?
@@ -78,20 +87,21 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
 
     override fun SimpleTypeMarker.isStubType(): Boolean {
         require(this is SimpleType, this::errorMessage)
-        return this is AbstractStubType || isDefNotNullStubType<AbstractStubType>()
+        return this.isSimpleTypeStubType()
     }
-
-    private inline fun <reified S : AbstractStubType> SimpleTypeMarker.isDefNotNullStubType() =
-        this is DefinitelyNotNullType && this.original is S
 
     override fun SimpleTypeMarker.isStubTypeForVariableInSubtyping(): Boolean {
         require(this is SimpleType, this::errorMessage)
-        return this is StubTypeForTypeVariablesInSubtyping || isDefNotNullStubType<StubTypeForTypeVariablesInSubtyping>()
+        return this.isSimpleTypeStubTypeForVariableInSubtyping()
     }
 
     override fun SimpleTypeMarker.isStubTypeForBuilderInference(): Boolean {
         require(this is SimpleType, this::errorMessage)
-        return this is StubTypeForBuilderInference || isDefNotNullStubType<StubTypeForBuilderInference>()
+        return this.isSimpleTypeStubTypeForBuilderInference()
+    }
+
+    override fun TypeConstructorMarker.unwrapStubTypeVariableConstructor(): TypeConstructorMarker {
+        return this
     }
 
     override fun StubTypeMarker.getOriginalTypeVariable(): TypeVariableTypeConstructorMarker {
@@ -154,6 +164,9 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         require(this is SimpleType, this::errorMessage)
         return this as? DefinitelyNotNullType
     }
+
+    @OptIn(ObsoleteTypeKind::class)
+    override fun KotlinTypeMarker.isNotNullTypeParameter(): Boolean = this is NotNullTypeParameter
 
     override fun SimpleTypeMarker.isMarkedNullable(): Boolean {
         require(this is SimpleType, this::errorMessage)

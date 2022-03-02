@@ -1,7 +1,10 @@
 // IGNORE_BACKEND: JVM
-// IGNORE_BACKEND: WASM
-// !LANGUAGE: +InlineClasses
-inline class A(val value: String)
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class A(val value: String)
 
 fun interface B {
     fun f(x: A): A

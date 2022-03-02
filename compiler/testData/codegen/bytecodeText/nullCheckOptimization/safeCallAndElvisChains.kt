@@ -8,11 +8,11 @@ class A(val x: String) {
 
 // JVM_TEMPLATES
 // Optimization not implemented
-// 8 IFNULL
-// 0 IFNONNULL
+// 4 IFNULL
+// 4 IFNONNULL
 // 2 ACONST_NULL
 
 // JVM_IR_TEMPLATES
-// 0 IFNULL
-// 8 IFNONNULL
-// 4 ACONST_NULL
+// 4 IFNULL
+// 2 IFNONNULL
+// 0 ACONST_NULL

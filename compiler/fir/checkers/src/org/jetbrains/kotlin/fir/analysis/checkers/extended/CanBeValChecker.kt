@@ -5,22 +5,22 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.extended
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
-import org.jetbrains.kotlin.fir.FirFakeSourceElement
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.analysis.cfa.AbstractFirPropertyInitializationChecker
-import org.jetbrains.kotlin.fir.analysis.cfa.PathAwarePropertyInitializationInfo
-import org.jetbrains.kotlin.fir.analysis.cfa.TraverseDirection
-import org.jetbrains.kotlin.fir.analysis.cfa.traverse
+import org.jetbrains.kotlin.fir.analysis.cfa.util.PathAwarePropertyInitializationInfo
+import org.jetbrains.kotlin.fir.analysis.cfa.util.TraverseDirection
+import org.jetbrains.kotlin.fir.analysis.cfa.util.traverse
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.getChildren
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
+import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 
 object CanBeValChecker : AbstractFirPropertyInitializationChecker() {
@@ -40,12 +40,12 @@ object CanBeValChecker : AbstractFirPropertyInitializationChecker() {
 
         for (property in unprocessedProperties) {
             val source = property.source
-            if (source is FirFakeSourceElement) continue
+            if (source?.kind is KtFakeSourceElementKind) continue
             if (source?.elementType == KtNodeTypes.DESTRUCTURING_DECLARATION) continue
             propertiesCharacteristics[property] = EventOccurrencesRange.ZERO
         }
 
-        var lastDestructuringSource: FirSourceElement? = null
+        var lastDestructuringSource: KtSourceElement? = null
         var destructuringCanBeVal = false
         var lastDestructuredVariables = 0
 
@@ -85,8 +85,7 @@ object CanBeValChecker : AbstractFirPropertyInitializationChecker() {
         override fun visitNode(node: CFGNode<*>) {}
 
         override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
-            val symbol = (node.fir.calleeReference as? FirResolvedNamedReference)?.resolvedSymbol as? FirPropertySymbol
-                ?: return
+            val symbol = node.fir.calleeReference.resolvedSymbol as? FirPropertySymbol ?: return
             if (symbol !in localProperties) return
             unprocessedProperties.remove(symbol)
 
@@ -108,7 +107,7 @@ object CanBeValChecker : AbstractFirPropertyInitializationChecker() {
     private fun FirPropertySymbol.getDestructuringChildrenCount(): Int? {
         val source = source ?: return null
         return source.lighterASTNode.getChildren(source.treeStructure).count {
-            it?.tokenType == KtNodeTypes.DESTRUCTURING_DECLARATION_ENTRY
+            it.tokenType == KtNodeTypes.DESTRUCTURING_DECLARATION_ENTRY
         }
     }
 

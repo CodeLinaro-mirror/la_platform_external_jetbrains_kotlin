@@ -14,7 +14,11 @@ import org.gradle.api.file.FileTree
 import org.gradle.api.logging.Logger
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.*
+import org.gradle.work.InputChanges
+import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
+import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerEnvironment
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerRunner
 import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
@@ -23,6 +27,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJsOptionsImpl
 import org.jetbrains.kotlin.gradle.dsl.copyFreeCompilerArgsToArgs
 import org.jetbrains.kotlin.gradle.logging.GradlePrintingMessageCollector
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinCompilationData
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
@@ -36,15 +41,21 @@ import org.jetbrains.kotlin.gradle.tasks.TaskOutputsBackup
 import org.jetbrains.kotlin.gradle.utils.getAllDependencies
 import org.jetbrains.kotlin.gradle.utils.getCacheDirectory
 import org.jetbrains.kotlin.gradle.utils.getDependenciesCacheDirectories
-import org.jetbrains.kotlin.incremental.ChangedFiles
+import org.jetbrains.kotlin.gradle.utils.getValue
 import org.jetbrains.kotlin.statistics.metrics.BooleanMetrics
+import org.jetbrains.kotlin.statistics.metrics.StringMetrics
 import java.io.File
 import javax.inject.Inject
 
 @CacheableTask
 abstract class KotlinJsIrLink @Inject constructor(
-    objectFactory: ObjectFactory
-) : Kotlin2JsCompile(KotlinJsOptionsImpl(), objectFactory) {
+    objectFactory: ObjectFactory,
+    workerExecutor: WorkerExecutor
+) : Kotlin2JsCompile(
+    KotlinJsOptionsImpl(),
+    objectFactory,
+    workerExecutor
+) {
 
     class Configurator(compilation: KotlinCompilationData<*>) : Kotlin2JsCompile.Configurator<KotlinJsIrLink>(compilation) {
 
@@ -62,8 +73,15 @@ abstract class KotlinJsIrLink @Inject constructor(
     @get:Internal
     internal lateinit var compilation: KotlinCompilationData<*>
 
+    @Transient
+    @get:Internal
+    internal val propertiesProvider = PropertiesProvider(project)
+
     @get:Input
-    internal val incrementalJsIr: Boolean = PropertiesProvider(project).incrementalJsIr
+    internal val incrementalJsIr: Boolean = propertiesProvider.incrementalJsIr
+
+    @get:Input
+    val outputGranularity: KotlinJsIrOutputGranularity = propertiesProvider.jsIrOutputGranularity
 
     // Link tasks are not affected by compiler plugin
     override val pluginClasspath: ConfigurableFileCollection = project.objects.fileCollection()
@@ -98,19 +116,27 @@ abstract class KotlinJsIrLink @Inject constructor(
     override fun callCompilerAsync(
         args: K2JSCompilerArguments,
         sourceRoots: SourceRoots,
-        changedFiles: ChangedFiles,
+        inputChanges: InputChanges,
         taskOutputsBackup: TaskOutputsBackup?
     ) {
         KotlinBuildStatsService.applyIfInitialised {
             it.report(BooleanMetrics.JS_IR_INCREMENTAL, incrementalJsIr)
+            val newArgs = K2JSCompilerArguments()
+            parseCommandLineArguments(ArgumentUtils.convertArgumentsToStringList(args), newArgs)
+            it.report(
+                StringMetrics.JS_OUTPUT_GRANULARITY,
+                if (newArgs.irPerModule)
+                    KotlinJsIrOutputGranularity.PER_MODULE.name.toLowerCase()
+                else
+                    KotlinJsIrOutputGranularity.WHOLE_PROGRAM.name.toLowerCase()
+            )
         }
-        if (incrementalJsIr) {
+        if (incrementalJsIr && mode == DEVELOPMENT) {
             val visitedCompilations = mutableSetOf<KotlinCompilation<*>>()
             val allCacheDirectories = mutableSetOf<File>()
 
             val cacheBuilder = CacheBuilder(
                 buildDir,
-                compilation as KotlinCompilation<*>,
                 kotlinOptions,
                 libraryFilter,
                 compilerRunner.get(),
@@ -118,7 +144,7 @@ abstract class KotlinJsIrLink @Inject constructor(
                 { objects.fileCollection() },
                 defaultCompilerClasspath,
                 logger,
-                reportingSettings
+                reportingSettings()
             )
             val cacheArgs = visitCompilation(
                 compilation as KotlinCompilation<*>,
@@ -131,7 +157,7 @@ abstract class KotlinJsIrLink @Inject constructor(
                 it.normalize().absolutePath
             }
         }
-        super.callCompilerAsync(args, sourceRoots, changedFiles, taskOutputsBackup)
+        super.callCompilerAsync(args, sourceRoots, inputChanges, taskOutputsBackup)
     }
 
     private fun visitCompilation(
@@ -157,7 +183,6 @@ abstract class KotlinJsIrLink @Inject constructor(
             .buildCompilerArgs(
                 project.configurations.getByName(compilation.compileDependencyConfigurationName),
                 compilation.output.classesDirs,
-                compilation,
                 associatedCaches
             )
     }
@@ -171,19 +196,31 @@ abstract class KotlinJsIrLink @Inject constructor(
                 kotlinOptions.configureOptions(GENERATE_D_TS)
             }
         }
+        val alreadyDefinedOutputMode = kotlinOptions.freeCompilerArgs
+            .any { it.startsWith(PER_MODULE) }
+        if (!alreadyDefinedOutputMode) {
+            kotlinOptions.freeCompilerArgs += outputGranularity.toCompilerArgument()
+        }
         super.setupCompilerArgs(args, defaultsOnly, ignoreClasspathResolutionErrors)
+    }
+
+    private val platformType by project.provider {
+        compilation.platformType
     }
 
     private fun KotlinJsOptions.configureOptions(vararg additionalCompilerArgs: String) {
         freeCompilerArgs += additionalCompilerArgs.toList() +
                 PRODUCE_JS +
                 "$ENTRY_IR_MODULE=${entryModule.get().asFile.canonicalPath}"
+
+        if (platformType == KotlinPlatformType.wasm) {
+            freeCompilerArgs += WASM_BACKEND
+        }
     }
 }
 
 internal class CacheBuilder(
     private val buildDir: File,
-    private val rootCompilation: KotlinCompilation<*>,
     private val kotlinOptions: KotlinJsOptions,
     private val libraryFilter: (File) -> Boolean,
     private val compilerRunner: GradleCompilerRunner,
@@ -207,7 +244,6 @@ internal class CacheBuilder(
     fun buildCompilerArgs(
         compileClasspath: Configuration,
         additionalForResolve: FileCollection?,
-        compilation: KotlinCompilation<*>,
         associatedCaches: List<File>
     ): List<File> {
 
@@ -232,18 +268,16 @@ internal class CacheBuilder(
                 }
             }
 
-        if (compilation != rootCompilation) {
-            additionalForResolve?.files?.forEach { file ->
-                val cacheDirectory = rootCacheDirectory.resolve(file.name)
-                cacheDirectory.mkdirs()
-                runCompiler(
-                    file,
-                    compileClasspath.files,
-                    cacheDirectory,
-                    (allCacheDirectories + associatedCaches).distinct()
-                )
-                allCacheDirectories.add(cacheDirectory)
-            }
+        additionalForResolve?.files?.forEach { file ->
+            val cacheDirectory = rootCacheDirectory.resolve(file.name)
+            cacheDirectory.mkdirs()
+            runCompiler(
+                file,
+                compileClasspath.files,
+                cacheDirectory,
+                (allCacheDirectories + associatedCaches).distinct()
+            )
+            allCacheDirectories.add(cacheDirectory)
         }
 
         return associatedCaches + allCacheDirectories
@@ -338,7 +372,7 @@ internal class CacheBuilder(
             computedCompilerClasspath,
             messageCollector,
             outputItemCollector,
-            outputFiles = objectFiles,
+            outputFiles = objectFiles.files.toList(),
             reportingSettings = reportingSettings
         )
 

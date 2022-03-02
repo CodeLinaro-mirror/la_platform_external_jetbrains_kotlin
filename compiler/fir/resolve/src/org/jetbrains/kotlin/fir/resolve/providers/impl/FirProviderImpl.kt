@@ -10,16 +10,12 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
-import org.jetbrains.kotlin.fir.resolve.providers.FirProviderInternals
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProviderInternals
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
-import org.jetbrains.kotlin.name.CallableId
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.*
 
 @ThreadSafeMutableState
 class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotlinScopeProvider) : FirProvider() {
@@ -29,7 +25,10 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
         symbol.originalIfFakeOverride()?.let {
             return getFirCallableContainerFile(it)
         }
-        if (symbol is FirAccessorSymbol) {
+        if (symbol is FirBackingFieldSymbol) {
+            return getFirCallableContainerFile(symbol.fir.propertySymbol)
+        }
+        if (symbol is FirSyntheticPropertySymbol) {
             val fir = symbol.fir
             if (fir is FirSyntheticProperty) {
                 return getFirCallableContainerFile(fir.getter.delegate.symbol)
@@ -51,7 +50,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
     }
 
     private inner class SymbolProvider : FirSymbolProvider(session) {
-        override fun getClassLikeSymbolByFqName(classId: ClassId): FirClassLikeSymbol<*>? {
+        override fun getClassLikeSymbolByClassId(classId: ClassId): FirClassLikeSymbol<*>? {
             return getFirClassifierByFqName(classId)?.symbol
         }
 
@@ -72,22 +71,12 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
         }
 
         override fun getPackage(fqName: FqName): FqName? {
-            if (getFirFilesByPackage(fqName).isNotEmpty()) return fqName
+            if (fqName in state.allSubPackages) return fqName
             return null
         }
     }
 
-    @FirProviderInternals
-    override fun recordGeneratedClass(owner: FirAnnotatedDeclaration, klass: FirRegularClass) {
-        klass.accept(FirRecorder, FirRecorderData(state, owner.file, session.nameConflictsTracker))
-    }
-
-    @FirProviderInternals
-    override fun recordGeneratedMember(owner: FirAnnotatedDeclaration, klass: FirDeclaration) {
-        klass.accept(FirRecorder, FirRecorderData(state, owner.file, session.nameConflictsTracker))
-    }
-
-    private val FirAnnotatedDeclaration.file: FirFile
+    private val FirDeclaration.file: FirFile
         get() = when (this) {
             is FirFile -> this
             is FirRegularClass -> getFirClassifierContainerFile(this.symbol.classId)
@@ -97,9 +86,10 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
     private fun recordFile(file: FirFile, state: State) {
         val packageName = file.packageFqName
         state.fileMap.merge(packageName, listOf(file)) { a, b -> a + b }
+        generateSequence(packageName) { it.parentOrNull() }.forEach(state.allSubPackages::add)
         file.acceptChildren(FirRecorder, FirRecorderData(state, file, session.nameConflictsTracker))
     }
-    
+
     private class FirRecorderData(
         val state: State,
         val file: FirFile,
@@ -176,6 +166,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
 
     private class State {
         val fileMap = mutableMapOf<FqName, List<FirFile>>()
+        val allSubPackages = mutableSetOf<FqName>()
         val classifierMap = mutableMapOf<ClassId, FirClassLikeDeclaration>()
         val classifierContainerFileMap = mutableMapOf<ClassId, FirFile>()
         val classesInPackage = mutableMapOf<FqName, MutableSet<Name>>()
@@ -186,6 +177,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
 
         fun setFrom(other: State) {
             fileMap.clear()
+            allSubPackages.clear()
             classifierMap.clear()
             classifierContainerFileMap.clear()
             functionMap.clear()
@@ -194,6 +186,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
             callableContainerMap.clear()
 
             fileMap.putAll(other.fileMap)
+            allSubPackages.addAll(other.allSubPackages)
             classifierMap.putAll(other.classifierMap)
             classifierContainerFileMap.putAll(other.classifierContainerFileMap)
             functionMap.putAll(other.functionMap)

@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.gradle.native
 
 import org.jetbrains.kotlin.gradle.BaseGradleIT
 import org.jetbrains.kotlin.gradle.GradleVersionRequired
-import org.jetbrains.kotlin.gradle.native.GeneralNativeIT.Companion.checkNativeCompilerClasspath
+import org.jetbrains.kotlin.gradle.native.GeneralNativeIT.Companion.withNativeCompilerClasspath
 import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -25,9 +25,9 @@ class NativeEmbeddableCompilerJarIT : BaseGradleIT() {
 
     @Test
     fun testDefault() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
-        build(":runDebugExecutableHost") {
+        build(":linkDebugExecutableHost") {
             assertSuccessful()
-            checkNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
+            withNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
                 assertTrue(it.includesRegularJar())
                 assertFalse(it.includesEmbeddableJar())
             }
@@ -36,9 +36,9 @@ class NativeEmbeddableCompilerJarIT : BaseGradleIT() {
 
     @Test
     fun testEmbeddableJarFalse() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
-        build(":runDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=false") {
+        build(":linkDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=false") {
             assertSuccessful()
-            checkNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
+            withNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
                 assertTrue(it.includesRegularJar())
                 assertFalse(it.includesEmbeddableJar())
             }
@@ -47,9 +47,9 @@ class NativeEmbeddableCompilerJarIT : BaseGradleIT() {
 
     @Test
     fun testEmbeddableJarTrue() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
-        build(":runDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=true") {
+        build(":linkDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=true") {
             assertSuccessful()
-            checkNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
+            withNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
                 assertFalse(it.includesRegularJar())
                 assertTrue(it.includesEmbeddableJar())
             }
@@ -58,22 +58,22 @@ class NativeEmbeddableCompilerJarIT : BaseGradleIT() {
 
     @Test
     fun testSwitch() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
-        build(":runDebugExecutableHost") {
+        build(":linkDebugExecutableHost") {
             assertSuccessful()
-            checkNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
+            withNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
                 assertTrue(it.includesRegularJar())
                 assertFalse(it.includesEmbeddableJar())
             }
         }
 
-        build(":runDebugExecutableHost") {
+        build(":linkDebugExecutableHost") {
             assertTasksUpToDate(":linkDebugExecutableHost", ":compileKotlinHost")
         }
 
-        build(":runDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=true") {
+        build(":linkDebugExecutableHost", "-Pkotlin.native.useEmbeddableCompilerJar=true") {
             assertSuccessful()
             assertTasksExecuted(":linkDebugExecutableHost", ":compileKotlinHost")
-            checkNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
+            withNativeCompilerClasspath(":linkDebugExecutableHost", ":compileKotlinHost") {
                 assertFalse(it.includesRegularJar())
                 assertTrue(it.includesEmbeddableJar())
             }

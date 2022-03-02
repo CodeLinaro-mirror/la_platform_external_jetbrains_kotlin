@@ -5,7 +5,8 @@
 
 package org.jetbrains.kotlin.fir
 
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.visitors.*
 
 /*
@@ -14,8 +15,8 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 interface FirAnnotationContainer : FirElement {
-    override val source: FirSourceElement?
-    val annotations: List<FirAnnotationCall>
+    override val source: KtSourceElement?
+    val annotations: List<FirAnnotation>
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitAnnotationContainer(this, data)
 

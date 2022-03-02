@@ -16,8 +16,7 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.toFirRegularClass
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.firUnsafe
+import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
 import org.jetbrains.kotlin.fir.scopes.impl.delegatedWrapperData
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -26,6 +25,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
@@ -182,7 +182,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
             renderVariableType(multiDeclarationEntry)
 
         override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
-            annotationEntry.firstOfTypeWithRender<FirAnnotationCall>(annotationEntry.getChildOfType<KtConstructorCalleeExpression>())
+            annotationEntry.firstOfTypeWithRender<FirAnnotation>(annotationEntry.getChildOfType<KtConstructorCalleeExpression>())
             super.visitAnnotationEntry(annotationEntry)
         }
 
@@ -477,7 +477,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
         private fun renderConstructorSymbol(symbol: FirConstructorSymbol, data: StringBuilder) {
             data.append("constructor ")
             data.append(getSymbolId(symbol))
-            renderListInTriangles(symbol.firUnsafe<FirConstructor>().typeParameters, data)
+            renderListInTriangles(symbol.fir.typeParameters, data)
         }
 
         private fun renderField(field: FirField, data: StringBuilder) {
@@ -698,7 +698,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
                 is FirNamedFunctionSymbol -> {
                     renderFunctionSymbol(symbol, data)
 
-                    val fir = symbol.firUnsafe<FirFunction>()
+                    val fir = symbol.fir
                     visitValueParameters(fir.valueParameters, data)
                     data.append(": ")
                     fir.returnTypeRef.accept(this, data)
@@ -709,6 +709,8 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
         override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: StringBuilder) {
             visitConstructor(annotationCall, data)
         }
+
+        override fun visitAnnotation(annotation: FirAnnotation, data: StringBuilder) {}
 
         override fun visitDelegatedConstructorCall(delegatedConstructorCall: FirDelegatedConstructorCall, data: StringBuilder) {
             val coneClassType = delegatedConstructorCall.constructedTypeRef.coneTypeSafe<ConeClassLikeType>()
@@ -778,7 +780,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
         override fun visitResolvedQualifier(resolvedQualifier: FirResolvedQualifier, data: StringBuilder) {
             val fir = resolvedQualifier.symbol?.fir
             when {
-                fir is FirRegularClass && fir.classKind != ClassKind.ENUM_CLASS && fir.companionObject?.defaultType() == resolvedQualifier.typeRef.coneTypeSafe() -> {
+                fir is FirRegularClass && fir.classKind != ClassKind.ENUM_CLASS && fir.companionObjectSymbol?.defaultType() == resolvedQualifier.typeRef.coneTypeSafe() -> {
                     data.append("companion object ")
                     data.append(resolvedQualifier.typeRef.render()).append(": ")
                     data.append(fir.symbol.classId.asString().removeCurrentFilePackage())
@@ -844,7 +846,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
             return when (val fir = this.fir) {
                 is FirConstructor -> fir.returnTypeRef.coneType.isLocal()
                 is FirCallableDeclaration -> {
-                    fir.dispatchReceiverClassOrNull()?.toFirRegularClass(session)?.isLocal ?: false
+                    fir.dispatchReceiverClassOrNull()?.toFirRegularClassSymbol(session)?.isLocal ?: false
                 }
                 else -> false
             }
@@ -852,7 +854,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
 
         private fun ConeKotlinType.isLocal(): Boolean {
             if (this !is ConeClassLikeType) return false
-            return this.lookupTag.toFirRegularClass(session)?.isLocal == true
+            return this.lookupTag.toFirRegularClassSymbol(session)?.isLocal == true
         }
 
         // id == packageName + className

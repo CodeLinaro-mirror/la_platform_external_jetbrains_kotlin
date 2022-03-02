@@ -68,7 +68,11 @@ internal fun <T, R> boxIntrinsic(x: T): R =
 internal fun <T, R> unboxIntrinsic(x: T): R =
     implementedAsIntrinsic
 
-internal fun wasmThrow(e: Throwable): Nothing {
-    println("Kotlin/Wasm exception wasm thrown: ${e.message}")
-    wasm_unreachable()
-}
+// Represents absence of a value. Should never be used as a real object. See UnitToVoidLowering.kt for more info.
+@ExcludedFromCodegen
+internal class Void private constructor()
+
+// This is the only way to introduce Void type.
+@WasmOp(WasmOp.DROP)
+internal fun consumeAnyIntoVoid(a: Any?): Void =
+    implementedAsIntrinsic

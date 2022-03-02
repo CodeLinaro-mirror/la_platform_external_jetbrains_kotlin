@@ -95,12 +95,12 @@ open class KotlinAndroid36GradleIT : KotlinAndroid34GradleIT() {
                 ":lib:compileReleaseKotlinAndroidLib",
                 ":lib:compileKotlinJvmLib",
                 ":lib:compileKotlinJsLib",
-                ":lib:compileKotlinMetadata",
+                ":lib:compileCommonMainKotlinMetadata",
                 ":app:compileDebugKotlinAndroidApp",
                 ":app:compileReleaseKotlinAndroidApp",
                 ":app:compileKotlinJvmApp",
                 ":app:compileKotlinJsApp",
-                ":app:compileKotlinMetadata",
+                ":app:compileCommonMainKotlinMetadata",
                 ":lib:compileDebugUnitTestJavaWithJavac",
                 ":app:compileDebugUnitTestJavaWithJavac"
             )
@@ -505,6 +505,17 @@ open class KotlinAndroid70GradleIT : KotlinAndroid36GradleIT() {
             assertCompiledKotlinSources(project.relativize(affectedSources))
         }
     }
+
+    @Test
+    fun testNamespaceDSLInsteadOfPackageAttributeInManifest() {
+        val project = Project("AndroidExtensionsProjectAGP7")
+        val options = defaultBuildOptions().copy(incremental = false)
+
+        project.build("assembleDebug", options = options) {
+            assertSuccessful()
+            assertContains("The 'kotlin-android-extensions' Gradle plugin is deprecated")
+        }
+    }
 }
 
 open class KotlinAndroid71GradleIT : KotlinAndroid70GradleIT() {
@@ -768,6 +779,60 @@ abstract class KotlinAndroid3GradleIT : AbstractKotlinAndroidGradleTests() {
         project.build(":Lib:assembleDebug") {
             assertSuccessful()
             assertTasksExecuted(*kotlinTaskNames.toTypedArray())
+        }
+    }
+
+    @Test
+    fun testAfterEvaluateOrdering() = with(Project("AndroidProject")) {
+        setupWorkingDir()
+
+        gradleBuildScript("Lib").writeText(
+            """
+            buildscript {
+                repositories {
+                    mavenLocal()
+                    google()
+                    gradlePluginPortal()
+                }
+                dependencies {
+                    classpath "com.android.tools.build:gradle:${'$'}android_tools_version"
+                    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${'$'}kotlin_version"
+                }
+            }
+            
+            plugins {
+                id 'org.jetbrains.kotlin.multiplatform'
+            }
+            
+            class MyAction implements kotlin.jvm.functions.Function1<Project, Void> {
+                Void invoke(Project p) {
+                    println("compilations: " + p.kotlin.targets.getByName("android").compilations.names)
+                }
+            }
+            
+            org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginKt.whenEvaluated(project, new MyAction())
+            
+            apply plugin: "android-library"
+            
+            android {
+                compileSdkVersion 22
+            }
+            
+            kotlin { android("android") { } }
+        """.trimIndent())
+
+        build("help") {
+            assertSuccessful()
+            val reportedCompilations = output.lines()
+                .single { it.contains("compilations: ") }
+                .substringAfter("compilations: ")
+                .removeSurrounding("[", "]")
+                .split(", ")
+                .toSet()
+            assertEquals(
+                setOf("debug", "debugAndroidTest", "debugUnitTest", "release", "releaseUnitTest"),
+                reportedCompilations
+            )
         }
     }
 }

@@ -1,4 +1,6 @@
-// WITH_RUNTIME
+// WITH_STDLIB
+// fir doesn't support annotations with type arguments
+// IGNORE_BACKEND_FIR: JVM_IR
 
 @file:JvmName("TestKt")
 package test
@@ -59,6 +61,6 @@ fun box() = parcelTest { parcel ->
     parcel.unmarshall(bytes, 0, bytes.size)
     parcel.setDataPosition(0)
 
-    val a2 = readFromParcel<A>(parcel)
+    val a2 = parcelableCreator<A>().createFromParcel(parcel)
     assert(a1.pair == a2.pair)
 }

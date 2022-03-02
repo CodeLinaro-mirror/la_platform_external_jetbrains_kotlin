@@ -6,14 +6,16 @@
 package org.jetbrains.kotlin.fir.resolve.inference
 
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.declarations.FirAnnotatedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirArgumentList
 import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeBuilderInferenceSubstitutionConstraintPosition
+import org.jetbrains.kotlin.fir.resolve.substitution.ChainedSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirDefaultTransformer
@@ -21,12 +23,13 @@ import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionMode
-import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
-import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
-import org.jetbrains.kotlin.resolve.calls.inference.model.BuilderInferencePosition
-import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
+import org.jetbrains.kotlin.resolve.calls.inference.model.*
+import org.jetbrains.kotlin.resolve.calls.inference.registerTypeVariableIfNotPresent
 import org.jetbrains.kotlin.resolve.descriptorUtil.BUILDER_INFERENCE_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
+import org.jetbrains.kotlin.types.model.TypeSubstitutorMarker
+import org.jetbrains.kotlin.types.model.TypeVariableMarker
+import org.jetbrains.kotlin.types.model.safeSubstitute
 
 class FirBuilderInferenceSession(
     private val lambda: FirAnonymousFunction,
@@ -34,6 +37,15 @@ class FirBuilderInferenceSession(
     private val stubsForPostponedVariables: Map<ConeTypeVariable, ConeStubType>,
 ) : AbstractManyCandidatesInferenceSession(resolutionContext) {
     private val commonCalls: MutableList<Pair<FirStatement, Candidate>> = mutableListOf()
+
+    override val currentConstraintStorage: ConstraintStorage
+        get() = ConstraintStorage.Empty
+
+    override fun hasSyntheticTypeVariables(): Boolean = false
+
+    override fun isSyntheticTypeVariable(typeVariable: TypeVariableMarker): Boolean {
+        return false
+    }
 
     override fun <T> shouldRunCompletion(call: T): Boolean where T : FirResolvable, T : FirStatement {
         val candidate = call.candidate
@@ -67,7 +79,7 @@ class FirBuilderInferenceSession(
 
     private fun ConeKotlinType.containsStubType(): Boolean {
         return this.contains {
-            it is ConeStubType
+            it is ConeStubTypeForChainInference
         }
     }
 
@@ -88,10 +100,6 @@ class FirBuilderInferenceSession(
         commonCalls += call to candidate
     }
 
-    override fun <T> writeOnlyStubs(call: T): Boolean where T : FirResolvable, T : FirStatement {
-        return !skipCall(call)
-    }
-
     @Suppress("UNUSED_PARAMETER")
     private fun <T> skipCall(call: T): Boolean where T : FirResolvable, T : FirStatement {
         // TODO: what is FIR analog?
@@ -99,13 +107,6 @@ class FirBuilderInferenceSession(
         // if (!DescriptorUtils.isObject(descriptor) && isInLHSOfDoubleColonExpression(callInfo)) return true
 
         return false
-    }
-
-    override val currentConstraintSystem: ConstraintStorage
-        get() = ConstraintStorage.Empty
-
-    override fun <T> shouldCompleteResolvedSubAtomsOf(call: T): Boolean where T : FirResolvable, T : FirStatement {
-        return true
     }
 
     override fun inferPostponedVariables(
@@ -137,6 +138,8 @@ class FirBuilderInferenceSession(
         return commonSystem.fixedTypeVariables as Map<ConeTypeVariableTypeConstructor, ConeKotlinType>
     }
 
+    override fun createSyntheticStubTypes(system: NewConstraintSystemImpl): Map<TypeConstructorMarker, ConeStubType> = emptyMap()
+
     private fun buildCommonSystem(initialStorage: ConstraintStorage): Pair<NewConstraintSystemImpl, Boolean> {
         val commonSystem = components.session.inferenceComponents.createConstraintSystem()
         val nonFixedToVariablesSubstitutor = createNonFixedTypeToVariableSubstitutor()
@@ -165,11 +168,11 @@ class FirBuilderInferenceSession(
     }
 
     private fun createNonFixedTypeToVariableSubstitutor(): ConeSubstitutor {
-        val ctx = components.session.inferenceComponents.ctx
+        val ctx = components.session.typeContext
 
         val bindings = mutableMapOf<TypeConstructorMarker, ConeKotlinType>()
         for ((variable, nonFixedType) in stubsForPostponedVariables) {
-            bindings[nonFixedType.variable.typeConstructor] = variable.defaultType
+            bindings[nonFixedType.constructor] = variable.defaultType
         }
 
         return ctx.typeSubstitutorByTypeConstructor(bindings)
@@ -181,7 +184,7 @@ class FirBuilderInferenceSession(
         nonFixedToVariablesSubstitutor: ConeSubstitutor,
         shouldIntegrateAllConstraints: Boolean
     ): Boolean {
-        storage.notFixedTypeVariables.values.forEach { commonSystem.registerVariable(it.typeVariable) }
+        storage.notFixedTypeVariables.values.forEach { commonSystem.registerTypeVariableIfNotPresent(it.typeVariable) }
 
         /*
         * storage can contain the following substitutions:
@@ -190,13 +193,19 @@ class FirBuilderInferenceSession(
         *
         * while substitutor from parameter map non-fixed types to the original type variable
         * */
-        val callSubstitutor = storage.buildAbstractResultingSubstitutor(commonSystem, transformTypeVariablesToErrorTypes = false) as ConeSubstitutor
+        val callSubstitutor =
+            storage.buildAbstractResultingSubstitutor(commonSystem, transformTypeVariablesToErrorTypes = false) as ConeSubstitutor
 
         var introducedConstraint = false
 
         for (initialConstraint in storage.initialConstraints) {
-            val lower = nonFixedToVariablesSubstitutor.substituteOrSelf(callSubstitutor.substituteOrSelf(initialConstraint.a as ConeKotlinType)) // TODO: SUB
-            val upper = nonFixedToVariablesSubstitutor.substituteOrSelf(callSubstitutor.substituteOrSelf(initialConstraint.b as ConeKotlinType)) // TODO: SUB
+            if (initialConstraint.position is BuilderInferencePosition) continue
+            val substitutedConstraint = initialConstraint.substitute(callSubstitutor)
+
+            val lower =
+                nonFixedToVariablesSubstitutor.substituteOrSelf(substitutedConstraint.a as ConeKotlinType) // TODO: SUB
+            val upper =
+                nonFixedToVariablesSubstitutor.substituteOrSelf(substitutedConstraint.b as ConeKotlinType) // TODO: SUB
 
             if (commonSystem.isProperType(lower) && commonSystem.isProperType(upper)) continue
 
@@ -205,12 +214,12 @@ class FirBuilderInferenceSession(
             when (initialConstraint.constraintKind) {
                 ConstraintKind.LOWER -> error("LOWER constraint shouldn't be used, please use UPPER")
 
-                ConstraintKind.UPPER -> commonSystem.addSubtypeConstraint(lower, upper, initialConstraint.position)
+                ConstraintKind.UPPER -> commonSystem.addSubtypeConstraint(lower, upper, substitutedConstraint.position)
 
                 ConstraintKind.EQUALITY ->
                     with(commonSystem) {
-                        addSubtypeConstraint(lower, upper, initialConstraint.position)
-                        addSubtypeConstraint(upper, lower, initialConstraint.position)
+                        addSubtypeConstraint(lower, upper, substitutedConstraint.position)
+                        addSubtypeConstraint(upper, lower, substitutedConstraint.position)
                     }
             }
         }
@@ -218,7 +227,7 @@ class FirBuilderInferenceSession(
         if (shouldIntegrateAllConstraints) {
             for ((variableConstructor, type) in storage.fixedTypeVariables) {
                 val typeVariable = storage.allTypeVariables.getValue(variableConstructor)
-                commonSystem.registerVariable(typeVariable)
+                commonSystem.registerTypeVariableIfNotPresent(typeVariable)
                 commonSystem.addEqualityConstraint((typeVariable as ConeTypeVariable).defaultType, type, BuilderInferencePosition)
                 introducedConstraint = true
             }
@@ -227,10 +236,24 @@ class FirBuilderInferenceSession(
         return introducedConstraint
     }
 
+    private fun InitialConstraint.substitute(substitutor: TypeSubstitutorMarker): InitialConstraint {
+        val lowerSubstituted = substitutor.safeSubstitute(resolutionContext.typeContext, this.a)
+        val upperSubstituted = substitutor.safeSubstitute(resolutionContext.typeContext, this.b)
+
+        if (lowerSubstituted == a && upperSubstituted == b) return this
+
+        return InitialConstraint(
+            lowerSubstituted,
+            upperSubstituted,
+            this.constraintKind,
+            ConeBuilderInferenceSubstitutionConstraintPosition(this) // TODO
+        )
+    }
+
     private fun updateCalls(commonSystem: NewConstraintSystemImpl) {
         val nonFixedToVariablesSubstitutor = createNonFixedTypeToVariableSubstitutor()
         val commonSystemSubstitutor = commonSystem.buildCurrentSubstitutor() as ConeSubstitutor
-        val nonFixedTypesToResultSubstitutor = ConeComposedSubstitutor(commonSystemSubstitutor, nonFixedToVariablesSubstitutor)
+        val nonFixedTypesToResultSubstitutor = ChainedSubstitutor(nonFixedToVariablesSubstitutor, commonSystemSubstitutor)
 
         val stubTypeSubstitutor = FirStubTypeTransformer(nonFixedTypesToResultSubstitutor)
         lambda.transformSingle(stubTypeSubstitutor, null)
@@ -241,13 +264,6 @@ class FirBuilderInferenceSession(
             call.transformSingle(completionResultsWriter, null)
             // TODO: support diagnostics, see [CoroutineInferenceSession#updateCalls]
         }
-    }
-}
-
-class ConeComposedSubstitutor(val left: ConeSubstitutor, val right: ConeSubstitutor) : ConeSubstitutor() {
-    override fun substituteOrNull(type: ConeKotlinType): ConeKotlinType? {
-        val rightSubstitution = right.substituteOrNull(type)
-        return left.substituteOrNull(rightSubstitution ?: type)
     }
 }
 
@@ -269,7 +285,6 @@ class FirStubTypeTransformer(
         argumentList.transformArguments(this, data)
 }
 
-private val BUILDER_INFERENCE_ANNOTATION_CLASS_ID = ClassId.topLevel(BUILDER_INFERENCE_ANNOTATION_FQ_NAME)
+private val BUILDER_INFERENCE_ANNOTATION_CLASS_ID: ClassId = ClassId.topLevel(BUILDER_INFERENCE_ANNOTATION_FQ_NAME)
 
-fun FirElement.hasBuilderInferenceAnnotation(): Boolean =
-    (this as? FirAnnotatedDeclaration)?.hasAnnotation(BUILDER_INFERENCE_ANNOTATION_CLASS_ID) == true
+fun FirDeclaration.hasBuilderInferenceAnnotation(): Boolean = hasAnnotation(BUILDER_INFERENCE_ANNOTATION_CLASS_ID)

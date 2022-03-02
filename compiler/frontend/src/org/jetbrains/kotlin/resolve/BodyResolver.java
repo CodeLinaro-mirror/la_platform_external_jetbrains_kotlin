@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.descriptors.impl.SyntheticFieldDescriptor;
 import org.jetbrains.kotlin.diagnostics.Errors;
 import org.jetbrains.kotlin.lexer.KtTokens;
+import org.jetbrains.kotlin.name.SpecialNames;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.psi.psiUtil.PsiUtilsKt;
 import org.jetbrains.kotlin.resolve.calls.CallResolver;
@@ -43,8 +44,9 @@ import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowInfo;
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker;
 import org.jetbrains.kotlin.resolve.descriptorUtil.DescriptorUtilsKt;
 import org.jetbrains.kotlin.resolve.lazy.ForceResolveUtil;
-import org.jetbrains.kotlin.resolve.multiplatform.ExpectedActualResolver;
+import org.jetbrains.kotlin.resolve.multiplatform.ExpectedActualResolverKt;
 import org.jetbrains.kotlin.resolve.scopes.*;
+import org.jetbrains.kotlin.resolve.source.KotlinSourceElementKt;
 import org.jetbrains.kotlin.types.*;
 import org.jetbrains.kotlin.types.expressions.ExpressionTypingContext;
 import org.jetbrains.kotlin.types.expressions.ExpressionTypingServices;
@@ -160,7 +162,7 @@ public class BodyResolver {
                         descriptor, localContext != null ? localContext.inferenceSession : null
                 ),
                 scope -> new LexicalScopeImpl(
-                        scope, descriptor, scope.isOwnerDescriptorAccessibleByLabel(), scope.getImplicitReceiver(),
+                        scope, descriptor, scope.isOwnerDescriptorAccessibleByLabel(), scope.getImplicitReceiver(), scope.getContextReceiversGroup(),
                         LexicalScopeKind.CONSTRUCTOR_HEADER
                 ),
                 localContext
@@ -437,7 +439,7 @@ public class BodyResolver {
     ) {
         // Initializing a scope will report errors if any.
         new LexicalScopeImpl(
-                scopeForConstructorResolution, descriptor, true, null, LexicalScopeKind.CLASS_HEADER,
+                scopeForConstructorResolution, descriptor, true, null, Collections.emptyList(), LexicalScopeKind.CLASS_HEADER,
                 new TraceBasedLocalRedeclarationChecker(trace, overloadChecker),
                 new Function1<LexicalScopeImpl.InitializeHandler, Unit>() {
                     @Override
@@ -530,7 +532,7 @@ public class BodyResolver {
                     }
                     parentEnumOrSealed.add(currentDescriptor.getTypeConstructor());
                     if (currentDescriptor.isExpect()) {
-                        List<MemberDescriptor> actualDescriptors = ExpectedActualResolver.INSTANCE.findCompatibleActualForExpected(
+                        List<MemberDescriptor> actualDescriptors = ExpectedActualResolverKt.findCompatibleActualsForExpected(
                                 currentDescriptor, DescriptorUtilsKt.getModule( currentDescriptor)
                         );
                         for (MemberDescriptor actualDescriptor: actualDescriptors) {
@@ -583,7 +585,9 @@ public class BodyResolver {
             if (classDescriptor != null) {
                 if (ErrorUtils.isError(classDescriptor)) continue;
 
-                if (FunctionTypesKt.isExtensionFunctionType(supertype)) {
+                if (FunctionTypesKt.isExtensionFunctionType(supertype) &&
+                    !languageVersionSettings.supportsFeature(LanguageFeature.FunctionalTypeWithExtensionAsSupertype)
+                ) {
                     trace.report(SUPERTYPE_IS_EXTENSION_FUNCTION_TYPE.on(typeReference));
                 }
                 else if (FunctionTypesKt.isSuspendFunctionType(supertype) &&
@@ -666,7 +670,13 @@ public class BodyResolver {
                         }
                     }
                     else {
-                        trace.report(SEALED_SUPERTYPE_IN_LOCAL_CLASS.on(typeReference));
+                        String declarationName;
+                        if (supertypeOwner.getName() == SpecialNames.NO_NAME_PROVIDED) {
+                            declarationName = "Anonymous object";
+                        } else {
+                            declarationName = "Local class";
+                        }
+                        trace.report(SEALED_SUPERTYPE_IN_LOCAL_CLASS.on(typeReference, declarationName, classDescriptor.getKind()));
                     }
                 }
                 else if (ModalityUtilsKt.isFinalOrEnum(classDescriptor)) {
@@ -771,7 +781,7 @@ public class BodyResolver {
             ConstructorDescriptor unsubstitutedPrimaryConstructor
     ) {
         return new LexicalScopeImpl(originalScope, unsubstitutedPrimaryConstructor, false, null,
-                                    LexicalScopeKind.DEFAULT_VALUE, LocalRedeclarationChecker.DO_NOTHING.INSTANCE,
+                                    Collections.emptyList(), LexicalScopeKind.DEFAULT_VALUE, LocalRedeclarationChecker.DO_NOTHING.INSTANCE,
                                     handler -> {
                                         for (ValueParameterDescriptor valueParameter : unsubstitutedPrimaryConstructor.getValueParameters()) {
                                             handler.addVariableDescriptor(valueParameter);
@@ -853,7 +863,7 @@ public class BodyResolver {
         LexicalScope accessorDeclaringScope = c.getDeclaringScope(accessor);
         assert accessorDeclaringScope != null : "Scope for accessor " + accessor.getText() + " should exists";
         LexicalScope headerScope = ScopeUtils.makeScopeForPropertyHeader(accessorDeclaringScope, descriptor);
-        return new LexicalScopeImpl(headerScope, descriptor, true, descriptor.getExtensionReceiverParameter(),
+        return new LexicalScopeImpl(headerScope, descriptor, true, descriptor.getExtensionReceiverParameter(), descriptor.getContextReceiverParameters(),
                                     LexicalScopeKind.PROPERTY_ACCESSOR_BODY);
     }
 
@@ -1008,11 +1018,13 @@ public class BodyResolver {
         );
 
         // Synthetic "field" creation
-        if (functionDescriptor instanceof PropertyAccessorDescriptor && functionDescriptor.getExtensionReceiverParameter() == null) {
+        if (functionDescriptor instanceof PropertyAccessorDescriptor && functionDescriptor.getExtensionReceiverParameter() == null
+            && functionDescriptor.getContextReceiverParameters().isEmpty()) {
             PropertyAccessorDescriptor accessorDescriptor = (PropertyAccessorDescriptor) functionDescriptor;
             KtProperty property = (KtProperty) function.getParent();
-            SyntheticFieldDescriptor fieldDescriptor = new SyntheticFieldDescriptor(accessorDescriptor, property);
-            innerScope = new LexicalScopeImpl(innerScope, functionDescriptor, true, null,
+            SourceElement propertySourceElement = KotlinSourceElementKt.toSourceElement(property);
+            SyntheticFieldDescriptor fieldDescriptor = new SyntheticFieldDescriptor(accessorDescriptor, propertySourceElement);
+            innerScope = new LexicalScopeImpl(innerScope, functionDescriptor, true, null, Collections.emptyList(),
                                               LexicalScopeKind.PROPERTY_ACCESSOR_BODY,
                                               LocalRedeclarationChecker.DO_NOTHING.INSTANCE, handler -> {
                                                   handler.addVariableDescriptor(fieldDescriptor);

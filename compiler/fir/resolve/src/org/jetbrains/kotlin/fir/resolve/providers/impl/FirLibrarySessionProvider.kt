@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.fir.resolve.providers.impl
 
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
-import org.jetbrains.kotlin.fir.resolve.providers.FirProviderInternals
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -18,19 +18,13 @@ class FirLibrarySessionProvider(
     override val symbolProvider: FirSymbolProvider
 ) : FirProvider() {
     override fun getFirClassifierByFqName(classId: ClassId): FirClassLikeDeclaration? =
-        symbolProvider.getClassLikeSymbolByFqName(classId)?.fir
+        symbolProvider.getClassLikeSymbolByClassId(classId)?.fir
 
     override fun getFirClassifierContainerFile(fqName: ClassId): FirFile = shouldNotBeCalled()
 
     override fun getFirClassifierContainerFileIfAny(fqName: ClassId): FirFile? = null
     override fun getFirCallableContainerFile(symbol: FirCallableSymbol<*>): FirFile? = null
     override fun getFirFilesByPackage(fqName: FqName): List<FirFile> = emptyList()
-
-    @FirProviderInternals
-    override fun recordGeneratedClass(owner: FirAnnotatedDeclaration, klass: FirRegularClass) = shouldNotBeCalled()
-
-    @FirProviderInternals
-    override fun recordGeneratedMember(owner: FirAnnotatedDeclaration, klass: FirDeclaration) = shouldNotBeCalled()
 
     override fun getClassNamesInPackage(fqName: FqName): Set<Name> = shouldNotBeCalled()
 

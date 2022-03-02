@@ -18,12 +18,12 @@ import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fileClasses.javaFileFacadeFqName
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.idea.frontend.api.scopes.KtDeclarationScope
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtCallableSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtFunctionSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtKotlinPropertySymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSymbolWithDeclarations
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSymbolWithVisibility
+import org.jetbrains.kotlin.analysis.api.scopes.KtScope
+import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtKotlinPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithDeclarations
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
 import org.jetbrains.kotlin.light.classes.symbol.classes.analyseForLightClasses
 import org.jetbrains.kotlin.light.classes.symbol.classes.createField
 import org.jetbrains.kotlin.light.classes.symbol.classes.createMethods
@@ -40,6 +40,12 @@ class FirLightClassForFacade(
 
     init {
         require(files.isNotEmpty())
+        /*
+        Actually, here should be the following check
+        require(files.all { it.getKtModule() is KtSourceModule })
+        but it is quite expensive
+         */
+        require(files.none { it.isCompiled })
     }
 
     private val firstFileInFacade by lazyPub { files.first() }
@@ -103,7 +109,7 @@ class FirLightClassForFacade(
     }
 
     private fun loadFieldsFromFile(
-        fileScope: KtDeclarationScope<KtSymbolWithDeclarations>,
+        fileScope: KtScope,
         nameGenerator: FirLightField.FieldNameGenerator,
         result: MutableList<KtLightField>
     ) {

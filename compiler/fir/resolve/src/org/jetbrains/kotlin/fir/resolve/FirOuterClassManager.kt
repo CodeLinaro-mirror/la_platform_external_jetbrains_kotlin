@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.resolve
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -24,7 +25,7 @@ class FirOuterClassManager(
         val classId = classSymbol.classId
         if (classId.isLocal) return outerLocalClassForNested[classSymbol]
         val outerClassId = classId.outerClassId ?: return null
-        return symbolProvider.getClassLikeSymbolByFqName(outerClassId)
+        return symbolProvider.getClassLikeSymbolByClassId(outerClassId)
     }
 
     fun outerType(classLikeType: ConeClassLikeType): ConeClassLikeType? {

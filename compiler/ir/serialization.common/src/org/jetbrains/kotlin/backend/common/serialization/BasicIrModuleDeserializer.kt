@@ -25,7 +25,7 @@ abstract class BasicIrModuleDeserializer(
     val linker: KotlinIrLinker,
     moduleDescriptor: ModuleDescriptor,
     override val klib: IrLibrary,
-    override val strategy: DeserializationStrategy,
+    override val strategyResolver: (String) -> DeserializationStrategy,
     libraryAbiVersion: KotlinAbiVersion,
     private val containsErrorCode: Boolean = false
 ) :
@@ -35,7 +35,7 @@ abstract class BasicIrModuleDeserializer(
 
     private val moduleDeserializationState = ModuleDeserializationState(linker, this)
 
-    internal val moduleReversedFileIndex = mutableMapOf<IdSignature, FileDeserializationState>()
+    val moduleReversedFileIndex = mutableMapOf<IdSignature, FileDeserializationState>()
 
     override val moduleDependencies by lazy {
         moduleDescriptor.allDependencyModules.filter { it != moduleDescriptor }.map { linker.resolveModuleDeserializer(it, null) }
@@ -104,17 +104,19 @@ abstract class BasicIrModuleDeserializer(
 
     private fun deserializeIrFile(fileProto: ProtoFile, fileIndex: Int, moduleDeserializer: IrModuleDeserializer, allowErrorNodes: Boolean): IrFile {
 
-        val fileReader = IrLibraryFileFromKlib(moduleDeserializer.klib, fileIndex)
+        val fileReader = IrLibraryFileFromBytes(IrKlibBytesSource(moduleDeserializer.klib, fileIndex))
         val file = fileReader.createFile(moduleFragment, fileProto)
+        val fileStrategy = strategyResolver(file.fileEntry.name)
 
         val fileDeserializationState = FileDeserializationState(
             linker,
+            fileIndex,
             file,
             fileReader,
             fileProto,
-            strategy.needBodies,
+            fileStrategy.needBodies,
             allowErrorNodes,
-            strategy.inlineBodies,
+            fileStrategy.inlineBodies,
             moduleDeserializer
         )
 
@@ -125,10 +127,10 @@ abstract class BasicIrModuleDeserializer(
             moduleReversedFileIndex.putIfAbsent(it, fileDeserializationState) // TODO Why not simple put?
         }
 
-        if (strategy.theWholeWorld) {
+        if (fileStrategy.theWholeWorld) {
             fileDeserializationState.enqueueAllDeclarations()
         }
-        if (strategy.theWholeWorld || strategy.explicitlyExported) {
+        if (fileStrategy.theWholeWorld || fileStrategy.explicitlyExported) {
             moduleDeserializationState.enqueueFile(fileDeserializationState)
         }
 
@@ -149,6 +151,8 @@ abstract class BasicIrModuleDeserializer(
 
         return fileDeserializer.symbolDeserializer.signatureDeserializer
     }
+
+    override val kind get() = IrModuleDeserializerKind.DESERIALIZED
 }
 
 private class ModuleDeserializationState(val linker: KotlinIrLinker, val moduleDeserializer: BasicIrModuleDeserializer) {

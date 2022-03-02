@@ -5,10 +5,19 @@
 
 package org.jetbrains.kotlin.gradle.plugin.mpp.apple
 
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.FileCollection
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.IgnoreEmptyDirectories
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.SkipWhenEmpty
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.dsl.KotlinNativeBinaryContainer
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
@@ -16,11 +25,9 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.plugin.mpp.enabledOnCurrentHost
 import org.jetbrains.kotlin.gradle.tasks.FatFrameworkTask
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
-import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
 
 private object XcodeEnvironment {
@@ -61,6 +68,15 @@ private object XcodeEnvironment {
         }
 
     val sign: String? get() = System.getenv("EXPANDED_CODE_SIGN_IDENTITY")
+
+    override fun toString() = """
+        XcodeEnvironment:
+          buildType=$buildType
+          targets=$targets
+          frameworkSearchDir=$frameworkSearchDir
+          embeddedFrameworksDir=$embeddedFrameworksDir
+          sign=$sign
+    """.trimIndent()
 }
 
 private fun Project.registerAssembleAppleFrameworkTask(framework: Framework): TaskProvider<out Task>? {
@@ -71,12 +87,14 @@ private fun Project.registerAssembleAppleFrameworkTask(framework: Framework): Ta
 
     val frameworkBuildType = framework.buildType
     val frameworkTarget = framework.target
+    val isRequestedFramework = envTargets.contains(frameworkTarget.konanTarget)
+
     val frameworkTaskName = lowerCamelCaseName(
         "assemble",
         framework.namePrefix,
         frameworkBuildType.getName(),
         "AppleFrameworkForXcode",
-        if (!needFatFramework) frameworkTarget.name else null
+        if (isRequestedFramework && needFatFramework) null else frameworkTarget.name //for fat framework we need common name
     )
 
     val envBuildType = XcodeEnvironment.buildType
@@ -90,39 +108,35 @@ private fun Project.registerAssembleAppleFrameworkTask(framework: Framework): Ta
                         "Specify 'KOTLIN_FRAMEWORK_BUILD_TYPE' to 'debug' or 'release'"
             )
         } else {
-            logger.debug(
-                "Not registering $frameworkTaskName, since not called from Xcode " +
-                        "('SDK_NAME', 'ARCHS' and 'CONFIGURATION' not provided)"
-            )
+            logger.debug("Not registering $frameworkTaskName, since not called from Xcode")
         }
         return null
     }
 
-    if (frameworkBuildType != envBuildType || !envTargets.contains(frameworkTarget.konanTarget)) return null
-
-    return if (needFatFramework) {
-        locateOrRegisterTask<FatFrameworkTask>(frameworkTaskName) { task ->
-            task.group = BasePlugin.BUILD_GROUP
+    return when {
+        !isRequestedFramework -> locateOrRegisterTask<DefaultTask>(frameworkTaskName) { task ->
+            task.description = "Packs $frameworkBuildType ${frameworkTarget.name} framework for Xcode"
+            task.isEnabled = false
+        }
+        needFatFramework -> locateOrRegisterTask<FatFrameworkTask>(frameworkTaskName) { task ->
             task.description = "Packs $frameworkBuildType fat framework for Xcode"
             task.baseName = framework.baseName
             task.destinationDir = appleFrameworkDir(envFrameworkSearchDir)
+            task.isEnabled = frameworkBuildType == envBuildType
         }.also {
             it.configure { task -> task.from(framework) }
         }
-    } else {
-        registerTask<Copy>(frameworkTaskName) { task ->
-            task.group = BasePlugin.BUILD_GROUP
+        else -> registerTask<FrameworkCopy>(frameworkTaskName) { task ->
             task.description = "Packs $frameworkBuildType ${frameworkTarget.name} framework for Xcode"
+            task.isEnabled = frameworkBuildType == envBuildType
             task.dependsOn(framework.linkTaskName)
-            task.from(framework.outputDirectory)
-            task.into(appleFrameworkDir(envFrameworkSearchDir))
+            task.files = files({ framework.outputDirectory.listFiles() })
+            task.destDir = appleFrameworkDir(envFrameworkSearchDir)
         }
     }
 }
 
 internal fun Project.registerEmbedAndSignAppleFrameworkTask(framework: Framework) {
-    val assembleTask = registerAssembleAppleFrameworkTask(framework) ?: return
-
     val envBuildType = XcodeEnvironment.buildType
     val envTargets = XcodeEnvironment.targets
     val envEmbeddedFrameworksDir = XcodeEnvironment.embeddedFrameworksDir
@@ -132,42 +146,53 @@ internal fun Project.registerEmbedAndSignAppleFrameworkTask(framework: Framework
     val frameworkTaskName = lowerCamelCaseName("embedAndSign", framework.namePrefix, "AppleFrameworkForXcode")
 
     if (envBuildType == null || envTargets.isEmpty() || envEmbeddedFrameworksDir == null || envFrameworkSearchDir == null) {
-        logger.debug(
-            "Not registering $frameworkTaskName, since not called from Xcode " +
-                    "('SDK_NAME', 'CONFIGURATION', 'TARGET_BUILD_DIR', 'ARCHS' and 'FRAMEWORKS_FOLDER_PATH' not provided)"
-        )
+        locateOrRegisterTask<DefaultTask>(frameworkTaskName) { task ->
+            task.group = BasePlugin.BUILD_GROUP
+            task.description = "Embed and sign ${framework.namePrefix} framework as requested by Xcode's environment variables"
+            task.doFirst {
+                val envConfiguration = System.getenv("CONFIGURATION")
+                if (envConfiguration != null && envBuildType == null) {
+                    throw IllegalStateException(
+                        "Unable to detect Kotlin framework build type for CONFIGURATION=$envConfiguration automatically. " +
+                                "Specify 'KOTLIN_FRAMEWORK_BUILD_TYPE' to 'debug' or 'release'" +
+                                "\n$XcodeEnvironment"
+                    )
+                } else {
+                    throw IllegalStateException(
+                        "Please run the $frameworkTaskName task from Xcode " +
+                                "('SDK_NAME', 'CONFIGURATION', 'TARGET_BUILD_DIR', 'ARCHS' and 'FRAMEWORKS_FOLDER_PATH' not provided)" +
+                                "\n$XcodeEnvironment"
+                    )
+                }
+            }
+        }
         return
     }
 
-    if (framework.buildType != envBuildType || !envTargets.contains(framework.konanTarget)) return
-    if (locateTask<Copy>(frameworkTaskName) != null) return
-
-    registerTask<Copy>(frameworkTaskName) { task ->
-        task.group = "build"
+    val embedAndSignTask = locateOrRegisterTask<FrameworkCopy>(frameworkTaskName) { task ->
+        task.group = BasePlugin.BUILD_GROUP
         task.description = "Embed and sign ${framework.namePrefix} framework as requested by Xcode's environment variables"
-
-        task.dependsOn(assembleTask)
         task.inputs.apply {
             property("type", envBuildType)
             property("targets", envTargets)
             property("embeddedFrameworksDir", envEmbeddedFrameworksDir)
             property("sign", envSign)
         }
+    }
 
-        task.from(appleFrameworkDir(envFrameworkSearchDir)) { spec ->
-            spec.include(framework.outputFile.name + "/**")
-        }
+    val assembleTask = registerAssembleAppleFrameworkTask(framework) ?: return
+    if (framework.buildType != envBuildType || !envTargets.contains(framework.konanTarget)) return
 
-        task.into(envEmbeddedFrameworksDir)
-
-        if (envSign != null) {
-            task.doLast {
-                val binary = envEmbeddedFrameworksDir
-                    .resolve(framework.outputFile.name)
-                    .resolve(framework.outputFile.nameWithoutExtension)
-                exec {
-                    it.commandLine("codesign", "--force", "--sign", envSign, "--", binary)
-                }
+    embedAndSignTask.configure { task ->
+        task.dependsOn(assembleTask)
+        task.files = files(File(appleFrameworkDir(envFrameworkSearchDir), framework.outputFile.name))
+        task.destDir = envEmbeddedFrameworksDir
+        if (envSign != null) task.doLast {
+            val binary = envEmbeddedFrameworksDir
+                .resolve(framework.outputFile.name)
+                .resolve(framework.outputFile.nameWithoutExtension)
+            exec {
+                it.commandLine("codesign", "--force", "--sign", envSign, "--", binary)
             }
         }
     }
@@ -182,3 +207,32 @@ private val Framework.namePrefix: String
 
 private fun Project.appleFrameworkDir(frameworkSearchDir: File) =
     buildDir.resolve("xcode-frameworks").resolve(frameworkSearchDir)
+
+/**
+ * macOS frameworks contain symlinks which are resolved/removed by the Gradle [Copy] task.
+ * To preserve these symlinks we are using the `cp` command instead.
+ * See https://youtrack.jetbrains.com/issue/KT-48594.
+ */
+private abstract class FrameworkCopy : DefaultTask() {
+
+    @get:InputFiles
+    @get:SkipWhenEmpty
+    @get:IgnoreEmptyDirectories
+    @get:PathSensitive(PathSensitivity.ABSOLUTE)
+    abstract var files: FileCollection
+
+    @get:OutputDirectory
+    abstract var destDir: File
+
+    @TaskAction
+    fun copy() {
+        destDir.mkdirs()
+        files.forEach { file ->
+            File(destDir, file.name).let destFile@{ destFile ->
+                if (!destFile.exists()) return@destFile
+                project.exec { it.commandLine("rm", "-r", destFile.absolutePath) }
+            }
+            project.exec { it.commandLine("cp", "-R", file.absolutePath, destDir.absolutePath) }
+        }
+    }
+}

@@ -423,6 +423,10 @@ public class KotlinParsing extends AbstractKotlinParsing {
         }
         PsiBuilder.Marker decl = mark();
 
+        if (at(CONTEXT_KEYWORD)) {
+            parseContextReceiverList();
+        }
+
         ModifierDetector detector = new ModifierDetector();
         parseModifierList(detector, DEFAULT, TokenSet.EMPTY);
 
@@ -610,6 +614,54 @@ public class KotlinParsing extends AbstractKotlinParsing {
 
         marker.rollbackTo();
         return false;
+    }
+
+    /*
+     * contextReceiverList
+     *   : "context" "(" (contextReceiver{","})+ ")"
+     */
+    private void parseContextReceiverList() {
+        assert _at(CONTEXT_KEYWORD);
+        PsiBuilder.Marker contextReceiverList = mark();
+        advance(); // CONTEXT_KEYWORD
+        if (at(LPAR)) {
+            advance(); // LPAR
+            while (true) {
+                if (at(COMMA)) {
+                    errorAndAdvance("Expecting a type reference");
+                }
+                parseContextReceiver();
+                if (at(RPAR)) {
+                    advance();
+                    break;
+                }
+                if (at(COMMA)) {
+                    advance();
+                } else {
+                    if (!at(RPAR)) {
+                        error("Expecting comma or ')'");
+                        break;
+                    }
+                }
+            }
+            contextReceiverList.done(CONTEXT_RECEIVER_LIST);
+        } else {
+            errorWithRecovery("Expecting context receivers", TokenSet.EMPTY);
+            contextReceiverList.drop();
+        }
+    }
+
+    /*
+     * contextReceiver
+     *   : label? typeReference
+     */
+    private void parseContextReceiver() {
+        PsiBuilder.Marker contextReceiver = mark();
+        if (myExpressionParsing.isAtLabelDefinitionOrMissingIdentifier()) {
+            myExpressionParsing.parseLabelDefinition();
+        }
+        parseTypeRef();
+        contextReceiver.done(CONTEXT_RECEIVER);
     }
 
     /*
@@ -1178,6 +1230,10 @@ public class KotlinParsing extends AbstractKotlinParsing {
         }
         PsiBuilder.Marker decl = mark();
 
+        if (at(CONTEXT_KEYWORD)) {
+            parseContextReceiverList();
+        }
+
         ModifierDetector detector = new ModifierDetector();
         parseModifierList(detector, DEFAULT, TokenSet.EMPTY);
 
@@ -1415,9 +1471,12 @@ public class KotlinParsing extends AbstractKotlinParsing {
             myBuilder.restoreNewlinesState();
 
             if (!hasNewLineWithSemicolon) {
-                AccessorKind accessorKind = parsePropertyGetterOrSetter(null);
-                if (accessorKind != null) {
-                    parsePropertyGetterOrSetter(accessorKind);
+                PropertyComponentKind.Collector alreadyRead = new PropertyComponentKind.Collector();
+                PropertyComponentKind propertyComponentKind = parsePropertyComponent(alreadyRead);
+
+                while (propertyComponentKind != null) {
+                    alreadyRead.collect(propertyComponentKind);
+                    propertyComponentKind = parsePropertyComponent(alreadyRead);
                 }
 
                 if (!atSet(EOL_OR_SEMICOLON, RBRACE)) {
@@ -1504,78 +1563,102 @@ public class KotlinParsing extends AbstractKotlinParsing {
         myBuilder.restoreNewlinesState();
     }
 
-    private enum AccessorKind { GET, SET}
+    private enum PropertyComponentKind {
+        GET,
+        SET,
+        FIELD;
+
+        static class Collector {
+            private final boolean[] collected = { false, false, false };
+
+            public void collect(PropertyComponentKind kind) {
+                collected[kind.ordinal()] = true;
+            }
+
+            public boolean contains(PropertyComponentKind kind) {
+                return collected[kind.ordinal()];
+            }
+        }
+    }
 
     /*
-     * getterOrSetter
+     * propertyComponent
      *   : modifiers ("get" | "set")
      *   :
      *        (     "get" "(" ")"
      *           |
      *              "set" "(" modifiers parameter ")"
+     *           |
+     *              "field"
      *        ) functionBody
      *   ;
      */
     @Nullable
-    private AccessorKind parsePropertyGetterOrSetter(@Nullable AccessorKind notAllowedKind) {
-        PsiBuilder.Marker getterOrSetter = mark();
+    private PropertyComponentKind parsePropertyComponent(PropertyComponentKind.Collector notAllowedKind) {
+        PsiBuilder.Marker propertyComponent = mark();
 
         parseModifierList(DEFAULT, TokenSet.EMPTY);
 
-        AccessorKind accessorKind;
+        PropertyComponentKind propertyComponentKind;
         if (at(GET_KEYWORD)) {
-            accessorKind = AccessorKind.GET;
+            propertyComponentKind = PropertyComponentKind.GET;
         }
         else if (at(SET_KEYWORD)) {
-            accessorKind = AccessorKind.SET;
+            propertyComponentKind = PropertyComponentKind.SET;
+        }
+        else if (at(FIELD_KEYWORD)) {
+            propertyComponentKind = PropertyComponentKind.FIELD;
         }
         else {
-            getterOrSetter.rollbackTo();
+            propertyComponent.rollbackTo();
             return null;
         }
 
-        if (accessorKind == notAllowedKind) {
-            getterOrSetter.rollbackTo();
+        if (notAllowedKind.contains(propertyComponentKind)) {
+            propertyComponent.rollbackTo();
             return null;
         }
 
-        advance(); // GET_KEYWORD or SET_KEYWORD
+        advance(); // GET_KEYWORD, SET_KEYWORD or FIELD_KEYWORD
 
-        if (!at(LPAR)) {
+        if (!at(LPAR) && propertyComponentKind != PropertyComponentKind.FIELD) {
             // Account for Jet-114 (val a : int get {...})
-            TokenSet ACCESSOR_FIRST_OR_PROPERTY_END = TokenSet.orSet(MODIFIER_KEYWORDS, TokenSet.create(AT, GET_KEYWORD, SET_KEYWORD, EOL_OR_SEMICOLON, RBRACE));
+            TokenSet ACCESSOR_FIRST_OR_PROPERTY_END = TokenSet.orSet(MODIFIER_KEYWORDS, TokenSet.create(AT, GET_KEYWORD, SET_KEYWORD, FIELD_KEYWORD, EOL_OR_SEMICOLON, RBRACE));
             if (!atSet(ACCESSOR_FIRST_OR_PROPERTY_END)) {
                 errorUntil("Accessor body expected", TokenSet.orSet(ACCESSOR_FIRST_OR_PROPERTY_END, TokenSet.create(LBRACE, LPAR, EQ)));
             }
             else {
-                closeDeclarationWithCommentBinders(getterOrSetter, PROPERTY_ACCESSOR, true);
-                return accessorKind;
+                closeDeclarationWithCommentBinders(propertyComponent, PROPERTY_ACCESSOR, true);
+                return propertyComponentKind;
             }
         }
 
         myBuilder.disableNewlines();
-        expect(LPAR, "Expecting '('", TokenSet.create(RPAR, IDENTIFIER, COLON, LBRACE, EQ));
-        if (accessorKind == AccessorKind.SET) {
-            PsiBuilder.Marker parameterList = mark();
-            PsiBuilder.Marker setterParameter = mark();
-            parseModifierList(DEFAULT, TokenSet.create(COMMA, COLON, RPAR));
-            expect(IDENTIFIER, "Expecting parameter name", TokenSet.create(RPAR, COLON, LBRACE, EQ));
 
-            if (at(COLON)) {
-                advance(); // COLON
-                parseTypeRef();
+        if (propertyComponentKind != PropertyComponentKind.FIELD) {
+            expect(LPAR, "Expecting '('", TokenSet.create(RPAR, IDENTIFIER, COLON, LBRACE, EQ));
+            if (propertyComponentKind == PropertyComponentKind.SET) {
+                PsiBuilder.Marker parameterList = mark();
+                PsiBuilder.Marker setterParameter = mark();
+                parseModifierList(DEFAULT, TokenSet.create(COMMA, COLON, RPAR));
+                expect(IDENTIFIER, "Expecting parameter name", TokenSet.create(RPAR, COLON, LBRACE, EQ));
+
+                if (at(COLON)) {
+                    advance(); // COLON
+                    parseTypeRef();
+                }
+                setterParameter.done(VALUE_PARAMETER);
+                if (at(COMMA)) {
+                    advance(); // COMMA
+                }
+                parameterList.done(VALUE_PARAMETER_LIST);
             }
-            setterParameter.done(VALUE_PARAMETER);
-            if (at(COMMA)) {
-                advance(); // COMMA
+            if (!at(RPAR)) {
+                errorUntil("Expecting ')'", TokenSet.create(RPAR, COLON, LBRACE, RBRACE, EQ, EOL_OR_SEMICOLON));
             }
-            parameterList.done(VALUE_PARAMETER_LIST);
-        }
-        if (!at(RPAR)) {
-            errorUntil("Expecting ')'", TokenSet.create(RPAR, COLON, LBRACE, RBRACE, EQ, EOL_OR_SEMICOLON));
-        }
-        if (at(RPAR)) {
-            advance();
+            if (at(RPAR)) {
+                advance();
+            }
         }
         myBuilder.restoreNewlinesState();
 
@@ -1585,13 +1668,22 @@ public class KotlinParsing extends AbstractKotlinParsing {
             parseTypeRef();
         }
 
-        parseFunctionContract();
+        if (propertyComponentKind != PropertyComponentKind.FIELD) {
+            parseFunctionContract();
+            parseFunctionBody();
+        } else if (at(EQ)) {
+            advance();
+            myExpressionParsing.parseExpression();
+            consumeIf(SEMICOLON);
+        }
 
-        parseFunctionBody();
+        if (propertyComponentKind == PropertyComponentKind.FIELD) {
+            closeDeclarationWithCommentBinders(propertyComponent, BACKING_FIELD, true);
+        } else {
+            closeDeclarationWithCommentBinders(propertyComponent, PROPERTY_ACCESSOR, true);
+        }
 
-        closeDeclarationWithCommentBinders(getterOrSetter, PROPERTY_ACCESSOR, true);
-
-        return accessorKind;
+        return propertyComponentKind;
     }
 
     @NotNull
@@ -2080,6 +2172,12 @@ public class KotlinParsing extends AbstractKotlinParsing {
         IElementType lookahead = lookahead(1);
         IElementType lookahead2 = lookahead(2);
         boolean typeBeforeDot = true;
+        boolean withContextReceiver = at(CONTEXT_KEYWORD) && lookahead == LPAR;
+
+        if (withContextReceiver) {
+            parseContextReceiverList();
+        }
+
         if (at(IDENTIFIER) && !(lookahead == DOT && lookahead2 == IDENTIFIER) && lookahead != LT && at(DYNAMIC_KEYWORD)) {
             PsiBuilder.Marker dynamicType = mark();
             advance(); // DYNAMIC_KEYWORD
@@ -2088,7 +2186,7 @@ public class KotlinParsing extends AbstractKotlinParsing {
         else if (at(IDENTIFIER) || at(PACKAGE_KEYWORD) || atParenthesizedMutableForPlatformTypes(0)) {
             parseUserType(allowSimpleIntersectionTypes);
         }
-        else if (at(LPAR)) {
+        else if (at(LPAR) && !withContextReceiver) {
             PsiBuilder.Marker functionOrParenthesizedType = mark();
 
             // This may be a function parameter list or just a parenthesized type
@@ -2119,7 +2217,7 @@ public class KotlinParsing extends AbstractKotlinParsing {
             }
 
         }
-        else {
+        else if (!withContextReceiver) {
             errorWithRecovery("Type expected",
                     TokenSet.orSet(TOP_LEVEL_DECLARATION_FIRST,
                                    TokenSet.create(EQ, COMMA, GT, RBRACKET, DOT, RPAR, RBRACE, LBRACE, SEMICOLON),
@@ -2148,8 +2246,10 @@ public class KotlinParsing extends AbstractKotlinParsing {
             intersectionType.done(INTERSECTION_TYPE);
             wasIntersection = true;
         }
+        boolean withExtensionReceiver = typeBeforeDot && at(DOT);
 
-        if (typeBeforeDot && !wasIntersection && at(DOT)) {
+
+        if (withExtensionReceiver && !wasIntersection || withContextReceiver) {
             // This is a receiver for a function type
             //  A.(B) -> C
             //   ^
@@ -2161,7 +2261,9 @@ public class KotlinParsing extends AbstractKotlinParsing {
             receiverTypeRef.done(TYPE_REFERENCE);
             receiverType.done(FUNCTION_TYPE_RECEIVER);
 
-            advance(); // DOT
+            if (withExtensionReceiver) {
+                advance(); // DOT
+            }
 
             if (at(LPAR)) {
                 parseFunctionTypeContents().drop();

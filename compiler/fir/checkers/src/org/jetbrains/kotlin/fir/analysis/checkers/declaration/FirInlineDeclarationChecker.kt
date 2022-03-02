@@ -5,25 +5,30 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.builtins.StandardNames.BACKING_FIELD
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.isInlineOnly
 import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
-import org.jetbrains.kotlin.fir.analysis.checkers.util.checkChildrenWithCustomVisitor
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollectorVisitor
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
+import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.references.FirSuperReference
-import org.jetbrains.kotlin.fir.resolve.inference.isBuiltinFunctionalType
-import org.jetbrains.kotlin.fir.resolve.inference.isFunctionalType
-import org.jetbrains.kotlin.fir.resolve.inference.isSuspendFunctionType
+import org.jetbrains.kotlin.fir.types.isBuiltinFunctionalType
+import org.jetbrains.kotlin.fir.types.isFunctionalType
+import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenMembers
@@ -34,6 +39,7 @@ import org.jetbrains.kotlin.fir.types.isMarkedNullable
 import org.jetbrains.kotlin.fir.types.isNullable
 import org.jetbrains.kotlin.fir.types.toSymbol
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
+import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 object FirInlineDeclarationChecker : FirFunctionChecker() {
@@ -110,9 +116,8 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             checkReceiversOfQualifiedAccessExpression(qualifiedAccessExpression, targetSymbol, data)
         }
 
-        override fun visitPropertyAccessExpression(propertyAccessExpression: FirPropertyAccessExpression, data: CheckerContext) {
-            visitQualifiedAccessExpression(propertyAccessExpression, data)
-        }
+        // prevent delegation to visitQualifiedAccessExpression, which causes redundant diagnostics
+        override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: CheckerContext) {}
 
         override fun visitVariableAssignment(variableAssignment: FirVariableAssignment, data: CheckerContext) {
             val propertySymbol = variableAssignment.calleeReference.toResolvedCallableSymbol() as? FirPropertySymbol ?: return
@@ -228,10 +233,15 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
         private fun checkVisibilityAndAccess(
             accessExpression: FirQualifiedAccess,
             calledDeclaration: FirCallableSymbol<*>?,
-            source: FirSourceElement,
+            source: KtSourceElement,
             context: CheckerContext
         ) {
-            if (calledDeclaration == null) return
+            if (
+                calledDeclaration == null ||
+                calledDeclaration.callableId.callableName == BACKING_FIELD
+            ) {
+                return
+            }
             val recordedEffectiveVisibility = calledDeclaration.publishedApiEffectiveVisibility ?: calledDeclaration.effectiveVisibility
             val calledFunEffectiveVisibility = recordedEffectiveVisibility.let {
                 if (it == EffectiveVisibility.Local) {
@@ -277,7 +287,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
 
         private fun checkPrivateClassMemberAccess(
             calledDeclaration: FirCallableSymbol<*>,
-            source: FirSourceElement,
+            source: KtSourceElement,
             context: CheckerContext
         ) {
             if (!isEffectivelyPrivateApiFunction) {
@@ -313,19 +323,17 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             }
         }
 
-        private fun FirBasedSymbol<*>.isDefinedInInlineFunction(): Boolean {
+        private fun FirClassifierSymbol<*>.isDefinedInInlineFunction(): Boolean {
             return when (val symbol = this) {
-                is FirAnonymousFunctionSymbol -> true
-                is FirCallableSymbol<*> -> symbol.isLocalMember
                 is FirAnonymousObjectSymbol -> true
                 is FirRegularClassSymbol -> symbol.classId.isLocal
-                else -> error("Unknown callable declaration type: $symbol")
+                is FirTypeAliasSymbol, is FirTypeParameterSymbol -> error("Unexpected classifier declaration type: $symbol")
             }
         }
 
         private fun checkRecursion(
             targetSymbol: FirBasedSymbol<*>,
-            source: FirSourceElement,
+            source: KtSourceElement,
             context: CheckerContext
         ) {
             if (targetSymbol == inlineFunction.symbol) {
@@ -496,5 +504,17 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
         if (canBeInlined && overriddenSymbols.isNotEmpty()) {
             reporter.reportOn(declaration.source, FirErrors.OVERRIDE_BY_INLINE, context)
         }
+    }
+
+    private fun FirElement.checkChildrenWithCustomVisitor(
+        parentContext: CheckerContext,
+        visitorVoid: FirVisitor<Unit, CheckerContext>
+    ) {
+        val collectingVisitor = object : AbstractDiagnosticCollectorVisitor(parentContext) {
+            override fun checkElement(element: FirElement) {
+                element.accept(visitorVoid, context)
+            }
+        }
+        this.accept(collectingVisitor, null)
     }
 }

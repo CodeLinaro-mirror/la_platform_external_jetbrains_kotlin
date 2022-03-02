@@ -45,7 +45,7 @@ FILE: RedundantVisibilityModifierChecker.kt
         }
 
         internal final inner class B<T, T2, T1, T2 : R|T1|> : R|kotlin/Any| {
-            public constructor<T, T2>(): R|Foo2.B<T, T2, T1, T2>| {
+            public Foo2<T1, T2>.constructor<T, T2>(): R|Foo2.B<T, T2, T1, T2>| {
                 super<R|kotlin/Any|>()
             }
 
@@ -169,5 +169,14 @@ FILE: RedundantVisibilityModifierChecker.kt
             }
             public set(value: R|kotlin/Int|): R|kotlin/Unit| {
             }
+
+    }
+    private final class Foo : R|kotlin/Any| {
+        public constructor(): R|Foo| {
+            super<R|kotlin/Any|>()
+        }
+
+        internal final fun barBarian(): R|kotlin/Unit| {
+        }
 
     }

@@ -1,18 +1,24 @@
-// WITH_RUNTIME
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class IcInt(val i: Int) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IcInt(val i: Int) {
     fun simple(): String = i.toString()
 }
 
-inline class IcLong(val l: Long) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IcLong(val l: Long) {
     fun simple(): String = l.toString()
 }
 
-inline class IcAny(val a: Any?) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IcAny(val a: Any?) {
     fun simple(): String = a?.toString() ?: "null"
 }
 
-inline class IcOverIc(val o: IcLong) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IcOverIc(val o: IcLong) {
     fun simple(): String = o.toString()
 }
 

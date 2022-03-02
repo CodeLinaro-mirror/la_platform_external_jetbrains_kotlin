@@ -6,18 +6,17 @@
 package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.*
-import com.intellij.psi.impl.light.LightParameterListBuilder
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_GETTER
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_SETTER
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertyAccessorSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertyGetterSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertySetterSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertySymbol
-import org.jetbrains.kotlin.light.classes.symbol.parameters.FirLightSetterParameterForSymbol
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyAccessorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyGetterSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySetterSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
+import org.jetbrains.kotlin.analysis.api.types.KtTypeMappingMode
 import org.jetbrains.kotlin.load.java.JvmAbi.getterName
 import org.jetbrains.kotlin.load.java.JvmAbi.setterName
 import org.jetbrains.kotlin.psi.KtDeclaration
@@ -41,7 +40,7 @@ internal class FirLightAccessorMethodForSymbol(
         if (isGetter) getterName(this) else setterName(this)
 
     private val _name: String by lazyPub {
-        propertyAccessorSymbol.getJvmNameFromAnnotation() ?: run {
+        propertyAccessorSymbol.getJvmNameFromAnnotation(accessorSite) ?: run {
             val defaultName = containingPropertySymbol.name.identifier.let {
                 if (containingClass.isAnnotationType) it else it.abiName()
             }
@@ -57,8 +56,8 @@ internal class FirLightAccessorMethodForSymbol(
 
     override fun isVarArgs(): Boolean = false
 
-    override val kotlinOrigin: KtDeclaration? =
-        (propertyAccessorSymbol.psi ?: containingPropertySymbol.psi) as? KtDeclaration
+    override val kotlinOrigin: KtDeclaration?
+        get() = lightMemberOrigin?.originalElement
 
     private val accessorSite
         get() =
@@ -76,7 +75,7 @@ internal class FirLightAccessorMethodForSymbol(
         val nullabilityType = if (nullabilityApplicable) {
             analyzeWithSymbolAsContext(containingPropertySymbol) {
                 getTypeNullability(
-                    containingPropertySymbol.annotatedType.type
+                    containingPropertySymbol.returnType
                 )
             }
         } else NullabilityType.Unknown
@@ -85,12 +84,13 @@ internal class FirLightAccessorMethodForSymbol(
             parent = this,
             nullability = nullabilityType,
             annotationUseSiteTarget = accessorSite,
+            includeAnnotationsWithoutSite = false
         )
 
         val annotationsFromAccessor = propertyAccessorSymbol.computeAnnotations(
             parent = this,
             nullability = NullabilityType.Unknown,
-            annotationUseSiteTarget = null,
+            annotationUseSiteTarget = accessorSite,
         )
 
         return annotationsFromProperty + annotationsFromAccessor
@@ -129,7 +129,7 @@ internal class FirLightAccessorMethodForSymbol(
     private val _modifierList: PsiModifierList by lazyPub {
         val modifiers = computeModifiers()
         val annotations = computeAnnotations(modifiers.contains(PsiModifier.PRIVATE))
-        FirLightClassModifierList(this, modifiers, annotations)
+        FirLightMemberModifierList(this, modifiers, annotations)
     }
 
     override fun getModifierList(): PsiModifierList = _modifierList
@@ -148,14 +148,18 @@ internal class FirLightAccessorMethodForSymbol(
 
     override fun getNameIdentifier(): PsiIdentifier = _identifier
 
-    private val _returnedType: PsiType? by lazyPub {
+    private val _returnedType: PsiType by lazyPub {
         if (!isGetter) return@lazyPub PsiType.VOID
         analyzeWithSymbolAsContext(containingPropertySymbol) {
-            containingPropertySymbol.annotatedType.type.asPsiType(this@FirLightAccessorMethodForSymbol)
-        }
+            containingPropertySymbol.returnType.asPsiType(
+                this@FirLightAccessorMethodForSymbol,
+                KtTypeMappingMode.RETURN_TYPE,
+                containingClass.isAnnotationType
+            )
+        } ?: nonExistentType()
     }
 
-    override fun getReturnType(): PsiType? = _returnedType
+    override fun getReturnType(): PsiType = _returnedType
 
     override fun equals(other: Any?): Boolean =
         this === other ||
@@ -168,25 +172,18 @@ internal class FirLightAccessorMethodForSymbol(
 
 
     private val _parametersList by lazyPub {
-        val builder = LightParameterListBuilder(manager, language)
-
-        FirLightParameterForReceiver.tryGet(containingPropertySymbol, this)?.let {
-            builder.addParameter(it)
-        }
-
-        val propertyParameter = (propertyAccessorSymbol as? KtPropertySetterSymbol)?.parameter
-
-        if (propertyParameter != null) {
-            builder.addParameter(
-                FirLightSetterParameterForSymbol(
-                    parameterSymbol = propertyParameter,
-                    containingPropertySymbol = containingPropertySymbol,
-                    containingMethod = this@FirLightAccessorMethodForSymbol
+        FirLightParameterList(this, containingPropertySymbol) { builder ->
+            val propertyParameter = (propertyAccessorSymbol as? KtPropertySetterSymbol)?.parameter
+            if (propertyParameter != null) {
+                builder.addParameter(
+                    FirLightSetterParameterForSymbol(
+                        parameterSymbol = propertyParameter,
+                        containingPropertySymbol = containingPropertySymbol,
+                        containingMethod = this@FirLightAccessorMethodForSymbol
+                    )
                 )
-            )
+            }
         }
-
-        builder
     }
 
     override fun getParameterList(): PsiParameterList = _parametersList

@@ -3,16 +3,15 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.light.classes.symbol.parameters
+package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.PsiAnnotation
 import com.intellij.psi.PsiModifierList
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertySymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtValueParameterSymbol
-import org.jetbrains.kotlin.light.classes.symbol.*
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol
 
 internal class FirLightSetterParameterForSymbol(
     private val containingPropertySymbol: KtPropertySymbol,
@@ -21,10 +20,10 @@ internal class FirLightSetterParameterForSymbol(
 ) : FirLightParameterBaseForSymbol(parameterSymbol, containingMethod) {
 
     private val _annotations: List<PsiAnnotation> by lazyPub {
-        val annotationsFomSetter = parameterSymbol.computeAnnotations(
+        val annotationsFromSetter = parameterSymbol.computeAnnotations(
             parent = this,
             nullability = NullabilityType.Unknown,
-            annotationUseSiteTarget = null,
+            annotationUseSiteTarget = AnnotationUseSiteTarget.SETTER_PARAMETER,
         )
 
         val annotationsFromProperty = containingPropertySymbol.computeAnnotations(
@@ -34,7 +33,7 @@ internal class FirLightSetterParameterForSymbol(
             includeAnnotationsWithoutSite = false
         )
 
-        annotationsFomSetter + annotationsFromProperty
+        annotationsFromSetter + annotationsFromProperty
     }
 
     override fun getModifierList(): PsiModifierList = _modifierList

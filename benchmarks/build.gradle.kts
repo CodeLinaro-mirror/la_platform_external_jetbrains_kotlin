@@ -9,15 +9,13 @@ plugins {
 }
 
 dependencies {
-    compile(kotlinStdlib())
-    compile(project(":compiler:frontend"))
-    compile(projectTests(":compiler:tests-common"))
-    compile(project(":compiler:cli"))
-    compile(intellijCoreDep()) { includeJars("intellij-core") }
-    compile(jpsStandalone()) { includeJars("jps-model") }
-    compile(intellijPluginDep("java"))
-    compile(intellijDep()) { includeIntellijCoreJarDependencies(project) }
-    compile("org.jetbrains.kotlinx:kotlinx-benchmark-runtime:$benchmarks_version")
+    api(kotlinStdlib())
+    api(project(":compiler:frontend"))
+    api(projectTests(":compiler:tests-common"))
+    api(project(":compiler:cli"))
+    api(intellijCore())
+    api(jpsModel())
+    api("org.jetbrains.kotlinx:kotlinx-benchmark-runtime:$benchmarks_version")
 }
 
 sourceSets {
@@ -76,14 +74,18 @@ tasks.matching { it is Zip && it.name == "mainBenchmarkJar" }.configureEach {
 val benchmarkTasks = listOf("mainBenchmark", "mainFirBenchmark", "mainNiBenchmark")
 tasks.matching { it is JavaExec && it.name in benchmarkTasks }.configureEach {
     this as JavaExec
-    systemProperty("idea.home.path", intellijRootDir().canonicalPath)
+    dependsOn(":createIdeaHomeForTests")
+    systemProperty("idea.home.path", ideaHomePathForTests().canonicalPath)
+    systemProperty("idea.use.native.fs.for.win", false)
 }
 
 tasks.register<JavaExec>("runBenchmark") {
+    dependsOn(":createIdeaHomeForTests")
+
     // jmhArgs example: -PjmhArgs='CommonCalls -p size=500 -p isIR=true -p useNI=true -f 1'
     val jmhArgs = if (project.hasProperty("jmhArgs")) project.property("jmhArgs").toString() else ""
     val resultFilePath = "$buildDir/benchmarks/jmh-result.json"
-    val ideaHome = intellijRootDir().canonicalPath
+    val ideaHome = ideaHomePathForTests().canonicalPath
 
     val benchmarkJarPath = "$buildDir/benchmarks/main/jars/benchmarks.jar"
     args = mutableListOf("-Didea.home.path=$ideaHome", benchmarkJarPath, "-rf", "json", "-rff", resultFilePath) + jmhArgs.split("\\s".toRegex())

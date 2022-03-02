@@ -1,5 +1,4 @@
-// IGNORE_BACKEND: WASM
-// WITH_RUNTIME
+// WITH_STDLIB
 
 val p0 = 0..3
 

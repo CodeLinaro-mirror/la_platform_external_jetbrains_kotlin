@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.cli.common.toBooleanLenient
-
 /*
  * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the license/LICENSE.txt file.
@@ -15,17 +13,12 @@ repositories {
 }
 
 dependencies {
-    testCompileOnly(intellijDep()) {
-        includeJars("extensions", "idea_rt", "util", "asm-all", "jna", rootProject = rootProject)
-    }
-
-    testCompileOnly(intellijPluginDep("java")) { includeJars("java-api") }
+    testApi(intellijCore())
 
     testRuntimeOnly("xerces:xercesImpl:2.12.0")
-    testRuntimeOnly(intellijDep())
-    testRuntimeOnly(intellijPluginDep("java"))
+    testRuntimeOnly(commonDependency("commons-lang:commons-lang"))
 
-    testApi(commonDep("junit:junit"))
+    testApi(commonDependency("junit:junit"))
     testCompileOnly(project(":kotlin-test:kotlin-test-jvm"))
     testCompileOnly(project(":kotlin-test:kotlin-test-junit"))
     testApi(projectTests(":compiler:tests-common"))
@@ -35,6 +28,8 @@ dependencies {
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testApi(project(":compiler:fir:resolve"))
+    testApi(project(":compiler:fir:providers"))
+    testApi(project(":compiler:fir:semantics"))
     testApi(project(":compiler:fir:dump"))
 
     val asyncProfilerClasspath = project.findProperty("fir.bench.async.profiler.classpath") as? String

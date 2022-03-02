@@ -1,6 +1,4 @@
-// WITH_RUNTIME
-// IGNORE_BACKEND: WASM
-// WASM_MUTE_REASON: STDLIB_TEXT
+// WITH_STDLIB
 
 fun test(text: String): String {
     when (text.takeWhile { it.isLetter() }) {

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.wasm.ir2wasm
 
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.wasm.lower.WasmSignature
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithName
 import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.symbols.*
@@ -14,7 +15,7 @@ import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.wasm.ir.*
 
-class WasmCompiledModuleFragment {
+class WasmCompiledModuleFragment(val irBuiltIns: IrBuiltIns) {
     val functions =
         ReferencableAndDefinable<IrFunctionSymbol, WasmFunction>()
     val globals =
@@ -36,6 +37,16 @@ class WasmCompiledModuleFragment {
 
     val runtimeTypes =
         ReferencableAndDefinable<IrClassSymbol, WasmGlobal>()
+
+    val tagFuncType = WasmFunctionType(
+        "ex_handling_tag",
+        listOf(
+            WasmRefNullType(WasmHeapType.Type(gcTypes.reference(irBuiltIns.throwableClass)))
+        ),
+        emptyList()
+    )
+    val tag = WasmTag(tagFuncType)
+
 
     val classes = mutableListOf<IrClassSymbol>()
     val interfaces = mutableListOf<IrClassSymbol>()
@@ -71,7 +82,8 @@ class WasmCompiledModuleFragment {
 
     val jsFuns = mutableListOf<JsCodeSnippet>()
 
-    var startFunction: WasmFunction? = null
+    class FunWithPriority(val function: WasmFunction, val priority: String)
+    val initFunctions = mutableListOf<FunWithPriority>()
 
     val scratchMemAddr = WasmSymbol<Int>()
     val scratchMemSizeInBytes = 65_536
@@ -180,6 +192,16 @@ class WasmCompiledModuleFragment {
                 println("  -- $index ${iface.owner.fqNameWhenAvailable}")
             }
 
+            println("Interfaces implementations: ")
+            for ((interfaceImpl, index: Int) in interfaceImplementationIds) {
+                println(
+                    "  -- $index" +
+                            " Interface: ${interfaceImpl.irInterface.owner.fqNameWhenAvailable}" +
+                            " Class: ${interfaceImpl.irClass.owner.fqNameWhenAvailable}"
+                )
+            }
+
+
             println("Virtual functions: ")
             for ((index, vf: IrSimpleFunctionSymbol) in virtualFunctions.withIndex()) {
                 println("  -- $index ${vf.owner.fqNameWhenAvailable}")
@@ -232,6 +254,15 @@ class WasmCompiledModuleFragment {
             )
         }
 
+        val masterInitFunctionType = WasmFunctionType("__init_t", emptyList(), emptyList())
+        val masterInitFunction = WasmFunction.Defined("__init", masterInitFunctionType)
+        with(WasmIrExpressionBuilder(masterInitFunction.instructions)) {
+            initFunctions.sortedBy { it.priority }.forEach {
+                buildCall(WasmSymbol(it.function))
+            }
+        }
+        exports += WasmExport.Function("__init", masterInitFunction)
+
         interfaceMethodTables.defined.forEach { (function, table) ->
             val size = interfaceTableElementsLists[function]!!.size.toUInt()
             table.limits = WasmLimits(size, size)
@@ -250,18 +281,19 @@ class WasmCompiledModuleFragment {
         val sortedRttGlobals = runtimeTypes.elements.sortedBy { (it.type as WasmRtt).depth }
 
         val module = WasmModule(
-            functionTypes = functionTypes.elements,
+            functionTypes = functionTypes.elements + tagFuncType + masterInitFunctionType,
             gcTypes = gcTypes.elements,
             importsInOrder = importedFunctions,
             importedFunctions = importedFunctions,
-            definedFunctions = functions.elements.filterIsInstance<WasmFunction.Defined>(),
+            definedFunctions = functions.elements.filterIsInstance<WasmFunction.Defined>() + masterInitFunction,
             tables = listOf(table) + interfaceMethodTables.elements,
             memories = listOf(memory),
             globals = globals.elements + sortedRttGlobals,
             exports = exports,
-            startFunction = startFunction!!,
+            startFunction = null,  // Module is initialized via export call
             elements = listOf(elements) + interfaceTableElements,
-            data = data
+            data = data,
+            tags = listOf(tag)
         )
         module.calculateIds()
         return module

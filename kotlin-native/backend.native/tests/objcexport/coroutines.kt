@@ -11,10 +11,12 @@ import kotlin.coroutines.intrinsics.*
 import kotlin.native.concurrent.isFrozen
 import kotlin.native.internal.ObjCErrorException
 import kotlin.test.*
+import kotlin.reflect.*
 
 class CoroutineException : Throwable()
 
 suspend fun suspendFun() = 42
+suspend fun unitSuspendFun() = Unit
 
 @Throws(CoroutineException::class, CancellationException::class)
 suspend fun suspendFun(result: Any?, doSuspend: Boolean, doThrow: Boolean): Any? {
@@ -30,15 +32,29 @@ suspend fun suspendFun(result: Any?, doSuspend: Boolean, doThrow: Boolean): Any?
     return result
 }
 
+@Throws(CoroutineException::class, CancellationException::class)
+suspend fun unitSuspendFun(doSuspend: Boolean, doThrow: Boolean) {
+    if (doSuspend) {
+        suspendCoroutineUninterceptedOrReturn<Unit> {
+            it.resume(Unit)
+            COROUTINE_SUSPENDED
+        }
+    }
+
+    if (doThrow) throw CoroutineException()
+}
+
 class ContinuationHolder<T> {
-    internal lateinit var continuation: Continuation<T>
+    internal var continuation: Continuation<T>? = null
 
     fun resume(value: T) {
-        continuation.resume(value)
+        continuation!!.resume(value)
+        continuation = null
     }
 
     fun resumeWithException(exception: Throwable) {
-        continuation.resumeWithException(exception)
+        continuation!!.resumeWithException(exception)
+        continuation = null
     }
 }
 
@@ -48,6 +64,13 @@ suspend fun suspendFunAsync(result: Any?, continuationHolder: ContinuationHolder
             continuationHolder.continuation = it
             COROUTINE_SUSPENDED
         } ?: result
+
+@Throws(CoroutineException::class, CancellationException::class)
+suspend fun unitSuspendFunAsync(continuationHolder: ContinuationHolder<Unit>): Unit =
+        suspendCoroutineUninterceptedOrReturn<Unit> {
+            continuationHolder.continuation = it
+            COROUTINE_SUSPENDED
+        }
 
 @Throws(CoroutineException::class, CancellationException::class)
 fun throwException(exception: Throwable) {
@@ -96,6 +119,7 @@ interface SuspendBridge<T> {
 
     suspend fun unit(value: T): Unit
     suspend fun unitAsAny(value: T): Any?
+    suspend fun nullableUnit(value: T): Unit?
 
     @Throws(Throwable::class) suspend fun nothing(value: T): Nothing
     @Throws(Throwable::class) suspend fun nothingAsInt(value: T): Int
@@ -106,7 +130,9 @@ interface SuspendBridge<T> {
 abstract class AbstractSuspendBridge : SuspendBridge<Int> {
     override suspend fun intAsAny(value: Int): Int = TODO()
 
+    override suspend fun unit(value: Int): Unit = TODO()
     override suspend fun unitAsAny(value: Int): Unit = TODO()
+    override suspend fun nullableUnit(value: Int): Unit? = TODO()
 
     override suspend fun nothingAsInt(value: Int): Nothing = TODO()
     override suspend fun nothingAsAny(value: Int): Nothing = TODO()
@@ -116,21 +142,25 @@ abstract class AbstractSuspendBridge : SuspendBridge<Int> {
 private suspend fun callSuspendBridgeImpl(bridge: SuspendBridge<Int>) {
     assertEquals(1, bridge.intAsAny(1))
 
-    assertSame(Unit, bridge.unitAsAny(2))
+    assertSame(Unit, bridge.unit(2))
+    assertSame(Unit, bridge.unitAsAny(3))
+    assertSame(Unit, bridge.nullableUnit(4))
 
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsInt(3) }
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsAny(4) }
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsUnit(5) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsInt(5) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsAny(6) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsUnit(7) }
 }
 
 private suspend fun callAbstractSuspendBridgeImpl(bridge: AbstractSuspendBridge) {
-    assertEquals(6, bridge.intAsAny(6))
+    assertEquals(8, bridge.intAsAny(8))
 
-    assertSame(Unit, bridge.unitAsAny(7))
+    assertSame(Unit, bridge.unit(9))
+    assertSame(Unit, bridge.unitAsAny(10))
+    assertSame(Unit, bridge.nullableUnit(11))
 
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsInt(8) }
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsAny(9) }
-    assertFailsWith<ObjCErrorException> { bridge.nothingAsUnit(10) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsInt(12) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsAny(13) }
+    assertFailsWith<ObjCErrorException> { bridge.nothingAsUnit(14) }
 }
 
 @Throws(Throwable::class)
@@ -165,14 +195,31 @@ class ThrowCancellationExceptionImpl : ThrowCancellationException() {
     }
 }
 
+class suspendFunctionChild0: suspend () -> String {
+    override suspend fun invoke(): String = "child 0"
+}
+
+class suspendFunctionChild1: suspend (String) -> String {
+    override suspend fun invoke(s: String): String = "$s 1"
+}
+
 fun getSuspendLambda0(): suspend () -> String = { "lambda 0" }
 
 private suspend fun suspendCallableReference0Target(): String = "callable reference 0"
 fun getSuspendCallableReference0(): suspend () -> String = ::suspendCallableReference0Target
 
+fun getSuspendChild0() = suspendFunctionChild0()
+
 fun getSuspendLambda1(): suspend (String) -> String = { "$it 1" }
 
 private suspend fun suspendCallableReference1Target(str: String): String = "$str 1"
 fun getSuspendCallableReference1(): suspend (String) -> String = ::suspendCallableReference1Target
+fun getSuspendChild1() = suspendFunctionChild1()
+
 
 suspend fun invoke1(block: suspend (Any?) -> Any?, argument: Any?): Any? = block(argument)
+
+fun getKSuspendCallableReference0(): KSuspendFunction0<String> = ::suspendCallableReference0Target
+fun getKSuspendCallableReference1(): KSuspendFunction1<String, String> = ::suspendCallableReference1Target
+
+fun gc() = kotlin.native.internal.GC.collect()

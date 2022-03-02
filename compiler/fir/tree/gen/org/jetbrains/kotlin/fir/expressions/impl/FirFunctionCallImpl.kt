@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirArgumentList
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
@@ -24,9 +24,9 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 open class FirFunctionCallImpl @FirImplementationDetail constructor(
-    override var source: FirSourceElement?,
+    override var source: KtSourceElement?,
     override var typeRef: FirTypeRef,
-    override val annotations: MutableList<FirAnnotationCall>,
+    override val annotations: MutableList<FirAnnotation>,
     override val typeArguments: MutableList<FirTypeProjection>,
     override var explicitReceiver: FirExpression?,
     override var dispatchReceiver: FirExpression,
@@ -97,7 +97,7 @@ open class FirFunctionCallImpl @FirImplementationDetail constructor(
     }
 
     @FirImplementationDetail
-    override fun replaceSource(newSource: FirSourceElement?) {
+    override fun replaceSource(newSource: KtSourceElement?) {
         source = newSource
     }
 

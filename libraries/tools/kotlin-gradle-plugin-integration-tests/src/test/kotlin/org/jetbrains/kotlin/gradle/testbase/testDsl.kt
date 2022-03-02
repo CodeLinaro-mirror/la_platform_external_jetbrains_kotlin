@@ -12,9 +12,6 @@ import org.jetbrains.kotlin.gradle.BaseGradleIT.Companion.acceptAndroidSdkLicens
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 import java.nio.file.*
-import java.nio.file.Files.copy
-import java.nio.file.Files.createDirectories
-import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.*
 import kotlin.test.assertTrue
 
@@ -28,8 +25,9 @@ import kotlin.test.assertTrue
 fun KGPBaseTest.project(
     projectName: String,
     gradleVersion: GradleVersion,
-    buildOptions: KGPBaseTest.BuildOptions = defaultBuildOptions,
+    buildOptions: BuildOptions = defaultBuildOptions,
     forceOutput: Boolean = false,
+    enableBuildScan: Boolean = false,
     addHeapDumpOptions: Boolean = true,
     enableGradleDebug: Boolean = false,
     projectPathAdditionalSuffix: String = "",
@@ -56,11 +54,12 @@ fun KGPBaseTest.project(
     val testProject = TestProject(
         gradleRunner,
         projectName,
-        buildOptions,
         projectPath,
+        buildOptions,
         gradleVersion,
         enableGradleDebug,
-        forceOutput
+        forceOutput,
+        enableBuildScan
     )
 
     if (buildJdk != null) testProject.setupNonDefaultJdk(buildJdk)
@@ -77,13 +76,17 @@ fun TestProject.build(
     forceOutput: Boolean = this.forceOutput,
     enableGradleDebug: Boolean = this.enableGradleDebug,
     enableBuildCacheDebug: Boolean = false,
-    buildOptions: KGPBaseTest.BuildOptions = this.buildOptions,
+    enableBuildScan: Boolean = this.enableBuildScan,
+    buildOptions: BuildOptions = this.buildOptions,
     assertions: BuildResult.() -> Unit = {}
 ) {
+    if (enableBuildScan) agreeToBuildScanService()
+
     val allBuildArguments = commonBuildSetup(
         buildArguments.toList(),
         buildOptions,
         enableBuildCacheDebug,
+        enableBuildScan,
         gradleVersion
     )
     val gradleRunnerForBuild = gradleRunner
@@ -92,6 +95,7 @@ fun TestProject.build(
         .withArguments(allBuildArguments)
     withBuildSummary(allBuildArguments) {
         val buildResult = gradleRunnerForBuild.build()
+        if (enableBuildScan) buildResult.printBuildScanUrl()
         assertions(buildResult)
     }
 }
@@ -104,13 +108,17 @@ fun TestProject.buildAndFail(
     forceOutput: Boolean = this.forceOutput,
     enableGradleDebug: Boolean = this.enableGradleDebug,
     enableBuildCacheDebug: Boolean = false,
-    buildOptions: KGPBaseTest.BuildOptions = this.buildOptions,
+    enableBuildScan: Boolean = this.enableBuildScan,
+    buildOptions: BuildOptions = this.buildOptions,
     assertions: BuildResult.() -> Unit = {}
 ) {
+    if (enableBuildScan) agreeToBuildScanService()
+
     val allBuildArguments = commonBuildSetup(
         buildArguments.toList(),
         buildOptions,
         enableBuildCacheDebug,
+        enableBuildScan,
         gradleVersion
     )
     val gradleRunnerForBuild = gradleRunner
@@ -119,6 +127,7 @@ fun TestProject.buildAndFail(
         .withArguments(allBuildArguments)
     withBuildSummary(allBuildArguments) {
         val buildResult = gradleRunnerForBuild.buildAndFail()
+        if (enableBuildScan) buildResult.printBuildScanUrl()
         assertions(buildResult)
     }
 
@@ -139,25 +148,15 @@ fun TestProject.enableLocalBuildCache(
     )
 }
 
-fun TestProject.enableBuildCacheDebug() {
-    gradleProperties.append(
-        "org.gradle.caching.debug=true"
-    )
-}
-
-class TestProject(
-    val gradleRunner: GradleRunner,
+open class GradleProject(
     val projectName: String,
-    val buildOptions: KGPBaseTest.BuildOptions,
-    val projectPath: Path,
-    val gradleVersion: GradleVersion,
-    val enableGradleDebug: Boolean,
-    val forceOutput: Boolean
+    val projectPath: Path
 ) {
-    val rootBuildGradle: Path get() = projectPath.resolve("build.gradle")
+    val buildGradle: Path get() = projectPath.resolve("build.gradle")
+    val buildGradleKts: Path get() = projectPath.resolve("build.gradle.kts")
     val settingsGradle: Path get() = projectPath.resolve("settings.gradle")
+    val settingsGradleKts: Path get() = projectPath.resolve("settings.gradle.kts")
     val gradleProperties: Path get() = projectPath.resolve("gradle.properties")
-    val localProperties: Path get() = projectPath.resolve("local.properties")
 
     fun classesDir(
         sourceSet: String = "main",
@@ -167,21 +166,68 @@ class TestProject(
     fun kotlinClassesDir(
         sourceSet: String = "main"
     ): Path = classesDir(sourceSet, language = "kotlin")
+
+    fun javaClassesDir(
+        sourceSet: String = "main"
+    ): Path = classesDir(sourceSet, language = "java")
+
+    fun kotlinSourcesDir(
+        sourceSet: String = "main"
+    ): Path = projectPath.resolve("src/$sourceSet/kotlin")
+
+    fun javaSourcesDir(
+        sourceSet: String = "main"
+    ): Path = projectPath.resolve("src/$sourceSet/java")
+
+    fun relativeToProject(
+        files: List<Path>
+    ): List<Path> = files.map { projectPath.relativize(it) }
+}
+
+class TestProject(
+    val gradleRunner: GradleRunner,
+    projectName: String,
+    projectPath: Path,
+    val buildOptions: BuildOptions,
+    val gradleVersion: GradleVersion,
+    val enableGradleDebug: Boolean,
+    val forceOutput: Boolean,
+    val enableBuildScan: Boolean
+) : GradleProject(projectName, projectPath) {
+    fun subProject(name: String) = GradleProject(name, projectPath.resolve(name))
+
+    fun includeOtherProjectAsSubmodule(
+        otherProjectName: String,
+        pathPrefix: String
+    ) {
+        val otherProjectPath = "$pathPrefix/$otherProjectName".testProjectPath
+        otherProjectPath.copyRecursively(projectPath.resolve(otherProjectName))
+
+        settingsGradle.append(
+            """
+            
+            include ':$otherProjectName'
+            """.trimIndent()
+        )
+    }
 }
 
 private fun commonBuildSetup(
     buildArguments: List<String>,
-    buildOptions: KGPBaseTest.BuildOptions,
+    buildOptions: BuildOptions,
     enableBuildCacheDebug: Boolean,
+    enableBuildScan: Boolean,
     gradleVersion: GradleVersion
 ): List<String> {
     val buildOptionsArguments = buildOptions.toArguments(gradleVersion)
     val buildCacheDebugOption = if (enableBuildCacheDebug) "-Dorg.gradle.caching.debug=true" else null
+    val buildScanOption = if (enableBuildScan) "--scan" else null
     return buildOptionsArguments +
             buildArguments +
             listOfNotNull(
                 "--full-stacktrace",
-                buildCacheDebugOption
+                buildCacheDebugOption,
+                buildScanOption
             )
 }
 
@@ -216,7 +262,7 @@ private fun setupProjectFromTestResources(
     tempDir: Path,
     optionalSubDir: String
 ): Path {
-    val testProjectPath = Paths.get("src", "test", "resources", "testProject", projectName)
+    val testProjectPath = projectName.testProjectPath
     assertTrue("Test project exists") { Files.exists(testProjectPath) }
     assertTrue("Test project path is a directory") { Files.isDirectory(testProjectPath) }
 
@@ -229,6 +275,8 @@ private fun setupProjectFromTestResources(
             testProjectPath.copyRecursively(it)
         }
 }
+
+private val String.testProjectPath: Path get() = Paths.get("src", "test", "resources", "testProject", this)
 
 private fun Path.addDefaultBuildFiles() {
     addPluginManagementToSettings()
@@ -273,10 +321,34 @@ internal fun Path.addPluginManagementToSettings() {
     }
 }
 
+private fun TestProject.agreeToBuildScanService() {
+    val settingsFile = if (Files.exists(settingsGradle)) settingsGradle else settingsGradleKts
+    settingsFile.append(
+        """
+            
+        gradleEnterprise {
+            buildScan {
+                termsOfServiceUrl = "https://gradle.com/terms-of-service"
+                termsOfServiceAgree = "yes"
+            }
+        }
+            
+        """.trimIndent()
+    )
+}
+
+private fun BuildResult.printBuildScanUrl() {
+    val buildScanUrl = output
+        .lineSequence()
+        .first { it.contains("https://gradle.com/s/") }
+        .replaceBefore("https://gradle", "")
+    println("Build scan url: $buildScanUrl")
+}
+
 private fun TestProject.setupNonDefaultJdk(pathToJdk: File) {
     gradleProperties.modify {
         """
-        |org.gradle.java.home=${pathToJdk.absolutePath.replace('\\', '/')}
+        |org.gradle.java.home=${pathToJdk.absolutePath.normalizePath()}
         |
         |$it        
         """.trimMargin()
@@ -290,7 +362,7 @@ internal fun Path.enableAndroidSdk() {
         .also { if (!it.exists()) it.createFile() }
         .appendText(
             """
-            sdk.dir=${androidSdk.absolutePath.replace('\\', '/')}
+            sdk.dir=${androidSdk.absolutePath.normalizePath()}
             """.trimIndent()
         )
     acceptAndroidSdkLicenses(androidSdk)
@@ -398,24 +470,4 @@ private fun Path.addHeapDumpOptions() {
             println("<=== Heap dump options are already exists! ===>")
         }
     }
-}
-
-private fun Path.copyRecursively(dest: Path) {
-    Files.walkFileTree(this, object : SimpleFileVisitor<Path>() {
-        override fun preVisitDirectory(
-            dir: Path,
-            attrs: BasicFileAttributes
-        ): FileVisitResult {
-            createDirectories(dest.resolve(relativize(dir)))
-            return FileVisitResult.CONTINUE
-        }
-
-        override fun visitFile(
-            file: Path,
-            attrs: BasicFileAttributes
-        ): FileVisitResult {
-            copy(file, dest.resolve(relativize(file)))
-            return FileVisitResult.CONTINUE
-        }
-    })
 }

@@ -1,8 +1,12 @@
-// WITH_RUNTIME
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class Z(val x: Int)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Z(val x: Int)
 
-inline class ZArray(val storage: IntArray) : Collection<Z> {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class ZArray(val storage: IntArray) : Collection<Z> {
     override val size: Int
         get() = storage.size
 

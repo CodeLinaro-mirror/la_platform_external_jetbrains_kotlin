@@ -14,9 +14,10 @@ fun KonanTarget.supportsCodeCoverage(): Boolean =
 fun KonanTarget.supportsMimallocAllocator(): Boolean =
      when(this) {
         is KonanTarget.LINUX_X64 -> true
-        is KonanTarget.MINGW_X86 -> HostManager.hostIsMingw
-        is KonanTarget.MINGW_X64 -> HostManager.hostIsMingw
+        is KonanTarget.MINGW_X86 -> true
+        is KonanTarget.MINGW_X64 -> true
         is KonanTarget.MACOS_X64 -> true
+         is KonanTarget.MACOS_ARM64 -> true
         is KonanTarget.LINUX_ARM64 -> true
         is KonanTarget.LINUX_ARM32_HFP -> true
         is KonanTarget.ANDROID_X64 -> true
@@ -26,6 +27,20 @@ fun KonanTarget.supportsMimallocAllocator(): Boolean =
         is KonanTarget.IOS_X64 -> true
         else -> false // watchOS/tvOS/android_x86/android_arm32 aren't tested; linux_mips32/linux_mipsel32 need linking with libatomic.
     }
+
+fun KonanTarget.supportsLibBacktrace(): Boolean =
+        this.family.isAppleFamily ||
+                // MIPS architectures have issues, see KT-48949
+                (this.family == Family.LINUX && this.architecture !in listOf(Architecture.MIPS32, Architecture.MIPSEL32)) ||
+                this.family == Family.ANDROID
+
+fun KonanTarget.supportsCoreSymbolication(): Boolean =
+        this in listOf(
+                KonanTarget.MACOS_X64, KonanTarget.MACOS_ARM64, KonanTarget.IOS_X64,
+                KonanTarget.IOS_SIMULATOR_ARM64, KonanTarget.TVOS_X64, KonanTarget.TVOS_SIMULATOR_ARM64,
+                KonanTarget.WATCHOS_X86, KonanTarget.WATCHOS_X64, KonanTarget.WATCHOS_SIMULATOR_ARM64
+        )
+
 
 fun KonanTarget.supportsThreads(): Boolean =
      when(this) {

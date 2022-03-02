@@ -1116,6 +1116,12 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
             public void testInlineVarargInts() throws Exception {
                 runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/inlineVarargInts.kt");
             }
+
+            @Test
+            @TestMetadata("multipleCallableReferenceUsage.kt")
+            public void testMultipleCallableReferenceUsage() throws Exception {
+                runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/multipleCallableReferenceUsage.kt");
+            }
         }
 
         @Nested
@@ -1131,6 +1137,12 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
             @TestMetadata("classProperty.kt")
             public void testClassProperty() throws Exception {
                 runTest("compiler/testData/codegen/boxInline/callableReference/bound/classProperty.kt");
+            }
+
+            @Test
+            @TestMetadata("doubleBoundToThis.kt")
+            public void testDoubleBoundToThis() throws Exception {
+                runTest("compiler/testData/codegen/boxInline/callableReference/bound/doubleBoundToThis.kt");
             }
 
             @Test
@@ -2588,6 +2600,36 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
         @TestMetadata("fakeOverride.kt")
         public void testFakeOverride() throws Exception {
             runTest("compiler/testData/codegen/boxInline/innerClasses/fakeOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("innerInlineFunCapturesOuter.kt")
+        public void testInnerInlineFunCapturesOuter() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuter.kt");
+        }
+
+        @Test
+        @TestMetadata("innerInlineFunCapturesOuterByAnotherInlineFun.kt")
+        public void testInnerInlineFunCapturesOuterByAnotherInlineFun() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuterByAnotherInlineFun.kt");
+        }
+
+        @Test
+        @TestMetadata("innerInlineFunCapturesOuterDeep.kt")
+        public void testInnerInlineFunCapturesOuterDeep() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuterDeep.kt");
+        }
+
+        @Test
+        @TestMetadata("innerInlineFunCapturesOuterFunRef.kt")
+        public void testInnerInlineFunCapturesOuterFunRef() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuterFunRef.kt");
+        }
+
+        @Test
+        @TestMetadata("innerInlineFunCapturesOuterWithInlineClass.kt")
+        public void testInnerInlineFunCapturesOuterWithInlineClass() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuterWithInlineClass.kt");
         }
 
         @Test
@@ -4896,6 +4938,12 @@ public class BlackBoxInlineCodegenTestGenerated extends AbstractBlackBoxInlineCo
         @TestMetadata("inlineOrdinaryOfNoinlineSuspend.kt")
         public void testInlineOrdinaryOfNoinlineSuspend() throws Exception {
             runTest("compiler/testData/codegen/boxInline/suspend/inlineOrdinaryOfNoinlineSuspend.kt");
+        }
+
+        @Test
+        @TestMetadata("inlinePassthrough.kt")
+        public void testInlinePassthrough() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/suspend/inlinePassthrough.kt");
         }
 
         @Test

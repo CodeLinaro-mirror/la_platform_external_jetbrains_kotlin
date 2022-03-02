@@ -11,10 +11,12 @@ import javax.inject.Inject
 import org.gradle.api.*
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.tasks.*
+import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.ExecClang
 import org.jetbrains.kotlin.bitcode.CompileToBitcode
 import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
 import org.jetbrains.kotlin.konan.target.*
+import java.io.OutputStream
 
 open class CompileNativeTest @Inject constructor(
         @InputFile val inputFile: File,
@@ -29,7 +31,6 @@ open class CompileNativeTest @Inject constructor(
     @Input @Optional
     var sanitizer: SanitizerKind? = null
 
-    @Input
     private val sanitizerFlags = when (sanitizer) {
         null -> listOf()
         SanitizerKind.ADDRESS -> listOf("-fsanitize=address")
@@ -38,7 +39,7 @@ open class CompileNativeTest @Inject constructor(
 
     @TaskAction
     fun compile() {
-        val plugin = project.convention.getPlugin(ExecClang::class.java)
+        val plugin = project.extensions.getByType<ExecClang>()
         val args = clangArgs + sanitizerFlags + listOf(inputFile.absolutePath, "-o", outputFile.absolutePath)
         if (target.family.isAppleFamily) {
             plugin.execToolchainClang(target) {
@@ -55,14 +56,14 @@ open class CompileNativeTest @Inject constructor(
 }
 
 open class LlvmLinkNativeTest @Inject constructor(
-        val baseName: String,
+        baseName: String,
         @Input val target: String,
         @InputFile val mainFile: File
 ) : DefaultTask() {
 
     @SkipWhenEmpty
     @InputFiles
-    var inputFiles: ConfigurableFileCollection = project.files()
+    val inputFiles: ConfigurableFileCollection = project.files()
 
     @OutputFile
     var outputFile: File = project.buildDir.resolve("bitcode/test/$target/$baseName.bc")
@@ -160,9 +161,9 @@ open class LinkNativeTest @Inject constructor(
                     listOf(),
                     linkerArgs,
                     optimize = false,
-                    debug = false,
+                    debug = true,
                     kind = LinkerOutputKind.EXECUTABLE,
-                    outputDsymBundle = "",
+                    outputDsymBundle = outputFile.absolutePath + ".dSYM",
                     needsProfileLibrary = false,
                     mimallocEnabled = mimallocEnabled,
                     sanitizer = sanitizer
@@ -174,6 +175,14 @@ open class LinkNativeTest @Inject constructor(
         for (command in commands) {
             project.exec {
                 commandLine(command)
+                if (!logger.isInfoEnabled() && command[0].endsWith("dsymutil")) {
+                    // Suppress dsymutl's warnings.
+                    // See: https://bugs.swift.org/browse/SR-11539.
+                    val nullOutputStream = object: OutputStream() {
+                        override fun write(b: Int) {}
+                    }
+                    errorOutput = nullOutputStream
+                }
             }
         }
     }
@@ -232,17 +241,18 @@ private fun createTestTask(
         val task = project.tasks.findByName(name) as? CompileToBitcode ?:
             project.tasks.create(name,
                     CompileToBitcode::class.java,
-                    it.srcRoot,
                     "${it.folderName}Tests",
                     target, "test"
                     ).apply {
+                srcDirs = it.srcDirs
+                headersDirs = it.headersDirs + googleTestExtension.headersDirs
+
                 this.sanitizer = sanitizer
                 excludeFiles = emptyList()
                 includeFiles = listOf("**/*Test.cpp", "**/*TestSupport.cpp", "**/*Test.mm", "**/*TestSupport.mm")
                 dependsOn(it)
                 dependsOn("downloadGoogleTest")
                 compilerArgs.addAll(it.compilerArgs)
-                headersDirs += googleTestExtension.headersDirs
                 this.configureCompileToBitcode()
             }
         if (task.inputFiles.count() == 0)
@@ -265,7 +275,7 @@ private fun createTestTask(
             testName, target, testSupportTask.outFile
     ).apply {
         val tasksToLink = (compileToBitcodeTasks + testedTasks + testFrameworkTasks)
-        inputFiles = project.files(tasksToLink.map { it.outFile })
+        inputFiles.setFrom(tasksToLink.map { it.outFile })
         dependsOn(testSupportTask)
         dependsOn(tasksToLink)
     }

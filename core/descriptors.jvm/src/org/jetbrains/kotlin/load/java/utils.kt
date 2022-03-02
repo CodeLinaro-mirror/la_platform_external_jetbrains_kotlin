@@ -19,13 +19,13 @@ package org.jetbrains.kotlin.load.java
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.load.java.descriptors.JavaMethodDescriptor
-import org.jetbrains.kotlin.resolve.deprecation.Deprecation
+import org.jetbrains.kotlin.resolve.deprecation.DescriptorBasedDeprecationInfo
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 
-class DeprecationCausedByFunctionN(override val target: DeclarationDescriptor) : Deprecation {
+class DeprecationCausedByFunctionNInfo(override val target: DeclarationDescriptor) : DescriptorBasedDeprecationInfo() {
     override val deprecationLevel: DeprecationLevelValue
         get() = DeprecationLevelValue.ERROR
-    override val message: String?
+    override val message: String
         get() = "Java members containing references to ${JavaToKotlinClassMap.FUNCTION_N_FQ_NAME} are not supported"
 }
 

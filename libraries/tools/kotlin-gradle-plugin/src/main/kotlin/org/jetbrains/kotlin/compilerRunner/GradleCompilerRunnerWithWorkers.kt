@@ -6,17 +6,20 @@
 package org.jetbrains.kotlin.compilerRunner
 
 import org.gradle.api.GradleException
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.logging.Logging
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.workers.WorkAction
 import org.gradle.workers.WorkParameters
 import org.gradle.workers.WorkQueue
 import org.gradle.workers.WorkerExecutor
-import org.jetbrains.kotlin.gradle.logging.kotlinDebug
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.build.report.metrics.measure
 import org.jetbrains.kotlin.gradle.tasks.GradleCompileTaskProvider
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.tasks.TaskOutputsBackup
 import java.io.File
 import javax.inject.Inject
@@ -28,21 +31,23 @@ internal class GradleCompilerRunnerWithWorkers(
     taskProvider: GradleCompileTaskProvider,
     jdkToolsJar: File?,
     kotlinDaemonJvmArgs: List<String>?,
+    buildMetrics: BuildMetricsReporter,
+    compilerExecutionStrategy: KotlinCompilerExecutionStrategy,
     private val workerExecutor: WorkerExecutor
-) : GradleCompilerRunner(taskProvider, jdkToolsJar, kotlinDaemonJvmArgs) {
+) : GradleCompilerRunner(taskProvider, jdkToolsJar, kotlinDaemonJvmArgs, buildMetrics, compilerExecutionStrategy) {
     override fun runCompilerAsync(
         workArgs: GradleKotlinCompilerWorkArguments,
         taskOutputsBackup: TaskOutputsBackup?
     ): WorkQueue {
-        loggerProvider.kotlinDebug { "Starting Kotlin compiler work from task '${pathProvider}'" }
 
         val workQueue = workerExecutor.noIsolation()
         workQueue.submit(GradleKotlinCompilerWorkAction::class.java) { params ->
             params.compilerWorkArguments.set(workArgs)
             if (taskOutputsBackup != null) {
-                params.taskOutputs.from(taskOutputsBackup.outputs)
+                params.taskOutputs.set(taskOutputsBackup.outputs)
                 params.buildDir.set(taskOutputsBackup.buildDirectory)
                 params.snapshotsDir.set(taskOutputsBackup.snapshotsDir)
+                params.metricsReporter.set(buildMetrics)
             }
         }
         return workQueue
@@ -60,7 +65,8 @@ internal class GradleCompilerRunnerWithWorkers(
                     fileSystemOperations,
                     parameters.buildDir,
                     parameters.snapshotsDir,
-                    parameters.taskOutputs,
+                    parameters.taskOutputs.get(),
+                    outputsToExclude = emptyList(),
                     logger
                 )
             } else {
@@ -76,8 +82,10 @@ internal class GradleCompilerRunnerWithWorkers(
                 // [BuildDataRecorder] knows nothing about this new instance. Possibly could be fixed in the future by migrating
                 // [BuildMetricsReporter] to be shared Gradle service.
                 if (taskOutputsBackup != null) {
-                    logger.info("Restoring task outputs to pre-compilation state")
-                    taskOutputsBackup.restoreOutputs()
+                    parameters.metricsReporter.get().measure(BuildTime.RESTORE_OUTPUT_FROM_BACKUP) {
+                        logger.info("Restoring task outputs to pre-compilation state")
+                        taskOutputsBackup.restoreOutputs()
+                    }
                 }
 
                 throw e
@@ -89,8 +97,9 @@ internal class GradleCompilerRunnerWithWorkers(
 
     internal interface GradleKotlinCompilerWorkParameters : WorkParameters {
         val compilerWorkArguments: Property<GradleKotlinCompilerWorkArguments>
-        val taskOutputs: ConfigurableFileCollection
+        val taskOutputs: ListProperty<File>
         val snapshotsDir: DirectoryProperty
         val buildDir: DirectoryProperty
+        val metricsReporter: Property<BuildMetricsReporter>
     }
 }

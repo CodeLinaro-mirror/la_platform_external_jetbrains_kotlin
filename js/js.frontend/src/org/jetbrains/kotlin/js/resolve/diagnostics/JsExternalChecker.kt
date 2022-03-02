@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorUtils
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.checkers.DeclarationChecker
 import org.jetbrains.kotlin.resolve.checkers.DeclarationCheckerContext
 import org.jetbrains.kotlin.resolve.descriptorUtil.*
@@ -119,7 +119,13 @@ object JsExternalChecker : DeclarationChecker {
             }
         }
 
-        reportOnParametersAndReturnTypesIf(ErrorsJs.INLINE_CLASS_IN_EXTERNAL_DECLARATION, KotlinType::isInlineClassType)
+        val valueClassInExternalDiagnostic =
+            if (context.languageVersionSettings.supportsFeature(LanguageFeature.JsAllowValueClassesInExternals))
+                ErrorsJs.INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING
+            else
+                ErrorsJs.INLINE_CLASS_IN_EXTERNAL_DECLARATION
+
+        reportOnParametersAndReturnTypesIf(valueClassInExternalDiagnostic, KotlinType::isInlineClassType)
         if (!context.languageVersionSettings.supportsFeature(LanguageFeature.JsEnableExtensionFunctionInExternals)) {
             reportOnParametersAndReturnTypesIf(ErrorsJs.EXTENSION_FUNCTION_IN_EXTERNAL_DECLARATION, KotlinType::isExtensionFunctionType)
         }

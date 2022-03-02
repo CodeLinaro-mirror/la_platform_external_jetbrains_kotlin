@@ -46,6 +46,8 @@ import org.jetbrains.kotlin.resolve.calls.inference.constraintPosition.getValidi
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
+import org.jetbrains.kotlin.utils.IDEAPlatforms
+import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -64,19 +66,6 @@ object Renderers {
             )
         }
         element.toString()
-    }
-
-    @JvmField
-    val EMPTY = Renderer<Any> { "" }
-
-    @JvmField
-    val STRING = Renderer<String> { it }
-
-    @JvmField
-    val THROWABLE = Renderer<Throwable> {
-        val writer = StringWriter()
-        it.printStackTrace(PrintWriter(writer))
-        StringUtil.first(writer.toString(), 2048, true)
     }
 
     @JvmField
@@ -153,7 +142,11 @@ object Renderers {
     @JvmField
     val RENDER_CLASS_OR_OBJECT = Renderer { classOrObject: KtClassOrObject ->
         val name = classOrObject.name?.let { " ${it.wrapIntoQuotes()}" } ?: ""
-        if (classOrObject is KtClass) "Class" + name else "Object" + name
+        when {
+            classOrObject !is KtClass -> "Object$name"
+            classOrObject.isInterface() -> "Interface$name"
+            else -> "Class$name"
+        }
     }
 
     @JvmField
@@ -177,15 +170,6 @@ object Renderers {
                 RENDER_TYPE.render(projection.type, RenderingContext.of(projection.type))
             else ->
                 "${projection.projectionKind} ${RENDER_TYPE.render(projection.type, RenderingContext.of(projection.type))}"
-        }
-    }
-
-    @JvmField
-    val RENDER_POSITION_VARIANCE = Renderer { variance: Variance ->
-        when (variance) {
-            Variance.INVARIANT -> "invariant"
-            Variance.IN_VARIANCE -> "in"
-            Variance.OUT_VARIANCE -> "out"
         }
     }
 
@@ -215,18 +199,13 @@ object Renderers {
     }
 
     @JvmStatic
-    fun <T> commaSeparated(itemRenderer: DiagnosticParameterRenderer<T>) = ContextDependentRenderer<Collection<T>> { collection, context ->
-        buildString {
-            val iterator = collection.iterator()
-            while (iterator.hasNext()) {
-                val next = iterator.next()
-                append(itemRenderer.render(next, context))
-                if (iterator.hasNext()) {
-                    append(", ")
-                }
-            }
-        }
-    }
+    @IDEAPluginsCompatibilityAPI(
+        IDEAPlatforms._213, // maybe 211 or 212 AS also used it
+        message = "Please use the CommonRenderers.commaSeparated instead",
+        plugins = "Android plugin in IDEA"
+    )
+    fun <T> commaSeparated(itemRenderer: DiagnosticParameterRenderer<T>): DiagnosticParameterRenderer<Collection<T>> =
+        CommonRenderers.commaSeparated(itemRenderer)
 
     @JvmField
     val TYPE_INFERENCE_CONFLICTING_SUBSTITUTIONS_RENDERER = Renderer<InferenceErrorData> {

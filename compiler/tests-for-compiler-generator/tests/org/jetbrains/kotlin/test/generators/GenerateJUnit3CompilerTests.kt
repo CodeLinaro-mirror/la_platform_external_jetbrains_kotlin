@@ -12,10 +12,6 @@ import org.jetbrains.kotlin.cfg.AbstractPseudoValueTest
 import org.jetbrains.kotlin.checkers.AbstractDiagnosticsTestWithJsStdLibAndBackendCompilation
 import org.jetbrains.kotlin.cli.AbstractCliTest
 import org.jetbrains.kotlin.codegen.*
-import org.jetbrains.kotlin.codegen.debugInformation.AbstractIrLocalVariableTest
-import org.jetbrains.kotlin.codegen.debugInformation.AbstractIrSteppingTest
-import org.jetbrains.kotlin.codegen.debugInformation.AbstractLocalVariableTest
-import org.jetbrains.kotlin.codegen.debugInformation.AbstractSteppingTest
 import org.jetbrains.kotlin.codegen.defaultConstructor.AbstractDefaultArgumentsReflectionTest
 import org.jetbrains.kotlin.codegen.flags.AbstractWriteFlagsTest
 import org.jetbrains.kotlin.codegen.ir.*
@@ -32,12 +28,16 @@ import org.jetbrains.kotlin.generators.impl.generateTestGroupSuite
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil.KT_OR_KTS_WITHOUT_DOTS_IN_NAME
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME
 import org.jetbrains.kotlin.integration.AbstractAntTaskTest
-import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.AbstractIrCfgTestCase
+import org.jetbrains.kotlin.ir.AbstractIrJsTextTestCase
+import org.jetbrains.kotlin.ir.AbstractIrSourceRangesTestCase
 import org.jetbrains.kotlin.jvm.compiler.*
 import org.jetbrains.kotlin.jvm.compiler.ir.AbstractIrCompileJavaAgainstKotlinTest
 import org.jetbrains.kotlin.jvm.compiler.ir.AbstractIrCompileKotlinAgainstJavaTest
 import org.jetbrains.kotlin.jvm.compiler.ir.AbstractIrLoadJavaTest
 import org.jetbrains.kotlin.jvm.compiler.javac.AbstractLoadJavaUsingJavacTest
+import org.jetbrains.kotlin.klib.AbstractKlibJsTextTestCase
+import org.jetbrains.kotlin.klib.AbstractKlibTextTestCase
 import org.jetbrains.kotlin.lexer.kdoc.AbstractKDocLexerTest
 import org.jetbrains.kotlin.lexer.kotlin.AbstractKotlinLexerTest
 import org.jetbrains.kotlin.modules.xml.AbstractModuleXmlParserTest
@@ -106,12 +106,8 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
                 model("codegen/kapt", targetBackend = TargetBackend.JVM)
             }
 
-            testClass<AbstractAsmLikeInstructionListingTest> {
-                model("codegen/asmLike", targetBackend = TargetBackend.JVM)
-            }
-
             testClass<AbstractScriptCodegenTest> {
-                model("codegen/script", extension = "kts")
+                model("codegen/script", extension = "kts", targetBackend = TargetBackend.JVM)
             }
 
             testClass<AbstractCustomScriptCodegenTest> {
@@ -206,13 +202,13 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
                 model("loadJava/compiledJava", extension = "java", testMethod = "doTestCompiledJava")
             }
 
-            testClass<AbstractLoadJava15Test> {
-                model("loadJava15", extension = "java", testMethod = "doTestCompiledJava", testClassName = "CompiledJava")
-                model("loadJava15", extension = "java", testMethod = "doTestSourceJava", testClassName = "SourceJava")
+            testClass<AbstractLoadJava17Test> {
+                model("loadJava17", extension = "java", testMethod = "doTestCompiledJava", testClassName = "CompiledJava")
+                model("loadJava17", extension = "java", testMethod = "doTestSourceJava", testClassName = "SourceJava")
             }
 
-            testClass<AbstractLoadJava15WithPsiClassReadingTest> {
-                model("loadJava15", extension = "java", testMethod = "doTestCompiledJava")
+            testClass<AbstractLoadJava17WithPsiClassReadingTest> {
+                model("loadJava17", extension = "java", testMethod = "doTestCompiledJava")
             }
 
             testClass<AbstractCompileJavaAgainstKotlinTest> {
@@ -291,14 +287,6 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
 
             testClass<AbstractTypeBindingTest> {
                 model("type/binding")
-            }
-
-            testClass<AbstractSteppingTest>(useJunit4 = true) {
-                model("debug/stepping", targetBackend = TargetBackend.JVM)
-            }
-
-            testClass<AbstractLocalVariableTest>(useJunit4 = true) {
-                model("debug/localVariables", targetBackend = TargetBackend.JVM)
             }
 
             testClass<AbstractLocalClassProtoTest> {
@@ -397,18 +385,6 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
                     targetBackend = TargetBackend.JVM_IR
                 )
                 model("loadJava/sourceJava", extension = "java", testMethod = "doTestSourceJava", targetBackend = TargetBackend.JVM_IR)
-            }
-
-            testClass<AbstractIrSteppingTest>(useJunit4 = true) {
-                model("debug/stepping", targetBackend = TargetBackend.JVM_IR)
-            }
-
-            testClass<AbstractIrLocalVariableTest>(useJunit4 = true) {
-                model("debug/localVariables", targetBackend = TargetBackend.JVM_IR)
-            }
-
-            testClass<AbstractIrAsmLikeInstructionListingTest> {
-                model("codegen/asmLike", targetBackend = TargetBackend.JVM_IR)
             }
 
             testClass<AbstractIrScriptCodegenTest> {

@@ -9,8 +9,8 @@ import com.intellij.psi.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtNamedClassOrObjectSymbol
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
 import org.jetbrains.kotlin.psi.KtDeclaration
 
 internal class FirLightFieldForObjectSymbol(
@@ -27,7 +27,7 @@ internal class FirLightFieldForObjectSymbol(
     private val _modifierList: PsiModifierList by lazyPub {
         val modifiers = setOf(objectSymbol.toPsiVisibilityForMember(isTopLevel = false), PsiModifier.STATIC, PsiModifier.FINAL)
         val notNullAnnotation = FirLightSimpleAnnotation("org.jetbrains.annotations.NotNull", this)
-        FirLightClassModifierList(this, modifiers, listOf(notNullAnnotation))
+        FirLightMemberModifierList(this, modifiers, listOf(notNullAnnotation))
     }
 
     private val _isDeprecated: Boolean by lazyPub {
@@ -41,7 +41,7 @@ internal class FirLightFieldForObjectSymbol(
     private val _type: PsiType by lazyPub {
         analyzeWithSymbolAsContext(objectSymbol) {
             objectSymbol.buildSelfClassType().asPsiType(this@FirLightFieldForObjectSymbol)
-        }
+        } ?: nonExistentType()
     }
 
     private val _identifier: PsiIdentifier by lazyPub {

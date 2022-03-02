@@ -17,7 +17,8 @@ val localPackagesToRelocate =
 
 val proguardLibraryJars by configurations.creating {
     attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
     }
 }
 
@@ -37,7 +38,7 @@ dependencies {
     embedded(project(":kotlin-scripting-jvm-host-unshaded")) { isTransitive = false }
     embedded(project(":kotlin-scripting-dependencies-maven-all"))
     embedded("org.slf4j:slf4j-nop:1.7.30")
-    embedded(commonDep("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm")) {
+    embedded(commonDependency("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm")) {
         isTransitive = false
         attributes {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
@@ -120,7 +121,7 @@ val resultJar by task<Jar> {
     }
 }
 
-addArtifact("runtime", resultJar)
+addArtifact("apiElements", resultJar)
 addArtifact("runtimeElements", resultJar)
 addArtifact("archives", resultJar)
 

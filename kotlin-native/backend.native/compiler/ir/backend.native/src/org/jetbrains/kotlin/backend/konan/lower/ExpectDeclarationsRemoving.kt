@@ -24,8 +24,8 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
-import org.jetbrains.kotlin.resolve.multiplatform.ExpectedActualResolver
 import org.jetbrains.kotlin.resolve.multiplatform.OptionalAnnotationUtil
+import org.jetbrains.kotlin.resolve.multiplatform.findCompatibleActualsForExpected
 
 /**
  * This pass removes all declarations with `isExpect == true`.
@@ -34,7 +34,14 @@ import org.jetbrains.kotlin.resolve.multiplatform.OptionalAnnotationUtil
 internal class ExpectDeclarationsRemoving(val context: Context) : FileLoweringPass {
     override fun lower(irFile: IrFile) {
         // All declarations with `isExpect == true` are nested into a top-level declaration with `isExpect == true`.
-        irFile.declarations.removeAll { it.descriptor.isExpectMember }
+        irFile.declarations.removeAll {
+            when (it) {
+                is IrClass -> it.isExpect
+                is IrFunction -> it.isExpect
+                is IrProperty -> it.isExpect
+                else -> false
+            }
+        }
     }
 }
 
@@ -94,13 +101,10 @@ internal class ExpectToActualDefaultValueCopier(private val irModule: IrModuleFr
     private fun IrClass.findActualForExpected(): IrClass =
             moduleIndex.classes[descriptor.findActualForExpect()]!!
 
-    private inline fun <reified T : MemberDescriptor> T.findActualForExpect() = with(ExpectedActualResolver) {
-        val descriptor = this@findActualForExpect
-
-        if (!descriptor.isExpect) error(this)
-
-        findCompatibleActualForExpected(descriptor.module).singleOrNull() ?: error(descriptor)
-    } as T
+    private inline fun <reified T : MemberDescriptor> T.findActualForExpect(): T {
+        if (!this.isExpect) error(this)
+        return (findCompatibleActualsForExpected(module).singleOrNull() ?: error(this)) as T
+    }
 
     private fun IrExpression.remapExpectValueSymbols(): IrExpression {
         class SymbolRemapper : DeepCopySymbolRemapper() {
