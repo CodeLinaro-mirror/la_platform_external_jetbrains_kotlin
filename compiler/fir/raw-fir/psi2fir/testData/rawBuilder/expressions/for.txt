@@ -50,15 +50,15 @@ FILE: for.kt
 
     }
     public? final? data class Some : R|kotlin/Any| {
-        public? [ContainingClassKey=Some] constructor(x: Int, y: Int): R|Some| {
+        public? [ContainingClassKey=Some] constructor([CorrespondingProperty=/Some.x] x: Int, [CorrespondingProperty=/Some.y] y: Int): R|Some| {
             super<R|kotlin/Any|>()
         }
 
         public? final? [IsFromPrimaryConstructor=true] val x: Int = R|<local>/x|
-            public? get(): Int
+            [ContainingClassKey=Some] public? get(): Int
 
         public? final? [IsFromPrimaryConstructor=true] val y: Int = R|<local>/y|
-            public? get(): Int
+            [ContainingClassKey=Some] public? get(): Int
 
         public final operator fun component1(): Int
 

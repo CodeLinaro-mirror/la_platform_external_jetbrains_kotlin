@@ -15,12 +15,13 @@
 using namespace kotlin;
 
 bool mm::IsFrozen(const ObjHeader* object) noexcept {
+    if (!compiler::freezingChecksEnabled()) return false;
     if (object->permanent()) {
         return true;
     }
 
     if (auto* extraObjectData = mm::ExtraObjectData::Get(object)) {
-        return (extraObjectData->flags() & mm::ExtraObjectData::FLAGS_FROZEN) != 0;
+        return extraObjectData->getFlag(mm::ExtraObjectData::FLAGS_FROZEN);
     }
     return false;
 }
@@ -48,12 +49,13 @@ ObjHeader* mm::FreezeSubgraph(ObjHeader* root) noexcept {
     }
     for (auto* object : objects) {
         if (auto* extraObjectData = mm::ExtraObjectData::Get(object)) {
-            if ((extraObjectData->flags() & mm::ExtraObjectData::FLAGS_NEVER_FROZEN) != 0) return object;
+            if (extraObjectData->getFlag(mm::ExtraObjectData::FLAGS_NEVER_FROZEN)) {
+                return object;
+            }
         }
     }
     for (auto* object : objects) {
-        auto& flags = mm::ExtraObjectData::GetOrInstall(object).flags();
-        flags = static_cast<mm::ExtraObjectData::Flags>(flags | mm::ExtraObjectData::FLAGS_FROZEN);
+        mm::ExtraObjectData::GetOrInstall(object).setFlag(mm::ExtraObjectData::FLAGS_FROZEN);
     }
     return nullptr;
 }
@@ -63,7 +65,6 @@ bool mm::EnsureNeverFrozen(ObjHeader* object) noexcept {
         return false;
     }
 
-    auto& flags = mm::ExtraObjectData::GetOrInstall(object).flags();
-    flags = static_cast<mm::ExtraObjectData::Flags>(flags | mm::ExtraObjectData::FLAGS_NEVER_FROZEN);
+    mm::ExtraObjectData::GetOrInstall(object).setFlag(mm::ExtraObjectData::FLAGS_NEVER_FROZEN);
     return true;
 }

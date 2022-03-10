@@ -14,20 +14,14 @@ import org.jetbrains.kotlin.backend.konan.llvm.FieldStorageKind
 import org.jetbrains.kotlin.backend.konan.llvm.needsGCRegistration
 import org.jetbrains.kotlin.backend.konan.llvm.storageKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
-import org.jetbrains.kotlin.ir.expressions.IrConst
-import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
 import org.jetbrains.kotlin.ir.util.hasAnnotation
-import org.jetbrains.kotlin.ir.util.setDeclarationsParent
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.util.hasNonConstInitializer
 import org.jetbrains.kotlin.name.Name
 
 internal object DECLARATION_ORIGIN_MODULE_GLOBAL_INITIALIZER : IrDeclarationOriginImpl("MODULE_GLOBAL_INITIALIZER")
@@ -40,6 +34,10 @@ internal val IrFunction.isFileInitializer: Boolean
     get() = origin == DECLARATION_ORIGIN_FILE_GLOBAL_INITIALIZER
             || origin == DECLARATION_ORIGIN_FILE_THREAD_LOCAL_INITIALIZER
             || origin == DECLARATION_ORIGIN_FILE_STANDALONE_THREAD_LOCAL_INITIALIZER
+
+internal val IrFunction.isModuleInitializer: Boolean
+    get() = origin == DECLARATION_ORIGIN_MODULE_GLOBAL_INITIALIZER
+            || origin == DECLARATION_ORIGIN_MODULE_THREAD_LOCAL_INITIALIZER
 
 internal fun IrBuilderWithScope.irCallFileInitializer(initializer: IrFunctionSymbol) =
         irCall(initializer)
@@ -58,7 +56,7 @@ internal class FileInitializersLowering(val context: Context) : FileLoweringPass
         for (declaration in irFile.declarations) {
             val irField = (declaration as? IrField) ?: (declaration as? IrProperty)?.backingField
             if (irField == null || !irField.needsInitializationAtRuntime || irField.shouldBeInitializedEagerly) continue
-            if (irField.storageKind != FieldStorageKind.THREAD_LOCAL) {
+            if (irField.storageKind(context) != FieldStorageKind.THREAD_LOCAL) {
                 requireGlobalInitializer = true
             } else {
                 requireThreadLocalInitializer = true // Either marked with thread local or only main thread visible.
@@ -82,16 +80,18 @@ internal class FileInitializersLowering(val context: Context) : FileLoweringPass
                     )
                 else null
 
-        irFile.simpleFunctions().forEach {
-            val body = it.body ?: return@forEach
-            val statements = (body as IrBlockBody).statements
-            context.createIrBuilder(it.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET).run {
-                // The order of calling initializers: first global, then thread-local.
-                // It is ok for a thread local top level property to reference a global, but not vice versa.
-                threadLocalInitFunction?.let { statements.add(0, irCallFileInitializer(it.symbol)) }
-                globalInitFunction?.let { statements.add(0, irCallFileInitializer(it.symbol)) }
-            }
-        }
+        irFile.simpleFunctions()
+                .filterNot { it.isModuleInitializer }
+                .forEach {
+                    val body = it.body ?: return@forEach
+                    val statements = (body as IrBlockBody).statements
+                    context.createIrBuilder(it.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET).run {
+                        // The order of calling initializers: first global, then thread-local.
+                        // It is ok for a thread local top level property to reference a global, but not vice versa.
+                        threadLocalInitFunction?.let { statements.add(0, irCallFileInitializer(it.symbol)) }
+                        globalInitFunction?.let { statements.add(0, irCallFileInitializer(it.symbol)) }
+                    }
+                }
     }
 
     private fun buildInitFileFunction(irFile: IrFile, name: String, origin: IrDeclarationOrigin) = context.irFactory.buildFun {
@@ -109,11 +109,4 @@ internal class FileInitializersLowering(val context: Context) : FileLoweringPass
     private val IrField.needsInitializationAtRuntime: Boolean
         get() = hasNonConstInitializer || needsGCRegistration(context)
 
-    private val IrField.hasNonConstInitializer: Boolean
-        get() {
-            val it = initializer?.expression ?: return false
-            if (it !is IrConst<*>) return true
-            if (it.kind != IrConstKind.Null && it.type != this.type) return true // Might be boxed, so codegen won't treat it as const.
-            return false
-        }
 }

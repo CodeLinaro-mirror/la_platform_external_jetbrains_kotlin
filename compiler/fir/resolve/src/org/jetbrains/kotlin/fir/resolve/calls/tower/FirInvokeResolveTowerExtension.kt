@@ -7,18 +7,18 @@ package org.jetbrains.kotlin.fir.resolve.calls.tower
 
 import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.expressions.builder.FirPropertyAccessExpressionBuilder
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.*
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConePropertyAsOperator
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.coneTypeUnsafe
 import org.jetbrains.kotlin.fir.types.isExtensionFunctionType
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
+import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 internal class FirInvokeResolveTowerExtension(
@@ -51,6 +51,18 @@ internal class FirInvokeResolveTowerExtension(
             invokeBuiltinExtensionMode = false
         ) {
             it.runResolverForNoReceiver(invokeReceiverVariableInfo)
+        }
+    }
+
+    fun enqueueResolveTasksForSuperReceiver(info: CallInfo, receiver: FirQualifiedAccessExpression) {
+        if (info.callKind != CallKind.Function) return
+        val invokeReceiverVariableInfo = info.replaceWithVariableAccess()
+        enqueueInvokeReceiverTask(
+            info,
+            invokeReceiverVariableInfo,
+            invokeBuiltinExtensionMode = false
+        ) {
+            it.runResolverForSuperReceiver(invokeReceiverVariableInfo, receiver)
         }
     }
 
@@ -290,6 +302,10 @@ private fun BodyResolveComponents.createExplicitReceiverForInvokeByCallable(
             extensionReceiver = extensionReceiverExpression
             // NB: this should fix problem in DFA (KT-36014)
             explicitReceiver = info.explicitReceiver
+        }
+
+        if (candidate.currentApplicability == CandidateApplicability.PROPERTY_AS_OPERATOR) {
+            nonFatalDiagnostics.add(ConePropertyAsOperator(candidate.symbol as FirPropertySymbol))
         }
     }.build().let(::transformQualifiedAccessUsingSmartcastInfo)
 }

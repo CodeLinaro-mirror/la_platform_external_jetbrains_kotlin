@@ -5,222 +5,206 @@
 
 package org.jetbrains.kotlin.gradle
 
-import org.jetbrains.kotlin.gradle.native.transformNativeTestProject
+import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.targets.js.dukat.ExternalsOutputFormat
-import org.jetbrains.kotlin.gradle.util.createTempDir
-import org.jetbrains.kotlin.gradle.util.findFileByName
-import org.jetbrains.kotlin.gradle.util.modify
-import org.junit.Test
-import java.io.File
-import java.net.URI
-import java.util.Arrays.asList
-import kotlin.test.fail
+import org.jetbrains.kotlin.gradle.testbase.*
+import org.junit.jupiter.api.DisplayName
 
+@DisplayName("Configuration cache")
 class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
-    @Test
-    fun testSimpleKotlinJvmProject() = with(Project("kotlinProject")) {
-        testConfigurationCacheOf(":compileKotlin")
-    }
 
-    @Test
-    fun testJvmWithMavenPublish() = with(Project("kotlinProject")) {
-        setupWorkingDir()
-        gradleBuildScript().appendText("""
-            apply plugin: "maven-publish"
-            group = "com.example"
-            version = "1.0"
-            publishing.repositories {
-                maven {
-                    url = "${'$'}buildDir/repo"
-                }
-            }
-            publishing.publications {
-                maven(MavenPublication) {
-                    from(components["java"])
-                }
-            }
-        """.trimIndent())
-        testConfigurationCacheOf(":publishMavenPublicationToMavenRepository", checkUpToDateOnRebuild = false)
-    }
-
-    @Test
-    fun testMppWithMavenPublish() = with(transformNativeTestProject("sample-lib", directoryPrefix = "new-mpp-lib-and-app")) {
-        val publishedTargets = listOf("kotlinMultiplatform", "jvm6", "nodeJs")
-        testConfigurationCacheOf(
-            *(publishedTargets.map { ":publish${it.capitalize()}PublicationToMavenRepository" }.toTypedArray()),
-            checkUpToDateOnRebuild = false
-        )
-    }
-
-    @Test
-    fun testIncrementalKaptProject() = with(Project("kaptIncrementalCompilationProject")) {
-        setupIncrementalAptProject("AGGREGATING")
-
-        testConfigurationCacheOf(
-            ":compileKotlin",
-            ":kaptKotlin",
-            buildOptions = defaultBuildOptions().copy(
-                incremental = true,
-                kaptOptions = KaptOptions(
-                    verbose = true,
-                    useWorkers = true,
-                    incrementalKapt = true,
-                    includeCompileClasspath = false
-                )
-            )
-        )
-    }
-
-    @Test
-    fun testInstantExecution() =
-        // Set min Gradle version to 6.8 because of using DependencyResolutionManagement API to add repositories.
-        with(Project("instantExecution", gradleVersionRequirement = GradleVersionRequired.AtLeast("6.8"))) {
-            testConfigurationCacheOf("assemble", executedTaskNames = asList(":lib-project:compileKotlin"))
+    @DisplayName("works in simple Kotlin project")
+    @GradleTest
+    fun testSimpleKotlinJvmProject(gradleVersion: GradleVersion) {
+        project("kotlinProject", gradleVersion) {
+            testConfigurationCacheOf(":compileKotlin")
         }
+    }
 
-    // KT-43605
-    @Test
-    fun testInstantExecutionWithBuildSrc() = with(Project("instantExecutionWithBuildSrc")) {
-        setupWorkingDir()
-        testConfigurationCacheOf(
-            "build", executedTaskNames = listOf(
+    @DisplayName("works with publishing")
+    @GradleTest
+    fun testJvmWithMavenPublish(gradleVersion: GradleVersion) {
+        project("kotlinProject", gradleVersion) {
+            buildGradle.modify {
+                //language=Groovy
+                """
+                plugins {
+                    id 'maven-publish'
+                }
+                
+                $it
+                
+                group = "com.example"
+                version = "1.0"
+                
+                publishing.repositories {
+                    maven {
+                        url = "${'$'}buildDir/repo"
+                    }
+                }
+                
+                publishing.publications {
+                    maven(MavenPublication) {
+                        from(components["java"])
+                    }
+                }
+                """.trimIndent()
+            }
+
+            testConfigurationCacheOf(":publishMavenPublicationToMavenRepository", checkUpToDateOnRebuild = false)
+        }
+    }
+
+    @DisplayName("works with MPP publishing")
+    @GradleTest
+    @OptIn(ExperimentalStdlibApi::class)
+    fun testMppWithMavenPublish(gradleVersion: GradleVersion) {
+        project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
+            // KT-49933: Support Gradle Configuration caching with HMPP
+            val publishedTargets = listOf(/*"kotlinMultiplatform",*/ "jvm6", "nodeJs")
+
+            testConfigurationCacheOf(
+                *(publishedTargets.map { ":publish${it.replaceFirstChar { it.uppercaseChar() }}PublicationToMavenRepository" }.toTypedArray()),
+                checkUpToDateOnRebuild = false
+            )
+        }
+    }
+
+    @DisplayName("with project using incremental kapt")
+    @GradleTest
+    fun testIncrementalKaptProject(gradleVersion: GradleVersion) {
+        project("kaptIncrementalCompilationProject", gradleVersion) {
+            setupIncrementalAptProject("AGGREGATING")
+
+            testConfigurationCacheOf(
                 ":compileKotlin",
-            )
-        )
-    }
-
-    @Test
-    fun testInstantExecutionWithIncludedBuildPlugin() =
-        with(Project("instantExecutionWithIncludedBuildPlugin", gradleVersionRequirement = GradleVersionRequired.AtLeast("6.8"))) {
-            setupWorkingDir()
-            testConfigurationCacheOf(
-                "build", executedTaskNames = listOf(
-                    ":compileKotlin",
+                ":kaptKotlin",
+                buildOptions = defaultBuildOptions.copy(
+                    incremental = true,
+                    kaptOptions = BuildOptions.KaptOptions(
+                        verbose = true,
+                        useWorkers = true,
+                        incrementalKapt = true,
+                        includeCompileClasspath = false
+                    )
                 )
             )
         }
-
-    @Test
-    fun testInstantExecutionForJs() = with(Project("instantExecutionToJs")) {
-        testConfigurationCacheOf("assemble", executedTaskNames = asList(":compileKotlin2Js"))
     }
 
-    @Test
-    fun testConfigurationCacheJsPlugin() = with(Project("kotlin-js-browser-project")) {
-        setupWorkingDir()
-        gradleBuildScript().modify(::transformBuildScriptWithPluginsDsl)
-        gradleSettingsScript().modify(::transformBuildScriptWithPluginsDsl)
-        testConfigurationCacheOf(
-            ":app:build", executedTaskNames = asList(
-                ":app:packageJson",
-                ":app:publicPackageJson",
-                ":app:compileKotlinJs",
-                ":app:processDceKotlinJs",
-                ":app:browserProductionWebpack",
+    // Set min Gradle version to 6.8 because of using DependencyResolutionManagement API to add repositories.
+    @DisplayName("with instance execution")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
+    @GradleTest
+    fun testInstantExecution(gradleVersion: GradleVersion) {
+        project("instantExecution", gradleVersion) {
+            testConfigurationCacheOf(
+                "assemble",
+                executedTaskNames = listOf(":lib-project:compileKotlin")
             )
-        )
+        }
     }
 
-    @Test
-    fun testConfigurationCacheDukatSrc() = testConfigurationCacheDukat()
+    @DisplayName("KT-43605: instant execution with buildSrc")
+    @GradleTest
+    fun testInstantExecutionWithBuildSrc(gradleVersion: GradleVersion) {
+        project("instantExecutionWithBuildSrc", gradleVersion) {
+            testConfigurationCacheOf(
+                "build",
+                executedTaskNames = listOf(":compileKotlin")
+            )
+        }
+    }
 
-    @Test
-    fun testConfigurationCacheDukatBinaries() = testConfigurationCacheDukat {
-        gradleProperties().modify {
-            """
+    @DisplayName("instant execution works with included build plugin")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
+    @GradleTest
+    fun testInstantExecutionWithIncludedBuildPlugin(gradleVersion: GradleVersion) {
+        project("instantExecutionWithIncludedBuildPlugin", gradleVersion) {
+            testConfigurationCacheOf(
+                "build",
+                executedTaskNames = listOf(":compileKotlin")
+            )
+        }
+    }
+
+    @DisplayName("works with Dukat")
+    @GradleTest
+    fun testConfigurationCacheDukatSrc(gradleVersion: GradleVersion) {
+        testConfigurationCacheDukat(gradleVersion)
+    }
+
+    @DisplayName("works with Dukat binaries")
+    @GradleTest
+    fun testConfigurationCacheDukatBinaries(gradleVersion: GradleVersion) {
+        testConfigurationCacheDukat(gradleVersion) {
+            gradleProperties.modify {
+                """
+                
                 ${ExternalsOutputFormat.externalsOutputFormatProperty}=${ExternalsOutputFormat.BINARY}
-            """.trimIndent()
+                """.trimIndent()
+            }
         }
     }
 
-    private fun testConfigurationCacheDukat(configure: Project.() -> Unit = {}) =
-        with(Project("both", directoryPrefix = "dukat-integration")) {
-            setupWorkingDir()
-            gradleBuildScript().modify(::transformBuildScriptWithPluginsDsl)
-            gradleSettingsScript().modify(::transformBuildScriptWithPluginsDsl)
-            configure(this)
-            testConfigurationCacheOf(
-                "irGenerateExternalsIntegrated", executedTaskNames = listOf(
-                    ":irGenerateExternalsIntegrated"
-                )
-            )
-        }
+    private fun testConfigurationCacheDukat(
+        gradleVersion: GradleVersion,
+        configure: TestProject.() -> Unit = {}
+    ) = project("dukat-integration/both", gradleVersion) {
+        buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
+        configure(this)
+        testConfigurationCacheOf(
+            "irGenerateExternalsIntegrated",
+            executedTaskNames = listOf(":irGenerateExternalsIntegrated")
+        )
+    }
 
-    // KT-48241
-    @Test
-    fun testConfigurationCacheJsWithTestDependencies() = with(transformProjectWithPluginsDsl("kotlin-js-project-with-test-dependencies")) {
-        testConfigurationCacheOf("assemble", executedTaskNames = listOf(":kotlinNpmInstall"))
+    @DisplayName("works in MPP withJava project")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0, maxVersion = TestVersions.Gradle.G_7_1)
+    @GradleTest
+    fun testJvmWithJavaConfigurationCache(gradleVersion: GradleVersion) {
+        project("mppJvmWithJava", gradleVersion) {
+            build("jar")
+
+            build("jar") {
+                assertOutputContains("Reusing configuration cache.")
+            }
+        }
+    }
+
+    @DisplayName("with build report")
+    @GradleTest
+    fun testBuildReportSmokeTestForConfigurationCache(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            val buildOptions = defaultBuildOptions.copy(buidReport = true)
+            build("assemble", buildOptions = buildOptions) {
+                assertOutputContains("Kotlin build report is written to")
+            }
+
+            build("assemble", buildOptions = buildOptions) {
+                assertOutputContains("Kotlin build report is written to")
+            }
+        }
     }
 }
 
-abstract class AbstractConfigurationCacheIT : BaseGradleIT() {
-    override fun defaultBuildOptions() =
-        super.defaultBuildOptions().copy(configurationCache = true)
+@SimpleGradlePluginTests
+@GradleTestVersions(minVersion = TestVersions.Gradle.G_6_6)
+abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
+    override val defaultBuildOptions =
+        super.defaultBuildOptions.copy(configurationCache = true)
 
-    override val defaultGradleVersion: GradleVersionRequired = GradleVersionRequired.AtLeast("6.6.1")
-
-    protected fun Project.testConfigurationCacheOf(
+    protected fun TestProject.testConfigurationCacheOf(
         vararg taskNames: String,
         executedTaskNames: List<String>? = null,
         checkUpToDateOnRebuild: Boolean = true,
-        buildOptions: BuildOptions = defaultBuildOptions()
+        buildOptions: BuildOptions = defaultBuildOptions
     ) {
-        // First, run a build that serializes the tasks state for instant execution in further builds
-
-        val executedTask: List<String> = executedTaskNames ?: taskNames.toList()
-
-        build(*taskNames, options = buildOptions) {
-            assertSuccessful()
-            assertTasksExecuted(executedTask)
-            assertContains("Calculating task graph as no configuration cache is available for tasks: ${taskNames.joinToString(separator = " ")}")
-            checkInstantExecutionSucceeded()
-        }
-
-        build("clean", options = buildOptions) {
-            assertSuccessful()
-        }
-
-        // Then run a build where tasks states are deserialized to check that they work correctly in this mode
-        build(*taskNames, options = buildOptions) {
-            assertSuccessful()
-            assertTasksExecuted(executedTask)
-            assertContains("Reusing configuration cache.")
-        }
-
-        if (checkUpToDateOnRebuild) {
-            build(*taskNames, options = buildOptions) {
-                assertSuccessful()
-                assertTasksUpToDate(executedTask)
-            }
-        }
+        assertSimpleConfigurationCacheScenarioWorks(
+            *taskNames,
+            executedTaskNames = executedTaskNames,
+            checkUpToDateOnRebuild = checkUpToDateOnRebuild,
+            buildOptions = buildOptions,
+        )
     }
-
-    private fun Project.checkInstantExecutionSucceeded() {
-        instantExecutionReportFile()?.let { htmlReportFile ->
-            fail("Instant execution problems were found, check ${htmlReportFile.asClickableFileUrl()} for details.")
-        }
-    }
-
-    /**
-     * Copies all files from the directory containing the given [htmlReportFile] to a
-     * fresh temp dir and returns a reference to the copied [htmlReportFile] in the new
-     * directory.
-     */
-    private fun copyReportToTempDir(htmlReportFile: File): File =
-        createTempDir("report").let { tempDir ->
-            htmlReportFile.parentFile.copyRecursively(tempDir)
-            tempDir.resolve(htmlReportFile.name)
-        }
-
-    /**
-     * The instant execution report file, if exists, indicates problems were
-     * found while caching the task graph.
-     */
-    private fun Project.instantExecutionReportFile() = projectDir
-        .resolve("configuration-cache")
-        .findFileByName("configuration-cache-report.html")
-        ?.let { copyReportToTempDir(it) }
-
-    private fun File.asClickableFileUrl(): String =
-        URI("file", "", toURI().path, null, null).toString()
 }

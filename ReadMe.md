@@ -16,6 +16,7 @@ Some handy links:
  * [Try Kotlin](https://play.kotlinlang.org/)
  * [Kotlin Standard Library](https://kotlinlang.org/api/latest/jvm/stdlib/index.html)
  * [Issue Tracker](https://youtrack.jetbrains.com/issues/KT)
+ * [Kotlin YouTube Channel](https://www.youtube.com/channel/UCP7uiEZIqci43m22KDl0sNw)
  * [Forum](https://discuss.kotlinlang.org/)
  * [Kotlin Blog](https://blog.jetbrains.com/kotlin/)
  * [Subscribe to Kotlin YouTube channel](https://www.youtube.com/channel/UCP7uiEZIqci43m22KDl0sNw)
@@ -138,7 +139,10 @@ In the import dialog, select `use default gradle wrapper`.
 
 To be able to run tests from IntelliJ easily, check `Delegate IDE build/run actions to Gradle` and choose `Gradle Test Runner` in the Gradle runner settings after importing the project.
 
-At this time, you can use the latest released `1.3.x` version of the Kotlin plugin for working with the code. To make sure you have the latest version installed, use `Tools` -> `Kotlin` -> `Configure Kotlin Plugin Updates`.
+At this time, you can use the latest released `1.6.x` version of the Kotlin plugin for working with the code. To make sure you have the latest version installed, use `Tools` -> `Kotlin` -> `Configure Kotlin Plugin Updates`.
+
+For handy work with compiler tests it's recommended to use [
+Kotlin Compiler Test Helper](https://plugins.jetbrains.com/plugin/17620-kotlin-compiler-test-helper)
 
 ### Dependency verification
 
@@ -161,6 +165,18 @@ to perform such updates:
 - Always do manual verification if several hashes are needed and a new `also-trust` tag has to be added.
 - If you’re adding a dependency with OS mentioning in an artifact name (`darwin`, `mac`, `osx`, `linux`, `windows`), remember to add 
   counterparts for other platforms.
+
+## Using -dev and -SNAPSHOT versions
+
+We publish `-dev` and `-SNAPSHOT` versions frequently.
+
+For `-dev` versions you can use the [list of available versions](https://maven.pkg.jetbrains.space/kotlin/p/kotlin/bootstrap/org/jetbrains/kotlin/kotlin-compiler/maven-metadata.xml) and include this maven repository:
+
+`maven { url = uri("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/bootstrap") }`
+
+For `-SNAPSHOT` versions that are updated daily, you can use the [list of available versions](https://oss.sonatype.org/content/repositories/snapshots/org/jetbrains/kotlin/kotlin-compiler/maven-metadata.xml) and include this maven repository:
+
+`maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots/") }`
 
 # License
 Kotlin is distributed under the terms of the Apache License (Version 2.0). See [license folder](license/README.md) for details.

@@ -48,8 +48,12 @@ ALWAYS_INLINE mm::StableRefRegistry::Node* FromForeignRefManager(ForeignRefManag
 
 } // namespace
 
-ObjHeader** ObjHeader::GetWeakCounterLocation() {
-    return mm::ExtraObjectData::FromMetaObjHeader(this->meta_object()).GetWeakCounterLocation();
+ObjHeader* ObjHeader::GetWeakCounter() {
+    return mm::ExtraObjectData::FromMetaObjHeader(this->meta_object()).GetWeakReferenceCounter();
+}
+
+ObjHeader* ObjHeader::GetOrSetWeakCounter(ObjHeader* counter) {
+    return mm::ExtraObjectData::FromMetaObjHeader(this->meta_object()).GetOrSetWeakReferenceCounter(this, counter);
 }
 
 #ifdef KONAN_OBJC_INTEROP
@@ -78,11 +82,16 @@ MetaObjHeader* ObjHeader::createMetaObject(ObjHeader* object) {
 
 // static
 void ObjHeader::destroyMetaObject(ObjHeader* object) {
-    mm::ExtraObjectData::Uninstall(object);
+    RuntimeAssert(object->has_meta_object(), "Object must have a meta object set");
+    auto &extraObject = *mm::ExtraObjectData::Get(object);
+    extraObject.Uninstall();
+    auto *threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
+    mm::ExtraObjectDataFactory::Instance().DestroyExtraObjectData(threadData, extraObject);
 }
 
 ALWAYS_INLINE bool isPermanentOrFrozen(const ObjHeader* obj) {
     // TODO: Freeze TF_IMMUTABLE objects upon creation.
+    if (!compiler::freezingChecksEnabled()) return false;
     return mm::IsFrozen(obj) || ((obj->type_info()->flags_ & TF_IMMUTABLE) != 0);
 }
 
@@ -103,8 +112,9 @@ extern "C" void DeinitMemory(MemoryState* state, bool destroyRuntime) {
     auto* node = mm::FromMemoryState(state);
     if (destroyRuntime) {
         ThreadStateGuard guard(state, ThreadState::kRunnable);
-        node->Get()->gc().PerformFullGC();
-        // TODO: Also make sure that finalizers are run.
+        node->Get()->gc().ScheduleAndWaitFullGCWithFinalizers();
+        // TODO: Why not just destruct `GC` object and its thread data counterpart entirely?
+        mm::GlobalData::Instance().gc().StopFinalizerThreadIfRunning();
     }
     mm::ThreadRegistry::Instance().Unregister(node);
     if (destroyRuntime) {
@@ -234,6 +244,24 @@ extern "C" RUNTIME_NOTHROW void LeaveFrame(ObjHeader** start, int parameters, in
     threadData->shadowStack().LeaveFrame(start, parameters, count);
 }
 
+extern "C" RUNTIME_NOTHROW void SetCurrentFrame(ObjHeader** start) {
+    auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
+    AssertThreadState(threadData, ThreadState::kRunnable);
+    threadData->shadowStack().SetCurrentFrame(start);
+}
+
+extern "C" RUNTIME_NOTHROW FrameOverlay* getCurrentFrame() {
+    auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
+    AssertThreadState(threadData, ThreadState::kRunnable);
+    return threadData->shadowStack().getCurrentFrame();
+}
+
+extern "C" RUNTIME_NOTHROW ALWAYS_INLINE void CheckCurrentFrame(ObjHeader** frame) {
+    auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
+    AssertThreadState(threadData, ThreadState::kRunnable);
+    return threadData->shadowStack().checkCurrentFrame(reinterpret_cast<FrameOverlay*>(frame));
+}
+
 extern "C" RUNTIME_NOTHROW void AddTLSRecord(MemoryState* memory, void** key, int size) {
     memory->GetThreadData()->tls().AddRecord(key, size);
 }
@@ -267,7 +295,7 @@ extern "C" RUNTIME_NOTHROW void GC_CollectorCallback(void* worker) {
 
 extern "C" void Kotlin_native_internal_GC_collect(ObjHeader*) {
     auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
-    threadData->gc().PerformFullGC();
+    threadData->gc().ScheduleAndWaitFullGCWithFinalizers();
 }
 
 extern "C" void Kotlin_native_internal_GC_collectCyclic(ObjHeader*) {
@@ -298,11 +326,11 @@ extern "C" void Kotlin_native_internal_GC_setThreshold(ObjHeader*, int32_t value
     if (value < 0) {
         ThrowIllegalArgumentException();
     }
-    mm::GlobalData::Instance().gc().SetThreshold(static_cast<size_t>(value));
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold = static_cast<size_t>(value);
 }
 
 extern "C" int32_t Kotlin_native_internal_GC_getThreshold(ObjHeader*) {
-    auto threshold = mm::GlobalData::Instance().gc().GetThreshold();
+    auto threshold = mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold.load();
     auto maxValue = std::numeric_limits<int32_t>::max();
     if (threshold > static_cast<size_t>(maxValue)) {
         return maxValue;
@@ -324,11 +352,11 @@ extern "C" void Kotlin_native_internal_GC_setThresholdAllocations(ObjHeader*, in
     if (value < 0) {
         ThrowIllegalArgumentException();
     }
-    mm::GlobalData::Instance().gc().SetAllocationThresholdBytes(static_cast<size_t>(value));
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes = static_cast<size_t>(value);
 }
 
 extern "C" int64_t Kotlin_native_internal_GC_getThresholdAllocations(ObjHeader*) {
-    auto threshold = mm::GlobalData::Instance().gc().GetAllocationThresholdBytes();
+    auto threshold = mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes.load();
     auto maxValue = std::numeric_limits<int64_t>::max();
     if (threshold > static_cast<size_t>(maxValue)) {
         return maxValue;
@@ -337,11 +365,11 @@ extern "C" int64_t Kotlin_native_internal_GC_getThresholdAllocations(ObjHeader*)
 }
 
 extern "C" void Kotlin_native_internal_GC_setTuneThreshold(ObjHeader*, KBoolean value) {
-    mm::GlobalData::Instance().gc().SetAutoTune(value);
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().autoTune = value;
 }
 
 extern "C" KBoolean Kotlin_native_internal_GC_getTuneThreshold(ObjHeader*) {
-    return mm::GlobalData::Instance().gc().GetAutoTune();
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().autoTune.load();
 }
 
 extern "C" OBJ_GETTER(Kotlin_native_internal_GC_detectCycles, ObjHeader*) {
@@ -376,7 +404,7 @@ extern "C" void Kotlin_Any_share(ObjHeader* thiz) {
 }
 
 extern "C" RUNTIME_NOTHROW void PerformFullGC(MemoryState* memory) {
-    memory->GetThreadData()->gc().PerformFullGC();
+    memory->GetThreadData()->gc().ScheduleAndWaitFullGCWithFinalizers();
 }
 
 extern "C" bool TryAddHeapRef(const ObjHeader* object) {
@@ -511,22 +539,16 @@ extern "C" void CheckGlobalsAccessible() {
     // Always accessible
 }
 
-extern "C" RUNTIME_NOTHROW void Kotlin_mm_safePointFunctionEpilogue() {
+extern "C" RUNTIME_NOTHROW ALWAYS_INLINE void Kotlin_mm_safePointFunctionPrologue() {
     auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
     AssertThreadState(threadData, ThreadState::kRunnable);
-    threadData->gc().SafePointFunctionEpilogue();
+    threadData->gc().SafePointFunctionPrologue();
 }
 
-extern "C" RUNTIME_NOTHROW void Kotlin_mm_safePointWhileLoopBody() {
+extern "C" RUNTIME_NOTHROW ALWAYS_INLINE void Kotlin_mm_safePointWhileLoopBody() {
     auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
     AssertThreadState(threadData, ThreadState::kRunnable);
     threadData->gc().SafePointLoopBody();
-}
-
-extern "C" RUNTIME_NOTHROW void Kotlin_mm_safePointExceptionUnwind() {
-    auto* threadData = mm::ThreadRegistry::Instance().CurrentThreadData();
-    AssertThreadState(threadData, ThreadState::kRunnable);
-    threadData->gc().SafePointExceptionUnwind();
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_switchThreadStateNative() {
@@ -541,6 +563,10 @@ MemoryState* kotlin::mm::GetMemoryState() noexcept {
     return ToMemoryState(ThreadRegistry::Instance().CurrentThreadDataNode());
 }
 
+bool kotlin::mm::IsCurrentThreadRegistered() noexcept {
+    return ThreadRegistry::Instance().IsCurrentThreadRegistered();
+}
+
 ALWAYS_INLINE kotlin::CalledFromNativeGuard::CalledFromNativeGuard(bool reentrant) noexcept : reentrant_(reentrant) {
     Kotlin_initRuntimeIfNeeded();
     thread_ = mm::GetMemoryState();
@@ -548,3 +574,11 @@ ALWAYS_INLINE kotlin::CalledFromNativeGuard::CalledFromNativeGuard(bool reentran
 }
 
 const bool kotlin::kSupportsMultipleMutators = kotlin::gc::kSupportsMultipleMutators;
+
+void kotlin::StartFinalizerThreadIfNeeded() noexcept {
+    mm::GlobalData::Instance().gc().StartFinalizerThreadIfNeeded();
+}
+
+bool kotlin::FinalizersThreadIsRunning() noexcept {
+    return mm::GlobalData::Instance().gc().FinalizersThreadIsRunning();
+}

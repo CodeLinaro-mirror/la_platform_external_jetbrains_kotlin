@@ -22,7 +22,7 @@ interface CompilerVersion : Serializable {
 
     companion object {
         // major.minor.patch-meta-build where patch, meta and build are optional.
-        val versionPattern = "(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:-(\\p{Alpha}*\\p{Alnum}|[\\p{Alpha}-]*))?(?:-(\\d+))?".toRegex()
+        val versionPattern = "(\\d+)\\.(\\d+)(?:\\.(\\d+))?(?:-(\\p{Alpha}\\p{Alnum}|[\\p{Alpha}-]*))?(?:-(\\d+))?".toRegex()
 
         fun fromString(version: String): CompilerVersion {
             val (major, minor, maintenance, metaString, build) =
@@ -48,6 +48,7 @@ data class CompilerVersionImpl(
     override val major: Int,
     override val minor: Int,
     override val maintenance: Int,
+    @Deprecated("Milestone is deprecated in favour to MetaVersion's M1 and M2")
     override val milestone: Int = -1,
     override val build: Int = -1
 ) : CompilerVersion {

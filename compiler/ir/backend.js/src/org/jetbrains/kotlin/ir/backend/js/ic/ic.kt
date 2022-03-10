@@ -6,16 +6,13 @@
 package org.jetbrains.kotlin.ir.backend.js.ic
 
 import com.intellij.openapi.project.Project
-import org.jetbrains.kotlin.analyzer.AbstractAnalyzerWithCompilerReport
 import org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.ir.backend.js.lower.generateTests
+import org.jetbrains.kotlin.ir.backend.js.lower.generateJsTests
 import org.jetbrains.kotlin.ir.backend.js.lower.moveBodilessDeclarationsToSeparatePlace
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.declarations.StageController
 import org.jetbrains.kotlin.ir.declarations.path
 import org.jetbrains.kotlin.ir.declarations.persistent.PersistentIrFactory
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
@@ -34,8 +31,8 @@ fun prepareSingleLibraryIcCache(
     dependencies: Collection<String>,
     friendDependencies: Collection<String> = emptyList(),
     exportedDeclarations: Set<FqName> = emptySet(),
-    icCache: Map<String, SerializedIcData> = emptyMap(),
-): SerializedIcData {
+    icCache: Map<String, ICCache> = emptyMap(),
+): ICCache {
     val irFactory = PersistentIrFactory()
     val controller = WholeWorldStageController()
     irFactory.stageController = controller
@@ -55,7 +52,6 @@ fun prepareSingleLibraryIcCache(
         exportedDeclarations,
         null,
         false,
-        false,
         irFactory,
     )
 
@@ -67,13 +63,17 @@ fun prepareSingleLibraryIcCache(
 
     lowerPreservingIcData(moduleFragment, context, controller)
 
-    return IcSerializer(
-        context.irBuiltIns,
-        context.mapping,
-        irFactory,
-        deserializer,
-        moduleFragment
-    ).serializeDeclarations(irFactory.allDeclarations)
+    return ICCache(
+        PersistentCacheProvider.EMPTY,
+        PersistentCacheConsumer.EMPTY,
+        IcSerializer(
+            context.irBuiltIns,
+            context.mapping,
+            irFactory,
+            deserializer,
+            moduleFragment
+        ).serializeDeclarations(irFactory.allDeclarations)
+    )
 }
 
 private fun KotlinResolvedLibrary.allDependencies(): List<KotlinResolvedLibrary> {
@@ -120,41 +120,30 @@ private fun dumpIr(module: IrModuleFragment, fileName: String) {
 
 fun icCompile(
     depsDescriptor: ModulesStructure,
-    mainArguments: List<String>?,
     exportedDeclarations: Set<FqName> = emptySet(),
-    generateFullJs: Boolean = true,
-    generateDceJs: Boolean = false,
     dceRuntimeDiagnostic: RuntimeDiagnostic? = null,
     es6mode: Boolean = false,
-    multiModule: Boolean = false,
-    relativeRequirePath: Boolean = false,
-    propertyLazyInitialization: Boolean,
-    legacyPropertyAccess: Boolean = false,
     baseClassIntoMetadata: Boolean = false,
     safeExternalBoolean: Boolean = false,
     safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
-): CompilerResult {
+): LoweredIr {
 
     val irFactory = PersistentIrFactory()
     val controller = WholeWorldStageController()
     irFactory.stageController = controller
 
-    val (context, _, allModules, moduleToName, loweredIrLoaded) = prepareIr(
+    val (context, _, allModules, _, loweredIrLoaded) = prepareIr(
         depsDescriptor,
         exportedDeclarations,
         dceRuntimeDiagnostic,
         es6mode,
-        propertyLazyInitialization,
         irFactory,
         baseClassIntoMetadata,
-        legacyPropertyAccess,
         safeExternalBoolean,
         safeExternalBooleanDiagnostic
     )
 
     val modulesToLower = allModules.filter { it !in loweredIrLoaded }
-
-
 
     if (!modulesToLower.isEmpty()) {
         // This won't work incrementally
@@ -162,7 +151,7 @@ fun icCompile(
             moveBodilessDeclarationsToSeparatePlace(context, module)
         }
 
-        generateTests(context, modulesToLower.last())
+        generateJsTests(context, modulesToLower.last())
 
         modulesToLower.forEach {
             lowerPreservingIcData(it, context, controller)
@@ -171,20 +160,7 @@ fun icCompile(
 
 //    dumpIr(allModules.first(), "simple-dump${if (useStdlibCache) "-actual" else ""}")
 
-    val transformer = IrModuleToJsTransformer(
-        context,
-        mainArguments,
-        fullJs = generateFullJs,
-        dceJs = generateDceJs,
-        multiModule = multiModule,
-        relativeRequirePath = relativeRequirePath,
-        moduleToName = moduleToName,
-        removeUnusedAssociatedObjects = false,
-    )
-
-    irFactory.stageController = object : StageController(999) {}
-
-    return transformer.generateModule(allModules)
+    return LoweredIr(context, allModules.last(), allModules)
 }
 
 fun lowerPreservingIcData(module: IrModuleFragment, context: JsIrBackendContext, controller: WholeWorldStageController) {
@@ -210,9 +186,7 @@ private fun prepareIr(
     exportedDeclarations: Set<FqName> = emptySet(),
     dceRuntimeDiagnostic: RuntimeDiagnostic? = null,
     es6mode: Boolean = false,
-    propertyLazyInitialization: Boolean,
     irFactory: PersistentIrFactory,
-    legacyPropertyAccess: Boolean = false,
     baseClassIntoMetadata: Boolean = false,
     safeExternalBoolean: Boolean = false,
     safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
@@ -236,8 +210,6 @@ private fun prepareIr(
         depsDescriptor.compilerConfiguration,
         es6mode = es6mode,
         dceRuntimeDiagnostic = dceRuntimeDiagnostic,
-        propertyLazyInitialization = propertyLazyInitialization,
-        legacyPropertyAccess = legacyPropertyAccess,
         baseClassIntoMetadata = baseClassIntoMetadata,
         safeExternalBoolean = safeExternalBoolean,
         safeExternalBooleanDiagnostic = safeExternalBooleanDiagnostic,

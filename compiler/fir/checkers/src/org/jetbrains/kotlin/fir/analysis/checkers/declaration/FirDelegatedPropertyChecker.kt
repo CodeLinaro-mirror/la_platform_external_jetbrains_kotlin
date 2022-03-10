@@ -5,28 +5,29 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
+import org.jetbrains.kotlin.fir.expressions.FirImplicitInvokeCall
 import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguityError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableCandidateError
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableWrongReceiver
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.ConeKotlinErrorType
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.render
+import org.jetbrains.kotlin.fir.types.typeContext
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
-import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 
@@ -52,39 +53,36 @@ object FirDelegatedPropertyChecker : FirPropertyChecker() {
             override fun visitElement(element: FirElement) = element.acceptChildren(this)
 
             override fun visitFunctionCall(functionCall: FirFunctionCall) {
-                val hasReferenceError = hasFunctionReferenceErrors(functionCall)
+                checkFunctionCall(functionCall)
+            }
+
+            override fun visitImplicitInvokeCall(implicitInvokeCall: FirImplicitInvokeCall) {
+                checkFunctionCall(implicitInvokeCall)
+            }
+
+            private fun checkFunctionCall(functionCall: FirFunctionCall) {
+                val hasReferenceError = checkFunctionReferenceErrors(functionCall)
                 if (isGet && !hasReferenceError) checkReturnType(functionCall)
             }
 
-            private fun hasFunctionReferenceErrors(functionCall: FirFunctionCall): Boolean {
+            /**
+             * @return true if any error was reported; false otherwise.
+             */
+            private fun checkFunctionReferenceErrors(functionCall: FirFunctionCall): Boolean {
                 val errorNamedReference = functionCall.calleeReference as? FirErrorNamedReference ?: return false
-                if (errorNamedReference.source?.kind != FirFakeSourceElementKind.DelegatedPropertyAccessor) return false
+                if (errorNamedReference.source?.kind != KtFakeSourceElementKind.DelegatedPropertyAccessor) return false
                 val expectedFunctionSignature =
                     (if (isGet) "getValue" else "setValue") + "(${functionCall.arguments.joinToString(", ") { it.typeRef.coneType.render() }})"
                 val delegateDescription = if (isGet) "delegate" else "delegate for var (read-write property)"
 
-                fun reportInapplicableDiagnostics(
-                    candidateApplicability: CandidateApplicability,
-                    candidates: Collection<FirBasedSymbol<*>>
-                ) {
-                    if (candidateApplicability == CandidateApplicability.INAPPLICABLE_WRONG_RECEIVER) {
-                        reporter.reportOn(
-                            errorNamedReference.source,
-                            FirErrors.DELEGATE_SPECIAL_FUNCTION_MISSING,
-                            expectedFunctionSignature,
-                            delegateType,
-                            delegateDescription,
-                            context
-                        )
-                    } else {
-                        reporter.reportOn(
-                            errorNamedReference.source,
-                            FirErrors.DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE,
-                            expectedFunctionSignature,
-                            candidates,
-                            context
-                        )
-                    }
+                fun reportInapplicableDiagnostics(candidates: Collection<FirBasedSymbol<*>>) {
+                    reporter.reportOn(
+                        errorNamedReference.source,
+                        FirErrors.DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE,
+                        expectedFunctionSignature,
+                        candidates,
+                        context
+                    )
                 }
 
                 return when (val diagnostic = errorNamedReference.diagnostic) {
@@ -110,12 +108,23 @@ object FirDelegatedPropertyChecker : FirPropertyChecker() {
                                 context
                             )
                         } else {
-                            reportInapplicableDiagnostics(diagnostic.applicability, diagnostic.candidates.map { it.symbol })
+                            reportInapplicableDiagnostics(diagnostic.candidates.map { it.symbol })
                         }
                         true
                     }
+                    is ConeInapplicableWrongReceiver -> {
+                        reporter.reportOn(
+                            errorNamedReference.source,
+                            FirErrors.DELEGATE_SPECIAL_FUNCTION_MISSING,
+                            expectedFunctionSignature,
+                            delegateType,
+                            delegateDescription,
+                            context
+                        )
+                        true
+                    }
                     is ConeInapplicableCandidateError -> {
-                        reportInapplicableDiagnostics(diagnostic.applicability, listOf(diagnostic.candidate.symbol))
+                        reportInapplicableDiagnostics(listOf(diagnostic.candidate.symbol))
                         true
                     }
                     else -> false

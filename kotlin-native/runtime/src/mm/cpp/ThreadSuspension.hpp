@@ -13,6 +13,17 @@
 namespace kotlin {
 namespace mm {
 
+namespace internal {
+
+extern std::atomic<bool> gSuspensionRequested;
+
+} // namespace internal
+
+inline bool IsThreadSuspensionRequested() noexcept {
+    // TODO: Consider using a more relaxed memory order.
+    return internal::gSuspensionRequested.load();
+}
+
 class ThreadSuspensionData : private Pinned {
 public:
     explicit ThreadSuspensionData(ThreadState initialState) noexcept : state_(initialState), suspended_(false) {}
@@ -31,15 +42,23 @@ public:
 
     bool suspended() noexcept { return suspended_; }
 
-    bool suspendIfRequested() noexcept;
+    NO_EXTERNAL_CALLS_CHECK void suspendIfRequested() noexcept {
+        if (IsThreadSuspensionRequested()) {
+            suspendIfRequestedSlowPath();
+        }
+    }
 
 private:
+    friend void SuspendIfRequested() noexcept;
+
     std::atomic<ThreadState> state_;
     std::atomic<bool> suspended_;
-    bool suspendIfRequestedSlowPath() noexcept;
+    void suspendIfRequestedSlowPath() noexcept;
 };
 
-bool IsThreadSuspensionRequested() noexcept;
+bool RequestThreadsSuspension() noexcept;
+void WaitForThreadsSuspension() noexcept;
+void SuspendIfRequested() noexcept;
 
 /**
  * Suspends all threads registered in ThreadRegistry except threads that are in the Native state.
@@ -47,7 +66,13 @@ bool IsThreadSuspensionRequested() noexcept;
  * of this call will be suspended on exit from the Native state.
  * Returns false if some other thread has suspended the threads.
  */
-bool SuspendThreads() noexcept;
+inline bool SuspendThreads() noexcept {
+    if (!RequestThreadsSuspension()) {
+        return false;
+    }
+    WaitForThreadsSuspension();
+    return true;
+}
 
 /**
  * Resumes all threads registered in ThreadRegistry that were suspended by the SuspendThreads call.

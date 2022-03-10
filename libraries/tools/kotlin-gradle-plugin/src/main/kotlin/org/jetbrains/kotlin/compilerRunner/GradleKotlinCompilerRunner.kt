@@ -13,6 +13,10 @@ import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.jvm.tasks.Jar
 import org.gradle.workers.WorkQueue
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.build.report.metrics.measure
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.daemon.client.CompileServiceSession
@@ -40,19 +44,12 @@ import org.jetbrains.kotlin.statistics.metrics.StringMetrics
 import java.io.File
 import java.lang.ref.WeakReference
 
-internal const val KOTLIN_COMPILER_EXECUTION_STRATEGY_PROPERTY = "kotlin.compiler.execution.strategy"
-internal const val DAEMON_EXECUTION_STRATEGY = "daemon"
-internal const val IN_PROCESS_EXECUTION_STRATEGY = "in-process"
-internal const val OUT_OF_PROCESS_EXECUTION_STRATEGY = "out-of-process"
 const val CREATED_CLIENT_FILE_PREFIX = "Created client-is-alive flag file: "
 const val EXISTING_CLIENT_FILE_PREFIX = "Existing client-is-alive flag file: "
 const val CREATED_SESSION_FILE_PREFIX = "Created session-is-alive flag file: "
 const val EXISTING_SESSION_FILE_PREFIX = "Existing session-is-alive flag file: "
 const val DELETED_SESSION_FILE_PREFIX = "Deleted session-is-alive flag file: "
 const val COULD_NOT_CONNECT_TO_DAEMON_MESSAGE = "Could not connect to Kotlin compile daemon"
-
-internal fun kotlinCompilerExecutionStrategy(): String =
-    System.getProperty(KOTLIN_COMPILER_EXECUTION_STRATEGY_PROPERTY) ?: DAEMON_EXECUTION_STRATEGY
 
 /*
 Using real taskProvider cause "field 'taskProvider' from type 'org.jetbrains.kotlin.compilerRunner.GradleCompilerRunner':
@@ -62,7 +59,9 @@ is not assignable to 'org.gradle.api.tasks.TaskProvider'" exception
 internal open class GradleCompilerRunner(
     protected val taskProvider: GradleCompileTaskProvider,
     protected val jdkToolsJar: File?,
-    protected val kotlinDaemonJvmArgs: List<String>?
+    protected val kotlinDaemonJvmArgs: List<String>?,
+    protected val buildMetrics: BuildMetricsReporter,
+    protected val compilerExecutionStrategy: KotlinCompilerExecutionStrategy,
 ) {
 
     internal val pathProvider = taskProvider.path.get()
@@ -119,10 +118,12 @@ internal open class GradleCompilerRunner(
      */
     fun runMetadataCompilerAsync(
         kotlinSources: List<File>,
+        kotlinCommonSources: List<File>,
         args: K2MetadataCompilerArguments,
         environment: GradleCompilerEnvironment
     ): WorkQueue? {
         args.freeArgs += kotlinSources.map { it.absolutePath }
+        args.commonSources = kotlinCommonSources.map { it.absolutePath }.toTypedArray()
         return runCompilerAsync(KotlinCompilerClass.METADATA, args, environment)
     }
 
@@ -153,6 +154,7 @@ internal open class GradleCompilerRunner(
                         report(BooleanMetrics.JVM_COMPILER_IR_MODE, args.useIR)
                         report(StringMetrics.JVM_DEFAULTS, args.jvmDefault)
                         report(StringMetrics.USE_OLD_BACKEND, args.useOldBackend.toString())
+                        report(StringMetrics.USE_FIR, args.useFir.toString())
                     }
                 }
                 is K2JSCompilerArguments -> {
@@ -192,26 +194,33 @@ internal open class GradleCompilerRunner(
             reportingSettings = environment.reportingSettings,
             kotlinScriptExtensions = environment.kotlinScriptExtensions,
             allWarningsAsErrors = compilerArgs.allWarningsAsErrors,
-            daemonJvmArgs = kotlinDaemonJvmArgs
+            daemonJvmArgs = kotlinDaemonJvmArgs,
+            compilerExecutionStrategy = compilerExecutionStrategy,
         )
         TaskLoggers.put(pathProvider, loggerProvider)
-        return runCompilerAsync(workArgs, taskOutputsBackup)
+        return runCompilerAsync(
+            workArgs,
+            taskOutputsBackup
+        )
     }
 
     protected open fun runCompilerAsync(
         workArgs: GradleKotlinCompilerWorkArguments,
         taskOutputsBackup: TaskOutputsBackup?
     ): WorkQueue? {
-        val kotlinCompilerRunnable = GradleKotlinCompilerWork(workArgs)
         try {
+            val kotlinCompilerRunnable = GradleKotlinCompilerWork(workArgs)
             kotlinCompilerRunnable.run()
         } catch (e: GradleException) {
-            loggerProvider.info("Restoring task outputs to pre-compilation state")
-            taskOutputsBackup?.restoreOutputs()
+            if (taskOutputsBackup != null) {
+                buildMetrics.measure(BuildTime.RESTORE_OUTPUT_FROM_BACKUP) {
+                    taskOutputsBackup.restoreOutputs()
+                }
+            }
+
             throw e
-        } finally {
-            taskOutputsBackup?.deleteSnapshot()
         }
+
         return null
     }
 

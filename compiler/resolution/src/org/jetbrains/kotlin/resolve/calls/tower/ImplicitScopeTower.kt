@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.resolve.calls.tower
 
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.incremental.components.LookupLocation
 import org.jetbrains.kotlin.name.Name
@@ -38,6 +39,10 @@ interface ImplicitScopeTower {
 
     fun getImplicitReceiver(scope: LexicalScope): ReceiverValueWithSmartCastInfo?
 
+    fun getContextReceivers(scope: LexicalScope): List<ReceiverValueWithSmartCastInfo>
+
+    fun getNameForGivenImportAlias(name: Name): Name?
+
     val dynamicScope: MemberScope
 
     val syntheticScopes: SyntheticScopes
@@ -47,6 +52,10 @@ interface ImplicitScopeTower {
     val isDebuggerContext: Boolean
 
     val isNewInferenceEnabled: Boolean
+
+    val areContextReceiversEnabled: Boolean
+
+    val languageVersionSettings: LanguageVersionSettings
 
     val typeApproximator: TypeApproximator
 
@@ -102,6 +111,18 @@ abstract class ResolutionDiagnostic(candidateApplicability: CandidateApplicabili
     KotlinCallDiagnostic(candidateApplicability) {
     override fun report(reporter: DiagnosticReporter) {
         // do nothing
+    }
+}
+
+class ContextReceiverAmbiguity : ResolutionDiagnostic(RESOLVED_WITH_ERROR) {
+    override fun report(reporter: DiagnosticReporter) {
+        reporter.onCall(this)
+    }
+}
+
+class UnsupportedContextualDeclarationCall : ResolutionDiagnostic(RESOLVED_WITH_ERROR) {
+    override fun report(reporter: DiagnosticReporter) {
+        reporter.onCall(this)
     }
 }
 

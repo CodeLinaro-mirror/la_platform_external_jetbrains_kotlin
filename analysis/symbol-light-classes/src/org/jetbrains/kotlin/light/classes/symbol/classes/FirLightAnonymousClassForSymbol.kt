@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.light.classes.symbol.classes
+package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.*
 import com.intellij.psi.impl.InheritanceImplUtil
@@ -15,10 +15,10 @@ import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightIdentifier
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtAnonymousObjectSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtPropertySymbol
-import org.jetbrains.kotlin.light.classes.symbol.*
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtAnonymousObjectSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
+import org.jetbrains.kotlin.light.classes.symbol.classes.*
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.debugText.getDebugText
@@ -88,7 +88,7 @@ internal class FirLightAnonymousClassForSymbol(
     }
 
     private val _ownInnerClasses: List<FirLightClassBase> by lazyPub {
-        anonymousObjectSymbol.createInnerClasses(manager)
+        anonymousObjectSymbol.createInnerClasses(manager, this, kotlinOrigin)
     }
 
     override fun getOwnInnerClasses(): List<PsiClass> = _ownInnerClasses

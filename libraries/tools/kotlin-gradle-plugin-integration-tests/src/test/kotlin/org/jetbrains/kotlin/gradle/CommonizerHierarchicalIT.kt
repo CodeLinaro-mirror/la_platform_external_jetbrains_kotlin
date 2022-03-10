@@ -14,17 +14,19 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
 
     @Test
     fun `test commonizeHierarchically metadata compilations`() {
+
         with(Project("commonizeHierarchically")) {
             if (Os.canCompileApple) {
                 build(":p1:compileIosMainKotlinMetadata") {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/metadata/iosMain/klib/p1_iosMain.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
 
                 build(":p1:compileAppleMainKotlinMetadata") {
-
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/metadata/appleMain/klib/p1_appleMain.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
 
@@ -32,6 +34,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                 build(":p1:compileLinuxMainKotlinMetadata") {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/metadata/linuxMain/klib/p1_linuxMain.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
 
@@ -46,6 +49,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                 build(":p1:compileAppleAndLinuxMainKotlinMetadata") {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/metadata/appleAndLinuxMain/klib/p1_appleAndLinuxMain.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
 
@@ -53,6 +57,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                 build(":p1:compileNativeMainKotlinMetadata") {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/metadata/nativeMain/klib/p1_nativeMain.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
         }
@@ -68,6 +73,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                     assertFileExists("p1/build/classes/kotlin/iosX64/main/klib/p1.klib")
                     assertFileExists("p1/build/classes/kotlin/macosX64/main/klib/p1.klib")
                     assertFileExists("p1/build/classes/kotlin/macosArm64/main/klib/p1.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
 
@@ -76,6 +82,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/linuxX64/main/klib/p1.klib")
                     assertFileExists("p1/build/classes/kotlin/linuxArm64/main/klib/p1.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
 
@@ -84,6 +91,7 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                     assertSuccessful()
                     assertFileExists("p1/build/classes/kotlin/windowsX64/main/klib/p1.klib")
                     assertFileExists("p1/build/classes/kotlin/windowsX86/main/klib/p1.klib")
+                    assertNoDuplicateLibraryWarning()
                 }
             }
         }
@@ -99,11 +107,11 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
                 assertTasksExecuted(":p3:commonizeCInterop")
 
                 /*
-                Commonized C-Interops are not published or forwarded to other Gradle projects.
-                The missing dependency will be ignored by the metadata compiler.
-                We still expect a warning being printed.
+                Before we published commonized cinterops, the compiler would emit a warning like
+                `"w: Could not find \"commonizeHierarchicallyMultiModule:p1-cinterop-withPosix\" in "`
+                Since commonized cinterops are published now, we expect no such 'Could not find' message anymore
                  */
-                assertContains("w: Could not find \"commonizeHierarchicallyMultiModule:p1-cinterop-withPosix\" in ")
+                assertNotContains("Could not find")
             }
         }
     }
@@ -130,4 +138,6 @@ class CommonizerHierarchicalIT : BaseGradleIT() {
         val canCompileLinux get() = os.isLinux || os.isMacOsX
         val canCompileWindows get() = os.isWindows
     }
+
+    private fun CompiledProject.assertNoDuplicateLibraryWarning() = assertNotContains("library included more than once")
 }

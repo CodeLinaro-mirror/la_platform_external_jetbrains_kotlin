@@ -37,8 +37,6 @@ abstract class IrFunctionCommonImpl(
     override val isExpect: Boolean,
     override val containerSource: DeserializedContainerSource?,
 ) : IrSimpleFunction() {
-    override val factory: IrFactory
-        get() = IrFactoryImpl
 
     override lateinit var parent: IrDeclarationParent
     override var annotations: List<IrConstructorCall> = emptyList()
@@ -55,6 +53,8 @@ abstract class IrFunctionCommonImpl(
     override var dispatchReceiverParameter: IrValueParameter? = null
     override var extensionReceiverParameter: IrValueParameter? = null
     override var valueParameters: List<IrValueParameter> = emptyList()
+
+    override var contextReceiverParametersCount: Int = 0
 
     override var body: IrBody? = null
 
@@ -86,6 +86,7 @@ class IrFunctionImpl(
     isExpect: Boolean,
     override val isFakeOverride: Boolean = origin == IrDeclarationOrigin.FAKE_OVERRIDE,
     containerSource: DeserializedContainerSource? = null,
+    override val factory: IrFactory = IrFactoryImpl,
 ) : IrFunctionCommonImpl(
     startOffset, endOffset, origin, name, visibility, returnType, isInline,
     isExternal, isTailrec, isSuspend, isOperator, isInfix, isExpect,
@@ -115,6 +116,7 @@ class IrFakeOverrideFunctionImpl(
     isOperator: Boolean,
     isInfix: Boolean,
     isExpect: Boolean,
+    override val factory: IrFactory = IrFactoryImpl,
 ) : IrFunctionCommonImpl(
     startOffset, endOffset, origin, name, visibility, returnType, isInline,
     isExternal, isTailrec, isSuspend, isOperator, isInfix, isExpect,

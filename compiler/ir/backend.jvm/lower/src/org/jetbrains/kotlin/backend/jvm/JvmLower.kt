@@ -11,9 +11,8 @@ import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.loops.forLoopsPhase
 import org.jetbrains.kotlin.backend.common.lower.optimizations.foldConstantLoweringPhase
 import org.jetbrains.kotlin.backend.common.phaser.*
-import org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen
-import org.jetbrains.kotlin.backend.jvm.codegen.shouldContainSuspendMarkers
 import org.jetbrains.kotlin.backend.jvm.ir.constantValue
+import org.jetbrains.kotlin.backend.jvm.ir.shouldContainSuspendMarkers
 import org.jetbrains.kotlin.backend.jvm.lower.*
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
@@ -23,7 +22,6 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.util.PatchDeclarationParentsVisitor
 import org.jetbrains.kotlin.ir.util.isAnonymousObject
 import org.jetbrains.kotlin.ir.util.parentAsClass
-import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
@@ -141,7 +139,8 @@ internal val localDeclarationsPhase = makeIrFilePhase(
 
                 private fun scopedVisibility(inInlineFunctionScope: Boolean): DescriptorVisibility =
                     if (inInlineFunctionScope) DescriptorVisibilities.PUBLIC else JavaDescriptorVisibilities.PACKAGE_VISIBILITY
-            }
+            },
+            forceFieldsForInlineCaptures = true
         )
     },
     name = "JvmLocalDeclarations",
@@ -231,7 +230,7 @@ private val initializersPhase = makeIrFilePhase(
 private val initializersCleanupPhase = makeIrFilePhase(
     { context ->
         InitializersCleanupLowering(context) {
-            it.constantValue(context) == null && (!it.isStatic || it.correspondingPropertySymbol?.owner?.isConst != true)
+            it.constantValue() == null && (!it.isStatic || it.correspondingPropertySymbol?.owner?.isConst != true)
         }
     },
     name = "InitializersCleanup",
@@ -268,7 +267,6 @@ private val tailrecPhase = makeIrFilePhase(
     ::JvmTailrecLowering,
     name = "Tailrec",
     description = "Handle tailrec calls",
-    prerequisite = setOf(localDeclarationsPhase)
 )
 
 private val kotlinNothingValueExceptionPhase = makeIrFilePhase<CommonBackendContext>(
@@ -276,43 +274,6 @@ private val kotlinNothingValueExceptionPhase = makeIrFilePhase<CommonBackendCont
     name = "KotlinNothingValueException",
     description = "Throw proper exception for calls returning value of type 'kotlin.Nothing'"
 )
-
-private val notifyCodegenStartPhase = makeCustomPhase<JvmBackendContext, IrModuleFragment>(
-    op = { context, _ -> context.notifyCodegenStart() },
-    name = "NotifyCodegenStart",
-    description = "Notify time measuring subsystem that code generation is being started",
-)
-
-private fun codegenPhase(generateMultifileFacade: Boolean): NamedCompilerPhase<JvmBackendContext, IrModuleFragment> {
-    val suffix = if (generateMultifileFacade) "MultifileFacades" else "Regular"
-    val descriptionSuffix = if (generateMultifileFacade) ", multifile facades" else ", regular files"
-    return performByIrFile(
-        name = "CodegenByIrFile$suffix",
-        description = "Code generation by IrFile$descriptionSuffix",
-        copyBeforeLowering = false,
-        lower = listOf(
-            makeIrFilePhase(
-                { context ->
-                    object : FileLoweringPass {
-                        override fun lower(irFile: IrFile) {
-                            val isMultifileFacade = irFile.fileEntry is MultifileFacadeFileEntry
-                            if (isMultifileFacade == generateMultifileFacade) {
-                                for (loweredClass in irFile.declarations) {
-                                    if (loweredClass !is IrClass) {
-                                        throw AssertionError("File-level declaration should be IrClass after JvmLower, got: " + loweredClass.render())
-                                    }
-                                    ClassCodegen.getOrCreate(loweredClass, context).generate()
-                                }
-                            }
-                        }
-                    }
-                },
-                name = "Codegen$suffix",
-                description = "Code generation"
-            )
-        )
-    )
-}
 
 private val jvmFilePhases = listOf(
     typeAliasAnnotationMethodsPhase,
@@ -340,30 +301,31 @@ private val jvmFilePhases = listOf(
     propertyReferencePhase,
     arrayConstructorPhase,
     constPhase1,
+
     // TODO: merge the next three phases together, as visitors behave incorrectly between them
     //  (backing fields moved out of companion objects are reachable by two paths):
     moveOrCopyCompanionObjectFieldsPhase,
     propertiesPhase,
     remapObjectFieldAccesses,
+
     anonymousObjectSuperConstructorPhase,
-    jvmStandardLibraryBuiltInsPhase,
+    jvmBuiltInsPhase,
 
     rangeContainsLoweringPhase,
     forLoopsPhase,
     collectionStubMethodLowering,
+    singleAbstractMethodPhase,
     jvmInlineClassPhase,
+    tailrecPhase,
     makePatchParentsPhase(1),
 
     enumWhenPhase,
     singletonReferencesPhase,
 
-    singleAbstractMethodPhase,
     assertionPhase,
     returnableBlocksPhase,
     sharedVariablesPhase,
     localDeclarationsPhase,
-
-    tailrecPhase,
     makePatchParentsPhase(2),
 
     jvmLocalClassExtractionPhase,
@@ -410,8 +372,8 @@ private val jvmFilePhases = listOf(
 
     jvmArgumentNullabilityAssertions,
     toArrayPhase,
+    jvmSafeCallFoldingPhase,
     jvmOptimizationLoweringPhase,
-    ifNullExpressionsFusionPhase,
     additionalClassAnnotationPhase,
     typeOperatorLowering,
     replaceKFunctionInvokeWithFunctionInvokePhase,
@@ -424,10 +386,11 @@ private val jvmFilePhases = listOf(
     makePatchParentsPhase(4)
 )
 
-private val jvmLoweringPhases = NamedCompilerPhase(
+val jvmLoweringPhases = NamedCompilerPhase(
     name = "IrLowering",
     description = "IR lowering",
     nlevels = 1,
+    actions = setOf(defaultDumper, validationAction),
     lower = validateIrBeforeLowering then
             processOptionalAnnotationsPhase then
             expectDeclarationsRemovingPhase then
@@ -443,26 +406,3 @@ private val jvmLoweringPhases = NamedCompilerPhase(
             prepareForBytecodeInlining then
             validateIrAfterLowering
 )
-
-// Generate multifile facades first, to compute and store JVM signatures of const properties which are later used
-// when serializing metadata in the multifile parts.
-// TODO: consider dividing codegen itself into separate phases (bytecode generation, metadata serialization) to avoid this
-private val jvmCodegenPhases = NamedCompilerPhase(
-    name = "Codegen",
-    description = "Code generation",
-    nlevels = 1,
-    lower = codegenPhase(generateMultifileFacade = true) then
-            codegenPhase(generateMultifileFacade = false)
-
-)
-
-val jvmPhases = NamedCompilerPhase(
-    name = "IrBackend",
-    description = "IR Backend for JVM",
-    nlevels = 1,
-    actions = setOf(defaultDumper, validationAction),
-    lower = jvmLoweringPhases then
-            notifyCodegenStartPhase then
-            jvmCodegenPhases
-)
-

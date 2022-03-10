@@ -14,12 +14,13 @@ import org.junit.runners.Parameterized
 @RunWith(Parameterized::class)
 internal class MppFlagsMigrationIT : BaseGradleIT() {
     internal data class TestCase(
-        var hierarchiesByDefault: Boolean = false,
+        var hierarchiesByDefault: Boolean? = null,
         var hierarchiesSupportFlag: Boolean? = null,
         var granularMetadataFlag: Boolean? = null,
         var dependencyPropagationFlag: Boolean? = null,
         var expectedToPass: Boolean = true,
         var expectedPhraseInOutput: String? = null,
+        var notExpectedPhraseInOutput: String? = null,
     ) {
         constructor(configure: TestCase.() -> Unit) : this() {
             configure()
@@ -29,49 +30,51 @@ internal class MppFlagsMigrationIT : BaseGradleIT() {
     @Parameterized.Parameter(0)
     lateinit var testCase: TestCase
 
+    @Parameterized.Parameter(1)
+    lateinit var testProjectName: String
+
     companion object {
         @OptIn(ExperimentalStdlibApi::class)
         private val testCases = buildList {
             add(TestCase {
-                hierarchiesByDefault = true
+                granularMetadataFlag = null
+                dependencyPropagationFlag = null
+                expectedToPass = true
+                notExpectedPhraseInOutput = "It is safe to remove the property."
+            })
+            add(TestCase {
                 granularMetadataFlag = true
                 expectedToPass = true
                 expectedPhraseInOutput = "It is safe to remove the property."
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 granularMetadataFlag = false
                 expectedToPass = false
                 expectedPhraseInOutput = "Multiplatform Hierarchical Structures support is now enabled by default"
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 dependencyPropagationFlag = false
                 expectedToPass = true
                 expectedPhraseInOutput = "It is safe to remove the property"
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 dependencyPropagationFlag = true
                 expectedToPass = false
                 expectedPhraseInOutput = "Kotlin/Native dependencies commonization is now enabled by default"
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 hierarchiesSupportFlag = false
                 granularMetadataFlag = true
                 expectedToPass = false
                 expectedPhraseInOutput = "Conflicting properties"
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 hierarchiesSupportFlag = false
                 granularMetadataFlag = false
                 expectedToPass = true
                 expectedPhraseInOutput = "is redundant"
             })
             add(TestCase {
-                hierarchiesByDefault = true
                 hierarchiesSupportFlag = false
                 dependencyPropagationFlag = false
                 expectedToPass = false
@@ -84,22 +87,27 @@ internal class MppFlagsMigrationIT : BaseGradleIT() {
                 expectedPhraseInOutput = "not yet supported"
             })
             add(TestCase {
-                hierarchiesByDefault = false
                 hierarchiesSupportFlag = true
-                expectedToPass = false
-                expectedPhraseInOutput = "not yet supported"
+                expectedToPass = true
             })
         }
 
-        @Parameterized.Parameters(name = "{0}")
+        private val projectsToTest = listOf(
+            "new-mpp-published",
+            "hierarchical-mpp-project-dependency"
+        )
+
+        @Parameterized.Parameters(name = "{1}: {0}")
         @JvmStatic
-        fun testCases() = testCases.map { arrayOf(it) }
+        fun testCases() = testCases
+            .flatMap { testCase -> projectsToTest.map { arrayOf(testCase, it) } }
     }
 
     val testProject by lazy {
-        Project("new-mpp-published").apply {
+        Project(testProjectName).apply {
             setupWorkingDir()
             gradleBuildScript().modify(::transformBuildScriptWithPluginsDsl)
+            gradleProperties().delete()
         }
     }
 
@@ -108,8 +116,8 @@ internal class MppFlagsMigrationIT : BaseGradleIT() {
     fun doTest() {
         val args = buildList {
             with(testCase) {
-                if (hierarchiesByDefault)
-                    add("-Pkotlin.internal.mpp.hierarchicalStructureByDefault=true")
+                if (hierarchiesByDefault == false)
+                    add("-Pkotlin.internal.mpp.hierarchicalStructureByDefault=false")
                 if (hierarchiesSupportFlag != null)
                     add("-Pkotlin.mpp.hierarchicalStructureSupport=$hierarchiesSupportFlag")
                 if (granularMetadataFlag != null)
@@ -128,6 +136,7 @@ internal class MppFlagsMigrationIT : BaseGradleIT() {
                 assertFailed()
 
             testCase.expectedPhraseInOutput?.let { assertContains(it, ignoreCase = true) }
+            testCase.notExpectedPhraseInOutput?.let { assertNotContains(it) }
         }
     }
 }

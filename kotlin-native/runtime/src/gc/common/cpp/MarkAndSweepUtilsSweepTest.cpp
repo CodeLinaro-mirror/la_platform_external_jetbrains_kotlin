@@ -9,9 +9,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "Allocator.hpp"
 #include "FinalizerHooksTestSupport.hpp"
 #include "ObjectFactory.hpp"
 #include "ObjectTestSupport.hpp"
+#include "ExtraObjectDataFactory.hpp"
 
 using namespace kotlin;
 
@@ -52,13 +54,17 @@ struct GC {
         State state = State::kUnmarked;
     };
 
+    using Allocator = gc::AlignedAllocator;
+
     struct ThreadData {
         void SafePointAllocation(size_t) {}
         void OnOOM(size_t) {}
+        Allocator CreateAllocator() { return Allocator(); }
     };
 };
 
 using ObjectFactory = mm::ObjectFactory<GC>;
+using ExtraObjectsDataFactory = mm::ExtraObjectDataFactory;
 
 class Object : public test_support::Object<Payload> {
 public:
@@ -68,7 +74,6 @@ public:
 
     static Object& FromObjHeader(ObjHeader* obj) { return static_cast<Object&>(test_support::Object<Payload>::FromObjHeader(obj)); }
 
-    void InstallExtraData() { mm::ExtraObjectData::Install(header()); }
 
     bool HasWeakCounter() {
         if (auto* extraObjectData = mm::ExtraObjectData::Get(header())) {
@@ -95,8 +100,6 @@ public:
         return static_cast<ObjectArray&>(test_support::ObjectArray<3>::FromArrayHeader(array));
     }
 
-    void InstallExtraData() { mm::ExtraObjectData::Install(header()); }
-
     bool HasWeakCounter() {
         if (auto* extraObjectData = mm::ExtraObjectData::Get(header())) {
             return extraObjectData->HasWeakReferenceCounter();
@@ -121,8 +124,6 @@ public:
     static CharArray& FromArrayHeader(ArrayHeader* array) {
         return static_cast<CharArray&>(test_support::CharArray<3>::FromArrayHeader(array));
     }
-
-    void InstallExtraData() { mm::ExtraObjectData::Install(header()); }
 
     bool HasWeakCounter() {
         if (auto* extraObjectData = mm::ExtraObjectData::Get(header())) {
@@ -151,6 +152,12 @@ GC::ObjectData::State GetWeakCounterState(WeakCounter& counter) {
 
 struct SweepTraits {
     using ObjectFactory = ObjectFactory;
+    using ExtraObjectsFactory = mm::ExtraObjectDataFactory;
+
+    static bool IsMarkedByExtraObject(mm::ExtraObjectData &object) noexcept {
+        auto& objectData = ObjectFactory::NodeRef::From(object.GetBaseObject()).GCObjectData();
+        return objectData.state != GC::ObjectData::State::kUnmarked;
+    }
 
     static bool TryResetMark(ObjectFactory::NodeRef node) {
         GC::ObjectData& objectData = node.GCObjectData();
@@ -169,7 +176,19 @@ struct SweepTraits {
 class MarkAndSweepUtilsSweepTest : public ::testing::Test {
 public:
     ~MarkAndSweepUtilsSweepTest() override {
+        auto deallocExtraObject = [this](ObjHeader* obj) {
+            auto *extraObject = mm::ExtraObjectData::Get(obj);
+            extraObject->Uninstall();
+            extraObjectFactory_.DestroyExtraObjectData(extraObjectFactoryThreadQueue_, *extraObject);
+            extraObjectFactoryThreadQueue_.Publish();
+        };
         for (auto& finalizerQueue : finalizers_) {
+            for (auto node : finalizerQueue.IterForTests()) {
+                auto *object = node->IsArray() ? node->GetArrayHeader()->obj() : node->GetObjHeader();
+                if (object->has_meta_object()) {
+                    deallocExtraObject(object);
+                }
+            }
             finalizerQueue.Finalize();
         }
         testing::Mock::VerifyAndClear(&finalizerHook());
@@ -179,12 +198,14 @@ public:
             auto* obj = node->IsArray() ? node->GetArrayHeader()->obj() : node->GetObjHeader();
             if (auto* extraObject = mm::ExtraObjectData::Get(obj)) {
                 extraObject->ClearWeakReferenceCounter();
+                deallocExtraObject(obj);
             }
             RunFinalizers(obj);
         }
     }
 
     KStdVector<ObjHeader*> Sweep() {
+        gc::SweepExtraObjects<SweepTraits>(extraObjectFactory_);
         auto finalizers = gc::Sweep<SweepTraits>(objectFactory_);
         KStdVector<ObjHeader*> objects;
         for (auto node : finalizers.IterForTests()) {
@@ -198,6 +219,14 @@ public:
         KStdVector<ObjHeader*> objects;
         for (auto node : objectFactory_.LockForIter()) {
             objects.push_back(node.IsArray() ? node.GetArrayHeader()->obj() : node.GetObjHeader());
+        }
+        return objects;
+    }
+
+    KStdVector<mm::ExtraObjectData*> AliveExtraObjects() {
+        KStdVector<mm::ExtraObjectData*> objects;
+        for (auto &node : extraObjectFactory_.LockForIter()) {
+            objects.push_back(&node);
         }
         return objects;
     }
@@ -220,12 +249,20 @@ public:
         return CharArray::FromArrayHeader(array);
     }
 
-    WeakCounter& InstallWeakCounter(ObjHeader* objHeader) {
+    mm::ExtraObjectData& InstallExtraData(ObjHeader *objHeader) {
+        auto& extraObjectData = extraObjectFactory_.CreateExtraObjectDataForObject(extraObjectFactoryThreadQueue_, objHeader, objHeader->type_info());
+        extraObjectFactoryThreadQueue_.Publish();
+        objHeader->typeInfoOrMeta_ = reinterpret_cast<TypeInfo*>(&extraObjectData);
+        return *mm::ExtraObjectData::Get(objHeader);
+    }
+
+    WeakCounter& InstallWeakCounter(ObjHeader *objHeader) {
         auto* weakCounterHeader = objectFactoryThreadQueue_.CreateObject(typeHolderWeakCounter.typeInfo());
         objectFactoryThreadQueue_.Publish();
         auto& weakCounter = WeakCounter::FromObjHeader(weakCounterHeader);
-        auto& extraObjectData = mm::ExtraObjectData::GetOrInstall(objHeader);
-        *extraObjectData.GetWeakCounterLocation() = weakCounter.header();
+        auto& extraObjectData = InstallExtraData(objHeader);
+        auto *setHeader = extraObjectData.GetOrSetWeakReferenceCounter(objHeader, weakCounter.header());
+        EXPECT_EQ(setHeader,  weakCounter.header());
         weakCounter->referred = objHeader;
         return weakCounter;
     }
@@ -239,6 +276,8 @@ private:
     GC::ThreadData gcThreadData_;
     ObjectFactory objectFactory_;
     ObjectFactory::ThreadQueue objectFactoryThreadQueue_{objectFactory_, gcThreadData_};
+    ExtraObjectsDataFactory extraObjectFactory_;
+    ExtraObjectsDataFactory::ThreadQueue extraObjectFactoryThreadQueue_{extraObjectFactory_};
     KStdVector<ObjectFactory::FinalizerQueue> finalizers_;
 };
 
@@ -321,43 +360,43 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedCharArray) {
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectWithExtraData) {
     auto& object = AllocateObject();
-    object.InstallExtraData();
+    InstallExtraData(object.header());
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(object.header()));
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(object.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(object.state(), GC::ObjectData::State::kUnmarked);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectArrayWithExtraData) {
     auto& array = AllocateObjectArray();
-    array.InstallExtraData();
+    InstallExtraData(array.header());
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(array.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kUnmarked);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleCharArrayWithExtraData) {
     auto& array = AllocateCharArray();
-    array.InstallExtraData();
+    InstallExtraData(array.header());
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(array.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kUnmarked);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectWithExtraData) {
     auto& object = AllocateObject();
-    object.InstallExtraData();
+    auto& extra = InstallExtraData(object.header());
     object.Mark();
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(object.header()));
 
@@ -365,12 +404,12 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectWithExtraData) {
 
     EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre(object.header()));
-    EXPECT_THAT(object.state(), GC::ObjectData::State::kMarkReset);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre(&extra));
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectArrayWithExtraData) {
     auto& array = AllocateObjectArray();
-    array.InstallExtraData();
+    auto& extra = InstallExtraData(array.header());
     array.Mark();
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
 
@@ -378,12 +417,12 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectArrayWithExtraData) {
 
     EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kMarkReset);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre(&extra));
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedCharArrayWithExtraData) {
     auto& array = AllocateCharArray();
-    array.InstallExtraData();
+    auto& extra = InstallExtraData(array.header());
     array.Mark();
     ASSERT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
 
@@ -391,7 +430,7 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedCharArrayWithExtraData) {
 
     EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre(array.header()));
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kMarkReset);
+    EXPECT_THAT(AliveExtraObjects(), testing::UnorderedElementsAre(&extra));
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectWithFinalizerHook) {
@@ -426,10 +465,8 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectWithWeakCounter) {
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(object.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(object.state(), GC::ObjectData::State::kUnmarked);
-    EXPECT_FALSE(object.HasWeakCounter());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectArrayWithWeakCounter) {
@@ -439,10 +476,8 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleObjectArrayWithWeakCounter) {
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(array.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kUnmarked);
-    EXPECT_FALSE(array.HasWeakCounter());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleCharArrayWithWeakCounter) {
@@ -452,10 +487,8 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleCharArrayWithWeakCounter) {
 
     auto finalizers = Sweep();
 
-    EXPECT_THAT(finalizers, testing::UnorderedElementsAre(array.header()));
+    EXPECT_THAT(finalizers, testing::UnorderedElementsAre());
     EXPECT_THAT(Alive(), testing::UnorderedElementsAre());
-    EXPECT_THAT(array.state(), GC::ObjectData::State::kUnmarked);
-    EXPECT_FALSE(array.HasWeakCounter());
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectWithWeakCounter) {
@@ -472,6 +505,7 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectWithWeakCounter) {
     EXPECT_THAT(object.state(), GC::ObjectData::State::kMarkReset);
     EXPECT_THAT(GetWeakCounterState(weakCounter), GC::ObjectData::State::kMarkReset);
     EXPECT_TRUE(object.HasWeakCounter());
+    EXPECT_NE(weakCounter->referred, nullptr);
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectArrayWithWeakCounter) {
@@ -488,6 +522,7 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedObjectArrayWithWeakCounter) 
     EXPECT_THAT(array.state(), GC::ObjectData::State::kMarkReset);
     EXPECT_THAT(GetWeakCounterState(weakCounter), GC::ObjectData::State::kMarkReset);
     EXPECT_TRUE(array.HasWeakCounter());
+    EXPECT_NE(weakCounter->referred, nullptr);
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedCharArrayWithWeakCounter) {
@@ -504,6 +539,7 @@ TEST_F(MarkAndSweepUtilsSweepTest, SweepSingleMarkedCharArrayWithWeakCounter) {
     EXPECT_THAT(array.state(), GC::ObjectData::State::kMarkReset);
     EXPECT_THAT(GetWeakCounterState(weakCounter), GC::ObjectData::State::kMarkReset);
     EXPECT_TRUE(array.HasWeakCounter());
+    EXPECT_NE(weakCounter->referred, nullptr);
 }
 
 TEST_F(MarkAndSweepUtilsSweepTest, SweepObjects) {

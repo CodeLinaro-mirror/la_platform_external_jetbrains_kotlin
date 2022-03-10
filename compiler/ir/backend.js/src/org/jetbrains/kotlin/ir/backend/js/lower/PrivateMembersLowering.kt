@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
+import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
@@ -58,7 +59,6 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
             visibility = newVisibility
         }.also {
             it.parent = function.parent
-            it.correspondingPropertySymbol = function.correspondingPropertySymbol
         }
 
         staticFunction.typeParameters += function.typeParameters.map { it.deepCopyWithSymbols(staticFunction) }
@@ -118,7 +118,10 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
                     expression = (it.copyWithParameters() as IrExpressionBody).expression
                 }
                 is IrSyntheticBody -> it
-                else -> error("Unexpected body kind: ${it.javaClass}")
+                else -> compilationException(
+                    "Unexpected body kind",
+                    it,
+                )
             }
         }
 

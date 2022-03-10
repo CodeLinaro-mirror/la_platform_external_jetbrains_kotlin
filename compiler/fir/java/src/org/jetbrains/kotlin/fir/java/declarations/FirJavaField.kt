@@ -5,19 +5,20 @@
 
 package org.jetbrains.kotlin.fir.java.declarations
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirFieldBuilder
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.languageVersionSettings
+import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
 import org.jetbrains.kotlin.fir.symbols.impl.FirFieldSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
@@ -32,7 +33,7 @@ import kotlin.properties.Delegates
 
 @OptIn(FirImplementationDetail::class)
 class FirJavaField @FirImplementationDetail constructor(
-    override val source: FirSourceElement?,
+    override val source: KtSourceElement?,
     override val moduleData: FirModuleData,
     override val symbol: FirFieldSymbol,
     override val name: Name,
@@ -41,10 +42,10 @@ class FirJavaField @FirImplementationDetail constructor(
     override var returnTypeRef: FirTypeRef,
     override var status: FirDeclarationStatus,
     override val isVar: Boolean,
-    annotationBuilder: () -> List<FirAnnotationCall>,
+    annotationBuilder: () -> List<FirAnnotation>,
     override val typeParameters: MutableList<FirTypeParameterRef>,
     override var initializer: FirExpression?,
-    override val dispatchReceiverType: ConeKotlinType?,
+    override val dispatchReceiverType: ConeSimpleKotlinType?,
     override val attributes: FirDeclarationAttributes,
 ) : FirField() {
     init {
@@ -55,11 +56,12 @@ class FirJavaField @FirImplementationDetail constructor(
     override val isVal: Boolean get() = !isVar
     override val getter: FirPropertyAccessor? get() = null
     override val setter: FirPropertyAccessor? get() = null
-
+    override val backingField: FirBackingField? = null
+    override val controlFlowGraphReference: FirControlFlowGraphReference? get() = null
     override val origin: FirDeclarationOrigin
         get() = FirDeclarationOrigin.Java
 
-    override val annotations: List<FirAnnotationCall> by lazy { annotationBuilder() }
+    override val annotations: List<FirAnnotation> by lazy { annotationBuilder() }
 
     override val deprecation: DeprecationsPerUseSite by lazy {
         annotations.getDeprecationInfosFromAnnotations(moduleData.session.languageVersionSettings.apiVersion, fromJava = true)
@@ -75,6 +77,10 @@ class FirJavaField @FirImplementationDetail constructor(
     }
 
     override fun <D> transformSetter(transformer: FirTransformer<D>, data: D): FirField {
+        return this
+    }
+
+    override fun <D> transformBackingField(transformer: FirTransformer<D>, data: D): FirField {
         return this
     }
 
@@ -144,6 +150,12 @@ class FirJavaField @FirImplementationDetail constructor(
     override fun <D> transformDelegate(transformer: FirTransformer<D>, data: D): FirField {
         return this
     }
+
+    override fun replaceGetter(newGetter: FirPropertyAccessor?) {}
+
+    override fun replaceSetter(newSetter: FirPropertyAccessor?) {}
+
+    override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?) {}
 }
 
 @FirBuilderDsl
@@ -151,7 +163,7 @@ internal class FirJavaFieldBuilder : FirFieldBuilder() {
     var modality: Modality? = null
     lateinit var visibility: Visibility
     var isStatic: Boolean by Delegates.notNull()
-    lateinit var annotationBuilder: () -> List<FirAnnotationCall>
+    lateinit var annotationBuilder: () -> List<FirAnnotation>
 
     override var resolvePhase: FirResolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
 

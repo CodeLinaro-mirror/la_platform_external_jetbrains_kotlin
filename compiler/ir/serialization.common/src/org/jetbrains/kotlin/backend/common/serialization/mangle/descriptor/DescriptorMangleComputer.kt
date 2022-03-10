@@ -115,6 +115,11 @@ abstract class DescriptorMangleComputer(protected val builder: StringBuilder, pr
             builder.appendSignature(MangleConstant.STATIC_MEMBER_MARK)
         }
 
+        contextReceiverParameters.forEach {
+            builder.appendSignature(MangleConstant.CONTEXT_RECEIVER_PREFIX)
+            mangleContextReceiverParameter(builder, it)
+        }
+
         extensionReceiverParameter?.let {
             builder.appendSignature(MangleConstant.EXTENSION_RECEIVER_PREFIX)
             mangleExtensionReceiverParameter(builder, it)
@@ -137,6 +142,10 @@ abstract class DescriptorMangleComputer(protected val builder: StringBuilder, pr
             builder.appendSignature(MangleConstant.PLATFORM_FUNCTION_MARKER)
             builder.appendSignature(it)
         }
+    }
+
+    private fun mangleContextReceiverParameter(vpBuilder: StringBuilder, param: ReceiverParameterDescriptor) {
+        mangleType(vpBuilder, param.type)
     }
 
     private fun mangleExtensionReceiverParameter(vpBuilder: StringBuilder, param: ReceiverParameterDescriptor) {
@@ -206,7 +215,7 @@ abstract class DescriptorMangleComputer(protected val builder: StringBuilder, pr
                     val lower = type.lowerBound
                     val lowerDescriptor = lower.constructor.declarationDescriptor as? ClassDescriptor
                         ?: error("No class descriptor for lower type $lower of $type")
-                    val intermediate = if (lowerDescriptor == upperDescriptor) {
+                    val intermediate = if (lowerDescriptor == upperDescriptor && type !is RawType) {
                         lower.replace(newArguments = upper.arguments)
                     } else lower
                     val mixed = intermediate.makeNullableAsSpecified(upper.isMarkedNullable)

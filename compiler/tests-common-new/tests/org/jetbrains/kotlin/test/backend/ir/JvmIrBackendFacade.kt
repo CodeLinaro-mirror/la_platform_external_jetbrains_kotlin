@@ -9,7 +9,9 @@ import org.jetbrains.kotlin.backend.common.BackendException
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.test.backend.classic.JavaCompilerFacade
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
-import org.jetbrains.kotlin.test.model.*
+import org.jetbrains.kotlin.test.model.ArtifactKinds
+import org.jetbrains.kotlin.test.model.BinaryArtifacts
+import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 
@@ -22,10 +24,13 @@ class JvmIrBackendFacade(
         module: TestModule,
         inputArtifact: IrBackendInput
     ): BinaryArtifacts.Jvm? {
-        val state = inputArtifact.backendInput.state
+        require(inputArtifact is IrBackendInput.JvmIrBackendInput) {
+            "JvmIrBackendFacade expects IrBackendInput.JvmIrBackendInput as input"
+        }
+        val state = inputArtifact.state
         val codegenFactory = state.codegenFactory as JvmIrCodegenFactory
         try {
-            codegenFactory.doGenerateFilesInternal(inputArtifact.backendInput)
+            codegenFactory.generateModule(state, inputArtifact.backendInput)
         } catch (e: BackendException) {
             if (CodegenTestDirectives.IGNORE_ERRORS in module.directives) {
                 return null

@@ -20,9 +20,8 @@ import org.jetbrains.kotlin.build.GeneratedFile
 import org.jetbrains.kotlin.build.report.BuildReporter
 import org.jetbrains.kotlin.build.report.ICReporter
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
-import org.jetbrains.kotlin.build.report.metrics.BuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
-import org.jetbrains.kotlin.cli.common.*
+import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.isIrBackendEnabled
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -92,7 +91,13 @@ class IncrementalJsCompilerRunner(
 
     override fun createCacheManager(args: K2JSCompilerArguments, projectDir: File?): IncrementalJsCachesManager {
         val serializerProtocol = if (!args.isIrBackendEnabled()) JsSerializerProtocol else KlibMetadataSerializerProtocol
-        return IncrementalJsCachesManager(cacheDirectory, projectDir, reporter, serializerProtocol)
+        return IncrementalJsCachesManager(
+            cacheDirectory,
+            projectDir,
+            reporter,
+            serializerProtocol,
+            storeFullFqNamesInLookupCache = withSnapshot
+            )
     }
 
     override fun destinationDir(args: K2JSCompilerArguments): File {
@@ -121,7 +126,7 @@ class IncrementalJsCompilerRunner(
         val classpathChanges = getClasspathChanges(
             libs, changedFiles, lastBuildInfo, modulesApiHistory, reporter,
             mapOf(), false, caches.platformCache,
-            caches.lookupCache.lookupMap.keys.map { if (it.scope.isBlank()) it.name else it.scope }.distinct()
+            caches.lookupCache.lookupSymbols.map { if (it.scope.isBlank()) it.name else it.scope }.distinct()
         )
 
         @Suppress("UNUSED_VARIABLE") // for sealed when
@@ -193,7 +198,6 @@ class IncrementalJsCompilerRunner(
             compiler.exec(messageCollector, services, args)
         } finally {
             args.freeArgs = freeArgsBackup
-//            reporter.report { compiler.defaultPerformanceManager.renderCompilerPerformance() }
             reportPerformanceData(compiler.defaultPerformanceManager)
         }
     }

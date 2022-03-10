@@ -29,7 +29,7 @@ buildscript {
     dependencies {
         bootstrapCompilerClasspath(kotlin("compiler-embeddable", bootstrapKotlinVersion))
 
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
         classpath(kotlin("gradle-plugin", bootstrapKotlinVersion))
         classpath(kotlin("serialization", bootstrapKotlinVersion))
         classpath("org.jetbrains.dokka:dokka-gradle-plugin:0.9.17")
@@ -96,7 +96,6 @@ extra["ktorExcludesForDaemon"] = listOf(
 
 // TODO: use "by extra()" syntax where possible
 extra["distLibDir"] = project.file(distLibDir)
-extra["libsDir"] = project.file(distLibDir)
 extra["commonLocalDataDir"] = project.file(commonLocalDataDir)
 extra["ideaSandboxDir"] = project.file(ideaSandboxDir)
 extra["ideaPluginDir"] = project.file(ideaPluginDir)
@@ -119,95 +118,95 @@ rootProject.apply {
 
 IdeVersionConfigurator.setCurrentIde(project)
 
-extra["versions.protobuf"] = "2.6.1"
-extra["versions.javax.inject"] = "1"
-extra["versions.jsr305"] = "1.3.9"
-extra["versions.jansi"] = "1.16"
-extra["versions.jline"] = "3.3.1"
-extra["versions.junit"] = "4.12"
-extra["versions.javaslang"] = "2.0.6"
-extra["versions.ant"] = "1.10.7"
-extra["versions.android"] = "2.3.1"
-extra["versions.kotlinx-coroutines-core"] = "1.5.0"
-extra["versions.kotlinx-coroutines-core-jvm"] = "1.5.0"
-extra["versions.kotlinx-coroutines-jdk8"] = "1.5.0"
-extra["versions.json"] = "20160807"
-extra["versions.native-platform"] = "0.14"
-extra["versions.robolectric"] = "4.0"
-extra["versions.org.springframework"] = "4.2.0.RELEASE"
-extra["versions.jflex"] = "1.7.0"
-extra["versions.markdown"] = "0.1.25"
-extra["versions.trove4j"] = "1.0.20181211"
-extra["versions.completion-ranking-kotlin"] = "0.1.3"
-extra["versions.r8"] = "2.2.64"
-val immutablesVersion = "0.3.1"
-extra["versions.kotlinx-collections-immutable"] = immutablesVersion
-extra["versions.kotlinx-collections-immutable-jvm"] = immutablesVersion
-
-// NOTE: please, also change KTOR_NAME in pathUtil.kt and all versions in corresponding jar names in daemon tests.
-extra["versions.ktor-network"] = "1.0.1"
-
 if (!project.hasProperty("versions.kotlin-native")) {
-    extra["versions.kotlin-native"] = "1.6.0-RC-473"
+    extra["versions.kotlin-native"] = "1.6.20-dev-5356"
 }
 
-extra["versions.kotlinx-metadata-jvm"] = "0.4.0"
 
 val useJvmFir by extra(project.kotlinBuildProperties.useFir)
 
-val intellijSeparateSdks = project.getBooleanProperty("intellijSeparateSdks") ?: false
-
-extra["intellijSeparateSdks"] = intellijSeparateSdks
-
-extra["IntellijCoreDependencies"] =
-    listOf(
-        "asm-all-9.0",
-        "guava",
-        "jdom",
-        "jna",
-        "log4j",
-        "snappy-in-java",
-        "streamex",
-        "trove4j"
-    ).filterNotNull()
-
-
-extra["compilerModules"] = arrayOf(
-    ":compiler:util",
-    ":compiler:config",
-    ":compiler:config.jvm",
-    ":compiler:container",
-    ":compiler:resolution.common",
-    ":compiler:resolution.common.jvm",
-    ":compiler:resolution",
-    ":compiler:serialization",
-    ":compiler:psi",
-    ":compiler:frontend",
-    ":compiler:frontend.common",
-    ":compiler:frontend.java",
-    ":compiler:frontend:cfg",
-    ":compiler:cli-common",
+val irCompilerModules = arrayOf(
     ":compiler:ir.tree",
     ":compiler:ir.tree.impl",
     ":compiler:ir.tree.persistent",
-    ":compiler:ir.psi2ir",
-    ":compiler:ir.backend.common",
-    ":compiler:backend.jvm",
-    ":compiler:backend.jvm.lower",
-    ":compiler:backend.jvm.entrypoint",
-    ":compiler:backend.js",
-    ":compiler:backend.wasm",
     ":compiler:ir.serialization.common",
     ":compiler:ir.serialization.js",
     ":compiler:ir.serialization.jvm",
+    ":compiler:ir.backend.common",
     ":compiler:ir.interpreter",
+    ":wasm:wasm.ir"
+).also { extra["irCompilerModules"] = it }
+
+val commonCompilerModules = arrayOf(
+    ":compiler:psi",
+    ":compiler:frontend.common-psi",
+    ":compiler:light-classes", // TODO split this module to base and FE1.0 implementation modules
+    ":compiler:frontend.common",
+    ":compiler:util",
+    ":compiler:config.jvm",
+    ":compiler:resolution.common",
+    ":compiler:resolution.common.jvm",
+    ":core:metadata",
+    ":core:metadata.jvm",
+    ":core:deserialization.common",
+    ":core:deserialization.common.jvm",
+    ":core:compiler.common",
+    ":core:compiler.common.jvm",
+    ":core:util.runtime",
+    ":compiler:frontend.java" // TODO this is fe10 module but some utils used in fir ide now
+).also { extra["commonCompilerModules"] = it }
+
+val firCompilerCoreModules = arrayOf(
+    ":compiler:fir:cones",
+    ":compiler:fir:providers",
+    ":compiler:fir:semantics",
+    ":compiler:fir:resolve",
+    ":compiler:fir:fir-serialization",
+    ":compiler:fir:fir-deserialization",
+    ":compiler:fir:tree",
+    ":compiler:fir:java",
+    ":compiler:fir:raw-fir:raw-fir.common",
+    ":compiler:fir:raw-fir:psi2fir",
+    ":compiler:fir:checkers",
+    ":compiler:fir:checkers:checkers.jvm",
+    ":compiler:fir:entrypoint", // TODO should not be in core modules but FIR IDE uses DependencyListForCliModule from this module
+    ":compiler:fir:fir2ir:jvm-backend",  // TODO should not be in core modules but FIR IDE uses Fir2IrSignatureComposer from this module
+    ":compiler:fir:fir2ir" // TODO should not be in core modules but FIR IDE uses Fir2IrSignatureComposer from this module
+).also { extra["firCompilerCoreModules"] = it }
+
+val firAllCompilerModules = firCompilerCoreModules +
+    arrayOf(
+        ":compiler:fir:raw-fir:light-tree2fir",
+        ":compiler:fir:analysis-tests",
+        ":compiler:fir:analysis-tests:legacy-fir-tests"
+    )
+
+val fe10CompilerModules = arrayOf(
+    ":compiler",
+    ":core:descriptors.runtime",
+    ":core:descriptors",
+    ":core:descriptors.jvm",
+    ":compiler:resolution",
+    ":compiler:serialization",
+    ":compiler:frontend",
+    ":compiler:config",
+    ":compiler:container",
+    ":compiler:cli-common",
+    ":core:deserialization",
+    ":compiler:frontend:cfg",
+    ":compiler:ir.psi2ir",
+    ":compiler:backend.jvm",
+    ":compiler:backend.jvm.lower",
+    ":compiler:backend.jvm.codegen",
+    ":compiler:backend.jvm.entrypoint",
+    ":compiler:backend.js",
+    ":compiler:backend.wasm",
     ":kotlin-util-io",
     ":kotlin-util-klib",
     ":kotlin-util-klib-metadata",
     ":compiler:backend-common",
     ":compiler:backend",
     ":compiler:plugin-api",
-    ":compiler:light-classes",
     ":compiler:javac-wrapper",
     ":compiler:cli",
     ":compiler:cli-js",
@@ -223,39 +222,16 @@ extra["compilerModules"] = arrayOf(
     ":js:js.dce",
     ":native:frontend.native",
     ":native:kotlin-native-utils",
-    ":compiler",
     ":kotlin-build-common",
-    ":core:metadata",
-    ":core:metadata.jvm",
-    ":core:deserialization.common",
-    ":core:deserialization.common.jvm",
-    ":core:compiler.common",
-    ":core:compiler.common.jvm",
-    ":compiler:backend.common.jvm",
-    ":core:descriptors",
-    ":core:descriptors.jvm",
-    ":core:descriptors.runtime",
-    ":core:deserialization",
-    ":core:util.runtime",
-    ":compiler:fir:cones",
-    ":compiler:fir:resolve",
-    ":compiler:fir:fir-serialization",
-    ":compiler:fir:fir-deserialization",
-    ":compiler:fir:tree",
-    ":compiler:fir:raw-fir:raw-fir.common",
-    ":compiler:fir:raw-fir:psi2fir",
-    ":compiler:fir:raw-fir:light-tree2fir",
-    ":compiler:fir:fir2ir",
-    ":compiler:fir:fir2ir:jvm-backend",
-    ":compiler:fir:java",
-    ":compiler:fir:jvm",
-    ":compiler:fir:checkers",
-    ":compiler:fir:checkers:checkers.jvm",
-    ":compiler:fir:entrypoint",
-    ":compiler:fir:analysis-tests",
-    ":compiler:fir:analysis-tests:legacy-fir-tests",
-    ":wasm:wasm.ir"
-)
+    ":compiler:backend.common.jvm"
+).also { extra["fe10CompilerModules"] = it }
+
+extra["compilerModules"] =
+    irCompilerModules +
+            fe10CompilerModules +
+            commonCompilerModules +
+            firAllCompilerModules
+
 
 extra["compilerModulesForJps"] = listOf(
     ":kotlin-build-common",
@@ -263,7 +239,7 @@ extra["compilerModulesForJps"] = listOf(
     ":kotlin-util-klib",
     ":kotlin-util-klib-metadata",
     ":compiler:cli-common",
-    ":kotlin-compiler-runner",
+    ":kotlin-compiler-runner-unshaded",
     ":daemon-common",
     ":daemon-common-new",
     ":core:compiler.common",
@@ -299,10 +275,19 @@ extra["compilerArtifactsForIde"] = listOf(
     ":prepare:ide-plugin-dependencies:kotlin-stdlib-minimal-for-test-for-ide",
     ":prepare:ide-plugin-dependencies:low-level-api-fir-for-ide",
     ":prepare:ide-plugin-dependencies:high-level-api-for-ide",
+    ":prepare:ide-plugin-dependencies:high-level-api-impl-base-for-ide",
+    ":prepare:ide-plugin-dependencies:high-level-api-impl-base-tests-for-ide",
     ":prepare:ide-plugin-dependencies:high-level-api-fir-for-ide",
     ":prepare:ide-plugin-dependencies:high-level-api-fir-tests-for-ide",
+    ":prepare:ide-plugin-dependencies:high-level-api-fe10-for-ide",
+    ":prepare:ide-plugin-dependencies:high-level-api-fe10-tests-for-ide",
     ":prepare:ide-plugin-dependencies:analysis-api-providers-for-ide",
+    ":prepare:ide-plugin-dependencies:analysis-project-structure-for-ide",
     ":prepare:ide-plugin-dependencies:symbol-light-classes-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-compiler-ir-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-compiler-common-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-compiler-fe10-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-compiler-fir-for-ide",
     ":kotlin-script-runtime",
     ":kotlin-script-util",
     ":kotlin-scripting-common",
@@ -321,7 +306,10 @@ extra["compilerArtifactsForIde"] = listOf(
 
 // TODO: fix remaining warnings and remove this property.
 extra["tasksWithWarnings"] = listOf(
-    ":kotlin-gradle-plugin:compileKotlin"
+    ":kotlin-gradle-plugin:compileKotlin",
+    //Tremporary disable -Werror to switch on new diagnostic
+    ":compiler:frontend:compileKotlin",
+    ":kotlin-scripting-intellij:compileKotlin",
 )
 
 val tasksWithWarnings: List<String> by extra
@@ -391,19 +379,39 @@ allprojects {
     val mirrorRepo: String? = findProperty("maven.repository.mirror")?.toString()
 
     repositories {
-        kotlinBuildLocalRepo(project)
+        if (kotlinBuildProperties.getOrNull("attachedIntellijVersion") != null) {
+            kotlinBuildLocalRepo(project)
+        }
+
         mirrorRepo?.let(::maven)
 
-        internalBootstrapRepo?.let(::maven)
-        bootstrapKotlinRepo?.let(::maven)
-        maven(protobufRepo)
+        internalBootstrapRepo?.let(::maven)?.apply {
+            content {
+                includeGroup("org.jetbrains.kotlin")
+            }
+        }
+
+        bootstrapKotlinRepo?.let(::maven)?.apply {
+            content {
+                includeGroup("org.jetbrains.kotlin")
+            }
+        }
+
+        maven(protobufRepo) {
+            content {
+                includeModule("org.jetbrains.kotlin", "protobuf-lite")
+                includeModule("org.jetbrains.kotlin", "protobuf-relocated")
+            }
+        }
 
         maven(intellijRepo)
+        maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
 
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies")
         maven("https://dl.google.com/dl/android/maven2")
-        maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
+
+        maven("https://download.jetbrains.com/teamcity-repository/")
 
         jcenter()
     }
@@ -448,7 +456,7 @@ allprojects {
     }
 
     val commonCompilerArgs = listOfNotNull(
-        "-Xopt-in=kotlin.RequiresOptIn",
+        "-opt-in=kotlin.RequiresOptIn",
         "-progressive".takeIf { hasProperty("test.progressive.mode") }
     )
 
@@ -461,10 +469,8 @@ allprojects {
     }
 
     val jvmCompilerArgs = listOf(
-        "-Xjvm-default=compatibility",
         "-Xno-optimized-callable-references",
         "-Xno-kotlin-nothing-value-exception",
-        "-Xskip-runtime-version-check",
         "-Xsuppress-deprecated-jvm-target-warning" // Remove as soon as there are no modules for JDK 1.6 & 1.7
     )
 
@@ -526,8 +532,6 @@ allprojects {
     tasks {
         register("listArchives") { listConfigurationContents("archives") }
 
-        register("listRuntimeJar") { listConfigurationContents("runtimeJar") }
-
         register("listDistJar") { listConfigurationContents("distJar") }
 
         // Aggregate task for build related checks
@@ -543,15 +547,15 @@ allprojects {
             println("${project.path} $role classpath:\n  ${joinToString("\n  ") { it.toProjectRootRelativePathOrSelf() }}")
 
         try {
-            javaPluginConvention()
+            javaPluginExtension()
         } catch (_: UnknownDomainObjectException) {
             null
-        }?.let { javaConvention ->
+        }?.let { javaExtension ->
             tasks {
-                register("printCompileClasspath") { doFirst { javaConvention.sourceSets["main"].compileClasspath.printClassPath("compile") } }
-                register("printRuntimeClasspath") { doFirst { javaConvention.sourceSets["main"].runtimeClasspath.printClassPath("runtime") } }
-                register("printTestCompileClasspath") { doFirst { javaConvention.sourceSets["test"].compileClasspath.printClassPath("test compile") } }
-                register("printTestRuntimeClasspath") { doFirst { javaConvention.sourceSets["test"].runtimeClasspath.printClassPath("test runtime") } }
+                register("printCompileClasspath") { doFirst { javaExtension.sourceSets["main"].compileClasspath.printClassPath("compile") } }
+                register("printRuntimeClasspath") { doFirst { javaExtension.sourceSets["main"].runtimeClasspath.printClassPath("runtime") } }
+                register("printTestCompileClasspath") { doFirst { javaExtension.sourceSets["test"].compileClasspath.printClassPath("test compile") } }
+                register("printTestRuntimeClasspath") { doFirst { javaExtension.sourceSets["test"].runtimeClasspath.printClassPath("test runtime") } }
             }
         }
 
@@ -597,15 +601,11 @@ val syncMutedTests = tasks.register("syncMutedTests") {
     dependsOn(":compiler:tests-mutes:tc-integration:run")
 }
 
-val copyCompilerToIdeaPlugin by task<Copy> {
-    dependsOn(dist)
-    into(ideaPluginDir)
-    from(distDir) { include("kotlinc/**") }
-}
-
-val ideaPlugin by task<Task> {
-    dependsOn(copyCompilerToIdeaPlugin)
-    dependsOn(":prepare:idea-plugin:ideaPlugin")
+tasks.register("createIdeaHomeForTests") {
+    outputs.file(ideaBuildNumberFileForTests())
+    doFirst {
+        writeIdeaBuildNumberForTests()
+    }
 }
 
 tasks {
@@ -632,6 +632,7 @@ tasks {
             ":kotlin-stdlib-js-ir",
             ":kotlin-test:kotlin-test-js-ir".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
             ":kotlin-test:kotlin-test-js:kotlin-test-js-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
+            ":kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
             ":kotlinx-metadata-jvm",
             ":tools:binary-compatibility-validator"
         )).forEach {
@@ -692,6 +693,8 @@ tasks {
         dependsOn(":compiler:fir:analysis-tests:test")
         dependsOn(":compiler:fir:analysis-tests:legacy-fir-tests:test")
         dependsOn(":compiler:fir:fir2ir:test")
+        dependsOn(":plugins:fir-plugin-prototype:test")
+        dependsOn(":plugins:fir-plugin-prototype:fir-plugin-ic-test:test")
     }
 
     register("firAllTest") {
@@ -702,7 +705,8 @@ tasks {
             ":compiler:fir:analysis-tests:test",
             ":compiler:fir:analysis-tests:legacy-fir-tests:test",
             ":compiler:fir:fir2ir:test",
-            ":plugins:fir:fir-plugin-prototype:test"
+            ":plugins:fir-plugin-prototype:test",
+            ":plugins:fir-plugin-prototype:fir-plugin-ic-test:test"
         )
     }
 
@@ -743,6 +747,11 @@ tasks {
     }
 
     register("miscCompilerTest") {
+        dependsOn("coreLibsTest")
+        dependsOn("gradlePluginTest")
+        dependsOn("toolsTest")
+        dependsOn("examplesTest")
+
         dependsOn("nativeCompilerTest")
 
         dependsOn(":kotlin-daemon-tests:test")
@@ -757,9 +766,10 @@ tasks {
         dependsOn(":plugins:parcelize:parcelize-compiler:test")
         dependsOn(":kotlinx-serialization-compiler-plugin:test")
 
-
         dependsOn(":kotlin-util-io:test")
         dependsOn(":kotlin-util-klib:test")
+
+        dependsOn(":generators:test")
     }
 
     register("toolsTest") {
@@ -777,6 +787,7 @@ tasks {
 
     register("distTest") {
         dependsOn("compilerTest")
+        dependsOn("frontendApiTests")
         dependsOn("toolsTest")
         dependsOn("gradlePluginTest")
         dependsOn("examplesTest")
@@ -796,120 +807,25 @@ tasks {
         dependsOn(":jps-plugin:test")
     }
 
-    register("idea-plugin-additional-tests") {
-        dependsOn("dist")
-        dependsOn(
-            ":idea:idea-maven:test",
-            ":nj2k:test",
-            ":idea:jvm-debugger:jvm-debugger-core:test",
-            ":idea:jvm-debugger:jvm-debugger-evaluation:test",
-            ":idea:jvm-debugger:jvm-debugger-sequence:test",
-            ":idea:jvm-debugger:eval4j:test",
-            ":idea:scripting-support:test"
-        )
-    }
-
-    if (Ide.IJ()) {
-        register("idea-new-project-wizard-tests") {
-            dependsOn(
-                ":libraries:tools:new-project-wizard:test",
-                ":libraries:tools:new-project-wizard:new-project-wizard-cli:test",
-                ":idea:idea-new-project-wizard:test"
-            )
-        }
-    }
-
-    register("idea-plugin-performance-tests") {
-        dependsOn(
-            "dist",
-            ":idea:performanceTests:performanceTest",
-            ":idea:performanceTests:aggregateResults"
-        )
-    }
-
-    register("idea-fir-plugin-performance-tests") {
-        dependsOn("dist")
-        dependsOn(
-            ":idea:idea-fir-performance-tests:ideaFirPerformanceTest"
-        )
-    }
-
-    register("idea-fir-plugin-tests") {
-        dependsOn("dist")
-        dependsOn(
-            ":idea:idea-fir:test",
-            ":idea:idea-frontend-fir:fir-low-level-api-ide-impl:test",
-            ":plugins:uast-kotlin-fir:test",
-            ":idea:idea-fir-fe10-binding:test"
-        )
-    }
-
     register("frontendApiTests") {
         dependsOn("dist")
         dependsOn(
-            ":idea-frontend-api:test",
-            ":idea-frontend-fir:test",
-            ":idea-frontend-fir:idea-fir-low-level-api:test"
+            ":analysis:analysis-api:test",
+            ":analysis:analysis-api-fir:test",
+            ":analysis:analysis-api-fe10:test",
+            ":analysis:low-level-api-fir:test"
         )
     }
 
-
-
-    register("android-ide-tests") {
-        dependsOn("dist")
-        dependsOn(
-            ":plugins:android-extensions-ide:test",
-            ":idea:idea-android:test",
-            ":kotlin-annotation-processing:test",
-            ":plugins:parcelize:parcelize-ide:test"
-        )
-    }
-
-    register("ideaPluginTest") {
-        dependsOn(
-            "mainIdeTests",
-            "gradleIdeTest",
-            "kaptIdeTest",
-            "miscIdeTests"
-        )
-    }
-
-    register("mainIdeTests") {
-        dependsOn(":idea:test")
-    }
-
-    register("miscIdeTests") {
-        dependsOn(
-            ":kotlin-allopen-compiler-plugin:test",
-            ":kotlin-noarg-compiler-plugin:test",
-            ":kotlin-sam-with-receiver-compiler-plugin:test",
-            ":plugins:uast-kotlin:test",
-            ":kotlin-annotation-processing-gradle:test",
-            ":kotlinx-serialization-ide-plugin:test",
-            ":idea:jvm-debugger:jvm-debugger-test:test",
-            "idea-plugin-additional-tests",
-            "jps-tests",
-            ":generators:test"
-        )
-        if (Ide.IJ()) {
-            dependsOn(
-                ":libraries:tools:new-project-wizard:test",
-                ":libraries:tools:new-project-wizard:new-project-wizard-cli:test"
-            )
-        }
-    }
-
-    register("kaptIdeTest") {
+    register("kaptTests") {
         dependsOn(":kotlin-annotation-processing:test")
         dependsOn(":kotlin-annotation-processing-base:test")
         dependsOn(":kotlin-annotation-processing-cli:test")
     }
 
-    register("gradleIdeTest") {
-        dependsOn(
-            ":idea:idea-gradle:test",
-            ":idea:idea-gradle-native:test"
-        )
+    // Need the task for transition period. Shouold be removed in a week after commit is master.
+    register("kaptIdeTest") {
+        dependsOn("kaptTests")
     }
 
     register("test") {
@@ -1123,7 +1039,10 @@ if (disableVerificationTasks) {
 
 plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class) {
     extensions.configure(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension::class.java) {
-        nodeVersion = "16.2.0"
+        nodeVersion = "16.13.0"
+        npmInstallTaskProvider?.configure {
+            args += listOf("--network-concurrency", "1", "--mutex", "network")
+        } ?: error("kotlinNpmInstall task should exist inside NodeJsRootExtension")
     }
 }
 

@@ -1,6 +1,4 @@
-// IGNORE_BACKEND: WASM
-
-// WITH_RUNTIME
+// WITH_STDLIB
 // FILE: b.kt
 import a.A
 

@@ -5,21 +5,18 @@
 
 package org.jetbrains.kotlin.fir.analysis.jvm.checkers.declaration
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
-import org.jetbrains.kotlin.fir.FirRealSourceElementKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirRegularClassChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.declarations.FirField
-import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.getAnnotationByFqName
+import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
@@ -27,11 +24,9 @@ import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.coneTypeSafe
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.JvmNames.JVM_RECORD_ANNOTATION_CLASS_ID
 
 object FirJvmRecordChecker : FirRegularClassChecker() {
-
-    private val JVM_RECORD_ANNOTATION_FQ_NAME = FqName("kotlin.jvm.JvmRecord")
     private val JAVA_RECORD_CLASS_ID = ClassId.fromString("java/lang/Record")
 
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
@@ -42,7 +37,7 @@ object FirJvmRecordChecker : FirRegularClassChecker() {
             }
         }
 
-        val annotationSource = declaration.getAnnotationByFqName(JVM_RECORD_ANNOTATION_FQ_NAME)?.source ?: return
+        val annotationSource = declaration.getAnnotationByClassId(JVM_RECORD_ANNOTATION_CLASS_ID)?.source ?: return
 
         val languageVersionSettings = context.session.languageVersionSettings
         if (!languageVersionSettings.supportsFeature(LanguageFeature.JvmRecordSupport)) {
@@ -80,7 +75,7 @@ object FirJvmRecordChecker : FirRegularClassChecker() {
             return
         }
 
-        declaration.primaryConstructor?.valueParameters?.let { params ->
+        declaration.primaryConstructorIfAny(context.session)?.valueParameterSymbols?.let { params ->
             if (params.isEmpty()) {
                 reporter.reportOn(annotationSource, FirJvmErrors.JVM_RECORD_WITHOUT_PRIMARY_CONSTRUCTOR_PARAMETERS, context)
                 return
@@ -94,7 +89,7 @@ object FirJvmRecordChecker : FirRegularClassChecker() {
 
         declaration.declarations.forEach { decl ->
             if (decl is FirProperty) {
-                val fromConstructor = decl.source?.kind == FirFakeSourceElementKind.PropertyFromParameter
+                val fromConstructor = decl.source?.kind == KtFakeSourceElementKind.PropertyFromParameter
                 if (decl.isVar && fromConstructor) {
                     reporter.reportOn(decl.source, FirJvmErrors.JVM_RECORD_NOT_VAL_PARAMETER, context)
                 } else if (!fromConstructor && (decl.hasBackingField || decl.delegateFieldSymbol != null)) {
@@ -106,7 +101,7 @@ object FirJvmRecordChecker : FirRegularClassChecker() {
         }
 
         declaration.superTypeRefs.firstOrNull()?.let { typeRef ->
-            if (typeRef.source?.kind != FirRealSourceElementKind) return@let
+            if (typeRef.source?.kind != KtRealSourceElementKind) return@let
             if (typeRef.toRegularClassSymbol(context.session)?.classKind == ClassKind.CLASS) {
                 reporter.reportOn(declaration.source, FirJvmErrors.JVM_RECORD_EXTENDS_CLASS, typeRef.coneType, context)
             }

@@ -1,12 +1,12 @@
 FILE: locals.kt
     public? final? fun withLocals(p: Int): Int {
         local final? class Local : R|kotlin/Any| {
-            public? [ContainingClassKey=Local] constructor(pp: Int): R|Local| {
+            public? [ContainingClassKey=Local] constructor([CorrespondingProperty=<local>/pp] pp: Int): R|Local| {
                 super<R|kotlin/Any|>()
             }
 
             public? final? [IsFromPrimaryConstructor=true] val pp: Int = R|<local>/pp|
-                public? get(): Int
+                [ContainingClassKey=Local] public? get(): Int
 
             public? final? fun diff(): <implicit> {
                 ^diff pp#.minus#(p#)

@@ -12,12 +12,12 @@ FILE: boundSmartcastsInBranches.kt
         lvar goodA: R|A?| = Null(null)
          {
             lval <iterator>: R|kotlin/collections/Iterator<A>| = R|<local>/list|.R|SubstitutionOverride<kotlin/collections/List.iterator: R|kotlin/collections/Iterator<A>|>|()
-            while(R|<local>/<iterator>|.R|kotlin/collections/Iterator.hasNext|()) {
+            while(R|<local>/<iterator>|.R|SubstitutionOverride<kotlin/collections/Iterator.hasNext: R|kotlin/Boolean|>|()) {
                 lval a: R|A| = R|<local>/<iterator>|.R|SubstitutionOverride<kotlin/collections/Iterator.next: R|A|>|()
                 when () {
                     ==(R|<local>/goodA|, Null(null)) ->  {
                         R|<local>/goodA| = R|<local>/a|
-                        continue@@@[R|<local>/<iterator>|.R|kotlin/collections/Iterator.hasNext|()]
+                        continue@@@[R|<local>/<iterator>|.R|SubstitutionOverride<kotlin/collections/Iterator.hasNext: R|kotlin/Boolean|>|()]
                     }
                 }
 
@@ -104,6 +104,60 @@ FILE: boundSmartcastsInBranches.kt
         R|<local>/x|.R|/A.s|
     }
     public final fun test_7(): R|kotlin/Unit| {
+        lval z: R|kotlin/String?| = Null(null)
+        lvar y: R|kotlin/String?| = R|<local>/z|
+        lval x: R|kotlin/String?| = R|<local>/y|
+        when () {
+            !=(R|<local>/x|, Null(null)) ->  {
+                R|<local>/x|.R|kotlin/String.length|
+                R|<local>/y|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/z|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+            }
+        }
+
+        when () {
+            !=(R|<local>/y|, Null(null)) ->  {
+                R|<local>/x|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/y|.R|kotlin/String.length|
+                R|<local>/z|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+            }
+        }
+
+        when () {
+            !=(R|<local>/z|, Null(null)) ->  {
+                R|<local>/x|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/y|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/z|.R|kotlin/String.length|
+            }
+        }
+
+        R|<local>/y| = Null(null)
+        when () {
+            !=(R|<local>/x|, Null(null)) ->  {
+                R|<local>/x|.R|kotlin/String.length|
+                R|<local>/y|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/z|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+            }
+        }
+
+        when () {
+            !=(R|<local>/y|, Null(null)) ->  {
+                R|<local>/x|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/y|.R|kotlin/String.length|
+                R|<local>/z|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+            }
+        }
+
+        when () {
+            !=(R|<local>/z|, Null(null)) ->  {
+                R|<local>/x|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/y|.<Inapplicable(UNSAFE_CALL): kotlin/String.length>#
+                R|<local>/z|.R|kotlin/String.length|
+            }
+        }
+
+    }
+    public final fun test_8(): R|kotlin/Unit| {
         lval z: R|kotlin/String?| = Null(null)
         lvar y: R|kotlin/String?| = R|<local>/z|
         lval x: R|kotlin/String?| = R|<local>/y|

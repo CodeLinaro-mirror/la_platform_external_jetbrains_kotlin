@@ -59,7 +59,12 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     val memoryModel: MemoryModel by lazy {
         when (configuration.get(BinaryOptions.memoryModel)!!) {
             MemoryModel.STRICT -> MemoryModel.STRICT
-            MemoryModel.RELAXED -> MemoryModel.RELAXED
+            MemoryModel.RELAXED -> {
+                configuration.report(CompilerMessageSeverity.ERROR,
+                        "Relaxed memory model is deprecated and isn't expected to work right way with current Kotlin version." +
+                                " Use strict as default. ")
+                MemoryModel.STRICT
+            }
             MemoryModel.EXPERIMENTAL -> {
                 if (!target.supportsThreads()) {
                     configuration.report(CompilerMessageSeverity.STRONG_WARNING,
@@ -76,22 +81,47 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         }
     }
     val destroyRuntimeMode: DestroyRuntimeMode get() = configuration.get(KonanConfigKeys.DESTROY_RUNTIME_MODE)!!
-    val gc: GC get() = configuration.get(KonanConfigKeys.GARBAGE_COLLECTOR)!!
-    val gcAggressive: Boolean get() = configuration.get(KonanConfigKeys.GARBAGE_COLLECTOR_AGRESSIVE)!!
+    val gc: GC by lazy {
+        val configGc = configuration.get(KonanConfigKeys.GARBAGE_COLLECTOR)
+        val (gcFallbackReason, realGc) = when {
+            configGc == GC.CONCURRENT_MARK_AND_SWEEP && !target.supportsThreads() ->
+                "Concurrent mark and sweep gc is not supported for this target. Fallback to Same thread mark and sweep is done" to GC.SAME_THREAD_MARK_AND_SWEEP
+            configGc == null -> null to GC.SAME_THREAD_MARK_AND_SWEEP
+            else -> null to configGc
+        }
+        if (gcFallbackReason != null) {
+            configuration.report(CompilerMessageSeverity.STRONG_WARNING, gcFallbackReason)
+        }
+        realGc
+    }
     val runtimeAssertsMode: RuntimeAssertsMode get() = configuration.get(BinaryOptions.runtimeAssertionsMode) ?: RuntimeAssertsMode.IGNORE
     val workerExceptionHandling: WorkerExceptionHandling get() = configuration.get(KonanConfigKeys.WORKER_EXCEPTION_HANDLING)!!
     val runtimeLogs: String? get() = configuration.get(KonanConfigKeys.RUNTIME_LOGS)
     val freezing: Freezing by lazy {
         val freezingMode = configuration.get(BinaryOptions.freezing)
         when {
-            freezingMode == null -> Freezing.Default
-            memoryModel != MemoryModel.EXPERIMENTAL && freezingMode != Freezing.Default -> {
+            freezingMode == null -> when (memoryModel) {
+                MemoryModel.EXPERIMENTAL -> Freezing.Disabled
+                else -> Freezing.Full
+            }
+            memoryModel != MemoryModel.EXPERIMENTAL && freezingMode != Freezing.Full -> {
                 configuration.report(
                         CompilerMessageSeverity.ERROR,
                         "`freezing` can only be adjusted with experimental MM. Falling back to default behavior.")
-                Freezing.Default
+                Freezing.Full
             }
             else -> freezingMode
+        }
+    }
+    val sourceInfoType: SourceInfoType
+        get() = configuration.get(BinaryOptions.sourceInfoType)
+                ?: SourceInfoType.CORESYMBOLICATION.takeIf { debug && target.supportsCoreSymbolication() }
+                ?: SourceInfoType.NOOP
+
+    val gcSchedulerType: GCSchedulerType by lazy {
+        configuration.get(BinaryOptions.gcSchedulerType) ?: when {
+            !target.supportsThreads() -> GCSchedulerType.ON_SAFE_POINTS
+            else -> GCSchedulerType.WITH_TIMER
         }
     }
 
@@ -174,6 +204,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     val infoArgsOnly = configuration.kotlinSourceRoots.isEmpty()
             && configuration[KonanConfigKeys.INCLUDED_LIBRARIES].isNullOrEmpty()
             && librariesToCache.isEmpty()
+            && configuration[KonanConfigKeys.EXPORTED_LIBRARIES].isNullOrEmpty()
 
     fun librariesWithDependencies(moduleDescriptor: ModuleDescriptor?): List<KonanLibrary> {
         if (moduleDescriptor == null) error("purgeUnneeded() only works correctly after resolve is over, and we have successfully marked package files as needed or not needed.")
@@ -184,7 +215,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     private val shouldCoverLibraries = !configuration.getList(KonanConfigKeys.LIBRARIES_TO_COVER).isNullOrEmpty()
 
     internal val runtimeNativeLibraries: List<String> = mutableListOf<String>().apply {
-        add(if (debug) "debug.bc" else "release.bc")
+        if (debug) add("debug.bc")
         val useMimalloc = if (configuration.get(KonanConfigKeys.ALLOCATION_MODE) == "mimalloc") {
             if (target.supportsMimallocAllocator()) {
                 true
@@ -207,19 +238,28 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
             }
             MemoryModel.EXPERIMENTAL -> {
                 add("common_gc.bc")
+                add("experimental_memory_manager.bc")
                 when (gc) {
                     GC.SAME_THREAD_MARK_AND_SWEEP -> {
-                        add("experimental_memory_manager_stms.bc")
                         add("same_thread_ms_gc.bc")
                     }
                     GC.NOOP -> {
-                        add("experimental_memory_manager_noop.bc")
                         add("noop_gc.bc")
+                    }
+                    GC.CONCURRENT_MARK_AND_SWEEP -> {
+                        add("concurrent_ms_gc.bc")
                     }
                 }
             }
         }
         if (shouldCoverLibraries || shouldCoverSources) add("profileRuntime.bc")
+        if (target.supportsCoreSymbolication()) {
+            add("source_info_core_symbolication.bc")
+        }
+        if (target.supportsLibBacktrace()) {
+            add("source_info_libbacktrace.bc")
+            add("libbacktrace.bc")
+        }
         if (useMimalloc) {
             add("opt_alloc.bc")
             add("mimalloc.bc")
@@ -259,6 +299,34 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     internal val isInteropStubs: Boolean get() = manifestProperties?.getProperty("interop") == "true"
 
     internal val propertyLazyInitialization: Boolean get() = configuration.get(KonanConfigKeys.PROPERTY_LAZY_INITIALIZATION)!!
+
+    internal val lazyIrForCaches: Boolean get() = configuration.get(KonanConfigKeys.LAZY_IR_FOR_CACHES)!!
+
+    internal val entryPointName: String by lazy {
+        if (target.family == Family.ANDROID) {
+            val androidProgramTypeOrNull = configuration.get(BinaryOptions.androidProgramType)
+            if (androidProgramTypeOrNull == null) {
+                configuration.report(CompilerMessageSeverity.WARNING, """
+                    Android Native executables are currently built as shared libraries with NativeActivity support, but the default behavior is going to change in 1.7.0 to build regular executables instead.
+                    To keep using NativeActivity support, add binaryOptions["androidProgramType"] = "nativeActivity" to your androidNative executable configuration block in Gradle script:
+                    binaries {
+                        executable {
+                            binaryOptions["androidProgramType"] = "nativeActivity"
+                        }
+                    }
+                    See https://youtrack.jetbrains.com/issue/KT-49406 for more details.
+                """.trimIndent())
+            }
+            val androidProgramType = androidProgramTypeOrNull ?: AndroidProgramType.Default
+            if (androidProgramType.konanMainOverride != null) {
+                return@lazy androidProgramType.konanMainOverride
+            }
+        }
+        "Konan_main"
+    }
+
+    internal val unitSuspendFunctionObjCExport: UnitSuspendFunctionObjCExport
+        get() = configuration.get(BinaryOptions.unitSuspendFunctionObjCExport) ?: UnitSuspendFunctionObjCExport.LEGACY
 }
 
 fun CompilerConfiguration.report(priority: CompilerMessageSeverity, message: String)

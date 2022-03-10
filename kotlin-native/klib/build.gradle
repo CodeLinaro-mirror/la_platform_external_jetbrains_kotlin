@@ -42,9 +42,9 @@ repositories {
 
 dependencies {
     implementation project(":kotlin-stdlib")
-    implementation project(path: ':kotlin-native:backend.native', configuration: 'cli_bc')
+    implementation project(path: ':kotlin-native:backend.native', configuration: 'cli_bcApiElements')
     implementation project(":kotlin-native:utilities:basic-utils")
-    testImplementation "junit:junit:4.12"
+    testImplementation DependenciesKt.commonDependency(project, "junit")
     testImplementation project(":kotlin-test:kotlin-test-junit")
 }
 

@@ -9,14 +9,13 @@ plugins {
     id("jps-compatible")
 }
 
-apply(from = "functionalTest.gradle.kts")
-val functionalTestImplementation by configurations
+if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+    apply(from = "functionalTest.gradle.kts")
+}
 
 configure<GradlePluginDevelopmentExtension> {
     isAutomatedPublishing = false
 }
-
-val jarContents by configurations.creating
 
 repositories {
     google()
@@ -25,6 +24,10 @@ repositories {
 
 pill {
     variant = PillExtension.Variant.FULL
+}
+
+kotlin.sourceSets.all {
+    languageSettings.optIn("kotlin.RequiresOptIn")
 }
 
 dependencies {
@@ -52,8 +55,9 @@ dependencies {
     compileOnly(project(":kotlin-gradle-build-metrics"))
     embedded(project(":kotlin-gradle-build-metrics"))
 
-    implementation("com.google.code.gson:gson:${rootProject.extra["versions.jar.gson"]}")
-    implementation("com.google.guava:guava:${rootProject.extra["versions.jar.guava"]}")
+    implementation(commonDependency("com.google.code.gson:gson"))
+    implementation(commonDependency("com.google.guava:guava"))
+
     implementation("de.undercouch:gradle-download-task:4.1.1")
     implementation("com.github.gundy:semver4j:0.16.4:nodeps") {
         exclude(group = "*")
@@ -65,37 +69,42 @@ dependencies {
     compileOnly("com.android.tools.build:builder-model:3.4.0")
     compileOnly("org.codehaus.groovy:groovy-all:2.4.12")
     compileOnly(project(":kotlin-reflect"))
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    compileOnly(intellijCore())
 
-    runtimeOnly(projectRuntimeJar(":kotlin-compiler-embeddable"))
-    runtimeOnly(projectRuntimeJar(":kotlin-annotation-processing-gradle"))
-    runtimeOnly(projectRuntimeJar(":kotlin-android-extensions"))
-    runtimeOnly(projectRuntimeJar(":kotlin-compiler-runner"))
-    runtimeOnly(projectRuntimeJar(":kotlin-scripting-compiler-embeddable"))
-    runtimeOnly(projectRuntimeJar(":kotlin-scripting-compiler-impl-embeddable"))
+    runtimeOnly(project(":kotlin-compiler-embeddable"))
+    runtimeOnly(project(":kotlin-annotation-processing-gradle"))
+    runtimeOnly(project(":kotlin-android-extensions"))
+    runtimeOnly(project(":kotlin-compiler-runner"))
+    runtimeOnly(project(":kotlin-scripting-compiler-embeddable"))
+    runtimeOnly(project(":kotlin-scripting-compiler-impl-embeddable"))
 
-    jarContents(compileOnly(intellijDep()) {
-        includeJars("asm-all", "gson", "guava", "serviceMessages", rootProject = rootProject)
-    })
+    compileOnly(commonDependency("org.jetbrains.teamcity:serviceMessages"))
+
+    embedded(commonDependency("org.jetbrains.intellij.deps:asm-all")) { isTransitive = false }
+    embedded(commonDependency("com.google.code.gson:gson")) { isTransitive = false }
+    embedded(commonDependency("com.google.guava:guava")) { isTransitive = false }
+    embedded(commonDependency("org.jetbrains.teamcity:serviceMessages")) { isTransitive = false }
 
     // com.android.tools.build:gradle has ~50 unneeded transitive dependencies
     compileOnly("com.android.tools.build:gradle:3.0.0") { isTransitive = false }
     compileOnly("com.android.tools.build:gradle-core:3.0.0") { isTransitive = false }
     compileOnly("com.android.tools.build:builder-model:3.0.0") { isTransitive = false }
-    functionalTestImplementation("com.android.tools.build:gradle:4.0.1") {
-        because("Functional tests are using APIs from Android. Latest Version is used to avoid NoClassDefFoundError")
+
+    if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        "functionalTestImplementation"("com.android.tools.build:gradle:4.0.1") {
+            because("Functional tests are using APIs from Android. Latest Version is used to avoid NoClassDefFoundError")
+        }
+        "functionalTestImplementation"(gradleKotlinDsl())
     }
 
-    functionalTestImplementation(gradleKotlinDsl())
-
-    testImplementation(intellijDep()) { includeJars("junit", "serviceMessages", rootProject = rootProject) }
+    testImplementation(commonDependency("org.jetbrains.teamcity:serviceMessages"))
 
     testCompileOnly(project(":compiler"))
     testImplementation(projectTests(":kotlin-build-common"))
     testImplementation(project(":kotlin-android-extensions"))
     testImplementation(project(":kotlin-compiler-runner"))
     testImplementation(project(":kotlin-test::kotlin-test-junit"))
-    testImplementation("junit:junit:4.12")
+    testImplementation(commonDependency("junit:junit"))
     testImplementation(project(":kotlin-gradle-statistics"))
     testCompileOnly(project(":kotlin-reflect-api"))
     testCompileOnly(project(":kotlin-annotation-processing"))
@@ -105,20 +114,10 @@ dependencies {
 }
 
 if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
-    configurations.compile.get().exclude("com.android.tools.external.com-intellij", "intellij-core")
+    configurations.api.get().exclude("com.android.tools.external.com-intellij", "intellij-core")
 }
 
-noDefaultJar()
-runtimeJar(rewriteDefaultJarDepsToShadedCompiler()).configure {
-    dependsOn(jarContents)
-
-    from {
-        jarContents.asFileTree.map {
-            if (it.endsWith(".jar")) zipTree(it)
-            else it
-        }
-    }
-}
+runtimeJar(rewriteDefaultJarDepsToShadedCompiler())
 
 tasks {
     named<ProcessResources>("processResources") {

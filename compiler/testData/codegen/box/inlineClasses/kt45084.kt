@@ -1,6 +1,9 @@
-// IGNORE_BACKEND: WASM
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class Z(val value: Long)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Z(val value: Long)
 
 fun f(g: (
     z: Z,

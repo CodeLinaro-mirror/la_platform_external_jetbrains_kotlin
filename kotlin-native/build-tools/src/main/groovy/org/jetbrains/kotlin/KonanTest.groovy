@@ -17,6 +17,8 @@
 package org.jetbrains.kotlin
 
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.TaskAction
 import org.gradle.process.ExecResult
@@ -31,26 +33,57 @@ import java.util.stream.Collectors
 import java.io.File
 
 class RunExternalTestGroup extends JavaExec implements CompilerRunner {
-    def platformManager = project.project(":kotlin-native").platformManager
-    def target = platformManager.targetManager(project.testTarget).target
+    private def platformManager = project.project(":kotlin-native").platformManager
+    private def target = platformManager.targetManager(project.testTarget).target
+
+    @Internal
     def dist = UtilsKt.getKotlinNativeDist(project)
 
+    @Input
     def enableKonanAssertions = true
+
+    @Input
     def verifyIr = true
+
+    @Input
+    @Optional
     String outputDirectory = null
+    @Input
+    @Optional
     String goldValue = null
+
+    @Internal
     // Checks test's output against gold value and returns true if the output matches the expectation
     Function<String, Boolean> outputChecker = { str -> (goldValue == null || goldValue == str) }
+
+    @Input
     boolean printOutput = true
+
+    @Input
+    @Optional
     String testData = null
+
+    @Input
     int expectedExitStatus = 0
+
+    @Input
+    @Optional
     List<String> arguments = null
+
+    @Input
+    @Optional
     List<String> flags = null
 
+    @Input
     boolean multiRuns = false
+    @Input
+    @Optional
     List<List<String>> multiArguments = null
 
+    @Input
     boolean expectedFail = false
+
+    @Input
     boolean compilerMessages = false
 
     // Uses directory defined in $outputSourceSetName source set
@@ -125,6 +158,7 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
     // FIXME: output directory here changes and hence this is not a property
     String executablePath() { return "$outputDirectory/program.tr" }
 
+    @Internal
     OutputStream out
 
     void runExecutable() {
@@ -147,7 +181,7 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
 
         def exitCodeMismatch = false
         for (int i = 0; i < times; i++) {
-            ExecResult execResult = project.execute {
+            ExecResult execResult = project.extensions.executor.execute {
 
                 commandLine exe
 
@@ -204,20 +238,26 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
      * 2. Build a final executable from this klibrary.
      */
     @Input
-    public def enableTwoStageCompilation = false
+    def enableTwoStageCompilation = false
 
     @Input
     def groupDirectory = "."
 
-    def ignoredTests = []
+    @Input
+    @Optional
+    List<String> ignoredTests = null
 
+    @Input
+    @Optional
     String filter = project.findProperty("filter")
 
+    @Internal
     def testGroupReporter = new KonanTestGroupReportEnvironment(project)
 
     void parseLanguageFlags(String src) {
         def text = project.rootProject.file(src).text
-        def languageSettings = findLinesWithPrefixesRemoved(text, "// !LANGUAGE: ")
+        def languageSettings = findLinesWithPrefixesRemoved(text, "// !LANGUAGE: ") +
+                findLinesWithPrefixesRemoved(text, '// LANGUAGE: ')
         if (languageSettings.size() != 0) {
             languageSettings.forEach { line ->
                 line.split(" ").toList().forEach {
@@ -227,10 +267,10 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
             }
         }
 
-        def experimentalSettings = findLinesWithPrefixesRemoved(text, "// !USE_EXPERIMENTAL: ")
+        def experimentalSettings = findLinesWithPrefixesRemoved(text, "// !OPT_IN: ")
         if (experimentalSettings.size() != 0) {
             experimentalSettings.forEach { line ->
-                line.split(" ").toList().forEach { flags.add("-Xopt-in=$it") }
+                line.split(" ").toList().forEach { flags.add("-opt-in=$it") }
             }
         }
         def expectActualLinker = findLinesWithPrefixesRemoved(text, "// EXPECT_ACTUAL_LINKER")
@@ -265,7 +305,7 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
         return text
     }
 
-    List<TestFile> createTestFiles(String src) {
+    List<TestFile> createTestFiles(String src, TestModule defaultModule) {
         def identifier = /[a-zA-Z_][a-zA-Z0-9_]/
         def fullQualified = /[a-zA-Z_][a-zA-Z0-9_.]/
         def importRegex = /(?m)^\s*import\s+/
@@ -279,8 +319,12 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
         def imports = []
         def classes = []
         def vars = new HashSet<String>()  // variables that has the same name as a package
-        TestModule mainModule = null
-        def testFiles = TestDirectivesKt.buildCompileList(project.rootProject.file(src).toPath(), "$outputDirectory/${project.rootProject.file(src).name}")
+        TestModule mainModule = defaultModule
+        def testFiles = TestDirectivesKt.buildCompileList(
+                project.rootProject.file(src).toPath(),
+                "$outputDirectory/${project.rootProject.file(src).name}",
+                mainModule
+        )
         for (TestFile testFile : testFiles) {
             def text = testFile.text
             def filePath = testFile.path
@@ -380,8 +424,7 @@ class RunExternalTestGroup extends JavaExec implements CompilerRunner {
                         "_launcher.kt",
                         "$outputDirectory/$src/_launcher.kt".toString(),
                         launcherText,
-                        mainModule ?: testFiles.collect { it.module }.find { it.isDefaultModule() }
-                                ?: TestModule.default()
+                        mainModule
                 )
         )
         return testFiles
@@ -447,15 +490,24 @@ fun runTest() {
 
         if (excludeList.any { fileName.replace(File.separator, "/").contains(it) }) return false
 
-        def languageSettings = findLinesWithPrefixesRemoved(text, '// !LANGUAGE: ')
+        def languageSettings = findLinesWithPrefixesRemoved(text, '// !LANGUAGE: ') +
+                findLinesWithPrefixesRemoved(text, '// LANGUAGE: ')
         if (!languageSettings.empty) {
             def settings = languageSettings.first()
             if (settings.contains('-ProperIeee754Comparisons') ||  // K/N supports only proper IEEE754 comparisons
                     settings.contains('-ReleaseCoroutines') ||     // only release coroutines
                     settings.contains('-DataClassInheritance') ||  // old behavior is not supported
-                    settings.contains('-ProhibitAssigningSingleElementsToVarargsInNamedForm')) { // Prohibit these assignments
+                    settings.contains('-ProhibitAssigningSingleElementsToVarargsInNamedForm') ||  // Prohibit these assignments
+                    settings.contains('-ProhibitDataClassesOverridingCopy') ||  // Prohibit as no longer supported
+                    settings.contains('-ProhibitOperatorMod') ||  // Prohibit as no longer supported
+                    settings.contains('-UseBuilderInferenceOnlyIfNeeded') || // Run only default one
+                    settings.contains('-UseCorrectExecutionOrderForVarargArguments')) {  // Run only correct one
                 return false
             }
+        }
+        def diagnostics = findLinesWithPrefixesRemoved(text, '// !DIAGNOSTICS')
+        if (!diagnostics.empty) {
+            return false
         }
 
         def version = findLinesWithPrefixesRemoved(text, '// LANGUAGE_VERSION: ')
@@ -505,6 +557,8 @@ fun runTest() {
             }
         }
 
+        def defaultModule = TestModule.default()
+
         testGroupReporter.suite(name) { suite ->
             // Build tests in the group
             flags = (flags ?: []) + "-tr"
@@ -514,8 +568,13 @@ fun runTest() {
                 if (isEnabledForNativeBackend(src)) {
                     // Create separate output directory for each test in the group.
                     parseLanguageFlags(src)
-                    compileList.addAll(createTestFiles(src))
+                    compileList.addAll(createTestFiles(src, defaultModule))
                 }
+            }
+            if (compileList.any { it.module.dependencies.contains("support") }) {
+                def supportModule = TestModule.support()
+                compileList.add(new TestFile("helpers.kt", "$outputDirectory/helpers.kt",
+                        CoroutineTestUtilKt.createTextForHelpers(), supportModule))
             }
             compileList*.writeTextToFile()
             try {
@@ -532,7 +591,9 @@ fun runTest() {
                 } else {
                     // Regular compilation with modules.
                     Map<String, TestModule> modules = compileList.stream()
-                            .map { it.module }
+                            .map {
+                                println(it.module)
+                                it.module }
                             .distinct()
                             .collect(Collectors.toMap({ it.name }, UnaryOperator.identity()))
 
@@ -542,6 +603,7 @@ fun runTest() {
                     def compiler = new MultiModuleCompilerInvocations(this, outputDirectory, executablePath(), modules, flags)
 
                     orderedModules.reverse().each { module ->
+                        println("${module.name}  ${module.dependencies}")
                         if (!module.isDefaultModule()) {
                             compiler.produceLibrary(module)
                         }
@@ -553,8 +615,8 @@ fun runTest() {
                 project.logger.quiet("ERROR: Compilation failed for test suite: $name with exception", ex)
                 project.logger.quiet("The following files were unable to compile:")
                 ktFiles.each { project.logger.quiet(it.name) }
-                suite.abort(ex, ktFiles.size())
-                throw new RuntimeException("Compilation failed", ex)
+                suite.abort("Compilation failed for test suite: $name", ex, ktFiles.collect { it.name })
+                return
             }
 
             // Run the tests.

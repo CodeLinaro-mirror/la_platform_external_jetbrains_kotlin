@@ -10,7 +10,8 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.*
-import java.util.*
+import org.jetbrains.kotlin.utils.IDEAPlatforms
+import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
 
 @SuppressWarnings("WeakerAccess")
 abstract class CommonCompilerArguments : CommonToolArguments() {
@@ -133,12 +134,6 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     var inlineClasses: Boolean by FreezableVar(false)
 
     @Argument(
-        value = "-Xpolymorphic-signature",
-        description = "Enable experimental support for @PolymorphicSignature (MethodHandle/VarHandle)"
-    )
-    var polymorphicSignature: Boolean by FreezableVar(false)
-
-    @Argument(
         value = "-Xlegacy-smart-cast-after-try",
         description = "Allow var smart casts despite assignment in try block"
     )
@@ -155,6 +150,14 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
         description = "Enable reading of contracts from metadata"
     )
     var readDeserializedContracts: Boolean by FreezableVar(false)
+
+    @IDEAPluginsCompatibilityAPI(
+        IDEAPlatforms._212, // maybe 211 AS used it too
+        IDEAPlatforms._213,
+        message = "Please migrate to -opt-in",
+        plugins = "Android"
+    )
+    var experimental: Array<String>? = null
 
     @Argument(
         value = "-Xuse-experimental",
@@ -383,6 +386,24 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     )
     var selfUpperBoundInference: Boolean by FreezableVar(false)
 
+    @Argument(
+        value = "-Xcontext-receivers",
+        description = "Enable experimental context receivers"
+    )
+    var contextReceivers: Boolean by FreezableVar(false)
+
+    @Argument(
+        value = "-Xklib-relative-path-base",
+        description = "Provide a base paths to compute source's relative paths in klib (default is empty)"
+    )
+    var relativePathBases: Array<String>? by FreezableVar(null)
+
+    @Argument(
+        value = "-Xklib-normalize-absolute-path",
+        description = "Normalize absolute paths in klibs"
+    )
+    var normalizeAbsolutePath: Boolean by FreezableVar(false)
+
     open fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         return HashMap<AnalysisFlag<*>, Any>().apply {
             put(AnalysisFlags.skipMetadataVersionCheck, skipMetadataVersionCheck)
@@ -396,12 +417,11 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
             }
             val optInDeprecatedFqNames = optInDeprecated?.toList().orEmpty()
             if (optInDeprecatedFqNames.isNotEmpty()) {
-                // TODO: uncomment this after -opt-in bootstrapping and Gradle script fixing
-//                collector.report(
-//                    WARNING, "'-Xopt-in' is deprecated and will be removed in a future release, please use -opt-in instead"
-//                )
+                collector.report(
+                    WARNING, "'-Xopt-in' is deprecated and will be removed in a future release, please use -opt-in instead"
+                )
             }
-            put(AnalysisFlags.useExperimental, useExperimentalFqNames + optInDeprecatedFqNames + optIn?.toList().orEmpty())
+            put(AnalysisFlags.optIn, useExperimentalFqNames + optInDeprecatedFqNames + optIn?.toList().orEmpty())
             put(AnalysisFlags.expectActualLinker, expectActualLinker)
             put(AnalysisFlags.explicitApiVersion, apiVersion != null)
             put(AnalysisFlags.allowResultReturnType, allowResultReturnType)
@@ -412,6 +432,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
             put(AnalysisFlags.extendedCompilerChecks, extendedCompilerChecks)
             put(AnalysisFlags.allowKotlinPackage, allowKotlinPackage)
             put(AnalysisFlags.builtInsFromSources, builtInsFromSources)
+            put(AnalysisFlags.allowFullyQualifiedNameInKClass, true)
         }
     }
 
@@ -440,12 +461,12 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
                 put(LanguageFeature.DisableCompatibilityModeForNewInference, LanguageFeature.State.ENABLED)
             }
 
-            if (inlineClasses) {
-                put(LanguageFeature.InlineClasses, LanguageFeature.State.ENABLED)
+            if (contextReceivers) {
+                put(LanguageFeature.ContextReceivers, LanguageFeature.State.ENABLED)
             }
 
-            if (polymorphicSignature) {
-                put(LanguageFeature.PolymorphicSignature, LanguageFeature.State.ENABLED)
+            if (inlineClasses) {
+                put(LanguageFeature.InlineClasses, LanguageFeature.State.ENABLED)
             }
 
             if (legacySmartCastAfterTry) {
@@ -637,14 +658,14 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
         }
     }
 
-    protected open fun checkIrSupport(languageVersionSettings: LanguageVersionSettings, collector: MessageCollector) {
-        // backend-specific
-    }
-
     protected open fun defaultLanguageVersion(collector: MessageCollector): LanguageVersion =
         LanguageVersion.LATEST_STABLE
 
     protected open fun checkPlatformSpecificSettings(languageVersionSettings: LanguageVersionSettings, collector: MessageCollector) {
+    }
+
+    protected open fun checkIrSupport(languageVersionSettings: LanguageVersionSettings, collector: MessageCollector) {
+        // backend-specific
     }
 
     private enum class VersionKind(val text: String) {

@@ -9,6 +9,7 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.codegen.context.CodegenContext
 import org.jetbrains.kotlin.codegen.context.MethodContext
 import org.jetbrains.kotlin.codegen.context.ScriptContext
+import org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings.METHOD_FOR_FUNCTION
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializerExtension
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
@@ -79,11 +80,10 @@ class ScriptCodegen private constructor(
             classBuilder: ClassBuilder,
             methodContext: MethodContext
     ) {
-        val jvmSignature = typeMapper.mapScriptSignature(
-            scriptDescriptor,
-            scriptContext.earlierScripts
-        )
+        val jvmSignature = typeMapper.mapScriptSignature(scriptDescriptor)
         val asmMethod = jvmSignature.asmMethod
+
+        classBuilder.serializationBindings.put(METHOD_FOR_FUNCTION, scriptDescriptor.unsubstitutedPrimaryConstructor, asmMethod)
 
         scriptContext.resultFieldInfo?.let { resultFieldInfo ->
             classBuilder.newField(
@@ -129,7 +129,7 @@ class ScriptCodegen private constructor(
                 field.store(value, iv)
             }
 
-            if (!scriptContext.earlierScripts.isEmpty()) {
+            if (scriptContext.scriptDescriptor.isReplScript) {
                 val scriptsParamIndex = frameMap.enterTemp(AsmUtil.getArrayType(OBJECT_TYPE))
 
                 scriptContext.earlierScripts.forEachIndexed { earlierScriptIndex, earlierScript ->

@@ -5,43 +5,46 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
-import org.jetbrains.kotlin.descriptors.Deprecation
-import org.jetbrains.kotlin.descriptors.DeprecationLevelValue
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtRealSourceElementKind
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
-import org.jetbrains.kotlin.fir.FirRealSourceElementKind
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.getDeprecation
-import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
+import org.jetbrains.kotlin.fir.expressions.FirResolvable
+import org.jetbrains.kotlin.fir.expressions.FirStatement
+import org.jetbrains.kotlin.fir.resolved
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 object FirDeprecationChecker : FirBasicExpressionChecker() {
 
     private val allowedSourceKinds = setOf(
-        FirRealSourceElementKind,
-        FirFakeSourceElementKind.DesugaredIncrementOrDecrement
+        KtRealSourceElementKind,
+        KtFakeSourceElementKind.DesugaredIncrementOrDecrement
     )
 
     override fun check(expression: FirStatement, context: CheckerContext, reporter: DiagnosticReporter) {
         if (!allowedSourceKinds.contains(expression.source?.kind)) return
-        if (expression is FirAnnotationCall || expression is FirDelegatedConstructorCall) return //checked by FirDeprecatedTypeChecker
+        if (expression is FirAnnotation || expression is FirDelegatedConstructorCall) return //checked by FirDeprecatedTypeChecker
         val resolvable = expression as? FirResolvable ?: return
-        val reference = resolvable.calleeReference as? FirResolvedNamedReference ?: return
+        val reference = resolvable.calleeReference.resolved ?: return
         val referencedSymbol = reference.resolvedSymbol
 
-        reportDeprecationIfNeeded(expression.source, referencedSymbol, expression, context, reporter)
+        reportDeprecationIfNeeded(reference.source, referencedSymbol, expression, context, reporter)
     }
 
     internal fun reportDeprecationIfNeeded(
-        source: FirSourceElement?,
+        source: KtSourceElement?,
         referencedSymbol: FirBasedSymbol<*>,
         callSite: FirElement?,
         context: CheckerContext,
@@ -52,24 +55,24 @@ object FirDeprecationChecker : FirBasicExpressionChecker() {
     }
 
     internal fun reportDeprecation(
-        source: FirSourceElement?,
+        source: KtSourceElement?,
         referencedSymbol: FirBasedSymbol<*>,
-        deprecation: Deprecation,
+        deprecationInfo: DeprecationInfo,
         reporter: DiagnosticReporter,
         context: CheckerContext
     ) {
-        val diagnostic = when (deprecation.level) {
+        val diagnostic = when (deprecationInfo.deprecationLevel) {
             DeprecationLevelValue.ERROR, DeprecationLevelValue.HIDDEN -> FirErrors.DEPRECATION_ERROR
             DeprecationLevelValue.WARNING -> FirErrors.DEPRECATION
         }
-        reporter.reportOn(source, diagnostic, referencedSymbol, deprecation.message ?: "", context)
+        reporter.reportOn(source, diagnostic, referencedSymbol, deprecationInfo.message ?: "", context)
     }
 
     private fun getWorstDeprecation(
         callSite: FirElement?,
         symbol: FirBasedSymbol<*>,
         context: CheckerContext
-    ): Deprecation? {
+    ): DeprecationInfo? {
         val deprecationInfos = listOfNotNull(
             symbol.getDeprecation(callSite),
             symbol.safeAs<FirConstructorSymbol>()

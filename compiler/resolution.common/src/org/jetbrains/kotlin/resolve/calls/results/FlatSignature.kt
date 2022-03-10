@@ -12,17 +12,35 @@ interface SpecificityComparisonCallbacks {
     fun isNonSubtypeNotLessSpecific(specific: KotlinTypeMarker, general: KotlinTypeMarker): Boolean
 }
 
+class TypeWithConversion(val resultType: KotlinTypeMarker?, val originalTypeIfWasConverted: KotlinTypeMarker? = null)
+
 class FlatSignature<out T> constructor(
     val origin: T,
     val typeParameters: Collection<TypeParameterMarker>,
-    val valueParameterTypes: List<KotlinTypeMarker?>,
     val hasExtensionReceiver: Boolean,
+    val contextReceiverCount: Int,
     val hasVarargs: Boolean,
     val numDefaults: Int,
     val isExpect: Boolean,
-    val isSyntheticMember: Boolean
+    val isSyntheticMember: Boolean,
+    val valueParameterTypes: List<TypeWithConversion?>,
 ) {
     val isGeneric = typeParameters.isNotEmpty()
+
+    constructor(
+        origin: T,
+        typeParameters: Collection<TypeParameterMarker>,
+        valueParameterTypes: List<KotlinTypeMarker?>,
+        hasExtensionReceiver: Boolean,
+        contextReceiverCount: Int,
+        hasVarargs: Boolean,
+        numDefaults: Int,
+        isExpect: Boolean,
+        isSyntheticMember: Boolean,
+    ) : this(
+        origin, typeParameters, hasExtensionReceiver, contextReceiverCount, hasVarargs, numDefaults, isExpect,
+        isSyntheticMember, valueParameterTypes.map(::TypeWithConversion)
+    )
 
     companion object
 }
@@ -39,19 +57,28 @@ interface SimpleConstraintSystem {
     val context: TypeSystemInferenceExtensionContext
 }
 
-fun <T> SimpleConstraintSystem.isSignatureNotLessSpecific(
+private fun <T> SimpleConstraintSystem.isValueParameterTypeNotLessSpecific(
     specific: FlatSignature<T>,
     general: FlatSignature<T>,
     callbacks: SpecificityComparisonCallbacks,
-    specificityComparator: TypeSpecificityComparator
+    specificityComparator: TypeSpecificityComparator,
+    typeKindSelector: (TypeWithConversion?) -> KotlinTypeMarker?
 ): Boolean {
-    if (specific.hasExtensionReceiver != general.hasExtensionReceiver) return false
-    if (specific.valueParameterTypes.size != general.valueParameterTypes.size) return false
-
     val typeParameters = general.typeParameters
     val typeSubstitutor = registerTypeVariables(typeParameters)
 
-    for ((specificType, generalType) in specific.valueParameterTypes.zip(general.valueParameterTypes)) {
+    val specificContextReceiverCount = specific.contextReceiverCount
+    val generalContextReceiverCount = general.contextReceiverCount
+
+    var specificValueParameterTypes = specific.valueParameterTypes
+    var generalValueParameterTypes = general.valueParameterTypes
+    if (specificContextReceiverCount != generalContextReceiverCount) {
+        specificValueParameterTypes = specificValueParameterTypes.drop(specificContextReceiverCount)
+        generalValueParameterTypes = generalValueParameterTypes.drop(generalContextReceiverCount)
+    }
+    val valueParameters = specificValueParameterTypes.map(typeKindSelector).zip(generalValueParameterTypes.map(typeKindSelector))
+
+    for ((specificType, generalType) in valueParameters) {
         if (specificType == null || generalType == null) continue
 
         if (specificityComparator.isDefinitelyLessSpecific(specificType, generalType)) {
@@ -78,6 +105,32 @@ fun <T> SimpleConstraintSystem.isSignatureNotLessSpecific(
                 .let { if (captureFromArgument) context.captureFromExpression(it) ?: it else it }
             addSubtypeConstraint(specificCapturedType, substitutedGeneralType)
         }
+    }
+
+    return true
+}
+
+fun <T> SimpleConstraintSystem.isSignatureNotLessSpecific(
+    specific: FlatSignature<T>,
+    general: FlatSignature<T>,
+    callbacks: SpecificityComparisonCallbacks,
+    specificityComparator: TypeSpecificityComparator,
+    useOriginalSamTypes: Boolean = false
+): Boolean {
+    if (specific.hasExtensionReceiver != general.hasExtensionReceiver) return false
+    if (specific.contextReceiverCount > general.contextReceiverCount) return false
+    if (specific.valueParameterTypes.size - specific.contextReceiverCount != general.valueParameterTypes.size - general.contextReceiverCount)
+        return false
+
+    if (!isValueParameterTypeNotLessSpecific(specific, general, callbacks, specificityComparator) { it?.resultType }) {
+        return false
+    }
+
+    if (useOriginalSamTypes && !isValueParameterTypeNotLessSpecific(
+            specific, general, callbacks, specificityComparator
+        ) { it?.originalTypeIfWasConverted }
+    ) {
+        return false
     }
 
     return !hasContradiction()

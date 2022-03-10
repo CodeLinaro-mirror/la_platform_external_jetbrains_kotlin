@@ -133,6 +133,8 @@ abstract class IrBasedCallableDescriptor<T : IrDeclaration>(owner: T) : Callable
 
     override fun getDispatchReceiverParameter(): ReceiverParameterDescriptor? = null
 
+    override fun getContextReceiverParameters(): List<ReceiverParameterDescriptor> = emptyList()
+
     override fun getTypeParameters(): List<TypeParameterDescriptor> {
         TODO("not implemented")
     }
@@ -183,6 +185,7 @@ open class IrBasedValueParameterDescriptor(owner: IrValueParameter) : ValueParam
     override fun getName() = owner.name
     override fun declaresDefaultValue() = owner.defaultValue != null
     override fun getCompileTimeInitializer(): ConstantValue<*>? = null
+    override fun cleanCompileTimeInitializerCache() {}
 
     override fun copy(newOwner: CallableDescriptor, newName: Name, newIndex: Int) = TODO("not implemented")
 
@@ -323,6 +326,8 @@ open class IrBasedVariableDescriptor(owner: IrVariable) : VariableDescriptor, Ir
         TODO("")
     }
 
+    override fun cleanCompileTimeInitializerCache() {}
+
     override fun getOverriddenDescriptors(): Collection<VariableDescriptor> {
         TODO("Not Implemented")
     }
@@ -356,6 +361,8 @@ open class IrBasedVariableDescriptorWithAccessor(owner: IrLocalDelegatedProperty
     override fun getCompileTimeInitializer(): ConstantValue<*>? {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
+
+    override fun cleanCompileTimeInitializerCache() {}
 
     override fun getType(): KotlinType = owner.type.toIrBasedKotlinType()
 
@@ -606,6 +613,10 @@ open class IrBasedClassDescriptor(owner: IrClass) : ClassDescriptor, IrBasedDecl
 
     override fun getThisAsReceiverParameter() = owner.thisReceiver?.toIrBasedDescriptor() as ReceiverParameterDescriptor
 
+    override fun getContextReceivers(): List<ReceiverParameterDescriptor> {
+        TODO("Not yet implemented")
+    }
+
     override fun getUnsubstitutedPrimaryConstructor() =
         owner.declarations.filterIsInstance<IrConstructor>().singleOrNull { it.isPrimary }?.toIrBasedDescriptor()
 
@@ -732,6 +743,10 @@ open class IrBasedEnumEntryDescriptor(owner: IrEnumEntry) : ClassDescriptor, IrB
 
     override fun getThisAsReceiverParameter() = (owner.parent as IrClass).toIrBasedDescriptor().thisAsReceiverParameter
 
+    override fun getContextReceivers(): List<ReceiverParameterDescriptor> {
+        TODO("Not yet implemented")
+    }
+
     override fun getUnsubstitutedPrimaryConstructor(): ClassConstructorDescriptor? {
         TODO("not implemented")
     }
@@ -818,6 +833,8 @@ open class IrBasedPropertyDescriptor(owner: IrProperty) :
         return null
     }
 
+    override fun cleanCompileTimeInitializerCache() {}
+
     override fun isSetterProjectedOut(): Boolean {
         TODO("not implemented")
     }
@@ -858,6 +875,10 @@ open class IrBasedPropertyDescriptor(owner: IrProperty) :
 
     override fun getExtensionReceiverParameter() =
         owner.getter?.extensionReceiverParameter?.toIrBasedDescriptor() as? ReceiverParameterDescriptor
+
+    override fun getContextReceiverParameters(): List<ReceiverParameterDescriptor> {
+        TODO("Not yet implemented")
+    }
 
     override fun isExternal() = owner.isExternal
 
@@ -1002,6 +1023,8 @@ open class IrBasedFieldDescriptor(owner: IrField) : PropertyDescriptor, IrBasedD
         TODO("not implemented")
     }
 
+    override fun cleanCompileTimeInitializerCache() {}
+
     override fun isSetterProjectedOut(): Boolean {
         TODO("not implemented")
     }
@@ -1042,6 +1065,10 @@ open class IrBasedFieldDescriptor(owner: IrField) : PropertyDescriptor, IrBasedD
 
     override fun getExtensionReceiverParameter(): ReceiverParameterDescriptor? =
         owner.correspondingPropertySymbol?.owner?.toIrBasedDescriptor()?.extensionReceiverParameter
+
+    override fun getContextReceiverParameters(): List<ReceiverParameterDescriptor> {
+        TODO("Not yet implemented")
+    }
 
     override fun isExternal() = owner.isExternal
 

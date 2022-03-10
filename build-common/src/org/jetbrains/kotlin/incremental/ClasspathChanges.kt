@@ -5,72 +5,46 @@
 
 package org.jetbrains.kotlin.incremental
 
-import org.jetbrains.kotlin.name.FqName
-import java.io.ObjectInputStream
-import java.io.ObjectOutputStream
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled
+import java.io.File
 import java.io.Serializable
 
 /**
- * Changes to the classpath of the `KotlinCompile` task, used to compute the source files that need to be recompiled during an incremental
- * run.
+ * Changes to the classpath of the `KotlinCompile` task, or information to compute them later by the Kotlin incremental compiler (see
+ * [ClasspathSnapshotEnabled.IncrementalRun.ToBeComputedByIncrementalCompiler].
  */
 sealed class ClasspathChanges : Serializable {
 
-    class Available() : ClasspathChanges() {
+    sealed class ClasspathSnapshotEnabled : ClasspathChanges() {
 
-        lateinit var lookupSymbols: List<LookupSymbol>
-            private set
+        abstract val classpathSnapshotFiles: ClasspathSnapshotFiles
 
-        lateinit var fqNames: List<FqName>
-            private set
+        sealed class IncrementalRun : ClasspathSnapshotEnabled() {
 
-        constructor(lookupSymbols: List<LookupSymbol>, fqNames: List<FqName>) : this() {
-            this.lookupSymbols = lookupSymbols
-            this.fqNames = fqNames
+            class NoChanges(override val classpathSnapshotFiles: ClasspathSnapshotFiles) : IncrementalRun()
+
+            class ToBeComputedByIncrementalCompiler(override val classpathSnapshotFiles: ClasspathSnapshotFiles) : IncrementalRun()
         }
 
-        private fun writeObject(out: ObjectOutputStream) {
-            out.writeInt(lookupSymbols.size)
-            lookupSymbols.forEach {
-                out.writeUTF(it.name)
-                out.writeUTF(it.scope)
-            }
+        class NotAvailableDueToMissingClasspathSnapshot(override val classpathSnapshotFiles: ClasspathSnapshotFiles) :
+            ClasspathSnapshotEnabled()
 
-            out.writeInt(fqNames.size)
-            fqNames.forEach {
-                out.writeUTF(it.asString())
-            }
-        }
-
-        private fun readObject(ois: ObjectInputStream) {
-            val lookupSymbolsSize = ois.readInt()
-            val lookupSymbols = ArrayList<LookupSymbol>(lookupSymbolsSize)
-            repeat(lookupSymbolsSize) {
-                val name = ois.readUTF()
-                val scope = ois.readUTF()
-                lookupSymbols.add(LookupSymbol(name, scope))
-            }
-            this.lookupSymbols = lookupSymbols
-
-            val fqNamesSize = ois.readInt()
-            val fqNames = ArrayList<FqName>(fqNamesSize)
-            repeat(fqNamesSize) {
-                val fqNameString = ois.readUTF()
-                fqNames.add(FqName(fqNameString))
-            }
-            this.fqNames = fqNames
-        }
-
-        companion object {
-            private const val serialVersionUID = 0L
-        }
+        class NotAvailableForNonIncrementalRun(override val classpathSnapshotFiles: ClasspathSnapshotFiles) : ClasspathSnapshotEnabled()
     }
 
-    sealed class NotAvailable : ClasspathChanges() {
-        object UnableToCompute : NotAvailable()
-        object ForNonIncrementalRun : NotAvailable()
-        object ClasspathSnapshotIsDisabled : NotAvailable()
-        object ReservedForTestsOnly : NotAvailable()
-        object ForJSCompiler : NotAvailable()
+    object ClasspathSnapshotDisabled : ClasspathChanges()
+
+    object NotAvailableForJSCompiler : ClasspathChanges()
+}
+
+class ClasspathSnapshotFiles(
+    val currentClasspathEntrySnapshotFiles: List<File>,
+    classpathSnapshotDir: File
+) : Serializable {
+
+    val shrunkPreviousClasspathSnapshotFile: File = File(classpathSnapshotDir, "shrunk-classpath-snapshot.bin")
+
+    companion object {
+        private const val serialVersionUID = 0L
     }
 }

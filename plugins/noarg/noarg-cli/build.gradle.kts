@@ -13,16 +13,15 @@ dependencies {
     compileOnly(project(":compiler:util"))
     compileOnly(project(":compiler:plugin-api"))
     compileOnly(project(":compiler:ir.backend.common"))
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
-    compileOnly(intellijDep()) { includeJars("asm-all", rootProject = rootProject) }
-    runtime(kotlinStdlib())
+    compileOnly(intellijCore())
+    compileOnly(commonDependency("org.jetbrains.intellij.deps:asm-all"))
+    implementation(kotlinStdlib())
 
-    testCompile(project(":compiler:backend"))
-    testCompile(project(":compiler:cli"))
-    testCompile(projectTests(":compiler:tests-common"))
-    testCompile(commonDep("junit:junit"))
-
-    testRuntimeOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    testApi(project(":compiler:backend"))
+    testApi(project(":compiler:cli"))
+    testApi(projectTests(":compiler:tests-common"))
+    testApi(commonDependency("junit:junit"))
+    testApi(intellijCore())
 }
 
 sourceSets {

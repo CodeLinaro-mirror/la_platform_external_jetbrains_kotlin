@@ -1,29 +1,29 @@
 FILE: collectionLiterals.kt
     public? final? annotation class Ann1 : R|kotlin/Annotation| {
-        public? [ContainingClassKey=Ann1] constructor(arr: IntArray): R|Ann1| {
+        public? [ContainingClassKey=Ann1] constructor([CorrespondingProperty=/Ann1.arr] arr: IntArray): R|Ann1| {
             super<R|kotlin/Any|>()
         }
 
         public? final? [IsFromPrimaryConstructor=true] val arr: IntArray = R|<local>/arr|
-            public? get(): IntArray
+            [ContainingClassKey=Ann1] public? get(): IntArray
 
     }
     public? final? annotation class Ann2 : R|kotlin/Annotation| {
-        public? [ContainingClassKey=Ann2] constructor(arr: DoubleArray): R|Ann2| {
+        public? [ContainingClassKey=Ann2] constructor([CorrespondingProperty=/Ann2.arr] arr: DoubleArray): R|Ann2| {
             super<R|kotlin/Any|>()
         }
 
         public? final? [IsFromPrimaryConstructor=true] val arr: DoubleArray = R|<local>/arr|
-            public? get(): DoubleArray
+            [ContainingClassKey=Ann2] public? get(): DoubleArray
 
     }
     public? final? annotation class Ann3 : R|kotlin/Annotation| {
-        public? [ContainingClassKey=Ann3] constructor(arr: Array<String>): R|Ann3| {
+        public? [ContainingClassKey=Ann3] constructor([CorrespondingProperty=/Ann3.arr] arr: Array<String>): R|Ann3| {
             super<R|kotlin/Any|>()
         }
 
         public? final? [IsFromPrimaryConstructor=true] val arr: Array<String> = R|<local>/arr|
-            public? get(): Array<String>
+            [ContainingClassKey=Ann3] public? get(): Array<String>
 
     }
     @Ann1(<implicitArrayOf>()) @Ann2(<implicitArrayOf>()) @Ann3(<implicitArrayOf>()) public? final? class Zero : R|kotlin/Any| {

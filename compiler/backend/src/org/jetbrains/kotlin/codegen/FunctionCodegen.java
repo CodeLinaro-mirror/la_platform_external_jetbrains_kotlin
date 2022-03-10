@@ -127,7 +127,6 @@ public class FunctionCodegen {
                         CoroutineCodegenUtilKt.<FunctionDescriptor>unwrapInitialDescriptorForSuspendFunction(functionDescriptor),
                         function,
                         v.getThisName(),
-                        state.getConstructorCallNormalizationMode(),
                         this
                 );
             } else {
@@ -530,6 +529,7 @@ public class FunctionCodegen {
             }
 
             ParameterDescriptor annotated =
+                    // TODO: Generate annotations for context receivers
                     kind == JvmMethodParameterKind.VALUE
                     ? iterator.next()
                     : kind == JvmMethodParameterKind.RECEIVER
@@ -719,8 +719,14 @@ public class FunctionCodegen {
             @NotNull JvmDefaultMode jvmDefaultMode
     ) {
         return OwnerKind.DEFAULT_IMPLS == context.getContextKind() &&
-            jvmDefaultMode.isCompatibility() &&
-            JvmAnnotationUtilKt.checkIsImplementationCompiledToJvmDefault(functionDescriptor, jvmDefaultMode);
+               isCompiledInCompatibilityMode(jvmDefaultMode, functionDescriptor) &&
+               JvmAnnotationUtilKt.checkIsImplementationCompiledToJvmDefault(functionDescriptor, jvmDefaultMode);
+    }
+
+    private static boolean isCompiledInCompatibilityMode(JvmDefaultMode mode, CallableMemberDescriptor descriptor) {
+        return mode.isCompatibility() ||
+               (mode == JvmDefaultMode.ALL_INCOMPATIBLE &&
+               JvmAnnotationUtilKt.hasJvmDefaultWithCompatibilityAnnotation(descriptor.getContainingDeclaration()));
     }
 
     private static void generateLocalVariableTable(
@@ -807,6 +813,7 @@ public class FunctionCodegen {
                             : nameForDestructuredParameter;
                     break;
                 case RECEIVER:
+                case CONTEXT_RECEIVER:
                     parameterName = DescriptorAsmUtil.getNameForReceiverParameter(
                             functionDescriptor, typeMapper.getBindingContext(), state.getLanguageVersionSettings());
                     break;
@@ -1331,7 +1338,7 @@ public class FunctionCodegen {
         }
 
         for (JvmMethodParameterSignature parameter : signature.getValueParameters()) {
-            if (parameter.getKind() == JvmMethodParameterKind.RECEIVER) {
+            if (parameter.getKind() == JvmMethodParameterKind.RECEIVER || parameter.getKind() == JvmMethodParameterKind.CONTEXT_RECEIVER) {
                 if (extensionReceiverParameter != null) {
                     frameMap.enter(extensionReceiverParameter, state.getTypeMapper().mapType(extensionReceiverParameter));
                 }
@@ -1682,11 +1689,12 @@ public class FunctionCodegen {
 
         // Fake overrides in interfaces should be expanded to implementation to make proper default check
         if (JvmAnnotationUtilKt.checkIsImplementationCompiledToJvmDefault(memberDescriptor, mode)) {
-            boolean isSyntheticInCompatibilityOrJvmDefault = isSynthetic && (mode.isCompatibility() || mode == JvmDefaultMode.ENABLE);
+            boolean isCompatibilityMode = isCompiledInCompatibilityMode(mode, memberDescriptor);
+            boolean isSyntheticInCompatibilityOrJvmDefault = isSynthetic && (isCompatibilityMode || mode == JvmDefaultMode.ENABLE);
             return (kind != OwnerKind.DEFAULT_IMPLS && !isSyntheticInCompatibilityOrJvmDefault) ||
                    (kind == OwnerKind.DEFAULT_IMPLS &&
                     (isSyntheticInCompatibilityOrJvmDefault ||
-                     (mode.isCompatibility() && !JvmAnnotationUtilKt.hasJvmDefaultNoCompatibilityAnnotation(containingDeclaration))) && !DescriptorVisibilities.isPrivate(memberDescriptor.getVisibility()));
+                     (isCompatibilityMode && !JvmAnnotationUtilKt.hasJvmDefaultNoCompatibilityAnnotation(containingDeclaration))) && !DescriptorVisibilities.isPrivate(memberDescriptor.getVisibility()));
         } else {
             switch (kind) {
                 case DEFAULT_IMPLS: return true;

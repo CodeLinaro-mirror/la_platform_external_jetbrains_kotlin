@@ -1,3 +1,0 @@
-KtFunctionCall:
-argumentMapping = {  }
-targetFunction = <constructor>(): A

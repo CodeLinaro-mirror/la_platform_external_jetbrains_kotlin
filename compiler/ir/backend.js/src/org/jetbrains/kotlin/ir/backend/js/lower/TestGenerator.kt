@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
+import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
@@ -21,25 +22,27 @@ import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
-fun generateTests(context: JsIrBackendContext, moduleFragment: IrModuleFragment) {
-    val generator = TestGenerator(context) { context.createTestContainerFun(moduleFragment) }
+fun generateJsTests(context: JsIrBackendContext, moduleFragment: IrModuleFragment) {
+    val generator = TestGenerator(context, false)
 
     moduleFragment.files.toList().forEach {
         generator.lower(it)
     }
 }
 
-class TestGenerator(val context: JsIrBackendContext, val testContainerFactory: () -> IrSimpleFunction) : FileLoweringPass {
+class TestGenerator(val context: JsCommonBackendContext, val groupByPackage: Boolean) : FileLoweringPass {
 
     override fun lower(irFile: IrFile) {
-        irFile.declarations.forEach {
+        // Additional copy to prevent ConcurrentModificationException
+        ArrayList(irFile.declarations).forEach {
             if (it is IrClass) {
-                generateTestCalls(it) { suiteForPackage(irFile.fqName) }
+                generateTestCalls(it) { if (groupByPackage) suiteForPackage(irFile) else context.createTestContainerFun(irFile) }
             }
 
             // TODO top-level functions
@@ -48,8 +51,8 @@ class TestGenerator(val context: JsIrBackendContext, val testContainerFactory: (
 
     private val packageSuites = mutableMapOf<FqName, IrSimpleFunction>()
 
-    private fun suiteForPackage(fqName: FqName) = packageSuites.getOrPut(fqName) {
-        context.suiteFun!!.createInvocation(fqName.asString(), testContainerFactory())
+    private fun suiteForPackage(irFile: IrFile) = packageSuites.getOrPut(irFile.fqName) {
+        context.suiteFun!!.createInvocation(irFile.fqName.asString(), context.createTestContainerFun(irFile))
     }
 
     private fun IrSimpleFunctionSymbol.createInvocation(
@@ -61,7 +64,7 @@ class TestGenerator(val context: JsIrBackendContext, val testContainerFactory: (
 
         val function = context.irFactory.buildFun {
             this.name = Name.identifier("$name test fun")
-            this.returnType = context.irBuiltIns.anyNType
+            this.returnType = if (this@createInvocation == context.suiteFun!!) context.irBuiltIns.unitType else context.irBuiltIns.anyNType
             this.origin = JsIrBuilder.SYNTHESIZED_DECLARATION
         }
         function.parent = parentFunction
@@ -166,14 +169,59 @@ class TestGenerator(val context: JsIrBackendContext, val testContainerFactory: (
 
         if (afterFuns.isEmpty()) {
             body.statements += returnStatement
-        } else {
-            body.statements += JsIrBuilder.buildTry(context.irBuiltIns.unitType).apply {
-                tryResult = returnStatement
-                finallyExpression = JsIrBuilder.buildComposite(context.irBuiltIns.unitType).apply {
-                    statements += afterFuns.map {
+            return
+        }
+
+        if (context is JsIrBackendContext && (testFun.returnType as? IrSimpleType)?.classifier == context.intrinsics.promiseClassSymbol) {
+            val finally = context.intrinsics.promiseClassSymbol.owner.declarations
+                .filterIsInstance<IrSimpleFunction>()
+                .first {
+                    it.name.asString() == "finally"
+                }
+
+            val refType = IrSimpleTypeImpl(context.ir.symbols.functionN(0), false, emptyList(), emptyList())
+
+            val afterFunction = context.irFactory.buildFun {
+                this.name = Name.identifier("${irClass.name.asString()} after test fun")
+                this.returnType = context.irBuiltIns.unitType
+                this.origin = JsIrBuilder.SYNTHESIZED_DECLARATION
+            }.apply {
+                parent = fn
+                this.body = context.irFactory.createBlockBody(
+                    UNDEFINED_OFFSET,
+                    UNDEFINED_OFFSET,
+                    afterFuns.map {
                         JsIrBuilder.buildCall(it.symbol).apply {
                             dispatchReceiver = JsIrBuilder.buildGetValue(classVal.symbol)
                         }
+                    }
+                )
+            }
+
+            val finallyLambda = JsIrBuilder.buildFunctionExpression(refType, afterFunction)
+
+            val returnValue = JsIrBuilder.buildCall(
+                finally.symbol
+            ).apply {
+                this.dispatchReceiver = returnStatement.value
+                putValueArgument(0, finallyLambda)
+            }
+
+            body.statements += JsIrBuilder.buildReturn(
+                fn.symbol,
+                returnValue,
+                fn.returnType
+            )
+
+            return
+        }
+
+        body.statements += JsIrBuilder.buildTry(context.irBuiltIns.unitType).apply {
+            tryResult = returnStatement
+            finallyExpression = JsIrBuilder.buildComposite(context.irBuiltIns.unitType).apply {
+                statements += afterFuns.map {
+                    JsIrBuilder.buildCall(it.symbol).apply {
+                        dispatchReceiver = JsIrBuilder.buildGetValue(classVal.symbol)
                     }
                 }
             }

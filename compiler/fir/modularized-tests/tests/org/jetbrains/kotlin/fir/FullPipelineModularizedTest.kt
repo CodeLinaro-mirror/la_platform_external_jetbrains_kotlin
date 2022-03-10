@@ -15,6 +15,13 @@ class FullPipelineModularizedTest : AbstractFullPipelineModularizedTest() {
         args.useFir = true
         args.useIR = true
         args.apiVersion = LANGUAGE_VERSION
+        args.jvmDefault = "compatibility"
+        args.optIn = arrayOf(
+            "kotlin.RequiresOptIn",
+            "kotlin.contracts.ExperimentalContracts",
+            "kotlin.io.path.ExperimentalPathApi",
+            "org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI"
+        )
     }
 
     fun testTotalKotlin() {

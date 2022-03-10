@@ -18,12 +18,11 @@ import org.jetbrains.kotlin.fir.declarations.FirControlFlowGraphOwner
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirAnnotatedDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
-import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRefsOwner
 import org.jetbrains.kotlin.fir.declarations.FirTypeParametersOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
+import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
@@ -40,6 +39,7 @@ import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.FirBackingField
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.FirPackageDirective
@@ -66,10 +66,13 @@ import org.jetbrains.kotlin.fir.expressions.FirTryExpression
 import org.jetbrains.kotlin.fir.expressions.FirConstExpression
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.fir.types.FirStarProjection
+import org.jetbrains.kotlin.fir.types.FirPlaceholderProjection
 import org.jetbrains.kotlin.fir.types.FirTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.expressions.FirArgumentList
 import org.jetbrains.kotlin.fir.expressions.FirCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.expressions.FirComparisonExpression
 import org.jetbrains.kotlin.fir.expressions.FirTypeOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirAssignmentOperatorStatement
@@ -93,6 +96,8 @@ import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.FirComponentCall
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
+import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcast
+import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirSafeCallExpression
@@ -112,6 +117,8 @@ import org.jetbrains.kotlin.fir.expressions.FirStringConcatenationCall
 import org.jetbrains.kotlin.fir.expressions.FirThrowExpression
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpression
+import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcast
+import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcastToNull
 import org.jetbrains.kotlin.fir.expressions.FirWrappedDelegateExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
@@ -191,18 +198,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(declaration)
     }
 
-    open fun visitAnnotatedDeclaration(annotatedDeclaration: FirAnnotatedDeclaration) {
-        visitElement(annotatedDeclaration)
-    }
-
-    open fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
-        visitElement(anonymousInitializer)
-    }
-
-    open fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration) {
-        visitElement(typedDeclaration)
-    }
-
     open fun visitTypeParameterRefsOwner(typeParameterRefsOwner: FirTypeParameterRefsOwner) {
         visitElement(typeParameterRefsOwner)
     }
@@ -213,6 +208,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     open fun visitMemberDeclaration(memberDeclaration: FirMemberDeclaration) {
         visitElement(memberDeclaration)
+    }
+
+    open fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
+        visitElement(anonymousInitializer)
+    }
+
+    open fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration) {
+        visitElement(typedDeclaration)
     }
 
     open fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration) {
@@ -277,6 +280,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     open fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor) {
         visitElement(propertyAccessor)
+    }
+
+    open fun visitBackingField(backingField: FirBackingField) {
+        visitElement(backingField)
     }
 
     open fun visitConstructor(constructor: FirConstructor) {
@@ -383,6 +390,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(starProjection)
     }
 
+    open fun visitPlaceholderProjection(placeholderProjection: FirPlaceholderProjection) {
+        visitElement(placeholderProjection)
+    }
+
     open fun visitTypeProjectionWithVariance(typeProjectionWithVariance: FirTypeProjectionWithVariance) {
         visitElement(typeProjectionWithVariance)
     }
@@ -395,8 +406,16 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(call)
     }
 
+    open fun visitAnnotation(annotation: FirAnnotation) {
+        visitElement(annotation)
+    }
+
     open fun visitAnnotationCall(annotationCall: FirAnnotationCall) {
         visitElement(annotationCall)
+    }
+
+    open fun visitAnnotationArgumentMapping(annotationArgumentMapping: FirAnnotationArgumentMapping) {
+        visitElement(annotationArgumentMapping)
     }
 
     open fun visitComparisonExpression(comparisonExpression: FirComparisonExpression) {
@@ -491,6 +510,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(thisReceiverExpression)
     }
 
+    open fun <E : FirExpression> visitWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast: FirWrappedExpressionWithSmartcast<E>) {
+        visitElement(wrappedExpressionWithSmartcast)
+    }
+
+    open fun <E : FirExpression> visitWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>) {
+        visitElement(wrappedExpressionWithSmartcastToNull)
+    }
+
     open fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast) {
         visitElement(expressionWithSmartcast)
     }
@@ -565,6 +592,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     open fun visitWhenSubjectExpression(whenSubjectExpression: FirWhenSubjectExpression) {
         visitElement(whenSubjectExpression)
+    }
+
+    open fun visitWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast) {
+        visitElement(whenSubjectExpressionWithSmartcast)
+    }
+
+    open fun visitWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull) {
+        visitElement(whenSubjectExpressionWithSmartcastToNull)
     }
 
     open fun visitWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression) {
@@ -707,18 +742,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitDeclaration(declaration)
     }
 
-    final override fun visitAnnotatedDeclaration(annotatedDeclaration: FirAnnotatedDeclaration, data: Nothing?) {
-        visitAnnotatedDeclaration(annotatedDeclaration)
-    }
-
-    final override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: Nothing?) {
-        visitAnonymousInitializer(anonymousInitializer)
-    }
-
-    final override fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: Nothing?) {
-        visitTypedDeclaration(typedDeclaration)
-    }
-
     final override fun visitTypeParameterRefsOwner(typeParameterRefsOwner: FirTypeParameterRefsOwner, data: Nothing?) {
         visitTypeParameterRefsOwner(typeParameterRefsOwner)
     }
@@ -729,6 +752,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitMemberDeclaration(memberDeclaration: FirMemberDeclaration, data: Nothing?) {
         visitMemberDeclaration(memberDeclaration)
+    }
+
+    final override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: Nothing?) {
+        visitAnonymousInitializer(anonymousInitializer)
+    }
+
+    final override fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: Nothing?) {
+        visitTypedDeclaration(typedDeclaration)
     }
 
     final override fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration, data: Nothing?) {
@@ -793,6 +824,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor, data: Nothing?) {
         visitPropertyAccessor(propertyAccessor)
+    }
+
+    final override fun visitBackingField(backingField: FirBackingField, data: Nothing?) {
+        visitBackingField(backingField)
     }
 
     final override fun visitConstructor(constructor: FirConstructor, data: Nothing?) {
@@ -899,6 +934,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitStarProjection(starProjection)
     }
 
+    final override fun visitPlaceholderProjection(placeholderProjection: FirPlaceholderProjection, data: Nothing?) {
+        visitPlaceholderProjection(placeholderProjection)
+    }
+
     final override fun visitTypeProjectionWithVariance(typeProjectionWithVariance: FirTypeProjectionWithVariance, data: Nothing?) {
         visitTypeProjectionWithVariance(typeProjectionWithVariance)
     }
@@ -911,8 +950,16 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitCall(call)
     }
 
+    final override fun visitAnnotation(annotation: FirAnnotation, data: Nothing?) {
+        visitAnnotation(annotation)
+    }
+
     final override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: Nothing?) {
         visitAnnotationCall(annotationCall)
+    }
+
+    final override fun visitAnnotationArgumentMapping(annotationArgumentMapping: FirAnnotationArgumentMapping, data: Nothing?) {
+        visitAnnotationArgumentMapping(annotationArgumentMapping)
     }
 
     final override fun visitComparisonExpression(comparisonExpression: FirComparisonExpression, data: Nothing?) {
@@ -1007,6 +1054,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitThisReceiverExpression(thisReceiverExpression)
     }
 
+    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast: FirWrappedExpressionWithSmartcast<E>, data: Nothing?) {
+        visitWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast)
+    }
+
+    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>, data: Nothing?) {
+        visitWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull)
+    }
+
     final override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: Nothing?) {
         visitExpressionWithSmartcast(expressionWithSmartcast)
     }
@@ -1081,6 +1136,14 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitWhenSubjectExpression(whenSubjectExpression: FirWhenSubjectExpression, data: Nothing?) {
         visitWhenSubjectExpression(whenSubjectExpression)
+    }
+
+    final override fun visitWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast, data: Nothing?) {
+        visitWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast)
+    }
+
+    final override fun visitWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull, data: Nothing?) {
+        visitWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull)
     }
 
     final override fun visitWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression, data: Nothing?) {

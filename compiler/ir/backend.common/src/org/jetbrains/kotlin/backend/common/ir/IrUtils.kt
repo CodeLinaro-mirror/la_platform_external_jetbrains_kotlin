@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.common.ir
 
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.deepCopyWithVariables
+import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
@@ -35,6 +36,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.util.OperatorNameConventions
 import java.io.StringWriter
 
 fun ir2string(ir: IrElement?): String = ir?.render() ?: ""
@@ -398,9 +400,9 @@ fun isElseBranch(branch: IrBranch) = branch is IrElseBranch || ((branch.conditio
 
 fun IrFunction.isMethodOfAny(): Boolean =
     extensionReceiverParameter == null && dispatchReceiverParameter != null &&
-            when (name.asString()) {
-                "hashCode", "toString" -> valueParameters.isEmpty()
-                "equals" -> valueParameters.singleOrNull()?.type?.isNullableAny() == true
+            when (name) {
+                OperatorNameConventions.HASH_CODE, OperatorNameConventions.TO_STRING -> valueParameters.isEmpty()
+                OperatorNameConventions.EQUALS -> valueParameters.singleOrNull()?.type?.isNullableAny() == true
                 else -> false
             }
 
@@ -699,3 +701,28 @@ fun IrExpression?.isPure(
 
     return false
 }
+
+fun CommonBackendContext.createArrayOfExpression(
+    startOffset: Int, endOffset: Int,
+    arrayElementType: IrType,
+    arrayElements: List<IrExpression>
+): IrExpression {
+
+    val arrayType = ir.symbols.array.typeWith(arrayElementType)
+    val arg0 = IrVarargImpl(startOffset, endOffset, arrayType, arrayElementType, arrayElements)
+
+    return IrCallImpl(
+        startOffset,
+        endOffset,
+        arrayType,
+        ir.symbols.arrayOf,
+        1,
+        1
+    ).apply {
+        putTypeArgument(0, arrayElementType)
+        putValueArgument(0, arg0)
+    }
+}
+
+fun IrBuiltIns.getKFunctionType(returnType: IrType, parameterTypes: List<IrType>) =
+    kFunctionN(parameterTypes.size).typeWith(parameterTypes + returnType)

@@ -1,7 +1,9 @@
-// !LANGUAGE: +InlineClasses
-// WITH_RUNTIME
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class IC(val value: Any)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IC(val value: Any)
 
 fun <T> foo(a: Result<T>, ic: IC): Pair<T, Any> = bar(a, ic) { a, ic ->
     a.getOrThrow() to ic.value

@@ -92,7 +92,7 @@ abstract class DeclarationStubGenerator(
     fun generateOrGetFacadeClass(descriptor: DeclarationDescriptor): IrClass? {
         val directMember = descriptor.safeAs<PropertyAccessorDescriptor>()?.correspondingProperty ?: descriptor
         val packageFragment = directMember.containingDeclaration as? PackageFragmentDescriptor ?: return null
-        val containerSource = directMember.safeAs<DescriptorWithContainerSource>()?.containerSource ?: return null
+        val containerSource = extensions.getContainerSource(directMember) ?: return null
         return facadeClassMap.getOrPut(containerSource) {
             extensions.generateFacadeClass(symbolTable.irFactory, containerSource, this)?.also { facade ->
                 val packageStub = generateOrGetEmptyExternalPackageFragmentStub(packageFragment)
@@ -234,16 +234,23 @@ abstract class DeclarationStubGenerator(
 
     private fun KotlinType.toIrType() = typeTranslator.translateType(this)
 
-    internal fun generateValueParameterStub(descriptor: ValueParameterDescriptor): IrValueParameter = with(descriptor) {
-        symbolTable.irFactory.createValueParameter(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET, computeOrigin(this), IrValueParameterSymbolImpl(this), name, index, type.toIrType(),
-            varargElementType?.toIrType(), isCrossinline, isNoinline, isHidden = false, isAssignable = false
-        ).also { irValueParameter ->
+    internal fun generateValueParameterStub(descriptor: ValueParameterDescriptor, index: Int): IrValueParameter = with(descriptor) {
+        IrLazyValueParameter(UNDEFINED_OFFSET, UNDEFINED_OFFSET, computeOrigin(this), IrValueParameterSymbolImpl(this), this, name, index,
+                             type.toIrType(), varargElementType?.toIrType(), isCrossinline, isNoinline, isHidden = false, isAssignable = false, this@DeclarationStubGenerator, typeTranslator)
+        .also { irValueParameter ->
             if (descriptor.declaresDefaultValue()) {
                 irValueParameter.defaultValue = irValueParameter.createStubDefaultValue()
             }
         }
     }
+
+    // in IR Generator enums also have special handling, but here we have not enough data for it
+    // probably, that is not a problem, because you can't add new enum value to external module
+    private fun getEffectiveModality(classDescriptor: ClassDescriptor): Modality =
+        if (DescriptorUtils.isAnnotationClass(classDescriptor))
+            Modality.OPEN
+        else
+            classDescriptor.modality
 
     fun generateClassStub(descriptor: ClassDescriptor): IrClass {
         val referenceClass = symbolTable.referenceClass(descriptor)
@@ -255,7 +262,7 @@ abstract class DeclarationStubGenerator(
             IrLazyClass(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin,
                 it, descriptor,
-                descriptor.name, descriptor.kind, descriptor.visibility, descriptor.modality,
+                descriptor.name, descriptor.kind, descriptor.visibility, getEffectiveModality(descriptor),
                 isCompanion = descriptor.isCompanionObject,
                 isInner = descriptor.isInner,
                 isData = descriptor.isData,
@@ -304,7 +311,7 @@ abstract class DeclarationStubGenerator(
     }
 
     internal fun generateOrGetScopedTypeParameterStub(descriptor: TypeParameterDescriptor): IrTypeParameter {
-        val referenced = symbolTable.referenceTypeParameter(descriptor)
+        val referenced = symbolTable.referenceScopedTypeParameter(descriptor)
         if (referenced.isBound) {
             return referenced.owner
         }

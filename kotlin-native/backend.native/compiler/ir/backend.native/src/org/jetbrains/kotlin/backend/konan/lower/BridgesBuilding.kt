@@ -112,7 +112,7 @@ internal class WorkersBridgesBuilding(val context: Context) : DeclarationContain
                         overriddenFunction = overriddenJobDescriptor,
                         targetSymbol = jobFunction.symbol)
                 bridges += bridge
-                expression.putValueArgument(3, IrFunctionReferenceImpl.fromSymbolDescriptor(
+                expression.putValueArgument(3, IrFunctionReferenceImpl.fromSymbolOwner(
                         startOffset   = job.startOffset,
                         endOffset     = job.endOffset,
                         type          = job.type,
@@ -183,7 +183,7 @@ internal class BridgesBuilding(val context: Context) : ClassLoweringPass {
 
 internal class DECLARATION_ORIGIN_BRIDGE_METHOD(val bridgeTarget: IrFunction) : IrDeclarationOrigin {
     override fun toString(): String {
-        return "BRIDGE_METHOD(target=${bridgeTarget.descriptor})"
+        return "BRIDGE_METHOD(target=${bridgeTarget.symbol})"
     }
 }
 
@@ -211,7 +211,7 @@ private fun IrBlockBodyBuilder.buildTypeSafeBarrier(function: IrFunction,
         if (!typeSafeBarrierDescription.checkParameter(i))
             continue
 
-        val type = originalValueParameters[i].type.erasureForTypeOperation()
+        val type = originalValueParameters[i].type.erasure()
         // Note: erasing to single type is not entirely correct if type parameter has multiple upper bounds.
         // In this case the compiler could generate multiple type checks, one for each upper bound.
         // But let's keep it simple here for now; JVM backend doesn't do this anyway.
@@ -241,7 +241,7 @@ private fun Context.buildBridge(startOffset: Int, endOffset: Int,
         val typeSafeBarrierDescription = BuiltinMethodsWithSpecialGenericSignature.getDefaultValueForOverriddenBuiltinFunction(overriddenFunction.overriddenFunction.descriptor)
         typeSafeBarrierDescription?.let { buildTypeSafeBarrier(bridge, overriddenFunction.function, it) }
 
-        val delegatingCall = IrCallImpl.fromSymbolDescriptor(
+        val delegatingCall = IrCallImpl.fromSymbolOwner(
                 startOffset,
                 endOffset,
                 targetSymbol.owner.returnType,

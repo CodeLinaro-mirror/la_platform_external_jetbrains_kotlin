@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.utils.StringsKt;
 import java.util.List;
 
 import static kotlin.collections.CollectionsKt.*;
+import static org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.STRING;
 import static org.jetbrains.kotlin.diagnostics.rendering.Renderers.*;
 import static org.jetbrains.kotlin.resolve.jvm.diagnostics.ErrorsJvm.*;
 
@@ -61,6 +62,7 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(VOLATILE_ON_DELEGATE, "'@Volatile' annotation cannot be used on delegated properties");
         MAP.put(SYNCHRONIZED_ON_ABSTRACT, "'@Synchronized' annotation cannot be used on abstract functions");
         MAP.put(SYNCHRONIZED_ON_INLINE, "'@Synchronized' annotation has no effect on inline functions");
+        MAP.put(SYNCHRONIZED_ON_VALUE_CLASS, "'@Synchronized' annotation has no effect on value classes");
         MAP.put(SYNCHRONIZED_IN_INTERFACE, "'@Synchronized' annotation cannot be used on interface members");
         MAP.put(EXTERNAL_DECLARATION_CANNOT_BE_ABSTRACT, "External declaration can not be abstract");
         MAP.put(EXTERNAL_DECLARATION_CANNOT_HAVE_BODY, "External declaration can not have a body");
@@ -75,15 +77,10 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(ANNOTATION_IS_NOT_APPLICABLE_TO_MULTIFILE_CLASSES, "Annotation ''@{0}'' is not applicable to the multi-file classes", TO_STRING);
 
         MAP.put(REPEATABLE_CONTAINER_MUST_HAVE_VALUE_ARRAY, "Container annotation ''{0}'' must have a property ''value'' of type ''Array<{1}>''. This code will be prohibited in Kotlin 1.6", TO_STRING, TO_STRING);
-        MAP.put(REPEATABLE_CONTAINER_MUST_HAVE_VALUE_ARRAY_ERROR, "Container annotation ''{0}'' must have a property ''value'' of type ''Array<{1}>''", TO_STRING, TO_STRING);
         MAP.put(REPEATABLE_CONTAINER_HAS_NON_DEFAULT_PARAMETER, "Container annotation ''{0}'' does not have a default value for ''{1}''. This code will be prohibited in Kotlin 1.6", TO_STRING, NAME);
-        MAP.put(REPEATABLE_CONTAINER_HAS_NON_DEFAULT_PARAMETER_ERROR, "Container annotation ''{0}'' does not have a default value for ''{1}''", TO_STRING, NAME);
         MAP.put(REPEATABLE_CONTAINER_HAS_SHORTER_RETENTION, "Container annotation ''{0}'' has shorter retention (''{1}'') than the repeatable annotation ''{2}'' (''{3}''). This code will be prohibited in Kotlin 1.6", TO_STRING, TO_STRING, TO_STRING, TO_STRING);
-        MAP.put(REPEATABLE_CONTAINER_HAS_SHORTER_RETENTION_ERROR, "Container annotation ''{0}'' has shorter retention (''{1}'') than the repeatable annotation ''{2}'' (''{3}'')", TO_STRING, TO_STRING, TO_STRING, TO_STRING);
         MAP.put(REPEATABLE_CONTAINER_TARGET_SET_NOT_A_SUBSET, "Target set of container annotation ''{0}'' must be a subset of the target set of contained annotation ''{1}''. This code will be prohibited in Kotlin 1.6", TO_STRING, TO_STRING);
-        MAP.put(REPEATABLE_CONTAINER_TARGET_SET_NOT_A_SUBSET_ERROR, "Target set of container annotation ''{0}'' must be a subset of the target set of contained annotation ''{1}''", TO_STRING, TO_STRING);
         MAP.put(REPEATABLE_ANNOTATION_HAS_NESTED_CLASS_NAMED_CONTAINER, "Repeatable annotation cannot have a nested class named 'Container'. This name is reserved for auto-generated container class");
-        MAP.put(REPEATABLE_ANNOTATION_HAS_NESTED_CLASS_NAMED_CONTAINER_ERROR, "Repeatable annotation cannot have a nested class named 'Container'. This name is reserved for auto-generated container class");
 
         MAP.put(JVM_PACKAGE_NAME_CANNOT_BE_EMPTY, "''@JvmPackageName'' annotation value cannot be empty");
         MAP.put(JVM_PACKAGE_NAME_MUST_BE_VALID_NAME, "''@JvmPackageName'' annotation value must be a valid dot-qualified name of a package");
@@ -96,7 +93,7 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
                                              "Make sure you have kotlin-reflect.jar in the classpath");
 
         MAP.put(INTERFACE_CANT_CALL_DEFAULT_METHOD_VIA_SUPER, "Interfaces can call JVM-default members via super only within JVM-default members. Please use '-Xjvm-default=all/all-compatibility' modes for such calls");
-        MAP.put(SUBCLASS_CANT_CALL_COMPANION_PROTECTED_NON_STATIC, "Using non-JVM static members protected in the superclass companion is unsupported yet");
+        MAP.put(SUBCLASS_CANT_CALL_COMPANION_PROTECTED_NON_STATIC, "Using protected members which are not @JvmStatic in the superclass companion is unsupported yet");
 
         MAP.put(NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS, "Type mismatch: inferred type is {1} but {0} was expected", RENDER_TYPE, RENDER_TYPE);
         MAP.put(UPPER_BOUND_VIOLATED_BASED_ON_JAVA_ANNOTATIONS, "Type argument is not within its bounds: should be subtype of ''{0}''", RENDER_TYPE, RENDER_TYPE);
@@ -112,6 +109,10 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         );
         MAP.put(RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS,
                 "Unsafe use of a nullable receiver of type {0}", RENDER_TYPE);
+
+        MAP.put(WRONG_NULLABILITY_FOR_JAVA_OVERRIDE,
+                "Override ''{0}'' has incorrect nullability in its signature comparing with overridden ''{1}''", COMPACT, COMPACT);
+
 
         MAP.put(ANNOTATION_TARGETS_NON_EXISTENT_ACCESSOR,
                 "An accessor will not be generated for ''{0}'', so the annotation will not be written to the class file", STRING);
@@ -165,8 +166,8 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(JVM_DEFAULT_IN_JVM6_TARGET,"''@{0}'' is only supported since JVM target 1.8. Recompile with ''-jvm-target 1.8''", STRING);
         MAP.put(JVM_DEFAULT_REQUIRED_FOR_OVERRIDE, "'@JvmDefault' is required for an override of a '@JvmDefault' member");
         MAP.put(JVM_DEFAULT_IN_DECLARATION, "Usage of ''@{0}'' is only allowed with -Xjvm-default option", STRING);
-        MAP.put(JVM_DEFAULT_THROUGH_INHERITANCE, "Inheritance from an interface with '@JvmDefault' members is only allowed with -Xjvm-default option");
-        MAP.put(USAGE_OF_JVM_DEFAULT_THROUGH_SUPER_CALL, "Super calls of '@JvmDefault' members are only allowed with -Xjvm-default option");
+        MAP.put(JVM_DEFAULT_WITH_COMPATIBILITY_IN_DECLARATION, "Usage of '@JvmDefaultWithCompatibility' is only allowed with '-Xjvm-default=all' option");
+        MAP.put(JVM_DEFAULT_WITH_COMPATIBILITY_NOT_ON_INTERFACE, "'@JvmDefaultWithCompatibility' annotation is only allowed on interfaces");
         MAP.put(NON_JVM_DEFAULT_OVERRIDES_JAVA_DEFAULT, "Non-@JvmDefault interface method cannot override default Java method. Please annotate this method with @JvmDefault or enable `-Xjvm-default=all|all-compatibility`");
         MAP.put(EXPLICIT_METADATA_IS_DISALLOWED, "Explicit @Metadata is disallowed");
         MAP.put(SUSPENSION_POINT_INSIDE_MONITOR, "A suspension point at {0} is inside a critical section", STRING);
@@ -181,11 +182,11 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(JVM_RECORD_EXTENDS_CLASS, "Record cannot inherit a class" , RENDER_TYPE);
         MAP.put(JVM_RECORD_REQUIRES_JDK15, "Using @JvmRecords requires at least JDK 15");
         MAP.put(INNER_JVM_RECORD, "@JvmRecord class should not be inner");
-        MAP.put(FIELD_IN_JVM_RECORD, "It's not allowed to have non-constructor properties with backing filed in @JvmRecord class");
+        MAP.put(FIELD_IN_JVM_RECORD, "It's not allowed to have non-constructor properties with backing field in @JvmRecord class");
         MAP.put(DELEGATION_BY_IN_JVM_RECORD, "Delegation is not allowed for @JvmRecord classes");
         MAP.put(NON_DATA_CLASS_JVM_RECORD, "Only data classes are allowed to be marked as @JvmRecord");
         MAP.put(ILLEGAL_JAVA_LANG_RECORD_SUPERTYPE, "Classes cannot have explicit 'java.lang.Record' supertype");
-        MAP.put(JVM_RECORDS_ILLEGAL_BYTECODE_TARGET, "Using @JvmRecord is only allowed with -jvm-target 15 and -Xjvm-enable-preview flag enabled");
+        MAP.put(JVM_RECORDS_ILLEGAL_BYTECODE_TARGET, "Using @JvmRecord is only allowed with -jvm-target 16 or later (or -jvm-target 15 with the -Xjvm-enable-preview flag enabled)");
 
         String MESSAGE_FOR_CONCURRENT_HASH_MAP_CONTAINS =
                 "Method 'contains' from ConcurrentHashMap may have unexpected semantics: it calls 'containsValue' instead of 'containsKey'. " +
@@ -221,6 +222,8 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
 
         MAP.put(TYPEOF_SUSPEND_TYPE, "Suspend functional types are not supported in typeOf");
         MAP.put(TYPEOF_NON_REIFIED_TYPE_PARAMETER_WITH_RECURSIVE_BOUND, "Non-reified type parameters with recursive bounds are not supported yet: {0}", STRING);
+
+        MAP.put(JAVA_SAM_INTERFACE_CONSTRUCTOR_REFERENCE, "Java SAM interface constructor references are prohibited");
     }
 
     @NotNull

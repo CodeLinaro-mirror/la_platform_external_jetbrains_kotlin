@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.api.logging.configuration.WarningMode
 import org.jetbrains.kotlin.gradle.internals.MULTIPLATFORM_PROJECT_METADATA_JSON_FILE_NAME
 import org.jetbrains.kotlin.gradle.internals.parseKotlinSourceSetMetadataFromJson
 import org.jetbrains.kotlin.gradle.native.transformNativeTestProjectWithPluginDsl
@@ -211,6 +212,18 @@ class HierarchicalMppIT : BaseGradleIT() {
         }
     }
 
+    @Test
+    fun testMultiModulesHmppKt48370() = with(Project("hierarchical-mpp-multi-modules", GradleVersionRequired.FOR_MPP_SUPPORT)) {
+        build(
+            "assemble", options = defaultBuildOptions().copy(
+                parallelTasksInProject = true,
+                warningMode = WarningMode.Summary
+            )
+        ) {
+            assertSuccessful()
+        }
+    }
+
     private fun publishThirdPartyLib(
         projectName: String = "third-party-lib",
         directoryPrefix: String = "hierarchical-mpp-published-modules",
@@ -221,8 +234,8 @@ class HierarchicalMppIT : BaseGradleIT() {
         transformNativeTestProjectWithPluginDsl(projectName, gradleVersion, directoryPrefix).apply {
             beforePublishing()
 
-            if (withGranularMetadata) {
-                projectDir.resolve("gradle.properties").appendText("kotlin.mpp.enableGranularSourceSetsMetadata=true")
+            if (!withGranularMetadata) {
+                projectDir.resolve("gradle.properties").appendText("kotlin.internal.mpp.hierarchicalStructureByDefault=false")
             }
 
             build(
@@ -486,6 +499,7 @@ class HierarchicalMppIT : BaseGradleIT() {
                     ModuleDependencyIdentifier(it.first, it.second)
                 }.toSet()
             },
+            sourceSetCInteropMetadataDirectory = mapOf(),
             hostSpecificSourceSets = emptySet(),
             sourceSetBinaryLayout = sourceSetModuleDependencies.mapValues { SourceSetMetadataLayout.KLIB },
             isPublishedAsRoot = true

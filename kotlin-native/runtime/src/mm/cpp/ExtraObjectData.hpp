@@ -14,6 +14,8 @@
 #include "Memory.h"
 #include "TypeInfo.h"
 #include "Utils.hpp"
+#include "MultiSourceQueue.hpp"
+#include "Weak.h"
 
 namespace kotlin {
 namespace mm {
@@ -21,11 +23,14 @@ namespace mm {
 // Optional data that's lazily allocated only for objects that need it.
 class ExtraObjectData : private Pinned, public KonanAllocatorAware {
 public:
+    // flags are stored as single atomic uint32, values are bit numbers in that uint32
     enum Flags : uint32_t {
-        FLAGS_NONE = 0,
-        FLAGS_FROZEN = 1 << 0,
-        FLAGS_NEVER_FROZEN = 1 << 1,
+        FLAGS_FROZEN = 0,
+        FLAGS_NEVER_FROZEN = 1,
+        FLAGS_IN_FINALIZER_QUEUE = 2,
     };
+
+    static constexpr unsigned WEAK_REF_TAG = 1;
 
     MetaObjHeader* AsMetaObjHeader() noexcept { return reinterpret_cast<MetaObjHeader*>(this); }
     static ExtraObjectData& FromMetaObjHeader(MetaObjHeader* header) noexcept { return *reinterpret_cast<ExtraObjectData*>(header); }
@@ -37,34 +42,58 @@ public:
     static ExtraObjectData& GetOrInstall(ObjHeader* object) noexcept { return FromMetaObjHeader(object->meta_object()); }
 
     static ExtraObjectData& Install(ObjHeader* object) noexcept;
-    static void Uninstall(ObjHeader* object) noexcept;
+    void Uninstall() noexcept;
 
 #ifdef KONAN_OBJC_INTEROP
     void** GetAssociatedObjectLocation() noexcept { return &associatedObject_; }
 #endif
+    bool HasAssociatedObject() noexcept;
     void DetachAssociatedObject() noexcept;
 
-    ObjHeader** GetWeakCounterLocation() noexcept { return &weakReferenceCounter_; }
+    bool getFlag(Flags value) noexcept { return (flags_.load() & (1u << static_cast<uint32_t>(value))) != 0; }
+    void setFlag(Flags value) noexcept { flags_.fetch_or(1u << static_cast<uint32_t>(value)); }
 
-    std::atomic<Flags>& flags() noexcept { return flags_; }
 
-    bool HasWeakReferenceCounter() noexcept;
+    bool HasWeakReferenceCounter() noexcept { return hasPointerBits(weakReferenceCounterOrBaseObject_.load(), WEAK_REF_TAG); }
     void ClearWeakReferenceCounter() noexcept;
+    ObjHeader* GetWeakReferenceCounter() noexcept {
+        auto *pointer = weakReferenceCounterOrBaseObject_.load();
+        if (hasPointerBits(pointer, WEAK_REF_TAG)) return clearPointerBits(pointer, WEAK_REF_TAG);
+        return nullptr;
+    }
+    ObjHeader* GetOrSetWeakReferenceCounter(ObjHeader* object, ObjHeader* counter) noexcept {
+        if (weakReferenceCounterOrBaseObject_.compare_exchange_strong(object, setPointerBits(counter, WEAK_REF_TAG))) {
+            return counter;
+        } else {
+            return clearPointerBits(object, WEAK_REF_TAG); // on fail current value of counter is stored to object
+        }
+    }
+    ObjHeader* GetBaseObject() noexcept {
+        auto *header = weakReferenceCounterOrBaseObject_.load();
+        if (hasPointerBits(header, WEAK_REF_TAG)) {
+            return UnsafeWeakReferenceCounterGet(clearPointerBits(header, WEAK_REF_TAG));
+        } else {
+            return header;
+        }
+    }
 
-private:
-    explicit ExtraObjectData(const TypeInfo* typeInfo) noexcept : typeInfo_(typeInfo) {}
+    // info must be equal to objHeader->type_info(), but it needs to be loaded in advance to avoid data races
+    explicit ExtraObjectData(ObjHeader* objHeader, const TypeInfo *info) noexcept :
+        typeInfo_(info), weakReferenceCounterOrBaseObject_(objHeader) {
+    }
     ~ExtraObjectData();
+private:
 
     // Must be first to match `TypeInfo` layout.
     const TypeInfo* typeInfo_;
 
-    std::atomic<Flags> flags_ = FLAGS_NONE;
+    std::atomic<uint32_t> flags_ = 0;
 
 #ifdef KONAN_OBJC_INTEROP
     void* associatedObject_ = nullptr;
 #endif
 
-    ObjHeader* weakReferenceCounter_ = nullptr;
+    std::atomic<ObjHeader*> weakReferenceCounterOrBaseObject_;
 };
 
 } // namespace mm

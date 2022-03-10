@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: WASM
-
 var result = ""
 
 abstract class Base {

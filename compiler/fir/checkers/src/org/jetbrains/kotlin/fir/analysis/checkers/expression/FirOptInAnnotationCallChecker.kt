@@ -5,16 +5,17 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.extractClassesFromArgument
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.findArgumentByName
-import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.coneTypeSafe
@@ -24,14 +25,14 @@ object FirOptInAnnotationCallChecker : FirAnnotationCallChecker() {
     override fun check(expression: FirAnnotationCall, context: CheckerContext, reporter: DiagnosticReporter) {
         val lookupTag = expression.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()?.lookupTag ?: return
         val classId = lookupTag.classId
-        val isMarker = classId == OptInNames.REQUIRES_OPT_IN_CLASS_ID
+        val isRequiresOptIn = classId == OptInNames.REQUIRES_OPT_IN_CLASS_ID
         val isOptIn = classId == OptInNames.OPT_IN_CLASS_ID
-        if (isMarker || isOptIn) {
-            checkUsageOfKotlinExperimentalOrUseExperimental(expression.source, context, reporter)
+        if (isRequiresOptIn || isOptIn) {
+            checkOptInIsEnabled(expression.source, context, reporter)
             if (isOptIn) {
                 val arguments = expression.arguments
                 if (arguments.isEmpty()) {
-                    reporter.reportOn(expression.source, FirErrors.USE_EXPERIMENTAL_WITHOUT_ARGUMENTS, context)
+                    reporter.reportOn(expression.source, FirErrors.OPT_IN_WITHOUT_ARGUMENTS, context)
                 } else {
                     val annotationClasses = expression.findArgumentByName(OptInNames.USE_EXPERIMENTAL_ANNOTATION_CLASS)
                     for (classSymbol in annotationClasses?.extractClassesFromArgument().orEmpty()) {
@@ -39,7 +40,7 @@ object FirOptInAnnotationCallChecker : FirAnnotationCallChecker() {
                             if (classSymbol.loadExperimentalityForMarkerAnnotation() == null) {
                                 reporter.reportOn(
                                     expression.source,
-                                    FirErrors.USE_EXPERIMENTAL_ARGUMENT_IS_NOT_MARKER,
+                                    FirErrors.OPT_IN_ARGUMENT_IS_NOT_MARKER,
                                     classSymbol.classId.asSingleFqName(),
                                     context
                                 )
@@ -51,17 +52,17 @@ object FirOptInAnnotationCallChecker : FirAnnotationCallChecker() {
         }
     }
 
-    private fun checkUsageOfKotlinExperimentalOrUseExperimental(
-        element: FirSourceElement?,
+    private fun checkOptInIsEnabled(
+        element: KtSourceElement?,
         context: CheckerContext,
         reporter: DiagnosticReporter
     ) {
         val languageVersionSettings = context.session.languageVersionSettings
-        val useExperimentalFqNames = languageVersionSettings.getFlag(AnalysisFlags.useExperimental)
+        val useExperimentalFqNames = languageVersionSettings.getFlag(AnalysisFlags.optIn)
         if (!languageVersionSettings.supportsFeature(LanguageFeature.OptInRelease) &&
             OptInNames.REQUIRES_OPT_IN_FQ_NAME.asString() !in useExperimentalFqNames
         ) {
-            reporter.reportOn(element, FirErrors.EXPERIMENTAL_IS_NOT_ENABLED, context)
+            reporter.reportOn(element, FirErrors.OPT_IN_IS_NOT_ENABLED, context)
         }
     }
 }

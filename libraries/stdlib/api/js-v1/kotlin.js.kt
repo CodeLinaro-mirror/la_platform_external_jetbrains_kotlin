@@ -193,7 +193,15 @@ public final external class Date {
     }
 }
 
-@kotlin.Experimental(level = Level.WARNING)
+@kotlin.ExperimentalStdlibApi
+@kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.PROPERTY})
+@kotlin.SinceKotlin(version = "1.6")
+@kotlin.Deprecated(message = "This annotation is a temporal migration assistance and may be removed in the future releases, please consider filing an issue about the case where it is needed")
+public final annotation class EagerInitialization : kotlin.Annotation {
+    public constructor EagerInitialization()
+}
+
 @kotlin.RequiresOptIn(level = Level.WARNING)
 @kotlin.annotation.MustBeDocumented
 @kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
@@ -274,6 +282,8 @@ public open external class Promise<out T> {
     public constructor Promise<out T>(executor: (resolve: (T) -> kotlin.Unit, reject: (kotlin.Throwable) -> kotlin.Unit) -> kotlin.Unit)
 
     public open fun <S> catch(onRejected: (kotlin.Throwable) -> S): kotlin.js.Promise<S>
+
+    public open fun finally(onFinally: () -> kotlin.Unit): kotlin.js.Promise<T>
 
     @kotlin.internal.LowPriorityInOverloadResolution
     public open fun <S> then(onFulfilled: ((T) -> S)?): kotlin.js.Promise<S>

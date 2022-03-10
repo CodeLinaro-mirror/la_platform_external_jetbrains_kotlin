@@ -7,26 +7,28 @@ package org.jetbrains.kotlin.fir.analysis.checkers.extended
 
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.analysis.cfa.*
+import org.jetbrains.kotlin.fir.analysis.cfa.util.*
 import org.jetbrains.kotlin.fir.analysis.checkers.cfa.FirControlFlowChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.isIterator
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccess
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
-import org.jetbrains.kotlin.fir.resolve.inference.isFunctionalType
+import org.jetbrains.kotlin.fir.resolved
+import org.jetbrains.kotlin.fir.resolvedSymbol
+import org.jetbrains.kotlin.fir.types.isFunctionalType
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
@@ -51,7 +53,7 @@ object UnusedChecker : FirControlFlowChecker() {
         override fun visitNode(node: CFGNode<*>) {}
 
         override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
-            val variableSymbol = (node.fir.calleeReference as? FirResolvedNamedReference)?.resolvedSymbol ?: return
+            val variableSymbol = node.fir.calleeReference.resolvedSymbol ?: return
             val dataPerNode = data[node] ?: return
             for (dataPerLabel in dataPerNode.values) {
                 val data = dataPerLabel[variableSymbol] ?: continue
@@ -184,7 +186,7 @@ object UnusedChecker : FirControlFlowChecker() {
             data: Collection<Pair<EdgeLabel, PathAwareVariableStatusInfo>>
         ): PathAwareVariableStatusInfo {
             val dataForNode = visitNode(node, data)
-            if (node.fir.source?.kind is FirFakeSourceElementKind) return dataForNode
+            if (node.fir.source?.kind is KtFakeSourceElementKind) return dataForNode
             val symbol = node.fir.symbol
             return update(dataForNode, symbol) { prev ->
                 when (prev) {
@@ -216,8 +218,7 @@ object UnusedChecker : FirControlFlowChecker() {
             data: Collection<Pair<EdgeLabel, PathAwareVariableStatusInfo>>
         ): PathAwareVariableStatusInfo {
             val dataForNode = visitNode(node, data)
-            val reference = node.fir.lValue as? FirResolvedNamedReference ?: return dataForNode
-            val symbol = reference.resolvedSymbol as? FirPropertySymbol ?: return dataForNode
+            val symbol = node.fir.lValue.resolvedSymbol as? FirPropertySymbol ?: return dataForNode
             return update(dataForNode, symbol) update@{ prev ->
                 val toPut = when {
                     symbol !in localProperties -> {
@@ -251,10 +252,14 @@ object UnusedChecker : FirControlFlowChecker() {
 
         private fun visitAnnotation(
             dataForNode: PathAwareVariableStatusInfo,
-            annotation: FirAnnotationCall,
+            annotation: FirAnnotation,
         ): PathAwareVariableStatusInfo {
-            val qualifiedAccesses = annotation.argumentList.arguments.mapNotNull { it as? FirQualifiedAccess }.toTypedArray()
-            return visitQualifiedAccesses(dataForNode, *qualifiedAccesses)
+            return if (annotation is FirAnnotationCall) {
+                val qualifiedAccesses = annotation.argumentList.arguments.mapNotNull { it as? FirQualifiedAccess }.toTypedArray()
+                visitQualifiedAccesses(dataForNode, *qualifiedAccesses)
+            } else {
+                dataForNode
+            }
         }
 
         private fun visitQualifiedAccesses(
@@ -262,8 +267,7 @@ object UnusedChecker : FirControlFlowChecker() {
             vararg qualifiedAccesses: FirQualifiedAccess,
         ): PathAwareVariableStatusInfo {
             fun retrieveSymbol(qualifiedAccess: FirQualifiedAccess): FirPropertySymbol? {
-                val reference = qualifiedAccess.calleeReference as? FirResolvedNamedReference ?: return null
-                val symbol = reference.resolvedSymbol as? FirPropertySymbol ?: return null
+                val symbol = qualifiedAccess.calleeReference.resolvedSymbol as? FirPropertySymbol ?: return null
                 return if (symbol !in localProperties) null else symbol
             }
 
@@ -280,7 +284,7 @@ object UnusedChecker : FirControlFlowChecker() {
             data: Collection<Pair<EdgeLabel, PathAwareVariableStatusInfo>>
         ): PathAwareVariableStatusInfo {
             val dataForNode = visitNode(node, data)
-            val reference = node.fir.calleeReference as? FirResolvedNamedReference ?: return dataForNode
+            val reference = node.fir.calleeReference.resolved ?: return dataForNode
             val functionSymbol = reference.resolvedSymbol as? FirFunctionSymbol<*> ?: return dataForNode
             val symbol = if (functionSymbol.callableId.callableName.identifier == "invoke") {
                 localProperties.find { it.name == reference.name && it.resolvedReturnTypeRef.coneType.isFunctionalType(session) }
@@ -317,6 +321,6 @@ object UnusedChecker : FirControlFlowChecker() {
     private val FirPropertySymbol.isLoopIterator: Boolean
         get() {
             @OptIn(SymbolInternals::class)
-            return fir.initializer?.source?.kind == FirFakeSourceElementKind.DesugaredForLoop
+            return fir.initializer?.source?.kind == KtFakeSourceElementKind.DesugaredForLoop
         }
 }

@@ -8,9 +8,12 @@ package org.jetbrains.kotlin.light.classes.symbol
 import com.intellij.psi.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.types.KtTypeMappingMode
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.JvmNames.STRICTFP_ANNOTATION_CLASS_ID
+import org.jetbrains.kotlin.name.JvmNames.SYNCHRONIZED_ANNOTATION_CLASS_ID
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import java.util.*
 
@@ -54,13 +57,20 @@ internal class FirLightSimpleMethodForSymbol(
         _typeParameterList?.typeParameters ?: PsiTypeParameter.EMPTY_ARRAY
 
     private fun computeAnnotations(isPrivate: Boolean): List<PsiAnnotation> {
-        val nullability = if (isVoidReturnType || isPrivate) {
+        val nullability = if (isPrivate) {
             NullabilityType.Unknown
         } else {
-            analyzeWithSymbolAsContext(functionSymbol) {
-                getTypeNullability(
-                    functionSymbol.annotatedType.type
-                )
+            analyzeWithSymbolAsContext(functionSymbol) l@{
+                val ktType =
+                    when {
+                        functionSymbol.isSuspend -> // Any?
+                            return@l NullabilityType.Nullable
+                        isVoidReturnType ->
+                            return@l NullabilityType.Unknown
+                        else ->
+                            functionSymbol.returnType
+                    }
+                getTypeNullability(ktType)
             }
         }
 
@@ -96,10 +106,10 @@ internal class FirLightSimpleMethodForSymbol(
         if (!suppressStatic && functionSymbol.hasJvmStaticAnnotation()) {
             modifiers.add(PsiModifier.STATIC)
         }
-        if (functionSymbol.hasAnnotation("kotlin/jvm/Strictfp", null)) {
+        if (functionSymbol.hasAnnotation(STRICTFP_ANNOTATION_CLASS_ID, null)) {
             modifiers.add(PsiModifier.STRICTFP)
         }
-        if (functionSymbol.hasAnnotation("kotlin/jvm/Synchronized", null)) {
+        if (functionSymbol.hasAnnotation(SYNCHRONIZED_ANNOTATION_CLASS_ID, null)) {
             modifiers.add(PsiModifier.SYNCHRONIZED)
         }
 
@@ -115,7 +125,7 @@ internal class FirLightSimpleMethodForSymbol(
     private val _modifierList: PsiModifierList by lazyPub {
         val modifiers = computeModifiers()
         val annotations = computeAnnotations(modifiers.contains(PsiModifier.PRIVATE))
-        FirLightClassModifierList(this, modifiers, annotations)
+        FirLightMemberModifierList(this, modifiers, annotations)
     }
 
     override fun getModifierList(): PsiModifierList = _modifierList
@@ -123,15 +133,27 @@ internal class FirLightSimpleMethodForSymbol(
     override fun isConstructor(): Boolean = false
 
     private val isVoidReturnType: Boolean
-        get() = functionSymbol.annotatedType.type.run {
+        get() = functionSymbol.returnType.run {
             isUnit && nullabilityType != NullabilityType.Nullable
         }
 
     private val _returnedType: PsiType by lazyPub {
-        if (isVoidReturnType) return@lazyPub PsiType.VOID
         analyzeWithSymbolAsContext(functionSymbol) {
-            functionSymbol.annotatedType.type.asPsiType(this@FirLightSimpleMethodForSymbol)
-        }
+            val ktType =
+                when {
+                    functionSymbol.isSuspend -> // Any?
+                        analysisSession.builtinTypes.NULLABLE_ANY
+                    isVoidReturnType ->
+                        return@lazyPub PsiType.VOID
+                    else ->
+                        functionSymbol.returnType
+                }
+            ktType.asPsiType(
+                this@FirLightSimpleMethodForSymbol,
+                KtTypeMappingMode.RETURN_TYPE,
+                containingClass.isAnnotationType
+            )
+        } ?: nonExistentType()
     }
 
     override fun getReturnType(): PsiType = _returnedType

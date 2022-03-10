@@ -17,9 +17,10 @@ import org.jetbrains.kotlin.asJava.classes.LightClassInheritanceHelper
 import org.jetbrains.kotlin.asJava.classes.getOutermostClassOrObject
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtNamedClassOrObjectSymbol
-import org.jetbrains.kotlin.idea.frontend.api.symbols.markers.KtSymbolKind
+import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.light.classes.symbol.classes.checkIsInheritor
+import org.jetbrains.kotlin.light.classes.symbol.classes.createInnerClasses
 import org.jetbrains.kotlin.light.classes.symbol.classes.getOrCreateFirLightClass
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
 import org.jetbrains.kotlin.psi.KtClassBody
@@ -35,7 +36,7 @@ internal abstract class FirLightClassForClassOrObjectSymbol(
 ) : FirLightClassBase(manager),
     StubBasedPsiElement<KotlinClassOrObjectStub<out KtClassOrObject>> {
 
-    private val isTopLevel: Boolean = classOrObjectSymbol.symbolKind == KtSymbolKind.TOP_LEVEL
+    protected val isTopLevel: Boolean = classOrObjectSymbol.symbolKind == KtSymbolKind.TOP_LEVEL
 
     private val _isDeprecated: Boolean by lazyPub {
         classOrObjectSymbol.hasDeprecatedAnnotation()
@@ -77,7 +78,11 @@ internal abstract class FirLightClassForClassOrObjectSymbol(
     override fun getTypeParameters(): Array<PsiTypeParameter> =
         _typeParameterList?.typeParameters ?: PsiTypeParameter.EMPTY_ARRAY
 
-    abstract override fun getOwnInnerClasses(): List<PsiClass>
+    private val _ownInnerClasses: List<FirLightClassBase> by lazyPub {
+        classOrObjectSymbol.createInnerClasses(manager, this, kotlinOrigin)
+    }
+
+    override fun getOwnInnerClasses(): List<PsiClass> = _ownInnerClasses
 
     override fun getTextOffset(): Int = kotlinOrigin?.textOffset ?: 0
     override fun getStartOffsetInParent(): Int = kotlinOrigin?.startOffsetInParent ?: 0

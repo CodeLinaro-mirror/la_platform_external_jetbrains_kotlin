@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.resolve;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import com.intellij.openapi.util.Ref;
 import com.intellij.psi.PsiElement;
 import kotlin.Pair;
@@ -51,6 +52,7 @@ import java.util.Collections;
 
 import static org.jetbrains.kotlin.util.slicedMap.RewritePolicy.DO_NOTHING;
 import static org.jetbrains.kotlin.util.slicedMap.Slices.COMPILE_TIME_VALUE_REWRITE_POLICY;
+import static org.jetbrains.kotlin.util.slicedMap.Slices.CONSERVATIVE_SET_INCLUSION_SEMANTICS;
 
 public interface BindingContext {
     BindingContext EMPTY = new BindingContext() {
@@ -157,6 +159,7 @@ public interface BindingContext {
     WritableSlice<KtCollectionLiteralExpression, ResolvedCall<FunctionDescriptor>> COLLECTION_LITERAL_CALL = Slices.createSimpleSlice();
 
     WritableSlice<KtExpression, ExplicitSmartCasts> SMARTCAST = new BasicWritableSlice<>(DO_NOTHING);
+    WritableSlice<KtExpression, ExplicitSmartCasts> UNSTABLE_SMARTCAST = new BasicWritableSlice<>(DO_NOTHING);
     WritableSlice<KtExpression, Boolean> SMARTCAST_NULL = Slices.createSimpleSlice();
     WritableSlice<KtExpression, ImplicitSmartCasts> IMPLICIT_RECEIVER_SMARTCAST = new BasicWritableSlice<>(DO_NOTHING);
 
@@ -172,13 +175,15 @@ public interface BindingContext {
 
     WritableSlice<Pair<AnonymousFunctionDescriptor, Integer>, Boolean> SUSPEND_LAMBDA_PARAMETER_USED = Slices.createSimpleSlice();
 
+    WritableSlice<KtBinaryExpression, Boolean> MARKED_EQUALIY_CALL_PROPER_IN_BUILDER_INFERENCE = Slices.createSimpleSlice();
+
     /**
      * Has type of current expression has been already resolved
      */
     WritableSlice<KtExpression, Boolean> PROCESSED = Slices.createSimpleSlice();
     // Please do not use this slice (USED_AS_EXPRESSION) directly,
     // use extension element.isUsedAsExpression() instead
-    WritableSlice<KtElement, Boolean> USED_AS_EXPRESSION = Slices.createSimpleSetSlice();
+    WritableSlice<KtElement, Boolean> USED_AS_EXPRESSION = new BasicWritableSlice<>(CONSERVATIVE_SET_INCLUSION_SEMANTICS);
     WritableSlice<KtElement, Boolean> USED_AS_RESULT_OF_LAMBDA = Slices.createSimpleSetSlice();
 
     WritableSlice<VariableDescriptor, CaptureKind> CAPTURED_IN_CLOSURE = new BasicWritableSlice<>(DO_NOTHING);
@@ -260,6 +265,7 @@ public interface BindingContext {
                     .setFurtherLookupSlices(DECLARATIONS_TO_DESCRIPTORS)
                     .build();
 
+    WritableSlice<DeclarationDescriptor, Multimap<String, ReceiverParameterDescriptor>> DESCRIPTOR_TO_CONTEXT_RECEIVER_MAP = Slices.createSimpleSlice();
     WritableSlice<KtReferenceExpression, PsiElement> LABEL_TARGET = Slices.createSimpleSlice();
     WritableSlice<KtReferenceExpression, Collection<? extends PsiElement>> AMBIGUOUS_LABEL_TARGET = Slices.createSimpleSlice();
     WritableSlice<ValueParameterDescriptor, PropertyDescriptor> VALUE_PARAMETER_AS_PROPERTY = Slices.createSimpleSlice();

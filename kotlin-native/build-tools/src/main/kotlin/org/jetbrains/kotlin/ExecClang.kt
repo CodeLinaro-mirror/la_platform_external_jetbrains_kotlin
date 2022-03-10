@@ -17,18 +17,29 @@
 package org.jetbrains.kotlin
 
 import org.gradle.api.Action
-import groovy.lang.Closure
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.internal.file.FileOperations
+import org.gradle.api.internal.project.ProjectInternal
+import org.gradle.api.model.ObjectFactory
+import org.gradle.process.ExecOperations
 import org.gradle.process.ExecResult
 import org.gradle.process.ExecSpec
-import org.gradle.util.ConfigureUtil
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.file.*
+import org.jetbrains.kotlin.konan.file.File as KFile
+import java.io.File
+import javax.inject.Inject
 
-class ExecClang(private val project: Project) {
+abstract class ExecClang @Inject constructor(
+        private val platformManager: PlatformManager,
+        private val llvmDir: File
+    ) {
 
-    private val platformManager = project.project(":kotlin-native").findProperty("platformManager") as PlatformManager
+    @get:Inject
+    protected abstract val fileOperations: FileOperations
+    @get:Inject
+    protected abstract val execOperations: ExecOperations
 
     private fun clangArgsForCppRuntime(target: KonanTarget): List<String> {
         return platformManager.platform(target).clang.clangArgsForKonanSources.asList()
@@ -43,8 +54,7 @@ class ExecClang(private val project: Project) {
         val executable = executableOrNull ?: "clang"
 
         if (listOf("clang", "clang++").contains(executable)) {
-            val llvmDir = project.findProperty("llvmDir")
-            return "${llvmDir}/bin/$executable"
+            return "${llvmDir.absolutePath}/bin/$executable"
         } else {
             throw GradleException("unsupported clang executable: $executable")
         }
@@ -69,11 +79,7 @@ class ExecClang(private val project: Project) {
     // The bare ones invoke clang with system default sysroot.
 
     fun execBareClang(action: Action<in ExecSpec>): ExecResult {
-        return this.execClang(emptyList<String>(), action)
-    }
-
-    fun execBareClang(closure: Closure<in ExecSpec>): ExecResult {
-        return this.execClang(emptyList<String>(), closure)
+        return this.execClang(emptyList(), action)
     }
 
     // The konan ones invoke clang with konan provided sysroots.
@@ -89,14 +95,6 @@ class ExecClang(private val project: Project) {
         return this.execClang(clangArgsForCppRuntime(target), action)
     }
 
-    fun execKonanClang(target: String?, closure: Closure<in ExecSpec>): ExecResult {
-        return this.execClang(clangArgsForCppRuntime(target), closure)
-    }
-
-    fun execKonanClang(target: KonanTarget, closure: Closure<in ExecSpec>): ExecResult {
-        return this.execClang(clangArgsForCppRuntime(target), closure)
-    }
-
     /**
      * Execute Clang the way that produced object file is compatible with
      * the one that produced by Kotlin/Native for given [target]. It means:
@@ -105,7 +103,7 @@ class ExecClang(private val project: Project) {
      */
     fun execClangForCompilerTests(target: KonanTarget, action: Action<in ExecSpec>): ExecResult {
         val defaultArgs = platformManager.platform(target).clang.clangArgs.toList()
-        return project.exec(Action<ExecSpec> {
+        return execOperations.exec {
             action.execute(this)
             executable = if (target.family.isAppleFamily) {
                 resolveToolchainExecutable(target, executable)
@@ -113,14 +111,8 @@ class ExecClang(private val project: Project) {
                 resolveExecutable(executable)
             }
             args = defaultArgs + args
-        })
+        }
     }
-
-    /**
-     * @see execClangForCompilerTests
-     */
-    fun execClangForCompilerTests(target: KonanTarget, closure: Closure<in ExecSpec>): ExecResult =
-            execClangForCompilerTests(target, ConfigureUtil.configureUsing(closure))
 
     // The toolchain ones execute clang from the toolchain.
 
@@ -128,24 +120,12 @@ class ExecClang(private val project: Project) {
         return this.execToolchainClang(platformManager.targetManager(target).target, action)
     }
 
-    fun execToolchainClang(target: String?, closure: Closure<in ExecSpec>): ExecResult {
-        return this.execToolchainClang(platformManager.targetManager(target).target, ConfigureUtil.configureUsing(closure))
-    }
-
     fun execToolchainClang(target: KonanTarget, action: Action<in ExecSpec>): ExecResult {
         val extendedAction = Action<ExecSpec> {
             action.execute(this)
             executable = resolveToolchainExecutable(target, executable)
         }
-        return project.exec(extendedAction)
-    }
-
-    fun execToolchainClang(target: KonanTarget, closure: Closure<in ExecSpec>): ExecResult {
-        return this.execToolchainClang(target, ConfigureUtil.configureUsing(closure))
-    }
-
-    private fun execClang(defaultArgs: List<String>, closure: Closure<in ExecSpec>): ExecResult {
-        return this.execClang(defaultArgs, ConfigureUtil.configureUsing(closure))
+        return execOperations.exec(extendedAction)
     }
 
     private fun execClang(defaultArgs: List<String>, action: Action<in ExecSpec>): ExecResult {
@@ -153,11 +133,24 @@ class ExecClang(private val project: Project) {
             action.execute(this)
             executable = resolveExecutable(executable)
 
-            val hostPlatform = project.findProperty("hostPlatform") as Platform
-            environment["PATH"] = project.files(hostPlatform.clang.clangPaths).asPath +
-                    java.io.File.pathSeparator + environment["PATH"]
+            val hostPlatform = platformManager.hostPlatform
+            environment["PATH"] = fileOperations.configurableFiles(hostPlatform.clang.clangPaths).asPath +
+                    File.pathSeparator + environment["PATH"]
             args = args + defaultArgs
         }
-        return project.exec(extendedAction)
+        return execOperations.exec(extendedAction)
+    }
+
+    companion object {
+        @JvmStatic
+        fun create(project: Project): ExecClang = create(
+                project.objects,
+                project.project(":kotlin-native").findProperty("platformManager") as PlatformManager,
+                project.file(project.findProperty("llvmDir")!!)
+        )
+
+        @JvmStatic
+        fun create(objects: ObjectFactory, platformManager: PlatformManager, llvmDir: File) =
+                objects.newInstance(ExecClang::class.java, platformManager, llvmDir)
     }
 }

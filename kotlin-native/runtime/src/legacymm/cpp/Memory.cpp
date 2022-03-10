@@ -227,14 +227,14 @@ class CycleDetector : private kotlin::Pinned, public KonanAllocatorAware {
   }
 
   void insertCandidate(KRef candidate) {
-    std::lock_guard<kotlin::SpinLock> guard(lock_);
+    std::lock_guard guard(lock_);
 
     auto it = candidateList_.insert(candidateList_.begin(), candidate);
     candidateInList_.emplace(candidate, it);
   }
 
   void removeCandidate(KRef candidate) {
-    std::lock_guard<kotlin::SpinLock> guard(lock_);
+    std::lock_guard guard(lock_);
 
     auto it = candidateInList_.find(candidate);
     if (it == candidateInList_.end())
@@ -243,7 +243,7 @@ class CycleDetector : private kotlin::Pinned, public KonanAllocatorAware {
     candidateInList_.erase(it);
   }
 
-  kotlin::SpinLock lock_;
+  kotlin::SpinLock<kotlin::MutexThreadStateHandling::kIgnore> lock_;
   using CandidateList = KStdList<KRef>;
   CandidateList candidateList_;
   KStdUnorderedMap<KRef, CandidateList::iterator> candidateInList_;
@@ -477,8 +477,13 @@ ALWAYS_INLINE bool isShareable(const ObjHeader* obj) {
     return containerFor(obj)->shareable();
 }
 
-ObjHeader** ObjHeader::GetWeakCounterLocation() {
-    return &this->meta_object()->WeakReference.counter_;
+ObjHeader* ObjHeader::GetWeakCounter() {
+    return this->meta_object()->WeakReference.counter_;
+}
+
+ObjHeader* ObjHeader::GetOrSetWeakCounter(ObjHeader* counter) {
+    UpdateHeapRefIfNull(&meta_object()->WeakReference.counter_, counter);
+    return GetWeakCounter();
 }
 
 #if KONAN_OBJC_INTEROP
@@ -1801,6 +1806,28 @@ void processDecrements(MemoryState* state) {
   RuntimeAssert(IsStrictMemoryModel(), "Only works in strict model now");
   auto* toRelease = state->toRelease;
   state->gcSuspendCount++;
+
+  state->foreignRefManager->processEnqueuedReleaseRefsWith([](ObjHeader* obj) {
+    ContainerHeader* container = containerFor(obj);
+    if (container != nullptr) decrementRC(container);
+  });
+
+  // The code above can call freeContainer if RC drops to zero.
+  // freeContainer can in turn call ZeroHeapRef for freed object fields, which does enqueueDecrementRC.
+  // The latter are processed by the code below. So if we reorder this, the enqueued decrement RC operations
+  // will have to wait for the next GC unnecessarily.
+  //
+  // In addition to being inefficient, the reordering causes https://youtrack.jetbrains.com/issue/KT-49497:
+  // The foreign ref to the frozen aggregating container gets released and causes freeContainer,
+  // which in turn enqueues decrement RC for the same aggregating container.
+  // The enqueued operations outlive processFinalizerQueue at the end of this GC, so during the next GC
+  // they hit the reclaimed memory.
+  // This is generally a special case of the known issue with frozen aggregating containers,
+  // see "TODO: enable me, once account for inner references in frozen objects correctly." above.
+  //
+  // With the current order in this code, wrong accounting for inner references also happens,
+  // but it doesn't do more harm than with regular (non-foreign) references (supposedly only breaks invariants locally).
+
   while (toRelease->size() > 0) {
      auto* container = toRelease->back();
      toRelease->pop_back();
@@ -1811,10 +1838,6 @@ void processDecrements(MemoryState* state) {
      decrementRC(container);
   }
 
-  state->foreignRefManager->processEnqueuedReleaseRefsWith([](ObjHeader* obj) {
-    ContainerHeader* container = containerFor(obj);
-    if (container != nullptr) decrementRC(container);
-  });
   state->gcSuspendCount--;
 }
 
@@ -2541,6 +2564,7 @@ template <bool Strict>
 void leaveFrame(ObjHeader** start, int parameters, int count) {
   MEMORY_LOG("LeaveFrame %p: %d parameters %d locals\n", start, parameters, count)
   FrameOverlay* frame = reinterpret_cast<FrameOverlay*>(start);
+  RuntimeAssert(currentFrame == frame, "Frame to leave is expected to be %p, but current frame is %p", frame, currentFrame);
   if (Strict) {
     currentFrame = frame->previous;
   } else {
@@ -2554,6 +2578,17 @@ void leaveFrame(ObjHeader** start, int parameters, int count) {
         current++;
       }
   }
+}
+
+template <bool Strict>
+void setCurrentFrame(ObjHeader** start) {
+    MEMORY_LOG("SetCurrentFrame %p\n", start)
+    FrameOverlay* frame = reinterpret_cast<FrameOverlay*>(start);
+    if (Strict) {
+        currentFrame = frame;
+    } else {
+        RuntimeFail("Relaxed memory model is deprecated and doesn't support exception handling proper way!\n");
+    }
 }
 
 void suspendGC() {
@@ -2994,7 +3029,7 @@ ScopedRefHolder::~ScopedRefHolder() {
 CycleDetectorRootset CycleDetector::collectRootset() {
   auto& detector = instance();
   CycleDetectorRootset rootset;
-  std::lock_guard<kotlin::SpinLock> guard(detector.lock_);
+  std::lock_guard guard(detector.lock_);
   for (auto* candidate: detector.candidateList_) {
     // Only frozen candidates are to be analyzed.
     if (!isPermanentOrFrozen(candidate))
@@ -3461,6 +3496,13 @@ RUNTIME_NOTHROW void LeaveFrameRelaxed(ObjHeader** start, int parameters, int co
   leaveFrame<false>(start, parameters, count);
 }
 
+RUNTIME_NOTHROW void SetCurrentFrameStrict(ObjHeader** start) {
+    setCurrentFrame<true>(start);
+}
+RUNTIME_NOTHROW void SetCurrentFrameRelaxed(ObjHeader** start) {
+    setCurrentFrame<false>(start);
+}
+
 void Kotlin_native_internal_GC_collect(KRef) {
 #if USE_GC
   garbageCollect();
@@ -3649,6 +3691,15 @@ RUNTIME_NOTHROW void GC_RegisterWorker(void* worker) {
 #endif  // USE_CYCLIC_GC
 }
 
+RUNTIME_NOTHROW FrameOverlay* getCurrentFrame() {
+    return currentFrame;
+}
+
+ALWAYS_INLINE RUNTIME_NOTHROW void CheckCurrentFrame(ObjHeader** frame) {
+    FrameOverlay* expectedFrame = reinterpret_cast<FrameOverlay*>(frame);
+    RuntimeAssert(currentFrame == expectedFrame, "Frame is expected to be %p, but current frame is %p", expectedFrame, currentFrame);
+}
+
 RUNTIME_NOTHROW void GC_UnregisterWorker(void* worker) {
 #if USE_CYCLIC_GC
   cyclicRemoveWorker(worker, g_hasCyclicCollector);
@@ -3700,15 +3751,11 @@ ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_switchThreadStateRunnable() {
     // no-op, used by the new MM only.
 }
 
-ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_safePointFunctionEpilogue() {
+ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_safePointFunctionPrologue() {
     // no-op, used by the new MM only.
 }
 
 ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_safePointWhileLoopBody() {
-    // no-op, used by the new MM only.
-}
-
-ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_safePointExceptionUnwind() {
     // no-op, used by the new MM only.
 }
 
@@ -3742,6 +3789,10 @@ MemoryState* kotlin::mm::GetMemoryState() noexcept {
     return ::memoryState;
 }
 
+bool kotlin::mm::IsCurrentThreadRegistered() noexcept {
+    return ::memoryState != nullptr;
+}
+
 kotlin::ThreadState kotlin::GetThreadState(MemoryState* thread) noexcept {
     // Assume that we are always in the Runnable thread state.
     return ThreadState::kRunnable;
@@ -3752,3 +3803,9 @@ ALWAYS_INLINE kotlin::CalledFromNativeGuard::CalledFromNativeGuard(bool reentran
 }
 
 const bool kotlin::kSupportsMultipleMutators = true;
+
+void kotlin::StartFinalizerThreadIfNeeded() noexcept {}
+
+bool kotlin::FinalizersThreadIsRunning() noexcept {
+    return false;
+}

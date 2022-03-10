@@ -110,6 +110,9 @@ public class ReadKotlinClassHeaderAnnotationVisitor implements AnnotationVisitor
         if (fqName.equals(METADATA_FQ_NAME)) {
             return new KotlinMetadataArgumentVisitor();
         }
+        if (fqName.equals(SERIALIZED_IR_FQ_NAME)) {
+            return new KotlinSerializedIrArgumentVisitor();
+        }
 
         if (IGNORE_OLD_METADATA) return null;
 
@@ -165,21 +168,18 @@ public class ReadKotlinClassHeaderAnnotationVisitor implements AnnotationVisitor
         }
 
         @Override
-        public void visitClassLiteral(@NotNull Name name, @NotNull ClassLiteralValue classLiteralValue) {
+        public void visitClassLiteral(@Nullable Name name, @NotNull ClassLiteralValue classLiteralValue) {
         }
 
         @Override
         @Nullable
-        public AnnotationArrayArgumentVisitor visitArray(@NotNull Name name) {
-            String string = name.asString();
+        public AnnotationArrayArgumentVisitor visitArray(@Nullable Name name) {
+            String string = name != null ? name.asString() : null;
             if (METADATA_DATA_FIELD_NAME.equals(string)) {
                 return dataArrayVisitor();
             }
             else if (METADATA_STRINGS_FIELD_NAME.equals(string)) {
                 return stringsArrayVisitor();
-            }
-            else if (METADATA_SERIALIZED_IR_FIELD_NAME.equals(string)) {
-                return serializedIrArrayVisitor();
             }
             else {
                 return null;
@@ -206,23 +206,13 @@ public class ReadKotlinClassHeaderAnnotationVisitor implements AnnotationVisitor
             };
         }
 
-        @NotNull
-        private AnnotationArrayArgumentVisitor serializedIrArrayVisitor() {
-            return new CollectStringArrayAnnotationVisitor() {
-                @Override
-                protected void visitEnd(@NotNull String[] result) {
-                    serializedIrFields = result;
-                }
-            };
-        }
-
         @Override
-        public void visitEnum(@NotNull Name name, @NotNull ClassId enumClassId, @NotNull Name enumEntryName) {
+        public void visitEnum(@Nullable Name name, @NotNull ClassId enumClassId, @NotNull Name enumEntryName) {
         }
 
         @Nullable
         @Override
-        public AnnotationArgumentVisitor visitAnnotation(@NotNull Name name, @NotNull ClassId classId) {
+        public AnnotationArgumentVisitor visitAnnotation(@Nullable Name name, @NotNull ClassId classId) {
             return null;
         }
 
@@ -248,13 +238,13 @@ public class ReadKotlinClassHeaderAnnotationVisitor implements AnnotationVisitor
         }
 
         @Override
-        public void visitClassLiteral(@NotNull Name name, @NotNull ClassLiteralValue classLiteralValue) {
+        public void visitClassLiteral(@Nullable Name name, @NotNull ClassLiteralValue classLiteralValue) {
         }
 
         @Override
         @Nullable
-        public AnnotationArrayArgumentVisitor visitArray(@NotNull Name name) {
-            String string = name.asString();
+        public AnnotationArrayArgumentVisitor visitArray(@Nullable Name name) {
+            String string = name != null ? name.asString() : null;
             if ("data".equals(string) || "filePartClassNames".equals(string)) {
                 return dataArrayVisitor();
             }
@@ -287,12 +277,58 @@ public class ReadKotlinClassHeaderAnnotationVisitor implements AnnotationVisitor
         }
 
         @Override
-        public void visitEnum(@NotNull Name name, @NotNull ClassId enumClassId, @NotNull Name enumEntryName) {
+        public void visitEnum(@Nullable Name name, @NotNull ClassId enumClassId, @NotNull Name enumEntryName) {
         }
 
         @Nullable
         @Override
-        public AnnotationArgumentVisitor visitAnnotation(@NotNull Name name, @NotNull ClassId classId) {
+        public AnnotationArgumentVisitor visitAnnotation(@Nullable Name name, @NotNull ClassId classId) {
+            return null;
+        }
+
+        @Override
+        public void visitEnd() {
+        }
+    }
+
+    private class KotlinSerializedIrArgumentVisitor implements AnnotationArgumentVisitor {
+        @Override
+        public void visit(@Nullable Name name, @Nullable Object value) {
+        }
+
+        @Override
+        public void visitClassLiteral(@Nullable Name name, @NotNull ClassLiteralValue classLiteralValue) {
+        }
+
+        @Override
+        @Nullable
+        public AnnotationArrayArgumentVisitor visitArray(@Nullable Name name) {
+            String string = name != null ? name.asString() : null;
+            if (SERIALIZED_IR_BYTES_FIELD_NAME.equals(string)) {
+                return serializedIrArrayVisitor();
+            }
+            else {
+                return null;
+            }
+        }
+
+        @NotNull
+        private AnnotationArrayArgumentVisitor serializedIrArrayVisitor() {
+            return new CollectStringArrayAnnotationVisitor() {
+                @Override
+                protected void visitEnd(@NotNull String[] result) {
+                    serializedIrFields = result;
+                }
+            };
+        }
+
+        @Override
+        public void visitEnum(@Nullable Name name, @NotNull ClassId enumClassId, @NotNull Name enumEntryName) {
+        }
+
+        @Nullable
+        @Override
+        public AnnotationArgumentVisitor visitAnnotation(@Nullable Name name, @NotNull ClassId classId) {
             return null;
         }
 

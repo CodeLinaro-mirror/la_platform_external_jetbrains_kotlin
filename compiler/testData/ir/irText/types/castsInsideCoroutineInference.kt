@@ -1,9 +1,6 @@
-// IGNORE_BACKEND_FIR: JVM_IR
-// !LANGUAGE: +NewInference
-// WITH_RUNTIME
+// WITH_STDLIB
 
 import kotlin.experimental.ExperimentalTypeInference
-
 
 @OptIn(ExperimentalTypeInference::class)
 fun <R> scopedFlow(@BuilderInference block: suspend CoroutineScope.(FlowCollector<R>) -> Unit): Flow<R> =

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.konan.optimizations
 
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.common.ir.allParameters
+import org.jetbrains.kotlin.backend.common.ir.isFinalClass
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.descriptors.OverriddenFunctionInfo
 import org.jetbrains.kotlin.backend.konan.descriptors.implementedInterfaces
@@ -258,7 +259,7 @@ internal object DataFlowIR {
                          arguments: List<Edge>, returnType: Type, irCallSite: IrCall?)
             : VirtualCall(callee, arguments, receiverType, returnType, irCallSite)
 
-        class Singleton(val type: Type, val constructor: FunctionSymbol?) : Node()
+        class Singleton(val type: Type, val constructor: FunctionSymbol?, val arguments: List<Edge>?) : Node()
 
         class AllocInstance(val type: Type, val irCallSite: IrCall?) : Node()
 
@@ -266,7 +267,7 @@ internal object DataFlowIR {
 
         class FieldRead(val receiver: Edge?, val field: Field, val type: Type, val ir: IrGetField?) : Node()
 
-        class FieldWrite(val receiver: Edge?, val field: Field, val value: Edge, val type: Type) : Node()
+        class FieldWrite(val receiver: Edge?, val field: Field, val value: Edge) : Node()
 
         class ArrayRead(val callee: FunctionSymbol, val array: Edge, val index: Edge, val type: Type, val irCallSite: IrCall?) : Node()
 
@@ -486,14 +487,12 @@ internal object DataFlowIR {
             }, data = null)
         }
 
-        private fun IrClass.isFinal() = modality == Modality.FINAL
-
         fun mapClassReferenceType(irClass: IrClass): Type {
             // Do not try to devirtualize ObjC classes.
             if (irClass.module.name == Name.special("<forward declarations>") || irClass.isObjCClass())
                 return Type.Virtual
 
-            val isFinal = irClass.isFinal()
+            val isFinal = irClass.isFinalClass
             val isAbstract = irClass.isAbstract()
             val name = irClass.fqNameForIrSerialization.asString()
             classMap[irClass]?.let { return it }
@@ -513,11 +512,34 @@ internal object DataFlowIR {
             if (!isAbstract) {
                 val layoutBuilder = context.getLayoutBuilder(irClass)
                 type.vtable += layoutBuilder.vtableEntries.map {
-                    mapFunction(it.getImplementation(context)!!)
+                    val implementation = it.getImplementation(context)
+                            ?: error(
+                                    irClass.getContainingFile(),
+                                    irClass,
+                                    """
+                                        no implementation found for ${it.overriddenFunction.render()}
+                                        when building vtable for ${irClass.render()}
+                                    """.trimIndent()
+                            )
+
+                    mapFunction(implementation)
                 }
                 val interfaces = irClass.implementedInterfaces.map { context.getLayoutBuilder(it) }
                 for (iface in interfaces) {
-                    type.itable[iface.classId] = iface.interfaceVTableEntries.map { mapFunction(layoutBuilder.overridingOf(it)!!) }
+                    type.itable[iface.classId] = iface.interfaceVTableEntries.map {
+                        val implementation = layoutBuilder.overridingOf(it)
+                                ?: error(
+                                        irClass.getContainingFile(),
+                                        irClass,
+                                        """
+                                            no implementation found for ${it.render()}
+                                            when building itable for ${iface.irClass.render()}
+                                            implementation in ${irClass.render()}
+                                        """.trimIndent()
+                                )
+
+                        mapFunction(implementation)
+                    }
                 }
             } else if (irClass.isInterface) {
                 // Warmup interface table so it is computed before DCE.
@@ -615,10 +637,9 @@ internal object DataFlowIR {
                     }
                     val bridgeTargetSymbol = if (isSpecialBridge || bridgeTarget == null) null else mapFunction(bridgeTarget)
                     val placeToFunctionsTable = !isAbstract && it !is IrConstructor && irClass != null
-                            && !irClass.isNonGeneratedAnnotation()
-                            && (it.isOverridableOrOverrides || bridgeTarget != null || function.isSpecial || !irClass.isFinal())
+                            && (it.isOverridableOrOverrides || bridgeTarget != null || function.isSpecial || !irClass.isFinalClass)
                     val symbolTableIndex = if (placeToFunctionsTable) module.numberOfFunctions++ else -1
-                    val frozen = it is IrConstructor && irClass!!.annotations.findAnnotation(KonanFqNames.frozen) != null
+                    val frozen = it is IrConstructor && irClass!!.isFrozen(context)
                     val functionSymbol = if (it.isExported())
                         FunctionSymbol.Public(name.localHash.value, module, symbolTableIndex, attributes, it, bridgeTargetSymbol, takeName { name })
                     else

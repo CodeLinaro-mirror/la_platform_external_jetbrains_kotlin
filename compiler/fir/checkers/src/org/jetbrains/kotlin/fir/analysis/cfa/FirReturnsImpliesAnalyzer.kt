@@ -7,12 +7,13 @@ package org.jetbrains.kotlin.fir.analysis.cfa
 
 import org.jetbrains.kotlin.fir.BuiltinTypes
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.cfa.util.previousCfgNodes
 import org.jetbrains.kotlin.fir.analysis.checkers.cfa.FirControlFlowChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.isSupertypeOf
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.contracts.FirResolvedContractDescription
 import org.jetbrains.kotlin.fir.contracts.coneEffects
 import org.jetbrains.kotlin.fir.contracts.description.*
@@ -28,7 +29,6 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.JumpNode
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.ConstantValueKind
@@ -95,6 +95,9 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
             }
         }
 
+        // TODO: create separate variable storage and don't modify existing one
+        val variableStorage = dataFlowInfo.variableStorage as VariableStorageImpl
+
         var typeStatements: TypeStatements = flow.approvedTypeStatements
 
         if (effect.value != ConeConstantReference.WILDCARD) {
@@ -104,13 +107,13 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
             if (resultExpression is FirConstExpression<*>) {
                 if (!resultExpression.isApplicableWith(operation)) return false
             } else {
-                val resultVar = dataFlowInfo.variableStorage.getOrCreateVariable(flow, resultExpression)
+                val resultVar = variableStorage.getOrCreateVariable(flow, resultExpression)
                 typeStatements = logicSystem.approveOperationStatement(flow, OperationStatement(resultVar, operation), builtinTypes)
             }
         }
 
         val conditionStatements = effectDeclaration.condition.buildTypeStatements(
-            function, logicSystem, dataFlowInfo.variableStorage, flow, context
+            function, logicSystem, variableStorage, flow, context
         ) ?: return false
 
         for ((realVar, requiredTypeStatement) in conditionStatements) {
@@ -153,7 +156,7 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
     private fun ConeBooleanExpression.buildTypeStatements(
         function: FirFunction,
         logicSystem: LogicSystem<*>,
-        variableStorage: VariableStorage,
+        variableStorage: VariableStorageImpl,
         flow: Flow,
         context: CheckerContext
     ): MutableTypeStatements? {

@@ -53,7 +53,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
 
     private fun flagsFromClass(irClass: IrClass): Int {
         var result = 0
-        if (irClass.isFrozen && context.config.freezing.freezeImplicit)
+        if (irClass.isFrozen(context))
            result = result or TF_IMMUTABLE
         // TODO: maybe perform deeper analysis to find surely acyclic types.
         if (!irClass.isInterface && !irClass.isAbstract() && !irClass.isAnnotationClass) {
@@ -426,12 +426,12 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                     NullPointer(int32Type), NullPointer(int8Type), NullPointer(kInt8Ptr),
                     debugOperationsSize, debugOperations)
         } else {
-            data class FieldRecord(val offset: Int, val type: Int, val name: String)
-            val fields = getStructElements(bodyType).drop(1).mapIndexed { index, type ->
+            class FieldRecord(val offset: Int, val type: Int, val name: String)
+            val fields = context.getLayoutBuilder(irClass).fields.map {
                 FieldRecord(
-                        LLVMOffsetOfElement(llvmTargetData, bodyType, index + 1).toInt(),
-                        mapRuntimeType(type),
-                        context.getLayoutBuilder(irClass).fields[index].name.asString())
+                        LLVMOffsetOfElement(llvmTargetData, bodyType, it.index).toInt(),
+                        mapRuntimeType(LLVMStructGetTypeAtIndex(bodyType, it.index)!!),
+                        it.name)
             }
             val offsetsPtr = staticData.placeGlobalConstArray("kextoff:$className", int32Type,
                     fields.map { Int32(it.offset) })

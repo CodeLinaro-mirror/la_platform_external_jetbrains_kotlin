@@ -50,6 +50,7 @@ configurations {
         }
     }
     compileOnly.extendsFrom(builtins)
+    testCompileOnly.extendsFrom(builtins)
 }
 
 dependencies {
@@ -57,9 +58,9 @@ dependencies {
 
     commonSources project(path: ":kotlin-stdlib-common", configuration: "sources")
 
-    compile group: 'org.jetbrains', name: 'annotations', version:'13.0'
+    api group: 'org.jetbrains', name: 'annotations', version:'13.0'
 
-    testCompile project(':kotlin-test:kotlin-test-junit')
+    testApi project(':kotlin-test:kotlin-test-junit')
 
     builtins project(':core:builtins')
 }
@@ -116,9 +117,9 @@ compileKotlin {
         freeCompilerArgs = [
                 "-Xallow-kotlin-package",
                 "-Xmultifile-parts-inherit",
-                "-Xopt-in=kotlin.RequiresOptIn",
-                "-Xopt-in=kotlin.ExperimentalMultiplatform",
-                "-Xopt-in=kotlin.contracts.ExperimentalContracts",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlin.ExperimentalMultiplatform",
+                "-opt-in=kotlin.contracts.ExperimentalContracts",
                 "-Xuse-14-inline-classes-mangling-scheme",
                 "-Xsuppress-deprecated-jvm-target-warning",
         ]
@@ -129,9 +130,9 @@ compileKotlin {
 compileTestKotlin {
     kotlinOptions {
         freeCompilerArgs += [
-                "-Xopt-in=kotlin.RequiresOptIn",
-                "-Xopt-in=kotlin.ExperimentalUnsignedTypes",
-                "-Xopt-in=kotlin.ExperimentalStdlibApi",
+                "-opt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlin.ExperimentalUnsignedTypes",
+                "-opt-in=kotlin.ExperimentalStdlibApi",
                 "-Xsuppress-deprecated-jvm-target-warning",
         ]
         // This is needed for JavaTypeTest; typeOf for non-reified type parameters doesn't work otherwise, for implementation reasons.
@@ -140,8 +141,10 @@ compileTestKotlin {
 }
 
 compileLongRunningTestKotlin {
-    kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.ExperimentalStdlibApi"
+    kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.ExperimentalStdlibApi"
 }
+
+configureFrontendIr(project)
 
 task longRunningTest(type: Test, dependsOn: longRunningTestClasses) {
     group = "verification"

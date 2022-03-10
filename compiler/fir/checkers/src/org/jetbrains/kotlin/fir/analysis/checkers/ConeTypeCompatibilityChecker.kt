@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.Variance
 
@@ -44,7 +44,9 @@ import org.jetbrains.kotlin.types.Variance
  * covariant and contravariant bounds is empty. For example, a range like `[Collection, List]` is empty and hence invalid because `List` is
  * not a super class/interface of `Collection`
  */
-internal object ConeTypeCompatibilityChecker {
+object ConeTypeCompatibilityChecker {
+
+    private val javaClassClassId = ClassId.fromString("java/lang/Class")
 
     /**
      * The result returned by [ConeTypeCompatibilityChecker]. Note the order of enum entries matters.
@@ -64,22 +66,22 @@ internal object ConeTypeCompatibilityChecker {
     }
 
     fun ConeInferenceContext.isCompatible(a: ConeKotlinType, b: ConeKotlinType): Compatibility {
-        val aUnwrap = unwrap(a)
-        val bUnwrap = unwrap(b)
-        if (aUnwrap.containsAll(bUnwrap) || bUnwrap.containsAll(aUnwrap)) {
-            return Compatibility.COMPATIBLE
+        // Don't report explicit comparison with `Nothing`
+        if (a.isNothing || b.isNothing) return Compatibility.COMPATIBLE
+        if (a is ConeIntersectionType) {
+            return a.intersectedTypes.minOf { isCompatible(it, b) }
+        }
+        if (b is ConeIntersectionType) {
+            return b.intersectedTypes.minOf { isCompatible(a, it) }
         }
 
-        val intersectionType = intersectTypesOrNull(listOf(a, b)) as? ConeIntersectionType ?: return Compatibility.COMPATIBLE
-        return intersectionType.intersectedTypes.areCompatible(this)
+        return when (val intersectionType = intersectTypesOrNull(listOf(a, b))) {
+            is ConeIntersectionType -> intersectionType.intersectedTypes.getCompatibility(this)
+            else -> if (intersectionType?.isNothing == true) Compatibility.HARD_INCOMPATIBLE else Compatibility.COMPATIBLE
+        }
     }
 
-    private fun unwrap(type: ConeKotlinType): Collection<ConeKotlinType> = when (type) {
-        is ConeIntersectionType -> type.intersectedTypes
-        else -> listOf(type)
-    }
-
-    private fun Collection<ConeKotlinType>.areCompatible(ctx: ConeInferenceContext): Compatibility {
+    private fun Collection<ConeKotlinType>.getCompatibility(ctx: ConeInferenceContext): Compatibility {
         // If all types are nullable, then `null` makes the given types compatible.
         if (all { with(ctx) { it.isNullableType() } }) return Compatibility.COMPATIBLE
 
@@ -95,7 +97,7 @@ internal object ConeTypeCompatibilityChecker {
             // This is to stay compatible with FE1.0.
             else -> Compatibility.SOFT_INCOMPATIBLE
         }
-        return ctx.areCompatible(flatMap { it.collectUpperBounds() }.toSet(), emptySet(), compatibilityUpperBound)
+        return ctx.getCompatibility(flatMap { it.collectUpperBounds() }.toSet(), emptySet(), compatibilityUpperBound)
     }
 
     private fun ConeKotlinType.isConcreteType(): Boolean {
@@ -115,7 +117,7 @@ internal object ConeTypeCompatibilityChecker {
      * `MyCustom<out Int>`, we let them do so since we do not know what class `MyCustom` uses the type parameter for. Empty containers are
      * another example: `emptyList<Int>() == emptyList<String>()`.
      */
-    private fun ConeInferenceContext.areCompatible(
+    private fun ConeInferenceContext.getCompatibility(
         upperBounds: Set<ConeClassLikeType>,
         lowerBounds: Set<ConeClassLikeType>,
         compatibilityUpperBound: Compatibility,
@@ -147,11 +149,14 @@ internal object ConeTypeCompatibilityChecker {
 
         if (upperBounds.size < 2) return Compatibility.COMPATIBLE
 
+        // TODO: Due to KT-49358, we skip any checks on Java class.
+        if (upperBounds.any { it.classId == javaClassClassId }) return Compatibility.COMPATIBLE
+
         // Base types are compatible. Now we check type parameters.
 
         val typeArgumentMapping = mutableMapOf<FirTypeParameterSymbol, BoundTypeArguments>().apply {
             for (type in upperBounds) {
-                collectTypeArgumentMapping(type, this@areCompatible, compatibilityUpperBound)
+                collectTypeArgumentMapping(type, this@getCompatibility, compatibilityUpperBound)
             }
         }
         var result = Compatibility.COMPATIBLE
@@ -163,7 +168,7 @@ internal object ConeTypeCompatibilityChecker {
                     Compatibility.COMPATIBLE
                 } else {
                     checkedTypeParameters.add(paramRef)
-                    areCompatible(upper, lower, compatibility, checkedTypeParameters)
+                    getCompatibility(upper, lower, compatibility, checkedTypeParameters)
                 }
             }
         for (compatibility in typeArgsCompatibility) {
@@ -213,10 +218,10 @@ internal object ConeTypeCompatibilityChecker {
         val classes = classesOrInterfaces.filter { !it.isInterface }
         // Java force single inheritance, so any pair of unrelated classes are incompatible.
         if (classes.size >= 2) {
-            return when {
-                classes.any { it.firClass.classId.packageFqName.startsWith(Name.identifier("java")) } -> Compatibility.SOFT_INCOMPATIBLE
-                classes.any { it.getHasPredefinedEqualityContract(this) } -> compatibilityUpperBound
-                else -> Compatibility.SOFT_INCOMPATIBLE
+            return if (classes.any { it.getHasPredefinedEqualityContract(this) }) {
+                compatibilityUpperBound
+            } else {
+                Compatibility.SOFT_INCOMPATIBLE
             }
         }
         val finalClass = classes.firstOrNull { it.isFinal } ?: return null
@@ -240,9 +245,8 @@ internal object ConeTypeCompatibilityChecker {
             is ConeClassErrorType -> emptySet() // Ignore error types
             is ConeLookupTagBasedType -> when (this) {
                 is ConeClassLikeType -> setOf(this)
-                is ConeTypeVariableType -> when (val tag = lookupTag) {
-                    is ConeTypeVariableTypeConstructor -> (tag.originalTypeParameter as? ConeTypeParameterLookupTag)?.typeParameterSymbol.collectUpperBounds()
-                    else -> throw IllegalStateException("missing branch for ${lookupTag.javaClass.name}")
+                is ConeTypeVariableType -> {
+                    (lookupTag.originalTypeParameter as? ConeTypeParameterLookupTag)?.typeParameterSymbol.collectUpperBounds()
                 }
                 is ConeTypeParameterType -> lookupTag.typeParameterSymbol.collectUpperBounds()
                 else -> throw IllegalStateException("missing branch for ${javaClass.name}")

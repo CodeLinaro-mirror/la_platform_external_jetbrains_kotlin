@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.fir.declarations
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
@@ -24,18 +24,18 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 abstract class FirValueParameter : FirVariable(), FirControlFlowGraphOwner {
-    abstract override val source: FirSourceElement?
+    abstract override val source: KtSourceElement?
     abstract override val moduleData: FirModuleData
     abstract override val resolvePhase: FirResolvePhase
     abstract override val origin: FirDeclarationOrigin
     abstract override val attributes: FirDeclarationAttributes
-    abstract override val returnTypeRef: FirTypeRef
     abstract override val typeParameters: List<FirTypeParameterRef>
     abstract override val status: FirDeclarationStatus
+    abstract override val returnTypeRef: FirTypeRef
     abstract override val receiverTypeRef: FirTypeRef?
     abstract override val deprecation: DeprecationsPerUseSite?
     abstract override val containerSource: DeserializedContainerSource?
-    abstract override val dispatchReceiverType: ConeKotlinType?
+    abstract override val dispatchReceiverType: ConeSimpleKotlinType?
     abstract override val name: Name
     abstract override val initializer: FirExpression?
     abstract override val delegate: FirExpression?
@@ -43,7 +43,8 @@ abstract class FirValueParameter : FirVariable(), FirControlFlowGraphOwner {
     abstract override val isVal: Boolean
     abstract override val getter: FirPropertyAccessor?
     abstract override val setter: FirPropertyAccessor?
-    abstract override val annotations: List<FirAnnotationCall>
+    abstract override val backingField: FirBackingField?
+    abstract override val annotations: List<FirAnnotation>
     abstract override val controlFlowGraphReference: FirControlFlowGraphReference?
     abstract override val symbol: FirValueParameterSymbol
     abstract val defaultValue: FirExpression?
@@ -67,13 +68,17 @@ abstract class FirValueParameter : FirVariable(), FirControlFlowGraphOwner {
 
     abstract override fun replaceInitializer(newInitializer: FirExpression?)
 
-    abstract override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?)
+    abstract override fun replaceGetter(newGetter: FirPropertyAccessor?)
 
-    abstract override fun <D> transformReturnTypeRef(transformer: FirTransformer<D>, data: D): FirValueParameter
+    abstract override fun replaceSetter(newSetter: FirPropertyAccessor?)
+
+    abstract override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?)
 
     abstract override fun <D> transformTypeParameters(transformer: FirTransformer<D>, data: D): FirValueParameter
 
     abstract override fun <D> transformStatus(transformer: FirTransformer<D>, data: D): FirValueParameter
+
+    abstract override fun <D> transformReturnTypeRef(transformer: FirTransformer<D>, data: D): FirValueParameter
 
     abstract override fun <D> transformReceiverTypeRef(transformer: FirTransformer<D>, data: D): FirValueParameter
 
@@ -84,6 +89,8 @@ abstract class FirValueParameter : FirVariable(), FirControlFlowGraphOwner {
     abstract override fun <D> transformGetter(transformer: FirTransformer<D>, data: D): FirValueParameter
 
     abstract override fun <D> transformSetter(transformer: FirTransformer<D>, data: D): FirValueParameter
+
+    abstract override fun <D> transformBackingField(transformer: FirTransformer<D>, data: D): FirValueParameter
 
     abstract override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirValueParameter
 

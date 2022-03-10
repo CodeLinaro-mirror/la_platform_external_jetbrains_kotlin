@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirCatch
 import org.jetbrains.kotlin.fir.expressions.FirTryExpression
@@ -20,9 +20,9 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 internal class FirTryExpressionImpl(
-    override val source: FirSourceElement?,
+    override val source: KtSourceElement?,
     override var typeRef: FirTypeRef,
-    override val annotations: MutableList<FirAnnotationCall>,
+    override val annotations: MutableList<FirAnnotation>,
     override var calleeReference: FirReference,
     override var tryBlock: FirBlock,
     override val catches: MutableList<FirCatch>,

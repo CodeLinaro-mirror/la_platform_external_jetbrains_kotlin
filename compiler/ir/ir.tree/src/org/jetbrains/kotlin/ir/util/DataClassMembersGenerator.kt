@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.ir.util
 
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
-import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
@@ -36,7 +35,8 @@ abstract class DataClassMembersGenerator(
     val context: IrGeneratorContext,
     val symbolTable: ReferenceSymbolTable,
     val irClass: IrClass,
-    val origin: IrDeclarationOrigin
+    val origin: IrDeclarationOrigin,
+    val forbidDirectFieldAccess: Boolean = false
 ) {
     private val irPropertiesByDescriptor: Map<PropertyDescriptor, IrProperty> =
         irClass.properties.associateBy { it.descriptor }
@@ -48,9 +48,12 @@ abstract class DataClassMembersGenerator(
             }
         }
 
+    protected val IrProperty.type
+        get() = this.backingField?.type ?: this.getter?.returnType ?: error("Can't find type of ${this.render()}")
+
     private inner class MemberFunctionBuilder(
-        startOffset: Int = UNDEFINED_OFFSET,
-        endOffset: Int = UNDEFINED_OFFSET,
+        startOffset: Int = SYNTHETIC_OFFSET,
+        endOffset: Int = SYNTHETIC_OFFSET,
         val irFunction: IrFunction
     ) : IrBlockBodyBuilder(context, Scope(irFunction.symbol), startOffset, endOffset) {
         inline fun addToClass(builder: MemberFunctionBuilder.(IrFunction) -> Unit): IrFunction {
@@ -89,7 +92,7 @@ abstract class DataClassMembersGenerator(
             // data classes and corresponding properties can be non-final.
             // We should use getters for such properties (see KT-41284).
             val backingField = property.backingField
-            return if (property.modality == Modality.FINAL && backingField != null) {
+            return if (!forbidDirectFieldAccess && property.modality == Modality.FINAL && backingField != null) {
                 irGetField(receiver, backingField)
             } else {
                 irCall(property.getter!!).apply {
@@ -172,7 +175,7 @@ abstract class DataClassMembersGenerator(
 
         private fun getHashCodeOfProperty(property: IrProperty): IrExpression {
             return when {
-                property.backingField!!.type.isNullable() ->
+                property.type.isNullable() ->
                     irIfNull(
                         context.irBuiltIns.intType,
                         irGetProperty(irThis(), property),
@@ -195,7 +198,7 @@ abstract class DataClassMembersGenerator(
 
                 val irPropertyValue = irGetProperty(irThis(), property)
 
-                val classifier = property.backingField!!.type.classifierOrNull
+                val classifier = property.type.classifierOrNull
                 val irPropertyStringValue =
                     if (classifier.isArrayOrPrimitiveArray)
                         irCall(context.irBuiltIns.dataClassArrayMemberToStringSymbol, context.irBuiltIns.stringType).apply {
@@ -216,7 +219,7 @@ abstract class DataClassMembersGenerator(
         irCallOp(context.irBuiltIns.intTimesSymbol, context.irBuiltIns.intType, irGet(irResultVar), irInt(31))
 
     protected open fun getHashCodeOf(builder: IrBuilderWithScope, property: IrProperty, irValue: IrExpression) =
-        builder.getHashCodeOf(property.backingField!!.type, irValue)
+        builder.getHashCodeOf(property.type, irValue)
 
     protected fun IrBuilderWithScope.getHashCodeOf(type: IrType, irValue: IrExpression): IrExpression {
         val hashCodeFunctionInfo = getHashCodeFunctionInfo(type)
@@ -241,9 +244,6 @@ abstract class DataClassMembersGenerator(
     fun getIrProperty(property: PropertyDescriptor): IrProperty =
         irPropertiesByDescriptor[property]
             ?: throw AssertionError("Class: ${irClass.descriptor}: unexpected property descriptor: $property")
-
-    fun getBackingField(property: PropertyDescriptor): IrField =
-        getIrProperty(property).backingField!!
 
     val IrClassifierSymbol?.isArrayOrPrimitiveArray: Boolean
         get() = this == context.irBuiltIns.arrayClass || this in context.irBuiltIns.primitiveArraysToPrimitiveTypes

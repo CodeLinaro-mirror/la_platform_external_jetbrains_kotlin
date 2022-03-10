@@ -22,6 +22,7 @@ internal fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
         is IrPropertySymbol -> BinarySymbolData.SymbolKind.PROPERTY_SYMBOL
         is IrEnumEntrySymbol -> BinarySymbolData.SymbolKind.ENUM_ENTRY_SYMBOL
         is IrTypeAliasSymbol -> BinarySymbolData.SymbolKind.TYPEALIAS_SYMBOL
+        is IrTypeParameterSymbol -> BinarySymbolData.SymbolKind.TYPE_PARAMETER_SYMBOL
         else -> error("Unexpected symbol kind $this")
     }
 }
@@ -50,9 +51,15 @@ class CompatibilityMode(val abiVersion: KotlinAbiVersion) {
     }
 }
 
-abstract class IrModuleDeserializer(val moduleDescriptor: ModuleDescriptor, val libraryAbiVersion: KotlinAbiVersion) {
+enum class IrModuleDeserializerKind {
+    CURRENT, DESERIALIZED, SYNTHETIC
+}
+
+abstract class IrModuleDeserializer(private val _moduleDescriptor: ModuleDescriptor?, val libraryAbiVersion: KotlinAbiVersion) {
     abstract operator fun contains(idSig: IdSignature): Boolean
     abstract fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol
+
+    val moduleDescriptor: ModuleDescriptor get() = _moduleDescriptor ?: error("No ModuleDescriptor provided")
 
     open fun referenceSimpleFunctionByLocalSignature(file: IrFile, idSignature: IdSignature): IrSimpleFunctionSymbol =
         error("Unsupported operation")
@@ -85,9 +92,9 @@ abstract class IrModuleDeserializer(val moduleDescriptor: ModuleDescriptor, val 
 
     abstract val moduleDependencies: Collection<IrModuleDeserializer>
 
-    open val strategy: DeserializationStrategy = DeserializationStrategy.ONLY_DECLARATION_HEADERS
+    open val strategyResolver: (String) -> DeserializationStrategy = { DeserializationStrategy.ONLY_DECLARATION_HEADERS }
 
-    open val isCurrent = false
+    abstract val kind: IrModuleDeserializerKind
 
     open fun fileDeserializers(): Collection<IrFileDeserializer> = error("Unsupported")
 
@@ -215,8 +222,8 @@ class IrModuleDeserializerWithBuiltIns(
     override val klib: IrLibrary
         get() = delegate.klib
 
-    override val strategy: DeserializationStrategy
-        get() = delegate.strategy
+    override val strategyResolver: (String) -> DeserializationStrategy
+        get() = delegate.strategyResolver
 
     override fun addModuleReachableTopLevel(idSig: IdSignature) {
         delegate.addModuleReachableTopLevel(idSig)
@@ -224,7 +231,7 @@ class IrModuleDeserializerWithBuiltIns(
 
     override val moduleFragment: IrModuleFragment get() = delegate.moduleFragment
     override val moduleDependencies: Collection<IrModuleDeserializer> get() = delegate.moduleDependencies
-    override val isCurrent get() = delegate.isCurrent
+    override val kind get() = delegate.kind
 
     override fun fileDeserializers(): Collection<IrFileDeserializer> {
         return delegate.fileDeserializers()
@@ -251,5 +258,5 @@ open class CurrentModuleDeserializer(
 
     override fun declareIrSymbol(symbol: IrSymbol) {}
 
-    override val isCurrent = true
+    override val kind get() = IrModuleDeserializerKind.CURRENT
 }

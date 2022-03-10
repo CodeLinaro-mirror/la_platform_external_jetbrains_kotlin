@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.test.runners
 
 import org.jetbrains.kotlin.config.ExplicitApiMode
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
@@ -17,11 +18,10 @@ import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.REPORT_JVM_DIA
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JDK_KIND
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_REFLECT
-import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.EXPLICIT_API_MODE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.USE_EXPERIMENTAL
-import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OPT_IN
 import org.jetbrains.kotlin.test.frontend.classic.handlers.*
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
@@ -104,16 +104,8 @@ abstract class AbstractDiagnosticTest : AbstractKotlinCompilerTest() {
 
         forTestsMatching("compiler/testData/diagnostics/tests/unsignedTypes/*") {
             defaultDirectives {
-                USE_EXPERIMENTAL with "kotlin.ExperimentalUnsignedTypes"
+                OPT_IN with "kotlin.ExperimentalUnsignedTypes"
                 +WITH_STDLIB
-            }
-        }
-
-        forTestsMatching("compiler/testData/diagnostics/tests/testsWithJava15/*") {
-            defaultDirectives {
-                JDK_KIND with TestJdkKind.FULL_JDK_15
-                +WITH_STDLIB
-                +WITH_REFLECT
             }
         }
 

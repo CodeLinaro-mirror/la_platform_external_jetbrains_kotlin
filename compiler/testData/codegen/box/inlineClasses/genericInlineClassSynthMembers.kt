@@ -1,3 +1,7 @@
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
 // MODULE: lib1
 // FILE: lib1.kt
 
@@ -8,7 +12,8 @@ class C<T>(val t: T) {
 // MODULE: lib2(lib1)
 // FILE: lib2.kt
 
-inline class IC<TT>(val c: C<TT>) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IC<TT>(val c: C<TT>) {
     fun foo(): Int = c.hashCode()
 }
 

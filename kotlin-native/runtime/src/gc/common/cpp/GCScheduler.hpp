@@ -1,0 +1,149 @@
+/*
+ * Copyright 2010-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the LICENSE file.
+ */
+
+#ifndef RUNTIME_GC_COMMON_GC_SCHEDULER_H
+#define RUNTIME_GC_COMMON_GC_SCHEDULER_H
+
+#include <atomic>
+#include <cinttypes>
+#include <cstddef>
+#include <functional>
+#include <utility>
+
+#include "CompilerConstants.hpp"
+#include "Logging.hpp"
+#include "Types.h"
+#include "Utils.hpp"
+
+namespace kotlin {
+namespace gc {
+
+using SchedulerType = compiler::GCSchedulerType;
+
+
+struct GCSchedulerConfig {
+    std::atomic<size_t> threshold = 100000; // Roughly 1 safepoint per 10ms (on a subset of examples on one particular machine).
+    std::atomic<size_t> allocationThresholdBytes = 10 * 1024 * 1024; // 10MiB by default.
+    std::atomic<uint64_t> cooldownThresholdNs = 200 * 1000 * 1000; // 200 milliseconds by default.
+    std::atomic<bool> autoTune = false;
+    std::atomic<uint64_t> regularGcIntervalUs = 200 * 1000; // 200 milliseconds by default.
+};
+
+class GCSchedulerThreadData;
+
+class GCSchedulerData {
+public:
+    virtual ~GCSchedulerData() = default;
+
+    // Called by different mutator threads.
+    virtual void UpdateFromThreadData(GCSchedulerThreadData& threadData) noexcept = 0;
+
+    // Always called by the GC thread.
+    virtual void OnPerformFullGC() noexcept = 0;
+
+    // Always called by the GC thread.
+    virtual void UpdateAliveSetBytes(size_t bytes) noexcept = 0;
+};
+
+class GCSchedulerThreadData {
+public:
+    static constexpr size_t kFunctionPrologueWeight = 1;
+    static constexpr size_t kLoopBodyWeight = 1;
+
+    explicit GCSchedulerThreadData(GCSchedulerConfig& config, std::function<void(GCSchedulerThreadData&)> slowPath) noexcept :
+        config_(config), slowPath_(std::move(slowPath)) {
+        ClearCountersAndUpdateThresholds();
+    }
+
+    // Should be called on encountering a safepoint.
+    void OnSafePointRegular(size_t weight) noexcept {
+        // TODO: This is a weird design. Consider replacing switch+virtual functions with pimpl+separate compilation.
+        switch (compiler::getGCSchedulerType()) {
+            case compiler::GCSchedulerType::kOnSafepoints:
+            case compiler::GCSchedulerType::kAggressive:
+                safePointsCounter_ += weight;
+                if (safePointsCounter_ < safePointsCounterThreshold_) {
+                    return;
+                }
+                OnSafePointSlowPath();
+                return;
+            default:
+                return;
+        }
+    }
+
+    // Should be called on encountering a safepoint placed by the allocator.
+    // TODO: Should this even be a safepoint (i.e. a place, where we suspend)?
+    void OnSafePointAllocation(size_t size) noexcept {
+        allocatedBytes_ += size;
+        if (allocatedBytes_ < allocatedBytesThreshold_) {
+            return;
+        }
+        OnSafePointSlowPath();
+    }
+
+    void OnStoppedForGC() noexcept { ClearCountersAndUpdateThresholds(); }
+
+    size_t allocatedBytes() const noexcept { return allocatedBytes_; }
+
+    size_t safePointsCounter() const noexcept { return safePointsCounter_; }
+
+private:
+    void OnSafePointSlowPath() noexcept {
+        slowPath_(*this);
+        ClearCountersAndUpdateThresholds();
+    }
+
+    void ClearCountersAndUpdateThresholds() noexcept {
+        allocatedBytes_ = 0;
+        safePointsCounter_ = 0;
+
+        allocatedBytesThreshold_ = config_.allocationThresholdBytes;
+        safePointsCounterThreshold_ = config_.threshold;
+    }
+
+    GCSchedulerConfig& config_;
+    std::function<void(GCSchedulerThreadData&)> slowPath_;
+
+    size_t allocatedBytes_ = 0;
+    size_t allocatedBytesThreshold_ = 0;
+    size_t safePointsCounter_ = 0;
+    size_t safePointsCounterThreshold_ = 0;
+};
+
+
+class GCScheduler : private Pinned {
+public:
+    GCScheduler() noexcept = default;
+
+    GCSchedulerConfig& config() noexcept { return config_; }
+    // Only valid after `SetScheduleGC` is called.
+    GCSchedulerData& gcData() noexcept {
+        RuntimeAssert(gcData_ != nullptr, "Cannot be called before SetScheduleGC");
+        return *gcData_;
+    }
+
+    // Can only be called once.
+    void SetScheduleGC(std::function<void()> scheduleGC) noexcept;
+
+    GCSchedulerThreadData NewThreadData() noexcept {
+        return GCSchedulerThreadData(config_, [this](auto& threadData) { gcData_->UpdateFromThreadData(threadData); });
+    }
+
+private:
+    GCSchedulerConfig config_;
+    KStdUniquePtr<GCSchedulerData> gcData_;
+    std::function<void()> scheduleGC_;
+};
+
+KStdUniquePtr<gc::GCSchedulerData> MakeGCSchedulerData(
+        SchedulerType type,
+        GCSchedulerConfig& config,
+        std::function<void()> scheduleGC) noexcept;
+
+} // namespace gc
+} // namespace kotlin
+
+#endif // RUNTIME_GC_COMMON_GC_SCHEDULER_H

@@ -52,9 +52,9 @@ import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 import org.jetbrains.kotlin.serialization.deserialization.ErrorReporter
 import org.jetbrains.kotlin.storage.NotNullLazyValue
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.TypeRefinement
 import org.jetbrains.kotlin.types.TypeUtils
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
-import org.jetbrains.kotlin.types.TypeRefinement
 import org.jetbrains.kotlin.utils.SmartSet
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.ifEmpty
@@ -475,7 +475,7 @@ class LazyJavaClassMemberScope(
             override.newCopyBuilder().apply {
                 setValueParameters(
                     copyValueParameters(
-                        overridden.valueParameters.map { ValueParameterData(it.type, it.declaresDefaultValue()) },
+                        overridden.valueParameters.map(ValueParameterDescriptor::getType),
                         override.valueParameters, overridden
                     )
                 )
@@ -513,6 +513,7 @@ class LazyJavaClassMemberScope(
         functionDescriptorImpl.initialize(
             null,
             getDispatchReceiverParameter(),
+            emptyList(),
             emptyList(),
             emptyList(),
             returnType,
@@ -597,7 +598,7 @@ class LazyJavaClassMemberScope(
         propertyDescriptor.initialize(getter, null)
 
         val returnType = givenType ?: computeMethodReturnType(method, c.childForMethod(propertyDescriptor, method))
-        propertyDescriptor.setType(returnType, listOf(), getDispatchReceiverParameter(), null)
+        propertyDescriptor.setType(returnType, listOf(), getDispatchReceiverParameter(), null, listOf())
         getter.initialize(returnType)
 
         return propertyDescriptor
@@ -623,7 +624,7 @@ class LazyJavaClassMemberScope(
 
         val propertyDescriptor = JavaForKotlinOverridePropertyDescriptor(ownerDescriptor, getterMethod, setterMethod, overriddenProperty)
 
-        propertyDescriptor.setType(getterMethod.returnType!!, listOf(), getDispatchReceiverParameter(), null)
+        propertyDescriptor.setType(getterMethod.returnType!!, listOf(), getDispatchReceiverParameter(), null, listOf())
 
         val getter = DescriptorFactory.createGetter(
             propertyDescriptor, getterMethod.annotations, /* isDefault = */false,

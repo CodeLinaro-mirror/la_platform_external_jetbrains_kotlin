@@ -1,1 +1,0 @@
-rootProject.name = "kotlin-js-both-mode-with-tests"

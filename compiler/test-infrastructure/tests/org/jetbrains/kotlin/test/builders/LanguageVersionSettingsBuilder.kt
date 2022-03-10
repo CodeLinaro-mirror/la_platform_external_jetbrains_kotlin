@@ -63,7 +63,7 @@ class LanguageVersionSettingsBuilder {
         }
 
         val analysisFlags = listOfNotNull(
-            analysisFlag(AnalysisFlags.useExperimental, directives[LanguageSettingsDirectives.USE_EXPERIMENTAL].takeIf { it.isNotEmpty() }),
+            analysisFlag(AnalysisFlags.optIn, directives[LanguageSettingsDirectives.OPT_IN].takeIf { it.isNotEmpty() }),
             analysisFlag(AnalysisFlags.ignoreDataFlowInAssert, trueOrNull(LanguageSettingsDirectives.IGNORE_DATA_FLOW_IN_ASSERT in directives)),
             analysisFlag(AnalysisFlags.constraintSystemForOverloadResolution, directives.singleOrZeroValue(LanguageSettingsDirectives.CONSTRAINT_SYSTEM_FOR_OVERLOAD_RESOLUTION)),
             analysisFlag(AnalysisFlags.allowResultReturnType, trueOrNull(LanguageSettingsDirectives.ALLOW_RESULT_RETURN_TYPE in directives)),
@@ -71,7 +71,6 @@ class LanguageVersionSettingsBuilder {
             analysisFlag(AnalysisFlags.allowKotlinPackage, trueOrNull(LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE in directives)),
 
             analysisFlag(JvmAnalysisFlags.jvmDefaultMode, directives.singleOrZeroValue(LanguageSettingsDirectives.JVM_DEFAULT_MODE)),
-            analysisFlag(JvmAnalysisFlags.jvmDefaultAllowNonDefaultInheritance, trueOrNull(LanguageSettingsDirectives.JVM_DEFAULT_ALLOW_NON_DEFAULT_INHERITANCE in directives)),
             analysisFlag(JvmAnalysisFlags.inheritMultifileParts, trueOrNull(LanguageSettingsDirectives.INHERIT_MULTIFILE_PARTS in directives)),
             analysisFlag(JvmAnalysisFlags.sanitizeParentheses, trueOrNull(LanguageSettingsDirectives.SANITIZE_PARENTHESES in directives)),
             analysisFlag(JvmAnalysisFlags.enableJvmPreview, trueOrNull(LanguageSettingsDirectives.ENABLE_JVM_PREVIEW in directives)),
@@ -86,6 +85,10 @@ class LanguageVersionSettingsBuilder {
             it.provideAdditionalAnalysisFlags(directives, languageVersion).entries.forEach { (flag, value) ->
                 withFlag(flag, value)
             }
+        }
+
+        if (targetBackend?.isIR == true) {
+            specificFeatures[LanguageFeature.JsAllowValueClassesInExternals] = LanguageFeature.State.ENABLED
         }
 
         directives[LanguageSettingsDirectives.LANGUAGE].forEach { parseLanguageFeature(it) }

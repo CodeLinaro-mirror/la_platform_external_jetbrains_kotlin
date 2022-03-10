@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.asJava.elements.convertToLightAnnotationMemberValue
+import org.jetbrains.kotlin.builtins.StandardNames.DEFAULT_VALUE_PARAMETER
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotated
@@ -22,6 +23,10 @@ import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.JvmNames.JVM_OVERLOADS_FQ_NAME
+import org.jetbrains.kotlin.name.JvmNames.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
+import org.jetbrains.kotlin.name.JvmNames.STRICTFP_ANNOTATION_FQ_NAME
+import org.jetbrains.kotlin.name.JvmNames.SYNCHRONIZED_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
@@ -64,7 +69,10 @@ internal class UltraLightMembersCreator(
 
         val property = variable as? KtProperty
         val hasDelegate = property?.hasDelegate() == true
-        val fieldName = generateUniqueFieldName((variable.name ?: "") + (if (hasDelegate) "\$delegate" else ""), usedPropertyNames)
+        val fieldName = generateUniqueFieldName(
+            (variable.name ?: "") + (if (hasDelegate) JvmAbi.DELEGATED_PROPERTY_NAME_SUFFIX else ""),
+            usedPropertyNames
+        )
 
         val visibility = when {
             variable.hasModifier(PRIVATE_KEYWORD) -> PsiModifier.PRIVATE
@@ -141,21 +149,22 @@ internal class UltraLightMembersCreator(
 
     internal class KtUltraLightAnnotationMethod(
         private val psiMethod: KtLightMethod,
-        expression: KtExpression
-    ) : KtLightMethod by psiMethod,
-        PsiAnnotationMethod {
-
+        private val expression: KtExpression
+    ) : KtLightMethod by psiMethod, PsiAnnotationMethod {
         private val value by lazyPub {
             convertToLightAnnotationMemberValue(psiMethod, expression)
         }
 
-        override fun equals(other: Any?): Boolean = psiMethod == (other as? KtUltraLightAnnotationMethod)?.psiMethod
+        override fun equals(other: Any?): Boolean = other === this ||
+                other is KtUltraLightAnnotationMethod &&
+                other.psiMethod == psiMethod &&
+                other.expression == expression
 
-        override fun hashCode(): Int = psiMethod.hashCode()
+        override fun hashCode(): Int = psiMethod.hashCode() * 31 + expression.hashCode()
 
-        override fun toString(): String = psiMethod.toString()
+        override fun toString(): String = "KtUltraLightAnnotationMethod(method=$psiMethod, expression=$expression"
 
-        override fun getDefaultValue(): PsiAnnotationMemberValue? = value
+        override fun getDefaultValue(): PsiAnnotationMemberValue = value
 
         override fun getSourceElement(): PsiElement? = psiMethod.sourceElement
     }
@@ -505,7 +514,7 @@ internal class UltraLightMembersCreator(
                     )
                 else
                     KtUltraLightParameterForSetterParameter(
-                        name = propertyName,
+                        name = DEFAULT_VALUE_PARAMETER.identifier,
                         property = declaration,
                         support = support,
                         method = setterWrapper,

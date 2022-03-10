@@ -47,6 +47,12 @@ internal val Project.nativeJson: String
 internal val Project.jvmJson: String
     get() = project.property("jvmJson") as String
 
+internal val Project.buildType: NativeBuildType
+    get() = (findProperty("nativeBuildType") as String?)?.let { NativeBuildType.valueOf(it) } ?: NativeBuildType.RELEASE
+
+internal val Project.crossTarget: String?
+    get() = findProperty("crossTarget") as String?
+
 internal val Project.commonBenchmarkProperties: Map<String, Any>
     get() = mapOf(
             "cpu" to System.getProperty("os.arch"),
@@ -63,7 +69,7 @@ open class BenchmarkExtension @Inject constructor(val project: Project) {
     var compileTasks: List<String> = emptyList()
     var linkerOpts: Collection<String> = emptyList()
     var compilerOpts: List<String> = emptyList()
-    var buildType: NativeBuildType = NativeBuildType.RELEASE
+    var buildType: NativeBuildType = project.buildType
     var repeatingType: BenchmarkRepeatingType = BenchmarkRepeatingType.INTERNAL
     var cleanBeforeRunTask: String? = "konanRun"
 
@@ -108,9 +114,10 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
     protected val mingwPath: String = System.getenv("MINGW64_DIR") ?: "c:/msys64/mingw64"
 
     protected open fun Project.determinePreset(): AbstractKotlinNativeTargetPreset<*> =
+            (crossTarget?.let { targetHostPreset(this, it) } ?:
             defaultHostPreset(this).also { preset ->
                 logger.quiet("$project has been configured for ${preset.name} platform.")
-            } as AbstractKotlinNativeTargetPreset<*>
+            }) as AbstractKotlinNativeTargetPreset<*>
 
     protected abstract fun NamedDomainObjectContainer<KotlinSourceSet>.configureSources(project: Project)
 
@@ -141,7 +148,7 @@ abstract class BenchmarkingPlugin: Plugin<Project> {
                 linkerOpts.add("-L${mingwPath}/lib")
             }
 
-            runTask!!.apply {
+            runTask?.apply {
                 group = ""
                 enabled = false
             }

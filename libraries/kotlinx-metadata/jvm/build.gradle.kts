@@ -1,15 +1,10 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import org.jetbrains.kotlin.pill.PillExtension
 
 description = "Kotlin JVM metadata manipulation library"
 
 plugins {
     kotlin("jvm")
     id("jps-compatible")
-}
-
-pill {
-    variant = PillExtension.Variant.FULL
 }
 
 /*
@@ -37,7 +32,7 @@ val shadows by configurations.creating {
     isTransitive = false
 }
 configurations.getByName("compileOnly").extendsFrom(shadows)
-configurations.getByName("testCompile").extendsFrom(shadows)
+configurations.getByName("testApi").extendsFrom(shadows)
 
 dependencies {
     api(kotlinStdlib())
@@ -46,8 +41,8 @@ dependencies {
     shadows(project(":core:metadata.jvm"))
     shadows(protobufLite())
     testImplementation(project(":kotlin-test:kotlin-test-junit"))
-    testImplementation(commonDep("junit:junit"))
-    testImplementation(intellijDep()) { includeJars("asm-all", rootProject = rootProject) }
+    testImplementation(commonDependency("junit:junit"))
+    testImplementation(commonDependency("org.jetbrains.intellij.deps:asm-all"))
     testCompileOnly(project(":kotlin-reflect-api"))
     testRuntimeOnly(project(":kotlin-reflect"))
 }
@@ -55,8 +50,6 @@ dependencies {
 if (deployVersion != null) {
     publish()
 }
-
-noDefaultJar()
 
 runtimeJar(tasks.register<ShadowJar>("shadowJar")) {
     callGroovy("manifestAttributes", manifest, project)

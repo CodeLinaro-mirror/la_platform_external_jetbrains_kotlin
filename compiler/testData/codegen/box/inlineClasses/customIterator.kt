@@ -1,10 +1,11 @@
 // IGNORE_BACKEND: JVM
-// DONT_TARGET_EXACT_BACKEND: WASM
-// WASM_MUTE_REASON: STDLIB_TEXT
-// WITH_RUNTIME
+// WITH_STDLIB
 // KT-44529
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class InlineDouble3(val values: DoubleArray) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class InlineDouble3(val values: DoubleArray) {
     operator fun iterator(): DoubleIterator = IteratorImpl(values)
 }
 

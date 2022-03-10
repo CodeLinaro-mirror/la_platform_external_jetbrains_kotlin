@@ -1,6 +1,5 @@
 // !LANGUAGE: +SuspendConversion
 // IGNORE_BACKEND: JVM
-// IGNORE_BACKEND_FIR: JVM_IR
 
 fun interface SuspendRunnable {
     suspend fun invoke()

@@ -1,5 +1,9 @@
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class IC(val i: Int) {
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class IC(val i: Int) {
     init {
         counter += i
     }

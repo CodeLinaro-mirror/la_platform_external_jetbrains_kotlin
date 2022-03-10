@@ -5,43 +5,32 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import org.jetbrains.kotlin.fir.FirFakeSourceElementKind
+import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeTypeParameterInQualifiedAccess
-import org.jetbrains.kotlin.fir.resolve.inference.inferenceComponents
-import org.jetbrains.kotlin.fir.resolve.inference.isKClassType
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 
 // See FE1.0 [KClassWithIncorrectTypeArgumentChecker]
-object FirKClassWithIncorrectTypeArgumentChecker : FirFileChecker() {
-    override fun check(declaration: FirFile, context: CheckerContext, reporter: DiagnosticReporter) {
-        for (topLevelDeclaration in declaration.declarations) {
-            if (topLevelDeclaration is FirCallableDeclaration) {
-                checkTopLevelDeclaration(topLevelDeclaration, context, reporter)
-            }
-        }
-    }
+object FirKClassWithIncorrectTypeArgumentChecker : FirCallableDeclarationChecker() {
 
-    // When a type parameter is used as a type argument for KClass, it shouldn't be nullable.
-    //  bad:  fun <T> test1() = T::class
-    //  okay: fun <T: Any> test2() = T::class
-    private fun checkTopLevelDeclaration(
-        declaration: FirCallableDeclaration,
-        context: CheckerContext,
-        reporter: DiagnosticReporter
-    ) {
+    override fun check(declaration: FirCallableDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
+        // Only report on top level callable declarations
+        if (context.containingDeclarations.size > 1) return
+
+        // When a type parameter is used as a type argument for KClass, it shouldn't be nullable.
+        //  bad:  fun <T> test1() = T::class
+        //  okay: fun <T: Any> test2() = T::class
         val source = declaration.source ?: return
-        if (source.kind is FirFakeSourceElementKind) return
+        if (source.kind is KtFakeSourceElementKind) return
 
         val returnType = declaration.returnTypeRef.coneType
-        if (!returnType.isKClassTypeWithErrorOrNullableArgument(context.session.inferenceComponents.ctx)) return
+        if (!returnType.isKClassTypeWithErrorOrNullableArgument(context.session.typeContext)) return
 
         val typeArgument = (returnType.typeArguments[0] as ConeKotlinTypeProjection).type
         typeArgument.typeParameterFromError?.let {

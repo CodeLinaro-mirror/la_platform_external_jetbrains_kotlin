@@ -27,9 +27,8 @@ import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockBodyImpl
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classifierOrNull
-import org.jetbrains.kotlin.ir.types.makeNotNull
+import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JvmAbi
@@ -98,19 +97,20 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
 
     private fun IrBuilderWithScope.substituteGetter(irProperty: IrProperty, expression: IrCall): IrExpression {
         val backingField = irProperty.resolveFakeOverride()!!.backingField!!
-        val value = irGetField(patchFieldAccessReceiver(expression, irProperty), backingField)
+        val patchedReceiver = patchFieldAccessReceiver(expression, irProperty)
         return if (irProperty.isLateinit) {
             irBlock {
-                val tmpVal = irTemporary(value)
+                val fieldType = expression.type.makeNullable()
+                val tmpVal = irTemporary(IrGetFieldImpl(startOffset, endOffset, backingField.symbol, fieldType, patchedReceiver))
                 +irIfNull(
-                    expression.type.makeNotNull(),
+                    expression.type,
                     irGet(tmpVal),
                     backendContext.throwUninitializedPropertyAccessException(this, backingField.name.asString()),
                     irGet(tmpVal)
                 )
             }
         } else {
-            value
+            IrGetFieldImpl(startOffset, endOffset, backingField.symbol, expression.type, patchedReceiver)
         }
     }
 
@@ -118,7 +118,8 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
         val receiver = expression.dispatchReceiver
         if (receiver != null) {
             val propertyParent = irProperty.parent
-            if (propertyParent is IrClass && propertyParent.symbol != receiver.type.classifierOrNull &&
+            if (propertyParent is IrClass &&
+                receiver.type.classifierOrNull?.isSubtypeOfClass(propertyParent.symbol) != true &&
                 expression.superQualifierSymbol == null
             ) {
                 return irImplicitCast(receiver, propertyParent.defaultType)

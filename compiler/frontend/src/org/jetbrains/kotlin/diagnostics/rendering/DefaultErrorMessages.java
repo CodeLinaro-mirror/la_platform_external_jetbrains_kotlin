@@ -28,6 +28,7 @@ import java.lang.reflect.Modifier;
 import java.util.*;
 
 import static org.jetbrains.kotlin.diagnostics.Errors.*;
+import static org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.*;
 import static org.jetbrains.kotlin.diagnostics.rendering.Renderers.*;
 import static org.jetbrains.kotlin.diagnostics.rendering.RenderingContext.of;
 
@@ -93,10 +94,10 @@ public class DefaultErrorMessages {
         MAP.put(EXTENSION_FUNCTION_SHADOWED_BY_MEMBER_PROPERTY_WITH_INVOKE,
                 "Extension function is shadowed by a member property ''{0}'' with {1}", NAME, COMPACT_WITH_MODIFIERS);
 
-        MAP.put(INACCESSIBLE_TYPE, "Type {0} is inaccessible in this context due to: {1}", RENDER_TYPE, commaSeparated(
+        MAP.put(INACCESSIBLE_TYPE, "Type {0} is inaccessible in this context due to: {1}", RENDER_TYPE, CommonRenderers.commaSeparated(
                 FQ_NAMES_IN_TYPES_WITH_ANNOTATIONS));
 
-        MAP.put(REDECLARATION, "Conflicting declarations: {0}", commaSeparated(COMPACT_WITH_MODIFIERS));
+        MAP.put(REDECLARATION, "Conflicting declarations: {0}", CommonRenderers.commaSeparated(COMPACT_WITH_MODIFIERS));
         MAP.put(PACKAGE_OR_CLASSIFIER_REDECLARATION, "Redeclaration: {0}", STRING);
         MAP.put(DUPLICATE_PARAMETER_NAME_IN_FUNCTION_TYPE, "Duplicate parameter name in function type");
 
@@ -157,25 +158,25 @@ public class DefaultErrorMessages {
         MAP.put(ILLEGAL_KOTLIN_VERSION_STRING_VALUE, "Invalid @{0} annotation value (should be ''major.minor'' or ''major.minor.patch'')", TO_STRING);
         MAP.put(NEWER_VERSION_IN_SINCE_KOTLIN, "The version is greater than the specified API version {0}", STRING);
 
-        MAP.put(EXPERIMENTAL_API_USAGE, "{1}", TO_STRING, STRING);
-        MAP.put(EXPERIMENTAL_API_USAGE_ERROR, "{1}", TO_STRING, STRING);
-        MAP.put(EXPERIMENTAL_API_USAGE_FUTURE_ERROR, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_USAGE, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_USAGE_ERROR, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_USAGE_FUTURE_ERROR, "{1}", TO_STRING, STRING);
 
-        MAP.put(EXPERIMENTAL_OVERRIDE, "{1}", TO_STRING, STRING);
-        MAP.put(EXPERIMENTAL_OVERRIDE_ERROR, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_OVERRIDE, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_OVERRIDE_ERROR, "{1}", TO_STRING, STRING);
 
-        MAP.put(EXPERIMENTAL_IS_NOT_ENABLED, "This class can only be used with the compiler argument '-opt-in=kotlin.RequiresOptIn'");
-        MAP.put(EXPERIMENTAL_CAN_ONLY_BE_USED_AS_ANNOTATION, "This class can only be used as an annotation");
-        MAP.put(EXPERIMENTAL_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_USE_EXPERIMENTAL, "This class can only be used as an annotation or as an argument to @OptIn");
+        MAP.put(OPT_IN_IS_NOT_ENABLED, "This annotation should be used with the compiler argument '-opt-in=kotlin.RequiresOptIn'");
+        MAP.put(OPT_IN_CAN_ONLY_BE_USED_AS_ANNOTATION, "This class can only be used as an annotation");
+        MAP.put(OPT_IN_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_OPT_IN, "This class can only be used as an annotation or as an argument to @OptIn");
 
-        MAP.put(USE_EXPERIMENTAL_WITHOUT_ARGUMENTS, "@OptIn without any arguments has no effect");
-        MAP.put(USE_EXPERIMENTAL_ARGUMENT_IS_NOT_MARKER, "Annotation ''{0}'' is not an opt-in requirement marker, therefore its usage in @OptIn is ignored", TO_STRING);
-        MAP.put(EXPERIMENTAL_ANNOTATION_WITH_WRONG_TARGET, "Opt-in requirement marker annotation cannot be used on the following code elements: {0}. Please remove these targets", STRING);
-        MAP.put(EXPERIMENTAL_ANNOTATION_WITH_WRONG_RETENTION, "Opt-in requirement marker annotation cannot be used with SOURCE retention. Please replace retention with BINARY");
+        MAP.put(OPT_IN_WITHOUT_ARGUMENTS, "@OptIn without any arguments has no effect");
+        MAP.put(OPT_IN_ARGUMENT_IS_NOT_MARKER, "Annotation ''{0}'' is not an opt-in requirement marker, therefore its usage in @OptIn is ignored", TO_STRING);
+        MAP.put(OPT_IN_MARKER_WITH_WRONG_TARGET, "Opt-in requirement marker annotation cannot be used on the following code elements: {0}. Please remove these targets", STRING);
+        MAP.put(OPT_IN_MARKER_WITH_WRONG_RETENTION, "Opt-in requirement marker annotation cannot be used with SOURCE retention. Please replace retention with BINARY");
 
-        MAP.put(EXPERIMENTAL_ANNOTATION_ON_WRONG_TARGET, "Opt-in requirement marker annotation cannot be used on {0}", STRING);
-        MAP.put(EXPERIMENTAL_ANNOTATION_ON_OVERRIDE, "Opt-in requirement marker annotation on override requires the same marker on base declaration");
-        MAP.put(EXPERIMENTAL_ANNOTATION_ON_OVERRIDE_WARNING, "Opt-in requirement marker annotation on override requires the same marker on base declaration (will be an error in 1.6)");
+        MAP.put(OPT_IN_MARKER_ON_WRONG_TARGET, "Opt-in requirement marker annotation cannot be used on {0}", STRING);
+        MAP.put(OPT_IN_MARKER_ON_OVERRIDE, "Opt-in requirement marker annotation on override requires the same marker on base declaration");
+        MAP.put(OPT_IN_MARKER_ON_OVERRIDE_WARNING, "Opt-in requirement marker annotation on override makes no sense without the same marker on base declaration");
 
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS, "{0}", STRING);
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS_ERROR, "{0}", STRING);
@@ -264,6 +265,7 @@ public class DefaultErrorMessages {
         MAP.put(PROPERTY_INITIALIZER_IN_INTERFACE, "Property initializers are not allowed in interfaces");
         MAP.put(PRIVATE_PROPERTY_IN_INTERFACE, "Abstract property in an interface cannot be private");
         MAP.put(EXTENSION_PROPERTY_WITH_BACKING_FIELD, "Extension property cannot be initialized because it has no backing field");
+        MAP.put(CONTEXT_RECEIVERS_WITH_BACKING_FIELD, "Property with context receivers cannot be initialized because it has no backing field");
         MAP.put(PROPERTY_INITIALIZER_NO_BACKING_FIELD, "Initializer is not allowed here because this property has no backing field");
         MAP.put(ABSTRACT_PROPERTY_IN_NON_ABSTRACT_CLASS, "Abstract property ''{0}'' in non-abstract class ''{1}''", STRING, NAME);
         MAP.put(ABSTRACT_FUNCTION_IN_NON_ABSTRACT_CLASS, "Abstract function ''{0}'' in non-abstract class ''{1}''", STRING, NAME);
@@ -313,9 +315,9 @@ public class DefaultErrorMessages {
                 MODULE_WITH_PLATFORM, adaptGenerics1(PlatformIncompatibilityDiagnosticRenderer.TEXT));
         MAP.put(ACTUAL_WITHOUT_EXPECT, "{0} has no corresponding expected declaration{1}", CAPITALIZED_DECLARATION_NAME_WITH_KIND_AND_PLATFORM,
                 adaptGenerics1(PlatformIncompatibilityDiagnosticRenderer.TEXT));
-        MAP.put(AMBIGUOUS_ACTUALS, "{0} has several compatible actual declarations in modules {1}", CAPITALIZED_DECLARATION_NAME_WITH_KIND_AND_PLATFORM, commaSeparated(
+        MAP.put(AMBIGUOUS_ACTUALS, "{0} has several compatible actual declarations in modules {1}", CAPITALIZED_DECLARATION_NAME_WITH_KIND_AND_PLATFORM, CommonRenderers.commaSeparated(
                 MODULE));
-        MAP.put(AMBIGUOUS_EXPECTS, "{0} has several compatible expect declarations in modules {1}", CAPITALIZED_DECLARATION_NAME_WITH_KIND_AND_PLATFORM, commaSeparated(
+        MAP.put(AMBIGUOUS_EXPECTS, "{0} has several compatible expect declarations in modules {1}", CAPITALIZED_DECLARATION_NAME_WITH_KIND_AND_PLATFORM, CommonRenderers.commaSeparated(
                 MODULE));
 
         MAP.put(NO_ACTUAL_CLASS_MEMBER_FOR_EXPECTED_CLASS, "Actual class ''{0}'' has no corresponding members for expected class members:{1}",
@@ -345,6 +347,7 @@ public class DefaultErrorMessages {
         MAP.put(UNINITIALIZED_PARAMETER, "Parameter ''{0}'' is uninitialized here", NAME);
         MAP.put(UNINITIALIZED_ENUM_ENTRY, "Enum entry ''{0}'' is uninitialized here", NAME);
         MAP.put(UNINITIALIZED_ENUM_COMPANION, "Companion object of enum class ''{0}'' is uninitialized here", NAME);
+        MAP.put(UNINITIALIZED_ENUM_COMPANION_WARNING, "Companion object of enum class ''{0}'' is uninitialized here. This warning will become an error in future releases", NAME);
         MAP.put(UNUSED_VARIABLE, "Variable ''{0}'' is never used", NAME);
         MAP.put(UNUSED_PARAMETER, "Parameter ''{0}'' is never used", NAME);
         MAP.put(UNUSED_ANONYMOUS_PARAMETER, "Parameter ''{0}'' is never used, could be renamed to _", NAME);
@@ -383,9 +386,9 @@ public class DefaultErrorMessages {
         MAP.put(TYPEALIAS_EXPANSION_DEPRECATION, "''{0}'' uses ''{1}'', which is deprecated. {2}", DEPRECATION_RENDERER, DEPRECATION_RENDERER, STRING);
         MAP.put(TYPEALIAS_EXPANSION_DEPRECATION_ERROR, "''{0}'' uses ''{1}'', which is an error. {2}", DEPRECATION_RENDERER, DEPRECATION_RENDERER, STRING);
 
-        DiagnosticParameterRenderer<Pair<LanguageVersion, String>> versionRequirementMessage = (pair, renderingContext) -> {
+        DiagnosticParameterRenderer<Pair<String, String>> versionRequirementMessage = (pair, renderingContext) -> {
             String message = pair.getSecond();
-            return pair.getFirst().getVersionString() + (message != null ? ". " + message : "");
+            return pair.getFirst() + (message != null ? ". " + message : "");
         };
         MAP.put(VERSION_REQUIREMENT_DEPRECATION, "''{0}''{1} should not be used in Kotlin {2}", DEPRECATION_RENDERER,
                 (obj, renderingContext) -> obj.equals(VersionRequirement.Version.INFINITY) ? "" : " is only supported since Kotlin " + obj.asString() + " and",
@@ -393,6 +396,8 @@ public class DefaultErrorMessages {
         MAP.put(VERSION_REQUIREMENT_DEPRECATION_ERROR, "''{0}''{1} cannot be used in Kotlin {2}", DEPRECATION_RENDERER,
                 (obj, renderingContext) -> obj.equals(VersionRequirement.Version.INFINITY) ? "" : " is only available since Kotlin " + obj.asString() + " and",
                 versionRequirementMessage);
+
+        MAP.put(OVERRIDE_DEPRECATION, "This declaration overrides deprecated member but not marked as deprecated itself. {0}Please add @Deprecated annotation or suppress", TO_STRING, EMPTY, EMPTY);
 
         MAP.put(DEPRECATED_SINCE_KOTLIN_WITHOUT_DEPRECATED, "DeprecatedSinceKotlin annotation can be used only together with Deprecated annotation");
         MAP.put(DEPRECATED_SINCE_KOTLIN_WITH_DEPRECATED_LEVEL, "DeprecatedSinceKotlin annotation can be used only with unspecified deprecation level of Deprecated annotation");
@@ -432,7 +437,7 @@ public class DefaultErrorMessages {
 
         MAP.put(DELEGATION_IN_INTERFACE, "Interfaces cannot use delegation");
         MAP.put(DELEGATION_NOT_TO_INTERFACE, "Only interfaces can be delegated to");
-        MAP.put(DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE, "Delegated member ''{0}'' hides supertype override: {1}. Please specify proper override explicitly", COMPACT, commaSeparated(SHORT_NAMES_IN_TYPES));
+        MAP.put(DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE, "Delegated member ''{0}'' hides supertype override: {1}. Please specify proper override explicitly", COMPACT, CommonRenderers.commaSeparated(SHORT_NAMES_IN_TYPES));
         MAP.put(NO_CONSTRUCTOR, "This class does not have a constructor");
         MAP.put(RESOLUTION_TO_CLASSIFIER, "{2}", NAME, TO_STRING, STRING);
         MAP.put(NOT_A_CLASS, "Not a class");
@@ -446,6 +451,8 @@ public class DefaultErrorMessages {
 
         MAP.put(PARENTHESIZED_COMPANION_LHS_DEPRECATION, "Access to companion object through parenthesized class name is deprecated. Please, add explicit Companion qualifier.");
 
+        MAP.put(RESOLUTION_TO_PRIVATE_CONSTRUCTOR_OF_SEALED_CLASS, "Resolution to private constructor of sealed class. In future it will be allowed to use this constructor only inside declaring sealed class");
+
         MAP.put(LOCAL_EXTENSION_PROPERTY, "Local extension properties are not allowed");
         MAP.put(LOCAL_VARIABLE_WITH_GETTER, "Local variables are not allowed to have getters");
         MAP.put(LOCAL_VARIABLE_WITH_SETTER, "Local variables are not allowed to have setters");
@@ -456,6 +463,7 @@ public class DefaultErrorMessages {
         MAP.put(DEPRECATED_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} is deprecated", RENDER_TYPE, RENDER_TYPE);
         MAP.put(IMPLICIT_BOXING_IN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} can be unstable because of implicit boxing", RENDER_TYPE, RENDER_TYPE);
         MAP.put(FORBIDDEN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} is forbidden", RENDER_TYPE, RENDER_TYPE);
+        MAP.put(FORBIDDEN_SYNCHRONIZED_BY_VALUE_CLASSES_OR_PRIMITIVES, "Synchronizing by {0} is forbidden", RENDER_TYPE);
 
         MAP.put(DEPRECATED_BINARY_MOD, "Deprecated convention for ''{0}''. Use ''{1}''", NAME, STRING);
         MAP.put(FORBIDDEN_BINARY_MOD, "Convention for ''{0}'' is forbidden. Use ''{1}''", NAME, STRING);
@@ -493,7 +501,6 @@ public class DefaultErrorMessages {
         MAP.put(USELESS_IS_CHECK, "Check for instance is always ''{0}''", TO_STRING);
         MAP.put(WRONG_SETTER_PARAMETER_TYPE, "Setter parameter type must be equal to the type of the property, i.e. ''{0}''", RENDER_TYPE, RENDER_TYPE);
         MAP.put(DELEGATE_USES_EXTENSION_PROPERTY_TYPE_PARAMETER, "It's forbidden using extension property type parameter ''{0}'' in delegate", TO_STRING);
-        MAP.put(DELEGATE_USES_EXTENSION_PROPERTY_TYPE_PARAMETER_WARNING, "Deprecation: delegate shouldn't use extension property type parameter ''{0}''", TO_STRING);
         MAP.put(WRONG_GETTER_RETURN_TYPE, "Getter return type must be equal to the type of the property, i.e. ''{0}''", RENDER_TYPE, RENDER_TYPE);
         MAP.put(WRONG_SETTER_RETURN_TYPE, "Setter return type must be Unit");
         MAP.put(NO_COMPANION_OBJECT, "Classifier ''{0}'' does not have a companion object, and thus must be initialized here", NAME);
@@ -604,6 +611,10 @@ public class DefaultErrorMessages {
         MAP.put(DEPRECATED_SYNTAX_WITH_DEFINITELY_NOT_NULL, "Applying ''!!'' to the whole as/is expression without parentheses is deprecated. Please, put parentheses explicitly");
 
         MAP.put(MODIFIER_LIST_NOT_ALLOWED, "Modifiers and annotations are not allowed here, because there are other modifiers or annotations outside of parenthesis");
+        MAP.put(PROGRESSIONS_CHANGING_RESOLVE, "Progressions and ranges types will start implementing Collection interface soon. " +
+                                               "This call will resolve to another declaration: {0}. " +
+                                               "See https://youtrack.jetbrains.com/issue/KT-49276 for more details. " +
+                                               "Please specify a progression type of argument explicitly through explicit cast to resolve to a proper declaration", COMPACT);
 
         MAP.put(TOO_MANY_ARGUMENTS, "Too many arguments for {0}", FQ_NAMES_IN_TYPES);
 
@@ -621,6 +632,7 @@ public class DefaultErrorMessages {
         MAP.put(TOO_MANY_CHARACTERS_IN_CHARACTER_LITERAL, "Too many characters in a character literal ''{0}''", ELEMENT_TEXT);
         MAP.put(ILLEGAL_ESCAPE, "Illegal escape: ''{0}''", ELEMENT_TEXT);
         MAP.put(NULL_FOR_NONNULL_TYPE, "Null can not be a value of a non-null type {0}", RENDER_TYPE);
+        MAP.put(NULL_FOR_NONNULL_TYPE_WARNING, "Null can not be a value of a non-null type {0}", RENDER_TYPE);
 
         MAP.put(ELSE_MISPLACED_IN_WHEN, "'else' entry must be the last one in a when-expression");
         MAP.put(REDUNDANT_ELSE_IN_WHEN, "'when' is exhaustive so 'else' is redundant here");
@@ -629,6 +641,7 @@ public class DefaultErrorMessages {
         MAP.put(ILLEGAL_DECLARATION_IN_WHEN_SUBJECT, "Illegal variable declaration in 'when' subject: {0}. Should be a simple val with an initializer", STRING);
 
         MAP.put(NO_ELSE_IN_WHEN, "''when'' expression must be exhaustive, add necessary {0}", RENDER_WHEN_MISSING_CASES);
+        MAP.put(NO_ELSE_IN_WHEN_WARNING, "''when'' expression must be exhaustive, add necessary {0}", RENDER_WHEN_MISSING_CASES);
         MAP.put(NON_EXHAUSTIVE_WHEN, "''when'' expression on enum is recommended to be exhaustive, add {0}", RENDER_WHEN_MISSING_CASES);
         MAP.put(NON_EXHAUSTIVE_WHEN_STATEMENT, "Non exhaustive ''when'' statements on {0} will be prohibited in 1.7, add {1}", STRING, RENDER_WHEN_MISSING_CASES);
         MAP.put(NON_EXHAUSTIVE_WHEN_ON_SEALED_CLASS, "''when'' expression on sealed classes is recommended to be exhaustive, add {0}", RENDER_WHEN_MISSING_CASES);
@@ -655,7 +668,7 @@ public class DefaultErrorMessages {
         MAP.put(FINAL_SUPERTYPE, "This type is final, so it cannot be inherited from");
         MAP.put(DATA_CLASS_CANNOT_HAVE_CLASS_SUPERTYPES, "Data class inheritance from other classes is forbidden");
         MAP.put(SEALED_SUPERTYPE, "This type is sealed, so it can be inherited by only its own nested classes or objects");
-        MAP.put(SEALED_SUPERTYPE_IN_LOCAL_CLASS, "Local class cannot extend a sealed class");
+        MAP.put(SEALED_SUPERTYPE_IN_LOCAL_CLASS, "{0} cannot extend a sealed {1}", STRING, CLASS_KIND);
         MAP.put(SEALED_INHERITOR_IN_DIFFERENT_PACKAGE, "Inheritor of sealed class or interface declared in package {0} but it must be in package {1} where base class is declared", TO_STRING, TO_STRING);
         MAP.put(SEALED_INHERITOR_IN_DIFFERENT_MODULE, "Inheritance of sealed classes or interfaces from different module is prohibited");
         MAP.put(CLASS_INHERITS_JAVA_SEALED_CLASS, "Inheritance of java sealed classes is prohibited");
@@ -709,9 +722,12 @@ public class DefaultErrorMessages {
         MAP.put(EXPERIMENTAL_FEATURE_WARNING, "{0}", new LanguageFeatureMessageRenderer(LanguageFeatureMessageRenderer.Type.WARNING));
         MAP.put(EXPERIMENTAL_FEATURE_ERROR, "{0}", new LanguageFeatureMessageRenderer(LanguageFeatureMessageRenderer.Type.ERROR));
 
+        MAP.put(EXPLICIT_BACKING_FIELDS_UNSUPPORTED, "Explicit backing field declarations are not supported in FE 1.0");
+
         MAP.put(EXCEPTION_FROM_ANALYZER, "Internal Error occurred while analyzing this expression:\n{0}", THROWABLE);
         MAP.put(MISSING_STDLIB, "{0}. Ensure you have the standard Kotlin library in dependencies", STRING);
-        MAP.put(UNNECESSARY_SAFE_CALL, "Unnecessary safe call on a non-null receiver of type {0}. This expression will have nullable type in future releases", RENDER_TYPE);
+        MAP.put(UNNECESSARY_SAFE_CALL, "Unnecessary safe call on a non-null receiver of type {0}", RENDER_TYPE);
+        MAP.put(SAFE_CALL_WILL_CHANGE_NULLABILITY, "Safe call on a non-null receiver will have nullable type in future releases");
         MAP.put(UNEXPECTED_SAFE_CALL, "Safe-call is not allowed here");
         MAP.put(UNNECESSARY_NOT_NULL_ASSERTION, "Unnecessary non-null assertion (!!) on a non-null receiver of type {0}", RENDER_TYPE);
         MAP.put(NOT_NULL_ASSERTION_ON_LAMBDA_EXPRESSION, "Non-null assertion (!!) is called on a lambda expression");
@@ -733,22 +749,23 @@ public class DefaultErrorMessages {
         MAP.put(NON_PRIVATE_CONSTRUCTOR_IN_SEALED, "Constructor must be private in sealed class");
         MAP.put(NON_PRIVATE_OR_PROTECTED_CONSTRUCTOR_IN_SEALED, "Constructor must be private or protected in sealed class");
 
-        MAP.put(INLINE_CLASS_NOT_TOP_LEVEL, "Inline classes cannot be local or inner");
-        MAP.put(INLINE_CLASS_NOT_FINAL, "Inline classes can be only final");
-        MAP.put(ABSENCE_OF_PRIMARY_CONSTRUCTOR_FOR_INLINE_CLASS, "Primary constructor is required for inline class");
-        MAP.put(INLINE_CLASS_CONSTRUCTOR_WRONG_PARAMETERS_SIZE, "Inline class must have exactly one primary constructor parameter");
-        MAP.put(INLINE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER, "Value class primary constructor must have only final read-only (val) property parameter");
-        MAP.put(PROPERTY_WITH_BACKING_FIELD_INSIDE_INLINE_CLASS, "Inline class cannot have properties with backing fields");
-        MAP.put(DELEGATED_PROPERTY_INSIDE_INLINE_CLASS, "Inline class cannot have delegated properties");
-        MAP.put(INLINE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE, "Inline class cannot have value parameter of type ''{0}''", RENDER_TYPE);
-        MAP.put(INLINE_CLASS_CANNOT_IMPLEMENT_INTERFACE_BY_DELEGATION, "Inline class cannot implement an interface by delegation");
-        MAP.put(INLINE_CLASS_CANNOT_EXTEND_CLASSES, "Inline class cannot extend classes");
-        MAP.put(INLINE_CLASS_CANNOT_BE_RECURSIVE, "Inline class cannot be recursive");
-        MAP.put(RESERVED_MEMBER_INSIDE_INLINE_CLASS, "Member with the name ''{0}'' is reserved for future releases", STRING);
-        MAP.put(SECONDARY_CONSTRUCTOR_WITH_BODY_INSIDE_INLINE_CLASS, "Secondary constructors with bodies are reserved for for future releases");
-        MAP.put(INNER_CLASS_INSIDE_INLINE_CLASS, "Inline class cannot have inner classes");
+        MAP.put(VALUE_CLASS_NOT_TOP_LEVEL, "Value classes cannot be local or inner");
+        MAP.put(VALUE_CLASS_NOT_FINAL, "Value classes can be only final");
+        MAP.put(ABSENCE_OF_PRIMARY_CONSTRUCTOR_FOR_VALUE_CLASS, "Primary constructor is required for value class");
+        MAP.put(INLINE_CLASS_CONSTRUCTOR_WRONG_PARAMETERS_SIZE, "Inline class must have exactly one primary constructor parameter"); // +
+        MAP.put(VALUE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER, "Value class primary constructor must only have final read-only (val) property parameter");
+        MAP.put(PROPERTY_WITH_BACKING_FIELD_INSIDE_VALUE_CLASS, "Value class cannot have properties with backing fields");
+        MAP.put(DELEGATED_PROPERTY_INSIDE_VALUE_CLASS, "Value class cannot have delegated properties");
+        MAP.put(VALUE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE, "Value class cannot have value parameter of type ''{0}''", RENDER_TYPE);
+        MAP.put(VALUE_CLASS_CANNOT_IMPLEMENT_INTERFACE_BY_DELEGATION, "Value class cannot implement an interface by delegation if expression is not a parameter");
+        MAP.put(VALUE_CLASS_CANNOT_EXTEND_CLASSES, "Value class cannot extend classes");
+        MAP.put(VALUE_CLASS_CANNOT_BE_RECURSIVE, "Value class cannot be recursive");
+        MAP.put(RESERVED_MEMBER_INSIDE_VALUE_CLASS, "Member with the name ''{0}'' is reserved for future releases", STRING);
+        MAP.put(SECONDARY_CONSTRUCTOR_WITH_BODY_INSIDE_VALUE_CLASS, "Secondary constructors with bodies are reserved for for future releases");
+        MAP.put(INNER_CLASS_INSIDE_VALUE_CLASS, "Value class cannot have inner classes");
         MAP.put(VALUE_CLASS_CANNOT_BE_CLONEABLE, "Value class cannot be Cloneable");
         MAP.put(INLINE_CLASS_DEPRECATED, "'inline' modifier is deprecated. Use 'value' instead");
+        MAP.put(INLINE_CLASS_CANNOT_HAVE_CONTEXT_RECEIVERS, "Inline classes cannot have context receivers");
 
         MAP.put(RESULT_CLASS_IN_RETURN_TYPE, "'kotlin.Result' cannot be used as a return type");
         MAP.put(RESULT_CLASS_WITH_NULLABLE_OPERATOR, "Expression of type 'kotlin.Result' cannot be used as a left operand of ''{0}''", STRING);
@@ -816,10 +833,8 @@ public class DefaultErrorMessages {
         MAP.put(INCONSISTENT_TYPE_PARAMETER_VALUES, "Type parameter {0} of ''{1}'' has inconsistent values: {2}", NAME, NAME, RENDER_COLLECTION_OF_TYPES);
         MAP.put(INCONSISTENT_TYPE_PARAMETER_BOUNDS, "Type parameter {0} of ''{1}'' has inconsistent bounds: {2}", NAME, NAME, RENDER_COLLECTION_OF_TYPES);
 
-        MAP.put(EQUALITY_NOT_APPLICABLE, "Operator ''{0}'' cannot be applied to ''{1}'' and ''{2}''", (nameExpression, context) -> {
-            //noinspection ConstantConditions
-            return nameExpression.getReferencedName();
-        }, RENDER_TYPE, RENDER_TYPE);
+        MAP.put(EQUALITY_NOT_APPLICABLE, "Operator ''{0}'' cannot be applied to ''{1}'' and ''{2}''", (nameExpression, context) -> nameExpression.getReferencedName(), RENDER_TYPE, RENDER_TYPE);
+        MAP.put(EQUALITY_NOT_APPLICABLE_WARNING, "Operator ''{0}'' cannot be applied to ''{1}'' and ''{2}''. It will became an error in future releases.", (nameExpression, context) -> nameExpression.getReferencedName(), RENDER_TYPE, RENDER_TYPE);
 
         MAP.put(INCOMPATIBLE_ENUM_COMPARISON, "Comparison of incompatible enums ''{0}'' and ''{1}'' is always unsuccessful", RENDER_TYPE, RENDER_TYPE);
         MAP.put(INCOMPATIBLE_ENUM_COMPARISON_ERROR, "Comparison of incompatible enums ''{0}'' and ''{1}'' is always unsuccessful", RENDER_TYPE, RENDER_TYPE);
@@ -828,6 +843,8 @@ public class DefaultErrorMessages {
         MAP.put(SENSELESS_NULL_IN_WHEN, "Expression under 'when' is never equal to null");
 
         MAP.put(INVALID_IF_AS_EXPRESSION, "'if' must have both main and 'else' branches if used as an expression");
+        MAP.put(INVALID_IF_AS_EXPRESSION_WARNING, "'if' must have both main and 'else' branches if used as an expression");
+        MAP.put(CONFUSING_BRANCH_CONDITION, "The logical expressions may be understood ambiguously in when with subject branches. Please wrap it with parenthesis");
 
         MAP.put(OVERRIDING_FINAL_MEMBER, "''{0}'' in ''{1}'' is final and cannot be overridden", NAME, NAME);
         MAP.put(CANNOT_WEAKEN_ACCESS_PRIVILEGE, "Cannot weaken access privilege ''{0}'' for ''{1}'' in ''{2}''", VISIBILITY, NAME, NAME);
@@ -859,7 +876,7 @@ public class DefaultErrorMessages {
         MAP.put(VAR_OVERRIDDEN_BY_VAL, "Var-property {0} cannot be overridden by val-property {1}", FQ_NAMES_IN_TYPES,
                 FQ_NAMES_IN_TYPES);
 
-        MAP.put(CONFLICTING_INHERITED_MEMBERS, "{0} inherits conflicting members: {1}", NAME, commaSeparated(FQ_NAMES_IN_TYPES));
+        MAP.put(CONFLICTING_INHERITED_MEMBERS, "{0} inherits conflicting members: {1}", NAME, CommonRenderers.commaSeparated(FQ_NAMES_IN_TYPES));
         MAP.put(ABSTRACT_MEMBER_NOT_IMPLEMENTED, "{0} is not abstract and does not implement abstract member {1}", RENDER_CLASS_OR_OBJECT,
                 FQ_NAMES_IN_TYPES);
         MAP.put(ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED, "{0} is not abstract and does not implement abstract base class member {1}",
@@ -873,9 +890,9 @@ public class DefaultErrorMessages {
                 RENDER_CLASS_OR_OBJECT, FQ_NAMES_IN_TYPES);
         MAP.put(MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED_WARNING, "Deprecated: {0} must override {1} because it inherits multiple interface methods of it",
                 RENDER_CLASS_OR_OBJECT, FQ_NAMES_IN_TYPES);
-        MAP.put(INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER, "{0} inherits invisible abstract members: {1}", NAME, commaSeparated(FQ_NAMES_IN_TYPES));
+        MAP.put(INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER, "{0} inherits invisible abstract members: {1}", NAME, CommonRenderers.commaSeparated(FQ_NAMES_IN_TYPES));
 
-        MAP.put(CONFLICTING_OVERLOADS, "Conflicting overloads: {0}", commaSeparated(FQ_NAMES_IN_TYPES));
+        MAP.put(CONFLICTING_OVERLOADS, "Conflicting overloads: {0}", CommonRenderers.commaSeparated(FQ_NAMES_IN_TYPES));
 
         MAP.put(FUNCTION_EXPECTED, "Expression ''{0}''{1} cannot be invoked as a function. " +
                                    "The function ''" + OperatorNameConventions.INVOKE.asString() + "()'' is not found",
@@ -898,6 +915,12 @@ public class DefaultErrorMessages {
                 ELEMENT_TEXT, STRING, ELEMENT_TEXT);
 
         MAP.put(OVERLOAD_RESOLUTION_AMBIGUITY, "Overload resolution ambiguity: {0}", AMBIGUOUS_CALLS);
+        MAP.put(OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES, "No type argument for type parameter(s) `{1}` of the `{0}` builder specified. " +
+                                                                     "Cannot choose which overloaded function `{2}` to call. " +
+                                                                     "To disambiguate this call, either use an explicit type cast for a parameter or a receiver (see specific errors on them) or specify the type `{1}` explicitly.",
+                STRING, STRING, STRING);
+        MAP.put(STUB_TYPE_IN_ARGUMENT_CAUSES_AMBIGUITY, "The type of an argument hasn't been inferred yet. To disambiguate this call, explicitly cast it to `{1}` if you want the builder's type parameter(s) `{2}` to be inferred to `{3}`.", RENDER_TYPE, STRING, STRING);
+        MAP.put(STUB_TYPE_IN_RECEIVER_CAUSES_AMBIGUITY, "The type of a receiver hasn't been inferred yet. To disambiguate this call, explicitly cast it to `{1}` if you want the builder's type parameter(s) `{2}` to be inferred to `{3}`.", RENDER_TYPE, STRING, STRING, null);
         MAP.put(NONE_APPLICABLE, "None of the following functions can be called with the arguments supplied: {0}", AMBIGUOUS_CALLS);
         MAP.put(CANNOT_COMPLETE_RESOLVE, "Cannot choose among the following candidates without completing type inference: {0}", AMBIGUOUS_CALLS);
         MAP.put(UNRESOLVED_REFERENCE_WRONG_RECEIVER, "Unresolved reference. None of the following candidates is applicable because of receiver type mismatch: {0}", AMBIGUOUS_CALLS);
@@ -1003,14 +1026,14 @@ public class DefaultErrorMessages {
 
         MAP.put(DIFFERENT_NAMES_FOR_THE_SAME_PARAMETER_IN_SUPERTYPES,
                     "Names of the parameter #{1} conflict in the following members of supertypes: ''{0}''. " +
-                    "This may cause problems when calling this function with named arguments.", commaSeparated(
+                    "This may cause problems when calling this function with named arguments.", CommonRenderers.commaSeparated(
                         FQ_NAMES_IN_TYPES), TO_STRING);
 
         MAP.put(NAME_FOR_AMBIGUOUS_PARAMETER, "Named argument is not allowed for a parameter with an ambiguous name");
 
         MAP.put(DATA_CLASS_WITHOUT_PARAMETERS, "Data class must have at least one primary constructor parameter");
         MAP.put(DATA_CLASS_VARARG_PARAMETER, "Primary constructor vararg parameters are forbidden for data classes");
-        MAP.put(DATA_CLASS_NOT_PROPERTY_PARAMETER, "Data class primary constructor must have only property (val / var) parameters");
+        MAP.put(DATA_CLASS_NOT_PROPERTY_PARAMETER, "Data class primary constructor must only have property (val / var) parameters");
 
         MAP.put(CATCH_PARAMETER_WITH_DEFAULT_VALUE, "Catch clause parameter may not have a default value");
 
@@ -1064,6 +1087,7 @@ public class DefaultErrorMessages {
         MAP.put(IMPLICIT_NOTHING_TYPE_ARGUMENT_AGAINST_NOT_NOTHING_EXPECTED_TYPE, "Returning type parameter has been inferred to Nothing implicitly because Nothing is more specific than specified expected type. Please specify type arguments explicitly in accordance with expected type to hide this warning. Nothing can produce an exception at runtime. See KT-36776 for more details.");
         MAP.put(RETURN_FOR_BUILT_IN_SUSPEND, "Using implicit label for this lambda is prohibited");
         MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND, "Calls having a form of ''suspend {}'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Add empty argument list to the call: ''suspend() { ... }''");
+        MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN, "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''");
 
         MAP.put(PLUGIN_ERROR, "{0}", (d, c) -> d.getText());
         MAP.put(PLUGIN_WARNING, "{0}", (d, c) -> d.getText());
@@ -1071,6 +1095,11 @@ public class DefaultErrorMessages {
 
         MAP.put(ERROR_IN_CONTRACT_DESCRIPTION, "Error in contract description: {0}", TO_STRING);
         MAP.put(CONTRACT_NOT_ALLOWED, "{0}", TO_STRING);
+
+        MAP.put(NO_CONTEXT_RECEIVER, "No required context receiver found: {0}", TO_STRING);
+        MAP.put(MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER, "Multiple arguments applicable for context receiver: {0}", TO_STRING);
+        MAP.put(AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER, "With implicit context receiver, call is ambiguous. Specify the receiver explicitly");
+        MAP.put(UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL, "To use contextual declarations, specify the `-Xcontext-receivers` compiler option");
 
         MAP.setImmutable();
 

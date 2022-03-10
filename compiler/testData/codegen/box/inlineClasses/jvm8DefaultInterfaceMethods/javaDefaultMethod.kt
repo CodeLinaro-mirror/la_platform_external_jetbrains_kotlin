@@ -1,7 +1,13 @@
 // TARGET_BACKEND: JVM
 // JVM_TARGET: 1.8
+// WITH_STDLIB
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
+
 // FILE: javaDefaultMethod.kt
-inline class K(val k: String) : J {
+
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class K(val k: String) : J {
     override fun get2() = k
 }
 

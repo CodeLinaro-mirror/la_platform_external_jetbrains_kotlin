@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.cfg.pseudocode.instructions.eval.InstructionWithValu
 import org.jetbrains.kotlin.cfg.pseudocode.instructions.eval.MagicKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.contracts.description.canBeRevisited
 import org.jetbrains.kotlin.contracts.description.isDefinitelyVisited
@@ -50,7 +51,7 @@ import org.jetbrains.kotlin.resolve.BindingContext.USED_AS_EXPRESSION
 import org.jetbrains.kotlin.resolve.BindingTrace
 import org.jetbrains.kotlin.resolve.CompileTimeConstantUtils
 import org.jetbrains.kotlin.resolve.bindingContextUtil.getEnclosingFunctionDescriptor
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.ArgumentMatch
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.VariableAsFunctionResolvedCall
@@ -346,7 +347,10 @@ class ControlFlowProcessor(
                 builder.jumpOnTrue(afterElvis, expression, builder.getBoundValue(left))
                 generateInstructions(right)
                 builder.bindLabel(afterElvis)
-                mergeValues(listOf(left, right).filterNotNull(), expression)
+                mergeValues(listOfNotNull(left, right), expression)
+                if (right != null && languageVersionSettings?.supportsFeature(LanguageFeature.ProhibitNonExhaustiveIfInRhsOfElvis) == true) {
+                    trace.record(USED_AS_EXPRESSION, right, true)
+                }
             } else {
                 if (!generateCall(expression)) {
                     generateBothArgumentsAndMark(expression)
@@ -1318,7 +1322,11 @@ class ControlFlowProcessor(
             builder.bindLabel(doneLabel)
 
             mergeValues(branches, expression)
-            WhenChecker.checkDuplicatedLabels(expression, trace)
+            WhenChecker.checkDuplicatedLabels(
+                expression,
+                trace,
+                languageVersionSettings ?: LanguageVersionSettingsImpl.DEFAULT
+            )
         }
 
         override fun visitObjectLiteralExpression(expression: KtObjectLiteralExpression) {

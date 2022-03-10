@@ -1,5 +1,6 @@
+// IGNORE_BACKEND: JS_IR
 // WITH_COROUTINES
-// WITH_RUNTIME
+// WITH_STDLIB
 // MODULE: lib(support)
 // FILE: lib.kt
 

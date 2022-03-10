@@ -1,5 +1,4 @@
-// WITH_RUNTIME
-// IGNORE_BACKEND: WASM
+// WITH_STDLIB
 
 val a = "INT " + 0x8fffffffU
 val b = "BYTE " + 0x8ffU

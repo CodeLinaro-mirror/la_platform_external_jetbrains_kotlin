@@ -9,9 +9,9 @@ import com.intellij.psi.PsiIdentifier
 import com.intellij.psi.PsiParameterList
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.idea.frontend.api.isValid
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtFunctionLikeSymbol
-import org.jetbrains.kotlin.light.classes.symbol.parameters.FirLightParameterList
+import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionLikeSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
 import org.jetbrains.kotlin.psi.KtDeclaration
 import java.util.*
 
@@ -31,7 +31,27 @@ internal abstract class FirLightMethodForSymbol(
     override fun isVarArgs(): Boolean = _isVarArgs
 
     private val _parametersList by lazyPub {
-        FirLightParameterList(this, functionSymbol, argumentsSkipMask)
+        FirLightParameterList(this, functionSymbol) { builder ->
+            functionSymbol.valueParameters.mapIndexed { index, parameter ->
+                val needToSkip = argumentsSkipMask?.get(index) == true
+                if (!needToSkip) {
+                    builder.addParameter(
+                        FirLightParameterForSymbol(
+                            parameterSymbol = parameter,
+                            containingMethod = this@FirLightMethodForSymbol
+                        )
+                    )
+                }
+            }
+            if ((functionSymbol as? KtFunctionSymbol)?.isSuspend == true) {
+                builder.addParameter(
+                    FirLightSuspendContinuationParameter(
+                        functionSymbol = functionSymbol,
+                        containingMethod = this@FirLightMethodForSymbol
+                    )
+                )
+            }
+        }
     }
 
     private val _identifier: PsiIdentifier by lazyPub {
@@ -42,7 +62,8 @@ internal abstract class FirLightMethodForSymbol(
 
     override fun getParameterList(): PsiParameterList = _parametersList
 
-    override val kotlinOrigin: KtDeclaration? = functionSymbol.psi as? KtDeclaration
+    override val kotlinOrigin: KtDeclaration? =
+        lightMemberOrigin?.originalElement ?: functionSymbol.psi as? KtDeclaration
 
     override fun isValid(): Boolean = super.isValid() && functionSymbol.isValid()
 }

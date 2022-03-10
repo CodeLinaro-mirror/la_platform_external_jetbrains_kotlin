@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.ExpressionCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirExpressionChecker
 import org.jetbrains.kotlin.fir.analysis.checkersComponent
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.expressions.*
 
 @OptIn(CheckersComponentInternal::class)
@@ -26,6 +26,10 @@ class ExpressionCheckersDiagnosticComponent(
 
     override fun <T> visitConstExpression(constExpression: FirConstExpression<T>, data: CheckerContext) {
         checkers.allConstExpressionCheckers.check(constExpression, data, reporter)
+    }
+
+    override fun visitAnnotation(annotation: FirAnnotation, data: CheckerContext) {
+        checkers.allAnnotationCheckers.check(annotation, data, reporter)
     }
 
     override fun visitAnnotationCall(annotationCall: FirAnnotationCall, data: CheckerContext) {

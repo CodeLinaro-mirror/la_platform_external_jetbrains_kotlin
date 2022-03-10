@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.fir.types
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.visitors.*
 
 /*
@@ -17,8 +17,8 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 abstract class FirFunctionTypeRef : FirTypeRefWithNullability() {
-    abstract override val source: FirSourceElement?
-    abstract override val annotations: List<FirAnnotationCall>
+    abstract override val source: KtSourceElement?
+    abstract override val annotations: List<FirAnnotation>
     abstract override val isMarkedNullable: Boolean
     abstract val receiverTypeRef: FirTypeRef?
     abstract val valueParameters: List<FirValueParameter>

@@ -1,16 +1,11 @@
-// IGNORE_BACKEND_FIR: JVM_IR
 // IGNORE_BACKEND: JVM
-// IGNORE_BACKEND: NATIVE
 // IGNORE_BACKEND: WASM
 // IGNORE_BACKEND_MULTI_MODULE: JVM, JVM_MULTI_MODULE_IR_AGAINST_OLD
 
 // (supported: JVM_IR, JS_IR(_E6))
 
-// WITH_RUNTIME
+// WITH_STDLIB
 // !LANGUAGE: +InstantiationOfAnnotationClasses
-
-// IGNORE_DEXING
-// TODO: D8 fails with AssertionError and does not print reason, need further investigation
 
 // FILE: 1.kt
 

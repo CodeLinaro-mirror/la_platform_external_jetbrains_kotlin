@@ -37,9 +37,15 @@ fun IrElement.dump(normalizeNames: Boolean = false, stableOrder: Boolean = false
     }
 
 fun IrFile.dumpTreesFromLineNumber(lineNumber: Int, normalizeNames: Boolean = false): String {
+    if (shouldSkipDump()) return ""
     val sb = StringBuilder()
     accept(DumpTreeFromSourceLineVisitor(fileEntry, lineNumber, sb, normalizeNames), null)
     return sb.toString()
+}
+
+private fun IrFile.shouldSkipDump(): Boolean {
+    val entry = fileEntry as? NaiveSourceBasedFileEntryImpl ?: return false
+    return entry.lineStartOffsetsAreEmpty
 }
 
 class DumpIrTreeVisitor(
@@ -111,6 +117,7 @@ class DumpIrTreeVisitor(
     override fun visitClass(declaration: IrClass, data: String) {
         declaration.dumpLabeledElementWith(data) {
             dumpAnnotations(declaration)
+            declaration.sealedSubclasses.dumpItems("sealedSubclasses") { it.dump() }
             declaration.thisReceiver?.accept(this, "\$this")
             declaration.typeParameters.dumpElements()
             declaration.declarations.ordered().dumpElements()
@@ -137,6 +144,12 @@ class DumpIrTreeVisitor(
             declaration.overriddenSymbols.dumpItems("overridden") { it.dump() }
             declaration.typeParameters.dumpElements()
             declaration.dispatchReceiverParameter?.accept(this, "\$this")
+
+            val contextReceiverParametersCount = declaration.contextReceiverParametersCount
+            if (contextReceiverParametersCount > 0) {
+                printer.println("contextReceiverParametersCount: $contextReceiverParametersCount")
+            }
+
             declaration.extensionReceiverParameter?.accept(this, "\$receiver")
             declaration.valueParameters.dumpElements()
             declaration.body?.accept(this, "")
@@ -339,6 +352,22 @@ class DumpIrTreeVisitor(
             expression.receiver.accept(this, "receiver")
             for ((i, arg) in expression.arguments.withIndex()) {
                 arg.accept(this, i.toString())
+            }
+        }
+    }
+
+    override fun visitConstantArray(expression: IrConstantArray, data: String) {
+        expression.dumpLabeledElementWith(data) {
+            for ((i, value) in expression.elements.withIndex()) {
+                value.accept(this, i.toString())
+            }
+        }
+    }
+
+    override fun visitConstantObject(expression: IrConstantObject, data: String) {
+        expression.dumpLabeledElementWith(data) {
+            for ((index, argument) in expression.valueArguments.withIndex()) {
+                argument.accept(this, expression.constructor.owner.valueParameters[index].name.toString())
             }
         }
     }

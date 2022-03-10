@@ -10,10 +10,6 @@ dependencies {
     compileOnly kotlinStdlib()
 }
 
-configurations {
-    mainJar
-}
-
 sourceSets {
     main {
         kotlin {
@@ -26,10 +22,6 @@ jar {
     manifestAttributes(manifest, project, 'Main')
 }
 
-artifacts {
-    mainJar jar
-}
-
 configureSourcesJar()
 configureJavadocJar()
 
@@ -40,3 +32,5 @@ compileKotlin {
     ]
     kotlinOptions.moduleName = project.name
 }
+
+configureFrontendIr(project)

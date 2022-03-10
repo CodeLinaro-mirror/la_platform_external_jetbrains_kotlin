@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.psi2ir.generators
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ScriptDescriptor
+import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.assertCast
 import org.jetbrains.kotlin.ir.builders.declarations.IrFunctionBuilder
@@ -22,9 +23,10 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.toArrayOrPrimitiveArrayType
-import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.ir.util.indexOrMinusOne
+import org.jetbrains.kotlin.ir.util.isCrossinline
+import org.jetbrains.kotlin.ir.util.isNoinline
+import org.jetbrains.kotlin.ir.util.varargElementType
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
 import org.jetbrains.kotlin.psi.KtScript
@@ -86,19 +88,9 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             irScript.earlierScripts?.forEach {
                 context.symbolTable.introduceValueParameter(it.owner.thisReceiver)
             }
-            irScript.earlierScriptsParameter = irScript.earlierScripts?.takeIf { it.isNotEmpty() }?.let {
-                val baseType = context.irBuiltIns.anyType
-                val arrayType = baseType.toArrayOrPrimitiveArrayType(context.irBuiltIns)
-                context.irFactory.createValueParameter(
-                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, IrDeclarationOrigin.SCRIPT_EARLIER_SCRIPTS, IrValueParameterSymbolImpl(),
-                    Name.special("<earlierScripts>"), parametersIndex++,
-                    arrayType, null,
-                    false, false, false, false
-                ).also { it.parent = irScript }
-            }
 
-            irScript.explicitCallParameters = descriptor.explicitConstructorParameters.map { valueParameterDescriptor ->
-                context.irFactory.createValueParameter(
+            fun createValueParameter(valueParameterDescriptor: ValueParameterDescriptor): IrValueParameter {
+                return context.irFactory.createValueParameter(
                     UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                     IrDeclarationOrigin.SCRIPT_CALL_PARAMETER, IrValueParameterSymbolImpl(),
                     valueParameterDescriptor.name, parametersIndex++,
@@ -107,6 +99,10 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                     false, false
                 ).also { it.parent = irScript }
             }
+
+            irScript.earlierScriptsParameter = descriptor.earlierScriptsConstructorParameter?.let(::createValueParameter)
+
+            irScript.explicitCallParameters = descriptor.explicitConstructorParameters.map(::createValueParameter)
 
             irScript.implicitReceiversParameters = descriptor.implicitReceivers.map {
                 makeParameter(it.thisAsReceiverParameter, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER, parametersIndex++)
@@ -160,6 +156,7 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                     irScript.providedProperties.forEach { add(it.first) }
                 }
                 irConstructor.parent = irScript
+                irConstructor.metadata = DescriptorMetadataSource.Function(descriptor.unsubstitutedPrimaryConstructor)
             }
 
             for (d in ktScript.declarations) {

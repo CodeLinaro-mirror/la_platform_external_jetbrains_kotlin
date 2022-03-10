@@ -1,10 +1,8 @@
-// IGNORE_BACKEND_FIR: JVM_IR
 // IGNORE_BACKEND: JVM
-// IGNORE_BACKEND: NATIVE
 // IGNORE_BACKEND: WASM
 // DONT_TARGET_EXACT_BACKEND: JS
 
-// WITH_RUNTIME
+// WITH_STDLIB
 // !LANGUAGE: +InstantiationOfAnnotationClasses
 
 package test
@@ -23,6 +21,7 @@ annotation class C(
     val i: Int = 42,
     val b: B = B(),
     val kClass: KClass<*> = B::class,
+    val kClassArray: Array<KClass<*>> = [E::class, A::class],
     val e: E = E.B,
     val aS: Array<String> = arrayOf("a", "b"),
     val aI: IntArray = intArrayOf(1, 2)
@@ -39,6 +38,7 @@ fun box(): String {
     assertEquals(42, c.i)
     assertEquals(A(), c.b.a)
     assertEquals(B::class, c.kClass)
+    assertEquals(2, c.kClassArray.size)
     assertEquals(E.B, c.e)
     assert(arrayOf("a", "b").contentEquals(c.aS))
     assert(intArrayOf(1, 2).contentEquals(c.aI))

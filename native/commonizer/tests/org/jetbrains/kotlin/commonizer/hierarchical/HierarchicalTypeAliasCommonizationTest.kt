@@ -39,7 +39,7 @@ class HierarchicalTypeAliasCommonizationTest : AbstractInlineSourcesCommonizatio
             )
         }
 
-        result.assertCommonized("(a,b)", "expect class X expect constructor()")
+        result.assertCommonized("(a,b)", "expect class X()")
     }
 
     fun `test typealias to different classes`() {
@@ -75,31 +75,31 @@ class HierarchicalTypeAliasCommonizationTest : AbstractInlineSourcesCommonizatio
 
         result.assertCommonized(
             "(a,b)", """
-                expect class AB expect constructor()
+                expect class AB()
                 typealias x = AB
             """
         )
 
         result.assertCommonized(
             "(c,d)", """
-                expect class CD expect constructor()
+                expect class CD()
                 typealias x = CD
             """
         )
 
         result.assertCommonized(
             "(c,d)", """
-                expect class CD expect constructor()
+                expect class CD()
                 typealias x = CD
             """
         )
 
         result.assertCommonized(
-            "(e,f)", """expect class x expect constructor()"""
+            "(e,f)", """expect class x()"""
         )
 
-        result.assertCommonized("(a, b, c, d)", """expect class x expect constructor()""")
-        result.assertCommonized("(a, b, c, d, e, f)", """expect class x expect constructor()""")
+        result.assertCommonized("(a, b, c, d)", """expect class x()""")
+        result.assertCommonized("(a, b, c, d, e, f)", """expect class x()""")
     }
 
 
@@ -130,7 +130,7 @@ class HierarchicalTypeAliasCommonizationTest : AbstractInlineSourcesCommonizatio
         )
     }
 
-    fun `KT-47574 - test long typealias chain`() {
+    fun `test long typealias chain`() {
         val result = commonize {
             outputTarget("(a, b)")
 
@@ -159,6 +159,42 @@ class HierarchicalTypeAliasCommonizationTest : AbstractInlineSourcesCommonizatio
                 typealias B<N, M> = A<N, M>
                 typealias C<N> = B<N, Int>
                 typealias D = C<String>
+            """.trimIndent()
+        )
+    }
+
+    fun `test typealias with phantom type`() {
+        val result = commonize {
+            outputTarget("(a, b)")
+
+            simpleSingleSourceTarget(
+                "a", """
+                    typealias A<N, M> = Map<N, M>
+                    typealias B<N, Phantom, M> = A<N, M>
+                    typealias X<T> = B<T, String, Long>
+                    
+                    fun x(x: X<Int>) = Unit
+                """.trimIndent()
+            )
+
+            simpleSingleSourceTarget(
+                "b", """
+                    typealias A<N, M> = Map<N, M>
+                    typealias B<N, Phantom, M> = A<N, M>
+                    typealias X<T> = B<T, String, Long>
+                    typealias Y<T> = X<T>
+                    fun x(x: Y<Int>) = Unit
+                """.trimIndent()
+            )
+        }
+
+        result.assertCommonized(
+            "(a, b)", """
+                typealias A<N, M> = Map<N, M>
+                typealias B<N, Phantom, M> = A<N, M>
+                typealias X<T> = B<T, String, Long>
+                
+                expect fun x(x: X<Int>)
             """.trimIndent()
         )
     }

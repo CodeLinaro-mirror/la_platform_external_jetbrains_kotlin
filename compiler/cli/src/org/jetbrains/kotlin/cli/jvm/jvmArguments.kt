@@ -43,15 +43,22 @@ fun CompilerConfiguration.setupJvmSpecificArguments(arguments: K2JVMCompilerArgu
         }
     }
 
+    val jvmDefaultMode = languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
     val jvmTarget = get(JVMConfigurationKeys.JVM_TARGET) ?: JvmTarget.DEFAULT
     if (jvmTarget.majorVersion < JvmTarget.JVM_1_8.majorVersion) {
-        val jvmDefaultMode = languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
         if (jvmDefaultMode.forAllMethodsWithBody) {
             messageCollector.report(
                 ERROR,
                 "'-Xjvm-default=${jvmDefaultMode.description}' is only supported since JVM target 1.8. Recompile with '-jvm-target 1.8'"
             )
         }
+    }
+
+    if (jvmDefaultMode == JvmDefaultMode.ENABLE || jvmDefaultMode == JvmDefaultMode.ENABLE_WITH_DEFAULT_IMPLS) {
+        messageCollector.report(
+            WARNING,
+            "'-Xjvm-default=${jvmDefaultMode.description}' is deprecated, please use '-Xjvm-default=all|all-compatibility'"
+        )
     }
 
     val stringConcat = arguments.stringConcat
@@ -248,10 +255,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     put(JVMConfigurationKeys.DISABLE_CALL_ASSERTIONS, arguments.noCallAssertions)
     put(JVMConfigurationKeys.DISABLE_RECEIVER_ASSERTIONS, arguments.noReceiverAssertions)
     put(JVMConfigurationKeys.DISABLE_PARAM_ASSERTIONS, arguments.noParamAssertions)
-    put(
-        JVMConfigurationKeys.NO_EXCEPTION_ON_EXPLICIT_EQUALS_FOR_BOXED_NULL,
-        arguments.noExceptionOnExplicitEqualsForBoxedNull
-    )
     put(JVMConfigurationKeys.DISABLE_OPTIMIZATION, arguments.noOptimize)
     put(JVMConfigurationKeys.EMIT_JVM_TYPE_ANNOTATIONS, arguments.emitJvmTypeAnnotations)
     put(JVMConfigurationKeys.NO_OPTIMIZED_CALLABLE_REFERENCES, arguments.noOptimizedCallableReferences)
@@ -259,23 +262,10 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     put(JVMConfigurationKeys.NO_RESET_JAR_TIMESTAMPS, arguments.noResetJarTimestamps)
     put(JVMConfigurationKeys.NO_UNIFIED_NULL_CHECKS, arguments.noUnifiedNullChecks)
 
-    put(JVMConfigurationKeys.SERIALIZE_IR, arguments.serializeIr)
+    put(JVMConfigurationKeys.SERIALIZE_IR, JvmSerializeIrMode.fromString(arguments.serializeIr))
 
     put(JVMConfigurationKeys.VALIDATE_IR, arguments.validateIr)
     put(JVMConfigurationKeys.VALIDATE_BYTECODE, arguments.validateBytecode)
-
-    if (!JVMConstructorCallNormalizationMode.isSupportedValue(arguments.constructorCallNormalizationMode)) {
-        messageCollector.report(
-            ERROR,
-            "Unknown constructor call normalization mode: ${arguments.constructorCallNormalizationMode}, " +
-                    "supported modes: ${JVMConstructorCallNormalizationMode.values().map { it.description }}"
-        )
-    }
-
-    val constructorCallNormalizationMode = JVMConstructorCallNormalizationMode.fromStringOrNull(arguments.constructorCallNormalizationMode)
-    if (constructorCallNormalizationMode != null) {
-        put(JVMConfigurationKeys.CONSTRUCTOR_CALL_NORMALIZATION_MODE, constructorCallNormalizationMode)
-    }
 
     val assertionsMode =
         JVMAssertionsMode.fromStringOrNull(arguments.assertionsMode)
@@ -288,7 +278,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     put(JVMConfigurationKeys.ASSERTIONS_MODE, assertionsMode ?: JVMAssertionsMode.DEFAULT)
 
     put(JVMConfigurationKeys.USE_TYPE_TABLE, arguments.useTypeTable)
-    put(JVMConfigurationKeys.SKIP_RUNTIME_VERSION_CHECK, arguments.skipRuntimeVersionCheck)
     put(JVMConfigurationKeys.USE_PSI_CLASS_FILES_READING, arguments.useOldClassFilesReading)
     put(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM, arguments.useFastJarFileSystem)
 
@@ -302,7 +291,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE, arguments.allowKotlinPackage)
     put(JVMConfigurationKeys.USE_SINGLE_MODULE, arguments.singleModule)
-    put(JVMConfigurationKeys.USE_OLD_SPILLED_VAR_TYPE_ANALYSIS, arguments.useOldSpilledVarTypeAnalysis)
     put(JVMConfigurationKeys.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME, arguments.useOldInlineClassesManglingScheme)
     put(JVMConfigurationKeys.ENABLE_JVM_PREVIEW, arguments.enableJvmPreview)
 

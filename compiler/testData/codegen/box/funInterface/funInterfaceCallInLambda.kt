@@ -1,4 +1,3 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
 
 fun interface Action {
     fun run()

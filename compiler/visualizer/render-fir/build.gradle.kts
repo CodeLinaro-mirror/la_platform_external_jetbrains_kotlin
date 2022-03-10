@@ -4,10 +4,10 @@ plugins {
 }
 
 dependencies {
-    compile(project(":compiler:fir:raw-fir:psi2fir"))
-    compile(project(":compiler:fir:resolve"))
-    compile(project(":compiler:visualizer:common"))
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    api(project(":compiler:fir:raw-fir:psi2fir"))
+    api(project(":compiler:fir:resolve"))
+    api(project(":compiler:visualizer:common"))
+    compileOnly(intellijCore())
 }
 
 sourceSets {
@@ -17,6 +17,6 @@ sourceSets {
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
     kotlinOptions {
-        freeCompilerArgs += "-Xopt-in=org.jetbrains.kotlin.fir.symbols.SymbolInternals"
+        freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.fir.symbols.SymbolInternals"
     }
 }

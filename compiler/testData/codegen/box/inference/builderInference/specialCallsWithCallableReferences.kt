@@ -1,5 +1,4 @@
-// WITH_RUNTIME
-// DONT_TARGET_EXACT_BACKEND: WASM
+// WITH_STDLIB
 // !LANGUAGE: -StrictOnlyInputTypesChecks
 
 import kotlin.experimental.ExperimentalTypeInference
@@ -14,7 +13,7 @@ fun <T> materialize() = null as T
 
 interface FlowCollector<in T> {}
 
-@Suppress("EXPERIMENTAL_API_USAGE_ERROR")
+@Suppress("OPT_IN_USAGE_ERROR")
 fun <L> flow(@BuilderInference block: suspend FlowCollector<L>.() -> Unit) = Flow(block)
 
 class Flow<out R>(private val block: suspend FlowCollector<R>.() -> Unit)

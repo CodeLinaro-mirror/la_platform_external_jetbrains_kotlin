@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
 import org.jetbrains.kotlin.diagnostics.DiagnosticSink
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.JvmNames.VOLATILE_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
@@ -36,7 +37,6 @@ import org.jetbrains.kotlin.resolve.checkers.DeclarationCheckerContext
 import org.jetbrains.kotlin.resolve.descriptorUtil.isAnnotationConstructor
 import org.jetbrains.kotlin.resolve.descriptorUtil.propertyIfAccessor
 import org.jetbrains.kotlin.resolve.inline.InlineUtil
-import org.jetbrains.kotlin.resolve.jvm.annotations.VOLATILE_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.annotations.findJvmOverloadsAnnotation
 import org.jetbrains.kotlin.resolve.jvm.annotations.findSynchronizedAnnotation
 import org.jetbrains.kotlin.resolve.jvm.annotations.hasJvmFieldAnnotation
@@ -199,6 +199,8 @@ class SynchronizedAnnotationChecker : DeclarationChecker {
                 context.trace.report(ErrorsJvm.SYNCHRONIZED_ON_INLINE.on(annotationEntry))
             } else if (descriptor.isSuspend) {
                 context.trace.report(ErrorsJvm.SYNCHRONIZED_ON_SUSPEND.on(annotationEntry))
+            } else if (descriptor.containingDeclaration.let { it is ClassDescriptor && it.isValue }) {
+                context.trace.report(ErrorsJvm.SYNCHRONIZED_ON_VALUE_CLASS.on(annotationEntry))
             }
         }
     }

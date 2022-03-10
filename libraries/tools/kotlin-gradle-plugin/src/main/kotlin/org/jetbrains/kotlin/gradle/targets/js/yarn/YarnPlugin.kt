@@ -41,6 +41,7 @@ open class YarnPlugin : Plugin<Project> {
         val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
 
         val rootPackageJson = tasks.register(RootPackageJsonTask.NAME, RootPackageJsonTask::class.java) { task ->
+            task.dependsOn(nodeJs.npmCachesSetupTaskProvider)
             task.group = NodeJsRootPlugin.TASKS_GROUP_NAME
             task.description = "Create root package.json"
 
@@ -53,6 +54,7 @@ open class YarnPlugin : Plugin<Project> {
         kotlinNpmInstall.configure {
             it.dependsOn(rootPackageJson)
             it.dependsOn(setupTask)
+            it.inputs.property("ignoreScripts", { yarnRootExtension.ignoreScripts })
         }
 
         tasks.register("yarn" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {

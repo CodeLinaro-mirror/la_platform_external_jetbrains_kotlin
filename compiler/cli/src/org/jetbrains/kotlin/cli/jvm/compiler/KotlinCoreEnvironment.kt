@@ -67,7 +67,6 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.toBooleanLenient
-import org.jetbrains.kotlin.cli.jvm.JvmRuntimeVersionsConsistencyChecker
 import org.jetbrains.kotlin.cli.jvm.compiler.jarfs.FastJarFileSystem
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
@@ -83,6 +82,7 @@ import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.extensions.*
 import org.jetbrains.kotlin.extensions.internal.CandidateInterceptor
 import org.jetbrains.kotlin.extensions.internal.TypeResolutionInterceptor
+import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.js.translate.extensions.JsSyntheticTranslateExtension
 import org.jetbrains.kotlin.load.kotlin.KotlinBinaryClassCache
@@ -267,17 +267,6 @@ class KotlinCoreEnvironment private constructor(
             classpathRootsResolver.convertClasspathRoots(configuration.getList(CLIConfigurationKeys.CONTENT_ROOTS))
         this.initialRoots.addAll(initialRoots)
 
-        if (!configuration.getBoolean(JVMConfigurationKeys.SKIP_RUNTIME_VERSION_CHECK) && messageCollector != null) {
-            /*
-            // Temporarily disable until compiler is bootstrapped to 1.6.
-            JvmRuntimeVersionsConsistencyChecker.checkCompilerClasspathConsistency(
-                messageCollector,
-                configuration,
-                initialRoots.mapNotNull { (file, type) -> if (type == JavaRoot.RootType.BINARY) file else null }
-            )
-            */
-        }
-
         val (roots, singleJavaFileRoots) =
             initialRoots.partition { (file) -> file.isDirectory || file.extension != JavaFileType.DEFAULT_EXTENSION }
 
@@ -416,7 +405,7 @@ class KotlinCoreEnvironment private constructor(
         }.orEmpty()
     }
 
-    private fun contentRootToVirtualFile(root: JvmContentRoot): VirtualFile? =
+    private fun contentRootToVirtualFile(root: JvmContentRootBase): VirtualFile? =
         when (root) {
             is JvmClasspathRoot ->
                 if (root.file.isFile) findJarRoot(root.file) else findExistingRoot(root, "Classpath entry")
@@ -424,6 +413,7 @@ class KotlinCoreEnvironment private constructor(
                 if (root.file.isFile) findJarRoot(root.file) else findExistingRoot(root, "Java module root")
             is JavaSourceRoot ->
                 findExistingRoot(root, "Java source root")
+            is VirtualJvmClasspathRoot -> root.file
             else ->
                 throw IllegalStateException("Unexpected root: $root")
         }
@@ -584,6 +574,7 @@ class KotlinCoreEnvironment private constructor(
         /**
          * This method is also used in Gradle after configuration phase finished.
          */
+        @JvmStatic
         fun disposeApplicationEnvironment() {
             synchronized(APPLICATION_LOCK) {
                 val environment = ourApplicationEnvironment ?: return
@@ -658,6 +649,7 @@ class KotlinCoreEnvironment private constructor(
             TypeResolutionInterceptor.registerExtensionPoint(project)
             CandidateInterceptor.registerExtensionPoint(project)
             DescriptorSerializerPlugin.registerExtensionPoint(project)
+            FirExtensionRegistrarAdapter.registerExtensionPoint(project)
         }
 
         internal fun registerExtensionsFromPlugins(project: MockProject, configuration: CompilerConfiguration) {

@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.gradle.plugin.sources.checkSourceSetVisibilityRequir
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.scripting.internal.ScriptingGradleSubplugin
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
+import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.registerKotlinArtifactsExtension
 import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.*
@@ -95,6 +96,7 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
             METADATA_TARGET_NAME
         )
         configurePublishingWithMavenPublish(project)
+        project.registerKotlinArtifactsExtension()
 
         targetsContainer.withType(AbstractKotlinTarget::class.java).all { applyUserDefinedAttributes(it) }
 
@@ -174,13 +176,14 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
         with(project.multiplatformExtension.presets) {
             add(KotlinJvmTargetPreset(project))
             add(KotlinJsTargetPreset(project).apply { irPreset = null })
-            add(KotlinJsIrTargetPreset(project).apply { mixedMode = false })
+            add(KotlinJsIrTargetPreset(project, isWasm = false).apply { mixedMode = false })
             add(
                 KotlinJsTargetPreset(project).apply {
-                    irPreset = KotlinJsIrTargetPreset(project)
+                    irPreset = KotlinJsIrTargetPreset(project, isWasm = false)
                         .apply { mixedMode = true }
                 }
             )
+            add(KotlinJsIrTargetPreset(project, isWasm = true).apply { mixedMode = false })
             add(KotlinAndroidTargetPreset(project))
             add(KotlinJvmWithJavaTargetPreset(project))
 

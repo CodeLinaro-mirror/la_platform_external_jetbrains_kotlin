@@ -5,20 +5,19 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls
 
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.builder.buildErrorFunction
 import org.jetbrains.kotlin.fir.declarations.builder.buildErrorProperty
-import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.returnExpressions
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirErrorFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirErrorPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.resolve.calls.components.PostponedArgumentsAnalyzerContext
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
@@ -35,7 +34,7 @@ class CandidateFactory private constructor(
             callInfo.arguments.forEach {
                 system.addSubsystemFromExpression(it)
             }
-            system.addOtherSystem(context.bodyResolveContext.inferenceSession.currentConstraintSystem)
+            system.addOtherSystem(context.bodyResolveContext.inferenceSession.currentConstraintStorage)
             return system.asReadOnlyStorage()
         }
     }
@@ -49,9 +48,10 @@ class CandidateFactory private constructor(
         scope: FirScope?,
         dispatchReceiverValue: ReceiverValue? = null,
         extensionReceiverValue: ReceiverValue? = null,
-        builtInExtensionFunctionReceiverValue: ReceiverValue? = null
+        builtInExtensionFunctionReceiverValue: ReceiverValue? = null,
+        objectsByName: Boolean = false
     ): Candidate {
-        return Candidate(
+        val result = Candidate(
             symbol, dispatchReceiverValue, extensionReceiverValue,
             explicitReceiverKind, context.inferenceComponents.constraintSystemFactory, baseSystem,
             builtInExtensionFunctionReceiverValue?.receiverExpression?.let {
@@ -65,13 +65,33 @@ class CandidateFactory private constructor(
                 ExplicitReceiverKind.NO_EXPLICIT_RECEIVER, ExplicitReceiverKind.BOTH_RECEIVERS -> false
             }
         )
+
+        // The counterpart in FE 1.0 checks if the given descriptor is VariableDescriptor yet not PropertyDescriptor.
+        // Here, we explicitly check if the referred declaration/symbol is value parameter, local variable, or backing field.
+        val callSite = callInfo.callSite
+        if (callSite is FirCallableReferenceAccess) {
+            if (symbol is FirValueParameterSymbol || symbol is FirPropertySymbol && symbol.isLocal || symbol is FirBackingFieldSymbol) {
+                result.addDiagnostic(Unsupported("References to variables aren't supported yet", callSite.calleeReference.source))
+            }
+        } else if (objectsByName &&
+            symbol is FirRegularClassSymbol &&
+            symbol.classKind != ClassKind.OBJECT &&
+            symbol.companionObjectSymbol == null
+        ) {
+            result.addDiagnostic(NoCompanionObject)
+        }
+        if (callInfo.origin == FirFunctionCallOrigin.Operator && symbol is FirPropertySymbol) {
+            // Flag all property references that are resolved from an convention operator call.
+            result.addDiagnostic(PropertyAsOperator)
+        }
+        return result
     }
 
     private fun ReceiverValue?.isCandidateFromCompanionObjectTypeScope(): Boolean {
         val expressionReceiverValue = this as? ExpressionReceiverValue ?: return false
         val resolvedQualifier = (expressionReceiverValue.explicitReceiver as? FirResolvedQualifier) ?: return false
         val originClassOfCandidate = expressionReceiverValue.type.classId ?: return false
-        return (resolvedQualifier.symbol?.fir as? FirRegularClass)?.companionObject?.classId == originClassOfCandidate
+        return (resolvedQualifier.symbol?.fir as? FirRegularClass)?.companionObjectSymbol?.classId == originClassOfCandidate
     }
 
     fun createErrorCandidate(callInfo: CallInfo, diagnostic: ConeDiagnostic): Candidate {

@@ -1,4 +1,4 @@
-// WITH_RUNTIME
+// WITH_STDLIB
 
 // FILE: test.kt
 val bar2 by <!DEBUG_INFO_MISSING_UNRESOLVED!>bar2<!>()

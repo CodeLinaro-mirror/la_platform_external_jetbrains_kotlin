@@ -731,6 +731,26 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             runTest("compiler/testData/psi/TypealiasIsKeyword.kt");
         }
 
+        @TestMetadata("UnderscoredTypeArgumentsOfCall.kt")
+        public void testUnderscoredTypeArgumentsOfCall() throws Exception {
+            runTest("compiler/testData/psi/UnderscoredTypeArgumentsOfCall.kt");
+        }
+
+        @TestMetadata("UnderscoredTypeArgumentsOfCallIllegal.kt")
+        public void testUnderscoredTypeArgumentsOfCallIllegal() throws Exception {
+            runTest("compiler/testData/psi/UnderscoredTypeArgumentsOfCallIllegal.kt");
+        }
+
+        @TestMetadata("UnderscoredTypeArgumentsOfType.kt")
+        public void testUnderscoredTypeArgumentsOfType() throws Exception {
+            runTest("compiler/testData/psi/UnderscoredTypeArgumentsOfType.kt");
+        }
+
+        @TestMetadata("UnderscoredTypeParameters.kt")
+        public void testUnderscoredTypeParameters() throws Exception {
+            runTest("compiler/testData/psi/UnderscoredTypeParameters.kt");
+        }
+
         @TestMetadata("UnsignedLiteral.kt")
         public void testUnsignedLiteral() throws Exception {
             runTest("compiler/testData/psi/UnsignedLiteral.kt");
@@ -1980,6 +2000,24 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             @TestMetadata("valid.kt")
             public void testValid() throws Exception {
                 runTest("compiler/testData/psi/primaryConstructor/valid.kt");
+            }
+        }
+
+        @TestMetadata("compiler/testData/psi/propertyBackingField")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class PropertyBackingField extends AbstractParsingTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doParsingTest, this, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInPropertyBackingField() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/psi/propertyBackingField"), Pattern.compile("^(.*)\\.kts?$"), null, true);
+            }
+
+            @TestMetadata("explicitBackingField.kt")
+            public void testExplicitBackingField() throws Exception {
+                runTest("compiler/testData/psi/propertyBackingField/explicitBackingField.kt");
             }
         }
 

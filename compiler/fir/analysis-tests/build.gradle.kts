@@ -11,7 +11,7 @@ plugins {
 }
 
 dependencies {
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core", "guava", rootProject = rootProject) }
+    compileOnly(intellijCore())
 
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(projectTests(":compiler:test-infrastructure-utils"))
@@ -31,12 +31,11 @@ dependencies {
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":compiler:fir:fir2ir:jvm-backend"))
 
-    testImplementation(intellijCoreDep()) { includeJars("intellij-core") }
-    testRuntimeOnly(intellijDep()) {
-        includeJars("jna", rootProject = rootProject)
-    }
+    testImplementation(intellijCore())
 
-    testRuntimeOnly(intellijDep()) { includeJars("intellij-deps-fastutil-8.4.1-4") }
+    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testRuntimeOnly(commonDependency("one.util:streamex"))
+    testRuntimeOnly(commonDependency("net.java.dev.jna:jna"))
     testRuntimeOnly(toolsJar())
 }
 
@@ -57,7 +56,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(jUnit5Enabled = true) {
+projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     jvmArgs!!.removeIf { it.contains("-Xmx") }

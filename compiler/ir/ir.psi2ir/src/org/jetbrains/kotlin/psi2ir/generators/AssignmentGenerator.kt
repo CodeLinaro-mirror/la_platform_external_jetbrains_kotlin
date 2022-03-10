@@ -17,10 +17,7 @@
 package org.jetbrains.kotlin.psi2ir.generators
 
 import com.intellij.psi.tree.IElementType
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.PropertyDescriptor
-import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.descriptors.ValueDescriptor
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.LocalVariableDescriptor
 import org.jetbrains.kotlin.descriptors.impl.SyntheticFieldDescriptor
 import org.jetbrains.kotlin.ir.builders.irBlock
@@ -38,7 +35,7 @@ import org.jetbrains.kotlin.psi2ir.unwrappedGetMethod
 import org.jetbrains.kotlin.psi2ir.unwrappedSetMethod
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.PropertyImportedFromObject
-import org.jetbrains.kotlin.resolve.calls.callUtil.isSafeCall
+import org.jetbrains.kotlin.resolve.calls.util.isSafeCall
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.calls.tasks.isDynamic
 import org.jetbrains.kotlin.resolve.calls.util.FakeCallableDescriptorForObject
@@ -276,7 +273,9 @@ class AssignmentGenerator(statementGenerator: StatementGenerator) : StatementGen
                     descriptor.type.toIrType(),
                     descriptor.name.asString(),
                     statementGenerator.generateCallReceiver(
-                        ktLeft, descriptor, resolvedCall.dispatchReceiver, resolvedCall.extensionReceiver,
+                        ktLeft, descriptor, resolvedCall.dispatchReceiver,
+                        resolvedCall.extensionReceiver,
+                        resolvedCall.contextReceivers,
                         isSafe = resolvedCall.call.isSafeCall(),
                         isAssignmentReceiver = isAssignmentStatement
                     )
@@ -288,7 +287,9 @@ class AssignmentGenerator(statementGenerator: StatementGenerator) : StatementGen
             }
             else -> {
                 val propertyReceiver = statementGenerator.generateCallReceiver(
-                    ktLeft, descriptor, resolvedCall.dispatchReceiver, resolvedCall.extensionReceiver,
+                    ktLeft, descriptor, resolvedCall.dispatchReceiver,
+                    resolvedCall.extensionReceiver,
+                    resolvedCall.contextReceivers,
                     isSafe = resolvedCall.call.isSafeCall(),
                     isAssignmentReceiver = isAssignmentStatement
                 )
@@ -322,6 +323,7 @@ class AssignmentGenerator(statementGenerator: StatementGenerator) : StatementGen
         val unwrappedPropertyDescriptor = resultingDescriptor.unwrapPropertyDescriptor()
         val getterDescriptor = unwrappedPropertyDescriptor.unwrappedGetMethod
         val setterDescriptor = unwrappedPropertyDescriptor.unwrappedSetMethod
+            ?.takeUnless { it.visibility == DescriptorVisibilities.INVISIBLE_FAKE }
 
         val getterSymbol = getterDescriptor?.let { context.symbolTable.referenceSimpleFunction(it.original) }
         val setterSymbol = setterDescriptor?.let { context.symbolTable.referenceSimpleFunction(it.original) }

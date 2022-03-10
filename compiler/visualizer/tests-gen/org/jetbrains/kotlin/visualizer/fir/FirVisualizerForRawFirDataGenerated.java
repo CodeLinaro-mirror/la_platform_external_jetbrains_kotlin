@@ -166,6 +166,18 @@ public class FirVisualizerForRawFirDataGenerated extends AbstractFirVisualizerTe
         }
 
         @Test
+        @TestMetadata("propertyWithBackingField.kt")
+        public void testPropertyWithBackingField() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/propertyWithBackingField.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyWithBackingFieldDifferentTypes.kt")
+        public void testPropertyWithBackingFieldDifferentTypes() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/propertyWithBackingFieldDifferentTypes.kt");
+        }
+
+        @Test
         @TestMetadata("simpleClass.kt")
         public void testSimpleClass() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/simpleClass.kt");
@@ -383,6 +395,12 @@ public class FirVisualizerForRawFirDataGenerated extends AbstractFirVisualizerTe
         @TestMetadata("lambdaAndAnonymousFunction.kt")
         public void testLambdaAndAnonymousFunction() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/lambdaAndAnonymousFunction.kt");
+        }
+
+        @Test
+        @TestMetadata("localDeclarationWithExpression.kt")
+        public void testLocalDeclarationWithExpression() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/localDeclarationWithExpression.kt");
         }
 
         @Test

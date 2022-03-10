@@ -5,19 +5,26 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers
 
+import org.jetbrains.kotlin.descriptors.EffectiveVisibility
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.firProvider
+import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.LocalClassesNavigationInfo
 import org.jetbrains.kotlin.fir.scopes.FirCompositeScope
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.toSymbol
@@ -316,6 +323,14 @@ abstract class AbstractFirStatusResolveTransformer(
         anonymousObject: FirAnonymousObject,
         data: FirResolvedDeclarationStatus?
     ): FirStatement {
+        anonymousObject.transformStatus(
+            this,
+            FirResolvedDeclarationStatusImpl(
+                anonymousObject.status.visibility,
+                anonymousObject.status.modality ?: Modality.FINAL,
+                EffectiveVisibility.Local
+            )
+        )
         @Suppress("UNCHECKED_CAST")
         return transformClass(anonymousObject, data)
     }
@@ -367,18 +382,18 @@ abstract class AbstractFirStatusResolveTransformer(
     }
 
     private fun forceResolveStatusOfCorrespondingClass(typeRef: FirTypeRef) {
-        val superClass = typeRef.coneType.toSymbol(session)?.fir
-        superClass?.ensureResolved(FirResolvePhase.SUPER_TYPES)
-        when (superClass) {
-            is FirRegularClass -> forceResolveStatusesOfClass(superClass)
-            is FirTypeAlias -> forceResolveStatusOfCorrespondingClass(superClass.expandedTypeRef)
-            else -> {}
+        val superClassSymbol = typeRef.coneType.toSymbol(session)
+        superClassSymbol?.ensureResolved(FirResolvePhase.SUPER_TYPES)
+        when (superClassSymbol) {
+            is FirRegularClassSymbol -> forceResolveStatusesOfClass(superClassSymbol.fir)
+            is FirTypeAliasSymbol -> forceResolveStatusOfCorrespondingClass(superClassSymbol.fir.expandedTypeRef)
+            is FirTypeParameterSymbol, is FirAnonymousObjectSymbol, null -> {}
         }
     }
 
     @OptIn(ExperimentalStdlibApi::class)
     private fun forceResolveStatusesOfClass(regularClass: FirRegularClass) {
-        if (regularClass.origin == FirDeclarationOrigin.Java) {
+        if (regularClass.origin == FirDeclarationOrigin.Java || regularClass.origin == FirDeclarationOrigin.Precompiled) {
             /*
              * If regular class has no corresponding file then it is platform class,
              *   so we need to resolve supertypes of this class because they could
@@ -431,10 +446,17 @@ abstract class AbstractFirStatusResolveTransformer(
     private fun transformPropertyAccessor(
         propertyAccessor: FirPropertyAccessor,
         containingProperty: FirProperty,
+        overriddenStatuses: List<FirResolvedDeclarationStatus> = emptyList(),
     ) {
         propertyAccessor.transformStatus(
             this,
-            statusResolver.resolveStatus(propertyAccessor, containingClass, containingProperty, isLocal = false)
+            statusResolver.resolveStatus(
+                propertyAccessor,
+                containingClass,
+                containingProperty,
+                isLocal = false,
+                overriddenStatuses,
+            )
         )
 
         propertyAccessor.transformValueParameters(this, null)
@@ -463,10 +485,33 @@ abstract class AbstractFirStatusResolveTransformer(
         property: FirProperty,
         data: FirResolvedDeclarationStatus?
     ): FirStatement {
-        property.transformStatus(this, statusResolver.resolveStatus(property, containingClass, isLocal = false))
+        val overridden = statusResolver.getOverriddenProperties(property, containingClass)
+
+        val overriddenProperties = overridden.map {
+            it.ensureResolved(FirResolvePhase.STATUS)
+            it.status as FirResolvedDeclarationStatus
+        }
+
+        val overriddenSetters = overridden.mapNotNull {
+            it.setter?.ensureResolved(FirResolvePhase.STATUS)
+            it.setter?.status as? FirResolvedDeclarationStatus
+        }
+
+        property.transformStatus(
+            this,
+            statusResolver.resolveStatus(property, containingClass, false, overriddenProperties)
+        )
 
         property.getter?.let { transformPropertyAccessor(it, property) }
-        property.setter?.let { transformPropertyAccessor(it, property) }
+        property.setter?.let { transformPropertyAccessor(it, property, overriddenSetters) }
+
+        property.backingField?.let {
+            it.transformStatus(
+                this,
+                statusResolver.resolveStatus(it, containingClass, property, isLocal = false)
+            )
+        }
+
         calculateDeprecations(property)
         return property
     }

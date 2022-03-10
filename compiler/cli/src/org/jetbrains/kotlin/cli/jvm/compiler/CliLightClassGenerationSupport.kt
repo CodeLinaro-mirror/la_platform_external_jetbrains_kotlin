@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.codegen.JvmCodegenUtil
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.load.java.components.JavaDeprecationSettings
@@ -69,9 +68,6 @@ class CliLightClassGenerationSupport(
         // This is the way to untie CliLightClassSupport and CliLightClassGenerationSupport to prevent descriptors leak
         private val traceHolder: CliTraceHolder
             get() = (getInstance(project) as CliLightClassGenerationSupport).traceHolder
-
-        override val isReleasedCoroutine
-            get() = languageVersionSettings.supportsFeature(LanguageFeature.ReleaseCoroutines)
 
         override fun possiblyHasAlias(file: KtFile, shortName: Name): Boolean = true
 

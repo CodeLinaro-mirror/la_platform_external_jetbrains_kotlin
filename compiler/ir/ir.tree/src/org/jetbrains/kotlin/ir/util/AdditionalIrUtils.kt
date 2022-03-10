@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -68,11 +69,12 @@ val IrFunction.isSuspend get() = this is IrSimpleFunction && this.isSuspend
 
 val IrFunction.isReal get() = !(this is IrSimpleFunction && isFakeOverride)
 
-fun IrSimpleFunction.overrides(other: IrSimpleFunction): Boolean {
+fun <S : IrSymbol> IrOverridableDeclaration<S>.overrides(other: IrOverridableDeclaration<S>): Boolean {
     if (this == other) return true
 
     this.overriddenSymbols.forEach {
-        if (it.owner.overrides(other)) {
+        @Suppress("UNCHECKED_CAST")
+        if ((it.owner as IrOverridableDeclaration<S>).overrides(other)) {
             return true
         }
     }
@@ -145,6 +147,7 @@ val IrDeclaration.isLocal: Boolean
             }
 
             if (current.isAnonymousObject) return true
+            if (current is IrScript || (current is IrClass && current.origin == IrDeclarationOrigin.SCRIPT_CLASS)) return true
 
             current = current.parent
         }
@@ -175,15 +178,18 @@ val File.lineStartOffsets: IntArray
         return buffer.toIntArray()
     }
 
-val IrFileEntry.lineStartOffsets
-    get() = File(name).let {
-        if (it.exists() && it.isFile) it.lineStartOffsets else IntArray(0)
+val IrFileEntry.lineStartOffsets: IntArray
+    get() = when (this) {
+        is PsiIrFileEntry -> this.getLineOffsets()
+        else -> File(name).let { if (it.exists() && it.isFile) it.lineStartOffsets else IntArray(0) }
     }
 
 class NaiveSourceBasedFileEntryImpl(
     override val name: String,
     private val lineStartOffsets: IntArray = intArrayOf()
 ) : IrFileEntry {
+    val lineStartOffsetsAreEmpty: Boolean
+        get() = lineStartOffsets.isEmpty()
 
     private val MAX_SAVED_LINE_NUMBERS = 50
 
@@ -200,14 +206,14 @@ class NaiveSourceBasedFileEntryImpl(
     }
 
     override fun getLineNumber(offset: Int): Int {
-        assert(offset != UNDEFINED_OFFSET)
         if (offset == SYNTHETIC_OFFSET) return 0
+        if (offset < 0) return -1
         return calculatedBeforeLineNumbers.get(offset)
     }
 
     override fun getColumnNumber(offset: Int): Int {
-        assert(offset != UNDEFINED_OFFSET)
         if (offset == SYNTHETIC_OFFSET) return 0
+        if (offset < 0) return -1
         val lineNumber = getLineNumber(offset)
         return offset - lineStartOffsets[lineNumber]
     }

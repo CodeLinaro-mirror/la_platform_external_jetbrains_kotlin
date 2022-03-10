@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.light.classes.symbol.parameters
+package org.jetbrains.kotlin.light.classes.symbol
 
 import com.intellij.psi.PsiParameter
 import com.intellij.psi.PsiParameterList
@@ -11,18 +11,14 @@ import com.intellij.psi.impl.light.LightParameterListBuilder
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.asJava.elements.KtLightElementBase
-import org.jetbrains.kotlin.idea.frontend.api.symbols.KtFunctionLikeSymbol
-import org.jetbrains.kotlin.light.classes.symbol.FirLightMethod
-import org.jetbrains.kotlin.light.classes.symbol.FirLightParameterForReceiver
-import org.jetbrains.kotlin.light.classes.symbol.FirLightParameterForSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtParameterList
-import java.util.*
 
 internal class FirLightParameterList(
     private val parent: FirLightMethod,
-    private val functionSymbol: KtFunctionLikeSymbol,
-    argumentsSkipMask: BitSet? = null
+    private val callableSymbol: KtCallableSymbol?,
+    parameterPopulator: (LightParameterListBuilder) -> Unit,
 ) : KtLightElement<KtParameterList, PsiParameterList>,
     // With this, a parent chain is properly built: from FirLightParameter through FirLightParameterList to FirLightMethod
     KtLightElementBase(parent),
@@ -35,21 +31,13 @@ internal class FirLightParameterList(
     override val clsDelegate: PsiParameterList by lazyPub {
         val builder = LightParameterListBuilder(manager, language)
 
-        FirLightParameterForReceiver.tryGet(functionSymbol, parent)?.let {
-            builder.addParameter(it)
-        }
-
-        functionSymbol.valueParameters.mapIndexed { index, parameter ->
-            val needToSkip = argumentsSkipMask?.get(index) == true
-            if (!needToSkip) {
-                builder.addParameter(
-                    FirLightParameterForSymbol(
-                        parameterSymbol = parameter,
-                        containingMethod = parent
-                    )
-                )
+        callableSymbol?.let {
+            FirLightParameterForReceiver.tryGet(it, parent)?.let { receiver ->
+                builder.addParameter(receiver)
             }
         }
+
+        parameterPopulator.invoke(builder)
 
         builder
     }

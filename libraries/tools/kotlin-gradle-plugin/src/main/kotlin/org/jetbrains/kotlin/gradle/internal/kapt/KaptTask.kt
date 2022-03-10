@@ -21,13 +21,7 @@ import org.jetbrains.kotlin.gradle.internal.kapt.incremental.UnknownSnapshot
 import org.jetbrains.kotlin.gradle.internal.tasks.TaskConfigurator
 import org.jetbrains.kotlin.gradle.internal.tasks.TaskWithLocalState
 import org.jetbrains.kotlin.gradle.tasks.*
-import org.jetbrains.kotlin.gradle.tasks.cacheOnlyIfEnabledForKotlin
-import org.jetbrains.kotlin.gradle.tasks.clearLocalState
 import org.jetbrains.kotlin.gradle.utils.*
-import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
-import org.jetbrains.kotlin.gradle.utils.property
-import org.jetbrains.kotlin.gradle.utils.propertyWithConvention
-import org.jetbrains.kotlin.gradle.utils.propertyWithNewInstance
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.File
 import java.util.concurrent.Callable
@@ -176,8 +170,8 @@ abstract class KaptTask @Inject constructor(
     abstract val source: ConfigurableFileCollection
 
     @get:Internal
-    override val metrics: BuildMetricsReporter =
-        BuildMetricsReporterImpl()
+    override val metrics: Property<BuildMetricsReporter> = objectFactory
+        .property(BuildMetricsReporterImpl())
 
     @get:Input
     abstract val verbose: Property<Boolean>
@@ -226,7 +220,7 @@ abstract class KaptTask @Inject constructor(
             if (logger.isInfoEnabled) {
                 logger.warn(
                     "Annotation processors discovery from compile classpath is deprecated."
-                            + "\nSet 'kapt.includeCompileClasspath = false' to disable discovery."
+                            + "\nSet 'kapt.include.compile.classpath=false' to disable discovery."
                             + "\nThe following files, containing annotation processors, are not present in KAPT classpath:\n"
                             + processorsAbsentInKaptClasspath.joinToString("\n") { "  '$it'" }
                             + "\nAdd corresponding dependencies to any of the following configurations:\n"
@@ -235,7 +229,7 @@ abstract class KaptTask @Inject constructor(
             } else {
                 logger.warn(
                     "Annotation processors discovery from compile classpath is deprecated."
-                            + "\nSet 'kapt.includeCompileClasspath = false' to disable discovery."
+                            + "\nSet 'kapt.include.compile.classpath=false' to disable discovery."
                             + "\nRun the build with '--info' for more details."
                 )
             }
@@ -251,7 +245,7 @@ abstract class KaptTask @Inject constructor(
         return if (isIncremental) {
             findClasspathChanges(inputChanges)
         } else {
-            clearLocalState()
+            cleanOutputsAndLocalState()
             KaptIncrementalChanges.Unknown
         }
     }
@@ -286,7 +280,7 @@ abstract class KaptTask @Inject constructor(
             val classpathChanges = currentSnapshot.diff(previousSnapshot, changedFiles)
             if (classpathChanges == KaptClasspathChanges.Unknown) {
                 // We are unable to determine classpath changes, so clean the local state as we will run non-incrementally
-                clearLocalState()
+                cleanOutputsAndLocalState()
             }
             currentSnapshot.writeToCache()
 
@@ -311,7 +305,7 @@ abstract class KaptTask @Inject constructor(
                 )
             }
         } else {
-            clearLocalState("Kapt is running non-incrementally")
+            cleanOutputsAndLocalState("Kapt is running non-incrementally")
 
             ClasspathSnapshot.ClasspathSnapshotFactory
                 .createCurrent(

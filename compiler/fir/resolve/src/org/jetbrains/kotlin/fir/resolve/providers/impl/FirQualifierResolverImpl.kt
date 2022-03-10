@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.NoMutableState
 import org.jetbrains.kotlin.fir.ROOT_PREFIX_FOR_IDE_RESOLUTION_MODE
 import org.jetbrains.kotlin.fir.resolve.FirQualifierResolver
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.types.FirQualifierPart
 import org.jetbrains.kotlin.name.ClassId
@@ -26,7 +26,7 @@ class FirQualifierResolverImpl(val session: FirSession) : FirQualifierResolver()
             parts.drop(1).fold(prefix.relativeClassName) { result, suffix -> result.child(suffix.name) },
             false
         )
-        return symbolProvider.getClassLikeSymbolByFqName(fqName)
+        return symbolProvider.getClassLikeSymbolByClassId(fqName)
     }
 
     override fun resolveSymbol(parts: List<FirQualifierPart>): FirClassifierSymbol<*>? {
@@ -45,7 +45,7 @@ class FirQualifierResolverImpl(val session: FirSession) : FirQualifierResolver()
                 firstPart.removeAt(firstPart.lastIndex)
 
                 val fqName = ClassId(firstPart.toFqName(), lastPart.toFqName(), false)
-                val foundSymbol = firProvider.getClassLikeSymbolByFqName(fqName)
+                val foundSymbol = firProvider.getClassLikeSymbolByClassId(fqName)
                 if (foundSymbol != null) {
                     return foundSymbol
                 }

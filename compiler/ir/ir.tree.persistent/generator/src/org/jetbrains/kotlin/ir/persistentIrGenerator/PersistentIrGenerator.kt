@@ -152,6 +152,7 @@ internal object PersistentIrGenerator {
     val valueParameterListProto = Proto("int64", "valueParameter", +"Long", IrValueParameterSymbol, fieldKind = FieldKind.REPEATED)
     val typeParameterListProto = Proto("int64", "typeParameter", +"Long", IrTypeParameterSymbol, fieldKind = FieldKind.REPEATED)
     val superTypeListProto = Proto("int32", "superType", +"Int", IrType, fieldKind = FieldKind.REPEATED)
+    val sealedSubclassListProto = Proto("int64", "sealedSubclass", +"Long", IrClassSymbol, fieldKind = FieldKind.REPEATED)
     val typeProto = Proto("int32", "type", +"Int", IrType, fieldKind = FieldKind.REQUIRED)
     val optionalTypeProto = Proto("int32", "type", +"Int", IrType, fieldKind = FieldKind.OPTIONAL)
     val variableProto = Proto("IrVariable", "variable", protoVariable, IrVariable)
@@ -187,6 +188,7 @@ internal object PersistentIrGenerator {
         valueParameterListProto,
         typeParameterListProto,
         superTypeListProto,
+        sealedSubclassListProto,
         typeProto,
         optionalTypeProto,
         classProto,
@@ -216,6 +218,8 @@ internal object PersistentIrGenerator {
     val originField = +"override var originField: " + IrDeclarationOrigin + " = origin"
     val removedOn = +"override var removedOn: Int = Int.MAX_VALUE"
     val annotationsField = +"override var annotationsField: List<" + IrConstructorCall + "> = emptyList()"
+
+    val contextReceiverParametersCount = +"override var contextReceiverParametersCount: Int = 0"
 
     val commonFields = lines(
         signature,

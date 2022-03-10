@@ -15,9 +15,10 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.psi.psiUtil.isAncestor
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.calls.ArgumentTypeResolver
-import org.jetbrains.kotlin.resolve.calls.callUtil.shouldBeSubstituteWithStubTypes
-import org.jetbrains.kotlin.resolve.calls.callUtil.toOldSubstitution
+import org.jetbrains.kotlin.resolve.calls.util.shouldBeSubstituteWithStubTypes
+import org.jetbrains.kotlin.resolve.calls.util.toOldSubstitution
 import org.jetbrains.kotlin.resolve.calls.components.*
+import org.jetbrains.kotlin.resolve.calls.components.candidate.ResolutionCandidate
 import org.jetbrains.kotlin.resolve.calls.context.BasicCallResolutionContext
 import org.jetbrains.kotlin.resolve.calls.inference.components.*
 import org.jetbrains.kotlin.resolve.calls.inference.model.*
@@ -56,14 +57,14 @@ class BuilderInferenceSession(
     private val typeApproximator: TypeApproximator,
     private val missingSupertypesResolver: MissingSupertypesResolver,
     private val lambdaArgument: LambdaKotlinCallArgument
-) : ManyCandidatesResolver<CallableDescriptor>(
+) : StubTypesBasedInferenceSession<CallableDescriptor>(
     psiCallResolver, postponedArgumentsAnalyzer, kotlinConstraintSystemCompleter, callComponents, builtIns
 ) {
     private lateinit var lambda: ResolvedLambdaAtom
     private val commonSystem = NewConstraintSystemImpl(callComponents.constraintInjector, builtIns, callComponents.kotlinTypeRefiner)
 
     init {
-        if (topLevelCallContext.inferenceSession is ManyCandidatesResolver<*>) {
+        if (topLevelCallContext.inferenceSession is StubTypesBasedInferenceSession<*>) {
             topLevelCallContext.inferenceSession.addNestedInferenceSession(this)
         }
         stubsForPostponedVariables.keys.forEach(commonSystem::registerVariable)
@@ -80,7 +81,7 @@ class BuilderInferenceSession(
 
     override val parentSession = topLevelCallContext.inferenceSession
 
-    override fun shouldRunCompletion(candidate: KotlinResolutionCandidate): Boolean {
+    override fun shouldRunCompletion(candidate: ResolutionCandidate): Boolean {
         val system = candidate.getSystem() as NewConstraintSystemImpl
 
         if (system.hasContradiction) return true
@@ -216,11 +217,13 @@ class BuilderInferenceSession(
 
     override fun currentConstraintSystem() = ConstraintStorage.Empty
 
-    fun getNotFixedToInferredTypesSubstitutor(): NewTypeSubstitutor {
-        val currentSubstitutor =
-            commonSystem.buildCurrentSubstitutor().cast<NewTypeSubstitutor>().takeIf { !it.isEmpty } ?: return EmptySubstitutor
-        return ComposedSubstitutor(currentSubstitutor, createNonFixedTypeToVariableSubstitutor())
-    }
+    fun getNotFixedToInferredTypesSubstitutor(): NewTypeSubstitutor =
+        ComposedSubstitutor(getCurrentSubstitutor(), createNonFixedTypeToVariableSubstitutor())
+
+    fun getUsedStubTypes(): Set<StubTypeForBuilderInference> = stubsForPostponedVariables.values.toSet()
+
+    fun getCurrentSubstitutor(): NewTypeSubstitutor =
+        commonSystem.buildCurrentSubstitutor().cast<NewTypeSubstitutor>().takeIf { !it.isEmpty } ?: EmptySubstitutor
 
     override fun initializeLambda(lambda: ResolvedLambdaAtom) {
         this.lambda = lambda
@@ -268,7 +271,7 @@ class BuilderInferenceSession(
         for (nestedSession in nestedInferenceSessions) {
             when (nestedSession) {
                 is BuilderInferenceSession -> add(nestedSession)
-                is DelegatedPropertyInferenceSession -> addAll(nestedSession.getNestedBuilderInferenceSessions())
+                is DelegateInferenceSession -> addAll(nestedSession.getNestedBuilderInferenceSessions())
             }
         }
     }
@@ -437,20 +440,22 @@ class BuilderInferenceSession(
         integrateConstraints(initialStorage, nonFixedToVariablesSubstitutor, false)
 
         for (call in commonCalls) {
-            integrateConstraints(call.callResolutionResult.constraintSystem, nonFixedToVariablesSubstitutor, false)
+            val storage = call.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+            integrateConstraints(storage, nonFixedToVariablesSubstitutor, false)
         }
         for (call in partiallyResolvedCallsInfo) {
-            integrateConstraints(call.callResolutionResult.constraintSystem, nonFixedToVariablesSubstitutor, true)
+            val storage = call.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+            integrateConstraints(storage, nonFixedToVariablesSubstitutor, true)
         }
 
         return commonSystem.notFixedTypeVariables.all { it.value.constraints.isEmpty() }
     }
 
-    private fun reportErrors(completedCall: CallInfo, resolvedCall: ResolvedCall<*>, errors: List<ConstraintSystemError>) {
+    private fun reportErrors(completedCall: CallInfo, resolvedCall: NewAbstractResolvedCall<*>, errors: List<ConstraintSystemError>) {
         kotlinToResolvedCallTransformer.reportCallDiagnostic(
             completedCall.context,
             trace,
-            completedCall.callResolutionResult.resultCallAtom,
+            resolvedCall,
             resolvedCall.resultingDescriptor,
             errors.asDiagnostics()
         )
@@ -468,7 +473,8 @@ class BuilderInferenceSession(
         nonFixedTypesToResultSubstitutor: NewTypeSubstitutor,
         nonFixedTypesToResult: Map<TypeConstructor, UnwrappedType>
     ) {
-        val resultingCallSubstitutor = completedCall.callResolutionResult.constraintSystem.fixedTypeVariables.entries
+        val storage = completedCall.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+        val resultingCallSubstitutor = storage.fixedTypeVariables.entries
             .associate { it.key to nonFixedTypesToResultSubstitutor.safeSubstitute(it.value as UnwrappedType) } // TODO: SUB
 
         val resultingSubstitutor =
@@ -527,7 +533,7 @@ class BuilderInferenceSession(
     private fun completeCall(
         callInfo: CallInfo,
         atomCompleter: ResolvedAtomCompleter
-    ): ResolvedCall<*>? {
+    ): NewAbstractResolvedCall<*>? {
         val resultCallAtom = callInfo.callResolutionResult.resultCallAtom
         resultCallAtom.subResolvedAtoms?.forEach { subResolvedAtom ->
             atomCompleter.completeAll(subResolvedAtom)

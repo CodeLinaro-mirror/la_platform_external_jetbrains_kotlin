@@ -24,7 +24,13 @@
 #include "ObjCExportInit.h"
 #include "Porting.h"
 #include "Runtime.h"
+#include "RuntimePrivate.hpp"
 #include "Worker.h"
+
+using kotlin::internal::FILE_NOT_INITIALIZED;
+using kotlin::internal::FILE_BEING_INITIALIZED;
+using kotlin::internal::FILE_INITIALIZED;
+using kotlin::internal::FILE_FAILED_TO_INITIALIZE;
 
 typedef void (*Initializer)(int initialize, MemoryState* memory);
 struct InitNode {
@@ -234,8 +240,15 @@ void Kotlin_shutdownRuntime() {
     if (!needsFullShutdown) {
         auto lastStatus = compareAndSwap(&globalRuntimeStatus, kGlobalRuntimeRunning, kGlobalRuntimeShutdown);
         RuntimeAssert(lastStatus == kGlobalRuntimeRunning, "Invalid runtime status for shutdown");
+        // The main thread is not doing anything Kotlin anymore, but will stick around to cleanup C++ globals and the like.
+        // Mark the thread native, and don't make the GC thread wait on it.
+        kotlin::SwitchThreadState(runtime->memoryState, kotlin::ThreadState::kNative);
         return;
     }
+
+    // If we're going to need finalizers for the full shutdown, we need to start the thread before
+    // new runtimes are disallowed.
+    kotlin::StartFinalizerThreadIfNeeded();
 
     if (Kotlin_cleanersLeakCheckerEnabled()) {
         // Make sure to collect any lingering cleaners.
@@ -256,8 +269,14 @@ void Kotlin_shutdownRuntime() {
         // First make sure workers are gone.
         WaitNativeWorkersTermination();
 
+        // Allow the current runtime.
+        int knownRuntimes = 1;
+        if (kotlin::FinalizersThreadIsRunning()) {
+            ++knownRuntimes;
+        }
+
         // Now check for existence of any other runtimes.
-        auto otherRuntimesCount = atomicGet(&aliveRuntimesCount) - 1;
+        auto otherRuntimesCount = atomicGet(&aliveRuntimesCount) - knownRuntimes;
         RuntimeAssert(otherRuntimesCount >= 0, "Cannot be negative");
         if (Kotlin_forceCheckedShutdown()) {
             if (otherRuntimesCount > 0) {
@@ -341,6 +360,10 @@ KBoolean Konan_Platform_isDebugBinary() {
   return kotlin::compiler::shouldContainDebugInfo();
 }
 
+KBoolean Konan_Platform_isFreezingEnabled() {
+  return kotlin::compiler::freezingChecksEnabled();
+}
+
 bool Kotlin_memoryLeakCheckerEnabled() {
   return g_checkLeaks;
 }
@@ -410,11 +433,6 @@ RUNTIME_NOTHROW void Kotlin_initRuntimeIfNeededFromKotlin() {
     }
 }
 
-static constexpr int FILE_NOT_INITIALIZED = 0;
-static constexpr int FILE_BEING_INITIALIZED = 1;
-static constexpr int FILE_INITIALIZED = 2;
-static constexpr int FILE_FAILED_TO_INITIALIZE = 3;
-
 void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
     int localState = *state;
     if (localState == FILE_INITIALIZED) return;
@@ -423,10 +441,13 @@ void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
     int threadId = konan::currentThreadId();
     if ((localState & 3) == FILE_BEING_INITIALIZED) {
         if ((localState & ~3) != (threadId << 2)) {
+            // Switch to the native state to avoid dead-locks.
+            kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative);
             do {
                 localState = *state;
                 if (localState == FILE_FAILED_TO_INITIALIZE)
-                    ThrowFileFailedToInitializeException();
+                    // Call of a Kotlin function.
+                    kotlin::CallWithThreadState<kotlin::ThreadState::kRunnable>(ThrowFileFailedToInitializeException);
             } while (localState != FILE_INITIALIZED);
         }
         return;
@@ -445,10 +466,13 @@ void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
 #endif
         *state = FILE_INITIALIZED;
     } else {
+        // Switch to the native state to avoid dead-locks.
+        kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative);
         do {
             localState = *state;
             if (localState == FILE_FAILED_TO_INITIALIZE)
-                ThrowFileFailedToInitializeException();
+                // Call of a Kotlin function.
+                kotlin::CallWithThreadState<kotlin::ThreadState::kRunnable>(ThrowFileFailedToInitializeException);
         } while (localState != FILE_INITIALIZED);
     }
 }

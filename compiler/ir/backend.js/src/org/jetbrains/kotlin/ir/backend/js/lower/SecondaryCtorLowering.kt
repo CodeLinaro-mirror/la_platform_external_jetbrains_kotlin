@@ -7,7 +7,9 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
+import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.backend.common.getOrPut
+import org.jetbrains.kotlin.backend.common.ir.ValueRemapper
 import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.ir.copyTypeParametersFrom
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -20,14 +22,17 @@ import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrRawFunctionReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
 
@@ -39,7 +44,7 @@ class SecondaryConstructorLowering(val context: JsIrBackendContext) : Declaratio
         if (declaration is IrConstructor && !declaration.isPrimary) {
             val irClass = declaration.parentAsClass
 
-            if (irClass.isInline) return null
+            if (context.inlineClassesUtils.isClassInlineLike(irClass)) return null
 
             return transformConstructor(declaration, irClass)
         }
@@ -124,25 +129,35 @@ class SecondaryConstructorLowering(val context: JsIrBackendContext) : Declaratio
     private fun generateInitBody(constructor: IrConstructor, irClass: IrClass, delegate: IrSimpleFunction) {
         val thisParam = delegate.valueParameters.last()
         val oldThisReceiver = irClass.thisReceiver!!
-        val constructorBody = constructor.body!!
+        val constructorBody = constructor.body
         val oldValueParameters = constructor.valueParameters + oldThisReceiver
 
         // TODO: replace parameters as well
-        delegate.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET) {
-            statements += (constructorBody.deepCopyWithSymbols(delegate) as IrStatementContainer).statements
-            statements += JsIrBuilder.buildReturn(delegate.symbol, JsIrBuilder.buildGetValue(thisParam.symbol), context.irBuiltIns.nothingType)
-            transformChildrenVoid(ThisUsageReplaceTransformer(constructor.symbol, delegate.symbol, oldValueParameters.zip(delegate.valueParameters).toMap()))
+        if (constructorBody != null) {
+            delegate.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET) {
+                statements += (constructorBody.deepCopyWithSymbols(delegate) as IrStatementContainer).statements
+                statements += JsIrBuilder.buildReturn(
+                    delegate.symbol,
+                    JsIrBuilder.buildGetValue(thisParam.symbol),
+                    context.irBuiltIns.nothingType
+                )
+                transformChildrenVoid(
+                    ThisUsageReplaceTransformer(
+                        constructor.symbol,
+                        delegate.symbol,
+                        oldValueParameters.zip(delegate.valueParameters).associate { (old, new) -> old.symbol to new.symbol }
+                    )
+                )
+            }
         }
     }
-
 
     private class ThisUsageReplaceTransformer(
         val constructor: IrConstructorSymbol,
         val function: IrFunctionSymbol,
-        val symbolMapping: Map<IrValueParameter, IrValueParameter>
-    ) : IrElementTransformerVoid() {
-
-        val newThisSymbol = symbolMapping.values.last().symbol
+        symbolMapping: Map<IrValueSymbol, IrValueSymbol>
+    ) : ValueRemapper(symbolMapping) {
+        private val newThisSymbol = symbolMapping.values.last()
 
         override fun visitReturn(expression: IrReturn): IrExpression =
             if (expression.returnTargetSymbol != constructor)
@@ -155,17 +170,6 @@ class SecondaryConstructorLowering(val context: JsIrBackendContext) : Declaratio
                     function,
                     IrGetValueImpl(expression.startOffset, expression.endOffset, newThisSymbol.owner.type, newThisSymbol)
                 )
-
-        override fun visitGetValue(expression: IrGetValue) = symbolMapping[expression.symbol.owner]?.let {
-            expression.run { IrGetValueImpl(startOffset, endOffset, type, it.symbol, origin) }
-        } ?: expression
-
-        override fun visitSetValue(expression: IrSetValue): IrExpression {
-            expression.transformChildrenVoid()
-            return symbolMapping[expression.symbol.owner]?.let {
-                expression.run { IrSetValueImpl(startOffset, endOffset, type, it.symbol, expression.value, origin) }
-            } ?: expression
-        }
     }
 }
 
@@ -251,7 +255,7 @@ private class CallsiteRedirectionTransformer(private val context: JsIrBackendCon
 
     private val IrConstructor.isSecondaryConstructorCall
         get() =
-            !isPrimary && this != defaultThrowableConstructor && !isExternal && !parentAsClass.isInline
+            !isPrimary && this != defaultThrowableConstructor && !isExternal && !context.inlineClassesUtils.isClassInlineLike(parentAsClass)
 
     override fun visitFunction(declaration: IrFunction, data: IrFunction?): IrStatement = super.visitFunction(declaration, declaration)
 
@@ -261,7 +265,11 @@ private class CallsiteRedirectionTransformer(private val context: JsIrBackendCon
         val target = expression.symbol.owner
         return if (target.isSecondaryConstructorCall) {
             val factory = with(context) {
-                if (es6mode) mapping.secondaryConstructorToDelegate[target] ?: error("Not found IrFunction for secondary ctor")
+                if (es6mode) mapping.secondaryConstructorToDelegate[target]
+                    ?: compilationException(
+                        "Not found IrFunction for secondary ctor",
+                        expression
+                    )
                 else buildConstructorFactory(target, target.parentAsClass)
             }
             replaceSecondaryConstructorWithFactoryFunction(expression, factory.symbol)
@@ -276,7 +284,11 @@ private class CallsiteRedirectionTransformer(private val context: JsIrBackendCon
         return if (target.isSecondaryConstructorCall) {
             val klass = target.parentAsClass
             val delegate = with(context) {
-                if (es6mode) mapping.secondaryConstructorToDelegate[target] ?: error("Not found IrFunction for secondary ctor")
+                if (es6mode) mapping.secondaryConstructorToDelegate[target]
+                    ?: compilationException(
+                        "Not found IrFunction for secondary ctor",
+                        expression
+                    )
                 else buildConstructorDelegate(target, klass)
             }
             val newCall = replaceSecondaryConstructorWithFactoryFunction(expression, delegate.symbol)

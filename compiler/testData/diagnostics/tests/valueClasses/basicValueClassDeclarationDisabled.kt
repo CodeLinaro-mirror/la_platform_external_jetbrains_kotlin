@@ -1,3 +1,4 @@
+// FIR_IDENTICAL
 // !SKIP_JAVAC
 // !API_VERSION: 1.4
 // !LANGUAGE: -InlineClasses
@@ -14,4 +15,4 @@ annotation class JvmInline
 <!VALUE_CLASS_WITHOUT_JVM_INLINE_ANNOTATION, WRONG_MODIFIER_TARGET!>value<!> enum class InlineEnum
 
 @JvmInline
-value class NotVal(<!INLINE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER!>x: Int<!>)
+value class NotVal(<!VALUE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER!>x: Int<!>)

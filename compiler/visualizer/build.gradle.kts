@@ -19,8 +19,8 @@ dependencies {
     testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testImplementation(projectTests(":generators:test-generator"))
 
-    testRuntimeOnly(intellijDep()) { includeJars("intellij-deps-fastutil-8.4.1-4") }
-    testRuntimeOnly(compile(intellijDep()) { includeJars("jna", rootProject = rootProject) })
+    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testRuntimeOnly(commonDependency("net.java.dev.jna:jna"))
 }
 
 val generationRoot = projectDir.resolve("tests-gen")
@@ -40,7 +40,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(parallel = true, jUnit5Enabled = true) {
+projectTest(parallel = true, jUnitMode = JUnitMode.JUnit5) {
     workingDir = rootDir
 
     useJUnitPlatform()

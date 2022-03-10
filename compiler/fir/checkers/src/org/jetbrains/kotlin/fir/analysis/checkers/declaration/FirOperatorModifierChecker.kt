@@ -10,8 +10,6 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import javaslang.Function2
-import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.Checks.Returns
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.Checks.ValueParametersCount
@@ -23,19 +21,19 @@ import org.jetbrains.kotlin.fir.analysis.checkers.hasModifier
 import org.jetbrains.kotlin.fir.analysis.checkers.isSubtypeOf
 import org.jetbrains.kotlin.fir.analysis.checkers.isSupertypeOf
 import org.jetbrains.kotlin.fir.analysis.checkers.overriddenFunctions
-import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.reportOn
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.utils.isOperator
-import org.jetbrains.kotlin.fir.resolve.toFirRegularClass
+import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.util.OperatorNameConventions.ASSIGNMENT_OPERATIONS
 import org.jetbrains.kotlin.util.OperatorNameConventions.BINARY_OPERATION_NAMES
 import org.jetbrains.kotlin.util.OperatorNameConventions.COMPARE_TO
@@ -63,7 +61,7 @@ object FirOperatorModifierChecker : FirSimpleFunctionChecker() {
         if (!declaration.isOperator) return
         //we are not interested in implicit operators from override
         if (!declaration.hasModifier(KtTokens.OPERATOR_KEYWORD)) return
-        
+
         val checks = OperatorFunctionChecks.checksByName.getOrElse(declaration.name) {
             OperatorFunctionChecks.regexChecks.find { it.first.matches(declaration.name.asString()) }?.second
         }
@@ -83,12 +81,15 @@ object FirOperatorModifierChecker : FirSimpleFunctionChecker() {
 
 }
 
-interface Check : Function2<CheckerContext, FirSimpleFunction, String?> {
-    override fun apply(t1: CheckerContext, t2: FirSimpleFunction): String? = check(t1, t2)
+private interface Check : (CheckerContext, FirSimpleFunction) -> String? {
+    override fun invoke(p1: CheckerContext, p2: FirSimpleFunction): String? {
+        return check(p1, p2)
+    }
+
     fun check(context: CheckerContext, function: FirSimpleFunction): String?
 }
 
-object Checks {
+private object Checks {
     fun simple(message: String, predicate: (FirSimpleFunction) -> Boolean) = object : Check {
         override fun check(context: CheckerContext, function: FirSimpleFunction): String? = message.takeIf { !predicate(function) }
     }
@@ -143,7 +144,7 @@ object Checks {
     }
 
     private val kPropertyType = ConeClassLikeTypeImpl(
-        ConeClassLikeLookupTagImpl(StandardNames.FqNames.kProperty),
+        ConeClassLikeLookupTagImpl(StandardClassIds.KProperty),
         arrayOf(ConeStarProjection),
         isNullable = false
     )
@@ -156,10 +157,10 @@ object Checks {
 }
 
 @OptIn(ExperimentalStdlibApi::class)
-object OperatorFunctionChecks {
+private object OperatorFunctionChecks {
 
     //reimplementation of org.jetbrains.kotlin.util.OperatorChecks for FIR
-    val checksByName: Map<Name, List<Check>> = buildMap<Name, List<Check>> {
+    val checksByName: Map<Name, List<Check>> = buildMap {
         checkFor(GET, memberOrExtension, ValueParametersCount.atLeast(1))
         checkFor(
             SET,
@@ -183,9 +184,9 @@ object OperatorFunctionChecks {
             EQUALS,
             member,
             Checks.full("must override ''equals()'' in Any") { ctx, function ->
-                val containingClass = function.containingClass()?.toFirRegularClass(ctx.session) ?: return@full true
-                function.overriddenFunctions(containingClass, ctx).any {
-                    it.containingClass()?.classId?.asSingleFqName() == StandardNames.FqNames.any.toSafe()
+                val containingClassSymbol = function.containingClass()?.toFirRegularClassSymbol(ctx.session) ?: return@full true
+                function.overriddenFunctions(containingClassSymbol, ctx).any {
+                    it.containingClass()?.classId == StandardClassIds.Any
                 }
             }
         )

@@ -48,7 +48,9 @@ public:
 
     void InstallWeakCounter(BaseObject& counter) {
         auto& extraObjectData = mm::ExtraObjectData::GetOrInstall(GetObjHeader());
-        *extraObjectData.GetWeakCounterLocation() = counter.GetObjHeader();
+        auto *setCounter = extraObjectData.GetOrSetWeakReferenceCounter(GetObjHeader(), counter.GetObjHeader());
+        EXPECT_EQ(setCounter, counter.GetObjHeader());
+        EXPECT_EQ(extraObjectData.GetBaseObject(), GetObjHeader());
     }
 
 protected:
@@ -142,10 +144,10 @@ public:
         return testing::UnorderedElementsAreArray(objects);
     }
 
-    void Mark(std::initializer_list<std::reference_wrapper<BaseObject>> graySet) {
+    gc::MarkStats Mark(std::initializer_list<std::reference_wrapper<BaseObject>> graySet) {
         KStdVector<ObjHeader*> objects;
         for (auto& object : graySet) objects.push_back(object.get().GetObjHeader());
-        gc::Mark<ScopedMarkTraits>(std::move(objects));
+        return gc::Mark<ScopedMarkTraits>(std::move(objects));
     }
 
 private:
@@ -153,86 +155,118 @@ private:
     ScopedMarkTraits markTraits_;
 };
 
-#define EXPECT_MARKED(...) EXPECT_THAT(marked(), MarkedMatcher({__VA_ARGS__}))
+size_t GetObjectsSize(std::initializer_list<std::reference_wrapper<BaseObject>> objects) {
+    size_t size = 0;
+    for (auto& object : objects) {
+        size += mm::GetAllocatedHeapSize(object.get().GetObjHeader());
+    }
+    return size;
+}
+
+#define EXPECT_MARKED(stats, ...) \
+    do { \
+        std::initializer_list<std::reference_wrapper<BaseObject>> objects = {__VA_ARGS__}; \
+        EXPECT_THAT(stats.aliveHeapSet, objects.size()); \
+        EXPECT_THAT(stats.aliveHeapSetBytes, GetObjectsSize(objects)); \
+        EXPECT_THAT(marked(), MarkedMatcher(objects)); \
+    } while (false)
 
 } // namespace
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkNothing) {
-    Mark({});
+    auto stats = Mark({});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObject) {
     Object object;
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED(object);
+    EXPECT_MARKED(stats, object);
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectArray) {
     ObjectArray array;
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArray) {
     CharArray array;
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSinglePermanentObject) {
     Object object{BaseObject::Kind::kPermanent};
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSinglePermanentObjectArray) {
     ObjectArray array{BaseObject::Kind::kPermanent};
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSinglePermanentCharArray) {
     CharArray array{BaseObject::Kind::kPermanent};
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleStackObject) {
     Object object{BaseObject::Kind::kStackLocal};
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleStackObjectArray) {
     ObjectArray array{BaseObject::Kind::kStackLocal};
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleStackCharArray) {
     CharArray array{BaseObject::Kind::kStackLocal};
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 
@@ -240,18 +274,22 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectWithInvalidFields) {
     Object object;
     object->field1 = kInitializingSingleton;
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED(object);
+    EXPECT_MARKED(stats, object);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectArrayWithInvalidFields) {
     ObjectArray array;
     array.elements()[0] = kInitializingSingleton;
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithSomeData) {
@@ -260,88 +298,111 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithSomeData) {
     array.elements()[1] = 'b';
     array.elements()[2] = 'c';
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectWithExtraData) {
     Object object;
     object.InstallExtraData();
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED(object);
+    EXPECT_MARKED(stats, object);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectArrayWithExtraData) {
     ObjectArray array;
     array.InstallExtraData();
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithExtraData) {
     CharArray array;
     array.InstallExtraData();
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array);
+    EXPECT_MARKED(stats, array);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectWithWeakCounter) {
     Object weakCounter;
     Object object;
+    weakCounter->field1 = object.header();
     object.InstallWeakCounter(weakCounter);
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED(object, weakCounter);
+    EXPECT_MARKED(stats, object, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectArrayWithWeakCounter) {
     Object weakCounter;
     ObjectArray array;
+    weakCounter->field1 = array.header();
     array.InstallWeakCounter(weakCounter);
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array, weakCounter);
+    EXPECT_MARKED(stats, array, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithWeakCounter) {
     Object weakCounter;
     CharArray array;
+    weakCounter->field1 = array.header();
     array.InstallWeakCounter(weakCounter);
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array, weakCounter);
+    EXPECT_MARKED(stats, array, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectWithInvalidFieldsWithWeakCounter) {
     Object weakCounter;
     Object object;
     object->field1 = kInitializingSingleton;
+    weakCounter->field1 = object.header();
     object.InstallWeakCounter(weakCounter);
 
-    Mark({object});
+    auto stats = Mark({object});
 
-    EXPECT_MARKED(object, weakCounter);
+    EXPECT_MARKED(stats, object, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleObjectArrayWithInvalidFieldsWithWeakCounter) {
     Object weakCounter;
     ObjectArray array;
     array.elements()[0] = kInitializingSingleton;
+    weakCounter->field1 = array.header();
     array.InstallWeakCounter(weakCounter);
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array, weakCounter);
+    EXPECT_MARKED(stats, array, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithSomeDataWithWeakCounter) {
@@ -350,11 +411,14 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkSingleCharArrayWithSomeDataWithWeakCounter
     array.elements()[0] = 'a';
     array.elements()[1] = 'b';
     array.elements()[2] = 'c';
+    weakCounter->field1 = array.header();
     array.InstallWeakCounter(weakCounter);
 
-    Mark({array});
+    auto stats = Mark({array});
 
-    EXPECT_MARKED(array, weakCounter);
+    EXPECT_MARKED(stats, array, weakCounter);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkTree) {
@@ -374,11 +438,13 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkTree) {
     root_field3.elements()[1] = root_field3_element2.header();
     root_field3.elements()[2] = root_field3_element3.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
     EXPECT_MARKED(
-            root, root_field1, root_field1_field1, root_field1_field2, root_field3, root_field3_element1, root_field3_element2,
+            stats, root, root_field1, root_field1_field1, root_field1_field2, root_field3, root_field3_element1, root_field3_element2,
             root_field3_element3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentRoot) {
@@ -398,9 +464,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentRoot) {
     root_field3.elements()[1] = root_field3_element2.header();
     root_field3.elements()[2] = root_field3_element3.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentMiddle) {
@@ -420,9 +488,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentMiddle) {
     root_field3.elements()[1] = root_field3_element2.header();
     root_field3.elements()[2] = root_field3_element3.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
-    EXPECT_MARKED(root, root_field3, root_field3_element1, root_field3_element2, root_field3_element3);
+    EXPECT_MARKED(stats, root, root_field3, root_field3_element1, root_field3_element2, root_field3_element3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentLeaf) {
@@ -442,9 +512,12 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithPermanentLeaf) {
     root_field3.elements()[1] = root_field3_element2.header();
     root_field3.elements()[2] = root_field3_element3.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
-    EXPECT_MARKED(root, root_field1, root_field1_field2, root_field3, root_field3_element1, root_field3_element2, root_field3_element3);
+    EXPECT_MARKED(
+            stats, root, root_field1, root_field1_field2, root_field3, root_field3_element1, root_field3_element2, root_field3_element3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithStackRoot) {
@@ -464,9 +537,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkTreeWithStackRoot) {
     root_field3.elements()[1] = root_field3_element2.header();
     root_field3.elements()[2] = root_field3_element3.header();
 
-    Mark({root, root_field3});
+    auto stats = Mark({root, root_field3});
 
-    EXPECT_MARKED(root_field3_element1, root_field3_element2);
+    EXPECT_MARKED(stats, root_field3_element1, root_field3_element2);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTree) {
@@ -477,9 +552,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTree) {
     inner1->field1 = inner2.header();
     inner2.elements()[0] = root.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
-    EXPECT_MARKED(root, inner1, inner2);
+    EXPECT_MARKED(stats, root, inner1, inner2);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTreeWithPermanentRoot) {
@@ -490,9 +567,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTreeWithPermanentRoot) {
     inner1->field1 = inner2.header();
     inner2.elements()[0] = root.header();
 
-    Mark({root});
+    auto stats = Mark({root});
 
-    EXPECT_MARKED();
+    EXPECT_MARKED(stats);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTreeWithStackRoot) {
@@ -508,9 +587,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkRecursiveTreeWithStackRoot) {
     root->field2 = inner3.header();
     inner3->field1 = inner2.header();
 
-    Mark({root, inner1, inner2});
+    auto stats = Mark({root, inner1, inner2});
 
-    EXPECT_MARKED(inner3, inner2_element1);
+    EXPECT_MARKED(stats, inner3, inner2_element1);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 
@@ -519,9 +600,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkForest) {
     ObjectArray root2;
     Object root3;
 
-    Mark({root1, root2, root3});
+    auto stats = Mark({root1, root2, root3});
 
-    EXPECT_MARKED(root1, root2, root3);
+    EXPECT_MARKED(stats, root1, root2, root3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentFirst) {
@@ -529,9 +612,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentFirst) {
     ObjectArray root2;
     Object root3;
 
-    Mark({root1, root2, root3});
+    auto stats = Mark({root1, root2, root3});
 
-    EXPECT_MARKED(root2, root3);
+    EXPECT_MARKED(stats, root2, root3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentSecond) {
@@ -539,9 +624,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentSecond) {
     ObjectArray root2{BaseObject::Kind::kPermanent};
     Object root3;
 
-    Mark({root1, root2, root3});
+    auto stats = Mark({root1, root2, root3});
 
-    EXPECT_MARKED(root1, root3);
+    EXPECT_MARKED(stats, root1, root3);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentThird) {
@@ -549,9 +636,11 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithPermanentThird) {
     ObjectArray root2;
     Object root3{BaseObject::Kind::kPermanent};
 
-    Mark({root1, root2, root3});
+    auto stats = Mark({root1, root2, root3});
 
-    EXPECT_MARKED(root1, root2);
+    EXPECT_MARKED(stats, root1, root2);
+
+    EXPECT_THAT(stats.duplicateEntries, 0);
 }
 
 TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithInterconnectedRoots) {
@@ -563,7 +652,9 @@ TEST_F(MarkAndSweepUtilsMarkTest, MarkForestWithInterconnectedRoots) {
     root2.elements()[0] = root3.header();
     root3->field1 = root1.header();
 
-    Mark({root1, root2, root3});
+    auto stats = Mark({root1, root2, root3});
 
-    EXPECT_MARKED(root1, root2, root3);
+    EXPECT_MARKED(stats, root1, root2, root3);
+
+    EXPECT_THAT(stats.duplicateEntries, 2);
 }

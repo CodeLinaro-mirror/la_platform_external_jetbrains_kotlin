@@ -638,6 +638,12 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         }
 
         @Test
+        @TestMetadata("illegalNameIR.kt")
+        public void testIllegalNameIR() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/illegalNameIR.kt");
+        }
+
+        @Test
         @TestMetadata("illegalPackageName.kt")
         public void testIllegalPackageName() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/illegalPackageName.kt");
@@ -849,6 +855,12 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         @TestMetadata("inlineClass.kt")
         public void testInlineClass() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/native/inlineClass.kt");
+        }
+
+        @Test
+        @TestMetadata("inlineClassAsParameterOrReturnType_allowed.kt.kt")
+        public void testInlineClassAsParameterOrReturnType_allowed_kt() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/native/inlineClassAsParameterOrReturnType_allowed.kt.kt");
         }
 
         @Test

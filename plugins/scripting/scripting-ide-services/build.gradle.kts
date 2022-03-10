@@ -11,19 +11,19 @@ project.updateJvmTarget("1.8")
 publish()
 
 dependencies {
-    compile(project(":kotlin-script-runtime"))
-    compile(kotlinStdlib())
+    api(project(":kotlin-script-runtime"))
+    api(kotlinStdlib())
     compileOnly(project(":kotlin-scripting-ide-common"))
-    compile(project(":kotlin-scripting-common"))
-    compile(project(":kotlin-scripting-jvm"))
+    api(project(":kotlin-scripting-common"))
+    api(project(":kotlin-scripting-jvm"))
     compileOnly(project(":kotlin-scripting-compiler"))
     compileOnly(project(":compiler:cli"))
     compileOnly(project(":kotlin-reflect-api"))
-    compileOnly(intellijCoreDep()) { includeJars("intellij-core") }
+    compileOnly(intellijCore())
     publishedRuntime(project(":kotlin-compiler"))
     publishedRuntime(project(":kotlin-scripting-compiler"))
     publishedRuntime(project(":kotlin-reflect"))
-    publishedRuntime(commonDep("org.jetbrains.intellij.deps", "trove4j"))
+    publishedRuntime(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
 }
 
 sourceSets {

@@ -27,11 +27,11 @@ import org.jetbrains.kotlin.test.TestJavacVersion
 import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.backend.handlers.PhasedIrDumpHandler
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ALL_JAVA_AS_BINARY
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ASSERTIONS_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.COMPILE_JAVA_USING
-import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.CONSTRUCTOR_CALL_NORMALIZATION_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.INCLUDE_JAVA_AS_BINARY
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JVM_TARGET
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.LAMBDAS
@@ -71,16 +71,15 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         private const val JAVA_BINARIES_JAR_NAME = "java-binaries"
 
         fun extractConfigurationKind(registeredDirectives: RegisteredDirectives): ConfigurationKind {
-            val withRuntime = JvmEnvironmentConfigurationDirectives.WITH_RUNTIME in registeredDirectives ||
-                    JvmEnvironmentConfigurationDirectives.WITH_STDLIB in registeredDirectives
+            val withStdlib = ConfigurationDirectives.WITH_STDLIB in registeredDirectives
             val withReflect = JvmEnvironmentConfigurationDirectives.WITH_REFLECT in registeredDirectives
             val noRuntime = JvmEnvironmentConfigurationDirectives.NO_RUNTIME in registeredDirectives
-            if (noRuntime && withRuntime) {
-                error("NO_RUNTIME and WITH_RUNTIME can not be used together")
+            if (noRuntime && withStdlib) {
+                error("NO_RUNTIME and WITH_STDLIB can not be used together")
             }
             return when {
-                withRuntime && !withReflect -> ConfigurationKind.NO_KOTLIN_REFLECT
-                withRuntime || withReflect -> ConfigurationKind.ALL
+                withStdlib && !withReflect -> ConfigurationKind.NO_KOTLIN_REFLECT
+                withStdlib || withReflect -> ConfigurationKind.ALL
                 noRuntime -> ConfigurationKind.JDK_NO_RUNTIME
                 else -> ConfigurationKind.JDK_ONLY
             }
@@ -134,7 +133,6 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
     override fun DirectiveToConfigurationKeyExtractor.provideConfigurationKeys() {
         register(STRING_CONCAT, JVMConfigurationKeys.STRING_CONCAT)
         register(ASSERTIONS_MODE, JVMConfigurationKeys.ASSERTIONS_MODE)
-        register(CONSTRUCTOR_CALL_NORMALIZATION_MODE, JVMConfigurationKeys.CONSTRUCTOR_CALL_NORMALIZATION_MODE)
         register(SAM_CONVERSIONS, JVMConfigurationKeys.SAM_CONVERSIONS)
         register(LAMBDAS, JVMConfigurationKeys.LAMBDAS)
         register(USE_OLD_INLINE_CLASSES_MANGLING_SCHEME, JVMConfigurationKeys.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME)
@@ -168,14 +166,8 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
                 val jdk6 = System.getenv("JDK_16") ?: error("Environment variable JDK_16 is not set")
                 configuration.put(JVMConfigurationKeys.JDK_HOME, File(jdk6))
             }
-            TestJdkKind.FULL_JDK_9 -> {
-                configuration.put(JVMConfigurationKeys.JDK_HOME, KtTestUtil.getJdk9Home())
-            }
             TestJdkKind.FULL_JDK_11 -> {
                 configuration.put(JVMConfigurationKeys.JDK_HOME, KtTestUtil.getJdk11Home())
-            }
-            TestJdkKind.FULL_JDK_15 -> {
-                configuration.put(JVMConfigurationKeys.JDK_HOME, KtTestUtil.getJdk15Home())
             }
             TestJdkKind.FULL_JDK_17 -> {
                 configuration.put(JVMConfigurationKeys.JDK_HOME, KtTestUtil.getJdk17Home())
@@ -200,7 +192,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             module.javaFiles.filter { INCLUDE_JAVA_AS_BINARY in it.directives }
         } else module.javaFiles
 
-        val useJava9ToCompileIncludedJavaFiles = javaVersionToCompile == TestJavacVersion.JAVAC_9
+        val useJava11ToCompileIncludedJavaFiles = javaVersionToCompile == TestJavacVersion.JAVAC_11
 
         if (configurationKind.withRuntime) {
             configuration.configureStandardLibs(PathUtil.kotlinPathsForDistDirectory, K2JVMCompilerArguments().also { it.noReflect = true })
@@ -244,7 +236,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
                         JAVA_BINARIES_JAR_NAME,
                         extraClasspath = configuration.jvmClasspathRoots.map { it.absolutePath },
                         assertions = JUnit5Assertions,
-                        useJava9 = useJava9ToCompileIncludedJavaFiles
+                        useJava11 = useJava11ToCompileIncludedJavaFiles
                     )
                 )
             }
@@ -345,7 +337,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             extraClasspath = configuration.jvmClasspathRoots.map { it.absolutePath },
             extraModulepath = modulePath,
             assertions = JUnit5Assertions,
-            useJava9 = true
+            useJava11 = true
         )
     }
 

@@ -1,4 +1,4 @@
-// WITH_RUNTIME
+// WITH_STDLIB
 
 @file:JvmName("TestKt")
 package test
@@ -22,6 +22,6 @@ fun box() = parcelTest { parcel ->
     parcel.unmarshall(bytes, 0, bytes.size)
     parcel.setDataPosition(0)
 
-    val boxLoaded = readFromParcel<Box<Foo>>(parcel)
+    val boxLoaded = parcelableCreator<Box<Foo>>().createFromParcel(parcel)
     assert(box == boxLoaded)
 }

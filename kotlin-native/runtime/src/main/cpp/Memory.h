@@ -68,7 +68,9 @@ struct ObjHeader {
 
   MetaObjHeader* meta_object_or_null() const noexcept { return AsMetaObject(typeInfoOrMeta_); }
 
-  ALWAYS_INLINE ObjHeader** GetWeakCounterLocation();
+  ALWAYS_INLINE ObjHeader* GetWeakCounter();
+  ALWAYS_INLINE ObjHeader* GetOrSetWeakCounter(ObjHeader* counter);
+
 
 #ifdef KONAN_OBJC_INTEROP
   ALWAYS_INLINE void* GetAssociatedObject();
@@ -120,6 +122,7 @@ ALWAYS_INLINE inline bool isNullOrMarker(const ObjHeader* obj) noexcept {
 }
 
 class ForeignRefManager;
+struct FrameOverlay;
 typedef ForeignRefManager* ForeignRefContext;
 
 #ifdef __cplusplus
@@ -239,6 +242,11 @@ OBJ_GETTER(ReadHeapRefNoLock, ObjHeader* object, int32_t index);
 void EnterFrame(ObjHeader** start, int parameters, int count) RUNTIME_NOTHROW;
 // Called on frame leave, if it has object slots.
 void LeaveFrame(ObjHeader** start, int parameters, int count) RUNTIME_NOTHROW;
+// Set current frame in case if exception caught.
+void SetCurrentFrame(ObjHeader** start) RUNTIME_NOTHROW;
+FrameOverlay* getCurrentFrame() RUNTIME_NOTHROW;
+ALWAYS_INLINE void CheckCurrentFrame(ObjHeader** frame) RUNTIME_NOTHROW;
+
 // Clears object subgraph references from memory subsystem, and optionally
 // checks if subgraph referenced by given root is disjoint from the rest of
 // object graph, i.e. no external references exists.
@@ -324,9 +332,8 @@ ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_switchThreadStateNative();
 ALWAYS_INLINE RUNTIME_NOTHROW void Kotlin_mm_switchThreadStateRunnable();
 
 // Safe point callbacks from Kotlin code generator.
-void Kotlin_mm_safePointFunctionEpilogue() RUNTIME_NOTHROW;
+void Kotlin_mm_safePointFunctionPrologue() RUNTIME_NOTHROW;
 void Kotlin_mm_safePointWhileLoopBody() RUNTIME_NOTHROW;
-void Kotlin_mm_safePointExceptionUnwind() RUNTIME_NOTHROW;
 
 #ifdef __cplusplus
 }
@@ -389,10 +396,17 @@ namespace kotlin {
 namespace mm {
 
 // Returns the MemoryState for the current thread.
-// If the memory subsystem isn't initialized for the current thread, returns nullptr.
+// For the new MM, the current thread must be attached to the runtime.
+// For the legacy MM, returns nullptr if called on a thread that is not attached to the runtime.
 // Try not to use it very often, as (1) thread local access can be slow on some platforms,
 // (2) TLS gets deallocated before our thread destruction hooks run.
 MemoryState* GetMemoryState() noexcept;
+
+
+// TODO: Replace with direct access to ThreadRegistry when the legacy MM is gone.
+// Checks if the current thread is attached to the runtime.
+// This function accesses a TLS variable, so it must not be called from a thread destructor.
+bool IsCurrentThreadRegistered() noexcept;
 
 } // namespace mm
 
@@ -490,7 +504,24 @@ ALWAYS_INLINE inline R CallWithThreadState(R(*function)(Args...), Args... args) 
     return function(std::forward<Args>(args)...);
 }
 
+class NativeOrUnregisteredThreadGuard final : private MoveOnly {
+public:
+    explicit NativeOrUnregisteredThreadGuard(bool reentrant = false) noexcept {
+        // The default ctor of ThreadStateGuard doesn't set the state.
+        // So the actual state switching is performed only if the thread is registered.
+        if (kotlin::mm::IsCurrentThreadRegistered()) {
+            backingGuard_ = kotlin::ThreadStateGuard(kotlin::ThreadState::kNative, reentrant);
+        }
+    }
+
+private:
+    ThreadStateGuard backingGuard_;
+};
+
 extern const bool kSupportsMultipleMutators;
+
+void StartFinalizerThreadIfNeeded() noexcept;
+bool FinalizersThreadIsRunning() noexcept;
 
 } // namespace kotlin
 

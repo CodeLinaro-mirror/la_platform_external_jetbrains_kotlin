@@ -9,8 +9,6 @@ abstract class WasmExpressionBuilder {
     abstract fun buildInstr(op: WasmOp, vararg immediates: WasmImmediate)
     abstract var numberOfNestedBlocks: Int
 
-    abstract val lastInstr: WasmOp?
-
     fun buildConstI32(value: Int) {
         buildInstr(WasmOp.I32_CONST, WasmImmediate.ConstI32(value))
     }
@@ -32,10 +30,6 @@ abstract class WasmExpressionBuilder {
     }
 
     fun buildUnreachable() {
-        // Unreachable is not needed
-        if (lastInstr == WasmOp.UNREACHABLE || lastInstr == WasmOp.RETURN)
-            return
-
         buildInstr(WasmOp.UNREACHABLE)
     }
 
@@ -70,6 +64,20 @@ abstract class WasmExpressionBuilder {
         val relativeLevel = numberOfNestedBlocks - absoluteBlockLevel
         assert(relativeLevel >= 0) { "Negative relative block index" }
         buildInstr(WasmOp.BR, WasmImmediate.LabelIdx(relativeLevel))
+    }
+
+    fun buildThrow(tagIdx: Int) {
+        buildInstr(WasmOp.THROW, WasmImmediate.TagIdx(tagIdx))
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    fun buildTry(label: String?, resultType: WasmType? = null) {
+        numberOfNestedBlocks++
+        buildInstr(WasmOp.TRY, WasmImmediate.BlockType.Value(resultType))
+    }
+
+    fun buildCatch(tagIdx: Int) {
+        buildInstr(WasmOp.CATCH, WasmImmediate.TagIdx(tagIdx))
     }
 
     fun buildBrIf(absoluteBlockLevel: Int) {

@@ -28,8 +28,8 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.psi.psiUtil.hasSuspendModifier
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.CompileTimeConstantUtils
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
-import org.jetbrains.kotlin.resolve.calls.callUtil.getType
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getType
 import org.jetbrains.kotlin.resolve.calls.components.isVararg
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedValueArgument
@@ -277,20 +277,20 @@ open class KtLightNullabilityAnnotation<D : KtLightElement<*, PsiModifierListOwn
 
     override fun findAttributeValue(attributeName: String?): PsiAnnotationMemberValue? = null
 
-    override fun getQualifiedName(): String? {
+    private val _qualifiedName: String? by lazyPub {
         val annotatedElement = member.takeIf(::isFromSources)?.kotlinOrigin
             ?: // it is out of our hands
-            return getClsNullabilityAnnotation(member)?.qualifiedName
+            return@lazyPub getClsNullabilityAnnotation(member)?.qualifiedName
 
-        if (!fastCheckIsNullabilityApplied(member)) return null
+        if (!fastCheckIsNullabilityApplied(member)) return@lazyPub null
 
         // all data-class generated members are not-null
-        if (annotatedElement is KtClass && annotatedElement.isData()) return NotNull::class.java.name
+        if (annotatedElement is KtClass && annotatedElement.isData()) return@lazyPub NotNull::class.java.name
 
         // objects and companion objects have NotNull annotation (if annotated element is implicit ctor then skip annotation)
         if (annotatedElement is KtObjectDeclaration) {
-            if ((parent.parent as? PsiMethod)?.isConstructor == true) return null
-            return NotNull::class.java.name
+            if ((parent.parent as? PsiMethod)?.isConstructor == true) return@lazyPub null
+            return@lazyPub NotNull::class.java.name
         }
 
         // don't annotate property setters
@@ -298,35 +298,37 @@ open class KtLightNullabilityAnnotation<D : KtLightElement<*, PsiModifierListOwn
             && member is KtLightMethod
             && (member.originalElement as? KtPropertyAccessor)?.isSetter == true
         ) {
-            return null
+            return@lazyPub null
         }
 
         if (annotatedElement is KtNamedFunction && annotatedElement.modifierList?.hasSuspendModifier() == true) {
-            return Nullable::class.java.name
+            return@lazyPub Nullable::class.java.name
         }
 
-        val kotlinType = getTargetType(annotatedElement) ?: return null
+        val kotlinType = getTargetType(annotatedElement) ?: return@lazyPub null
 
         if (KotlinBuiltIns.isPrimitiveType(kotlinType) && (annotatedElement as? KtParameter)?.isVarArg != true) {
             // no need to annotate them explicitly except the case when overriding reference-type makes it non-primitive for Jvm
-            if (!(annotatedElement is KtCallableDeclaration && annotatedElement.hasModifier(KtTokens.OVERRIDE_KEYWORD))) return null
+            if (!(annotatedElement is KtCallableDeclaration && annotatedElement.hasModifier(KtTokens.OVERRIDE_KEYWORD))) return@lazyPub null
 
             val overriddenDescriptors =
                 (annotatedElement.analyze()[BindingContext.DECLARATION_TO_DESCRIPTOR, annotatedElement] as? CallableMemberDescriptor)?.overriddenDescriptors
-            if (overriddenDescriptors?.all { it.returnType == kotlinType } == true) return null
+            if (overriddenDescriptors?.all { it.returnType == kotlinType } == true) return@lazyPub null
         }
-        if (kotlinType.isUnit() && (annotatedElement !is KtValVarKeywordOwner)) return null // not annotate unit-functions
+        if (kotlinType.isUnit() && (annotatedElement !is KtValVarKeywordOwner)) return@lazyPub null // not annotate unit-functions
         if (kotlinType.isTypeParameter()) {
-            if (!TypeUtils.hasNullableSuperType(kotlinType)) return NotNull::class.java.name
-            if (!kotlinType.isMarkedNullable) return null
+            if (!TypeUtils.hasNullableSuperType(kotlinType)) return@lazyPub NotNull::class.java.name
+            if (!kotlinType.isMarkedNullable) return@lazyPub null
         }
 
-        return when (kotlinType.nullability()) {
+        when (kotlinType.nullability()) {
             TypeNullability.NOT_NULL -> NotNull::class.java.name
             TypeNullability.NULLABLE -> Nullable::class.java.name
             TypeNullability.FLEXIBLE -> null
         }
     }
+
+    override fun getQualifiedName(): String? = _qualifiedName
 
     internal fun KtTypeReference.getType(): KotlinType? = analyze()[BindingContext.TYPE, this]
 

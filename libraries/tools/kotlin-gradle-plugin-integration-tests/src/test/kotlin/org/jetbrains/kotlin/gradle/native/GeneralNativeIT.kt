@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.gradle.util.modify
 import org.jetbrains.kotlin.gradle.util.runProcess
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.presetName
 import org.junit.Assume
 import org.junit.Ignore
@@ -45,14 +46,18 @@ internal object MPPNativeTargets {
     val unsupported = when {
         HostManager.hostIsMingw -> listOf("macos64")
         HostManager.hostIsLinux -> listOf("macos64", "mingw64")
-        HostManager.hostIsMac -> listOf("mingw64")
+        HostManager.hostIsMac -> listOf("linuxMipsel32")
         else -> error("Unknown host")
     }
 
     val supported = listOf("linux64", "macos64", "mingw64").filter { !unsupported.contains(it) }
 }
 
-internal fun BaseGradleIT.transformNativeTestProject(projectName: String, wrapperVersion: GradleVersionRequired = defaultGradleVersion, directoryPrefix: String? = null): BaseGradleIT.Project {
+internal fun BaseGradleIT.transformNativeTestProject(
+    projectName: String,
+    wrapperVersion: GradleVersionRequired = defaultGradleVersion,
+    directoryPrefix: String? = null
+): BaseGradleIT.Project {
     val project = Project(projectName, wrapperVersion, directoryPrefix = directoryPrefix)
     project.setupWorkingDir()
     project.configureSingleNativeTarget()
@@ -63,7 +68,11 @@ internal fun BaseGradleIT.transformNativeTestProject(projectName: String, wrappe
     return project
 }
 
-internal fun BaseGradleIT.transformNativeTestProjectWithPluginDsl(projectName: String, wrapperVersion: GradleVersionRequired = defaultGradleVersion, directoryPrefix: String? = null): BaseGradleIT.Project {
+internal fun BaseGradleIT.transformNativeTestProjectWithPluginDsl(
+    projectName: String,
+    wrapperVersion: GradleVersionRequired = defaultGradleVersion,
+    directoryPrefix: String? = null
+): BaseGradleIT.Project {
     val project = transformProjectWithPluginsDsl(projectName, wrapperVersion, directoryPrefix = directoryPrefix)
     project.configureSingleNativeTarget()
     project.gradleProperties().apply {
@@ -355,17 +364,17 @@ class GeneralNativeIT : BaseGradleIT() {
             fileInWorkingDir(headerPaths[0]).readText().contains("+ (int32_t)exported")
 
             // Check that by default release frameworks have bitcode embedded.
-            checkNativeCommandLineArguments(":linkMainReleaseFrameworkIos") { arguments ->
+            withNativeCommandLineArguments(":linkMainReleaseFrameworkIos") { arguments ->
                 assertTrue("-Xembed-bitcode" in arguments)
                 assertTrue("-opt" in arguments)
             }
             // Check that by default debug frameworks have bitcode marker embedded.
-            checkNativeCommandLineArguments(":linkMainDebugFrameworkIos") { arguments ->
+            withNativeCommandLineArguments(":linkMainDebugFrameworkIos") { arguments ->
                 assertTrue("-Xembed-bitcode-marker" in arguments)
                 assertTrue("-g" in arguments)
             }
             // Check that bitcode can be disabled by setting custom compiler options
-            checkNativeCommandLineArguments(":linkCustomDebugFrameworkIos") { arguments ->
+            withNativeCommandLineArguments(":linkCustomDebugFrameworkIos") { arguments ->
                 assertTrue(arguments.containsSequentially("-linker-option", "-L."))
                 assertTrue("-Xtime" in arguments)
                 assertTrue("-Xstatic-framework" in arguments)
@@ -373,7 +382,7 @@ class GeneralNativeIT : BaseGradleIT() {
                 assertFalse("-Xembed-bitcode" in arguments)
             }
             // Check that bitcode is disabled for iOS simulator.
-            checkNativeCommandLineArguments(":linkMainReleaseFrameworkIosSim", ":linkMainDebugFrameworkIosSim") { arguments ->
+            withNativeCommandLineArguments(":linkMainReleaseFrameworkIosSim", ":linkMainDebugFrameworkIosSim") { arguments ->
                 assertFalse("-Xembed-bitcode" in arguments)
                 assertFalse("-Xembed-bitcode-marker" in arguments)
             }
@@ -512,7 +521,7 @@ class GeneralNativeIT : BaseGradleIT() {
     ) {
         build(":compileKotlinHost") {
             assertSuccessful()
-            checkNativeCommandLineArguments(":compileKotlinHost") { arguments ->
+            withNativeCommandLineArguments(":compileKotlinHost") { arguments ->
                 assertFalse("-verbose" in arguments)
             }
         }
@@ -526,7 +535,7 @@ class GeneralNativeIT : BaseGradleIT() {
         )
         build(":compileKotlinHost") {
             assertSuccessful()
-            checkNativeCommandLineArguments(":compileKotlinHost") { arguments ->
+            withNativeCommandLineArguments(":compileKotlinHost") { arguments ->
                 assertTrue("-verbose" in arguments)
             }
         }
@@ -591,8 +600,6 @@ class GeneralNativeIT : BaseGradleIT() {
         val defaultOutputFile = "build/bin/host/debugTest/test.$suffix"
         val anotherOutputFile = "build/bin/host/anotherDebugTest/another.$suffix"
 
-        val hostIsMac = HostManager.hostIsMac
-
         build("tasks") {
             assertSuccessful()
             testTasks.forEach {
@@ -610,8 +617,10 @@ class GeneralNativeIT : BaseGradleIT() {
         }
 
         val testsToExecute = mutableListOf(":$hostTestTask")
-        if (hostIsMac) {
-            testsToExecute.add(":iosTest")
+        when (HostManager.host) {
+            KonanTarget.MACOS_X64 -> testsToExecute.add(":iosTest")
+            KonanTarget.MACOS_ARM64 -> testsToExecute.add(":iosArm64Test")
+            else -> { }
         }
         val testsToSkip = testTasks.map { ":$it" } - testsToExecute
 
@@ -709,7 +718,7 @@ class GeneralNativeIT : BaseGradleIT() {
                     .single { it.getAttribute("name").value == "fail" || it.getAttribute("name").value == "fail[$targetName]" }
                     .getChild("failure")
                     .text
-                assertTrue(stacktrace.contains("""at org\.foo\.test#fail\(.*test\.kt:24\)""".toRegex()))
+                assertTrue(stacktrace.contains("""at org\.foo\.test#fail\(.*test\.kt:29\)""".toRegex()))
             }
 
             fun assertTestResultsAnyOf(
@@ -728,25 +737,30 @@ class GeneralNativeIT : BaseGradleIT() {
             // If, in the test project, preset name was updated,
             // update accordingly test result output for Gradle6.6+
             val testGradleVersion = project.chooseWrapperVersionOrFinishTest()
-            val expectedTestResults = if (GradleVersion.version(testGradleVersion) < GradleVersion.version("6.6")) {
-                listOf(
+            val expectedHostTestResult: String
+            val expectedIOSTestResults: List<String>
+            if (GradleVersion.version(testGradleVersion) < GradleVersion.version("6.6")) {
+                expectedHostTestResult = "testProject/native-tests/TEST-TestKt_pre6.6.xml"
+                expectedIOSTestResults = listOf(
                     "testProject/native-tests/TEST-TestKt_pre6.6.xml",
                     "testProject/native-tests/TEST-TestKt-iOSsim_pre6.6.xml",
                 )
             } else {
-                listOf(
-                    "testProject/native-tests/TEST-TestKt.xml",
+                expectedHostTestResult = "testProject/native-tests/TEST-TestKt.xml"
+                expectedIOSTestResults = listOf(
                     "testProject/native-tests/TEST-TestKt-iOSsim.xml",
+                    "testProject/native-tests/TEST-TestKt-iOSsim_wWarn.xml",
                 )
             }
-            assertTestResults(expectedTestResults.first(), hostTestTask)
+
+            assertTestResults(expectedHostTestResult, hostTestTask)
             // K/N doesn't report line numbers correctly on Linux (see KT-35408).
             // TODO: Uncomment when this is fixed.
             //assertStacktrace(hostTestTask, "host")
             if (HostManager.hostIsMac) {
                 assertTestResultsAnyOf(
-                    expectedTestResults[0],
-                    expectedTestResults[1],
+                    expectedIOSTestResults[0],
+                    expectedIOSTestResults[1],
                     "iosTest"
                 )
                 assertStacktrace("iosTest", "ios")
@@ -821,7 +835,7 @@ class GeneralNativeIT : BaseGradleIT() {
             assertSuccessful()
             assertTasksExecuted(":projectLibrary:cinteropAnotherNumberHost")
             libraryFiles("projectLibrary", "anotherNumber").forEach { assertFileExists(it) }
-            checkNativeCustomEnvironment(":projectLibrary:cinteropAnotherNumberHost", toolName = "cinterop") { env ->
+            withNativeCustomEnvironment(":projectLibrary:cinteropAnotherNumberHost", toolName = "cinterop") { env ->
                 assertEquals("1", env["LIBCLANG_DISABLE_CRASH_RECOVERY"])
             }
         }
@@ -853,7 +867,7 @@ class GeneralNativeIT : BaseGradleIT() {
         }
 
         // Check that changing K/N version lead to tasks rerun
-        build(*compileTasksArray, "-Porg.jetbrains.kotlin.native.version=1.4.20-dev-16314") {
+        build(*compileTasksArray, "-Porg.jetbrains.kotlin.native.version=1.5.30") {
             assertSuccessful()
             assertTasksExecuted(compileTasks)
         }
@@ -952,21 +966,21 @@ class GeneralNativeIT : BaseGradleIT() {
 
     @Test
     fun testNativeArgsWithSpaces() = with(transformNativeTestProject("sample-lib", directoryPrefix = "new-mpp-lib-and-app")) {
-        val compilcatedDirectoryName = if (HostManager.hostIsMingw) {
+        val complicatedDirectoryName = if (HostManager.hostIsMingw) {
             // Windows doesn't allow creating a file with " in its name.
             "path with spaces"
         } else {
             "path with spaces and \""
         }
 
-        val fileWithSpacesInPath = projectDir.resolve("src/commonMain/kotlin/$compilcatedDirectoryName")
+        val fileWithSpacesInPath = projectDir.resolve("src/commonMain/kotlin/$complicatedDirectoryName")
             .apply { mkdirs() }
             .resolve("B.kt")
         fileWithSpacesInPath.writeText("fun foo() = 42")
 
         build("compileKotlin${nativeHostTargetName.capitalize()}") {
             assertSuccessful()
-            checkNativeCommandLineArguments(":compileKotlin${nativeHostTargetName.capitalize()}") { arguments ->
+            withNativeCommandLineArguments(":compileKotlin${nativeHostTargetName.capitalize()}") { arguments ->
                 val escapedQuotedPath =
                     "\"${fileWithSpacesInPath.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"")}\""
                 assertTrue(
@@ -978,6 +992,51 @@ class GeneralNativeIT : BaseGradleIT() {
                         Arguments: ${arguments.joinToString(separator = " ")}
                     """.trimIndent()
                 )
+            }
+        }
+    }
+
+    @Test
+    fun testBinaryOptionsDSL() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
+        gradleBuildScript().appendText(
+            """
+                kotlin.targets.withType(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget::class.java) {
+                    binaries.all { binaryOptions["memoryModel"] = "experimental" }
+                }
+            """.trimIndent()
+        )
+        build(":linkDebugExecutableHost") {
+            assertSuccessful()
+            withNativeCommandLineArguments(":linkDebugExecutableHost") {
+                assertTrue(it.contains("-Xbinary=memoryModel=experimental"))
+            }
+        }
+    }
+
+    @Test
+    fun testBinaryOptionsProperty() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
+        build(":linkDebugExecutableHost", "-Pkotlin.native.binary.memoryModel=experimental") {
+            assertSuccessful()
+            withNativeCommandLineArguments(":linkDebugExecutableHost") {
+                assertTrue(it.contains("-Xbinary=memoryModel=experimental"))
+            }
+        }
+    }
+
+    @Test
+    fun testBinaryOptionsPriority() = with(transformNativeTestProjectWithPluginDsl("executables", directoryPrefix = "native-binaries")) {
+        gradleBuildScript().appendText(
+            """
+                kotlin.targets.withType(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget::class.java) {
+                    binaries.all { binaryOptions["memoryModel"] = "experimental" }
+                }
+            """.trimIndent()
+        )
+        build(":linkDebugExecutableHost", "-Pkotlin.native.binary.memoryModel=strict") {
+            assertSuccessful()
+            withNativeCommandLineArguments(":linkDebugExecutableHost") {
+                // Options set in the DSL have higher priority than options set in project properties.
+                assertTrue(it.contains("-Xbinary=memoryModel=experimental"))
             }
         }
     }
@@ -1082,19 +1141,19 @@ class GeneralNativeIT : BaseGradleIT() {
                 key.trim() to value.trim()
             }.toMap()
 
-        fun CompiledProject.checkNativeCommandLineArguments(
+        fun CompiledProject.withNativeCommandLineArguments(
             vararg taskPaths: String,
             toolName: String = "konanc",
             check: (List<String>) -> Unit
         ) = taskPaths.forEach { taskPath -> check(extractNativeCommandLineArguments(taskPath, toolName)) }
 
-        fun CompiledProject.checkNativeCompilerClasspath(
+        fun CompiledProject.withNativeCompilerClasspath(
             vararg taskPaths: String,
             toolName: String = "konanc",
             check: (List<String>) -> Unit
         ) = taskPaths.forEach { taskPath -> check(extractNativeCompilerClasspath(taskPath, toolName)) }
 
-        fun CompiledProject.checkNativeCustomEnvironment(
+        fun CompiledProject.withNativeCustomEnvironment(
             vararg taskPaths: String,
             toolName: String = "konanc",
             check: (Map<String, String>) -> Unit

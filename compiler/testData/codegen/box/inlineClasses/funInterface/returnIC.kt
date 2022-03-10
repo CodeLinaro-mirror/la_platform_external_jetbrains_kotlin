@@ -1,9 +1,10 @@
-// WITH_RUNTIME
-// KJS_WITH_FULL_RUNTIME
-// IGNORE_BACKEND: WASM
+// WITH_STDLIB
 // IGNORE_BACKEND: JVM
+// WORKS_WHEN_VALUE_CLASS
+// LANGUAGE: +ValueClasses
 
-inline class Result<T>(val isSuccess: Boolean)
+OPTIONAL_JVM_INLINE_ANNOTATION
+value class Result<T>(val isSuccess: Boolean)
 
 fun interface ResultHandler<T> {
     fun onResult(): Result<T>

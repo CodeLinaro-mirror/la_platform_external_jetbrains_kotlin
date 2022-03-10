@@ -50,6 +50,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
     }
 
     @Test
+    @TestMetadata("annotationDefaultValueOfUnsigned.kt")
+    public void testAnnotationDefaultValueOfUnsigned() throws Exception {
+        runTest("compiler/testData/codegen/bytecodeText/annotationDefaultValueOfUnsigned.kt");
+    }
+
+    @Test
     @TestMetadata("annotationJavaRetentionPolicyRuntime.kt")
     public void testAnnotationJavaRetentionPolicyRuntime() throws Exception {
         runTest("compiler/testData/codegen/bytecodeText/annotationJavaRetentionPolicyRuntime.kt");
@@ -305,6 +311,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
     @TestMetadata("kt46615.kt")
     public void testKt46615() throws Exception {
         runTest("compiler/testData/codegen/bytecodeText/kt46615.kt");
+    }
+
+    @Test
+    @TestMetadata("kt48367.kt")
+    public void testKt48367() throws Exception {
+        runTest("compiler/testData/codegen/bytecodeText/kt48367.kt");
     }
 
     @Test
@@ -1067,6 +1079,18 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         public void testKt22714() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/checkcast/kt22714.kt");
         }
+
+        @Test
+        @TestMetadata("noCheckcastOnDelegatingDefaultImplsCall.kt")
+        public void testNoCheckcastOnDelegatingDefaultImplsCall() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/checkcast/noCheckcastOnDelegatingDefaultImplsCall.kt");
+        }
+
+        @Test
+        @TestMetadata("noCheckcastOnSuper.kt")
+        public void testNoCheckcastOnSuper() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/checkcast/noCheckcastOnSuper.kt");
+        }
     }
 
     @Nested
@@ -1598,6 +1622,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("inlinePrimaryDefaults.kt")
         public void testInlinePrimaryDefaults() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/constructors/inlinePrimaryDefaults.kt");
+        }
+
+        @Test
+        @TestMetadata("innerClassConstructor.kt")
+        public void testInnerClassConstructor() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/constructors/innerClassConstructor.kt");
         }
 
         @Test
@@ -2257,6 +2287,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         }
 
         @Test
+        @TestMetadata("exclExclOnPlatformType.kt")
+        public void testExclExclOnPlatformType() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/exclExcl/exclExclOnPlatformType.kt");
+        }
+
+        @Test
         @TestMetadata("primitive.kt")
         public void testPrimitive() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/exclExcl/primitive.kt");
@@ -2270,6 +2306,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @Test
         public void testAllFilesPresentInFieldsForCapturedValues() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeText/fieldsForCapturedValues"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("constructorOnly.kt")
+        public void testConstructorOnly() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/fieldsForCapturedValues/constructorOnly.kt");
         }
 
         @Test
@@ -2358,6 +2400,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("forInDownToIntMinValue.kt")
         public void testForInDownToIntMinValue() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/forLoop/forInDownToIntMinValue.kt");
+        }
+
+        @Test
+        @TestMetadata("forInDownToLongConstNoUnderflow.kt")
+        public void testForInDownToLongConstNoUnderflow() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/forLoop/forInDownToLongConstNoUnderflow.kt");
         }
 
         @Test
@@ -2828,9 +2876,9 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
             }
 
             @Test
-            @TestMetadata("ForInReversedReversedRange.kt")
+            @TestMetadata("forInReversedReversedRange.kt")
             public void testForInReversedReversedRange() throws Exception {
-                runTest("compiler/testData/codegen/bytecodeText/forLoop/forInReversed/ForInReversedReversedRange.kt");
+                runTest("compiler/testData/codegen/bytecodeText/forLoop/forInReversed/forInReversedReversedRange.kt");
             }
 
             @Test
@@ -3072,6 +3120,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
             }
 
             @Test
+            @TestMetadata("forInConstBoundUnsignedRange.kt")
+            public void testForInConstBoundUnsignedRange() throws Exception {
+                runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInConstBoundUnsignedRange.kt");
+            }
+
+            @Test
             @TestMetadata("forInDownToUIntMinValue.kt")
             public void testForInDownToUIntMinValue() throws Exception {
                 runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInDownToUIntMinValue.kt");
@@ -3099,6 +3153,24 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
             @TestMetadata("forInRangeToULongMaxValue.kt")
             public void testForInRangeToULongMaxValue() throws Exception {
                 runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInRangeToULongMaxValue.kt");
+            }
+
+            @Test
+            @TestMetadata("forInUnsignedArray.kt")
+            public void testForInUnsignedArray() throws Exception {
+                runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInUnsignedArray.kt");
+            }
+
+            @Test
+            @TestMetadata("forInUnsignedArrayIndices.kt")
+            public void testForInUnsignedArrayIndices() throws Exception {
+                runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInUnsignedArrayIndices.kt");
+            }
+
+            @Test
+            @TestMetadata("forInUnsignedArrayWithIndex.kt")
+            public void testForInUnsignedArrayWithIndex() throws Exception {
+                runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInUnsignedArrayWithIndex.kt");
             }
 
             @Test
@@ -3420,6 +3492,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @Test
         public void testAllFilesPresentInInlineArgsInPlace() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeText/inlineArgsInPlace"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("kotlinMathMax.kt")
+        public void testKotlinMathMax() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/inlineArgsInPlace/kotlinMathMax.kt");
         }
 
         @Test
@@ -3915,6 +3993,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         }
 
         @Test
+        @TestMetadata("noNullCheckOnThisInDefaultMethod.kt")
+        public void testNoNullCheckOnThisInDefaultMethod() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/interfaces/noNullCheckOnThisInDefaultMethod.kt");
+        }
+
+        @Test
         @TestMetadata("noPrivateMemberInJavaInterface.kt")
         public void testNoPrivateMemberInJavaInterface() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/interfaces/noPrivateMemberInJavaInterface.kt");
@@ -3946,6 +4030,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("javaPrimitiveType.kt")
         public void testJavaPrimitiveType() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/intrinsics/javaPrimitiveType.kt");
+        }
+
+        @Test
+        @TestMetadata("postfixIncrDecr.kt")
+        public void testPostfixIncrDecr() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/intrinsics/postfixIncrDecr.kt");
         }
     }
 
@@ -4585,6 +4675,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         public void testNoAssertionsForKotlin() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/notNullAssertions/noAssertionsForKotlin.kt");
         }
+
+        @Test
+        @TestMetadata("noTemporaryVariableInNullCheckOnExpression.kt")
+        public void testNoTemporaryVariableInNullCheckOnExpression() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/notNullAssertions/noTemporaryVariableInNullCheckOnExpression.kt");
+        }
     }
 
     @Nested
@@ -4806,6 +4902,22 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("withNonNullMetadataParameter.kt")
         public void testWithNonNullMetadataParameter() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/optimizedDelegatedProperties/withNonNullMetadataParameter.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/codegen/bytecodeText/outerClass")
+    @TestDataPath("$PROJECT_ROOT")
+    public class OuterClass {
+        @Test
+        public void testAllFilesPresentInOuterClass() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeText/outerClass"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("classInClinit.kt")
+        public void testClassInClinit() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/outerClass/classInClinit.kt");
         }
     }
 
@@ -5401,6 +5513,18 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         }
 
         @Test
+        @TestMetadata("elvisChain.kt")
+        public void testElvisChain() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/temporaryVals/elvisChain.kt");
+        }
+
+        @Test
+        @TestMetadata("notNullReceiversInChain.kt")
+        public void testNotNullReceiversInChain() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/temporaryVals/notNullReceiversInChain.kt");
+        }
+
+        @Test
         @TestMetadata("safeCallChain1.kt")
         public void testSafeCallChain1() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/temporaryVals/safeCallChain1.kt");
@@ -5422,6 +5546,18 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("safeCallChainMemberExt2.kt")
         public void testSafeCallChainMemberExt2() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/temporaryVals/safeCallChainMemberExt2.kt");
+        }
+
+        @Test
+        @TestMetadata("safeCallElvisSafeCallElvisSomething.kt")
+        public void testSafeCallElvisSafeCallElvisSomething() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/temporaryVals/safeCallElvisSafeCallElvisSomething.kt");
+        }
+
+        @Test
+        @TestMetadata("safeCallWithElvis.kt")
+        public void testSafeCallWithElvis() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/temporaryVals/safeCallWithElvis.kt");
         }
     }
 
@@ -5760,6 +5896,12 @@ public class FirBytecodeTextTestGenerated extends AbstractFirBytecodeTextTest {
         @TestMetadata("manyWhensWithinClass.kt")
         public void testManyWhensWithinClass() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/whenEnumOptimization/manyWhensWithinClass.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedWhenInCondition.kt")
+        public void testNestedWhenInCondition() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/whenEnumOptimization/nestedWhenInCondition.kt");
         }
 
         @Test

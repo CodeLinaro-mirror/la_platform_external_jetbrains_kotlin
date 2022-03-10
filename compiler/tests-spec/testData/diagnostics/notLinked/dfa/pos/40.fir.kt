@@ -97,8 +97,8 @@ fun case_10(x: Any?) {
  */
 fun case_11(x: Any?) {
     if ((x as Boolean?)!!) {
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Boolean?")!>x<!><!UNSAFE_CALL!>.<!>not()
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean?")!>select(x)<!><!UNSAFE_CALL!>.<!>not()
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Boolean")!>x<!>.not()
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean")!>select(x)<!>.not()
     }
 }
 
@@ -109,8 +109,8 @@ fun case_11(x: Any?) {
  */
 fun case_12(x: Any?) {
     if (<!CONDITION_TYPE_MISMATCH!>x!! as Boolean?<!>) {
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Any")!>x<!>.<!UNRESOLVED_REFERENCE!>not<!>()
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any")!>select(x)<!>.<!UNRESOLVED_REFERENCE!>not<!>()
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Boolean")!>x<!>.not()
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean")!>select(x)<!>.not()
     }
 }
 

@@ -56,17 +56,17 @@ sealed class FirClassSymbol<C : FirClass>(classId: ClassId) : FirClassLikeSymbol
 
     val classKind: ClassKind
         get() = fir.classKind
-}
 
-class FirRegularClassSymbol(classId: ClassId) : FirClassSymbol<FirRegularClass>(classId) {
     val resolvedStatus: FirResolvedDeclarationStatus
         get() {
             ensureResolved(FirResolvePhase.STATUS)
             return fir.status as FirResolvedDeclarationStatus
         }
+}
 
+class FirRegularClassSymbol(classId: ClassId) : FirClassSymbol<FirRegularClass>(classId) {
     val companionObjectSymbol: FirRegularClassSymbol?
-        get() = fir.companionObject?.symbol
+        get() = fir.companionObjectSymbol
 }
 
 val ANONYMOUS_CLASS_ID = ClassId(FqName.ROOT, FqName.topLevel(SpecialNames.ANONYMOUS), true)

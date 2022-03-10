@@ -29,7 +29,10 @@ import org.jetbrains.kotlin.build.GeneratedJvmClass
 import org.jetbrains.kotlin.build.report.BuildReporter
 import org.jetbrains.kotlin.build.report.ICReporter
 import org.jetbrains.kotlin.build.report.ICReporterBase
-import org.jetbrains.kotlin.build.report.metrics.*
+import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
+import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.measure
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
@@ -41,17 +44,19 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.IncrementalCompilation
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotDisabled
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.IncrementalRun.NoChanges
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.IncrementalRun.ToBeComputedByIncrementalCompiler
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.NotAvailableDueToMissingClasspathSnapshot
+import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.NotAvailableForNonIncrementalRun
+import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailableForJSCompiler
+import org.jetbrains.kotlin.incremental.classpathDiff.*
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.multiproject.EmptyModulesApiHistory
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistory
 import org.jetbrains.kotlin.incremental.util.BufferingMessageCollector
 import org.jetbrains.kotlin.incremental.util.Either
-import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailable.UnableToCompute
-import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailable.ForJSCompiler
-import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailable.ReservedForTestsOnly
-import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailable.ForNonIncrementalRun
-import org.jetbrains.kotlin.incremental.ClasspathChanges.NotAvailable.ClasspathSnapshotIsDisabled
 import org.jetbrains.kotlin.load.java.JavaClassesTracker
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
@@ -88,7 +93,7 @@ fun makeIncrementally(
             buildHistoryFile = buildHistoryFile,
             modulesApiHistory = EmptyModulesApiHistory,
             kotlinSourceFilesExtensions = kotlinExtensions,
-            classpathChanges = ReservedForTestsOnly
+            classpathChanges = ClasspathSnapshotDisabled
         )
         //TODO set properly
         compiler.compile(sourceFiles, args, messageCollector, providedChangedFiles = null)
@@ -96,14 +101,12 @@ fun makeIncrementally(
 }
 
 object EmptyICReporter : ICReporterBase() {
-    override fun reportCompileIteration(incremental: Boolean, sourceFiles: Collection<File>, exitCode: ExitCode) {
-    }
-
-    override fun report(message: () -> String) {
-    }
-
-    override fun reportVerbose(message: () -> String) {
-    }
+    override fun report(message: () -> String) {}
+    override fun reportVerbose(message: () -> String) {}
+    override fun reportCompileIteration(incremental: Boolean, sourceFiles: Collection<File>, exitCode: ExitCode) {}
+    override fun reportMarkDirtyClass(affectedFiles: Iterable<File>, classFqName: String) {}
+    override fun reportMarkDirtyMember(affectedFiles: Iterable<File>, scope: String, name: String) {}
+    override fun reportMarkDirty(affectedFiles: Iterable<File>, reason: String) {}
 }
 
 inline fun <R> withIC(enabled: Boolean = true, fn: () -> R): R {
@@ -125,19 +128,26 @@ class IncrementalJvmCompilerRunner(
     outputFiles: Collection<File>,
     private val modulesApiHistory: ModulesApiHistory,
     override val kotlinSourceFilesExtensions: List<String> = DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS,
-    private val classpathChanges: ClasspathChanges,
+    private val classpathChanges: ClasspathChanges
 ) : IncrementalCompilerRunner<K2JVMCompilerArguments, IncrementalJvmCachesManager>(
     workingDir,
     "caches-jvm",
     reporter,
-    outputFiles = outputFiles,
+    additionalOutputFiles = outputFiles,
     buildHistoryFile = buildHistoryFile
 ) {
     override fun isICEnabled(): Boolean =
         IncrementalCompilation.isEnabledForJvm()
 
     override fun createCacheManager(args: K2JVMCompilerArguments, projectDir: File?): IncrementalJvmCachesManager =
-        IncrementalJvmCachesManager(cacheDirectory, projectDir, File(args.destination), reporter)
+        IncrementalJvmCachesManager(
+            cacheDirectory,
+            projectDir,
+            File(args.destination),
+            reporter,
+            storeFullFqNamesInLookupCache = withSnapshot || classpathChanges is ClasspathChanges.ClasspathSnapshotEnabled,
+            trackChangesInLookupCache = classpathChanges is ClasspathChanges.ClasspathSnapshotEnabled.IncrementalRun
+        )
 
     override fun destinationDir(args: K2JVMCompilerArguments): File =
         args.destinationAsFile
@@ -205,6 +215,11 @@ class IncrementalJvmCompilerRunner(
         return abiSnapshots
     }
 
+    // Used by `calculateSourcesToCompileImpl` and `performWorkAfterSuccessfulCompilation` methods below.
+    // Thread safety: There is no concurrent access to these variables.
+    private var currentClasspathSnapshot: List<ClassSnapshotWithHash>? = null
+    private var shrunkCurrentClasspathAgainstPreviousLookups: List<ClassSnapshotWithHash>? = null
+
     private fun calculateSourcesToCompileImpl(
         caches: IncrementalJvmCachesManager,
         changedFiles: ChangedFiles.Known,
@@ -214,26 +229,41 @@ class IncrementalJvmCompilerRunner(
         val dirtyFiles = DirtyFilesContainer(caches, reporter, kotlinSourceFilesExtensions)
         initDirtyFiles(dirtyFiles, changedFiles)
 
-        val lastBuildInfo = BuildInfo.read(lastBuildInfoFile) ?: return CompilationMode.Rebuild(BuildAttribute.NO_BUILD_HISTORY)
-        reporter.reportVerbose { "Last Kotlin Build info -- $lastBuildInfo" }
-
         val classpathChanges = when (classpathChanges) {
-            // Note: classpathChanges is deserialized so they are no longer singleton objects and need to be compared using `is` (not `==`).
-            is ClasspathChanges.Available -> ChangesEither.Known(classpathChanges.lookupSymbols, classpathChanges.fqNames)
-            is ClasspathChanges.NotAvailable -> when (classpathChanges) {
-                is UnableToCompute, is ClasspathSnapshotIsDisabled, is ReservedForTestsOnly -> {
-                    reporter.measure(BuildTime.IC_ANALYZE_CHANGES_IN_DEPENDENCIES) {
-                        val scopes = caches.lookupCache.lookupMap.keys.map { if (it.scope.isBlank()) it.name else it.scope }.distinct()
-                        getClasspathChanges(
-                            args.classpathAsList, changedFiles, lastBuildInfo, modulesApiHistory, reporter, abiSnapshots, withSnapshot,
-                            caches.platformCache, scopes
-                        )
+            // Note: classpathChanges is deserialized, so they are no longer singleton objects and need to be compared using `is` (not `==`)
+            is NoChanges -> ChangesEither.Known(emptySet(), emptySet())
+            is ToBeComputedByIncrementalCompiler -> reporter.measure(BuildTime.COMPUTE_CLASSPATH_CHANGES) {
+                check(currentClasspathSnapshot == null)
+                currentClasspathSnapshot = reporter.measure(BuildTime.LOAD_CURRENT_CLASSPATH_SNAPSHOT) {
+                    val classpathSnapshot =
+                        CachedClasspathSnapshotSerializer.load(classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles)
+                    reporter.measure(BuildTime.REMOVE_DUPLICATE_CLASSES) {
+                        classpathSnapshot.removeDuplicateAndInaccessibleClasses()
                     }
                 }
-                is ForNonIncrementalRun, is ForJSCompiler -> {
-                    error("Unexpected type for this code path: ${classpathChanges.javaClass.name}.")
+                check(shrunkCurrentClasspathAgainstPreviousLookups == null)
+                shrunkCurrentClasspathAgainstPreviousLookups = reporter.measure(BuildTime.SHRINK_CURRENT_CLASSPATH_SNAPSHOT) {
+                    ClasspathSnapshotShrinker.shrink(currentClasspathSnapshot!!, caches.lookupCache, reporter)
                 }
+                ClasspathChangesComputer.computeChangedAndImpactedSet(
+                    shrunkCurrentClasspathAgainstPreviousLookups!!,
+                    classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile,
+                    reporter
+                ).getChanges()
             }
+            is NotAvailableDueToMissingClasspathSnapshot -> ChangesEither.Unknown(BuildAttribute.CLASSPATH_SNAPSHOT_NOT_FOUND)
+            is NotAvailableForNonIncrementalRun -> ChangesEither.Unknown(BuildAttribute.UNKNOWN_CHANGES_IN_GRADLE_INPUTS)
+            is ClasspathSnapshotDisabled -> reporter.measure(BuildTime.IC_ANALYZE_CHANGES_IN_DEPENDENCIES) {
+                val lastBuildInfo = BuildInfo.read(lastBuildInfoFile) ?: return CompilationMode.Rebuild(BuildAttribute.IC_IS_NOT_ENABLED)
+                reporter.reportVerbose { "Last Kotlin Build info -- $lastBuildInfo" }
+                val scopes = caches.lookupCache.lookupSymbols.map { it.scope.ifBlank { it.name } }.distinct()
+
+                getClasspathChanges(
+                    args.classpathAsList, changedFiles, lastBuildInfo, modulesApiHistory, reporter, abiSnapshots, withSnapshot,
+                    caches.platformCache, scopes
+                )
+            }
+            is NotAvailableForJSCompiler -> error("Unexpected type for this code path: ${classpathChanges.javaClass.name}.")
         }
 
         @Suppress("UNUSED_VARIABLE") // for sealed when
@@ -433,9 +463,19 @@ class IncrementalJvmCompilerRunner(
         args.allowNoSourceFiles = true
         val exitCode = compiler.exec(messageCollector, services, args)
         args.freeArgs = freeArgsBackup
-//        reporter.report { compiler.defaultPerformanceManager.renderCompilerPerformance() }
         reportPerformanceData(compiler.defaultPerformanceManager)
         return exitCode
+    }
+
+    override fun performWorkAfterSuccessfulCompilation(caches: IncrementalJvmCachesManager) {
+        if (classpathChanges is ClasspathChanges.ClasspathSnapshotEnabled) {
+            reporter.measure(BuildTime.SHRINK_AND_SAVE_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
+                shrinkAndSaveClasspathSnapshot(
+                    classpathChanges, caches.lookupCache, currentClasspathSnapshot, shrunkCurrentClasspathAgainstPreviousLookups,
+                    reporter
+                )
+            }
+        }
     }
 }
 

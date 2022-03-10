@@ -43,7 +43,6 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
                     .transformTypeParameters(transformer, data)
                     .transformSuperTypeRefs(transformer, data)
                     .transformDeclarations(transformer, data)
-                    .transformCompanionObject(transformer, data)
             }
         }
         return regularClass
@@ -137,13 +136,15 @@ private class FirExpressionsResolveTransformerForSpecificAnnotations(
     transformer: FirBodyResolveTransformer
 ) : FirExpressionsResolveTransformer(transformer) {
 
+    override fun transformAnnotation(annotation: FirAnnotation, data: ResolutionMode): FirStatement {
+        dataFlowAnalyzer.enterAnnotation(annotation)
+        annotation.transformChildren(transformer, ResolutionMode.ContextDependent)
+        dataFlowAnalyzer.exitAnnotation(annotation)
+        return annotation
+    }
+
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: ResolutionMode): FirStatement {
-        if (annotationCall.resolveStatus >= FirAnnotationResolveStatus.PartiallyResolved) return annotationCall
-        dataFlowAnalyzer.enterAnnotationCall(annotationCall)
-        annotationCall.transformChildren(transformer, ResolutionMode.ContextDependent)
-        dataFlowAnalyzer.exitAnnotationCall(annotationCall)
-        annotationCall.replaceResolveStatus(FirAnnotationResolveStatus.PartiallyResolved)
-        return annotationCall
+        return transformAnnotation(annotationCall, data)
     }
 
     override fun transformExpression(expression: FirExpression, data: ResolutionMode): FirStatement {
@@ -154,8 +155,11 @@ private class FirExpressionsResolveTransformerForSpecificAnnotations(
         return calleeReference !is FirErrorNamedReference
     }
 
-    override fun resolveQualifiedAccessAndSelectCandidate(qualifiedAccessExpression: FirQualifiedAccessExpression): FirStatement {
-        return callResolver.resolveOnlyEnumOrQualifierAccessAndSelectCandidate(qualifiedAccessExpression)
+    override fun resolveQualifiedAccessAndSelectCandidate(
+        qualifiedAccessExpression: FirQualifiedAccessExpression,
+        isUsedAsReceiver: Boolean,
+    ): FirStatement {
+        return callResolver.resolveOnlyEnumOrQualifierAccessAndSelectCandidate(qualifiedAccessExpression, isUsedAsReceiver)
     }
 
     override fun transformFunctionCall(functionCall: FirFunctionCall, data: ResolutionMode): FirStatement {

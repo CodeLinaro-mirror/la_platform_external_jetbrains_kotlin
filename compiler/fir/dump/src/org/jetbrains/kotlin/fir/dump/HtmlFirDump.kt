@@ -36,7 +36,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.types.impl.FirTypePlaceholderProjection
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -825,6 +824,9 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                 +value.toString()
                 +">"
             }
+            ConstantValueKind.Error -> {
+                +"ERROR_CONSTANT"
+            }
         }
 
     }
@@ -873,7 +875,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                 generate(typeProjection.typeRef)
             }
             is FirStarProjection -> +"*"
-            is FirTypePlaceholderProjection -> +"_"
+            is FirPlaceholderProjection -> +"_"
         }
     }
 
@@ -1198,6 +1200,13 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                             keyword("var ")
                         describeVerbose(symbol, fir)
                     }
+                    is FirAnonymousFunction,
+                    is FirErrorFunction,
+                    is FirPropertyAccessor,
+                    is FirBackingField,
+                    is FirEnumEntry,
+                    is FirErrorProperty,
+                    is FirValueParameter -> {}
                 }
             }
             else -> +symbol.describe()
@@ -1773,7 +1782,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
     private fun FlowContent.generate(declaration: FirDeclaration) {
         when (declaration) {
             is FirAnonymousInitializer -> generate(declaration)
-            is FirMemberDeclaration -> generate(declaration as FirMemberDeclaration)
+            is FirMemberDeclaration -> generate(declaration)
             else -> unsupported(declaration)
         }
     }
@@ -1796,7 +1805,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
             ws
             when (import) {
                 is FirResolvedImport -> {
-                    val classId = import.resolvedClassId
+                    val classId = import.resolvedParentClassId
                     if (classId == null) {
                         val importedFqName = import.importedFqName
                         if (importedFqName != null) {

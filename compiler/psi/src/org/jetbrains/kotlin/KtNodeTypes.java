@@ -39,6 +39,8 @@ public interface KtNodeTypes {
     IElementType SCRIPT_INITIALIZER     = new KtNodeType("SCRIPT_INITIALIZER", KtScriptInitializer.class);
     IElementType SECONDARY_CONSTRUCTOR  = KtStubElementTypes.SECONDARY_CONSTRUCTOR;
     IElementType PRIMARY_CONSTRUCTOR    = KtStubElementTypes.PRIMARY_CONSTRUCTOR;
+    IElementType CONTEXT_RECEIVER       = KtStubElementTypes.CONTEXT_RECEIVER;
+    IElementType CONTEXT_RECEIVER_LIST  = KtStubElementTypes.CONTEXT_RECEIVER_LIST;
 
     IElementType TYPE_PARAMETER_LIST                = KtStubElementTypes.TYPE_PARAMETER_LIST;
     IElementType TYPE_PARAMETER                     = KtStubElementTypes.TYPE_PARAMETER;
@@ -79,6 +81,7 @@ public interface KtNodeTypes {
     IElementType TYPE_PROJECTION          = KtStubElementTypes.TYPE_PROJECTION;
 
     IElementType PROPERTY_ACCESSOR       = KtStubElementTypes.PROPERTY_ACCESSOR;
+    IElementType BACKING_FIELD           = KtStubElementTypes.BACKING_FIELD;
     IElementType INITIALIZER_LIST        = KtStubElementTypes.INITIALIZER_LIST;
     IElementType TYPE_CONSTRAINT_LIST    = KtStubElementTypes.TYPE_CONSTRAINT_LIST;
     IElementType TYPE_CONSTRAINT         = KtStubElementTypes.TYPE_CONSTRAINT;

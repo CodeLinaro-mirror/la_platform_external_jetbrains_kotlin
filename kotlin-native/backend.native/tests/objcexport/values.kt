@@ -250,6 +250,7 @@ fun IC3.getValue3() = value
 fun IC3?.getValueOrNull3() = this?.value
 
 fun isFrozen(obj: Any): Boolean = obj.isFrozen
+fun isFreezingEnabled() = Platform.isFreezingEnabled
 fun kotlinLambda(block: (Any) -> Any): Any = block
 
 fun multiply(int: Int, long: Long) = int * long
@@ -894,6 +895,17 @@ fun testRememberNewObject(test: TestRememberNewObject) {
     val obj = autoreleasepool { test.getObject() }
     test.waitForCleanup()
     assertNotEquals("", obj.toString()) // Likely crashes if object is removed.
+}
+
+class KT49497Model {
+    private class SelfRef(val self: KT49497Model)
+
+    // Wrapping `this` to make the strongly connected component non-trival, just in case:
+    private val selfRef = SelfRef(this)
+
+    init {
+        freeze()
+    }
 }
 
 open class ClassForTypeCheck

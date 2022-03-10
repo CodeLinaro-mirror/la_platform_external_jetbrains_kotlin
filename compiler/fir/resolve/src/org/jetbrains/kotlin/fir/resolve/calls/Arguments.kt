@@ -21,7 +21,6 @@ import org.jetbrains.kotlin.fir.resolve.transformers.ensureResolvedTypeDeclarati
 import org.jetbrains.kotlin.fir.returnExpressions
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.ClassId
@@ -335,21 +334,9 @@ private fun Candidate.captureTypeFromExpressionOrNull(argumentType: ConeKotlinTy
 
     if (argumentType.typeArguments.isEmpty()) return null
 
-    return context.inferenceComponents.ctx.captureFromArguments(
+    return context.session.typeContext.captureFromArguments(
         argumentType, CaptureStatus.FROM_EXPRESSION
     ) as? ConeKotlinType
-}
-
-fun isArgumentTypeMismatchDueToNullability(
-    argumentType: ConeKotlinType,
-    actualExpectedType: ConeKotlinType,
-    typeContext: ConeTypeContext
-): Boolean {
-    return AbstractTypeChecker.isSubtypeOf(
-        typeContext,
-        argumentType,
-        actualExpectedType.withNullability(ConeNullability.NULLABLE, typeContext)
-    )
 }
 
 private fun checkApplicabilityForArgumentType(
@@ -394,7 +381,7 @@ private fun checkApplicabilityForArgumentType(
             argument,
             // Reaching here means argument types mismatch, and we want to record whether it's due to the nullability by checking a subtype
             // relation with nullable expected type.
-            isArgumentTypeMismatchDueToNullability(argumentType, actualExpectedType, context.session.typeContext)
+            context.session.typeContext.isTypeMismatchDueToNullability(argumentType, actualExpectedType)
         )
     }
 
@@ -410,7 +397,16 @@ private fun checkApplicabilityForArgumentType(
         if (smartcastExpression != null && !smartcastExpression.isStable) {
             val unstableType = smartcastExpression.smartcastType.coneType
             if (csBuilder.addSubtypeConstraintIfCompatible(unstableType, expectedType, position)) {
-                sink.reportDiagnostic(UnstableSmartCast(smartcastExpression, expectedType))
+                sink.reportDiagnostic(
+                    UnstableSmartCast(
+                        smartcastExpression,
+                        expectedType,
+                        context.session.typeContext.isTypeMismatchDueToNullability(
+                            argumentType,
+                            expectedType
+                        )
+                    )
+                )
                 return
             }
         }
@@ -463,7 +459,7 @@ private fun Candidate.prepareExpectedType(
     context: ResolutionContext
 ): ConeKotlinType? {
     if (parameter == null) return null
-    val basicExpectedType = argument.getExpectedTypeForSAMConversion(parameter/*, LanguageVersionSettings*/)
+    val basicExpectedType = argument.getExpectedType(parameter/*, LanguageVersionSettings*/)
 
     val expectedType =
         getExpectedTypeWithSAMConversion(session, scopeSession, argument, basicExpectedType, context)?.also {
@@ -537,7 +533,7 @@ fun FirExpression.isFunctional(
             val returnTypeCompatible =
                 expectedReturnType is ConeTypeParameterType ||
                         AbstractTypeChecker.isSubtypeOf(
-                            session.inferenceComponents.ctx.newTypeCheckerState(
+                            session.typeContext.newTypeCheckerState(
                                 errorTypesEqualToAnything = false,
                                 stubTypesEqualToAnything = true
                             ),
@@ -557,7 +553,7 @@ fun FirExpression.isFunctional(
                 val expectedParameterType = expectedParameter.lowerBoundIfFlexible()
                 expectedParameterType is ConeTypeParameterType ||
                         AbstractTypeChecker.isSubtypeOf(
-                            session.inferenceComponents.ctx.newTypeCheckerState(
+                            session.typeContext.newTypeCheckerState(
                                 errorTypesEqualToAnything = false,
                                 stubTypesEqualToAnything = true
                             ),
@@ -570,24 +566,19 @@ fun FirExpression.isFunctional(
     }
 }
 
-fun FirExpression.getExpectedTypeForSAMConversion(
+fun FirExpression.getExpectedType(
     parameter: FirValueParameter/*, languageVersionSettings: LanguageVersionSettings*/
 ): ConeKotlinType {
     val shouldUnwrapVarargType = when (this) {
-        is FirSpreadArgumentExpression -> !isSpread
-        is FirNamedArgumentExpression -> expression is FirConstExpression<*>
-        else -> true
+        is FirSpreadArgumentExpression, is FirNamedArgumentExpression -> false
+        else -> parameter.isVararg
     }
 
-    return if (parameter.isVararg && shouldUnwrapVarargType) {
+    return if (shouldUnwrapVarargType) {
         parameter.returnTypeRef.coneType.varargElementType()
     } else {
         parameter.returnTypeRef.coneType
     }
-}
-
-fun ConeKotlinType.varargElementType(): ConeKotlinType {
-    return this.arrayElementType() ?: this
 }
 
 /**

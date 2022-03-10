@@ -268,8 +268,8 @@ public abstract class AbstractCliTest extends TestCaseWithTmpdir {
                         "$FOREIGN_JAVA8_ANNOTATIONS_DIR$",
                         new File(ThirdPartyAnnotationPathsKt.FOREIGN_JDK8_ANNOTATIONS_SOURCES_PATH).getPath()
                 ).replace(
-                        "$JDK_15$",
-                        KtTestUtil.getJdk15Home().getPath()
+                        "$JDK_17$",
+                        KtTestUtil.getJdk17Home().getPath()
                 );
     }
 

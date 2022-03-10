@@ -22,7 +22,7 @@ sourceSets {
 }
 
 dependencies {
-    compile kotlinStdlib()
+    api kotlinStdlib()
     compileOnly project(':core:descriptors')
     compileOnly project(':core:descriptors.jvm')
     compileOnly project(':core:deserialization')
@@ -52,11 +52,13 @@ compileKotlin {
                 "-Xno-optimized-callable-references",
                 "-Xno-kotlin-nothing-value-exception",
                 "-Xsuppress-deprecated-jvm-target-warning",
-                "-Xopt-in=kotlin.RequiresOptIn",
+                "-opt-in=kotlin.RequiresOptIn",
         ]
         moduleName = "kotlin-reflection"
     }
 }
+
+configureFrontendIr(project)
 
 jar {
     manifestAttributes(manifest, project, "internal")
@@ -71,5 +73,5 @@ task java9Jar(type: Jar) {
 
 artifacts {
     archives java9Jar
-    runtime java9Jar
+    runtimeElements java9Jar
 }

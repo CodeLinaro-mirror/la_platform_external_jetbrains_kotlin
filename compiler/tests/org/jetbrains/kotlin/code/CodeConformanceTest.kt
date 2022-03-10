@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.code
 
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.openapi.util.io.systemIndependentPath
 import junit.framework.TestCase
 import org.jetbrains.kotlin.config.LanguageFeature
 import java.io.File
@@ -38,6 +37,7 @@ class CodeConformanceTest : TestCase() {
                 "dist",
                 "idea/testData/codeInsight/renderingKDoc",
                 "js/js.tests/.gradle",
+                "js/js.tests/build",
                 "js/js.translator/qunit/qunit.js",
                 "js/js.translator/testData/node_modules",
                 "local",
@@ -45,6 +45,7 @@ class CodeConformanceTest : TestCase() {
                 "libraries/kotlin.test/js/it/node_modules",
                 "libraries/reflect/api/src/java9/java/kotlin/reflect/jvm/internal/impl",
                 "libraries/reflect/build",
+                "libraries/stdlib/jdk8/moduleTest/NonExportedPackagesTest.kt",
                 "libraries/stdlib/js-ir/.gradle",
                 "libraries/stdlib/js-ir/build",
                 "libraries/stdlib/js-ir-minimal-for-test/.gradle",
@@ -86,6 +87,7 @@ class CodeConformanceTest : TestCase() {
                 "dist",
                 "idea/idea-jvm/src/org/jetbrains/kotlin/idea/copyright",
                 "js/js.tests/.gradle",
+                "js/js.tests/build",
                 "js/js.translator/testData/node_modules",
                 "libraries/kotlin.test/js/it/.gradle",
                 "libraries/kotlin.test/js/it/node_modules",
@@ -110,9 +112,8 @@ class CodeConformanceTest : TestCase() {
                 "libraries/tools/kotlin-test-nodejs-runner/.gradle",
                 "libraries/tools/kotlin-test-nodejs-runner/node_modules",
                 "libraries/tools/kotlin-source-map-loader/.gradle",
-                "kotlin-native", // Have a separate licences manager
+                "kotlin-native", "libraries/stdlib/native-wasm", // Have a separate licences manager
                 "out",
-                "kotlin-native/runtime"
             )
         )
     }
@@ -273,16 +274,16 @@ class CodeConformanceTest : TestCase() {
 
     private class FileMatcher(val root: File, paths: Collection<String>) {
         private val files = paths.map { File(it) }
-        private val paths = files.mapTo(HashSet()) { it.systemIndependentPath }
-        private val relativePaths = files.filterTo(ArrayList()) { it.isDirectory }.mapTo(HashSet()) { it.systemIndependentPath + "/" }
+        private val paths = files.mapTo(HashSet()) { it.invariantSeparatorsPath }
+        private val relativePaths = files.filterTo(ArrayList()) { it.isDirectory }.mapTo(HashSet()) { it.invariantSeparatorsPath + "/" }
 
         fun matchExact(file: File): Boolean {
-            return file.relativeTo(root).systemIndependentPath in paths
+            return file.relativeTo(root).invariantSeparatorsPath in paths
         }
 
         fun matchWithContains(file: File): Boolean {
             if (matchExact(file)) return true
-            val relativePath = file.relativeTo(root).systemIndependentPath
+            val relativePath = file.relativeTo(root).invariantSeparatorsPath
             return relativePaths.any { relativePath.startsWith(it) }
         }
     }
@@ -366,7 +367,7 @@ class CodeConformanceTest : TestCase() {
                     for ((repo, files) in repoOccurrencesStableOrder) {
                         appendLine(repo)
                         for (file in files) {
-                            appendLine("  ${file.relativeTo(root).systemIndependentPath}")
+                            appendLine("  ${file.relativeTo(root).invariantSeparatorsPath}")
                         }
                     }
                 }

@@ -106,12 +106,20 @@ enum class PositioningStrategy(private val strategy: String? = null) {
     OPERATOR_MODIFIER,
     NON_FINAL_MODIFIER_OR_NAME,
     ENUM_MODIFIER,
+    FIELD_KEYWORD,
+    TAILREC_MODIFIER,
+    PROPERTY_DELEGATE,
+    IMPORT_ALIAS,
+    DECLARATION_START_TO_NAME,
+    REDUNDANT_NULLABLE,
+    INLINE_FUN_MODIFIER,
+
     ;
 
     val expressionToCreate get() = "SourceElementPositioningStrategies.${strategy ?: name}"
 
     companion object {
-        const val importToAdd = "org.jetbrains.kotlin.fir.analysis.diagnostics.SourceElementPositioningStrategies"
+        const val importToAdd = "org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategies"
     }
 }
 

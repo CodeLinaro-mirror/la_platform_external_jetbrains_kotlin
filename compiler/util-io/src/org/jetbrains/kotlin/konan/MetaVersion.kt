@@ -13,7 +13,6 @@ enum class MetaVersion(val metaString: String) {
     M1("M1"),
     M2("M2"),
     RC("RC"),
-    RC2("RC2"),
     PUB("PUB"),
     RELEASE("release");
 

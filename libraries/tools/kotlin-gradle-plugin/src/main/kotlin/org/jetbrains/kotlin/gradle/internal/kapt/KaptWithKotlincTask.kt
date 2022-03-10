@@ -11,7 +11,6 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
-import org.gradle.api.tasks.incremental.IncrementalTaskInputs
 import org.gradle.work.InputChanges
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerEnvironment
@@ -43,7 +42,7 @@ abstract class KaptWithKotlincTask @Inject constructor(
                 task.project.provider { kotlinCompileTask.compilerArgumentsContributor }
             )
             task.javaPackagePrefix.set(task.project.provider { kotlinCompileTask.javaPackagePrefix })
-            task.reportingSettings.set(task.project.provider { kotlinCompileTask.reportingSettings })
+            task.reportingSettings.set(task.project.provider { kotlinCompileTask.reportingSettings() })
         }
     }
 
@@ -122,7 +121,9 @@ abstract class KaptWithKotlincTask @Inject constructor(
         val compilerRunner = GradleCompilerRunner(
             taskProvider.get(),
             defaultKotlinJavaToolchain.get().currentJvmJdkToolsJar.orNull,
-            normalizedKotlinDaemonJvmArguments.orNull
+            normalizedKotlinDaemonJvmArguments.orNull,
+            metrics.get(),
+            compilerExecutionStrategy.get(),
         )
         compilerRunner.runJvmCompilerAsync(
             sourcesToCompile = emptyList(),

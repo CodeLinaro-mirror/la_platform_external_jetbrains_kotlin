@@ -8,6 +8,9 @@
 
 #include <cstddef>
 
+#include "Allocator.hpp"
+#include "GCScheduler.hpp"
+#include "ObjectFactory.hpp"
 #include "Utils.hpp"
 #include "Types.h"
 
@@ -25,45 +28,36 @@ class NoOpGC : private Pinned {
 public:
     class ObjectData {};
 
+    using Allocator = AlignedAllocator;
+
     class ThreadData : private Pinned {
     public:
         using ObjectData = NoOpGC::ObjectData;
 
-        explicit ThreadData(NoOpGC& gc, mm::ThreadData& threadData) noexcept {}
+        ThreadData(NoOpGC& gc, mm::ThreadData& threadData, GCSchedulerThreadData&) noexcept {}
         ~ThreadData() = default;
 
-        void SafePointFunctionEpilogue() noexcept {}
+        void SafePointFunctionPrologue() noexcept {}
         void SafePointLoopBody() noexcept {}
-        void SafePointExceptionUnwind() noexcept {}
         void SafePointAllocation(size_t size) noexcept {}
 
-        void PerformFullGC() noexcept {}
+        void ScheduleAndWaitFullGC() noexcept {}
+        void ScheduleAndWaitFullGCWithFinalizers() noexcept {}
 
         void OnOOM(size_t size) noexcept {}
+
+        Allocator CreateAllocator() noexcept { return Allocator(); }
 
     private:
     };
 
-    NoOpGC() noexcept {}
+    NoOpGC(mm::ObjectFactory<NoOpGC>&, GCScheduler&) noexcept {}
     ~NoOpGC() = default;
 
-    void SetThreshold(size_t value) noexcept { threshold_ = value; }
-    size_t GetThreshold() noexcept { return threshold_; }
-
-    void SetAllocationThresholdBytes(size_t value) noexcept { allocationThresholdBytes_ = value; }
-    size_t GetAllocationThresholdBytes() noexcept { return allocationThresholdBytes_; }
-
-    void SetCooldownThresholdUs(uint64_t value) noexcept { cooldownThresholdUs_ = value; }
-    uint64_t GetCooldownThresholdUs() noexcept { return cooldownThresholdUs_; }
-
-    void SetAutoTune(bool value) noexcept { autoTune_ = value; }
-    bool GetAutoTune() noexcept { return autoTune_; }
+    GCScheduler& scheduler() noexcept { return scheduler_; }
 
 private:
-    size_t threshold_ = 0;
-    size_t allocationThresholdBytes_ = 0;
-    uint64_t cooldownThresholdUs_ = 0;
-    bool autoTune_ = false;
+    GCScheduler scheduler_;
 };
 
 } // namespace gc

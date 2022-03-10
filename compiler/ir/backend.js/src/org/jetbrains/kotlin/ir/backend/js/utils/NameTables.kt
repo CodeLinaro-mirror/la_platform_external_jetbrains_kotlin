@@ -13,15 +13,12 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.types.isUnit
-import org.jetbrains.kotlin.ir.util.file
-import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
-import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
-import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
-import org.jetbrains.kotlin.js.naming.isES5IdentifierPart
-import org.jetbrains.kotlin.js.naming.isES5IdentifierStart
-import org.jetbrains.kotlin.js.naming.isValidES5Identifier
+import org.jetbrains.kotlin.js.common.isES5IdentifierPart
+import org.jetbrains.kotlin.js.common.isES5IdentifierStart
+import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import java.util.*
@@ -32,7 +29,12 @@ import kotlin.math.abs
 private fun <T> mapToKey(declaration: T): String {
     return with(JsManglerIr) {
         if (declaration is IrDeclaration) {
-            declaration.hashedMangle(compatibleMode = false).toString()
+            try {
+                declaration.hashedMangle(compatibleMode = false).toString()
+            } catch (e: Throwable) {
+                // FIXME: We can't mangle some local declarations. But
+                "wrong_key"
+            }
         } else if (declaration is String) {
             declaration.hashMangle.toString()
         } else {
@@ -103,7 +105,7 @@ fun NameTable<IrDeclaration>.dump(): String =
 
 private const val RESERVED_MEMBER_NAME_SUFFIX = "_k$"
 
-fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext?): String {
+fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): String {
     require(!declaration.isStaticMethodOfClass)
     require(declaration.dispatchReceiverParameter != null)
 
@@ -118,23 +120,19 @@ fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext?): 
     }
 
     val nameBuilder = StringBuilder()
+    nameBuilder.append(declarationName)
 
-    // TODO should we skip type parameters and use upper bound of type parameter when print type of value parameters?
-    declaration.typeParameters.ifNotEmpty {
-        nameBuilder.append("_\$t")
-        joinTo(nameBuilder, "") { "_${it.name.asString()}" }
-    }
     declaration.extensionReceiverParameter?.let {
-        nameBuilder.append("_r$${it.type.asString()}")
+        nameBuilder.append("_r$${it.type.eraseGenerics(context.irBuiltIns).asString()}")
     }
     declaration.valueParameters.ifNotEmpty {
-        joinTo(nameBuilder, "") { "_${it.type.asString()}" }
+        joinTo(nameBuilder, "") { "_${it.type.eraseGenerics(context.irBuiltIns).asString()}" }
     }
     declaration.returnType.let {
         // Return type is only used in signature for inline class and Unit types because
         // they are binary incompatible with supertypes.
-        if (it.getJsInlinedClass() != null || it.isUnit()) {
-            nameBuilder.append("_ret$${it.asString()}")
+        if (context.inlineClassesUtils.isTypeInlined(it) || it.isUnit()) {
+            nameBuilder.append("_ret$${it.eraseGenerics(context.irBuiltIns).asString()}")
         }
     }
 
@@ -202,6 +200,11 @@ class NameTables(
             when (memberDecl) {
                 is IrField ->
                     generateNameForMemberField(memberDecl)
+                is IrSimpleFunction -> {
+                    if (declaration.isInterface && memberDecl.body != null) {
+                        globalNames.declareFreshName(memberDecl, memberDecl.name.asString())
+                    }
+                }
             }
         }
     }
@@ -299,12 +302,11 @@ class NameTables(
 
 }
 
-class LocalNameGenerator(parentScope: NameScope) : IrElementVisitorVoid {
-    val variableNames = NameTable<IrDeclarationWithName>(parentScope)
+class LocalNameGenerator(val variableNames: NameTable<IrDeclaration>) : IrElementVisitorVoid {
     val localLoopNames = NameTable<IrLoop>()
     val localReturnableBlockNames = NameTable<IrReturnableBlock>()
 
-    private val breakableDeque: Deque<IrExpression> = LinkedList()
+    private val jumpableDeque: Deque<IrExpression> = LinkedList()
 
     override fun visitElement(element: IrElement) {
         element.acceptChildrenVoid(this)
@@ -319,11 +321,20 @@ class LocalNameGenerator(parentScope: NameScope) : IrElementVisitorVoid {
 
     override fun visitBreak(jump: IrBreak) {
         val loop = jump.loop
-        if (loop.label == null && loop != breakableDeque.firstOrNull()) {
+        if (loop.label == null && loop != jumpableDeque.firstOrNull()) {
             persistLoopName(SYNTHETIC_LOOP_LABEL, loop)
         }
 
         super.visitBreak(jump)
+    }
+
+    override fun visitContinue(jump: IrContinue) {
+        val loop = jump.loop
+        if (loop.label == null && loop != jumpableDeque.firstOrNull()) {
+            persistLoopName(SYNTHETIC_LOOP_LABEL, loop)
+        }
+
+        super.visitContinue(jump)
     }
 
     override fun visitReturn(expression: IrReturn) {
@@ -336,19 +347,19 @@ class LocalNameGenerator(parentScope: NameScope) : IrElementVisitorVoid {
     }
 
     override fun visitWhen(expression: IrWhen) {
-        breakableDeque.push(expression)
+        jumpableDeque.push(expression)
 
         super.visitWhen(expression)
 
-        breakableDeque.pop()
+        jumpableDeque.pop()
     }
 
     override fun visitLoop(loop: IrLoop) {
-        breakableDeque.push(loop)
+        jumpableDeque.push(loop)
 
         super.visitLoop(loop)
 
-        breakableDeque.pop()
+        jumpableDeque.pop()
 
         val label = loop.label
 
@@ -366,23 +377,30 @@ class LocalNameGenerator(parentScope: NameScope) : IrElementVisitorVoid {
     }
 }
 
-
-fun sanitizeName(name: String): String {
+fun sanitizeName(name: String, withHash: Boolean = true): String {
     if (name.isValidES5Identifier()) return name
     if (name.isEmpty()) return "_"
 
     val builder = StringBuilder()
 
-    val first = name.first().let { if (it.isES5IdentifierStart()) it else '_' }
-    builder.append(first)
+    val first = name.first()
+
+    builder.append(first.mangleIfNot(Char::isES5IdentifierStart))
 
     for (idx in 1..name.lastIndex) {
         val c = name[idx]
-        builder.append(if (c.isES5IdentifierPart()) c else '_')
+        builder.append(c.mangleIfNot(Char::isES5IdentifierPart))
     }
 
-    return builder.toString()
+    return if (withHash) {
+        "${builder}_${name.hashCode().toUInt()}"
+    } else {
+        builder.toString()
+    }
 }
 
-private const val SYNTHETIC_LOOP_LABEL = "\$l\$break"
+private inline fun Char.mangleIfNot(predicate: Char.() -> Boolean) =
+    if (predicate()) this else '_'
+
+private const val SYNTHETIC_LOOP_LABEL = "\$l\$loop"
 private const val SYNTHETIC_BLOCK_LABEL = "\$l\$block"

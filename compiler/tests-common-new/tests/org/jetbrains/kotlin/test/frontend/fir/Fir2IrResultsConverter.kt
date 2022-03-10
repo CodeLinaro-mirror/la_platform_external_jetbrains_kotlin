@@ -74,9 +74,9 @@ class Fir2IrResultsConverter(
 
         val irProviders = codegenFactory.configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(irModuleFragment, symbolTable, extensions)
 
-        return IrBackendInput(
+        return IrBackendInput.JvmIrBackendInput(
+            generationState,
             JvmIrCodegenFactory.JvmIrBackendInput(
-                generationState,
                 irModuleFragment,
                 symbolTable,
                 phaseConfig,

@@ -10,9 +10,8 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
+import org.gradle.kotlin.dsl.getByType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.process.ExecSpec
 import org.jetbrains.kotlin.konan.exec.Command
@@ -33,6 +32,7 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
         SILENT    // Prints no log of passed/failed tests
     }
 
+    @get:Input
     var disabled: Boolean
         get() = !enabled
         set(value) {
@@ -42,11 +42,13 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
     /**
      * Test output directory. Used to store processed sources and binary artifacts.
      */
+    @get:OutputDirectory
     abstract val outputDirectory: String
 
     /**
      * Test logger to be used for the test built with TestRunner (`-tr` option).
      */
+    @get:Internal
     abstract var testLogger: Logger
 
     /**
@@ -63,6 +65,7 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
     /**
      * Test source.
      */
+    @Internal
     lateinit var source: String
 
     /**
@@ -76,21 +79,19 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
      * As this run task comes after the build task all actions for doFirst
      * should be done before the build and not run.
      */
-    @Input
-    @Optional
+    @Internal
     override var doBeforeBuild: Action<in Task>? = null
 
-    @Input
-    @Optional
+    @Internal
     override var doBeforeRun: Action<in Task>? = null
 
+    @get:Internal
     override val buildTasks: List<Task>
-        get() = listOf(project.findKonanBuildTask(name, project.testTarget))
+        get() = listOf(project.findKonanBuildTask(name, project.testTarget).get())
 
     @Suppress("UnstableApiUsage")
     override fun configure(config: Closure<*>): Task {
         super.configure(config)
-        dependsOnDist()
 
         // Set Gradle properties for the better navigation
         group = LifecycleBasePlugin.VERIFICATION_GROUP
@@ -153,9 +154,11 @@ open class KonanGTest : KonanTest() {
     // Use GTEST logger to parse test results later
     override var testLogger = Logger.GTEST
 
+    @get:Internal
     override val executable: String
         get() = "$outputDirectory/${project.testTarget.name}/$name.${project.testTarget.family.exeSuffix}"
 
+    @Internal
     var statistics = Statistics()
 
     @TaskAction
@@ -184,6 +187,9 @@ open class KonanGTest : KonanTest() {
 
         Pattern.compile("\\[  FAILED  ] ([0-9]*) tests.*").matcher(output)
                 .apply { if (find()) fail(group(1).toInt()) }
+
+        Pattern.compile("\\[  SKIPPED ] ([0-9]*) test.*").matcher(output)
+                .apply { if (find()) skip(group(1).toInt()) }
         if (total == 0) {
             // No test were run. Try to find if we've tried to run something
             error(Pattern.compile("\\[={10}] Running ([0-9]*) tests from ([0-9]*) test cases\\..*")
@@ -201,6 +207,7 @@ open class KonanLocalTest : KonanTest() {
     override val outputDirectory = project.testOutputLocal
 
     // local tests built into a single binary with the known name
+    @get:Internal
     override val executable: String
         get() = "$outputDirectory/${project.testTarget.name}/localTest.${project.testTarget.family.exeSuffix}"
 
@@ -210,47 +217,82 @@ open class KonanLocalTest : KonanTest() {
     @Optional
     var expectedExitStatus: Int? = null
 
-    @Input
-    @Optional
+    @Internal
     var expectedExitStatusChecker: (Int) -> Boolean = { it == (expectedExitStatus ?: 0) }
 
     /**
      * Should this test fail or not.
      */
     @Input
-    @Optional
     var expectedFail = false
 
     /**
-     * Used to validate output as a gold value.
+     * Used to validate output against the golden data.
      */
     @Input
-    @Optional
-    var goldValue: String? = null
+    var useGoldenData: Boolean = false
+
+    @get:InputFile
+    @get:Optional
+    open val goldenDataFile: File?
+        get() {
+            val goldenDataFile = computeGoldenDataFile()
+            return if (useGoldenData) {
+                check(goldenDataFile.isFile) { "Task $name. Golden data file does not exist: $goldenDataFile" }
+                goldenDataFile
+            } else {
+                check(!goldenDataFile.exists()) { "Task $name. Golden data file should not exist: $goldenDataFile" }
+                null
+            }
+        }
+
+    protected open fun computeGoldenDataFile(): File {
+        val sourceFile = project.file(source)
+        return sourceFile.parentFile.resolve(sourceFile.nameWithoutExtension + ".out")
+    }
+
+    private val goldenData: String?
+        get() = goldenDataFile?.readText(Charsets.UTF_8)
 
     /**
      * Checks test's output against gold value and returns true if the output matches the expectation.
      */
-    @Input
-    @Optional
-    var outputChecker: (String) -> Boolean = { str -> goldValue == null || goldValue == str }
+    @Internal
+    var outputChecker: (String) -> Boolean = { output ->
+        if (useGoldenData) goldenData == output else true
+    }
 
     /**
-     * Input test data to be passed to process' stdin.
+     * Input test data to be passed to process stdin.
      */
     @Input
-    @Optional
-    var testData: String? = null
+    var useTestData: Boolean = false
+
+    @get:InputFile
+    @get:Optional
+    val testDataFile: File?
+        get() {
+            val sourceFile = project.file(source)
+            val testDataFile = sourceFile.parentFile.resolve(sourceFile.nameWithoutExtension + ".in")
+            return if (useTestData) {
+                check(testDataFile.isFile) { "Task $name. Test data file does not exist: $testDataFile" }
+                testDataFile
+            } else {
+                check(!testDataFile.exists()) { "Task $name. Test data file should not exist: $testDataFile" }
+                null
+            }
+        }
+
+    private val testData: String?
+        get() = testDataFile?.readText(Charsets.UTF_8)
 
     /**
      * Should compiler message be read and validated with output checker or gold value.
      */
     @Input
-    @Optional
     var compilerMessages = false
 
     @Input
-    @Optional
     var multiRuns = false
 
     @Input
@@ -264,8 +306,9 @@ open class KonanLocalTest : KonanTest() {
         var output = ProcessOutput("", "", 0)
         for (i in 1..times) {
             val args = arguments + (multiArguments?.get(i - 1) ?: emptyList())
+            val testData = this.testData
             output += if (testData != null)
-                runProcessWithInput({ project.executor.execute(it) }, executable, args, testData!!)
+                runProcessWithInput({ project.executor.execute(it) }, executable, args, testData)
             else
                 runProcess({ project.executor.execute(it) }, executable, args)
         }
@@ -273,11 +316,7 @@ open class KonanLocalTest : KonanTest() {
             // TODO: as for now it captures output only in the driver task.
             // It should capture output from the build task using Gradle's LoggerManager and LoggerOutput
             val compilationLog = project.file("$executable.compilation.log").readText()
-            // TODO: ugly hack to fix irrelevant warnings.
-            val filteredCompilationLog = compilationLog.split('\n').filter {
-                it != "warning: relaxed memory model is not yet fully functional"
-            }.joinToString(separator = "\n")
-            output.stdOut = filteredCompilationLog + output.stdOut
+            output.stdOut = compilationLog + output.stdOut
         }
         output.check()
         output.print()
@@ -307,23 +346,21 @@ open class KonanLocalTest : KonanTest() {
             println("Expected failure. $message")
         }
 
-        val result = stdOut + stdErr
-        val goldValueMismatch = !outputChecker(result.replace(System.lineSeparator(), "\n"))
-        if (goldValueMismatch) {
-            val message = if (goldValue != null)
-                "Expected output: $goldValue, actual output: $result"
-            else
-                "Actual output doesn't match with output checker: $result"
+        val output = stdOut + stdErr
+        val outputMismatch = !outputChecker(output.replace(System.lineSeparator(), "\n"))
+        if (outputMismatch) {
+            val message = goldenData?.let { goldenData -> "Expected output: $goldenData, actual output: $output" }
+                    ?: "Actual output doesn't match with output checker: $output"
 
             check(expectedFail) { "Test failed. $message" }
             println("Expected failure. $message")
         }
 
-        check((exitCodeMismatch || goldValueMismatch) || !expectedFail) {
+        check((exitCodeMismatch || outputMismatch) || !expectedFail) {
             """
             |Unexpected pass:
             | * exit code mismatch: $exitCodeMismatch
-            | * gold value mismatch: $goldValueMismatch
+            | * gold value mismatch: $outputMismatch
             | * expected fail: $expectedFail
             """.trimMargin()
         }
@@ -348,16 +385,15 @@ open class KonanStandaloneTest : KonanLocalTest() {
         get() = "$outputDirectory/${project.testTarget.name}/$name.${project.testTarget.family.exeSuffix}"
 
     @Input
-    @Optional
     var enableKonanAssertions = true
 
     @Input
-    @Optional
     var verifyIr = true
 
     /**
      * Compiler flags used to build a test.
      */
+    @Internal
     var flags: List<String> = listOf()
         get() {
             val result = field.toMutableList()
@@ -368,6 +404,7 @@ open class KonanStandaloneTest : KonanLocalTest() {
             return result
         }
 
+    @Internal
     fun getSources(): Provider<List<String>> = project.provider {
         val sources = buildCompileList(project.file(source).toPath(), outputDirectory)
         sources.forEach { it.writeTextToFile() }
@@ -450,7 +487,7 @@ open class KonanDynamicTest : KonanStandaloneTest() {
     /**
      * File path to the C source.
      */
-    @Input
+    @get:Input
     lateinit var cSource: String
 
     @Input
@@ -462,6 +499,12 @@ open class KonanDynamicTest : KonanStandaloneTest() {
     @Input
     @Optional
     var interop: String? = null
+
+    override fun computeGoldenDataFile(): File {
+        val sourceFile = project.file(source)
+        val cSourceFile = File(cSource)
+        return sourceFile.parentFile.resolve(sourceFile.nameWithoutExtension + "-" + cSourceFile.nameWithoutExtension + ".out")
+    }
 
     // Replace testlib_api.h and all occurrences of the testlib with the actual name of the test
     private fun processCSource(): String {
@@ -481,7 +524,7 @@ open class KonanDynamicTest : KonanStandaloneTest() {
 
     private fun clang() {
         val log = ByteArrayOutputStream()
-        val plugin = project.convention.getPlugin(ExecClang::class.java)
+        val plugin = project.extensions.getByType<ExecClang>()
         val artifactsDir = "$outputDirectory/${project.testTarget}"
 
         fun flagsContain(opt: String) = project.globalTestArgs.contains(opt) || flags.contains(opt)

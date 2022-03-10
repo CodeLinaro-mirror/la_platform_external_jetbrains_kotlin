@@ -5,12 +5,13 @@
 
 package org.jetbrains.kotlin.fir.expressions
 
-import org.jetbrains.kotlin.fir.FirSourceElement
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.FirArraySetArgumentList
-import org.jetbrains.kotlin.fir.expressions.impl.FirPartiallyResolvedArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
+import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentListForErrorCall
+import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentListImpl
 
 fun buildUnaryArgumentList(argument: FirExpression): FirArgumentList = buildArgumentList {
     arguments += argument
@@ -26,15 +27,15 @@ fun buildArraySetArgumentList(rValue: FirExpression, indexes: List<FirExpression
 
 fun buildResolvedArgumentList(
     mapping: LinkedHashMap<FirExpression, FirValueParameter>,
-    source: FirSourceElement? = null
+    source: KtSourceElement? = null
 ): FirResolvedArgumentList =
-    FirResolvedArgumentList(mapping, source)
+    FirResolvedArgumentListImpl(source, mapping)
 
-fun buildPartiallyResolvedArgumentList(
+fun buildArgumentListForErrorCall(
     original: FirArgumentList,
-    mapping: LinkedHashMap<FirExpression, FirValueParameter>
+    mapping: Map<FirExpression, FirValueParameter?>
 ): FirArgumentList {
-    return FirPartiallyResolvedArgumentList(
+    return FirResolvedArgumentListForErrorCall(
         original.source,
         original.arguments.map { key -> key to mapping[key] }.toMap(LinkedHashMap())
     )
@@ -44,6 +45,6 @@ object FirEmptyArgumentList : FirAbstractArgumentList() {
     override val arguments: List<FirExpression>
         get() = emptyList()
 
-    override val source: FirSourceElement?
+    override val source: KtSourceElement?
         get() = null
 }

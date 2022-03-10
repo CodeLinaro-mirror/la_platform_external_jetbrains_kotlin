@@ -7,10 +7,10 @@ package org.jetbrains.kotlin.gradle.plugin.mpp.pm20
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
-import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.ExtractableMetadataFiles
 import org.jetbrains.kotlin.gradle.plugin.mpp.MetadataDependencyResolution
+import org.jetbrains.kotlin.gradle.plugin.mpp.getAllCompiledSourceSetMetadata
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.disambiguateName
 import org.jetbrains.kotlin.gradle.targets.metadata.ResolvedMetadataFilesProvider
 import org.jetbrains.kotlin.gradle.utils.getValue
 import java.io.File
@@ -54,7 +54,7 @@ internal open class TransformKotlinGranularMetadataForFragment
         val participatingFragments = fragment.refinesClosure
         val participatingCompilations = participatingFragments.flatMap { it.containingModule.variantsContainingFragment(it) }
         participatingCompilations.associate { variant ->
-            variant.fragmentName to project.configurations.getByName(variant.compileDependencyConfigurationName)
+            variant.fragmentName to variant.compileDependenciesConfiguration
                 .allDependencies.map { listOf(it.group, it.name, it.version) }.toSet()
         }
     }
@@ -65,18 +65,15 @@ internal open class TransformKotlinGranularMetadataForFragment
         transformation.resolutions
     }
 
-    private val extractableFilesByResolution: Map<out MetadataDependencyResolution, ExtractableMetadataFiles>
+    @get:Internal
+    internal val filesByResolution: Map<out MetadataDependencyResolution, FileCollection>
         get() = metadataDependencyResolutions
             .filterIsInstance<MetadataDependencyResolution.ChooseVisibleSourceSets>()
-            .associateWith { it.getExtractableMetadataFiles(outputsDir) }
-
-    @get:Internal
-    internal val filesByResolution: Map<MetadataDependencyResolution, FileCollection>
-        get() = extractableFilesByResolution.mapValues { (_, value) ->
-            project.files(value.getMetadataFilesPerSourceSet(false).values).builtBy(this)
-        }
-
-    private val extractableFiles by project.provider { extractableFilesByResolution.values }
+            .associateWith { chooseVisibleSourceSets ->
+                chooseVisibleSourceSets.getAllCompiledSourceSetMetadata(
+                    project, outputsDir, materializeFilesIfNecessary = false
+                ).builtBy(this)
+            }
 
     @TaskAction
     fun transformMetadata() {
@@ -85,7 +82,11 @@ internal open class TransformKotlinGranularMetadataForFragment
         }
         outputsDir.mkdirs()
 
-        extractableFiles.forEach { it.getMetadataFilesPerSourceSet(doProcessFiles = true) }
+        metadataDependencyResolutions
+            .filterIsInstance<MetadataDependencyResolution.ChooseVisibleSourceSets>()
+            .forEach { chooseVisibleSourceSets ->
+                chooseVisibleSourceSets.getAllCompiledSourceSetMetadata(project, outputsDir, materializeFilesIfNecessary = true)
+            }
     }
 }
 
@@ -94,5 +95,5 @@ internal class FragmentResolvedMetadataProvider(
 ) : ResolvedMetadataFilesProvider {
     override val buildDependencies: Iterable<TaskProvider<*>> = listOf(taskProvider)
     override val metadataResolutions: Iterable<MetadataDependencyResolution> by taskProvider.map { it.metadataDependencyResolutions }
-    override val metadataFilesByResolution: Map<MetadataDependencyResolution, FileCollection> by taskProvider.map { it.filesByResolution }
+    override val metadataFilesByResolution: Map<out MetadataDependencyResolution, FileCollection> by taskProvider.map { it.filesByResolution }
 }

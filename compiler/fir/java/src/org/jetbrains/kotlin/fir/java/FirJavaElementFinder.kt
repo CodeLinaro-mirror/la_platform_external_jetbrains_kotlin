@@ -20,26 +20,24 @@ import com.intellij.util.ArrayUtil
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.moduleData
-import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
+import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.resolveSupertypesInTheAir
-import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.jvm.JvmPrimitiveType
 import org.jetbrains.kotlin.resolve.jvm.KotlinFinderMarker
 
@@ -73,13 +71,25 @@ class FirJavaElementFinder(
 
     override fun findClass(qualifiedName: String, scope: GlobalSearchScope): PsiClass? {
         if (qualifiedName.endsWith(".")) return null
-        val classId = ClassId.topLevel(FqName(qualifiedName))
 
-        val firClass = firProviders.firstNotNullOfOrNull { it.getFirClassifierByFqName(classId) as? FirRegularClass } ?: return null
+        val fqName = FqName(qualifiedName)
 
-        val fileStub = createJavaFileStub(classId.packageFqName, psiManager)
+        for (topLevelClass in generateSequence(fqName) { it.parentOrNull() }) {
+            if (topLevelClass.isRoot) break
+            val classId = ClassId.topLevel(topLevelClass)
 
-        return buildStub(firClass, fileStub).psi
+            val firClass = firProviders.firstNotNullOfOrNull { it.getFirClassifierByFqName(classId) as? FirRegularClass } ?: continue
+
+            val fileStub = createJavaFileStub(classId.packageFqName, psiManager)
+            val topLevelResult = buildStub(firClass, fileStub).psi
+            val tail = fqName.tail(topLevelClass).pathSegments()
+
+            return tail.fold(topLevelResult) { psiClass, segment ->
+                psiClass.findInnerClassByName(segment.identifier, false) ?: return null
+            }
+        }
+
+        return null
     }
 
     private fun buildStub(firClass: FirRegularClass, parent: StubElement<*>): PsiClassStub<*> {

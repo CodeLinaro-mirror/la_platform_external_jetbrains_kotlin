@@ -7,9 +7,9 @@ package org.jetbrains.kotlin.fir.serialization.constant
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.resolve.defaultType
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -30,7 +30,7 @@ internal sealed class ConstantValue<out T>(open val value: T) {
 internal abstract class IntegerValueConstant<out T> protected constructor(value: T) : ConstantValue<T>(value)
 internal abstract class UnsignedValueConstant<out T> protected constructor(value: T) : ConstantValue<T>(value)
 
-internal class AnnotationValue(value: FirAnnotationCall) : ConstantValue<FirAnnotationCall>(value) {
+internal class AnnotationValue(value: FirAnnotation) : ConstantValue<FirAnnotation>(value) {
     override fun <R, D> accept(visitor: AnnotationArgumentVisitor<R, D>, data: D): R = visitor.visitAnnotationValue(this, data)
 }
 
@@ -138,7 +138,7 @@ internal class KClassValue(value: Value) : ConstantValue<KClassValue.Value>(valu
             is Value.LocalClass -> return value.type
             is Value.NormalClass -> {
                 val (classId, arrayDimensions) = value.value
-                val klass = session.symbolProvider.getClassLikeSymbolByFqName(classId)?.fir as? FirRegularClass ?: return null
+                val klass = session.symbolProvider.getClassLikeSymbolByClassId(classId)?.fir as? FirRegularClass ?: return null
                 var type: ConeKotlinType = klass.defaultType().replaceArgumentsWithStarProjections()
                 repeat(arrayDimensions) {
                     type = type.createArrayType()
@@ -157,6 +157,7 @@ internal class KClassValue(value: Value) : ConstantValue<KClassValue.Value>(valu
             var type = argumentType
             var arrayDimensions = 0
             while (true) {
+                if (type.isPrimitiveArray) break
                 type = type.arrayElementType() ?: break
                 arrayDimensions++
             }

@@ -542,6 +542,11 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
         compileKotlin("source.kt", tmpdir, listOf(library), additionalOptions = listOf("-jvm-target", "1.8", "-Xjvm-default=all"))
     }
 
+    fun testContextualDeclarationUse() {
+        val library = compileLibrary("library", additionalOptions = listOf("-Xcontext-receivers"))
+        compileKotlin("contextualDeclarationUse.kt", tmpdir, listOf(library), additionalOptions = listOf("-Xskip-prerelease-check"))
+    }
+
     fun testJvmDefaultClashWithNoCompatibility() {
         val library = compileLibrary("library", additionalOptions = listOf("-Xjvm-default=disable"))
         compileKotlin("source.kt", tmpdir, listOf(library), additionalOptions = listOf("-jvm-target", "1.8", "-Xjvm-default=all-compatibility"))
@@ -553,7 +558,7 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
             "source.kt",
             tmpdir,
             listOf(library),
-            additionalOptions = listOf("-jvm-target", "1.8", "-Xjvm-default=disable", "-Xjvm-default-allow-non-default-inheritance")
+            additionalOptions = listOf("-jvm-target", "1.8", "-Xjvm-default=disable")
         )
     }
 
@@ -610,6 +615,15 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
     fun testFirAgainstOldJvm() {
         val library = compileLibrary("library")
         compileKotlin("source.kt", tmpdir, listOf(library), additionalOptions = listOf("-Xuse-fir"))
+    }
+
+    fun testFirIncorrectJavaSignature() {
+        compileKotlin(
+            "source.kt", tmpdir,
+            listOf(),
+            additionalOptions = listOf("-Xuse-fir"),
+            additionalSources = listOf("A.java", "B.java"),
+        )
     }
 
     fun testOldJvmAgainstJvmIr() {

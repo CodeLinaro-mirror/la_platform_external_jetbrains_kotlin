@@ -13,6 +13,8 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
 import org.jetbrains.kotlin.load.java.descriptors.JavaMethodDescriptor
 import org.jetbrains.kotlin.load.kotlin.computeJvmDescriptor
+import org.jetbrains.kotlin.name.JvmNames.JVM_DEFAULT_FQ_NAME
+import org.jetbrains.kotlin.name.JvmNames.JVM_DEFAULT_NO_COMPATIBILITY_FQ_NAME
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
 import org.jetbrains.kotlin.resolve.DescriptorUtils.*
@@ -27,13 +29,12 @@ import org.jetbrains.kotlin.resolve.jvm.annotations.*
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.ErrorsJvm
 import org.jetbrains.kotlin.util.getNonPrivateTraitMembersForDelegation
 
-class JvmDefaultChecker(private val jvmTarget: JvmTarget, private val project: Project) : DeclarationChecker {
+class JvmDefaultChecker(private val jvmTarget: JvmTarget, project: Project) : DeclarationChecker {
 
     private val ideService = LanguageVersionSettingsProvider.getInstance(project)
 
     override fun check(declaration: KtDeclaration, descriptor: DeclarationDescriptor, context: DeclarationCheckerContext) {
         val jvmDefaultMode = context.languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
-        val allowNonDefaultInheritance = context.languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultAllowNonDefaultInheritance)
 
         val jvmDefaultAnnotation = descriptor.annotations.findAnnotation(JVM_DEFAULT_FQ_NAME)
         jvmDefaultAnnotation?.let { annotationDescriptor ->
@@ -50,29 +51,7 @@ class JvmDefaultChecker(private val jvmTarget: JvmTarget, private val project: P
             }
         }
 
-        descriptor.annotations.findAnnotation(JVM_DEFAULT_NO_COMPATIBILITY_FQ_NAME)?.let { annotationDescriptor ->
-            val reportOn = DescriptorToSourceUtils.getSourceFromAnnotation(annotationDescriptor) ?: declaration
-            if (jvmTarget == JvmTarget.JVM_1_6) {
-                context.trace.report(ErrorsJvm.JVM_DEFAULT_IN_JVM6_TARGET.on(reportOn, "JvmDefaultWithoutCompatibility"))
-                return@check
-            } else if (!jvmDefaultMode.isEnabled) {
-                context.trace.report(ErrorsJvm.JVM_DEFAULT_IN_DECLARATION.on(reportOn, "JvmDefaultWithoutCompatibility"))
-                return@check
-            }
-        }
-
-        if (!allowNonDefaultInheritance) {
-            if (descriptor is ClassDescriptor) {
-                val hasDeclaredJvmDefaults =
-                    descriptor.unsubstitutedMemberScope.getContributedDescriptors().filterIsInstance<CallableMemberDescriptor>().any {
-                        it.kind.isReal && it.isCompiledToJvmDefault(jvmDefaultMode)
-                    }
-                if (!hasDeclaredJvmDefaults && !checkJvmDefaultsInHierarchy(descriptor, jvmDefaultMode)) {
-                    context.trace.report(ErrorsJvm.JVM_DEFAULT_THROUGH_INHERITANCE.on(declaration))
-                }
-            }
-        }
-
+        if (checkJvmCompatibilityAnnotations(descriptor, declaration, context, jvmDefaultMode)) return
 
         if (jvmDefaultAnnotation == null && !jvmDefaultMode.forAllMethodsWithBody && isInterface(descriptor.containingDeclaration)) {
             val memberDescriptor = descriptor as? CallableMemberDescriptor ?: return
@@ -154,6 +133,40 @@ class JvmDefaultChecker(private val jvmTarget: JvmTarget, private val project: P
             }
     }
 
+    private fun checkJvmCompatibilityAnnotations(
+        descriptor: DeclarationDescriptor,
+        declaration: KtDeclaration,
+        context: DeclarationCheckerContext,
+        jvmDefaultMode: JvmDefaultMode
+    ): Boolean {
+        descriptor.annotations.findAnnotation(JVM_DEFAULT_NO_COMPATIBILITY_FQ_NAME)?.let { annotationDescriptor ->
+            val reportOn = DescriptorToSourceUtils.getSourceFromAnnotation(annotationDescriptor) ?: declaration
+            if (jvmTarget == JvmTarget.JVM_1_6) {
+                context.trace.report(ErrorsJvm.JVM_DEFAULT_IN_JVM6_TARGET.on(reportOn, "JvmDefaultWithoutCompatibility"))
+                return true
+            } else if (!jvmDefaultMode.isEnabled) {
+                context.trace.report(ErrorsJvm.JVM_DEFAULT_IN_DECLARATION.on(reportOn, "JvmDefaultWithoutCompatibility"))
+                return true
+            }
+        }
+
+        descriptor.annotations.findAnnotation(JVM_DEFAULT_WITH_COMPATIBILITY_FQ_NAME)?.let { annotationDescriptor ->
+            val reportOn = DescriptorToSourceUtils.getSourceFromAnnotation(annotationDescriptor) ?: declaration
+            if (jvmTarget == JvmTarget.JVM_1_6) {
+                context.trace.report(ErrorsJvm.JVM_DEFAULT_IN_JVM6_TARGET.on(reportOn, "JvmDefaultWithCompatibility"))
+                return true
+            } else if (jvmDefaultMode != JvmDefaultMode.ALL_INCOMPATIBLE) {
+                context.trace.report(ErrorsJvm.JVM_DEFAULT_WITH_COMPATIBILITY_IN_DECLARATION.on(reportOn))
+                return true
+            } else if (!isInterface(descriptor)) {
+                context.trace.report(ErrorsJvm.JVM_DEFAULT_WITH_COMPATIBILITY_NOT_ON_INTERFACE.on(reportOn))
+                return true
+            }
+        }
+
+        return false
+    }
+
     private fun checkSpecializationInCompatibilityMode(
         inheritedFun: FunctionDescriptor,
         actualImplementation: FunctionDescriptor,
@@ -217,24 +230,17 @@ class JvmDefaultChecker(private val jvmTarget: JvmTarget, private val project: P
         return classMembers.firstNotNullOfOrNull { findPossibleClashMember(it, jvmDefaultMode) }
     }
 
-    private fun checkJvmDefaultsInHierarchy(descriptor: DeclarationDescriptor, jvmDefaultMode: JvmDefaultMode): Boolean {
-        if (jvmDefaultMode.isEnabled) return true
+    private fun CallableMemberDescriptor.isCompiledToJvmDefaultWithProperMode(compilationDefaultMode: JvmDefaultMode) =
+        isCompiledToJvmDefaultWithProperMode(ideService, compilationDefaultMode)
 
-        if (descriptor !is ClassDescriptor) return true
+}
 
-        return descriptor.unsubstitutedMemberScope.getContributedDescriptors().filterIsInstance<CallableMemberDescriptor>()
-            .all { memberDescriptor ->
-                memberDescriptor.kind.isReal || OverridingUtil.filterOutOverridden(memberDescriptor.overriddenDescriptors.toSet()).all {
-                    !isInterface(it.containingDeclaration) || !it.isCompiledToJvmDefaultWithProperMode(jvmDefaultMode) || it.modality == Modality.ABSTRACT
-                }
-            }
-    }
-
-    private fun CallableMemberDescriptor.isCompiledToJvmDefaultWithProperMode(compilationDefaultMode: JvmDefaultMode): Boolean {
-        val jvmDefault =
-            if (this is DeserializedDescriptor) compilationDefaultMode/*doesn't matter*/ else ideService?.getModuleLanguageVersionSettings(module)
-                ?.getFlag(JvmAnalysisFlags.jvmDefaultMode) ?: compilationDefaultMode
-        return isCompiledToJvmDefault(jvmDefault)
-    }
-
+internal fun CallableMemberDescriptor.isCompiledToJvmDefaultWithProperMode(
+    ideService: LanguageVersionSettingsProvider?,
+    compilationDefaultMode: JvmDefaultMode
+): Boolean {
+    val jvmDefault =
+        if (this is DeserializedDescriptor) compilationDefaultMode/*doesn't matter*/ else ideService?.getModuleLanguageVersionSettings(module)
+            ?.getFlag(JvmAnalysisFlags.jvmDefaultMode) ?: compilationDefaultMode
+    return isCompiledToJvmDefault(jvmDefault)
 }

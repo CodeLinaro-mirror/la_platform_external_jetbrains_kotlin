@@ -53,6 +53,13 @@ public:
     public:
         ~Node() = default;
 
+        constexpr static std::pair<size_t, size_t> GetSizeAndAlignmentForDataSize(size_t dataSize) noexcept {
+            size_t dataSizeAligned = AlignUp(dataSize, DataAlignment);
+            size_t totalAlignment = std::max(alignof(Node), DataAlignment);
+            size_t totalSize = AlignUp(sizeof(Node) + dataSizeAligned, totalAlignment);
+            return std::make_pair(totalSize, totalAlignment);
+        }
+
         static Node& FromData(void* data) noexcept {
             constexpr size_t kDataOffset = DataOffset();
             Node* node = reinterpret_cast<Node*>(reinterpret_cast<uintptr_t>(data) - kDataOffset);
@@ -80,9 +87,7 @@ public:
         Node() noexcept = default;
 
         static unique_ptr<Node> Create(Allocator& allocator, size_t dataSize) noexcept {
-            size_t dataSizeAligned = AlignUp(dataSize, DataAlignment);
-            size_t totalAlignment = std::max(alignof(Node), DataAlignment);
-            size_t totalSize = AlignUp(sizeof(Node) + dataSizeAligned, totalAlignment);
+            auto [totalSize, totalAlignment] = GetSizeAndAlignmentForDataSize(dataSize);
             RuntimeAssert(
                     DataOffset() + dataSize <= totalSize, "totalSize %zu is not enough to fit data %zu at offset %zu", totalSize, dataSize,
                     DataOffset());
@@ -163,7 +168,7 @@ public:
                 return;
             }
 
-            std::lock_guard<SpinLock> guard(owner_.mutex_);
+            std::lock_guard guard(owner_.mutex_);
 
             owner_.AssertCorrectUnsafe();
 
@@ -261,8 +266,20 @@ public:
 
         Consumer() noexcept = default;
 
-        Consumer(Consumer&&) noexcept = default;
-        Consumer& operator=(Consumer&&) noexcept = default;
+        Consumer(Consumer&& other) noexcept {
+            root_ = std::move(other.root_);
+            size_ = other.size_;
+            last_ = other.last_;
+            other.size_ = 0;
+            other.last_ = nullptr;
+        }
+        Consumer& operator=(Consumer&& other) noexcept {
+            Consumer temp = std::move(other);
+            std::swap(root_, temp.root_);
+            std::swap(size_, temp.size_);
+            std::swap(last_, temp.last_);
+            return *this;
+        }
 
         ~Consumer() {
             // Make sure not to blow up the stack by nested `~Node` calls.
@@ -274,6 +291,22 @@ public:
 
         Iterator begin() noexcept { return Iterator(root_.get()); }
         Iterator end() noexcept { return Iterator(nullptr); }
+
+        void MergeWith(Consumer &&other) {
+            AssertCorrect();
+            if (other.root_) {
+                if (!root_) {
+                    root_ = std::move(other.root_);
+                } else {
+                    last_->next_ = std::move(other.root_);
+                }
+                last_ = other.last_;
+                size_ += other.size_;
+                other.last_ = nullptr;
+                other.size_ = 0;
+            }
+            AssertCorrect();
+        }
 
     private:
         friend class ObjectFactoryStorage;
@@ -328,7 +361,7 @@ public:
 
     private:
         ObjectFactoryStorage& owner_; // weak
-        std::unique_lock<SpinLock> guard_;
+        std::unique_lock<SpinLock<MutexThreadStateHandling::kIgnore>> guard_;
     };
 
     ~ObjectFactoryStorage() {
@@ -389,36 +422,7 @@ private:
     unique_ptr<Node> root_;
     Node* last_ = nullptr;
     size_t size_ = 0;
-    SpinLock mutex_;
-};
-
-class SimpleAllocator {
-public:
-    void* Alloc(size_t size, size_t alignment) noexcept { return konanAllocAlignedMemory(size, alignment); }
-
-    static void Free(void* instance) noexcept { konanFreeMemory(instance); }
-};
-
-template <typename BaseAllocator, typename GC>
-class AllocatorWithGC {
-public:
-    AllocatorWithGC(BaseAllocator base, GC& gc) noexcept : base_(std::move(base)), gc_(gc) {}
-
-    void* Alloc(size_t size, size_t alignment) noexcept {
-        gc_.SafePointAllocation(size);
-        if (void* ptr = base_.Alloc(size, alignment)) {
-            return ptr;
-        }
-        // Tell GC that we failed to allocate, and try one more time.
-        gc_.OnOOM(size);
-        return base_.Alloc(size, alignment);
-    }
-
-    static void Free(void* instance) noexcept { BaseAllocator::Free(instance); }
-
-private:
-    BaseAllocator base_;
-    GC& gc_;
+    SpinLock<MutexThreadStateHandling::kIgnore> mutex_;
 };
 
 } // namespace internal
@@ -427,8 +431,7 @@ template <typename GC>
 class ObjectFactory : private Pinned {
     using GCObjectData = typename GC::ObjectData;
     using GCThreadData = typename GC::ThreadData;
-
-    using Allocator = internal::AllocatorWithGC<internal::SimpleAllocator, GCThreadData>;
+    using Allocator = typename GC::Allocator;
 
     struct HeapObjHeader {
         GCObjectData gcData;
@@ -523,13 +526,17 @@ public:
             typename Storage::Producer::Iterator iterator_;
         };
 
-        ThreadQueue(ObjectFactory& owner, GCThreadData& gc) noexcept :
-            producer_(owner.storage_, internal::AllocatorWithGC(internal::SimpleAllocator(), gc)) {}
+        ThreadQueue(ObjectFactory& owner, GCThreadData& gc) noexcept : producer_(owner.storage_, gc.CreateAllocator()) {}
+
+        static size_t ObjectAllocatedSize(const TypeInfo* typeInfo) noexcept {
+            RuntimeAssert(!typeInfo->IsArray(), "Must not be an array");
+            size_t allocSize = ObjectAllocatedDataSize(typeInfo);
+            return Storage::Node::GetSizeAndAlignmentForDataSize(allocSize).first;
+        }
 
         ObjHeader* CreateObject(const TypeInfo* typeInfo) noexcept {
             RuntimeAssert(!typeInfo->IsArray(), "Must not be an array");
-            size_t membersSize = typeInfo->instanceSize_ - sizeof(ObjHeader);
-            size_t allocSize = AlignUp(sizeof(HeapObjHeader) + membersSize, kObjectAlignment);
+            size_t allocSize = ObjectAllocatedDataSize(typeInfo);
             auto& node = producer_.Insert(allocSize);
             auto* heapObject = new (node.Data()) HeapObjHeader();
             auto* object = &heapObject->object;
@@ -538,11 +545,15 @@ public:
             return object;
         }
 
+        static size_t ArrayAllocatedSize(const TypeInfo* typeInfo, uint32_t count) noexcept {
+            RuntimeAssert(typeInfo->IsArray(), "Must be an array");
+            size_t allocSize = ArrayAllocatedDataSize(typeInfo, count);
+            return Storage::Node::GetSizeAndAlignmentForDataSize(allocSize).first;
+        }
+
         ArrayHeader* CreateArray(const TypeInfo* typeInfo, uint32_t count) noexcept {
             RuntimeAssert(typeInfo->IsArray(), "Must be an array");
-            uint32_t membersSize = static_cast<uint32_t>(-typeInfo->instanceSize_) * count;
-            // Note: array body is aligned, but for size computation it is enough to align the sum.
-            size_t allocSize = AlignUp(sizeof(HeapArrayHeader) + membersSize, kObjectAlignment);
+            size_t allocSize = ArrayAllocatedDataSize(typeInfo, count);
             auto& node = producer_.Insert(allocSize);
             auto* heapArray = new (node.Data()) HeapArrayHeader();
             auto* array = &heapArray->array;
@@ -560,6 +571,17 @@ public:
         void ClearForTests() noexcept { producer_.ClearForTests(); }
 
     private:
+        static size_t ObjectAllocatedDataSize(const TypeInfo* typeInfo) noexcept {
+            size_t membersSize = typeInfo->instanceSize_ - sizeof(ObjHeader);
+            return AlignUp(sizeof(HeapObjHeader) + membersSize, kObjectAlignment);
+        }
+
+        static size_t ArrayAllocatedDataSize(const TypeInfo* typeInfo, uint32_t count) noexcept {
+            uint32_t membersSize = static_cast<uint32_t>(-typeInfo->instanceSize_) * count;
+            // Note: array body is aligned, but for size computation it is enough to align the sum.
+            return AlignUp(sizeof(HeapArrayHeader) + membersSize, kObjectAlignment);
+        }
+
         typename Storage::Producer producer_;
     };
 
@@ -630,6 +652,10 @@ public:
             }
         }
 
+        void MergeWith(FinalizerQueue &&other) {
+            consumer_.MergeWith(std::move(other.consumer_));
+        }
+
         Iterable IterForTests() noexcept { return Iterable(*this); }
 
     private:
@@ -664,6 +690,16 @@ public:
     size_t GetSizeUnsafe() const noexcept { return storage_.GetSizeUnsafe(); }
 
     void ClearForTests() { storage_.ClearForTests(); }
+
+    static size_t GetAllocatedHeapSize(ObjHeader* object) noexcept {
+        RuntimeAssert(object->heap(), "Object must be a heap object");
+        const auto* typeInfo = object->type_info();
+        if (typeInfo->IsArray()) {
+            return ThreadQueue::ArrayAllocatedSize(typeInfo, object->array()->count_);
+        } else {
+            return ThreadQueue::ObjectAllocatedSize(typeInfo);
+        }
+    }
 
 private:
     Storage storage_;

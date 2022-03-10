@@ -94,7 +94,7 @@ abstract class LinkerFlags(val configurables: Configurables) {
         return libraries
     }
 
-    protected open fun provideCompilerRtLibrary(libraryName: String, isDynamic: Boolean = false): String? {
+    open fun provideCompilerRtLibrary(libraryName: String, isDynamic: Boolean = false): String? {
         System.err.println("Can't provide $libraryName.")
         return null
     }
@@ -145,8 +145,11 @@ class AndroidLinker(targetProperties: AndroidConfigurables)
         return listOf(Command(clang).apply {
             +"-o"
             +executable
-            +"-fPIC"
-            +"-shared"
+            when (kind) {
+                LinkerOutputKind.EXECUTABLE -> +listOf("-fPIE", "-pie")
+                LinkerOutputKind.DYNAMIC_LIBRARY -> +listOf("-fPIC", "-shared")
+                LinkerOutputKind.STATIC_LIBRARY -> {}
+            }
             +"-target"
             +clangTarget
             +libDirs

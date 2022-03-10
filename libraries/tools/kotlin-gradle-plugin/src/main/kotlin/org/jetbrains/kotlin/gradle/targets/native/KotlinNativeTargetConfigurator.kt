@@ -69,7 +69,7 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget> : AbstractKotl
 
         if (binary !is TestExecutable) {
             tasks.named(binary.compilation.target.artifactsTaskName).configure { it.dependsOn(result) }
-            tasks.maybeCreate(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).dependsOn(result)
+            locateOrRegisterTask<Task>(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).configure { it.dependsOn(result) }
         }
 
         if (binary is Framework) {
@@ -85,7 +85,7 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget> : AbstractKotl
             project.afterEvaluate {
                 val task = taskProvider.get()
                 val artifactFile = when (task) {
-                    is FatFrameworkTask -> task.fatFrameworkDir
+                    is FatFrameworkTask -> task.fatFramework
                     else -> binary.outputFile
                 }
                 val linkArtifact = project.artifacts.add(name, artifactFile) { artifact ->
@@ -432,23 +432,25 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget> : AbstractKotl
                         "compilation for target '${compilation.platformType.name}'."
                 it.enabled = compilation.konanTarget.enabledOnCurrentHost
 
-                it.destinationDir = project.klibOutputDirectory(compilation).resolve("klib")
+                it.destinationDirectory.set(project.klibOutputDirectory(compilation).resolve("klib"))
             }
 
 
             compilation.output.classesDirs.from(compileTaskProvider.flatMap { it.outputFile })
 
-            project.project.tasks.getByName(compilation.compileAllTaskName).dependsOn(compileTaskProvider)
+            project.project.tasks.named(compilation.compileAllTaskName).configure {
+                it.dependsOn(compileTaskProvider)
+            }
 
             if (compilation.isMainCompilationData()) {
                 if (compilation is KotlinNativeCompilation) {
-                    project.project.tasks.getByName(compilation.target.artifactsTaskName).apply {
-                        dependsOn(compileTaskProvider)
+                    project.project.tasks.named(compilation.target.artifactsTaskName).configure {
+                        it.dependsOn(compileTaskProvider)
                     }
                 }
 
-                project.project.tasks.getByName(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).apply {
-                    dependsOn(compileTaskProvider)
+                project.project.tasks.named(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).configure {
+                    it.dependsOn(compileTaskProvider)
                 }
             }
             val shouldAddCompileOutputsToElements = compilation.owner is KotlinGradleVariant || compilation.isMainCompilationData()
@@ -537,7 +539,7 @@ open class KotlinNativeTargetConfigurator<T : KotlinNativeTarget> : AbstractKotl
 
         private val KotlinNativeCompilationData<*>.apiElementsConfigurationName: String
             get() = when (val dataOwner = owner) {
-                is KotlinGradleVariant -> dataOwner.apiElementsConfigurationName
+                is KotlinGradleVariant -> dataOwner.apiElementsConfiguration.name
                 is KotlinTarget -> dataOwner.apiElementsConfigurationName
                 else -> error("unexpected owner of $this")
             }

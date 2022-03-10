@@ -10,11 +10,13 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration
  * DO NOT MODIFY IT MANUALLY
  */
 
-import org.jetbrains.kotlin.fir.declarations.FirAnnotatedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
+import org.jetbrains.kotlin.fir.declarations.FirBackingField
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClass
+import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
@@ -29,18 +31,20 @@ import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 
 typealias FirBasicDeclarationChecker = FirDeclarationChecker<FirDeclaration>
+typealias FirCallableDeclarationChecker = FirDeclarationChecker<FirCallableDeclaration>
 typealias FirFunctionChecker = FirDeclarationChecker<FirFunction>
 typealias FirSimpleFunctionChecker = FirDeclarationChecker<FirSimpleFunction>
 typealias FirPropertyChecker = FirDeclarationChecker<FirProperty>
+typealias FirClassLikeChecker = FirDeclarationChecker<FirClassLikeDeclaration>
 typealias FirClassChecker = FirDeclarationChecker<FirClass>
 typealias FirRegularClassChecker = FirDeclarationChecker<FirRegularClass>
 typealias FirConstructorChecker = FirDeclarationChecker<FirConstructor>
 typealias FirFileChecker = FirDeclarationChecker<FirFile>
 typealias FirTypeParameterChecker = FirDeclarationChecker<FirTypeParameter>
-typealias FirAnnotatedDeclarationChecker = FirDeclarationChecker<FirAnnotatedDeclaration>
 typealias FirTypeAliasChecker = FirDeclarationChecker<FirTypeAlias>
 typealias FirAnonymousFunctionChecker = FirDeclarationChecker<FirAnonymousFunction>
 typealias FirPropertyAccessorChecker = FirDeclarationChecker<FirPropertyAccessor>
+typealias FirBackingFieldChecker = FirDeclarationChecker<FirBackingField>
 typealias FirValueParameterChecker = FirDeclarationChecker<FirValueParameter>
 typealias FirEnumEntryChecker = FirDeclarationChecker<FirEnumEntry>
 typealias FirAnonymousObjectChecker = FirDeclarationChecker<FirAnonymousObject>

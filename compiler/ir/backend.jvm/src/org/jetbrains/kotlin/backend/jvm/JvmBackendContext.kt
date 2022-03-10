@@ -5,18 +5,16 @@
 
 package org.jetbrains.kotlin.backend.jvm
 
+import org.jetbrains.kotlin.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.DefaultMapping
 import org.jetbrains.kotlin.backend.common.Mapping
 import org.jetbrains.kotlin.backend.common.ir.Ir
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.psi.PsiErrorBuilder
 import org.jetbrains.kotlin.backend.jvm.caches.BridgeLoweringCache
 import org.jetbrains.kotlin.backend.jvm.caches.CollectionStubComputer
-import org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen
-import org.jetbrains.kotlin.backend.jvm.codegen.IrTypeMapper
-import org.jetbrains.kotlin.backend.jvm.codegen.MethodSignatureMapper
-import org.jetbrains.kotlin.backend.jvm.intrinsics.IrIntrinsicMethods
+import org.jetbrains.kotlin.backend.jvm.mapping.IrTypeMapper
+import org.jetbrains.kotlin.backend.jvm.mapping.MethodSignatureMapper
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
@@ -28,6 +26,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
+import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
@@ -47,7 +46,6 @@ class JvmBackendContext(
     val generatorExtensions: JvmGeneratorExtensions,
     val backendExtension: JvmBackendExtension,
     val irSerializer: JvmIrSerializer?,
-    val notifyCodegenStart: () -> Unit,
 ) : CommonBackendContext {
     // If the JVM fqname of a class differs from what is implied by its parent, e.g. if it's a file class
     // annotated with @JvmPackageName, the correct name is recorded here.
@@ -70,13 +68,13 @@ class JvmBackendContext(
 
     override val mapping: Mapping = DefaultMapping()
 
-    val psiErrorBuilder = PsiErrorBuilder(state.diagnostics)
+    val ktDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(state.diagnosticReporter, state.languageVersionSettings)
 
     override val ir = JvmIr(irModuleFragment, this.symbolTable)
 
     override val sharedVariablesManager = JvmSharedVariablesManager(state.module, ir.symbols, irBuiltIns, irFactory)
 
-    val irIntrinsics by lazy { IrIntrinsicMethods(irBuiltIns, ir.symbols) }
+    lateinit var getIntrinsic: (IrFunctionSymbol) -> IntrinsicMarker?
 
     private val localClassType = ConcurrentHashMap<IrAttributeContainer, Type>()
 
@@ -89,7 +87,11 @@ class JvmBackendContext(
 
     val isEnclosedInConstructor = ConcurrentHashMap.newKeySet<IrAttributeContainer>()
 
-    internal val classCodegens = ConcurrentHashMap<IrClass, ClassCodegen>()
+    private val classCodegens = ConcurrentHashMap<IrClass, Any>()
+
+    @Suppress("UNCHECKED_CAST")
+    fun <ClassCodegen : Any> getOrCreateClassCodegen(klass: IrClass, create: (IrClass) -> ClassCodegen): ClassCodegen =
+        classCodegens.computeIfAbsent(klass, create) as ClassCodegen
 
     val localDelegatedProperties = ConcurrentHashMap<IrAttributeContainer, List<IrLocalDelegatedPropertySymbol>>()
 
@@ -213,6 +215,12 @@ class JvmBackendContext(
 
     override val preferJavaLikeCounterLoop: Boolean
         get() = true
+
+    override val optimizeLoopsOverUnsignedArrays: Boolean
+        get() = true
+
+    override val doWhileCounterLoopOrigin: IrStatementOrigin
+        get() = JvmLoweredStatementOrigin.DO_WHILE_COUNTER_LOOP
 
     override val optimizeNullChecksUsingKotlinNullability: Boolean
         get() = false

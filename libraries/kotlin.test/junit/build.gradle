@@ -14,8 +14,8 @@ sourceSets {
 
 dependencies {
     expectedBy project(':kotlin-test:kotlin-test-annotations-common')
-    compile project(':kotlin-test:kotlin-test-jvm')
-    compile('junit:junit:4.12')
+    api project(':kotlin-test:kotlin-test-jvm')
+    api('junit:junit:4.13.2')
 }
 
 
@@ -43,6 +43,8 @@ compileTestKotlin {
         "-Xsuppress-deprecated-jvm-target-warning",
     ]
 }
+
+configureFrontendIr(project)
 
 if (includeJava9) {
     LibrariesCommon.configureJava9Compilation(project, 'kotlin.test.junit')

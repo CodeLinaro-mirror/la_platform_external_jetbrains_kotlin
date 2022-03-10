@@ -194,7 +194,6 @@ enum class LanguageFeature(
     TypeInferenceOnCallsWithSelfTypes(KOTLIN_1_6),
     WarnAboutNonExhaustiveWhenOnAlgebraicTypes(KOTLIN_1_6, kind = BUG_FIX),
     InstantiationOfAnnotationClasses(KOTLIN_1_6),
-    OptInOnOverrideForbidden(KOTLIN_1_6, kind = BUG_FIX),
     OptInContagiousSignatures(KOTLIN_1_6, kind = BUG_FIX),
     RepeatableAnnotations(KOTLIN_1_6),
     RepeatableAnnotationContainerConstraints(KOTLIN_1_6, kind = BUG_FIX),
@@ -229,17 +228,42 @@ enum class LanguageFeature(
     ReportNonVarargSpreadOnGenericCalls(KOTLIN_1_7, kind = BUG_FIX),
     ProhibitSimplificationOfNonTrivialConstBooleanExpressions(KOTLIN_1_7),
     SafeCallsAreAlwaysNullable(KOTLIN_1_7),
-    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_7),
+    StopPropagatingDeprecationThroughOverrides(KOTLIN_1_7),
     AbstractClassMemberNotImplementedWithIntermediateAbstractClass(KOTLIN_1_7, kind = BUG_FIX),
-    IgnoreNullabilityForErasedValueParameters(KOTLIN_1_7, kind = BUG_FIX),
+    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_7),
+    JvmPermittedSubclassesAttributeForSealed(KOTLIN_1_7),
     ForbidUsingExtensionPropertyTypeParameterInDelegate(KOTLIN_1_7, kind = BUG_FIX),
+    IgnoreNullabilityForErasedValueParameters(KOTLIN_1_7, kind = BUG_FIX),
     ProperTypeInferenceConstraintsProcessing(KOTLIN_1_7, kind = BUG_FIX),
+    ProhibitNonExhaustiveIfInRhsOfElvis(KOTLIN_1_7, kind = BUG_FIX), // KT-44705
+    ForbidExposingTypesInPrimaryConstructorProperties(KOTLIN_1_7, kind = BUG_FIX),
+    ProhibitAccessToEnumCompanionMembersInEnumConstructorCall(KOTLIN_1_7, kind = BUG_FIX),
+    PartiallySpecifiedTypeArguments(KOTLIN_1_7),
+    EliminateAmbiguitiesWithExternalTypeParameters(KOTLIN_1_7),
+    EliminateAmbiguitiesOnInheritedSamInterfaces(KOTLIN_1_7),
+    ConsiderExtensionReceiverFromConstrainsInLambda(KOTLIN_1_7, kind = BUG_FIX), // KT-49832
+    ProperInternalVisibilityCheckInImportingScope(KOTLIN_1_7, kind = BUG_FIX),
+    InlineClassImplementationByDelegation(KOTLIN_1_7),
     ForbidRecursiveDelegateExpressions(KOTLIN_1_7, kind = BUG_FIX),
+
+    // 1.8
+
+    DontLoseDiagnosticsDuringOverloadResolutionByReturnType(KOTLIN_1_8),
+    ProhibitConfusingSyntaxInWhenBranches(KOTLIN_1_8, kind = BUG_FIX), // KT-48385
+    UseConsistentRulesForPrivateConstructorsOfSealedClasses(sinceVersion = KOTLIN_1_8, kind = BUG_FIX), // KT-44866
+    ProgressionsChangingResolve(KOTLIN_1_8), // KT-49276
+    ProperEqualityChecksInBuilderInferenceCalls(KOTLIN_1_8, kind = BUG_FIX),
+
+    // 1.9
+
+    DisableCheckingChangedProgressionsResolve(KOTLIN_1_9), // KT-49276
 
     // Temporarily disabled, see KT-27084/KT-22379
     SoundSmartcastFromLoopConditionForLoopAssignedVariables(sinceVersion = null, kind = BUG_FIX),
+
+    // Disabled for indefinite time. See KT-48535 and related discussion
+    OptInOnOverrideForbidden(sinceVersion = null, kind = BUG_FIX),
     ApproximateIntegerLiteralTypesInReceiverPosition(sinceVersion = null),
-    ReportChangingIntegerOperatorResolve(sinceVersion = null),
 
     // Experimental features
 
@@ -251,7 +275,13 @@ enum class LanguageFeature(
     MultiPlatformProjects(sinceVersion = null, defaultState = State.DISABLED),
     InlineClasses(KOTLIN_1_3, defaultState = State.ENABLED_WITH_WARNING, kind = UNSTABLE_FEATURE),
     ProhibitComparisonOfIncompatibleClasses(sinceVersion = null, kind = BUG_FIX, defaultState = State.DISABLED),
-
+    ExplicitBackingFields(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    FunctionalTypeWithExtensionAsSupertype(sinceVersion = KOTLIN_1_6, defaultState = State.DISABLED),
+    JsAllowInvalidCharsIdentifiersEscaping(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    JsAllowValueClassesInExternals(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    ContextReceivers(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    KotlinFunInterfaceConstructorReference(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    ValueClasses(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
     ;
 
     val presentableName: String
@@ -338,6 +368,8 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
     KOTLIN_1_5(1, 5),
     KOTLIN_1_6(1, 6),
     KOTLIN_1_7(1, 7),
+    KOTLIN_1_8(1, 8),
+    KOTLIN_1_9(1, 9),
     ;
 
     override val isStable: Boolean
@@ -363,7 +395,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
             str.split(".", "-").let { if (it.size >= 2) fromVersionString("${it[0]}.${it[1]}") else null }
 
         // Version status
-        //            1.0  1.1  1.2   1.3  1.4           1.5  1.6     1.7
+        //            1.0  1.1  1.2   1.3  1.4           1.5  1.6    1.7 1.8 1.9
         // Language:  UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
         // API:       UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
 

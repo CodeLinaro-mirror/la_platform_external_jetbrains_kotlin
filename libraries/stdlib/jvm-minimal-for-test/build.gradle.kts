@@ -17,11 +17,6 @@ val builtins by configurations.creating {
     }
 }
 
-val runtime by configurations
-val runtimeJar by configurations.creating {
-    runtime.extendsFrom(this)
-}
-
 dependencies {
     compileOnly(project(":kotlin-stdlib"))
     builtins(project(":core:builtins"))
@@ -59,8 +54,8 @@ tasks.withType<KotlinCompile> {
         freeCompilerArgs += listOf(
             "-Xallow-kotlin-package",
             "-Xmulti-platform",
-            "-Xopt-in=kotlin.RequiresOptIn",
-            "-Xopt-in=kotlin.contracts.ExperimentalContracts"
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlin.contracts.ExperimentalContracts"
         )
         moduleName = "kotlin-stdlib"
     }

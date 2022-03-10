@@ -20,13 +20,14 @@ import org.jetbrains.kotlin.ir.util.ReferenceSymbolTable
 
 class IrSymbolDeserializer(
     val symbolTable: ReferenceSymbolTable,
-    val fileReader: IrLibraryFile,
+    val libraryFile: IrLibraryFile,
     val fileSymbol: IrFileSymbol,
     val actuals: List<Actual>,
     val enqueueLocalTopLevelDeclaration: (IdSignature) -> Unit,
     val handleExpectActualMapping: (IdSignature, IrSymbol) -> IrSymbol,
     private val enqueueAllDeclarations: Boolean = false,
     val deserializedSymbols: MutableMap<IdSignature, IrSymbol> = mutableMapOf(), // Per-file signature cache. TODO: do we really need it?
+    val symbolProcessor: IrSymbolDeserializer.(IrSymbol, IdSignature) -> IrSymbol = { s, _ -> s },
     val deserializePublicSymbol: (IdSignature, BinarySymbolData.SymbolKind) -> IrSymbol,
 ) {
 
@@ -38,26 +39,8 @@ class IrSymbolDeserializer(
         }
     }
 
-    private fun referenceDeserializedSymbol(symbolKind: BinarySymbolData.SymbolKind, idSig: IdSignature): IrSymbol = symbolTable.run {
-        when (symbolKind) {
-            BinarySymbolData.SymbolKind.ANONYMOUS_INIT_SYMBOL -> IrAnonymousInitializerSymbolImpl()
-            BinarySymbolData.SymbolKind.CLASS_SYMBOL -> referenceClassFromLinker(idSig)
-            BinarySymbolData.SymbolKind.CONSTRUCTOR_SYMBOL -> referenceConstructorFromLinker(idSig)
-            BinarySymbolData.SymbolKind.TYPE_PARAMETER_SYMBOL -> referenceGlobalTypeParameterFromLinker(idSig)
-            BinarySymbolData.SymbolKind.ENUM_ENTRY_SYMBOL -> referenceEnumEntryFromLinker(idSig)
-            BinarySymbolData.SymbolKind.STANDALONE_FIELD_SYMBOL -> referenceFieldFromLinker(idSig)
-            BinarySymbolData.SymbolKind.FIELD_SYMBOL -> referenceFieldFromLinker(idSig)
-            BinarySymbolData.SymbolKind.FUNCTION_SYMBOL -> referenceSimpleFunctionFromLinker(idSig)
-            BinarySymbolData.SymbolKind.TYPEALIAS_SYMBOL -> referenceTypeAliasFromLinker(idSig)
-            BinarySymbolData.SymbolKind.PROPERTY_SYMBOL -> referencePropertyFromLinker(idSig)
-            BinarySymbolData.SymbolKind.VARIABLE_SYMBOL -> IrVariableSymbolImpl()
-            BinarySymbolData.SymbolKind.VALUE_PARAMETER_SYMBOL -> IrValueParameterSymbolImpl()
-            BinarySymbolData.SymbolKind.RECEIVER_PARAMETER_SYMBOL -> IrValueParameterSymbolImpl()
-            BinarySymbolData.SymbolKind.LOCAL_DELEGATED_PROPERTY_SYMBOL ->
-                IrLocalDelegatedPropertySymbolImpl()
-            BinarySymbolData.SymbolKind.FILE_SYMBOL -> fileSymbol
-            else -> error("Unexpected classifier symbol kind: $symbolKind for signature $idSig")
-        }
+    private fun referenceDeserializedSymbol(symbolKind: BinarySymbolData.SymbolKind, idSig: IdSignature): IrSymbol {
+        return symbolProcessor(referenceDeserializedSymbol(symbolTable, fileSymbol, symbolKind, idSig), idSig)
     }
 
     fun referenceLocalIrSymbol(symbol: IrSymbol, signature: IdSignature) {
@@ -103,9 +86,36 @@ class IrSymbolDeserializer(
         }
     }
 
-    val signatureDeserializer = IdSignatureDeserializer(fileReader, fileSymbol)
+    val signatureDeserializer = IdSignatureDeserializer(libraryFile, fileSymbol)
 
     fun deserializeIdSignature(index: Int): IdSignature {
         return signatureDeserializer.deserializeIdSignature(index)
+    }
+}
+
+internal fun referenceDeserializedSymbol(
+    symbolTable: ReferenceSymbolTable,
+    fileSymbol: IrFileSymbol?,
+    symbolKind: BinarySymbolData.SymbolKind,
+    idSig: IdSignature
+): IrSymbol = symbolTable.run {
+    when (symbolKind) {
+        BinarySymbolData.SymbolKind.ANONYMOUS_INIT_SYMBOL -> IrAnonymousInitializerSymbolImpl()
+        BinarySymbolData.SymbolKind.CLASS_SYMBOL -> referenceClassFromLinker(idSig)
+        BinarySymbolData.SymbolKind.CONSTRUCTOR_SYMBOL -> referenceConstructorFromLinker(idSig)
+        BinarySymbolData.SymbolKind.TYPE_PARAMETER_SYMBOL -> referenceGlobalTypeParameterFromLinker(idSig)
+        BinarySymbolData.SymbolKind.ENUM_ENTRY_SYMBOL -> referenceEnumEntryFromLinker(idSig)
+        BinarySymbolData.SymbolKind.STANDALONE_FIELD_SYMBOL -> referenceFieldFromLinker(idSig)
+        BinarySymbolData.SymbolKind.FIELD_SYMBOL -> referenceFieldFromLinker(idSig)
+        BinarySymbolData.SymbolKind.FUNCTION_SYMBOL -> referenceSimpleFunctionFromLinker(idSig)
+        BinarySymbolData.SymbolKind.TYPEALIAS_SYMBOL -> referenceTypeAliasFromLinker(idSig)
+        BinarySymbolData.SymbolKind.PROPERTY_SYMBOL -> referencePropertyFromLinker(idSig)
+        BinarySymbolData.SymbolKind.VARIABLE_SYMBOL -> IrVariableSymbolImpl()
+        BinarySymbolData.SymbolKind.VALUE_PARAMETER_SYMBOL -> IrValueParameterSymbolImpl()
+        BinarySymbolData.SymbolKind.RECEIVER_PARAMETER_SYMBOL -> IrValueParameterSymbolImpl()
+        BinarySymbolData.SymbolKind.LOCAL_DELEGATED_PROPERTY_SYMBOL ->
+            IrLocalDelegatedPropertySymbolImpl()
+        BinarySymbolData.SymbolKind.FILE_SYMBOL -> fileSymbol ?: error("File symbol is not provided")
+        else -> error("Unexpected classifier symbol kind: $symbolKind for signature $idSig")
     }
 }

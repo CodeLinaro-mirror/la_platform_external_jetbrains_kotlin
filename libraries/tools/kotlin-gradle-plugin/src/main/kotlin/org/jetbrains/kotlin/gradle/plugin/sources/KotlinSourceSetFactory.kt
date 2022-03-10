@@ -100,7 +100,7 @@ internal class DefaultKotlinSourceSetFactory(
                     attributes.attribute(Usage.USAGE_ATTRIBUTE, project.usageByName(KotlinUsages.KOTLIN_METADATA))
                 }
 
-                project.whenEvaluated {
+                project.afterEvaluate {
                     setJsCompilerIfNecessary(sourceSet, this@apply)
                 }
             }
@@ -145,7 +145,7 @@ internal class DefaultKotlinSourceSetFactory(
         }
 
         project.kotlinExtension.targets
-            .filter { it is KotlinJsTarget || it is KotlinJsIrTarget }
+            .filter { it is KotlinJsTarget || (it is KotlinJsIrTarget && it.platformType == KotlinPlatformType.js) }
             .forEach { target ->
                 target.compilations
                     .filterIsInstance<KotlinJsCompilation>()

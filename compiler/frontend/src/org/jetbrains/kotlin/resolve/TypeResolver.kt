@@ -118,7 +118,7 @@ class TypeResolver(
 
         val resolvedTypeSlice = if (c.abbreviated) BindingContext.ABBREVIATED_TYPE else BindingContext.TYPE
 
-        val annotations = resolveTypeAnnotations(c, typeReference)
+        val annotations = resolveTypeAnnotations(c.trace, c.scope, typeReference)
         val type = resolveTypeElement(c, annotations, typeReference.modifierList, typeReference.typeElement)
         c.trace.recordScope(c.scope, typeReference)
 
@@ -158,7 +158,7 @@ class TypeResolver(
         }
     }
 
-    private fun resolveTypeAnnotations(c: TypeResolutionContext, modifierListsOwner: KtElementImplStub<*>): Annotations {
+    fun resolveTypeAnnotations(trace: BindingTrace, scope: LexicalScope, modifierListsOwner: KtElementImplStub<*>): Annotations {
         val modifierLists = modifierListsOwner.getAllModifierLists()
 
         var result = Annotations.EMPTY
@@ -178,16 +178,16 @@ class TypeResolver(
 
             // `targetType.stub == null` means that we don't apply this check for files that are built with stubs (that aren't opened in IDE and not in compile time)
             if (targetType is KtFunctionType && targetType.stub == null && annotationEntries != null) {
-                checkNonParenthesizedAnnotationsOnFunctionalType(targetType, annotationEntries, c.trace)
+                checkNonParenthesizedAnnotationsOnFunctionalType(targetType, annotationEntries, trace)
             }
         }
 
         for (modifierList in modifierLists) {
             if (isSplitModifierList) {
-                c.trace.report(MODIFIER_LIST_NOT_ALLOWED.on(modifierList))
+                trace.report(MODIFIER_LIST_NOT_ALLOWED.on(modifierList))
             }
 
-            val annotations = annotationResolver.resolveAnnotationsWithoutArguments(c.scope, modifierList.annotationEntries, c.trace)
+            val annotations = annotationResolver.resolveAnnotationsWithoutArguments(scope, modifierList.annotationEntries, trace)
             result = composeAnnotations(result, annotations)
 
             isSplitModifierList = true
@@ -285,7 +285,10 @@ class TypeResolver(
                     c.trace.report(MODIFIER_LIST_NOT_ALLOWED.on(innerModifierList))
                 }
 
-                val innerAnnotations = composeAnnotations(annotations, resolveTypeAnnotations(c, typeElement as KtElementImplStub<*>))
+                val innerAnnotations = composeAnnotations(
+                    annotations,
+                    resolveTypeAnnotations(c.trace, c.scope, typeElement as KtElementImplStub<*>)
+                )
 
                 return resolveTypeElement(c, innerAnnotations, outerModifierList ?: innerModifierList, innerType)
             }
@@ -343,7 +346,15 @@ class TypeResolver(
 
             override fun visitFunctionType(type: KtFunctionType) {
                 val receiverTypeRef = type.receiverTypeReference
-                val receiverType = if (receiverTypeRef == null) null else resolveType(c.noBareTypes(), receiverTypeRef)
+                val receiverType = if (receiverTypeRef?.typeElement == null) null else resolveType(c.noBareTypes(), receiverTypeRef)
+
+                val contextReceiverList = type.contextReceiverList
+                val contextReceiversTypes = if (contextReceiverList != null) {
+                    checkContextReceiversAreEnabled(contextReceiverList)
+                    contextReceiverList.typeReferences().map { typeRef ->
+                        resolveType(c.noBareTypes(), typeRef)
+                    }
+                } else emptyList()
 
                 val parameterDescriptors = resolveParametersOfFunctionType(type.parameters)
                 checkParametersOfFunctionType(parameterDescriptors)
@@ -359,7 +370,7 @@ class TypeResolver(
 
                 result = type(
                     createFunctionType(
-                        moduleDescriptor.builtIns, annotations, receiverType,
+                        moduleDescriptor.builtIns, annotations, receiverType, contextReceiversTypes,
                         parameterDescriptors.map { it.type },
                         parameterDescriptors.map { it.name },
                         returnType,
@@ -399,6 +410,8 @@ class TypeResolver(
 
                     override fun getCompileTimeInitializer() = null
 
+                    override fun cleanCompileTimeInitializerCache() {}
+
                     override fun <R : Any?, D : Any?> accept(visitor: DeclarationDescriptorVisitor<R, D>, data: D): R {
                         return visitor.visitVariableDescriptor(this, data)
                     }
@@ -420,6 +433,10 @@ class TypeResolver(
                     c.trace.record(BindingContext.VALUE_PARAMETER, parameter, descriptor)
                     descriptor
                 }
+            }
+
+            override fun visitContextReceiverList(contextReceiverList: KtContextReceiverList) {
+                checkContextReceiversAreEnabled(contextReceiverList)
             }
 
             override fun visitDynamicType(type: KtDynamicType) {
@@ -459,6 +476,17 @@ class TypeResolver(
 
                 param.valOrVarKeyword?.let {
                     c.trace.report(Errors.UNSUPPORTED.on(it, "val or var on parameter in function type"))
+                }
+            }
+
+            private fun checkContextReceiversAreEnabled(contextReceiverList: KtContextReceiverList) {
+                if (!languageVersionSettings.supportsFeature(LanguageFeature.ContextReceivers)) {
+                    c.trace.report(
+                        UNSUPPORTED_FEATURE.on(
+                            contextReceiverList,
+                            LanguageFeature.ContextReceivers to languageVersionSettings
+                        )
+                    )
                 }
             }
         })

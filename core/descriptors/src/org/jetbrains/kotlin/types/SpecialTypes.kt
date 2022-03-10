@@ -93,7 +93,7 @@ class LazyWrappedType(
 class DefinitelyNotNullType private constructor(
     val original: SimpleType,
     private val useCorrectedNullabilityForTypeParameters: Boolean
-) : DelegatingSimpleType(), CustomTypeVariable,
+) : DelegatingSimpleType(), CustomTypeParameter,
     DefinitelyNotNullTypeMarker {
 
     companion object {
@@ -112,7 +112,7 @@ class DefinitelyNotNullType private constructor(
                     }
 
 
-                    DefinitelyNotNullType(type.lowerIfFlexible(), useCorrectedNullabilityForTypeParameters)
+                    DefinitelyNotNullType(type.lowerIfFlexible().makeNullableAsSpecified(false), useCorrectedNullabilityForTypeParameters)
                 }
 
                 else -> null
@@ -161,7 +161,7 @@ class DefinitelyNotNullType private constructor(
     override val isMarkedNullable: Boolean
         get() = false
 
-    override val isTypeVariable: Boolean
+    override val isTypeParameter: Boolean
         get() = delegate.constructor is NewTypeVariableConstructor ||
                 delegate.constructor.declarationDescriptor is TypeParameterDescriptor
 

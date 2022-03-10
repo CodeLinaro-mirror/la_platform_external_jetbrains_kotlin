@@ -5,14 +5,19 @@
 
 package org.jetbrains.kotlin.fir.types
 
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.render
 import kotlin.reflect.KClass
 
-class CustomAnnotationTypeAttribute(val annotations: List<FirAnnotationCall>) : ConeAttribute<CustomAnnotationTypeAttribute>() {
+class CustomAnnotationTypeAttribute(val annotations: List<FirAnnotation>) : ConeAttribute<CustomAnnotationTypeAttribute>() {
     override fun union(other: CustomAnnotationTypeAttribute?): CustomAnnotationTypeAttribute? = null
 
     override fun intersect(other: CustomAnnotationTypeAttribute?): CustomAnnotationTypeAttribute? = null
+
+    override fun add(other: CustomAnnotationTypeAttribute?): CustomAnnotationTypeAttribute {
+        if (other == null) return this
+        return CustomAnnotationTypeAttribute(annotations + other.annotations)
+    }
 
     override fun isSubtypeOf(other: CustomAnnotationTypeAttribute?): Boolean = true
 
@@ -22,6 +27,8 @@ class CustomAnnotationTypeAttribute(val annotations: List<FirAnnotationCall>) : 
         get() = CustomAnnotationTypeAttribute::class
 }
 
-private val ConeAttributes.custom: CustomAnnotationTypeAttribute? by ConeAttributes.attributeAccessor<CustomAnnotationTypeAttribute>()
+val ConeAttributes.custom: CustomAnnotationTypeAttribute? by ConeAttributes.attributeAccessor<CustomAnnotationTypeAttribute>()
 
-val ConeAttributes.customAnnotations: List<FirAnnotationCall> get() = custom?.annotations.orEmpty()
+val ConeAttributes.customAnnotations: List<FirAnnotation> get() = custom?.annotations.orEmpty()
+
+val ConeKotlinType.customAnnotations: List<FirAnnotation> get() = attributes.customAnnotations

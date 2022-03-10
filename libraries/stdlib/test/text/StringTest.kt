@@ -123,6 +123,19 @@ class StringTest {
         assertFailsWith<IndexOutOfBoundsException> { s.toCharArray(-1) }
         assertFailsWith<IndexOutOfBoundsException> { s.toCharArray(0, 6) }
         assertFailsWith<IllegalArgumentException> { s.toCharArray(3, 1) }
+
+        // Array modifications must not affect original string
+        val a = s.toCharArray()
+        for (i in a.indices) {
+            a[i] = ' '
+        }
+        assertContentEquals(charArrayOf(' ', ' ', ' ', ' ', ' '), a)
+        val a13 = s.toCharArray(1, 3)
+        for (i in a13.indices) {
+            a13[i] = ' '
+        }
+        assertContentEquals(charArrayOf(' ', ' '), a13)
+        assertEquals("hello", s)
     }
 
     @Test fun isEmptyAndBlank() = withOneCharSequenceArg { arg1 ->
@@ -908,6 +921,46 @@ class StringTest {
         val s1 = "\uFB00"  // uppercase().lowercase() == "ff"
         val s2 = "\u0067"  // "g"
         assertCompareResult(GT, s1, s2, ignoreCase = true)
+    }
+
+    @Test fun compareToUnicode() {
+        (Char.MIN_VALUE..Char.MAX_VALUE)
+            .map { it.toString() }
+            .zipWithNext()
+            .forEach { (first, second) ->
+                assertTrue(first.compareTo(second) < 0)
+                assertTrue(first.compareTo(first) == 0)
+                assertTrue(second.compareTo(second) == 0)
+                assertTrue(second.compareTo(first) > 0)
+            }
+    }
+
+    @Test fun orderUnicodeLongString() {
+        val range = Char.MIN_VALUE..Char.MAX_VALUE
+        val chars = buildList {
+            repeat(10) {
+                add(range.random())
+            }
+        }
+        val strings = buildList {
+            repeat(10000) {
+                add(buildString {
+                    repeat(Random.nextInt(8)) {
+                        append(chars.random())
+                    }
+                })
+            }
+        }.sorted()
+
+        assertTrue(strings.zipWithNext().all { (s1, s2) ->
+            val chars1 = s1.toCharArray()
+            val chars2 = s2.toCharArray()
+            for (i in 0 until minOf(chars1.size, chars2.size)) {
+                if (chars1[i] != chars2[i])
+                    return@all chars1[i] < chars2[i]
+            }
+            return@all chars1.size <= chars2.size
+        })
     }
 
 

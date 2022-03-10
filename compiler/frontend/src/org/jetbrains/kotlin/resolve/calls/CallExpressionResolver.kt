@@ -22,9 +22,9 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.bindingContextUtil.recordDataFlowInfo
 import org.jetbrains.kotlin.resolve.bindingContextUtil.recordScope
-import org.jetbrains.kotlin.resolve.calls.callResolverUtil.ResolveArgumentsMode
-import org.jetbrains.kotlin.resolve.calls.callUtil.getCalleeExpressionIfAny
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.ResolveArgumentsMode
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.context.BasicCallResolutionContext
 import org.jetbrains.kotlin.resolve.calls.context.CheckArgumentTypesMode
 import org.jetbrains.kotlin.resolve.calls.context.ContextDependency.INDEPENDENT
@@ -366,7 +366,14 @@ class CallExpressionResolver(
                 )
             }
             if (!receiverCanBeNull) {
-                reportUnnecessarySafeCall(context.trace, receiver.type, callOperationNode, receiver)
+                reportUnnecessarySafeCall(
+                    context.trace,
+                    receiver.type,
+                    element.qualified,
+                    callOperationNode,
+                    receiver,
+                    context.languageVersionSettings
+                )
             }
         }
 
@@ -530,13 +537,18 @@ class CallExpressionResolver(
         fun reportUnnecessarySafeCall(
             trace: BindingTrace,
             type: KotlinType,
+            callElement: KtQualifiedExpression,
             callOperationNode: ASTNode,
-            explicitReceiver: Receiver?
+            explicitReceiver: Receiver?,
+            languageVersionSettings: LanguageVersionSettings
         ) {
             if (explicitReceiver is ExpressionReceiver && explicitReceiver.expression is KtSuperExpression) {
                 trace.report(UNEXPECTED_SAFE_CALL.on(callOperationNode.psi))
             } else if (!type.isError) {
                 trace.report(UNNECESSARY_SAFE_CALL.on(callOperationNode.psi, type))
+                if (!languageVersionSettings.supportsFeature(LanguageFeature.SafeCallsAreAlwaysNullable)) {
+                    trace.report(SAFE_CALL_WILL_CHANGE_NULLABILITY.on(callElement))
+                }
             }
         }
 

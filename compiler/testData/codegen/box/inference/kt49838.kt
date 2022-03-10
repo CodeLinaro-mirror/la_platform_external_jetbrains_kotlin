@@ -1,6 +1,6 @@
-// DONT_TARGET_EXACT_BACKEND: WASM
-// IGNORE_BACKEND_FIR: JVM_IR
 // IGNORE_BACKEND: JVM
+// IGNORE_BACKEND_FIR: JVM_IR
+// FIR status: UPPER_BOUND_VIOLATED at Service<out T>
 
 inline fun <
         reified TService : Service<TService, TEvent>,

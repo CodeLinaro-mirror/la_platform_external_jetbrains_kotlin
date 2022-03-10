@@ -48,6 +48,7 @@ import org.jetbrains.kotlin.daemon.report.getBuildReporter
 import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistoryAndroid
@@ -733,7 +734,7 @@ class CompileServiceImpl(
         CompileService.CallResult.Good(res)
     }
 
-    @Suppress("OverridingDeprecatedMember", "DEPRECATION")
+    @Suppress("OverridingDeprecatedMember", "DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun remoteCompile(
         sessionId: Int,
         targetPlatform: CompileService.TargetPlatform,
@@ -759,7 +760,7 @@ class CompileServiceImpl(
             }
         }
 
-    @Suppress("OverridingDeprecatedMember", "DEPRECATION")
+    @Suppress("OverridingDeprecatedMember", "DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun remoteIncrementalCompile(
         sessionId: Int,
         targetPlatform: CompileService.TargetPlatform,
@@ -813,6 +814,7 @@ class CompileServiceImpl(
         getICReporter = { a, b, c -> getBuildReporter(a, b!!, c)}
     )
 
+    @Deprecated("The usages should be replaced with other `leaseReplSession` method", ReplaceWith("leaseReplSession"))
     override fun leaseReplSession(
         aliveFlagPath: String?,
         targetPlatform: CompileService.TargetPlatform,
@@ -851,7 +853,7 @@ class CompileServiceImpl(
     // TODO: add more checks (e.g. is it a repl session)
     override fun releaseReplSession(sessionId: Int): CompileService.CallResult<Nothing> = releaseCompileSession(sessionId)
 
-    @Suppress("OverridingDeprecatedMember")
+    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
     override fun remoteReplLineCheck(sessionId: Int, codeLine: ReplCodeLine): CompileService.CallResult<ReplCheckResult> =
         ifAlive(minAliveness = Aliveness.Alive) {
             withValidRepl(sessionId) {
@@ -881,6 +883,9 @@ class CompileServiceImpl(
         if (facade.hasExpectActualTracker()) {
             builder.register(ExpectActualTracker::class.java, RemoteExpectActualTracker(facade, rpcProfiler))
         }
+        if (facade.hasInlineConstTracker()) {
+            builder.register(InlineConstTracker::class.java, RemoteInlineConstTracker(facade, rpcProfiler))
+        }
         if (facade.hasIncrementalResultsConsumer()) {
             builder.register(IncrementalResultsConsumer::class.java, RemoteIncrementalResultsConsumer(facade, eventManager, rpcProfiler))
         }
@@ -891,7 +896,7 @@ class CompileServiceImpl(
         return builder.build()
     }
 
-    @Suppress("OverridingDeprecatedMember")
+    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
     override fun remoteReplLineCompile(
         sessionId: Int,
         codeLine: ReplCodeLine,
@@ -904,7 +909,7 @@ class CompileServiceImpl(
             }
         }
 
-    @Suppress("OverridingDeprecatedMember")
+    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
     override fun remoteReplLineEval(
         sessionId: Int,
         codeLine: ReplCodeLine,

@@ -23,8 +23,7 @@ import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.createSessionForTests
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
-import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCompositeSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -142,29 +141,24 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
 
         val javaFirDump = StringBuilder().also { builder ->
             val renderer = FirRenderer(builder)
-            val symbolProvider = session.symbolProvider as FirCompositeSymbolProvider
-            val javaProvider = symbolProvider.providers.filterIsInstance<JavaSymbolProvider>().first()
-
-            val topLevelJavaClasses = topPsiClasses.map { it.classId(FqName.ROOT) }
-
+            val processedJavaClasses = mutableSetOf<FirJavaClass>()
             fun processClassWithChildren(psiClass: PsiClass, parentFqName: FqName) {
                 val classId = psiClass.classId(parentFqName)
-                javaProvider.getClassLikeSymbolByFqName(classId)
+                val javaClass = session.symbolProvider.getClassLikeSymbolByClassId(classId)?.fir
                     ?: throw AssertionError(classId.asString())
-                psiClass.innerClasses.forEach {
-                    processClassWithChildren(psiClass = it, parentFqName = classId.relativeClassName)
+                if (javaClass !is FirJavaClass || javaClass in processedJavaClasses) {
+                    return
                 }
-            }
-            for (psiClass in topPsiClasses) {
-                processClassWithChildren(psiClass, FqName.ROOT)
-            }
-
-            val processedJavaClasses = mutableSetOf<FirJavaClass>()
-            for (javaClassId in topLevelJavaClasses.sortedBy { it.shortClassName }) {
-                val javaClass = javaProvider.getClassLikeSymbolByFqName(javaClassId)?.fir ?: continue
-                if (javaClass !is FirJavaClass || javaClass in processedJavaClasses) continue
-                renderJavaClass(renderer, javaClass, session)
                 processedJavaClasses += javaClass
+                renderJavaClass(renderer, javaClass, session) {
+                    for (innerClass in psiClass.innerClasses.sortedBy { it.name }) {
+                        processClassWithChildren(innerClass, classId.relativeClassName)
+                    }
+                }
+
+            }
+            for (psiClass in topPsiClasses.sortedBy { it.name }) {
+                processClassWithChildren(psiClass, FqName.ROOT)
             }
         }.toString()
 

@@ -109,16 +109,23 @@ abstract class AbstractIncrementalCache<ClassName>(
 
     override fun markDirty(removedAndCompiledSources: Collection<File>) {
         for (sourceFile in removedAndCompiledSources) {
-            val classes = sourceToClassesMap[sourceFile]
-            classes.forEach {
-                dirtyOutputClassesMap.markDirty(it)
+            sourceToClassesMap[sourceFile].forEach { className ->
+                markDirty(className)
             }
-
             sourceToClassesMap.clearOutputsForSource(sourceFile)
         }
     }
 
-    protected fun addToClassStorage(proto: ProtoBuf.Class, nameResolver: NameResolver, srcFile: File) {
+    fun markDirty(className: ClassName) {
+        dirtyOutputClassesMap.markDirty(className)
+    }
+
+    /**
+     * Updates class storage based on the given class proto.
+     *
+     * The `srcFile` argument may be `null` (e.g., if we are processing .class files in jars where source files are not available).
+     */
+    protected fun addToClassStorage(proto: ProtoBuf.Class, nameResolver: NameResolver, srcFile: File?) {
         val supertypes = proto.supertypes(TypeTable(proto.typeTable))
         val parents = supertypes.map { nameResolver.getClassId(it.className).asSingleFqName() }
             .filter { it.asString() != "kotlin.Any" }
@@ -131,7 +138,7 @@ abstract class AbstractIncrementalCache<ClassName>(
         removedSupertypes.forEach { subtypesMap.removeValues(it, setOf(child)) }
 
         supertypesMap[child] = parents
-        classFqNameToSourceMap[child] = srcFile
+        srcFile?.let { classFqNameToSourceMap[child] = it }
         classAttributesMap[child] = ICClassesAttributes(ProtoBuf.Modality.SEALED == Flags.MODALITY.get(proto.flags))
     }
 

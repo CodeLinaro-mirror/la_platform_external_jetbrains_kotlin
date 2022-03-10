@@ -14,15 +14,12 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 import java.io.File
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.createDirectories
-import kotlin.io.path.writeText
 
-@SimpleGradlePluginTests
+@JvmGradlePluginTests
 @DisplayName("Kotlin Java Toolchain support")
 class KotlinJavaToolchainTest : KGPBaseTest() {
 
-    @GradleTestVersions(additionalVersions = ["6.7.1"])
+    @GradleTestVersions(additionalVersions = [TestVersions.Gradle.G_6_7])
     @GradleTest
     @DisplayName("Should use by default same jvm as Gradle daemon for jdkHome")
     internal fun byDefaultShouldUseGradleJDK(gradleVersion: GradleVersion) {
@@ -105,7 +102,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Kotlin compile task should reuse build cache when toolchain is set and build is happening on different JDKs")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun differentBuildJDKBuildCacheHit(gradleVersion: GradleVersion) {
         val buildCache = workingDir.resolve("custom-jdk-build-cache")
@@ -119,7 +116,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             enableLocalBuildCache(buildCache)
             useToolchainExtension(11)
 
-            build("assemble", forceOutput = true, enableBuildCacheDebug = true)
+            build("assemble")
         }
 
         project(
@@ -132,7 +129,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             enableLocalBuildCache(buildCache)
             useToolchainExtension(11)
 
-            build("assemble", enableBuildCacheDebug = true) {
+            build("assemble") {
                 assertTasksFromCache(":compileKotlin")
             }
         }
@@ -149,7 +146,6 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(buildCacheEnabled = true)
         ) {
             enableLocalBuildCache(buildCache)
-            enableBuildCacheDebug()
             if (shouldUseToolchain(gradleVersion)) {
                 useToolchainExtension(11)
             } else {
@@ -169,7 +165,6 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(buildCacheEnabled = true)
         ) {
             enableLocalBuildCache(buildCache)
-            enableBuildCacheDebug()
             build("assemble") {
                 assertTasksExecuted(":compileKotlin")
             }
@@ -317,7 +312,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             gradleVersion = gradleVersion
         ) {
             //language=Groovy
-            rootBuildGradle.append(
+            buildGradle.append(
                 """
                 import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
                 
@@ -336,7 +331,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Should allow to set JDK version for tasks via Java toolchain")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun setJdkUsingJavaToolchain(gradleVersion: GradleVersion) {
         project(
@@ -351,7 +346,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Should allow to set Java toolchain via extension")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun setJdkUsingJavaToolchainViaExtension(gradleVersion: GradleVersion) {
         project(
@@ -366,7 +361,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Toolchain should be correctly supported in multiplatform plugin jvm targets")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun toolchainCorrectlySupportedInMPPlugin(gradleVersion: GradleVersion) {
         project(
@@ -424,7 +419,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Should set 'jvmTarget' option if user does not specify it explicitly via toolchain setter")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun shouldSetJvmTargetNonSpecifiedByUserViaToolchain(gradleVersion: GradleVersion) {
         project(
@@ -460,144 +455,8 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         }
     }
 
-    @DisplayName("Should produce warning if java and kotlin jvm targets are different")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun shouldWarnIfJavaAndKotlinJvmTargetsAreDifferent(gradleVersion: GradleVersion) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.WARN)
-        ) {
-            setJavaCompilationCompatibility(JavaVersion.VERSION_1_8)
-            useToolchainToCompile(11)
-
-            build("assemble") {
-                assertOutputContains(
-                    "'compileJava' task (current target is 1.8) and 'compileKotlin' task (current target is 11) jvm target compatibility " +
-                            "should be set to the same Java version."
-                )
-            }
-        }
-    }
-
-    @DisplayName("Should fail the build if verification mode is 'error' and kotlin and java targets are different")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun shouldFailBuildIfJavaAndKotlinJvmTargetsAreDifferent(gradleVersion: GradleVersion) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion
-        ) {
-            setJavaCompilationCompatibility(JavaVersion.VERSION_1_8)
-            useToolchainToCompile(11)
-            //language=properties
-            gradleProperties.append(
-                """
-                kotlin.jvm.target.validation.mode = error
-                """.trimIndent()
-            )
-
-            buildAndFail("assemble") {
-                assertOutputContains(
-                    "'compileJava' task (current target is 1.8) and 'compileKotlin' task (current target is 11) jvm target compatibility " +
-                            "should be set to the same Java version."
-                )
-            }
-        }
-    }
-
-    @DisplayName("Should ignore if verification mode is 'ignore' and kotlin and java targets are different")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun shouldNotPrintAnythingIfJavaAndKotlinJvmTargetsAreDifferent(
-        gradleVersion: GradleVersion
-    ) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion
-        ) {
-            setJavaCompilationCompatibility(JavaVersion.VERSION_1_8)
-            useToolchainToCompile(11)
-            //language=properties
-            gradleProperties.append(
-                """
-                kotlin.jvm.target.validation.mode = ignore
-                """.trimIndent()
-            )
-
-            build("assemble") {
-                assertOutputDoesNotContain(
-                    "'compileJava' task (current target is 1.8) and 'compileKotlin' task (current target is 11) jvm target compatibility " +
-                            "should be set to the same Java version."
-                )
-            }
-        }
-    }
-
-    @DisplayName("Should not produce warning when java and kotlin jvm targets are the same")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun shouldNotWarnOnJavaAndKotlinSameJvmTargets(gradleVersion: GradleVersion) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion
-        ) {
-            useToolchainToCompile(11)
-
-            build("build") {
-                assertOutputDoesNotContain(
-                    "'compileJava' task (current target is 1.8) and 'compileKotlin' task (current target is 11) jvm target compatibility " +
-                            "should be set to the same Java version."
-                )
-            }
-        }
-    }
-
-    @DisplayName("Should produce Java-Kotlin jvm target incompatibility warning only for related tasks")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun shouldProduceJavaKotlinJvmTargetDifferenceWarningOnlyForRelatedTasks(
-        gradleVersion: GradleVersion
-    ) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion
-        ) {
-            useToolchainToCompile(11)
-
-            JavaVersion.VERSION_1_8
-            //language=Groovy
-            rootBuildGradle.append(
-                """
-                
-                tasks
-                .matching {
-                    it instanceof JavaCompile && it.name == "compileTestJava"
-                }
-                .configureEach {
-                    sourceCompatibility = JavaVersion.VERSION_1_8
-                    targetCompatibility = JavaVersion.VERSION_1_8
-                }
-                
-                """.trimIndent()
-            )
-
-            build("build") {
-                assertOutputContains(
-                    "'compileTestJava' task (current target is 1.8) and 'compileTestKotlin' task (current target is 11) jvm target " +
-                            "compatibility should be set to the same Java version."
-                )
-                assertOutputDoesNotContain(
-                    "'compileJava' task (current target is 1.8) and 'compileKotlin' task (current target is 11) jvm target compatibility " +
-                            "should be set to the same Java version."
-                )
-            }
-        }
-    }
-
     @DisplayName("Setting toolchain via java extension should also affect Kotlin compilations")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun settingToolchainViaJavaShouldAlsoWork(gradleVersion: GradleVersion) {
         project(
@@ -605,7 +464,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             gradleVersion = gradleVersion
         ) {
             //language=groovy
-            rootBuildGradle.append(
+            buildGradle.append(
                 """
                 
                 java {
@@ -619,119 +478,17 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             //language=properties
             gradleProperties.append(
                 """
+                # suppress inspection "UnusedProperty"
                 kotlin.jvm.target.validation.mode = error
                 """.trimIndent()
             )
 
             build("build")
-        }
-    }
-
-    @DisplayName("Should correctly validate JVM targets in mixed Kotlin/Java projects that are using <JDK1.8")
-    @GradleTestVersions(minVersion = "6.7.1")
-    @GradleTest
-    internal fun oldJdkMixedJavaKotlinTargetVerification(gradleVersion: GradleVersion) {
-        project(
-            projectName = "kotlinJavaProject".fullProjectName,
-            gradleVersion = gradleVersion
-        ) {
-            //language=groovy
-            rootBuildGradle.append(
-                """
-                
-                java {
-                    toolchain {
-                        languageVersion.set(JavaLanguageVersion.of(8))
-                    }
-                }
-                
-                """.trimIndent()
-            )
-            //language=properties
-            gradleProperties.append(
-                """
-                kotlin.jvm.target.validation.mode = error
-                """.trimIndent()
-            )
-
-            build("build")
-        }
-    }
-
-    @DisplayName("Should skip JVM target validation if no java sources are available")
-    @GradleTest
-    internal fun shouldSkipJvmTargetValidationNoJavaSources(gradleVersion: GradleVersion) {
-        project(
-            projectName = "simple".fullProjectName,
-            gradleVersion = gradleVersion,
-            buildJdk = getJdk11().javaHome // should differ from default Kotlin jvm target value
-        ) {
-            //language=properties
-            gradleProperties.append(
-                """
-                kotlin.jvm.target.validation.mode = error
-                """.trimIndent()
-            )
-
-            build("assemble")
-        }
-    }
-
-    @DisplayName("Should do JVM target validation if java sources are added and configuration cache is reused")
-    @GradleTestVersions(minVersion = "6.6.1")
-    @GradleTest
-    @ExperimentalPathApi
-    internal fun shouldDoJvmTargetValidationOnNewJavaSourcesAndConfigurationCacheReuse(gradleVersion: GradleVersion) {
-        project(
-            projectName = "simple".fullProjectName,
-            gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(
-                configurationCache = true,
-                configurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL
-            ),
-            buildJdk = getJdk11().javaHome // should differ from default Kotlin jvm target value
-        ) {
-            // Validation mode should be 'warning' because of https://github.com/gradle/gradle/issues/9339
-            // which is fixed in Gradle 7.2
-            //language=properties
-            gradleProperties.append(
-                """
-                kotlin.jvm.target.validation.mode = warning
-                """.trimIndent()
-            )
-
-            build("assemble") {
-                assertOutputDoesNotContain(
-                    "'compileJava' task (current target is 11) and 'compileKotlin' task (current target is 1.8) jvm target compatibility should be set to the same Java version."
-                )
-            }
-
-            projectPath.resolve("src/main/java/demo").run {
-                createDirectories()
-                //language=Java
-                resolve("HelloWorld.java").writeText(
-                    """
-                    package demo;
-
-                    public class HelloWorld {
-                        public static void main(String[] args) {
-                            System.out.println("Hello world!");
-                        }
-                    }
-                    """.trimIndent()
-                )
-            }
-
-            build("assemble") {
-                assertOutputContains(
-                    "'compileJava' task (current target is 11) and 'compileKotlin' task (current target is 1.8) jvm target compatibility should be set to the same Java version."
-                )
-            }
         }
     }
 
     @DisplayName("Build should not produce warninings when '-no-jdk' option is present")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun noWarningOnNoJdkOptionPresent(gradleVersion: GradleVersion) {
         project(
@@ -741,7 +498,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             useToolchainToCompile(11)
 
             //language=groovy
-            rootBuildGradle.append(
+            buildGradle.append(
                 """
                 
                 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -763,7 +520,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
     }
 
     @DisplayName("Toolchain should take into account kotlin options that are set via android extension")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun kotlinOptionsAndroidAndToolchain(gradleVersion: GradleVersion) {
         project("android".fullProjectName, gradleVersion) {
@@ -772,16 +529,22 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             //language=properties
             gradleProperties.append(
                 """
+                # suppress inspection "UnusedProperty"
                 kotlin.jvm.target.validation.mode = error
                 """.trimIndent()
             )
 
-            build("assembleDebug", "-Pandroid_tools_version=${TestVersions.AGP.AGP_42}")
+            build(
+                "assembleDebug",
+                buildOptions = defaultBuildOptions.copy(
+                    androidVersion = TestVersions.AGP.AGP_42
+                )
+            )
         }
     }
 
     @DisplayName("Toolchain should not make an exception when build is running on JDK 11, but toolchain is set to JDK 1.8")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun shouldNotRaiseErrorOnJDK11withJDK1_8Toolchain(gradleVersion: GradleVersion) {
         project(
@@ -795,23 +558,48 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         }
     }
 
+    @DisplayName("JVM target shouldn't be changed when toolchain is not configured")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
+    @GradleTest
+    internal fun shouldNotChangeJvmTargetWithNoToolchain(gradleVersion: GradleVersion) {
+        project(
+            projectName = "simple".fullProjectName,
+            gradleVersion = gradleVersion,
+            buildJdk = getJdk11().javaHome
+        ) {
+            //language=Groovy
+            buildGradle.append(
+                """
+                tasks.named("compileKotlin") {
+                    doLast {
+                        def actualJvmTarget = filteredArgumentsMap['jvmTarget']
+                        if (actualJvmTarget != "1.8") {
+                            //noinspection GroovyAssignabilityCheck
+                            throw new GradleException("Expected `jvmTarget` value is '1.8' but the actual value was ${'$'}actualJvmTarget")
+                        }
+                    }
+                }
+                """.trimIndent()
+            )
+            build("assemble")
+        }
+    }
+
     @DisplayName("Kotlin toolchain should support configuration cache")
-    @GradleTestVersions(minVersion = "6.7.1")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     internal fun testConfigurationCache(gradleVersion: GradleVersion) {
         project(
             projectName = "simple".fullProjectName,
             gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(
-                configurationCache = true,
-                configurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL
-            )
+            buildOptions = defaultBuildOptions.withConfigurationCache
         ) {
             useToolchainExtension(15)
 
             //language=properties
             gradleProperties.append(
                 """
+                # suppress inspection "UnusedProperty"
                 kotlin.jvm.target.validation.mode = error
                 """.trimIndent()
             )
@@ -827,14 +615,12 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         project(
             projectName = "simple".fullProjectName,
             gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(
-                configurationCache = true,
-                configurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL
-            )
+            buildOptions = defaultBuildOptions.withConfigurationCache
         ) {
             //language=properties
             gradleProperties.append(
                 """
+                # suppress inspection "UnusedProperty"
                 kotlin.jvm.target.validation.mode = error
                 """.trimIndent()
             )
@@ -867,10 +653,11 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         jvmTarget: String
     ) {
         //language=Groovy
-        rootBuildGradle.append(
+        buildGradle.append(
             """
+            import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
             
-            tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            tasks.withType(KotlinCompile).configureEach {
                  kotlinOptions {
                       jvmTarget = "$jvmTarget"
                  }            
@@ -883,7 +670,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         target: JavaVersion
     ) {
         //language=Groovy
-        rootBuildGradle.append(
+        buildGradle.append(
             """
 
             tasks.withType(JavaCompile.class).configureEach {
@@ -900,7 +687,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         jdkVersion: JavaVersion
     ) {
         //language=Groovy
-        rootBuildGradle.append(
+        buildGradle.append(
             """
             import org.gradle.api.JavaVersion
             import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
@@ -921,7 +708,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         jdkVersion: Int
     ) {
         //language=Groovy
-        rootBuildGradle.append(
+        buildGradle.append(
             """
             import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
             
@@ -949,7 +736,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         jdkVersion: Int
     ) {
         //language=Groovy
-        rootBuildGradle.append(
+        buildGradle.append(
             """
             import org.gradle.api.plugins.JavaPluginExtension
             import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -964,6 +751,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             afterEvaluate {
                 def toolchain = project.extensions.getByType(JavaPluginExtension.class).toolchain
                 def service = project.extensions.getByType(JavaToolchainService.class)
+                //noinspection GroovyUnusedAssignment
                 def defaultLauncher = service.launcherFor(toolchain)
                 logger.info("Toolchain jdk path: ${'$'}{defaultLauncher.get().metadata.installationPath.asFile.absolutePath}")
             }

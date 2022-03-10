@@ -80,7 +80,7 @@ fun buildFakeOverrideMember(superType: IrType, member: IrOverridableMember, claz
 
     val typeParameters = extractTypeParameters(classifier.owner)
     val superArguments = superType.arguments
-    assert(typeParameters.size == superArguments.size) {
+    require(typeParameters.size == superArguments.size) {
         "typeParameters = $typeParameters size != typeArguments = $superArguments size "
     }
 
@@ -90,7 +90,7 @@ fun buildFakeOverrideMember(superType: IrType, member: IrOverridableMember, claz
         val tp = typeParameters[i]
         val ta = superArguments[i]
         require(ta is IrTypeProjection) { "Unexpected super type argument: ${ta.render()} @ $i" }
-        assert(ta.variance == Variance.INVARIANT) { "Unexpected variance in super type argument: ${ta.variance} @$i" }
+        require(ta.variance == Variance.INVARIANT) { "Unexpected variance in super type argument: ${ta.variance} @$i" }
         substitutionMap[tp.symbol] = ta.type
     }
 
@@ -428,7 +428,7 @@ class IrOverridingUtil(
 
         fakeOverride.overriddenSymbols = effectiveOverridden.map { it.original.symbol }
 
-        assert(
+        require(
             fakeOverride.overriddenSymbols.isNotEmpty()
         ) { "Overridden symbols should be set for " + CallableMemberDescriptor.Kind.FAKE_OVERRIDE }
 
@@ -479,26 +479,24 @@ class IrOverridingUtil(
         val bReturnType = b.returnType
         if (!isVisibilityMoreSpecific(a, b)) return false
         if (a is IrSimpleFunction) {
-            assert(b is IrSimpleFunction) { "b is " + b.javaClass }
+            require(b is IrSimpleFunction) { "b is " + b.javaClass }
             return isReturnTypeMoreSpecific(a, aReturnType, b, bReturnType)
         }
         if (a is IrProperty) {
-            assert(b is IrProperty) { "b is " + b.javaClass }
-            val pa = a
-            val pb = b as IrProperty
+            require(b is IrProperty) { "b is " + b.javaClass }
             if (!isAccessorMoreSpecific(
-                    pa.setter,
-                    pb.setter
+                    a.setter,
+                    b.setter
                 )
             ) return false
-            return if (pa.isVar && pb.isVar) {
+            return if (a.isVar && b.isVar) {
                 createTypeCheckerState(
                     a.getter!!.typeParameters,
                     b.getter!!.typeParameters
                 ).equalTypes(aReturnType, bReturnType)
             } else {
                 // both vals or var vs val: val can't be more specific then var
-                !(!pa.isVar && pb.isVar) && isReturnTypeMoreSpecific(
+                !(!a.isVar && b.isVar) && isReturnTypeMoreSpecific(
                     a, aReturnType,
                     b, bReturnType
                 )
@@ -524,7 +522,7 @@ class IrOverridingUtil(
     private fun selectMostSpecificMember(
         overridables: Collection<IrOverridableMember>
     ): IrOverridableMember {
-        assert(!overridables.isEmpty()) { "Should have at least one overridable descriptor" }
+        require(!overridables.isEmpty()) { "Should have at least one overridable descriptor" }
         if (overridables.size == 1) {
             return overridables.first()
         }
@@ -707,7 +705,7 @@ class IrOverridingUtil(
         }
         */
 
-        assert(superValueParameters.size == subValueParameters.size)
+        require(superValueParameters.size == subValueParameters.size)
 
         superValueParameters.forEachIndexed { index, parameter ->
             if (!AbstractTypeChecker.equalTypes(

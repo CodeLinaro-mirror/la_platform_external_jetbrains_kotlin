@@ -97,7 +97,10 @@ val forLoopsPhase = makeIrFilePhase(
  *   }
  * ```
  */
-class ForLoopsLowering(val context: CommonBackendContext, val loopBodyTransformer: ForLoopBodyTransformer? = null) : BodyLoweringPass {
+class ForLoopsLowering(
+    val context: CommonBackendContext,
+    private val loopBodyTransformer: ForLoopBodyTransformer? = null
+) : BodyLoweringPass {
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
         val oldLoopToNewLoop = mutableMapOf<IrLoop, IrLoop>()
@@ -160,26 +163,30 @@ private class RangeLoopTransformer(
             return super.visitBlock(expression)  // Not a for-loop block.
         }
 
-        with(expression.statements) {
-            assert(size == 2) { "Expected 2 statements in for-loop block, was:\n${expression.dump()}" }
-            val iteratorVariable = get(0) as IrVariable
-            assert(iteratorVariable.origin == IrDeclarationOrigin.FOR_LOOP_ITERATOR) { "Expected FOR_LOOP_ITERATOR origin for iterator variable, was:\n${iteratorVariable.dump()}" }
-            val loopHeader = headerProcessor.extractHeader(iteratorVariable)
-                ?: return super.visitBlock(expression)  // The iterable in the header is not supported.
-            val loweredHeader = lowerHeader(iteratorVariable, loopHeader)
-
-            val oldLoop = get(1) as IrWhileLoop
-            assert(oldLoop.origin == IrStatementOrigin.FOR_LOOP_INNER_WHILE) { "Expected FOR_LOOP_INNER_WHILE origin for while loop, was:\n${oldLoop.dump()}" }
-            val (newLoop, loopReplacementExpression) = lowerWhileLoop(oldLoop, loopHeader)
-                ?: return super.visitBlock(expression)  // Cannot lower the loop.
-
-            // We can lower both the header and while loop.
-            // Update mapping from old to new loop so we can later update references in break/continue.
-            oldLoopToNewLoop[oldLoop] = newLoop
-
-            set(0, loweredHeader)
-            set(1, loopReplacementExpression)
+        val statements = expression.statements
+        assert(statements.size == 2) { "Expected 2 statements in for-loop block, was:\n${expression.dump()}" }
+        val iteratorVariable = statements[0] as IrVariable
+        assert(iteratorVariable.origin == IrDeclarationOrigin.FOR_LOOP_ITERATOR) {
+            "Expected FOR_LOOP_ITERATOR origin for iterator variable, was:\n${iteratorVariable.dump()}"
         }
+        val oldLoop = statements[1] as IrWhileLoop
+        assert(oldLoop.origin == IrStatementOrigin.FOR_LOOP_INNER_WHILE) {
+            "Expected FOR_LOOP_INNER_WHILE origin for while loop, was:\n${oldLoop.dump()}"
+        }
+
+        val loopHeader = headerProcessor.extractHeader(iteratorVariable)
+            ?: return super.visitBlock(expression)  // The iterable in the header is not supported.
+        val loweredHeader = lowerHeader(iteratorVariable, loopHeader)
+
+        val (newLoop, loopReplacementExpression) = lowerWhileLoop(oldLoop, loopHeader)
+            ?: return super.visitBlock(expression)  // Cannot lower the loop.
+
+        // We can lower both the header and while loop.
+        // Update mapping from old to new loop so we can later update references in break/continue.
+        oldLoopToNewLoop[oldLoop] = newLoop
+
+        statements[0] = loweredHeader
+        statements[1] = loopReplacementExpression
 
         return super.visitBlock(expression)
     }
@@ -204,9 +211,8 @@ private class RangeLoopTransformer(
 
     private fun lowerWhileLoop(loop: IrWhileLoop, loopHeader: ForLoopHeader): LoopReplacement? {
         val loopBodyStatements = (loop.body as? IrContainerExpression)?.statements ?: return null
-        val (mainLoopVariable, mainLoopVariableIndex, loopVariableComponents, loopVariableComponentIndices) = gatherLoopVariableInfo(
-            loopBodyStatements
-        )
+        val (mainLoopVariable, mainLoopVariableIndex, loopVariableComponents, loopVariableComponentIndices) =
+            gatherLoopVariableInfo(loopBodyStatements)
 
         if (loopHeader.consumesLoopVariableComponents && mainLoopVariable.origin != IrDeclarationOrigin.IR_TEMPORARY_VARIABLE) {
             // We determine if there is a destructuring declaration by checking if the main loop variable is temporary.

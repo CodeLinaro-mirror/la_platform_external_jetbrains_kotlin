@@ -43,10 +43,6 @@
 typedef bool KBoolean;
 typedef int8_t  KByte;
 typedef uint16_t KChar;
-/**
- * Hack for KT-48591.
- */
-typedef int16_t KCharSignExt;
 typedef int16_t KShort;
 typedef int32_t KInt;
 typedef int64_t KLong;
@@ -81,7 +77,7 @@ using KStdUnorderedSet = std::unordered_set<Value,
   std::hash<Value>, std::equal_to<Value>,
   KonanAllocator<Value>>;
 template<class Value, class Compare = std::less<Value>>
-using KStdOrderedSet = std::set<Value, Compare, KonanAllocator<Value>>;
+using KStdOrderedMultiset = std::multiset<Value, Compare, KonanAllocator<Value>>;
 template<class Key, class Value, class Compare = std::less<Key>>
 using KStdOrderedMap = std::map<Key, Value, Compare, KonanAllocator<std::pair<const Key, Value>>>;
 template<class Value>

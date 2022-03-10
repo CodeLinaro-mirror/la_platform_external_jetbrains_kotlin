@@ -16,15 +16,12 @@ import org.jetbrains.kotlin.backend.common.lower.optimizations.FoldConstantLower
 import org.jetbrains.kotlin.backend.common.lower.optimizations.PropertyAccessorInlineLowering
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.lower.calls.CallsLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.cleanup.CleanupLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.JsSuspendArityStoreLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.JsSuspendFunctionsLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.inline.CopyInlineFunctionBodyLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.inline.RemoveInlineDeclarationsWithReifiedTypeParametersLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.inline.SyntheticAccessorLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.inline.jsRecordExtractedLocalClasses
+import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.*
+import org.jetbrains.kotlin.ir.backend.js.lower.inline.*
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 
@@ -152,6 +149,12 @@ val createScriptFunctionsPhase = makeJsModulePhase(
     description = "Create functions for initialize and evaluate script"
 ).toModuleLowering()
 
+private val inventNamesForLocalClassesPhase = makeJsModulePhase(
+    ::JsInventNamesForLocalClasses,
+    name = "InventNamesForLocalClasses",
+    description = "Invent names for local classes and anonymous objects",
+).toModuleLowering()
+
 private val annotationInstantiationLowering = makeDeclarationTransformerPhase(
     ::JsAnnotationImplementationTransformer,
     name = "AnnotationImplementation",
@@ -163,6 +166,12 @@ private val expectDeclarationsRemovingPhase = makeDeclarationTransformerPhase(
     name = "ExpectDeclarationsRemoving",
     description = "Remove expect declaration from module fragment"
 )
+
+private val stringConcatenationLoweringPhase = makeJsModulePhase(
+    ::JsStringConcatenationLowering,
+    name = "JsStringConcatenationLowering",
+    description = "Call toString() for values of some types when concatenating strings"
+).toModuleLowering()
 
 private val lateinitNullableFieldsPhase = makeDeclarationTransformerPhase(
     ::NullableFieldsForLateinitCreationLowering,
@@ -223,13 +232,15 @@ private val sharedVariablesLoweringPhase = makeBodyLoweringPhase(
 private val localClassesInInlineLambdasPhase = makeBodyLoweringPhase(
     ::LocalClassesInInlineLambdasLowering,
     name = "LocalClassesInInlineLambdasPhase",
-    description = "Extract local classes from inline lambdas"
+    description = "Extract local classes from inline lambdas",
+    prerequisite = setOf(inventNamesForLocalClassesPhase)
 )
 
 private val localClassesInInlineFunctionsPhase = makeBodyLoweringPhase(
     ::LocalClassesInInlineFunctionsLowering,
     name = "LocalClassesInInlineFunctionsPhase",
-    description = "Extract local classes from inline functions"
+    description = "Extract local classes from inline functions",
+    prerequisite = setOf(inventNamesForLocalClassesPhase)
 )
 
 private val localClassesExtractionFromInlineFunctionsPhase = makeBodyLoweringPhase(
@@ -245,14 +256,20 @@ private val syntheticAccessorLoweringPhase = makeBodyLoweringPhase(
     description = "Wrap top level inline function to access through them from inline functions"
 )
 
+private val wrapInlineDeclarationsWithReifiedTypeParametersLowering = makeBodyLoweringPhase(
+    ::WrapInlineDeclarationsWithReifiedTypeParametersLowering,
+    name = "WrapInlineDeclarationsWithReifiedTypeParametersLowering",
+    description = "Wrap inline declarations with reified type parameters"
+)
+
 private val functionInliningPhase = makeBodyLoweringPhase(
-    ::FunctionInlining,
+    { FunctionInlining(it, it.innerClassesSupport) },
     name = "FunctionInliningPhase",
     description = "Perform function inlining",
     prerequisite = setOf(
         expectDeclarationsRemovingPhase, sharedVariablesLoweringPhase,
         localClassesInInlineLambdasPhase, localClassesExtractionFromInlineFunctionsPhase,
-        syntheticAccessorLoweringPhase
+        syntheticAccessorLoweringPhase, wrapInlineDeclarationsWithReifiedTypeParametersLowering
     )
 )
 
@@ -359,7 +376,8 @@ private val enumEntryRemovalLoweringPhase = makeDeclarationTransformerPhase(
 private val callableReferenceLowering = makeBodyLoweringPhase(
     ::CallableReferenceLowering,
     name = "CallableReferenceLowering",
-    description = "Build a lambda/callable reference class"
+    description = "Build a lambda/callable reference class",
+    prerequisite = setOf(functionInliningPhase, wrapInlineDeclarationsWithReifiedTypeParametersLowering)
 )
 
 private val returnableBlockLoweringPhase = makeBodyLoweringPhase(
@@ -381,6 +399,12 @@ private val forLoopsLoweringPhase = makeBodyLoweringPhase(
     description = "[Optimization] For loops lowering"
 )
 
+private val enumWhenPhase = makeJsModulePhase(
+    ::EnumWhenLowering,
+    name = "EnumWhenLowering",
+    description = "Replace `when` subjects of enum types with their ordinals"
+).toModuleLowering()
+
 private val propertyLazyInitLoweringPhase = makeBodyLoweringPhase(
     ::PropertyLazyInitLowering,
     name = "PropertyLazyInitLowering",
@@ -394,7 +418,7 @@ private val removeInitializersForLazyProperties = makeDeclarationTransformerPhas
 )
 
 private val propertyAccessorInlinerLoweringPhase = makeBodyLoweringPhase(
-    ::PropertyAccessorInlineLowering,
+    ::JsPropertyAccessorInlineLowering,
     name = "PropertyAccessorInlineLowering",
     description = "[Optimization] Inline property accessors"
 )
@@ -418,6 +442,12 @@ private val foldConstantLoweringPhase = makeBodyLoweringPhase(
     description = "[Optimization] Constant Folding",
     prerequisite = setOf(propertyAccessorInlinerLoweringPhase)
 )
+
+private val computeStringTrimPhase = makeJsModulePhase(
+    ::StringTrimLowering,
+    name = "StringTrimLowering",
+    description = "Compute trimIndent and trimMargin operations on constant strings"
+).toModuleLowering()
 
 private val localDelegatedPropertiesLoweringPhase = makeBodyLoweringPhase(
     { LocalDelegatedPropertiesLowering() },
@@ -462,6 +492,29 @@ private val suspendFunctionsLoweringPhase = makeBodyLoweringPhase(
     ::JsSuspendFunctionsLowering,
     name = "SuspendFunctionsLowering",
     description = "Transform suspend functions into CoroutineImpl instance and build state machine"
+)
+
+private val addContinuationToNonLocalSuspendFunctionsLoweringPhase = makeDeclarationTransformerPhase(
+    ::AddContinuationToNonLocalSuspendFunctionsLowering,
+    name = "AddContinuationToNonLocalSuspendFunctionsLowering",
+    description = "Add explicit continuation as last parameter of non-local suspend functions"
+)
+
+private val addContinuationToLocalSuspendFunctionsLoweringPhase = makeBodyLoweringPhase(
+    ::AddContinuationToLocalSuspendFunctionsLowering,
+    name = "AddContinuationToLocalSuspendFunctionsLowering",
+    description = "Add explicit continuation as last parameter of local suspend functions"
+)
+
+
+private val addContinuationToFunctionCallsLoweringPhase = makeBodyLoweringPhase(
+    ::AddContinuationToFunctionCallsLowering,
+    name = "AddContinuationToFunctionCallsLowering",
+    description = "Replace suspend function calls with calls with continuation",
+    prerequisite = setOf(
+        addContinuationToLocalSuspendFunctionsLoweringPhase,
+        addContinuationToNonLocalSuspendFunctionsLoweringPhase,
+    )
 )
 
 private val privateMembersLoweringPhase = makeDeclarationTransformerPhase(
@@ -621,7 +674,8 @@ private val typeOperatorLoweringPhase = makeBodyLoweringPhase(
     prerequisite = setOf(
         bridgesConstructionPhase,
         removeInlineDeclarationsWithReifiedTypeParametersLoweringPhase,
-        singleAbstractMethodPhase, errorExpressionLoweringPhase
+        singleAbstractMethodPhase, errorExpressionLoweringPhase,
+        interopCallableReferenceLoweringPhase
     )
 )
 
@@ -715,7 +769,8 @@ private val staticMembersLoweringPhase = makeDeclarationTransformerPhase(
 private val objectDeclarationLoweringPhase = makeDeclarationTransformerPhase(
     ::ObjectDeclarationLowering,
     name = "ObjectDeclarationLowering",
-    description = "Create lazy object instance generator functions"
+    description = "Create lazy object instance generator functions",
+    prerequisite = setOf(enumClassCreateInitializerLoweringPhase)
 )
 
 private val invokeStaticInitializersPhase = makeBodyLoweringPhase(
@@ -737,11 +792,25 @@ private val captureStackTraceInThrowablesPhase = makeBodyLoweringPhase(
     description = "Capture stack trace in Throwable constructors"
 )
 
+private val escapedIdentifiersLowering = makeBodyLoweringPhase(
+    ::EscapedIdentifiersLowering,
+    name = "EscapedIdentifiersLowering",
+    description = "Convert global variables with invalid names access to globalThis member expression"
+)
+
 private val cleanupLoweringPhase = makeBodyLoweringPhase(
     { CleanupLowering() },
     name = "CleanupLowering",
     description = "Clean up IR before codegen"
 )
+private val moveOpenClassesToSeparatePlaceLowering = makeCustomJsModulePhase(
+    { context, module ->
+        if (context.granularity == JsGenerationGranularity.PER_FILE)
+            moveOpenClassesToSeparateFiles(module)
+    },
+    name = "MoveOpenClassesToSeparateFiles",
+    description = "Move open classes to separate files"
+).toModuleLowering()
 
 private val jsSuspendArityStorePhase = makeDeclarationTransformerPhase(
     ::JsSuspendArityStoreLowering,
@@ -749,9 +818,10 @@ private val jsSuspendArityStorePhase = makeDeclarationTransformerPhase(
     description = "Store arity for suspend functions to not remove it during DCE"
 )
 
-private val loweringList = listOf<Lowering>(
+val loweringList = listOf<Lowering>(
     scriptRemoveReceiverLowering,
     validateIrBeforeLowering,
+    inventNamesForLocalClassesPhase,
     annotationInstantiationLowering,
     expectDeclarationsRemovingPhase,
     stripTypeAliasDeclarationsPhase,
@@ -766,10 +836,12 @@ private val loweringList = listOf<Lowering>(
     localClassesInInlineFunctionsPhase,
     localClassesExtractionFromInlineFunctionsPhase,
     syntheticAccessorLoweringPhase,
+    wrapInlineDeclarationsWithReifiedTypeParametersLowering,
     functionInliningPhase,
     copyInlineFunctionBodyLoweringPhase,
     removeInlineDeclarationsWithReifiedTypeParametersLoweringPhase,
     createScriptFunctionsPhase,
+    stringConcatenationLoweringPhase,
     callableReferenceLowering,
     singleAbstractMethodPhase,
     tailrecLoweringPhase,
@@ -789,6 +861,7 @@ private val loweringList = listOf<Lowering>(
     initializersCleanupLoweringPhase,
     kotlinNothingValueExceptionPhase,
     // Common prefix ends
+    enumWhenPhase,
     enumEntryInstancesLoweringPhase,
     enumEntryInstancesBodyLoweringPhase,
     enumClassCreateInitializerLoweringPhase,
@@ -800,6 +873,10 @@ private val loweringList = listOf<Lowering>(
     suspendFunctionsLoweringPhase,
     propertyReferenceLoweringPhase,
     interopCallableReferenceLoweringPhase,
+    jsSuspendArityStorePhase,
+    addContinuationToNonLocalSuspendFunctionsLoweringPhase,
+    addContinuationToLocalSuspendFunctionsLoweringPhase,
+    addContinuationToFunctionCallsLoweringPhase,
     returnableBlockLoweringPhase,
     rangeContainsLoweringPhase,
     forLoopsLoweringPhase,
@@ -810,6 +887,7 @@ private val loweringList = listOf<Lowering>(
     copyPropertyAccessorBodiesLoweringPass,
     booleanPropertyInExternalLowering,
     foldConstantLoweringPhase,
+    computeStringTrimPhase,
     privateMembersLoweringPhase,
     privateMemberUsagesLoweringPhase,
     exportedDefaultParameterStubPhase,
@@ -840,9 +918,12 @@ private val loweringList = listOf<Lowering>(
     objectUsageLoweringPhase,
     captureStackTraceInThrowablesPhase,
     callsLoweringPhase,
+    escapedIdentifiersLowering,
     cleanupLoweringPhase,
+    // Currently broken due to static members lowering making single-open-class
+    // files non-recognizable as single-class files
+    // moveOpenClassesToSeparatePlaceLowering,
     validateIrAfterLowering,
-    jsSuspendArityStorePhase
 )
 
 // TODO comment? Eliminate ModuleLowering's? Don't filter them here?

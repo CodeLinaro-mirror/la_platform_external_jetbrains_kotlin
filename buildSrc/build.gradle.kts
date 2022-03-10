@@ -22,7 +22,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
         classpath("org.jetbrains.kotlin:kotlin-sam-with-receiver:${project.bootstrapKotlinVersion}")
     }
@@ -91,6 +91,12 @@ repositories {
     }
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+}
+
 val generateCompilerVersion by tasks.registering(VersionGenerator::class) {
     kotlinNativeVersionInResources=true
     defaultVersionFileLocation()
@@ -143,7 +149,7 @@ java {
 dependencies {
     implementation(kotlin("stdlib", embeddedKotlinVersion))
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.34")
+    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.32")
     implementation("com.gradle.publish:plugin-publish-plugin:0.14.0")
 
     implementation("net.rubygrapefruit:native-platform:${property("versions.native-platform")}")
@@ -151,7 +157,7 @@ dependencies {
     implementation("net.rubygrapefruit:native-platform-windows-i386:${property("versions.native-platform")}")
     implementation("com.jakewharton.dex:dex-method-list:3.0.0")
 
-    implementation("com.github.jengelman.gradle.plugins:shadow:${rootProject.extra["versions.shadow"]}")
+    implementation("gradle.plugin.com.github.johnrengelman:shadow:${rootProject.extra["versions.shadow"]}")
     implementation("net.sf.proguard:proguard-gradle:6.2.2")
     implementation("org.jetbrains.intellij.deps:asm-all:8.0.1")
 
@@ -189,22 +195,15 @@ samWithReceiver {
 fun Project.`samWithReceiver`(configure: org.jetbrains.kotlin.samWithReceiver.gradle.SamWithReceiverExtension.() -> Unit): Unit =
         extensions.configure("samWithReceiver", configure)
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions.allWarningsAsErrors = true
     kotlinOptions.freeCompilerArgs += listOf(
-        "-Xopt-in=kotlin.RequiresOptIn",
-        "-Xskip-runtime-version-check",
+        "-opt-in=kotlin.RequiresOptIn",
         "-Xsuppress-version-warnings",
-        "-Xopt-in=kotlin.ExperimentalStdlibApi"
+        "-opt-in=kotlin.ExperimentalStdlibApi"
     )
 }
 
-tasks["build"].dependsOn(":prepare-deps:build")
 sourceSets["main"].withConvention(org.gradle.api.tasks.GroovySourceSet::class) {
     if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         groovy.srcDir("../kotlin-native/build-tools/src/main/groovy")

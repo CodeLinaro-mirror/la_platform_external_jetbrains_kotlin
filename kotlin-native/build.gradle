@@ -41,11 +41,12 @@ buildscript {
             mavenCentral()
             jcenter()
         }
+        gradlePluginPortal()
     }
 
     dependencies {
         //classpath project(":kotlin-native-utils")
-        classpath 'com.github.jengelman.gradle.plugins:shadow:5.1.0'
+        classpath 'gradle.plugin.com.github.johnrengelman:shadow:7.1.1'
     }
 }
 import org.jetbrains.kotlin.konan.*
@@ -86,9 +87,6 @@ ext {
 
     kotlinCompilerModule= [path: ":kotlin-compiler", configuration: "runtimeElements"]
     kotlinStdLibModule= project(":kotlin-stdlib")
-    kotlinCommonStdlibModule= project(":kotlin-stdlib-common")
-    kotlinTestCommonModule= project(":kotlin-test:kotlin-test-common")
-    kotlinTestAnnotationsCommonModule= project(":kotlin-test:kotlin-test-annotations-common")
     kotlinReflectModule= project(":kotlin-reflect")
     kotlinScriptRuntimeModule= project(":kotlin-script-runtime")
     kotlinUtilKliMetadatabModule= project(":kotlin-util-klib-metadata")
@@ -133,9 +131,8 @@ void setupHostAndTarget() {
 }
 
 void setupClang(Project project) {
-
-    project.convention.plugins.platformManager = project.project(":kotlin-native").ext.platformManager
-    project.convention.plugins.execClang = new org.jetbrains.kotlin.ExecClang(project)
+    project.extensions.platformManager = project.project(":kotlin-native").ext.platformManager
+    project.extensions.execClang = org.jetbrains.kotlin.ExecClang.create(project)
 }
 
 void loadLocalProperties() {
@@ -157,15 +154,12 @@ void loadCommandLineProperties() {
 
 configurations {
     ftpAntTask
-    kotlinCommonSources
     distPack
+    commonSources
 }
 
 dependencies {
     ftpAntTask 'org.apache.ant:ant-commons-net:1.9.9'
-    [kotlinCommonStdlibModule, kotlinTestCommonModule, kotlinTestAnnotationsCommonModule].each {
-        kotlinCommonSources(it) { transitive = false }
-    }
     distPack project(':kotlin-native:Interop:Runtime')
     distPack project(':kotlin-native:Interop:Indexer')
     distPack project(':kotlin-native:Interop:StubGenerator')
@@ -176,6 +170,9 @@ dependencies {
     distPack project(':kotlin-native:klib')
     distPack project(path: ':kotlin-native:endorsedLibraries:kotlinx.cli', configuration: "jvmRuntimeElements")
     //distPack "org.jetbrains.kotlin:kotlin-native-shared:$konanVersion"
+    commonSources project(path: ':kotlin-stdlib-common', configuration: 'sources')
+    commonSources project(path: ':kotlin-test:kotlin-test-common', configuration: 'sources')
+    commonSources project(path: ':kotlin-test:kotlin-test-annotations-common', configuration: 'sources')
 }
 
 //task sharedJar {
@@ -200,7 +197,7 @@ task build {
 
 task distCommonSources(type: CopyCommonSources) {
     outputDir "$distDir/sources"
-    sourcePaths project(":kotlin-stdlib-common").file("src")
+    sourcePaths configurations.commonSources
     zipSources true
 }
 
@@ -212,6 +209,7 @@ task distNativeSources(type: Zip) {
     include('**/*.kt')
 
     from(project(':kotlin-native:runtime').file('src/main/kotlin'))
+    from(project(":kotlin-stdlib-common").file('../native-wasm/src/'))
     from(project(':kotlin-native:Interop:Runtime').file('src/main/kotlin'))
     from(project(':kotlin-native:Interop:Runtime').file('src/native/kotlin'))
     from(project(':kotlin-native:Interop:JsRuntime').file('src/main/kotlin')) {
@@ -323,12 +321,11 @@ task distCompiler(type: Copy) {
 }
 
 task distDef(type: Copy) {
-
-    destinationDir distDir
+    destinationDir project.file("$distDir/konan/platformDef/")
 
     platformManager.targetValues.each { target ->
         from(project(":kotlin-native:platformLibs").file("src/platform/${target.family.name().toLowerCase()}")) {
-            into("konan/platformDef/${target.visibleName}")
+            into target.visibleName
             include '**/*.def'
             if (target in targetsWithoutZlib) {
                 exclude '**/zlib.def'
@@ -366,16 +363,20 @@ def stdlibDefaultComponent = "$stdlib/default"
 def endorsedLibs = 'klib/common/endorsedLibraries'
 def endorsedLibsBase = 'klib/common'
 
-task crossDistRuntime(type: Copy) {
+task crossDistRuntime {
     dependsOn.addAll(targetList.collect { "${it}CrossDistRuntime" })
 }
 
-task crossDistEndorsedLibraries(type: Copy) {
+task crossDistEndorsedLibraries {
     dependsOn.addAll(targetList.collect { "${it}CrossDistEndorsedLibraries" })
 }
 
 task crossDistPlatformLibs {
     dependsOn.addAll(targetList.collect { "${it}PlatformLibs" })
+}
+
+task crossDistStdlib {
+    dependsOn.addAll(targetList.collect { "${it}CrossDistStdlib" })
 }
 
 task crossDistStdlibCache {
@@ -386,16 +387,23 @@ task crossDistEndorsedCache {
     dependsOn.addAll(targetList.findAll { it in cacheableTargetNames }.collect { "${it}EndorsedCache" })
 }
 
-targetList.each { target ->
-    task("${target}CrossDistRuntime", type: Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
-        dependsOn ":kotlin-native:backend.native:${target}Stdlib"
+def endorsedLibsCopyTask = task("crossDistEndorsedLibrariesCopy", type: Copy) {
+    destinationDir project.file("$distDir/$endorsedLibsBase")
 
-        destinationDir distDir
+    from(project(':kotlin-native:endorsedLibraries').file("build")) {
+        include('**')
+        exclude('cache')
+    }
+}
+
+targetList.each { target ->
+    task("${target}CrossDistStdlib", type: Copy) {
+        dependsOn ":kotlin-native:runtime:${target}Stdlib"
+
+        destinationDir project.file("$distDir/$stdlib")
 
         from(project(':kotlin-native:runtime').file("build/${target}Stdlib")) {
             include('**')
-            into(stdlib)
             eachFile {
                 if (name == 'manifest') {
                     def existingManifest = file("$destinationDir/$path")
@@ -406,17 +414,31 @@ targetList.each { target ->
                 }
             }
         }
-        from(project(':kotlin-native:runtime').file("build/bitcode/main/$target")) {
-            include("runtime.bc")
-            into("$stdlibDefaultComponent/targets/$target/native")
-        }
+
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    task("${target}CrossDistBitcodeCopy", type: Copy) {
+        dependsOn ":kotlin-native:runtime:${target}Runtime"
+
+        destinationDir project.file("$distDir/konan/targets/")
+
         from(project(':kotlin-native:runtime').file("build/bitcode/main/$target")) {
             include("*.bc")
             exclude("runtime.bc")
-            into("konan/targets/$target/native")
+            into("$target/native")
         }
+    }
+
+    task("${target}CrossDistRuntime", type: Copy) {
+        dependsOn ":kotlin-native:runtime:${target}Runtime"
+        dependsOn ":kotlin-native:${target}CrossDistStdlib"
+        dependsOn "${target}CrossDistBitcodeCopy"
+
+        destinationDir project.file("$distDir/$stdlibDefaultComponent")
+
         if (target == 'wasm32') {
-            into("$stdlibDefaultComponent/targets/wasm32/included") {
+            into("targets/wasm32/included") {
                 from(project(':kotlin-native:runtime').file('src/main/js'))
                 from(project(':kotlin-native:runtime').file('src/launcher/js'))
                 from(project(':kotlin-native:Interop:JsRuntime').file('src/main/js'))
@@ -432,30 +454,45 @@ targetList.each { target ->
     }
 
     if (target in cacheableTargetNames) {
-        task "${target}StdlibCache" {
-            dependsOn ":kotlin-native:platformLibs:${target}StdlibCache"
+        task ("${target}StdlibCache", type: Copy) {
+            dependsOn "${target}CrossDistStdlib"
+            dependsOn ":kotlin-native:runtime:${target}StdlibCache"
+
+            destinationDir project.file("$distDir/klib/cache/")
+
+            from("${project(":kotlin-native:runtime").buildDir}/cache/$target") {
+                include('**')
+            }
         }
 
-        task "${target}EndorsedCache" {
+        task ("${target}EndorsedCache", type: Copy) {
+            dependsOn "${target}CrossDistStdlib"
             dependsOn ":kotlin-native:endorsedLibraries:${target}Cache"
+
+            destinationDir project.file("$distDir/klib/cache")
+
+            from("${project(':kotlin-native:endorsedLibraries').buildDir}/cache/$target") {
+                include('**')
+            }
         }
     }
 
     task("${target}CrossDist") {
-        dependsOn "${target}CrossDistRuntime", "distCompiler", "${target}CrossDistEndorsedLibraries"
+        dependsOn "${target}CrossDistRuntime", "distCompiler"
+        dependsOn "${target}CrossDistEndorsedLibraries"
         if (target in cacheableTargetNames) {
             dependsOn "${target}StdlibCache", "${target}EndorsedCache"
         }
     }
 
-    task("${target}CrossDistEndorsedLibraries", type: Copy) {
-        dependsOn ":kotlin-native:endorsedLibraries:${target}EndorsedLibraries"
-
-        destinationDir distDir
-        from(project(':kotlin-native:endorsedLibraries').file("build")) {
-            include('**')
-            into("$endorsedLibsBase")
-        }
+    task("${target}CrossDistEndorsedLibraries") {
+        def endorsedLibsBuildTask = ":kotlin-native:endorsedLibraries:${target}EndorsedLibraries"
+        dependsOn endorsedLibsBuildTask
+        dependsOn endorsedLibsCopyTask
+        // There is only one copy task for endorsed libs, because they are already copied into a single dir,
+        // while having target-tasks will make Gradle issue warnings on incorrect inputs and outputs usage.
+        // So this copy task should run after the all build tasks.
+        endorsedLibsCopyTask.mustRunAfter(endorsedLibsBuildTask)
     }
 }
 
@@ -478,6 +515,7 @@ task crossDist {
             "crossDistRuntime",
             "crossDistEndorsedLibraries",
             "distDef",
+            "crossDistStdlib",
             "crossDistStdlibCache",
             "crossDistEndorsedCache"
 }
@@ -499,11 +537,6 @@ task bundleRegular(type: (isWindows()) ? Zip : Tar) {
         exclude 'klib/cache/*/org.jetbrains.kotlin.native.platform.*/**'
         into archiveBaseName
     }
-    from(project.rootDir) {
-        include 'licenses/**'
-        exclude '**/xcode_license.pdf'
-        into archiveBaseName
-    }
 }
 
 task bundlePrebuilt(type: (isWindows()) ? Zip : Tar) {
@@ -516,11 +549,24 @@ task bundlePrebuilt(type: (isWindows()) ? Zip : Tar) {
         exclude 'klib/testLibrary'
         into archiveBaseName
     }
-    from(project.rootDir) {
+}
+
+void configurePackingLicensesToBundle(AbstractArchiveTask task, boolean containsPlatformLibraries) {
+    task.from(project.projectDir) {
         include 'licenses/**'
-        into archiveBaseName
+        if (!containsPlatformLibraries || !isMac()) {
+            exclude '**/xcode_license.pdf'
+        }
+        into task.archiveBaseName
+    }
+
+    task.from(project.rootProject.file("license")) {
+        into "${task.archiveBaseName.get()}/licenses"
     }
 }
+
+configurePackingLicensesToBundle(bundleRegular, /* containsPlatformLibraries = */ false)
+configurePackingLicensesToBundle(bundlePrebuilt, /* containsPlatformLibraries = */ true)
 
 configure([bundleRegular, bundlePrebuilt]) {
     dependsOn("crossDist")
@@ -528,7 +574,7 @@ configure([bundleRegular, bundlePrebuilt]) {
     dependsOn("crossDistEndorsedCache")
     dependsOn("distSources")
     dependsOn("distDef")
-    from(project.rootDir) {
+    from(project.projectDir) {
         include 'RELEASE_NOTES.md'
         into baseName
     }
@@ -584,7 +630,7 @@ configure([samplesZip, samplesTar]) {
         exclude '**/gradle.properties'
     }
 
-    from(project.rootDir) {
+    from(project.projectDir) {
         include 'licenses/**'
     }
 

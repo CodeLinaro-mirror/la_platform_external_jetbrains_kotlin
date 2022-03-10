@@ -12,11 +12,11 @@ pill {
 }
 
 dependencies {
-    compile project(':kotlin-gradle-plugin-api')
+    api project(':kotlin-gradle-plugin-api')
     // Use this dependency instead when building apart from the other modules:
     // compile "org.jetbrains.kotlin:kotlin-gradle-plugin-api:$kotlin_version"
 
-    compile project(':kotlin-test::kotlin-test-junit')
+    api project(':kotlin-test::kotlin-test-junit')
 
     compileOnly kotlinStdlib()
     compileOnly project(':compiler')
@@ -26,13 +26,7 @@ dependencies {
     
     compileOnly gradleApi()
 
-    compileOnly("kotlin.build:intellij-core:${rootProject.ext["versions.intellijSdk"]}") {
-        artifact {
-            name = 'intellij-core'
-            type = 'jar'
-            extension = 'jar'
-        }
-    }
+    compileOnly project(':dependencies:intellij-core')
 }
 
 // Relocate `com.intellij.*` and some other classes to match those in the `kotlin-compiler-embeddable`

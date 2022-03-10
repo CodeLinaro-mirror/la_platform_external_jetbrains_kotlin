@@ -5,16 +5,15 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers
 
+import com.intellij.lang.LighterASTNode
+import com.intellij.openapi.util.Ref
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.impl.source.tree.LeafPsiElement
-import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirLightSourceElement
-import org.jetbrains.kotlin.fir.FirPsiSourceElement
-import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.analysis.diagnostics.getAncestors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.nameIdentifier
+import org.jetbrains.kotlin.diagnostics.getAncestors
+import org.jetbrains.kotlin.diagnostics.nameIdentifier
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -33,11 +32,13 @@ interface SourceNavigator {
 
     fun FirTypeRef.isInTypeConstraint(): Boolean
 
-    fun FirSourceElement.getRawIdentifier(): String?
+    fun KtSourceElement.getRawIdentifier(): CharSequence?
 
     fun FirDeclaration.getRawName(): String?
 
     fun FirValueParameterSymbol.isCatchElementParameter(): Boolean
+
+    fun FirTypeRef.isRedundantNullable(): Boolean
 
     companion object {
 
@@ -45,21 +46,21 @@ interface SourceNavigator {
 
         fun forElement(e: FirElement): SourceNavigator = forSource(e.source)
 
-        fun forSource(e: FirSourceElement?): SourceNavigator = when (e) {
-            is FirLightSourceElement -> lightTreeInstance
-            is FirPsiSourceElement -> PsiSourceNavigator
+        fun forSource(e: KtSourceElement?): SourceNavigator = when (e) {
+            is KtLightSourceElement -> lightTreeInstance
+            is KtPsiSourceElement -> PsiSourceNavigator
             null -> lightTreeInstance //shouldn't matter
         }
 
         inline fun <R> FirElement.withNavigator(block: SourceNavigator.() -> R): R = with(forSource(this.source), block)
 
-        inline fun <R> FirSourceElement.withNavigator(block: SourceNavigator.() -> R): R = with(forSource(this), block)
+        inline fun <R> KtSourceElement.withNavigator(block: SourceNavigator.() -> R): R = with(forSource(this), block)
     }
 }
 
 open class LightTreeSourceNavigator : SourceNavigator {
 
-    private fun <T> FirElement.withSource(f: (FirSourceElement) -> T): T? =
+    private fun <T> FirElement.withSource(f: (KtSourceElement) -> T): T? =
         source?.let { f(it) }
 
     override fun FirTypeRef.isInConstructorCallee(): Boolean = withSource { source ->
@@ -73,14 +74,11 @@ open class LightTreeSourceNavigator : SourceNavigator {
             ?.tokenType == KtNodeTypes.TYPE_CONSTRAINT
     }
 
-    override fun FirSourceElement.getRawIdentifier(): String? {
-        val tokenType = elementType
-        return if (tokenType is KtNameReferenceExpressionElementType || tokenType == KtTokens.IDENTIFIER) {
-            lighterASTNode.toString()
-        } else if (tokenType is KtTypeProjectionElementType) {
-            lighterASTNode.getChildren(treeStructure).last().toString()
-        } else {
-            null
+    override fun KtSourceElement.getRawIdentifier(): CharSequence? {
+        return when (elementType) {
+            is KtNameReferenceExpressionElementType, KtTokens.IDENTIFIER -> lighterASTNode.toString()
+            is KtTypeProjectionElementType -> lighterASTNode.getChildren(treeStructure).last().toString()
+            else -> null
         }
     }
 
@@ -89,10 +87,27 @@ open class LightTreeSourceNavigator : SourceNavigator {
     }
 
     override fun FirValueParameterSymbol.isCatchElementParameter(): Boolean {
-        val localSource = source ?: return false
-        var parent = localSource.treeStructure.getParent(localSource.lighterASTNode)
-        parent?.let { parent = localSource.treeStructure.getParent(it) }
-        return parent?.tokenType == KtNodeTypes.CATCH
+        return source?.getParentOfParent()?.tokenType == KtNodeTypes.CATCH
+    }
+
+    override fun FirTypeRef.isRedundantNullable(): Boolean {
+        val source = source ?: return false
+        val ref = Ref<Array<LighterASTNode?>>()
+        val firstChild = getNullableChild(source, source.lighterASTNode, ref) ?: return false
+        return getNullableChild(source, firstChild, ref) != null
+    }
+
+    private fun getNullableChild(source: KtSourceElement, node: LighterASTNode, ref: Ref<Array<LighterASTNode?>>): LighterASTNode? {
+        source.treeStructure.getChildren(node, ref)
+        val firstChild = ref.get().firstOrNull() ?: return null
+        return if (firstChild.tokenType != KtNodeTypes.NULLABLE_TYPE) null else firstChild
+    }
+
+    private fun KtSourceElement?.getParentOfParent(): LighterASTNode? {
+        val source = this ?: return null
+        var parent = source.treeStructure.getParent(source.lighterASTNode)
+        parent?.let { parent = source.treeStructure.getParent(it) }
+        return parent
     }
 }
 
@@ -102,21 +117,21 @@ object PsiSourceNavigator : LightTreeSourceNavigator() {
     //Swallows incorrect casts!!!
     private inline fun <reified P : PsiElement> FirElement.psi(): P? = source?.psi()
 
-    private inline fun <reified P : PsiElement> FirSourceElement.psi(): P? {
-        val psi = (this as? FirPsiSourceElement)?.psi
+    private inline fun <reified P : PsiElement> KtSourceElement.psi(): P? {
+        val psi = (this as? KtPsiSourceElement)?.psi
         return psi as? P
     }
 
     override fun FirTypeRef.isInConstructorCallee(): Boolean = psi<KtTypeReference>()?.parent is KtConstructorCalleeExpression
 
-    override fun FirSourceElement.getRawIdentifier(): String? {
+    override fun KtSourceElement.getRawIdentifier(): CharSequence? {
         val psi = psi<PsiElement>()
         return if (psi is KtNameReferenceExpression) {
-            psi.getReferencedNameElement().node.text
+            psi.getReferencedNameElement().node.chars
         } else if (psi is KtTypeProjection) {
             psi.typeReference?.typeElement?.text
         } else if (psi is LeafPsiElement && psi.elementType == KtTokens.IDENTIFIER) {
-            psi.text
+            psi.chars
         } else {
             null
         }
@@ -128,5 +143,12 @@ object PsiSourceNavigator : LightTreeSourceNavigator() {
 
     override fun FirValueParameterSymbol.isCatchElementParameter(): Boolean {
         return source?.psi<PsiElement>()?.parent?.parent is KtCatchClause
+    }
+
+    override fun FirTypeRef.isRedundantNullable(): Boolean {
+        val source = source ?: return false
+        val typeReference = (source.psi as? KtTypeReference) ?: return false
+        val typeElement = typeReference.typeElement as? KtNullableType ?: return false
+        return typeElement.innerType is KtNullableType
     }
 }

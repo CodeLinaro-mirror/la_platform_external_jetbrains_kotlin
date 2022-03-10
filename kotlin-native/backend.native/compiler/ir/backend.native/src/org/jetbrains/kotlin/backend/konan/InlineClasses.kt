@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.backend.konan
 
+import org.jetbrains.kotlin.backend.common.atMostOne
 import org.jetbrains.kotlin.backend.common.ir.isTopLevel
 import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
-import org.jetbrains.kotlin.backend.konan.ir.containsNull
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrFail
+import org.jetbrains.kotlin.ir.types.isNullable
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.defaultType
@@ -51,6 +52,12 @@ internal inline fun <R> KotlinType.unwrapToPrimitiveOrReference(
         ifPrimitive: (primitiveType: KonanPrimitiveType, nullable: Boolean) -> R,
         ifReference: (type: KotlinType) -> R
 ): R = KotlinTypeInlineClassesSupport.unwrapToPrimitiveOrReference(this, eachInlinedClass, ifPrimitive, ifReference)
+
+internal inline fun <R> IrType.unwrapToPrimitiveOrReference(
+        eachInlinedClass: (inlinedClass: IrClass, nullable: Boolean) -> Unit,
+        ifPrimitive: (primitiveType: KonanPrimitiveType, nullable: Boolean) -> R,
+        ifReference: (type: IrType) -> R
+): R = IrTypeInlineClassesSupport.unwrapToPrimitiveOrReference(this, eachInlinedClass, ifPrimitive, ifReference)
 
 // TODO: consider renaming to `isReference`.
 fun KotlinType.binaryTypeIsReference(): Boolean = this.computePrimitiveBinaryTypeOrNull() == null
@@ -263,9 +270,9 @@ internal object KotlinTypeInlineClassesSupport : InlineClassesSupport<ClassDescr
     override fun isTopLevelClass(clazz: ClassDescriptor): Boolean = clazz.containingDeclaration is PackageFragmentDescriptor
 }
 
-private object IrTypeInlineClassesSupport : InlineClassesSupport<IrClass, IrType>() {
+internal object IrTypeInlineClassesSupport : InlineClassesSupport<IrClass, IrType>() {
 
-    override fun isNullable(type: IrType): Boolean = type.containsNull()
+    override fun isNullable(type: IrType): Boolean = type.isNullable()
 
     override fun makeNullable(type: IrType): IrType = type.makeNullable()
 
@@ -298,7 +305,8 @@ private object IrTypeInlineClassesSupport : InlineClassesSupport<IrClass, IrType
 
     override fun getInlinedClassUnderlyingType(clazz: IrClass): IrType =
             clazz.constructors.firstOrNull { it.isPrimary }?.valueParameters?.single()?.type
-                    ?: clazz.declarations.filterIsInstance<IrProperty>().single { it.backingField != null }.backingField!!.type
+                    ?: clazz.declarations.filterIsInstance<IrProperty>().atMostOne { it.backingField != null }?.backingField?.type
+                    ?: clazz.inlineClassRepresentation!!.underlyingType
 
     override fun getPackageFqName(clazz: IrClass) =
             clazz.packageFqName

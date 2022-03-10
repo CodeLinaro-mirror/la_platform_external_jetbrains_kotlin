@@ -125,15 +125,15 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
 
         private val USAGE_DIAGNOSTICS = ExperimentalityDiagnostics(
             warning = ExperimentalityDiagnostic2(
-                Errors.EXPERIMENTAL_API_USAGE,
+                Errors.OPT_IN_USAGE,
                 getDefaultDiagnosticMessage("This declaration is experimental and its usage should be marked")
             ),
             error = ExperimentalityDiagnostic2(
-                Errors.EXPERIMENTAL_API_USAGE_ERROR,
+                Errors.OPT_IN_USAGE_ERROR,
                 getDefaultDiagnosticMessage("This declaration is experimental and its usage must be marked")
             ),
             futureError = ExperimentalityDiagnostic2(
-                Errors.EXPERIMENTAL_API_USAGE_FUTURE_ERROR,
+                Errors.OPT_IN_USAGE_FUTURE_ERROR,
                 getDefaultDiagnosticMessage("This declaration is experimental due to signature types and its usage must be marked (will become an error in 1.6)")
             ),
         )
@@ -169,18 +169,29 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             moduleAnnotationsResolver: ModuleAnnotationsResolver,
             languageVersionSettings: LanguageVersionSettings,
             visited: MutableSet<DeclarationDescriptor> = mutableSetOf(),
-            useFutureError: Boolean = false
+            useFutureError: Boolean = false,
+            useMarkersFromContainer: Boolean = true,
         ): Set<Experimentality> {
             if (!visited.add(this)) return emptySet()
             val result = SmartSet.create<Experimentality>()
             if (this is CallableMemberDescriptor && kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE) {
                 for (overridden in overriddenDescriptors) {
-                    result.addAll(overridden.loadExperimentalities(
-                        moduleAnnotationsResolver,
-                        languageVersionSettings,
-                        visited,
-                        useFutureError = !languageVersionSettings.supportsFeature(LanguageFeature.OptInContagiousSignatures)
-                    ))
+                    result.addAll(
+                        overridden.loadExperimentalities(
+                            moduleAnnotationsResolver,
+                            languageVersionSettings,
+                            visited,
+                            useFutureError = !languageVersionSettings.supportsFeature(LanguageFeature.OptInContagiousSignatures),
+                            useMarkersFromContainer = false
+                        )
+                    )
+                    if (useMarkersFromContainer) {
+                        (containingDeclaration as? ClassDescriptor)?.let {
+                            result.addAll(
+                                it.loadExperimentalities(moduleAnnotationsResolver, languageVersionSettings, visited, useFutureError)
+                            )
+                        }
+                    }
                 }
                 return result
             }
@@ -218,6 +229,11 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                 if (accessibility is SinceKotlinAccessibility.NotAccessibleButWasExperimental) {
                     result.addAll(accessibility.markerClasses.mapNotNull { it.loadExperimentalityForMarkerAnnotation() })
                 }
+            }
+
+            val container = containingDeclaration
+            if (useMarkersFromContainer && container is ClassDescriptor && this !is ConstructorDescriptor) {
+                result.addAll(container.loadExperimentalities(moduleAnnotationsResolver, languageVersionSettings, visited, useFutureError))
             }
 
             for (moduleAnnotationClassId in moduleAnnotationsResolver.getAnnotationsOnContainingModule(this)) {
@@ -284,7 +300,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             languageVersionSettings: LanguageVersionSettings,
             bindingContext: BindingContext
         ): Boolean =
-            annotationFqName.asString() in languageVersionSettings.getFlag(AnalysisFlags.useExperimental) ||
+            annotationFqName.asString() in languageVersionSettings.getFlag(AnalysisFlags.optIn) ||
                     anyParentMatches { element ->
                         element.isDeclarationAnnotatedWith(annotationFqName, bindingContext) ||
                                 element.isElementAnnotatedWithUseExperimentalOf(annotationFqName, bindingContext)
@@ -327,7 +343,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             reportWarning: (String) -> Unit
         ) {
             // Ideally, we should run full resolution (with all classifier usage checkers) on classifiers used in
-            // "-Xopt-in" arguments. However, it's not easy to do this. This should be solved in the future with the support of
+            // "-opt-in" arguments. However, it's not easy to do this. This should be solved in the future with the support of
             // module annotations. For now, we only check deprecations because this is needed to correctly retire unneeded compiler arguments.
             val deprecationResolver = DeprecationResolver(
                 LockBasedStorageManager("ExperimentalUsageChecker"),
@@ -358,7 +374,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                 return true
             }
 
-            languageVersionSettings.getFlag(AnalysisFlags.useExperimental).forEach { fqName ->
+            languageVersionSettings.getFlag(AnalysisFlags.optIn).forEach { fqName ->
                 if (fqName != REQUIRES_OPT_IN_FQ_NAME.asString() && fqName != OLD_EXPERIMENTAL_FQ_NAME.asString()) {
                     checkAnnotation(fqName)
                 }
@@ -391,7 +407,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                     !element.isUsageAsUseExperimentalArgument(context.trace.bindingContext)
                 ) {
                     context.trace.report(
-                        Errors.EXPERIMENTAL_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_USE_EXPERIMENTAL.on(element)
+                        Errors.OPT_IN_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_OPT_IN.on(element)
                     )
                 }
             }
@@ -411,16 +427,16 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
         }
 
         private fun checkUsageOfKotlinExperimentalOrUseExperimental(element: PsiElement, context: CheckerContext) {
-            val useExperimentalFqNames = context.languageVersionSettings.getFlag(AnalysisFlags.useExperimental)
+            val useExperimentalFqNames = context.languageVersionSettings.getFlag(AnalysisFlags.optIn)
             if (!context.languageVersionSettings.supportsFeature(LanguageFeature.OptInRelease) &&
                 REQUIRES_OPT_IN_FQ_NAME.asString() !in useExperimentalFqNames &&
                 OLD_EXPERIMENTAL_FQ_NAME.asString() !in useExperimentalFqNames
             ) {
-                context.trace.report(Errors.EXPERIMENTAL_IS_NOT_ENABLED.on(element))
+                context.trace.report(Errors.OPT_IN_IS_NOT_ENABLED.on(element))
             }
 
             if (!element.isUsageAsAnnotationOrImport() && !element.isUsageAsQualifier()) {
-                context.trace.report(Errors.EXPERIMENTAL_CAN_ONLY_BE_USED_AS_ANNOTATION.on(element))
+                context.trace.report(Errors.OPT_IN_CAN_ONLY_BE_USED_AS_ANNOTATION.on(element))
             }
         }
 
@@ -466,9 +482,9 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                     val reportOn = (declaration as? KtNamedDeclaration)?.nameIdentifier ?: declaration
 
                     val (diagnostic, defaultMessageVerb) = when (experimentality.severity) {
-                        Experimentality.Severity.WARNING -> Errors.EXPERIMENTAL_OVERRIDE to "should"
-                        Experimentality.Severity.ERROR -> Errors.EXPERIMENTAL_OVERRIDE_ERROR to "must"
-                        Experimentality.Severity.FUTURE_ERROR -> Errors.EXPERIMENTAL_OVERRIDE_ERROR to "must"
+                        Experimentality.Severity.WARNING -> Errors.OPT_IN_OVERRIDE to "should"
+                        Experimentality.Severity.ERROR -> Errors.OPT_IN_OVERRIDE_ERROR to "must"
+                        Experimentality.Severity.FUTURE_ERROR -> Errors.OPT_IN_OVERRIDE_ERROR to "must"
                     }
                     val message = experimentality.message
                         ?: "This declaration overrides experimental member of supertype " +

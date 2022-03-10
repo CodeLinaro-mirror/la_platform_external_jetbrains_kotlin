@@ -9,10 +9,12 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousFunctionExpression
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
-import org.jetbrains.kotlin.fir.resolve.calls.*
+import org.jetbrains.kotlin.fir.resolve.calls.ArgumentTypeMismatch
+import org.jetbrains.kotlin.fir.resolve.calls.Candidate
+import org.jetbrains.kotlin.fir.resolve.calls.CheckerSink
+import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
 import org.jetbrains.kotlin.fir.resolve.createFunctionalType
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeArgumentConstraintPosition
-import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.addSubtypeConstraintIfCompatible
@@ -41,13 +43,15 @@ fun Candidate.preprocessLambdaArgument(
             anonymousFunction,
             returnTypeVariable,
             context.bodyResolveComponents,
-            this
-        ) ?: extraLambdaInfo(expectedType, anonymousFunction, csBuilder, context.session, this)
+            this,
+            duringCompletion || sink == null
+        ) ?: extractLambdaInfo(expectedType, anonymousFunction, csBuilder, context.session, this)
 
     if (expectedType != null) {
         // TODO: add SAM conversion processing
+        val parameters = resolvedArgument.parameters
         val lambdaType = createFunctionalType(
-            resolvedArgument.parameters,
+            if (resolvedArgument.coerceFirstParameterToExtensionReceiver) parameters.drop(1) else parameters,
             resolvedArgument.receiver,
             resolvedArgument.returnType,
             isSuspend = resolvedArgument.isSuspend
@@ -60,10 +64,10 @@ fun Candidate.preprocessLambdaArgument(
             if (!csBuilder.addSubtypeConstraintIfCompatible(lambdaType, expectedType, position)) {
                 sink.reportDiagnostic(
                     ArgumentTypeMismatch(
-                        lambdaType,
                         expectedType,
+                        lambdaType,
                         argument,
-                        isArgumentTypeMismatchDueToNullability(lambdaType, expectedType, context.session.typeContext)
+                        context.session.typeContext.isTypeMismatchDueToNullability(lambdaType, expectedType)
                     )
                 )
             }
@@ -82,7 +86,7 @@ fun Candidate.preprocessCallableReference(
     postponedAtoms += ResolvedCallableReferenceAtom(argument, expectedType, lhs, context.session)
 }
 
-private fun extraLambdaInfo(
+private fun extractLambdaInfo(
     expectedType: ConeKotlinType?,
     argument: FirAnonymousFunction,
     csBuilder: ConstraintSystemBuilder,
@@ -119,6 +123,7 @@ private fun extraLambdaInfo(
         parameters,
         returnType,
         typeVariable.takeIf { newTypeVariableUsed },
-        candidate
+        candidate,
+        coerceFirstParameterToExtensionReceiver = false
     )
 }

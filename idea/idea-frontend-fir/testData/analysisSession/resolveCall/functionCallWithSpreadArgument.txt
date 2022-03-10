@@ -1,3 +1,0 @@
-KtFunctionCall:
-argumentMapping = { args -> (vararg a: kotlin.IntArray) }
-targetFunction = /function(vararg a: kotlin.IntArray): kotlin.Unit

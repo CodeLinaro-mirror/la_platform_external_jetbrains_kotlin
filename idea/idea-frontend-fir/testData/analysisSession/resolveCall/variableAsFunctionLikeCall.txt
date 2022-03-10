@@ -1,3 +1,0 @@
-KtFunctionCall:
-argumentMapping = {  }
-targetFunction = /invoke(<receiver>: kotlin.Int): kotlin.String

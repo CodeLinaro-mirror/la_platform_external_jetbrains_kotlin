@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.test.generators
 
-import org.jetbrains.kotlin.generators.model.annotation
+import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.runners.*
@@ -16,8 +16,6 @@ import org.jetbrains.kotlin.test.runners.ir.interpreter.AbstractIrInterpreterAft
 import org.jetbrains.kotlin.test.runners.ir.interpreter.AbstractIrInterpreterAfterPsi2IrTest
 import org.jetbrains.kotlin.visualizer.fir.AbstractFirVisualizerTest
 import org.jetbrains.kotlin.visualizer.psi.AbstractPsiVisualizerTest
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
 
 fun generateJUnit5CompilerTests(args: Array<String>) {
     val excludedFirTestdataPattern = "^(.+)\\.fir\\.kts?\$"
@@ -42,29 +40,36 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             }
 
             testClass<AbstractDiagnosticsTestWithJvmIrBackend> {
-                model("diagnostics/testsWithJvmBackend", targetBackend = TargetBackend.JVM_IR)
+                model("diagnostics/testsWithJvmBackend", pattern = "^(.+)\\.kts?$", targetBackend = TargetBackend.JVM_IR)
             }
 
             testClass<AbstractDiagnosticsNativeTest> {
                 model("diagnostics/nativeTests")
             }
 
+            testClass<AbstractDiagnosticsWithMultiplatformCompositeAnalysisTest> {
+                model(
+                    "diagnostics/testsWithMultiplatformCompositeAnalysis",
+                    pattern = "^(.*)\\.kts?$", excludedPattern = excludedFirTestdataPattern
+                )
+            }
+
             testClass<AbstractForeignAnnotationsSourceJavaTest> {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractForeignAnnotationsCompiledJavaTest> {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractForeignAnnotationsCompiledJavaWithPsiClassReadingTest> {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractBlackBoxCodegenTest> {
@@ -73,6 +78,22 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
             testClass<AbstractIrBlackBoxCodegenTest> {
                 model("codegen/box")
+            }
+
+            testClass<AbstractSteppingTest> {
+                model("debug/stepping")
+            }
+
+            testClass<AbstractIrSteppingTest> {
+                model("debug/stepping")
+            }
+
+            testClass<AbstractLocalVariableTest> {
+                model("debug/localVariables")
+            }
+
+            testClass<AbstractIrLocalVariableTest> {
+                model("debug/localVariables")
             }
 
             testClass<AbstractBlackBoxCodegenTest>("BlackBoxModernJdkCodegenTestGenerated") {
@@ -138,6 +159,14 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             testClass<AbstractIrBytecodeListingTest> {
                 model("codegen/bytecodeListing")
             }
+
+            testClass<AbstractAsmLikeInstructionListingTest> {
+                model("codegen/asmLike")
+            }
+
+            testClass<AbstractIrAsmLikeInstructionListingTest> {
+                model("codegen/asmLike")
+            }
         }
 
         // ---------------------------------------------- FIR tests ----------------------------------------------
@@ -160,7 +189,7 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             ) {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractFirForeignAnnotationsCompiledJavaTest>(
@@ -168,7 +197,7 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             ) {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractFirForeignAnnotationsCompiledJavaWithPsiClassReadingTest>(
@@ -176,13 +205,17 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             ) {
                 model("diagnostics/foreignAnnotationsTests/tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
-                model("diagnostics/foreignAnnotationsTests/java9Tests", excludedPattern = excludedFirTestdataPattern)
+                model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
         }
 
         testGroup(testsRoot = "compiler/fir/fir2ir/tests-gen", testDataRoot = "compiler/testData") {
             testClass<AbstractFirBlackBoxCodegenTest> {
                 model("codegen/box")
+            }
+
+            testClass<AbstractFirBlackBoxCodegenTest>("FirBlackBoxModernJdkCodegenTestGenerated") {
+                model("codegen/boxModernJdk")
             }
 
             testClass<AbstractFirBlackBoxInlineCodegenTest> {
@@ -196,6 +229,14 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             testClass<AbstractIrInterpreterAfterPsi2IrTest> {
                 model("ir/interpreter", excludeDirs = listOf("helpers"))
             }
+
+            testClass<AbstractFirSteppingTest> {
+                model("debug/stepping")
+            }
+
+            testClass<AbstractFirLocalVariableTest> {
+                model("debug/localVariables")
+            }
         }
 
         testGroup(testsRoot = "compiler/fir/fir2ir/tests-gen", testDataRoot = "compiler/fir/fir2ir/testData") {
@@ -203,12 +244,19 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
                 suiteTestClassName = "FirSpecificBlackBoxCodegenTestGenerated"
             ) {
                 model("codegen/box")
+                model("codegen/boxWithStdLib")
             }
 
             testClass<AbstractFir2IrTextTest>(
                 suiteTestClassName = "Fir2IrSpecificTextTestGenerated"
             ) {
                 model("ir/irText")
+            }
+
+            testClass<AbstractFirBytecodeListingTest>(
+                suiteTestClassName = "Fir2IrSpecificBytecodeListingTestGenerated"
+            ) {
+                model("codegen/bytecodeListing")
             }
         }
 

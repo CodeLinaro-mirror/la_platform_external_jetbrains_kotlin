@@ -1,7 +1,7 @@
 // !JVM_TARGET: 1.8
 // FILE: 1.kt
 interface A {
-    @<!DEPRECATION!>JvmDefault<!>
+    <!JVM_DEFAULT_IN_DECLARATION!>@<!DEPRECATION!>JvmDefault<!><!>
     fun test() {
     }
 }
@@ -12,7 +12,7 @@ interface B : A {
 }
 
 interface C : B {
-    @<!DEPRECATION!>JvmDefault<!>
+    <!JVM_DEFAULT_IN_DECLARATION!>@<!DEPRECATION!>JvmDefault<!><!>
     override fun test() {
         super.test()
     }
