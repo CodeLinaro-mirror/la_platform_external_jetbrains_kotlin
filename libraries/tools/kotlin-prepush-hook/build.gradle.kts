@@ -9,7 +9,9 @@ sourceSets {
     "test" {}
 }
 
-project.addPrePushHookIfMissing()
+// Google: we do not use this presubmit hook, and the setup code
+// breaks on AB where there is no .git directory.
+// project.addPrePushHookIfMissing()
 
 fun Project.addPrePushHookIfMissing() {
     val dotGitDirectory = rootProject.getGitDirectory()
