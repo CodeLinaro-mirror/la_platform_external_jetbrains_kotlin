@@ -203,6 +203,11 @@ run {
     // Add regular gradle test tasks
     dependsOn(tasksOf(Test))
     dependsOn(tasksOf(CoverageTest))
+    // Bitcode that is generated in presence of caches or two-stage compilation differs from the "closed world"-generated,
+    // so disable these tests for now.
+    if (cacheTesting == null && !twoStageEnabled && project.testTarget != 'linux_mips32') {
+        dependsOn(tasksOf(FileCheckTest))
+    }
     dependsOn(":kotlin-native:Interop:Indexer:check")
 }
 
@@ -220,7 +225,10 @@ task sanity {
     // Add regular gradle test tasks
     dependsOn(tasksOf(Test))
     dependsOn(tasksOf(CoverageTest))
-    dependsOn(tasksOf(FileCheckTest))
+    dependsOn(tasksOf(FileCheckTest) { task ->
+        // Avoid cross-compilation in a sanity run.
+        task.targetName == project.target.name
+    })
     dependsOn(":kotlin-native:Interop:Indexer:check")
     dependsOn(":kotlin-native:Interop:StubGenerator:check")
 }
@@ -5254,6 +5262,12 @@ tasks.register("library_ir_provider_mismatch", KonanDriverTest) {
     }
 }
 
+standaloneTest("kt51302") {
+    enabled = project.target.name == project.hostName
+    source = "serialization/KT-51302/main.kt"
+    flags = ["-l", "$projectDir/serialization/KT-51302/kt51302_dependency"]
+}
+
 standaloneTest("fake_override_0") {
     def sources = "$projectDir/link/fake_overrides"
     def dir = buildDir.absolutePath
@@ -5987,6 +6001,8 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
     return project.tasks.create(name, FileCheckTest) { task ->
         task.configure(configureClosure)
         task.llvmIr = project.file("$testOutputFileCheck/$name/$target/out.ll")
+        def target = task.target
+        boolean isCrossCompiling = target != project.target
         if (task.enabled) {
             konanArtifacts {
                 def lib = task.interop
@@ -6001,7 +6017,9 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
                     program(name, targets: [target]) {
                         srcFiles task.annotatedSource
                         baseDir "$testOutputFileCheck/$name"
-                        extraOpts project.globalTestArgs
+                        if (!isCrossCompiling) {
+                            extraOpts project.globalTestArgs
+                        }
                         extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target", "-Xsave-llvm-ir"
                         if (lib != null) {
                             libraries {
@@ -6014,7 +6032,9 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
                     framework(name, targets: [target]) {
                         srcFiles task.annotatedSource
                         baseDir "$testOutputFileCheck/$name"
-                        extraOpts project.globalTestArgs
+                        if (!isCrossCompiling) {
+                            extraOpts project.globalTestArgs
+                        }
                         extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target", "-Xsave-llvm-ir", "-Xmeaningful-bridge-names"
                         if (lib != null) {
                             libraries {
@@ -6031,6 +6051,16 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
 
 fileCheckTest("filecheck_smoke0") {
     annotatedSource = project.file('filecheck/smoke0.kt')
+}
+
+if (HostManager.@Companion.hostIsMac) {
+    fileCheckTest("filecheck_force_arm_instruction_set") {
+        annotatedSource = project.file('filecheck/force_arm_instruction_set.kt')
+        targetName = "watchos_arm32"
+        // Perform check after optimization pipeline because
+        // LLVM might infer attributes.
+        phaseToCheck = "BitcodeOptimization"
+    }
 }
 
 fileCheckTest("filecheck_replace_invoke_with_call") {
@@ -6092,9 +6122,14 @@ fileCheckTest("filecheck_signext_zeroext_objc_export") {
 
 fileCheckTest("filecheck_function_attributes_at_callsite") {
     enabled = (project.testTarget != 'wasm32') // KT-49739
+    // attributes for caller and callee might be the same so we allow overlapping.
+    additionalFileCheckFlags = ["--allow-deprecated-dag-overlap"]
     annotatedSource = project.file('filecheck/function_attributes_at_callsite.kt')
 }
 
+fileCheckTest("filecheck_constants_merge") {
+    annotatedSource = project.file('filecheck/constants_merge.kt')
+}
 
 dependencies {
     nopPluginApi project(kotlinCompilerModule)

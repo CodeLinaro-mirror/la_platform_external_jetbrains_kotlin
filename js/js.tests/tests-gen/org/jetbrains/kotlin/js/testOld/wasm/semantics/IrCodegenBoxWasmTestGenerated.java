@@ -12343,6 +12343,11 @@ public class IrCodegenBoxWasmTestGenerated extends AbstractIrCodegenBoxWasmTest 
                 runTest("compiler/testData/codegen/box/inference/builderInference/kt49887.kt");
             }
 
+            @TestMetadata("kt50520.kt")
+            public void testKt50520() throws Exception {
+                runTest("compiler/testData/codegen/box/inference/builderInference/kt50520.kt");
+            }
+
             @TestMetadata("labaledCall.kt")
             public void testLabaledCall() throws Exception {
                 runTest("compiler/testData/codegen/box/inference/builderInference/labaledCall.kt");
@@ -13157,6 +13162,11 @@ public class IrCodegenBoxWasmTestGenerated extends AbstractIrCodegenBoxWasmTest 
         @TestMetadata("kt47762.kt")
         public void testKt47762() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/kt47762.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
+        }
+
+        @TestMetadata("kt51157.kt")
+        public void testKt51157() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/kt51157.kt");
         }
 
         @TestMetadata("mangledDefaultParameterFunction.kt")
@@ -26898,6 +26908,11 @@ public class IrCodegenBoxWasmTestGenerated extends AbstractIrCodegenBoxWasmTest 
         @TestMetadata("kt4265.kt")
         public void testKt4265() throws Exception {
             runTest("compiler/testData/codegen/box/unit/kt4265.kt");
+        }
+
+        @TestMetadata("kt51036.kt")
+        public void testKt51036() throws Exception {
+            runTest("compiler/testData/codegen/box/unit/kt51036.kt");
         }
 
         @TestMetadata("nullableUnit.kt")

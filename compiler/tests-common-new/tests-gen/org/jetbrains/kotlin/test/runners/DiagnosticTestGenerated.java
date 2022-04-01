@@ -4564,6 +4564,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("kt51062.kt")
+            public void testKt51062() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/checkArguments/kt51062.kt");
+            }
+
+            @Test
             @TestMetadata("overloadedFunction.kt")
             public void testOverloadedFunction() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/checkArguments/overloadedFunction.kt");
@@ -14005,9 +14011,21 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
                 }
 
                 @Test
+                @TestMetadata("kt50498.kt")
+                public void testKt50498() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/inference/builderInference/kt50498.kt");
+                }
+
+                @Test
                 @TestMetadata("kt50989.kt")
                 public void testKt50989() throws Exception {
                     runTest("compiler/testData/diagnostics/tests/inference/builderInference/kt50989.kt");
+                }
+
+                @Test
+                @TestMetadata("kt51148.kt")
+                public void testKt51148() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/inference/builderInference/kt51148.kt");
                 }
 
                 @Test

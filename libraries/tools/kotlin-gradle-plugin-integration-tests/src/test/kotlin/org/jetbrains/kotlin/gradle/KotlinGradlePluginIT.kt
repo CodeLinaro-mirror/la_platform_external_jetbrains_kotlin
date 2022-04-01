@@ -960,6 +960,31 @@ class KotlinGradleIT : BaseGradleIT() {
         }
     }
 
+    @Test //KT-51501
+    fun testWithGradleInit() = with(Project("simpleProject")) {
+        setupWorkingDir()
+        val initGradleFile = projectDir.resolve("init.gradle")
+        initGradleFile.createNewFile()
+        initGradleFile.modify {
+            """initscript {
+                    repositories {
+                         maven { url = 'https://plugins.gradle.org/m2/' }
+                    }
+
+                    dependencies {
+                        classpath 'com.gradle:gradle-enterprise-gradle-plugin:3.8.1'
+                    }
+                }
+                beforeSettings {
+                    it.pluginManager.apply(com.gradle.enterprise.gradleplugin.GradleEnterprisePlugin)
+                }"""
+        }
+
+        build("-I", "init.gradle") {
+            assertSuccessful()
+        }
+    }
+
 
     @Test
     fun testKt29971() = with(Project("kt-29971", GradleVersionRequired.FOR_MPP_SUPPORT)) {
@@ -1018,6 +1043,14 @@ class KotlinGradleIT : BaseGradleIT() {
         }
 
         build("publish", "-PmppProjectDependency=true") {
+            assertFailed()
+            assertContains(MULTIPLE_KOTLIN_PLUGINS_LOADED_WARNING)
+        }
+
+        //https://youtrack.jetbrains.com/issue/KT-50598
+        val withoutDaemon= defaultBuildOptions().copy(withDaemon = false)
+
+        build("-PmppProjectDependency=true", options = withoutDaemon) {
             assertSuccessful()
             assertContains(MULTIPLE_KOTLIN_PLUGINS_LOADED_WARNING)
 
@@ -1028,7 +1061,7 @@ class KotlinGradleIT : BaseGradleIT() {
         }
 
         // Test the flag that turns off the warnings
-        build("publish", "-PmppProjectDependency=true", "-Pkotlin.pluginLoadedInMultipleProjects.ignore=true") {
+        build("-PmppProjectDependency=true", "-Pkotlin.pluginLoadedInMultipleProjects.ignore=true", options = withoutDaemon) {
             assertSuccessful()
             assertNotContains(MULTIPLE_KOTLIN_PLUGINS_LOADED_WARNING)
             assertNotContains(MULTIPLE_KOTLIN_PLUGINS_SPECIFIC_PROJECTS_WARNING)

@@ -16,7 +16,6 @@ import org.gradle.workers.WorkQueue
 import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
 import org.jetbrains.kotlin.build.report.metrics.BuildTime
 import org.jetbrains.kotlin.build.report.metrics.measure
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.daemon.client.CompileServiceSession
@@ -32,8 +31,7 @@ import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.tasks.*
-import org.jetbrains.kotlin.gradle.tasks.InspectClassesForMultiModuleIC
-import org.jetbrains.kotlin.gradle.tasks.TaskOutputsBackup
+import org.jetbrains.kotlin.gradle.utils.IsolatedKotlinClasspathClassCastException
 import org.jetbrains.kotlin.gradle.utils.archivePathCompatible
 import org.jetbrains.kotlin.gradle.utils.newTmpFile
 import org.jetbrains.kotlin.gradle.utils.relativeOrCanonical
@@ -275,7 +273,19 @@ internal open class GradleCompilerRunner(
 
             gradle.taskGraph.allTasks.forEach { task ->
                 val project = task.project
-                if (project.multiplatformExtensionOrNull != null) {
+
+                /*
+                Ignoring isolated classpath:
+                An inaccessible project is not a fatal issue here. Missing information will "only" lead to non-incremental
+                compilation. We expect the user to be warned about this misconfiguration during configuration phase.
+                 */
+                val multiplatformExtension = try {
+                    project.multiplatformExtensionOrNull
+                } catch (e: IsolatedKotlinClasspathClassCastException) {
+                    null
+                }
+
+                if (multiplatformExtension != null) {
                     // Just record this, we'll process them later
                     val tasksInProject = multiplatformProjectTasks[project] ?: mutableSetOf()
                     tasksInProject.add(task.name)
@@ -299,15 +309,6 @@ internal open class GradleCompilerRunner(
                             jarToModule[it] = module
                         }
                     }
-//                    for (target in task.targets) {
-//                        if (target is KotlinWithJavaTarget<*>) {
-//                            val jar = project.tasks.getByName(target.artifactsTaskName) as Jar
-//                            jarToClassListFile[jar.archivePathCompatible.canonicalFile] = target.defaultArtifactClassesListFile.get()
-//                            //configure abiSnapshot mapping for jars
-//                            jarToAbiSnapshot[jar.archivePathCompatible.canonicalFile] =
-//                                target.buildDir.get().file(task.abiSnapshotRelativePath).asFile
-//                        }
-//                    }
                 } else if (task is InspectClassesForMultiModuleIC) {
                     jarToClassListFile[File(task.archivePath.get())] = task.classesListFile
                 }

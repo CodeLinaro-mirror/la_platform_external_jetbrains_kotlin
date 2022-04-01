@@ -11,6 +11,8 @@ import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Provider
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
+import org.jetbrains.kotlin.cli.common.toBooleanLenient
 import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskExecutionResults
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
@@ -47,26 +49,32 @@ internal abstract class KotlinGradleBuildServices : BuildService<KotlinGradleBui
     }
 
     companion object {
+        private val kotlinStatisticEnabled = CompilerSystemProperties.KOTLIN_STAT_ENABLED_PROPERTY.value?.toBooleanLenient() == true
 
-        fun registerIfAbsent(project: Project): Provider<KotlinGradleBuildServices> = project.gradle.sharedServices.registerIfAbsent(
-            "kotlin-build-service-${KotlinGradleBuildServices::class.java.canonicalName}_${KotlinGradleBuildServices::class.java.classLoader.hashCode()}",
-            KotlinGradleBuildServices::class.java
-        ) { service ->
-            service.parameters.rootDir = project.rootProject.rootDir
-            service.parameters.buildDir = project.rootProject.buildDir
-            addListeners(project)
+        fun registerIfAbsent(project: Project): Provider<KotlinGradleBuildServices> {
+            return project.gradle.sharedServices.registerIfAbsent(
+                "kotlin-build-service-${KotlinGradleBuildServices::class.java.canonicalName}_${KotlinGradleBuildServices::class.java.classLoader.hashCode()}",
+                KotlinGradleBuildServices::class.java
+            ) { service ->
+                service.parameters.rootDir = project.rootProject.rootDir
+                service.parameters.buildDir = project.rootProject.buildDir
+                if (kotlinStatisticEnabled) {
+                    addListeners(project)
+                }
+            }
         }
 
         fun addListeners(project: Project) {
             project.rootProject.extensions.findByName("buildScan")
                 ?.also {
-                    val listeners = project.rootProject.objects.listProperty(ReportStatistics::class.java)
-                        .value(listOf<ReportStatistics>(ReportStatisticsToElasticSearch))
-                    listeners.add(ReportStatisticsToBuildScan(it as BuildScanExtension))
-                    val statListener = KotlinBuildStatListener(project.rootProject.name, listeners.get())
                     val listenerRegistryHolder = BuildEventsListenerRegistryHolder.getInstance(project)
 
-                    listenerRegistryHolder.listenerRegistry.onTaskCompletion(project.provider { statListener })
+                    listenerRegistryHolder.listenerRegistry.onTaskCompletion(project.provider {
+                        val listeners = project.rootProject.objects.listProperty(ReportStatistics::class.java)
+                            .value(listOf<ReportStatistics>(ReportStatisticsToElasticSearch))
+                        listeners.add(ReportStatisticsToBuildScan(it as BuildScanExtension))
+                        KotlinBuildStatListener(project.rootProject.name, listeners.get())
+                    })
                 }
         }
 
