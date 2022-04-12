@@ -10054,6 +10054,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
                 runTest("compiler/testData/codegen/box/coroutines/tailCallOptimizations/also.kt");
             }
 
+            @TestMetadata("checkcast.kt")
+            public void testCheckcast() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/tailCallOptimizations/checkcast.kt");
+            }
+
             @TestMetadata("crossinline.kt")
             public void testCrossinline() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/tailCallOptimizations/crossinline.kt");
@@ -15399,6 +15404,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
             runTest("compiler/testData/codegen/box/inference/kt47316.kt");
         }
 
+        @TestMetadata("kt51040.kt")
+        public void testKt51040() throws Exception {
+            runTest("compiler/testData/codegen/box/inference/kt51040.kt");
+        }
+
         @TestMetadata("lambdaWithStarReturn.kt")
         public void testLambdaWithStarReturn() throws Exception {
             runTest("compiler/testData/codegen/box/inference/lambdaWithStarReturn.kt");
@@ -15619,6 +15629,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
             @TestMetadata("kt49887.kt")
             public void testKt49887() throws Exception {
                 runTest("compiler/testData/codegen/box/inference/builderInference/kt49887.kt");
+            }
+
+            @TestMetadata("kt50520.kt")
+            public void testKt50520() throws Exception {
+                runTest("compiler/testData/codegen/box/inference/builderInference/kt50520.kt");
             }
 
             @TestMetadata("labaledCall.kt")
@@ -16560,6 +16575,16 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
         @TestMetadata("kt48993.kt")
         public void testKt48993() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/kt48993.kt", TransformersFunctions.getReplaceOptionalJvmInlineAnnotationWithReal());
+        }
+
+        @TestMetadata("kt51157.kt")
+        public void testKt51157() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/kt51157.kt");
+        }
+
+        @TestMetadata("kt51353.kt")
+        public void testKt51353() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/kt51353.kt");
         }
 
         @TestMetadata("mangledDefaultParameterFunction.kt")
@@ -35874,6 +35899,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
         @TestMetadata("kt4265.kt")
         public void testKt4265() throws Exception {
             runTest("compiler/testData/codegen/box/unit/kt4265.kt");
+        }
+
+        @TestMetadata("kt51036.kt")
+        public void testKt51036() throws Exception {
+            runTest("compiler/testData/codegen/box/unit/kt51036.kt");
         }
 
         @TestMetadata("nullableUnit.kt")

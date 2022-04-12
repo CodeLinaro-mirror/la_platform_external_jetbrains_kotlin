@@ -782,6 +782,12 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
             }
 
             @Test
+            @TestMetadata("contextualInlineCall.kt")
+            public void testContextualInlineCall() throws Exception {
+                runTest("compiler/testData/ir/irText/declarations/contextReceivers/contextualInlineCall.kt");
+            }
+
+            @Test
             @TestMetadata("contextualPrimaryConstructorWithParams.kt")
             public void testContextualPrimaryConstructorWithParams() throws Exception {
                 runTest("compiler/testData/ir/irText/declarations/contextReceivers/contextualPrimaryConstructorWithParams.kt");
@@ -1674,6 +1680,12 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
         @TestMetadata("kt50028.kt")
         public void testKt50028() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/kt50028.kt");
+        }
+
+        @Test
+        @TestMetadata("kt51036.kt")
+        public void testKt51036() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/kt51036.kt");
         }
 
         @Test
