@@ -6320,6 +6320,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
             }
 
             @Test
+            @TestMetadata("kt51711.kt")
+            public void testKt51711() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/controlStructures/kt51711.kt");
+            }
+
+            @Test
             @TestMetadata("kt657.kt")
             public void testKt657() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/controlStructures/kt657.kt");
@@ -8793,6 +8799,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
             @TestMetadata("deprecatedPropertyInheritance_before.kt")
             public void testDeprecatedPropertyInheritance_before() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/deprecated/deprecatedPropertyInheritance_before.kt");
+            }
+
+            @Test
+            @TestMetadata("duplicatedOverrideDeprecationOnProperty.kt")
+            public void testDuplicatedOverrideDeprecationOnProperty() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/deprecated/duplicatedOverrideDeprecationOnProperty.kt");
             }
 
             @Test
@@ -18548,6 +18560,12 @@ public class DiagnosticTestGenerated extends AbstractDiagnosticTest {
                 @TestMetadata("constantStaticStringField.kt")
                 public void testConstantStaticStringField() throws Exception {
                     runTest("compiler/testData/diagnostics/tests/j+k/types/constantStaticStringField.kt");
+                }
+
+                @Test
+                @TestMetadata("noOverrideKeyword.kt")
+                public void testNoOverrideKeyword() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/j+k/types/noOverrideKeyword.kt");
                 }
 
                 @Test

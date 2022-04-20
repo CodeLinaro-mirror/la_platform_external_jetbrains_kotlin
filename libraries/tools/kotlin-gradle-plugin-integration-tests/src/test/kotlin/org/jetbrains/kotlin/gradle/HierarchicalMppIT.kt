@@ -18,10 +18,7 @@ import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.jetbrains.kotlin.gradle.util.modify
 import java.io.File
 import java.util.zip.ZipFile
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class HierarchicalMppIT : BaseGradleIT() {
     override val defaultGradleVersion: GradleVersionRequired
@@ -643,6 +640,63 @@ class HierarchicalMppIT : BaseGradleIT() {
                 assertNotNull(report, "No single report for 'iosArm64' and implementation scope")
                 assertEquals(setOf("commonMain", "iosMain"), report.allVisibleSourceSets)
                 assertTrue(report.groupAndModule.endsWith(":p1"))
+            }
+        }
+    }
+
+    @Test
+    fun testHmppTasksAreNotIncludedInGradleConfigurationCache() {
+        val options = defaultBuildOptions().copy(configurationCache = true, configurationCacheProblems = ConfigurationCacheProblems.FAIL)
+        transformProjectWithPluginsDsl("hmppGradleConfigurationCache", GradleVersionRequired.AtLeast("7.4")).apply {
+            build(":lib:publish") {
+                assertSuccessful()
+            }
+
+            val gccIncompatibleTasks = listOf(
+                ":generateProjectStructureMetadata",
+                ":transformCommonMainDependenciesMetadata",
+                ":cinteropFooLinuxX64",
+                ":compileKotlinLinuxX64",
+                ":linkDebugSharedLinuxX64",
+            )
+
+            build("clean", "assemble", options = options) {
+                assertSuccessful()
+                assertTasksExecuted(gccIncompatibleTasks)
+
+                gccIncompatibleTasks.forEach { task ->
+                    assertContainsRegex(
+                        """Task `:$task` of type `.+`: .+(at execution time is unsupported)|(not supported with the configuration cache)"""
+                            .toRegex()
+                    )
+                }
+            }
+
+            build("clean", "assemble", options = options) {
+                assertSuccessful()
+                assertContains("Configuration cache entry discarded")
+                assertTasksExecuted(gccIncompatibleTasks)
+            }
+        }
+    }
+    @Test
+    fun testHmppTasksReportConfigurationCacheWarningForGradleLessThan74() {
+        val versionRequirement = GradleVersionRequired.InRange("6.8", "7.3")
+        transformProjectWithPluginsDsl("hmppGradleConfigurationCache", versionRequirement).apply {
+            build(":lib:publish") {
+                assertSuccessful()
+            }
+
+            // Assert that no warnings are shown when configuration-cache is not enabled
+            build("clean", "assemble") {
+                assertSuccessful()
+                assertNotContains("""Task \S+ is not compatible with configuration cache""".toRegex())
+            }
+
+            val options = defaultBuildOptions().copy(configurationCache = true, configurationCacheProblems = ConfigurationCacheProblems.FAIL)
+            build("clean", "assemble", options = options) {
+                assertFailed()
+                assertContainsRegex("""Task \S+ is not compatible with configuration cache""".toRegex())
             }
         }
     }

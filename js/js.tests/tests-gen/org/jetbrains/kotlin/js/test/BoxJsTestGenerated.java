@@ -2089,6 +2089,18 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("exportClassWithInternal.kt")
+        public void testExportClassWithInternal() throws Exception {
+            runTest("js/js.translator/testData/box/export/exportClassWithInternal.kt");
+        }
+
+        @Test
+        @TestMetadata("exportClassWithInternalOneFile.kt")
+        public void testExportClassWithInternalOneFile() throws Exception {
+            runTest("js/js.translator/testData/box/export/exportClassWithInternalOneFile.kt");
+        }
+
+        @Test
         @TestMetadata("exportEnumClass.kt")
         public void testExportEnumClass() throws Exception {
             runTest("js/js.translator/testData/box/export/exportEnumClass.kt");
@@ -2933,6 +2945,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
             @TestMetadata("lambdaOrLocalFunInsideEnumMethod.kt")
             public void testLambdaOrLocalFunInsideEnumMethod() throws Exception {
                 runTest("js/js.translator/testData/box/expression/function/lambdaOrLocalFunInsideEnumMethod.kt");
+            }
+
+            @Test
+            @TestMetadata("lambdaReturnValue.kt")
+            public void testLambdaReturnValue() throws Exception {
+                runTest("js/js.translator/testData/box/expression/function/lambdaReturnValue.kt");
             }
 
             @Test
@@ -8598,6 +8616,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("kt2470.kt")
         public void testKt2470() throws Exception {
             runTest("js/js.translator/testData/box/regression/kt2470.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52010.kt")
+        public void testKt52010() throws Exception {
+            runTest("js/js.translator/testData/box/regression/kt52010.kt");
         }
 
         @Test
