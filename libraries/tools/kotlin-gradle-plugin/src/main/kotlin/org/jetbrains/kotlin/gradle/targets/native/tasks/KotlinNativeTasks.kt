@@ -151,6 +151,10 @@ abstract class AbstractKotlinNativeCompile<T : KotlinCommonToolOptions, K : Kotl
         compilation.konanTarget
     }
 
+    init {
+        notCompatibleWithConfigurationCache("Task $name does not support Gradle Configuration Cache. Check KT-43293 for more info")
+    }
+
     // Inputs and outputs
     @IgnoreEmptyDirectories
     @InputFiles
@@ -1079,6 +1083,7 @@ open class CInteropProcess @Inject constructor(@get:Internal val settings: Defau
 
     init {
         outputs.upToDateWhen { outputFile.exists() }
+        notCompatibleWithConfigurationCache("Task $name does not support Gradle Configuration Cache. Check KT-43293 for more info")
     }
 
     // Inputs and outputs.
