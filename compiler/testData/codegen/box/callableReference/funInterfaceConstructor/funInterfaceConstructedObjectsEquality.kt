@@ -10,13 +10,14 @@
 // IGNORE_BACKEND: JS_IR
 //  ^ TypeError: tmp is not a function
 
-// FILE: funInterfaceConstructorEquality.kt
+// FILE: funInterfaceConstructedObjectsEquality.kt
 
 val ks1: (() -> String) -> KSupplier<String> =
     ::KSupplier
 
 val ks11Foo = ks1(::foo)
-val ks21Foo = ks2(::foo)
+// getter is used to avoid dependency on lazy initialization support
+val ks21Foo get() = ks2(::foo)
 
 fun interface KStringSupplier {
     fun get(): String
@@ -68,5 +69,5 @@ fun bar() = "def"
 val ks2: (() -> String) -> KSupplier<String> =
     ::KSupplier
 
-val ks12Foo = ks1(::foo)
+val ks12Foo get() = ks1(::foo)
 val ks22Foo = ks2(::foo)

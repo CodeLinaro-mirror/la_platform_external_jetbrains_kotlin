@@ -3,7 +3,7 @@ FILE fqName:<root> fileName:/kt44993.kt
     VALUE_PARAMETER name:r index:0 type:<root>.KotlinBox<<root>.JavaBox>
     BLOCK_BODY
       RETURN type=kotlin.Nothing from='public final fun f (r: <root>.KotlinBox<<root>.JavaBox>): kotlin.String declared in <root>'
-        CALL 'public final fun CHECK_NOT_NULL <T0> (arg0: T0 of kotlin.internal.ir.CHECK_NOT_NULL?): T0 of kotlin.internal.ir.CHECK_NOT_NULL declared in kotlin.internal.ir' type=kotlin.String origin=EXCLEXCL
+        CALL 'public final fun CHECK_NOT_NULL <T0> (arg0: T0 of kotlin.internal.ir.CHECK_NOT_NULL?): {T0 of kotlin.internal.ir.CHECK_NOT_NULL & Any} declared in kotlin.internal.ir' type=kotlin.String origin=EXCLEXCL
           <T0>: kotlin.String
           arg0: BLOCK type=@[FlexibleNullability] kotlin.String? origin=SAFE_CALL
             VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:<root>.JavaBox? [val]
@@ -32,7 +32,7 @@ FILE fqName:<root> fileName:/kt44993.kt
                   receiver: GET_VAR 'val tmp_0: <root>.JavaBox? [val] declared in <root>.f' type=<root>.JavaBox? origin=null
   CLASS CLASS name:KotlinBox modality:FINAL visibility:public superTypes:[kotlin.Any]
     $this: VALUE_PARAMETER INSTANCE_RECEIVER name:<this> type:<root>.KotlinBox<T of <root>.KotlinBox>
-    TYPE_PARAMETER name:T index:0 variance: superTypes:[kotlin.Any?]
+    TYPE_PARAMETER name:T index:0 variance: superTypes:[kotlin.Any?] reified:false
     CONSTRUCTOR visibility:public <> (data:T of <root>.KotlinBox?) returnType:<root>.KotlinBox<T of <root>.KotlinBox> [primary]
       VALUE_PARAMETER name:data index:0 type:T of <root>.KotlinBox?
       BLOCK_BODY

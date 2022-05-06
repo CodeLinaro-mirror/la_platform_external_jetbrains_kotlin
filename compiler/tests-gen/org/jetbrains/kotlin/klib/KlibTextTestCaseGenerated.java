@@ -1402,6 +1402,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
             runTest("compiler/testData/ir/irText/expressions/stringTemplates.kt");
         }
 
+        @TestMetadata("suspendConversionForExtensionFunction.kt")
+        public void testSuspendConversionForExtensionFunction() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/suspendConversionForExtensionFunction.kt");
+        }
+
         @TestMetadata("suspendConversionInVararg.kt")
         public void testSuspendConversionInVararg() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/suspendConversionInVararg.kt");
@@ -1827,6 +1832,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
             runTest("compiler/testData/ir/irText/firProblems/AnnotationLoader.kt");
         }
 
+        @TestMetadata("ArrayListOverrides.kt")
+        public void testArrayListOverrides() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/ArrayListOverrides.kt");
+        }
+
         @TestMetadata("ArrayMap.kt")
         public void testArrayMap() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/ArrayMap.kt");
@@ -1885,6 +1895,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
         @TestMetadata("kt43342.kt")
         public void testKt43342() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/kt43342.kt");
+        }
+
+        @TestMetadata("lambdaInEnumEntryConstructorCall.kt")
+        public void testLambdaInEnumEntryConstructorCall() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/lambdaInEnumEntryConstructorCall.kt");
         }
 
         @TestMetadata("localClassUsedBeforeDeclaration.kt")

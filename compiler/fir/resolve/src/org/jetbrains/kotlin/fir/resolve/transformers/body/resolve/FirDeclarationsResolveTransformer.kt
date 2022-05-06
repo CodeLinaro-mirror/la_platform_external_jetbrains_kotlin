@@ -11,6 +11,8 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.builder.buildAnonymousFunctionCopy
+import org.jetbrains.kotlin.fir.declarations.builder.buildContextReceiver
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
@@ -33,7 +35,6 @@ import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeLocalVariableNoTypeOrIni
 import org.jetbrains.kotlin.fir.resolve.inference.FirStubTypeTransformer
 import org.jetbrains.kotlin.fir.resolve.inference.ResolvedLambdaAtom
 import org.jetbrains.kotlin.fir.resolve.inference.extractLambdaInfoFromFunctionalType
-import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.createTypeSubstitutorByTypeConstructor
 import org.jetbrains.kotlin.fir.resolve.transformers.*
@@ -248,7 +249,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                         isNullable = false
                     )
                 }.also {
-                    session.lookupTracker?.recordTypeResolveAsLookup(it, propertyReferenceAccess.source ?: source, null)
+                    session.lookupTracker?.recordTypeResolveAsLookup(it, propertyReferenceAccess.source ?: source, components.file.source)
                 }
             )
         }
@@ -276,6 +277,8 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
 
             property.transformAccessors()
             val completedCalls = completeCandidates()
+            dataFlowAnalyzer.exitDelegateExpression()
+
             val finalSubstitutor = createFinalSubstitutor()
 
             // Replace stub types with corresponding type variable types
@@ -301,62 +304,61 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         data: ResolutionMode,
     ): FirStatement {
         dataFlowAnalyzer.enterDelegateExpression()
-        try {
-            // First, resolve delegate expression in dependent context
-            val delegateExpression =
-                wrappedDelegateExpression.expression.transformSingle(transformer, ResolutionMode.ContextDependent)
+        // First, resolve delegate expression in dependent context
+        val delegateExpression = wrappedDelegateExpression.expression.transformSingle(transformer, ResolutionMode.ContextDependent)
+            .transformSingle(components.integerLiteralAndOperatorApproximationTransformer, null)
 
-            // Second, replace result type of delegate expression with stub type if delegate not yet resolved
-            if (delegateExpression is FirQualifiedAccess) {
-                val calleeReference = delegateExpression.calleeReference
-                if (calleeReference is FirNamedReferenceWithCandidate) {
-                    val system = calleeReference.candidate.system
-                    system.notFixedTypeVariables.forEach {
-                        system.markPostponedVariable(it.value.typeVariable)
-                    }
-                    val typeVariableTypeToStubType = context.inferenceSession.createSyntheticStubTypes(system)
-
-                    val substitutor = createTypeSubstitutorByTypeConstructor(typeVariableTypeToStubType, session.typeContext)
-                    val delegateExpressionTypeRef = delegateExpression.typeRef
-                    val stubTypeSubstituted = substitutor.substituteOrNull(delegateExpressionTypeRef.coneType)
-                    delegateExpression.replaceTypeRef(delegateExpressionTypeRef.withReplacedConeType(stubTypeSubstituted))
-                }
-            }
-
-            val provideDelegateCall = wrappedDelegateExpression.delegateProvider as FirFunctionCall
-
-            // Resolve call for provideDelegate, without completion
-            provideDelegateCall.transformSingle(this, ResolutionMode.ContextIndependent)
-
-            // If we got successful candidate for provideDelegate, let's select it
-            val provideDelegateCandidate = provideDelegateCall.candidate()
-            if (provideDelegateCandidate != null && provideDelegateCandidate.isSuccessful) {
-                val system = provideDelegateCandidate.system
+        // Second, replace result type of delegate expression with stub type if delegate not yet resolved
+        if (delegateExpression is FirQualifiedAccess) {
+            val calleeReference = delegateExpression.calleeReference
+            if (calleeReference is FirNamedReferenceWithCandidate) {
+                val system = calleeReference.candidate.system
                 system.notFixedTypeVariables.forEach {
                     system.markPostponedVariable(it.value.typeVariable)
                 }
                 val typeVariableTypeToStubType = context.inferenceSession.createSyntheticStubTypes(system)
-                val substitutor = createTypeSubstitutorByTypeConstructor(typeVariableTypeToStubType, session.typeContext)
 
-                val stubTypeSubstituted = substitutor.substituteOrSelf(provideDelegateCandidate.substitutor.substituteOrSelf(components.typeFromCallee(provideDelegateCall).type))
-
-                provideDelegateCall.replaceTypeRef(provideDelegateCall.typeRef.resolvedTypeFromPrototype(stubTypeSubstituted))
-                return provideDelegateCall
+                val substitutor = createTypeSubstitutorByTypeConstructor(
+                    typeVariableTypeToStubType, session.typeContext, approximateIntegerLiterals = true
+                )
+                val delegateExpressionTypeRef = delegateExpression.typeRef
+                val stubTypeSubstituted = substitutor.substituteOrNull(delegateExpressionTypeRef.coneType)
+                delegateExpression.replaceTypeRef(delegateExpressionTypeRef.withReplacedConeType(stubTypeSubstituted))
             }
-
-            if (provideDelegateCall.calleeReference is FirResolvedNamedReference) {
-                return provideDelegateCall
-            }
-
-            // Otherwise, rollback
-            (provideDelegateCall as? FirFunctionCall)?.let { dataFlowAnalyzer.dropSubgraphFromCall(it) }
-
-            // Select delegate expression otherwise
-            return delegateExpression
-                .approximateIfIsIntegerConst()
-        } finally {
-            dataFlowAnalyzer.exitDelegateExpression()
         }
+
+        val provideDelegateCall = wrappedDelegateExpression.delegateProvider as FirFunctionCall
+
+        // Resolve call for provideDelegate, without completion
+        provideDelegateCall.transformSingle(this, ResolutionMode.ContextIndependent)
+
+        // If we got successful candidate for provideDelegate, let's select it
+        val provideDelegateCandidate = provideDelegateCall.candidate()
+        if (provideDelegateCandidate != null && provideDelegateCandidate.isSuccessful) {
+            val system = provideDelegateCandidate.system
+            system.notFixedTypeVariables.forEach {
+                system.markPostponedVariable(it.value.typeVariable)
+            }
+            val typeVariableTypeToStubType = context.inferenceSession.createSyntheticStubTypes(system)
+            val substitutor = createTypeSubstitutorByTypeConstructor(
+                typeVariableTypeToStubType, session.typeContext, approximateIntegerLiterals = true
+            )
+
+            val stubTypeSubstituted = substitutor.substituteOrSelf(provideDelegateCandidate.substitutor.substituteOrSelf(components.typeFromCallee(provideDelegateCall).type))
+
+            provideDelegateCall.replaceTypeRef(provideDelegateCall.typeRef.resolvedTypeFromPrototype(stubTypeSubstituted))
+            return provideDelegateCall
+        }
+
+        if (provideDelegateCall.calleeReference is FirResolvedNamedReference) {
+            return provideDelegateCall
+        }
+
+        // Otherwise, rollback
+        (provideDelegateCall as? FirFunctionCall)?.let { dataFlowAnalyzer.dropSubgraphFromCall(it) }
+
+        // Select delegate expression otherwise
+        return delegateExpression
     }
 
     private fun transformLocalVariable(variable: FirProperty): FirProperty {
@@ -629,7 +631,6 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                         returnExpression.resultType.approximatedIfNeededOrSelf(
                             session.typeApproximator,
                             simpleFunction?.visibilityForApproximation(),
-                            transformer.session.typeContext,
                             simpleFunction?.isInline == true
                         )
                     )
@@ -766,6 +767,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
             }
             is ResolutionMode.WithExpectedType,
             is ResolutionMode.ContextIndependent,
+            is ResolutionMode.ReceiverResolution,
             is ResolutionMode.WithSuggestedType -> {
                 val expectedTypeRef = when (data) {
                     is ResolutionMode.WithExpectedType -> {
@@ -804,14 +806,28 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         }
         val returnTypeRefFromResolvedAtom =
             resolvedLambdaAtom?.returnType?.let { lambda.returnTypeRef.resolvedTypeFromPrototype(it) }
-        lambda = lambda.copy(
+        lambda = buildAnonymousFunctionCopy(lambda) {
             receiverTypeRef = lambda.receiverTypeRef?.takeIf { it !is FirImplicitTypeRef }
-                ?: resolvedLambdaAtom?.receiver?.let { lambda.receiverTypeRef?.resolvedTypeFromPrototype(it) },
-            valueParameters = valueParameters,
+                ?: resolvedLambdaAtom?.receiver?.let { lambda.receiverTypeRef?.resolvedTypeFromPrototype(it) }
+
+            contextReceivers.clear()
+            contextReceivers.addAll(
+                lambda.contextReceivers.takeIf { it.isNotEmpty() }
+                    ?: resolvedLambdaAtom?.contextReceivers?.map { receiverType ->
+                        buildContextReceiver {
+                            this.typeRef = buildResolvedTypeRef {
+                                type = receiverType
+                            }
+                        }
+                    }.orEmpty()
+            )
+
+            this.valueParameters.clear()
+            this.valueParameters.addAll(valueParameters)
             returnTypeRef = (lambda.returnTypeRef as? FirResolvedTypeRef)
                 ?: returnTypeRefFromResolvedAtom
-                ?: lambda.returnTypeRef
-        )
+                        ?: lambda.returnTypeRef
+        }
         lambda = lambda.transformValueParameters(ImplicitToErrorTypeTransformer, null)
         val bodyExpectedType = returnTypeRefFromResolvedAtom ?: expectedTypeRef
         context.withAnonymousFunction(lambda, components, data) {
@@ -826,6 +842,8 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
             components.returnTypeCalculator,
             session.typeApproximator,
             dataFlowAnalyzer,
+            components.integerLiteralAndOperatorApproximationTransformer,
+            components.context
         )
         lambda.transformSingle(writer, expectedTypeRef.coneTypeSafe<ConeKotlinType>()?.toExpectedType())
 
@@ -857,14 +875,14 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         }
         lambda.replaceReturnTypeRef(
             lambda.returnTypeRef.resolvedTypeFromPrototype(returnType).also {
-                session.lookupTracker?.recordTypeResolveAsLookup(it, lambda.source, null)
+                session.lookupTracker?.recordTypeResolveAsLookup(it, lambda.source, components.file.source)
             }
         )
         lambda.replaceTypeRef(
             lambda.constructFunctionalTypeRef(
                 isSuspend = expectedTypeRef.coneTypeSafe<ConeKotlinType>()?.isSuspendFunctionType(session) == true
             ).also {
-                session.lookupTracker?.recordTypeResolveAsLookup(it, lambda.source, null)
+                session.lookupTracker?.recordTypeResolveAsLookup(it, lambda.source, components.file.source)
             }
         )
         return lambda.addReturn()
@@ -991,7 +1009,6 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 expectedType.approximatedIfNeededOrSelf(
                     session.typeApproximator,
                     backingField.visibilityForApproximation(),
-                    session.typeContext,
                 )
             )
         )
@@ -1016,7 +1033,6 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                         expectedType.approximatedIfNeededOrSelf(
                             session.typeApproximator,
                             variable.visibilityForApproximation(),
-                            session.typeContext,
                         )
                     )
                 )
@@ -1070,7 +1086,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 valueParameter.transformReturnTypeRef(
                     StoreType,
                     valueParameter.returnTypeRef.resolvedTypeFromPrototype(
-                        ConeKotlinErrorType(
+                        ConeErrorType(
                             ConeSimpleDiagnostic(
                                 "No type for parameter",
                                 DiagnosticKind.ValueParameterWithNoTypeAnnotation

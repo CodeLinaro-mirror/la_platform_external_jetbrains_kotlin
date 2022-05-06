@@ -11,11 +11,15 @@ val Project.intellijVersion
     get() = rootProject.extra["versions.intellijSdk"]
 
 fun Project.intellijCore() = dependencies.project(":dependencies:intellij-core")
+fun Project.intellijUtilRt() = "com.jetbrains.intellij.platform:util-rt:$intellijVersion"
 
 fun Project.jpsModel() = "com.jetbrains.intellij.platform:jps-model:$intellijVersion"
 fun Project.jpsModelSerialization() = "com.jetbrains.intellij.platform:jps-model-serialization:$intellijVersion"
 fun Project.jpsModelImpl() = "com.jetbrains.intellij.platform:jps-model-impl:$intellijVersion"
 fun Project.jpsBuildTest() = "com.jetbrains.intellij.idea:jps-build-test:$intellijVersion"
+fun Project.jpsBuild() = "com.jetbrains.intellij.platform:jps-build:$intellijVersion"
+fun Project.testFramework() = "com.jetbrains.intellij.platform:test-framework:$intellijVersion"
+fun Project.devKitJps() = "com.jetbrains.intellij.devkit:devkit-jps:$intellijVersion"
 fun Project.intellijPlatformUtil() = "com.jetbrains.intellij.platform:util:$intellijVersion"
 fun Project.intellijJavaRt() = "com.jetbrains.intellij.java:java-rt:$intellijVersion"
 fun Project.intellijAnalysis() = "com.jetbrains.intellij.platform:analysis:$intellijVersion"

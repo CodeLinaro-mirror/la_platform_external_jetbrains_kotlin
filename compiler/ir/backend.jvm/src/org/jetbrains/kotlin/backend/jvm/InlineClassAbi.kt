@@ -42,7 +42,10 @@ object InlineClassAbi {
         val representation = klass.inlineClassRepresentation ?: return null
 
         // TODO: Apply type substitutions
-        val underlyingType = representation.underlyingType.unboxInlineClass()
+        var underlyingType = representation.underlyingType.unboxInlineClass()
+        if (!underlyingType.isNullable() && underlyingType.isTypeParameter()) {
+            underlyingType = underlyingType.erasedUpperBound.defaultType
+        }
         if (!type.isNullable())
             return underlyingType
         if (underlyingType.isNullable() || underlyingType.isPrimitiveType())
@@ -57,19 +60,14 @@ object InlineClassAbi {
     fun mangledNameFor(irFunction: IrFunction, mangleReturnTypes: Boolean, useOldMangleRules: Boolean): Name {
         if (irFunction is IrConstructor) {
             // Note that we might drop this convention and use standard mangling for constructors too, see KT-37186.
-            assert(irFunction.constructedClass.isInline) {
+            assert(irFunction.constructedClass.isSingleFieldValueClass) {
                 "Should not mangle names of non-inline class constructors: ${irFunction.render()}"
             }
             return Name.identifier("constructor-impl")
         }
 
-        val suffix = hashSuffix(
-            useOldMangleRules,
-            irFunction.fullValueParameterList.map { it.type },
-            irFunction.returnType.takeIf { mangleReturnTypes && irFunction.hasMangledReturnType },
-            irFunction.isSuspend
-        )
-        if (suffix == null && ((irFunction.parent as? IrClass)?.isInline != true || irFunction.origin == IrDeclarationOrigin.IR_BUILTINS_STUB)) {
+        val suffix = hashSuffix(irFunction, mangleReturnTypes, useOldMangleRules)
+        if (suffix == null && ((irFunction.parent as? IrClass)?.isSingleFieldValueClass != true || irFunction.origin == IrDeclarationOrigin.IR_BUILTINS_STUB)) {
             return irFunction.name
         }
 
@@ -86,6 +84,14 @@ object InlineClassAbi {
 
         return Name.identifier("$base-${suffix ?: "impl"}")
     }
+
+    fun hashSuffix(irFunction: IrFunction, mangleReturnTypes: Boolean, useOldMangleRules: Boolean): String? =
+        hashSuffix(
+            useOldMangleRules,
+            irFunction.fullValueParameterList.map { it.type },
+            irFunction.returnType.takeIf { mangleReturnTypes && irFunction.hasMangledReturnType },
+            irFunction.isSuspend
+        )
 
     fun hashSuffix(
         useOldMangleRules: Boolean,
@@ -121,16 +127,16 @@ object InlineClassAbi {
 val IrType.requiresMangling: Boolean
     get() {
         val irClass = erasedUpperBound
-        return irClass.isInline && irClass.fqNameWhenAvailable != StandardNames.RESULT_FQ_NAME
+        return irClass.isSingleFieldValueClass && irClass.fqNameWhenAvailable != StandardNames.RESULT_FQ_NAME
     }
 
 val IrFunction.fullValueParameterList: List<IrValueParameter>
     get() = listOfNotNull(extensionReceiverParameter) + valueParameters
 
 val IrFunction.hasMangledParameters: Boolean
-    get() = dispatchReceiverParameter != null && parentAsClass.isInline ||
+    get() = dispatchReceiverParameter != null && parentAsClass.isSingleFieldValueClass ||
             fullValueParameterList.any { it.type.requiresMangling } ||
-            (this is IrConstructor && constructedClass.isInline)
+            (this is IrConstructor && constructedClass.isSingleFieldValueClass)
 
 val IrFunction.hasMangledReturnType: Boolean
     get() = returnType.isInlineClassType() && parentClassOrNull?.isFileClass != true
@@ -139,5 +145,13 @@ val IrClass.inlineClassFieldName: Name
     get() = (inlineClassRepresentation ?: error("Not an inline class: ${render()}")).underlyingPropertyName
 
 val IrFunction.isInlineClassFieldGetter: Boolean
-    get() = (parent as? IrClass)?.isInline == true && this is IrSimpleFunction && extensionReceiverParameter == null &&
+    get() = (parent as? IrClass)?.isSingleFieldValueClass == true && this is IrSimpleFunction && extensionReceiverParameter == null &&
             correspondingPropertySymbol?.let { it.owner.getter == this && it.owner.name == parentAsClass.inlineClassFieldName } == true
+
+val IrFunction.isMultiFieldValueClassFieldGetter: Boolean
+    get() = (parent as? IrClass)?.isMultiFieldValueClass == true && this is IrSimpleFunction && extensionReceiverParameter == null &&
+            correspondingPropertySymbol?.let {
+                val multiFieldValueClassRepresentation = parentAsClass.multiFieldValueClassRepresentation
+                    ?: error("Multi-field value class must have multiFieldValueClassRepresentation: ${parentAsClass.render()}")
+                it.owner.getter == this && multiFieldValueClassRepresentation.containsPropertyWithName(it.owner.name)
+            } == true

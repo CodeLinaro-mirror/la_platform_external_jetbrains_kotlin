@@ -8,20 +8,16 @@ package org.jetbrains.kotlin.gradle.mpp
 
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.api.provider.Provider
-import org.gradle.testfixtures.ProjectBuilder
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.tasks.*
 import kotlin.test.*
 
 internal class CompilationSpecificPluginPath {
     @Test
-    fun `native common sourceset should be compiled with native plugins`() {
-        // Given plugin but with native-specific artifact
+    fun `native common sourceset should be compiled with common plugins`() {
+        // Given plugin but with legacy-native-specific artifact
         class NativeSpecificPlugin : FakeSubPlugin("common", "native", { true })
 
         val project = buildProject {
@@ -53,12 +49,12 @@ internal class CompilationSpecificPluginPath {
         }
         project.evaluate()
 
-        // Then expect native artifact to be used for nativeMain metadata compilation
-        assertEquals(setOf("native"), project.compileTaskSubplugins("compileNativeMainKotlinMetadata"))
+        // Then expect common artifact to be used for all compilations, including nativeMain metadata
+        assertEquals(setOf("common"), project.compileTaskSubplugins("compileNativeMainKotlinMetadata"))
         assertEquals(setOf("common"), project.compileTaskSubplugins("compileKotlinMetadata"))
         assertEquals(setOf("common"), project.compileTaskSubplugins("compileCommonMainKotlinMetadata"))
         assertEquals(setOf("common"), project.compileTaskSubplugins("compileKotlinJvm"))
-        assertEquals(setOf("native"), project.compileTaskSubplugins("compileKotlinLinuxX64"))
+        assertEquals(setOf("common"), project.compileTaskSubplugins("compileKotlinLinuxX64"))
     }
 
     @Test
@@ -110,11 +106,11 @@ internal class CompilationSpecificPluginPath {
     }
 
     @Test
-    fun `only native artifact should be taken for native platforms`() {
-        // Given plugin but with native-specific artifact
+    fun `only common artifacts should be taken for native platforms`() {
+        // Given plugin but with legacy-native-specific artifact
         class NativeSpecificPlugin : FakeSubPlugin("common1", "native", { true })
 
-        // And plugin without native artifact but applicable on all platforms
+        // And plugin without legacy native artifact but applicable on all platforms
         class RegularPluginWithoutNativeArtifact : FakeSubPlugin("common2", null, { true })
 
         // When applying these plugins
@@ -129,15 +125,13 @@ internal class CompilationSpecificPluginPath {
         }
         project.evaluate()
 
-        // Expect jvm target have both artifacts
+        // Expect jvm and native targets have both common artifacts and no legacy native artifacts
         assertEquals(listOf("common1", "common2"), project.subplugins("jvm"))
-
-        // And native target should have only NativeSpecificPlugin artifacts
-        assertEquals(listOf("native"), project.subplugins("linuxX64"))
+        assertEquals(listOf("common1", "common2"), project.subplugins("linuxX64"))
     }
 
     @Test
-    fun `native should use regular artifact when embeddable compiler jar is used`() {
+    fun `native platform and common sourcesets should be compiled with native plugin artifacts when embeddable compiler jar is not used`() {
         // Given plugin but with native-specific artifact
         class NativeSpecificPlugin : FakeSubPlugin("common1", "native", { true })
 
@@ -149,17 +143,46 @@ internal class CompilationSpecificPluginPath {
             plugins.apply(NativeSpecificPlugin::class.java)
             plugins.apply(RegularPluginWithoutNativeArtifact::class.java)
 
-            // With kotlin.native.useEmbeddableCompilerJar=true
-            extensions.getByType(ExtraPropertiesExtension::class.java).set("kotlin.native.useEmbeddableCompilerJar", "true")
+            extensions.getByType(ExtraPropertiesExtension::class.java).set("kotlin.mpp.enableGranularSourceSetsMetadata", "true")
+
+            // With kotlin.native.useEmbeddableCompilerJar=false
+            extensions.getByType(ExtraPropertiesExtension::class.java).set("kotlin.native.useEmbeddableCompilerJar", "false")
 
             kotlin {
                 linuxX64()
+                mingwX64()
+                jvm()
+
+                sourceSets.apply {
+                    val commonMain = getByName("commonMain")
+                    val nativeMain = create("nativeMain")
+                    val linuxX64 = getByName("linuxX64Main")
+                    val mingwX64 = getByName("mingwX64Main")
+                    val jvm = getByName("jvmMain")
+
+                    // Make nativeMain be common source set for linuxX64 and mingwX64
+                    nativeMain.dependsOn(commonMain)
+                    linuxX64.dependsOn(nativeMain)
+                    mingwX64.dependsOn(nativeMain)
+                    jvm.dependsOn(commonMain)
+                }
             }
         }
         project.evaluate()
 
-        // Expect native target have both regular artifacts
-        assertEquals(listOf("common1", "common2"), project.subplugins("linuxX64"))
+        // Then expect native artifact to be used for nativeMain metadata compilation
+        assertEquals(setOf("native"), project.compileTaskSubplugins("compileNativeMainKotlinMetadata"))
+        assertEquals(setOf("common1", "common2"), project.compileTaskSubplugins("compileKotlinMetadata"))
+        assertEquals(setOf("common1", "common2"), project.compileTaskSubplugins("compileCommonMainKotlinMetadata"))
+        assertEquals(setOf("common1", "common2"), project.compileTaskSubplugins("compileKotlinJvm"))
+        assertEquals(setOf("native"), project.compileTaskSubplugins("compileKotlinLinuxX64"))
+
+        // Expect jvm target have both artifacts
+        assertEquals(listOf("common1", "common2"), project.subplugins("jvm"))
+
+        // And native target should have only NativeSpecificPlugin artifacts
+        assertEquals(listOf("native"), project.subplugins("linuxX64"))
+        assertEquals(listOf("native"), project.subplugins("mingwX64"))
     }
 
     @Test
@@ -228,7 +251,7 @@ internal class CompilationSpecificPluginPath {
 
     private abstract class FakeSubPlugin(
         val id: String,
-        val idNative: String? = null,
+        val idLegacyNative: String? = null,
         val isApplicablePredicate: KotlinCompilation<*>.() -> Boolean
     ) : KotlinCompilerPluginSupportPlugin {
         override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean = kotlinCompilation.isApplicablePredicate()
@@ -243,7 +266,7 @@ internal class CompilationSpecificPluginPath {
             id
         )
 
-        override fun getPluginArtifactForNative(): SubpluginArtifact? = idNative?.let {
+        override fun getPluginArtifactForNative(): SubpluginArtifact? = idLegacyNative?.let {
             SubpluginArtifact(
                 "test",
                 it
@@ -266,7 +289,7 @@ internal class CompilationSpecificPluginPath {
         .getByName(taskName)
         .let {
             when (it) {
-                is AbstractKotlinNativeCompile<*, *> -> it.compilerPluginClasspath
+                is AbstractKotlinNativeCompile<*, *, *> -> it.compilerPluginClasspath
                 is AbstractKotlinCompile<*> -> it.pluginClasspath.from.single()
                 else -> error("Unexpected task type with name $taskName. Is it kotlin compile task?")
             }

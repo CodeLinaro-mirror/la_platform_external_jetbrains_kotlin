@@ -10,6 +10,7 @@
 #include "Allocator.hpp"
 #include "GCScheduler.hpp"
 #include "ObjectFactory.hpp"
+#include "ScopedThread.hpp"
 #include "Types.h"
 #include "Utils.hpp"
 #include "GCState.hpp"
@@ -28,6 +29,8 @@ class FinalizerProcessor;
 // TODO: Also make mark concurrent.
 class ConcurrentMarkAndSweep : private Pinned {
 public:
+    // This implementation of mark queue allocates memory during collection.
+    using MarkQueue = KStdVector<ObjHeader*>;
 
     class ObjectData {
     public:
@@ -85,8 +88,10 @@ private:
 
     uint64_t lastGCTimestampUs_ = 0;
     GCStateHolder state_;
-    std::thread gcThread_;
+    ScopedThread gcThread_;
     KStdUniquePtr<FinalizerProcessor> finalizerProcessor_;
+
+    MarkQueue markQueue_;
 };
 
 } // namespace gc

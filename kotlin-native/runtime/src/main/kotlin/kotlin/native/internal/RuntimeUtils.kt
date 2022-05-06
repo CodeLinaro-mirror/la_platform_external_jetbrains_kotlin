@@ -28,7 +28,7 @@ internal fun ThrowArrayIndexOutOfBoundsException(): Nothing {
 @ExportForCppRuntime
 fun ThrowClassCastException(instance: Any, typeInfo: NativePtr): Nothing {
     val clazz = KClassImpl<Any>(typeInfo)
-    throw ClassCastException("${instance::class.qualifiedName} cannot be cast to ${clazz.qualifiedName}")
+    throw ClassCastException("${instance::class} cannot be cast to $clazz")
 }
 
 @ExportForCppRuntime
@@ -110,6 +110,13 @@ internal fun ThrowIncorrectDereferenceException() {
 @OptIn(ExperimentalStdlibApi::class)
 internal fun ThrowFileFailedToInitializeException() {
     throw FileFailedToInitializeException("There was an error during file initialization")
+}
+
+internal class IrLinkageError(message: String?) : Error(message)
+
+@PublishedApi
+internal fun ThrowIrLinkageError(message: String?): Nothing {
+    throw IrLinkageError(message)
 }
 
 @ExportForCppRuntime

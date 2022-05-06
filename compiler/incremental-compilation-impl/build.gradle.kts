@@ -13,9 +13,11 @@ dependencies {
     api(project(":compiler:frontend.java"))
     api(project(":compiler:cli"))
     api(project(":compiler:cli-js"))
+    api(project(":compiler:fir:entrypoint"))
+    api(project(":compiler:ir.serialization.jvm"))
+    api(project(":compiler:backend.jvm.entrypoint"))
     api(project(":kotlin-build-common"))
     api(project(":daemon-common"))
-    implementation(commonDependency("com.google.code.gson:gson"))
     compileOnly(intellijCore())
 
     testApi(commonDependency("junit:junit"))
@@ -27,6 +29,7 @@ dependencies {
     testApi(commonDependency("org.jetbrains.intellij.deps:log4j"))
     testApi(commonDependency("org.jetbrains.intellij.deps:jdom"))
 
+    testImplementation(commonDependency("com.google.code.gson:gson"))
     testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
 }

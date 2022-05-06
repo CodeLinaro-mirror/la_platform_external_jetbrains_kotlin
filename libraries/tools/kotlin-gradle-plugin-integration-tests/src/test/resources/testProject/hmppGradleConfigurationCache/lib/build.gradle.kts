@@ -13,6 +13,6 @@ version = "1.0"
 
 publishing {
     repositories {
-        maven("${rootProject.projectDir}/repo")
+        maven("<localRepo>")
     }
 }

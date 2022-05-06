@@ -25,6 +25,9 @@ namespace gc {
 // Stop-the-world Mark-and-Sweep that runs on mutator threads. Can support targets that do not have threads.
 class SameThreadMarkAndSweep : private Pinned {
 public:
+    // This implementation of mark queue allocates memory during collection.
+    using MarkQueue = KStdVector<ObjHeader*>;
+
     enum class SafepointFlag {
         kNone,
         kNeedsSuspend,
@@ -85,6 +88,8 @@ private:
 
     mm::ObjectFactory<SameThreadMarkAndSweep>& objectFactory_;
     GCScheduler& gcScheduler_;
+
+    MarkQueue markQueue_;
 };
 
 namespace internal {

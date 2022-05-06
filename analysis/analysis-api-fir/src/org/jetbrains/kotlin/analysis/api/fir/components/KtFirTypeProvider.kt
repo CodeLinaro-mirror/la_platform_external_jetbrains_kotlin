@@ -10,17 +10,16 @@ import org.jetbrains.kotlin.analysis.api.components.KtTypeProvider
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirNamedClassOrObjectSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.dispatchReceiverType
 import org.jetbrains.kotlin.analysis.api.fir.types.KtFirType
 import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.toConeNullability
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.markers.KtPossibleMemberSymbol
 import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.analysis.api.withValidityAssertion
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LowLevelFirApiFacadeForResolveOnAir.getTowerContextProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
 import org.jetbrains.kotlin.fir.FirRenderer
@@ -28,7 +27,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker.isCompatible
 import org.jetbrains.kotlin.fir.analysis.checkers.fullyExpandedClass
 import org.jetbrains.kotlin.fir.analysis.checkers.typeParameterSymbols
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
@@ -37,10 +35,8 @@ import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
@@ -72,13 +68,14 @@ internal class KtFirTypeProvider(
 
     override fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType {
         require(symbol is KtFirNamedClassOrObjectSymbol)
-        val type = symbol.firRef.withFir(FirResolvePhase.SUPER_TYPES) { firClass ->
-            ConeClassLikeTypeImpl(
-                firClass.symbol.toLookupTag(),
-                firClass.typeParameters.map { ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), isNullable = false) }.toTypedArray(),
-                isNullable = false
-            )
-        }
+        symbol.firSymbol.ensureResolved(FirResolvePhase.SUPER_TYPES)
+        val firClass = symbol.firSymbol.fir
+        val type = ConeClassLikeTypeImpl(
+            firClass.symbol.toLookupTag(),
+            firClass.typeParameters.map { ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), isNullable = false) }.toTypedArray(),
+            isNullable = false
+        )
+
         return type.asKtType()
     }
 
@@ -125,7 +122,7 @@ internal class KtFirTypeProvider(
     }
 
     override fun getImplicitReceiverTypesAtPosition(position: KtElement): List<KtType> {
-        return analysisSession.firResolveState.getTowerContextProvider()
+        return analysisSession.firResolveState.getTowerContextProvider(position.containingKtFile)
             .getClosestAvailableParentContext(position)?.implicitReceiverStack?.map { it.type.asKtType() } ?: emptyList()
     }
 
@@ -138,9 +135,11 @@ internal class KtFirTypeProvider(
         return when (this) {
             // We also need to collect those on `upperBound` due to nullability.
             is ConeFlexibleType -> lowerBound.getDirectSuperTypes(shouldApproximate) + upperBound.getDirectSuperTypes(shouldApproximate)
-            is ConeDefinitelyNotNullType -> original.getDirectSuperTypes(shouldApproximate).map { ConeDefinitelyNotNullType(it) }
+            is ConeDefinitelyNotNullType -> original.getDirectSuperTypes(shouldApproximate).map {
+                ConeDefinitelyNotNullType.create(it, analysisSession.rootModuleSession.typeContext) ?: it
+            }
             is ConeIntersectionType -> intersectedTypes.asSequence().flatMap { it.getDirectSuperTypes(shouldApproximate) }
-            is ConeClassErrorType -> emptySequence()
+            is ConeErrorType -> emptySequence()
             is ConeLookupTagBasedType -> getSubstitutedSuperTypes(shouldApproximate)
             else -> emptySequence()
         }.distinct()
@@ -190,14 +189,11 @@ internal class KtFirTypeProvider(
 
     override fun getDispatchReceiverType(symbol: KtCallableSymbol): KtType? {
         require(symbol is KtFirSymbol<*>)
-
-        return symbol.firRef.withFir { declaration ->
-            check(declaration is FirCallableDeclaration) {
-                "Fir declaration should be FirCallableDeclaration; instead it was ${declaration::class}"
-            }
-
-            declaration.dispatchReceiverType?.asKtType()
+        val firSymbol = symbol.firSymbol
+        check(firSymbol is FirCallableSymbol<*>) {
+            "Fir declaration should be FirCallableDeclaration; instead it was ${firSymbol::class}"
         }
+        return firSymbol.dispatchReceiverType(analysisSession.firSymbolBuilder)
     }
 }
 

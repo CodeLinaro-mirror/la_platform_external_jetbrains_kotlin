@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.results.*
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.requireOrDescribe
+import org.jetbrains.kotlin.utils.addIfNotNull
 
 abstract class AbstractConeCallConflictResolver(
     private val specificityComparator: TypeSpecificityComparator,
@@ -39,6 +40,9 @@ abstract class AbstractConeCallConflictResolver(
 
         if (!call1.isExpect && call2.isExpect) return true
         if (call1.isExpect && !call2.isExpect) return false
+
+        if (call1.contextReceiverCount > call2.contextReceiverCount) return true
+        if (call1.contextReceiverCount < call2.contextReceiverCount) return false
 
         return createEmptyConstraintSystem().isSignatureNotLessSpecific(
             call1,
@@ -111,9 +115,9 @@ abstract class AbstractConeCallConflictResolver(
         return FlatSignature(
             call,
             (variable as? FirProperty)?.typeParameters?.map { it.symbol.toLookupTag() }.orEmpty(),
-            listOfNotNull(variable.receiverTypeRef?.coneType),
+            computeSignatureTypes(call, variable),
             variable.receiverTypeRef != null,
-            0, // TODO
+            variable.contextReceivers.size,
             false,
             0,
             (variable as? FirProperty)?.isExpect == true,
@@ -125,10 +129,10 @@ abstract class AbstractConeCallConflictResolver(
         return FlatSignature(
             call,
             constructor.typeParameters.map { it.symbol.toLookupTag() },
-            computeParameterTypes(call, constructor),
+            computeSignatureTypes(call, constructor),
             //constructor.receiverTypeRef != null,
             false,
-            0, // TODO
+            constructor.contextReceivers.size,
             constructor.valueParameters.any { it.isVararg },
             call.numDefaults,
             constructor.isExpect,
@@ -140,9 +144,9 @@ abstract class AbstractConeCallConflictResolver(
         return FlatSignature(
             call,
             function.typeParameters.map { it.symbol.toLookupTag() },
-            computeParameterTypes(call, function),
+            computeSignatureTypes(call, function),
             function.receiverTypeRef != null,
-            0, // TODO
+            function.contextReceivers.size,
             function.valueParameters.any { it.isVararg },
             call.numDefaults,
             function.isExpect,
@@ -156,13 +160,24 @@ abstract class AbstractConeCallConflictResolver(
         return type
     }
 
-    private fun computeParameterTypes(
+    private fun computeSignatureTypes(
         call: Candidate,
-        function: FirFunction
+        called: FirCallableDeclaration
     ): List<ConeKotlinType> {
-        return listOfNotNull(function.receiverTypeRef?.coneType) +
-                (call.resultingTypeForCallableReference?.typeArguments?.map { it as ConeKotlinType }
-                    ?: call.argumentMapping?.map { it.value.argumentType() }.orEmpty())
+        return buildList {
+            addIfNotNull(called.receiverTypeRef?.coneType)
+            val typeForCallableReference = call.resultingTypeForCallableReference
+            if (typeForCallableReference != null) {
+                // Return type isn't needed here       v
+                typeForCallableReference.typeArguments.dropLast(1)
+                    .mapTo(this) {
+                        (it as ConeKotlinType).removeTypeVariableTypes(inferenceComponents.session.typeContext)
+                    }
+            } else {
+                called.contextReceivers.mapTo(this) { it.typeRef.coneType }
+                call.argumentMapping?.mapTo(this) { it.value.argumentType() }
+            }
+        }
     }
 
     private fun createFlatSignature(call: Candidate, klass: FirClassLikeDeclaration): FlatSignature<Candidate> {

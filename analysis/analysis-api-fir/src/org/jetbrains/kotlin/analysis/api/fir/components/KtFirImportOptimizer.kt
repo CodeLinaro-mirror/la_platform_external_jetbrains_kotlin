@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.analysis.api.components.KtImportOptimizerResult
 import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
 import org.jetbrains.kotlin.analysis.api.fir.utils.computeImportableName
 import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirModuleResolveState
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
@@ -41,7 +41,7 @@ import org.jetbrains.kotlin.util.OperatorNameConventions
 
 internal class KtFirImportOptimizer(
     override val token: ValidityToken,
-    private val firResolveState: FirModuleResolveState
+    private val firResolveState: LLFirModuleResolveState
 ) : KtImportOptimizer() {
     private val firSession: FirSession
         get() = firResolveState.rootModuleSession
@@ -119,11 +119,15 @@ internal class KtFirImportOptimizer(
 
             override fun visitResolvedTypeRef(resolvedTypeRef: FirResolvedTypeRef) {
                 processTypeRef(resolvedTypeRef)
+
+                resolvedTypeRef.delegatedTypeRef?.accept(this)
                 super.visitTypeRef(resolvedTypeRef)
             }
 
             override fun visitErrorTypeRef(errorTypeRef: FirErrorTypeRef) {
                 processTypeRef(errorTypeRef)
+
+                errorTypeRef.delegatedTypeRef?.accept(this)
                 super.visitErrorTypeRef(errorTypeRef)
             }
 

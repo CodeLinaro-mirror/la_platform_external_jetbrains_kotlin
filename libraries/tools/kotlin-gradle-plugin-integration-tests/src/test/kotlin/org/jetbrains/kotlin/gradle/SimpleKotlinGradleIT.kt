@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 
-@SimpleGradlePluginTests
+@JvmGradlePluginTests
 @DisplayName("KGP simple tests")
 class SimpleKotlinGradleIT : KGPBaseTest() {
 
@@ -68,7 +68,7 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
     fun testLanguageVersion(gradleVersion: GradleVersion) {
         project("languageVersion", gradleVersion) {
             buildAndFail("build") {
-                assertOutputContains("Suspend function type is not allowed as supertypes")
+                assertOutputContains("Suspend function type is allowed as a supertype only since version 1.6")
             }
         }
     }
@@ -91,17 +91,6 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
                 assertFileInProjectExists("build/classes/kotlin/main/META-INF/FLAG.kotlin_module")
                 assertFileInProjectNotExists("build/classes/kotlin/main/META-INF/moduleName.kotlin_module")
                 assertOutputDoesNotContain("Argument -module-name is passed multiple times")
-            }
-        }
-    }
-
-    @GradleTest
-    @DisplayName("Should use custom JDK to compile sources")
-    fun testCustomJdk(gradleVersion: GradleVersion) {
-        project("customJdk", gradleVersion) {
-            buildAndFail("build") {
-                assertOutputContains("Unresolved reference: stream")
-                assertOutputDoesNotContain("Unresolved reference: AutoCloseable")
             }
         }
     }
@@ -186,7 +175,6 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
         project(
             projectName = "buildSrcUsingKotlinCompilationAndKotlinPlugin",
             gradleVersion,
-            forceOutput = true
         ) {
             listOf(
                 "compileClasspath",
@@ -210,18 +198,6 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
     }
 
     @GradleTest
-    @DisplayName("useExperimentalAnnotation should produce deprecation warning")
-    fun testUseExperimentalAnnotationShouldProduceWarning(gradleVersion: GradleVersion) {
-        project("optInAnnotation", gradleVersion, buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
-            build("assemble") {
-                assertOutputContains("-opt-in=kotlin.RequiresOptIn")
-                assertOutputContains("-opt-in=FooAnnotation")
-                assertOutputContains("is deprecated and will be removed in next major releases")
-            }
-        }
-    }
-
-    @GradleTest
     @DisplayName("Should be compatible with project isolation")
     @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_1, maxVersion = TestVersions.Gradle.G_7_1)
     fun testProjectIsolation(gradleVersion: GradleVersion) {
@@ -231,6 +207,40 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(configurationCache = true, projectIsolation = true),
         ) {
             build(":main-project:compileKotlin")
+        }
+    }
+
+    @DisplayName("Proper Gradle plugin variant is used")
+    @GradleTestVersions(additionalVersions = [TestVersions.Gradle.G_7_0])
+    @GradleTest
+    internal fun pluginVariantIsUsed(gradleVersion: GradleVersion) {
+        project("kotlinProject", gradleVersion) {
+            build("tasks") {
+                val expectedVariant = if (gradleVersion < GradleVersion.version("7.0")) {
+                    "main"
+                } else {
+                    "gradle70"
+                }
+
+                assertOutputContains("Using Kotlin Gradle Plugin $expectedVariant variant")
+            }
+        }
+    }
+
+    @DisplayName("Validate Gradle plugins inputs")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.MAX_SUPPORTED) // Always should use only latest Gradle version
+    @GradleTest
+    internal fun validatePluginInputs(gradleVersion: GradleVersion) {
+        project("kotlinProject", gradleVersion) {
+            buildGradle.modify {
+                """
+                plugins {
+                    id "validate-external-gradle-plugin"
+                ${it.substringAfter("plugins {")}
+                """.trimIndent()
+            }
+
+            build("validateExternalPlugins")
         }
     }
 }

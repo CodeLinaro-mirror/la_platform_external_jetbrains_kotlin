@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.fir.tree.generator
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.KtSourceFileLinesMapping
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -13,7 +15,7 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.tree.generator.context.generatedType
 import org.jetbrains.kotlin.fir.tree.generator.context.type
-import org.jetbrains.kotlin.fir.types.ConeClassErrorType
+import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.name.ClassId
@@ -23,6 +25,8 @@ import org.jetbrains.kotlin.types.SmartcastStability
 import org.jetbrains.kotlin.types.Variance
 
 val sourceElementType = type(KtSourceElement::class)
+val sourceFileType = type(KtSourceFile::class)
+val sourceFileLinesMappingType = type(KtSourceFileLinesMapping::class)
 val jumpTargetType = type("fir", "FirTarget")
 val constKindType = type("types", "ConstantValueKind")
 val operationType = type("fir.expressions", "FirOperation")
@@ -55,7 +59,7 @@ val emptyCfgReferenceType = generatedType("references.impl", "FirEmptyControlFlo
 val noReceiverExpressionType = generatedType("expressions.impl", "FirNoReceiverExpression")
 val implicitTypeRefType = generatedType("types.impl", "FirImplicitTypeRefImpl")
 val firQualifierPartType = type("fir.types", "FirQualifierPart")
-val coneClassErrorTypeType = type(ConeClassErrorType::class)
+val ConeErrorTypeType = type(ConeErrorType::class)
 val simpleNamedReferenceType = generatedType("references.impl", "FirSimpleNamedReference")
 val explicitThisReferenceType = generatedType("references.impl", "FirExplicitThisReference")
 val explicitSuperReferenceType = generatedType("references.impl", "FirExplicitSuperReference")

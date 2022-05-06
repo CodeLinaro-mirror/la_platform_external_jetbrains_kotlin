@@ -16,16 +16,14 @@ import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.backend.js.lower.ES6AddInternalParametersToConstructorPhase.ES6_INIT_BOX_PARAMETER
 import org.jetbrains.kotlin.ir.backend.js.lower.ES6AddInternalParametersToConstructorPhase.ES6_RESULT_TYPE_PARAMETER
-import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
-import org.jetbrains.kotlin.ir.backend.js.utils.isExportedInterface
-import org.jetbrains.kotlin.ir.backend.js.utils.isJsExport
-import org.jetbrains.kotlin.ir.backend.js.utils.sanitizeName
+import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.keysToMap
@@ -34,7 +32,6 @@ class ExportModelGenerator(
     val context: JsIrBackendContext,
     val generateNamespacesForPackages: Boolean
 ) {
-
     fun generateExport(file: IrPackageFragment): List<ExportedDeclaration> {
         val namespaceFqName = file.fqName
         val exports = file.declarations.flatMap { declaration -> listOfNotNull(exportDeclaration(declaration)) }
@@ -61,16 +58,16 @@ class ExportModelGenerator(
         return when (candidate) {
             is IrSimpleFunction -> exportFunction(candidate)
             is IrProperty -> exportProperty(candidate)
-            is IrClass -> {
-                if (candidate.isEnumClass) {
-                    exportEnumClass(candidate)
-                } else {
-                    exportClass(candidate)
-                }
-            }
+            is IrClass -> exportClass(candidate)
             is IrField -> null
             else -> error("Can't export declaration $candidate")
         }
+    }
+
+    private fun exportClass(candidate: IrClass) = if (candidate.isEnumClass) {
+        exportEnumClass(candidate)
+    } else {
+        exportOrdinaryClass(candidate)
     }
 
     private fun exportFunction(function: IrSimpleFunction): ExportedDeclaration? {
@@ -83,7 +80,7 @@ class ExportModelGenerator(
                     function.getExportedIdentifier(),
                     returnType = exportType(function.returnType),
                     parameters = (listOfNotNull(function.extensionReceiverParameter) + function.valueParameters).map { exportParameter(it) },
-                    typeParameters = function.typeParameters.map { it.name.identifier },
+                    typeParameters = function.typeParameters.map(::exportTypeParameter),
                     isMember = parent is IrClass,
                     isStatic = function.isStaticMethodOfClass,
                     isAbstract = parent is IrClass && !parent.isInterface && function.modality == Modality.ABSTRACT,
@@ -110,7 +107,11 @@ class ExportModelGenerator(
         if (parameterName in allReservedWords)
             parameterName = "_$parameterName"
 
-        return ExportedParameter(parameterName, exportType(parameter.type))
+        return ExportedParameter(
+            parameterName,
+            exportType(parameter.type),
+            parameter.origin == JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER
+        )
     }
 
     private fun exportProperty(property: IrProperty): ExportedDeclaration? {
@@ -211,13 +212,13 @@ class ExportModelGenerator(
             }
         }
 
-        if (klass.isInline)
+        if (klass.isSingleFieldValueClass)
             return Exportability.Prohibited("Inline class ${klass.fqNameWhenAvailable}")
 
         return Exportability.Allowed
     }
 
-    private fun exportClass(
+    private fun exportOrdinaryClass(
         klass: IrClass
     ): ExportedDeclaration? {
         when (val exportability = classExportability(klass)) {
@@ -441,6 +442,25 @@ class ExportModelGenerator(
         return ExportedType.ErrorType("UnknownType ${type.render()}")
     }
 
+    private fun exportTypeParameter(typeParameter: IrTypeParameter): ExportedType.TypeParameter {
+        val constraint = typeParameter.superTypes.asSequence()
+            .filter { it != context.irBuiltIns.anyNType }
+            .map(::exportType)
+            .filter { it !is ExportedType.ErrorType && it !is ExportedType.ImplicitlyExportedType }
+            .toList()
+
+        return ExportedType.TypeParameter(
+            typeParameter.name.identifier,
+            constraint.run {
+                when (size) {
+                    0 -> null
+                    1 -> single()
+                    else -> reduce(ExportedType::IntersectionType)
+                }
+            }
+        )
+    }
+
     private fun exportType(type: IrType): ExportedType {
         if (type is IrDynamicType)
             return ExportedType.Primitive.Any
@@ -449,7 +469,7 @@ class ExportModelGenerator(
             return ExportedType.ErrorType("NonSimpleType ${type.render()}")
 
         val classifier = type.classifier
-        val isNullable = type.hasQuestionMark
+        val isMarkedNullable = type.isMarkedNullable()
         val nonNullType = type.makeNotNull() as IrSimpleType
 
         val exportedType = when {
@@ -484,8 +504,8 @@ class ExportModelGenerator(
 
             classifier is IrClassSymbol -> {
                 val klass = classifier.owner
-                val isImplicitlyExported = !klass.isExported(context)
-                val name = if (generateNamespacesForPackages) klass.fqNameWhenAvailable!!.asString() else klass.name.asString()
+                val isImplicitlyExported = !klass.isExported(context) && !klass.isExternal
+                val name = klass.getExportableName()
 
                 when (klass.kind) {
                     ClassKind.ANNOTATION_CLASS,
@@ -508,7 +528,20 @@ class ExportModelGenerator(
             else -> error("Unexpected classifier $classifier")
         }
 
-        return exportedType.withNullability(isNullable)
+        return exportedType.withNullability(isMarkedNullable)
+    }
+
+    private fun IrClass.getExportableName(): String {
+        val qualifier = (parent as? IrFile)?.getJsQualifier()
+        val supQualifier = (parent as? IrClass)?.getExportableName()
+        val name = getJsNameOrKotlinName()
+
+        return when {
+            qualifier != null -> "$qualifier.$name"
+            isExternal && !isExported(context) -> "${supQualifier?.plus(".") ?: ""}$name"
+            generateNamespacesForPackages -> fqNameWhenAvailable!!.asString()
+            else -> name.asString()
+        }
     }
 
     private fun IrDeclarationWithName.getExportedIdentifier(): String =
@@ -526,6 +559,7 @@ class ExportModelGenerator(
         if (function.isFakeOverride && !function.isAllowedFakeOverriddenDeclaration(context))
             return Exportability.NotNeeded
         if (function.origin == JsLoweredDeclarationOrigin.BRIDGE_WITHOUT_STABLE_NAME ||
+            function.origin == JsLoweredDeclarationOrigin.BRIDGE_PROPERTY_ACCESSOR ||
             function.origin == JsLoweredDeclarationOrigin.BRIDGE_WITH_STABLE_NAME ||
             function.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER ||
             function.origin == JsLoweredDeclarationOrigin.OBJECT_GET_INSTANCE_FUNCTION ||

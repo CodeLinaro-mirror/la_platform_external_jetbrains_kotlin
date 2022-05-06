@@ -16,17 +16,31 @@
 
 package org.jetbrains.kotlin.cli.common
 
+import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageUtil
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.IncrementalCompilation
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.isSubpackageOf
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.utils.KotlinPaths
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 import kotlin.system.exitProcess
+
+fun incrementalCompilationIsEnabled(arguments: CommonCompilerArguments): Boolean {
+    return arguments.incrementalCompilation ?: IncrementalCompilation.isEnabledForJvm()
+}
+
+fun incrementalCompilationIsEnabledForJs(arguments: CommonCompilerArguments): Boolean {
+    return arguments.incrementalCompilation ?: IncrementalCompilation.isEnabledForJs()
+}
 
 fun checkKotlinPackageUsage(configuration: CompilerConfiguration, files: Collection<KtFile>): Boolean {
     if (configuration.getBoolean(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE)) {
@@ -88,3 +102,4 @@ fun MessageCollector.toLogger(): Logger =
             report(CompilerMessageSeverity.LOGGING, message)
         }
     }
+

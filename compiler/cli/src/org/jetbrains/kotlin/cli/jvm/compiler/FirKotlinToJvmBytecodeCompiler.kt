@@ -10,11 +10,13 @@ import org.jetbrains.kotlin.asJava.FilteredJvmDiagnostics
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
+import org.jetbrains.kotlin.cli.common.CLICompiler
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.CommonCompilerPerformanceManager
 import org.jetbrains.kotlin.cli.common.checkKotlinPackageUsage
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
@@ -22,6 +24,7 @@ import org.jetbrains.kotlin.cli.jvm.config.jvmModularRoots
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
@@ -79,8 +82,28 @@ object FirKotlinToJvmBytecodeCompiler {
 
         messageCollector.report(
             STRONG_WARNING,
-            "ATTENTION!\n This build uses in-dev FIR: \n  -Xuse-fir"
+            "ATTENTION!\n This build uses experimental K2 compiler: \n  -Xuse-k2"
         )
+
+        projectConfiguration.get(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)?.let { pluginComponentRegistrars ->
+            val nonScriptPlugins = pluginComponentRegistrars.filter {
+                it::class.java.canonicalName != CLICompiler.SCRIPT_PLUGIN_REGISTRAR_NAME
+            }
+            if (nonScriptPlugins.isNotEmpty()) {
+                messageCollector.report(
+                    CompilerMessageSeverity.ERROR,
+                    "Compiler plugins are enabled with K2 compiler.\n K2 does not support plugins yet, so please remove -Xuse-k2 flag"
+                )
+                return false
+            }
+        }
+        if (projectConfiguration.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects)) {
+            messageCollector.report(
+                CompilerMessageSeverity.ERROR,
+                "K2 compiler does not support multi-platform projects yet, so please remove -Xuse-k2 flag"
+            )
+            return false
+        }
 
         val outputs = ArrayList<Pair<FirResult, GenerationState>>(chunk.size)
         val targetIds = projectConfiguration.get(JVMConfigurationKeys.MODULES)?.map(::TargetId)
@@ -88,16 +111,17 @@ object FirKotlinToJvmBytecodeCompiler {
         val isMultiModuleChunk = chunk.size > 1
 
         // TODO: run lowerings for all modules in the chunk, then run codegen for all modules.
-        val project = (projectEnvironment as? PsiBasedProjectEnvironment)?.project
+        val project = (projectEnvironment as? VfsBasedProjectEnvironment)?.project
         for (module in chunk) {
             val moduleConfiguration = projectConfiguration.applyModuleProperties(module, buildFile)
             val context = CompilationContext(
                 module,
                 module.getSourceFiles(
-                    allSources, (projectEnvironment as? PsiBasedProjectEnvironment)?.localFileSystem, isMultiModuleChunk, buildFile
+                    allSources, (projectEnvironment as? VfsBasedProjectEnvironment)?.localFileSystem, isMultiModuleChunk, buildFile
                 ),
                 projectEnvironment,
                 messageCollector,
+                moduleConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME),
                 moduleConfiguration,
                 performanceManager,
                 targetIds,
@@ -111,7 +135,7 @@ object FirKotlinToJvmBytecodeCompiler {
         }
 
         val mainClassFqName: FqName? = runIf(chunk.size == 1 && projectConfiguration.get(JVMConfigurationKeys.OUTPUT_JAR) != null) {
-            findMainClass(outputs.single().first)
+            findMainClass(outputs.single().first.fir)
         }
 
         return writeOutputs(
@@ -129,12 +153,14 @@ object FirKotlinToJvmBytecodeCompiler {
 
         if (!checkKotlinPackageUsage(moduleConfiguration, allSources)) return null
 
+        val renderDiagnosticNames = moduleConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+
         val diagnosticsReporter = DiagnosticReporterFactory.createReporter()
         val firResult = runFrontend(allSources, diagnosticsReporter).also {
             performanceManager?.notifyAnalysisFinished()
         }
         if (firResult == null) {
-            FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector)
+            FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector, renderDiagnosticNames)
             return null
         }
 
@@ -154,7 +180,7 @@ object FirKotlinToJvmBytecodeCompiler {
             diagnosticsReporter
         )
 
-        FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector)
+        FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector, renderDiagnosticNames)
 
         performanceManager?.notifyIRGenerationFinished()
         performanceManager?.notifyGenerationFinished()
@@ -176,14 +202,14 @@ object FirKotlinToJvmBytecodeCompiler {
             AnalyzerWithCompilerReport.reportSyntaxErrors(ktFile, messageCollector).isHasErrors or errorsFound
         }
 
-        var sourceScope = (projectEnvironment as PsiBasedProjectEnvironment).getSearchScopeByPsiFiles(ktFiles) +
+        var sourceScope = (projectEnvironment as VfsBasedProjectEnvironment).getSearchScopeByPsiFiles(ktFiles) +
                 projectEnvironment.getSearchScopeForProjectJavaSources()
 
         var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
 
         val providerAndScopeForIncrementalCompilation = createComponentsForIncrementalCompilation(sourceScope)
 
-        providerAndScopeForIncrementalCompilation?.scope?.let {
+        providerAndScopeForIncrementalCompilation?.precompiledBinariesFileScope?.let {
             librariesScope -= it
         }
 
@@ -198,6 +224,7 @@ object FirKotlinToJvmBytecodeCompiler {
             platform: TargetPlatform,
             analyzerServices: PlatformDependentAnalyzerServices,
             sourceScope: AbstractProjectFileSearchScope,
+            needRegisterJavaElementFinder: Boolean,
             dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit = {}
         ): FirSession {
             return createSessionWithDependencies(
@@ -212,6 +239,7 @@ object FirKotlinToJvmBytecodeCompiler {
                 lookupTracker = moduleConfiguration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
                 providerAndScopeForIncrementalCompilation,
                 firExtensionRegistrars,
+                needRegisterJavaElementFinder,
                 dependenciesConfigurator = {
                     dependencies(moduleConfiguration.jvmClasspathRoots.map { it.toPath() })
                     dependencies(moduleConfiguration.jvmModularRoots.map { it.toPath() })
@@ -235,7 +263,8 @@ object FirKotlinToJvmBytecodeCompiler {
                 "${module.getModuleName()}-common",
                 CommonPlatforms.defaultCommonPlatform,
                 CommonPlatformAnalyzerServices,
-                commonSourcesScope
+                commonSourcesScope,
+                needRegisterJavaElementFinder = false
             )
         }
 
@@ -243,7 +272,8 @@ object FirKotlinToJvmBytecodeCompiler {
             module.getModuleName(),
             JvmPlatforms.unspecifiedJvmPlatform,
             JvmPlatformAnalyzerServices,
-            sourceScope
+            sourceScope,
+            needRegisterJavaElementFinder = true
         ) {
             if (commonSession != null) {
                 sourceDependsOnDependencies(listOf(commonSession.moduleData))
@@ -267,7 +297,7 @@ object FirKotlinToJvmBytecodeCompiler {
 
     private fun CompilationContext.createComponentsForIncrementalCompilation(
         sourceScope: AbstractProjectFileSearchScope
-    ): FirSessionFactory.ProviderAndScopeForIncrementalCompilation? {
+    ): FirSessionFactory.IncrementalCompilationContext? {
         if (targetIds == null || incrementalComponents == null) return null
         val directoryWithIncrementalPartsFromPreviousCompilation =
             moduleConfiguration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
@@ -281,7 +311,7 @@ object FirKotlinToJvmBytecodeCompiler {
             projectEnvironment.getPackagePartProvider(sourceScope),
             targetIds.map(incrementalComponents::getIncrementalCache)
         )
-        return FirSessionFactory.ProviderAndScopeForIncrementalCompilation(packagePartProvider, incrementalCompilationScope)
+        return FirSessionFactory.IncrementalCompilationContext(emptyList(), packagePartProvider, incrementalCompilationScope)
     }
 
     private fun CompilationContext.runBackend(
@@ -300,11 +330,8 @@ object FirKotlinToJvmBytecodeCompiler {
         )
 
         val generationState = GenerationState.Builder(
-            (projectEnvironment as PsiBasedProjectEnvironment).project, ClassBuilderFactories.BINARIES,
-            moduleFragment.descriptor, dummyBindingContext, ktFiles,
-            moduleConfiguration
-        ).codegenFactory(
-            codegenFactory
+            (projectEnvironment as VfsBasedProjectEnvironment).project, ClassBuilderFactories.BINARIES,
+            moduleFragment.descriptor, dummyBindingContext, moduleConfiguration
         ).withModule(
             module
         ).onIndependentPartCompilationEnd(
@@ -321,6 +348,7 @@ object FirKotlinToJvmBytecodeCompiler {
 
         performanceManager?.notifyIRLoweringStarted()
         generationState.beforeCompile()
+        generationState.oldBEInitTrace(ktFiles)
         codegenFactory.generateModuleInFrontendIRMode(
             generationState, moduleFragment, symbolTable, extensions, FirJvmBackendExtension(session, components)
         ) {
@@ -337,7 +365,8 @@ object FirKotlinToJvmBytecodeCompiler {
                 generationState.collectedExtraJvmDiagnostics,
                 dummyBindingContext.diagnostics
             ),
-            messageCollector
+            messageCollector,
+            renderDiagnosticName
         )
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
 
@@ -349,6 +378,7 @@ object FirKotlinToJvmBytecodeCompiler {
         val allSources: List<KtFile>,
         val projectEnvironment: AbstractProjectEnvironment,
         val messageCollector: MessageCollector,
+        val renderDiagnosticName: Boolean,
         val moduleConfiguration: CompilerConfiguration,
         val performanceManager: CommonCompilerPerformanceManager?,
         val targetIds: List<TargetId>?,
@@ -357,38 +387,38 @@ object FirKotlinToJvmBytecodeCompiler {
         val firExtensionRegistrars: List<FirExtensionRegistrar>,
         val irGenerationExtensions: Collection<IrGenerationExtension>
     )
+}
 
-    private fun findMainClass(firResult: FirResult): FqName? {
-        // TODO: replace with proper main function detector, KT-44557
-        val compatibleClasses = mutableListOf<FqName>()
-        val visitor = object : FirVisitorVoid() {
-            lateinit var file: FirFile
+fun findMainClass(fir: List<FirFile>): FqName? {
+    // TODO: replace with proper main function detector, KT-44557
+    val compatibleClasses = mutableListOf<FqName>()
+    val visitor = object : FirVisitorVoid() {
+        lateinit var file: FirFile
 
-            override fun visitElement(element: FirElement) {}
+        override fun visitElement(element: FirElement) {}
 
-            override fun visitFile(file: FirFile) {
-                this.file = file
-                file.acceptChildren(this)
-            }
-
-            override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
-                if (simpleFunction.name.asString() != "main") return
-                if (simpleFunction.typeParameters.isNotEmpty()) return
-                when (simpleFunction.valueParameters.size) {
-                    0 -> {}
-                    1 -> {
-                        val parameterType = simpleFunction.valueParameters.single().returnTypeRef.coneType
-                        if (!parameterType.isArrayType || parameterType.arrayElementType()?.isString != true) return
-                    }
-                    else -> return
-                }
-
-                compatibleClasses += FqName.fromSegments(
-                    file.packageFqName.pathSegments().map { it.asString() } + "${file.name.removeSuffix(".kt").capitalize()}Kt"
-                )
-            }
+        override fun visitFile(file: FirFile) {
+            this.file = file
+            file.acceptChildren(this)
         }
-        firResult.fir.forEach { it.accept(visitor) }
-        return compatibleClasses.singleOrNull()
+
+        override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
+            if (simpleFunction.name.asString() != "main") return
+            if (simpleFunction.typeParameters.isNotEmpty()) return
+            when (simpleFunction.valueParameters.size) {
+                0 -> {}
+                1 -> {
+                    val parameterType = simpleFunction.valueParameters.single().returnTypeRef.coneType
+                    if (!parameterType.isArrayType || parameterType.arrayElementType()?.isString != true) return
+                }
+                else -> return
+            }
+
+            compatibleClasses += FqName.fromSegments(
+                file.packageFqName.pathSegments().map { it.asString() } + "${file.name.removeSuffix(".kt").capitalize()}Kt"
+            )
+        }
     }
+    fir.forEach { it.accept(visitor) }
+    return compatibleClasses.singleOrNull()
 }

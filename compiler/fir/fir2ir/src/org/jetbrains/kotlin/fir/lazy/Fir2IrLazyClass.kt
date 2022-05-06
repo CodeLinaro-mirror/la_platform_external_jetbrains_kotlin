@@ -57,8 +57,11 @@ class Fir2IrLazyClass(
     override val descriptor: ClassDescriptor
         get() = symbol.descriptor
 
-    override val name: Name
+    override var name: Name
         get() = fir.name
+        set(_) {
+            throw UnsupportedOperationException()
+        }
 
     @Suppress("SetterBackingFieldAssignment")
     override var visibility: DescriptorVisibility = components.visibilityConverter.convertToDescriptorVisibility(fir.visibility)
@@ -93,7 +96,7 @@ class Fir2IrLazyClass(
     override val isExternal: Boolean
         get() = fir.isExternal
 
-    override val isInline: Boolean
+    override val isValue: Boolean
         get() = fir.isInline
 
     override val isExpect: Boolean
@@ -131,8 +134,8 @@ class Fir2IrLazyClass(
         receiver
     }
 
-    override var inlineClassRepresentation: InlineClassRepresentation<IrSimpleType>?
-        get() = computeInlineClassRepresentation(fir)
+    override var valueClassRepresentation: ValueClassRepresentation<IrSimpleType>?
+        get() = computeValueClassRepresentation(fir)
         set(_) {
             error("Mutating Fir2Ir lazy elements is not possible")
         }
@@ -192,6 +195,10 @@ class Fir2IrLazyClass(
                     result.addIfNotNull(declarationStorage.getIrPropertySymbol(it).owner as? IrDeclaration)
                 }
             }
+        }
+
+        with(classifierStorage) {
+            result.addAll(this@Fir2IrLazyClass.createContextReceiverFields(fir))
         }
 
         for (name in scope.getCallableNames()) {

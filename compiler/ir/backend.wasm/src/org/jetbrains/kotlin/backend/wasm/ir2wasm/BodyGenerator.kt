@@ -12,7 +12,10 @@ import org.jetbrains.kotlin.backend.common.ir.isOverridable
 import org.jetbrains.kotlin.backend.common.ir.returnType
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
 import org.jetbrains.kotlin.backend.wasm.WasmSymbols
-import org.jetbrains.kotlin.backend.wasm.utils.*
+import org.jetbrains.kotlin.backend.wasm.utils.getWasmArrayAnnotation
+import org.jetbrains.kotlin.backend.wasm.utils.getWasmOpAnnotation
+import org.jetbrains.kotlin.backend.wasm.utils.hasWasmNoOpCastAnnotation
+import org.jetbrains.kotlin.backend.wasm.utils.isCanonical
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.backend.js.utils.findUnitGetInstanceFunction
@@ -21,9 +24,13 @@ import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.defaultType
+import org.jetbrains.kotlin.ir.util.getInlineClassBackingField
+import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.wasm.ir.*
 
 class BodyGenerator(val context: WasmFunctionCodegenContext) : IrElementVisitorVoid {
@@ -99,25 +106,8 @@ class BodyGenerator(val context: WasmFunctionCodegenContext) : IrElementVisitorV
         }
     }
 
-    override fun <T> visitConst(expression: IrConst<T>) {
-        when (val kind = expression.kind) {
-            is IrConstKind.Null -> generateDefaultInitializerForType(context.transformType(expression.type), body)
-            is IrConstKind.Boolean -> body.buildConstI32(if (kind.valueOf(expression)) 1 else 0)
-            is IrConstKind.Byte -> body.buildConstI32(kind.valueOf(expression).toInt())
-            is IrConstKind.Short -> body.buildConstI32(kind.valueOf(expression).toInt())
-            is IrConstKind.Int -> body.buildConstI32(kind.valueOf(expression))
-            is IrConstKind.Long -> body.buildConstI64(kind.valueOf(expression))
-            is IrConstKind.Char -> body.buildConstI32(kind.valueOf(expression).code)
-            is IrConstKind.Float -> body.buildConstF32(kind.valueOf(expression))
-            is IrConstKind.Double -> body.buildConstF64(kind.valueOf(expression))
-            is IrConstKind.String -> {
-                body.buildConstI32Symbol(context.referenceStringLiteral(kind.valueOf(expression)))
-                body.buildConstI32(kind.valueOf(expression).length)
-                body.buildCall(context.referenceFunction(wasmSymbols.stringGetLiteral))
-            }
-            else -> error("Unknown constant kind")
-        }
-    }
+    override fun visitConst(expression: IrConst<*>): Unit =
+        generateConstExpression(expression, body, context)
 
     override fun visitGetField(expression: IrGetField) {
         val field: IrField = expression.symbol.owner
@@ -269,6 +259,13 @@ class BodyGenerator(val context: WasmFunctionCodegenContext) : IrElementVisitorV
             return
         }
 
+        // Range check intrinsic is a special case because it doesn't require arguments on the stack.
+        if (call.symbol == wasmSymbols.rangeCheck &&
+            backendContext.configuration.getNotNull(JSConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS) == false) {
+            body.buildGetUnit()
+            return
+        }
+
         val function: IrFunction = call.symbol.owner.realOverrideTarget
 
         call.dispatchReceiver?.let { generateExpression(it) }
@@ -282,7 +279,6 @@ class BodyGenerator(val context: WasmFunctionCodegenContext) : IrElementVisitorV
             }
         }
 
-
         if (tryToGenerateIntrinsicCall(call, function)) {
             if (function.returnType == irBuiltIns.unitType)
                 body.buildGetUnit()
@@ -295,7 +291,7 @@ class BodyGenerator(val context: WasmFunctionCodegenContext) : IrElementVisitorV
             val klass = function.parentAsClass
             if (!klass.isInterface) {
                 val classMetadata = context.getClassMetadata(klass.symbol)
-                val vfSlot = classMetadata.virtualMethods.map { it.function }.indexOf(function)
+                val vfSlot = classMetadata.virtualMethods.indexOfFirst { it.function == function }
                 // Dispatch receiver should be simple and without side effects at this point
                 // TODO: Verify
                 generateExpression(call.dispatchReceiver!!)

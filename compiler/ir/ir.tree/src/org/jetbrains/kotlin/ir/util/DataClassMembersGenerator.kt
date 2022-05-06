@@ -10,11 +10,8 @@ import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.expressions.mapTypeParameters
-import org.jetbrains.kotlin.ir.expressions.mapValueParameters
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -36,7 +33,8 @@ abstract class DataClassMembersGenerator(
     val symbolTable: ReferenceSymbolTable,
     val irClass: IrClass,
     val origin: IrDeclarationOrigin,
-    val forbidDirectFieldAccess: Boolean = false
+    val forbidDirectFieldAccess: Boolean = false,
+    val generateBodies: Boolean = false
 ) {
     private val irPropertiesByDescriptor: Map<PropertyDescriptor, IrProperty> =
         irClass.properties.associateBy { it.descriptor }
@@ -128,7 +126,7 @@ abstract class DataClassMembersGenerator(
         fun generateEqualsMethodBody(properties: List<IrProperty>) {
             val irType = irClass.defaultType
 
-            if (!irClass.isInline) {
+            if (!irClass.isSingleFieldValueClass) {
                 +irIfThenReturnTrue(irEqeqeq(irThis(), irOther()))
             }
             +irIfThenReturnFalse(irNotIs(irOther(), irType))
@@ -303,10 +301,12 @@ abstract class DataClassMembersGenerator(
     // Entry for psi2ir
     fun generateCopyFunction(function: FunctionDescriptor, constructorSymbol: IrConstructorSymbol) {
         buildMember(function) {
-            function.valueParameters.forEach { parameter ->
-                putDefault(parameter, irGetProperty(irThis(), getProperty(parameter, null)!!))
+            if (generateBodies) {
+                function.valueParameters.forEach { parameter ->
+                    putDefault(parameter, irGetProperty(irThis(), getProperty(parameter, null)!!))
+                }
+                generateCopyFunction(constructorSymbol)
             }
-            generateCopyFunction(constructorSymbol)
         }
     }
 

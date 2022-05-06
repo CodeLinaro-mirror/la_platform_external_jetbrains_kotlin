@@ -25,7 +25,7 @@ class IrLazyClass(
     override val symbol: IrClassSymbol,
     @OptIn(ObsoleteDescriptorBasedAPI::class)
     override val descriptor: ClassDescriptor,
-    override val name: Name,
+    override var name: Name,
     override val kind: ClassKind,
     override var visibility: DescriptorVisibility,
     override var modality: Modality,
@@ -33,7 +33,7 @@ class IrLazyClass(
     override val isInner: Boolean,
     override val isData: Boolean,
     override val isExternal: Boolean,
-    override val isInline: Boolean,
+    override val isValue: Boolean,
     override val isExpect: Boolean,
     override val isFun: Boolean,
     override val stubGenerator: DeclarationStubGenerator,
@@ -100,9 +100,9 @@ class IrLazyClass(
         }
     }
 
-    override var inlineClassRepresentation: InlineClassRepresentation<IrSimpleType>? by lazyVar(stubGenerator.lock) {
-        descriptor.inlineClassRepresentation?.mapUnderlyingType {
-            it.toIrType() as? IrSimpleType ?: error("Inline class underlying type is not a simple type: ${render()}")
+    override var valueClassRepresentation: ValueClassRepresentation<IrSimpleType>? by lazyVar(stubGenerator.lock) {
+        descriptor.valueClassRepresentation?.mapUnderlyingType {
+            it.toIrType() as? IrSimpleType ?: error("Value class underlying type is not a simple type: ${render()}")
         }
     }
 

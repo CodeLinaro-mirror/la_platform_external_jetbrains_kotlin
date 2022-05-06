@@ -215,7 +215,11 @@ private fun doCompile(
 private fun analyze(sourceFiles: Collection<KtFile>, environment: KotlinCoreEnvironment): AnalysisResult {
     val messageCollector = environment.configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY]!!
 
-    val analyzerWithCompilerReport = AnalyzerWithCompilerReport(messageCollector, environment.configuration.languageVersionSettings)
+    val analyzerWithCompilerReport = AnalyzerWithCompilerReport(
+        messageCollector,
+        environment.configuration.languageVersionSettings,
+        environment.configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+    )
 
     analyzerWithCompilerReport.analyzeAndReport(sourceFiles) {
         val project = environment.project
@@ -240,18 +244,23 @@ private fun generate(
         ClassBuilderFactories.BINARIES,
         analysisResult.moduleDescriptor,
         analysisResult.bindingContext,
-        sourceFiles,
         kotlinCompilerConfiguration
-    ).codegenFactory(
-        if (kotlinCompilerConfiguration.getBoolean(JVMConfigurationKeys.IR))
-            JvmIrCodegenFactory(
-                kotlinCompilerConfiguration,
-                kotlinCompilerConfiguration.get(CLIConfigurationKeys.PHASE_CONFIG),
-            ) else DefaultCodegenFactory
     ).diagnosticReporter(
         diagnosticsReporter
     ).build().also {
-        KotlinCodegenFacade.compileCorrectFiles(it)
-        FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector)
+        KotlinCodegenFacade.compileCorrectFiles(
+            sourceFiles,
+            it,
+            if (kotlinCompilerConfiguration.getBoolean(JVMConfigurationKeys.IR))
+                JvmIrCodegenFactory(
+                    kotlinCompilerConfiguration,
+                    kotlinCompilerConfiguration.get(CLIConfigurationKeys.PHASE_CONFIG),
+                ) else DefaultCodegenFactory
+        )
+        FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(
+            diagnosticsReporter,
+            messageCollector,
+            kotlinCompilerConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+        )
     }
 }

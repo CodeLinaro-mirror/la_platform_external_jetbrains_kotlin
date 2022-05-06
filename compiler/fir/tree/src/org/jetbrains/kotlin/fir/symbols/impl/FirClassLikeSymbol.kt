@@ -10,10 +10,11 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 
 sealed class FirClassLikeSymbol<D : FirClassLikeDeclaration>(
@@ -21,9 +22,11 @@ sealed class FirClassLikeSymbol<D : FirClassLikeDeclaration>(
 ) : FirClassifierSymbol<D>() {
     abstract override fun toLookupTag(): ConeClassLikeLookupTag
 
+    val name get() = classId.shortClassName
+
     val deprecation: DeprecationsPerUseSite?
         get() {
-            ensureResolved(FirResolvePhase.STATUS)
+            ensureResolved(FirResolvePhase.COMPILER_REQUIRED_ANNOTATIONS)
             return fir.deprecation
         }
 
@@ -43,6 +46,9 @@ sealed class FirClassSymbol<C : FirClass>(classId: ClassId) : FirClassLikeSymbol
             @Suppress("UNCHECKED_CAST")
             return fir.superTypeRefs as List<FirResolvedTypeRef>
         }
+
+    val resolvedSuperTypes: List<ConeKotlinType>
+        get() = resolvedSuperTypeRefs.map { it.coneType }
 
     val declarationSymbols: List<FirBasedSymbol<*>>
         get() {

@@ -21,7 +21,8 @@ buildscript {
             }
         }
     }
+    val buildGradlePluginVersion = extra["kotlin.build.gradlePlugin.version"]
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.37")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:$buildGradlePluginVersion")
     }
 }

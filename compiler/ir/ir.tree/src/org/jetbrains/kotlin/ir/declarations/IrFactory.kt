@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -40,7 +40,7 @@ interface IrFactory {
         isInner: Boolean = false,
         isData: Boolean = false,
         isExternal: Boolean = false,
-        isInline: Boolean = false,
+        isValue: Boolean = false,
         isExpect: Boolean = false,
         isFun: Boolean = false,
         source: SourceElement = SourceElement.NO_SOURCE,
@@ -239,6 +239,4 @@ interface IrFactory {
         endOffset: Int,
         initializer: IrBlockBody.() -> Unit,
     ): IrBlockBody
-
-    fun unlistFunction(f: IrFunction) {}
 }

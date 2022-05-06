@@ -20,47 +20,51 @@ import com.intellij.navigation.ItemPresentation
 import com.intellij.navigation.ItemPresentationProviders
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Pair
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
-import com.intellij.psi.impl.PsiCachedValueImpl
-import com.intellij.psi.impl.PsiClassImplUtil
-import com.intellij.psi.impl.PsiImplUtil
-import com.intellij.psi.impl.PsiSuperMethodImplUtil
+import com.intellij.psi.impl.*
 import com.intellij.psi.impl.light.LightElement
-import com.intellij.psi.impl.source.PsiExtensibleClass
 import com.intellij.psi.javadoc.PsiDocComment
 import com.intellij.psi.scope.PsiScopeProcessor
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.PsiUtil
 import org.jetbrains.annotations.NonNls
 import org.jetbrains.kotlin.analysis.providers.createProjectWideOutOfBlockModificationTracker
-import org.jetbrains.kotlin.asJava.classes.KotlinClassInnerStuffCache
-import org.jetbrains.kotlin.asJava.classes.KotlinClassInnerStuffCache.Companion.processDeclarationsInEnum
-import org.jetbrains.kotlin.asJava.classes.KtLightClass
-import org.jetbrains.kotlin.asJava.classes.cannotModify
-import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.analysis.api.tokens.HackToForceAllowRunningAnalyzeOnEDT
 import org.jetbrains.kotlin.analysis.api.tokens.hackyAllowRunningOnEdt
+import org.jetbrains.kotlin.asJava.classes.*
+import org.jetbrains.kotlin.light.classes.symbol.classes.checkIsInheritor
 import javax.swing.Icon
 
-abstract class FirLightClassBase protected constructor(manager: PsiManager) : LightElement(manager, KotlinLanguage.INSTANCE), PsiClass,
-    KtLightClass, PsiExtensibleClass {
-
+abstract class FirLightClassBase protected constructor(
+    manager: PsiManager
+) : LightElement(manager, KotlinLanguage.INSTANCE), PsiClass, KtExtensibleLightClass {
     override val clsDelegate: PsiClass
         get() = invalidAccess()
 
     private class FirLightClassesLazyCreator(private val project: Project) : KotlinClassInnerStuffCache.LazyCreator() {
         @OptIn(HackToForceAllowRunningAnalyzeOnEDT::class)
-        override fun <T : Any> get(initializer: () -> T, dependencies: List<Any>): Lazy<T> = lazyPub {
-            PsiCachedValueImpl(PsiManager.getInstance(project)) {
+        override fun <T : Any> get(initializer: () -> T, dependencies: List<Any>): Lazy<T> = object : Lazy<T> {
+            private val cachedValue = PsiCachedValueImpl(PsiManager.getInstance(project)) {
                 CachedValueProvider.Result.create(hackyAllowRunningOnEdt(initializer), dependencies)
-            }.value ?: error("initializer cannot return null")
+            }
+
+            override val value: T
+                get() = cachedValue.value
+                    ?: error("Unexpected null value from PsiCachedValueImpl")
+
+            override fun isInitialized(): Boolean {
+                // Lazy is a bad interface here as it has unneeded and unused in LC `isInitialized` method
+                // considering Interface Segregation Principle, Lazy should be repaced with a simpler interface with only `value` method
+                error("Should not be called for LC")
+            }
         }
     }
 
     private val myInnersCache = KotlinClassInnerStuffCache(
         myClass = this@FirLightClassBase,
-        externalDependencies = listOf(manager.project.createProjectWideOutOfBlockModificationTracker()),
+        dependencies = listOf(manager.project.createProjectWideOutOfBlockModificationTracker()),
         lazyCreator = FirLightClassesLazyCreator(project)
     )
 
@@ -90,9 +94,6 @@ abstract class FirLightClassBase protected constructor(manager: PsiManager) : Li
     override fun processDeclarations(
         processor: PsiScopeProcessor, state: ResolveState, lastParent: PsiElement?, place: PsiElement
     ): Boolean {
-
-        if (isEnum && !processDeclarationsInEnum(processor, state, myInnersCache)) return false
-
         return PsiClassImplUtil.processDeclarationsInClass(
             this,
             processor,
@@ -103,6 +104,20 @@ abstract class FirLightClassBase protected constructor(manager: PsiManager) : Li
             PsiUtil.getLanguageLevel(place),
             false
         )
+    }
+
+    override fun isInheritor(baseClass: PsiClass, checkDeep: Boolean): Boolean {
+        if (manager.areElementsEquivalent(baseClass, this)) return false
+        LightClassInheritanceHelper.getService(project).isInheritor(this, baseClass, checkDeep).ifSure { return it }
+
+        val thisClassOrigin = kotlinOrigin
+        val baseClassOrigin = (baseClass as? KtLightClass)?.kotlinOrigin
+
+        return if (baseClassOrigin != null && thisClassOrigin != null) {
+            thisClassOrigin.checkIsInheritor(baseClassOrigin, checkDeep)
+        } else {
+            InheritanceImplUtil.isInheritor(this, baseClass, checkDeep)
+        }
     }
 
     override fun getText(): String = kotlinOrigin?.text ?: ""
@@ -159,6 +174,8 @@ abstract class FirLightClassBase protected constructor(manager: PsiManager) : Li
     override fun getVisibleSignatures(): MutableCollection<HierarchicalMethodSignature> = PsiSuperMethodImplUtil.getVisibleSignatures(this)
 
     override fun setName(name: String): PsiElement? = cannotModify()
+
+    override fun getTextRange(): TextRange? = kotlinOrigin?.textRange ?: TextRange.EMPTY_RANGE
 
     abstract override fun copy(): PsiElement
 

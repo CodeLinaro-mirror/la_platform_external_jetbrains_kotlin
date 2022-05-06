@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.gradle.testbase
 
+import org.jdom.CDATA
+import org.jdom.Content
 import org.jdom.Element
 import org.jdom.input.SAXBuilder
 import org.jdom.output.Format
@@ -28,7 +30,11 @@ fun GradleProject.assertTestResults(expectedTestReport: Path, vararg testReportN
     assertEquals(expectedTestResults, actualTestResults)
 }
 
-internal fun readAndCleanupTestResults(testReportDirs: List<Path>, projectPath: Path): String {
+internal fun readAndCleanupTestResults(
+    testReportDirs: List<Path>,
+    projectPath: Path,
+    cleanupStdOut: (String) -> String = { it }
+): String {
     val files = testReportDirs
         .flatMap {
             it.allFilesWithExtension("xml")
@@ -62,7 +68,21 @@ internal fun readAndCleanupTestResults(testReportDirs: List<Path>, projectPath: 
         e.attributes.forEach {
             if (it.name in skipAttrs) {
                 it.value = "..."
+            } else if (it.name == "name" &&
+                e.name == "testcase" &&
+                it.value.contains("[browser")
+            ) {
+                it.value = it.value.replace("\\[browser,.*]".toRegex(), "[browser]")
             }
+        }
+        if (e.name == "system-out") {
+            val content = e.content.map {
+                if (it.cType == Content.CType.CDATA) {
+                    (it as CDATA).text = cleanupStdOut(it.value)
+                }
+                it
+            }
+            e.setContent(content)
         }
 
         e.children.forEach {

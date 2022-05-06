@@ -20,12 +20,12 @@ import kotlin.math.max
 class NewConstraintSystemImpl(
     private val constraintInjector: ConstraintInjector,
     val typeSystemContext: TypeSystemInferenceExtensionContext
-) : TypeSystemInferenceExtensionContext by typeSystemContext,
+) : ConstraintSystemCompletionContext(),
+    TypeSystemInferenceExtensionContext by typeSystemContext,
     NewConstraintSystem,
     ConstraintSystemBuilder,
     ConstraintInjector.Context,
     ResultTypeResolver.Context,
-    ConstraintSystemCompletionContext,
     PostponedArgumentsAnalyzerContext
 {
     private val utilContext = constraintInjector.constraintIncorporator.utilContext
@@ -39,6 +39,8 @@ class NewConstraintSystemImpl(
     private val notProperTypesCache: MutableSet<KotlinTypeMarker> = SmartSet.create()
 
     private var couldBeResolvedWithUnrestrictedBuilderInference: Boolean = false
+
+    override var atCompletionState: Boolean = false
 
     private enum class State {
         BUILDING,
@@ -100,18 +102,21 @@ class NewConstraintSystemImpl(
         storage.missedConstraints.add(position to constraints)
     }
 
-    override fun asConstraintSystemCompleterContext() = apply { checkState(State.BUILDING) }
+    override fun asConstraintSystemCompleterContext() = apply {
+        checkState(State.BUILDING)
+
+        this.atCompletionState = true
+    }
 
     override fun asPostponedArgumentsAnalyzerContext() = apply { checkState(State.BUILDING) }
-
-    override fun asConstraintSystemCompletionContext(): ConstraintSystemCompletionContext = apply { checkState(State.BUILDING) }
 
     // ConstraintSystemOperation
     override fun registerVariable(variable: TypeVariableMarker) {
         checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
 
         transactionRegisterVariable(variable)
-        storage.allTypeVariables[variable.freshTypeConstructor()] = variable
+        storage.allTypeVariables.put(variable.freshTypeConstructor(), variable)
+            ?.let { error("Type variable already registered: old: $it, new: $variable") }
         notProperTypesCache.clear()
         storage.notFixedTypeVariables[variable.freshTypeConstructor()] = MutableVariableWithConstraints(this, variable)
     }
@@ -133,6 +138,10 @@ class NewConstraintSystemImpl(
 
     override fun removePostponedVariables() {
         storage.postponedTypeVariables.clear()
+    }
+
+    override fun substituteFixedVariables(substitutor: TypeSubstitutorMarker) {
+        storage.fixedTypeVariables.replaceAll { _, type -> substitutor.safeSubstitute(type) }
     }
 
     override fun putBuiltFunctionalExpectedTypeForPostponedArgument(
@@ -205,6 +214,7 @@ class NewConstraintSystemImpl(
         val beforeTypeVariablesTransactionSize = typeVariablesTransaction.size
         val beforeMissedConstraintsCount = storage.missedConstraints.size
         val beforeConstraintCountByVariables = storage.notFixedTypeVariables.mapValues { it.value.rawConstraintsCount }
+        val beforeConstraintsFromAllForks = storage.constraintsFromAllForkPoints.size
 
         state = State.TRANSACTION
         // typeVariablesTransaction is clear
@@ -220,6 +230,7 @@ class NewConstraintSystemImpl(
         storage.maxTypeDepthFromInitialConstraints = beforeMaxTypeDepthFromInitialConstraints
         storage.errors.trimToSize(beforeErrorsCount)
         storage.missedConstraints.trimToSize(beforeMissedConstraintsCount)
+        storage.constraintsFromAllForkPoints.trimToSize(beforeConstraintsFromAllForks)
 
         val addedInitialConstraints = storage.initialConstraints.subList(beforeInitialConstraintCount, storage.initialConstraints.size)
 
@@ -338,6 +349,54 @@ class NewConstraintSystemImpl(
             checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
             return storage.postponedTypeVariables
         }
+
+    override val constraintsFromAllForkPoints: MutableList<Pair<IncorporationConstraintPosition, ForkPointData>>
+        get() {
+            checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
+            return storage.constraintsFromAllForkPoints
+        }
+
+    override fun processForkConstraints() {
+        if (constraintsFromAllForkPoints.isEmpty()) return
+        val allForkPointsData = constraintsFromAllForkPoints.toList()
+        constraintsFromAllForkPoints.clear()
+
+        // There may be multiple fork points:
+        // - One from subtyping A<Int> & A<T> <: A<Xv>
+        // - Another one from B<String> & B<F> <: B<Yv>
+        // Each of them defines two sets of constraints, e.g. for the first for point:
+        // 1. {Xv=Int} – is a one-element set (but potentially there might be more constraints in the set)
+        // 2. {Xv=T} – second constraints set
+        for ((position, forkPointData) in allForkPointsData) {
+            if (!processForkPointData(forkPointData, position)) {
+                addError(NoSuccessfulFork(position))
+            }
+        }
+    }
+
+    /**
+     * @return true if there is a successful constraints set for the fork
+     */
+    private fun processForkPointData(
+        forkPointData: ForkPointData,
+        position: IncorporationConstraintPosition
+    ): Boolean {
+        return forkPointData.any { constraintSetForSingleFork ->
+            runTransaction {
+                constraintInjector.processForkConstraints(
+                    this@NewConstraintSystemImpl.apply { checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION) },
+                    constraintSetForSingleFork,
+                    position,
+                )
+
+                if (constraintsFromAllForkPoints.isNotEmpty()) {
+                    processForkConstraints()
+                }
+
+                !hasContradiction
+            }
+        }
+    }
 
     // ConstraintInjector.Context, KotlinConstraintSystemCompleter.Context
     override fun addError(error: ConstraintSystemError) {

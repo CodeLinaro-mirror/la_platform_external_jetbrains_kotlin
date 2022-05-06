@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 
-@Suppress("RemoveExplicitTypeArguments")
 object LanguageSettingsDirectives : SimpleDirectivesContainer() {
     val LANGUAGE by stringDirective(
         description = """
@@ -20,7 +19,6 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    @Suppress("RemoveExplicitTypeArguments")
     val API_VERSION by valueDirective<ApiVersion>(
         description = "Version of Kotlin API",
         parser = this::parseApiVersion
@@ -43,7 +41,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
         description = "Allow using Result in return type position"
     )
 
-    val EXPLICIT_API_MODE by enumDirective<ExplicitApiMode>(
+    val EXPLICIT_API_MODE by enumDirective(
         "Configures explicit API mode (AnalysisFlags.explicitApiMode)",
         additionalParser = ExplicitApiMode.Companion::fromString
     )
@@ -54,9 +52,14 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
 
     // --------------------- Jvm Analysis Flags ---------------------
 
-    val JVM_DEFAULT_MODE by enumDirective<JvmDefaultMode>(
+    val JVM_DEFAULT_MODE by enumDirective(
         description = "Configures corresponding analysis flag (JvmAnalysisFlags.jvmDefaultMode)",
         additionalParser = JvmDefaultMode.Companion::fromStringOrNull
+    )
+
+    val JDK_RELEASE by valueDirective(
+        description = "Configures corresponding release flag",
+        parser = Integer::valueOf
     )
 
     val INHERIT_MULTIFILE_PARTS by directive(
@@ -74,6 +77,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
     val DISABLE_CALL_ASSERTIONS by directive("Disable assertions on calls")
     val NO_UNIFIED_NULL_CHECKS by directive("No unified null checks")
     val PARAMETERS_METADATA by directive("Add parameters metadata for 1.8 reflection")
+    val USE_TYPE_TABLE by directive("Use type table in metadata serialization")
 
     // --------------------- Utils ---------------------
 

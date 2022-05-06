@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtRealSourceElementKind
+import org.jetbrains.kotlin.analysis.api.assertIsValidAndAccessible
 import org.jetbrains.kotlin.analysis.api.components.KtSymbolContainingDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirReceiverParameterSymbol
@@ -18,23 +19,20 @@ import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithKind
 import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.psi
-import org.jetbrains.kotlin.psi.KtDeclaration
-import org.jetbrains.kotlin.psi.KtDestructuringDeclaration
-import org.jetbrains.kotlin.psi.KtPrimaryConstructor
-import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.*
 
 internal class KtFirSymbolContainingDeclarationProvider(
     override val analysisSession: KtFirAnalysisSession,
     override val token: ValidityToken,
 ) : KtSymbolContainingDeclarationProvider(), KtFirAnalysisSessionComponent {
     override fun getContainingDeclaration(symbol: KtSymbol): KtSymbolWithKind? {
+        assertIsValidAndAccessible()
+
         if (symbol is KtReceiverParameterSymbol) {
-            return (symbol as KtFirReceiverParameterSymbol).firRef.withFir {
-                firSymbolBuilder.buildSymbol(it) as KtSymbolWithKind
-            }
+            return firSymbolBuilder.buildSymbol((symbol as KtFirReceiverParameterSymbol).firSymbol) as KtSymbolWithKind
         }
+
         if (symbol is KtPackageSymbol) return null
         if (symbol is KtSymbolWithKind && symbol.symbolKind == KtSymbolKind.TOP_LEVEL) return null
         if (symbol is KtCallableSymbol) {
@@ -47,11 +45,7 @@ internal class KtFirSymbolContainingDeclarationProvider(
         }
         return when (symbol) {
             is KtFirTypeParameterSymbol -> {
-                symbol.firRef.withFir { fir ->
-                    fir.containingDeclarationSymbol?.fir?.let { containingDeclaration ->
-                        firSymbolBuilder.buildSymbol(containingDeclaration) as KtSymbolWithKind
-                    }
-                }
+                firSymbolBuilder.buildSymbol(symbol.firSymbol.containingDeclarationSymbol) as KtSymbolWithKind
             }
             is KtSymbolWithKind -> when (symbol.origin) {
                 KtSymbolOrigin.SOURCE, KtSymbolOrigin.SOURCE_MEMBER_GENERATED ->
@@ -61,6 +55,7 @@ internal class KtFirSymbolContainingDeclarationProvider(
                 KtSymbolOrigin.PROPERTY_BACKING_FIELD -> getContainingDeclarationForBackingFieldSymbol(symbol)
                 KtSymbolOrigin.INTERSECTION_OVERRIDE -> TODO()
                 KtSymbolOrigin.SAM_CONSTRUCTOR -> null
+                KtSymbolOrigin.PLUGIN -> TODO("Containing declaration is requested for ${ DebugSymbolRenderer.render(symbol) }")
                 KtSymbolOrigin.DELEGATED -> TODO()
             }
             else -> null
@@ -86,13 +81,14 @@ internal class KtFirSymbolContainingDeclarationProvider(
     }
 
     private fun getContainingPsi(symbol: KtFirSymbol<*>): KtDeclaration {
-        val source = symbol.firRef.withFir(action = FirDeclaration::source)
+        val source = symbol.firSymbol.source
         val thisSource = when (source?.kind) {
             null -> error("PSI should present for declaration built by Kotlin code")
             KtFakeSourceElementKind.ImplicitConstructor ->
                 return source.psi as KtDeclaration
             KtFakeSourceElementKind.PropertyFromParameter -> return source.psi?.parentOfType<KtPrimaryConstructor>()!!
             KtFakeSourceElementKind.DefaultAccessor -> return source.psi as KtProperty
+            KtFakeSourceElementKind.ItLambdaParameter -> return source.psi as KtFunctionLiteral
             KtRealSourceElementKind -> source.psi!!
             else -> error("Unexpected FirSourceElement: kind=${source.kind} element=${source.psi!!::class.simpleName}")
         }

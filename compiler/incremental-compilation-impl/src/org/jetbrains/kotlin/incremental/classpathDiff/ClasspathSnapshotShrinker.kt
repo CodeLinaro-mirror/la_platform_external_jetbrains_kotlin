@@ -5,21 +5,24 @@
 
 package org.jetbrains.kotlin.incremental.classpathDiff
 
-import org.jetbrains.kotlin.build.report.metrics.*
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.BuildPerformanceMetric
+import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.build.report.metrics.measure
 import org.jetbrains.kotlin.incremental.ClasspathChanges
 import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.IncrementalRun.NoChanges
 import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.IncrementalRun.ToBeComputedByIncrementalCompiler
 import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.NotAvailableDueToMissingClasspathSnapshot
 import org.jetbrains.kotlin.incremental.ClasspathChanges.ClasspathSnapshotEnabled.NotAvailableForNonIncrementalRun
 import org.jetbrains.kotlin.incremental.LookupStorage
-import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotShrinker.shrink
+import org.jetbrains.kotlin.incremental.LookupSymbol
+import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotShrinker.shrinkClasses
+import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotShrinker.shrinkClasspath
 import org.jetbrains.kotlin.incremental.storage.ListExternalizer
 import org.jetbrains.kotlin.incremental.storage.LookupSymbolKey
 import org.jetbrains.kotlin.incremental.storage.loadFromFile
 import org.jetbrains.kotlin.incremental.storage.saveToFile
-import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 
 object ClasspathSnapshotShrinker {
@@ -27,27 +30,27 @@ object ClasspathSnapshotShrinker {
     /**
      * Shrinks the given classes by retaining only classes that are referenced by the lookup symbols stored in the given [LookupStorage].
      */
-    fun shrink(
-        allClasses: List<ClassSnapshotWithHash>,
+    fun shrinkClasspath(
+        allClasses: List<AccessibleClassSnapshot>,
         lookupStorage: LookupStorage,
-        metrics: BuildMetricsReporter = DoNothingBuildMetricsReporter
-    ): List<ClassSnapshotWithHash> {
-        val lookupSymbols = metrics.measure(BuildTime.GET_LOOKUP_SYMBOLS) {
+        metrics: MetricsReporter = MetricsReporter()
+    ): List<AccessibleClassSnapshot> {
+        val lookupSymbols = metrics.getLookupSymbols {
             lookupStorage.lookupSymbols
         }
-        return shrink(allClasses, lookupSymbols, metrics)
+        return shrinkClasses(allClasses, lookupSymbols, metrics)
     }
 
     /** Shrinks the given classes by retaining only classes that are referenced by the given lookup symbols. */
-    fun shrink(
-        allClasses: List<ClassSnapshotWithHash>,
+    fun shrinkClasses(
+        allClasses: List<AccessibleClassSnapshot>,
         lookupSymbols: Collection<LookupSymbolKey>,
-        metrics: BuildMetricsReporter = DoNothingBuildMetricsReporter
-    ): List<ClassSnapshotWithHash> {
-        val referencedClasses = metrics.measure(BuildTime.FIND_REFERENCED_CLASSES) {
+        metrics: MetricsReporter = MetricsReporter()
+    ): List<AccessibleClassSnapshot> {
+        val referencedClasses = metrics.findReferencedClasses {
             findReferencedClasses(allClasses, lookupSymbols)
         }
-        return metrics.measure(BuildTime.FIND_TRANSITIVELY_REFERENCED_CLASSES) {
+        return metrics.findTransitivelyReferencedClasses {
             findTransitivelyReferencedClasses(allClasses, referencedClasses)
         }
     }
@@ -55,33 +58,34 @@ object ClasspathSnapshotShrinker {
     /**
      * Finds classes that are referenced by the given lookup symbols.
      *
-     * Note: It's okay to over-approximate referenced classes.
+     * Note: It's okay to over-approximate the result.
      */
     private fun findReferencedClasses(
-        allClasses: List<ClassSnapshotWithHash>,
-        lookupSymbols: Collection<LookupSymbolKey>
-    ): List<ClassSnapshotWithHash> {
-        val potentialClassNamesOfReferencedClasses =
-            lookupSymbols.flatMap {
-                val lookupSymbolFqName = if (it.scope.isEmpty()) FqName(it.name) else FqName("${it.scope}.${it.name}")
-                listOf(
-                    lookupSymbolFqName, // If LookupSymbol refers to a class, the class's FqName will be captured here.
-                    FqName(it.scope) // If LookupSymbol refers to a class member, the class's FqName will be captured here.
-                )
-            }.toSet() // Use Set for presence check
-        val potentialPackageNamesOfReferencedPackageLevelMembers =
-            lookupSymbols.map {
-                FqName(it.scope) // If LookupSymbol refers to a package-level member, the package's FqName will be captured here.
-            }.toSet() // Use Set for presence check
+        allClasses: List<AccessibleClassSnapshot>,
+        lookupSymbolKeys: Collection<LookupSymbolKey>
+    ): List<AccessibleClassSnapshot> {
+        // Use LookupSymbolSet for efficiency
+        val lookupSymbols =
+            LookupSymbolSet(lookupSymbolKeys.asSequence().map { LookupSymbol(name = it.name, scope = it.scope) }.asIterable())
 
-        return allClasses.filter {
-            val classId = it.classSnapshot.getClassId()
-
-            (classId.asSingleFqName() in potentialClassNamesOfReferencedClasses) ||
-                    (it.classSnapshot is KotlinClassSnapshot
-                            && it.classSnapshot.classInfo.classKind != KotlinClassHeader.Kind.CLASS
-                            && classId.packageFqName in potentialPackageNamesOfReferencedPackageLevelMembers)
+        val referencedClasses = allClasses.filter { clazz ->
+            when (clazz) {
+                is RegularKotlinClassSnapshot, is JavaClassSnapshot -> {
+                    ClassSymbol(clazz.classId).toLookupSymbol() in lookupSymbols
+                            || lookupSymbols.getLookupNamesInScope(clazz.classId.asSingleFqName()).isNotEmpty()
+                }
+                is PackageFacadeKotlinClassSnapshot, is MultifileClassKotlinClassSnapshot -> {
+                    val lookupNamesInScope = lookupSymbols.getLookupNamesInScope(clazz.classId.packageFqName)
+                    if (lookupNamesInScope.isEmpty()) return@filter false
+                    val packageMemberNames = when (clazz) {
+                        is PackageFacadeKotlinClassSnapshot -> clazz.packageMemberNames
+                        else -> (clazz as MultifileClassKotlinClassSnapshot).constantNames
+                    }
+                    packageMemberNames.any { it in lookupNamesInScope }
+                }
+            }
         }
+        return referencedClasses
     }
 
     /**
@@ -91,10 +95,10 @@ object ClasspathSnapshotShrinker {
      * The returned list includes the given referenced classes plus the transitively referenced ones.
      */
     private fun findTransitivelyReferencedClasses(
-        allClasses: List<ClassSnapshotWithHash>,
-        referencedClasses: List<ClassSnapshotWithHash>
-    ): List<ClassSnapshotWithHash> {
-        val classIdToClassSnapshot = allClasses.associateBy { it.classSnapshot.getClassId() }
+        allClasses: List<AccessibleClassSnapshot>,
+        referencedClasses: List<AccessibleClassSnapshot>
+    ): List<AccessibleClassSnapshot> {
+        val classIdToClassSnapshot = allClasses.associateBy { it.classId }
         val classIds: Set<ClassId> = classIdToClassSnapshot.keys // Use Set for presence check
         val classNameToClassId = classIds.associateBy { JvmClassName.byClassId(it) }
         val classNameToClassIdResolver = { className: JvmClassName -> classNameToClassId[className] }
@@ -103,15 +107,30 @@ object ClasspathSnapshotShrinker {
             // No need to collect supertypes outside the given set of classes (e.g., "java/lang/Object")
             @Suppress("SimpleRedundantLet")
             classIdToClassSnapshot[classId]?.let {
-                it.classSnapshot.getSupertypes(classNameToClassIdResolver).filter { supertype -> supertype in classIds }.toSet()
+                it.getSupertypes(classNameToClassIdResolver).intersect(classIds)
             } ?: emptySet()
         }
 
-        val referencedClassIds = referencedClasses.map { it.classSnapshot.getClassId() }.toSet()
-        val transitivelyReferencedClassIds: Set<ClassId> =
-            ImpactAnalysis.findImpactedClassesInclusive(referencedClassIds, supertypesResolver) // Use Set for presence check
+        val referencedClassIds = referencedClasses.mapTo(mutableSetOf()) { it.classId }
+        val transitivelyReferencedClassIds: Set<ClassId> = /* Use Set for presence check */
+            ImpactAnalysis.findImpactedClassesInclusive(referencedClassIds, supertypesResolver)
 
-        return allClasses.filter { it.classSnapshot.getClassId() in transitivelyReferencedClassIds }
+        return allClasses.filter { it.classId in transitivelyReferencedClassIds }
+    }
+
+    /**
+     * Helper class to allow the caller of [ClasspathSnapshotShrinker] to provide a list of [BuildTime]s as different callers may want to
+     * record different [BuildTime]s (because the [BuildTime.parent]s are different).
+     */
+    class MetricsReporter(
+        private val metrics: BuildMetricsReporter? = null,
+        private val getLookupSymbols: BuildTime? = null,
+        private val findReferencedClasses: BuildTime? = null,
+        private val findTransitivelyReferencedClasses: BuildTime? = null
+    ) {
+        fun <T> getLookupSymbols(fn: () -> T) = metrics?.measure(getLookupSymbols!!, fn) ?: fn()
+        fun <T> findReferencedClasses(fn: () -> T) = metrics?.measure(findReferencedClasses!!, fn) ?: fn()
+        fun <T> findTransitivelyReferencedClasses(fn: () -> T) = metrics?.measure(findTransitivelyReferencedClasses!!, fn) ?: fn()
     }
 }
 
@@ -134,8 +153,8 @@ object ClasspathSnapshotShrinker {
  * snapshotting), even though it seems more efficient to do so. For correctness, we need to look at the entire classpath first, remove
  * duplicate classes, and then remove inaccessible classes.
  */
-internal fun ClasspathSnapshot.removeDuplicateAndInaccessibleClasses(): List<ClassSnapshotWithHash> {
-    return getNonDuplicateClassSnapshots().filter { it.classSnapshot !is InaccessibleClassSnapshot }
+internal fun ClasspathSnapshot.removeDuplicateAndInaccessibleClasses(): List<AccessibleClassSnapshot> {
+    return getNonDuplicateClassSnapshots().filterIsInstance<AccessibleClassSnapshot>()
 }
 
 /**
@@ -143,8 +162,8 @@ internal fun ClasspathSnapshot.removeDuplicateAndInaccessibleClasses(): List<Cla
  *
  * If there are duplicate classes on the classpath, retain only the first one to match the compiler's behavior.
  */
-internal fun ClasspathSnapshot.getNonDuplicateClassSnapshots(): List<ClassSnapshotWithHash> {
-    val classSnapshots = LinkedHashMap<String, ClassSnapshotWithHash>(classpathEntrySnapshots.sumOf { it.classSnapshots.size })
+private fun ClasspathSnapshot.getNonDuplicateClassSnapshots(): List<ClassSnapshot> {
+    val classSnapshots = LinkedHashMap<String, ClassSnapshot>(classpathEntrySnapshots.sumOf { it.classSnapshots.size })
     for (classpathEntrySnapshot in classpathEntrySnapshots) {
         for ((unixStyleRelativePath, classSnapshot) in classpathEntrySnapshot.classSnapshots) {
             classSnapshots.putIfAbsent(unixStyleRelativePath, classSnapshot)
@@ -155,17 +174,26 @@ internal fun ClasspathSnapshot.getNonDuplicateClassSnapshots(): List<ClassSnapsh
 
 /** Used by [shrinkAndSaveClasspathSnapshot]. */
 private sealed class ShrinkMode {
-    object NoChanges : ShrinkMode()
+    object UnchangedLookupsUnchangedClasspath : ShrinkMode()
 
-    class IncrementalNoNewLookups(
-        val shrunkCurrentClasspathAgainstPreviousLookups: List<ClassSnapshotWithHash>,
+    class UnchangedLookupsChangedClasspath(
+        val currentClasspathSnapshot: List<AccessibleClassSnapshot>,
+        val shrunkCurrentClasspathAgainstPreviousLookups: List<AccessibleClassSnapshot>
     ) : ShrinkMode()
 
-    class Incremental(
-        val currentClasspathSnapshot: List<ClassSnapshotWithHash>,
-        val shrunkCurrentClasspathAgainstPreviousLookups: List<ClassSnapshotWithHash>,
-        val addedLookupSymbols: Set<LookupSymbolKey>
-    ) : ShrinkMode()
+    sealed class ChangedLookups : ShrinkMode() {
+        abstract val addedLookupSymbols: Set<LookupSymbolKey>
+    }
+
+    class ChangedLookupsUnchangedClasspath(
+        override val addedLookupSymbols: Set<LookupSymbolKey>
+    ) : ChangedLookups()
+
+    class ChangedLookupsChangedClasspath(
+        override val addedLookupSymbols: Set<LookupSymbolKey>,
+        val currentClasspathSnapshot: List<AccessibleClassSnapshot>,
+        val shrunkCurrentClasspathAgainstPreviousLookups: List<AccessibleClassSnapshot>
+    ) : ChangedLookups()
 
     object NonIncremental : ShrinkMode()
 }
@@ -173,9 +201,9 @@ private sealed class ShrinkMode {
 internal fun shrinkAndSaveClasspathSnapshot(
     classpathChanges: ClasspathChanges.ClasspathSnapshotEnabled,
     lookupStorage: LookupStorage,
-    currentClasspathSnapshot: List<ClassSnapshotWithHash>?, // Not null iff classpathChanges is ToBeComputedByIncrementalCompiler
-    shrunkCurrentClasspathAgainstPreviousLookups: List<ClassSnapshotWithHash>?, // Same as above
-    metrics: BuildMetricsReporter
+    currentClasspathSnapshot: List<AccessibleClassSnapshot>?, // Not null iff classpathChanges is ToBeComputedByIncrementalCompiler
+    shrunkCurrentClasspathAgainstPreviousLookups: List<AccessibleClassSnapshot>?, // Not null iff classpathChanges is ToBeComputedByIncrementalCompiler
+    reporter: ClasspathSnapshotBuildReporter
 ) {
     // In the following, we'll try to shrink the classpath snapshot incrementally when possible.
     // For incremental shrinking, we currently use only lookupStorage.addedLookupSymbols, not lookupStorage.removedLookupSymbols. It is
@@ -185,33 +213,23 @@ internal fun shrinkAndSaveClasspathSnapshot(
         is NoChanges -> {
             val addedLookupSymbols = lookupStorage.addedLookupSymbols
             if (addedLookupSymbols.isEmpty()) {
-                ShrinkMode.NoChanges
+                ShrinkMode.UnchangedLookupsUnchangedClasspath
             } else {
-                val shrunkPreviousClasspathAgainstPreviousLookups =
-                    metrics.measure(BuildTime.LOAD_SHRUNK_PREVIOUS_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-                        ListExternalizer(ClassSnapshotWithHashExternalizer)
-                            .loadFromFile(classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile)
-                    }
-                ShrinkMode.Incremental(
-                    currentClasspathSnapshot = metrics.measure(BuildTime.LOAD_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-                        CachedClasspathSnapshotSerializer
-                            .load(classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles)
-                            .removeDuplicateAndInaccessibleClasses()
-                    },
-                    // In the current case, there are no classpath changes, so
-                    // shrunk[*Current*]ClasspathAgainstPreviousLookups == shrunk[*Previous*]ClasspathAgainstPreviousLookups
-                    shrunkCurrentClasspathAgainstPreviousLookups = shrunkPreviousClasspathAgainstPreviousLookups,
-                    addedLookupSymbols = addedLookupSymbols
-                )
+                ShrinkMode.ChangedLookupsUnchangedClasspath(addedLookupSymbols)
             }
         }
         is ToBeComputedByIncrementalCompiler -> {
             val addedLookupSymbols = lookupStorage.addedLookupSymbols
             if (addedLookupSymbols.isEmpty()) {
-                ShrinkMode.IncrementalNoNewLookups(shrunkCurrentClasspathAgainstPreviousLookups!!)
+                ShrinkMode.UnchangedLookupsChangedClasspath(
+                    currentClasspathSnapshot!!,
+                    shrunkCurrentClasspathAgainstPreviousLookups!!
+                )
             } else {
-                ShrinkMode.Incremental(
-                    currentClasspathSnapshot!!, shrunkCurrentClasspathAgainstPreviousLookups!!, addedLookupSymbols
+                ShrinkMode.ChangedLookupsChangedClasspath(
+                    addedLookupSymbols,
+                    currentClasspathSnapshot!!,
+                    shrunkCurrentClasspathAgainstPreviousLookups!!
                 )
             }
         }
@@ -219,53 +237,94 @@ internal fun shrinkAndSaveClasspathSnapshot(
     }
 
     // Shrink current classpath against current lookups
-    val shrunkCurrentClasspath: List<ClassSnapshotWithHash>? = when (shrinkMode) {
-        is ShrinkMode.NoChanges -> null
-        is ShrinkMode.IncrementalNoNewLookups -> {
-            // There are no new lookups, so
-            // shrunkCurrentClasspathAgainst[*Current*]Lookups == shrunkCurrentClasspathAgainst[*Previous*]Lookups
-            shrinkMode.shrunkCurrentClasspathAgainstPreviousLookups
+    val (currentClasspath: List<AccessibleClassSnapshot>?, shrunkCurrentClasspath: List<AccessibleClassSnapshot>?) = when (shrinkMode) {
+        is ShrinkMode.UnchangedLookupsUnchangedClasspath -> {
+            // There are no changes in the lookups and classpath, so there will be no changes in the shrunk classpath snapshot compared to
+            // the previous run. Return null here as we don't need to compute this.
+            null to null
         }
-        is ShrinkMode.Incremental -> metrics.measure(BuildTime.SHRINK_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-            val shrunkClasses = shrinkMode.shrunkCurrentClasspathAgainstPreviousLookups.map { it.classSnapshot.getClassId() }.toSet()
-            val notYetShrunkClasses = shrinkMode.currentClasspathSnapshot.filter { it.classSnapshot.getClassId() !in shrunkClasses }
-            // Don't provide a BuildMetricsReporter for the following call as the sub-BuildTimes in it have a different parent
-            val shrunkRemainingClassesAgainstNewLookups = shrink(notYetShrunkClasses, shrinkMode.addedLookupSymbols)
+        is ShrinkMode.UnchangedLookupsChangedClasspath -> {
+            // There are no changes in the lookups, so
+            // shrunkCurrentClasspathAgainst[*Current*]Lookups == shrunkCurrentClasspathAgainst[*Previous*]Lookups
+            shrinkMode.currentClasspathSnapshot to shrinkMode.shrunkCurrentClasspathAgainstPreviousLookups
+        }
+        is ShrinkMode.ChangedLookups -> reporter.measure(BuildTime.INCREMENTAL_SHRINK_CURRENT_CLASSPATH_SNAPSHOT) {
+            // There are changes in the lookups, so we will shrink incrementally.
+            val currentClasspath = reporter.measure(BuildTime.INCREMENTAL_LOAD_CURRENT_CLASSPATH_SNAPSHOT) {
+                when (shrinkMode) {
+                    is ShrinkMode.ChangedLookupsUnchangedClasspath ->
+                        CachedClasspathSnapshotSerializer
+                            .load(classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles, reporter)
+                            .removeDuplicateAndInaccessibleClasses()
+                    is ShrinkMode.ChangedLookupsChangedClasspath -> shrinkMode.currentClasspathSnapshot
+                }
+            }
+            val shrunkCurrentClasspathAgainstPrevLookups =
+                reporter.measure(BuildTime.INCREMENTAL_LOAD_SHRUNK_CURRENT_CLASSPATH_SNAPSHOT_AGAINST_PREVIOUS_LOOKUPS) {
+                    when (shrinkMode) {
+                        is ShrinkMode.ChangedLookupsUnchangedClasspath -> {
+                            // There are no changes in the classpath, so
+                            // shrunk[*Current*]ClasspathAgainstPreviousLookups == shrunk[*Previous*]ClasspathAgainstPreviousLookups
+                            ListExternalizer(AccessibleClassSnapshotExternalizer)
+                                .loadFromFile(classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile)
+                        }
+                        is ShrinkMode.ChangedLookupsChangedClasspath -> shrinkMode.shrunkCurrentClasspathAgainstPreviousLookups
+                    }
+                }
 
-            shrinkMode.shrunkCurrentClasspathAgainstPreviousLookups + shrunkRemainingClassesAgainstNewLookups
+            val shrunkClasses = shrunkCurrentClasspathAgainstPrevLookups.mapTo(mutableSetOf()) { it.classId }
+            val notYetShrunkClasses = currentClasspath.filter { it.classId !in shrunkClasses }
+            val shrunkRemainingClassesAgainstNewLookups = shrinkClasses(notYetShrunkClasses, shrinkMode.addedLookupSymbols)
+
+            val shrunkCurrentClasspath = shrunkCurrentClasspathAgainstPrevLookups + shrunkRemainingClassesAgainstNewLookups
+            currentClasspath to shrunkCurrentClasspath
         }
         is ShrinkMode.NonIncremental -> {
-            val classpathSnapshot = metrics.measure(BuildTime.LOAD_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-                CachedClasspathSnapshotSerializer
-                    .load(classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles)
-                    .removeDuplicateAndInaccessibleClasses()
-            }
-            metrics.measure(BuildTime.SHRINK_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-                // Don't provide a BuildMetricsReporter for the following call as the sub-BuildTimes in it have a different parent
-                shrink(classpathSnapshot, lookupStorage)
+            // Changes in the lookups and classpath are not available, so we will shrink non-incrementally.
+            reporter.measure(BuildTime.NON_INCREMENTAL_SHRINK_CURRENT_CLASSPATH_SNAPSHOT) {
+                val currentClasspath = reporter.measure(BuildTime.NON_INCREMENTAL_LOAD_CURRENT_CLASSPATH_SNAPSHOT) {
+                    CachedClasspathSnapshotSerializer
+                        .load(classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles, reporter)
+                        .removeDuplicateAndInaccessibleClasses()
+                }
+                val shrunkCurrentClasspath = shrinkClasspath(currentClasspath, lookupStorage)
+                currentClasspath to shrunkCurrentClasspath
             }
         }
     }
 
-    if (shrinkMode == ShrinkMode.NoChanges) {
-        // There are no updates to the file so just check that it exists
-        check(classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile.exists()) {
+    if (shrinkMode == ShrinkMode.UnchangedLookupsUnchangedClasspath) {
+        // There are no changes in the lookups and classpath, so there will be no changes in the shrunk classpath snapshot compared to the
+        // previous run. Just double-check that the file still exists.
+        check(classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile.isFile) {
             "File '${classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile.path}' does not exist"
         }
     } else {
-        metrics.measure(BuildTime.SAVE_SHRUNK_CURRENT_CLASSPATH_SNAPSHOT_AFTER_COMPILATION) {
-            ListExternalizer(ClassSnapshotWithHashExternalizer).saveToFile(
+        reporter.measure(BuildTime.SAVE_SHRUNK_CURRENT_CLASSPATH_SNAPSHOT) {
+            ListExternalizer(AccessibleClassSnapshotExternalizer).saveToFile(
                 classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile,
                 shrunkCurrentClasspath!!
             )
         }
     }
 
-    metrics.addMetric(
-        BuildPerformanceMetric.ORIGINAL_CLASSPATH_SNAPSHOT_SIZE,
+    reporter.reportVerbose {
+        "Shrunk current classpath snapshot after compilation (shrink mode = ${shrinkMode::class.simpleName})" + when (shrinkMode) {
+            is ShrinkMode.UnchangedLookupsUnchangedClasspath -> ", no updates since previous run"
+            else -> ", retained ${shrunkCurrentClasspath!!.size} / ${currentClasspath!!.size} classes"
+        }
+    }
+
+    reporter.addMetric(BuildPerformanceMetric.SHRINK_AND_SAVE_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, 1)
+    reporter.addMetric(
+        BuildPerformanceMetric.CLASSPATH_ENTRY_COUNT,
+        classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles.size.toLong()
+    )
+    reporter.addMetric(
+        BuildPerformanceMetric.CLASSPATH_SNAPSHOT_SIZE,
         classpathChanges.classpathSnapshotFiles.currentClasspathEntrySnapshotFiles.sumOf { it.length() }
     )
-    metrics.addMetric(
+    reporter.addMetric(
         BuildPerformanceMetric.SHRUNK_CLASSPATH_SNAPSHOT_SIZE,
         classpathChanges.classpathSnapshotFiles.shrunkPreviousClasspathSnapshotFile.length()
     )

@@ -6,9 +6,7 @@
 package org.jetbrains.kotlin.ir.util
 
 import com.intellij.util.containers.SLRUCache
-import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -20,7 +18,6 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
-import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import java.io.File
 
 val IrConstructor.constructedClass get() = this.parent as IrClass
@@ -129,6 +126,9 @@ val IrDeclaration.isPropertyAccessor get() =
 val IrDeclaration.isPropertyField get() =
     this is IrField && this.correspondingPropertySymbol != null
 
+val IrDeclaration.isJvmInlineClassConstructor get() =
+    this is IrSimpleFunction && name.asString() == "constructor-impl"
+
 val IrDeclaration.isTopLevelDeclaration get() =
     parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField
 
@@ -186,7 +186,8 @@ val IrFileEntry.lineStartOffsets: IntArray
 
 class NaiveSourceBasedFileEntryImpl(
     override val name: String,
-    private val lineStartOffsets: IntArray = intArrayOf()
+    private val lineStartOffsets: IntArray = intArrayOf(),
+    override val maxOffset: Int = UNDEFINED_OFFSET
 ) : IrFileEntry {
     val lineStartOffsetsAreEmpty: Boolean
         get() = lineStartOffsets.isEmpty()
@@ -215,15 +216,19 @@ class NaiveSourceBasedFileEntryImpl(
         if (offset == SYNTHETIC_OFFSET) return 0
         if (offset < 0) return -1
         val lineNumber = getLineNumber(offset)
-        return offset - lineStartOffsets[lineNumber]
+        return if (lineNumber < 0) -1 else offset - lineStartOffsets[lineNumber]
     }
 
-    override val maxOffset: Int
-        get() = UNDEFINED_OFFSET
-
-    override fun getSourceRangeInfo(beginOffset: Int, endOffset: Int): SourceRangeInfo {
-        return SourceRangeInfo(name, beginOffset, -1, -1, endOffset, -1, -1)
-    }
+    override fun getSourceRangeInfo(beginOffset: Int, endOffset: Int): SourceRangeInfo =
+        SourceRangeInfo(
+            filePath = name,
+            startOffset = beginOffset,
+            startLineNumber = getLineNumber(beginOffset),
+            startColumnNumber = getColumnNumber(beginOffset),
+            endOffset = endOffset,
+            endLineNumber = getLineNumber(endOffset),
+            endColumnNumber = getColumnNumber(endOffset)
+        )
 }
 
 private fun IrClass.getPropertyDeclaration(name: String): IrProperty? {
@@ -251,9 +256,6 @@ fun IrClass.getPropertySetter(name: String): IrSimpleFunctionSymbol? =
 fun IrClassSymbol.getSimpleFunction(name: String): IrSimpleFunctionSymbol? = owner.getSimpleFunction(name)
 fun IrClassSymbol.getPropertyGetter(name: String): IrSimpleFunctionSymbol? = owner.getPropertyGetter(name)
 fun IrClassSymbol.getPropertySetter(name: String): IrSimpleFunctionSymbol? = owner.getPropertySetter(name)
-
-inline fun MemberScope.findFirstFunction(name: String, predicate: (CallableMemberDescriptor) -> Boolean) =
-    getContributedFunctions(Name.identifier(name), NoLookupLocation.FROM_BACKEND).first(predicate)
 
 fun filterOutAnnotations(fqName: FqName, annotations: List<IrConstructorCall>): List<IrConstructorCall> {
     return annotations.filterNot { it.annotationClass.hasEqualFqName(fqName) }

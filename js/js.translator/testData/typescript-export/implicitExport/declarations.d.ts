@@ -31,5 +31,15 @@ declare namespace JS_TESTS {
         class F extends foo.A /* implements foo.NonExportedInterface */ {
             constructor();
         }
+        class G /* implements foo.NonExportedGenericInterface<foo.NonExportedType> */ {
+            constructor();
+        }
+        class H /* extends foo.NonExportedGenericType<foo.NonExportedType> */ {
+            constructor();
+        }
+        function baz(a: number): Promise<number>;
+        function bar(): Error;
+        const console: Console;
+        const error: WebAssembly.CompileError;
     }
 }

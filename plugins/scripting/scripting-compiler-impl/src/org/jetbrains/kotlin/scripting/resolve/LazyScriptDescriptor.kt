@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.annotations.FilteredAnnotations
 import org.jetbrains.kotlin.descriptors.impl.ClassConstructorDescriptorImpl
+import org.jetbrains.kotlin.descriptors.impl.PropertyDescriptorImpl
 import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl
 import org.jetbrains.kotlin.diagnostics.DiagnosticFactory1
 import org.jetbrains.kotlin.diagnostics.Errors
@@ -42,6 +43,7 @@ import org.jetbrains.kotlin.resolve.scopes.utils.addImportingScope
 import org.jetbrains.kotlin.resolve.source.toSourceElement
 import org.jetbrains.kotlin.scripting.definitions.*
 import org.jetbrains.kotlin.types.TypeSubstitutor
+import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.typeUtil.isNothing
 import org.jetbrains.kotlin.types.typeUtil.isUnit
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
@@ -272,7 +274,7 @@ class LazyScriptDescriptor(
         scriptCompilationConfiguration()[ScriptCompilationConfiguration.providedProperties].orEmpty()
             .mapNotNull { (name, type) ->
                 findTypeDescriptor(getScriptingClass(type), Errors.MISSING_SCRIPT_PROVIDED_PROPERTY_CLASS)
-                    ?.let { name.toValidJvmIdentifier() to it }
+                    ?.let { name.toValidJvmIdentifier() to it.defaultType.makeNullableAsSpecified(type.isNullable) }
             }.map { (name, classDescriptor) ->
                 ScriptProvidedPropertyDescriptor(
                     Name.identifier(name),
@@ -328,7 +330,7 @@ class LazyScriptDescriptor(
             )
 
         val earlierScriptsParameter = if (isReplScript) {
-            createValueParameter(Name.special("<earlierScripts>") to builtIns.array.defaultType)
+            createValueParameter(Name.special("<earlierScripts>") to builtIns.getArrayType(Variance.INVARIANT, builtIns.anyType))
         } else null
 
         val explicitParameters = baseExplicitParameters.map { it.copy(constructorDescriptor, it.name, paramsIndexBase++) }

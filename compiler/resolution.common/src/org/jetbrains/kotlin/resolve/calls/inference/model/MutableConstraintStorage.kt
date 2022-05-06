@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.resolve.calls.inference.model
 
+import org.jetbrains.kotlin.resolve.calls.inference.ForkPointData
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemUtilContext
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.types.model.*
@@ -59,8 +60,19 @@ class MutableVariableWithConstraints private constructor(
                 && previousConstraint.type == constraint.type
                 && previousConstraint.isNullabilityConstraint == constraint.isNullabilityConstraint
             ) {
+                val noNewCustomAttributes = with(context) {
+                    val previousType = previousConstraint.type
+                    val type = constraint.type
+                    (!previousType.hasCustomAttributes() && !type.hasCustomAttributes()) ||
+                            (previousType.getCustomAttributes() == type.getCustomAttributes())
+                }
+
                 if (newConstraintIsUseless(previousConstraint, constraint)) {
-                    return previousConstraint to false
+                    // Preserve constraints with different custom type attributes.
+                    // This allows us to union type attributes in NewCommonSuperTypeCalculator.kt
+                    if (noNewCustomAttributes) {
+                        return previousConstraint to false
+                    }
                 }
 
                 val isMatchingForSimplification = when (previousConstraint.kind) {
@@ -68,7 +80,7 @@ class MutableVariableWithConstraints private constructor(
                     ConstraintKind.UPPER -> constraint.kind.isLower()
                     ConstraintKind.EQUALITY -> true
                 }
-                if (isMatchingForSimplification) {
+                if (isMatchingForSimplification && noNewCustomAttributes) {
                     val actualConstraint = if (constraint.kind != ConstraintKind.EQUALITY) {
                         Constraint(
                             ConstraintKind.EQUALITY,
@@ -227,4 +239,6 @@ internal class MutableConstraintStorage : ConstraintStorage {
         LinkedHashMap()
     override val builtFunctionalTypesForPostponedArgumentsByExpectedTypeVariables: MutableMap<TypeConstructorMarker, KotlinTypeMarker> =
         LinkedHashMap()
+
+    override val constraintsFromAllForkPoints: MutableList<Pair<IncorporationConstraintPosition, ForkPointData>> = SmartList()
 }

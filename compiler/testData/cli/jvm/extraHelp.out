@@ -35,6 +35,9 @@ where advanced options include:
   -Xjava-package-prefix      Package prefix for Java files
   -Xjava-source-roots=<path> Paths to directories with Java source files
   -Xjavac-arguments=<option[,]> Java compiler arguments
+  -Xjdk-release=<version>    Compile against the specified JDK API version, similarly to javac's `-release`. Requires JDK 9 or newer.
+                             Supported versions depend on the used JDK; for JDK 17+ supported versions are 1.8, 9, 10, ..., 17.
+                             Also sets `-jvm-target` value equal to the selected JDK version
   -Xjspecify-annotations=ignore|strict|warn
                              Specify behavior for jspecify annotations.
                              Default value is 'warn'
@@ -78,6 +81,8 @@ where advanced options include:
                              -Xlambdas=indy                      Generate lambdas using `invokedynamic` with `LambdaMetafactory.metafactory`. Requires `-jvm-target 1.8` or greater.
                                                                  Lambda objects created using `LambdaMetafactory.metafactory` will have different `toString()`.
                              -Xlambdas=class                     Generate lambdas as explicit classes
+  -Xlink-via-signatures      Link JVM IR symbols via signatures, instead of descriptors.
+                             This mode is slower, but can be useful in troubleshooting problems with the JVM IR backend
   -Xno-call-assertions       Don't generate not-null assertions for arguments of platform types
   -Xno-kotlin-nothing-value-exception
                              Do not use KotlinNothingValueException available since 1.4
@@ -101,7 +106,7 @@ where advanced options include:
                              Debug option: Run compiler with async profiler and save snapshots to `outputDir`; `command` is passed to async-profiler on start.
                              `profilerPath` is a path to libasyncProfiler.so; async-profiler.jar should be on the compiler classpath.
                              If it's not on the classpath, the compiler will attempt to load async-profiler.jar from the containing directory of profilerPath.
-                             Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start,framebuf=50000000:<SNAPSHOT_DIR_PATH>
+                             Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start:<SNAPSHOT_DIR_PATH>
   -Xrepeat=<number>          Debug option: Repeats modules compilation <number> times
   -Xsam-conversions={class|indy} Select code generation scheme for SAM conversions.
                              -Xsam-conversions=indy              Generate SAM conversions using `invokedynamic` with `LambdaMetafactory.metafactory`. Requires `-jvm-target 1.8` or greater.
@@ -126,11 +131,14 @@ where advanced options include:
                              Specify behavior for Checker Framework compatqual annotations (NullableDecl/NonNullDecl).
                              Default value is 'enable'
   -Xsuppress-deprecated-jvm-target-warning
-                             Suppress deprecation warning about deprecated JVM target versions
+                             Suppress deprecation warning about deprecated JVM target versions.
+                             This option has no effect and will be deleted in a future version.
   -Xsuppress-missing-builtins-error
                              Suppress the "cannot access built-in declaration" error (useful with -no-stdlib)
   -Xtype-enhancement-improvements-strict-mode
-                             Enable strict mode for some improvements in the type enhancement for loaded Java types based on nullability annotations,including freshly supported reading of the type use annotations from class files. See KT-45671 for more details
+                             Enable strict mode for some improvements in the type enhancement for loaded Java types based on nullability annotations,
+                             including freshly supported reading of the type use annotations from class files.
+                             See KT-45671 for more details
   -Xuse-fast-jar-file-system Use fast implementation on Jar FS. This may speed up compilation time, but currently it's an experimental mode
   -Xuse-ir                   Use the IR backend. This option has no effect unless the language version less than 1.5 is used
   -Xuse-javac                Use javac for Java source and class files analysis
@@ -167,6 +175,8 @@ where advanced options include:
                              Use 'warning' level to issue warnings instead of errors.
   -Xextended-compiler-checks Enable additional compiler checks that might provide verbose diagnostic information for certain errors.
                              Warning: this mode is not backward-compatible and might cause compilation errors in previously compiled code.
+  -Xenable-incremental-compilation
+                             Enable incremental compilation
   -Xinference-compatibility  Enable compatibility changes for generic type inference algorithm
   -Xinline-classes           Enable experimental inline classes
   -Xintellij-plugin-root=<path> Path to the kotlin-compiler.jar or directory where IntelliJ configuration files can be found
@@ -179,7 +189,6 @@ where advanced options include:
   -Xno-check-actual          Do not check presence of 'actual' modifier in multi-platform projects
   -Xno-inline                Disable method inlining
   -Xklib-normalize-absolute-path Normalize absolute paths in klibs
-  -Xopt-in=<fq.name>         Enable usages of API that requires opt-in with an opt-in requirement marker with the given fully qualified name
   -Xphases-to-dump           Dump backend state both before and after these phases
   -Xphases-to-dump-after     Dump backend state after these phases
   -Xphases-to-dump-before    Dump backend state before these phases
@@ -191,6 +200,8 @@ where advanced options include:
   -Xproper-ieee754-comparisons Generate proper IEEE 754 comparisons in all cases if values are statically known to be of primitive numeric types
   -Xread-deserialized-contracts Enable reading of contracts from metadata
   -Xklib-relative-path-base  Provide a base paths to compute source's relative paths in klib (default is empty)
+  -Xrender-internal-diagnostic-names
+                             Render internal names of warnings and errors
   -Xreport-output-files      Report source to output files mapping
   -Xreport-perf              Report detailed performance statistics
   -Xself-upper-bound-inference Support inferring type arguments based on only self upper bounds of the corresponding type parameters
@@ -199,9 +210,10 @@ where advanced options include:
   -Xsuppress-version-warnings Suppress warnings about outdated, inconsistent or experimental language or API versions
   -Xunrestricted-builder-inference
                              Eliminate builder inference restrictions like allowance of returning type variables of a builder inference call
-  -Xuse-experimental=<fq.name> Enable, but don't propagate usages of experimental API for marker annotation with the given fully qualified name
-  -Xuse-fir                  Compile using Front-end IR. Warning: this feature is far from being production-ready
   -Xuse-fir-extended-checkers Use extended analysis mode based on Front-end IR. Warning: this feature is far from being production-ready
+  -Xuse-fir-ic               Compile using Front-end IR internal incremental compilation cycle. Warning: this feature is far from being production-ready
+  -Xuse-fir-lt               Compile using LightTree parser with Front-end IR. Warning: this feature is far from being production-ready
+  -Xuse-k2                   Compile using experimental K2. K2 is a new compiler pipeline, no compatibility guarantees are yet provided
   -Xuse-mixed-named-arguments Enable Support named arguments in their own position even if the result appears as mixed
   -Xverbose-phases           Be verbose while performing these backend phases
 

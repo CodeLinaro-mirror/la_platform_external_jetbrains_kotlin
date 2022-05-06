@@ -22,6 +22,7 @@ import com.intellij.psi.StubBasedPsiElement;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.tree.TokenSet;
 import com.intellij.psi.util.PsiTreeUtil;
+import kotlin.Pair;
 import kotlin.TuplesKt;
 import kotlin.collections.CollectionsKt;
 import org.jetbrains.annotations.NotNull;
@@ -46,7 +47,6 @@ import org.jetbrains.kotlin.resolve.*;
 import org.jetbrains.kotlin.resolve.bindingContextUtil.BindingContextUtilsKt;
 import org.jetbrains.kotlin.resolve.calls.ArgumentTypeResolver;
 import org.jetbrains.kotlin.resolve.calls.CallExpressionResolver;
-import org.jetbrains.kotlin.resolve.calls.util.CallUtilKt;
 import org.jetbrains.kotlin.resolve.calls.checkers.*;
 import org.jetbrains.kotlin.resolve.calls.inference.BuilderInferenceSession;
 import org.jetbrains.kotlin.resolve.calls.model.DataFlowInfoForArgumentsImpl;
@@ -63,17 +63,19 @@ import org.jetbrains.kotlin.resolve.calls.tasks.OldResolutionCandidate;
 import org.jetbrains.kotlin.resolve.calls.tasks.TracingStrategy;
 import org.jetbrains.kotlin.resolve.calls.tower.NewAbstractResolvedCall;
 import org.jetbrains.kotlin.resolve.calls.util.CallMaker;
+import org.jetbrains.kotlin.resolve.calls.util.CallUtilKt;
 import org.jetbrains.kotlin.resolve.checkers.UnderscoreChecker;
 import org.jetbrains.kotlin.resolve.constants.*;
 import org.jetbrains.kotlin.resolve.scopes.LexicalScopeKind;
 import org.jetbrains.kotlin.resolve.scopes.LexicalWritableScope;
 import org.jetbrains.kotlin.resolve.scopes.receivers.ContextReceiver;
 import org.jetbrains.kotlin.resolve.scopes.receivers.ExpressionReceiver;
-import org.jetbrains.kotlin.resolve.scopes.receivers.ExtensionReceiver;
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue;
 import org.jetbrains.kotlin.resolve.scopes.utils.ScopeUtilsKt;
 import org.jetbrains.kotlin.types.*;
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker;
+import org.jetbrains.kotlin.types.error.ErrorTypeKind;
+import org.jetbrains.kotlin.types.error.ErrorUtils;
 import org.jetbrains.kotlin.types.expressions.ControlStructureTypingUtils.ResolveConstruct;
 import org.jetbrains.kotlin.types.expressions.typeInfoFactory.TypeInfoFactoryKt;
 import org.jetbrains.kotlin.types.expressions.unqualifiedSuper.UnqualifiedSuperKt;
@@ -168,7 +170,9 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
 
     @Override
     public KotlinTypeInfo visitSimpleNameExpression(@NotNull KtSimpleNameExpression expression, ExpressionTypingContext context) {
-        ReservedCheckingKt.checkReservedYield(expression, context.trace);
+        if (!components.languageVersionSettings.supportsFeature(LanguageFeature.YieldIsNoMoreReserved)) {
+            ReservedCheckingKt.checkReservedYield(expression, context.trace);
+        }
 
         // TODO : other members
         // TODO : type substitutions???
@@ -400,7 +404,9 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
                 context.trace.report(NO_THIS.on(expression));
                 break;
             case SUCCESS:
-                result = resolutionResult.getReceiverParameterDescriptor().getType();
+                ReceiverParameterDescriptor descriptor = resolutionResult.getReceiverParameterDescriptor();
+                context.trace.record(THIS_REFERENCE_TARGET, expression.getInstanceReference(), descriptor);
+                result = descriptor.getType();
                 context.trace.recordType(expression.getInstanceReference(), result);
                 break;
         }
@@ -502,15 +508,22 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
                 context.trace.report(TYPE_ARGUMENTS_REDUNDANT_IN_SUPER_QUALIFIER.on(redundantTypeArguments));
             }
 
-            if (result != null && (validClassifier || validType)) {
+            if (!components.languageVersionSettings.supportsFeature(LanguageFeature.QualifiedSupertypeMayBeExtendedByOtherSupertype) &&
+                result != null &&
+                (validClassifier || validType)
+            ) {
                 checkResolvedExplicitlyQualifiedSupertype(context.trace, result, supertypes, superTypeQualifier);
             }
         }
         else {
             if (UnqualifiedSuperKt.isPossiblyAmbiguousUnqualifiedSuper(expression, supertypes)) {
-                Collection<KotlinType> supertypesResolvedFromContext =
+                Pair<Collection<KotlinType>, Boolean> supertypesResolvedFromContextWithEqualsMigration =
                         UnqualifiedSuperKt.resolveUnqualifiedSuperFromExpressionContext(
                                 expression, supertypes, components.builtIns.getAnyType());
+                Collection<KotlinType> supertypesResolvedFromContext = supertypesResolvedFromContextWithEqualsMigration.getFirst();
+                if (supertypesResolvedFromContextWithEqualsMigration.getSecond()) {
+                    context.trace.record(SUPER_EXPRESSION_FROM_ANY_MIGRATION, expression, true);
+                }
                 if (supertypesResolvedFromContext.size() == 1) {
                     KotlinType singleResolvedType = supertypesResolvedFromContext.iterator().next();
                     result = substitutor.substitute(singleResolvedType, Variance.INVARIANT);
@@ -751,15 +764,22 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
             return typeInfo.clearType();
         }
 
+        KtExpression deparenthesizedBaseExpression = KtPsiUtil.deparenthesize(baseExpression);
+
         // a[i]++/-- takes special treatment because it is actually let j = i, arr = a in arr.set(j, a.get(j).inc())
         if ((operationType == KtTokens.PLUSPLUS || operationType == KtTokens.MINUSMINUS) &&
-            baseExpression instanceof KtArrayAccessExpression) {
+            deparenthesizedBaseExpression instanceof KtArrayAccessExpression) {
             KtExpression stubExpression = ExpressionTypingUtils.createFakeExpressionOfType(
                     baseExpression.getProject(), context.trace, "e", type);
             TemporaryBindingTrace temporaryBindingTrace = TemporaryBindingTrace.create(
                     context.trace, "trace to resolve array access set method for unary expression", expression);
             ExpressionTypingContext newContext = context.replaceBindingTrace(temporaryBindingTrace);
-            resolveImplicitArrayAccessSetMethod((KtArrayAccessExpression) baseExpression, stubExpression, newContext, context.trace);
+            resolveImplicitArrayAccessSetMethod(
+                    (KtArrayAccessExpression) deparenthesizedBaseExpression,
+                    stubExpression,
+                    newContext,
+                    context.trace
+            );
         }
 
         // Resolve the operation reference
@@ -776,7 +796,7 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
         if (operationType == KtTokens.PLUSPLUS || operationType == KtTokens.MINUSMINUS) {
             assert returnType != null : "returnType is null for " + resolutionResults.getResultingDescriptor();
             if (KotlinBuiltIns.isUnit(returnType)) {
-                result = ErrorUtils.createErrorType(components.builtIns.getUnit().getName().asString());
+                result = ErrorUtils.createErrorType(ErrorTypeKind.UNIT_RETURN_TYPE_FOR_INC_DEC);
                 context.trace.report(INC_DEC_SHOULD_NOT_RETURN_UNIT.on(operationSign));
             }
             else {
@@ -843,7 +863,9 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
             context.trace.report(diagnosticFactory.on(operationSign));
             return baseTypeInfo != null ? baseTypeInfo : components.expressionTypingServices.getTypeInfo(baseExpression, context);
         }
-        assert baseTypeInfo != null : "Base expression was not processed: " + expression;
+        if (baseTypeInfo == null) {
+            return TypeInfoFactoryKt.noTypeInfo(context);
+        }
         KotlinType baseType = baseTypeInfo.getType();
         if (baseType == null) {
             return baseTypeInfo;
@@ -883,7 +905,9 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
             boolean isStatement
     ) {
         KtSimpleNameExpression labelExpression = expression.getTargetLabel();
-        ReservedCheckingKt.checkReservedYield(labelExpression, context.trace);
+        if (!components.languageVersionSettings.supportsFeature(LanguageFeature.YieldIsNoMoreReserved)) {
+            ReservedCheckingKt.checkReservedYield(labelExpression, context.trace);
+        }
         if (labelExpression != null) {
             PsiElement labelIdentifier = labelExpression.getIdentifier();
             UnderscoreChecker.INSTANCE.checkIdentifier(labelIdentifier, context.trace, components.languageVersionSettings);
@@ -902,7 +926,7 @@ public class BasicExpressionTypingVisitor extends ExpressionTypingVisitor {
     ) {
         if (ktType == null) return false;
 
-        if (KotlinTypeKt.isError(ktType) && !ErrorUtils.isUninferredParameter(ktType)) return false;
+        if (KotlinTypeKt.isError(ktType) && !ErrorUtils.isUninferredTypeVariable(ktType)) return false;
 
         if (!TypeUtils.isNullableType(ktType)) return true;
 

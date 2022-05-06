@@ -150,7 +150,9 @@ internal class FunctionsTypingVisitor(facade: ExpressionTypingInternals) : Expre
     }
 
     override fun visitLambdaExpression(expression: KtLambdaExpression, context: ExpressionTypingContext): KotlinTypeInfo? {
-        checkReservedYieldBeforeLambda(expression, context.trace)
+        if (!components.languageVersionSettings.supportsFeature(LanguageFeature.YieldIsNoMoreReserved)) {
+            checkReservedYieldBeforeLambda(expression, context.trace)
+        }
         if (!expression.functionLiteral.hasBody()) return null
 
         val expectedType = context.expectedType
@@ -246,7 +248,7 @@ internal class FunctionsTypingVisitor(facade: ExpressionTypingInternals) : Expre
                 return components.builtIns.unitType
             }
         }
-        return returnType ?: CANT_INFER_FUNCTION_PARAM_TYPE
+        return returnType ?: CANNOT_INFER_FUNCTION_PARAM_TYPE
     }
 
     private fun computeUnsafeReturnType(

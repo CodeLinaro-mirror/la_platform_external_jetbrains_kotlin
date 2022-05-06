@@ -44,7 +44,7 @@ internal class SingleNonLocalDeclarationDiagnosticRetriever(
         private val structureElementDeclaration: FirDeclaration,
         context: CheckerContext,
         components: List<AbstractDiagnosticCollectorComponent>
-    ) : FirIdeDiagnosticVisitor(context, components) {
+    ) : LLFirDiagnosticVisitor(context, components) {
         private var insideAlwaysVisitableDeclarations = 0
 
         override fun shouldVisitDeclaration(declaration: FirDeclaration): Boolean {
@@ -68,7 +68,7 @@ internal class SingleNonLocalDeclarationDiagnosticRetriever(
             if (shouldDiagnosticsAlwaysBeCheckedOn(this)) return true
             return when (this) {
                 is FirAnonymousInitializer -> true
-                is FirEnumEntry -> true
+                is FirEnumEntry -> false
                 is FirValueParameter -> true
                 is FirConstructor -> isPrimary
                 else -> false
@@ -104,7 +104,7 @@ internal object FileDiagnosticRetriever : FileStructureElementDiagnosticRetrieve
     private class Visitor(
         firFile: FirFile,
         components: List<AbstractDiagnosticCollectorComponent>
-    ) : FirIdeDiagnosticVisitor(
+    ) : LLFirDiagnosticVisitor(
         PersistentCheckerContextFactory.createEmptyPersistenceCheckerContext(SessionHolderImpl.createWithEmptyScopeSession(firFile.moduleData.session)),
         components,
     ) {

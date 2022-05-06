@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
@@ -194,7 +195,8 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 isVararg = INAPPLICABLE,
                 isSuspend = INAPPLICABLE,
                 isInner,
-                isInline,
+                isInline = false,
+                isValue,
                 isData,
                 isCompanion,
                 isFun,
@@ -254,6 +256,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
     enum / annotation / fun // as a modifier in `fun interface`
     companion
     inline
+    value
     infix
     operator
     data
@@ -271,6 +274,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         isSuspend: Boolean,
         isInner: Boolean,
         isInline: Boolean,
+        isValue: Boolean,
         isData: Boolean,
         isCompanion: Boolean,
         isFunInterface: Boolean,
@@ -305,6 +309,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         p(isSuspend, "suspend")
         p(isInner, "inner")
         p(isInline, "inline")
+        p(isValue, "value")
         p(isData, "data")
         p(isCompanion, "companion")
         p(isFunInterface, "fun")
@@ -418,13 +423,13 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         // TODO don't print `Any?` as upper bound?
         printAnnotationsWithNoIndent()
         when (this) {
-            is IrDefinitelyNotNullType -> {
-                p.printWithNoIndent("(")
-                original.printTypeWithNoIndent()
-                p.printWithNoIndent(" & Any)")
-            }
             is IrSimpleType -> {
                 // TODO abbreviation
+
+                val dnn = classifier is IrTypeParameterSymbol && nullability == SimpleTypeNullability.DEFINITELY_NOT_NULL
+                if (dnn) {
+                    p.printWithNoIndent("(")
+                }
 
                 p.printWithNoIndent((classifier.owner as IrDeclarationWithName).name.asString())
 
@@ -438,7 +443,11 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                     p.printWithNoIndent(">")
                 }
 
-                if (hasQuestionMark) p.printWithNoIndent("?")
+                if (dnn) {
+                    p.printWithNoIndent(" & Any)")
+                }
+
+                if (isMarkedNullable()) p.printWithNoIndent("?")
             }
             is IrDynamicType ->
                 p.printWithNoIndent("dynamic")
@@ -542,6 +551,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 isSuspend = INAPPLICABLE,
                 isInner = INAPPLICABLE,
                 isInline,
+                isValue = INAPPLICABLE,
                 isData = INAPPLICABLE,
                 isCompanion = INAPPLICABLE,
                 isFunInterface = INAPPLICABLE,
@@ -597,6 +607,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 isSuspend,
                 isInner = INAPPLICABLE,
                 isInline,
+                isValue = INAPPLICABLE,
                 isData = INAPPLICABLE,
                 isCompanion = INAPPLICABLE,
                 isFunInterface = INAPPLICABLE,
@@ -707,8 +718,9 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 isVararg = INAPPLICABLE,
                 isSuspend = getter?.isSuspend == true,
                 isInner = INAPPLICABLE,
-                // could be used on property if all all accessors have same state, otherwise must be defined on each accessor
+                // could be used on property if all accessors have same state, otherwise must be defined on each accessor
                 isInline = false,
+                isValue = INAPPLICABLE,
                 isData = INAPPLICABLE,
                 isCompanion = INAPPLICABLE,
                 isFunInterface = INAPPLICABLE,
@@ -797,6 +809,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                 isSuspend = INAPPLICABLE,
                 isInner = INAPPLICABLE,
                 isInline = INAPPLICABLE,
+                isValue = INAPPLICABLE,
                 isData = INAPPLICABLE,
                 isCompanion = INAPPLICABLE,
                 isFunInterface = INAPPLICABLE,
@@ -1172,7 +1185,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         }
     }
 
-    override fun <T> visitConst(expression: IrConst<T>, data: IrDeclaration?) {
+    override fun visitConst(expression: IrConst<*>, data: IrDeclaration?) {
         val kind = expression.kind
 
         val (prefix, postfix) = when (kind) {

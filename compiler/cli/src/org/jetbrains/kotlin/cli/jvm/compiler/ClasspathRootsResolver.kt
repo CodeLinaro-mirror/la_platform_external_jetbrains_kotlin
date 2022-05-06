@@ -55,7 +55,8 @@ class ClasspathRootsResolver(
     private val javaModuleFinder: CliJavaModuleFinder,
     private val requireStdlibModule: Boolean,
     private val outputDirectory: VirtualFile?,
-    private val javaFileManager: KotlinCliJavaFileManager
+    private val javaFileManager: KotlinCliJavaFileManager,
+    private val jdkRelease: Int?
 ) {
     val javaModuleGraph = JavaModuleGraph(javaModuleFinder)
 
@@ -124,8 +125,15 @@ class ClasspathRootsResolver(
                 modules += module
             }
         }
-
-        addModularRoots(modules, result)
+        if (jdkRelease == null || jdkRelease >= 9) {
+            addModularRoots(modules, result)
+        } else {
+            //TODO: see also `addJvmSdkRoots` usages, some refactoring is required with moving such logic into one place
+            val listFoldersForRelease = javaModuleFinder.listFoldersForRelease
+            listFoldersForRelease.forEach {
+                result += JavaRoot(it, JavaRoot.RootType.BINARY_SIG)
+            }
+        }
 
         return RootsAndModules(result, modules)
     }
@@ -277,8 +285,13 @@ class ClasspathRootsResolver(
             if (module == null) {
                 report(ERROR, "Module $moduleName cannot be found in the module graph")
             } else {
-                for ((root, isBinary) in module.moduleRoots) {
-                    result.add(JavaRoot(root, if (isBinary) JavaRoot.RootType.BINARY else JavaRoot.RootType.SOURCE))
+                module.moduleRoots.mapTo(result) { (root, isBinary, isBinarySignature) ->
+                    val type = when {
+                        isBinarySignature -> JavaRoot.RootType.BINARY_SIG
+                        isBinary -> JavaRoot.RootType.BINARY
+                        else -> JavaRoot.RootType.SOURCE
+                    }
+                    JavaRoot(root, type)
                 }
             }
         }

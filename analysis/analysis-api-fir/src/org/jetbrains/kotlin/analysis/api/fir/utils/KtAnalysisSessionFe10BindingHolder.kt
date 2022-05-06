@@ -5,11 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.utils
 
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirModuleResolveState
 import org.jetbrains.kotlin.analysis.api.InvalidWayOfUsingAnalysisSession
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
@@ -20,6 +15,11 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
+import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.psi.KtElement
 
@@ -29,10 +29,10 @@ class KtAnalysisSessionFe10BindingHolder private constructor(
 ) {
     val analysisSession: KtAnalysisSession get() = firAnalysisSession
 
-    val firResolveState: FirModuleResolveState get() = firAnalysisSession.firResolveState
+    val firResolveState: LLFirModuleResolveState get() = firAnalysisSession.firResolveState
 
     fun buildClassLikeSymbol(fir: FirClassLikeDeclaration): KtClassLikeSymbol =
-        firAnalysisSession.firSymbolBuilder.classifierBuilder.buildClassLikeSymbol(fir)
+        firAnalysisSession.firSymbolBuilder.classifierBuilder.buildClassLikeSymbol(fir.symbol)
 
     fun buildKtType(coneType: FirTypeRef): KtType =
         firAnalysisSession.firSymbolBuilder.typeBuilder.buildKtType(coneType)
@@ -41,13 +41,13 @@ class KtAnalysisSessionFe10BindingHolder private constructor(
 
     @Suppress("UNCHECKED_CAST", "NON_PUBLIC_CALL_FROM_PUBLIC_INLINE")
     inline fun <T : FirDeclaration, R> withFir(ktSymbol: KtSymbol, crossinline action: (T) -> R) =
-        (ktSymbol as KtFirSymbol<T>).firRef.withFir(action = action)
+        (ktSymbol as KtFirSymbol<*>).firSymbol.fir.let { action(it as T) }
 
-    fun toSignature(ktSymbol: KtSymbol): IdSignature = (ktSymbol as KtFirSymbol<*>).firRef.withFir { it.createSignature() }
+    fun toSignature(ktSymbol: KtSymbol): IdSignature = (ktSymbol as KtFirSymbol<*>).firSymbol.createSignature()
 
     companion object {
         @InvalidWayOfUsingAnalysisSession
-        fun create(firResolveState: FirModuleResolveState, token: ValidityToken, @Suppress("UNUSED_PARAMETER") ktElement: KtElement): KtAnalysisSessionFe10BindingHolder {
+        fun create(firResolveState: LLFirModuleResolveState, token: ValidityToken, @Suppress("UNUSED_PARAMETER") ktElement: KtElement): KtAnalysisSessionFe10BindingHolder {
             @Suppress("DEPRECATION")
             val firAnalysisSession = KtFirAnalysisSession.createAnalysisSessionByResolveState(firResolveState, token)
             return KtAnalysisSessionFe10BindingHolder(firAnalysisSession)
