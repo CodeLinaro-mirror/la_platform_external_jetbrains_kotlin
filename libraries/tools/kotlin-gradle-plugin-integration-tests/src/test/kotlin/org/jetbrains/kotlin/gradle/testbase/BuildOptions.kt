@@ -9,9 +9,10 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_CLASSPATH_SNAPSHOTS
 import org.jetbrains.kotlin.gradle.BaseGradleIT
 import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
+import org.jetbrains.kotlin.gradle.report.BuildReportType
+import java.util.*
 
 data class BuildOptions(
     val logLevel: LogLevel = LogLevel.INFO,
@@ -30,7 +31,9 @@ data class BuildOptions(
     val kaptOptions: KaptOptions? = null,
     val androidVersion: String? = null,
     val jsOptions: JsOptions? = null,
-    val buidReport: Boolean = false,
+    val buildReport: List<BuildReportType> = emptyList(),
+    val useFir: Boolean = false,
+    val usePreciseJavaTracking: Boolean? = null,
 ) {
     data class KaptOptions(
         val verbose: Boolean = false,
@@ -68,7 +71,7 @@ data class BuildOptions(
 
         if (gradleVersion >= GradleVersion.version("6.6.0")) {
             arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCache")
-            arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.toLowerCase()}")
+            arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.lowercase(Locale.getDefault())}")
         }
         if (gradleVersion >= GradleVersion.version("7.1")) {
             arguments.add("-Dorg.gradle.unsafe.isolated-projects=$projectIsolation")
@@ -85,7 +88,7 @@ data class BuildOptions(
         }
 
         useGradleClasspathSnapshot?.let { arguments.add("-P${COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM.property}=$it") }
-        useICClasspathSnapshot?.let { arguments.add("-D${COMPILE_INCREMENTAL_WITH_CLASSPATH_SNAPSHOTS.property}=$it") }
+        useICClasspathSnapshot?.let { arguments.add("-Pkotlin.incremental.classpath.snapshot.enabled=$it") }
 
         if (gradleVersion >= GradleVersion.version("6.5")) {
             if (fileSystemWatchEnabled) {
@@ -119,9 +122,16 @@ data class BuildOptions(
         }
         arguments.add("-Ptest_fixes_version=${TestVersions.Kotlin.CURRENT}")
 
-        if (buidReport) {
-            arguments.add("-Pkotlin.build.report.enable=true")
-            arguments.add("-Pkotlin.build.report.verbose=true")
+        if (buildReport.isNotEmpty()) {
+            arguments.add("-Pkotlin.build.report.output=${buildReport.joinToString()}")
+        }
+
+        if (useFir) {
+            arguments.add("-Pkotlin.useFir=true")
+        }
+
+        if (usePreciseJavaTracking != null) {
+            arguments.add("-Pkotlin.incremental.usePreciseJavaTracking=$usePreciseJavaTracking")
         }
         return arguments.toList()
     }

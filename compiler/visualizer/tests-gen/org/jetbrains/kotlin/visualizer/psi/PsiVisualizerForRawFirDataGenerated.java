@@ -70,6 +70,12 @@ public class PsiVisualizerForRawFirDataGenerated extends AbstractPsiVisualizerTe
         }
 
         @Test
+        @TestMetadata("contextReceivers.kt")
+        public void testContextReceivers() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contextReceivers.kt");
+        }
+
+        @Test
         @TestMetadata("delegates.kt")
         public void testDelegates() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/delegates.kt");
@@ -332,6 +338,12 @@ public class PsiVisualizerForRawFirDataGenerated extends AbstractPsiVisualizerTe
         }
 
         @Test
+        @TestMetadata("cascadeIf.kt")
+        public void testCascadeIf() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/cascadeIf.kt");
+        }
+
+        @Test
         @TestMetadata("classReference.kt")
         public void testClassReference() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/classReference.kt");
@@ -431,6 +443,24 @@ public class PsiVisualizerForRawFirDataGenerated extends AbstractPsiVisualizerTe
         @TestMetadata("qualifierWithTypeArguments.kt")
         public void testQualifierWithTypeArguments() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/qualifierWithTypeArguments.kt");
+        }
+
+        @Test
+        @TestMetadata("safeCallsWithAssignment.kt")
+        public void testSafeCallsWithAssignment() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/safeCallsWithAssignment.kt");
+        }
+
+        @Test
+        @TestMetadata("safeCallsWithAugmentedAssignment.kt")
+        public void testSafeCallsWithAugmentedAssignment() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/safeCallsWithAugmentedAssignment.kt");
+        }
+
+        @Test
+        @TestMetadata("safeCallsWithUnaryOperators.kt")
+        public void testSafeCallsWithUnaryOperators() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/safeCallsWithUnaryOperators.kt");
         }
 
         @Test

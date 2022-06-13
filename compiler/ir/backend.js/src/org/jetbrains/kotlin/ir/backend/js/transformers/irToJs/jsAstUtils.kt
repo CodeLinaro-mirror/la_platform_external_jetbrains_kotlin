@@ -126,18 +126,20 @@ fun translateCall(
             property != null &&
             (property.isEffectivelyExternal() || property.isExportedMember(context.staticContext.backendContext))
         ) {
-            val propertyName = context.getNameForProperty(property)
-            val nameRef = when (jsDispatchReceiver) {
-                null -> JsNameRef(propertyName)
-                else -> jsElementAccess(propertyName.ident, jsDispatchReceiver)
-            }
-            return when (function) {
-                property.getter -> nameRef
-                property.setter -> jsAssignment(nameRef, arguments.single())
-                else -> compilationException(
-                    "Function must be an accessor of corresponding property",
-                    function
-                )
+            if (function.overriddenSymbols.isEmpty() || function.overriddenStableProperty(context.staticContext.backendContext)) {
+                val propertyName = context.getNameForProperty(property)
+                val nameRef = when (jsDispatchReceiver) {
+                    null -> JsNameRef(propertyName)
+                    else -> jsElementAccess(propertyName.ident, jsDispatchReceiver)
+                }
+                return when (function) {
+                    property.getter -> nameRef
+                    property.setter -> jsAssignment(nameRef, arguments.single())
+                    else -> compilationException(
+                        "Function must be an accessor of corresponding property",
+                        function
+                    )
+                }
             }
         }
     }
@@ -319,6 +321,9 @@ fun argumentsWithVarargAsSingleArray(
     }
 }
 
+/**
+ * Returns the index of the vararg parameter of the function if there is one, otherwise returns -1.
+ */
 fun IrFunction.varargParameterIndex() = valueParameters.indexOfFirst { it.varargElementType != null }
 
 fun translateCallArguments(

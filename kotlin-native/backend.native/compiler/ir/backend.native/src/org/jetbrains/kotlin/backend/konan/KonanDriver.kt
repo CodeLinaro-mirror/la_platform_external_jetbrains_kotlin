@@ -5,12 +5,16 @@
 
 package org.jetbrains.kotlin.backend.konan
 
+import kotlinx.cinterop.usingJvmCInteropCallbacks
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.backend.common.phaser.CompilerPhase
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
+import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironment) {
@@ -30,13 +34,13 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
 
     if (!context.frontendPhase()) return
 
-    try {
-        toplevelPhase.cast<CompilerPhase<Context, Unit, Unit>>().invokeToplevel(context.phaseConfig, context, Unit)
-    } finally {
-        try {
-            context.disposeLlvm()
-        } finally {
-            context.freeNativeMem()
+    usingNativeMemoryAllocator {
+        usingJvmCInteropCallbacks {
+            try {
+                toplevelPhase.cast<CompilerPhase<Context, Unit, Unit>>().invokeToplevel(context.phaseConfig, context, Unit)
+            } finally {
+                context.disposeLlvm()
+            }
         }
     }
 }
@@ -46,8 +50,11 @@ internal fun Context.frontendPhase(): Boolean {
     lateinit var analysisResult: AnalysisResult
 
     do {
-        val analyzerWithCompilerReport = AnalyzerWithCompilerReport(messageCollector,
-                environment.configuration.languageVersionSettings)
+        val analyzerWithCompilerReport = AnalyzerWithCompilerReport(
+                messageCollector,
+                environment.configuration.languageVersionSettings,
+                environment.configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+        )
 
         // Build AST and binding info.
         analyzerWithCompilerReport.analyzeAndReport(environment.getSourceFiles()) {

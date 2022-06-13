@@ -7,14 +7,41 @@ package org.jetbrains.kotlin.gradle.testbase
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.testkit.runner.BuildResult
+import org.intellij.lang.annotations.Language
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.relativeTo
 
 private val kotlinSrcRegex by lazy { Regex("\\[KOTLIN] compile iteration: ([^\\r\\n]*)") }
 
 private val javaSrcRegex by lazy { Regex("\\[DEBUG] \\[[^]]*JavaCompiler] Compiler arguments: ([^\\r\\n]*)") }
+
+@Language("RegExp")
+private fun taskOutputRegex(
+    taskName: String
+) = """
+(?:
+\[LIFECYCLE] \[class org\.gradle(?:\.internal\.buildevents)?\.TaskExecutionLogger] :$taskName|
+\[org\.gradle\.execution\.(?:plan|taskgraph)\.Default(?:Task)?PlanExecutor] :$taskName.*?started
+)
+([\s\S]+?)
+(?:
+Finished executing task ':$taskName'|
+\[org\.gradle\.execution\.(?:plan|taskgraph)\.Default(?:Task)?PlanExecutor] :$taskName.*?completed
+)
+""".trimIndent()
+    .replace("\n", "")
+    .toRegex()
+
+/**
+ * Filter [BuildResult.getOutput] for specific task with given [taskName].
+ *
+ * Requires using [LogLevel.DEBUG].
+ */
+fun BuildResult.getOutputForTask(taskName: String): String = taskOutputRegex(taskName)
+    .find(output)
+    ?.let { it.groupValues[1] }
+    ?: error("Could not find output for task $taskName")
 
 /**
  * Extracts the list of compiled .kt files from the build output.
@@ -23,12 +50,10 @@ private val javaSrcRegex by lazy { Regex("\\[DEBUG] \\[[^]]*JavaCompiler] Compil
  *
  * Note: Log level of output must be set to [LogLevel.DEBUG].
  */
-fun extractCompiledKotlinFiles(projectDirectory: Path, output: String): List<Path> {
+fun extractCompiledKotlinFiles(output: String): List<Path> {
     return kotlinSrcRegex.findAll(output).asIterable()
-        .flatMap { matchResult ->
-            matchResult.groups[1]!!.value.split(", ")
-                .map { source -> projectDirectory.resolve(source).normalize() }
-        }
+        .flatMap { matchResult -> matchResult.groups[1]!!.value.split(", ") }
+        .toPaths()
 }
 
 /**
@@ -50,11 +75,13 @@ fun extractCompiledJavaFiles(projectDir: File, output: String): List<Path> {
  *
  * Note: log level of output should be set to [LogLevel.DEBUG]
  */
-fun GradleProject.assertCompiledKotlinSources(expectedSources: Iterable<Path>, output: String) {
-    val actualSources = extractCompiledKotlinFiles(projectPath, output).map {
-        it.relativeTo(projectPath)
-    }
-    assertSameFiles(expectedSources, actualSources, "Compiled Kotlin files differ:\n")
+fun assertCompiledKotlinSources(
+    expectedSources: Iterable<Path>,
+    output: String,
+    errorMessageSuffix: String = ""
+) {
+    val actualSources = extractCompiledKotlinFiles(output)
+    assertSameFiles(expectedSources, actualSources, "Compiled Kotlin files differ${errorMessageSuffix}:\n")
 }
 
 /**
@@ -74,17 +101,9 @@ fun BuildResult.assertNonIncrementalCompilation() {
  *
  * Note: Log level of output must be set to [LogLevel.DEBUG].
  */
-fun GradleProject.assertIncrementalCompilation(
-    buildResult: BuildResult,
-    expectedCompiledKotlinFiles: Iterable<String>
-) {
-    buildResult.assertOutputDoesNotContain("Non-incremental compilation will be performed")
+fun BuildResult.assertIncrementalCompilation(expectedCompiledKotlinFiles: Iterable<String>) {
+    assertOutputDoesNotContain("Non-incremental compilation will be performed")
 
-    val actualCompiledKotlinFiles = extractCompiledKotlinFiles(
-        projectPath,
-        buildResult.output
-    ).map {
-        projectPath.relativize(it)
-    }
+    val actualCompiledKotlinFiles = extractCompiledKotlinFiles(output)
     assertSameFiles(expectedCompiledKotlinFiles.toPaths(), actualCompiledKotlinFiles, "Compiled Kotlin files differ:\n")
 }

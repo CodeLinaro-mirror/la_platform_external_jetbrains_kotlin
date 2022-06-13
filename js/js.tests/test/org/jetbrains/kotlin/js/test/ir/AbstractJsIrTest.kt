@@ -53,7 +53,6 @@ abstract class AbstractJsIrTest(
             defaultDirectives {
                 val runIc = getBoolean("kotlin.js.ir.icMode")
                 if (runIc) +JsEnvironmentConfigurationDirectives.RUN_IC
-                if (runIc || getBoolean("kotlin.js.ir.lowerPerModule")) +JsEnvironmentConfigurationDirectives.LOWER_PER_MODULE
                 if (getBoolean("kotlin.js.ir.klibMainModule")) +JsEnvironmentConfigurationDirectives.KLIB_MAIN_MODULE
                 if (getBoolean("kotlin.js.ir.perModule", true)) +JsEnvironmentConfigurationDirectives.PER_MODULE
                 if (getBoolean("kotlin.js.ir.dce", true)) +JsEnvironmentConfigurationDirectives.RUN_IR_DCE
@@ -106,6 +105,26 @@ open class AbstractIrJsTypeScriptExportTest : AbstractJsIrTest(
                 useHandlers(
                     ::JsDtsHandler
                 )
+            }
+        }
+    }
+}
+
+open class AbstractJsIrLineNumberTest : AbstractJsIrTest(
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/lineNumbers/",
+    testGroupOutputDirPrefix = "irLineNumbers/"
+) {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        with(builder) {
+            defaultDirectives {
+                +JsEnvironmentConfigurationDirectives.KJS_WITH_FULL_RUNTIME
+                +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
+                -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
+                JsEnvironmentConfigurationDirectives.DONT_RUN_GENERATED_CODE.with(listOf("JS", "JS_IR", "JS_IR_ES6"))
+            }
+            configureJsArtifactsHandlersStep {
+                useHandlers(::JsLineNumberHandler)
             }
         }
     }

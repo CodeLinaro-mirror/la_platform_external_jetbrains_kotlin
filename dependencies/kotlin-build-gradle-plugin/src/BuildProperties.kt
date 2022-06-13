@@ -54,7 +54,7 @@ class KotlinBuildProperties(
 
     val buildCacheUrl: String? = getOrNull("kotlin.build.cache.url") as String?
 
-    val pushToBuildCache: Boolean = getBoolean("kotlin.build.cache.push", isTeamcityBuild)
+    val pushToBuildCache: Boolean = getBoolean("kotlin.build.cache.push", false)
 
     val localBuildCacheEnabled: Boolean = getBoolean("kotlin.build.cache.local.enabled", !isTeamcityBuild)
 
@@ -65,6 +65,8 @@ class KotlinBuildProperties(
     val buildCacheUser: String? = getOrNull("kotlin.build.cache.user") as String?
 
     val buildCachePassword: String? = getOrNull("kotlin.build.cache.password") as String?
+
+    val buildGradlePluginVersion: String? = getOrNull("kotlin.build.gradlePlugin.version") as String?
 
     val kotlinBootstrapVersion: String? = getOrNull("bootstrap.kotlin.default.version") as String?
 
@@ -97,6 +99,8 @@ class KotlinBuildProperties(
     val rootProjectDir: File = propertiesProvider.rootProjectDir
 
     val isKotlinNativeEnabled: Boolean = getBoolean("kotlin.native.enabled")
+
+    val renderDiagnosticNames: Boolean = getBoolean("kotlin.build.render.diagnostic.names")
 }
 
 private const val extensionName = "kotlinBuildProperties"

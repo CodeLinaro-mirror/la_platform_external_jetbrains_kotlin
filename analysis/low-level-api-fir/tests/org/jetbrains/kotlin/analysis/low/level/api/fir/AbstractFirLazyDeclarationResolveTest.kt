@@ -5,14 +5,16 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.withFirDeclaration
-import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.ResolveType
+import org.jetbrains.kotlin.analysis.low.level.api.fir.state.LLFirSourceModuleResolveState
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.base.AbstractLowLevelApiSingleFileTest
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirRenderer
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
@@ -52,51 +54,25 @@ abstract class AbstractFirLazyDeclarationResolveTest : AbstractLowLevelApiSingle
         val rendererOption = FirRenderer.RenderMode.WithDeclarationAttributes.copy(renderDeclarationResolvePhase = true)
         val resultBuilder = StringBuilder()
         resolveWithClearCaches(ktFile) { firModuleResolveState ->
-            check(firModuleResolveState is FirModuleResolveStateImpl)
+            check(firModuleResolveState is LLFirSourceModuleResolveState)
             val declarationToResolve = firModuleResolveState
                 .getOrBuildFirFile(ktFile)
                 .findResolveMe()
             for (currentPhase in FirResolvePhase.values()) {
-                if (currentPhase.pluginPhase || currentPhase == FirResolvePhase.SEALED_CLASS_INHERITORS) continue
-                declarationToResolve.withFirDeclaration(firModuleResolveState, currentPhase) {
-                    val firFile = firModuleResolveState.getOrBuildFirFile(ktFile)
-                    resultBuilder.append("\n${currentPhase.name}:\n")
-                    resultBuilder.append(firFile.render(rendererOption))
-                }
-            }
-        }
-
-        for (resolveType in ResolveType.values()) {
-            resolveWithClearCaches(ktFile) { firModuleResolveState ->
-                check(firModuleResolveState is FirModuleResolveStateImpl)
-                val declarationToResolve = firModuleResolveState
-                    .getOrBuildFirFile(ktFile)
-                    .findResolveMe()
-
-                when (resolveType) {
-                    ResolveType.CallableReturnType,
-                    ResolveType.CallableBodyResolve,
-                    ResolveType.CallableContracts -> if (declarationToResolve !is FirCallableDeclaration) return@resolveWithClearCaches
-                    ResolveType.ClassSuperTypes -> if (declarationToResolve !is FirClassLikeDeclaration) return@resolveWithClearCaches
-                    else -> {
-                    }
-                }
-
-                declarationToResolve.withFirDeclaration(resolveType, firModuleResolveState) {
-                    val firFile = firModuleResolveState.getOrBuildFirFile(ktFile)
-                    resultBuilder.append("\n${resolveType.name}:\n")
-                    resultBuilder.append(firFile.render(rendererOption))
-                }
+                if (currentPhase == FirResolvePhase.SEALED_CLASS_INHERITORS) continue
+                declarationToResolve.ensureResolved(currentPhase)
+                val firFile = firModuleResolveState.getOrBuildFirFile(ktFile)
+                resultBuilder.append("\n${currentPhase.name}:\n")
+                resultBuilder.append(firFile.render(rendererOption))
             }
         }
 
         resolveWithClearCaches(ktFile) { firModuleResolveState ->
-            check(firModuleResolveState is FirModuleResolveStateImpl)
+            check(firModuleResolveState is LLFirSourceModuleResolveState)
             val firFile = firModuleResolveState.getOrBuildFirFile(ktFile)
-            firFile.withFirDeclaration(firModuleResolveState, FirResolvePhase.BODY_RESOLVE) {
-                resultBuilder.append("\nFILE RAW TO BODY:\n")
-                resultBuilder.append(firFile.render(rendererOption))
-            }
+            firFile.ensureResolved(FirResolvePhase.BODY_RESOLVE)
+            resultBuilder.append("\nFILE RAW TO BODY:\n")
+            resultBuilder.append(firFile.render(rendererOption))
         }
 
         testServices.assertions.assertEqualsToTestDataFileSibling(resultBuilder.toString())

@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.psi.KtParameter.VAL_VAR_TOKEN_SET
 import org.jetbrains.kotlin.psi.stubs.elements.KtConstantExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStringTemplateExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
+import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 
 object LightTreePositioningStrategies {
     val DEFAULT = object : LightTreePositioningStrategy() {
@@ -654,7 +655,7 @@ object LightTreePositioningStrategies {
             tree: FlyweightCapableTreeStructure<LighterASTNode>
         ): List<TextRange> {
             when {
-                node.tokenType == KtNodeTypes.BINARY_EXPRESSION && tree.findDescendantByType(node, KtTokens.EQ) != null -> {
+                node.tokenType == KtNodeTypes.BINARY_EXPRESSION && tree.findDescendantByType(node, KtTokens.EQ, followFunctions = false) != null -> {
                     // Look for reference in LHS of variable assignment.
                     tree.findExpressionDeep(node)?.let {
                         return markElement(it, startOffset, endOffset, tree, node)
@@ -1119,6 +1120,30 @@ object LightTreePositioningStrategies {
             return markElement(byKeyword, startOffset, endOffset, tree, node)
         }
     }
+
+    val CALL_ELEMENT_WITH_DOT: LightTreePositioningStrategy = object : LightTreePositioningStrategy() {
+        override fun mark(
+            node: LighterASTNode,
+            startOffset: Int,
+            endOffset: Int,
+            tree: FlyweightCapableTreeStructure<LighterASTNode>
+        ): List<TextRange> {
+            val callElementRanges = SELECTOR_BY_QUALIFIED.mark(node, startOffset, endOffset, tree)
+            val callElementRange = when (callElementRanges.size) {
+                1 -> callElementRanges.first()
+                else -> return callElementRanges
+            }
+
+            val dotRanges = SAFE_ACCESS.mark(node, startOffset, endOffset, tree)
+            val dotRange = when (dotRanges.size) {
+                1 -> dotRanges.first()
+                else -> return dotRanges
+            }
+
+            return listOf(TextRange(dotRange.startOffset, callElementRange.endOffset))
+        }
+    }
+
 }
 
 fun KtSourceElement.hasValOrVar(): Boolean =
@@ -1396,11 +1421,19 @@ fun FlyweightCapableTreeStructure<LighterASTNode>.findLastChildByType(node: Ligh
     return childrenRef.get()?.lastOrNull { it?.tokenType == type }
 }
 
-fun FlyweightCapableTreeStructure<LighterASTNode>.findDescendantByType(node: LighterASTNode, type: IElementType): LighterASTNode? {
+fun FlyweightCapableTreeStructure<LighterASTNode>.findDescendantByType(
+    node: LighterASTNode,
+    type: IElementType,
+    followFunctions: Boolean = true
+): LighterASTNode? {
     val childrenRef = Ref<Array<LighterASTNode?>>()
     getChildren(node, childrenRef)
     return childrenRef.get()?.firstOrNull { it?.tokenType == type } ?: childrenRef.get()
-        ?.firstNotNullOfOrNull { child -> child?.let { findDescendantByType(it, type) } }
+        ?.firstNotNullOfOrNull { child ->
+            runUnless(!followFunctions && child?.tokenType == KtNodeTypes.FUN) {
+                child?.let { findDescendantByType(it, type, followFunctions) }
+            }
+        }
 }
 
 fun FlyweightCapableTreeStructure<LighterASTNode>.findDescendantByTypes(node: LighterASTNode, types: TokenSet): LighterASTNode? {

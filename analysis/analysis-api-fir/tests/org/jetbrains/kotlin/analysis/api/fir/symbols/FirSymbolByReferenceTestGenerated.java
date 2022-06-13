@@ -7,6 +7,10 @@ package org.jetbrains.kotlin.analysis.api.fir.symbols;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.kotlin.analysis.api.impl.barebone.test.FrontendApiTestConfiguratorService;
+import org.jetbrains.kotlin.analysis.api.fir.FirFrontendApiTestConfiguratorService;
+import org.jetbrains.kotlin.analysis.api.impl.base.test.symbols.AbstractSymbolByReferenceTest;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -18,7 +22,13 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("analysis/analysis-api/testData/symbols/symbolByReference")
 @TestDataPath("$PROJECT_ROOT")
-public class FirSymbolByReferenceTestGenerated extends AbstractFirSymbolByReferenceTest {
+public class FirSymbolByReferenceTestGenerated extends AbstractSymbolByReferenceTest {
+    @NotNull
+    @Override
+    public FrontendApiTestConfiguratorService getConfigurator() {
+        return FirFrontendApiTestConfiguratorService.INSTANCE;
+    }
+
     @Test
     @TestMetadata("accessorField.kt")
     public void testAccessorField() throws Exception {
@@ -52,5 +62,21 @@ public class FirSymbolByReferenceTestGenerated extends AbstractFirSymbolByRefere
     @TestMetadata("samConstructor.kt")
     public void testSamConstructor() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByReference/samConstructor.kt");
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/symbols/symbolByReference/withTestCompilerPluginEnabled")
+    @TestDataPath("$PROJECT_ROOT")
+    public class WithTestCompilerPluginEnabled {
+        @Test
+        public void testAllFilesPresentInWithTestCompilerPluginEnabled() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/symbolByReference/withTestCompilerPluginEnabled"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("generatedCompanionWorksAsValue.kt")
+        public void testGeneratedCompanionWorksAsValue() throws Exception {
+            runTest("analysis/analysis-api/testData/symbols/symbolByReference/withTestCompilerPluginEnabled/generatedCompanionWorksAsValue.kt");
+        }
     }
 }

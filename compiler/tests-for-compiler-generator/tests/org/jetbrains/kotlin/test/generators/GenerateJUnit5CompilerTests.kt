@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.test.runners.*
 import org.jetbrains.kotlin.test.runners.codegen.*
 import org.jetbrains.kotlin.test.runners.ir.AbstractFir2IrTextTest
 import org.jetbrains.kotlin.test.runners.ir.AbstractIrTextTest
+import org.jetbrains.kotlin.test.runners.ir.AbstractLightTreeFir2IrTextTest
 import org.jetbrains.kotlin.test.runners.ir.interpreter.AbstractIrInterpreterAfterFir2IrTest
 import org.jetbrains.kotlin.test.runners.ir.interpreter.AbstractIrInterpreterAfterPsi2IrTest
 import org.jetbrains.kotlin.visualizer.fir.AbstractFirVisualizerTest
@@ -167,6 +168,14 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             testClass<AbstractIrAsmLikeInstructionListingTest> {
                 model("codegen/asmLike")
             }
+
+            testClass<AbstractIrInterpreterAfterFir2IrTest> {
+                model("ir/interpreter", excludeDirs = listOf("helpers"))
+            }
+
+            testClass<AbstractIrInterpreterAfterPsi2IrTest> {
+                model("ir/interpreter", excludeDirs = listOf("helpers"))
+            }
         }
 
         // ---------------------------------------------- FIR tests ----------------------------------------------
@@ -222,12 +231,8 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
                 model("codegen/boxInline")
             }
 
-            testClass<AbstractIrInterpreterAfterFir2IrTest> {
-                model("ir/interpreter", excludeDirs = listOf("helpers"))
-            }
-
-            testClass<AbstractIrInterpreterAfterPsi2IrTest> {
-                model("ir/interpreter", excludeDirs = listOf("helpers"))
+            testClass<AbstractFirLightTreeBlackBoxInlineCodegenTest> {
+                model("codegen/boxInline")
             }
 
             testClass<AbstractFirSteppingTest> {
@@ -253,6 +258,12 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
                 model("ir/irText")
             }
 
+            testClass<AbstractLightTreeFir2IrTextTest>(
+                suiteTestClassName = "LightTreeFir2IrSpecificTextTestGenerated"
+            ) {
+                model("ir/irText")
+            }
+
             testClass<AbstractFirBytecodeListingTest>(
                 suiteTestClassName = "Fir2IrSpecificBytecodeListingTestGenerated"
             ) {
@@ -274,6 +285,10 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
         testGroup(testsRoot = "compiler/fir/fir2ir/tests-gen", testDataRoot = "compiler/testData") {
             testClass<AbstractFir2IrTextTest> {
+                model("ir/irText")
+            }
+
+            testClass<AbstractLightTreeFir2IrTextTest> {
                 model("ir/irText")
             }
 

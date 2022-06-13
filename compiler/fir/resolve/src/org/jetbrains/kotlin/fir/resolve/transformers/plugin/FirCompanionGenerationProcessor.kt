@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.expressions.FirStatement
+import org.jetbrains.kotlin.fir.extensions.FirSwitchableExtensionDeclarationsSymbolProvider
 import org.jetbrains.kotlin.fir.extensions.generatedDeclarationsSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.transformers.FirTransformerBasedResolveProcessor
@@ -24,12 +25,17 @@ class FirCompanionGenerationProcessor(
     override val transformer: FirTransformer<Nothing?> = FirCompanionGenerationTransformer(session)
 }
 
-private class FirCompanionGenerationTransformer(val session: FirSession) : FirTransformer<Nothing?>() {
+class FirCompanionGenerationTransformer(val session: FirSession) : FirTransformer<Nothing?>() {
+
+    lateinit var generatedDeclarationProvider: FirSwitchableExtensionDeclarationsSymbolProvider
+
     override fun <E : FirElement> transformElement(element: E, data: Nothing?): E {
         return element
     }
 
     override fun transformFile(file: FirFile, data: Nothing?): FirFile {
+        // I don't want to use laziness here to prevent possible multi-threading problems
+        generatedDeclarationProvider = session.generatedDeclarationsSymbolProvider ?: return file
         return file.transformDeclarations(this, data)
     }
 
@@ -40,7 +46,7 @@ private class FirCompanionGenerationTransformer(val session: FirSession) : FirTr
 
     private fun generateCompanion(regularClass: FirRegularClass) {
         // TODO: add proper error reporting
-        val generatedDeclarationProvider = session.generatedDeclarationsSymbolProvider ?: return
+        generatedDeclarationProvider = session.generatedDeclarationsSymbolProvider ?: return
         val companionClassId = regularClass.classId.createNestedClassId(SpecialNames.DEFAULT_NAME_FOR_COMPANION_OBJECT)
         when (val generatedCompanion = generatedDeclarationProvider.getClassLikeSymbolByClassId(companionClassId)) {
             null -> {}

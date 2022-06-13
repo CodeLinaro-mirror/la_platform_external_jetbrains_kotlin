@@ -68,7 +68,7 @@ interface FirDeclarationPresenter {
                 appendRepresentation(it.original)
                 append(it.nullability.suffix)
             }
-            is ConeClassErrorType -> {
+            is ConeErrorType -> {
                 append("ERROR(")
                 append(it.diagnostic.reason)
                 append(')')
@@ -93,8 +93,12 @@ interface FirDeclarationPresenter {
                 append(it.lookupTag.name)
                 append(it.nullability.suffix)
             }
-            is ConeIntegerLiteralType -> {
+            is ConeIntegerLiteralConstantType -> {
                 append(it.value)
+                append(it.nullability.suffix)
+            }
+            is ConeIntegerConstantOperatorType -> {
+                append("IOT")
                 append(it.nullability.suffix)
             }
             is ConeFlexibleType,
@@ -108,7 +112,6 @@ interface FirDeclarationPresenter {
     fun StringBuilder.appendRepresentation(it: FirTypeRef) {
         when (it) {
             is FirResolvedTypeRef -> appendRepresentation(it.type)
-            is FirErrorTypeRef -> append("ERROR")
             else -> append("?")
         }
     }
@@ -158,6 +161,10 @@ interface FirDeclarationPresenter {
     }
 
     fun represent(it: FirSimpleFunction) = buildString {
+        it.contextReceivers.forEach {
+            appendRepresentation(it)
+            append(',')
+        }
         append('<')
         it.typeParameters.forEach {
             appendRepresentation(it)
@@ -192,6 +199,10 @@ interface FirDeclarationPresenter {
     }
 
     fun represent(it: FirConstructor, owner: FirRegularClass) = buildString {
+        it.contextReceivers.forEach {
+            appendRepresentation(it)
+            append(',')
+        }
         append('<')
         it.typeParameters.forEach {
             appendRepresentation(it)

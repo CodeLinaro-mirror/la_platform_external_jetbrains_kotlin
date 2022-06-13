@@ -245,7 +245,7 @@ open class Kapt3IT : Kapt3BaseIT() {
                 kaptOptions = kaptOptions().copy(includeCompileClasspath = true)
             )
         ) {
-            build("build", forceOutput = true) {
+            build("build") {
                 assertTasksExecuted(":kaptGenerateStubsKotlin", ":kaptKotlin", ":compileKotlin", ":compileJava")
                 assertKaptSuccessful()
                 assertFileExists(projectPath.resolve("build/generated/source/kapt/main/example/TestClassGenerated.java"))
@@ -283,10 +283,20 @@ open class Kapt3IT : Kapt3BaseIT() {
     @DisplayName("Kapt is working with incremental compilation")
     @GradleTest
     fun testSimpleWithIC(gradleVersion: GradleVersion) {
+        doTestSimpleWithIC(gradleVersion)
+    }
+
+    @DisplayName("Kapt is working with incremental compilation, when kotlin.incremental.useClasspathSnapshot=true")
+    @GradleTest
+    fun testSimpleWithIC_withClasspathSnapshot(gradleVersion: GradleVersion) {
+        doTestSimpleWithIC(gradleVersion, useClasspathSnapshot = true)
+    }
+
+    private fun doTestSimpleWithIC(gradleVersion: GradleVersion, useClasspathSnapshot: Boolean? = null) {
         project(
             "simple".withPrefix,
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(incremental = true)
+            buildOptions = defaultBuildOptions.copy(incremental = true, useGradleClasspathSnapshot = useClasspathSnapshot)
         ) {
             build("clean", "build") {
                 assertTasksExecuted(":kaptGenerateStubsKotlin", ":kaptKotlin", ":compileKotlin", ":compileJava")
@@ -889,7 +899,7 @@ open class Kapt3IT : Kapt3BaseIT() {
     }
 
     @DisplayName("Works with JPMS on JDK 9+")
-    @JdkVersions(versions = [JavaVersion.VERSION_1_9])
+    @JdkVersions(versions = [JavaVersion.VERSION_11])
     @GradleWithJdkTest
     fun testJpmsModule(
         gradleVersion: GradleVersion,

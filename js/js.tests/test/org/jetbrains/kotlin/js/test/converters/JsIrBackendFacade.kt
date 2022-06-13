@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.js.test.converters
 
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
+import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -15,6 +16,8 @@ import org.jetbrains.kotlin.ir.backend.js.codegen.CompilerOutputSink
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationOptions
 import org.jetbrains.kotlin.ir.backend.js.codegen.generateEsModules
+import org.jetbrains.kotlin.ir.backend.js.dce.eliminateDeadDeclarations
+import org.jetbrains.kotlin.ir.backend.js.ic.JsExecutableProducer
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformerTmp
@@ -34,6 +37,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
 import org.jetbrains.kotlin.psi2ir.Psi2IrTranslator
 import org.jetbrains.kotlin.serialization.js.ModuleKind
+import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.frontend.classic.moduleDescriptorProvider
@@ -56,6 +60,7 @@ class JsIrBackendFacade(
 
     override fun transform(module: TestModule, inputArtifact: BinaryArtifacts.KLib): BinaryArtifacts.Js? {
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
+
         val isMainModule = JsEnvironmentConfigurator.isMainModule(module, testServices)
         if (!isMainModule) return null
 
@@ -69,7 +74,7 @@ class JsIrBackendFacade(
         configuration: CompilerConfiguration,
         inputArtifact: BinaryArtifacts.KLib,
     ): BinaryArtifacts.Js? {
-        val (irModuleFragment, dependencyModules, _, symbolTable, deserializer, _) = moduleInfo
+        val (irModuleFragment, dependencyModules, _, symbolTable, deserializer) = moduleInfo
 
         val splitPerModule = JsEnvironmentConfigurationDirectives.SPLIT_PER_MODULE in module.directives
         val splitPerFile = JsEnvironmentConfigurationDirectives.SPLIT_PER_FILE in module.directives
@@ -84,7 +89,6 @@ class JsIrBackendFacade(
         }
 
         val testPackage = extractTestPackage(testServices)
-        val lowerPerModule = JsEnvironmentConfigurationDirectives.LOWER_PER_MODULE in module.directives
         val skipRegularMode = JsEnvironmentConfigurationDirectives.SKIP_REGULAR_MODE in module.directives
 
         if (skipRegularMode) return null
@@ -95,14 +99,38 @@ class JsIrBackendFacade(
             } else {
                 File(JsEnvironmentConfigurator.getRecompiledJsModuleArtifactPath(testServices, module.name) + ".js")
             }
-            val moduleName = configuration.getNotNull(CommonConfigurationKeys.MODULE_NAME)
-            val moduleKind = configuration.get(JSConfigurationKeys.MODULE_KIND, ModuleKind.PLAIN)
-            val sourceMapsInfo = SourceMapsInfo.from(configuration)
-            val translationModes = setOf(TranslationMode.FULL, TranslationMode.PER_MODULE)
-            val compiledModule = generateJsFromAst(moduleName, moduleKind, sourceMapsInfo, translationModes, testServices.jsIrIncrementalDataProvider.getCaches())
+
+            val compiledModule = CompilerResult(
+                outputs = listOf(TranslationMode.FULL, TranslationMode.PER_MODULE).associateWith {
+                    val jsExecutableProducer = JsExecutableProducer(
+                        mainModuleName = configuration.getNotNull(CommonConfigurationKeys.MODULE_NAME),
+                        moduleKind = configuration.get(JSConfigurationKeys.MODULE_KIND, ModuleKind.PLAIN),
+                        sourceMapsInfo = SourceMapsInfo.from(configuration),
+                        caches = testServices.jsIrIncrementalDataProvider.getCaches(),
+                        relativeRequirePath = false
+                    )
+                    jsExecutableProducer.buildExecutable(it.perModule)
+                },
+                tsDefinitions = null
+            )
             return BinaryArtifacts.Js.JsIrArtifact(
                 outputFile, compiledModule, testServices.jsIrIncrementalDataProvider.getCacheForModule(module)
             ).dump(module, firstTimeCompilation)
+        }
+
+        val debugMode = DebugMode.fromSystemProperty("kotlin.js.debugMode")
+        val phaseConfig = if (debugMode >= DebugMode.SUPER_DEBUG) {
+            val dumpOutputDir = File(
+                JsEnvironmentConfigurator.getJsArtifactsOutputDir(testServices),
+                JsEnvironmentConfigurator.getJsArtifactSimpleName(testServices, module.name) + "-irdump"
+            )
+            PhaseConfig(
+                jsPhases,
+                dumpToDirectory = dumpOutputDir.path,
+                toDumpStateAfter = jsPhases.toPhaseMap().values.toSet()
+            )
+        } else {
+            PhaseConfig(jsPhases)
         }
 
         val loweredIr = compileIr(
@@ -110,16 +138,15 @@ class JsIrBackendFacade(
             MainModule.Klib(inputArtifact.outputFile.absolutePath),
             configuration,
             dependencyModules,
+            emptyMap(),
             irModuleFragment.irBuiltins,
             symbolTable,
             deserializer,
-            PhaseConfig(jsPhases), // TODO debug mode
+            phaseConfig,
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, TEST_FUNCTION))),
-            dceDriven = false,
             dceRuntimeDiagnostic = null,
             es6mode = false,
             baseClassIntoMetadata = false,
-            lowerPerModule = lowerPerModule,
             safeExternalBoolean = JsEnvironmentConfigurationDirectives.SAFE_EXTERNAL_BOOLEAN in module.directives,
             safeExternalBooleanDiagnostic = module.directives[JsEnvironmentConfigurationDirectives.SAFE_EXTERNAL_BOOLEAN_DIAGNOSTIC].singleOrNull(),
             granularity = granularity,
@@ -143,7 +170,7 @@ class JsIrBackendFacade(
         val perModuleOnly = JsEnvironmentConfigurationDirectives.SPLIT_PER_MODULE in module.directives
 
         val outputFile = File(JsEnvironmentConfigurator.getJsModuleArtifactPath(testServices, module.name, TranslationMode.FULL) + ".js")
-        val dceOutputFile = File(JsEnvironmentConfigurator.getJsModuleArtifactPath(testServices, module.name, TranslationMode.FULL_DCE) + ".js")
+        val dceOutputFile = File(JsEnvironmentConfigurator.getJsModuleArtifactPath(testServices, module.name, TranslationMode.FULL_DCE_MINIMIZED_NAMES) + ".js")
         if (!esModules) {
             if (runNewIr2Js) {
                 val transformer = IrModuleToJsTransformerTmp(
@@ -155,7 +182,10 @@ class JsIrBackendFacade(
                 // If runIrDce then include DCE results
                 // If perModuleOnly then skip whole program
                 // (it.dce => runIrDce) && (perModuleOnly => it.perModule)
-                val translationModes = TranslationMode.values().filter { (!it.dce || runIrDce) && (!perModuleOnly || it.perModule) }.toSet()
+                val translationModes = TranslationMode.values()
+                    .filter { (!it.dce || runIrDce) && (!perModuleOnly || it.perModule) }
+                    .filter { it.dce == it.minimizedMemberNames }
+                    .toSet()
                 return BinaryArtifacts.Js.JsIrArtifact(outputFile, transformer.generateModule(loweredIr.allModules, translationModes)).dump(module)
             } else {
                 val transformer = IrModuleToJsTransformer(
@@ -203,10 +233,7 @@ class JsIrBackendFacade(
             symbolTable,
             messageLogger,
             loadFunctionInterfacesIntoStdlib = true,
-            emptyMap(),
-            { emptySet() },
-            { if (it == mainModuleLib) moduleDescriptor else testServices.jsLibraryProvider.getDescriptorByCompiledLibrary(it) },
-        )
+        ) { if (it == mainModuleLib) moduleDescriptor else testServices.jsLibraryProvider.getDescriptorByCompiledLibrary(it) }
     }
 
     private fun loadIrFromSources(
@@ -236,14 +263,11 @@ class JsIrBackendFacade(
             inputArtifact.allKtFiles.values.toList(),
             sortDependencies(JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices)),
             emptyMap(),
-            emptyMap(),
             symbolTable,
             messageLogger,
             loadFunctionInterfacesIntoStdlib = true,
             verifySignatures,
-            { emptySet() },
-            { testServices.jsLibraryProvider.getDescriptorByCompiledLibrary(it) },
-        )
+        ) { testServices.jsLibraryProvider.getDescriptorByCompiledLibrary(it) }
     }
 
     private fun jsOutputSink(perFileOutputDir: File): CompilerOutputSink {

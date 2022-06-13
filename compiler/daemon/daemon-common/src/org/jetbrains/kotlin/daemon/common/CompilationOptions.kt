@@ -65,12 +65,13 @@ class IncrementalCompilationOptions(
         requestedCompilationResults: Array<Int>,
     val usePreciseJavaTracking: Boolean,
     /**
-         * Directories that should be cleared when IC decides to rebuild
-         */
-        val outputFiles: List<File>,
+     * Directories that should be cleared when IC decides to rebuild
+     */
+    val outputFiles: List<File>,
     val multiModuleICSettings: MultiModuleICSettings,
     val modulesInfo: IncrementalModuleInfo,
-    kotlinScriptExtensions: Array<String>? = null
+    kotlinScriptExtensions: Array<String>? = null,
+    val withAbiSnapshot: Boolean = false
 ) : CompilationOptions(
     compilerMode,
     targetPlatform,
@@ -85,16 +86,16 @@ class IncrementalCompilationOptions(
 
     override fun toString(): String {
         return "IncrementalCompilationOptions(" +
-               "super=${super.toString()}, " +
-               "areFileChangesKnown=$areFileChangesKnown, " +
-               "modifiedFiles=$modifiedFiles, " +
-               "deletedFiles=$deletedFiles, " +
-               "classpathChanges=$classpathChanges, " +
-               "workingDir=$workingDir, " +
-               "multiModuleICSettings=$multiModuleICSettings, " +
-               "usePreciseJavaTracking=$usePreciseJavaTracking" +
-               "outputFiles=$outputFiles" +
-               ")"
+                "super=${super.toString()}, " +
+                "areFileChangesKnown=$areFileChangesKnown, " +
+                "modifiedFiles=$modifiedFiles, " +
+                "deletedFiles=$deletedFiles, " +
+                "classpathChanges=${classpathChanges::class.simpleName}, " +
+                "workingDir=$workingDir, " +
+                "multiModuleICSettings=$multiModuleICSettings, " +
+                "usePreciseJavaTracking=$usePreciseJavaTracking" +
+                "outputFiles=$outputFiles" +
+                ")"
     }
 }
 

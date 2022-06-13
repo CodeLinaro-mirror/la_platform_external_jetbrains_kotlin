@@ -102,10 +102,6 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val error: String
     }
 
-    abstract class Syntax : KtFirDiagnostic<PsiElement>() {
-        override val diagnosticClass get() = Syntax::class
-    }
-
     abstract class OtherError : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = OtherError::class
     }
@@ -305,6 +301,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class AbstractSuperCall : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = AbstractSuperCall::class
+    }
+
+    abstract class AbstractSuperCallWarning : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = AbstractSuperCallWarning::class
     }
 
     abstract class InstanceAccessBeforeSuperCall : KtFirDiagnostic<PsiElement>() {
@@ -538,6 +538,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = NonConstValUsedInConstantExpression::class
     }
 
+    abstract class CycleInAnnotationParameterError : KtFirDiagnostic<KtParameter>() {
+        override val diagnosticClass get() = CycleInAnnotationParameterError::class
+    }
+
+    abstract class CycleInAnnotationParameterWarning : KtFirDiagnostic<KtParameter>() {
+        override val diagnosticClass get() = CycleInAnnotationParameterWarning::class
+    }
+
     abstract class AnnotationClassConstructorCall : KtFirDiagnostic<KtCallExpression>() {
         override val diagnosticClass get() = AnnotationClassConstructorCall::class
     }
@@ -666,6 +674,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class NotAClass : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = NotAClass::class
+    }
+
+    abstract class WrongExtensionFunctionType : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = WrongExtensionFunctionType::class
+    }
+
+    abstract class WrongExtensionFunctionTypeWarning : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = WrongExtensionFunctionTypeWarning::class
     }
 
     abstract class OptInUsage : KtFirDiagnostic<PsiElement>() {
@@ -920,6 +936,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = InlineClassConstructorWrongParametersSize::class
     }
 
+    abstract class ValueClassEmptyConstructor : KtFirDiagnostic<KtElement>() {
+        override val diagnosticClass get() = ValueClassEmptyConstructor::class
+    }
+
     abstract class ValueClassConstructorNotFinalReadOnlyParameter : KtFirDiagnostic<KtParameter>() {
         override val diagnosticClass get() = ValueClassConstructorNotFinalReadOnlyParameter::class
     }
@@ -1095,6 +1115,11 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = RedundantSpreadOperatorInNamedFormInFunction::class
     }
 
+    abstract class InferenceUnsuccessfulFork : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = InferenceUnsuccessfulFork::class
+        abstract val message: String
+    }
+
     abstract class OverloadResolutionAmbiguity : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = OverloadResolutionAmbiguity::class
         abstract val candidates: List<KtSymbol>
@@ -1118,6 +1143,24 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
     abstract class NextAmbiguity : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = NextAmbiguity::class
         abstract val candidates: List<KtSymbol>
+    }
+
+    abstract class NoContextReceiver : KtFirDiagnostic<KtElement>() {
+        override val diagnosticClass get() = NoContextReceiver::class
+        abstract val contextReceiverRepresentation: KtType
+    }
+
+    abstract class MultipleArgumentsApplicableForContextReceiver : KtFirDiagnostic<KtElement>() {
+        override val diagnosticClass get() = MultipleArgumentsApplicableForContextReceiver::class
+        abstract val contextReceiverRepresentation: KtType
+    }
+
+    abstract class AmbiguousCallWithImplicitContextReceiver : KtFirDiagnostic<KtElement>() {
+        override val diagnosticClass get() = AmbiguousCallWithImplicitContextReceiver::class
+    }
+
+    abstract class UnsupportedContextualDeclarationCall : KtFirDiagnostic<KtElement>() {
+        override val diagnosticClass get() = UnsupportedContextualDeclarationCall::class
     }
 
     abstract class RecursionInImplicitTypes : KtFirDiagnostic<PsiElement>() {
@@ -1329,8 +1372,8 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val typeB: KtType
     }
 
-    abstract class TypeVarianceConflict : KtFirDiagnostic<PsiElement>() {
-        override val diagnosticClass get() = TypeVarianceConflict::class
+    abstract class TypeVarianceConflictError : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = TypeVarianceConflictError::class
         abstract val typeParameter: KtTypeParameterSymbol
         abstract val typeParameterVariance: Variance
         abstract val variance: Variance
@@ -1463,6 +1506,7 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class ConflictingInheritedMembers : KtFirDiagnostic<KtClassOrObject>() {
         override val diagnosticClass get() = ConflictingInheritedMembers::class
+        abstract val owner: KtClassLikeSymbol
         abstract val conflictingDeclarations: List<KtCallableSymbol>
     }
 
@@ -1800,10 +1844,12 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class DelegateUsesExtensionPropertyTypeParameterError : KtFirDiagnostic<KtProperty>() {
         override val diagnosticClass get() = DelegateUsesExtensionPropertyTypeParameterError::class
+        abstract val usedTypeParameter: KtTypeParameterSymbol
     }
 
     abstract class DelegateUsesExtensionPropertyTypeParameterWarning : KtFirDiagnostic<KtProperty>() {
         override val diagnosticClass get() = DelegateUsesExtensionPropertyTypeParameterWarning::class
+        abstract val usedTypeParameter: KtTypeParameterSymbol
     }
 
     abstract class InitializerTypeMismatch : KtFirDiagnostic<KtProperty>() {

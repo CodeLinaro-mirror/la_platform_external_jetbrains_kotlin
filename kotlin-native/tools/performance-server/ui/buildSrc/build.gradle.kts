@@ -29,7 +29,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.37")
+        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     }
 }
@@ -78,7 +78,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.37")
+    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:$buildGradlePluginVersion")
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     api("org.jetbrains.kotlin:kotlin-native-utils:${project.bootstrapKotlinVersion}")
     api("org.jetbrains.kotlin:kotlin-util-klib:${project.bootstrapKotlinVersion}")
@@ -86,7 +86,7 @@ dependencies {
     val kotlinVersion = project.bootstrapKotlinVersion
     val ktorVersion = "1.2.1"
     val slackApiVersion = "1.2.0"
-    val shadowVersion = "7.1.1"
+    val shadowVersion = "7.1.2"
     val metadataVersion = "0.0.1-dev-10"
 
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")

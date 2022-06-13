@@ -27,17 +27,9 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     )
     var classpath: String? by NullableStringFreezableVar(null)
 
-    @DeprecatedOption(removeAfter = "1.5", level = DeprecationLevel.ERROR)
-    @GradleOption(DefaultValues.BooleanFalseDefault::class)
     @Argument(value = "-include-runtime", description = "Include Kotlin runtime into the resulting JAR")
     var includeRuntime: Boolean by FreezableVar(false)
 
-    @DeprecatedOption(
-        message = "This option is not working well with Gradle caching and will be removed in the future.",
-        removeAfter = "1.7",
-        level = DeprecationLevel.WARNING
-    )
-    @GradleOption(DefaultValues.StringNullDefault::class)
     @Argument(
         value = "-jdk-home",
         valueDescription = "<path>",
@@ -49,16 +41,12 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-no-jdk", description = "Don't automatically include the Java runtime into the classpath")
     var noJdk: Boolean by FreezableVar(false)
 
-    @DeprecatedOption(removeAfter = "1.6", level = DeprecationLevel.ERROR)
-    @GradleOption(DefaultValues.BooleanTrueDefault::class)
     @Argument(
         value = "-no-stdlib",
         description = "Don't automatically include the Kotlin/JVM stdlib and Kotlin reflection into the classpath"
     )
     var noStdlib: Boolean by FreezableVar(false)
 
-    @DeprecatedOption(removeAfter = "1.5", level = DeprecationLevel.ERROR)
-    @GradleOption(DefaultValues.BooleanTrueDefault::class)
     @Argument(value = "-no-reflect", description = "Don't automatically include Kotlin reflection into the classpath")
     var noReflect: Boolean by FreezableVar(false)
 
@@ -87,9 +75,9 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     @Argument(
         value = "-jvm-target",
         valueDescription = "<version>",
-        description = "Target version of the generated JVM bytecode (1.6 (DEPRECATED), 1.8, 9, 10, ..., 18), default is 1.8"
+        description = "Target version of the generated JVM bytecode (1.8, 9, 10, ..., 18), default is 1.8"
     )
-    var jvmTarget: String? by NullableStringFreezableVar(JvmTarget.DEFAULT.description)
+    var jvmTarget: String? by NullableStringFreezableVar(null)
 
     @GradleOption(DefaultValues.BooleanFalseDefault::class)
     @Argument(value = "-java-parameters", description = "Generate metadata for Java 1.8 reflection on method parameters")
@@ -97,8 +85,6 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
 
     // Advanced options
 
-    @DeprecatedOption(removeAfter = "1.6", level = DeprecationLevel.HIDDEN)
-    @GradleOption(DefaultValues.BooleanFalseDefault::class)
     @Argument(
         value = "-Xuse-ir",
         description = "Use the IR backend. This option has no effect unless the language version less than 1.5 is used"
@@ -389,6 +375,16 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
     var stringConcat: String? by NullableStringFreezableVar(null)
 
     @Argument(
+        value = "-Xjdk-release",
+        valueDescription = "<version>",
+        description = """Compile against the specified JDK API version, similarly to javac's `-release`. Requires JDK 9 or newer.
+Supported versions depend on the used JDK; for JDK 17+ supported versions are 1.8, 9, 10, ..., 17.
+Also sets `-jvm-target` value equal to the selected JDK version"""
+    )
+    var jdkRelease: String? by NullableStringFreezableVar(null)
+
+
+    @Argument(
         value = "-Xsam-conversions",
         valueDescription = "{class|indy}",
         description = """Select code generation scheme for SAM conversions.
@@ -444,7 +440,7 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         description = "Debug option: Run compiler with async profiler and save snapshots to `outputDir`; `command` is passed to async-profiler on start.\n" +
                 "`profilerPath` is a path to libasyncProfiler.so; async-profiler.jar should be on the compiler classpath.\n" +
                 "If it's not on the classpath, the compiler will attempt to load async-profiler.jar from the containing directory of profilerPath.\n" +
-                "Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start,framebuf=50000000:<SNAPSHOT_DIR_PATH>"
+                "Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start:<SNAPSHOT_DIR_PATH>"
     )
     var profileCompilerCommand: String? by NullableStringFreezableVar(null)
 
@@ -470,14 +466,15 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
 
     @Argument(
         value = "-Xsuppress-deprecated-jvm-target-warning",
-        description = "Suppress deprecation warning about deprecated JVM target versions"
+        description = "Suppress deprecation warning about deprecated JVM target versions.\n" +
+                "This option has no effect and will be deleted in a future version."
     )
     var suppressDeprecatedJvmTargetWarning: Boolean by FreezableVar(false)
 
     @Argument(
         value = "-Xtype-enhancement-improvements-strict-mode",
-        description = "Enable strict mode for some improvements in the type enhancement for loaded Java types based on nullability annotations," +
-                "including freshly supported reading of the type use annotations from class files. " +
+        description = "Enable strict mode for some improvements in the type enhancement for loaded Java types based on nullability annotations,\n" +
+                "including freshly supported reading of the type use annotations from class files.\n" +
                 "See KT-45671 for more details"
     )
     var typeEnhancementImprovementsInStrictMode: Boolean by FreezableVar(false)
@@ -507,6 +504,13 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
     )
     var enhanceTypeParameterTypesToDefNotNull: Boolean by FreezableVar(false)
 
+    @Argument(
+        value = "-Xlink-via-signatures",
+        description = "Link JVM IR symbols via signatures, instead of descriptors. \n" +
+                "This mode is slower, but can be useful in troubleshooting problems with the JVM IR backend"
+    )
+    var linkViaSignatures: Boolean by FreezableVar(false)
+
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         val result = super.configureAnalysisFlags(collector, languageVersion)
         result[JvmAnalysisFlags.strictMetadataVersionSemantics] = strictMetadataVersionSemantics
@@ -524,7 +528,7 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         result[JvmAnalysisFlags.sanitizeParentheses] = sanitizeParentheses
         result[JvmAnalysisFlags.suppressMissingBuiltinsError] = suppressMissingBuiltinsError
         result[JvmAnalysisFlags.enableJvmPreview] = enableJvmPreview
-        result[AnalysisFlags.allowUnstableDependencies] = allowUnstableDependencies || useFir
+        result[AnalysisFlags.allowUnstableDependencies] = allowUnstableDependencies || useK2
         result[JvmAnalysisFlags.disableUltraLightClasses] = disableUltraLightClasses
         result[JvmAnalysisFlags.useIR] = !useOldBackend
         return result
@@ -538,7 +542,10 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         if (enhanceTypeParameterTypesToDefNotNull) {
             result[LanguageFeature.ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated] = LanguageFeature.State.ENABLED
         }
-
+        if (JvmDefaultMode.fromStringOrNull(jvmDefault)?.forAllMethodsWithBody == true) {
+            result[LanguageFeature.ForbidSuperDelegationToAbstractFakeOverride] = LanguageFeature.State.ENABLED
+            result[LanguageFeature.AbstractClassMemberNotImplementedWithIntermediateAbstractClass] = LanguageFeature.State.ENABLED
+        }
         return result
     }
 

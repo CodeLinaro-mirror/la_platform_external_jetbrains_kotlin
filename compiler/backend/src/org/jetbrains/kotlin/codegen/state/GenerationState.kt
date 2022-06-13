@@ -59,10 +59,8 @@ class GenerationState private constructor(
     builderFactory: ClassBuilderFactory,
     val module: ModuleDescriptor,
     val originalFrontendBindingContext: BindingContext,
-    val files: List<KtFile>,
     val configuration: CompilerConfiguration,
     val generateDeclaredClassFilter: GenerateClassFilter,
-    val codegenFactory: CodegenFactory,
     val targetId: TargetId?,
     moduleName: String?,
     val outDirectory: File?,
@@ -72,22 +70,30 @@ class GenerationState private constructor(
     val isIrBackend: Boolean,
     val ignoreErrors: Boolean,
     val diagnosticReporter: DiagnosticReporter,
+    val isIncrementalCompilation: Boolean
 ) {
     class Builder(
         private val project: Project,
         private val builderFactory: ClassBuilderFactory,
         private val module: ModuleDescriptor,
         private val bindingContext: BindingContext,
-        private val files: List<KtFile>,
         private val configuration: CompilerConfiguration
     ) {
+        // TODO: patch IntelliJ project and remove this compatibility c-tor
+        constructor(
+            project: Project,
+            builderFactory: ClassBuilderFactory,
+            module: ModuleDescriptor,
+            bindingContext: BindingContext,
+            files: List<KtFile>,
+            configuration: CompilerConfiguration
+        ) : this(project, builderFactory, module, bindingContext, configuration) {
+            this.files = files
+        }
+
         private var generateDeclaredClassFilter: GenerateClassFilter = GenerateClassFilter.GENERATE_ALL
         fun generateDeclaredClassFilter(v: GenerateClassFilter) =
             apply { generateDeclaredClassFilter = v }
-
-        private var codegenFactory: CodegenFactory = DefaultCodegenFactory
-        fun codegenFactory(v: CodegenFactory) =
-            apply { codegenFactory = v }
 
         private var targetId: TargetId? = null
         fun targetId(v: TargetId?) =
@@ -129,14 +135,26 @@ class GenerationState private constructor(
         fun diagnosticReporter(v: DiagnosticReporter) =
             apply { diagnosticReporter = v }
 
+        val isIncrementalCompilation: Boolean = configuration.getBoolean(CommonConfigurationKeys.INCREMENTAL_COMPILATION)
+
+        // TODO: remove after cleanin up IDE counterpart
+        private var files: List<KtFile>? = null
+        private var codegenFactory: CodegenFactory? = null
+        fun codegenFactory(v: CodegenFactory) =
+            apply { codegenFactory = v }
+
         fun build() =
             GenerationState(
-                project, builderFactory, module, bindingContext, files, configuration,
-                generateDeclaredClassFilter, codegenFactory, targetId,
+                project, builderFactory, module, bindingContext, configuration,
+                generateDeclaredClassFilter, targetId,
                 moduleName, outDirectory, onIndependentPartCompilationEnd, wantsDiagnostics,
                 jvmBackendClassResolver, isIrBackend, ignoreErrors,
-                diagnosticReporter ?: DiagnosticReporterFactory.createReporter()
-            )
+                diagnosticReporter ?: DiagnosticReporterFactory.createReporter(),
+                isIncrementalCompilation
+            ).also {
+                it.files = files
+                it.codegenFactory = codegenFactory
+            }
     }
 
     abstract class GenerateClassFilter {
@@ -172,6 +190,10 @@ class GenerationState private constructor(
     val deprecationProvider = DeprecationResolver(
         LockBasedStorageManager.NO_LOCKS, languageVersionSettings, JavaDeprecationSettings
     )
+
+    // TODO: remove after cleanin up IDE counterpart
+    var files: List<KtFile>? = null
+    var codegenFactory: CodegenFactory? = null
 
     init {
         val icComponents = configuration.get(JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS)
@@ -377,9 +399,11 @@ class GenerationState private constructor(
 
     fun beforeCompile() {
         markUsed()
+    }
 
+    fun oldBEInitTrace(ktFiles: Collection<KtFile>) {
         if (!isIrBackend) {
-            CodegenBinding.initTrace(this)
+            CodegenBinding.initTrace(this, ktFiles)
         }
     }
 
@@ -401,7 +425,7 @@ class GenerationState private constructor(
         classBuilderMode == ClassBuilderMode.LIGHT_CLASSES && origin.originKind in doNotGenerateInLightClassMode
 
     companion object {
-        private val LANGUAGE_TO_METADATA_VERSION = EnumMap<LanguageVersion, JvmMetadataVersion>(LanguageVersion::class.java).apply {
+        val LANGUAGE_TO_METADATA_VERSION = EnumMap<LanguageVersion, JvmMetadataVersion>(LanguageVersion::class.java).apply {
             val oldMetadataVersion = JvmMetadataVersion(1, 1, 18)
             this[KOTLIN_1_0] = oldMetadataVersion
             this[KOTLIN_1_1] = oldMetadataVersion
@@ -409,8 +433,8 @@ class GenerationState private constructor(
             this[KOTLIN_1_3] = oldMetadataVersion
             this[KOTLIN_1_4] = JvmMetadataVersion(1, 4, 3)
             this[KOTLIN_1_5] = JvmMetadataVersion(1, 5, 1)
-            this[KOTLIN_1_6] = JvmMetadataVersion.INSTANCE
-            this[KOTLIN_1_7] = JvmMetadataVersion(1, 7, 0)
+            this[KOTLIN_1_6] = JvmMetadataVersion(1, 6, 0)
+            this[KOTLIN_1_7] = JvmMetadataVersion.INSTANCE
             this[KOTLIN_1_8] = JvmMetadataVersion(1, 8, 0)
             this[KOTLIN_1_9] = JvmMetadataVersion(1, 9, 0)
 

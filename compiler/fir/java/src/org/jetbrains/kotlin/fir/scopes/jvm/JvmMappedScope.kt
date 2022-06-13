@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
+import org.jetbrains.kotlin.load.kotlin.SignatureBuildingComponents.inJavaLang
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 
@@ -162,16 +163,21 @@ class JvmMappedScope(
         }
 
         // NOTE: No-arg constructors
-        @OptIn(ExperimentalStdlibApi::class)
-        private val additionalHiddenConstructors = buildSet<String> {
+        private val additionalHiddenConstructors = buildSet {
             // kotlin.text.String pseudo-constructors should be used instead of java.lang.String constructors
             listOf(
                 "",
                 "Lkotlin/ByteArray;IILjava/nio/charset/Charset;",
                 "Lkotlin/ByteArray;Ljava/nio/charset/Charset;",
+                "Lkotlin/ByteArray;III",
                 "Lkotlin/ByteArray;II",
+                "Lkotlin/ByteArray;IILjava/lang/String;",
+                "Lkotlin/ByteArray;I",
                 "Lkotlin/ByteArray;",
+                "Lkotlin/ByteArray;Ljava/lang/String;",
+                "IILkotlin/CharArray;",
                 "Lkotlin/CharArray;",
+                "Lkotlin/CharArray;Z",
                 "Lkotlin/CharArray;II",
                 "Lkotlin/IntArray;II",
                 "Ljava/lang/StringBuffer;",
@@ -185,13 +191,19 @@ class JvmMappedScope(
                 "Ljava/lang/Throwable;",
                 "Ljava/lang/String;"
             ).mapTo(this) { arguments -> "java/lang/Throwable.<init>($arguments)V" }
+
+            // TODO: remove after the end of getDeclaringClass/declaringClass deprecation period
+            add("java/lang/Enum.<init>(Ljava/lang/String;I)V")
         }
+
+        // TODO: remove after the end of getDeclaringClass/declaringClass deprecation period
+        private val additionalVisibleSignatures = inJavaLang("Enum", "getDeclaringClass()Ljava/lang/Class;")
 
         fun prepareSignatures(klass: FirRegularClass, isMutable: Boolean): Signatures {
 
             val signaturePrefix = klass.symbol.classId.toString()
             val visibleMethodsByName = mutableMapOf<Name, MutableSet<String>>()
-            JvmBuiltInsSignatures.VISIBLE_METHOD_SIGNATURES.filter { signature ->
+            (JvmBuiltInsSignatures.VISIBLE_METHOD_SIGNATURES + additionalVisibleSignatures).filter { signature ->
                 signature in JvmBuiltInsSignatures.MUTABLE_METHOD_SIGNATURES == isMutable &&
                         signature.startsWith(signaturePrefix)
             }.map { signature ->
@@ -208,5 +220,9 @@ class JvmMappedScope(
 
             return Signatures(visibleMethodsByName, hiddenConstructors)
         }
+    }
+
+    override fun toString(): String {
+        return "JVM mapped scope for ${firKotlinClass.classId}"
     }
 }

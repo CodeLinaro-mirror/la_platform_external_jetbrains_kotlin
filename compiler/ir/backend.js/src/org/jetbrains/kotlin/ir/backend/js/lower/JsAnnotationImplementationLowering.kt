@@ -36,11 +36,12 @@ class JsAnnotationImplementationTransformer(val jsContext: JsIrBackendContext) :
         return expression
     }
 
+    override fun chooseConstructor(implClass: IrClass, expression: IrConstructorCall): IrConstructor =
+        compilationException("Should not be called", implClass)
+
     override fun visitClassNew(declaration: IrClass): IrStatement {
         if (declaration.isAnnotationClass) {
-            context.irFactory.stageController.unrestrictDeclarationListsAccess {
-                implementGeneratedFunctions(declaration, declaration)
-            }
+            implementGeneratedFunctions(declaration, declaration)
         }
         return super.visitClassNew(declaration)
     }

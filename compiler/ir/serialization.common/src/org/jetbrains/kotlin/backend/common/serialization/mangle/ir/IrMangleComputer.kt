@@ -186,7 +186,8 @@ abstract class IrMangleComputer(protected val builder: StringBuilder, private va
                     }
                 }
 
-                if (type.hasQuestionMark) tBuilder.appendSignature(MangleConstant.Q_MARK)
+                //TODO
+                if (type.isMarkedNullable()) tBuilder.appendSignature(MangleConstant.Q_MARK)
 
                 mangleTypePlatformSpecific(type, tBuilder)
             }
@@ -256,7 +257,14 @@ abstract class IrMangleComputer(protected val builder: StringBuilder, private va
         typeParameters.collectForMangler(builder, MangleConstant.TYPE_PARAMETERS) { mangleTypeParameter(this, it) }
 
         builder.append(declaration.name.asString())
+
+        if (declaration.isSyntheticForJavaField) {
+            builder.append(MangleConstant.JAVA_FIELD_SUFFIX)
+        }
     }
+
+    private val IrProperty.isSyntheticForJavaField: Boolean
+        get() = origin == IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB && getter == null && setter == null
 
     override fun visitField(declaration: IrField) {
         val prop = declaration.correspondingPropertySymbol

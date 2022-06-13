@@ -47,6 +47,8 @@ import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ENABLE_JV
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_OPTIMIZED_CALLABLE_REFERENCES
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_UNIFIED_NULL_CHECKS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.PARAMETERS_METADATA
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.JDK_RELEASE
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.USE_TYPE_TABLE
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.model.DependencyDescription
@@ -145,6 +147,8 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         register(PARAMETERS_METADATA, JVMConfigurationKeys.PARAMETERS_METADATA)
         register(JVM_TARGET, JVMConfigurationKeys.JVM_TARGET)
         register(SERIALIZE_IR, JVMConfigurationKeys.SERIALIZE_IR)
+        register(JDK_RELEASE, JVMConfigurationKeys.JDK_RELEASE)
+        register(USE_TYPE_TABLE, JVMConfigurationKeys.USE_TYPE_TABLE)
     }
 
     @OptIn(ExperimentalPathApi::class, ExperimentalStdlibApi::class)
@@ -258,6 +262,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
 
         configuration.put(JVMConfigurationKeys.VALIDATE_IR, true)
         configuration.put(JVMConfigurationKeys.VALIDATE_BYTECODE, true)
+        configuration.configureJdkClasspathRoots()
     }
 
     private fun addJavaSourceRootsByJavaModules(configuration: CompilerConfiguration, moduleInfoFiles: List<TestFile>) {

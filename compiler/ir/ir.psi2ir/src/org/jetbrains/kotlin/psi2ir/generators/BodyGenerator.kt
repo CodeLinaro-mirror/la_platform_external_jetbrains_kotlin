@@ -53,9 +53,22 @@ class BodyGenerator(
     private val loopTable = HashMap<KtLoopExpression, IrLoop>()
 
     fun generateFunctionBody(ktBody: KtExpression): IrBody {
+        val irBlockBody = context.irFactory.createBlockBody(ktBody.startOffsetSkippingComments, ktBody.endOffset)
+
+        if (context.configuration.skipBodies) {
+            val irBody =
+                IrErrorExpressionImpl(
+                    ktBody.startOffsetSkippingComments,
+                    ktBody.endOffset,
+                    context.irBuiltIns.nothingType,
+                    ktBody::class.java.simpleName
+                )
+            irBlockBody.statements.add(generateReturnExpression(irBody.endOffset, irBody.endOffset, irBody))
+            return irBlockBody
+        }
+
         val statementGenerator = createStatementGenerator()
 
-        val irBlockBody = context.irFactory.createBlockBody(ktBody.startOffsetSkippingComments, ktBody.endOffset)
         if (ktBody is KtBlockExpression) {
             statementGenerator.generateStatements(ktBody.statements, irBlockBody)
         } else {
@@ -143,8 +156,10 @@ class BodyGenerator(
 
         generateDelegatingConstructorCall(irBlockBody, ktConstructor)
 
-        ktConstructor.bodyExpression?.let { ktBody ->
-            createStatementGenerator().generateStatements(ktBody.statements, irBlockBody)
+        if (context.configuration.generateBodies) {
+            ktConstructor.bodyExpression?.let { ktBody ->
+                createStatementGenerator().generateStatements(ktBody.statements, irBlockBody)
+            }
         }
 
         return irBlockBody

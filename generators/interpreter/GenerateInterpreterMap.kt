@@ -55,6 +55,8 @@ fun generateMap(): String {
         val irNullCheck = irBuiltIns.checkNotNullSymbol.owner
         this += Operation(irNullCheck.name.asString(), listOf("T0?"), customExpression = "a!!")
         this += Operation("toString", listOf("Any?"), customExpression = "a?.toString() ?: \"null\"")
+        // TODO next operation can be dropped after serialization introduction
+        this += Operation("toString", listOf("Unit"), customExpression = "Unit.toString()")
     })
 
     generateInterpretBinaryFunction(p, getOperationMap(2) + getBinaryIrOperationMap(irBuiltIns) + getExtensionOperationMap())
@@ -296,6 +298,10 @@ private fun getIrBuiltIns(): IrBuiltIns {
         override fun composeAnonInitSignature(descriptor: ClassDescriptor): IdSignature? = null
 
         override fun composeFieldSignature(descriptor: PropertyDescriptor): IdSignature? = null
+
+        override fun withFileSignature(fileSignature: IdSignature.FileSignature, body: () -> Unit) {
+            body()
+        }
     }
     val symbolTable = SymbolTable(signaturer, IrFactoryImpl)
     val typeTranslator = TypeTranslatorImpl(symbolTable, languageSettings, moduleDescriptor)

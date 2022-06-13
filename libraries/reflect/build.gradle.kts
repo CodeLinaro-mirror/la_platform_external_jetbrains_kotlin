@@ -12,7 +12,7 @@ description = "Kotlin Full Reflection Library"
 
 buildscript {
     dependencies {
-        classpath("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.3.0")
+        classpath("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.4.1")
     }
 }
 
@@ -235,18 +235,6 @@ val result by task<Jar> {
 }
 
 javadocJar()
-
-modularJar {
-    dependsOn(intermediate)
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from {
-        zipTree(intermediate.get().singleOutputFile())
-    }
-    from(zipTree(provider { reflectShadowJar.get().archiveFile.get().asFile })) {
-        include("META-INF/versions/**")
-    }
-    callGroovy("manifestAttributes", manifest, project, "Main", true)
-}
 
 dexMethodCount {
     dependsOn(result)

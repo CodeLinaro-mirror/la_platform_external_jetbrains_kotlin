@@ -23,6 +23,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 private val USE_BUILD_FILE: Boolean = System.getProperty("fir.bench.use.build.file", "true").toBooleanLenient()!!
+private val JVM_TARGET: String = System.getProperty("fir.bench.jvm.target", "1.8")
 
 abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
 
@@ -129,7 +130,7 @@ abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
 
     private fun configureBaseArguments(args: K2JVMCompilerArguments, moduleData: ModuleData, tmp: Path) {
         args.reportPerf = true
-        args.jvmTarget = "1.8"
+        args.jvmTarget = JVM_TARGET
         args.allowKotlinPackage = true
         if (USE_BUILD_FILE) {
             configureArgsUsingBuildFile(args, moduleData, tmp)
@@ -144,6 +145,7 @@ abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
         args.freeArgs = moduleData.sources.map { it.absolutePath }
         args.destination = tmp.toAbsolutePath().toFile().toString()
         args.friendPaths = moduleData.friendDirs.map { it.canonicalPath }.toTypedArray()
+        args.optIn = moduleData.optInAnnotations.toTypedArray()
     }
 
     private fun configureArgsUsingBuildFile(args: K2JVMCompilerArguments, moduleData: ModuleData, tmp: Path) {
@@ -159,11 +161,13 @@ abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
             "java-production",
             isTests = false,
             emptySet(),
-            friendDirs = moduleData.friendDirs
+            friendDirs = moduleData.friendDirs,
+            isIncrementalCompilation = true
         )
         val modulesFile = tmp.toFile().resolve("modules.xml")
         modulesFile.writeText(builder.asText().toString())
         args.buildFile = modulesFile.absolutePath
+        args.jdkHome = moduleData.jdkHome?.absolutePath
     }
 
     abstract fun configureArguments(args: K2JVMCompilerArguments, moduleData: ModuleData)
@@ -211,6 +215,7 @@ abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
     open fun formatReport(stream: PrintStream, finalReport: Boolean) {
         stream.println("TOTAL MODULES: ${totalModules.size}")
         stream.println("OK MODULES: ${okModules.size}")
+        stream.println("FAILED MODULES: ${totalModules.size - okModules.size}")
 
         formatReportTable(stream)
 

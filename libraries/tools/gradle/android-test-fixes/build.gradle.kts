@@ -1,9 +1,7 @@
 import plugins.KotlinBuildPublishingPlugin
 
 plugins {
-    id("java-gradle-plugin")
     id("gradle-plugin-common-configuration")
-    id("com.gradle.plugin-publish")
 }
 
 repositories {
@@ -11,36 +9,28 @@ repositories {
 }
 
 dependencies {
-    compileOnly(gradleKotlinDsl())
-    compileOnly("com.android.tools.build:gradle:3.4.0")
-    compileOnly("com.android.tools.build:gradle-api:3.4.0")
-    compileOnly("com.android.tools.build:builder:3.4.0")
-    compileOnly("com.android.tools.build:builder-model:3.4.0")
-}
-
-configure<GradlePluginDevelopmentExtension> {
-    isAutomatedPublishing = false
+    commonCompileOnly(gradleKotlinDsl())
+    commonCompileOnly("com.android.tools.build:gradle:3.6.4") {
+        isTransitive = false
+    }
+    commonCompileOnly("com.android.tools.build:builder:3.6.4") {
+        isTransitive = false
+    }
+    commonCompileOnly("com.android.tools.build:builder-model:3.6.4") {
+        isTransitive = false
+    }
 }
 
 gradlePlugin {
-    (plugins) {
+    plugins {
         create("android-test-fixes") {
             id = "org.jetbrains.kotlin.test.fixes.android"
+            displayName = "AndroidTestFixes"
+            description = displayName
             implementationClass = "org.jetbrains.kotlin.gradle.test.fixes.android.AndroidTestFixesPlugin"
         }
     }
 }
-
-pluginBundle {
-    (plugins) {
-        named("android-test-fixes") {
-            id = "org.jetbrains.kotlin.test.fixes.android"
-            displayName = "AndroidTestFixes"
-        }
-    }
-}
-
-publishPluginMarkers()
 
 // Disable releasing for this plugin
 // It is not intended to be released publicly

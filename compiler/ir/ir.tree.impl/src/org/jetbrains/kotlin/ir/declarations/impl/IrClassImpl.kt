@@ -30,7 +30,7 @@ open class IrClassImpl(
     override val endOffset: Int,
     override var origin: IrDeclarationOrigin,
     final override val symbol: IrClassSymbol,
-    override val name: Name,
+    override var name: Name,
     override val kind: ClassKind,
     override var visibility: DescriptorVisibility,
     override var modality: Modality,
@@ -38,7 +38,7 @@ open class IrClassImpl(
     override var isInner: Boolean = false,
     override val isData: Boolean = false,
     override val isExternal: Boolean = false,
-    override val isInline: Boolean = false,
+    override val isValue: Boolean = false,
     override val isExpect: Boolean = false,
     override val isFun: Boolean = false,
     override val source: SourceElement = SourceElement.NO_SOURCE,
@@ -63,7 +63,7 @@ open class IrClassImpl(
 
     override var superTypes: List<IrType> = emptyList()
 
-    override var inlineClassRepresentation: InlineClassRepresentation<IrSimpleType>? = null
+    override var valueClassRepresentation: ValueClassRepresentation<IrSimpleType>? = null
 
     override var metadata: MetadataSource? = null
 

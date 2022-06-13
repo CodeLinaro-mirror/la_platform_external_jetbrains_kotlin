@@ -17,12 +17,12 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvedDeclarationStatus
 import org.jetbrains.kotlin.fir.declarations.FirControlFlowGraphOwner
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.declarations.FirContextReceiver
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRefsOwner
 import org.jetbrains.kotlin.fir.declarations.FirTypeParametersOwner
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
-import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
@@ -91,6 +91,7 @@ import org.jetbrains.kotlin.fir.declarations.FirErrorProperty
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
+import org.jetbrains.kotlin.fir.expressions.FirIntegerLiteralOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirImplicitInvokeCall
 import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.FirComponentCall
@@ -135,6 +136,7 @@ import org.jetbrains.kotlin.fir.types.FirTypeRefWithNullability
 import org.jetbrains.kotlin.fir.types.FirUserTypeRef
 import org.jetbrains.kotlin.fir.types.FirDynamicTypeRef
 import org.jetbrains.kotlin.fir.types.FirFunctionTypeRef
+import org.jetbrains.kotlin.fir.types.FirIntersectionTypeRef
 import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
 import org.jetbrains.kotlin.fir.contracts.FirEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
@@ -194,6 +196,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(expression)
     }
 
+    open fun visitContextReceiver(contextReceiver: FirContextReceiver) {
+        visitElement(contextReceiver)
+    }
+
     open fun visitDeclaration(declaration: FirDeclaration) {
         visitElement(declaration)
     }
@@ -212,10 +218,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     open fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
         visitElement(anonymousInitializer)
-    }
-
-    open fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration) {
-        visitElement(typedDeclaration)
     }
 
     open fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration) {
@@ -490,6 +492,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(functionCall)
     }
 
+    open fun visitIntegerLiteralOperatorCall(integerLiteralOperatorCall: FirIntegerLiteralOperatorCall) {
+        visitElement(integerLiteralOperatorCall)
+    }
+
     open fun visitImplicitInvokeCall(implicitInvokeCall: FirImplicitInvokeCall) {
         visitElement(implicitInvokeCall)
     }
@@ -666,6 +672,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitElement(functionTypeRef)
     }
 
+    open fun visitIntersectionTypeRef(intersectionTypeRef: FirIntersectionTypeRef) {
+        visitElement(intersectionTypeRef)
+    }
+
     open fun visitImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef) {
         visitElement(implicitTypeRef)
     }
@@ -738,6 +748,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitExpression(expression)
     }
 
+    final override fun visitContextReceiver(contextReceiver: FirContextReceiver, data: Nothing?) {
+        visitContextReceiver(contextReceiver)
+    }
+
     final override fun visitDeclaration(declaration: FirDeclaration, data: Nothing?) {
         visitDeclaration(declaration)
     }
@@ -756,10 +770,6 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: Nothing?) {
         visitAnonymousInitializer(anonymousInitializer)
-    }
-
-    final override fun visitTypedDeclaration(typedDeclaration: FirTypedDeclaration, data: Nothing?) {
-        visitTypedDeclaration(typedDeclaration)
     }
 
     final override fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration, data: Nothing?) {
@@ -1034,6 +1044,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
         visitFunctionCall(functionCall)
     }
 
+    final override fun visitIntegerLiteralOperatorCall(integerLiteralOperatorCall: FirIntegerLiteralOperatorCall, data: Nothing?) {
+        visitIntegerLiteralOperatorCall(integerLiteralOperatorCall)
+    }
+
     final override fun visitImplicitInvokeCall(implicitInvokeCall: FirImplicitInvokeCall, data: Nothing?) {
         visitImplicitInvokeCall(implicitInvokeCall)
     }
@@ -1208,6 +1222,10 @@ abstract class FirVisitorVoid : FirVisitor<Unit, Nothing?>() {
 
     final override fun visitFunctionTypeRef(functionTypeRef: FirFunctionTypeRef, data: Nothing?) {
         visitFunctionTypeRef(functionTypeRef)
+    }
+
+    final override fun visitIntersectionTypeRef(intersectionTypeRef: FirIntersectionTypeRef, data: Nothing?) {
+        visitIntersectionTypeRef(intersectionTypeRef)
     }
 
     final override fun visitImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: Nothing?) {

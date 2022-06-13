@@ -27,7 +27,7 @@ class ParcelizeEnvironmentConfigurator(
         configuration.addJvmClasspathRoots(listOf(runtimeLibrary, androidExtensionsRuntimeLibrary, androidApiJar))
     }
 
-    override fun registerCompilerExtensions(project: Project) {
+    override fun registerCompilerExtensions(project: Project, module: TestModule) {
         if (useFirExtension) {
 
         } else {

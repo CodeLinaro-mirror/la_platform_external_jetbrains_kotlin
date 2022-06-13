@@ -25,19 +25,46 @@ fun CompilerConfiguration.setupJvmSpecificArguments(arguments: K2JVMCompilerArgu
 
     putIfNotNull(JVMConfigurationKeys.FRIEND_PATHS, arguments.friendPaths?.asList())
 
-    if (arguments.jvmTarget != null) {
-        val jvmTarget = JvmTarget.fromString(arguments.jvmTarget!!)
+    val releaseTargetArg = arguments.jdkRelease
+    val jvmTargetArg = arguments.jvmTarget
+    if (releaseTargetArg != null) {
+        val value =
+            when (releaseTargetArg) {
+                "1.6" -> 6
+                "1.8" -> 8
+                else -> releaseTargetArg.toIntOrNull()
+            }
+        if (value == null || value < 6) {
+            messageCollector.report(ERROR, "Unknown JDK release version: $releaseTargetArg")
+        } else {
+            //don't use release flag if it equals to compilation JDK version
+            if (value != getJavaVersion() || arguments.jdkHome != null) {
+                put(JVMConfigurationKeys.JDK_RELEASE, value)
+            }
+            if (jvmTargetArg != null && jvmTargetArg != releaseTargetArg) {
+                messageCollector.report(
+                    ERROR,
+                    "'-Xjdk-release=$releaseTargetArg' option conflicts with '-jvm-target $jvmTargetArg'. " +
+                            "Please remove the '-jvm-target' option"
+                )
+            }
+        }
+    }
+
+    val jvmTargetValue = releaseTargetArg ?: jvmTargetArg
+    if (jvmTargetValue != null) {
+        val jvmTarget = JvmTarget.fromString(jvmTargetValue)
         if (jvmTarget != null) {
             put(JVMConfigurationKeys.JVM_TARGET, jvmTarget)
-            if (jvmTarget == JvmTarget.JVM_1_6 && !arguments.suppressDeprecatedJvmTargetWarning) {
+            if (jvmTarget == JvmTarget.JVM_1_6 && !isJvmTarget6Allowed()) {
                 messageCollector.report(
-                    STRONG_WARNING,
-                    "JVM target 1.6 is deprecated and will be removed in a future release. Please migrate to JVM target 1.8 or above"
+                    ERROR,
+                    "JVM target 1.6 is no longer supported. Please migrate to JVM target 1.8 or above"
                 )
             }
         } else {
             messageCollector.report(
-                ERROR, "Unknown JVM target version: ${arguments.jvmTarget}\n" +
+                ERROR, "Unknown JVM target version: $jvmTargetValue\n" +
                         "Supported versions: ${JvmTarget.values().joinToString { it.description }}"
             )
         }
@@ -138,23 +165,21 @@ fun CompilerConfiguration.configureJdkHome(arguments: K2JVMCompilerArguments): B
     return true
 }
 
-fun CompilerConfiguration.configureExplicitContentRoots(arguments: K2JVMCompilerArguments) {
+fun CompilerConfiguration.configureJavaModulesContentRoots(arguments: K2JVMCompilerArguments) {
     for (modularRoot in arguments.javaModulePath?.split(File.pathSeparatorChar).orEmpty()) {
         add(CLIConfigurationKeys.CONTENT_ROOTS, JvmModulePathRoot(File(modularRoot)))
     }
+}
 
-    if (arguments.buildFile != null) {
-        // In the .xml compilation mode, all content roots except module path will be loaded from the .xml build file.
-        return
-    }
-
+fun CompilerConfiguration.configureContentRootsFromClassPath(arguments: K2JVMCompilerArguments) {
     for (path in arguments.classpath?.split(File.pathSeparatorChar).orEmpty()) {
         add(CLIConfigurationKeys.CONTENT_ROOTS, JvmClasspathRoot(File(path)))
     }
 }
 
 fun CompilerConfiguration.configureStandardLibs(paths: KotlinPaths?, arguments: K2JVMCompilerArguments) {
-    val isModularJava = isModularJava()
+    val jdkRelease = get(JVMConfigurationKeys.JDK_RELEASE)
+    val isModularJava = isModularJava() && (jdkRelease == null || jdkRelease >= 9)
 
     fun addRoot(moduleName: String, libraryName: String, getLibrary: (KotlinPaths) -> File, noLibraryArgument: String) {
         addModularRootIfNotNull(
@@ -212,7 +237,7 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     // TODO: ignore previous configuration value when we do not need old backend in scripting by default
     val useOldBackend = arguments.useOldBackend || (!arguments.useIR && get(JVMConfigurationKeys.IR) == false)
-    val useIR = arguments.useFir ||
+    val useIR = arguments.useK2 ||
             if (languageVersionSettings.supportsFeature(LanguageFeature.JvmIrEnabledByDefault)) {
                 !useOldBackend
             } else {
@@ -267,6 +292,8 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     put(JVMConfigurationKeys.VALIDATE_IR, arguments.validateIr)
     put(JVMConfigurationKeys.VALIDATE_BYTECODE, arguments.validateBytecode)
 
+    put(JVMConfigurationKeys.LINK_VIA_SIGNATURES, arguments.linkViaSignatures)
+
     val assertionsMode =
         JVMAssertionsMode.fromStringOrNull(arguments.assertionsMode)
     if (assertionsMode == null) {
@@ -290,6 +317,7 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     }
 
     put(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE, arguments.allowKotlinPackage)
+    put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
     put(JVMConfigurationKeys.USE_SINGLE_MODULE, arguments.singleModule)
     put(JVMConfigurationKeys.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME, arguments.useOldInlineClassesManglingScheme)
     put(JVMConfigurationKeys.ENABLE_JVM_PREVIEW, arguments.enableJvmPreview)
@@ -313,3 +341,9 @@ fun CompilerConfiguration.configureKlibPaths(arguments: K2JVMCompilerArguments) 
 
 private val CompilerConfiguration.messageCollector: MessageCollector
     get() = getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+
+private fun getJavaVersion(): Int =
+    System.getProperty("java.specification.version")?.substringAfter('.')?.toIntOrNull() ?: 6
+
+private fun isJvmTarget6Allowed(): Boolean =
+    K2JVMCompiler::class.java.classLoader.getResource("META-INF/unsafe-allow-jvm6") != null

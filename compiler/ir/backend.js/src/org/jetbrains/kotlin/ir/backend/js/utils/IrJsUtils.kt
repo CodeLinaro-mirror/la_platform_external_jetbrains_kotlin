@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.ir.backend.js.export.isExported
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
+import org.jetbrains.kotlin.ir.expressions.IrReturn
+import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 
 fun IrDeclaration.isExportedMember(context: JsIrBackendContext) =
@@ -23,3 +25,7 @@ fun IrDeclaration?.isExportedClass(context: JsIrBackendContext) =
 
 fun IrDeclaration?.isExportedInterface(context: JsIrBackendContext) =
     this is IrClass && kind.isInterface && isExported(context)
+
+fun IrReturn.isTheLastReturnStatementIn(target: IrReturnableBlockSymbol): Boolean {
+    return target.owner.statements.lastOrNull() === this
+}

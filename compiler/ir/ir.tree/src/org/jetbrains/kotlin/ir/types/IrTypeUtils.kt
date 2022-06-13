@@ -7,10 +7,7 @@ package org.jetbrains.kotlin.ir.types
 
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.symbols.FqNameEqualityChecker
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
-import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 
@@ -29,15 +26,23 @@ fun IrClassifierSymbol.isStrictSubtypeOfClass(superClass: IrClassSymbol): Boolea
 fun IrType.isSubtypeOfClass(superClass: IrClassSymbol): Boolean =
     this is IrSimpleType && classifier.isSubtypeOfClass(superClass)
 
+fun IrType.isStrictSubtypeOfClass(superClass: IrClassSymbol): Boolean =
+    this is IrSimpleType && classifier.isStrictSubtypeOfClass(superClass)
+
 fun IrType.isSubtypeOf(superType: IrType, typeSystem: IrTypeSystemContext): Boolean =
     AbstractTypeChecker.isSubtypeOf(createIrTypeCheckerState(typeSystem), this, superType)
 
 fun IrType.isNullable(): Boolean =
     when (this) {
-        is IrDefinitelyNotNullType -> false
         is IrSimpleType -> when (val classifier = classifier) {
-            is IrClassSymbol -> hasQuestionMark
-            is IrTypeParameterSymbol -> hasQuestionMark || classifier.owner.superTypes.any(IrType::isNullable)
+            is IrClassSymbol -> nullability == SimpleTypeNullability.MARKED_NULLABLE
+            is IrTypeParameterSymbol -> when (nullability) {
+                SimpleTypeNullability.MARKED_NULLABLE -> true
+                // here is a bug, there should be .all check (not .any),
+                // but fixing it is a breaking change, see KT-31545 for details
+                SimpleTypeNullability.NOT_SPECIFIED -> classifier.owner.superTypes.any(IrType::isNullable)
+                SimpleTypeNullability.DEFINITELY_NOT_NULL -> false
+            }
             else -> error("Unsupported classifier: $classifier")
         }
         is IrDynamicType -> true

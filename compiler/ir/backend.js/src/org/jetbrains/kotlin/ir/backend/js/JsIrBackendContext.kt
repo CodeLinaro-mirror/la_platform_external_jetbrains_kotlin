@@ -13,18 +13,20 @@ import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
-import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.lower.JsInnerClassesSupport
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsPolyfills
 import org.jetbrains.kotlin.ir.backend.js.utils.JsInlineClassesUtils
+import org.jetbrains.kotlin.ir.backend.js.utils.MinimizedNameGenerator
 import org.jetbrains.kotlin.ir.backend.js.utils.OperatorNames
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -34,7 +36,9 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrDynamicTypeImpl
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.SymbolTable
+import org.jetbrains.kotlin.ir.util.kotlinPackageFqn
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.js.config.ErrorTolerancePolicy
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
@@ -43,6 +47,8 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.isNullable
+import org.jetbrains.kotlin.util.collectionUtils.filterIsInstanceMapNotNull
+import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 class JsIrBackendContext(
     val module: ModuleDescriptor,
@@ -57,17 +63,20 @@ class JsIrBackendContext(
     val baseClassIntoMetadata: Boolean = false,
     val safeExternalBoolean: Boolean = false,
     val safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
-    override val mapping: JsMapping = JsMapping(symbolTable.irFactory),
+    override val mapping: JsMapping = JsMapping(),
     val granularity: JsGenerationGranularity = JsGenerationGranularity.WHOLE_PROGRAM,
     val icCompatibleIr2Js: Boolean = false,
 ) : JsCommonBackendContext {
-
-    val fileToInitializationFuns: MutableMap<IrFile, IrSimpleFunction?> = mutableMapOf()
-    val fileToInitializerPureness: MutableMap<IrFile, Boolean> = mutableMapOf()
+    val polyfills = JsPolyfills()
     val fieldToInitializer: MutableMap<IrField, IrExpression> = mutableMapOf()
 
     val localClassNames: MutableMap<IrClass, String> = mutableMapOf()
     val extractedLocalClasses: MutableSet<IrClass> = hashSetOf()
+
+    val minimizedNameGenerator: MinimizedNameGenerator =
+        MinimizedNameGenerator()
+
+    val fieldDataCache = mutableMapOf<IrClass, Map<IrField, String>>()
 
     override val builtIns = module.builtIns
 
@@ -139,7 +148,10 @@ class JsIrBackendContext(
     val intrinsics: JsIntrinsics = JsIntrinsics(irBuiltIns, this)
     override val reflectionSymbols: ReflectionSymbols get() = intrinsics.reflectionSymbols
 
-    val propertyLazyInitialization = configuration.getBoolean(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION)
+    override val propertyLazyInitialization: PropertyLazyInitialization = PropertyLazyInitialization(
+        enabled = configuration.getBoolean(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION),
+        eagerInitialization = symbolTable.referenceClass(getJsInternalClass("EagerInitialization"))
+    )
 
     override val catchAllThrowableType: IrType
         get() = dynamicType
@@ -158,7 +170,13 @@ class JsIrBackendContext(
         return numbers + listOf(Name.identifier("String"), Name.identifier("Boolean"))
     }
 
-    fun getOperatorByName(name: Name, type: IrSimpleType) = operatorMap[name]?.get(type.classifier)
+    fun getOperatorByName(name: Name, lhsType: IrSimpleType, rhsType: IrSimpleType?) =
+        operatorMap[name]?.get(lhsType.classifier)?.let { candidates ->
+            if (rhsType == null)
+                candidates.singleOrNull()
+            else
+                candidates.singleOrNull { it.owner.valueParameters[0].type.cast<IrSimpleType>().classifier == rhsType.classifier }
+        }
 
     override val coroutineSymbols =
         JsCommonCoroutineSymbols(symbolTable, module, this)
@@ -206,7 +224,8 @@ class JsIrBackendContext(
 
             override val getContinuation = symbolTable.referenceSimpleFunction(getJsInternalFunction("getContinuation"))
 
-            override val coroutineContextGetter = symbolTable.referenceSimpleFunction(context.coroutineSymbols.coroutineContextProperty.getter!!)
+            override val coroutineContextGetter =
+                symbolTable.referenceSimpleFunction(context.coroutineSymbols.coroutineContextProperty.getter!!)
 
             override val suspendCoroutineUninterceptedOrReturn =
                 symbolTable.referenceSimpleFunction(getJsInternalFunction(COROUTINE_SUSPEND_OR_RETURN_JS_NAME))
@@ -307,17 +326,16 @@ class JsIrBackendContext(
     val klocalDelegateBuilder =
         getFunctions(FqName("kotlin.js.getLocalDelegateReference")).single().let { symbolTable.referenceSimpleFunction(it) }
 
-    private fun referenceOperators(): Map<Name, MutableMap<IrClassifierSymbol, IrSimpleFunctionSymbol>> {
+    private fun referenceOperators(): Map<Name, Map<IrClassSymbol, Collection<IrSimpleFunctionSymbol>>> {
         val primitiveIrSymbols = irBuiltIns.primitiveIrTypes.map { it.classifierOrFail as IrClassSymbol }
-
-        return OperatorNames.ALL.map { name ->
-            // TODO to replace KotlinType with IrType we need right equals on IrType
-            name to primitiveIrSymbols.fold(mutableMapOf<IrClassifierSymbol, IrSimpleFunctionSymbol>()) { m, s ->
-                val function = s.owner.declarations.filterIsInstance<IrSimpleFunction>().singleOrNull { it.name == name }
-                function?.let { m.put(s, it.symbol) }
-                m
+        return OperatorNames.ALL.associateWith { name ->
+            primitiveIrSymbols.associateWith { classSymbol ->
+                classSymbol.owner.declarations
+                    .filterIsInstanceMapNotNull<IrSimpleFunction, IrSimpleFunctionSymbol> { function ->
+                        function.symbol.takeIf { function.name == name }
+                    }
             }
-        }.toMap()
+        }
     }
 
     private fun findProperty(memberScope: MemberScope, name: Name): List<PropertyDescriptor> =

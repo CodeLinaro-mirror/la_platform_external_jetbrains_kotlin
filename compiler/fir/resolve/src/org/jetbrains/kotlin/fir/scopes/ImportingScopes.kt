@@ -7,15 +7,19 @@ package org.jetbrains.kotlin.fir.scopes
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.packageFqName
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.scopeSessionKey
 import org.jetbrains.kotlin.fir.scopes.impl.*
+import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.name.FqName
 
 private val ALL_IMPORTS = scopeSessionKey<FirFile, ListStorageFirScope>()
-private val INVISIBLE_DEFAULT_STAR_IMPORT = scopeSessionKey<DefaultImportPriority, FirDefaultStarImportingScope>()
-private val VISIBLE_DEFAULT_STAR_IMPORT = scopeSessionKey<DefaultImportPriority, FirDefaultStarImportingScope>()
+private val DEFAULT_STAR_IMPORT = scopeSessionKey<DefaultStarImportKey, FirDefaultStarImportingScope>()
 private val DEFAULT_SIMPLE_IMPORT = scopeSessionKey<DefaultImportPriority, FirDefaultSimpleImportingScope>()
+
+private data class DefaultStarImportKey(val priority: DefaultImportPriority, val excludedImportNames: Set<FqName>)
 
 fun createImportingScopes(
     file: FirFile,
@@ -35,23 +39,17 @@ private fun doCreateImportingScopes(
     session: FirSession,
     scopeSession: ScopeSession
 ): List<FirScope> {
+    file.ensureResolved(FirResolvePhase.IMPORTS)
+    val excludedImportNames =
+        file.imports.filter { it.aliasName != null }.mapNotNullTo(hashSetOf()) { it.importedFqName }.ifEmpty { emptySet() }
     return listOf(
-        // from low priority to high priority
-        scopeSession.getOrBuild(DefaultImportPriority.LOW, INVISIBLE_DEFAULT_STAR_IMPORT) {
-            FirDefaultStarImportingScope(session, scopeSession, FirImportingScopeFilter.INVISIBLE_CLASSES, DefaultImportPriority.LOW)
+        scopeSession.getOrBuild(DefaultStarImportKey(DefaultImportPriority.LOW, excludedImportNames), DEFAULT_STAR_IMPORT) {
+            FirDefaultStarImportingScope(session, scopeSession, DefaultImportPriority.LOW, excludedImportNames)
         },
-        scopeSession.getOrBuild(DefaultImportPriority.HIGH, INVISIBLE_DEFAULT_STAR_IMPORT) {
-            FirDefaultStarImportingScope(session, scopeSession, FirImportingScopeFilter.INVISIBLE_CLASSES, DefaultImportPriority.HIGH)
+        scopeSession.getOrBuild(DefaultStarImportKey(DefaultImportPriority.HIGH, excludedImportNames), DEFAULT_STAR_IMPORT) {
+            FirDefaultStarImportingScope(session, scopeSession, DefaultImportPriority.HIGH, excludedImportNames)
         },
-        FirExplicitStarImportingScope(file.imports, session, scopeSession, FirImportingScopeFilter.INVISIBLE_CLASSES),
-        // TODO: invisible classes from current package should go before this point
-        scopeSession.getOrBuild(DefaultImportPriority.LOW, VISIBLE_DEFAULT_STAR_IMPORT) {
-            FirDefaultStarImportingScope(session, scopeSession, FirImportingScopeFilter.MEMBERS_AND_VISIBLE_CLASSES, DefaultImportPriority.LOW)
-        },
-        scopeSession.getOrBuild(DefaultImportPriority.HIGH, VISIBLE_DEFAULT_STAR_IMPORT) {
-            FirDefaultStarImportingScope(session, scopeSession, FirImportingScopeFilter.MEMBERS_AND_VISIBLE_CLASSES, DefaultImportPriority.HIGH)
-        },
-        FirExplicitStarImportingScope(file.imports, session, scopeSession, FirImportingScopeFilter.MEMBERS_AND_VISIBLE_CLASSES),
+        FirExplicitStarImportingScope(file.imports, session, scopeSession, excludedImportNames),
 
         scopeSession.getOrBuild(DefaultImportPriority.LOW, DEFAULT_SIMPLE_IMPORT) {
             FirDefaultSimpleImportingScope(session, scopeSession, priority = DefaultImportPriority.LOW)

@@ -20,10 +20,12 @@ import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.resolve.calls.smartcasts.getReceiverValueWithSmartCast
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind.*
 import org.jetbrains.kotlin.resolve.calls.tower.*
+import org.jetbrains.kotlin.resolve.descriptorUtil.isInsideInterface
 import org.jetbrains.kotlin.resolve.scopes.LexicalScope
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValueWithSmartCastInfo
 import org.jetbrains.kotlin.resolve.scopes.utils.parentsWithSelf
 import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.error.ErrorUtils
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.types.model.typeConstructor
@@ -806,8 +808,16 @@ internal object CheckSuperExpressionCallPart : ResolutionPart() {
         val candidateDescriptor = resolvedCall.candidateDescriptor
 
         if (callComponents.statelessCallbacks.isSuperExpression(resolvedCall.dispatchReceiverArgument)) {
-            if (candidateDescriptor is MemberDescriptor && candidateDescriptor.modality == Modality.ABSTRACT) {
-                addDiagnostic(AbstractSuperCall)
+            if (candidateDescriptor is CallableMemberDescriptor) {
+                if (candidateDescriptor.modality == Modality.ABSTRACT) {
+                    addDiagnostic(AbstractSuperCall(resolvedCall.dispatchReceiverArgument!!))
+                } else if (candidateDescriptor.kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE &&
+                    candidateDescriptor.overriddenDescriptors.size > 1
+                ) {
+                    if (candidateDescriptor.overriddenDescriptors.firstOrNull { !it.isInsideInterface }?.modality == Modality.ABSTRACT) {
+                        addDiagnostic(AbstractFakeOverrideSuperCall)
+                    }
+                }
             }
         }
 

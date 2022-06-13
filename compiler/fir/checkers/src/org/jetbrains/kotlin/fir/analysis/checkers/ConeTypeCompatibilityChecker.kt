@@ -47,6 +47,8 @@ import org.jetbrains.kotlin.types.Variance
 object ConeTypeCompatibilityChecker {
 
     private val javaClassClassId = ClassId.fromString("java/lang/Class")
+    private val kotlinClassClassId = ClassId.fromString("kotlin/reflect/KClass")
+
 
     /**
      * The result returned by [ConeTypeCompatibilityChecker]. Note the order of enum entries matters.
@@ -134,6 +136,9 @@ object ConeTypeCompatibilityChecker {
             return Compatibility.COMPATIBLE
         }
 
+        // TODO: Due to KT-49358, we skip any checks on Java and Kotlin refection class.
+        if (upperBounds.any { it.classId == javaClassClassId || it.classId == kotlinClassClassId }) return Compatibility.COMPATIBLE
+
         val leafClassesOrInterfaces = computeLeafClassesOrInterfaces(upperBoundClasses)
         this.areClassesOrInterfacesCompatible(leafClassesOrInterfaces, compatibilityUpperBound)?.let { return it }
 
@@ -148,9 +153,6 @@ object ConeTypeCompatibilityChecker {
         }
 
         if (upperBounds.size < 2) return Compatibility.COMPATIBLE
-
-        // TODO: Due to KT-49358, we skip any checks on Java class.
-        if (upperBounds.any { it.classId == javaClassClassId }) return Compatibility.COMPATIBLE
 
         // Base types are compatible. Now we check type parameters.
 
@@ -242,7 +244,7 @@ object ConeTypeCompatibilityChecker {
     private fun ConeKotlinType?.collectUpperBounds(): Set<ConeClassLikeType> {
         if (this == null) return emptySet()
         return when (this) {
-            is ConeClassErrorType -> emptySet() // Ignore error types
+            is ConeErrorType -> emptySet() // Ignore error types
             is ConeLookupTagBasedType -> when (this) {
                 is ConeClassLikeType -> setOf(this)
                 is ConeTypeVariableType -> {
@@ -255,7 +257,8 @@ object ConeTypeCompatibilityChecker {
             is ConeIntersectionType -> intersectedTypes.flatMap { it.collectUpperBounds() }.toSet()
             is ConeFlexibleType -> upperBound.collectUpperBounds()
             is ConeCapturedType -> constructor.supertypes?.flatMap { it.collectUpperBounds() }?.toSet().orEmpty()
-            is ConeStubType, is ConeIntegerLiteralType -> throw IllegalStateException("$this should not reach here")
+            is ConeIntegerConstantOperatorType -> setOf(getApproximatedType())
+            is ConeStubType, is ConeIntegerLiteralConstantType -> throw IllegalStateException("$this should not reach here")
         }
     }
 
@@ -267,7 +270,7 @@ object ConeTypeCompatibilityChecker {
     private fun ConeKotlinType?.collectLowerBounds(): Set<ConeClassLikeType> {
         if (this == null) return emptySet()
         return when (this) {
-            is ConeClassErrorType -> emptySet() // Ignore error types
+            is ConeErrorType -> emptySet() // Ignore error types
             is ConeLookupTagBasedType -> when (this) {
                 is ConeClassLikeType -> setOf(this)
                 is ConeTypeVariableType -> emptySet()
@@ -278,7 +281,8 @@ object ConeTypeCompatibilityChecker {
             is ConeIntersectionType -> intersectedTypes.flatMap { it.collectLowerBounds() }.toSet()
             is ConeFlexibleType -> lowerBound.collectLowerBounds()
             is ConeCapturedType -> constructor.supertypes?.flatMap { it.collectLowerBounds() }?.toSet().orEmpty()
-            is ConeStubType, is ConeIntegerLiteralType -> throw IllegalStateException("$this should not reach here")
+            is ConeIntegerConstantOperatorType -> setOf(getApproximatedType())
+            is ConeStubType, is ConeIntegerLiteralConstantType -> throw IllegalStateException("$this should not reach here")
         }
     }
 

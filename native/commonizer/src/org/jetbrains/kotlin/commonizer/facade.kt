@@ -58,20 +58,19 @@ internal fun commonizeTarget(
             targetDependencies = availableTrees.mapValue(CirTreeRoot::dependencies),
             commonizedNodes = CirCommonizedClassifierNodes.default(),
             commonDependencies = parameters.dependencyClassifiers(output)
-
         )
 
-        val mergedTree = mergeCirTree(parameters.storageManager, classifiers, availableTrees)
+        val mergedTree = mergeCirTree(parameters.storageManager, classifiers, availableTrees, parameters.settings)
 
-        InlineTypeAliasCirNodeTransformer(parameters.storageManager, classifiers).invoke(mergedTree)
+        InlineTypeAliasCirNodeTransformer(parameters.storageManager, classifiers, parameters.settings).invoke(mergedTree)
 
         ReApproximationCirNodeTransformer(
-            parameters.storageManager, classifiers,
+            parameters.storageManager, classifiers, parameters.settings,
             SignatureBuildingContextProvider(classifiers, typeAliasInvariant = true, skipArguments = false)
         ).invoke(mergedTree)
 
         ReApproximationCirNodeTransformer(
-            parameters.storageManager, classifiers,
+            parameters.storageManager, classifiers, parameters.settings,
             SignatureBuildingContextProvider(classifiers, typeAliasInvariant = true, skipArguments = true)
         ).invoke(mergedTree)
 

@@ -2352,6 +2352,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
             public void testSmartCastInFunction() throws Exception {
                 runTest("js/js.translator/testData/box/expression/cast/smartCastInFunction.kt");
             }
+
+            @Test
+            @TestMetadata("unsafeVarianceCast.kt")
+            public void testUnsafeVarianceCast() throws Exception {
+                runTest("js/js.translator/testData/box/expression/cast/unsafeVarianceCast.kt");
+            }
         }
 
         @Nested
@@ -4863,6 +4869,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("lastLabeledReturn.kt")
+        public void testLastLabeledReturn() throws Exception {
+            runTest("js/js.translator/testData/box/inline/lastLabeledReturn.kt");
+        }
+
+        @Test
         @TestMetadata("localDeclarationsClash.kt")
         public void testLocalDeclarationsClash() throws Exception {
             runTest("js/js.translator/testData/box/inline/localDeclarationsClash.kt");
@@ -6453,6 +6465,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("sameExternalNames.kt")
+        public void testSameExternalNames() throws Exception {
+            runTest("js/js.translator/testData/box/jsModule/sameExternalNames.kt");
+        }
+
+        @Test
         @TestMetadata("topLevelVarargFun.kt")
         public void testTopLevelVarargFun() throws Exception {
             runTest("js/js.translator/testData/box/jsModule/topLevelVarargFun.kt");
@@ -6944,6 +6962,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("samePackageNames.kt")
         public void testSamePackageNames() throws Exception {
             runTest("js/js.translator/testData/box/multiModule/samePackageNames.kt");
+        }
+
+        @Test
+        @TestMetadata("symbolRedeclaration.kt")
+        public void testSymbolRedeclaration() throws Exception {
+            runTest("js/js.translator/testData/box/multiModule/symbolRedeclaration.kt");
         }
 
         @Test
@@ -7765,6 +7789,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("intMod.kt")
+        public void testIntMod() throws Exception {
+            runTest("js/js.translator/testData/box/number/intMod.kt");
+        }
+
+        @Test
         @TestMetadata("intOverflow.kt")
         public void testIntOverflow() throws Exception {
             runTest("js/js.translator/testData/box/number/intOverflow.kt");
@@ -8140,6 +8170,206 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("nestedPackage.kt")
         public void testNestedPackage() throws Exception {
             runTest("js/js.translator/testData/box/package/nestedPackage.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("js/js.translator/testData/box/polyfills")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Polyfills {
+        @Test
+        public void testAllFilesPresentInPolyfills() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/acosh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Acosh {
+            @Test
+            public void testAllFilesPresentInAcosh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/acosh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/asinh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Asinh {
+            @Test
+            public void testAllFilesPresentInAsinh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/asinh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/atanh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Atanh {
+            @Test
+            public void testAllFilesPresentInAtanh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/atanh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/clz32")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Clz32 {
+            @Test
+            public void testAllFilesPresentInClz32() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/clz32"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/cosh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Cosh {
+            @Test
+            public void testAllFilesPresentInCosh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/cosh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/expm1")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Expm1 {
+            @Test
+            public void testAllFilesPresentInExpm1() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/expm1"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/fill")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Fill {
+            @Test
+            public void testAllFilesPresentInFill() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/fill"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/globalThis")
+        @TestDataPath("$PROJECT_ROOT")
+        public class GlobalThis {
+            @Test
+            public void testAllFilesPresentInGlobalThis() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/globalThis"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/hypot")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Hypot {
+            @Test
+            public void testAllFilesPresentInHypot() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/hypot"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/imul")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Imul {
+            @Test
+            public void testAllFilesPresentInImul() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/imul"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/isView")
+        @TestDataPath("$PROJECT_ROOT")
+        public class IsView {
+            @Test
+            public void testAllFilesPresentInIsView() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/isView"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/log10")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Log10 {
+            @Test
+            public void testAllFilesPresentInLog10() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/log10"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/log1p")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Log1p {
+            @Test
+            public void testAllFilesPresentInLog1p() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/log1p"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/log2")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Log2 {
+            @Test
+            public void testAllFilesPresentInLog2() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/log2"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/sign")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Sign {
+            @Test
+            public void testAllFilesPresentInSign() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/sign"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/sinh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Sinh {
+            @Test
+            public void testAllFilesPresentInSinh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/sinh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/sort")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Sort {
+            @Test
+            public void testAllFilesPresentInSort() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/sort"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/tanh")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Tanh {
+            @Test
+            public void testAllFilesPresentInTanh() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/tanh"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/polyfills/trunc")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Trunc {
+            @Test
+            public void testAllFilesPresentInTrunc() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/polyfills/trunc"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            }
         }
     }
 

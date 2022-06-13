@@ -28,7 +28,6 @@ import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyConstructor
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyProperty
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazySimpleFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isLocalClassOrAnonymousObject
-import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
 import org.jetbrains.kotlin.fir.resolve.isKFunctionInvoke
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -210,9 +209,9 @@ class Fir2IrDeclarationStorage(
     private fun ConeKotlinType.toIrType(typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT): IrType =
         with(typeConverter) { toIrType(typeContext) }
 
-    private fun getIrExternalOrBuiltInsPackageFragment(fqName: FqName): IrExternalPackageFragment {
+    private fun getIrExternalOrBuiltInsPackageFragment(fqName: FqName, firOrigin: FirDeclarationOrigin): IrExternalPackageFragment {
         val isBuiltIn = fqName in BUILT_INS_PACKAGE_FQ_NAMES
-        return if (isBuiltIn) getIrBuiltInsPackageFragment(fqName) else getIrExternalPackageFragment(fqName)
+        return if (isBuiltIn) getIrBuiltInsPackageFragment(fqName) else getIrExternalPackageFragment(fqName, firOrigin)
     }
 
     private fun getIrBuiltInsPackageFragment(fqName: FqName): IrExternalPackageFragment {
@@ -221,11 +220,17 @@ class Fir2IrDeclarationStorage(
         }
     }
 
-    fun getIrExternalPackageFragment(fqName: FqName): IrExternalPackageFragment {
+    fun getIrExternalPackageFragment(
+        fqName: FqName,
+        firOrigin: FirDeclarationOrigin = FirDeclarationOrigin.Library
+    ): IrExternalPackageFragment {
         return fragmentCache.getOrPut(fqName) {
             // Make sure that external package fragments have a different module descriptor. The module descriptors are compared
             // to determine if objects need regeneration because they are from different modules.
-            val externalFragmentModuleDescriptor = FirModuleDescriptor(session)
+            // But keep original module descriptor for the fragments coming from parts compiled on the previous incremental step
+            val externalFragmentModuleDescriptor =
+                if (firOrigin == FirDeclarationOrigin.Precompiled) moduleDescriptor
+                else FirModuleDescriptor(session)
             return symbolTable.declareExternalPackageFragment(FirPackageFragmentDescriptor(fqName, externalFragmentModuleDescriptor))
         }
     }
@@ -245,7 +250,8 @@ class Fir2IrDeclarationStorage(
     internal fun findIrParent(
         packageFqName: FqName,
         parentLookupTag: ConeClassLikeLookupTag?,
-        firBasedSymbol: FirBasedSymbol<*>
+        firBasedSymbol: FirBasedSymbol<*>,
+        firOrigin: FirDeclarationOrigin
     ): IrDeclarationParent? {
         return if (parentLookupTag != null) {
             findIrClass(parentLookupTag)
@@ -258,10 +264,10 @@ class Fir2IrDeclarationStorage(
 
             when {
                 containerFile != null -> fileCache[containerFile]
-                firBasedSymbol is FirCallableSymbol -> getIrExternalPackageFragment(packageFqName)
+                firBasedSymbol is FirCallableSymbol -> getIrExternalPackageFragment(packageFqName, firOrigin)
                 // TODO: All classes from BUILT_INS_PACKAGE_FQ_NAMES are considered built-ins now,
                 // which is not exact and can lead to some problems
-                else -> getIrExternalOrBuiltInsPackageFragment(packageFqName)
+                else -> getIrExternalOrBuiltInsPackageFragment(packageFqName, firOrigin)
             }
         }
     }
@@ -269,7 +275,8 @@ class Fir2IrDeclarationStorage(
     internal fun findIrParent(callableDeclaration: FirCallableDeclaration): IrDeclarationParent? {
         val firBasedSymbol = callableDeclaration.symbol
         val callableId = firBasedSymbol.callableId
-        return findIrParent(callableId.packageName, callableDeclaration.containingClass(), firBasedSymbol)
+        val callableOrigin = callableDeclaration.origin
+        return findIrParent(callableId.packageName, callableDeclaration.containingClass(), firBasedSymbol, callableOrigin)
     }
 
     private fun IrDeclaration.setAndModifyParent(irParent: IrDeclarationParent?) {
@@ -327,14 +334,21 @@ class Fir2IrDeclarationStorage(
             val type = function.valueParameters.first().returnTypeRef.toIrType(ConversionTypeContext.DEFAULT.inSetter())
             declareDefaultSetterParameter(type)
         } else if (function != null) {
-            valueParameters = function.valueParameters.mapIndexed { index, valueParameter ->
-                createIrParameter(
-                    valueParameter, index,
-                    useStubForDefaultValueStub = function !is FirConstructor || containingClass?.name != Name.identifier("Enum"),
-                    typeContext,
-                    skipDefaultParameter = isFakeOverride
-                ).apply {
-                    this.parent = parent
+            val contextReceivers = function.contextReceiversForFunctionOrContainingProperty()
+
+            contextReceiverParametersCount = contextReceivers.size
+            valueParameters = buildList {
+                addContextReceiverParametersTo(contextReceivers, parent, this)
+
+                function.valueParameters.mapIndexedTo(this) { index, valueParameter ->
+                    createIrParameter(
+                        valueParameter, index + contextReceiverParametersCount,
+                        useStubForDefaultValueStub = function !is FirConstructor || containingClass?.name != Name.identifier("Enum"),
+                        typeContext,
+                        skipDefaultParameter = isFakeOverride
+                    ).apply {
+                        this.parent = parent
+                    }
                 }
             }
         }
@@ -383,6 +397,18 @@ class Fir2IrDeclarationStorage(
         }
     }
 
+    fun addContextReceiverParametersTo(
+        contextReceivers: List<FirContextReceiver>,
+        parent: IrFunction,
+        result: MutableList<IrValueParameter>,
+    ) {
+        contextReceivers.mapIndexedTo(result) { index, contextReceiver ->
+            createIrParameterFromContextReceiver(contextReceiver, index).apply {
+                this.parent = parent
+            }
+        }
+    }
+
     private fun <T : IrFunction> T.bindAndDeclareParameters(
         function: FirFunction?,
         irParent: IrDeclarationParent?,
@@ -396,7 +422,9 @@ class Fir2IrDeclarationStorage(
     }
 
     fun <T : IrFunction> T.putParametersInScope(function: FirFunction): T {
-        for ((firParameter, irParameter) in function.valueParameters.zip(valueParameters)) {
+        val contextReceivers = function.contextReceiversForFunctionOrContainingProperty()
+
+        for ((firParameter, irParameter) in function.valueParameters.zip(valueParameters.drop(contextReceivers.size))) {
             localStorage.putParameter(firParameter, irParameter)
         }
         return this
@@ -463,7 +491,7 @@ class Fir2IrDeclarationStorage(
         containingClass: ConeClassLikeLookupTag? = null,
     ): IrSimpleFunction = convertCatching(function) {
         val simpleFunction = function as? FirSimpleFunction
-        val isLambda = function.source?.elementType == KtNodeTypes.FUNCTION_LITERAL
+        val isLambda = function.source?.elementType.let { it == KtNodeTypes.FUNCTION_LITERAL || it == KtNodeTypes.LAMBDA_EXPRESSION }
         val updatedOrigin = when {
             isLambda -> IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
             function.symbol.callableId.isKFunctionInvoke() -> IrDeclarationOrigin.FAKE_OVERRIDE
@@ -476,6 +504,11 @@ class Fir2IrDeclarationStorage(
                     function.origin == FirDeclarationOrigin.Enhancement -> IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB
             else -> function.computeIrOrigin(predefinedOrigin)
         }
+        val signature = if (isLocal) null else signatureComposer.composeSignature(function, containingClass)
+        if (irParent is Fir2IrLazyClass && signature != null) {
+            // For private functions signature is null, fallback to non-lazy function
+            return createIrLazyFunction(function as FirSimpleFunction, signature, irParent, updatedOrigin)
+        }
         classifierStorage.preCacheTypeParameters(function)
         val name = simpleFunction?.name
             ?: if (isLambda) SpecialNames.ANONYMOUS else Name.special("<no name provided>")
@@ -483,7 +516,6 @@ class Fir2IrDeclarationStorage(
         val isSuspend =
             if (isLambda) ((function as FirAnonymousFunction).typeRef as? FirResolvedTypeRef)?.type?.isSuspendFunctionType(session) == true
             else simpleFunction?.isSuspend == true
-        val signature = if (isLocal) null else signatureComposer.composeSignature(function, containingClass)
         val created = function.convertWithOffsets { startOffset, endOffset ->
             val result = declareIrSimpleFunction(signature, simpleFunction?.containerSource) { symbol ->
                 irFactory.createFunction(
@@ -792,13 +824,17 @@ class Fir2IrDeclarationStorage(
         containingClass: ConeClassLikeLookupTag? = null,
     ): IrProperty = convertCatching(property) {
         val origin = property.computeIrOrigin(predefinedOrigin)
+        val signature = if (isLocal) null else signatureComposer.composeSignature(property, containingClass)
+        if (irParent is Fir2IrLazyClass && signature != null) {
+            // For private functions signature is null, fallback to non-lazy property
+            return createIrLazyProperty(property, signature, irParent, origin)
+        }
         classifierStorage.preCacheTypeParameters(property)
         if (property.delegate != null) {
             ((property.delegate as? FirQualifiedAccess)?.calleeReference?.resolvedSymbol?.fir as? FirTypeParameterRefsOwner)?.let {
                 classifierStorage.preCacheTypeParameters(it)
             }
         }
-        val signature = if (isLocal) null else signatureComposer.composeSignature(property, containingClass)
         return property.convertWithOffsets { startOffset, endOffset ->
             val result = declareIrProperty(signature, property.containerSource) { symbol ->
                 irFactory.createProperty(
@@ -1039,6 +1075,22 @@ class Fir2IrDeclarationStorage(
         return irParameter
     }
 
+    private fun createIrParameterFromContextReceiver(
+        contextReceiver: FirContextReceiver,
+        index: Int,
+    ): IrValueParameter = convertCatching(contextReceiver) {
+        val type = contextReceiver.typeRef.toIrType()
+        return contextReceiver.convertWithOffsets { startOffset, endOffset ->
+            irFactory.createValueParameter(
+                startOffset, endOffset, IrDeclarationOrigin.DEFINED, IrValueParameterSymbolImpl(),
+                Name.identifier("_context_receiver_$index"), index, type,
+                null,
+                isCrossinline = false, isNoinline = false,
+                isHidden = false, isAssignable = false
+            )
+        }
+    }
+
     private var lastTemporaryIndex: Int = 0
     private fun nextTemporaryIndex(): Int = lastTemporaryIndex++
 
@@ -1181,27 +1233,11 @@ class Fir2IrDeclarationStorage(
                     firFunctionSymbol,
                     dispatchReceiverLookupTag,
                     getCachedIrDeclaration = ::getCachedIrFunction,
-                    createIrDeclaration = { parent, origin -> createIrFunction(fir, parent, predefinedOrigin = origin) },
+                    createIrDeclaration = { parent, origin ->
+                        createIrFunction(fir, parent, predefinedOrigin = origin)
+                    },
                     createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
-                        val symbol = Fir2IrSimpleFunctionSymbol(signature, fir.containerSource)
-                        val irFunction = fir.convertWithOffsets { startOffset, endOffset ->
-                            symbolTable.declareSimpleFunction(signature, { symbol }) {
-                                val isFakeOverride =
-                                    firFunctionSymbol is FirNamedFunctionSymbol && fir.isSubstitutionOrIntersectionOverride &&
-                                            firFunctionSymbol.dispatchReceiverClassOrNull() !=
-                                            firFunctionSymbol.originalForSubstitutionOverride?.dispatchReceiverClassOrNull()
-                                Fir2IrLazySimpleFunction(
-                                    components, startOffset, endOffset, declarationOrigin,
-                                    fir, lazyParent.fir, symbol, isFakeOverride
-                                ).apply {
-                                    this.parent = lazyParent
-                                }
-                            }
-                        }
-                        functionCache[fir] = irFunction
-                        // NB: this is needed to prevent recursions in case of self bounds
-                        (irFunction as Fir2IrLazySimpleFunction).prepareTypeParameters()
-                        irFunction
+                        createIrLazyFunction(fir, signature, lazyParent, declarationOrigin)
                     }
                 ) as IrFunctionSymbol
                 if (unmatchedReceiver && dispatchReceiverLookupTag is ConeClassLookupTagWithFixedSymbol) {
@@ -1216,6 +1252,33 @@ class Fir2IrDeclarationStorage(
             }
             else -> error("Unknown kind of function: ${fir::class.java}: ${fir.render()}")
         }
+    }
+
+    private fun createIrLazyFunction(
+        fir: FirSimpleFunction,
+        signature: IdSignature,
+        lazyParent: Fir2IrLazyClass,
+        declarationOrigin: IrDeclarationOrigin
+    ): IrSimpleFunction {
+        val symbol = Fir2IrSimpleFunctionSymbol(signature, fir.containerSource)
+        val firFunctionSymbol = fir.symbol
+        val irFunction = fir.convertWithOffsets { startOffset, endOffset ->
+            symbolTable.declareSimpleFunction(signature, { symbol }) {
+                val isFakeOverride = fir.isSubstitutionOrIntersectionOverride &&
+                        firFunctionSymbol.dispatchReceiverClassOrNull() !=
+                        firFunctionSymbol.originalForSubstitutionOverride?.dispatchReceiverClassOrNull()
+                Fir2IrLazySimpleFunction(
+                    components, startOffset, endOffset, declarationOrigin,
+                    fir, lazyParent.fir, symbol, isFakeOverride
+                ).apply {
+                    this.parent = lazyParent
+                }
+            }
+        }
+        functionCache[fir] = irFunction
+        // NB: this is needed to prevent recursions in case of self bounds
+        (irFunction as Fir2IrLazySimpleFunction).prepareTypeParameters()
+        return irFunction
     }
 
     fun getIrPropertySymbol(
@@ -1238,22 +1301,7 @@ class Fir2IrDeclarationStorage(
             getCachedIrDeclaration = ::getCachedIrProperty,
             createIrDeclaration = { parent, origin -> createIrProperty(fir, parent, predefinedOrigin = origin) },
             createIrLazyDeclaration = { signature, lazyParent, declarationOrigin ->
-                val symbol = Fir2IrPropertySymbol(signature, fir.containerSource)
-                val irProperty = fir.convertWithOffsets { startOffset, endOffset ->
-                    symbolTable.declareProperty(signature, { symbol }) {
-                        val isFakeOverride =
-                            fir.isSubstitutionOrIntersectionOverride &&
-                                    firPropertySymbol.dispatchReceiverClassOrNull() !=
-                                    firPropertySymbol.originalForSubstitutionOverride?.dispatchReceiverClassOrNull()
-                        Fir2IrLazyProperty(
-                            components, startOffset, endOffset, declarationOrigin, fir, lazyParent.fir, symbol, isFakeOverride
-                        ).apply {
-                            this.parent = lazyParent
-                        }
-                    }
-                }
-                propertyCache[fir] = irProperty
-                return symbol
+                createIrLazyProperty(fir, signature, lazyParent, declarationOrigin)
             }
         )
 
@@ -1282,6 +1330,33 @@ class Fir2IrDeclarationStorage(
         } else {
             originalSymbol
         }
+    }
+
+    private fun createIrLazyProperty(
+        fir: FirProperty,
+        signature: IdSignature,
+        lazyParent: Fir2IrLazyClass,
+        declarationOrigin: IrDeclarationOrigin
+    ): IrProperty {
+        val symbol = Fir2IrPropertySymbol(signature, fir.containerSource)
+        val firPropertySymbol = fir.symbol
+        val irProperty = fir.convertWithOffsets { startOffset, endOffset ->
+            symbolTable.declareProperty(signature, { symbol }) {
+                val isFakeOverride =
+                    fir.isSubstitutionOrIntersectionOverride &&
+                            firPropertySymbol.dispatchReceiverClassOrNull() !=
+                            firPropertySymbol.originalForSubstitutionOverride?.dispatchReceiverClassOrNull()
+                Fir2IrLazyProperty(
+                    components, startOffset, endOffset, declarationOrigin, fir, lazyParent.fir, symbol, isFakeOverride
+                ).apply {
+                    this.parent = lazyParent
+                }
+            }
+        }
+        propertyCache[fir] = irProperty
+        // NB: this is needed to prevent recursions in case of self bounds
+        (irProperty as Fir2IrLazyProperty).prepareTypeParameters()
+        return irProperty
     }
 
     private inline fun <reified S : IrSymbol, reified D : IrOverridableDeclaration<S>> ConeClassLookupTagWithFixedSymbol.findIrFakeOverride(
@@ -1442,7 +1517,9 @@ class Fir2IrDeclarationStorage(
     private fun IrMutableAnnotationContainer.convertAnnotationsForNonDeclaredMembers(
         firAnnotationContainer: FirAnnotationContainer, origin: IrDeclarationOrigin,
     ) {
-        if ((firAnnotationContainer as? FirDeclaration)?.isFromLibrary == true || origin == IrDeclarationOrigin.FAKE_OVERRIDE) {
+        if ((firAnnotationContainer as? FirDeclaration)?.let { it.isFromLibrary || it.isPrecompiled } == true
+            || origin == IrDeclarationOrigin.FAKE_OVERRIDE
+        ) {
             annotationGenerator.generate(this, firAnnotationContainer)
         }
     }

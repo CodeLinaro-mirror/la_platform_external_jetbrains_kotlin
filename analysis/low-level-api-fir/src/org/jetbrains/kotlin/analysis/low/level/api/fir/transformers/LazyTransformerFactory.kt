@@ -23,9 +23,13 @@ internal object LazyTransformerFactory {
         towerDataContextCollector: FirTowerDataContextCollector?,
         firProviderInterceptor: FirProviderInterceptor?,
         checkPCE: Boolean,
-    ): FirLazyTransformerForIDE = when (phase) {
-        FirResolvePhase.SEALED_CLASS_INHERITORS -> FirLazyTransformerForIDE.DUMMY
-        FirResolvePhase.SUPER_TYPES -> FirDesignatedSupertypeResolverTransformerForIDE(
+    ): LLFirLazyTransformer = when (phase) {
+        FirResolvePhase.COMPANION_GENERATION -> LLFirDesignatedGeneratedCompanionObjectResolveTransformer(
+            designation = designation,
+            session = designation.firFile.moduleData.session,
+        )
+        FirResolvePhase.SEALED_CLASS_INHERITORS -> LLFirLazyTransformer.DUMMY
+        FirResolvePhase.SUPER_TYPES -> LLFirDesignatedSupertypeResolverTransformer(
             designation = designation,
             session = designation.firFile.moduleData.session,
             scopeSession = scopeSession,
@@ -34,33 +38,38 @@ internal object LazyTransformerFactory {
             firProviderInterceptor = firProviderInterceptor,
             checkPCE = checkPCE,
         )
-        FirResolvePhase.TYPES -> FirDesignatedTypeResolverTransformerForIDE(
+        FirResolvePhase.TYPES -> LLFirDesignatedTypeResolverTransformer(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,
         )
-        FirResolvePhase.STATUS -> FirDesignatedStatusResolveTransformerForIDE(
+        FirResolvePhase.STATUS -> LLFirDesignatedStatusResolveTransformer(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,
         )
-        FirResolvePhase.ARGUMENTS_OF_ANNOTATIONS -> FirDesignatedAnnotationArgumentsResolveTransformerForIDE(
+        FirResolvePhase.COMPILER_REQUIRED_ANNOTATIONS -> LLFirDesignatedAnnotationsResolveTransformed(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,
         )
-        FirResolvePhase.CONTRACTS -> FirDesignatedContractsResolveTransformerForIDE(
+        FirResolvePhase.ARGUMENTS_OF_ANNOTATIONS -> LLFirDesignatedAnnotationArgumentsResolveTransformer(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,
         )
-        FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE -> FirDesignatedImplicitTypesTransformerForIDE(
+        FirResolvePhase.CONTRACTS -> LLFirDesignatedContractsResolveTransformer(
+            designation,
+            designation.firFile.moduleData.session,
+            scopeSession,
+        )
+        FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE -> LLFirDesignatedImplicitTypesTransformer(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,
             towerDataContextCollector
         )
-        FirResolvePhase.BODY_RESOLVE -> FirDesignatedBodyResolveTransformerForIDE(
+        FirResolvePhase.BODY_RESOLVE -> LLFirDesignatedBodyResolveTransformer(
             designation,
             designation.firFile.moduleData.session,
             scopeSession,

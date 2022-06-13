@@ -319,7 +319,8 @@ class Fir2IrImplicitCastInserter(
     }
 
     internal fun implicitCastOrExpression(original: IrExpression, castType: IrType): IrExpression {
-        if (original.type.makeNotNull() == castType.makeNotNull()) return original
+        val originalNotNull = original.type.makeNotNull()
+        if (originalNotNull == castType.makeNotNull()) return original
         return implicitCast(original, castType)
     }
 
@@ -356,7 +357,7 @@ class Fir2IrImplicitCastInserter(
                 val classId = it.symbol.owner.parentAsClass.classId
                 classId == StandardClassIds.Annotations.EnhancedNullability ||
                         classId == StandardClassIds.Annotations.FlexibleNullability
-            }.withHasQuestionMark(false)
+            }.makeNotNull()
             return IrTypeOperatorCallImpl(
                 original.startOffset,
                 original.endOffset,

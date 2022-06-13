@@ -116,6 +116,10 @@ class WrongCountOfTypeArguments(
     override fun report(reporter: DiagnosticReporter) = reporter.onTypeArguments(this)
 }
 
+object TypeCheckerHasRanIntoRecursion : KotlinCallDiagnostic(INAPPLICABLE) {
+    override fun report(reporter: DiagnosticReporter) = reporter.onCall(this)
+}
+
 // Callable reference resolution
 class CallableReferenceNotCompatible(
     argument: CallableReferenceResolutionAtom,
@@ -202,7 +206,13 @@ object InstantiationOfAbstractClass : KotlinCallDiagnostic(RUNTIME_ERROR) {
     override fun report(reporter: DiagnosticReporter) = reporter.onCall(this)
 }
 
-object AbstractSuperCall : KotlinCallDiagnostic(RUNTIME_ERROR) {
+class AbstractSuperCall(val receiver: SimpleKotlinCallArgument) : KotlinCallDiagnostic(RUNTIME_ERROR) {
+    override fun report(reporter: DiagnosticReporter) {
+        reporter.onCall(this)
+    }
+}
+
+object AbstractFakeOverrideSuperCall : KotlinCallDiagnostic(RUNTIME_ERROR) {
     override fun report(reporter: DiagnosticReporter) {
         reporter.onCall(this)
     }

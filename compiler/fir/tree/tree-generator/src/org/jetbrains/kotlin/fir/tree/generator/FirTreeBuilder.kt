@@ -26,13 +26,15 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
 
     val statement by element(Expression, annotationContainer)
     val expression by element(Expression, statement)
+
+    val contextReceiver by element(Declaration)
+
     val declaration by sealedElement(Declaration, annotationContainer)
     val typeParameterRefsOwner by sealedElement(Declaration)
     val typeParametersOwner by sealedElement(Declaration, typeParameterRefsOwner)
     val memberDeclaration by sealedElement(Declaration, declaration, typeParameterRefsOwner)
     val anonymousInitializer by element(Declaration, declaration, controlFlowGraphOwner)
-    val typedDeclaration by sealedElement(Declaration, memberDeclaration)
-    val callableDeclaration by sealedElement(Declaration, typedDeclaration)
+    val callableDeclaration by sealedElement(Declaration, memberDeclaration)
     val typeParameterRef by element(Declaration)
     val typeParameter by element(Declaration, typeParameterRef, declaration)
 
@@ -111,6 +113,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val qualifiedAccessExpression by element(Expression, expression, qualifiedAccess)
     val propertyAccessExpression by element(Expression, qualifiedAccessExpression)
     val functionCall by element(Expression, qualifiedAccessExpression, call)
+    val integerLiteralOperatorCall by element(Expression, functionCall)
     val implicitInvokeCall by element(Expression, functionCall)
     val delegatedConstructorCall by element(Expression, resolvable, call)
     val componentCall by element(Expression, functionCall)
@@ -161,6 +164,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val userTypeRef by element(TypeRef, typeRefWithNullability)
     val dynamicTypeRef by element(TypeRef, typeRefWithNullability)
     val functionTypeRef by element(TypeRef, typeRefWithNullability)
+    val intersectionTypeRef by element(TypeRef, typeRefWithNullability)
     val implicitTypeRef by element(TypeRef, typeRef)
 
     val effectDeclaration by element(Contracts)

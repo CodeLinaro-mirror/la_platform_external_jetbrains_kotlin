@@ -6,10 +6,7 @@
 package org.jetbrains.kotlin.fir.deserialization
 
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltInsSignatures
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.EffectiveVisibility
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
@@ -23,8 +20,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.types.ConeAttributes
-import org.jetbrains.kotlin.fir.types.ConeClassLikeType
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
@@ -65,7 +61,7 @@ fun deserializeClassToSymbol(
         isCompanion = kind == ProtoBuf.Class.Kind.COMPANION_OBJECT
         isInner = Flags.IS_INNER.get(flags)
         isData = Flags.IS_DATA.get(classProto.flags)
-        isInline = Flags.IS_INLINE_CLASS.get(classProto.flags)
+        isInline = Flags.IS_VALUE_CLASS.get(classProto.flags)
         isExternal = Flags.IS_EXTERNAL_CLASS.get(classProto.flags)
         isFun = Flags.IS_FUN_INTERFACE.get(classProto.flags)
     }
@@ -198,6 +194,8 @@ fun deserializeClassToSymbol(
             }
         })
         companionObjectSymbol = (declarations.firstOrNull { it is FirRegularClass && it.isCompanion } as FirRegularClass?)?.symbol
+
+        contextReceivers.addAll(classDeserializer.createContextReceiversForClass(classProto))
     }.also {
         if (isSealed) {
             val inheritors = classProto.sealedSubclassFqNameList.map { nameIndex ->
@@ -205,6 +203,9 @@ fun deserializeClassToSymbol(
             }
             it.setSealedClassInheritors(inheritors)
         }
+        
+        it.valueClassRepresentation = computeValueClassRepresentation(it, session)
+        
         (it.annotations as MutableList<FirAnnotation>) +=
             context.annotationDeserializer.loadClassAnnotations(classProto, context.nameResolver)
 

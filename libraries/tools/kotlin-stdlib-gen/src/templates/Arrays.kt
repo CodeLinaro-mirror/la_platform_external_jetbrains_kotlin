@@ -1174,9 +1174,6 @@ object ArrayOps : TemplateGroupBase() {
             }
             on(Platform.Native) {
                 body { "return this.copyOfNulls(newSize)" }
-                on(Backend.Wasm) {
-                    body { """TODO("Wasm stdlib: $signature")""" }
-                }
             }
         }
         specialFor(ArraysOfPrimitives, InvariantArraysOfObjects) {
@@ -1226,9 +1223,9 @@ object ArrayOps : TemplateGroupBase() {
                             if (primitive == PrimitiveType.Char) {
                                 // Requires comparator because default comparator of 'Array.prototype.sort' compares
                                 // string representation of values
-                                body { "this.asDynamic().sort(::primitiveCompareTo)" }
+                                body { "nativeSort(::primitiveCompareTo)" }
                             } else {
-                                body { "this.asDynamic().sort()" }
+                                body { "nativeSort()" }
                             }
                         }
                     } else {
@@ -1259,9 +1256,6 @@ object ArrayOps : TemplateGroupBase() {
             }
             on(Platform.Native) {
                 body { """if (size > 1) sortArray(this, 0, size)""" }
-                on(Backend.Wasm) {
-                    body { """TODO("Wasm stdlib: $signature")""" }
-                }
             }
         }
     }
@@ -1298,7 +1292,7 @@ object ArrayOps : TemplateGroupBase() {
             deprecate(Deprecation("Use other sorting functions from the Standard Library", warningSince = "1.6"))
             inlineOnly()
             signature("sort(noinline comparison: (a: T, b: T) -> Int)")
-            body { "asDynamic().sort(comparison)" }
+            body { "nativeSort(comparison)" }
         }
         specialFor(ArraysOfObjects) {
             deprecate(
@@ -1396,9 +1390,6 @@ object ArrayOps : TemplateGroupBase() {
                 sortArray(this, fromIndex, toIndex)
                 """
             }
-            on(Backend.Wasm) {
-                body { """TODO("Wasm stdlib: $signature")""" }
-            }
         }
         on(Platform.JS) {
             since("1.4")
@@ -1454,9 +1445,6 @@ object ArrayOps : TemplateGroupBase() {
                 AbstractList.checkRangeIndexes(fromIndex, toIndex, size)
                 sortArrayWith(this, fromIndex, toIndex, comparator)
                 """
-            }
-            on(Backend.Wasm) {
-                body { """TODO("Wasm stdlib: $signature")""" }
             }
         }
         on(Platform.JS) {
@@ -1653,7 +1641,7 @@ object ArrayOps : TemplateGroupBase() {
                 body {
                     """
                     AbstractList.checkRangeIndexes(fromIndex, toIndex, size)
-                    this.asDynamic().fill(element, fromIndex, toIndex);
+                    nativeFill(element, fromIndex, toIndex);
                     """
                 }
             }
@@ -1666,7 +1654,8 @@ object ArrayOps : TemplateGroupBase() {
                 on(Backend.Wasm) {
                     body {
                         """
-                        for (index in fromIndex..toIndex) {
+                        AbstractList.checkRangeIndexes(fromIndex, toIndex, size)
+                        for (index in fromIndex until toIndex) {
                             this[index] = element    
                         }
                         """

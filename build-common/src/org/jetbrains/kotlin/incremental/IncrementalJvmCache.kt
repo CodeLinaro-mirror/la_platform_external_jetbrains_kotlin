@@ -16,7 +16,6 @@
 
 package org.jetbrains.kotlin.incremental
 
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtil.toSystemIndependentName
 import com.intellij.util.containers.CollectionFactory
 import com.intellij.util.io.BooleanDataDescriptor
@@ -29,15 +28,18 @@ import org.jetbrains.kotlin.inline.inlineFunctionsJvmNames
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCache
 import org.jetbrains.kotlin.load.kotlin.incremental.components.JvmPackagePartProto
+import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMemberSignature
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.metadata.jvm.deserialization.ModuleMapping
+import org.jetbrains.kotlin.metadata.jvm.serialization.JvmStringTable
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.SpecialNames.DEFAULT_NAME_FOR_COMPANION_OBJECT
-import org.jetbrains.kotlin.resolve.jvm.AsmTypes
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.org.objectweb.asm.*
+import org.jetbrains.org.objectweb.asm.ClassReader.*
 import java.io.File
 import java.security.MessageDigest
 
@@ -53,6 +55,7 @@ open class IncrementalJvmCache(
 ), IncrementalCache {
     companion object {
         private val PROTO_MAP = "proto"
+        private val FE_PROTO_MAP = "fe-proto"
         private val CONSTANTS_MAP = "constants"
         private val PACKAGE_PARTS = "package-parts"
         private val MULTIFILE_CLASS_FACADES = "multifile-class-facades"
@@ -68,6 +71,7 @@ open class IncrementalJvmCache(
     override val dirtyOutputClassesMap = registerMap(DirtyClassesJvmNameMap(DIRTY_OUTPUT_CLASSES.storageFile))
 
     private val protoMap = registerMap(ProtoMap(PROTO_MAP.storageFile))
+    private val feProtoMap = registerMap(ProtoMap(FE_PROTO_MAP.storageFile))
     private val constantsMap = registerMap(ConstantsMap(CONSTANTS_MAP.storageFile))
     private val packagePartMap = registerMap(PackagePartMap(PACKAGE_PARTS.storageFile))
     private val multifileFacadeToParts = registerMap(MultifileClassFacadeMap(MULTIFILE_CLASS_FACADES.storageFile))
@@ -182,12 +186,7 @@ open class IncrementalJvmCache(
                 inlineFunctionsMap.process(kotlinClassInfo, changesCollector)
             }
             KotlinClassHeader.Kind.CLASS -> {
-                if (sourceFiles != null) {
-                    assert(sourceFiles.size == 1) { "Class is expected to have only one source file: $sourceFiles" }
-                    addToClassStorage(kotlinClassInfo, sourceFiles.single())
-                } else {
-                    addToClassStorage(kotlinClassInfo, null)
-                }
+                addToClassStorage(kotlinClassInfo.protoData as ClassProtoData, sourceFiles?.let { sourceFiles.single() })
 
                 protoMap.process(kotlinClassInfo, changesCollector)
                 constantsMap.process(kotlinClassInfo, changesCollector)
@@ -198,12 +197,49 @@ open class IncrementalJvmCache(
         }
     }
 
+    fun saveFrontendClassToCache(
+        classId: ClassId,
+        classProto: ProtoBuf.Class,
+        stringTable: JvmStringTable,
+        sourceFiles: List<File>?,
+        changesCollector: ChangesCollector
+    ) {
+
+        val className = JvmClassName.byClassId(classId)
+
+        if (sourceFiles != null) {
+            internalNameToSource[className.internalName] = sourceFiles
+        }
+
+        if (classId.isLocal) return
+
+        val newProtoData = ClassProtoData(classProto, stringTable.toNameResolver())
+        addToClassStorage(newProtoData, sourceFiles?.let { sourceFiles.single() })
+
+        feProtoMap.putAndCollect(
+            className,
+            ProtoMapValue(
+                false,
+                JvmProtoBufUtil.writeDataBytes(stringTable, classProto),
+                stringTable.strings.toTypedArray()
+            ),
+            newProtoData,
+            changesCollector
+        )
+    }
+
+    fun collectClassChangesByFeMetadata(
+        className: JvmClassName, classProto: ProtoBuf.Class, stringTable: JvmStringTable, changesCollector: ChangesCollector
+    ) {
+        //class
+        feProtoMap.check(className, classProto, stringTable, changesCollector)
+    }
+
     fun saveJavaClassProto(source: File?, serializedJavaClass: SerializedJavaClass, collector: ChangesCollector) {
         val jvmClassName = JvmClassName.byClassId(serializedJavaClass.classId)
         javaSourcesProtoMap.process(jvmClassName, serializedJavaClass, collector)
         source?.let { sourceToClassesMap.add(source, jvmClassName) }
-        val (proto, nameResolver) = serializedJavaClass.toProtoData()
-        addToClassStorage(proto, nameResolver, source)
+        addToClassStorage(serializedJavaClass.toProtoData(), source)
 //        collector.addJavaProto(ClassProtoData(proto, nameResolver))
         dirtyOutputClassesMap.notDirty(jvmClassName)
     }
@@ -249,6 +285,7 @@ open class IncrementalJvmCache(
 
         dirtyClasses.forEach {
             protoMap.remove(it, changesCollector)
+            feProtoMap.remove(it, changesCollector)
             packagePartMap.remove(it)
             multifileFacadeToParts.remove(it)
             partToMultifileFacade.remove(it)
@@ -298,7 +335,12 @@ open class IncrementalJvmCache(
 
         @Synchronized
         fun process(kotlinClassInfo: KotlinClassInfo, changesCollector: ChangesCollector) {
-            return put(kotlinClassInfo, changesCollector)
+            return putAndCollect(
+                kotlinClassInfo.className,
+                kotlinClassInfo.protoMapValue,
+                kotlinClassInfo.protoData,
+                changesCollector
+            )
         }
 
         // A module mapping (.kotlin_module file) is stored in a cache,
@@ -314,18 +356,26 @@ open class IncrementalJvmCache(
         }
 
         @Synchronized
-        private fun put(kotlinClassInfo: KotlinClassInfo, changesCollector: ChangesCollector) {
-            val key = kotlinClassInfo.className.internalName
-            val oldData = storage[key]
-            val newData = ProtoMapValue(
-                kotlinClassInfo.classKind != KotlinClassHeader.Kind.CLASS,
-                BitEncoding.decodeBytes(kotlinClassInfo.classHeaderData),
-                kotlinClassInfo.classHeaderStrings
-            )
-            storage[key] = newData
+        fun putAndCollect(
+            className: JvmClassName,
+            newMapValue: ProtoMapValue,
+            newProtoData: ProtoData,
+            changesCollector: ChangesCollector
+        ) {
+            val key = className.internalName
+            val oldMapValue = storage[key]
+            storage[key] = newMapValue
 
-            val packageFqName = kotlinClassInfo.className.packageFqName
-            changesCollector.collectProtoChanges(oldData?.toProtoData(packageFqName), newData.toProtoData(packageFqName), packageProtoKey = key)
+            changesCollector.collectProtoChanges(oldMapValue?.toProtoData(className.packageFqName), newProtoData, packageProtoKey = key)
+        }
+
+        internal fun check(
+            className: JvmClassName, classProto: ProtoBuf.Class, stringTable: JvmStringTable, changesCollector: ChangesCollector
+        ) {
+            val key = className.internalName
+            val oldProtoData = storage[key]?.toProtoData(className.packageFqName)
+            val newProtoData = ClassProtoData(classProto, stringTable.toNameResolver())
+            changesCollector.collectProtoChanges(oldProtoData, newProtoData, packageProtoKey = key)
         }
 
         operator fun contains(className: JvmClassName): Boolean =
@@ -402,20 +452,29 @@ open class IncrementalJvmCache(
                 storage.remove(key)
             }
 
-            for (const in oldMap.keys + newMap.keys) {
-                //Constant can be declared via companion object or via const field declaration
-                changesCollector.collectMemberIfValueWasChanged(
-                    kotlinClassInfo.scopeFqName(companion = true),
-                    const,
-                    oldMap[const],
-                    newMap[const]
-                )
-                changesCollector.collectMemberIfValueWasChanged(
-                    kotlinClassInfo.scopeFqName(companion = false),
-                    const,
-                    oldMap[const],
-                    newMap[const]
-                )
+            val allConstants = oldMap.keys + newMap.keys
+            if (allConstants.isEmpty()) return
+
+            // If a constant is defined in a companion object, it will be found in the constantsMap of the containing class, not the
+            // companion object's class, so we will need to correct its scope.
+            // (See https://youtrack.jetbrains.com/issue/KT-44741#focus=Comments-27-5659564.0-0 for more details.)
+            // Note: This only applies to a *constant* defined in a *companion object* (it's not an issue for inline functions, or top-level
+            // constants, or constants in non-companion objects).
+            val companionObjectClassId = if (kotlinClassInfo.classKind == KotlinClassHeader.Kind.CLASS) {
+                val protoData = kotlinClassInfo.protoData as ClassProtoData
+                if (protoData.proto.hasCompanionObjectName()) {
+                    val companionObjectName = Name.identifier(protoData.nameResolver.getString(protoData.proto.companionObjectName))
+                    kotlinClassInfo.classId.createNestedClassId(companionObjectName)
+                } else null
+            } else null
+            val scope = companionObjectClassId?.asSingleFqName() ?: kotlinClassInfo.scopeFqName()
+
+            // Here we assume that the old and new classes have the same KotlinClassHeader.Kind, so that the scopes of the old and new
+            // constants are the same and their values can be compared.
+            // If the class kinds are different, the changes will be detected when comparing protos (in that case, the changes collected
+            // here will be a subset of those changes).
+            for (const in allConstants) {
+                changesCollector.collectMemberIfValueWasChanged(scope, const, oldMap[const], newMap[const])
             }
         }
 
@@ -503,11 +562,6 @@ open class IncrementalJvmCache(
             value.dumpCollection()
     }
 
-    private fun addToClassStorage(classInfo: KotlinClassInfo, srcFile: File?) {
-        val (nameResolver, proto) = JvmProtoBufUtil.readClassDataFrom(classInfo.classHeaderData, classInfo.classHeaderStrings)
-        addToClassStorage(proto, nameResolver, srcFile)
-    }
-
     private inner class InlineFunctionsMap(storageFile: File) :
         BasicStringMap<LinkedHashMap<String, Long>>(storageFile, LinkedHashMapExternalizer(StringExternalizer, LongExternalizer)) {
 
@@ -544,6 +598,11 @@ open class IncrementalJvmCache(
 
         override fun dumpValue(value: LinkedHashMap<String, Long>): String =
             value.dumpMap { java.lang.Long.toHexString(it) }
+    }
+
+    private fun KotlinClassInfo.scopeFqName() = when (classKind) {
+        KotlinClassHeader.Kind.CLASS -> classId.asSingleFqName()
+        else -> classId.packageFqName
     }
 }
 
@@ -613,18 +672,32 @@ class KotlinClassInfo constructor(
     val classKind: KotlinClassHeader.Kind,
     val classHeaderData: Array<String>, // Can be empty
     val classHeaderStrings: Array<String>, // Can be empty
-    @Suppress("SpellCheckingInspection") val multifileClassName: String?,
+    val multifileClassName: String?, // Not null iff classKind == KotlinClassHeader.Kind.MULTIFILE_CLASS_PART
     val constantsMap: LinkedHashMap<String, Any>,
     val inlineFunctionsMap: LinkedHashMap<String, Long>
 ) {
 
     val className: JvmClassName by lazy { JvmClassName.byClassId(classId) }
 
-    fun scopeFqName(companion: Boolean = false) = when (classKind) {
-        KotlinClassHeader.Kind.CLASS -> {
-            className.fqNameForClassNameWithoutDollars.let { if (companion) it.child(DEFAULT_NAME_FOR_COMPANION_OBJECT) else it }
+    val protoMapValue: ProtoMapValue by lazy {
+        ProtoMapValue(
+            isPackageFacade = classKind != KotlinClassHeader.Kind.CLASS,
+            BitEncoding.decodeBytes(classHeaderData),
+            classHeaderStrings
+        )
+    }
+
+    /**
+     * Returns the [ProtoData] of this class.
+     *
+     * NOTE: The caller needs to ensure `classKind != KotlinClassHeader.Kind.MULTIFILE_CLASS` first, as the compiler doesn't write proto
+     * data to [KotlinClassHeader.Kind.MULTIFILE_CLASS] classes.
+     */
+    val protoData: ProtoData by lazy {
+        check(classKind != KotlinClassHeader.Kind.MULTIFILE_CLASS) {
+            "Proto data is not available for KotlinClassHeader.Kind.MULTIFILE_CLASS: $classId"
         }
-        else -> className.packageFqName
+        protoMapValue.toProtoData(classId.packageFqName)
     }
 
     companion object {
@@ -634,79 +707,88 @@ class KotlinClassInfo constructor(
         }
 
         fun createFrom(classId: ClassId, classHeader: KotlinClassHeader, classContents: ByteArray): KotlinClassInfo {
+            val constantsAndInlineFunctions = getConstantsAndInlineFunctions(classHeader, classContents)
+
             return KotlinClassInfo(
                 classId,
                 classHeader.kind,
-                classHeader.data ?: emptyArray(),
+                classHeader.data ?: classHeader.incompatibleData ?: emptyArray(),
                 classHeader.strings ?: emptyArray(),
                 classHeader.multifileClassName,
-                getConstantsMap(classContents),
-                getInlineFunctionsMap(classHeader, classContents)
+                constantsMap = constantsAndInlineFunctions.first,
+                inlineFunctionsMap = constantsAndInlineFunctions.second
             )
         }
     }
 }
 
-private fun getConstantsMap(bytes: ByteArray): LinkedHashMap<String, Any> {
-    val result = LinkedHashMap<String, Any>()
+/** Parses the class file only once to get both constants and inline functions. */
+private fun getConstantsAndInlineFunctions(
+    classHeader: KotlinClassHeader,
+    classContents: ByteArray
+): Pair<LinkedHashMap<String, Any>, LinkedHashMap<String, Long>> {
+    val constantsClassVisitor = ConstantsClassVisitor()
+    val inlineFunctionSignatures = inlineFunctionsJvmNames(classHeader)
 
-    ClassReader(bytes).accept(object : ClassVisitor(Opcodes.API_VERSION) {
-        override fun visitField(access: Int, name: String, desc: String, signature: String?, value: Any?): FieldVisitor? {
-            val staticFinal = Opcodes.ACC_STATIC or Opcodes.ACC_FINAL or Opcodes.ACC_PRIVATE
-            if (value != null && access and staticFinal == Opcodes.ACC_STATIC or Opcodes.ACC_FINAL) {
-                result[name] = value
-            }
-            return null
-        }
-    }, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
-
-    return result
+    return if (inlineFunctionSignatures.isEmpty()) {
+        ClassReader(classContents).accept(constantsClassVisitor, SKIP_CODE or SKIP_DEBUG or SKIP_FRAMES)
+        Pair(constantsClassVisitor.getResult(), LinkedHashMap())
+    } else {
+        val inlineFunctionsClassVisitor = InlineFunctionsClassVisitor(inlineFunctionSignatures, constantsClassVisitor)
+        ClassReader(classContents).accept(inlineFunctionsClassVisitor, 0)
+        Pair(constantsClassVisitor.getResult(), inlineFunctionsClassVisitor.getResult())
+    }
 }
 
-private fun getInlineFunctionsMap(header: KotlinClassHeader, bytes: ByteArray): LinkedHashMap<String, Long> {
-    val inlineFunctions = inlineFunctionsJvmNames(header)
-    if (inlineFunctions.isEmpty()) return LinkedHashMap()
+private class ConstantsClassVisitor : ClassVisitor(Opcodes.API_VERSION) {
+    private val result = LinkedHashMap<String, Any>()
 
-    val result = LinkedHashMap<String, Long>()
-    var dummyVersion: Int = -1
-    ClassReader(bytes).accept(object : ClassVisitor(Opcodes.API_VERSION) {
+    override fun visitField(access: Int, name: String, desc: String, signature: String?, value: Any?): FieldVisitor? {
+        if (access and Opcodes.ACC_PRIVATE == Opcodes.ACC_PRIVATE) return null
 
-        override fun visit(
-            version: Int,
-            access: Int,
-            name: String?,
-            signature: String?,
-            superName: String?,
-            interfaces: Array<out String>?
-        ) {
-            super.visit(version, access, name, signature, superName, interfaces)
-            dummyVersion = version
+        val staticFinal = Opcodes.ACC_STATIC or Opcodes.ACC_FINAL
+        if (value != null && access and staticFinal == staticFinal) {
+            result[name] = value
         }
+        return null
+    }
 
-        override fun visitMethod(
-            access: Int,
-            name: String,
-            desc: String,
-            signature: String?,
-            exceptions: Array<out String>?
-        ): MethodVisitor {
-            val dummyClassWriter = ClassWriter(0)
-            dummyClassWriter.visit(dummyVersion, 0, "dummy", null, AsmTypes.OBJECT_TYPE.internalName, null)
+    fun getResult() = result
+}
 
-            return object : MethodVisitor(Opcodes.API_VERSION, dummyClassWriter.visitMethod(0, name, desc, null, exceptions)) {
-                override fun visitEnd() {
-                    val jvmName = name + desc
-                    if (jvmName !in inlineFunctions) return
+private class InlineFunctionsClassVisitor(
+    private val inlineFunctionSignatures: Set<String>,
+    cv: ConstantsClassVisitor // Note: cv must not override the visitMethod (it will not be called with the current implementation below)
+) : ClassVisitor(Opcodes.API_VERSION, cv) {
 
-                    val dummyBytes = dummyClassWriter.toByteArray()!!
+    private val result = LinkedHashMap<String, Long>()
+    private var classVersion: Int? = null
 
-                    val hash = dummyBytes.md5()
-                    result[jvmName] = hash
-                }
+    override fun visit(version: Int, access: Int, name: String, signature: String?, superName: String?, interfaces: Array<out String>?) {
+        super.visit(version, access, name, signature, superName, interfaces)
+        classVersion = version
+    }
+
+    override fun visitMethod(access: Int, name: String, desc: String, signature: String?, exceptions: Array<out String>?): MethodVisitor? {
+        if (access and Opcodes.ACC_PRIVATE == Opcodes.ACC_PRIVATE) return null
+
+        // Note: Here, functionSignature = name + descriptor.
+        // It is different from the `signature` parameter above, which is essentially a more detailed descriptor when generics are used
+        // (or null otherwise).
+        val functionSignature = JvmMemberSignature.Method(name, desc).asString()
+        if (functionSignature !in inlineFunctionSignatures) return null
+
+        val classWriter = ClassWriter(0)
+
+        // The `version` and `name` parameters are important (see KT-38857), the others can be null.
+        classWriter.visit(/* version */ classVersion!!, /* access */ 0, /* name */ "ClassWithOneMethod", null, null, null)
+
+        return object : MethodVisitor(Opcodes.API_VERSION, classWriter.visitMethod(access, name, desc, signature, exceptions)) {
+            override fun visitEnd() {
+                result[functionSignature] = classWriter.toByteArray().md5()
             }
         }
+    }
 
-    }, 0)
-
-    return result
+    fun getResult() = result
 }

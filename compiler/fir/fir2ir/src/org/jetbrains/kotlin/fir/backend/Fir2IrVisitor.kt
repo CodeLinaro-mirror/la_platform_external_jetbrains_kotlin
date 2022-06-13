@@ -5,12 +5,15 @@
 
 package org.jetbrains.kotlin.fir.backend
 
+import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.KtPsiSourceElement
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.diagnostics.findChildByType
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.generators.ClassMemberGenerator
 import org.jetbrains.kotlin.fir.backend.generators.OperatorExpressionGenerator
@@ -23,7 +26,6 @@ import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
-import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
 import org.jetbrains.kotlin.fir.references.FirReference
@@ -49,7 +51,6 @@ import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
-import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -270,7 +271,7 @@ class Fir2IrVisitor(
         val delegate = variable.delegate
         if (delegate != null) {
             val irProperty = declarationStorage.createIrLocalDelegatedProperty(variable, conversionScope.parentFromStack())
-            irProperty.delegate.initializer = convertToIrExpression(delegate)
+            irProperty.delegate.initializer = convertToIrExpression(delegate, isDelegate = true)
             conversionScope.withFunction(irProperty.getter) {
                 memberGenerator.convertFunctionContent(irProperty.getter, variable.getter, null)
             }
@@ -284,7 +285,7 @@ class Fir2IrVisitor(
         val initializer = variable.initializer
         val isNextVariable = initializer is FirFunctionCall &&
                 (initializer.calleeReference.resolvedSymbol as? FirNamedFunctionSymbol)?.callableId?.isIteratorNext() == true &&
-                variable.source.psi?.parent is KtForExpression
+                variable.source?.isChildOfForLoop == true
         val irVariable = declarationStorage.createIrVariable(
             variable, conversionScope.parentFromStack(),
             if (isNextVariable) {
@@ -391,7 +392,9 @@ class Fir2IrVisitor(
         )
 
         return conversionScope.withSafeCallSubject(receiverVariable) {
-            val afterNotNullCheck = safeCallExpression.regularQualifiedAccess.accept(this, data) as IrExpression
+            val afterNotNullCheck =
+                (safeCallExpression.selector as? FirExpression)?.let(::convertToIrExpression)
+                    ?: safeCallExpression.selector.accept(this, data) as IrExpression
             components.createSafeCallConstruction(receiverVariable, variableSymbol, afterNotNullCheck)
         }
     }
@@ -450,12 +453,39 @@ class Fir2IrVisitor(
             val dispatchReceiver = conversionScope.dispatchReceiverParameter(irClass)
             if (dispatchReceiver != null) {
                 return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
-                    IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
+                    val thisRef = IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
+                    if (calleeReference.contextReceiverNumber != -1) {
+                        val contextReceivers =
+                            components.classifierStorage.getFieldsWithContextReceiversForClass(irClass)
+                                ?: error("Not defined context receivers for $irClass")
+
+                        IrGetFieldImpl(
+                            startOffset, endOffset, contextReceivers[calleeReference.contextReceiverNumber].symbol,
+                            thisReceiverExpression.typeRef.toIrType(),
+                            thisRef,
+                        )
+                    } else {
+                        thisRef
+                    }
                 }
             }
         } else if (boundSymbol is FirCallableSymbol) {
-            val receiverSymbol = calleeReference.toSymbolForCall(FirNoReceiverExpression, session, classifierStorage, declarationStorage, conversionScope)
-            val receiver = (receiverSymbol?.owner as? IrSimpleFunction)?.extensionReceiverParameter
+            val irFunction = when (boundSymbol) {
+                is FirFunctionSymbol -> declarationStorage.getIrFunctionSymbol(boundSymbol).owner
+                is FirPropertySymbol -> {
+                    val property = declarationStorage.getIrPropertySymbol(boundSymbol).owner as? IrProperty
+                    property?.let { conversionScope.parentAccessorOfPropertyFromStack(it) }
+                }
+                else -> null
+            }
+
+            val receiver = irFunction?.let { function ->
+                if (calleeReference.contextReceiverNumber != -1)
+                    function.valueParameters[calleeReference.contextReceiverNumber]
+                else
+                    function.extensionReceiverParameter
+            }
+
             if (receiver != null) {
                 return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
                     IrGetValueImpl(startOffset, endOffset, receiver.type, receiver.symbol)
@@ -497,10 +527,18 @@ class Fir2IrVisitor(
     }
 
     override fun visitCallableReferenceAccess(callableReferenceAccess: FirCallableReferenceAccess, data: Any?): IrElement {
+        return convertCallableReferenceAccess(callableReferenceAccess, false)
+    }
+
+    private fun convertCallableReferenceAccess(callableReferenceAccess: FirCallableReferenceAccess, isDelegate: Boolean): IrElement {
         val explicitReceiverExpression = convertToIrReceiverExpression(
             callableReferenceAccess.explicitReceiver, callableReferenceAccess.calleeReference, callableReferenceAccess
         )
-        return callGenerator.convertToIrCallableReference(callableReferenceAccess, explicitReceiverExpression)
+        return callGenerator.convertToIrCallableReference(
+            callableReferenceAccess,
+            explicitReceiverExpression,
+            isDelegate = isDelegate
+        )
     }
 
     override fun visitVariableAssignment(variableAssignment: FirVariableAssignment, data: Any?): IrElement {
@@ -523,7 +561,11 @@ class Fir2IrVisitor(
         return accept(this@Fir2IrVisitor, null) as IrStatement
     }
 
-    internal fun convertToIrExpression(expression: FirExpression, annotationMode: Boolean = false): IrExpression {
+    internal fun convertToIrExpression(
+        expression: FirExpression,
+        annotationMode: Boolean = false,
+        isDelegate: Boolean = false
+    ): IrExpression {
         return when (expression) {
             is FirBlock -> expression.convertToIrExpressionOrBlock(
                 if (expression.source?.kind == KtFakeSourceElementKind.DesugaredForLoop) IrStatementOrigin.FOR_LOOP else null
@@ -539,10 +581,14 @@ class Fir2IrVisitor(
                     when (unwrappedExpression) {
                         is FirFunctionCall -> convertToIrCall(unwrappedExpression, annotationMode)
                         is FirArrayOfCall -> convertToArrayOfCall(unwrappedExpression, annotationMode)
+                        is FirCallableReferenceAccess -> convertCallableReferenceAccess(unwrappedExpression, isDelegate)
                         else -> expression.accept(this, null) as IrExpression
                     }
                 } else {
-                    expression.accept(this, null) as IrExpression
+                    when (unwrappedExpression) {
+                        is FirCallableReferenceAccess -> convertCallableReferenceAccess(unwrappedExpression, isDelegate)
+                        else -> expression.accept(this, null) as IrExpression
+                    }
                 }
             }
         }.let {
@@ -770,11 +816,10 @@ class Fir2IrVisitor(
 
     override fun visitWhenExpression(whenExpression: FirWhenExpression, data: Any?): IrElement {
         val subjectVariable = generateWhenSubjectVariable(whenExpression)
-        val psi = whenExpression.psi
         val origin = when (whenExpression.source?.elementType) {
             KtNodeTypes.WHEN -> IrStatementOrigin.WHEN
             KtNodeTypes.IF -> IrStatementOrigin.IF
-            KtNodeTypes.BINARY_EXPRESSION -> when ((psi as? KtBinaryExpression)?.operationToken) {
+            KtNodeTypes.BINARY_EXPRESSION -> when (whenExpression.source?.operationToken) {
                 KtTokens.OROR -> IrStatementOrigin.OROR
                 KtTokens.ANDAND -> IrStatementOrigin.ANDAND
                 else -> null
@@ -1179,3 +1224,16 @@ class Fir2IrVisitor(
         }
     }
 }
+
+val KtSourceElement.isChildOfForLoop: Boolean
+    get() =
+        if (this is KtPsiSourceElement) psi.parent is KtForExpression
+        else treeStructure.getParent(lighterASTNode)?.tokenType == KtNodeTypes.FOR
+
+val KtSourceElement.operationToken: IElementType?
+    get() {
+        assert(elementType == KtNodeTypes.BINARY_EXPRESSION)
+        return if (this is KtPsiSourceElement) (psi as? KtBinaryExpression)?.operationToken
+        else treeStructure.findChildByType(lighterASTNode, KtNodeTypes.OPERATION_REFERENCE)?.tokenType
+            ?: error("No operation reference for binary expression: $lighterASTNode")
+    }

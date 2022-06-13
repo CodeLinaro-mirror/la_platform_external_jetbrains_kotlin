@@ -1,4 +1,3 @@
-
 plugins {
     kotlin("jvm")
     id("jps-compatible")
@@ -21,6 +20,7 @@ dependencies {
     api(intellijCore())
     implementation(project(":analysis:analysis-api-providers"))
     implementation(project(":analysis:analysis-internal-utils"))
+    implementation(project(":analysis:kt-references"))
 
     testApi(projectTests(":analysis:low-level-api-fir"))
     testApi(projectTests(":compiler:tests-common"))
@@ -29,10 +29,18 @@ dependencies {
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testApi(projectTests(":analysis:analysis-api-impl-base"))
+    testApi(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
+    testApi(project(":analysis:decompiled:decompiler-to-file-stubs"))
+    testApi(project(":analysis:decompiled:decompiler-to-psi"))
     testApi(project(":kotlin-test:kotlin-test-junit"))
+
     testApi(toolsJar())
     testApiJUnit5()
     testApi(project(":analysis:symbol-light-classes"))
+
+    // We use 'api' instead of 'implementation' because other modules might be using these jars indirectly
+    testApi(project(":plugins:fir-plugin-prototype"))
+    testApi(projectTests(":plugins:fir-plugin-prototype"))
 }
 
 sourceSets {
@@ -44,6 +52,9 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
+
+    // PluginAnnotationsProvider needs this jar during tests
+    dependsOn(":plugins:fir-plugin-prototype:plugin-annotations:jar")
 }
 
 testsJar()
@@ -80,5 +91,3 @@ val generateCode by tasks.registering(NoDebugJavaExec::class) {
 val compileKotlin by tasks
 
 compileKotlin.dependsOn(generateCode)
-
-

@@ -60,7 +60,11 @@ private fun runCommonAnalysisIteration(
     val files = environment.getSourceFiles()
     val moduleName = Name.special("<${configuration.getNotNull(CommonConfigurationKeys.MODULE_NAME)}>")
 
-    val analyzer = AnalyzerWithCompilerReport(messageCollector, configuration.languageVersionSettings)
+    val analyzer = AnalyzerWithCompilerReport(
+        messageCollector,
+        configuration.languageVersionSettings,
+        configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+    )
 
     analyzer.analyzeAndReport(files) {
         CommonResolverForModuleFactory.analyzeFiles(

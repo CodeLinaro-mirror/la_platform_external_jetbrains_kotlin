@@ -19,6 +19,44 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @RunWith(JUnit3RunnerWithInners.class)
 public class CliTestGenerated extends AbstractCliTest {
+    @TestMetadata("compiler/testData/cli/jvm/readingConfigFromEnvironment")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class ReadingConfigFromEnvironment extends AbstractCliTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doJvmTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInReadingConfigFromEnvironment() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/cli/jvm/readingConfigFromEnvironment"), Pattern.compile("^(.+)\\.args$"), null, false);
+        }
+
+        @TestMetadata("appendingArgs.args")
+        public void testAppendingArgs() throws Exception {
+            runTest("compiler/testData/cli/jvm/readingConfigFromEnvironment/appendingArgs.args");
+        }
+
+        @TestMetadata("overridingArgs.args")
+        public void testOverridingArgs() throws Exception {
+            runTest("compiler/testData/cli/jvm/readingConfigFromEnvironment/overridingArgs.args");
+        }
+
+        @TestMetadata("overridingLv.args")
+        public void testOverridingLv() throws Exception {
+            runTest("compiler/testData/cli/jvm/readingConfigFromEnvironment/overridingLv.args");
+        }
+
+        @TestMetadata("overridingXx.args")
+        public void testOverridingXx() throws Exception {
+            runTest("compiler/testData/cli/jvm/readingConfigFromEnvironment/overridingXx.args");
+        }
+
+        @TestMetadata("simple.args")
+        public void testSimple() throws Exception {
+            runTest("compiler/testData/cli/jvm/readingConfigFromEnvironment/simple.args");
+        }
+    }
+
     @TestMetadata("compiler/testData/cli/jvm")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -326,6 +364,11 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/fileClassClashMultipleFiles.args");
         }
 
+        @TestMetadata("firDfa.args")
+        public void testFirDfa() throws Exception {
+            runTest("compiler/testData/cli/jvm/firDfa.args");
+        }
+
         @TestMetadata("firError.args")
         public void testFirError() throws Exception {
             runTest("compiler/testData/cli/jvm/firError.args");
@@ -469,6 +512,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("jdkPathDoesNotExist.args")
         public void testJdkPathDoesNotExist() throws Exception {
             runTest("compiler/testData/cli/jvm/jdkPathDoesNotExist.args");
+        }
+
+        @TestMetadata("jdkRelease.args")
+        public void testJdkRelease() throws Exception {
+            runTest("compiler/testData/cli/jvm/jdkRelease.args");
         }
 
         @TestMetadata("jspecifyByLv15.args")
@@ -646,6 +694,11 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/kt22304.args");
         }
 
+        @TestMetadata("kt48833_doNotSuppressVersionErrors.args")
+        public void testKt48833_doNotSuppressVersionErrors() throws Exception {
+            runTest("compiler/testData/cli/jvm/kt48833_doNotSuppressVersionErrors.args");
+        }
+
         @TestMetadata("kt49209.args")
         public void testKt49209() throws Exception {
             runTest("compiler/testData/cli/jvm/kt49209.args");
@@ -766,9 +819,34 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/oldBackendLv16.args");
         }
 
+        @TestMetadata("optInEmptyMessage.args")
+        public void testOptInEmptyMessage() throws Exception {
+            runTest("compiler/testData/cli/jvm/optInEmptyMessage.args");
+        }
+
+        @TestMetadata("optInEmptyMessageFir.args")
+        public void testOptInEmptyMessageFir() throws Exception {
+            runTest("compiler/testData/cli/jvm/optInEmptyMessageFir.args");
+        }
+
+        @TestMetadata("optInOverrideMessage.args")
+        public void testOptInOverrideMessage() throws Exception {
+            runTest("compiler/testData/cli/jvm/optInOverrideMessage.args");
+        }
+
+        @TestMetadata("optInOverrideMessageFir.args")
+        public void testOptInOverrideMessageFir() throws Exception {
+            runTest("compiler/testData/cli/jvm/optInOverrideMessageFir.args");
+        }
+
         @TestMetadata("pluginSimple.args")
         public void testPluginSimple() throws Exception {
             runTest("compiler/testData/cli/jvm/pluginSimple.args");
+        }
+
+        @TestMetadata("pluginWithK2Error.args")
+        public void testPluginWithK2Error() throws Exception {
+            runTest("compiler/testData/cli/jvm/pluginWithK2Error.args");
         }
 
         @TestMetadata("progressiveModeOff.args")
@@ -784,6 +862,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("recordAsSingleFileRoot.args")
         public void testRecordAsSingleFileRoot() throws Exception {
             runTest("compiler/testData/cli/jvm/recordAsSingleFileRoot.args");
+        }
+
+        @TestMetadata("reportInternalDiagnosticNames.args")
+        public void testReportInternalDiagnosticNames() throws Exception {
+            runTest("compiler/testData/cli/jvm/reportInternalDiagnosticNames.args");
         }
 
         @TestMetadata("requireKotlinCompilerVersion.args")
@@ -1027,6 +1110,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("emptySources.args")
         public void testEmptySources() throws Exception {
             runTest("compiler/testData/cli/js/emptySources.args");
+        }
+
+        @TestMetadata("fir.args")
+        public void testFir() throws Exception {
+            runTest("compiler/testData/cli/js/fir.args");
         }
 
         @TestMetadata("inlineCycle.args")
@@ -1278,6 +1366,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("anonymousObjectType.args")
         public void testAnonymousObjectType() throws Exception {
             runTest("compiler/testData/cli/metadata/anonymousObjectType.args");
+        }
+
+        @TestMetadata("fir.args")
+        public void testFir() throws Exception {
+            runTest("compiler/testData/cli/metadata/fir.args");
         }
 
         @TestMetadata("inheritorOfExpectSealedClass.args")

@@ -1,54 +1,55 @@
+
 RAW_FIR:
 FILE: functionWithParameter.kt
     public? final? [RAW_FIR] interface I : R|kotlin/Any| {
     }
-    public? final? [RAW_FIR] fun resolveMe([RAW_FIR] param: I): <implicit> {
-        ^resolveMe Unit#
-    }
+    public? final? [RAW_FIR] fun resolveMe([RAW_FIR] param: I): <implicit> { LAZY_BLOCK }
 
 IMPORTS:
 FILE: functionWithParameter.kt
     public? final? [RAW_FIR] interface I : R|kotlin/Any| {
     }
-    public? final? [RAW_FIR] fun resolveMe([RAW_FIR] param: I): <implicit> {
-        ^resolveMe Unit#
+    public? final? [RAW_FIR] fun resolveMe([RAW_FIR] param: I): <implicit> { LAZY_BLOCK }
+
+COMPILER_REQUIRED_ANNOTATIONS:
+FILE: functionWithParameter.kt
+    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
     }
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] fun resolveMe([RAW_FIR] param: I): <implicit> { LAZY_BLOCK }
+
+COMPANION_GENERATION:
+FILE: functionWithParameter.kt
+    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    }
+    public? final? [COMPANION_GENERATION] fun resolveMe([RAW_FIR] param: I): <implicit> { LAZY_BLOCK }
 
 SUPER_TYPES:
 FILE: functionWithParameter.kt
     public? final? [RAW_FIR] interface I : R|kotlin/Any| {
     }
-    public? final? [SUPER_TYPES] fun resolveMe([RAW_FIR] param: I): <implicit> {
-        ^resolveMe Unit#
-    }
+    public? final? [SUPER_TYPES] fun resolveMe([RAW_FIR] param: I): <implicit> { LAZY_BLOCK }
 
 TYPES:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
-    public? final? [TYPES] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
+    public? final? [TYPES] fun resolveMe([RAW_FIR] param: R|I|): <implicit> { LAZY_BLOCK }
 
 STATUS:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
-    public final [STATUS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
+    public final [STATUS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> { LAZY_BLOCK }
 
 ARGUMENTS_OF_ANNOTATIONS:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
-    public final [ARGUMENTS_OF_ANNOTATIONS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
+    public final [ARGUMENTS_OF_ANNOTATIONS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> { LAZY_BLOCK }
 
 CONTRACTS:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
     public final [CONTRACTS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
         ^resolveMe Unit#
@@ -56,7 +57,7 @@ FILE: functionWithParameter.kt
 
 IMPLICIT_TYPES_BODY_RESOLVE:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
     public final [IMPLICIT_TYPES_BODY_RESOLVE] fun resolveMe([RAW_FIR] param: R|I|): R|kotlin/Unit| {
         ^resolveMe Q|kotlin/Unit|
@@ -64,90 +65,10 @@ FILE: functionWithParameter.kt
 
 BODY_RESOLVE:
 FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
+    public? final? [COMPILER_REQUIRED_ANNOTATIONS] interface I : R|kotlin/Any| {
     }
     public final [BODY_RESOLVE] fun resolveMe([BODY_RESOLVE] param: R|I|): R|kotlin/Unit| {
         ^resolveMe Q|kotlin/Unit|
-    }
-
-NoResolve:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public? final? [RAW_FIR] fun resolveMe([RAW_FIR] param: I): <implicit> {
-        ^resolveMe Unit#
-    }
-
-BodyResolveWithChildren:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [BODY_RESOLVE] fun resolveMe([BODY_RESOLVE] param: R|I|): R|kotlin/Unit| {
-        ^resolveMe Q|kotlin/Unit|
-    }
-
-CallableBodyResolve:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [BODY_RESOLVE] fun resolveMe([BODY_RESOLVE] param: R|I|): R|kotlin/Unit| {
-        ^resolveMe Q|kotlin/Unit|
-    }
-
-CallableReturnType:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [IMPLICIT_TYPES_BODY_RESOLVE] fun resolveMe([RAW_FIR] param: R|I|): R|kotlin/Unit| {
-        ^resolveMe Q|kotlin/Unit|
-    }
-
-AnnotationType:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public? final? [TYPES] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
-
-AnnotationsArguments:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [ARGUMENTS_OF_ANNOTATIONS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
-
-CallableContracts:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [CONTRACTS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
-
-DeclarationStatus:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public final [STATUS] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
-
-ValueParametersTypes:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public? final? [TYPES] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
-    }
-
-TypeParametersTypes:
-FILE: functionWithParameter.kt
-    public? final? [RAW_FIR] interface I : R|kotlin/Any| {
-    }
-    public? final? [TYPES] fun resolveMe([RAW_FIR] param: R|I|): <implicit> {
-        ^resolveMe Unit#
     }
 
 FILE RAW TO BODY:

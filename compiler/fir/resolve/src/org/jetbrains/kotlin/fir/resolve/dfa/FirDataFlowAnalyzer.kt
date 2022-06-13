@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.contracts.description.ConeConstantReference
 import org.jetbrains.kotlin.fir.contracts.description.ConeReturnsEffectDeclaration
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.utils.isFinal
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
@@ -30,7 +29,10 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.scopes.getFunctions
 import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -103,14 +105,15 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
                             val index = receiverStack.getReceiverIndex(symbol) ?: return
                             val info = flow.getTypeStatement(variable)
 
-                            if (info == null) {
-                                receiverStack.replaceReceiverType(index, receiverStack.getOriginalType(index))
+                            val type = if (info == null) {
+                                receiverStack.getOriginalType(index)
                             } else {
                                 val types = info.exactType.toMutableList().also {
                                     it += receiverStack.getOriginalType(index)
                                 }
-                                receiverStack.replaceReceiverType(index, context.intersectTypesOrNull(types)!!)
+                                context.intersectTypesOrNull(types)!!
                             }
+                            receiverStack.replaceReceiverType(index, type)
                         }
 
                         override fun updateAllReceivers(flow: PersistentFlow) {
@@ -191,7 +194,7 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         return getTypeUsingSmartcastInfo(symbol, qualifiedAccessExpression)
     }
 
-    private fun getTypeUsingSmartcastInfo(
+    protected open fun getTypeUsingSmartcastInfo(
         symbol: FirBasedSymbol<*>,
         expression: FirExpression
     ): Pair<PropertyStability, MutableList<ConeKotlinType>>? {
@@ -280,6 +283,7 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         // TODO: questionable
         postponedLambdaEnterNode?.mergeIncomingFlow()
         functionEnterNode.mergeIncomingFlow()
+        logicSystem.updateAllReceivers(functionEnterNode.flow)
     }
 
     private fun exitAnonymousFunction(anonymousFunction: FirAnonymousFunction): FirControlFlowGraphReference {
@@ -476,7 +480,20 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         val leftOperand = equalityOperatorCall.arguments[0]
         val rightOperand = equalityOperatorCall.arguments[1]
 
-        val leftConst = leftOperand as? FirConstExpression<*>
+        /*
+         * This unwrapping is needed for cases like
+         * when (true) {
+         *     s != null -> s.length
+         * }
+         *
+         * FirWhenSubjectExpression may be only in the lhs of equality operator call
+         *   by how is FIR for when branches is built, so there is no need to unwrap
+         *   right argument
+         */
+        val leftConst = when (leftOperand) {
+            is FirWhenSubjectExpression -> leftOperand.whenRef.value.subject
+            else -> leftOperand
+        } as? FirConstExpression<*>
         val rightConst = rightOperand as? FirConstExpression<*>
         val leftIsNullConst = leftConst?.kind == ConstantValueKind.Null
         val rightIsNullConst = rightConst?.kind == ConstantValueKind.Null
@@ -710,10 +727,17 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         if (status.isExpect) return true
         when (classId) {
             StandardClassIds.Any, StandardClassIds.String -> return false
+            // Float and Double effectively had non-trivial `equals` semantics while they don't have explicit overrides (see KT-50535)
+            StandardClassIds.Float, StandardClassIds.Double -> return true
         }
-        if (moduleData != session.moduleData) {
-            return true
-        }
+
+        // When the class belongs to a different module, "equals" contract might be changed without re-compilation
+        // But since we had such behavior in FE1.0, it might be too strict to prohibit it now, especially once there's a lot of cases
+        // when different modules belong to a single project, so they're totally safe (see KT-50534)
+        // if (moduleData != session.moduleData) {
+        //     return true
+        // }
+
         return session.declaredMemberScope(this)
             .getFunctions(OperatorNameConventions.EQUALS)
             .any { it.fir.isEquals() }
@@ -732,32 +756,32 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         val (node, unionNode) = graphBuilder.exitCheckNotNullCall(checkNotNullCall, callCompleted)
         node.mergeIncomingFlow()
 
-        fun FirExpression.propagateNotNullInfo() {
-            val symbol = this.symbol
-            if (symbol != null) {
-                variableStorage.getOrCreateRealVariable(node.previousFlow, symbol, this)?.let { operandVariable ->
-                    node.flow.addTypeStatement(operandVariable typeEq any)
-                    logicSystem.approveStatementsInsideFlow(
-                        node.flow,
-                        operandVariable notEq null,
-                        shouldRemoveSynthetics = true,
-                        shouldForkFlow = false
-                    )
-                }
+        checkNotNullCall.argument.propagateNotNullInfo(node)
+
+        unionNode?.let { unionFlowFromArguments(it) }
+    }
+
+    fun FirExpression.propagateNotNullInfo(node: CFGNode<*>) {
+        val symbol = this.symbol
+        if (symbol != null) {
+            variableStorage.getOrCreateRealVariable(node.previousFlow, symbol, this)?.let { operandVariable ->
+                node.flow.addTypeStatement(operandVariable typeEq any)
+                logicSystem.approveStatementsInsideFlow(
+                    node.flow,
+                    operandVariable notEq null,
+                    shouldRemoveSynthetics = true,
+                    shouldForkFlow = false
+                )
             }
-            when (this) {
-                is FirSafeCallExpression -> receiver.propagateNotNullInfo()
-                is FirTypeOperatorCall -> {
-                    if (operation == FirOperation.AS || operation == FirOperation.SAFE_AS) {
-                        argument.propagateNotNullInfo()
-                    }
+        }
+        when (this) {
+            is FirSafeCallExpression -> receiver.propagateNotNullInfo(node)
+            is FirTypeOperatorCall -> {
+                if (operation == FirOperation.AS || operation == FirOperation.SAFE_AS) {
+                    argument.propagateNotNullInfo(node)
                 }
             }
         }
-
-        checkNotNullCall.argument.propagateNotNullInfo()
-
-        unionNode?.let { unionFlowFromArguments(it) }
     }
 
     // ----------------------------------- When -----------------------------------
@@ -1435,12 +1459,16 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         }
     }
 
-    fun exitElvis(elvisExpression: FirElvisExpression) {
+    fun exitElvis(elvisExpression: FirElvisExpression, isLhsNotNull: Boolean) {
         val node = graphBuilder.exitElvis().mergeIncomingFlow()
+        if (isLhsNotNull) {
+            elvisExpression.lhs.propagateNotNullInfo(node)
+        }
+
         if (!components.session.languageVersionSettings.supportsFeature(LanguageFeature.BooleanElvisBoundSmartCasts)) return
-        val lhs = elvisExpression.lhs
         val rhs = elvisExpression.rhs
         if (rhs is FirConstExpression<*> && rhs.kind == ConstantValueKind.Boolean) {
+            val lhs = elvisExpression.lhs
             if (lhs.typeRef.coneType.classId != StandardClassIds.Boolean) return
 
             val flow = node.flow

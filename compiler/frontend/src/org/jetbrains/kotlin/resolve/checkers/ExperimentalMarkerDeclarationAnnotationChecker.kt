@@ -47,18 +47,18 @@ class ExperimentalMarkerDeclarationAnnotationChecker(private val module: ModuleD
         for (entry in entries) {
             val annotation = trace.bindingContext.get(BindingContext.ANNOTATION, entry) ?: continue
             when (annotation.fqName) {
-                in OptInNames.USE_EXPERIMENTAL_FQ_NAMES -> {
+                in OptInNames.OPT_IN_FQ_NAMES -> {
                     val annotationClasses =
                         annotation.allValueArguments[OptInNames.USE_EXPERIMENTAL_ANNOTATION_CLASS]
                             .safeAs<ArrayValue>()?.value.orEmpty()
-                    checkUseExperimentalUsage(annotationClasses, trace, entry)
+                    checkOptInUsage(annotationClasses, trace, entry)
                 }
-                in OptInNames.EXPERIMENTAL_FQ_NAMES -> {
+                in OptInNames.REQUIRES_OPT_IN_FQ_NAMES -> {
                     isAnnotatedWithExperimental = true
                 }
             }
             val annotationClass = annotation.annotationClass ?: continue
-            if (annotationClass.annotations.any { it.fqName in OptInNames.EXPERIMENTAL_FQ_NAMES }) {
+            if (annotationClass.annotations.any { it.fqName in OptInNames.REQUIRES_OPT_IN_FQ_NAMES }) {
                 val applicableTargets = AnnotationChecker.applicableTargetSet(annotationClass)
                 val possibleTargets = applicableTargets.intersect(actualTargets)
                 val annotationUseSiteTarget = entry.useSiteTarget?.getAnnotationUseSiteTarget()
@@ -81,22 +81,6 @@ class ExperimentalMarkerDeclarationAnnotationChecker(private val module: ModuleD
                     annotationUseSiteTarget == AnnotationUseSiteTarget.PROPERTY_DELEGATE_FIELD
                 ) {
                     trace.report(Errors.OPT_IN_MARKER_ON_WRONG_TARGET.on(entry, "field"))
-                }
-                if (annotated is KtCallableDeclaration &&
-                    annotated !is KtPropertyAccessor &&
-                    annotationUseSiteTarget == null &&
-                    annotated.hasModifier(KtTokens.OVERRIDE_KEYWORD)
-                ) {
-                    val descriptor = trace.get(BindingContext.DECLARATION_TO_DESCRIPTOR, annotated)
-                    if (descriptor is CallableMemberDescriptor &&
-                        !descriptor.hasExperimentalOverriddenDescriptors(annotationClass.fqNameSafe)
-                    ) {
-                        if (languageVersionSettings.supportsFeature(LanguageFeature.OptInOnOverrideForbidden)) {
-                            trace.report(Errors.OPT_IN_MARKER_ON_OVERRIDE.on(entry))
-                        } else {
-                            trace.report(Errors.OPT_IN_MARKER_ON_OVERRIDE_WARNING.on(entry))
-                        }
-                    }
                 }
             }
         }
@@ -131,7 +115,7 @@ class ExperimentalMarkerDeclarationAnnotationChecker(private val module: ModuleD
         return false
     }
 
-    private fun checkUseExperimentalUsage(annotationClasses: List<ConstantValue<*>>, trace: BindingTrace, entry: KtAnnotationEntry) {
+    private fun checkOptInUsage(annotationClasses: List<ConstantValue<*>>, trace: BindingTrace, entry: KtAnnotationEntry) {
         if (annotationClasses.isEmpty()) {
             trace.report(Errors.OPT_IN_WITHOUT_ARGUMENTS.on(entry))
             return

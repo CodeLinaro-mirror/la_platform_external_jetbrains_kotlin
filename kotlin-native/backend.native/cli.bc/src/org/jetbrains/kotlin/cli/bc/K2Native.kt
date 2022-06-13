@@ -62,6 +62,10 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
             configuration, EnvironmentConfigFiles.NATIVE_CONFIG_FILES)
         val project = environment.project
         val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY) ?: MessageCollector.NONE
+        if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
+            messageCollector.report(ERROR, "K2 does not support Native target right now")
+            return ExitCode.COMPILATION_ERROR
+        }
         configuration.put(CLIConfigurationKeys.PHASE_CONFIG, createPhaseConfig(toplevelPhase, arguments, messageCollector))
 
         val enoughArguments = arguments.freeArgs.isNotEmpty() || arguments.isUsefulWithoutFreeArgs
@@ -81,11 +85,16 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
         }
 
         configuration.put(CommonConfigurationKeys.KLIB_NORMALIZE_ABSOLUTE_PATH, arguments.normalizeAbsolutePath)
+        configuration.put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
 
         try {
             val konanConfig = KonanConfig(project, configuration)
-            ensureModuleName(konanConfig, environment)
-            runTopLevelPhases(konanConfig, environment)
+            try {
+                ensureModuleName(konanConfig, environment)
+                runTopLevelPhases(konanConfig, environment)
+            } finally {
+                konanConfig.dispose()
+            }
         } catch (e: Throwable) {
             if (e is KonanCompilationException || e is CompilationErrorException)
                 return ExitCode.COMPILATION_ERROR
@@ -182,7 +191,7 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 arguments.manifestFile ?.let{ put(MANIFEST_FILE, it) }
                 arguments.runtimeFile ?.let{ put(RUNTIME_FILE, it) }
                 arguments.temporaryFilesDir?.let { put(TEMPORARY_FILES_DIR, it) }
-                put(SAVE_LLVM_IR, arguments.saveLlvmIr)
+                put(SAVE_LLVM_IR, arguments.saveLlvmIrAfter.toList())
 
                 put(LIST_TARGETS, arguments.listTargets)
                 put(OPTIMIZATION, arguments.optimization)
@@ -385,6 +394,8 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 putIfNotNull(RUNTIME_LOGS, arguments.runtimeLogs)
                 putIfNotNull(BUNDLE_ID, parseBundleId(arguments, outputKind, configuration))
                 put(MEANINGFUL_BRIDGE_NAMES, arguments.meaningfulBridgeNames)
+                arguments.testDumpOutputPath?.let { put(TEST_DUMP_OUTPUT_PATH, it) }
+                put(PARTIAL_LINKAGE, arguments.partialLinkage)
             }
         }
     }

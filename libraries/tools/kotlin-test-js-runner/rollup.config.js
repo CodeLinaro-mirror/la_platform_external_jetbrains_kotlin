@@ -3,9 +3,9 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-import typescript from 'rollup-plugin-typescript2';
-import nodeResolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
+import nodeResolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 import {terser} from "rollup-plugin-terser";
 
 const pckg = require('./package.json');
@@ -15,6 +15,16 @@ export default [
         input: './nodejs.ts',
         output: {
             file: 'lib/kotlin-test-nodejs-runner.js',
+            format: 'cjs',
+            banner: '#!/usr/bin/env node',
+            sourcemap: true
+        },
+        plugins: plugins()
+    },
+    {
+        input: './nodejs-empty.ts',
+        output: {
+            file: 'lib/kotlin-test-nodejs-empty-runner.js',
             format: 'cjs',
             banner: '#!/usr/bin/env node',
             sourcemap: true
@@ -94,7 +104,6 @@ function plugins() {
                        tsconfig: "tsconfig.json"
                    }),
         terser({
-                   sourcemap: true,
                    compress: {
                        toplevel: true,
                        global_defs: {

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.isLocalMember
 import org.jetbrains.kotlin.fir.analysis.getChild
+import org.jetbrains.kotlin.fir.builder.FirSyntaxErrors
 import org.jetbrains.kotlin.fir.declarations.utils.isInfix
 import org.jetbrains.kotlin.fir.declarations.utils.isOperator
 import org.jetbrains.kotlin.fir.diagnostics.*
@@ -185,6 +186,7 @@ private fun mapInapplicableCandidateError(
     source: KtSourceElement,
     qualifiedAccessSource: KtSourceElement?,
 ): List<KtDiagnostic> {
+    val typeContext = session.typeContext
     val genericDiagnostic = FirErrors.INAPPLICABLE_CANDIDATE.createOn(source, diagnostic.candidate.symbol)
     val diagnostics = diagnostic.candidate.diagnostics.filter { it.applicability == diagnostic.applicability }.mapNotNull { rootCause ->
         when (rootCause) {
@@ -196,7 +198,6 @@ private fun mapInapplicableCandidateError(
                 rootCause.forbiddenNamedArgumentsTarget
             )
             is ArgumentTypeMismatch -> {
-                val typeContext = session.typeContext
                 FirErrors.ARGUMENT_TYPE_MISMATCH.createOn(
                     rootCause.argument.source ?: source,
                     rootCause.expectedType.removeTypeVariableTypes(typeContext),
@@ -204,6 +205,18 @@ private fun mapInapplicableCandidateError(
                     rootCause.isMismatchDueToNullability
                 )
             }
+            is MultipleContextReceiversApplicableForExtensionReceivers ->
+                FirErrors.AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER.createOn(qualifiedAccessSource ?: source)
+            is NoApplicableValueForContextReceiver ->
+                FirErrors.NO_CONTEXT_RECEIVER.createOn(
+                    qualifiedAccessSource ?: source,
+                    rootCause.expectedContextReceiverType.removeTypeVariableTypes(typeContext)
+                )
+            is AmbiguousValuesForContextReceiverParameter ->
+                FirErrors.MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER.createOn(
+                    qualifiedAccessSource ?: source,
+                    rootCause.expectedContextReceiverType.removeTypeVariableTypes(typeContext)
+                )
             is NullForNotNullType -> FirErrors.NULL_FOR_NONNULL_TYPE.createOn(
                 rootCause.argument.source ?: source
             )
@@ -259,8 +272,8 @@ private fun mapSystemHasContradictionError(
     qualifiedAccessSource: KtSourceElement?,
 ): List<KtDiagnostic> {
     val errorsToIgnore = mutableSetOf<ConstraintSystemError>()
-    return buildList<KtDiagnostic> {
-        for (error in diagnostic.candidate.system.errors) {
+    return buildList {
+        for (error in diagnostic.candidate.errors) {
             addIfNotNull(
                 error.toDiagnostic(
                     source,
@@ -273,7 +286,7 @@ private fun mapSystemHasContradictionError(
         }
     }.ifEmpty {
         listOfNotNull(
-            diagnostic.candidate.system.errors.firstNotNullOfOrNull {
+            diagnostic.candidate.errors.firstNotNullOfOrNull {
                 if (it in errorsToIgnore) return@firstNotNullOfOrNull null
                 val message = when (it) {
                     is NewConstraintError -> "NewConstraintError at ${it.position}: ${it.lowerType} <!: ${it.upperType}"
@@ -284,7 +297,7 @@ private fun mapSystemHasContradictionError(
                 }
 
                 if (it is NewConstraintError && it.position.from is FixVariableConstraintPosition<*>) {
-                    val morePreciseDiagnosticExists = diagnostic.candidate.system.errors.any { other ->
+                    val morePreciseDiagnosticExists = diagnostic.candidate.errors.any { other ->
                         other is NewConstraintError && other.position.from !is FixVariableConstraintPosition<*>
                     }
                     if (morePreciseDiagnosticExists) return@firstNotNullOfOrNull null
@@ -352,7 +365,7 @@ private fun ConstraintSystemError.toDiagnostic(
             }
         }
         is NotEnoughInformationForTypeParameter<*> -> {
-            val isDiagnosticRedundant = candidate.system.errors.any { otherError ->
+            val isDiagnosticRedundant = candidate.errors.any { otherError ->
                 (otherError is ConstrainingTypeIsError && otherError.typeVariable == this.typeVariable)
                         || otherError is NewConstraintError
             }
@@ -370,6 +383,12 @@ private fun ConstraintSystemError.toDiagnostic(
                 typeVariableName,
             )
         }
+        is NoSuccessfulFork -> {
+            FirErrors.INFERENCE_UNSUCCESSFUL_FORK.createOn(
+                source,
+                position.initialConstraint.asStringWithoutPosition(),
+            )
+        }
         else -> null
     }
 }
@@ -380,7 +399,7 @@ private val NewConstraintError.upperConeType: ConeKotlinType get() = upperType a
 private fun ConeSimpleDiagnostic.getFactory(source: KtSourceElement): KtDiagnosticFactory0 {
     @Suppress("UNCHECKED_CAST")
     return when (kind) {
-        DiagnosticKind.Syntax -> FirErrors.SYNTAX
+        DiagnosticKind.Syntax -> FirSyntaxErrors.SYNTAX
         DiagnosticKind.ReturnNotAllowed -> FirErrors.RETURN_NOT_ALLOWED
         DiagnosticKind.NotAFunctionLabel -> FirErrors.NOT_A_FUNCTION_LABEL
         DiagnosticKind.UnresolvedLabel -> FirErrors.UNRESOLVED_LABEL

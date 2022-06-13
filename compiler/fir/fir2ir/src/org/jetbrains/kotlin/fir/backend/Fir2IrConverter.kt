@@ -5,9 +5,12 @@
 
 package org.jetbrains.kotlin.fir.backend
 
+import org.jetbrains.kotlin.KtPsiSourceFileLinesMapping
+import org.jetbrains.kotlin.KtSourceFileLinesMappingFromLineStartOffsets
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.BuiltinSymbolsBase
+import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
@@ -18,7 +21,6 @@ import org.jetbrains.kotlin.fir.backend.generators.DataClassMembersGenerator
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
-import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.extensions.declarationGenerators
 import org.jetbrains.kotlin.fir.extensions.extensionService
@@ -30,7 +32,9 @@ import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.signaturer.FirBasedSignatureComposer
 import org.jetbrains.kotlin.fir.signaturer.FirMangler
-import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
+import org.jetbrains.kotlin.ir.PsiIrFileEntry
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
@@ -61,6 +65,7 @@ class Fir2IrConverter(
         irGenerationExtensions: Collection<IrGenerationExtension>,
         fir2irVisitor: Fir2IrVisitor,
         languageVersionSettings: LanguageVersionSettings,
+        descriptorMangler: KotlinMangler.DescriptorMangler,
         extensions: StubGeneratorExtensions,
     ) {
         for (firFile in allFirFiles) {
@@ -68,7 +73,11 @@ class Fir2IrConverter(
         }
 
         val irProviders =
-            generateTypicalIrProviderList(irModuleFragment.descriptor, irBuiltIns, symbolTable, extensions = extensions)
+            generateTypicalIrProviderList(
+                irModuleFragment.descriptor, irBuiltIns, symbolTable,
+                descriptorFinder = DescriptorByIdSignatureFinderImpl(irModuleFragment.descriptor, descriptorMangler),
+                extensions = extensions
+            )
         val externalDependenciesGenerator = ExternalDependenciesGenerator(
             symbolTable,
             irProviders
@@ -159,7 +168,19 @@ class Fir2IrConverter(
 
     private fun registerFileAndClasses(file: FirFile, moduleFragment: IrModuleFragment) {
         val fileEntry = when (file.origin) {
-            FirDeclarationOrigin.Source -> PsiIrFileEntry(file.psi as KtFile)
+            FirDeclarationOrigin.Source ->
+                file.psi?.let { PsiIrFileEntry(it as KtFile) }
+                    ?: when (val linesMapping = file.sourceFileLinesMapping) {
+                        is KtSourceFileLinesMappingFromLineStartOffsets ->
+                            NaiveSourceBasedFileEntryImpl(
+                                file.sourceFile?.path ?: file.sourceFile?.name ?: file.name,
+                                linesMapping.lineStartOffsets,
+                                linesMapping.lastOffset
+                            )
+                        is KtPsiSourceFileLinesMapping -> PsiIrFileEntry(linesMapping.psiFile)
+                        else ->
+                            NaiveSourceBasedFileEntryImpl(file.sourceFile?.path ?: file.sourceFile?.name ?: file.name)
+                    }
             FirDeclarationOrigin.Synthetic -> NaiveSourceBasedFileEntryImpl(file.name)
             else -> error("Unsupported file origin: ${file.origin}")
         }
@@ -250,11 +271,14 @@ class Fir2IrConverter(
         allDeclarations += delegatedMembers(irClass)
         // Add synthetic members *before* fake override generations.
         // Otherwise, redundant members, e.g., synthetic toString _and_ fake override toString, will be added.
-        if (irConstructor != null && (irClass.isInline || irClass.isData)) {
+        if (irConstructor != null && (irClass.isValue || irClass.isData)) {
             declarationStorage.enterScope(irConstructor)
             val dataClassMembersGenerator = DataClassMembersGenerator(components)
-            if (irClass.isInline) {
-                allDeclarations += dataClassMembersGenerator.generateInlineClassMembers(regularClass, irClass)
+            if (irClass.isSingleFieldValueClass) {
+                allDeclarations += dataClassMembersGenerator.generateSingleFieldValueClassMembers(regularClass, irClass)
+            }
+            if (irClass.isMultiFieldValueClass) {
+                allDeclarations += dataClassMembersGenerator.generateMultiFieldValueClassMembers(regularClass, irClass)
             }
             if (irClass.isData) {
                 allDeclarations += dataClassMembersGenerator.generateDataClassMembers(regularClass, irClass)
@@ -406,6 +430,7 @@ class Fir2IrConverter(
             scopeSession: ScopeSession,
             firFiles: List<FirFile>,
             languageVersionSettings: LanguageVersionSettings,
+            descriptorMangler: KotlinMangler.DescriptorMangler,
             signaturer: IdSignatureComposer,
             generatorExtensions: GeneratorExtensions,
             mangler: FirMangler,
@@ -455,7 +480,8 @@ class Fir2IrConverter(
             }
 
             converter.runSourcesConversion(
-                allFirFiles, irModuleFragment, irGenerationExtensions, fir2irVisitor, languageVersionSettings, generatorExtensions
+                allFirFiles, irModuleFragment, irGenerationExtensions, fir2irVisitor, languageVersionSettings,
+                descriptorMangler, generatorExtensions
             )
 
             return Fir2IrResult(irModuleFragment, symbolTable, components)

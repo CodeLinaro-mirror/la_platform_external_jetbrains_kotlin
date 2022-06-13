@@ -8,11 +8,11 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.checkers.extractArgumentTypeRefAndSource
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.extractArgumentsTypeRefAndSource
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -84,7 +84,7 @@ object FirClassVarianceChecker : FirClassChecker() {
     ) {
         for (typeParameter in typeParameters) {
             if (typeParameter is FirTypeParameter) {
-                for (bound in typeParameter.bounds) {
+                for (bound in typeParameter.symbol.resolvedBounds) {
                     checkVarianceConflict(bound, variance, context, reporter)
                 }
             }
@@ -118,7 +118,7 @@ object FirClassVarianceChecker : FirClassChecker() {
                 !fullyExpandedType.attributes.contains(CompilerConeAttributes.UnsafeVariance)
             ) {
                 val factory =
-                    if (isInAbbreviation) FirErrors.TYPE_VARIANCE_CONFLICT_IN_EXPANDED_TYPE else FirErrors.TYPE_VARIANCE_CONFLICT
+                    if (isInAbbreviation) FirErrors.TYPE_VARIANCE_CONFLICT_IN_EXPANDED_TYPE else FirErrors.TYPE_VARIANCE_CONFLICT_ERROR
                 reporter.reportOn(
                     resultSource,
                     factory,
@@ -136,6 +136,7 @@ object FirClassVarianceChecker : FirClassChecker() {
             val fullyExpandedType = type.fullyExpandedType(context.session)
             val classSymbol = fullyExpandedType.lookupTag.toSymbol(context.session)
             if (classSymbol is FirClassSymbol<*>) {
+                val typeRefAndSourcesForArguments = extractArgumentsTypeRefAndSource(typeRef)
                 for ((index, typeArgument) in fullyExpandedType.typeArguments.withIndex()) {
                     val paramVariance = classSymbol.typeParameterSymbols.getOrNull(index)?.variance ?: continue
 
@@ -156,7 +157,7 @@ object FirClassVarianceChecker : FirClassChecker() {
                     }
 
                     if (newVariance != null) {
-                        val subTypeRefAndSource = extractArgumentTypeRefAndSource(typeRef, index)
+                        val subTypeRefAndSource = typeRefAndSourcesForArguments?.getOrNull(index)
 
                         checkVarianceConflict(
                             typeArgumentType, newVariance, subTypeRefAndSource?.typeRef, containingType,

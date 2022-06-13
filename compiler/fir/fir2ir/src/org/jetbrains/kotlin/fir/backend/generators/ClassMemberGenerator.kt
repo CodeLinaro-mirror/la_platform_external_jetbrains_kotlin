@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.backend.generators
 
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.declarations.*
@@ -25,6 +26,7 @@ import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
@@ -103,8 +105,10 @@ internal class ClassMemberGenerator(
                         irFunction.putParametersInScope(firFunction)
                     }
                 }
-                for ((valueParameter, firValueParameter) in valueParameters.zip(firFunction.valueParameters)) {
-                    valueParameter.setDefaultValue(firValueParameter)
+                val irParameters = valueParameters.drop(firFunction.contextReceivers.size)
+                val annotationMode = containingClass?.classKind == ClassKind.ANNOTATION_CLASS && irFunction is IrConstructor
+                for ((valueParameter, firValueParameter) in irParameters.zip(firFunction.valueParameters)) {
+                    valueParameter.setDefaultValue(firValueParameter, annotationMode)
                     annotationGenerator.generate(valueParameter, firValueParameter, irFunction is IrConstructor)
                 }
                 annotationGenerator.generate(irFunction, firFunction)
@@ -116,12 +120,42 @@ internal class ClassMemberGenerator(
                     val irDelegatingConstructorCall = delegatedConstructor.toIrDelegatingConstructorCall()
                     body.statements += irDelegatingConstructorCall
                 }
+                val irClass = parent as IrClass
                 if (delegatedConstructor?.isThis == false) {
                     val instanceInitializerCall = IrInstanceInitializerCallImpl(
-                        startOffset, endOffset, (parent as IrClass).symbol, irFunction.constructedClassType
+                        startOffset, endOffset, irClass.symbol, irFunction.constructedClassType
                     )
                     body.statements += instanceInitializerCall
                 }
+
+                if (containingClass is FirRegularClass && containingClass.contextReceivers.isNotEmpty()) {
+                    val contextReceiverFields =
+                        components.classifierStorage.getFieldsWithContextReceiversForClass(irClass)
+                            ?: error("Not found context receiver fields")
+
+                    val thisParameter =
+                        conversionScope.dispatchReceiverParameter(irClass) ?: error("No found this parameter for $irClass")
+
+                    val receiver = IrGetValueImpl(
+                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                        thisParameter.type,
+                        thisParameter.symbol,
+                    )
+
+                    for (index in containingClass.contextReceivers.indices) {
+                        val irValueParameter = valueParameters[index]
+                        body.statements.add(
+                            IrSetFieldImpl(
+                                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                                contextReceiverFields[index].symbol,
+                                receiver,
+                                IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, irValueParameter.type, irValueParameter.symbol),
+                                components.irBuiltIns.unitType,
+                            )
+                        )
+                    }
+                }
+
                 val regularBody = firFunction.body?.let { visitor.convertToIrBlockBody(it) }
                 if (regularBody != null) {
                     body.statements += regularBody.statements
@@ -217,7 +251,7 @@ internal class ClassMemberGenerator(
             if (initializer == null && initializerExpression != null) {
                 initializer = irFactory.createExpressionBody(
                     run {
-                        val irExpression = visitor.convertToIrExpression(initializerExpression)
+                        val irExpression = visitor.convertToIrExpression(initializerExpression, isDelegate = property.delegate != null)
                         if (property.delegate == null) {
                             with(visitor.implicitCastInserter) {
                                 irExpression.cast(initializerExpression, initializerExpression.typeRef, property.returnTypeRef)
@@ -317,7 +351,7 @@ internal class ClassMemberGenerator(
             } else {
                 IrDelegatingConstructorCallImpl(
                     startOffset, endOffset,
-                    constructedIrType,
+                    irBuiltIns.unitType,
                     irConstructorSymbol,
                     typeArgumentsCount = constructor.typeParameters.size,
                     valueArgumentsCount = irConstructorSymbol.owner.valueParameters.size
@@ -336,16 +370,19 @@ internal class ClassMemberGenerator(
                     it.dispatchReceiver = visitor.convertToIrExpression(firDispatchReceiver)
                 }
                 with(callGenerator) {
-                    it.applyCallArguments(this@toIrDelegatingConstructorCall, annotationMode = false)
+                    declarationStorage.enterScope(irConstructorSymbol.owner)
+                    val result = it.applyCallArguments(this@toIrDelegatingConstructorCall, annotationMode = false)
+                    declarationStorage.leaveScope(irConstructorSymbol.owner)
+                    result
                 }
             }
         }
     }
 
-    private fun IrValueParameter.setDefaultValue(firValueParameter: FirValueParameter) {
+    private fun IrValueParameter.setDefaultValue(firValueParameter: FirValueParameter, annotationMode: Boolean) {
         val firDefaultValue = firValueParameter.defaultValue
         if (firDefaultValue != null) {
-            this.defaultValue = factory.createExpressionBody(visitor.convertToIrExpression(firDefaultValue))
+            this.defaultValue = factory.createExpressionBody(visitor.convertToIrExpression(firDefaultValue, annotationMode))
         }
     }
 }

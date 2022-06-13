@@ -79,7 +79,7 @@ open class GenericReplCompiler(
             }
 
             val analysisResult = compilerState.analyzerEngine.analyzeReplLine(psiFile, codeLine)
-            AnalyzerWithCompilerReport.reportDiagnostics(analysisResult.diagnostics, errorHolder)
+            AnalyzerWithCompilerReport.reportDiagnostics(analysisResult.diagnostics, errorHolder, renderDiagnosticName = false)
             val scriptDescriptor = when (analysisResult) {
                 is ReplCodeAnalyzerBase.ReplLineAnalysisResult.WithErrors -> {
                     return ReplCompileResult.Error(errorHolder.renderMessage())
@@ -96,12 +96,12 @@ open class GenericReplCompiler(
                 ClassBuilderFactories.BINARIES,
                 compilerState.analyzerEngine.module,
                 compilerState.analyzerEngine.trace.bindingContext,
-                listOf(psiFile),
                 compilerConfiguration
             ).build()
 
             generationState.scriptSpecific.earlierScriptsForReplInterpreter = compilerState.history.map { it.item }
             generationState.beforeCompile()
+            generationState.oldBEInitTrace(listOf(psiFile))
             KotlinCodegenFacade.generatePackage(
                 generationState,
                 psiFile.script!!.containingKtFile.packageFqName,

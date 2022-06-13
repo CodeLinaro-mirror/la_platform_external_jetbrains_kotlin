@@ -870,8 +870,8 @@ public final class kotlin/collections/ArraysKt {
 	public static synthetic fun binarySearch$default ([SSIIILjava/lang/Object;)I
 	public static final fun contains ([BB)Z
 	public static final fun contains ([CC)Z
-	public static final fun contains ([DD)Z
-	public static final fun contains ([FF)Z
+	public static final synthetic fun contains ([DD)Z
+	public static final synthetic fun contains ([FF)Z
 	public static final fun contains ([II)Z
 	public static final fun contains ([JJ)Z
 	public static final fun contains ([Ljava/lang/Object;Ljava/lang/Object;)Z
@@ -1223,8 +1223,8 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun groupingBy ([Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Lkotlin/collections/Grouping;
 	public static final fun indexOf ([BB)I
 	public static final fun indexOf ([CC)I
-	public static final fun indexOf ([DD)I
-	public static final fun indexOf ([FF)I
+	public static final synthetic fun indexOf ([DD)I
+	public static final synthetic fun indexOf ([FF)I
 	public static final fun indexOf ([II)I
 	public static final fun indexOf ([JJ)I
 	public static final fun indexOf ([Ljava/lang/Object;Ljava/lang/Object;)I
@@ -1313,8 +1313,8 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun last ([ZLkotlin/jvm/functions/Function1;)Z
 	public static final fun lastIndexOf ([BB)I
 	public static final fun lastIndexOf ([CC)I
-	public static final fun lastIndexOf ([DD)I
-	public static final fun lastIndexOf ([FF)I
+	public static final synthetic fun lastIndexOf ([DD)I
+	public static final synthetic fun lastIndexOf ([FF)I
 	public static final fun lastIndexOf ([II)I
 	public static final fun lastIndexOf ([JJ)I
 	public static final fun lastIndexOf ([Ljava/lang/Object;Ljava/lang/Object;)I
@@ -1406,6 +1406,15 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun maxByOrNull ([Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun maxByOrNull ([SLkotlin/jvm/functions/Function1;)Ljava/lang/Short;
 	public static final fun maxByOrNull ([ZLkotlin/jvm/functions/Function1;)Ljava/lang/Boolean;
+	public static final fun maxByOrThrow ([BLkotlin/jvm/functions/Function1;)B
+	public static final fun maxByOrThrow ([CLkotlin/jvm/functions/Function1;)C
+	public static final fun maxByOrThrow ([DLkotlin/jvm/functions/Function1;)D
+	public static final fun maxByOrThrow ([FLkotlin/jvm/functions/Function1;)F
+	public static final fun maxByOrThrow ([ILkotlin/jvm/functions/Function1;)I
+	public static final fun maxByOrThrow ([JLkotlin/jvm/functions/Function1;)J
+	public static final fun maxByOrThrow ([Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun maxByOrThrow ([SLkotlin/jvm/functions/Function1;)S
+	public static final fun maxByOrThrow ([ZLkotlin/jvm/functions/Function1;)Z
 	public static final fun maxOrNull ([B)Ljava/lang/Byte;
 	public static final fun maxOrNull ([C)Ljava/lang/Character;
 	public static final fun maxOrNull ([D)Ljava/lang/Double;
@@ -1416,6 +1425,16 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun maxOrNull ([Ljava/lang/Double;)Ljava/lang/Double;
 	public static final fun maxOrNull ([Ljava/lang/Float;)Ljava/lang/Float;
 	public static final fun maxOrNull ([S)Ljava/lang/Short;
+	public static final fun maxOrThrow ([B)B
+	public static final fun maxOrThrow ([C)C
+	public static final fun maxOrThrow ([D)D
+	public static final fun maxOrThrow ([F)F
+	public static final fun maxOrThrow ([I)I
+	public static final fun maxOrThrow ([J)J
+	public static final fun maxOrThrow ([Ljava/lang/Comparable;)Ljava/lang/Comparable;
+	public static final fun maxOrThrow ([Ljava/lang/Double;)D
+	public static final fun maxOrThrow ([Ljava/lang/Float;)F
+	public static final fun maxOrThrow ([S)S
 	public static final synthetic fun maxWith ([BLjava/util/Comparator;)Ljava/lang/Byte;
 	public static final synthetic fun maxWith ([CLjava/util/Comparator;)Ljava/lang/Character;
 	public static final synthetic fun maxWith ([DLjava/util/Comparator;)Ljava/lang/Double;
@@ -1434,6 +1453,15 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun maxWithOrNull ([Ljava/lang/Object;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun maxWithOrNull ([SLjava/util/Comparator;)Ljava/lang/Short;
 	public static final fun maxWithOrNull ([ZLjava/util/Comparator;)Ljava/lang/Boolean;
+	public static final fun maxWithOrThrow ([BLjava/util/Comparator;)B
+	public static final fun maxWithOrThrow ([CLjava/util/Comparator;)C
+	public static final fun maxWithOrThrow ([DLjava/util/Comparator;)D
+	public static final fun maxWithOrThrow ([FLjava/util/Comparator;)F
+	public static final fun maxWithOrThrow ([ILjava/util/Comparator;)I
+	public static final fun maxWithOrThrow ([JLjava/util/Comparator;)J
+	public static final fun maxWithOrThrow ([Ljava/lang/Object;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun maxWithOrThrow ([SLjava/util/Comparator;)S
+	public static final fun maxWithOrThrow ([ZLjava/util/Comparator;)Z
 	public static final synthetic fun min ([B)Ljava/lang/Byte;
 	public static final synthetic fun min ([C)Ljava/lang/Character;
 	public static final synthetic fun min ([D)Ljava/lang/Double;
@@ -1462,6 +1490,15 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun minByOrNull ([Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun minByOrNull ([SLkotlin/jvm/functions/Function1;)Ljava/lang/Short;
 	public static final fun minByOrNull ([ZLkotlin/jvm/functions/Function1;)Ljava/lang/Boolean;
+	public static final fun minByOrThrow ([BLkotlin/jvm/functions/Function1;)B
+	public static final fun minByOrThrow ([CLkotlin/jvm/functions/Function1;)C
+	public static final fun minByOrThrow ([DLkotlin/jvm/functions/Function1;)D
+	public static final fun minByOrThrow ([FLkotlin/jvm/functions/Function1;)F
+	public static final fun minByOrThrow ([ILkotlin/jvm/functions/Function1;)I
+	public static final fun minByOrThrow ([JLkotlin/jvm/functions/Function1;)J
+	public static final fun minByOrThrow ([Ljava/lang/Object;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun minByOrThrow ([SLkotlin/jvm/functions/Function1;)S
+	public static final fun minByOrThrow ([ZLkotlin/jvm/functions/Function1;)Z
 	public static final fun minOrNull ([B)Ljava/lang/Byte;
 	public static final fun minOrNull ([C)Ljava/lang/Character;
 	public static final fun minOrNull ([D)Ljava/lang/Double;
@@ -1472,6 +1509,16 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun minOrNull ([Ljava/lang/Double;)Ljava/lang/Double;
 	public static final fun minOrNull ([Ljava/lang/Float;)Ljava/lang/Float;
 	public static final fun minOrNull ([S)Ljava/lang/Short;
+	public static final fun minOrThrow ([B)B
+	public static final fun minOrThrow ([C)C
+	public static final fun minOrThrow ([D)D
+	public static final fun minOrThrow ([F)F
+	public static final fun minOrThrow ([I)I
+	public static final fun minOrThrow ([J)J
+	public static final fun minOrThrow ([Ljava/lang/Comparable;)Ljava/lang/Comparable;
+	public static final fun minOrThrow ([Ljava/lang/Double;)D
+	public static final fun minOrThrow ([Ljava/lang/Float;)F
+	public static final fun minOrThrow ([S)S
 	public static final synthetic fun minWith ([BLjava/util/Comparator;)Ljava/lang/Byte;
 	public static final synthetic fun minWith ([CLjava/util/Comparator;)Ljava/lang/Character;
 	public static final synthetic fun minWith ([DLjava/util/Comparator;)Ljava/lang/Double;
@@ -1490,6 +1537,15 @@ public final class kotlin/collections/ArraysKt {
 	public static final fun minWithOrNull ([Ljava/lang/Object;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun minWithOrNull ([SLjava/util/Comparator;)Ljava/lang/Short;
 	public static final fun minWithOrNull ([ZLjava/util/Comparator;)Ljava/lang/Boolean;
+	public static final fun minWithOrThrow ([BLjava/util/Comparator;)B
+	public static final fun minWithOrThrow ([CLjava/util/Comparator;)C
+	public static final fun minWithOrThrow ([DLjava/util/Comparator;)D
+	public static final fun minWithOrThrow ([FLjava/util/Comparator;)F
+	public static final fun minWithOrThrow ([ILjava/util/Comparator;)I
+	public static final fun minWithOrThrow ([JLjava/util/Comparator;)J
+	public static final fun minWithOrThrow ([Ljava/lang/Object;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun minWithOrThrow ([SLjava/util/Comparator;)S
+	public static final fun minWithOrThrow ([ZLjava/util/Comparator;)Z
 	public static final fun none ([B)Z
 	public static final fun none ([BLkotlin/jvm/functions/Function1;)Z
 	public static final fun none ([C)Z
@@ -2254,21 +2310,31 @@ public final class kotlin/collections/CollectionsKt {
 	public static final synthetic fun max (Ljava/lang/Iterable;)Ljava/lang/Float;
 	public static final synthetic fun maxBy (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun maxByOrNull (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun maxByOrThrow (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun maxOrNull (Ljava/lang/Iterable;)Ljava/lang/Comparable;
 	public static final fun maxOrNull (Ljava/lang/Iterable;)Ljava/lang/Double;
 	public static final fun maxOrNull (Ljava/lang/Iterable;)Ljava/lang/Float;
+	public static final fun maxOrThrow (Ljava/lang/Iterable;)D
+	public static final fun maxOrThrow (Ljava/lang/Iterable;)F
+	public static final fun maxOrThrow (Ljava/lang/Iterable;)Ljava/lang/Comparable;
 	public static final synthetic fun maxWith (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun maxWithOrNull (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun maxWithOrThrow (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final synthetic fun min (Ljava/lang/Iterable;)Ljava/lang/Comparable;
 	public static final synthetic fun min (Ljava/lang/Iterable;)Ljava/lang/Double;
 	public static final synthetic fun min (Ljava/lang/Iterable;)Ljava/lang/Float;
 	public static final synthetic fun minBy (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun minByOrNull (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun minByOrThrow (Ljava/lang/Iterable;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun minOrNull (Ljava/lang/Iterable;)Ljava/lang/Comparable;
 	public static final fun minOrNull (Ljava/lang/Iterable;)Ljava/lang/Double;
 	public static final fun minOrNull (Ljava/lang/Iterable;)Ljava/lang/Float;
+	public static final fun minOrThrow (Ljava/lang/Iterable;)D
+	public static final fun minOrThrow (Ljava/lang/Iterable;)F
+	public static final fun minOrThrow (Ljava/lang/Iterable;)Ljava/lang/Comparable;
 	public static final synthetic fun minWith (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun minWithOrNull (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun minWithOrThrow (Ljava/lang/Iterable;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun minus (Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/util/List;
 	public static final fun minus (Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/util/List;
 	public static final fun minus (Ljava/lang/Iterable;Lkotlin/sequences/Sequence;)Ljava/util/List;
@@ -2561,14 +2627,6 @@ public abstract class kotlin/collections/ShortIterator : java/util/Iterator, kot
 	public fun remove ()V
 }
 
-public abstract class kotlin/collections/UByteIterator : java/util/Iterator, kotlin/jvm/internal/markers/KMappedMarker {
-	public fun <init> ()V
-	public synthetic fun next ()Ljava/lang/Object;
-	public final fun next-w2LRezQ ()B
-	public abstract fun nextUByte-w2LRezQ ()B
-	public fun remove ()V
-}
-
 public final class kotlin/collections/UCollectionsKt {
 	public static final fun sumOfUByte (Ljava/lang/Iterable;)I
 	public static final fun sumOfUInt (Ljava/lang/Iterable;)I
@@ -2578,30 +2636,6 @@ public final class kotlin/collections/UCollectionsKt {
 	public static final fun toUIntArray (Ljava/util/Collection;)[I
 	public static final fun toULongArray (Ljava/util/Collection;)[J
 	public static final fun toUShortArray (Ljava/util/Collection;)[S
-}
-
-public abstract class kotlin/collections/UIntIterator : java/util/Iterator, kotlin/jvm/internal/markers/KMappedMarker {
-	public fun <init> ()V
-	public synthetic fun next ()Ljava/lang/Object;
-	public final fun next-pVg5ArA ()I
-	public abstract fun nextUInt-pVg5ArA ()I
-	public fun remove ()V
-}
-
-public abstract class kotlin/collections/ULongIterator : java/util/Iterator, kotlin/jvm/internal/markers/KMappedMarker {
-	public fun <init> ()V
-	public synthetic fun next ()Ljava/lang/Object;
-	public final fun next-s-VKNKU ()J
-	public abstract fun nextULong-s-VKNKU ()J
-	public fun remove ()V
-}
-
-public abstract class kotlin/collections/UShortIterator : java/util/Iterator, kotlin/jvm/internal/markers/KMappedMarker {
-	public fun <init> ()V
-	public synthetic fun next ()Ljava/lang/Object;
-	public final fun next-Mh2AYeg ()S
-	public abstract fun nextUShort-Mh2AYeg ()S
-	public fun remove ()V
 }
 
 public final class kotlin/collections/unsigned/UArraysKt {
@@ -2685,6 +2719,10 @@ public final class kotlin/collections/unsigned/UArraysKt {
 	public static final fun maxOrNull-GBYM_sE ([B)Lkotlin/UByte;
 	public static final fun maxOrNull-QwZRm1k ([J)Lkotlin/ULong;
 	public static final fun maxOrNull-rL5Bavg ([S)Lkotlin/UShort;
+	public static final fun maxOrThrow-U ([B)B
+	public static final fun maxOrThrow-U ([I)I
+	public static final fun maxOrThrow-U ([J)J
+	public static final fun maxOrThrow-U ([S)S
 	public static final synthetic fun maxWith-XMRcp5o ([BLjava/util/Comparator;)Lkotlin/UByte;
 	public static final synthetic fun maxWith-YmdZ_VM ([ILjava/util/Comparator;)Lkotlin/UInt;
 	public static final synthetic fun maxWith-eOHTfZs ([SLjava/util/Comparator;)Lkotlin/UShort;
@@ -2693,6 +2731,10 @@ public final class kotlin/collections/unsigned/UArraysKt {
 	public static final fun maxWithOrNull-YmdZ_VM ([ILjava/util/Comparator;)Lkotlin/UInt;
 	public static final fun maxWithOrNull-eOHTfZs ([SLjava/util/Comparator;)Lkotlin/UShort;
 	public static final fun maxWithOrNull-zrEWJaI ([JLjava/util/Comparator;)Lkotlin/ULong;
+	public static final fun maxWithOrThrow-U ([BLjava/util/Comparator;)B
+	public static final fun maxWithOrThrow-U ([ILjava/util/Comparator;)I
+	public static final fun maxWithOrThrow-U ([JLjava/util/Comparator;)J
+	public static final fun maxWithOrThrow-U ([SLjava/util/Comparator;)S
 	public static final synthetic fun min--ajY-9A ([I)Lkotlin/UInt;
 	public static final synthetic fun min-GBYM_sE ([B)Lkotlin/UByte;
 	public static final synthetic fun min-QwZRm1k ([J)Lkotlin/ULong;
@@ -2701,6 +2743,10 @@ public final class kotlin/collections/unsigned/UArraysKt {
 	public static final fun minOrNull-GBYM_sE ([B)Lkotlin/UByte;
 	public static final fun minOrNull-QwZRm1k ([J)Lkotlin/ULong;
 	public static final fun minOrNull-rL5Bavg ([S)Lkotlin/UShort;
+	public static final fun minOrThrow-U ([B)B
+	public static final fun minOrThrow-U ([I)I
+	public static final fun minOrThrow-U ([J)J
+	public static final fun minOrThrow-U ([S)S
 	public static final synthetic fun minWith-XMRcp5o ([BLjava/util/Comparator;)Lkotlin/UByte;
 	public static final synthetic fun minWith-YmdZ_VM ([ILjava/util/Comparator;)Lkotlin/UInt;
 	public static final synthetic fun minWith-eOHTfZs ([SLjava/util/Comparator;)Lkotlin/UShort;
@@ -2709,6 +2755,10 @@ public final class kotlin/collections/unsigned/UArraysKt {
 	public static final fun minWithOrNull-YmdZ_VM ([ILjava/util/Comparator;)Lkotlin/UInt;
 	public static final fun minWithOrNull-eOHTfZs ([SLjava/util/Comparator;)Lkotlin/UShort;
 	public static final fun minWithOrNull-zrEWJaI ([JLjava/util/Comparator;)Lkotlin/ULong;
+	public static final fun minWithOrThrow-U ([BLjava/util/Comparator;)B
+	public static final fun minWithOrThrow-U ([ILjava/util/Comparator;)I
+	public static final fun minWithOrThrow-U ([JLjava/util/Comparator;)J
+	public static final fun minWithOrThrow-U ([SLjava/util/Comparator;)S
 	public static final fun plus-CFIt9YE ([ILjava/util/Collection;)[I
 	public static final fun plus-kzHmqpY ([JLjava/util/Collection;)[J
 	public static final fun plus-ojwP5H8 ([SLjava/util/Collection;)[S
@@ -4491,6 +4541,12 @@ public final class kotlin/ranges/RangesKt {
 	public static final fun downTo (SI)Lkotlin/ranges/IntProgression;
 	public static final fun downTo (SJ)Lkotlin/ranges/LongProgression;
 	public static final fun downTo (SS)Lkotlin/ranges/IntProgression;
+	public static final fun first (Lkotlin/ranges/CharProgression;)C
+	public static final fun first (Lkotlin/ranges/IntProgression;)I
+	public static final fun first (Lkotlin/ranges/LongProgression;)J
+	public static final fun firstOrNull (Lkotlin/ranges/CharProgression;)Ljava/lang/Character;
+	public static final fun firstOrNull (Lkotlin/ranges/IntProgression;)Ljava/lang/Integer;
+	public static final fun firstOrNull (Lkotlin/ranges/LongProgression;)Ljava/lang/Long;
 	public static final synthetic fun floatRangeContains (Lkotlin/ranges/ClosedRange;B)Z
 	public static final fun floatRangeContains (Lkotlin/ranges/ClosedRange;D)Z
 	public static final synthetic fun floatRangeContains (Lkotlin/ranges/ClosedRange;I)Z
@@ -4501,6 +4557,12 @@ public final class kotlin/ranges/RangesKt {
 	public static final synthetic fun intRangeContains (Lkotlin/ranges/ClosedRange;F)Z
 	public static final fun intRangeContains (Lkotlin/ranges/ClosedRange;J)Z
 	public static final fun intRangeContains (Lkotlin/ranges/ClosedRange;S)Z
+	public static final fun last (Lkotlin/ranges/CharProgression;)C
+	public static final fun last (Lkotlin/ranges/IntProgression;)I
+	public static final fun last (Lkotlin/ranges/LongProgression;)J
+	public static final fun lastOrNull (Lkotlin/ranges/CharProgression;)Ljava/lang/Character;
+	public static final fun lastOrNull (Lkotlin/ranges/IntProgression;)Ljava/lang/Integer;
+	public static final fun lastOrNull (Lkotlin/ranges/LongProgression;)Ljava/lang/Long;
 	public static final fun longRangeContains (Lkotlin/ranges/ClosedRange;B)Z
 	public static final synthetic fun longRangeContains (Lkotlin/ranges/ClosedRange;D)Z
 	public static final synthetic fun longRangeContains (Lkotlin/ranges/ClosedRange;F)Z
@@ -4640,6 +4702,14 @@ public final class kotlin/ranges/URangesKt {
 	public static final fun downTo-J1ME1BU (II)Lkotlin/ranges/UIntProgression;
 	public static final fun downTo-Kr8caGY (BB)Lkotlin/ranges/UIntProgression;
 	public static final fun downTo-eb3DHEI (JJ)Lkotlin/ranges/ULongProgression;
+	public static final fun first (Lkotlin/ranges/UIntProgression;)I
+	public static final fun first (Lkotlin/ranges/ULongProgression;)J
+	public static final fun firstOrNull (Lkotlin/ranges/UIntProgression;)Lkotlin/UInt;
+	public static final fun firstOrNull (Lkotlin/ranges/ULongProgression;)Lkotlin/ULong;
+	public static final fun last (Lkotlin/ranges/UIntProgression;)I
+	public static final fun last (Lkotlin/ranges/ULongProgression;)J
+	public static final fun lastOrNull (Lkotlin/ranges/UIntProgression;)Lkotlin/UInt;
+	public static final fun lastOrNull (Lkotlin/ranges/ULongProgression;)Lkotlin/ULong;
 	public static final fun random (Lkotlin/ranges/UIntRange;Lkotlin/random/Random;)I
 	public static final fun random (Lkotlin/ranges/ULongRange;Lkotlin/random/Random;)J
 	public static final fun randomOrNull (Lkotlin/ranges/UIntRange;Lkotlin/random/Random;)Lkotlin/UInt;
@@ -4969,21 +5039,31 @@ public final class kotlin/sequences/SequencesKt {
 	public static final synthetic fun max (Lkotlin/sequences/Sequence;)Ljava/lang/Float;
 	public static final synthetic fun maxBy (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun maxByOrNull (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun maxByOrThrow (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun maxOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Comparable;
 	public static final fun maxOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Double;
 	public static final fun maxOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Float;
+	public static final fun maxOrThrow (Lkotlin/sequences/Sequence;)D
+	public static final fun maxOrThrow (Lkotlin/sequences/Sequence;)F
+	public static final fun maxOrThrow (Lkotlin/sequences/Sequence;)Ljava/lang/Comparable;
 	public static final synthetic fun maxWith (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun maxWithOrNull (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun maxWithOrThrow (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final synthetic fun min (Lkotlin/sequences/Sequence;)Ljava/lang/Comparable;
 	public static final synthetic fun min (Lkotlin/sequences/Sequence;)Ljava/lang/Double;
 	public static final synthetic fun min (Lkotlin/sequences/Sequence;)Ljava/lang/Float;
 	public static final synthetic fun minBy (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun minByOrNull (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+	public static final fun minByOrThrow (Lkotlin/sequences/Sequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 	public static final fun minOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Comparable;
 	public static final fun minOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Double;
 	public static final fun minOrNull (Lkotlin/sequences/Sequence;)Ljava/lang/Float;
+	public static final fun minOrThrow (Lkotlin/sequences/Sequence;)D
+	public static final fun minOrThrow (Lkotlin/sequences/Sequence;)F
+	public static final fun minOrThrow (Lkotlin/sequences/Sequence;)Ljava/lang/Comparable;
 	public static final synthetic fun minWith (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun minWithOrNull (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
+	public static final fun minWithOrThrow (Lkotlin/sequences/Sequence;Ljava/util/Comparator;)Ljava/lang/Object;
 	public static final fun minus (Lkotlin/sequences/Sequence;Ljava/lang/Iterable;)Lkotlin/sequences/Sequence;
 	public static final fun minus (Lkotlin/sequences/Sequence;Ljava/lang/Object;)Lkotlin/sequences/Sequence;
 	public static final fun minus (Lkotlin/sequences/Sequence;Lkotlin/sequences/Sequence;)Lkotlin/sequences/Sequence;
@@ -5396,15 +5476,21 @@ public final class kotlin/text/StringsKt {
 	public static final synthetic fun max (Ljava/lang/CharSequence;)Ljava/lang/Character;
 	public static final synthetic fun maxBy (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Character;
 	public static final fun maxByOrNull (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Character;
+	public static final fun maxByOrThrow (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)C
 	public static final fun maxOrNull (Ljava/lang/CharSequence;)Ljava/lang/Character;
+	public static final fun maxOrThrow (Ljava/lang/CharSequence;)C
 	public static final synthetic fun maxWith (Ljava/lang/CharSequence;Ljava/util/Comparator;)Ljava/lang/Character;
 	public static final fun maxWithOrNull (Ljava/lang/CharSequence;Ljava/util/Comparator;)Ljava/lang/Character;
+	public static final fun maxWithOrThrow (Ljava/lang/CharSequence;Ljava/util/Comparator;)C
 	public static final synthetic fun min (Ljava/lang/CharSequence;)Ljava/lang/Character;
 	public static final synthetic fun minBy (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Character;
 	public static final fun minByOrNull (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/Character;
+	public static final fun minByOrThrow (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)C
 	public static final fun minOrNull (Ljava/lang/CharSequence;)Ljava/lang/Character;
+	public static final fun minOrThrow (Ljava/lang/CharSequence;)C
 	public static final synthetic fun minWith (Ljava/lang/CharSequence;Ljava/util/Comparator;)Ljava/lang/Character;
 	public static final fun minWithOrNull (Ljava/lang/CharSequence;Ljava/util/Comparator;)Ljava/lang/Character;
+	public static final fun minWithOrThrow (Ljava/lang/CharSequence;Ljava/util/Comparator;)C
 	public static final fun none (Ljava/lang/CharSequence;)Z
 	public static final fun none (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Z
 	public static final fun onEach (Ljava/lang/CharSequence;Lkotlin/jvm/functions/Function1;)Ljava/lang/CharSequence;
@@ -5813,8 +5899,10 @@ public abstract interface annotation class kotlin/time/ExperimentalTime : java/l
 
 public final class kotlin/time/MeasureTimeKt {
 	public static final fun measureTime (Lkotlin/jvm/functions/Function0;)J
+	public static final fun measureTime (Lkotlin/time/TimeSource$Monotonic;Lkotlin/jvm/functions/Function0;)J
 	public static final fun measureTime (Lkotlin/time/TimeSource;Lkotlin/jvm/functions/Function0;)J
 	public static final fun measureTimedValue (Lkotlin/jvm/functions/Function0;)Lkotlin/time/TimedValue;
+	public static final fun measureTimedValue (Lkotlin/time/TimeSource$Monotonic;Lkotlin/jvm/functions/Function0;)Lkotlin/time/TimedValue;
 	public static final fun measureTimedValue (Lkotlin/time/TimeSource;Lkotlin/jvm/functions/Function0;)Lkotlin/time/TimedValue;
 }
 
@@ -5823,13 +5911,19 @@ public final class kotlin/time/TestTimeSource : kotlin/time/AbstractLongTimeSour
 	public final fun plusAssign-LRDsOJo (J)V
 }
 
-public abstract class kotlin/time/TimeMark {
-	public fun <init> ()V
+public abstract interface class kotlin/time/TimeMark {
 	public abstract fun elapsedNow-UwyO8pc ()J
-	public final fun hasNotPassedNow ()Z
-	public final fun hasPassedNow ()Z
-	public fun minus-LRDsOJo (J)Lkotlin/time/TimeMark;
-	public fun plus-LRDsOJo (J)Lkotlin/time/TimeMark;
+	public abstract fun hasNotPassedNow ()Z
+	public abstract fun hasPassedNow ()Z
+	public abstract fun minus-LRDsOJo (J)Lkotlin/time/TimeMark;
+	public abstract fun plus-LRDsOJo (J)Lkotlin/time/TimeMark;
+}
+
+public final class kotlin/time/TimeMark$DefaultImpls {
+	public static fun hasNotPassedNow (Lkotlin/time/TimeMark;)Z
+	public static fun hasPassedNow (Lkotlin/time/TimeMark;)Z
+	public static fun minus-LRDsOJo (Lkotlin/time/TimeMark;J)Lkotlin/time/TimeMark;
+	public static fun plus-LRDsOJo (Lkotlin/time/TimeMark;J)Lkotlin/time/TimeMark;
 }
 
 public abstract interface class kotlin/time/TimeSource {
@@ -5842,8 +5936,33 @@ public final class kotlin/time/TimeSource$Companion {
 
 public final class kotlin/time/TimeSource$Monotonic : kotlin/time/TimeSource {
 	public static final field INSTANCE Lkotlin/time/TimeSource$Monotonic;
-	public fun markNow ()Lkotlin/time/TimeMark;
+	public synthetic fun markNow ()Lkotlin/time/TimeMark;
+	public fun markNow-z9LOYto ()J
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class kotlin/time/TimeSource$Monotonic$ValueTimeMark : kotlin/time/TimeMark {
+	public static final synthetic fun box-impl (J)Lkotlin/time/TimeSource$Monotonic$ValueTimeMark;
+	public fun elapsedNow-UwyO8pc ()J
+	public static fun elapsedNow-UwyO8pc (J)J
+	public fun equals (Ljava/lang/Object;)Z
+	public static fun equals-impl (JLjava/lang/Object;)Z
+	public static final fun equals-impl0 (JJ)Z
+	public fun hasNotPassedNow ()Z
+	public static fun hasNotPassedNow-impl (J)Z
+	public fun hasPassedNow ()Z
+	public static fun hasPassedNow-impl (J)Z
+	public fun hashCode ()I
+	public static fun hashCode-impl (J)I
+	public fun minus-LRDsOJo (J)J
+	public synthetic fun minus-LRDsOJo (J)Lkotlin/time/TimeMark;
+	public static fun minus-LRDsOJo (JJ)J
+	public fun plus-LRDsOJo (J)J
+	public synthetic fun plus-LRDsOJo (J)Lkotlin/time/TimeMark;
+	public static fun plus-LRDsOJo (JJ)J
+	public fun toString ()Ljava/lang/String;
+	public static fun toString-impl (J)Ljava/lang/String;
+	public final synthetic fun unbox-impl ()J
 }
 
 public final class kotlin/time/TimedValue {

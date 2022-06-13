@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.konan.blackboxtest.support.settings
 
 import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.io.File
+import java.util.*
 import kotlin.time.Duration
 
 /**
@@ -19,7 +19,12 @@ internal class KotlinNativeTargets(val testTarget: KonanTarget, val hostTarget: 
  * The Kotlin/Native home.
  */
 internal class KotlinNativeHome(val dir: File) {
-    val path: String get() = dir.path
+    val librariesDir: File = dir.resolve("klib")
+    val stdlibFile: File = librariesDir.resolve("common/stdlib")
+
+    val properties: Properties by lazy {
+        dir.resolve("konan/konan.properties").inputStream().use { Properties().apply { load(it) } }
+    }
 }
 
 /**
@@ -29,24 +34,81 @@ internal class KotlinNativeClassLoader(private val lazyClassLoader: Lazy<ClassLo
     val classLoader: ClassLoader get() = lazyClassLoader.value
 }
 
-// TODO: in fact, only WITH_MODULES mode is supported now
-internal enum class TestMode(val description: String) {
-    ONE_STAGE(
-        description = "Compile test files altogether without producing intermediate KLIBs."
-    ),
-    TWO_STAGE(
-        description = "Compile test files altogether and produce an intermediate KLIB. Then produce a program from the KLIB using -Xinclude."
-    ),
-    WITH_MODULES(
+/**
+ * New test modes may be added as necessary.
+ */
+internal enum class TestMode(private val description: String) {
+    ONE_STAGE_MULTI_MODULE(
         description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
-                " Then link the KLIBs into the single executable file."
-    )
+                " Produce a KLIB per each module except the last one." +
+                " Finally, produce an executable file by compiling the latest module with all other KLIBs passed as -library"
+    ),
+    TWO_STAGE_MULTI_MODULE(
+        description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
+                " Produce a KLIB per each module." +
+                " Finally, produce an executable file by passing the latest KLIB as -Xinclude and all other KLIBs as -library."
+    );
+
+    override fun toString() = description
+}
+
+/**
+ * Optimization mode to be applied.
+ */
+internal enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
+    DEBUG("Build with debug information", "-g"),
+    OPT("Build with optimizations applied", "-opt"),
+    NO("Don't use any specific optimizations", null);
+
+    override fun toString() = description + compilerFlag?.let { " ($it)" }.orEmpty()
+}
+
+/**
+ * The Kotlin/Native memory model.
+ */
+internal enum class MemoryModel(val compilerFlags: List<String>?) {
+    DEFAULT(null),
+    EXPERIMENTAL(listOf("-memory-model", "experimental"));
+
+    override fun toString() = compilerFlags?.joinToString(prefix = "(", separator = " ", postfix = ")").orEmpty()
+}
+
+/**
+ * Thread state checked. Can be applied only with [MemoryModel.EXPERIMENTAL] and [OptimizationMode.DEBUG].
+ */
+internal enum class ThreadStateChecker(val compilerFlag: String?) {
+    DISABLED(null),
+    ENABLED("-Xcheck-state-at-external-calls");
+
+    override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
+}
+
+/**
+ * Garbage collector type. Can be applied only with [MemoryModel.EXPERIMENTAL].
+ */
+internal enum class GCType(val compilerFlag: String?) {
+    UNSPECIFIED(null),
+    NOOP("-Xgc=noop"),
+    STMS("-Xgc=stms"),
+    CMS("-Xgc=cms");
+
+    override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
+}
+
+internal enum class GCScheduler(val compilerFlag: String?) {
+    UNSPECIFIED(null),
+    DISABLED("-Xbinary=gcSchedulerType=disabled"),
+    WITH_TIMER("-Xbinary=gcSchedulerType=with_timer"),
+    ON_SAFE_POINTS("-Xbinary=gcSchedulerType=on_safe_points"),
+    AGGRESSIVE("-Xbinary=gcSchedulerType=aggressive");
+
+    override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
 }
 
 /**
  * Current project's directories.
  */
-internal class BaseDirs(val buildDir: File)
+internal class BaseDirs(val testBuildDir: File)
 
 /**
  * Timeouts.
@@ -54,29 +116,42 @@ internal class BaseDirs(val buildDir: File)
 internal class Timeouts(val executionTimeout: Duration)
 
 /**
- * Used cache kind.
+ * Used cache mode.
  */
-internal sealed interface CacheKind {
-    object WithoutCache : CacheKind
+internal sealed interface CacheMode {
+    val staticCacheRootDir: File?
+    val staticCacheRequiredForEveryLibrary: Boolean
 
-    object WithStaticCache : CacheKind {
-        fun getRootCacheDirectory(
-            kotlinNativeHome: KotlinNativeHome,
-            kotlinNativeTargets: KotlinNativeTargets,
-            debuggable: Boolean
-        ): File? = kotlinNativeHome.dir
-            .resolve("klib/cache")
-            .resolve(computeCacheDirName(kotlinNativeTargets.testTarget, CACHE_KIND, debuggable))
-            .takeIf { it.exists() }
-
-        private const val CACHE_KIND = "STATIC"
+    object WithoutCache : CacheMode {
+        override val staticCacheRootDir: File? get() = null
+        override val staticCacheRequiredForEveryLibrary get() = false
     }
+
+    class WithStaticCache(
+        kotlinNativeHome: KotlinNativeHome,
+        kotlinNativeTargets: KotlinNativeTargets,
+        optimizationMode: OptimizationMode,
+        override val staticCacheRequiredForEveryLibrary: Boolean
+    ) : CacheMode {
+        override val staticCacheRootDir: File? = kotlinNativeHome.dir
+            .resolve("klib/cache")
+            .resolve(
+                computeCacheDirName(
+                    testTarget = kotlinNativeTargets.testTarget,
+                    cacheKind = CACHE_KIND,
+                    debuggable = optimizationMode == OptimizationMode.DEBUG
+                )
+            ).takeIf { it.exists() }
+
+        companion object {
+            private const val CACHE_KIND = "STATIC"
+        }
+    }
+
+    enum class Alias { NO, STATIC_ONLY_DIST, STATIC_EVERYWHERE }
 
     companion object {
         private fun computeCacheDirName(testTarget: KonanTarget, cacheKind: String, debuggable: Boolean) =
             "$testTarget${if (debuggable) "-g" else ""}$cacheKind"
     }
 }
-
-internal fun Settings.getRootCacheDirectory(debuggable: Boolean): File? =
-    get<CacheKind>().safeAs<CacheKind.WithStaticCache>()?.getRootCacheDirectory(get(), get(), debuggable)

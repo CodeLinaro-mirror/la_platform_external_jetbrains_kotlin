@@ -35,13 +35,13 @@ import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.calls.checkers.CallChecker
 import org.jetbrains.kotlin.resolve.calls.checkers.CallCheckerContext
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
-import org.jetbrains.kotlin.resolve.checkers.OptInNames.EXPERIMENTAL_FQ_NAMES
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.OLD_EXPERIMENTAL_FQ_NAME
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.OLD_USE_EXPERIMENTAL_FQ_NAME
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.OPT_IN_FQ_NAME
+import org.jetbrains.kotlin.resolve.checkers.OptInNames.OPT_IN_FQ_NAMES
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.REQUIRES_OPT_IN_FQ_NAME
+import org.jetbrains.kotlin.resolve.checkers.OptInNames.REQUIRES_OPT_IN_FQ_NAMES
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.USE_EXPERIMENTAL_ANNOTATION_CLASS
-import org.jetbrains.kotlin.resolve.checkers.OptInNames.USE_EXPERIMENTAL_FQ_NAMES
 import org.jetbrains.kotlin.resolve.checkers.OptInNames.WAS_EXPERIMENTAL_FQ_NAME
 import org.jetbrains.kotlin.resolve.constants.ArrayValue
 import org.jetbrains.kotlin.resolve.constants.EnumValue
@@ -52,7 +52,6 @@ import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationSettings
 import org.jetbrains.kotlin.resolve.descriptorUtil.annotationClass
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
-import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.AbbreviatedType
 import org.jetbrains.kotlin.types.KotlinType
@@ -72,7 +71,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
         val defaultMessage: (FqName) -> String
     ) : ExperimentalityDiagnostic {
         override fun report(trace: BindingTrace, element: PsiElement, fqName: FqName, message: String?) {
-            trace.reportDiagnosticOnce(factory.on(element, fqName, message ?: defaultMessage(fqName)))
+            trace.reportDiagnosticOnce(factory.on(element, fqName, message?.takeIf { it.isNotBlank() } ?: defaultMessage(fqName)))
         }
     }
 
@@ -119,18 +118,18 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
         private val WARNING_LEVEL = Name.identifier("WARNING")
         private val ERROR_LEVEL = Name.identifier("ERROR")
 
-        internal fun getDefaultDiagnosticMessage(prefix: String) = fun(fqName: FqName): String {
-            return "$prefix with '@${fqName.asString()}' or '@OptIn(${fqName.asString()}::class)'"
+        internal fun getDefaultDiagnosticMessage(prefix: String): (FqName) -> String = { fqName: FqName ->
+            OptInNames.buildDefaultDiagnosticMessage(prefix, fqName.asString())
         }
 
         private val USAGE_DIAGNOSTICS = ExperimentalityDiagnostics(
             warning = ExperimentalityDiagnostic2(
                 Errors.OPT_IN_USAGE,
-                getDefaultDiagnosticMessage("This declaration is experimental and its usage should be marked")
+                getDefaultDiagnosticMessage(OptInNames.buildMessagePrefix("should"))
             ),
             error = ExperimentalityDiagnostic2(
                 Errors.OPT_IN_USAGE_ERROR,
-                getDefaultDiagnosticMessage("This declaration is experimental and its usage must be marked")
+                getDefaultDiagnosticMessage(OptInNames.buildMessagePrefix("must"))
             ),
             futureError = ExperimentalityDiagnostic2(
                 Errors.OPT_IN_USAGE_FUTURE_ERROR,
@@ -236,11 +235,6 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                 result.addAll(container.loadExperimentalities(moduleAnnotationsResolver, languageVersionSettings, visited, useFutureError))
             }
 
-            for (moduleAnnotationClassId in moduleAnnotationsResolver.getAnnotationsOnContainingModule(this)) {
-                val annotationClass = module.findClassAcrossModuleDependencies(moduleAnnotationClassId)
-                result.addIfNotNull(annotationClass?.loadExperimentalityForMarkerAnnotation())
-            }
-
             return result
         }
 
@@ -303,7 +297,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             annotationFqName.asString() in languageVersionSettings.getFlag(AnalysisFlags.optIn) ||
                     anyParentMatches { element ->
                         element.isDeclarationAnnotatedWith(annotationFqName, bindingContext) ||
-                                element.isElementAnnotatedWithUseExperimentalOf(annotationFqName, bindingContext)
+                                element.isElementAnnotatedWithOptIn(annotationFqName, bindingContext)
                     }
 
         private fun PsiElement.isDeclarationAnnotatedWith(annotationFqName: FqName, bindingContext: BindingContext): Boolean {
@@ -313,10 +307,10 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             return descriptor != null && descriptor.annotations.hasAnnotation(annotationFqName)
         }
 
-        private fun PsiElement.isElementAnnotatedWithUseExperimentalOf(annotationFqName: FqName, bindingContext: BindingContext): Boolean {
+        private fun PsiElement.isElementAnnotatedWithOptIn(annotationFqName: FqName, bindingContext: BindingContext): Boolean {
             return this is KtAnnotated && annotationEntries.any { entry ->
                 val descriptor = bindingContext.get(BindingContext.ANNOTATION, entry)
-                if (descriptor != null && descriptor.fqName in USE_EXPERIMENTAL_FQ_NAMES) {
+                if (descriptor != null && descriptor.fqName in OPT_IN_FQ_NAMES) {
                     val annotationClasses = descriptor.allValueArguments[USE_EXPERIMENTAL_ANNOTATION_CLASS]
                     annotationClasses is ArrayValue && annotationClasses.value.any { annotationClass ->
                         annotationClass is KClassValue && annotationClass.value.let { value ->
@@ -391,8 +385,8 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                 name == OLD_USE_EXPERIMENTAL_FQ_NAME.shortName() || name == OPT_IN_FQ_NAME.shortName()
             ) {
                 val fqName = targetDescriptor.fqNameSafe
-                if (fqName in EXPERIMENTAL_FQ_NAMES || fqName in USE_EXPERIMENTAL_FQ_NAMES) {
-                    checkUsageOfKotlinExperimentalOrUseExperimental(element, context)
+                if (fqName in REQUIRES_OPT_IN_FQ_NAMES || fqName in OPT_IN_FQ_NAMES) {
+                    checkUsageOfKotlinExperimentalOrOptIn(element, context)
                     return
                 }
             }
@@ -404,7 +398,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             }
             if (targetClass != null && targetClass.loadExperimentalityForMarkerAnnotation() != null) {
                 if (!element.isUsageAsAnnotationOrImport() &&
-                    !element.isUsageAsUseExperimentalArgument(context.trace.bindingContext)
+                    !element.isUsageAsOptInArgument(context.trace.bindingContext)
                 ) {
                     context.trace.report(
                         Errors.OPT_IN_MARKER_CAN_ONLY_BE_USED_AS_ANNOTATION_OR_ARGUMENT_IN_OPT_IN.on(element)
@@ -426,11 +420,11 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             }
         }
 
-        private fun checkUsageOfKotlinExperimentalOrUseExperimental(element: PsiElement, context: CheckerContext) {
-            val useExperimentalFqNames = context.languageVersionSettings.getFlag(AnalysisFlags.optIn)
+        private fun checkUsageOfKotlinExperimentalOrOptIn(element: PsiElement, context: CheckerContext) {
+            val optInFqNames = context.languageVersionSettings.getFlag(AnalysisFlags.optIn)
             if (!context.languageVersionSettings.supportsFeature(LanguageFeature.OptInRelease) &&
-                REQUIRES_OPT_IN_FQ_NAME.asString() !in useExperimentalFqNames &&
-                OLD_EXPERIMENTAL_FQ_NAME.asString() !in useExperimentalFqNames
+                REQUIRES_OPT_IN_FQ_NAME.asString() !in optInFqNames &&
+                OLD_EXPERIMENTAL_FQ_NAME.asString() !in optInFqNames
             ) {
                 context.trace.report(Errors.OPT_IN_IS_NOT_ENABLED.on(element))
             }
@@ -451,7 +445,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
             return false
         }
 
-        private fun PsiElement.isUsageAsUseExperimentalArgument(bindingContext: BindingContext): Boolean {
+        private fun PsiElement.isUsageAsOptInArgument(bindingContext: BindingContext): Boolean {
             val qualifier = (this as? KtSimpleNameExpression)?.getTopmostParentQualifiedExpressionForSelector() ?: this
             val parent = qualifier.parent
 
@@ -460,7 +454,7 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                     parent.parent.parent is KtValueArgumentList &&
                     parent.parent.parent.parent.let { entry ->
                         entry is KtAnnotationEntry && bindingContext.get(BindingContext.ANNOTATION, entry)?.let { annotation ->
-                            annotation.fqName in USE_EXPERIMENTAL_FQ_NAMES || annotation.fqName == WAS_EXPERIMENTAL_FQ_NAME
+                            annotation.fqName in OPT_IN_FQ_NAMES || annotation.fqName == WAS_EXPERIMENTAL_FQ_NAME
                         } == true
                     }
         }
@@ -486,10 +480,12 @@ class ExperimentalUsageChecker(project: Project) : CallChecker {
                         Experimentality.Severity.ERROR -> Errors.OPT_IN_OVERRIDE_ERROR to "must"
                         Experimentality.Severity.FUTURE_ERROR -> Errors.OPT_IN_OVERRIDE_ERROR to "must"
                     }
-                    val message = experimentality.message
-                        ?: "This declaration overrides experimental member of supertype " +
-                        "'${member.containingDeclaration.name.asString()}' and $defaultMessageVerb be annotated " +
-                        "with '@${experimentality.annotationFqName.asString()}'"
+                    val message = OptInNames.buildOverrideMessage(
+                        supertypeName = member.containingDeclaration.name.asString(),
+                        markerMessage = experimentality.message,
+                        verb = defaultMessageVerb,
+                        markerName = experimentality.annotationFqName.asString()
+                    )
                     context.trace.report(diagnostic.on(reportOn, experimentality.annotationFqName, message))
                 }
             }

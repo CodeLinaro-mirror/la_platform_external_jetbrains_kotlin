@@ -319,7 +319,7 @@ abstract class CompileServiceImplBase(
             CompilerMode.JPS_COMPILER -> {
                 @Suppress("UNCHECKED_CAST")
                 servicesFacade as JpsServicesFacadeT
-                withIC(enabled = servicesFacade.hasIncrementalCaches()) {
+                withIC(k2PlatformArgs, enabled = servicesFacade.hasIncrementalCaches()) {
                     doCompile(sessionId, daemonReporter, tracer = null) { eventManger, profiler ->
                         val services = createServices(servicesFacade, eventManger, profiler)
                         compiler.exec(messageCollector, services, k2PlatformArgs)
@@ -346,7 +346,7 @@ abstract class CompileServiceImplBase(
                 val gradleIncrementalServicesFacade = servicesFacade
 
                 when (targetPlatform) {
-                    CompileService.TargetPlatform.JVM -> withIC {
+                    CompileService.TargetPlatform.JVM -> withIC(k2PlatformArgs) {
                         doCompile(sessionId, daemonReporter, tracer = null) { _, _ ->
                             execIncrementalCompiler(
                                 k2PlatformArgs as K2JVMCompilerArguments,
@@ -360,7 +360,7 @@ abstract class CompileServiceImplBase(
                             )
                         }
                     }
-                    CompileService.TargetPlatform.JS -> withJsIC {
+                    CompileService.TargetPlatform.JS -> withJsIC(k2PlatformArgs) {
                         doCompile(sessionId, daemonReporter, tracer = null) { _, _ ->
                             execJsIncrementalCompiler(
                                 k2PlatformArgs as K2JSCompilerArguments,
@@ -559,7 +559,8 @@ abstract class CompileServiceImplBase(
             reporter = reporter,
             buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings.buildHistoryFile,
             scopeExpansion = if (args.isIrBackendEnabled()) CompileScopeExpansionMode.ALWAYS else CompileScopeExpansionMode.NEVER,
-            modulesApiHistory = modulesApiHistory
+            modulesApiHistory = modulesApiHistory,
+            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot
         )
         return try {
             compiler.compile(allKotlinFiles, args, compilerMessageCollector, changedFiles)
@@ -617,7 +618,8 @@ abstract class CompileServiceImplBase(
             usePreciseJavaTracking = incrementalCompilationOptions.usePreciseJavaTracking,
             modulesApiHistory = modulesApiHistory,
             kotlinSourceFilesExtensions = allKotlinExtensions,
-            classpathChanges = incrementalCompilationOptions.classpathChanges
+            classpathChanges = incrementalCompilationOptions.classpathChanges,
+            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot
         )
         return try {
             compiler.compile(allKotlinFiles, k2jvmArgs, compilerMessageCollector, changedFiles, projectRoot)
@@ -801,18 +803,21 @@ class CompileServiceImpl(
         compilationOptions: CompilationOptions,
         servicesFacade: CompilerServicesFacadeBase,
         compilationResults: CompilationResults?
-    ) = compileImpl(
-        sessionId,
-        compilerArguments,
-        compilationOptions,
-        servicesFacade,
-        compilationResults,
-        hasIncrementalCaches = JpsCompilerServicesFacade::hasIncrementalCaches,
-        createMessageCollector = ::CompileServicesFacadeMessageCollector,
-        createReporter = ::DaemonMessageReporter,
-        createServices = this::createCompileServices,
-        getICReporter = { a, b, c -> getBuildReporter(a, b!!, c)}
-    )
+    ) = ifAlive {
+        compileImpl(
+            sessionId,
+            compilerArguments,
+            compilationOptions,
+            servicesFacade,
+            compilationResults,
+            hasIncrementalCaches = JpsCompilerServicesFacade::hasIncrementalCaches,
+            createMessageCollector = ::CompileServicesFacadeMessageCollector,
+            createReporter = ::DaemonMessageReporter,
+            createServices = this::createCompileServices,
+            getICReporter = { a, b, c -> getBuildReporter(a, b!!, c)}
+        )
+    }
+
 
     @Deprecated("The usages should be replaced with other `leaseReplSession` method", ReplaceWith("leaseReplSession"))
     override fun leaseReplSession(

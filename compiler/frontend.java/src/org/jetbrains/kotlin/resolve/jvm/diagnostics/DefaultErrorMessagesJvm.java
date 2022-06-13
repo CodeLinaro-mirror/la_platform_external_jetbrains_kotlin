@@ -82,9 +82,9 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(REPEATABLE_CONTAINER_TARGET_SET_NOT_A_SUBSET, "Target set of container annotation ''{0}'' must be a subset of the target set of contained annotation ''{1}''. This code will be prohibited in Kotlin 1.6", TO_STRING, TO_STRING);
         MAP.put(REPEATABLE_ANNOTATION_HAS_NESTED_CLASS_NAMED_CONTAINER, "Repeatable annotation cannot have a nested class named 'Container'. This name is reserved for auto-generated container class");
 
-        MAP.put(JVM_PACKAGE_NAME_CANNOT_BE_EMPTY, "''@JvmPackageName'' annotation value cannot be empty");
-        MAP.put(JVM_PACKAGE_NAME_MUST_BE_VALID_NAME, "''@JvmPackageName'' annotation value must be a valid dot-qualified name of a package");
-        MAP.put(JVM_PACKAGE_NAME_NOT_SUPPORTED_IN_FILES_WITH_CLASSES, "''@JvmPackageName'' annotation is not supported for files with class declarations");
+        MAP.put(JVM_PACKAGE_NAME_CANNOT_BE_EMPTY, "'@JvmPackageName' annotation value cannot be empty");
+        MAP.put(JVM_PACKAGE_NAME_MUST_BE_VALID_NAME, "'@JvmPackageName' annotation value must be a valid dot-qualified name of a package");
+        MAP.put(JVM_PACKAGE_NAME_NOT_SUPPORTED_IN_FILES_WITH_CLASSES, "'@JvmPackageName' annotation is not supported for files with class declarations");
 
         MAP.put(STATE_IN_MULTIFILE_CLASS, "Non-const property with backing field or delegate is not allowed in a multi-file class if -Xmultifile-parts-inherit is enabled");
         MAP.put(NOT_ALL_MULTIFILE_CLASS_PARTS_ARE_JVM_SYNTHETIC, "All of multi-file class parts should be annotated with @JvmSynthetic if at least one of them is");
@@ -102,10 +102,10 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
                 "should be subtype of ''{0}'', substituted type is ''{1}''",
                 RENDER_TYPE, RENDER_TYPE, NAME);
         MAP.put(NULLABLE_TYPE_PARAMETER_AGAINST_NOT_NULL_TYPE_PARAMETER,
-                "Type mismatch: value of a nullable type {0} is used where non-nullable type is expected. " +
+                "Type parameter ''{0}'' has nullable upper bounds while non-nullable version is expected. " +
                 "This warning will become an error soon. " +
                 "See https://youtrack.jetbrains.com/issue/KT-36770 for details",
-                RENDER_TYPE
+                NAME
         );
         MAP.put(RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS,
                 "Unsafe use of a nullable receiver of type {0}", RENDER_TYPE);
@@ -113,6 +113,10 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(WRONG_NULLABILITY_FOR_JAVA_OVERRIDE,
                 "Override ''{0}'' has incorrect nullability in its signature comparing with overridden ''{1}''", COMPACT, COMPACT);
 
+        MAP.put(WRONG_TYPE_PARAMETER_NULLABILITY_FOR_JAVA_OVERRIDE,
+                "Type parameter ''{0}'' has nullable upper bound, so override has incorrect signature comparing with a base member with NotNull annotation. " +
+                "Please add a non-nullable upper bound (e.g. Any) to the type parameter. See https://kotlinlang.org/docs/generics.html#upper-bounds for more details",
+                NAME);
 
         MAP.put(ANNOTATION_TARGETS_NON_EXISTENT_ACCESSOR,
                 "An accessor will not be generated for ''{0}'', so the annotation will not be written to the class file", STRING);
@@ -224,6 +228,7 @@ public class DefaultErrorMessagesJvm implements DefaultErrorMessages.Extension {
         MAP.put(TYPEOF_NON_REIFIED_TYPE_PARAMETER_WITH_RECURSIVE_BOUND, "Non-reified type parameters with recursive bounds are not supported yet: {0}", STRING);
 
         MAP.put(JAVA_SAM_INTERFACE_CONSTRUCTOR_REFERENCE, "Java SAM interface constructor references are prohibited");
+        MAP.put(ENUM_DECLARING_CLASS_DEPRECATED, "Enum.declaringClass is deprecated, use javaDeclaringClass instead");
     }
 
     @NotNull

@@ -85,6 +85,11 @@ public class JVMConfigurationKeys {
     public static final CompilerConfigurationKey<Boolean> IR =
             CompilerConfigurationKey.create("IR");
 
+    // Temporary option to make it possible to test kapt with JVM IR. As soon as all tests start to pass, it can be removed,
+    // and the backend (old or IR) will be deduced from the compiler arguments provided by the user.
+    public static final CompilerConfigurationKey<Boolean> USE_KAPT_WITH_JVM_IR =
+            CompilerConfigurationKey.create("Enable JVM IR for kapt");
+
     public static final CompilerConfigurationKey<Boolean> USE_PSI_CLASS_FILES_READING =
             CompilerConfigurationKey.create("use a slower (PSI-based) class files reading implementation");
 
@@ -105,6 +110,9 @@ public class JVMConfigurationKeys {
 
     public static final CompilerConfigurationKey<JvmStringConcat> STRING_CONCAT =
             CompilerConfigurationKey.create("Specifies string concatenation scheme");
+
+    public static final CompilerConfigurationKey<Integer> JDK_RELEASE =
+            CompilerConfigurationKey.create("Specifies JDK API version");
 
     public static final CompilerConfigurationKey<JvmClosureGenerationScheme> SAM_CONVERSIONS =
             CompilerConfigurationKey.create("SAM conversions code generation scheme");
@@ -150,4 +158,7 @@ public class JVMConfigurationKeys {
 
     public static final CompilerConfigurationKey<Boolean> VALIDATE_BYTECODE =
             CompilerConfigurationKey.create("Validate generated JVM bytecode");
+
+    public static final CompilerConfigurationKey<Boolean> LINK_VIA_SIGNATURES =
+            CompilerConfigurationKey.create("Link JVM IR symbols via signatures, instead of by descriptors");
 }

@@ -51,10 +51,16 @@ fun extractLambdaInfoFromFunctionalType(
     // For lambdas, the existence of the receiver is always implied by the expected type, and a value parameter
     // can never fill its role.
     val receiverType = if (argument.isLambda) expectedType.receiverType(session) else argument.receiverType
+    val contextReceiversNumber =
+        if (argument.isLambda) expectedType.contextReceiversNumberForFunctionType else argument.contextReceivers.size
+
     val valueParametersTypesIncludingReceiver = expectedType.valueParameterTypesIncludingReceiver(session)
     val isExtensionFunctionType = expectedType.isExtensionFunctionType(session)
     val expectedParameters = valueParametersTypesIncludingReceiver.let {
-        if (receiverType != null && isExtensionFunctionType) it.drop(1) else it
+        val forExtension = if (receiverType != null && isExtensionFunctionType) 1 else 0
+        val toDrop = forExtension + contextReceiversNumber
+
+        if (toDrop > 0) it.drop(toDrop) else it
     }
 
     var coerceFirstParameterToExtensionReceiver = false
@@ -78,17 +84,25 @@ fun extractLambdaInfoFromFunctionalType(
         argumentValueParameters.mapIndexed { index, parameter ->
             parameter.returnTypeRef.coneTypeSafe()
                 ?: expectedParameters.getOrNull(index)
-                ?: ConeClassErrorType(
+                ?: ConeErrorType(
                     ConeSimpleDiagnostic("Cannot infer type for parameter ${parameter.name}", DiagnosticKind.CannotInferParameterType)
                 )
         }
     }
+
+    val contextReceivers =
+        when {
+            contextReceiversNumber == 0 -> emptyList()
+            argument.isLambda -> valueParametersTypesIncludingReceiver.subList(0, contextReceiversNumber)
+            else -> argument.contextReceivers.map { it.typeRef.coneType }
+        }
 
     return ResolvedLambdaAtom(
         argument,
         expectedType,
         expectedType.isSuspendFunctionType(session),
         receiverType,
+        contextReceivers,
         parameters,
         returnType,
         typeVariableForLambdaReturnType = returnTypeVariable,

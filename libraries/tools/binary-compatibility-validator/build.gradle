@@ -7,6 +7,7 @@ configurations {
 
 dependencies {
     api("org.jetbrains.kotlinx:binary-compatibility-validator:0.7.1")
+    api("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.4.1")
 
     testApi project(':kotlin-test:kotlin-test-junit')
 
@@ -14,6 +15,15 @@ dependencies {
     testArtifacts project(':kotlin-stdlib-jdk7')
     testArtifacts project(':kotlin-stdlib-jdk8')
     testArtifacts project(':kotlin-reflect')
+    testArtifacts project(':kotlin-gradle-plugin-idea')
+    testArtifacts project(':kotlin-tooling-core')
+
+    testCompileOnly("org.ow2.asm:asm-tree:9.0") {
+        because(
+                "Necessary to compile copied 'filterOutAnnotated' implementation. " +
+                        "Can be removed after https://github.com/Kotlin/binary-compatibility-validator/pull/75"
+        )
+    }
 }
 
 pill {
