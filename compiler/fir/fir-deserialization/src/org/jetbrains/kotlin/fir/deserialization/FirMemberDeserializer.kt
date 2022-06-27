@@ -19,10 +19,11 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildExpressionStub
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
-import org.jetbrains.kotlin.fir.toEffectiveVisibility
+import org.jetbrains.kotlin.fir.types.ConeLookupTagBasedType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.computeTypeAttributes
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitUnitTypeRef
@@ -420,15 +421,50 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
             this.containerSource = c.containerSource
             this.initializer = c.constDeserializer.loadConstant(proto, symbol.callableId, c.nameResolver)
             deprecation = annotations.getDeprecationInfosFromAnnotations(c.session.languageVersionSettings.apiVersion, false)
+
+            contextReceivers.addAll(
+                when {
+                    proto.contextReceiverTypeCount > 0 ->
+                        proto.contextReceiverTypeList.map(::loadContextReceiverFromType)
+                    proto.contextReceiverTypeIdCount > 0 ->
+                        proto.contextReceiverTypeIdList.map(::loadContextReceiverFromTypeId)
+                    else -> emptyList()
+                }
+            )
+
         }.apply {
             versionRequirementsTable = c.versionRequirementTable
         }
     }
 
+    fun loadContextReceiverFromType(proto: ProtoBuf.Type): FirContextReceiver =
+        loadContextReceiverFromTypeRef(proto.toTypeRef(c))
+
+    fun loadContextReceiverFromTypeId(id: Int): FirContextReceiver = loadContextReceiverFromType(c.typeTable[id])
+
+    private fun loadContextReceiverFromTypeRef(typeRef: FirTypeRef): FirContextReceiver =
+        buildContextReceiver {
+            val type = typeRef.coneType
+            this.labelNameFromTypeRef = (type as? ConeLookupTagBasedType)?.lookupTag?.name
+            this.typeRef = typeRef
+        }
+
+    fun createContextReceiversForClass(
+        classProto: ProtoBuf.Class,
+    ): List<FirContextReceiver> = when {
+        classProto.contextReceiverTypeCount > 0 ->
+            classProto.contextReceiverTypeList.map(::loadContextReceiverFromType)
+        classProto.contextReceiverTypeIdCount > 0 ->
+            classProto.contextReceiverTypeIdList.map(::loadContextReceiverFromTypeId)
+        else -> emptyList()
+    }
+
     fun loadFunction(
         proto: ProtoBuf.Function,
         classProto: ProtoBuf.Class? = null,
-        classSymbol: FirClassSymbol<*>? = null
+        classSymbol: FirClassSymbol<*>? = null,
+        // TODO: introduce the similar changes for the other deserialized entities
+        deserializationOrigin: FirDeclarationOrigin = FirDeclarationOrigin.Library
     ): FirSimpleFunction {
         val flags = if (proto.hasFlags()) proto.flags else loadOldFlags(proto.oldFlags)
 
@@ -447,7 +483,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
 
         val simpleFunction = buildSimpleFunction {
             moduleData = c.moduleData
-            origin = FirDeclarationOrigin.Library
+            origin = deserializationOrigin
             returnTypeRef = proto.returnType(local.typeTable).toTypeRef(local)
             receiverTypeRef = proto.receiverType(local.typeTable)?.toTypeRef(local).apply {
                 annotations += receiverAnnotations
@@ -483,6 +519,16 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
                 c.annotationDeserializer.loadFunctionAnnotations(c.containerSource, proto, local.nameResolver, local.typeTable)
             deprecation = annotations.getDeprecationInfosFromAnnotations(c.session.languageVersionSettings.apiVersion, false)
             this.containerSource = c.containerSource
+
+            contextReceivers.addAll(
+                when {
+                    proto.contextReceiverTypeCount > 0 ->
+                        proto.contextReceiverTypeList.map(::loadContextReceiverFromType)
+                    proto.contextReceiverTypeIdCount > 0 ->
+                        proto.contextReceiverTypeIdList.map(::loadContextReceiverFromTypeId)
+                    else -> emptyList()
+                }
+            )
         }.apply {
             versionRequirementsTable = c.versionRequirementTable
         }
@@ -559,6 +605,8 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
                 c.annotationDeserializer.loadConstructorAnnotations(c.containerSource, proto, local.nameResolver, local.typeTable)
             containerSource = c.containerSource
             deprecation = annotations.getDeprecationInfosFromAnnotations(c.session.languageVersionSettings.apiVersion, false)
+
+            contextReceivers.addAll(createContextReceiversForClass(classProto))
         }.build().apply {
             containingClassForStaticMemberAttr = c.dispatchReceiver!!.lookupTag
             versionRequirementsTable = c.versionRequirementTable

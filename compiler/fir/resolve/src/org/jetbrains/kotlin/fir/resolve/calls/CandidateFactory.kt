@@ -14,8 +14,10 @@ import org.jetbrains.kotlin.fir.declarations.builder.buildErrorProperty
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.resolve.isIntegerLiteralOrOperatorCall
 import org.jetbrains.kotlin.fir.returnExpressions
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.impl.originalForWrappedIntegerOperator
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.classId
@@ -47,19 +49,20 @@ class CandidateFactory private constructor(
         explicitReceiverKind: ExplicitReceiverKind,
         scope: FirScope?,
         dispatchReceiverValue: ReceiverValue? = null,
-        extensionReceiverValue: ReceiverValue? = null,
-        builtInExtensionFunctionReceiverValue: ReceiverValue? = null,
+        givenExtensionReceiverOptions: List<ReceiverValue> = emptyList(),
         objectsByName: Boolean = false
     ): Candidate {
+        @Suppress("NAME_SHADOWING")
+        val symbol = symbol.unwrapIntegerOperatorSymbolIfNeeded(callInfo)
+
         val result = Candidate(
-            symbol, dispatchReceiverValue, extensionReceiverValue,
+            symbol, dispatchReceiverValue, givenExtensionReceiverOptions,
             explicitReceiverKind, context.inferenceComponents.constraintSystemFactory, baseSystem,
-            builtInExtensionFunctionReceiverValue?.receiverExpression?.let {
-                callInfo.withReceiverAsArgument(it)
-            } ?: callInfo,
+            callInfo,
             scope,
             isFromCompanionObjectTypeScope = when (explicitReceiverKind) {
-                ExplicitReceiverKind.EXTENSION_RECEIVER -> extensionReceiverValue.isCandidateFromCompanionObjectTypeScope()
+                ExplicitReceiverKind.EXTENSION_RECEIVER ->
+                    givenExtensionReceiverOptions.singleOrNull().isCandidateFromCompanionObjectTypeScope()
                 ExplicitReceiverKind.DISPATCH_RECEIVER -> dispatchReceiverValue.isCandidateFromCompanionObjectTypeScope()
                 // The following cases are not applicable for companion objects.
                 ExplicitReceiverKind.NO_EXPLICIT_RECEIVER, ExplicitReceiverKind.BOTH_RECEIVERS -> false
@@ -87,6 +90,18 @@ class CandidateFactory private constructor(
         return result
     }
 
+    private fun FirBasedSymbol<*>.unwrapIntegerOperatorSymbolIfNeeded(callInfo: CallInfo): FirBasedSymbol<*> {
+        if (this !is FirNamedFunctionSymbol) return this
+        // There is no need to unwrap unary operators
+        if (fir.valueParameters.isEmpty()) return this
+        val original = fir.originalForWrappedIntegerOperator ?: return this
+        return if (callInfo.arguments.first().isIntegerLiteralOrOperatorCall()) {
+            this
+        } else {
+            original
+        }
+    }
+
     private fun ReceiverValue?.isCandidateFromCompanionObjectTypeScope(): Boolean {
         val expressionReceiverValue = this as? ExpressionReceiverValue ?: return false
         val resolvedQualifier = (expressionReceiverValue.explicitReceiver as? FirResolvedQualifier) ?: return false
@@ -107,7 +122,7 @@ class CandidateFactory private constructor(
         return Candidate(
             symbol,
             dispatchReceiverValue = null,
-            extensionReceiverValue = null,
+            givenExtensionReceiverOptions = emptyList(),
             explicitReceiverKind = ExplicitReceiverKind.NO_EXPLICIT_RECEIVER,
             context.inferenceComponents.constraintSystemFactory,
             baseSystem,
@@ -151,7 +166,7 @@ fun PostponedArgumentsAnalyzerContext.addSubsystemFromExpression(statement: FirS
         is FirElvisExpression
         -> (statement as FirResolvable).candidate()?.let { addOtherSystem(it.system.asReadOnlyStorage()) }
 
-        is FirSafeCallExpression -> addSubsystemFromExpression(statement.regularQualifiedAccess)
+        is FirSafeCallExpression -> addSubsystemFromExpression(statement.selector)
         is FirWrappedArgumentExpression -> addSubsystemFromExpression(statement.expression)
         is FirBlock -> statement.returnExpressions().forEach { addSubsystemFromExpression(it) }
     }

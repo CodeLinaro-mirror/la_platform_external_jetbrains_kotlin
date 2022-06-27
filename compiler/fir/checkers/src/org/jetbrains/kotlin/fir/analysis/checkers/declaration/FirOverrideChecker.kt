@@ -58,7 +58,7 @@ object FirOverrideChecker : FirClassChecker() {
             if (it is FirSimpleFunction || it is FirProperty) {
                 val callable = it as FirCallableDeclaration
                 withSuppressedDiagnostics(callable, context) {
-                    checkMember(callable.symbol, declaration, reporter, typeCheckerState, firTypeScope, context)
+                    checkMember(callable.symbol, declaration, reporter, typeCheckerState, firTypeScope, it)
                 }
             }
         }
@@ -214,7 +214,7 @@ object FirOverrideChecker : FirClassChecker() {
         val overridingReturnType = resolvedReturnTypeRef.coneType
 
         // Don't report *_ON_OVERRIDE diagnostics according to an error return type. That should be reported separately.
-        if (overridingReturnType is ConeKotlinErrorType) {
+        if (overridingReturnType is ConeErrorType) {
             return null
         }
 
@@ -333,34 +333,19 @@ object FirOverrideChecker : FirClassChecker() {
         with(FirOptInUsageBaseChecker) {
             val overriddenExperimentalities = mutableSetOf<Experimentality>()
             val session = context.session
-            for (overriddenMemberSymbol in overriddenMemberSymbols) {
+            val overriddenSymbolsWithUnwrappedIntersectionOverrides = overriddenMemberSymbols.flatMap {
+                when (it) {
+                    is FirIntersectionOverridePropertySymbol -> it.intersections
+                    is FirIntersectionOverrideFunctionSymbol -> it.intersections
+                    else -> listOf(it)
+                }
+            }
+            for (overriddenMemberSymbol in overriddenSymbolsWithUnwrappedIntersectionOverrides) {
                 overriddenMemberSymbol.loadExperimentalitiesFromAnnotationTo(session, overriddenExperimentalities)
             }
             reportNotAcceptedOverrideExperimentalities(
                 overriddenExperimentalities, memberSymbol, context, reporter
             )
-            for (annotation in memberSymbol.fir.annotations) {
-                val annotationType = annotation.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()
-                val lookupTag = annotationType?.lookupTag ?: continue
-                withSuppressedDiagnostics(annotation, context) {
-                    val useSiteTarget = annotation.useSiteTarget
-                    if (useSiteTarget == null || useSiteTarget == AnnotationUseSiteTarget.PROPERTY) {
-                        val experimentality = lookupTag.toFirRegularClassSymbol(session)?.loadExperimentalityForMarkerAnnotation()
-                        if (experimentality != null && experimentality !in overriddenExperimentalities && overriddenMemberSymbols.all {
-                                val ownerClassSymbol = it.dispatchReceiverClassOrNull()?.toFirRegularClassSymbol(session)
-                                ownerClassSymbol == null || !ownerClassSymbol.hasAnnotationItselfOrInParent(context, lookupTag.classId)
-                            }
-                        ) {
-                            val factory = if (session.languageVersionSettings.supportsFeature(LanguageFeature.OptInOnOverrideForbidden)) {
-                                FirErrors.OPT_IN_MARKER_ON_OVERRIDE
-                            } else {
-                                FirErrors.OPT_IN_MARKER_ON_OVERRIDE_WARNING
-                            }
-                            reporter.reportOn(annotation.source, factory, context)
-                        }
-                    }
-                }
-            }
         }
     }
 

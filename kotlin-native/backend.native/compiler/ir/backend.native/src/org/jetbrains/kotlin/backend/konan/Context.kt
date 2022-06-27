@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan
 
 import llvm.*
+import org.jetbrains.kotlin.backend.common.deepCopyWithVariables
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.ir.KonanIr
 import org.jetbrains.kotlin.library.SerializedMetadata
@@ -47,17 +48,18 @@ import org.jetbrains.kotlin.backend.konan.serialization.KonanIrLinker
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedClassFields
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedInlineFunctionReference
 import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyClass
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.konan.library.KonanLibraryLayout
 import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.util.disposeNativeMemoryAllocator
 import org.jetbrains.kotlin.library.SerializedIrModule
 import org.jetbrains.kotlin.resolve.descriptorUtil.isEffectivelyExternal
+import org.jetbrains.kotlin.konan.library.KonanLibraryLayout
+import org.jetbrains.kotlin.name.ClassId
 
-internal class InlineFunctionOriginInfo(val irFile: IrFile, val startOffset: Int, val endOffset: Int)
+internal class InlineFunctionOriginInfo(val irFunction: IrFunction, val irFile: IrFile, val startOffset: Int, val endOffset: Int)
 
 /**
  * Offset for synthetic elements created by lowerings and not attributable to other places in the source code.
@@ -73,7 +75,13 @@ internal class SpecialDeclarationsFactory(val context: Context) {
 
     private val bridges = mutableMapOf<BridgeKey, IrSimpleFunction>()
 
+    private val notLoweredInlineFunctions = mutableMapOf<IrFunctionSymbol, IrFunction>()
     val loweredInlineFunctions = mutableMapOf<IrFunction, InlineFunctionOriginInfo>()
+    fun getNonLoweredInlineFunction(function: IrFunction): IrFunction {
+        return notLoweredInlineFunctions.getOrPut(function.symbol) {
+            function.deepCopyWithVariables().also { it.patchDeclarationParents(function.parent) }
+        }
+    }
 
     object DECLARATION_ORIGIN_FIELD_FOR_OUTER_THIS :
             IrDeclarationOriginImpl("FIELD_FOR_OUTER_THIS")
@@ -283,6 +291,9 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
         getLocalClassName(source)?.let { name -> putLocalClassName(destination, name) }
     }
 
+    /* test suite class -> test function names */
+    val testCasesToDump = mutableMapOf<ClassId, MutableCollection<String>>()
+
     val reflectionTypes: KonanReflectionTypes by lazy(PUBLICATION) {
         KonanReflectionTypes(moduleDescriptor)
     }
@@ -381,14 +392,6 @@ internal class Context(config: KonanConfig) : KonanBackendContext(config) {
         }
         tryDisposeLLVMContext()
         llvmDisposed = true
-    }
-
-    private var nativeMemFreed = false
-
-    fun freeNativeMem() {
-        if (nativeMemFreed) return
-        disposeNativeMemoryAllocator()
-        nativeMemFreed = true
     }
 
     val cStubsManager = CStubsManager(config.target)

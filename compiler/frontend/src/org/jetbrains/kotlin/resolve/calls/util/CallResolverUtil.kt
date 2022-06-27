@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor
+import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.lexer.KtToken
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
@@ -42,8 +43,10 @@ import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValueWithSmartCastInfo
 import org.jetbrains.kotlin.resolve.scopes.utils.getImplicitReceiversHierarchy
 import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.error.ErrorUtils
 import org.jetbrains.kotlin.types.TypeUtils.DONT_CARE
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
+import org.jetbrains.kotlin.types.error.ErrorScopeKind
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.types.typeUtil.contains
 import org.jetbrains.kotlin.util.buildNotFixedVariablesToPossibleResultType
@@ -57,8 +60,9 @@ enum class ResolveArgumentsMode {
 
 fun hasUnknownFunctionParameter(type: KotlinType): Boolean {
     assert(ReflectionTypes.isCallableType(type) || type.isSuspendFunctionType) { "type $type is not a function or property" }
-    return getParameterArgumentsOfCallableType(type).any {
-        it.type.contains { TypeUtils.isDontCarePlaceholder(it) } || ErrorUtils.containsUninferredParameter(it.type)
+    return getParameterArgumentsOfCallableType(type).any { typeProjection ->
+        typeProjection.type.contains { TypeUtils.isDontCarePlaceholder(it) }
+                || ErrorUtils.containsUninferredTypeVariable(typeProjection.type)
     }
 }
 
@@ -78,7 +82,7 @@ fun replaceReturnTypeForCallable(type: KotlinType, given: KotlinType): KotlinTyp
 fun replaceReturnTypeByUnknown(type: KotlinType) = replaceReturnTypeForCallable(type, DONT_CARE)
 
 private fun replaceTypeArguments(type: KotlinType, newArguments: List<TypeProjection>) =
-    KotlinTypeFactory.simpleType(type.annotations, type.constructor, newArguments, type.isMarkedNullable)
+    KotlinTypeFactory.simpleType(type.attributes, type.constructor, newArguments, type.isMarkedNullable)
 
 private fun getParameterArgumentsOfCallableType(type: KotlinType) =
     type.arguments.dropLast(1)
@@ -134,8 +138,8 @@ fun getErasedReceiverType(receiverParameterDescriptor: ReceiverParameterDescript
     }
 
     return KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
-        receiverType.annotations, receiverTypeConstructor, fakeTypeArguments,
-        receiverType.isMarkedNullable, ErrorUtils.createErrorScope("Error scope for erased receiver type", /*throwExceptions=*/true)
+        receiverType.attributes, receiverTypeConstructor, fakeTypeArguments,
+        receiverType.isMarkedNullable, ErrorUtils.createErrorScope(ErrorScopeKind.ERASED_RECEIVER_TYPE_SCOPE, throwExceptions = true)
     )
 }
 
@@ -376,3 +380,16 @@ internal fun PSIKotlinCall.replaceArguments(
     callKind, psiCall, tracingStrategy, newReceiverArgument, dispatchReceiverForInvokeExtension, name, typeArguments, newArguments,
     externalArgument, startingDataFlowInfo, resultDataFlowInfo, dataFlowInfoForArguments, isForImplicitInvoke
 )
+
+fun checkForConstructorCallOnFunctionalType(
+    typeReference: KtTypeReference?,
+    context: BasicCallResolutionContext
+) {
+    if (typeReference?.typeElement is KtFunctionType) {
+        val factory = when (context.languageVersionSettings.supportsFeature(LanguageFeature.ProhibitConstructorCallOnFunctionalSupertype)) {
+            true -> Errors.NO_CONSTRUCTOR
+            false -> Errors.NO_CONSTRUCTOR_WARNING
+        }
+        context.trace.report(factory.on(context.call.getValueArgumentListOrElement()))
+    }
+}

@@ -1,7 +1,6 @@
 @file:Suppress("unused") // usages in build scripts are not tracked properly
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import com.gradle.publish.PublishTask
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.ConfigurablePublishArtifact
@@ -17,6 +16,7 @@ import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.plugins.JavaPlugin.*
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.provider.Provider
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.tasks.GenerateModuleMetadata
@@ -67,15 +67,25 @@ fun Project.noDefaultJar() {
     }
 }
 
+fun Jar.addEmbeddedRuntime() {
+    project.configurations.findByName("embedded")?.let { embedded ->
+        dependsOn(embedded)
+        from {
+            embedded.map {
+                if (it.extension.equals("jar", ignoreCase = true)) {
+                    project.zipTree(it)
+                } else {
+                    it
+                }
+            }
+        }
+    }
+}
+
 fun Project.runtimeJar(body: Jar.() -> Unit = {}): TaskProvider<out Jar> {
     val jarTask = tasks.named<Jar>("jar")
     jarTask.configure {
-        configurations.findByName("embedded")?.let { embedded ->
-            dependsOn(embedded)
-            from {
-                embedded.map(::zipTree)
-            }
-        }
+        addEmbeddedRuntime()
         setupPublicJar(project.extensions.getByType<BasePluginExtension>().archivesName.get())
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         body()
@@ -102,34 +112,22 @@ fun Project.runtimeJar(task: TaskProvider<ShadowJar>, body: ShadowJar.() -> Unit
     return task
 }
 
+private fun Project.mainJavaPluginSourceSet() = findJavaPluginExtension()?.sourceSets?.findByName("main")
+private fun Project.mainKotlinSourceSet() =
+    (extensions.findByName("kotlin") as? KotlinSourceSetContainer)?.sourceSets?.findByName("main")
+private fun Project.sources() = mainJavaPluginSourceSet()?.allSource ?: mainKotlinSourceSet()?.kotlin
+
 fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     configure<JavaPluginExtension> {
         withSourcesJar()
     }
 
     val sourcesJar = getOrCreateTask<Jar>("sourcesJar") {
-        fun Project.mainJavaPluginSourceSet() = findJavaPluginExtension()?.sourceSets?.findByName("main")
-        fun Project.mainKotlinSourceSet() =
-            (extensions.findByName("kotlin") as? KotlinSourceSetContainer)?.sourceSets?.findByName("main")
-
-        fun Project.sources() = mainJavaPluginSourceSet()?.allSource ?: mainKotlinSourceSet()?.kotlin
-
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         archiveClassifier.set("sources")
 
         from(project.sources())
-
-        project.configurations.findByName("embedded")?.let { embedded ->
-            from(provider {
-                embedded.resolvedConfiguration
-                    .resolvedArtifacts
-                    .map { it.id.componentIdentifier }
-                    .filterIsInstance<ProjectComponentIdentifier>()
-                    .mapNotNull {
-                        project(it.projectPath).sources()
-                    }
-            })
-        }
+        addEmbeddedSources()
 
         body()
     }
@@ -142,6 +140,20 @@ fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     }
 
     return sourcesJar
+}
+
+fun Jar.addEmbeddedSources() {
+    project.configurations.findByName("embedded")?.let { embedded ->
+        from(project.provider {
+            embedded.resolvedConfiguration
+                .resolvedArtifacts
+                .map { it.id.componentIdentifier }
+                .filterIsInstance<ProjectComponentIdentifier>()
+                .mapNotNull {
+                    project.project(it.projectPath).sources()
+                }
+        })
+    }
 }
 
 fun Project.javadocJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
@@ -168,33 +180,6 @@ fun Project.javadocJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     return javadocTask
 }
 
-fun Project.modularJar(body: Jar.() -> Unit): TaskProvider<Jar> {
-    val modularJar = configurations.maybeCreate("modularJar").apply {
-        isCanBeConsumed = true
-        isCanBeResolved = false
-        attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("modular-jar"))
-        }
-    }
-
-    val modularJarTask = getOrCreateTask<Jar>("modularJar") {
-        archiveClassifier.set("modular")
-
-        body()
-    }
-
-    addArtifact("modularJar", modularJarTask)
-    addArtifact("archives", modularJarTask)
-
-    configurePublishedComponent {
-        addVariantsFromConfiguration(modularJar) { mapToMavenScope("runtime") }
-    }
-
-    return modularJarTask
-}
-
-
 fun Project.standardPublicJars() {
     runtimeJar()
     sourcesJar()
@@ -214,19 +199,6 @@ fun Project.publish(moduleMetadata: Boolean = false, configure: MavenPublication
         ?.publications
         ?.findByName(mainPublicationName) as MavenPublication
     publication.configure()
-}
-
-fun Project.publishGradlePlugin() {
-    mainPublicationName = "pluginMaven"
-    publish()
-
-    afterEvaluate {
-        tasks.withType<PublishTask> {
-            // Makes plugin publication task reuse poms and metadata from publication named "pluginMaven"
-            useAutomatedPublishing()
-            useGradleModuleMetadataIfAvailable()
-        }
-    }
 }
 
 fun Project.idePluginDependency(block: () -> Unit) {
@@ -257,7 +229,10 @@ fun Project.publishJarsForIde(projects: List<String>, libraryDependencies: List<
 
 fun Project.publishTestJarsForIde(projectNames: List<String>) {
     idePluginDependency {
-        publishTestJar(projectNames)
+        // Compiler test infrastructure should not affect test running in IDE.
+        // If required, the components should be registered on the IDE plugin side.
+        val excludedPaths = listOf("junit-platform.properties", "META-INF/services/**/*")
+        publishTestJar(projectNames, excludedPaths)
     }
     configurations.all {
         // Don't allow `ideaIC` from compiler to leak into Kotlin plugin modules. Compiler and
@@ -309,7 +284,7 @@ fun Project.publishProjectJars(projects: List<String>, libraryDependencies: List
     javadocJar()
 }
 
-fun Project.publishTestJar(projects: List<String>) {
+fun Project.publishTestJar(projects: List<String>, excludedPaths: List<String>) {
     apply<JavaPlugin>()
 
     val fatJarContents by configurations.creating
@@ -330,6 +305,8 @@ fun Project.publishTestJar(projects: List<String>) {
         from {
             fatJarContents.map(::zipTree)
         }
+
+        exclude(excludedPaths)
     }
 
     sourcesJar {
@@ -343,17 +320,27 @@ fun Project.publishTestJar(projects: List<String>) {
 
 fun ConfigurationContainer.getOrCreate(name: String): Configuration = findByName(name) ?: create(name)
 
-fun Jar.setupPublicJar(baseName: String, classifier: String = "") {
+fun Jar.setupPublicJar(
+    baseName: String,
+    classifier: String = ""
+) = setupPublicJar(
+    project.provider { baseName },
+    project.provider { classifier }
+)
+
+fun Jar.setupPublicJar(
+    baseName: Provider<String>,
+    classifier: Provider<String> = project.provider { "" }
+) {
     val buildNumber = project.rootProject.extra["buildNumber"] as String
     this.archiveBaseName.set(baseName)
     this.archiveClassifier.set(classifier)
     manifest.attributes.apply {
         put("Implementation-Vendor", "JetBrains")
-        put("Implementation-Title", baseName)
+        put("Implementation-Title", baseName.get())
         put("Implementation-Version", buildNumber)
     }
 }
-
 
 fun Project.addArtifact(configuration: Configuration, task: Task, artifactRef: Any, body: ConfigurablePublishArtifact.() -> Unit = {}) {
     artifacts.add(configuration.name, artifactRef) {

@@ -7,6 +7,9 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.compiler.based
 
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.analysis.api.impl.barebone.test.KotlinProjectStructureProviderTestImpl
+import org.jetbrains.kotlin.analysis.api.impl.barebone.test.TestKtSourceModule
+import org.jetbrains.kotlin.analysis.api.impl.barebone.test.getKtFilesFromModule
 import org.jetbrains.kotlin.analysis.api.impl.barebone.test.projectModuleProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getResolveState
@@ -20,7 +23,8 @@ import org.jetbrains.kotlin.test.services.*
 
 class ModuleRegistrarPreAnalysisHandler(
     testServices: TestServices,
-    private val parentDisposable: Disposable
+    private val parentDisposable: Disposable,
+    private val shouldRegisterProjectServices: Boolean,
 ) : PreAnalysisHandler(testServices) {
     private val moduleInfoProvider = testServices.projectModuleProvider
 
@@ -35,15 +39,33 @@ class ModuleRegistrarPreAnalysisHandler(
 
         ktFilesByModule.forEach { (testModule, ktFiles) ->
             val project = testServices.compilerConfigurationProvider.getProject(testModule)
-            moduleInfoProvider.registerModuleInfo(project, testModule, ktFiles)
-            (project as MockProject).registerTestServices(testModule, allKtFiles, testServices)
+            moduleInfoProvider.registerModuleInfo(testModule, TestKtSourceModule(project, testModule, ktFiles, testServices))
 
+            // Register services for compiler-based tests
+            // On the other hand, frontend API tests will register services via test configurators.
+            if (shouldRegisterProjectServices) {
+                (project as MockProject).registerTestServices(
+                    allKtFiles,
+                    testServices.compilerConfigurationProvider.getPackagePartProviderFactory(testModule),
+                    KotlinProjectStructureProviderTestImpl(testServices)
+                )
+            }
+        }
+    }
+
+    override fun prepareSealedClassInheritors(moduleStructure: TestModuleStructure) {
+        val ktFilesByModule = moduleStructure.modules.associateWith { testModule ->
+            getKtFilesFromModule(testServices, testModule)
+        }
+
+        ktFilesByModule.forEach { (testModule, ktFiles) ->
+            val project = testServices.compilerConfigurationProvider.getProject(testModule)
             // Manually process all inheritors of sealed classes so that SealedClassInheritorsProviderTestImpl can work correctly for tests.
             // In the actual IDE, SealedClassInheritorsProviderIdeImpl works by finding inheritors from the index instead of do a
             // preprocessing of all files. Therefore, the IDE does not rely on such a pre-analysis pass of all files in the module.
             val projectStructureProvider = project.getService(ProjectStructureProvider::class.java)
             val allFirFiles = mutableListOf<FirFile>()
-            ktFiles.forEach { (_, ktFile) ->
+            ktFiles.forEach { ktFile ->
                 val ktModule = projectStructureProvider.getKtModuleForKtElement(ktFile)
                 val resolveState = ktModule.getResolveState(project)
                 allFirFiles.add(ktFile.getOrBuildFirFile(resolveState))

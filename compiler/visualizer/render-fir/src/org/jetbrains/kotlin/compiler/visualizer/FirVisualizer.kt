@@ -163,7 +163,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
             stack.push((function.name ?: ANONYMOUS_NAME))
             if (function.equalsToken != null) {
                 function.bodyExpression!!.firstOfTypeWithRender<FirReturnExpression>(function.equalsToken) { this.result.typeRef }
-                    ?: function.firstOfTypeWithRender<FirTypedDeclaration>(function.equalsToken) { this.returnTypeRef }
+                    ?: function.firstOfTypeWithRender<FirCallableDeclaration>(function.equalsToken) { this.returnTypeRef }
             }
             super.visitNamedFunction(function)
             stack.pop()
@@ -324,7 +324,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
 
         private fun ConeTypeProjection.tryToRenderConeAsFunctionType(): String {
             if (this !is ConeKotlinType) return localTypeRenderer()
-            val functionType = renderFunctionType(functionTypeKind, isExtensionFunctionType) { localTypeRenderer() }
+            val functionType = renderFunctionType(functionTypeKind) { localTypeRenderer() }
             return functionType.removeCurrentFilePackage()
         }
 
@@ -386,7 +386,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
 
         private fun ConeTypeProjection.localTypeRenderer(): String {
             val nullabilitySuffix = when {
-                this is ConeKotlinType && this !is ConeKotlinErrorType && this !is ConeClassErrorType -> nullability.suffix
+                this is ConeKotlinType && this !is ConeErrorType && this !is ConeErrorType -> nullability.suffix
                 else -> ""
             }
 
@@ -742,7 +742,7 @@ class FirVisualizer(private val firFile: FirFile) : BaseRenderer() {
         override fun visitSafeCallExpression(safeCallExpression: FirSafeCallExpression, data: StringBuilder) {
             safeCallExpression.receiver.accept(this, data)
             data.append("?.{ ")
-            safeCallExpression.regularQualifiedAccess.accept(this, data)
+            safeCallExpression.selector.accept(this, data)
             data.append(" }")
         }
 

@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
-import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.resolve.*
@@ -23,6 +22,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.InaccessibleImplicitReceiverValue
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
 import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowAnalyzerContext
 import org.jetbrains.kotlin.fir.resolve.dfa.PersistentFlow
+import org.jetbrains.kotlin.fir.resolve.inference.FirBuilderInferenceSession
 import org.jetbrains.kotlin.fir.resolve.inference.FirCallCompleter
 import org.jetbrains.kotlin.fir.resolve.inference.FirDelegatedPropertyInferenceSession
 import org.jetbrains.kotlin.fir.resolve.inference.FirInferenceSession
@@ -32,12 +32,11 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.createImportingScopes
 import org.jetbrains.kotlin.fir.scopes.impl.FirLocalScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirMemberTypeParameterScope
+import org.jetbrains.kotlin.fir.scopes.impl.FirWhenSubjectImportingScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
-import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames.UNDERSCORE_FOR_UNUSED_VAR
 
@@ -76,6 +75,9 @@ class BodyResolveContext(
     @set:PrivateForInline
     var containers: ArrayDeque<FirDeclaration> = ArrayDeque()
 
+    @PrivateForInline
+    val whenSubjectImportingScopes: ArrayDeque<FirWhenSubjectImportingScope?> = ArrayDeque()
+
     @set:PrivateForInline
     var containingClass: FirRegularClass? = null
 
@@ -93,7 +95,7 @@ class BodyResolveContext(
         get() = containingClassDeclarations.lastOrNull()
 
     @OptIn(PrivateForInline::class)
-    private inline fun <T> withNewTowerDataForClass(newContexts: FirRegularTowerDataContexts, f: () -> T): T {
+    inline fun <T> withNewTowerDataForClass(newContexts: FirRegularTowerDataContexts, f: () -> T): T {
         val old = regularTowerDataContexts
         regularTowerDataContexts = newContexts
         return try {
@@ -199,8 +201,8 @@ class BodyResolveContext(
     }
 
     @PrivateForInline
-    fun addReceiver(name: Name?, implicitReceiverValue: ImplicitReceiverValue<*>) {
-        replaceTowerDataContext(towerDataContext.addReceiver(name, implicitReceiverValue))
+    fun addReceiver(name: Name?, implicitReceiverValue: ImplicitReceiverValue<*>, additionalLabelName: Name? = null) {
+        replaceTowerDataContext(towerDataContext.addReceiver(name, implicitReceiverValue, additionalLabelName))
     }
 
     @PrivateForInline
@@ -220,8 +222,11 @@ class BodyResolveContext(
         owner: FirCallableDeclaration,
         type: ConeKotlinType?,
         holder: SessionHolder,
+        additionalLabelName: Name? = null,
         f: () -> T
     ): T = withTowerDataCleanup {
+        replaceTowerDataContext(towerDataContext.addContextReceiverGroup(owner.createContextReceiverValues(holder)))
+
         if (type != null) {
             val receiver = ImplicitExtensionReceiverValue(
                 owner.symbol,
@@ -229,7 +234,8 @@ class BodyResolveContext(
                 holder.session,
                 holder.scopeSession
             )
-            addReceiver(labelName, receiver)
+            addReceiver(labelName, receiver, additionalLabelName)
+            (inferenceSession as? FirBuilderInferenceSession)?.addLambdaImplicitReceiver(receiver)
         }
 
         f()
@@ -348,6 +354,13 @@ class BodyResolveContext(
             containingClass = this@BodyResolveContext.containingClass
             replaceTowerDataContext(this@BodyResolveContext.towerDataContext)
             anonymousFunctionsAnalyzedInDependentContext.addAll(this@BodyResolveContext.anonymousFunctionsAnalyzedInDependentContext)
+            // Looks like we should copy this session only for builder inference to be able
+            // to use information from local class inside it.
+            // However, we should not copy other kinds of inference sessions,
+            // otherwise we can "inherit" type variables from there provoking inference problems
+            if (this@BodyResolveContext.inferenceSession is FirBuilderInferenceSession) {
+                inferenceSession = this@BodyResolveContext.inferenceSession
+            }
         }
 
     // withElement PUBLIC API
@@ -437,6 +450,7 @@ class BodyResolveContext(
         val forMembersResolution =
             staticsAndCompanion
                 .addReceiver(labelName, towerElementsForClass.thisReceiver)
+                .addContextReceiverGroup(towerElementsForClass.contextReceivers)
                 .addNonLocalScopeIfNotNull(typeParameterScope)
 
         val scopeForConstructorHeader =
@@ -477,6 +491,36 @@ class BodyResolveContext(
             primaryConstructorAllParametersScope
         )
 
+        return withNewTowerDataForClass(newContexts) {
+            f()
+        }
+    }
+
+    @OptIn(PrivateForInline::class)
+    inline fun <T> withWhenSubjectType(
+        subjectType: ConeKotlinType?,
+        sessionHolder: SessionHolder,
+        f: () -> T
+    ): T {
+        val session = sessionHolder.session
+        val subjectClassSymbol = (subjectType as? ConeClassLikeType)
+            ?.lookupTag?.toFirRegularClassSymbol(session)?.takeIf { it.fir.classKind == ClassKind.ENUM_CLASS }
+        val whenSubjectImportingScope = subjectClassSymbol?.let {
+            FirWhenSubjectImportingScope(it.classId, session, sessionHolder.scopeSession)
+        }
+        whenSubjectImportingScopes.add(whenSubjectImportingScope)
+        return try {
+            f()
+        } finally {
+            whenSubjectImportingScopes.removeLast()
+        }
+    }
+
+    @OptIn(PrivateForInline::class)
+    inline fun <T> withWhenSubjectImportingScope(f: () -> T): T {
+        val whenSubjectImportingScope = whenSubjectImportingScopes.lastOrNull() ?: return f()
+        val newTowerDataContext = towerDataContext.addNonLocalScope(whenSubjectImportingScope)
+        val newContexts = FirRegularTowerDataContexts(newTowerDataContext)
         return withNewTowerDataForClass(newContexts) {
             f()
         }
@@ -530,11 +574,17 @@ class BodyResolveContext(
                     storeVariable(parameter, holder.session)
                 }
                 val receiverTypeRef = function.receiverTypeRef
-                withLabelAndReceiverType(function.name, function, receiverTypeRef?.coneType, holder, f)
+                val type = receiverTypeRef?.coneType
+                val additionalLabelName = type?.labelName()
+                withLabelAndReceiverType(function.name, function, type, holder, additionalLabelName, f)
             } else {
                 f()
             }
         }
+    }
+
+    private fun ConeKotlinType.labelName(): Name? {
+        return (this as? ConeLookupTagBasedType)?.lookupTag?.name
     }
 
     @OptIn(PrivateForInline::class)
@@ -669,7 +719,9 @@ class BodyResolveContext(
                 storeBackingField(property, holder.session)
             }
             withContainer(accessor) {
-                withLabelAndReceiverType(property.name, property, receiverTypeRef?.coneType, holder, f)
+                val type = receiverTypeRef?.coneType
+                val additionalLabelName = type?.labelName()
+                withLabelAndReceiverType(property.name, property, type, holder, additionalLabelName, f)
             }
         }
     }

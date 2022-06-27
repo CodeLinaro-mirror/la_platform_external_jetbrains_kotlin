@@ -7,22 +7,13 @@
 // usages in build scripts are not tracked properly
 @file:Suppress("unused")
 
-import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
-import org.gradle.api.publish.internal.PublishOperation
-import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal
-import org.gradle.api.publish.maven.internal.publisher.MavenNormalizedPublication
-import org.gradle.api.publish.maven.internal.publisher.MavenPublisher
-import org.gradle.api.publish.maven.internal.publisher.ValidatingMavenPublisher
-import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
-import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
-import org.gradle.internal.serialization.Cached
 import org.gradle.kotlin.dsl.extra
 import org.gradle.kotlin.dsl.project
 import org.gradle.kotlin.dsl.support.serviceOf
@@ -36,6 +27,7 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-allopen",
     ":kotlin-noarg",
     ":kotlin-sam-with-receiver",
+    ":kotlin-lombok",
     ":kotlin-android-extensions",
     ":kotlin-android-extensions-runtime",
     ":kotlin-parcelize-compiler",
@@ -49,9 +41,11 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-daemon-client",
     ":kotlin-project-model",
     ":kotlin-gradle-plugin-api",
+    ":kotlin-gradle-plugin-idea",
     ":kotlin-gradle-plugin",
     ":kotlin-gradle-plugin-model",
     ":kotlin-tooling-metadata",
+    ":kotlin-tooling-core",
     ":kotlin-reflect",
     ":kotlin-annotation-processing-gradle",
     ":kotlin-test",
@@ -61,7 +55,9 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-stdlib-jdk7",
     ":kotlin-stdlib-jdk8",
     ":kotlin-stdlib-js",
+    ":kotlin-stdlib-wasm",
     ":examples:annotation-processor-example",
+    ":kotlin-sam-with-receiver",
     ":kotlin-script-runtime",
     ":kotlin-scripting-common",
     ":kotlin-scripting-jvm",
@@ -71,7 +67,8 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-test-js-runner",
     ":native:kotlin-klib-commonizer-embeddable",
     ":native:kotlin-klib-commonizer-api",
-    ":native:kotlin-native-utils"
+    ":native:kotlin-native-utils",
+    ":kotlin-lombok"
 )
 
 fun Task.dependsOnKotlinGradlePluginInstall() {
@@ -288,31 +285,4 @@ fun Task.useAndroidSdk() {
 
 fun Task.useAndroidJar() {
     TaskUtils.useAndroidJar(this)
-}
-
-// Workaround to make PublishToMavenLocal compatible with Gradle configuration cache
-// TODO: remove it when https://github.com/gradle/gradle/pull/16945 merged into used in build Gradle version
-abstract class PublishToMavenLocalSerializable : AbstractPublishToMaven() {
-    private val normalizedPublication = Cached.of { this.computeNormalizedPublication() }
-
-    private fun computeNormalizedPublication(): MavenNormalizedPublication {
-        val publicationInternal: MavenPublicationInternal = publicationInternal
-            ?: throw InvalidUserDataException("The 'publication' property is required")
-        duplicatePublicationTracker.checkCanPublishToMavenLocal(publicationInternal)
-        return publicationInternal.asNormalisedPublication()
-    }
-
-    @TaskAction
-    open fun publish() {
-        val normalizedPublication = normalizedPublication.get()
-        object : PublishOperation(normalizedPublication.name, "mavenLocal") {
-            override fun publish() {
-                val localPublisher = mavenPublishers.getLocalPublisher(
-                    temporaryDirFactory
-                )
-                val validatingPublisher: MavenPublisher = ValidatingMavenPublisher(localPublisher)
-                validatingPublisher.publish(normalizedPublication, null)
-            }
-        }.run()
-    }
 }

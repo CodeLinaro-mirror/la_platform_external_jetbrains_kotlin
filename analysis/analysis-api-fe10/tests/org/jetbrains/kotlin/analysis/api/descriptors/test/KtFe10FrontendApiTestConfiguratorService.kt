@@ -8,6 +8,8 @@ package org.jetbrains.kotlin.analysis.api.descriptors.test
 import com.intellij.mock.MockApplication
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
+import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.InvalidWayOfUsingAnalysisSession
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSessionProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.CliFe10AnalysisFacade
@@ -17,7 +19,10 @@ import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSessionProvid
 import org.jetbrains.kotlin.analysis.api.descriptors.references.base.KtFe10KotlinReferenceProviderContributor
 import org.jetbrains.kotlin.analysis.api.impl.barebone.test.FrontendApiTestConfiguratorService
 import org.jetbrains.kotlin.analysis.api.impl.base.references.HLApiReferenceProviderService
+import org.jetbrains.kotlin.analysis.project.structure.ProjectStructureProvider
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.idea.references.KotlinReferenceProviderContributor
+import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.psi.KotlinReferenceProvidersService
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.extensions.AnalysisHandlerExtension
@@ -43,7 +48,14 @@ object KtFe10FrontendApiTestConfiguratorService : FrontendApiTestConfiguratorSer
     }
 
     @OptIn(InvalidWayOfUsingAnalysisSession::class)
-    override fun registerProjectServices(project: MockProject) {
+    override fun registerProjectServices(
+        project: MockProject,
+        compilerConfig: CompilerConfiguration,
+        files: List<KtFile>,
+        packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
+        projectStructureProvider: ProjectStructureProvider,
+        jarFileSystem: CoreJarFileSystem,
+    ) {
         project.registerService(KtAnalysisSessionProvider::class.java, KtFe10AnalysisSessionProvider())
         project.registerService(Fe10AnalysisFacade::class.java, CliFe10AnalysisFacade(project))
         AnalysisHandlerExtension.registerExtension(project, KtFe10AnalysisHandlerExtension())

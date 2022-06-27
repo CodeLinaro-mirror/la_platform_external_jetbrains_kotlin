@@ -1893,6 +1893,12 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
         }
 
         @Test
+        @TestMetadata("suspendConversionForExtensionFunction.kt")
+        public void testSuspendConversionForExtensionFunction() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/suspendConversionForExtensionFunction.kt");
+        }
+
+        @Test
         @TestMetadata("suspendConversionInVararg.kt")
         public void testSuspendConversionInVararg() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/suspendConversionInVararg.kt");
@@ -2453,6 +2459,12 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
         }
 
         @Test
+        @TestMetadata("ArrayListOverrides.kt")
+        public void testArrayListOverrides() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/ArrayListOverrides.kt");
+        }
+
+        @Test
         @TestMetadata("ArrayMap.kt")
         public void testArrayMap() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/ArrayMap.kt");
@@ -2552,6 +2564,12 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
         @TestMetadata("kt43342.kt")
         public void testKt43342() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/kt43342.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaInEnumEntryConstructorCall.kt")
+        public void testLambdaInEnumEntryConstructorCall() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/lambdaInEnumEntryConstructorCall.kt");
         }
 
         @Test

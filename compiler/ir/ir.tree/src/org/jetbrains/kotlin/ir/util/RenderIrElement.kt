@@ -12,10 +12,7 @@ import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.ir.symbols.IrTypeAliasSymbol
-import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.ReturnTypeIsNotInitializedException
 import org.jetbrains.kotlin.ir.types.impl.originalKotlinType
@@ -113,9 +110,9 @@ class RenderIrElementVisitor(private val normalizeNames: Boolean = false, privat
 
             is IrErrorType -> "IrErrorType(${if (verboseErrorTypes) originalKotlinType else null})"
 
-            is IrDefinitelyNotNullType -> "{${original.render()} & Any}"
-
             is IrSimpleType -> buildTrimEnd {
+                val isDefinitelyNotNullType = classifier is IrTypeParameterSymbol && nullability == SimpleTypeNullability.DEFINITELY_NOT_NULL
+                if (isDefinitelyNotNullType) append("{")
                 append(classifier.renderClassifierFqn())
                 if (arguments.isNotEmpty()) {
                     append(
@@ -124,7 +121,9 @@ class RenderIrElementVisitor(private val normalizeNames: Boolean = false, privat
                         }
                     )
                 }
-                if (hasQuestionMark) {
+                if (isDefinitelyNotNullType) {
+                    append(" & Any}")
+                } else if (isMarkedNullable()) {
                     append('?')
                 }
                 abbreviation?.let {
@@ -475,7 +474,7 @@ class RenderIrElementVisitor(private val normalizeNames: Boolean = false, privat
             "inner".takeIf { isInner },
             "data".takeIf { isData },
             "external".takeIf { isExternal },
-            "inline".takeIf { isInline },
+            "value".takeIf { isValue },
             "expect".takeIf { isExpect },
             "fun".takeIf { isFun }
         )
@@ -506,7 +505,8 @@ class RenderIrElementVisitor(private val normalizeNames: Boolean = false, privat
         declaration.runTrimEnd {
             "TYPE_PARAMETER ${renderOriginIfNonTrivial()}" +
                     "name:$name index:$index variance:$variance " +
-                    "superTypes:[${superTypes.joinToString(separator = "; ") { it.render() }}]"
+                    "superTypes:[${superTypes.joinToString(separator = "; ") { it.render() }}] " +
+                    "reified:$isReified"
         }
 
     override fun visitValueParameter(declaration: IrValueParameter, data: Nothing?): String =
@@ -560,7 +560,7 @@ class RenderIrElementVisitor(private val normalizeNames: Boolean = false, privat
     override fun visitExpression(expression: IrExpression, data: Nothing?): String =
         "? ${expression::class.java.simpleName} type=${expression.type.render()}"
 
-    override fun <T> visitConst(expression: IrConst<T>, data: Nothing?): String =
+    override fun visitConst(expression: IrConst<*>, data: Nothing?): String =
         "CONST ${expression.kind} type=${expression.type.render()} value=${expression.value?.escapeIfRequired()}"
 
     private fun Any.escapeIfRequired() =
@@ -805,6 +805,8 @@ private fun IrDeclaration.renderDeclarationParentFqn(sb: StringBuilder) {
 }
 
 fun IrType.render() = RenderIrElementVisitor().renderType(this)
+
+fun IrSimpleType.render() = (this as IrType).render()
 
 fun IrTypeArgument.render() =
     when (this) {

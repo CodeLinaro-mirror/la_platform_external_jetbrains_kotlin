@@ -1,6 +1,6 @@
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.CheckDeclarationParentsVisitor
+import org.jetbrains.kotlin.backend.common.checkDeclarationParents
 import org.jetbrains.kotlin.backend.common.IrValidator
 import org.jetbrains.kotlin.backend.common.IrValidatorConfig
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
@@ -46,7 +46,7 @@ internal fun moduleValidationCallback(state: ActionState, module: IrModuleFragme
     )
     try {
         module.accept(IrValidator(context, validatorConfig), null)
-        module.accept(CheckDeclarationParentsVisitor, null)
+        module.checkDeclarationParents()
     } catch (t: Throwable) {
         // TODO: Add reference to source.
         if (validatorConfig.abortOnError)
@@ -64,7 +64,7 @@ internal fun fileValidationCallback(state: ActionState, irFile: IrFile, context:
     )
     try {
         irFile.accept(IrValidator(context, validatorConfig), null)
-        irFile.accept(CheckDeclarationParentsVisitor, null)
+        irFile.checkDeclarationParents()
     } catch (t: Throwable) {
         // TODO: Add reference to source.
         if (validatorConfig.abortOnError)
@@ -256,56 +256,57 @@ internal val allLoweringsPhase = NamedCompilerPhase(
         name = "IrLowering",
         description = "IR Lowering",
         // TODO: The lowerings before inlinePhase should be aligned with [NativeInlineFunctionResolver.kt]
-        lower = removeExpectDeclarationsPhase then
-                stripTypeAliasDeclarationsPhase then
-                lowerBeforeInlinePhase then
-                arrayConstructorPhase then
-                lateinitPhase then
-                sharedVariablesPhase then
-                inventNamesForLocalClasses then
-                extractLocalClassesFromInlineBodies then
-                inlinePhase then
-                provisionalFunctionExpressionPhase then
-                lowerAfterInlinePhase then
-                performByIrFile(
-                        name = "IrLowerByFile",
-                        description = "IR Lowering by file",
-                        lower = listOf(
-                            annotationImplementationPhase,
-                            rangeContainsLoweringPhase,
-                            forLoopsPhase,
-                            flattenStringConcatenationPhase,
-                            foldConstantLoweringPhase,
-                            computeStringTrimPhase,
-                            stringConcatenationPhase,
-                            enumConstructorsPhase,
-                            initializersPhase,
-                            localFunctionsPhase,
-                            tailrecPhase,
-                            defaultParameterExtentPhase,
-                            innerClassPhase,
-                            dataClassesPhase,
-                            ifNullExpressionsFusionPhase,
-                            testProcessorPhase,
-                            delegationPhase,
-                            functionReferencePhase,
-                            singleAbstractMethodPhase,
-                            enumWhenPhase,
-                            builtinOperatorPhase,
-                            finallyBlocksPhase,
-                            enumClassPhase,
-                            enumUsagePhase,
-                            interopPhase,
-                            varargPhase,
-                            kotlinNothingValueExceptionPhase,
-                            coroutinesPhase,
-                            typeOperatorPhase,
-                            expressionBodyTransformPhase,
-                            fileInitializersPhase,
-                            bridgesPhase,
-                            autoboxPhase,
-                        )
-                ),
+        lower = performByIrFile(
+                name = "IrLowerByFile",
+                description = "IR Lowering by file",
+                lower = listOf(
+                        removeExpectDeclarationsPhase,
+                        stripTypeAliasDeclarationsPhase,
+                        lowerBeforeInlinePhase,
+                        arrayConstructorPhase,
+                        lateinitPhase,
+                        sharedVariablesPhase,
+                        inventNamesForLocalClasses,
+                        extractLocalClassesFromInlineBodies,
+                        inlinePhase,
+                        provisionalFunctionExpressionPhase,
+                        postInlinePhase,
+                        contractsDslRemovePhase,
+                        annotationImplementationPhase,
+                        rangeContainsLoweringPhase,
+                        forLoopsPhase,
+                        flattenStringConcatenationPhase,
+                        foldConstantLoweringPhase,
+                        computeStringTrimPhase,
+                        stringConcatenationPhase,
+                        enumConstructorsPhase,
+                        initializersPhase,
+                        localFunctionsPhase,
+                        tailrecPhase,
+                        defaultParameterExtentPhase,
+                        innerClassPhase,
+                        dataClassesPhase,
+                        ifNullExpressionsFusionPhase,
+                        testProcessorPhase,
+                        delegationPhase,
+                        functionReferencePhase,
+                        singleAbstractMethodPhase,
+                        enumWhenPhase,
+                        builtinOperatorPhase,
+                        finallyBlocksPhase,
+                        enumClassPhase,
+                        enumUsagePhase,
+                        interopPhase,
+                        varargPhase,
+                        kotlinNothingValueExceptionPhase,
+                        coroutinesPhase,
+                        typeOperatorPhase,
+                        expressionBodyTransformPhase,
+                        fileInitializersPhase,
+                        bridgesPhase,
+                        autoboxPhase,
+                )
+        ),
         actions = setOf(defaultDumper, ::moduleValidationCallback)
 )
 
@@ -346,6 +347,30 @@ internal val dependenciesLowerPhase = NamedCompilerPhase(
                 return input
             }
         })
+
+internal val dumpTestsPhase = makeCustomPhase<Context, IrModuleFragment>(
+        name = "dumpTestsPhase",
+        description = "Dump the list of all available tests",
+        op = { context, _ ->
+            val testDumpFile = context.config.testDumpFile
+            requireNotNull(testDumpFile)
+
+            if (context.testCasesToDump.isEmpty()) {
+                testDumpFile.writeText("")
+                return@makeCustomPhase
+            }
+
+            testDumpFile.writeText(
+                    context.testCasesToDump.asSequence()
+                            .flatMap { (suiteClassId, functionNames) ->
+                                val suiteName = suiteClassId.asString()
+                                functionNames.asSequence().map { "$suiteName:$it" }
+                            }
+                            .sorted()
+                            .joinToString(separator = "\n")
+            )
+        }
+)
 
 internal val entryPointPhase = makeCustomPhase<Context, IrModuleFragment>(
         name = "addEntryPoint",
@@ -520,6 +545,7 @@ private val bitcodePostprocessingPhase = NamedCompilerPhase(
         lower = checkExternalCallsPhase then
                 bitcodeOptimizationPhase then
                 coveragePhase then
+                removeRedundantSafepointsPhase then
                 optimizeTLSDataLoadsPhase then
                 rewriteExternalCallsCheckerGlobals
 )
@@ -532,6 +558,7 @@ private val backendCodegen = namedUnitPhase(
                 allLoweringsPhase then // Lower current module first.
                 dependenciesLowerPhase then // Then lower all libraries in topological order.
                                             // With that we guarantee that inline functions are unlowered while being inlined.
+                dumpTestsPhase then
                 entryPointPhase then
                 exportInternalAbiPhase then
                 useInternalAbiPhase then
@@ -566,8 +593,7 @@ val toplevelPhase: CompilerPhase<*, Unit, Unit> = namedUnitPhase(
                                 unitSink()
                 ) then
                 objectFilesPhase then
-                linkerPhase then
-                freeNativeMemPhase
+                linkerPhase
 )
 
 internal fun PhaseConfig.disableIf(phase: AnyNamedPhase, condition: Boolean) {
@@ -591,7 +617,7 @@ internal fun PhaseConfig.konanPhasesConfig(config: KonanConfig) {
         // Don't serialize anything to a final executable.
         disableUnless(serializerPhase, config.produce == CompilerOutputKind.LIBRARY)
         disableUnless(entryPointPhase, config.produce == CompilerOutputKind.PROGRAM)
-        disableUnless(buildAdditionalCacheInfoPhase, config.produce.isCache)
+        disableUnless(buildAdditionalCacheInfoPhase, config.produce.isCache && config.lazyIrForCaches)
         disableUnless(exportInternalAbiPhase, config.produce.isCache)
         disableIf(backendCodegen, config.produce == CompilerOutputKind.LIBRARY)
         disableUnless(bitcodePostprocessingPhase, config.produce.involvesLinkStage)
@@ -602,6 +628,7 @@ internal fun PhaseConfig.konanPhasesConfig(config: KonanConfig) {
         disableUnless(objectFilesPhase, config.produce.involvesLinkStage)
         disableUnless(linkerPhase, config.produce.involvesLinkStage)
         disableIf(testProcessorPhase, getNotNull(KonanConfigKeys.GENERATE_TEST_RUNNER) == TestRunnerKind.NONE)
+        disableIf(dumpTestsPhase, getNotNull(KonanConfigKeys.GENERATE_TEST_RUNNER) == TestRunnerKind.NONE || config.testDumpFile == null)
         disableUnless(buildDFGPhase, getBoolean(KonanConfigKeys.OPTIMIZATION))
         disableUnless(devirtualizationAnalysisPhase, getBoolean(KonanConfigKeys.OPTIMIZATION))
         disableUnless(devirtualizationPhase, getBoolean(KonanConfigKeys.OPTIMIZATION))
@@ -617,6 +644,8 @@ internal fun PhaseConfig.konanPhasesConfig(config: KonanConfig) {
 
         disableUnless(fileInitializersPhase, getBoolean(KonanConfigKeys.PROPERTY_LAZY_INITIALIZATION))
         disableUnless(removeRedundantCallsToFileInitializersPhase, getBoolean(KonanConfigKeys.PROPERTY_LAZY_INITIALIZATION))
+
+        disableUnless(removeRedundantSafepointsPhase, config.configuration.get(BinaryOptions.memoryModel) == MemoryModel.EXPERIMENTAL)
 
         val isDescriptorsOnlyLibrary = config.metadataKlib == true
         disableIf(psiToIrPhase, isDescriptorsOnlyLibrary)

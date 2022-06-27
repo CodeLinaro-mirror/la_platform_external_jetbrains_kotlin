@@ -143,15 +143,15 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
      */
     public actual fun matchEntire(input: CharSequence): MatchResult? = nativePattern.matcher(input).matchEntire(input)
 
-    @SinceKotlin("1.5")
-    @ExperimentalStdlibApi
+    @SinceKotlin("1.7")
+    @WasExperimental(ExperimentalStdlibApi::class)
     public actual fun matchAt(input: CharSequence, index: Int): MatchResult? =
         nativePattern.matcher(input).useAnchoringBounds(false).useTransparentBounds(true).region(index, input.length).run {
             if (lookingAt()) MatcherMatchResult(this, input) else null
         }
 
-    @SinceKotlin("1.5")
-    @ExperimentalStdlibApi
+    @SinceKotlin("1.7")
+    @WasExperimental(ExperimentalStdlibApi::class)
     public actual fun matchesAt(input: CharSequence, index: Int): Boolean =
         nativePattern.matcher(input).useAnchoringBounds(false).useTransparentBounds(true).region(index, input.length).lookingAt()
 
@@ -160,10 +160,10 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
      *
      * The replacement string may contain references to the captured groups during a match. Occurrences of `${name}` or `$index`
      * in the replacement string will be substituted with the subsequences corresponding to the captured groups with the specified name or index.
-     * In case of `$index` the first digit after '$' is always treated as part of group reference. Subsequent digits are incorporated
+     * In case of `$index`, the first digit after '$' is always treated as a part of group reference. Subsequent digits are incorporated
      * into `index` only if they would form a valid group reference. Only the digits '0'..'9' are considered as potential components
      * of the group reference. Note that indexes of captured groups start from 1, and the group with index 0 is the whole match.
-     * In case of `${name}` the `name` can consist of latin letters 'a'..'z' and 'A'..'Z', or digits '0'..'9'. The first character must be
+     * In case of `${name}`, the `name` can consist of latin letters 'a'..'z' and 'A'..'Z', or digits '0'..'9'. The first character must be
      * a letter.
      *
      * Backslash character '\' can be used to include the succeeding character as a literal in the replacement string, e.g, `\$` or `\\`.
@@ -209,10 +209,10 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
      *
      * The replacement string may contain references to the captured groups during a match. Occurrences of `${name}` or `$index`
      * in the replacement string will be substituted with the subsequences corresponding to the captured groups with the specified name or index.
-     * In case of `$index` the first digit after '$' is always treated as part of group reference. Subsequent digits are incorporated
+     * In case of `$index`, the first digit after '$' is always treated as a part of group reference. Subsequent digits are incorporated
      * into `index` only if they would form a valid group reference. Only the digits '0'..'9' are considered as potential components
      * of the group reference. Note that indexes of captured groups start from 1, and the group with index 0 is the whole match.
-     * In case of `${name}` the `name` can consist of latin letters 'a'..'z' and 'A'..'Z', or digits '0'..'9'. The first character must be
+     * In case of `${name}`, the `name` can consist of latin letters 'a'..'z' and 'A'..'Z', or digits '0'..'9'. The first character must be
      * a letter.
      *
      * Backslash character '\' can be used to include the succeeding character as a literal in the replacement string, e.g, `\$` or `\\`.

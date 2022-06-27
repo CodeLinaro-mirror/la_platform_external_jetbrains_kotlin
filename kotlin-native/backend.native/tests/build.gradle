@@ -39,7 +39,6 @@ apply plugin: 'kotlin'
 configurations {
     cli_bc
     update_tests
-    update_stdlib_tests
 
     nopPluginApi
     api.extendsFrom nopPluginApi
@@ -50,10 +49,6 @@ dependencies {
     cli_bc project(path: ':kotlin-native:backend.native', configuration: 'cli_bcApiElements')
 }
 ext.testOutputRoot = rootProject.file("test.output").absolutePath
-ext.externalTestsDir = project.file("build/external")
-ext.externalStdlibTestsDir = project.file("build/stdlib_external/stdlib")
-externalTestsDir.mkdirs()
-externalStdlibTestsDir.mkdirs()
 
 ext.platformManager = project.project(":kotlin-native").platformManager
 ext.target = platformManager.targetManager(project.testTarget).target
@@ -89,11 +84,6 @@ if (cacheTesting != null) {
         dependsOn cacheTesting.buildCacheTask
         extraOpts cacheTesting.compilerArgs
     }
-
-    tasks.withType(RunExternalTestGroup.class).configureEach {
-        dependsOn cacheTesting.buildCacheTask
-        flags = (flags ?: []) + cacheTesting.compilerArgs
-    }
 }
 
 // Enable two-stage test compilation if the test_two_stage property is set.
@@ -103,28 +93,13 @@ tasks.withType(KonanCompileNativeBinary.class).configureEach {
     enableTwoStageCompilation = twoStageEnabled
 }
 
-tasks.withType(RunExternalTestGroup.class).configureEach {
-    enableTwoStageCompilation = twoStageEnabled
-}
-
 ext.isExperimentalMM = project.globalTestArgs.contains("-memory-model") && project.globalTestArgs.contains("experimental")
 ext.isNoopGC = project.globalTestArgs.contains("-Xgc=noop")
-
-if (ext.isExperimentalMM) {
-    // TODO: Make it more aggressive and only turn it on for a subset of tests.
-    tasks.withType(KonanCompileNativeBinary.class).configureEach {
-        extraOpts "-Xbinary=gcSchedulerType=aggressive"
-    }
-}
 
 // TODO: It also makes sense to test -g without asserts, and also to test -opt with asserts.
 if (project.globalTestArgs.contains("-g")) {
     tasks.withType(KonanCompileNativeBinary.class).configureEach {
         extraOpts "-Xbinary=runtimeAssertionsMode=panic"
-    }
-
-    tasks.withType(RunExternalTestGroup.class).configureEach {
-        flags = (flags ?: []) + "-Xbinary=runtimeAssertionsMode=panic"
     }
 }
 
@@ -236,18 +211,13 @@ task sanity {
 // Collect reports in one json.
 task resultsTask() {
     doLast {
-        List<KonanTestGroupReport> reports = []
         def statistics = new Statistics()
-        tasks.withType(RunExternalTestGroup).matching { it.state.executed }.each {
-            reports += new KonanTestGroupReport(it.name, it.testGroupReporter.suiteReports)
-            statistics.add(it.testGroupReporter.statistics)
-        }
 
         tasks.withType(KonanGTest).matching { it.state.executed }.each {
             statistics.add(it.statistics)
         }
 
-        ExternalReportUtilsKt.saveReport("$testOutputExternal/reports.json", statistics, reports)
+        ExternalReportUtilsKt.saveReport("$testOutputExternal/reports.json", statistics)
         use(KonanTestSuiteReportKt) {
             project.logger.quiet("DONE.\n\n" +
                     "TOTAL: $statistics.total\n" +
@@ -358,38 +328,6 @@ Task dynamicTest(String name, Closure<KonanDynamicTest> configureClosure) {
         }
     }
 }
-
-Map<String, List<String>> ignoredTests = [:]
-
-task run_external () {
-    outputs.upToDateWhen{ false }
-
-    rootProject.files(
-            'compiler/testData/codegen/box',
-            'compiler/testData/codegen/boxInline'
-    ).asFileTree.visit { file ->
-        if (!file.isDirectory() || !file.file.list().any{ it.endsWith(".kt")})
-            return
-        def taskPath = rootProject.relativePath(file.file)
-        def fileSeparator = System.properties["file.separator"]
-        def taskName = taskPath.split("\\$fileSeparator").join('_')
-        project.tasks.register(taskName, RunExternalTestGroup) {
-            it.groupDirectory = taskPath
-            it.finalizedBy resultsTask
-            it.ignoredTests = ignoredTests[taskName]
-        }
-    }
-
-    // Set up dependencies.
-    dependsOn(tasksOf(RunExternalTestGroup))
-    dependsOn("stdlibTest")
-    dependsOn("stdlibTestInWorker")
-}
-
-task daily() {
-    dependsOn(run_external)
-}
-
 
 task slackReport(type:Reporter) {
     reportHome = rootProject.file("test.output").absoluteFile
@@ -2241,6 +2179,11 @@ task coroutines_functionReference_lambdaAsSuspendLambda(type: KonanLocalTest) {
 task coroutines_kt41394(type: KonanLocalTest) {
     useGoldenData = true
     source = "codegen/coroutines/kt41394.kt"
+}
+
+task coroutines_inheritance(type: KonanLocalTest) {
+    useGoldenData = true
+    source = "codegen/coroutines/inheritance.kt"
 }
 
 standaloneTest('coroutines_suspendConversion') {
@@ -4112,6 +4055,7 @@ def generateWithSpaceDefFile() {
         mapOption = "\"-Wl,--Map,${buildDir}/cutom map.map\""
     }
 
+    buildDir.mkdirs()
     def file = new File("${buildDir}/withSpaces.def")
     file.write """
 headers = stdio.h "${projectDir}/interop/basics/custom headers/custom.h"
@@ -4148,11 +4092,7 @@ createInterop("sysstat") {
 }
 
 createInterop("cstdlib") {
-    def f = File.createTempFile("cstdlib.empty", ".def")
-    it.packageName 'cstdlib'
-//    it.headers 'stdlib.h'
-    f.write("headers = stdlib.h")
-    it.defFile f
+    it.defFile 'interop/basics/cstdlib.def'
 }
 
 createInterop("cstdio") {
@@ -4293,6 +4233,10 @@ createInterop("kt44283") {
     it.defFile 'interop/kt44283/kt44283.def'
 }
 
+createInterop("kt51925") {
+    it.defFile 'interop/kt51925/kt51925.def'
+}
+
 createInterop("kt43502") {
     it.defFile 'interop/kt43502/kt43502.def'
     it.headers "$projectDir/interop/kt43502/kt43502.h"
@@ -4401,6 +4345,9 @@ if (PlatformInfo.isAppleTarget(project)) {
         it.defFile 'interop/objc/kt48816/objclib.def'
         it.headers "$projectDir/interop/objc/kt48816/objclib.h"
     }
+    createInterop("objc_kt50648") {
+        it.defFile 'interop/objc/kt50648/objclib.def'
+    }
 }
 
 createInterop("withSpaces") {
@@ -4425,12 +4372,31 @@ Task interopTestBase(String name, boolean multiFile, Closure<KonanInteropTest> c
         task.configure(configureClosure)
         if (task.enabled) {
             konanArtifacts {
-                def lib = task.interop
-                UtilsKt.dependsOnKonanBuildingTask(task, lib, target)
+                def targetName = target.name
+                def interopLib = task.interop
+                UtilsKt.dependsOnKonanBuildingTask(task, interopLib, target)
 
-                program(name, targets: [target.name]) {
+                def lib = "lib$name"
+                def hasIntermediateLib = task.lib != null
+                if (hasIntermediateLib) {
+                    // build a library from KonanLinkTest::lib property
+                    library(lib, targets: [targetName]) {
+                        libraries {
+                            artifact interopLib
+                        }
+                        srcFiles task.lib
+                        baseDir  "$testOutputLocal/$name"
+                        extraOpts task.flags
+                        extraOpts project.globalTestArgs
+                    }
+                    UtilsKt.dependsOnKonanBuildingTask(task, lib, target)
+                }
+
+                program(name, targets: [targetName]) {
                     libraries {
-                        artifact lib
+                        artifact interopLib
+                        if (hasIntermediateLib)
+                            klib lib
                     }
                     srcFiles multiFile ? fileTree(task.source) { include '**/*.kt' } : task.getSources()
                     baseDir "$testOutputLocal/$name"
@@ -4456,6 +4422,13 @@ standaloneTest("interop_objc_allocException") {
     expectedExitStatus = 0
     source = "interop/objc/allocException.kt"
     UtilsKt.dependsOnPlatformLibs(it)
+}
+
+interopTest("interop_available_processors") {
+    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+    source = 'interop/basics/available_processors.kt'
+    arguments = [Runtime.getRuntime().availableProcessors().toString()]
+    interop = 'cstdlib'
 }
 
 interopTest("interop0") {
@@ -4719,6 +4692,15 @@ interopTest("interop_kt44283") {
     source = "interop/kt44283/main.kt"
 }
 
+// TODO: This test should be run with caches on.
+interopTest("interop_kt51925") {
+    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+    interop = 'kt51925'
+    lib = 'interop/kt51925/kt51925_lib.kt'
+    source = 'interop/kt51925/kt51925_main.kt'
+    useGoldenData = true
+}
+
 dynamicTest("interop_kt43502") {
     disabled = (project.testTarget == 'wasm32') // wasm doesn't support -produce dynamic
     interop = "kt43502"
@@ -4753,6 +4735,10 @@ task interop_convert(type: KonanLocalTest) {
 
 task interop_sourceCodeStruct(type: KonanLocalTest) {
     source = "codegen/intrinsics/interop_sourceCodeStruct.kt"
+}
+
+task interop_alloc_value(type: KonanLocalTest) {
+    source = "runtime/interop/interop_alloc_value.kt"
 }
 
 standaloneTest("isExperimentalMM") {
@@ -5038,6 +5024,16 @@ if (PlatformInfo.isAppleTarget(project)) {
         source = "interop/objc/kt48816/main.kt"
         interop = "objc_kt48816"
         flags = ["-Xlazy-ir-for-caches=enable"]
+    }
+
+    interopTest("interop_objc_kt50648") {
+        source = 'interop/objc/kt50648/main.kt'
+        interop = "objc_kt50648"
+        expectedExitStatusChecker = { it != 0 }
+        outputChecker = {
+            it.contains("Converting Obj-C blocks with non-reference-typed return value to kotlin.Any is not supported (v)") &&
+                    (it.contains("kfun:#main(){}") || project.globalTestArgs.contains('-opt')) // Stacktrace.
+        }
     }
 
     standaloneTest("objc_arc_contract") {
@@ -5393,7 +5389,7 @@ if (isAppleTarget(project)) {
         framework(frameworkName) {
             sources = ['objcexport']
             library = libraryName
-            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xexport-kdoc", "-Xbundle-id=foo.bar", "-Xbinary=unitSuspendFunctionObjCExport=proper"]
+            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xexport-kdoc", "-Xbundle-id=foo.bar"]
         }
         swiftSources = ['objcexport']
         if (isNoopGC) {
@@ -5447,7 +5443,7 @@ if (isAppleTarget(project)) {
             sources = ['objcexport']
             artifact = frameworkArtifactName
             library = libraryName
-            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xno-objc-generics", "-Xbinary=unitSuspendFunctionObjCExport=proper"]
+            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xno-objc-generics"]
         }
         swiftSources = ['objcexport']
         swiftExtraOpts = [ '-D', 'NO_GENERICS' ]
@@ -5502,7 +5498,7 @@ if (isAppleTarget(project)) {
             sources = ['objcexport']
             artifact = frameworkArtifactName
             library = libraryName
-            opts = ["-Xemit-lazy-objc-header=$lazyHeader"]
+            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xbinary=unitSuspendFunctionObjCExport=legacy"]
         }
         swiftSources = ['objcexport']
         swiftExtraOpts = [ '-D', 'LEGACY_SUSPEND_UNIT_FUNCTION_EXPORT' ]
@@ -5537,7 +5533,6 @@ if (isAppleTarget(project)) {
             artifact = frameworkArtifactName
             library = libraryName
             isStatic = true
-            opts = ["-Xbinary=unitSuspendFunctionObjCExport=proper"]
         }
         swiftSources = ['objcexport']
         if (isNoopGC) {
@@ -5850,51 +5845,6 @@ tasks.register("llvm_variant_dev", KonanDriverTest) {
     outputChecker = { out -> !out.contains(message) }
 }
 
-createStdlibTest('stdlibTest', /* inWorker = */ false)
-createStdlibTest('stdlibTestInWorker', /*inWorker = */ true)
-
-/**
- * Creates tasks to build and execute stdlib tests.
- */
-private void createStdlibTest(String name, boolean inWorker) {
-    KotlinNativeTestKt.createTest(project, name, KonanGTest) { task ->
-        configureStdlibTest(task, inWorker)
-    }
-}
-
-/**
- * Configures tasks to build and execute stdlib tests.
- */
-private void configureStdlibTest(KonanGTest task, boolean inWorker) {
-    def sources = UtilsKt.getFilesToCompile(project,
-            [ '../../../libraries/stdlib/common/test',
-              '../../../libraries/stdlib/test',
-              '../../../libraries/kotlin.test/common/src/test/kotlin',
-              'stdlib_external/utils.kt',
-              'stdlib_external/jsCollectionFactoriesActuals.kt',
-              'stdlib_external/text'],
-            [ /*'build/stdlib_external/stdlib/test/internalAnnotations.kt'*/ ])
-
-    konanArtifacts {
-        program(task.name, targets: [target.name]) {
-            srcFiles sources
-            baseDir "$testOutputStdlib/$task.name"
-            enableMultiplatform true
-            extraOpts inWorker ? '-trw' : '-tr',
-                    '-Xverify-ir',
-                    '-opt-in=kotlin.RequiresOptIn,kotlin.ExperimentalStdlibApi',
-                    "-friend-modules", project.rootProject.file("${UtilsKt.getKotlinNativeDist(project)}/klib/common/stdlib").absolutePath
-            extraOpts project.globalTestArgs
-        }
-    }
-    // Exclude test providing args to the test executable
-    task.arguments = [ "--ktest_negative_regex_filter=test.collections.CollectionTest.abstractCollectionToArray" ]
-    task.useFilter = false
-    task.testLogger = KonanTest.Logger.GTEST
-    task.finalizedBy("resultsTask")
-    task.enabled = (project.testTarget != 'wasm32') // Uses exceptions
-}
-
 /**
  * Builds tests into a single binary with TestRunner
  */
@@ -5951,13 +5901,6 @@ sourceSets {
             srcDir 'debugger/src/test/kotlin'
         }
     }
-    update_stdlib_tests{
-        kotlin {
-            srcDir '../../../libraries/stdlib/common/test'
-            srcDir '../../../libraries/stdlib/test'
-            srcDir '../../../libraries/kotlin.test/common/src/test/kotlin'
-        }
-    }
 }
 
 compileNopPluginKotlin {
@@ -6000,7 +5943,7 @@ pluginTest("runtime_basic_init", "nopPlugin") {
 Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
     return project.tasks.create(name, FileCheckTest) { task ->
         task.configure(configureClosure)
-        task.llvmIr = project.file("$testOutputFileCheck/$name/$target/out.ll")
+        task.llvmIr = project.file("$testOutputFileCheck/$name/$target/out.${task.phaseToCheck}.ll")
         def target = task.target
         boolean isCrossCompiling = target != project.target
         if (task.enabled) {
@@ -6020,7 +5963,9 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
                         if (!isCrossCompiling) {
                             extraOpts project.globalTestArgs
                         }
-                        extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target", "-Xsave-llvm-ir"
+                        extraOpts task.extraOpts
+                        extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target"
+                        extraOpts "-Xsave-llvm-ir-after=${task.phaseToCheck}"
                         if (lib != null) {
                             libraries {
                                 artifact lib
@@ -6035,7 +5980,9 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
                         if (!isCrossCompiling) {
                             extraOpts project.globalTestArgs
                         }
-                        extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target", "-Xsave-llvm-ir", "-Xmeaningful-bridge-names"
+                        extraOpts "-Xtemporary-files-dir=$testOutputFileCheck/$name/$target", "-Xmeaningful-bridge-names"
+                        extraOpts "-Xsave-llvm-ir-after=${task.phaseToCheck}"
+
                         if (lib != null) {
                             libraries {
                                 artifact lib
@@ -6061,6 +6008,14 @@ if (HostManager.@Companion.hostIsMac) {
         // LLVM might infer attributes.
         phaseToCheck = "BitcodeOptimization"
     }
+
+    fileCheckTest("filecheck_redundant_safepoints_removal") {
+        enabled = isExperimentalMM && project.globalTestArgs.contains("-opt")
+        annotatedSource = project.file('filecheck/redundant_safepoints.kt')
+        targetName = "watchos_arm32"
+        extraOpts = ["-Xbinary=memoryModel=experimental", "-opt"]
+        phaseToCheck = "RemoveRedundantSafepoints"
+    }
 }
 
 fileCheckTest("filecheck_replace_invoke_with_call") {
@@ -6077,6 +6032,10 @@ fileCheckTest("filecheck_escape_analysis_enabled") {
     checkPrefix = "CHECK-OPT"
 }
 
+fileCheckTest("filecheck_enum_when") {
+    annotatedSource = project.file('filecheck/enum_when.kt')
+}
+
 fileCheckTest("filecheck_escape_analysis_disabled") {
     annotatedSource = project.file('filecheck/escape_analysis.kt')
     enabled = project.globalTestArgs.contains('-g')
@@ -6089,6 +6048,16 @@ fileCheckTest("filecheck_suspend_returnNothing") {
 
 fileCheckTest("filecheck_bce") {
     annotatedSource = project.file('filecheck/bce.kt')
+}
+
+fileCheckTest("filecheck_adopted_function_reference") {
+    annotatedSource = project.file('filecheck/adopted_function_reference.kt')
+}
+
+fileCheckTest("filecheck_single_tls_load") {
+    enabled = isExperimentalMM && project.globalTestArgs.contains("-opt")
+    annotatedSource = project.file('filecheck/single_tls_load.kt')
+    phaseToCheck = "OptimizeTLSDataLoads"
 }
 
 fileCheckTest("filecheck_signext_zeroext0") {
@@ -6170,7 +6139,7 @@ project.tasks.register("debugger_test", Test.class) {
 }
 
 // Configure build for iOS device targets.
-if (UtilsKt.supportsRunningTestsOnDevice(target)) {
+if (UtilsKt.supportsRunningTestsOnDevice(target) && !UtilsKt.getCompileOnlyTests(project)) {
     project.tasks
             .withType(KonanTestExecutable.class)
             .configureEach {

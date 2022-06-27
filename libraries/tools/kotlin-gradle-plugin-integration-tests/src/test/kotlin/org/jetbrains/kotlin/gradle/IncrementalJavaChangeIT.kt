@@ -5,141 +5,295 @@
 
 package org.jetbrains.kotlin.gradle
 
-import org.jetbrains.kotlin.gradle.util.getFilesByNames
-import org.junit.Test
-import java.io.File
+import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.testbase.*
+import org.junit.jupiter.api.DisplayName
+import java.nio.file.Path
+import kotlin.io.path.*
+import kotlin.test.assertTrue
 
+@DisplayName("Default incremental compilation with default precise java tracking")
 open class IncrementalJavaChangeDefaultIT : IncrementalCompilationJavaChangesBase(usePreciseJavaTracking = null) {
-    @Test
-    override fun testAbiChangeInLib_changeMethodSignature_tracked() {
-        doTest(
-            trackedJavaClassInLib, changeMethodSignature,
-            expectedCompiledFileNames = listOf("TrackedJavaClassChild.kt", "useTrackedJavaClass.kt") // In app
-        )
+
+    @DisplayName("Lib: tracked method signature ABI change")
+    @GradleTest
+    override fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodSignature)
+
+            build("assemble") {
+                val expectedSources = sourceFilesRelativeToProject(
+                    listOf("foo/TrackedJavaClassChild.kt", "foo/useTrackedJavaClass.kt"),
+                    subProjectName = "app"
+                )
+                assertCompiledKotlinSources(expectedSources, output)
+            }
+        }
     }
 
-    @Test
-    override fun testNonAbiChangeInLib_changeMethodBody_tracked() {
-        doTest(
-            trackedJavaClassInLib, changeMethodBody,
-            expectedCompiledFileNames = emptyList()
-        )
+    @DisplayName("Lib: tracked method body non-ABI change")
+    @GradleTest
+    override fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodBody)
+
+            build("assemble") {
+                assertCompiledKotlinSources(emptyList(), output)
+            }
+        }
     }
-}
 
-class IncrementalJavaChangeClasspathSnapshotIT : IncrementalJavaChangeDefaultIT() {
+    @DisplayName("KT-38692: should clean all outputs after removing all Kotlin sources")
+    @GradleTest
+    fun testIncrementalWhenNoKotlinSources(gradleVersion: GradleVersion) {
+        project("kotlinProject", gradleVersion) {
+            build(":compileKotlin") {
+                assertTasksExecuted(":compileKotlin")
+            }
 
-    override fun defaultBuildOptions() = super.defaultBuildOptions().copy(useClasspathSnapshot = true)
+            // Remove all Kotlin sources and force non-incremental run
+            projectPath.allKotlinFiles.forEach { it.deleteExisting() }
+            javaSourcesDir().resolve("Sample.java").also {
+                it.parent.createDirectories()
+                it.writeText("public class Sample {}")
+            }
+            build("compileKotlin", "--rerun-tasks") {
+                assertTasksExecuted(":compileKotlin")
+                assertTrue(kotlinClassesDir().notExists())
+            }
+        }
+    }
 
-    @Test
-    override fun testAbiChangeInLib_changeMethodSignature() {
-        doTest(
-            javaClassInLib, changeMethodSignature,
-            assertResults = {
-                // Fewer Kotlin files are recompiled
-                assertCompiledKotlinFiles(
-                    File(project.projectDir, "app").getFilesByNames("JavaClassChild.kt", "useJavaClass.kt")
+    @DisplayName("Type alias change is incremental")
+    @GradleTest
+    fun testTypeAliasIncremental(gradleVersion: GradleVersion) {
+        project("typeAlias", gradleVersion) {
+            build("build")
+
+            val curryKt = kotlinSourcesDir().resolve("Curry.kt")
+            val useCurryKt = kotlinSourcesDir().resolve("UseCurry.kt")
+
+            curryKt.modify {
+                it.replace("class Curry", "internal class Curry")
+            }
+
+            build("build") {
+                assertCompiledKotlinSources(
+                    listOf(curryKt, useCurryKt).map { it.relativeTo(projectPath) },
+                    output
                 )
             }
-        )
+        }
+    }
+}
+
+@DisplayName("Incremental compilation via classpath snapshots with default precise java tracking")
+class IncrementalJavaChangeClasspathSnapshotIT : IncrementalJavaChangeDefaultIT() {
+
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(useGradleClasspathSnapshot = true)
+
+    @DisplayName("Lib: tracked method signature ABI change")
+    @GradleTest
+    override fun testAbiChangeInLib_changeMethodSignature(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            javaClassInLib.modify(changeMethodSignature)
+
+            build("assemble") {
+                // Fewer Kotlin files are recompiled
+                val expectedSources = sourceFilesRelativeToProject(
+                    listOf("foo/JavaClassChild.kt", "foo/useJavaClass.kt"),
+                    subProjectName = "app"
+                )
+                assertCompiledKotlinSources(expectedSources, output)
+            }
+        }
     }
 
-    @Test
-    override fun testNonAbiChangeInLib_changeMethodBody() {
-        doTest(
-            javaClassInLib, changeMethodBody,
-            assertResults = {
+    @DisplayName("Lib: method body non-ABI change")
+    @GradleTest
+    override fun testNonAbiChangeInLib_changeMethodBody(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            javaClassInLib.modify(changeMethodBody)
+
+            build("assemble") {
                 assertTasksExecuted(":lib:compileKotlin")
                 assertTasksUpToDate(":app:compileKotlin") // App compilation has 'compile avoidance'
-                assertCompiledKotlinFiles(emptyList())
+                assertCompiledKotlinSources(emptyList(), output)
             }
-        )
+        }
     }
+}
 
-    @Test
-    fun testAddingInnerClass() {
-        doTest(
-            "A.kt",
-            { content: String -> content.substringBeforeLast("}") + " class InnerClass }" },
-            assertResults = {
-                assertTasksExecuted(":lib:compileKotlin", ":app:compileKotlin")
-                assertCompiledKotlinFiles(project.projectDir.getFilesByNames("AAA.kt", "AA.kt", "BB.kt", "A.kt", "B.kt"))
+@DisplayName("Default incremental compilation with enabled precise java tracking")
+class IncrementalJavaChangePreciseIT : IncrementalCompilationJavaChangesBase(
+    usePreciseJavaTracking = true
+) {
+    @DisplayName("Lib: tracked method signature ABI change")
+    @GradleTest
+    override fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodSignature)
+
+            build("assemble") {
+                val expectedSources = sourceFilesRelativeToProject(
+                    listOf("foo/TrackedJavaClassChild.kt", "foo/useTrackedJavaClass.kt"),
+                    subProjectName = "app"
+                )
+                assertCompiledKotlinSources(expectedSources, output)
             }
-        )
+        }
+    }
+
+    @DisplayName("Lib: tracked method body non-ABI change")
+    @GradleTest
+    override fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodBody)
+
+            build("assemble") {
+                assertCompiledKotlinSources(emptyList(), output)
+            }
+        }
     }
 }
 
-class IncrementalJavaChangePreciseIT : IncrementalCompilationJavaChangesBase(usePreciseJavaTracking = true) {
-    @Test
-    override fun testAbiChangeInLib_changeMethodSignature_tracked() {
-        doTest(
-            trackedJavaClassInLib,
-            changeMethodSignature,
-            expectedCompiledFileNames = listOf("TrackedJavaClassChild.kt", "useTrackedJavaClass.kt") // In app
-        )
+@DisplayName("Default incremental compilation with disabled precise java tracking")
+open class IncrementalJavaChangeDisablePreciseIT : IncrementalCompilationJavaChangesBase(
+    usePreciseJavaTracking = false
+) {
+    @DisplayName("Lib: tracked method signature ABI change")
+    @GradleTest
+    override fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodSignature)
+
+            build("assemble") {
+                val expectedSources = sourceFilesRelativeToProject(
+                    listOf(
+                        "foo/TrackedJavaClassChild.kt",
+                        "foo/useTrackedJavaClass.kt",
+                        "foo/useTrackedJavaClassFooMethodUsage.kt"
+                    ),
+                    subProjectName = "app"
+                ) + sourceFilesRelativeToProject(
+                    listOf("bar/useTrackedJavaClassSameModule.kt"),
+                    subProjectName = "lib"
+                )
+                assertCompiledKotlinSources(expectedSources, output)
+            }
+        }
     }
 
-    @Test
-    override fun testNonAbiChangeInLib_changeMethodBody_tracked() {
-        doTest(trackedJavaClassInLib, changeMethodBody, expectedCompiledFileNames = emptyList())
+    @DisplayName("Lib: tracked method body non-ABI change")
+    @GradleTest
+    override fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            trackedJavaClassInLib.modify(changeMethodBody)
+
+            build("assemble") {
+                val expectedSources = sourceFilesRelativeToProject(
+                    listOf(
+                        "foo/TrackedJavaClassChild.kt",
+                        "foo/useTrackedJavaClass.kt",
+                        "foo/useTrackedJavaClassFooMethodUsage.kt"
+                    ),
+                    subProjectName = "app"
+                ) + sourceFilesRelativeToProject(
+                    listOf("bar/useTrackedJavaClassSameModule.kt"),
+                    subProjectName = "lib"
+                )
+                assertCompiledKotlinSources(expectedSources, output)
+            }
+        }
     }
 }
 
-open class IncrementalJavaChangeDisablePreciseIT : IncrementalCompilationJavaChangesBase(usePreciseJavaTracking = false) {
-    @Test
-    override fun testAbiChangeInLib_changeMethodSignature_tracked() {
-        doTest(
-            trackedJavaClassInLib, changeMethodSignature,
-            expectedCompiledFileNames = listOf(
-                "TrackedJavaClassChild.kt", "useTrackedJavaClass.kt", "useTrackedJavaClassFooMethodUsage.kt", // In app
-                "useTrackedJavaClassSameModule.kt" // In lib
-            )
-        )
-    }
-
-    @Test
-    override fun testNonAbiChangeInLib_changeMethodBody_tracked() {
-        doTest(
-            trackedJavaClassInLib, changeMethodBody,
-            expectedCompiledFileNames = listOf(
-                "TrackedJavaClassChild.kt", "useTrackedJavaClass.kt", "useTrackedJavaClassFooMethodUsage.kt", // In app
-                "useTrackedJavaClassSameModule.kt" // In lib
-            )
-        )
-    }
-}
-
+@DisplayName("Default incremental compilation with disabled precise java tracking and enabled FIR")
 class IncrementalFirJavaChangeDisablePreciseIT : IncrementalJavaChangeDisablePreciseIT() {
-    override fun defaultBuildOptions(): BuildOptions {
-        return super.defaultBuildOptions().copy(useFir = true)
-    }
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(useFir = true)
 }
 
-abstract class IncrementalCompilationJavaChangesBase(val usePreciseJavaTracking: Boolean?) : IncrementalCompilationBaseIT() {
-    override fun defaultProject() = Project("incrementalMultiproject")
-    override fun defaultBuildOptions() = super.defaultBuildOptions().copy(usePreciseJavaTracking = usePreciseJavaTracking)
+@JvmGradlePluginTests
+abstract class IncrementalCompilationJavaChangesBase(
+    val usePreciseJavaTracking: Boolean?
+) : IncrementalCompilationBaseIT() {
+    override val defaultProjectName: String
+        get() = "incrementalMultiproject"
 
-    protected val javaClassInLib = "JavaClass.java"
-    protected val trackedJavaClassInLib = "TrackedJavaClass.java"
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseJavaTracking = usePreciseJavaTracking)
+
+    protected val TestProject.javaClassInLib: Path get() = subProject("lib").javaSourcesDir().resolve("bar/JavaClass.java")
+    protected val TestProject.trackedJavaClassInLib: Path get() = subProject("lib").javaSourcesDir().resolve("bar/TrackedJavaClass.java")
     protected val changeMethodSignature: (String) -> String = { it.replace("String getString", "Object getString") }
     protected val changeMethodBody: (String) -> String = { it.replace("Hello, World!", "Hello, World!!!!") }
 
-    @Test
-    open fun testAbiChangeInLib_changeMethodSignature() {
-        doTest(
-            javaClassInLib, changeMethodSignature,
-            expectedCompiledFileNames = listOf("JavaClassChild.kt", "useJavaClass.kt", "useJavaClassFooMethodUsage.kt") // In app
-        )
+    @DisplayName("Lib: method signature ABI change")
+    @GradleTest
+    open fun testAbiChangeInLib_changeMethodSignature(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            javaClassInLib.modify(changeMethodSignature)
+
+            build("assemble") {
+                val expectedToCompileSources = sourceFilesRelativeToProject(
+                    listOf(
+                        "foo/JavaClassChild.kt",
+                        "foo/useJavaClass.kt",
+                        "foo/useJavaClassFooMethodUsage.kt"
+                    ),
+                    subProjectName = "app"
+                )
+                assertCompiledKotlinSources(
+                    expectedToCompileSources,
+                    output
+                )
+            }
+        }
     }
 
-    @Test
-    open fun testNonAbiChangeInLib_changeMethodBody() {
-        doTest(
-            javaClassInLib, changeMethodBody,
-            expectedCompiledFileNames = listOf("JavaClassChild.kt", "useJavaClass.kt", "useJavaClassFooMethodUsage.kt") // In app
-        )
+    @DisplayName("Lib: method body non-ABI change")
+    @GradleTest
+    open fun testNonAbiChangeInLib_changeMethodBody(gradleVersion: GradleVersion) {
+        defaultProject(gradleVersion) {
+            build("assemble")
+
+            javaClassInLib.modify(changeMethodBody)
+
+            build("assemble") {
+                val expectedToCompileSources = sourceFilesRelativeToProject(
+                    listOf(
+                        "foo/JavaClassChild.kt",
+                        "foo/useJavaClass.kt",
+                        "foo/useJavaClassFooMethodUsage.kt"
+                    ),
+                    subProjectName = "app"
+                )
+
+                assertCompiledKotlinSources(
+                    expectedToCompileSources,
+                    output
+                )
+            }
+        }
     }
 
-    abstract fun testAbiChangeInLib_changeMethodSignature_tracked()
-    abstract fun testNonAbiChangeInLib_changeMethodBody_tracked()
+    abstract fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion)
+    abstract fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion)
 }

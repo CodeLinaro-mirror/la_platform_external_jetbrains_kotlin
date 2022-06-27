@@ -7,10 +7,12 @@ package org.jetbrains.kotlin.ir.backend.js
 
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.backend.js.utils.getJsName
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.isLong
 import org.jetbrains.kotlin.ir.util.constructors
@@ -105,7 +107,6 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
 
     // RTTI:
-
     val isInterfaceSymbol = getInternalFunction("isInterface")
     val isArraySymbol = getInternalFunction("isArray")
     //    val isCharSymbol = getInternalFunction("isChar")
@@ -178,9 +179,14 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     val jsNumberRangeToLong = getInternalFunction("numberRangeToLong")
 
     val longClassSymbol = getInternalClassWithoutPackage("kotlin.Long")
+
     val promiseClassSymbol: IrClassSymbol by context.lazy2 {
         getInternalClassWithoutPackage("kotlin.js.Promise")
     }
+
+    val metadataInterfaceConstructorSymbol = getInternalFunction("interfaceMeta")
+    val metadataObjectConstructorSymbol = getInternalFunction("objectMeta")
+    val metadataClassConstructorSymbol = getInternalFunction("classMeta")
 
     val longToDouble = context.symbolTable.referenceSimpleFunction(
         context.getClass(FqName("kotlin.Long")).unsubstitutedMemberScope.findSingleFunction(
@@ -215,6 +221,8 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     val unreachable = getInternalFunction("unreachable")
 
+    val jsArguments = getInternalFunction("jsArguments")
+
     val returnIfSuspended = getInternalFunction("returnIfSuspended")
     val getContinuation = getInternalFunction("getContinuation")
 
@@ -239,6 +247,13 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     val jsClass = getInternalFunction("jsClassIntrinsic")
     val arrayLiteral: IrSimpleFunctionSymbol = getInternalFunction("arrayLiteral")
+
+    // The following 3 functions are all lowered into [].slice.call(...), they only differ
+    // in the number of arguments.
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
+    val jsArrayLike2Array = getInternalFunction("jsArrayLike2Array")
+    val jsSliceArrayLikeFromIndex = getInternalFunction("jsSliceArrayLikeFromIndex")
+    val jsSliceArrayLikeFromIndexToIndex = getInternalFunction("jsSliceArrayLikeFromIndexToIndex")
 
     internal inner class JsReflectionSymbols : ReflectionSymbols {
         override val createKType = getInternalWithoutPackageOrNull("createKType")
@@ -293,8 +308,6 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     // TODO move to IntrinsifyCallsLowering
     val doNotIntrinsifyAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("DoNotIntrinsify"))
     val jsFunAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("JsFun"))
-
-    val jsEagerInitializationAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("EagerInitialization"))
 
     // TODO move CharSequence-related stiff to IntrinsifyCallsLowering
     val charSequenceClassSymbol = context.symbolTable.referenceClass(context.getClass(FqName("kotlin.CharSequence")))

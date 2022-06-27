@@ -6,31 +6,27 @@
 package org.jetbrains.kotlin.gradle.native
 
 import com.intellij.testFramework.TestDataFile
-import org.gradle.util.GradleVersion
 import org.jdom.input.SAXBuilder
 import org.jetbrains.kotlin.gradle.BaseGradleIT
 import org.jetbrains.kotlin.gradle.GradleVersionRequired
-import org.jetbrains.kotlin.gradle.chooseWrapperVersionOrFinishTest
 import org.jetbrains.kotlin.gradle.internals.DISABLED_NATIVE_TARGETS_REPORTER_DISABLE_WARNING_PROPERTY_NAME
 import org.jetbrains.kotlin.gradle.internals.DISABLED_NATIVE_TARGETS_REPORTER_WARNING_PREFIX
 import org.jetbrains.kotlin.gradle.internals.NO_NATIVE_STDLIB_PROPERTY_WARNING
 import org.jetbrains.kotlin.gradle.internals.NO_NATIVE_STDLIB_WARNING
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeOutputKind
 import org.jetbrains.kotlin.gradle.transformProjectWithPluginsDsl
-import org.jetbrains.kotlin.gradle.util.isWindows
 import org.jetbrains.kotlin.gradle.util.modify
 import org.jetbrains.kotlin.gradle.util.runProcess
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.presetName
-import org.junit.Assume
-import org.junit.Ignore
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.ErrorCollector
+import org.junit.*
+import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 import java.util.*
+import kotlin.io.path.absolutePathString
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -101,6 +97,13 @@ private fun BaseGradleIT.Project.configureSingleNativeTarget(preset: String = Ho
             }
         }
 }
+
+internal fun BaseGradleIT.BuildOptions.withCustomKonanDataDir(
+    customKonanDataDir: File
+) = this.copy(
+    customEnvironmentVariables = this.customEnvironmentVariables +
+            ("KONAN_DATA_DIR" to customKonanDataDir.absolutePath)
+)
 
 class GeneralNativeIT : BaseGradleIT() {
 
@@ -348,8 +351,20 @@ class GeneralNativeIT : BaseGradleIT() {
         val frameworkTasks = targets.flatMap { target ->
             binaries.getValue(target).flatMap {
                 listOf(
-                    ":link${it.name.capitalize()}DebugFramework${target.capitalize()}",
-                    ":link${it.name.capitalize()}ReleaseFramework${target.capitalize()}",
+                    ":link${it.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}DebugFramework${
+                        target.replaceFirstChar {
+                            if (it.isLowerCase()) it.titlecase(
+                                Locale.getDefault()
+                            ) else it.toString()
+                        }
+                    }",
+                    ":link${it.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}ReleaseFramework${
+                        target.replaceFirstChar {
+                            if (it.isLowerCase()) it.titlecase(
+                                Locale.getDefault()
+                            ) else it.toString()
+                        }
+                    }",
                 )
             }
         }
@@ -451,7 +466,7 @@ class GeneralNativeIT : BaseGradleIT() {
             "releaseExecutable" to "native-binary",
             "bazDebugExecutable" to "my-baz",
         )
-        val linkTasks = binaries.map { (name, _) -> "link${name.capitalize()}Host" }
+        val linkTasks = binaries.map { (name, _) -> "link${name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}Host" }
         val outputFiles = binaries.map { (name, fileBaseName) ->
             val outputKind = NativeOutputKind.values().single { name.endsWith(it.taskNameClassifier, true) }.compilerOutputKind
             val prefix = outputKind.prefix(HostManager.host)
@@ -498,7 +513,8 @@ class GeneralNativeIT : BaseGradleIT() {
     private fun testNativeBinaryDsl(project: String) = with(
         transformNativeTestProjectWithPluginDsl(project, directoryPrefix = "native-binaries")
     ) {
-        val hostSuffix = nativeHostTargetName.capitalize()
+        val hostSuffix =
+            nativeHostTargetName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
 
         build("tasks") {
             assertSuccessful()
@@ -592,11 +608,18 @@ class GeneralNativeIT : BaseGradleIT() {
 
     @Test
     fun testNativeTests() = with(transformNativeTestProject("native-tests")) {
-        val testTasks = listOf("hostTest", "iosTest")
         val hostTestTask = "hostTest"
+        val testTasks = listOf(hostTestTask, "iosTest", "iosArm64Test")
 
-        val suffix = if (isWindows) "exe" else "kexe"
+        val testsToExecute = mutableListOf(":$hostTestTask")
+        when (HostManager.host) {
+            KonanTarget.MACOS_X64 -> testsToExecute.add(":iosTest")
+            KonanTarget.MACOS_ARM64 -> testsToExecute.add(":iosArm64Test")
+            else -> {}
+        }
+        val testsToSkip = testTasks.map { ":$it" } - testsToExecute
 
+        val suffix = HostManager.host.family.exeSuffix
         val defaultOutputFile = "build/bin/host/debugTest/test.$suffix"
         val anotherOutputFile = "build/bin/host/anotherDebugTest/another.$suffix"
 
@@ -615,14 +638,6 @@ class GeneralNativeIT : BaseGradleIT() {
             assertNoSuchFile(defaultOutputFile)
             assertNoSuchFile(anotherOutputFile)
         }
-
-        val testsToExecute = mutableListOf(":$hostTestTask")
-        when (HostManager.host) {
-            KonanTarget.MACOS_X64 -> testsToExecute.add(":iosTest")
-            KonanTarget.MACOS_ARM64 -> testsToExecute.add(":iosArm64Test")
-            else -> { }
-        }
-        val testsToSkip = testTasks.map { ":$it" } - testsToExecute
 
         // Store currently booted simulators to check that they don't leak (MacOS only).
         val bootedSimulatorsBefore = getBootedSimulators(projectDir)
@@ -733,37 +748,29 @@ class GeneralNativeIT : BaseGradleIT() {
                 }
             }
 
-            // Gradle 6.6+ slightly changed format of xml test results
-            // If, in the test project, preset name was updated,
-            // update accordingly test result output for Gradle6.6+
-            val testGradleVersion = project.chooseWrapperVersionOrFinishTest()
-            val expectedHostTestResult: String
-            val expectedIOSTestResults: List<String>
-            if (GradleVersion.version(testGradleVersion) < GradleVersion.version("6.6")) {
-                expectedHostTestResult = "testProject/native-tests/TEST-TestKt_pre6.6.xml"
-                expectedIOSTestResults = listOf(
-                    "testProject/native-tests/TEST-TestKt_pre6.6.xml",
-                    "testProject/native-tests/TEST-TestKt-iOSsim_pre6.6.xml",
-                )
-            } else {
-                expectedHostTestResult = "testProject/native-tests/TEST-TestKt.xml"
-                expectedIOSTestResults = listOf(
-                    "testProject/native-tests/TEST-TestKt-iOSsim.xml",
-                    "testProject/native-tests/TEST-TestKt-iOSsim_wWarn.xml",
-                )
-            }
+            val expectedHostTestResult = "testProject/native-tests/TEST-TestKt.xml"
+            val expectedIOSTestResults = listOf(
+                "testProject/native-tests/TEST-TestKt-iOSsim.xml",
+                "testProject/native-tests/TEST-TestKt-iOSArm64sim.xml",
+            )
 
             assertTestResults(expectedHostTestResult, hostTestTask)
             // K/N doesn't report line numbers correctly on Linux (see KT-35408).
-            // TODO: Uncomment when this is fixed.
-            //assertStacktrace(hostTestTask, "host")
+            // TODO: Move assertStacktrace(hostTestTask, "host") out of if clause
             if (HostManager.hostIsMac) {
+                assertStacktrace(hostTestTask, "host")
+                val testTarget = when (HostManager.host) {
+                    KonanTarget.MACOS_ARM64 -> "iosArm64"
+                    KonanTarget.MACOS_X64 -> "ios"
+                    else -> throw IllegalStateException("Unsupported host: ${HostManager.host}")
+                }
+                val testTask = "${testTarget}Test"
                 assertTestResultsAnyOf(
                     expectedIOSTestResults[0],
                     expectedIOSTestResults[1],
-                    "iosTest"
+                    testTask
                 )
-                assertStacktrace("iosTest", "ios")
+                assertStacktrace(testTask, testTarget)
             }
         }
     }
@@ -867,7 +874,7 @@ class GeneralNativeIT : BaseGradleIT() {
         }
 
         // Check that changing K/N version lead to tasks rerun
-        build(*compileTasksArray, "-Porg.jetbrains.kotlin.native.version=1.5.30") {
+        build(*compileTasksArray, "-Porg.jetbrains.kotlin.native.version=1.6.10") {
             assertSuccessful()
             assertTasksExecuted(compileTasks)
         }
@@ -978,9 +985,16 @@ class GeneralNativeIT : BaseGradleIT() {
             .resolve("B.kt")
         fileWithSpacesInPath.writeText("fun foo() = 42")
 
-        build("compileKotlin${nativeHostTargetName.capitalize()}") {
+        build("compileKotlin${nativeHostTargetName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}") {
             assertSuccessful()
-            withNativeCommandLineArguments(":compileKotlin${nativeHostTargetName.capitalize()}") { arguments ->
+            withNativeCommandLineArguments(
+                ":compileKotlin${
+                    nativeHostTargetName.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(
+                            Locale.getDefault()
+                        ) else it.toString()
+                    }
+                }") { arguments ->
                 val escapedQuotedPath =
                     "\"${fileWithSpacesInPath.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"")}\""
                 assertTrue(
@@ -1086,6 +1100,154 @@ class GeneralNativeIT : BaseGradleIT() {
         }
     }
 
+    @Test
+    fun `check offline mode is propagated to the compiler`() = with(
+        transformNativeTestProjectWithPluginDsl(
+            "executables",
+            directoryPrefix = "native-binaries"
+        )
+    ) {
+        val buildOptions = defaultBuildOptions()
+
+        val linkTask = ":linkDebugExecutableHost"
+        val compileTask = ":compileKotlinHost"
+
+        build(linkTask, options = buildOptions) {
+            assertSuccessful()
+        }
+
+        // Check that --offline works when all the dependencies are already downloaded:
+        val buildOptionsOffline = buildOptions.copy(freeCommandLineArgs = buildOptions.freeCommandLineArgs + "--offline")
+
+        build("clean", linkTask, options = buildOptionsOffline) {
+            assertSuccessful()
+            withNativeCommandLineArguments(compileTask, linkTask) {
+                assertTrue(it.contains("-Xoverride-konan-properties=airplaneMode=true"))
+            }
+        }
+
+        // Check that --offline fails when there are no downloaded dependencies:
+        run {
+            val customKonanDataDir = tempDir.newFolder()
+            val buildOptionsOfflineWithCustomKonanDataDir = buildOptionsOffline.withCustomKonanDataDir(customKonanDataDir)
+
+            build("clean", linkTask, options = buildOptionsOfflineWithCustomKonanDataDir) {
+                assertFailed()
+                assertTasksNotExecuted(listOf(linkTask))
+            }
+
+            checkNoDependenciesDownloaded(customKonanDataDir)
+        }
+
+        // Check that the compiler is not extracted if it is not cached:
+        run {
+            val customKonanDataDir = tempDir.newFolder()
+            val buildOptionsOfflineWithCustomKonanDataDir = buildOptionsOffline.withCustomKonanDataDir(customKonanDataDir)
+            build(
+                "clean", linkTask, "-Pkotlin.native.version=1.6.20-M1-9999",
+                options = buildOptionsOfflineWithCustomKonanDataDir
+            ) {
+                assertFailed()
+                assertTasksNotExecuted(listOf(linkTask, compileTask))
+            }
+
+            assertTrue(customKonanDataDir.listFiles().isNullOrEmpty())
+        }
+    }
+
+    private fun checkNoDependenciesDownloaded(customKonanDataDir: File) {
+        // Check that no files have actually been downloaded or extracted,
+        // except for maybe the compiler itself, which can be extracted from the Gradle cache
+        // (see NativeCompilerDownloader, it uses regular dependency resolution,
+        // so supports --offline properly by default).
+        val cacheDirName = "cache"
+        val dependenciesDirName = "dependencies"
+
+        fun assertDirectoryHasNothingButMaybe(directory: File, vararg names: String) {
+            assertEquals(emptyList(), directory.listFiles().orEmpty().map { it.name } - names)
+        }
+
+        assertDirectoryHasNothingButMaybe(File(customKonanDataDir, cacheDirName), ".lock")
+        assertDirectoryHasNothingButMaybe(File(customKonanDataDir, dependenciesDirName), ".extracted")
+
+        val customKonanDataDirFiles = customKonanDataDir.listFiles().orEmpty().map { it.name } - setOf(cacheDirName, dependenciesDirName)
+        if (customKonanDataDirFiles.isNotEmpty()) {
+            assertEquals(1, customKonanDataDirFiles.size, message = customKonanDataDirFiles.toString())
+            assertTrue(customKonanDataDirFiles.single().startsWith("kotlin-native-"), message = customKonanDataDirFiles.single())
+        }
+    }
+
+    @Test
+    fun `check offline mode is propagated to the cinterop`() = with(transformNativeTestProjectWithPluginDsl("native-cinterop")) {
+        val buildOptions = defaultBuildOptions()
+        val cinteropTask = ":projectLibrary:cinteropAnotherNumberHost"
+
+        build(cinteropTask, options = buildOptions) {
+            assertSuccessful()
+        }
+
+        // Check that --offline works when all the dependencies are already downloaded:
+        val buildOptionsOffline = buildOptions.copy(freeCommandLineArgs = buildOptions.freeCommandLineArgs + "--offline")
+
+        build("clean", cinteropTask, options = buildOptionsOffline) {
+            assertSuccessful()
+            withNativeCommandLineArguments(cinteropTask, toolName = "cinterop") {
+                assertTrue(it.containsSequentially("-Xoverride-konan-properties", "airplaneMode=true"))
+            }
+        }
+
+        // Check that --offline fails when there are no downloaded dependencies:
+        run {
+            val customKonanDataDir = tempDir.newFolder()
+            val buildOptionsOfflineWithCustomKonanDataDir = buildOptionsOffline.withCustomKonanDataDir(customKonanDataDir)
+
+            build("clean", cinteropTask, options = buildOptionsOfflineWithCustomKonanDataDir) {
+                assertFailed()
+            }
+
+            checkNoDependenciesDownloaded(customKonanDataDir)
+        }
+
+        // Check that the compiler is not extracted if it is not cached:
+        run {
+            val customKonanDataDir = tempDir.newFolder()
+            val buildOptionsOfflineWithCustomKonanDataDir = buildOptionsOffline.withCustomKonanDataDir(customKonanDataDir)
+
+            build(
+                "clean", cinteropTask, "-Pkotlin.native.version=1.6.20-M1-9999",
+                options = buildOptionsOfflineWithCustomKonanDataDir
+            ) {
+                assertFailed()
+                assertTasksNotExecuted(listOf(cinteropTask))
+            }
+
+            assertTrue(customKonanDataDir.listFiles().isNullOrEmpty())
+        }
+    }
+
+    @Test
+    fun allowToOverrideDownloadUrl() {
+        with(transformNativeTestProjectWithPluginDsl("native-parallel")) {
+            gradleProperties().appendText(
+                """
+                
+                kotlin.native.distribution.baseDownloadUrl=https://non-existent.net
+                """.trimIndent()
+            )
+
+            build(
+                "build",
+                options = defaultBuildOptions().copy(
+                    forceOutputToStdout = true,
+                    customEnvironmentVariables = mapOf("KONAN_DATA_DIR" to Files.createTempDirectory("konan-data-dir").absolutePathString())
+                )
+            ) {
+                assertFailed()
+                assertContains("Could not HEAD 'https://non-existent.net")
+            }
+        }
+    }
+
     companion object {
         fun List<String>.containsSequentially(vararg elements: String): Boolean {
             check(elements.isNotEmpty())
@@ -1158,5 +1320,15 @@ class GeneralNativeIT : BaseGradleIT() {
             toolName: String = "konanc",
             check: (Map<String, String>) -> Unit
         ) = taskPaths.forEach { taskPath -> check(extractNativeCustomEnvironment(taskPath, toolName)) }
+
+        @field:ClassRule
+        @JvmField
+        val tempDir = TemporaryFolder()
+
+        @JvmStatic
+        @AfterClass
+        fun deleteTempDir() {
+            tempDir.delete()
+        }
     }
 }

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.backend.js.*
+import org.jetbrains.kotlin.ir.backend.js.dce.eliminateDeadDeclarations
 import org.jetbrains.kotlin.ir.backend.js.export.*
 import org.jetbrains.kotlin.ir.backend.js.lower.StaticMembersLowering
 import org.jetbrains.kotlin.ir.backend.js.utils.*
@@ -32,18 +33,30 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.*
 
-enum class TranslationMode(val dce: Boolean, val perModule: Boolean) {
-    FULL(dce = false, perModule = false),
-    FULL_DCE(dce = true, perModule = false),
-    PER_MODULE(dce = false, perModule = true),
-    PER_MODULE_DCE(dce = true, perModule = true);
+enum class TranslationMode(
+    val dce: Boolean,
+    val perModule: Boolean,
+    val minimizedMemberNames: Boolean,
+) {
+    FULL(dce = false, perModule = false, minimizedMemberNames = false),
+    FULL_DCE(dce = true, perModule = false, minimizedMemberNames = false),
+    FULL_DCE_MINIMIZED_NAMES(dce = true, perModule = false, minimizedMemberNames = true),
+    PER_MODULE(dce = false, perModule = true, minimizedMemberNames = false),
+    PER_MODULE_DCE(dce = true, perModule = true, minimizedMemberNames = false),
+    PER_MODULE_DCE_MINIMIZED_NAMES(dce = true, perModule = true, minimizedMemberNames = true);
 
     companion object {
-        fun fromFlags(dce: Boolean, perModule: Boolean): TranslationMode {
+        fun fromFlags(dce: Boolean, perModule: Boolean, minimizedMemberNames: Boolean): TranslationMode {
             return if (perModule) {
-                if (dce) PER_MODULE_DCE else PER_MODULE
+                if (dce) {
+                    if (minimizedMemberNames) PER_MODULE_DCE_MINIMIZED_NAMES
+                    else PER_MODULE_DCE
+                } else PER_MODULE
             } else {
-                if (dce) FULL_DCE else FULL
+                if (dce) {
+                    if (minimizedMemberNames) FULL_DCE_MINIMIZED_NAMES
+                    else FULL_DCE
+                } else FULL
             }
         }
     }
@@ -77,11 +90,11 @@ class IrModuleToJsTransformerTmp(
             module.files.forEach { StaticMembersLowering(backendContext).lower(it) }
         }
 
-        fun compilationOutput(multiModule: Boolean) = generateWrappedModuleBody(
+        fun compilationOutput(multiModule: Boolean, minimizedMemberNames: Boolean) = generateWrappedModuleBody(
             multiModule,
             mainModuleName,
             moduleKind,
-            generateProgramFragments(modules, exportData),
+            generateProgramFragments(modules, exportData, minimizedMemberNames),
             SourceMapsInfo.from(backendContext.configuration),
             relativeRequirePath,
             generateScriptModule,
@@ -90,7 +103,11 @@ class IrModuleToJsTransformerTmp(
         val result = EnumMap<TranslationMode, CompilationOutputs>(TranslationMode::class.java)
 
         modes.filter { !it.dce }.forEach {
-            result[it] = compilationOutput(it.perModule)
+            if (it.minimizedMemberNames) {
+                backendContext.fieldDataCache.clear()
+                backendContext.minimizedNameGenerator.clear()
+            }
+            result[it] = compilationOutput(it.perModule, it.minimizedMemberNames)
         }
 
         if (modes.any { it.dce }) {
@@ -98,13 +115,19 @@ class IrModuleToJsTransformerTmp(
         }
 
         modes.filter { it.dce }.forEach {
-            result[it] = compilationOutput(it.perModule)
+            if (it.minimizedMemberNames) {
+                backendContext.fieldDataCache.clear()
+                backendContext.minimizedNameGenerator.clear()
+            }
+            result[it] = compilationOutput(it.perModule, it.minimizedMemberNames)
         }
 
         return CompilerResult(result, dts)
     }
 
-    fun generateBinaryAst(files: Iterable<IrFile>, allModules: Iterable<IrModuleFragment>): Map<String, ByteArray> {
+    class SrcFileFragmentAndBinaryAst(val srcPath: String, val fragment: JsIrProgramFragment, val binaryAst: ByteArray)
+
+    fun generateBinaryAst(files: Iterable<IrFile>, allModules: Iterable<IrModuleFragment>): List<SrcFileFragmentAndBinaryAst> {
         val exportModelGenerator = ExportModelGenerator(backendContext, generateNamespacesForPackages = true)
 
         val exportData = files.associate { file ->
@@ -118,18 +141,14 @@ class IrModuleToJsTransformerTmp(
         }
 
         val serializer = JsIrAstSerializer()
-
-        val result = mutableMapOf<String, ByteArray>()
-        files.forEach { f ->
+        return files.map { f ->
             val exports = exportData[f]!! // TODO
-            val fragment = generateProgramFragment(f, exports)
+            val fragment = generateProgramFragment(f, exports, minimizedMemberNames = false)
             val output = ByteArrayOutputStream()
             serializer.serialize(fragment, output)
             val binaryAst = output.toByteArray()
-            result[f.fileEntry.name] = binaryAst
+            SrcFileFragmentAndBinaryAst(f.fileEntry.name, fragment, binaryAst)
         }
-
-        return result
     }
 
     private fun ExportModelGenerator.generateExportWithExternals(irFile: IrFile): List<ExportedDeclaration> {
@@ -145,14 +164,18 @@ class IrModuleToJsTransformerTmp(
     private fun generateProgramFragments(
         modules: Iterable<IrModuleFragment>,
         exportData: Map<IrModuleFragment, Map<IrFile, List<ExportedDeclaration>>>,
+        minimizedMemberNames: Boolean
     ): JsIrProgram {
-
         return JsIrProgram(
             modules.map { m ->
-                JsIrModule(m.safeName, m.externalModuleName(), m.files.map { f ->
-                    val exports = exportData[m]!![f]!!
-                    generateProgramFragment(f, exports)
-                })
+                JsIrModule(
+                    m.safeName,
+                    m.externalModuleName(),
+                    m.files.map {
+                        val exports = exportData[m]!![it]!!
+                        generateProgramFragment(it, exports, minimizedMemberNames)
+                    },
+                )
             }
         )
     }
@@ -160,8 +183,8 @@ class IrModuleToJsTransformerTmp(
     private val generateFilePaths = backendContext.configuration.getBoolean(JSConfigurationKeys.GENERATE_COMMENTS_WITH_FILE_PATH)
     private val pathPrefixMap = backendContext.configuration.getMap(JSConfigurationKeys.FILE_PATHS_PREFIX_MAP)
 
-    private fun generateProgramFragment(file: IrFile, exports: List<ExportedDeclaration>): JsIrProgramFragment {
-        val nameGenerator = JsNameLinkingNamer(backendContext)
+    private fun generateProgramFragment(file: IrFile, exports: List<ExportedDeclaration>, minimizedMemberNames: Boolean): JsIrProgramFragment {
+        val nameGenerator = JsNameLinkingNamer(backendContext, minimizedMemberNames)
 
         val globalNameScope = NameTable<IrDeclaration>()
 
@@ -171,7 +194,9 @@ class IrModuleToJsTransformerTmp(
             globalNameScope = globalNameScope
         )
 
-        val result = JsIrProgramFragment(file.fqName.asString())
+        val result = JsIrProgramFragment(file.fqName.asString()).apply {
+            polyfills.statements += backendContext.polyfills.getAllPolyfillsFor(file)
+        }
 
         val internalModuleName = ReservedJsNames.makeInternalModuleName()
         val globalNames = NameTable<String>(globalNameScope)
@@ -303,7 +328,7 @@ class IrModuleToJsTransformerTmp(
     }
 }
 
-fun generateWrappedModuleBody(
+private fun generateWrappedModuleBody(
     multiModule: Boolean,
     mainModuleName: String,
     moduleKind: ModuleKind,
@@ -330,7 +355,7 @@ fun generateWrappedModuleBody(
         )
 
         val dependencies = others.map { module ->
-            val moduleName = module.moduleName
+            val moduleName = module.externalModuleName
 
             moduleName to generateSingleWrappedModuleBody(
                 moduleName,
@@ -356,14 +381,14 @@ fun generateWrappedModuleBody(
     }
 }
 
-private fun generateSingleWrappedModuleBody(
+fun generateSingleWrappedModuleBody(
     moduleName: String,
     moduleKind: ModuleKind,
     fragments: List<JsIrProgramFragment>,
     sourceMapsInfo: SourceMapsInfo?,
     generateScriptModule: Boolean,
     generateCallToMain: Boolean,
-    crossModuleReferences: CrossModuleReferences = CrossModuleReferences.Empty
+    crossModuleReferences: CrossModuleReferences = CrossModuleReferences.Empty,
 ): CompilationOutputs {
     val program = Merger(
         moduleName,

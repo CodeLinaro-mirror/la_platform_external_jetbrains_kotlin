@@ -29,6 +29,10 @@ import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 class KonanConfig(val project: Project, val configuration: CompilerConfiguration) {
 
+    fun dispose() {
+        tempFiles.dispose()
+    }
+
     internal val distribution = run {
         val overridenProperties = mutableMapOf<String, String>().apply {
             configuration.get(KonanConfigKeys.OVERRIDE_KONAN_PROPERTIES)?.let(this::putAll)
@@ -86,7 +90,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         val (gcFallbackReason, realGc) = when {
             configGc == GC.CONCURRENT_MARK_AND_SWEEP && !target.supportsThreads() ->
                 "Concurrent mark and sweep gc is not supported for this target. Fallback to Same thread mark and sweep is done" to GC.SAME_THREAD_MARK_AND_SWEEP
-            configGc == null -> null to GC.SAME_THREAD_MARK_AND_SWEEP
+            configGc == null -> null to GC.CONCURRENT_MARK_AND_SWEEP
             else -> null to configGc
         }
         if (gcFallbackReason != null) {
@@ -304,20 +308,8 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
     internal val entryPointName: String by lazy {
         if (target.family == Family.ANDROID) {
-            val androidProgramTypeOrNull = configuration.get(BinaryOptions.androidProgramType)
-            if (androidProgramTypeOrNull == null) {
-                configuration.report(CompilerMessageSeverity.WARNING, """
-                    Android Native executables are currently built as shared libraries with NativeActivity support, but the default behavior is going to change in 1.7.0 to build regular executables instead.
-                    To keep using NativeActivity support, add binaryOptions["androidProgramType"] = "nativeActivity" to your androidNative executable configuration block in Gradle script:
-                    binaries {
-                        executable {
-                            binaryOptions["androidProgramType"] = "nativeActivity"
-                        }
-                    }
-                    See https://youtrack.jetbrains.com/issue/KT-49406 for more details.
-                """.trimIndent())
-            }
-            val androidProgramType = androidProgramTypeOrNull ?: AndroidProgramType.Default
+            val androidProgramType = configuration.get(BinaryOptions.androidProgramType)
+                    ?: AndroidProgramType.Default
             if (androidProgramType.konanMainOverride != null) {
                 return@lazy androidProgramType.konanMainOverride
             }
@@ -326,7 +318,9 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     }
 
     internal val unitSuspendFunctionObjCExport: UnitSuspendFunctionObjCExport
-        get() = configuration.get(BinaryOptions.unitSuspendFunctionObjCExport) ?: UnitSuspendFunctionObjCExport.LEGACY
+        get() = configuration.get(BinaryOptions.unitSuspendFunctionObjCExport) ?: UnitSuspendFunctionObjCExport.DEFAULT
+
+    internal val testDumpFile: File? = configuration[KonanConfigKeys.TEST_DUMP_OUTPUT_PATH]?.let(::File)
 }
 
 fun CompilerConfiguration.report(priority: CompilerMessageSeverity, message: String)

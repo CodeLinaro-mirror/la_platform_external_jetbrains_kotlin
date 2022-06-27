@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.types
 
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.functions.FunctionClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -80,9 +81,9 @@ val FirTypeRef.isMarkedNullable: Boolean?
 
 val FirFunctionTypeRef.parametersCount: Int
     get() = if (receiverTypeRef != null)
-        valueParameters.size + 1
+        valueParameters.size + contextReceiverTypeRefs.size + 1
     else
-        valueParameters.size
+        valueParameters.size + contextReceiverTypeRefs.size
 
 val EXTENSION_FUNCTION_ANNOTATION = ClassId.fromString("kotlin/ExtensionFunctionType")
 
@@ -113,9 +114,13 @@ fun ConeClassLikeType.toConstKind(): ConstantValueKind<*>? = when (lookupTag.cla
     else -> null
 }
 
-fun List<FirAnnotation>.computeTypeAttributes(session: FirSession): ConeAttributes {
-    if (this.isEmpty()) return ConeAttributes.Empty
+fun List<FirAnnotation>.computeTypeAttributes(session: FirSession, predefined: List<ConeAttribute<*>> = emptyList()): ConeAttributes {
+    if (this.isEmpty()) {
+        if (predefined.isEmpty()) return ConeAttributes.Empty
+        return ConeAttributes.create(predefined)
+    }
     val attributes = mutableListOf<ConeAttribute<*>>()
+    attributes += predefined
     val customAnnotations = mutableListOf<FirAnnotation>()
     for (annotation in this) {
         val type = annotation.annotationTypeRef.coneTypeSafe<ConeClassLikeType>() ?: continue
@@ -123,6 +128,11 @@ fun List<FirAnnotation>.computeTypeAttributes(session: FirSession): ConeAttribut
             CompilerConeAttributes.Exact.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.Exact
             CompilerConeAttributes.NoInfer.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.NoInfer
             CompilerConeAttributes.ExtensionFunctionType.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.ExtensionFunctionType
+            CompilerConeAttributes.ContextFunctionTypeParams.ANNOTATION_CLASS_ID ->
+                attributes +=
+                    CompilerConeAttributes.ContextFunctionTypeParams(
+                        annotation.extractContextReceiversCount() ?: 0
+                    )
             CompilerConeAttributes.UnsafeVariance.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.UnsafeVariance
             else -> {
                 val attributeFromPlugin = session.extensionService.typeAttributeExtensions.firstNotNullOfOrNull {
@@ -142,6 +152,9 @@ fun List<FirAnnotation>.computeTypeAttributes(session: FirSession): ConeAttribut
     return ConeAttributes.create(attributes)
 }
 
+private fun FirAnnotation.extractContextReceiversCount() =
+    (argumentMapping.mapping[StandardNames.CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME] as? FirConstExpression<*>)?.value as? Int
+
 fun FirTypeProjection.toConeTypeProjection(): ConeTypeProjection =
     when (this) {
         is FirStarProjection -> ConeStarProjection
@@ -153,7 +166,7 @@ fun FirTypeProjection.toConeTypeProjection(): ConeTypeProjection =
     }
 
 private fun ConeTypeParameterType.hasNotNullUpperBound(): Boolean {
-    return lookupTag.typeParameterSymbol.fir.bounds.any {
+    return lookupTag.typeParameterSymbol.resolvedBounds.any {
         val boundType = it.coneType
         if (boundType is ConeTypeParameterType) {
             boundType.hasNotNullUpperBound()
@@ -175,7 +188,7 @@ val ConeKotlinType.canBeNull: Boolean
         return when (this) {
             is ConeFlexibleType -> upperBound.canBeNull
             is ConeDefinitelyNotNullType -> false
-            is ConeTypeParameterType -> this.lookupTag.typeParameterSymbol.fir.bounds.all { it.coneType.canBeNull }
+            is ConeTypeParameterType -> this.lookupTag.typeParameterSymbol.resolvedBounds.all { it.coneType.canBeNull }
             is ConeIntersectionType -> intersectedTypes.all { it.canBeNull }
             else -> isNullable
         }

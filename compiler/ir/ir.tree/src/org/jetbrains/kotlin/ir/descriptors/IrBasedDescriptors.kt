@@ -52,7 +52,7 @@ abstract class IrBasedDeclarationDescriptor<T : IrDeclaration>(val owner: T) : D
             symbol.owner.valueParameters.map { it.name to getValueArgument(it.index) }
                 .filter { it.second != null }
                 .associate { it.first to it.second!!.toConstantValue() },
-            /*TODO*/ SourceElement.NO_SOURCE
+            source
         )
     }
 
@@ -286,7 +286,7 @@ open class IrBasedTypeParameterDescriptor(owner: IrTypeParameter) : TypeParamete
 
     private val _defaultType: SimpleType by lazy {
         KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
-            Annotations.EMPTY, typeConstructor, emptyList(), false,
+            TypeAttributes.Empty, typeConstructor, emptyList(), false,
             LazyScopeAdapter {
                 TypeIntersectionScope.create(
                     "Scope for type parameter " + name.asString(),
@@ -409,7 +409,7 @@ open class IrBasedSimpleFunctionDescriptor(owner: IrSimpleFunction) : SimpleFunc
     override fun isTailrec() = owner.isTailrec
     override fun isInline() = owner.isInline
 
-    override fun isExpect() = false
+    override fun isExpect() = owner.isExpect
     override fun isActual() = false
     override fun isInfix() = false
     override fun isOperator() = false
@@ -532,7 +532,7 @@ open class IrBasedClassConstructorDescriptor(owner: IrConstructor) : ClassConstr
 
     override fun isPrimary() = owner.isPrimary
 
-    override fun isExpect() = false
+    override fun isExpect() = owner.isExpect
 
     override fun isTailrec() = false
 
@@ -604,12 +604,11 @@ open class IrBasedClassDescriptor(owner: IrClass) : ClassDescriptor, IrBasedDecl
 
     override fun isData() = owner.isData
 
-    override fun isInline() = owner.isInline
+    override fun isInline() = owner.isSingleFieldValueClass
 
     override fun isFun() = owner.isFun
 
-    // In IR, inline and value are synonyms
-    override fun isValue() = owner.isInline
+    override fun isValue() = owner.isValue
 
     override fun getThisAsReceiverParameter() = owner.thisReceiver?.toIrBasedDescriptor() as ReceiverParameterDescriptor
 
@@ -626,12 +625,12 @@ open class IrBasedClassDescriptor(owner: IrClass) : ClassDescriptor, IrBasedDecl
         TODO("not implemented")
     }
 
-    override fun getInlineClassRepresentation(): InlineClassRepresentation<SimpleType>? =
-        owner.inlineClassRepresentation?.mapUnderlyingType { it.toIrBasedKotlinType() as SimpleType }
+    override fun getValueClassRepresentation(): ValueClassRepresentation<SimpleType>? =
+        owner.valueClassRepresentation?.mapUnderlyingType { it.toIrBasedKotlinType() as SimpleType }
 
     override fun getOriginal() = this
 
-    override fun isExpect() = false
+    override fun isExpect() = owner.isExpect
 
     override fun substitute(substitutor: TypeSubstitutor): ClassifierDescriptorWithTypeParameters =
         throw UnsupportedOperationException("IrBased descriptors SHOULD NOT be substituted")
@@ -753,11 +752,9 @@ open class IrBasedEnumEntryDescriptor(owner: IrEnumEntry) : ClassDescriptor, IrB
 
     override fun getDeclaredTypeParameters(): List<TypeParameterDescriptor> = emptyList()
 
-    override fun getSealedSubclasses(): Collection<ClassDescriptor> {
-        TODO("not implemented")
-    }
+    override fun getSealedSubclasses(): Collection<ClassDescriptor> = TODO("not implemented")
 
-    override fun getInlineClassRepresentation(): InlineClassRepresentation<SimpleType>? = TODO("not implemented")
+    override fun getValueClassRepresentation(): ValueClassRepresentation<SimpleType>? = TODO("not implemented")
 
     override fun getOriginal() = this
 
@@ -851,7 +848,7 @@ open class IrBasedPropertyDescriptor(owner: IrProperty) :
 
     override fun getOriginal() = this
 
-    override fun isExpect() = false
+    override fun isExpect() = owner.isExpect
 
     override fun substitute(substitutor: TypeSubstitutor): PropertyDescriptor =
         throw UnsupportedOperationException("IrBased descriptors SHOULD NOT be substituted")
@@ -1133,8 +1130,16 @@ private fun getContainingDeclaration(declaration: IrDeclaration): DeclarationDes
 }
 
 fun IrType.toIrBasedKotlinType(): KotlinType = when (this) {
-    is IrSimpleType -> makeKotlinType(classifier, arguments, hasQuestionMark)
-    else -> TODO(toString())
+    is IrSimpleType ->
+        makeKotlinType(classifier, arguments, isMarkedNullable()).let {
+            if (classifier is IrTypeParameterSymbol && nullability == SimpleTypeNullability.DEFINITELY_NOT_NULL) {
+                DefinitelyNotNullType.makeDefinitelyNotNull(it.unwrap()) ?: it
+            } else {
+                it
+            }
+        }
+    else ->
+        throw AssertionError("Unexpected type: $this = ${this.render()}")
 }
 
 private fun makeKotlinType(
@@ -1143,7 +1148,8 @@ private fun makeKotlinType(
     hasQuestionMark: Boolean
 ): SimpleType =
     when (classifier) {
-        is IrTypeParameterSymbol -> classifier.toIrBasedDescriptorIfPossible().defaultType
+        is IrTypeParameterSymbol ->
+            classifier.toIrBasedDescriptorIfPossible().defaultType.makeNullableAsSpecified(hasQuestionMark)
         is IrClassSymbol -> {
             val classDescriptor = classifier.toIrBasedDescriptorIfPossible()
             val kotlinTypeArguments = arguments.mapIndexed { index, it ->
@@ -1175,6 +1181,13 @@ private fun makeKotlinType(
                 )
             }
         }
+        is IrScriptSymbol -> {
+            TypeUtils.makeUnsubstitutedType(
+                classifier.toIrBasedDescriptorIfPossible(),
+                MemberScope.Empty,
+                KotlinTypeFactory.EMPTY_REFINED_TYPE_FACTORY
+            ).makeNullableAsSpecified(hasQuestionMark)
+        }
         else -> error("unknown classifier kind $classifier")
     }
 
@@ -1194,3 +1207,8 @@ private fun IrSimpleFunctionSymbol.toIrBasedDescriptorIfPossible(): FunctionDesc
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 private fun IrPropertySymbol.toIrBasedDescriptorIfPossible(): PropertyDescriptor =
     if (isBound) owner.toIrBasedDescriptor() else descriptor
+
+// this is a temporary solution for scripts - seems that introducing full-blown emulation of descriptors for the single degenerate case
+// doesn't make any sense.
+@OptIn(ObsoleteDescriptorBasedAPI::class)
+private fun IrScriptSymbol.toIrBasedDescriptorIfPossible(): ScriptDescriptor = descriptor

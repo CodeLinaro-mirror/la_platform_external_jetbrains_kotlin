@@ -23,8 +23,10 @@ import org.jetbrains.kotlin.resolve.constants.KClassValue
 import org.jetbrains.kotlin.resolve.descriptorUtil.annotationClass
 import org.jetbrains.kotlin.resolve.descriptorUtil.declaresOrInheritsDefaultValue
 import org.jetbrains.kotlin.types.*
-import org.jetbrains.kotlin.types.ErrorUtils.UninferredParameterTypeConstructor
-import org.jetbrains.kotlin.types.TypeUtils.CANT_INFER_FUNCTION_PARAM_TYPE
+import org.jetbrains.kotlin.types.TypeUtils.CANNOT_INFER_FUNCTION_PARAM_TYPE
+import org.jetbrains.kotlin.types.error.*
+import org.jetbrains.kotlin.types.error.ErrorUtils
+import org.jetbrains.kotlin.types.typeUtil.isUnresolvedType
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 
 internal class DescriptorRendererImpl(
@@ -153,13 +155,13 @@ internal class DescriptorRendererImpl(
     }
 
     private fun StringBuilder.renderSimpleType(type: SimpleType) {
-        if (type == CANT_INFER_FUNCTION_PARAM_TYPE || TypeUtils.isDontCarePlaceholder(type)) {
+        if (type == CANNOT_INFER_FUNCTION_PARAM_TYPE || TypeUtils.isDontCarePlaceholder(type)) {
             append("???")
             return
         }
-        if (ErrorUtils.isUninferredParameter(type)) {
+        if (ErrorUtils.isUninferredTypeVariable(type)) {
             if (uninferredTypeParameterAsName) {
-                append(renderError((type.constructor as UninferredParameterTypeConstructor).typeParameterDescriptor.name.toString()))
+                append(renderError((type.constructor as ErrorTypeConstructor).getParam(0)))
             } else {
                 append("???")
             }
@@ -239,11 +241,11 @@ internal class DescriptorRendererImpl(
 
         when {
             type.isError -> {
-                if (type is UnresolvedType && presentableUnresolvedTypes) {
-                    append(type.presentableName)
+                if (isUnresolvedType(type) && presentableUnresolvedTypes) {
+                    append(type.debugMessage)
                 } else {
                     if (type is ErrorType && !informativeErrorType) {
-                        append(type.presentableName)
+                        append(type.debugMessage)
                     } else {
                         append(type.constructor.toString()) // Debug name of an error type is more informative
                     }
@@ -373,17 +375,21 @@ internal class DescriptorRendererImpl(
 
         append("(")
 
-        val parameterTypes = type.getValueParameterTypesFromFunctionType()
-        for ((index, typeProjection) in parameterTypes.withIndex()) {
-            if (index > 0) append(", ")
+        if (type.isBuiltinExtensionFunctionalType && type.arguments.size <= 1) {
+            append("???")
+        } else {
+            val parameterTypes = type.getValueParameterTypesFromFunctionType()
+            for ((index, typeProjection) in parameterTypes.withIndex()) {
+                if (index > 0) append(", ")
 
-            val name = if (parameterNamesInFunctionalTypes) typeProjection.type.extractParameterNameFromFunctionTypeArgument() else null
-            if (name != null) {
-                append(renderName(name, false))
-                append(": ")
+                val name = if (parameterNamesInFunctionalTypes) typeProjection.type.extractParameterNameFromFunctionTypeArgument() else null
+                if (name != null) {
+                    append(renderName(name, false))
+                    append(": ")
+                }
+
+                append(renderTypeProjection(typeProjection))
             }
-
-            append(renderTypeProjection(typeProjection))
         }
 
         append(") ").append(arrow()).append(" ")

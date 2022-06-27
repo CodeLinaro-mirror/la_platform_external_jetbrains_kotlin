@@ -192,6 +192,7 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
                 value = "FirFunctionCallOrigin.Regular"
             }
         }
+        builder(integerLiteralOperatorCall, init = configurationForFunctionCallBuilder)
         builder(implicitInvokeCall, init = configurationForFunctionCallBuilder)
 
         builder(getClassCall) {
@@ -224,6 +225,14 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             default("isImplicit", "false")
         }
 
+        builder(thisReference, "FirExplicitThisReference") {
+            default("contextReceiverNumber", "-1")
+        }
+
+        builder(thisReference, "FirImplicitThisReference") {
+            default("contextReceiverNumber", "-1")
+        }
+
         builder(variableAssignment) {
             parents += qualifiedAccessBuilder
             defaultNoReceivers()
@@ -233,6 +242,7 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             parents += functionBuilder
             defaultNull("invocationKind", "label", "body", "controlFlowGraphReference")
             default("inlineStatus", "InlineStatus.Unknown")
+            withCopy()
         }
 
         builder(propertyAccessor) {

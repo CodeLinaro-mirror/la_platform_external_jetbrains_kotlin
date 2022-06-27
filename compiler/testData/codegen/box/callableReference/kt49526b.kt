@@ -1,5 +1,4 @@
-// IGNORE_BACKEND_FIR: JVM_IR
-// FIR_STATUS: callable reference type approximation hack not implemented
+// IGNORE_BACKEND: NATIVE
 
 // WITH_STDLIB
 

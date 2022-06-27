@@ -82,10 +82,17 @@ class TestGroup(
         val annotations: List<AnnotationModel>,
         val targetBackendComputer: TargetBackendComputer
     ) {
+        val testDataRoot: String
+            get() = this@TestGroup.testDataRoot
         val baseDir: String
             get() = this@TestGroup.testsRoot
 
         val testModels = ArrayList<TestClassModel>()
+        private val methodModels = mutableListOf<MethodModel>()
+
+        fun method(method: MethodModel) {
+            methodModels += method
+        }
 
         fun model(
             relativeRootPath: String,
@@ -101,6 +108,7 @@ class TestGroup(
             // directives TARGET_BACKEND/DONT_TARGET_EXACT_BACKEND won't be generated
             targetBackend: TargetBackend? = null,
             excludeDirs: List<String> = listOf(),
+            excludeDirsRecursively: List<String> = listOf(),
             filenameStartsLowerCase: Boolean? = null, // assert that file is properly named
             skipIgnored: Boolean = false, // pretty meaningless flag, affects only few test names in one test runner
             deep: Int? = null, // specifies how deep recursive search will follow directory with testdata
@@ -117,14 +125,14 @@ class TestGroup(
                     SingleClassTestModel(
                         rootFile, compiledPattern, compiledExcludedPattern, filenameStartsLowerCase, testMethod, className,
                         realTargetBackend, skipIgnored, testRunnerMethodName, additionalRunnerArguments, annotations,
-                        extractTagsFromDirectory(rootFile)
+                        extractTagsFromDirectory(rootFile), methodModels
                     )
                 } else {
                     SimpleTestClassModel(
                         rootFile, recursive, excludeParentDirs,
                         compiledPattern, compiledExcludedPattern, filenameStartsLowerCase, testMethod, className,
-                        realTargetBackend, excludeDirs, skipIgnored, testRunnerMethodName, additionalRunnerArguments, deep, annotations,
-                        extractTagsFromDirectory(rootFile)
+                        realTargetBackend, excludeDirs, excludeDirsRecursively, skipIgnored, testRunnerMethodName, additionalRunnerArguments, deep, annotations,
+                        extractTagsFromDirectory(rootFile), methodModels
                     )
                 }
             )

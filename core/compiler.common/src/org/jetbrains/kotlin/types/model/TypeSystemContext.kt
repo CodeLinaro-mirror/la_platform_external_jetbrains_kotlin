@@ -80,14 +80,14 @@ interface TypeSystemTypeFactoryContext: TypeSystemBuiltInsContext {
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean = false,
-        annotations: List<AnnotationMarker>? = null
+        attributes: List<AnnotationMarker>? = null
     ): SimpleTypeMarker
 
     fun createTypeArgument(type: KotlinTypeMarker, variance: TypeVariance): TypeArgumentMarker
     fun createStarProjection(typeParameter: TypeParameterMarker): TypeArgumentMarker
 
     fun createErrorType(debugName: String): SimpleTypeMarker
-    fun createErrorTypeWithCustomConstructor(debugName: String, constructor: TypeConstructorMarker): KotlinTypeMarker
+    fun createUninferredType(constructor: TypeConstructorMarker): KotlinTypeMarker
 }
 
 /**
@@ -133,6 +133,10 @@ interface TypeSystemCommonSuperTypesContext : TypeSystemContext, TypeSystemTypeF
      * Used only in FIR
      */
     fun TypeConstructorMarker.toErrorType(): SimpleTypeMarker
+
+    fun unionTypeAttributes(types: List<KotlinTypeMarker>): List<AnnotationMarker>
+
+    fun KotlinTypeMarker.replaceCustomAttributes(newAttributes: List<AnnotationMarker>): KotlinTypeMarker
 }
 
 // This interface is only used to declare that implementing class is supposed to be used as a TypeSystemInferenceExtensionContext component
@@ -377,6 +381,8 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
     fun TypeConstructorMarker.isClassTypeConstructor(): Boolean
     fun TypeConstructorMarker.isInterface(): Boolean
     fun TypeConstructorMarker.isIntegerLiteralTypeConstructor(): Boolean
+    fun TypeConstructorMarker.isIntegerLiteralConstantTypeConstructor(): Boolean
+    fun TypeConstructorMarker.isIntegerConstantOperatorTypeConstructor(): Boolean
     fun TypeConstructorMarker.isLocalType(): Boolean
     fun TypeConstructorMarker.isAnonymous(): Boolean
     fun TypeConstructorMarker.getTypeParameterClassifier(): TypeParameterMarker?
@@ -494,7 +500,11 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
 
     fun SimpleTypeMarker.isPrimitiveType(): Boolean
 
-    fun KotlinTypeMarker.getAnnotations(): List<AnnotationMarker>
+    fun KotlinTypeMarker.getAttributes(): List<AnnotationMarker>
+
+    fun KotlinTypeMarker.hasCustomAttributes(): Boolean
+
+    fun KotlinTypeMarker.getCustomAttributes(): List<AnnotationMarker>
 
     fun substitutionSupertypePolicy(type: SimpleTypeMarker): TypeCheckerState.SupertypesPolicy
 

@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
 import org.jetbrains.kotlin.fir.declarations.DeprecationsPerUseSite
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
+import org.jetbrains.kotlin.fir.declarations.FirContextReceiver
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationAttributes
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
@@ -51,6 +52,7 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
     override var deprecation: DeprecationsPerUseSite? = null
     override var containerSource: DeserializedContainerSource? = null
     override var dispatchReceiverType: ConeSimpleKotlinType? = null
+    override val contextReceivers: MutableList<FirContextReceiver> = mutableListOf()
     var controlFlowGraphReference: FirControlFlowGraphReference? = null
     override val valueParameters: MutableList<FirValueParameter> = mutableListOf()
     override var body: FirBlock? = null
@@ -75,6 +77,7 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
             deprecation,
             containerSource,
             dispatchReceiverType,
+            contextReceivers,
             controlFlowGraphReference,
             valueParameters,
             body,
@@ -111,4 +114,35 @@ inline fun buildAnonymousFunction(init: FirAnonymousFunctionBuilder.() -> Unit):
         callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
     }
     return FirAnonymousFunctionBuilder().apply(init).build()
+}
+
+@OptIn(ExperimentalContracts::class)
+inline fun buildAnonymousFunctionCopy(original: FirAnonymousFunction, init: FirAnonymousFunctionBuilder.() -> Unit): FirAnonymousFunction {
+    contract {
+        callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+    }
+    val copyBuilder = FirAnonymousFunctionBuilder()
+    copyBuilder.source = original.source
+    copyBuilder.annotations.addAll(original.annotations)
+    copyBuilder.moduleData = original.moduleData
+    copyBuilder.origin = original.origin
+    copyBuilder.attributes = original.attributes.copy()
+    copyBuilder.returnTypeRef = original.returnTypeRef
+    copyBuilder.receiverTypeRef = original.receiverTypeRef
+    copyBuilder.deprecation = original.deprecation
+    copyBuilder.containerSource = original.containerSource
+    copyBuilder.dispatchReceiverType = original.dispatchReceiverType
+    copyBuilder.contextReceivers.addAll(original.contextReceivers)
+    copyBuilder.controlFlowGraphReference = original.controlFlowGraphReference
+    copyBuilder.valueParameters.addAll(original.valueParameters)
+    copyBuilder.body = original.body
+    copyBuilder.symbol = original.symbol
+    copyBuilder.label = original.label
+    copyBuilder.invocationKind = original.invocationKind
+    copyBuilder.inlineStatus = original.inlineStatus
+    copyBuilder.isLambda = original.isLambda
+    copyBuilder.hasExplicitParameterList = original.hasExplicitParameterList
+    copyBuilder.typeParameters.addAll(original.typeParameters)
+    copyBuilder.typeRef = original.typeRef
+    return copyBuilder.apply(init).build()
 }

@@ -18,8 +18,6 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtTypeParameterSymbol
 import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
 import org.jetbrains.kotlin.analysis.api.types.*
 import org.jetbrains.kotlin.analysis.api.withValidityAssertion
-import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
-import org.jetbrains.kotlin.fir.types.receiverType
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
@@ -118,7 +116,7 @@ internal class KtFirFunctionalType(
 }
 
 internal class KtFirClassErrorType(
-    override val coneType: ConeClassErrorType,
+    override val coneType: ConeErrorType,
     override val token: ValidityToken,
     private val builder: KtSymbolByFirBuilder,
 ) : KtClassErrorType(), KtFirType {
@@ -132,7 +130,7 @@ internal class KtFirClassErrorType(
 
     override val candidateClassSymbols: Collection<KtClassLikeSymbol> by cached {
         val symbols = coneType.diagnostic.getCandidateSymbols().filterIsInstance<FirClassLikeSymbol<*>>()
-        symbols.map { builder.classifierBuilder.buildClassLikeSymbol(it.fir) }
+        symbols.map { builder.classifierBuilder.buildClassLikeSymbol(it) }
     }
 
     override fun asStringForDebugging(): String = withValidityAssertion { coneType.render() }
@@ -232,7 +230,7 @@ internal class KtFirIntersectionType(
 }
 
 internal class KtFirIntegerLiteralType(
-    override val coneType: ConeIntegerLiteralType,
+    override val coneType: ConeIntegerLiteralConstantType,
     override val token: ValidityToken,
     private val builder: KtSymbolByFirBuilder,
 ) : KtIntegerLiteralType(), KtFirType {

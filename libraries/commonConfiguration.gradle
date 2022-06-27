@@ -56,19 +56,14 @@ ext.configurePublishing = { Project project, configure = { } ->
     }
 }
 
-ext.configureGradlePluginPublishing = { Project project ->
-    ArtifactsKt.publishGradlePlugin(project)
-}
-
-ext.configurePluginMarkers = { Project project, withEmptyJars = true ->
-    PluginMarkersKt.publishPluginMarkers(project, withEmptyJars)
-}
-
 ext.configureFrontendIr = { Project project ->
     project.tasks.withType(KotlinCompile.class) { task ->
         task.kotlinOptions {
             if (project.kotlinBuildProperties.useFirForLibraries) {
                 freeCompilerArgs += "-Xuse-fir"
+            }
+            if (project.properties.renderDiagnosticNames) {
+                freeCompilerArgs += "-Xrender-internal-diagnostic-names"
             }
         }
     }
@@ -84,13 +79,6 @@ allprojects { project ->
 
     project.ext.configureJavadocJar = { lambda = {} ->
         ArtifactsKt.javadocJar(project) { task ->
-            lambda.delegate = task
-            lambda()
-        }
-    }
-
-    project.ext.configureModularJar = { lambda = {} ->
-        ArtifactsKt.modularJar(project) { task ->
             lambda.delegate = task
             lambda()
         }

@@ -36,8 +36,8 @@ open class DefaultValues(val defaultValue: String, val possibleValues: List<Stri
     )
 
     object JvmTargetVersions : DefaultValues(
-        "\"" + JvmTarget.DEFAULT.description + "\"",
-        JvmTarget.values().map { "\"${it.description}\"" }
+        "null",
+        JvmTarget.supportedValues().map { "\"${it.description}\"" }
     )
 
     object JsEcmaVersions : DefaultValues(

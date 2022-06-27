@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.gradle.testbase
 
 import org.gradle.testkit.runner.BuildResult
-import java.nio.file.Path
 
 /**
  * Asserts Gradle output contains [expectedSubString] string.
@@ -19,6 +18,30 @@ fun BuildResult.assertOutputContains(
         "Build output does not contain \"$expectedSubString\""
     }
 }
+
+/**
+ * Asserts Gradle output contains [expectedSubString] string exact times.
+ */
+fun BuildResult.assertOutputContainsExactTimes(
+    expectedSubString: String,
+    expectedRepetitionTimes: Int = 1
+) {
+    var currentOffset = 0
+    var count = 0
+    var nextIndex = output.indexOf(expectedSubString, currentOffset)
+
+    while (nextIndex != -1 && count < expectedRepetitionTimes + 1) {
+        count++
+        currentOffset = nextIndex + expectedSubString.length
+        nextIndex = output.indexOf(expectedSubString, currentOffset)
+    }
+
+    assert(count == expectedRepetitionTimes) {
+        printBuildOutput()
+        "Build output contains \"$expectedSubString\" $count times"
+    }
+}
+
 
 /**
  * Asserts Gradle output does not contain [notExpectedSubString] string.
@@ -92,6 +115,21 @@ fun BuildResult.assertOutputDoesNotContain(
 }
 
 /**
+ * Asserts build output contains exactly [expectedCount] of occurrences of [expected] string.
+ */
+fun BuildResult.assertOutputContainsExactlyTimes(
+    expected: String,
+    expectedCount: Int = 1
+) {
+    val occurrenceCount = expected.toRegex(RegexOption.LITERAL).findAll(output).count()
+    assert(occurrenceCount == expectedCount) {
+        printBuildOutput()
+
+        "Build output contains different number of '$expected' string occurrences - $occurrenceCount then $expectedCount"
+    }
+}
+
+/**
  * Assert build contains no warnings.
  */
 fun BuildResult.assertNoBuildWarnings(
@@ -109,5 +147,30 @@ fun BuildResult.assertNoBuildWarnings(
         printBuildOutput()
 
         "Build contains following warnings:\n ${warnings.joinToString(separator = "\n")}"
+    }
+}
+
+/**
+ * Asserts compilation is running via Kotlin daemon with given jvm arguments.
+ */
+fun BuildResult.assertKotlinDaemonJvmOptions(
+    expectedJvmArgs: List<String>
+) {
+    val jvmArgsCommonMessage = "Kotlin compile daemon JVM options: "
+    assertOutputContains(jvmArgsCommonMessage)
+    val argsRegex = "\\[.+?]".toRegex()
+    val argsStrings = output.lineSequence()
+        .filter { it.contains(jvmArgsCommonMessage) }
+        .map {
+            argsRegex.findAll(it).last().value.removePrefix("[").removeSuffix("]").split(", ")
+        }
+    val containsArgs = argsStrings.any {
+        it.containsAll(expectedJvmArgs)
+    }
+
+    assert(containsArgs) {
+        printBuildOutput()
+
+        "${argsStrings.toList()} does not contain expected args: $expectedJvmArgs"
     }
 }

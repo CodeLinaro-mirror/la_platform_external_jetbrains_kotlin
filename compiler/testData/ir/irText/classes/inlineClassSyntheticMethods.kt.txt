@@ -15,7 +15,7 @@ class C<T : Any?> {
 
 }
 
-inline class IC<TT : Any?> {
+value class IC<TT : Any?> {
   constructor(c: C<TT>) /* primary */ {
     super/*Any*/()
     /* <init>() */

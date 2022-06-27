@@ -9,14 +9,14 @@ import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.PhaserState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
-import org.jetbrains.kotlin.ir.backend.js.ic.ModuleCache
-import org.jetbrains.kotlin.ir.backend.js.ic.PersistentCacheConsumer
+import org.jetbrains.kotlin.ir.backend.js.ic.ArtifactCache
+import org.jetbrains.kotlin.ir.backend.js.ic.JsMultiModuleCache
+import org.jetbrains.kotlin.ir.backend.js.ic.ModuleArtifact
+import org.jetbrains.kotlin.ir.backend.js.lower.collectNativeImplementations
 import org.jetbrains.kotlin.ir.backend.js.lower.generateJsTests
 import org.jetbrains.kotlin.ir.backend.js.lower.moveBodilessDeclarationsToSeparatePlace
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.*
-import org.jetbrains.kotlin.ir.backend.js.utils.sanitizeName
-import org.jetbrains.kotlin.ir.backend.js.utils.serialization.JsIrAstDeserializer
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltInsOverDescriptors
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
@@ -24,7 +24,6 @@ import org.jetbrains.kotlin.ir.util.noUnboundLeft
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.serialization.js.ModuleKind
-import java.io.ByteArrayInputStream
 
 @Suppress("UNUSED_PARAMETER")
 @OptIn(ObsoleteDescriptorBasedAPI::class)
@@ -48,7 +47,7 @@ fun compileWithIC(
     safeExternalBoolean: Boolean = false,
     safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
     filesToLower: Set<String>?,
-    cacheConsumer: PersistentCacheConsumer,
+    artifactCache: ArtifactCache,
 ) {
 
     val mainModule = module
@@ -80,6 +79,7 @@ fun compileWithIC(
     symbolTable.noUnboundLeft("Unbound symbols at the end of linker")
 
     allModules.forEach {
+        collectNativeImplementations(context, module)
         moveBodilessDeclarationsToSeparatePlace(context, it)
     }
 
@@ -97,9 +97,11 @@ fun compileWithIC(
         module.files.filter { it.fileEntry.name in dirties }
     } ?: module.files
 
-    val ast = transformer.generateBinaryAst(dirtyFiles, allModules)
-
-    ast.entries.forEach { (path, bytes) -> cacheConsumer.commitBinaryAst(path, bytes) }
+    val astAndFragments = transformer.generateBinaryAst(dirtyFiles, allModules)
+    astAndFragments.forEach {
+        artifactCache.saveFragment(it.srcPath, it.fragment)
+        artifactCache.saveBinaryAst(it.srcPath, it.binaryAst)
+    }
 }
 
 fun lowerPreservingTags(modules: Iterable<IrModuleFragment>, context: JsIrBackendContext, phaseConfig: PhaseConfig, controller: WholeWorldStageController) {
@@ -114,37 +116,4 @@ fun lowerPreservingTags(modules: Iterable<IrModuleFragment>, context: JsIrBacken
     }
 
     controller.currentStage = pirLowerings.size + 1
-}
-
-
-@Suppress("UNUSED_PARAMETER")
-fun generateJsFromAst(
-    mainModuleName: String,
-    moduleKind: ModuleKind,
-    sourceMapsInfo: SourceMapsInfo?,
-    translationModes: Set<TranslationMode>,
-    caches: Map<String, ModuleCache>,
-    relativeRequirePath: Boolean = false,
-): CompilerResult {
-    fun compilationOutput(multiModule: Boolean): CompilationOutputs {
-        val deserializer = JsIrAstDeserializer()
-        val jsIrProgram = JsIrProgram(caches.values.map {
-            JsIrModule(
-                it.name.safeModuleName,
-                sanitizeName(it.name.safeModuleName),
-                it.asts.values.sortedBy { it.name }.mapNotNull { it.ast?.let { deserializer.deserialize(ByteArrayInputStream(it)) } })
-        })
-
-        return generateWrappedModuleBody(
-            multiModule = multiModule,
-            mainModuleName = mainModuleName,
-            moduleKind = moduleKind,
-            jsIrProgram,
-            sourceMapsInfo = sourceMapsInfo,
-            relativeRequirePath = relativeRequirePath,
-            generateScriptModule = false,
-        )
-    }
-
-    return CompilerResult(translationModes.associate { it to compilationOutput(it.perModule) }, null)
 }

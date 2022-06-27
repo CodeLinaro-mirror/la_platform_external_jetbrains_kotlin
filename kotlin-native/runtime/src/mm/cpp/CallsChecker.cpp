@@ -52,8 +52,10 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_", // std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
         "_ZN9__gnu_cxx27__verbose_terminate_handlerEv", // __gnu_cxx::__verbose_terminate_handler()
         "_Znwm", // new
-        "_Znwy",
+        "_Znwy", // operator new(unsigned long long)
         "_ZdlPv", // delete
+        "_ZNSt3__16thread20hardware_concurrencyEv", // std::__1::thread::hardware_concurrency()
+        "_ZNSt6thread20hardware_concurrencyEv", // std::thread::hardware_concurrency()
         "__mingw_vsnprintf",
         "__cxa_allocate_exception",
         "__cxa_begin_catch",
@@ -112,6 +114,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "malloc",
         "memcmp",
         "memmem",
+        "mmap",
+        "\x01_mmap",
         "munmap",
         "\x01_munmap",
         "nextafter",
@@ -136,6 +140,10 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "tanhf",
         "vsnprintf",
         "bcmp",
+
+        "getenv",
+        "setenv",
+        "unsetenv",
 
         "dispatch_once",
         "pthread_equal",
@@ -237,6 +245,13 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "llvm.objc.autorelease",
         "llvm.objc.autoreleaseReturnValue",
         "llvm.objc.retain",
+
+        // Not used in Runnable state, but this would be ok.
+        // If we don't include it to the good functions list, the code generator will emit redundant state check at the callsite,
+        // and this would ruin the code: the state check would be inserted between retainAutoreleasedReturnValue and the actual call
+        // producing "autoreleased return value", so the latter won't be able to detect the former, and the autorelease elimination
+        // won't work.
+        "llvm.objc.retainAutoreleasedReturnValue",
         "llvm.objectsize.*",
         "llvm.pow.*",
         "llvm.rint.*",

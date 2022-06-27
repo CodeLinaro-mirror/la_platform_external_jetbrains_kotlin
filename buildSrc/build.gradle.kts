@@ -22,7 +22,6 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.37")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
         classpath("org.jetbrains.kotlin:kotlin-sam-with-receiver:${project.bootstrapKotlinVersion}")
     }
@@ -163,8 +162,9 @@ java {
 dependencies {
     implementation(kotlin("stdlib", embeddedKotlinVersion))
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:0.0.37")
-    implementation("com.gradle.publish:plugin-publish-plugin:0.14.0")
+    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
+    implementation("com.gradle.publish:plugin-publish-plugin:0.20.0")
+    implementation("org.jetbrains.dokka:dokka-gradle-plugin:1.6.10")
 
     implementation("net.rubygrapefruit:native-platform:${property("versions.native-platform")}")
     implementation("net.rubygrapefruit:native-platform-windows-amd64:${property("versions.native-platform")}")
@@ -190,7 +190,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
     implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion")
-    implementation("com.ullink.slack:simpleslackapi:$slackApiVersion")
+    implementation("com.ullink.slack:simpleslackapi:$slackApiVersion") {
+        exclude(group = "com.google.code.gson", module = "gson") // Workaround for Gradle dependency resolution error
+    }
+    implementation("com.google.code.gson:gson:2.8.9") // Workaround for Gradle dependency resolution error
 
     implementation("io.ktor:ktor-client-auth:$ktorVersion")
     implementation("io.ktor:ktor-client-core:$ktorVersion")

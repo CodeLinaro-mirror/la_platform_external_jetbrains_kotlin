@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.builder.buildContextReceiver
 import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
@@ -28,9 +29,11 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.resolve.typeFromCallee
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.calls.inference.addEqualityConstraintIfCompatible
 import org.jetbrains.kotlin.resolve.calls.inference.addSubtypeConstraintIfCompatible
 import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionMode
@@ -96,37 +99,18 @@ class FirCallCompleter(
         if (call is FirExpression) {
             val resolvedTypeRef = typeRef.resolvedTypeFromPrototype(initialType)
             call.resultType = resolvedTypeRef
-            session.lookupTracker?.recordTypeResolveAsLookup(resolvedTypeRef, call.source, null)
+            session.lookupTracker?.recordTypeResolveAsLookup(resolvedTypeRef, call.source, components.context.file.source)
         }
 
-        val expectedTypeConstraintPosition = ConeExpectedTypeConstraintPosition(expectedTypeMismatchIsReportedInChecker)
-
-        when {
-            expectedTypeRef !is FirResolvedTypeRef -> {
-                // nothing
-            }
-            !shouldEnforceExpectedType -> {
-                candidate.system.addSubtypeConstraintIfCompatible(
-                    initialType, expectedTypeRef.type, expectedTypeConstraintPosition
-                )
-            }
-            isFromCast -> when {
-                candidate.isFunctionForExpectTypeFromCastFeature() -> {
-                    candidate.system.addSubtypeConstraint(
-                        initialType, expectedTypeRef.type,
-                        ConeExpectedTypeConstraintPosition(expectedTypeMismatchIsReportedInChecker = false),
-                    )
-                }
-            }
-            !expectedTypeRef.coneType.isUnitOrFlexibleUnit || !mayBeCoercionToUnitApplied -> {
-                candidate.system.addSubtypeConstraint(initialType, expectedTypeRef.type, expectedTypeConstraintPosition)
-            }
-            candidate.system.notFixedTypeVariables.isNotEmpty() -> {
-                candidate.system.addSubtypeConstraintIfCompatible(
-                    initialType, expectedTypeRef.type, expectedTypeConstraintPosition
-                )
-            }
-        }
+        addConstraintFromExpectedType(
+            expectedTypeMismatchIsReportedInChecker,
+            expectedTypeRef,
+            shouldEnforceExpectedType,
+            candidate,
+            initialType,
+            isFromCast,
+            mayBeCoercionToUnitApplied
+        )
 
         val completionMode = candidate.computeCompletionMode(session.inferenceComponents, expectedTypeRef, initialType)
 
@@ -141,9 +125,12 @@ class FirCallCompleter(
                         .buildAbstractResultingSubstitutor(session.typeContext) as ConeSubstitutor
                     val completedCall = call.transformSingle(
                         FirCallCompletionResultsWriterTransformer(
-                            session, finalSubstitutor, components.returnTypeCalculator,
+                            session, finalSubstitutor,
+                            components.returnTypeCalculator,
                             session.typeApproximator,
                             components.dataFlowAnalyzer,
+                            components.integerLiteralAndOperatorApproximationTransformer,
+                            components.context
                         ),
                         null
                     )
@@ -157,11 +144,51 @@ class FirCallCompleter(
 
             ConstraintSystemCompletionMode.PARTIAL -> {
                 runCompletionForCall(candidate, completionMode, call, initialType, analyzer)
-                inferenceSession.addPartiallyResolvedCall(call)
+                if (inferenceSession !is FirBuilderInferenceSession) {
+                    inferenceSession.addPartiallyResolvedCall(call)
+                }
                 CompletionResult(call, false)
             }
 
             ConstraintSystemCompletionMode.UNTIL_FIRST_LAMBDA -> throw IllegalStateException()
+        }
+    }
+
+    private fun addConstraintFromExpectedType(
+        expectedTypeMismatchIsReportedInChecker: Boolean,
+        expectedTypeRef: FirTypeRef?,
+        shouldEnforceExpectedType: Boolean,
+        candidate: Candidate,
+        initialType: ConeKotlinType,
+        isFromCast: Boolean,
+        mayBeCoercionToUnitApplied: Boolean
+    ) {
+        val expectedType = expectedTypeRef?.coneTypeSafe<ConeKotlinType>() ?: return
+        val expectedTypeConstraintPosition = ConeExpectedTypeConstraintPosition(expectedTypeMismatchIsReportedInChecker)
+
+        val system = candidate.system
+        when {
+            !shouldEnforceExpectedType -> {
+                system.addSubtypeConstraintIfCompatible(initialType, expectedType, expectedTypeConstraintPosition)
+            }
+            isFromCast -> {
+                if (candidate.isFunctionForExpectTypeFromCastFeature()) {
+                    system.addSubtypeConstraint(
+                        initialType, expectedType,
+                        ConeExpectedTypeConstraintPosition(expectedTypeMismatchIsReportedInChecker = false),
+                    )
+                }
+            }
+            !expectedType.isUnitOrFlexibleUnit || !mayBeCoercionToUnitApplied -> {
+                system.addSubtypeConstraint(initialType, expectedType, expectedTypeConstraintPosition)
+            }
+            system.notFixedTypeVariables.isEmpty() -> return
+            expectedType.isUnit -> {
+                system.addEqualityConstraintIfCompatible(initialType, expectedType, expectedTypeConstraintPosition)
+            }
+            else -> {
+                system.addSubtypeConstraintIfCompatible(initialType, expectedType, expectedTypeConstraintPosition)
+            }
         }
     }
 
@@ -181,7 +208,7 @@ class FirCallCompleter(
             initialType,
             transformer.resolutionContext
         ) {
-            analyzer.analyze(candidate.system.asPostponedArgumentsAnalyzerContext(), it, candidate, completionMode)
+            analyzer.analyze(candidate.system, it, candidate, completionMode)
         }
     }
 
@@ -193,7 +220,7 @@ class FirCallCompleter(
         val csBuilder = candidate.system.getBuilder()
         csBuilder.registerVariable(returnVariable)
         val functionalType = csBuilder.buildCurrentSubstitutor()
-            .safeSubstitute(csBuilder.asConstraintSystemCompleterContext(), atom.expectedType!!) as ConeClassLikeType
+            .safeSubstitute(csBuilder, atom.expectedType!!) as ConeClassLikeType
         val size = functionalType.typeArguments.size
         val expectedType = ConeClassLikeTypeImpl(
             functionalType.lookupTag,
@@ -214,6 +241,8 @@ class FirCallCompleter(
             session, substitutor, components.returnTypeCalculator,
             session.typeApproximator,
             components.dataFlowAnalyzer,
+            components.integerLiteralAndOperatorApproximationTransformer,
+            components.context,
             mode
         )
     }
@@ -232,6 +261,7 @@ class FirCallCompleter(
         override fun analyzeAndGetLambdaReturnArguments(
             lambdaAtom: ResolvedLambdaAtom,
             receiverType: ConeKotlinType?,
+            contextReceivers: List<ConeKotlinType>,
             parameters: List<ConeKotlinType>,
             expectedReturnType: ConeKotlinType?,
             stubsForPostponedVariables: Map<TypeVariableMarker, StubTypeMarker>,
@@ -280,20 +310,33 @@ class FirCallCompleter(
                 }
             )
 
+            if (contextReceivers.isNotEmpty()) {
+                lambdaArgument.replaceContextReceivers(
+                    contextReceivers.map { contextReceiverType ->
+                        buildContextReceiver {
+                            typeRef = buildResolvedTypeRef {
+                                type = contextReceiverType
+                            }
+                        }
+                    }
+                )
+            }
+
             val lookupTracker = session.lookupTracker
+            val fileSource = components.file.source
             lambdaArgument.valueParameters.forEachIndexed { index, parameter ->
                 val newReturnType = parameters[index].approximateLambdaInputType()
                 val newReturnTypeRef = if (parameter.returnTypeRef is FirImplicitTypeRef) {
                     newReturnType.toFirResolvedTypeRef(parameter.source)
                 } else parameter.returnTypeRef.resolvedTypeFromPrototype(newReturnType)
                 parameter.replaceReturnTypeRef(newReturnTypeRef)
-                lookupTracker?.recordTypeResolveAsLookup(newReturnTypeRef, parameter.source, null)
+                lookupTracker?.recordTypeResolveAsLookup(newReturnTypeRef, parameter.source, fileSource)
             }
 
             lambdaArgument.replaceValueParameters(lambdaArgument.valueParameters + listOfNotNull(itParam))
             lambdaArgument.replaceReturnTypeRef(
                 expectedReturnTypeRef?.also {
-                    lookupTracker?.recordTypeResolveAsLookup(it, lambdaArgument.source, null)
+                    lookupTracker?.recordTypeResolveAsLookup(it, lambdaArgument.source, fileSource)
                 } ?: components.noExpectedType
             )
 

@@ -74,7 +74,8 @@ open class DefaultInlineFunctionResolver(open val context: CommonBackendContext)
 class FunctionInlining(
     val context: CommonBackendContext,
     val inlineFunctionResolver: InlineFunctionResolver,
-    val innerClassesSupport: InnerClassesSupport? = null
+    val innerClassesSupport: InnerClassesSupport? = null,
+    val insertAdditionalImplicitCasts: Boolean = false
 ) : IrElementTransformerVoidWithContext(), BodyLoweringPass {
 
     constructor(context: CommonBackendContext) : this(context, DefaultInlineFunctionResolver(context), null)
@@ -82,6 +83,12 @@ class FunctionInlining(
         context,
         DefaultInlineFunctionResolver(context),
         innerClassesSupport
+    )
+    constructor(context: CommonBackendContext, innerClassesSupport: InnerClassesSupport?, insertAdditionalImplicitCasts: Boolean) : this(
+        context,
+        DefaultInlineFunctionResolver(context),
+        innerClassesSupport,
+        insertAdditionalImplicitCasts
     )
 
     private var containerScope: ScopeWithIr? = null
@@ -161,7 +168,6 @@ class FunctionInlining(
                 // there also get temporary declaration like this which leads to some unclear behaviour. Since I am not aware
                 // enough about PIR internals the simplest way seemed to me is to unregister temporary function. Hope it is going
                 // to be removed ASAP along with registering every PIR declaration.
-                factory.unlistFunction(this)
 
                 parent = callee.parent
                 if (performRecursiveInline) {
@@ -211,8 +217,14 @@ class FunctionInlining(
                     override fun visitReturn(expression: IrReturn): IrExpression {
                         expression.transformChildrenVoid(this)
 
-                        if (expression.returnTargetSymbol == copiedCallee.symbol)
-                            return irBuilder.at(expression).irReturn(expression.value)
+                        if (expression.returnTargetSymbol == copiedCallee.symbol) {
+                            val expr =
+                                if (insertAdditionalImplicitCasts)
+                                    expression.value.implicitCastIfNeededTo(callSite.type)
+                                else
+                                    expression.value
+                            return irBuilder.at(expression).irReturn(expr)
+                        }
                         return expression
                     }
                 })
@@ -230,9 +242,15 @@ class FunctionInlining(
 
                 argument.transformChildrenVoid(this) // Default argument can contain subjects for substitution.
 
-                return if (argument is IrGetValueWithoutLocation)
-                    argument.withLocation(newExpression.startOffset, newExpression.endOffset)
-                else (copyIrElement.copy(argument) as IrExpression)
+                var ret =
+                    if (argument is IrGetValueWithoutLocation)
+                        argument.withLocation(newExpression.startOffset, newExpression.endOffset)
+                    else
+                        (copyIrElement.copy(argument) as IrExpression)
+
+                if (insertAdditionalImplicitCasts)
+                    ret = ret.implicitCastIfNeededTo(newExpression.type)
+                return ret
             }
 
             override fun visitCall(expression: IrCall): IrExpression {
@@ -389,7 +407,8 @@ class FunctionInlining(
         }
 
         private fun IrExpression.implicitCastIfNeededTo(type: IrType) =
-            if (type == this.type)
+            // No need to cast expressions of type nothing
+            if (type == this.type || (insertAdditionalImplicitCasts && this.type == context.irBuiltIns.nothingType))
                 this
             else
                 IrTypeOperatorCallImpl(startOffset, endOffset, type, IrTypeOperator.IMPLICIT_CAST, type, this)
@@ -583,12 +602,6 @@ class FunctionInlining(
                     substituteMap[argument.parameter] = argument.argumentExpression
                     (argument.argumentExpression as? IrFunctionReference)?.let { evaluationStatements += evaluateArguments(it) }
 
-                    (argument.argumentExpression as? IrFunctionExpression)?.let {
-                        if (deepInline) {
-                            it.function.factory.unlistFunction(it.function)
-                        }
-                    }
-
                     return@forEach
                 }
 
@@ -649,9 +662,6 @@ class FunctionInlining(
 
         fun withLocation(startOffset: Int, endOffset: Int) =
             IrGetValueImpl(startOffset, endOffset, type, symbol, origin)
-
-        override fun copyWithOffsets(newStartOffset: Int, newEndOffset: Int): IrGetValue =
-            withLocation(newStartOffset, newEndOffset)
     }
 }
 

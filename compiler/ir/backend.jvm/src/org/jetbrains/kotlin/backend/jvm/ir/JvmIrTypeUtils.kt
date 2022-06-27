@@ -8,10 +8,7 @@ package org.jetbrains.kotlin.backend.jvm.ir
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.unboxInlineClass
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrScript
-import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
-import org.jetbrains.kotlin.ir.declarations.IrTypeParametersContainer
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
@@ -39,14 +36,13 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
  * `T : Comparable<T>` is replaced by `Comparable<*>`.
  */
 fun IrType.eraseTypeParameters(): IrType = when (this) {
-    is IrErrorType -> this
     is IrSimpleType ->
         when (val owner = classifier.owner) {
             is IrScript -> {
                 assert(arguments.isEmpty()) { "Script can't be generic: " + owner.render() }
-                IrSimpleTypeImpl(classifier, hasQuestionMark, emptyList(), annotations)
+                IrSimpleTypeImpl(classifier, nullability, emptyList(), annotations)
             }
-            is IrClass -> IrSimpleTypeImpl(classifier, hasQuestionMark, arguments.map { it.eraseTypeParameters() }, annotations)
+            is IrClass -> IrSimpleTypeImpl(classifier, nullability, arguments.map { it.eraseTypeParameters() }, annotations)
             is IrTypeParameter -> {
                 val upperBound = owner.erasedUpperBound
                 IrSimpleTypeImpl(
@@ -59,6 +55,8 @@ fun IrType.eraseTypeParameters(): IrType = when (this) {
             }
             else -> error("Unknown IrSimpleType classifier kind: $owner")
         }
+    is IrErrorType ->
+        this
     else -> error("Unknown IrType kind: $this")
 }
 
@@ -86,12 +84,13 @@ val IrTypeParameter.erasedUpperBound: IrClass
     }
 
 val IrType.erasedUpperBound: IrClass
-    get() = when (val classifier = classifierOrNull) {
-        is IrClassSymbol -> classifier.owner
-        is IrTypeParameterSymbol -> classifier.owner.erasedUpperBound
-        is IrScriptSymbol -> classifier.owner.targetClass!!.owner
-        else -> error(render())
-    }
+    get() =
+        when (val classifier = classifierOrNull) {
+            is IrClassSymbol -> classifier.owner
+            is IrTypeParameterSymbol -> classifier.owner.erasedUpperBound
+            is IrScriptSymbol -> classifier.owner.targetClass!!.owner
+            else -> error(render())
+        }
 
 /**
  * Get the default null/0 value for the type.
@@ -106,7 +105,7 @@ fun IrType.defaultValue(startOffset: Int, endOffset: Int, context: JvmBackendCon
         return classifier.owner.representativeUpperBound.defaultValue(startOffset, endOffset, context)
     }
 
-    if (this !is IrSimpleType || hasQuestionMark || classOrNull?.owner?.isInline != true)
+    if (this !is IrSimpleType || this.isMarkedNullable() || classOrNull?.owner?.isSingleFieldValueClass != true)
         return IrConstImpl.defaultValueForType(startOffset, endOffset, this)
 
     val underlyingType = unboxInlineClass()
@@ -119,7 +118,7 @@ fun IrType.defaultValue(startOffset: Int, endOffset: Int, context: JvmBackendCon
 }
 
 fun IrType.isInlineClassType(): Boolean =
-    erasedUpperBound.isInline
+    erasedUpperBound.isSingleFieldValueClass
 
 val IrType.upperBound: IrType
     get() = erasedUpperBound.symbol.starProjectedType
@@ -132,13 +131,13 @@ fun IrType.eraseToScope(visibleTypeParameters: Set<IrTypeParameter>): IrType {
     return when (classifier) {
         is IrClassSymbol ->
             IrSimpleTypeImpl(
-                classifier, hasQuestionMark, arguments.map { it.eraseToScope(visibleTypeParameters) }, annotations
+                classifier, nullability, arguments.map { it.eraseToScope(visibleTypeParameters) }, annotations
             )
         is IrTypeParameterSymbol ->
             if (classifier.owner in visibleTypeParameters)
                 this
             else
-                upperBound.withHasQuestionMark(this.hasQuestionMark)
+                upperBound.mergeNullability(this)
         else -> error("unknown IrType classifier kind: ${classifier.owner.render()}")
     }
 }

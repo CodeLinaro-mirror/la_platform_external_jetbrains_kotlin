@@ -54,9 +54,7 @@ import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.classes.FacadeCache
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.CliModuleVisibilityManagerImpl
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
+import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.config.ContentRoot
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
@@ -66,7 +64,6 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.toBooleanLenient
 import org.jetbrains.kotlin.cli.jvm.compiler.jarfs.FastJarFileSystem
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
@@ -110,7 +107,7 @@ import java.util.zip.ZipFile
 
 class KotlinCoreEnvironment private constructor(
     val projectEnvironment: ProjectEnvironment,
-    private val initialConfiguration: CompilerConfiguration,
+    val configuration: CompilerConfiguration,
     configFiles: EnvironmentConfigFiles
 ) {
 
@@ -134,6 +131,9 @@ class KotlinCoreEnvironment private constructor(
             }
 
             jarFileSystem = when {
+                configuration.getBoolean(JVMConfigurationKeys.USE_PSI_CLASS_FILES_READING) -> {
+                    applicationEnvironment.jarFileSystem
+                }
                 configuration.getBoolean(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM) || configuration.getBoolean(CommonConfigurationKeys.USE_FIR) -> {
                     val fastJarFs = FastJarFileSystem.createIfUnmappingPossible()
 
@@ -195,42 +195,12 @@ class KotlinCoreEnvironment private constructor(
     private val classpathRootsResolver: ClasspathRootsResolver
     private val initialRoots = ArrayList<JavaRoot>()
 
-    val configuration: CompilerConfiguration = initialConfiguration.apply { setupJdkClasspathRoots(configFiles) }.copy()
-
     init {
-        PersistentFSConstants::class.java.getDeclaredField("ourMaxIntellisenseFileSize")
-            .apply { isAccessible = true }
-            .setInt(null, FileUtilRt.LARGE_FOR_CONTENT_LOADING)
-
+        projectEnvironment.configureProjectEnvironment(configuration, configFiles)
         val project = projectEnvironment.project
-
-        val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
-
-        if (configuration.getBoolean(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM)) {
-            messageCollector?.report(
-                STRONG_WARNING,
-                "Using new faster version of JAR FS: it should make your build faster, but the new implementation is experimental"
-            )
-        }
-
-        (projectEnvironment as? ProjectEnvironment)?.registerExtensionsFromPlugins(configuration)
-        // otherwise consider that project environment is properly configured before passing to the environment
-        // TODO: consider some asserts to check important extension points
-
         project.registerService(DeclarationProviderFactoryService::class.java, CliDeclarationProviderFactoryService(sourceFiles))
 
-        val isJvm = configFiles == EnvironmentConfigFiles.JVM_CONFIG_FILES
-        project.registerService(ModuleVisibilityManager::class.java, CliModuleVisibilityManagerImpl(isJvm))
-
-        registerProjectServicesForCLI(projectEnvironment)
-
-        registerProjectServices(projectEnvironment.project)
-
-        for (extension in CompilerConfigurationExtension.getInstances(project)) {
-            extension.updateConfiguration(configuration)
-        }
-
-        sourceFiles += createKtFiles(project)
+        sourceFiles += createSourceFilesFromSourceRoots(configuration, project, getSourceRootsCheckingForDuplicates())
 
         collectAdditionalSources(project)
 
@@ -238,14 +208,16 @@ class KotlinCoreEnvironment private constructor(
 
         val javaFileManager = ServiceManager.getService(project, CoreJavaFileManager::class.java) as KotlinCliJavaFileManagerImpl
 
+        val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+
         val jdkHome = configuration.get(JVMConfigurationKeys.JDK_HOME)
-        val jrtFileSystem = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.JRT_PROTOCOL)
+        val releaseTarget = configuration.get(JVMConfigurationKeys.JDK_RELEASE)
         val javaModuleFinder = CliJavaModuleFinder(
-            jdkHome?.path?.let { path ->
-                jrtFileSystem?.findFileByPath(path + URLUtil.JAR_SEPARATOR)
-            },
+            jdkHome,
+            messageCollector,
             javaFileManager,
-            project
+            project,
+            releaseTarget
         )
 
         val outputDirectory =
@@ -260,7 +232,8 @@ class KotlinCoreEnvironment private constructor(
             javaModuleFinder,
             !configuration.getBoolean(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE),
             outputDirectory?.let(this::findLocalFile),
-            javaFileManager
+            javaFileManager,
+            releaseTarget
         )
 
         val (initialRoots, javaModules) =
@@ -288,7 +261,7 @@ class KotlinCoreEnvironment private constructor(
             CliJavaModuleResolver(classpathRootsResolver.javaModuleGraph, javaModules, javaModuleFinder.systemModules.toList(), project)
         )
 
-        val finderFactory = CliVirtualFileFinderFactory(rootsIndex)
+        val finderFactory = CliVirtualFileFinderFactory(rootsIndex, releaseTarget != null)
         project.registerService(MetadataFinderFactory::class.java, finderFactory)
         project.registerService(VirtualFileFinderFactory::class.java, finderFactory)
 
@@ -448,9 +421,6 @@ class KotlinCoreEnvironment private constructor(
 
     fun getSourceFiles(): List<KtFile> = sourceFiles
 
-    private fun createKtFiles(project: Project): List<KtFile> =
-        createSourceFilesFromSourceRoots(configuration, project, getSourceRootsCheckingForDuplicates())
-
     internal fun report(severity: CompilerMessageSeverity, message: String) = configuration.report(severity, message)
 
     companion object {
@@ -584,6 +554,31 @@ class KotlinCoreEnvironment private constructor(
             }
         }
 
+        @JvmStatic
+        fun ProjectEnvironment.configureProjectEnvironment(
+            configuration: CompilerConfiguration,
+            configFiles: EnvironmentConfigFiles
+        ) {
+            PersistentFSConstants::class.java.getDeclaredField("ourMaxIntellisenseFileSize")
+                .apply { isAccessible = true }
+                .setInt(null, FileUtilRt.LARGE_FOR_CONTENT_LOADING)
+
+            registerExtensionsFromPlugins(configuration)
+            // otherwise consider that project environment is properly configured before passing to the environment
+            // TODO: consider some asserts to check important extension points
+
+            val isJvm = configFiles == EnvironmentConfigFiles.JVM_CONFIG_FILES
+            project.registerService(ModuleVisibilityManager::class.java, CliModuleVisibilityManagerImpl(isJvm))
+
+            registerProjectServicesForCLI(this)
+
+            registerProjectServices(project)
+
+            for (extension in CompilerConfigurationExtension.getInstances(project)) {
+                extension.updateConfiguration(configuration)
+            }
+        }
+
         private fun createApplicationEnvironment(
             parentDisposable: Disposable, configuration: CompilerConfiguration, unitTestMode: Boolean
         ): KotlinCoreApplicationEnvironment {
@@ -650,6 +645,7 @@ class KotlinCoreEnvironment private constructor(
             CandidateInterceptor.registerExtensionPoint(project)
             DescriptorSerializerPlugin.registerExtensionPoint(project)
             FirExtensionRegistrarAdapter.registerExtensionPoint(project)
+            TypeAttributeTranslatorExtension.registerExtensionPoint(project)
         }
 
         internal fun registerExtensionsFromPlugins(project: MockProject, configuration: CompilerConfiguration) {
@@ -721,7 +717,7 @@ class KotlinCoreEnvironment private constructor(
             }
         }
 
-        private fun registerProjectServicesForCLI(@Suppress("UNUSED_PARAMETER") projectEnvironment: JavaCoreProjectEnvironment) {
+        fun registerProjectServicesForCLI(@Suppress("UNUSED_PARAMETER") projectEnvironment: JavaCoreProjectEnvironment) {
             /**
              * Note that Kapt may restart code analysis process, and CLI services should be aware of that.
              * Use PsiManager.getModificationTracker() to ensure that all the data you cached is still valid.
@@ -749,31 +745,6 @@ class KotlinCoreEnvironment private constructor(
                 PsiElementFinder.EP.getPoint(project).registerExtension(JavaElementFinder(this))
                 @Suppress("DEPRECATION")
                 PsiElementFinder.EP.getPoint(project).registerExtension(PsiElementFinderImpl(this))
-            }
-        }
-
-        private fun CompilerConfiguration.setupJdkClasspathRoots(configFiles: EnvironmentConfigFiles) {
-            if (getBoolean(JVMConfigurationKeys.NO_JDK)) return
-
-            val jvmTarget = configFiles == EnvironmentConfigFiles.JVM_CONFIG_FILES
-            if (!jvmTarget) return
-
-            val jdkHome = get(JVMConfigurationKeys.JDK_HOME)
-            val (javaRoot, classesRoots) = if (jdkHome == null) {
-                val javaHome = File(System.getProperty("java.home"))
-                put(JVMConfigurationKeys.JDK_HOME, javaHome)
-
-                javaHome to PathUtil.getJdkClassesRootsFromCurrentJre()
-            } else {
-                jdkHome to PathUtil.getJdkClassesRoots(jdkHome)
-            }
-
-            if (!CoreJrtFileSystem.isModularJdk(javaRoot)) {
-                if (classesRoots.isEmpty()) {
-                    report(ERROR, "No class roots are found in the JDK path: $javaRoot")
-                } else {
-                    addJvmSdkRoots(classesRoots)
-                }
             }
         }
     }

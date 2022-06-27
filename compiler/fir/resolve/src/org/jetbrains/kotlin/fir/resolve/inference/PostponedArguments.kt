@@ -15,9 +15,12 @@ import org.jetbrains.kotlin.fir.resolve.calls.CheckerSink
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
 import org.jetbrains.kotlin.fir.resolve.createFunctionalType
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeArgumentConstraintPosition
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeExplicitTypeParameterConstraintPosition
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.addSubtypeConstraintIfCompatible
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
+import org.jetbrains.kotlin.types.model.typeConstructor
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 fun Candidate.preprocessLambdaArgument(
@@ -31,7 +34,17 @@ fun Candidate.preprocessLambdaArgument(
     returnTypeVariable: ConeTypeVariableForLambdaReturnType? = null
 ): PostponedResolvedAtom {
     if (expectedType != null && expectedTypeRef != null && !duringCompletion && csBuilder.isTypeVariable(expectedType)) {
-        return LambdaWithTypeVariableAsExpectedTypeAtom(argument, expectedType, expectedTypeRef, this)
+        val expectedTypeVariableWithConstraints = csBuilder.currentStorage().notFixedTypeVariables[expectedType.typeConstructor(context.typeContext)]
+
+        if (expectedTypeVariableWithConstraints != null) {
+            val explicitTypeArgument = expectedTypeVariableWithConstraints.constraints.find {
+                it.kind == ConstraintKind.EQUALITY && it.position.from is ConeExplicitTypeParameterConstraintPosition
+            }?.type as ConeKotlinType?
+
+            if (explicitTypeArgument == null || explicitTypeArgument.typeArguments.isNotEmpty()) {
+                return LambdaWithTypeVariableAsExpectedTypeAtom(argument, expectedType, expectedTypeRef, this)
+            }
+        }
     }
 
     val anonymousFunction = argument.anonymousFunction
@@ -48,13 +61,13 @@ fun Candidate.preprocessLambdaArgument(
         ) ?: extractLambdaInfo(expectedType, anonymousFunction, csBuilder, context.session, this)
 
     if (expectedType != null) {
-        // TODO: add SAM conversion processing
         val parameters = resolvedArgument.parameters
         val lambdaType = createFunctionalType(
             if (resolvedArgument.coerceFirstParameterToExtensionReceiver) parameters.drop(1) else parameters,
             resolvedArgument.receiver,
             resolvedArgument.returnType,
-            isSuspend = resolvedArgument.isSuspend
+            isSuspend = resolvedArgument.isSuspend,
+            contextReceivers = resolvedArgument.contextReceivers,
         )
 
         val position = ConeArgumentConstraintPosition(resolvedArgument.atom)
@@ -112,6 +125,10 @@ private fun extractLambdaInfo(
         it.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: nothingType
     }
 
+    val contextReceivers = argument.contextReceivers.map {
+        it.typeRef.coneTypeSafe<ConeKotlinType>() ?: nothingType
+    }
+
     val newTypeVariableUsed = returnType == typeVariable.defaultType
     if (newTypeVariableUsed) csBuilder.registerVariable(typeVariable)
 
@@ -120,6 +137,7 @@ private fun extractLambdaInfo(
         expectedType,
         isSuspend,
         receiverType,
+        contextReceivers,
         parameters,
         returnType,
         typeVariable.takeIf { newTypeVariableUsed },

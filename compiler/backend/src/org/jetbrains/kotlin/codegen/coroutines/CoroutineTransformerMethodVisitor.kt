@@ -95,15 +95,8 @@ class CoroutineTransformerMethodVisitor(
                 addCompletionParameterToLVT(methodNode)
             }
 
-            val examiner = MethodNodeExaminer(
-                containingClassInternalName,
-                methodNode,
-                suspensionPoints,
-                disableTailCallOptimizationForFunctionReturningUnit
-            )
-            if (examiner.allSuspensionPointsAreTailCalls(suspensionPoints)) {
-                examiner.replacePopsBeforeSafeUnitInstancesWithCoroutineSuspendedChecks()
-                examiner.addCoroutineSuspendedChecksBeforeSafeCheckcasts()
+            if (methodNode.allSuspensionPointsAreTailCalls(suspensionPoints, !disableTailCallOptimizationForFunctionReturningUnit)) {
+                methodNode.addCoroutineSuspendedChecks(suspensionPoints)
                 dropSuspensionMarkers(methodNode)
                 dropUnboxInlineClassMarkers(methodNode, suspensionPoints)
                 return
@@ -643,7 +636,7 @@ class CoroutineTransformerMethodVisitor(
                 val value = frame.getLocal(slot)
                 if (value.type == null || !livenessFrame.isAlive(slot)) continue
 
-                if (value == StrictBasicValue.NULL_VALUE) {
+                if (value == StrictBasicValue.NULL_VALUE || value is TypedNullValue) {
                     referencesToSpill += slot to null
                     continue
                 }

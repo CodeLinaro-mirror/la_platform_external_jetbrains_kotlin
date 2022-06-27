@@ -20,6 +20,9 @@ import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
 import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
+import org.jetbrains.kotlin.ir.expressions.IrConst
+import org.jetbrains.kotlin.ir.expressions.IrConstKind
+import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
@@ -27,7 +30,7 @@ import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.parentOrNull
 import org.jetbrains.kotlin.wasm.ir.*
 
-class DeclarationGenerator(val context: WasmModuleCodegenContext) : IrElementVisitorVoid {
+class DeclarationGenerator(val context: WasmModuleCodegenContext, private val allowIncompleteImplementations: Boolean) : IrElementVisitorVoid {
 
     // Shortcuts
     private val backendContext: WasmBackendContext = context.backendContext
@@ -62,14 +65,11 @@ class DeclarationGenerator(val context: WasmModuleCodegenContext) : IrElementVis
         }
 
         val jsCode = declaration.getJsFunAnnotation() ?: if (declaration.isExternal) declaration.name.asString() else null
-        val importedName = if (jsCode != null) {
+        val importedName = jsCode?.let {
             val jsCodeName = jsCodeName(declaration)
-            context.addJsFun(jsCodeName, jsCode)
+            context.addJsFun(jsCodeName, it)
             WasmImportPair("js_code", jsCodeName(declaration))
-        } else {
-            declaration.getWasmImportAnnotation()
         }
-
 
         if (declaration.isFakeOverride)
             return
@@ -235,7 +235,6 @@ class DeclarationGenerator(val context: WasmModuleCodegenContext) : IrElementVis
                 wasmExpressionGenerator.buildRttCanon(wasmGcType)
             }
 
-
             val rtt = WasmGlobal(
                 name = "rtt_of_$nameStr",
                 isMutable = false,
@@ -255,13 +254,16 @@ class DeclarationGenerator(val context: WasmModuleCodegenContext) : IrElementVis
                     // TODO: Cache it
                     val interfaceMetadata = InterfaceMetadata(i, irBuiltIns)
                     val table = interfaceMetadata.methods.associate { method ->
-                        val classMethod: VirtualMethodMetadata =
-                            metadata.virtualMethods
-                                .find { it.signature == method.signature }  // TODO: Use map
-                                ?: error("Cannot find class implementation of method ${method.signature} in class ${declaration.fqNameWhenAvailable}")
+                        val classMethod: VirtualMethodMetadata? = metadata.virtualMethods
+                            .find { it.signature == method.signature && it.function.modality != Modality.ABSTRACT }  // TODO: Use map
 
-                        method.function.symbol as IrFunctionSymbol to context.referenceFunction(classMethod.function.symbol)
+                        if (classMethod == null && !allowIncompleteImplementations) {
+                            error("Cannot find class implementation of method ${method.signature} in class ${declaration.fqNameWhenAvailable}")
+                        }
+                        val matchedMethod = classMethod?.let { context.referenceFunction(it.function.symbol) }
+                        method.function.symbol as IrFunctionSymbol to matchedMethod
                     }
+
                     context.registerInterfaceImplementationMethod(
                         interfaceImplementation,
                         table
@@ -364,13 +366,21 @@ class DeclarationGenerator(val context: WasmModuleCodegenContext) : IrElementVis
 
         val initBody = mutableListOf<WasmInstr>()
         val wasmExpressionGenerator = WasmIrExpressionBuilder(initBody)
-        generateDefaultInitializerForType(wasmType, wasmExpressionGenerator)
+
+        val initValue: IrExpression? = declaration.initializer?.expression
+        if (initValue != null) {
+            check(initValue is IrConst<*> && initValue.kind !is IrConstKind.String && initValue.kind !is IrConstKind.Null) {
+                "Static field initializer should be non-string const or null"
+            }
+            generateConstExpression(initValue, wasmExpressionGenerator, context)
+        } else {
+            generateDefaultInitializerForType(wasmType, wasmExpressionGenerator)
+        }
 
         val global = WasmGlobal(
             name = declaration.fqNameWhenAvailable.toString(),
             type = wasmType,
             isMutable = true,
-            // All globals are currently initialized in start function
             init = initBody
         )
 
@@ -397,3 +407,24 @@ fun IrFunction.getEffectiveValueParameters(): List<IrValueParameter> {
 
 fun IrFunction.isExported(): Boolean =
     isJsExport()
+
+
+fun generateConstExpression(expression: IrConst<*>, body: WasmExpressionBuilder, context: WasmBaseCodegenContext) {
+    when (val kind = expression.kind) {
+        is IrConstKind.Null -> generateDefaultInitializerForType(context.transformType(expression.type), body)
+        is IrConstKind.Boolean -> body.buildConstI32(if (kind.valueOf(expression)) 1 else 0)
+        is IrConstKind.Byte -> body.buildConstI32(kind.valueOf(expression).toInt())
+        is IrConstKind.Short -> body.buildConstI32(kind.valueOf(expression).toInt())
+        is IrConstKind.Int -> body.buildConstI32(kind.valueOf(expression))
+        is IrConstKind.Long -> body.buildConstI64(kind.valueOf(expression))
+        is IrConstKind.Char -> body.buildConstI32(kind.valueOf(expression).code)
+        is IrConstKind.Float -> body.buildConstF32(kind.valueOf(expression))
+        is IrConstKind.Double -> body.buildConstF64(kind.valueOf(expression))
+        is IrConstKind.String -> {
+            body.buildConstI32Symbol(context.referenceStringLiteral(kind.valueOf(expression)))
+            body.buildConstI32(kind.valueOf(expression).length)
+            body.buildCall(context.referenceFunction(context.backendContext.wasmSymbols.stringGetLiteral))
+        }
+        else -> error("Unknown constant kind")
+    }
+}

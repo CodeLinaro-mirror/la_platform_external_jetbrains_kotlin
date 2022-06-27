@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.*
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
@@ -34,6 +35,7 @@ import org.jetbrains.kotlin.tooling.KotlinToolingMetadata
 import org.jetbrains.kotlin.tooling.toJsonString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class BuildKotlinToolingMetadataTest {
@@ -87,35 +89,28 @@ class BuildKotlinToolingMetadataTest {
         val metadata = getKotlinToolingMetadata()
         assertEquals(KotlinMultiplatformPluginWrapper::class.java.canonicalName, metadata.buildPlugin)
 
+        val expectedTargets = mapOf(
+            common to KotlinMetadataTarget::class,
+            androidJvm to KotlinAndroidTarget::class,
+            jvm to KotlinJvmTarget::class,
+            js to KotlinJsTarget::class,
+            native to KotlinNativeTargetWithHostTests::class
+        )
+
         assertEquals(
-            listOf(common, androidJvm, jvm, js, native).map { it.name }.sorted(),
+            expectedTargets.keys.map { it.name }.sorted(),
             metadata.projectTargets.map { it.platformType }.sorted()
         )
 
-        assertEquals(
-            KotlinMetadataTarget::class.java.canonicalName,
-            metadata.projectTargets.single { it.platformType == common.name }.target
-        )
+        expectedTargets.forEach { (platformType, targetClass) ->
+            assertEquals(
+                targetClass.java.canonicalName,
+                metadata.projectTargets.single { it.platformType == platformType.name }.target,
+                "Platform '$platformType' has different target class"
+            )
+        }
 
-        assertEquals(
-            KotlinAndroidTarget::class.java.canonicalName,
-            metadata.projectTargets.single { it.platformType == androidJvm.name }.target
-        )
-
-        assertEquals(
-            KotlinJvmTarget::class.java.canonicalName,
-            metadata.projectTargets.single { it.platformType == jvm.name }.target
-        )
-
-        assertEquals(
-            KotlinJsTarget::class.java.canonicalName,
-            metadata.projectTargets.single { it.platformType == js.name }.target
-        )
-
-        assertEquals(
-            KotlinNativeTargetWithHostTests::class.java.canonicalName,
-            metadata.projectTargets.single { it.platformType == native.name }.target
-        )
+        assertFalse(metadata.projectSettings.isKPMEnabled, "projectSettings.isKPMEnabled must not be set")
     }
 
     @Test
@@ -184,6 +179,31 @@ class BuildKotlinToolingMetadataTest {
         project.plugins.apply("org.jetbrains.kotlin.jvm")
         val metadata = getKotlinToolingMetadata()
         assertEquals(org.jetbrains.kotlin.gradle.plugin.KotlinPluginWrapper::class.java.canonicalName, metadata.buildPlugin)
+    }
+
+    @Test
+    fun `multiple native targets`() {
+        project.plugins.apply("kotlin-multiplatform")
+        val kotlin = multiplatformExtension
+        kotlin.linuxX64()
+        kotlin.linuxArm64()
+
+        val metadata = getKotlinToolingMetadata()
+        val nativeTargets = metadata.projectTargets.filter { it.platformType == native.name }.sortedBy { it.extras.native?.konanTarget }
+        assertEquals(2, nativeTargets.size, "Expected only two native targets")
+        val (linuxArm64, linuxX64) = nativeTargets
+
+        assertEquals(
+            "linux_arm64",
+            linuxArm64.extras.native?.konanTarget
+        )
+        assertEquals(
+            "linux_x64",
+            linuxX64.extras.native?.konanTarget
+        )
+
+        assertEquals(KotlinNativeTarget::class.java.canonicalName, linuxArm64.target)
+        assertEquals(KotlinNativeTargetWithHostTests::class.java.canonicalName, linuxX64.target)
     }
 
     private fun getKotlinToolingMetadata(): KotlinToolingMetadata {

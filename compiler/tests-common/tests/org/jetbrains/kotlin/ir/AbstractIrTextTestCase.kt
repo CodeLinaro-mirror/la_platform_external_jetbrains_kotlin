@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir
 
 import com.intellij.openapi.util.text.StringUtil
 import junit.framework.TestCase
+import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
 import org.jetbrains.kotlin.cli.js.loadPluginsForTests
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -57,7 +58,8 @@ abstract class AbstractIrTextTestCase : AbstractIrGeneratorTestCase() {
         val stubGenerator = DeclarationStubGeneratorImpl(
             irModule.descriptor,
             SymbolTable(signaturer, IrFactoryImpl), // TODO
-            irModule.irBuiltins
+            irModule.irBuiltins,
+            DescriptorByIdSignatureFinderImpl(irModule.descriptor, mangler)
         )
 
         val path = wholeFile.path
@@ -138,7 +140,7 @@ abstract class AbstractIrTextTestCase : AbstractIrGeneratorTestCase() {
     }
 
     private fun verify(irFile: IrFile) {
-        IrVerifier(JUnit4Assertions).verifyWithAssert(irFile)
+        IrVerifier(JUnit4Assertions, isFir = false).verifyWithAssert(irFile)
     }
 
     internal class Expectations(val regexps: List<RegexpInText>, val irTreeFileLabels: List<IrTreeFileLabel>)

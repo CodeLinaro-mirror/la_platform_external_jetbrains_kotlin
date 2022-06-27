@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.backend.jvm.ir.getSingleAbstractMethod
 import org.jetbrains.kotlin.backend.jvm.ir.isCompiledToJvmDefault
 import org.jetbrains.kotlin.backend.jvm.lower.findInterfaceImplementation
 import org.jetbrains.kotlin.builtins.functions.BuiltInFunctionArity
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.builders.declarations.buildClass
@@ -60,10 +61,6 @@ internal sealed class MetafactoryArgumentsResult {
         // TODO make sure indy and Kotlin bytecode inliner work well together
         object InliningHazard : Failure()
 
-        // Resulting object should be Serializable.
-        // TODO implement serialization support required by j.l.invoke.LambdaMetafactory
-        object SerializationHazard : Failure()
-
         // There's something special about a function we are referencing.
         // Wrapping it into a proxy local function might help.
         object FunctionHazard : Failure()
@@ -84,6 +81,10 @@ internal class LambdaMetafactoryArgumentsBuilder(
     private val context: JvmBackendContext,
     private val crossinlineLambdas: Set<IrSimpleFunction>
 ) {
+
+    private val isJavaSamConversionWithEqualsHashCode =
+        context.state.languageVersionSettings.supportsFeature(LanguageFeature.JavaSamConversionEqualsHashCode)
+
     /**
      * @see java.lang.invoke.LambdaMetafactory
      */
@@ -103,12 +104,10 @@ internal class LambdaMetafactoryArgumentsBuilder(
 
         // Can't use JDK LambdaMetafactory for function references by default (because of 'equals').
         // TODO special mode that would generate indy everywhere?
-        if (!reference.origin.isLambda && !samClass.isFromJava()) {
+        if (!reference.origin.isLambda && (!samClass.isFromJava() || isJavaSamConversionWithEqualsHashCode)) {
             semanticsHazard = true
         }
 
-        // Don't use JDK LambdaMetafactory for serializable lambdas
-        // TODO implement support for serializable lambdas with LambdaMetafactory (requires additional code for deserialization)
         if (samClass.isInheritedFromSerializable()) {
             shouldBeSerializable = true
         }
@@ -137,7 +136,7 @@ internal class LambdaMetafactoryArgumentsBuilder(
             functionHazard = true
         }
 
-        // Can't use invokedynamic if the referenced function has to be inlined for correct semantics
+        // Can't use invokedynamic if the referenced function has to be inlined for correct semantics.
         // Also in some cases like `private inline fun` we'd need accessors, which `SyntheticAccessorLowering`
         // won't generate under the assumption that the inline function will be inlined. Plus if the function
         // is in a different module we should probably copy it anyway (and regenerate all objects in it).
@@ -577,16 +576,16 @@ internal class LambdaMetafactoryArgumentsBuilder(
         // All Kotlin inline classes are final,
         // and their supertypes are trivially mapped to reference types.
         val erasedAdapteeClass = getErasedClassForSignatureAdaptation(adapteeType)
-        if (erasedAdapteeClass.isInline) {
+        if (erasedAdapteeClass.isSingleFieldValueClass) {
             // Inline classes mapped to non-null reference types are a special case because they can't be boxed trivially.
             // TODO consider adding a special type annotation to force boxing on an inline class type regardless of its underlying type.
             val underlyingAdapteeType = getInlineClassUnderlyingType(erasedAdapteeClass)
-            if (!underlyingAdapteeType.hasQuestionMark && !underlyingAdapteeType.isPrimitiveType()) {
+            if (!underlyingAdapteeType.isNullable() && !underlyingAdapteeType.isPrimitiveType()) {
                 return TypeAdaptationConstraint.CONFLICT
             }
 
             val erasedExpectedClass = getErasedClassForSignatureAdaptation(expectedType)
-            return if (erasedExpectedClass.isInline) {
+            return if (erasedExpectedClass.isSingleFieldValueClass) {
                 // LambdaMetafactory doesn't know about method mangling.
                 TypeAdaptationConstraint.CONFLICT
             } else {

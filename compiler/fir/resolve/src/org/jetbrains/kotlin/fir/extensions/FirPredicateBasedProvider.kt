@@ -18,12 +18,6 @@ import org.jetbrains.kotlin.fir.resolve.fqName
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 
 abstract class FirPredicateBasedProvider : FirSessionComponent {
-    companion object {
-        fun create(session: FirSession): FirPredicateBasedProvider {
-            return FirPredicateBasedProviderImpl(session)
-        }
-    }
-
     abstract fun getSymbolsByPredicate(predicate: DeclarationPredicate): List<FirBasedSymbol<*>>
     abstract fun getOwnersOfDeclaration(declaration: FirDeclaration): List<FirBasedSymbol<*>>?
 
@@ -33,6 +27,9 @@ abstract class FirPredicateBasedProvider : FirSessionComponent {
      */
     abstract fun fileHasPluginAnnotations(file: FirFile): Boolean
     abstract fun matches(predicate: DeclarationPredicate, declaration: FirDeclaration): Boolean
+
+    open fun registerAnnotatedDeclaration(declaration: FirDeclaration, owners: PersistentList<FirDeclaration>) {
+    }
 
     fun matches(predicates: List<DeclarationPredicate>, declaration: FirDeclaration): Boolean {
         return predicates.any { matches(it, declaration) }
@@ -57,7 +54,7 @@ class FirPredicateBasedProviderImpl(private val session: FirSession) : FirPredic
         return file in cache.filesWithPluginAnnotations
     }
 
-    fun registerAnnotatedDeclaration(declaration: FirDeclaration, owners: PersistentList<FirDeclaration>) {
+    override fun registerAnnotatedDeclaration(declaration: FirDeclaration, owners: PersistentList<FirDeclaration>) {
         cache.ownersForDeclaration[declaration] = owners
         registerOwnersDeclarations(declaration, owners)
 

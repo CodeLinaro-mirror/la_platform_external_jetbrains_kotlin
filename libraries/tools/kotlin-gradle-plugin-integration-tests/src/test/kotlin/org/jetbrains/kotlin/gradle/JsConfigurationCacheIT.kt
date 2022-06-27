@@ -11,8 +11,6 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 
-@JsGradlePluginTests
-@GradleTestVersions(minVersion = TestVersions.Gradle.G_6_6)
 abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) : KGPBaseTest() {
     private val defaultJsOptions = BuildOptions.JsOptions(
         useIrBackend = irBackend,
@@ -81,7 +79,7 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
     @DisplayName("KT-48241: configuration cache works with test dependencies")
     @GradleTest
     fun testTestDependencies(gradleVersion: GradleVersion) {
-        project("kotlin-js-project-with-test-dependencies", gradleVersion, forceOutput = true) {
+        project("kotlin-js-project-with-test-dependencies", gradleVersion) {
             assertSimpleConfigurationCacheScenarioWorks(
                 "assemble",
                 buildOptions = defaultBuildOptions,
@@ -91,6 +89,8 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
     }
 }
 
+@JsGradlePluginTests
 class JsConfigurationCacheIT : AbstractJsConfigurationCacheIT(irBackend = false)
 
+@JsGradlePluginTests
 class JsIrConfigurationCacheIT : AbstractJsConfigurationCacheIT(irBackend = true)

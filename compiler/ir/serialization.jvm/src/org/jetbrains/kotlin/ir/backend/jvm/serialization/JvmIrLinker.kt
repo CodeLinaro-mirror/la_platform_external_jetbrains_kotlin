@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.konan.KlibModuleOrigin
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.TranslationPluginContext
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
@@ -38,7 +39,8 @@ class JvmIrLinker(
     symbolTable: SymbolTable,
     override val translationPluginContext: TranslationPluginContext?,
     private val stubGenerator: DeclarationStubGenerator,
-    private val manglerDesc: JvmDescriptorMangler
+    private val manglerDesc: JvmDescriptorMangler,
+    private val enableIdSignatures: Boolean,
 ) : KotlinIrLinker(currentModule, messageLogger, typeSystem.irBuiltIns, symbolTable, emptyList()) {
 
     // TODO: provide friend modules
@@ -91,6 +93,8 @@ class JvmIrLinker(
         }
     }
 
+    override fun getDeclaration(symbol: IrSymbol): IrDeclaration? =
+        deserializeOrResolveDeclaration(symbol, !enableIdSignatures)
 
     override fun createCurrentModuleDeserializer(moduleFragment: IrModuleFragment, dependencies: Collection<IrModuleDeserializer>): IrModuleDeserializer =
         JvmCurrentModuleDeserializer(moduleFragment, dependencies)
@@ -125,9 +129,9 @@ class JvmIrLinker(
         // TODO: implement proper check whether `idSig` belongs to this module
         override fun contains(idSig: IdSignature): Boolean = true
 
-        private val descriptorFinder = DescriptorByIdSignatureFinder(
+        private val descriptorFinder = DescriptorByIdSignatureFinderImpl(
             moduleDescriptor, manglerDesc,
-            DescriptorByIdSignatureFinder.LookupMode.MODULE_ONLY
+            DescriptorByIdSignatureFinderImpl.LookupMode.MODULE_ONLY
         )
 
         private fun resolveDescriptor(idSig: IdSignature): DeclarationDescriptor {
