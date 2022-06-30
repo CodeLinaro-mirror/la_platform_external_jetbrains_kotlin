@@ -24,6 +24,10 @@ import org.jetbrains.kotlin.resolve.scopes.receivers.DetailedReceiver
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValueWithSmartCastInfo
 import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.error.ErrorScopeKind
+import org.jetbrains.kotlin.types.error.ErrorUtils
+import org.jetbrains.kotlin.types.error.ErrorTypeKind
+import org.jetbrains.kotlin.types.error.LazyWrappedTypeComputationException
 import org.jetbrains.kotlin.types.expressions.CoercionStrategy
 import org.jetbrains.kotlin.types.typeUtil.isUnit
 import org.jetbrains.kotlin.utils.SmartList
@@ -41,7 +45,7 @@ class CallableReferencesCandidateFactory(
         get() = receiver.receiverValue
 
     override fun createErrorCandidate(): CallableReferenceResolutionCandidate {
-        val errorScope = ErrorUtils.createErrorScope("Error resolution candidate for call $kotlinCall")
+        val errorScope = ErrorUtils.createErrorScope(ErrorScopeKind.SCOPE_FOR_ERROR_RESOLUTION_CANDIDATE, kotlinCall.toString())
         val errorDescriptor = errorScope.getContributedFunctions(kotlinCall.rhsName, scopeTower.location).first()
 
         val (reflectionCandidateType, callableReferenceAdaptation) = buildReflectionType(
@@ -236,8 +240,15 @@ class CallableReferencesCandidateFactory(
         // lower(Unit!) = Unit
         val returnExpectedType = inputOutputTypes.outputType
 
+        fun isReturnTypeNonUnitSafe(): Boolean =
+            try {
+                descriptor.returnType?.isUnit() == false
+            } catch (e: LazyWrappedTypeComputationException) {
+                false
+            }
+
         val coercion =
-            if (returnExpectedType.isUnit() && descriptor.returnType?.isUnit() == false)
+            if (returnExpectedType.isUnit() && isReturnTypeNonUnitSafe())
                 CoercionStrategy.COERCION_TO_UNIT
             else
                 CoercionStrategy.NO_COERCION
@@ -346,7 +357,7 @@ class CallableReferencesCandidateFactory(
         }
 
         val descriptorReturnType = descriptor.returnType
-            ?: ErrorUtils.createErrorType("Error return type for descriptor: $descriptor")
+            ?: ErrorUtils.createErrorType(ErrorTypeKind.RETURN_TYPE, descriptor.toString())
 
         return when (descriptor) {
             is PropertyDescriptor -> {
@@ -397,7 +408,7 @@ class CallableReferencesCandidateFactory(
             }
             else -> {
                 assert(!descriptor.isSupportedForCallableReference()) { "${descriptor::class} isn't supported to use in callable references actually, but it's listed in `isSupportedForCallableReference` method" }
-                ErrorUtils.createErrorType("Unsupported descriptor type: $descriptor") to null
+                ErrorUtils.createErrorType(ErrorTypeKind.UNSUPPORTED_CALLABLE_REFERENCE_TYPE, descriptor.toString()) to null
             }
         }
     }

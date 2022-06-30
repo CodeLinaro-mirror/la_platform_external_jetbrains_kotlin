@@ -15,9 +15,7 @@ import org.jetbrains.kotlin.backend.common.lower.VariableRemapper
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irNot
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
-import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
-import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
-import org.jetbrains.kotlin.backend.jvm.SpecialBridge
+import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -142,7 +140,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
 
         bridgeTargets.forEach { createBridges(declaration, it) }
 
-        if (declaration.isInline) {
+        if (declaration.isSingleFieldValueClass) {
             // Inline class (implementing 'MutableCollection<T>', where T is Int or an inline class mapped to Int)
             // can contain a static replacement for a function 'remove', which forces value parameter boxing
             // in order to avoid signature clash with 'remove(int)' method in 'java.util.List'.
@@ -228,33 +226,35 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
                     return irFunction
                 }
 
-                // If irFunction is a fake override, we replace it with a stub and redirect all calls to irFunction with
-                // calls to the stub instead. Otherwise we'll end up calling the special method itself and get into an
-                // infinite loop.
-                //
-                // There are three cases to consider. If the method is abstract, then we simply generate a concrete abstract method
-                // to avoid generating a call to a method which does not exist in the current class. If the method is final,
-                // then we will not override it in a subclass and we do not need to generate an additional stub method.
-                //
-                // Finally, if we have a non-abstract, non-final fake-override we need to put in an additional bridge which uses
-                // INVOKESPECIAL to call the special bridge implementation in the superclass. We can be sure that an implementation
-                // exists in a superclass, since we do not generate bridges for fake overrides of interface methods.
                 if (irFunction.isFakeOverride) {
+                    // If irFunction is a fake override, we replace it with a stub and redirect all calls to irFunction with calls to the stub
+                    // instead. Otherwise, we'll end up calling the special method itself and get into an infinite loop.
                     bridgeTarget = when {
                         irFunction.isJvmAbstract(context.state.jvmDefaultMode) -> {
+                            // If the method is abstract, then we simply generate a concrete abstract method
+                            // to avoid generating a call to a method which does not exist in the current class.
                             irClass.declarations.remove(irFunction)
                             irClass.addAbstractMethodStub(irFunction)
                         }
                         irFunction.modality != Modality.FINAL -> {
+                            // If we have a non-abstract, non-final fake-override we need to put in an additional bridge which uses
+                            // INVOKESPECIAL to call the special bridge implementation in the superclass.
+                            // We can be sure that an implementation exists in a superclass,
+                            // since we do not generate bridges for fake overrides of interface methods.
                             val overriddenFromClass = irFunction.overriddenFromClass()!!
                             val superBridge = SpecialBridge(
-                                irFunction, irFunction.jvmMethod, superQualifierSymbol = overriddenFromClass.parentAsClass.symbol,
+                                overridden = irFunction,
+                                signature = irFunction.jvmMethod,
+                                superQualifierSymbol = overriddenFromClass.parentAsClass.symbol,
                                 methodInfo = specialBridge.methodInfo?.copy(argumentsToCheck = 0), // For potential argument boxing
                                 isFinal = false,
                             )
+
                             // The part after '?:' is needed for methods with default implementations in collection interfaces:
                             // MutableMap.remove() and getOrDefault().
-                            val superTarget = overriddenFromClass.takeIf { !it.isFakeOverride } ?: specialBridge.overridden
+                            val superTarget = overriddenFromClass.takeIf { !it.isFakeOverride || !specialBridge.isOverriding }
+                                ?: specialBridge.overridden
+
                             if (superBridge.signature == superTarget.jvmMethod) {
                                 // If the resulting bridge to a super member matches the signature of the bridge callee,
                                 // bridge is not needed.
@@ -265,6 +265,8 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
                             }
                         }
                         else -> {
+                            // If the method is final,
+                            // then we will not override it in a subclass and we do not need to generate an additional stub method.
                             irFunction
                         }
                     }
@@ -320,7 +322,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
             return
         }
 
-        // For concrete fake overrides, some of the bridges may be inherited from the super-classes. Specifically, bridges for all
+        // For concrete fake overrides, some bridges may be inherited from the super-classes. Specifically, bridges for all
         // declarations that are reachable from all concrete immediate super-functions of the given function. Note that all such bridges are
         // guaranteed to delegate to the same implementation as bridges for the given function, that's why it's safe to inherit them.
         //
@@ -343,7 +345,9 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
 
             val signature = override.jvmMethod
             if (targetMethod != signature && signature !in blacklist) {
-                val bridge = generated.getOrPut(signature) { Bridge(override, signature) }
+                val bridge = generated.getOrPut(signature) {
+                    Bridge(override, signature)
+                }
                 bridge.overriddenSymbols += override.symbol
             }
         }
@@ -358,7 +362,6 @@ internal class BridgeLowering(val context: JvmBackendContext) : FileLoweringPass
 
     private fun IrSimpleFunction.isClashingWithPotentialBridge(name: Name, signature: Method): Boolean =
         (!this.isFakeOverride || this.modality == Modality.FINAL) && this.name == name && this.jvmMethod == signature
-
 
     // Returns the special bridge overridden by the current methods if it exists.
     private val IrSimpleFunction.specialBridgeOrNull: SpecialBridge?

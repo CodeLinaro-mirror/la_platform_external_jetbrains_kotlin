@@ -25,10 +25,10 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
-import org.jetbrains.kotlin.fir.utils.WeakPair
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.ConstantValueKind
+import org.jetbrains.kotlin.util.WeakPair
 
 fun ConeClassifierLookupTag.toSymbol(useSiteSession: FirSession): FirClassifierSymbol<*>? =
     when (this) {
@@ -76,7 +76,7 @@ fun FirSymbolProvider.getSymbolByLookupTag(lookupTag: ConeClassLikeLookupTag): F
     return lookupTag.toSymbol(session)
 }
 
-fun ConeKotlinType.withParameterNameAnnotation(valueParameter: FirValueParameter, context: ConeTypeContext): ConeKotlinType {
+fun ConeKotlinType.withParameterNameAnnotation(valueParameter: FirValueParameter): ConeKotlinType {
     if (valueParameter.name == SpecialNames.NO_NAME_PROVIDED || valueParameter.name == SpecialNames.UNDERSCORE_FOR_UNUSED_VAR) return this
     // Existing @ParameterName annotation takes precedence
     if (attributes.customAnnotations.getAnnotationsByClassId(StandardNames.FqNames.parameterNameClassId).isNotEmpty()) return this
@@ -100,16 +100,16 @@ fun ConeKotlinType.withParameterNameAnnotation(valueParameter: FirValueParameter
     }
     val attributesWithParameterNameAnnotation =
         ConeAttributes.create(listOf(CustomAnnotationTypeAttribute(listOf(parameterNameAnnotationCall))))
-    return withCombinedAttributesFrom(attributesWithParameterNameAnnotation, context)
+    return withCombinedAttributesFrom(attributesWithParameterNameAnnotation)
 }
 
-fun ConeKotlinType.withCombinedAttributesFrom(other: ConeKotlinType, context: ConeTypeContext): ConeKotlinType =
-    withCombinedAttributesFrom(other.attributes, context)
+fun ConeKotlinType.withCombinedAttributesFrom(other: ConeKotlinType): ConeKotlinType =
+    withCombinedAttributesFrom(other.attributes)
 
-private fun ConeKotlinType.withCombinedAttributesFrom(other: ConeAttributes, context: ConeTypeContext): ConeKotlinType {
+private fun ConeKotlinType.withCombinedAttributesFrom(other: ConeAttributes): ConeKotlinType {
     if (other.isEmpty()) return this
     val combinedConeAttributes = attributes.add(other)
-    return withAttributes(combinedConeAttributes, context)
+    return withAttributes(combinedConeAttributes)
 }
 
 fun ConeKotlinType.findClassRepresentation(
@@ -136,7 +136,7 @@ private fun ConeTypeParameterLookupTag.findClassRepresentationThatIsSubtypeOf(
     supertype: ConeKotlinType,
     session: FirSession
 ): ConeClassLikeLookupTag? =
-    typeParameterSymbol.fir.bounds.map { it.coneType }.findClassRepresentationThatIsSubtypeOf(supertype, session)
+    typeParameterSymbol.resolvedBounds.map { it.coneType }.findClassRepresentationThatIsSubtypeOf(supertype, session)
 
 private fun Collection<ConeKotlinType>.findClassRepresentationThatIsSubtypeOf(
     supertype: ConeKotlinType,

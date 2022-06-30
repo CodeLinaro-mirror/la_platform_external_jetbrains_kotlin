@@ -8,18 +8,13 @@
 package testPackCase1
 
 fun case1(a: A, c: C) {
-
-    <!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!><!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!> += c<!>
-    <!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!> .<!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!>plusAssign(c)<!>
+    a?.b <!UNSAFE_CALL!>.<!><!DEBUG_INFO_CALL("fqName: fqName is unknown; typeCall: unresolved")!>plusAssign(c)<!>
 
     val x = {
-        <!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!><!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!> += c<!>
-        <!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!>.<!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!>plusAssign(c)<!>
+        a?.b<!UNSAFE_CALL!>.<!><!DEBUG_INFO_CALL("fqName: fqName is unknown; typeCall: unresolved")!>plusAssign(c)<!>
     }()
 
-    <!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!><!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!> += { c }()<!>
-
-    <!SAFE_CALL_WILL_CHANGE_NULLABILITY!>a?.b<!>.<!DEBUG_INFO_CALL("fqName: testPackCase1.B.plusAssign; typeCall: operator function")!>plusAssign({ c }())<!>
+    a?.b<!UNSAFE_CALL!>.<!><!DEBUG_INFO_CALL("fqName: fqName is unknown; typeCall: unresolved")!>plusAssign({ c }())<!>
 }
 
 class A(val b: B)
@@ -43,15 +38,15 @@ package testPackCase2
 
 fun case2(a: A?, c: C) {
 
-    <!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>a?.b += c<!>
+    <!DEBUG_INFO_CALL("fqName: testPackCase2.B.plusAssign; typeCall: operator function")!>a?.b += c<!>
     a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>plusAssign(c)<!>
 
     val x = {
-        <!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>a?.b += c<!>
+        <!DEBUG_INFO_CALL("fqName: testPackCase2.B.plusAssign; typeCall: operator function")!>a?.b += c<!>
         a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>plusAssign(c)<!>
     }()
 
-    <!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>a?.b += { c }()<!>
+    <!DEBUG_INFO_CALL("fqName: testPackCase2.B.plusAssign; typeCall: operator function")!>a?.b += { c }()<!>
 
     a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase2.plusAssign; typeCall: operator extension function")!>plusAssign({ c }())<!>
 
@@ -81,15 +76,15 @@ package testPackCase3
 
 fun case3(a: A?, c: C) {
 
-    <!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>a?.b += c<!>
+    <!DEBUG_INFO_CALL("fqName: testPackCase3.B.plusAssign; typeCall: operator function")!>a?.b += c<!>
     a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>plusAssign(c)<!>
 
     val x = {
-        <!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>a?.b += c<!>
+        <!DEBUG_INFO_CALL("fqName: testPackCase3.B.plusAssign; typeCall: operator function")!>a?.b += c<!>
         a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>plusAssign(c)<!>
     }()
 
-    <!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>a?.b += { c }()<!>
+    <!DEBUG_INFO_CALL("fqName: testPackCase3.B.plusAssign; typeCall: operator function")!>a?.b += { c }()<!>
 
     a?.b.<!DEBUG_INFO_CALL("fqName: testPackCase3.plusAssign; typeCall: operator extension function")!>plusAssign({ c }())<!>
 

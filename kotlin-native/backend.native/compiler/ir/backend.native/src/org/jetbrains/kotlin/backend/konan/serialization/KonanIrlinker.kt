@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.backend.common.serialization.encodings.BinaryNameAnd
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolData
 import org.jetbrains.kotlin.backend.common.serialization.encodings.FunctionFlags
 import org.jetbrains.kotlin.backend.common.serialization.linkerissues.UserVisibleIrModulesSupport
+import org.jetbrains.kotlin.backend.common.serialization.unlinked.UnlinkedDeclarationsSupport
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.ClassLayoutBuilder
 import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
@@ -325,7 +326,8 @@ internal class KonanIrLinker(
         exportedDependencies: List<ModuleDescriptor>,
         private val cachedLibraries: CachedLibraries,
         private val lazyIrForCaches: Boolean,
-        override val userVisibleIrModulesSupport: UserVisibleIrModulesSupport,
+        override val unlinkedDeclarationsSupport: UnlinkedDeclarationsSupport,
+        override val userVisibleIrModulesSupport: UserVisibleIrModulesSupport
 ) : KotlinIrLinker(currentModule, messageLogger, builtIns, symbolTable, exportedDependencies) {
 
     companion object {
@@ -355,10 +357,7 @@ internal class KonanIrLinker(
                     error("Expecting kotlin library for $moduleDescriptor")
                 }
                 klib.isInteropLibrary() -> {
-                    // See https://youtrack.jetbrains.com/issue/KT-43517.
-                    // Disabling this flag forces linker to generate IR.
-                    val isCached = false //cachedLibraries.isLibraryCached(klib)
-                    KonanInteropModuleDeserializer(moduleDescriptor, klib, isCached)
+                    KonanInteropModuleDeserializer(moduleDescriptor, klib, cachedLibraries.isLibraryCached(klib))
                 }
                 lazyIrForCaches && cachedLibraries.isLibraryCached(klib) -> {
                     KonanCachedLibraryModuleDeserializer(moduleDescriptor, klib).also {
@@ -569,9 +568,9 @@ internal class KonanIrLinker(
             require(klib.isInteropLibrary())
         }
 
-        private val descriptorByIdSignatureFinder = DescriptorByIdSignatureFinder(
+        private val descriptorByIdSignatureFinder = DescriptorByIdSignatureFinderImpl(
                 moduleDescriptor, KonanManglerDesc,
-                DescriptorByIdSignatureFinder.LookupMode.MODULE_ONLY
+                DescriptorByIdSignatureFinderImpl.LookupMode.MODULE_ONLY
         )
 
         private fun IdSignature.isInteropSignature() = IdSignature.Flags.IS_NATIVE_INTEROP_LIBRARY.test()
@@ -623,9 +622,9 @@ internal class KonanIrLinker(
             override val klib: KotlinLibrary
     ) : IrModuleDeserializer(moduleDescriptor, klib.versions.abiVersion ?: KotlinAbiVersion.CURRENT) {
 
-        private val descriptorByIdSignatureFinder = DescriptorByIdSignatureFinder(
+        private val descriptorByIdSignatureFinder = DescriptorByIdSignatureFinderImpl(
                 moduleDescriptor, KonanManglerDesc,
-                DescriptorByIdSignatureFinder.LookupMode.MODULE_ONLY
+                DescriptorByIdSignatureFinderImpl.LookupMode.MODULE_ONLY
         )
 
         override fun contains(idSig: IdSignature) =
@@ -717,6 +716,7 @@ internal class KonanIrLinker(
             if (function.parents.any { (it as? IrFunction)?.isInline == true}) {
                 // Already deserialized by the top-most inline function.
                 return InlineFunctionOriginInfo(
+                        function,
                         inlineFunctionFiles[packageFragment]
                                 ?: error("${function.render()} should've been deserialized along with its parent"),
                         function.startOffset, function.endOffset
@@ -783,7 +783,7 @@ internal class KonanIrLinker(
             }
             inlineFunctionFiles[packageFragment] = fileDeserializationInfo.file
 
-            return InlineFunctionOriginInfo(fileDeserializationInfo.file, inlineFunctionReference.startOffset, inlineFunctionReference.endOffset)
+            return InlineFunctionOriginInfo(function, fileDeserializationInfo.file, inlineFunctionReference.startOffset, inlineFunctionReference.endOffset)
         }
 
         private val classesFields by lazy {
@@ -891,7 +891,7 @@ internal class KonanIrLinker(
             if (actualModule !== moduleDescriptor) {
                 val moduleDeserializer = resolveModuleDeserializer(actualModule, idSig)
                 moduleDeserializer.addModuleReachableTopLevel(idSig)
-                return symbolTable.referenceClassFromLinker(idSig)
+                return symbolTable.referenceClass(idSig, false)
             }
 
             return declaredDeclaration.getOrPut(idSig) { buildForwardDeclarationStub(descriptor) }.symbol

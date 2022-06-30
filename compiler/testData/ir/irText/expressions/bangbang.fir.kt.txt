@@ -12,8 +12,8 @@ fun test2(a: Any?): Int {
   })
 }
 
-fun <X : Any?> test3(a: X): X {
-  return CHECK_NOT_NULL<X>(arg0 = a)
+fun <X : Any?> test3(a: X): (X & Any) {
+  return CHECK_NOT_NULL<(X & Any)>(arg0 = a)
 }
 
 fun useString(s: String) {

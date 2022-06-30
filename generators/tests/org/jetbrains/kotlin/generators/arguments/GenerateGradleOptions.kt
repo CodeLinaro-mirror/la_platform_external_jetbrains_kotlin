@@ -40,8 +40,8 @@ interface AdditionalGradleProperties {
 }
 
 fun generateKotlinGradleOptions(withPrinterToFile: (targetFile: File, Printer.() -> Unit) -> Unit) {
-    val apiSrcDir = File("libraries/tools/kotlin-gradle-plugin-api/src/main/kotlin")
-    val srcDir = File("libraries/tools/kotlin-gradle-plugin/src/main/kotlin")
+    val apiSrcDir = File("libraries/tools/kotlin-gradle-plugin-api/src/common/kotlin")
+    val srcDir = File("libraries/tools/kotlin-gradle-plugin/src/common/kotlin")
 
     // common interface
     val commonInterfaceFqName = FqName("org.jetbrains.kotlin.gradle.dsl.KotlinCommonToolOptions")
@@ -73,7 +73,7 @@ fun generateKotlinGradleOptions(withPrinterToFile: (targetFile: File, Printer.()
     // generate jvm interface
     val jvmInterfaceFqName = FqName("org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions")
     val jvmOptions = gradleOptions<K2JVMCompilerArguments>()
-    withPrinterToFile(file(srcDir, jvmInterfaceFqName)) {
+    withPrinterToFile(file(apiSrcDir, jvmInterfaceFqName)) {
         generateInterface(
             jvmInterfaceFqName,
             jvmOptions,
@@ -99,7 +99,7 @@ fun generateKotlinGradleOptions(withPrinterToFile: (targetFile: File, Printer.()
     // generate js interface
     val jsInterfaceFqName = FqName("org.jetbrains.kotlin.gradle.dsl.KotlinJsOptions")
     val jsOptions = gradleOptions<K2JSCompilerArguments>()
-    withPrinterToFile(file(srcDir, jsInterfaceFqName)) {
+    withPrinterToFile(file(apiSrcDir, jsInterfaceFqName)) {
         generateInterface(
             jsInterfaceFqName,
             jsOptions,
@@ -124,7 +124,7 @@ fun generateKotlinGradleOptions(withPrinterToFile: (targetFile: File, Printer.()
     // generate JS DCE interface and implementation
     val jsDceInterfaceFqName = FqName("org.jetbrains.kotlin.gradle.dsl.KotlinJsDceOptions")
     val jsDceOptions = gradleOptions<K2JSDceArguments>()
-    withPrinterToFile(file(srcDir, jsDceInterfaceFqName)) {
+    withPrinterToFile(file(apiSrcDir, jsDceInterfaceFqName)) {
         generateInterface(
             jsDceInterfaceFqName,
             jsDceOptions,
@@ -183,7 +183,7 @@ fun main() {
 }
 
 private inline fun <reified T : Any> List<KProperty1<T, *>>.filterToBeDeleted() = filter { prop ->
-    prop.findAnnotation<DeprecatedOption>()
+    prop.findAnnotation<GradleDeprecatedOption>()
         ?.let { LanguageVersion.fromVersionString(it.removeAfter) }
         ?.let { it >= LanguageVersion.LATEST_STABLE }
         ?: true
@@ -256,6 +256,12 @@ private fun Printer.generateImpl(
         for (property in properties) {
             println("${property.name} = ${property.gradleDefaultValue}")
         }
+        // Adding required 'noStdlib' and 'noReflect' compiler arguments for JVM compilation
+        // Otherwise compilation via build tools will fail
+        if (type.shortName().toString() == "KotlinJvmOptionsBase") {
+            println("noStdlib = true")
+            println("noReflect = true")
+        }
     }
     println("}")
 }
@@ -289,7 +295,7 @@ private fun Printer.generatePropertyDeclaration(property: KProperty1<*, *>, modi
 }
 
 private fun Printer.generateOptionDeprecation(property: KProperty1<*, *>) {
-    property.findAnnotation<DeprecatedOption>()
+    property.findAnnotation<GradleDeprecatedOption>()
         ?.let { DeprecatedOptionAnnotator.generateOptionAnnotation(it) }
         ?.also { println(it) }
 }
@@ -320,7 +326,7 @@ private fun generateMarkdown(properties: List<KProperty1<*, *>>) {
     for (property in properties) {
         val name = property.name
         if (name == "includeRuntime") continue   // This option has no effect in Gradle builds
-        val renderName = listOfNotNull("`$name`", property.findAnnotation<DeprecatedOption>()?.let { "__(Deprecated)__" })
+        val renderName = listOfNotNull("`$name`", property.findAnnotation<GradleDeprecatedOption>()?.let { "__(Deprecated)__" })
             .joinToString(" ")
         val description = property.findAnnotation<Argument>()!!.description
         val possibleValues = property.gradleValues.possibleValues
@@ -363,7 +369,7 @@ private inline fun <reified T> KAnnotatedElement.findAnnotation(): T? =
     annotations.filterIsInstance<T>().firstOrNull()
 
 object DeprecatedOptionAnnotator {
-    fun generateOptionAnnotation(annotation: DeprecatedOption): String {
+    fun generateOptionAnnotation(annotation: GradleDeprecatedOption): String {
         val message = annotation.message.takeIf { it.isNotEmpty() }?.let { "message = \"$it\"" }
         val level = "level = DeprecationLevel.${annotation.level.name}"
         val arguments = listOfNotNull(message, level).joinToString()

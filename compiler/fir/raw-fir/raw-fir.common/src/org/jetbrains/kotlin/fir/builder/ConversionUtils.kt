@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
-import org.jetbrains.kotlin.psi.KtAnnotated
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -286,50 +285,6 @@ fun generateResolvedAccessExpression(source: KtSourceElement?, variable: FirVari
         }
     }
 
-fun generateTemporaryVariable(
-    moduleData: FirModuleData,
-    source: KtSourceElement?,
-    name: Name,
-    initializer: FirExpression,
-    typeRef: FirTypeRef? = null,
-    extractedAnnotations: Collection<FirAnnotation>? = null,
-): FirVariable =
-    buildProperty {
-        this.source = source
-        this.moduleData = moduleData
-        origin = FirDeclarationOrigin.Source
-        returnTypeRef = typeRef ?: buildImplicitTypeRef {
-            this.source = source
-        }
-        this.name = name
-        this.initializer = initializer
-        symbol = FirPropertySymbol(name)
-        isVar = false
-        isLocal = true
-        status = FirDeclarationStatusImpl(Visibilities.Local, Modality.FINAL)
-        if (extractedAnnotations != null) {
-            // LT extracts annotations ahead.
-            // PSI extracts annotations on demand. Use a similar util in [PsiConversionUtils]
-            annotations.addAll(extractedAnnotations)
-        }
-    }
-
-fun generateTemporaryVariable(
-    moduleData: FirModuleData,
-    source: KtSourceElement?,
-    specialName: String,
-    initializer: FirExpression,
-    extractedAnnotations: Collection<FirAnnotation>? = null,
-): FirVariable =
-    generateTemporaryVariable(
-        moduleData,
-        source,
-        Name.special("<$specialName>"),
-        initializer,
-        null,
-        extractedAnnotations,
-    )
-
 val FirClassBuilder.ownerRegularOrAnonymousObjectSymbol
     get() = when (this) {
         is FirAnonymousObjectBuilder -> symbol
@@ -441,14 +396,15 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     if (getter == null || getter is FirDefaultPropertyAccessor) {
         val annotations = getter?.annotations
         val returnTarget = FirFunctionTarget(null, isLambda = false)
+        val getterStatus = getter?.status
         getter = buildPropertyAccessor {
             this.source = fakeSource
             this.moduleData = moduleData
             origin = FirDeclarationOrigin.Source
             returnTypeRef = buildImplicitTypeRef()
             isGetter = true
-            status = FirDeclarationStatusImpl(Visibilities.Unknown, Modality.FINAL).apply {
-                isInline = this@generateAccessorsByDelegate.getter?.status?.isInline ?: isInline
+            status = FirDeclarationStatusImpl(getterStatus?.visibility ?: Visibilities.Unknown, Modality.FINAL).apply {
+                isInline = getterStatus?.isInline ?: isInline
             }
             symbol = FirPropertyAccessorSymbol()
 
@@ -479,14 +435,15 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     if (isVar && (setter == null || setter is FirDefaultPropertyAccessor)) {
         val annotations = setter?.annotations
         val parameterAnnotations = setter?.valueParameters?.firstOrNull()?.annotations
+        val setterStatus = setter?.status
         setter = buildPropertyAccessor {
             this.source = fakeSource
             this.moduleData = moduleData
             origin = FirDeclarationOrigin.Source
             returnTypeRef = moduleData.session.builtinTypes.unitType
             isGetter = false
-            status = FirDeclarationStatusImpl(Visibilities.Unknown, Modality.FINAL).apply {
-                isInline = this@generateAccessorsByDelegate.setter?.status?.isInline ?: isInline
+            status = FirDeclarationStatusImpl(setterStatus?.visibility ?: Visibilities.Unknown, Modality.FINAL).apply {
+                isInline = setterStatus?.isInline ?: isInline
             }
             val parameter = buildValueParameter {
                 source = fakeSource
@@ -565,7 +522,10 @@ private fun FirExpression.checkReceiver(name: String?): Boolean {
     return receiverName == name
 }
 
-fun FirQualifiedAccess.wrapWithSafeCall(receiver: FirExpression, source: KtSourceElement): FirSafeCallExpression {
+// this = .f(...)
+// receiver = <expr>
+// Returns safe call <expr>?.{ f(...) }
+fun FirQualifiedAccess.createSafeCall(receiver: FirExpression, source: KtSourceElement): FirSafeCallExpression {
     val checkedSafeCallSubject = buildCheckedSafeCallSubject {
         @OptIn(FirContractViolation::class)
         this.originalReceiverRef = FirExpressionRef<FirExpression>().apply {
@@ -581,9 +541,22 @@ fun FirQualifiedAccess.wrapWithSafeCall(receiver: FirExpression, source: KtSourc
         this.checkedSubjectRef = FirExpressionRef<FirCheckedSafeCallSubject>().apply {
             bind(checkedSafeCallSubject)
         }
-        this.regularQualifiedAccess = this@wrapWithSafeCall
+        this.selector = this@createSafeCall
         this.source = source
     }
+}
+
+// Turns (a?.b).f(...) to a?.{ b.f(...) ) -- for any qualified access `.f(...)`
+// Other patterns remain unchanged
+fun FirExpression.pullUpSafeCallIfNecessary(): FirExpression {
+    if (this !is FirQualifiedAccess) return this
+    val safeCall = explicitReceiver as? FirSafeCallExpression ?: return this
+    val safeCallSelector = safeCall.selector as? FirExpression ?: return this
+
+    replaceExplicitReceiver(safeCallSelector)
+    safeCall.replaceSelector(this)
+
+    return safeCall
 }
 
 fun List<FirAnnotationCall>.filterUseSiteTarget(target: AnnotationUseSiteTarget): List<FirAnnotationCall> =

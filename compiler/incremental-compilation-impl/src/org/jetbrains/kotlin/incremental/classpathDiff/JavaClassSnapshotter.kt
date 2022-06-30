@@ -5,16 +5,18 @@
 
 package org.jetbrains.kotlin.incremental.classpathDiff
 
-import com.google.gson.GsonBuilder
-import org.jetbrains.kotlin.incremental.md5
+import org.jetbrains.kotlin.incremental.classpathDiff.ClassSnapshotGranularity.CLASS_MEMBER_LEVEL
 import org.jetbrains.org.objectweb.asm.ClassReader
+import org.jetbrains.org.objectweb.asm.ClassWriter
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.tree.ClassNode
+import org.jetbrains.org.objectweb.asm.tree.FieldNode
+import org.jetbrains.org.objectweb.asm.tree.MethodNode
 
 /** Computes a [JavaClassSnapshot] of a Java class. */
 object JavaClassSnapshotter {
 
-    fun snapshot(classContents: ByteArray, classInfo: BasicClassInfo, includeDebugInfoInSnapshot: Boolean? = null): JavaClassSnapshot {
+    fun snapshot(classFile: ClassFileWithContents, granularity: ClassSnapshotGranularity): JavaClassSnapshot {
         // We will extract ABI information from the given class and store it into the `abiClass` variable.
         // It is acceptable to collect more info than required, but it is incorrect to collect less info than required.
         // There are 2 approaches:
@@ -29,7 +31,7 @@ object JavaClassSnapshotter {
         //   - SKIP_CODE and SKIP_FRAMES are set as method bodies will not be part of the ABI of the class.
         //   - SKIP_DEBUG is not set as it would skip method parameters, which may be used by annotation processors like Room.
         //   - EXPAND_FRAMES is not needed (and not relevant when SKIP_CODE is set).
-        val classReader = ClassReader(classContents)
+        val classReader = ClassReader(classFile.contents)
         classReader.accept(abiClass, ClassReader.SKIP_CODE or ClassReader.SKIP_FRAMES)
 
         // Then, remove non-ABI info, which includes:
@@ -45,40 +47,49 @@ object JavaClassSnapshotter {
         abiClass.methods.sortWith(compareBy({ it.name }, { it.desc }))
 
         // Snapshot the class
-        val fieldsAbi = abiClass.fields.map { snapshotJavaElement(it, it.name, includeDebugInfoInSnapshot) }
-        val methodsAbi = abiClass.methods.map { snapshotJavaElement(it, it.name, includeDebugInfoInSnapshot) }
+        val classAbiHash = snapshotClass(abiClass)
+        val classMemberLevelSnapshot = if (granularity == CLASS_MEMBER_LEVEL) {
+            val fieldsAbi = abiClass.fields.map { JavaElementSnapshot(it.name, snapshotField(it)) }
+            val methodsAbi = abiClass.methods.map { JavaElementSnapshot(it.name, snapshotMethod(it)) }
+            val classAbiExcludingMembers = abiClass.let {
+                it.fields.clear()
+                it.methods.clear()
+                JavaElementSnapshot(it.name, snapshotClass(it))
+            }
+            JavaClassMemberLevelSnapshot(classAbiExcludingMembers, fieldsAbi, methodsAbi)
+        } else null
 
-        abiClass.fields.clear()
-        abiClass.methods.clear()
-        val classAbiExcludingMembers = abiClass.let { snapshotJavaElement(it, it.name, includeDebugInfoInSnapshot) }
-
-        return RegularJavaClassSnapshot(classInfo.classId, classInfo.supertypes, classAbiExcludingMembers, fieldsAbi, methodsAbi)
+        return JavaClassSnapshot(
+            classId = classFile.classInfo.classId,
+            classAbiHash = classAbiHash,
+            classMemberLevelSnapshot = classMemberLevelSnapshot,
+            supertypes = classFile.classInfo.supertypes
+        )
     }
 
-    private val gson by lazy {
-        // Use serializeSpecialFloatingPointValues() to avoid this error
-        //    "java.lang.IllegalArgumentException: NaN is not a valid double value as per JSON specification. To override this behavior, use
-        //    GsonBuilder.serializeSpecialFloatingPointValues() method."
-        // on jars such as ~/.gradle/kotlin-build-dependencies/repo/kotlin.build/ideaIC/203.8084.24/artifacts/lib/rhino-1.7.12.jar.
-        GsonBuilder().serializeSpecialFloatingPointValues().create()
+    private fun snapshotClass(classNode: ClassNode): Long {
+        val classWriter = ClassWriter(0)
+        classNode.accept(classWriter)
+        return classWriter.toByteArray().hashToLong()
     }
 
-    // Same as above but with `setPrettyPrinting()`
-    private val gsonForDebug by lazy {
-        GsonBuilder().serializeSpecialFloatingPointValues()
-            .setPrettyPrinting()
-            .create()
+    private fun snapshotField(fieldNode: FieldNode): Long {
+        val classNode = emptyClass()
+        classNode.fields.add(fieldNode)
+        return snapshotClass(classNode)
     }
 
-    private fun snapshotJavaElement(javaElement: Any, javaElementName: String, includeDebugInfoInSnapshot: Boolean? = null): AbiSnapshot {
-        return if (includeDebugInfoInSnapshot == true) {
-            val abiValue = gsonForDebug.toJson(javaElement)
-            val abiHash = abiValue.toByteArray().md5()
-            AbiSnapshotForTests(javaElementName, abiHash, abiValue)
-        } else {
-            val abiValue = gson.toJson(javaElement)
-            val abiHash = abiValue.toByteArray().md5()
-            AbiSnapshot(javaElementName, abiHash)
-        }
+    private fun snapshotMethod(methodNode: MethodNode): Long {
+        val classNode = emptyClass()
+        classNode.methods.add(methodNode)
+        return snapshotClass(classNode)
+    }
+
+    private fun emptyClass() = ClassNode().also {
+        // We need to provide some minimal info to the class:
+        //   - Name is required.
+        //   - Class version is required if method bodies are considered, but we have removed method bodies in this class, so it's optional.
+        //   - Other info is optional.
+        it.name = "EmptyClass"
     }
 }

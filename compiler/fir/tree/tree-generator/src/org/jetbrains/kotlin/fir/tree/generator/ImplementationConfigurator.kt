@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.fir.tree.generator
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeImplementationConfigurator
 import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.Object
 import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.OpenClass
-import org.jetbrains.kotlin.fir.tree.generator.model.Type
 
 object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() {
     fun configureImplementations() {
@@ -560,6 +559,8 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             "FirSafeCallExpressionImpl",
             "FirCheckedSafeCallSubjectImpl",
             "FirArrayOfCallImpl",
+            "FirIntegerLiteralOperatorCallImpl",
+            "FirContextReceiverImpl",
         )
         configureFieldInAllImplementations(
             field = "typeRef",

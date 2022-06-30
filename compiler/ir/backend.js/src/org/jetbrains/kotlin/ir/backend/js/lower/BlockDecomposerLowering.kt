@@ -72,9 +72,7 @@ abstract class AbstractBlockDecomposerLowering(
                     val lastStatement = newBody.statements.last()
                     val actualParent = if (newBody.statements.size > 1 || lastStatement !is IrReturn || lastStatement.value != expression) {
                         expression = JsIrBuilder.buildCall(initFunction.symbol, expression.type)
-                        context.irFactory.stageController.unrestrictDeclarationListsAccess {
-                            (container.parent as IrDeclarationContainer).declarations += initFunction
-                        }
+                        (container.parent as IrDeclarationContainer).declarations += initFunction
                         initFunction
                     } else {
                         container
@@ -414,17 +412,30 @@ class BlockDecomposerTransformer(
             val block = IrBlockImpl(expression.startOffset, expression.endOffset, unitType, expression.origin)
 
             // TODO: consider decomposing only when it is really required
-            results.fold(block) { appendBlock, (cond, res, orig) ->
+            results.foldIndexed(block) { i, appendBlock, (cond, res, orig) ->
                 val condStatements = destructureComposite(cond)
                 val condValue = condStatements.last() as IrExpression
 
                 appendBlock.statements += condStatements.run { subList(0, lastIndex) }
 
                 JsIrBuilder.buildBlock(unitType).also {
-                    val elseBlock = if (isElseBranch(orig)) null else it
-                    val ifElseNode =
-                        JsIrBuilder.buildIfElse(orig.startOffset, orig.endOffset, unitType, condValue, res, elseBlock, expression.origin)
-                    appendBlock.statements += ifElseNode
+                    val elseBlock = it.takeIf { results.lastIndex != i }
+                    val additionalStatements = when {
+                        isElseBranch(orig) -> (res as? IrBlock)?.statements ?: listOf(res)
+                        else -> listOf(
+                            JsIrBuilder.buildIfElse(
+                                orig.startOffset,
+                                orig.endOffset,
+                                unitType,
+                                condValue,
+                                res,
+                                elseBlock,
+                                expression.origin
+                            )
+                        )
+                    }
+
+                    appendBlock.statements += additionalStatements
                 }
             }
 

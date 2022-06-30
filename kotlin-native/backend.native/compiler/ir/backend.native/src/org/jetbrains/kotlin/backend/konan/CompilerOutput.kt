@@ -9,10 +9,13 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKStringFromUtf8
 import llvm.*
+import org.jetbrains.kotlin.backend.common.phaser.ActionState
+import org.jetbrains.kotlin.backend.common.phaser.BeforeOrAfter
 import org.jetbrains.kotlin.backend.common.serialization.KlibIrVersion
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataVersion
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.llvm.objc.linkObjC
+import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.konan.CURRENT
 import org.jetbrains.kotlin.konan.CompilerVersion
 import org.jetbrains.kotlin.konan.file.isBitcode
@@ -47,6 +50,20 @@ val CompilerOutputKind.involvesLinkStage: Boolean
 val CompilerOutputKind.isCache: Boolean
     get() = (this == CompilerOutputKind.STATIC_CACHE || this == CompilerOutputKind.DYNAMIC_CACHE)
 
+internal fun llvmIrDumpCallback(state: ActionState, module: IrModuleFragment, context: Context) {
+    module.let{}
+    if (state.beforeOrAfter == BeforeOrAfter.AFTER && state.phase.name in context.configuration.getList(KonanConfigKeys.SAVE_LLVM_IR)) {
+        val moduleName: String = memScoped {
+            val sizeVar = alloc<size_tVar>()
+            LLVMGetModuleIdentifier(context.llvmModule, sizeVar.ptr)!!.toKStringFromUtf8()
+        }
+        val output = context.config.tempFiles.create("$moduleName.${state.phase.name}", ".ll")
+        if (LLVMPrintModuleToFile(context.llvmModule, output.absolutePath, null) != 0) {
+            error("Can't dump LLVM IR to ${output.absolutePath}")
+        }
+    }
+}
+
 internal fun produceCStubs(context: Context) {
     val llvmModule = context.llvmModule!!
     context.cStubsManager.compile(
@@ -56,31 +73,20 @@ internal fun produceCStubs(context: Context) {
     ).forEach {
         parseAndLinkBitcodeFile(context, llvmModule, it.absolutePath)
     }
-    // TODO: Consider adding LLVM_IR compiler output kind.
-    if (context.configuration.getBoolean(KonanConfigKeys.SAVE_LLVM_IR)) {
-        val moduleName: String = memScoped {
-            val sizeVar = alloc<size_tVar>()
-            LLVMGetModuleIdentifier(context.llvmModule, sizeVar.ptr)!!.toKStringFromUtf8()
-        }
-        val output = context.config.tempFiles.create(moduleName,".ll")
-        if (LLVMPrintModuleToFile(context.llvmModule, output.absolutePath, null) != 0) {
-            error("Can't dump LLVM IR to ${output.absolutePath}")
-        }
-    }
 }
 
 private fun linkAllDependencies(context: Context, generatedBitcodeFiles: List<String>) {
     val config = context.config
 
-    val runtimeNativeLibraries = config.runtimeNativeLibraries
-            .takeIf { context.producedLlvmModuleContainsStdlib }.orEmpty()
+    // TODO: Possibly slow, maybe to a separate phase?
+    val runtimeModules = RuntimeLinkageStrategy.pick(context).run()
 
     val launcherNativeLibraries = config.launcherNativeLibraries
             .takeIf { config.produce == CompilerOutputKind.PROGRAM }.orEmpty()
 
     linkObjC(context)
 
-    val nativeLibraries = config.nativeLibraries + runtimeNativeLibraries + launcherNativeLibraries
+    val nativeLibraries = config.nativeLibraries + launcherNativeLibraries
 
     val bitcodeLibraries = context.llvm.bitcodeToLink.map { it.bitcodePaths }.flatten().filter { it.isBitcode }
     val additionalBitcodeFilesToLink = context.llvm.additionalProducedBitcodeFiles
@@ -90,6 +96,12 @@ private fun linkAllDependencies(context: Context, generatedBitcodeFiles: List<St
         bitcodeFiles += exceptionsSupportNativeLibrary
 
     val llvmModule = context.llvmModule!!
+    runtimeModules.forEach {
+        val failed = llvmLinkModules2(context, llvmModule, it)
+        if (failed != 0) {
+            error("Failed to link ${it.getName()}")
+        }
+    }
     bitcodeFiles.forEach {
         parseAndLinkBitcodeFile(context, llvmModule, it)
     }
@@ -199,14 +211,14 @@ internal fun produceOutput(context: Context) {
     }
 }
 
-private fun parseAndLinkBitcodeFile(context: Context, llvmModule: LLVMModuleRef, path: String) {
+internal fun parseAndLinkBitcodeFile(context: Context, llvmModule: LLVMModuleRef, path: String) {
     val parsedModule = parseBitcodeFile(path)
     if (!context.shouldUseDebugInfoFromNativeLibs()) {
         LLVMStripModuleDebugInfo(parsedModule)
     }
     val failed = llvmLinkModules2(context, llvmModule, parsedModule)
     if (failed != 0) {
-        throw Error("failed to link $path") // TODO: retrieve error message from LLVM.
+        throw Error("failed to link $path")
     }
 }
 

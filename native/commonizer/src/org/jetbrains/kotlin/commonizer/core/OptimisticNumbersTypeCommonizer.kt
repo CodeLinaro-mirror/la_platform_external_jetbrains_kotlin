@@ -5,8 +5,9 @@
 
 package org.jetbrains.kotlin.commonizer.core
 
-import org.jetbrains.kotlin.commonizer.cir.CirClassType
-import org.jetbrains.kotlin.commonizer.cir.CirEntityId
+import org.jetbrains.kotlin.commonizer.cir.*
+import org.jetbrains.kotlin.commonizer.cir.CirClassType.Companion.copyInterned
+import org.jetbrains.kotlin.commonizer.utils.*
 
 private typealias BitWidth = Int
 
@@ -21,75 +22,69 @@ private class SubstitutableNumbers(private val numbers: Map<CirEntityId, BitWidt
 
 private val signedIntegers = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlin/Byte") to 8,
-        CirEntityId.create("kotlin/Short") to 16,
-        CirEntityId.create("kotlin/Int") to 32,
-        CirEntityId.create("kotlin/Long") to 64
+        CirEntityId.create(KOTLIN_BYTE_ID) to 8,
+        CirEntityId.create(KOTLIN_SHORT_ID) to 16,
+        CirEntityId.create(KOTLIN_INT_ID) to 32,
+        CirEntityId.create(KOTLIN_LONG_ID) to 64
     )
 )
 
 private val unsignedIntegers = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlin/UByte") to 8,
-        CirEntityId.create("kotlin/UShort") to 16,
-        CirEntityId.create("kotlin/UInt") to 32,
-        CirEntityId.create("kotlin/ULong") to 64
+        CirEntityId.create(KOTLIN_UBYTE_ID) to 8,
+        CirEntityId.create(KOTLIN_USHORT_ID) to 16,
+        CirEntityId.create(KOTLIN_UINT_ID) to 32,
+        CirEntityId.create(KOTLIN_ULONG_ID) to 64
     )
 )
 
 private val floatingPoints = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlin/Float") to 32,
-        CirEntityId.create("kotlin/Double") to 64,
+        CirEntityId.create(KOTLIN_FLOAT_ID) to 32,
+        CirEntityId.create(KOTLIN_DOUBLE_ID) to 64,
     )
 )
 
 private val signedVarIntegers = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlinx/cinterop/ByteVarOf") to 8,
-        CirEntityId.create("kotlinx/cinterop/ShortVarOf") to 16,
-        CirEntityId.create("kotlinx/cinterop/IntVarOf") to 32,
-        CirEntityId.create("kotlinx/cinterop/LongVarOf") to 64,
+        CirEntityId.create(BYTE_VAR_OF_ID) to 8,
+        CirEntityId.create(SHORT_VAR_OF_ID) to 16,
+        CirEntityId.create(INT_VAR_OF_ID) to 32,
+        CirEntityId.create(LONG_VAR_OF_ID) to 64,
     )
 )
 
 private val unsignedVarIntegers = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlinx/cinterop/UByteVarOf") to 8,
-        CirEntityId.create("kotlinx/cinterop/UShortVarOf") to 16,
-        CirEntityId.create("kotlinx/cinterop/UIntVarOf") to 32,
-        CirEntityId.create("kotlinx/cinterop/ULongVarOf") to 64,
+        CirEntityId.create(UBYTE_VAR_OF_ID) to 8,
+        CirEntityId.create(USHORT_VAR_OF_ID) to 16,
+        CirEntityId.create(UINT_VAR_OF_ID) to 32,
+        CirEntityId.create(ULONG_VAR_OF_ID) to 64,
     )
 )
 
 private val floatingPointVars = SubstitutableNumbers(
     mapOf(
-        CirEntityId.create("kotlinx/cinterop/FloatVarOf") to 32,
-        CirEntityId.create("kotlinx/cinterop/DoubleVarOf") to 64,
+        CirEntityId.create(FLOAT_VAR_OF_ID) to 32,
+        CirEntityId.create(DOUBLE_VAR_OF_ID) to 64,
     )
 )
 
 internal object OptimisticNumbersTypeCommonizer : AssociativeCommonizer<CirClassType> {
     override fun commonize(first: CirClassType, second: CirClassType): CirClassType? {
-        return signedIntegers.choose(first, second)
+        val result = signedIntegers.choose(first, second)
             ?: unsignedIntegers.choose(first, second)
             ?: floatingPoints.choose(first, second)
             ?: signedVarIntegers.choose(first, second)
             ?: unsignedVarIntegers.choose(first, second)
             ?: floatingPointVars.choose(first, second)
+
+        return result?.withMarker()
     }
 
-    fun isOptimisticallySubstitutable(classId: CirEntityId): Boolean {
-        val firstPackageSegment = classId.packageName.segments.firstOrNull()
-        if (firstPackageSegment != "kotlinx" && firstPackageSegment != "kotlin") {
-            return false
-        }
+    private fun CirClassType.withMarker(): CirClassType = this.copyInterned(
+        attachments = attachments + OptimisticCommonizationMarker
+    )
 
-        return classId in signedIntegers
-                || classId in unsignedIntegers
-                || classId in floatingPoints
-                || classId in signedVarIntegers
-                || classId in unsignedVarIntegers
-                || classId in floatingPointVars
-    }
+    internal object OptimisticCommonizationMarker : CirTypeAttachment
 }

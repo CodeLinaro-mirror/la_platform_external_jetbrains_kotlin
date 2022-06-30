@@ -26,7 +26,10 @@ import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrEnumConstructorCallImpl
-import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrEnumEntrySymbol
+import org.jetbrains.kotlin.ir.symbols.IrTypeAliasSymbol
+import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
@@ -54,6 +57,8 @@ class Fir2IrClassifierStorage(
     private val typeParameterCacheForSetter = mutableMapOf<FirTypeParameter, IrTypeParameter>()
 
     private val enumEntryCache = mutableMapOf<FirEnumEntry, IrEnumEntry>()
+
+    private val fieldsForContextReceivers = mutableMapOf<IrClass, List<IrField>>()
 
     private val localStorage = Fir2IrLocalStorage()
 
@@ -123,16 +128,46 @@ class Fir2IrClassifierStorage(
         if (klass is FirRegularClass) {
             preCacheTypeParameters(klass)
             setTypeParameters(klass)
+            val fieldsForContextReceiversOfCurrentClass = createContextReceiverFields(klass)
+            if (fieldsForContextReceiversOfCurrentClass.isNotEmpty()) {
+                declarations.addAll(fieldsForContextReceiversOfCurrentClass)
+                fieldsForContextReceivers[this] = fieldsForContextReceiversOfCurrentClass
+            }
         }
     }
+
+    fun IrClass.createContextReceiverFields(klass: FirRegularClass): List<IrField> {
+        if (klass.contextReceivers.isEmpty()) return emptyList()
+
+        val contextReceiverFields = mutableListOf<IrField>()
+        for ((index, contextReceiver) in klass.contextReceivers.withIndex()) {
+            val irField = components.irFactory.createField(
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                IrDeclarationOrigin.FIELD_FOR_CLASS_CONTEXT_RECEIVER,
+                IrFieldSymbolImpl(),
+                Name.identifier("contextReceiverField$index"),
+                contextReceiver.typeRef.toIrType(),
+                DescriptorVisibilities.PRIVATE,
+                isFinal = true,
+                isExternal = false,
+                isStatic = false
+            )
+            irField.parent = this@createContextReceiverFields
+            contextReceiverFields.add(irField)
+        }
+
+        return contextReceiverFields
+    }
+
+    fun getFieldsWithContextReceiversForClass(irClass: IrClass): List<IrField>? = fieldsForContextReceivers[irClass]
 
     private fun IrClass.declareSupertypes(klass: FirClass) {
         superTypes = klass.superTypeRefs.map { superTypeRef -> superTypeRef.toIrType() }
     }
 
-    private fun IrClass.declareInlineClassRepresentation(klass: FirRegularClass) {
+    private fun IrClass.declareValueClassRepresentation(klass: FirRegularClass) {
         if (this !is Fir2IrLazyClass) {
-            inlineClassRepresentation = computeInlineClassRepresentation(klass)
+            valueClassRepresentation = computeValueClassRepresentation(klass)
         }
     }
 
@@ -213,7 +248,7 @@ class Fir2IrClassifierStorage(
         irClass.declareTypeParameters(regularClass)
         irClass.setThisReceiver(regularClass.typeParameters)
         irClass.declareSupertypes(regularClass)
-        irClass.declareInlineClassRepresentation(regularClass)
+        irClass.declareValueClassRepresentation(regularClass)
         return irClass
     }
 
@@ -284,7 +319,7 @@ class Fir2IrClassifierStorage(
                     isInner = regularClass.isInner,
                     isData = regularClass.isData,
                     isExternal = regularClass.isExternal,
-                    isInline = regularClass.isInline,
+                    isValue = regularClass.isInline,
                     isExpect = regularClass.isExpect,
                     isFun = regularClass.isFun
                 ).apply {
@@ -480,7 +515,7 @@ class Fir2IrClassifierStorage(
         val classId = firClassSymbol.classId
         val parentId = classId.outerClassId
         val parentClass = parentId?.let { session.symbolProvider.getClassLikeSymbolByClassId(it) }
-        val irParent = declarationStorage.findIrParent(classId.packageFqName, parentClass?.toLookupTag(), firClassSymbol)!!
+        val irParent = declarationStorage.findIrParent(classId.packageFqName, parentClass?.toLookupTag(), firClassSymbol, firClass.origin)!!
         val symbol = Fir2IrClassSymbol(signature)
         val irClass = firClass.convertWithOffsets { startOffset, endOffset ->
             symbolTable.declareClass(signature, { symbol }) {

@@ -19,6 +19,7 @@ dependencies {
     api(kotlinStdlib())
     testApi(project(":kotlin-test:kotlin-test-junit"))
     testApi('junit:junit:4.13.2')
+    kotlinCompilerClasspath(project(':libraries:tools:stdlib-compiler-classpath'))
 }
 
 jar {
@@ -26,13 +27,6 @@ jar {
     if (includeJava9) {
         from sourceSets.java9.output
     }
-}
-
-configureModularJar {
-    dependsOn(jar)
-    manifestAttributes(manifest, project, 'Test', true)
-
-    from zipTree(jar.outputs.files.singleFile)
 }
 
 configureSourcesJar()

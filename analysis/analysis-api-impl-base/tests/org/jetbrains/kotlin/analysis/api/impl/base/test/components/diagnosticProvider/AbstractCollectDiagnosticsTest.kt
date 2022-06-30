@@ -22,9 +22,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import kotlin.test.assertEquals
 
-abstract class AbstractCollectDiagnosticsTest(
-    configurator: FrontendApiTestConfiguratorService
-) : AbstractHLApiSingleFileTest(configurator) {
+abstract class AbstractCollectDiagnosticsTest : AbstractHLApiSingleFileTest() {
     override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
         fun TextRange.asLineColumnRange(): String {
             return getLineAndColumnRangeInPsiFile(ktFile, this).toString()
@@ -33,7 +31,7 @@ abstract class AbstractCollectDiagnosticsTest(
         analyseForTest(ktFile) {
             val diagnosticsInFile =
                 ktFile.collectDiagnosticsForFile(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS).map { it.getKey() }.sorted()
-            @Suppress("RemoveExplicitTypeArguments") val diagnosticsFromElements = buildList<Pair<KtElement, DiagnosticKey>> {
+            val diagnosticsFromElements = buildList {
                 ktFile.accept(object : KtTreeVisitorVoid() {
                     override fun visitKtElement(element: KtElement) {
                         for (diagnostic in element.getDiagnostics(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS)) {

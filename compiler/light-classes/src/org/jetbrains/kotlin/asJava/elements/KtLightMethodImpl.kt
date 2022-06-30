@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -12,17 +12,14 @@ import com.intellij.psi.scope.PsiScopeProcessor
 import com.intellij.psi.util.MethodSignature
 import com.intellij.psi.util.MethodSignatureBackedByPsiMethod
 import com.intellij.psi.util.PsiTreeUtil
-import org.jetbrains.kotlin.asJava.LightClassUtil
+import org.jetbrains.kotlin.asJava.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
 import org.jetbrains.kotlin.asJava.builder.MemberIndex
 import org.jetbrains.kotlin.asJava.builder.memberIndex
-import org.jetbrains.kotlin.asJava.checkIsMangled
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
 import org.jetbrains.kotlin.asJava.classes.cannotModify
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.asJava.propertyNameByAccessor
-import org.jetbrains.kotlin.asJava.unwrapped
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
@@ -153,13 +150,11 @@ open class KtLightMethodImpl protected constructor(
     override fun equals(other: Any?): Boolean = other === this ||
             other is KtLightMethodImpl &&
             other.javaClass == javaClass &&
+            other.memberIndex == memberIndex &&
             other.containingClass == containingClass &&
-            other.lightMemberOrigin == lightMemberOrigin &&
-            other.dummyDelegate == dummyDelegate &&
-            other.memberIndex == memberIndex
+            other.lightMemberOrigin == lightMemberOrigin
 
     override fun hashCode(): Int = name.hashCode()
-        .times(31).plus(lightMemberOrigin.hashCode())
         .times(31).plus(containingClass.hashCode())
         .times(31).plus(memberIndex.hashCode())
 
@@ -224,8 +219,11 @@ open class KtLightMethodImpl protected constructor(
             return KtLightMethodImpl(computeRealDelegate, origin, containingClass, dummyDelegate)
         }
 
-        fun fromClsMethods(delegateClass: PsiClass, containingClass: KtLightClass) = delegateClass.methods.map {
-            KtLightMethodImpl.create(it, getOrigin(it), containingClass)
+        fun fromClsMethods(delegateClass: PsiClass, containingClass: KtLightClass): List<KtLightMethodImpl> = buildList {
+            for (method in delegateClass.methods) {
+                if (isSyntheticValuesOrValueOfMethod(method)) continue
+                this += create(method, getOrigin(method), containingClass)
+            }
         }
 
         fun getOrigin(method: PsiMethod) = adjustMethodOrigin(getMemberOrigin(method))

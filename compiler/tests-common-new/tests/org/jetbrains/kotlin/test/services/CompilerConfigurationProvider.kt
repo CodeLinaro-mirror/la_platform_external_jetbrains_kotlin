@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.test.services
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -55,13 +56,17 @@ abstract class CompilerConfigurationProvider : TestService {
         val bootClasspath = mockJdk?.let { listOf(it) }
         environment.registerJavac(kotlinFiles = ktFiles, bootClasspath = bootClasspath)
     }
+
+    fun getJarFileSystem(module: TestModule): CoreJarFileSystem {
+        return getKotlinCoreEnvironment(module).projectEnvironment.environment.jarFileSystem as CoreJarFileSystem
+    }
 }
 
 val TestServices.compilerConfigurationProvider: CompilerConfigurationProvider by TestServices.testServiceAccessor()
 
 open class CompilerConfigurationProviderImpl(
     override val testRootDisposable: Disposable,
-    val configurators: List<EnvironmentConfigurator>
+    val configurators: List<AbstractEnvironmentConfigurator>
 ) : CompilerConfigurationProvider() {
     private val cache: MutableMap<TestModule, KotlinCoreEnvironment> = mutableMapOf()
 
@@ -93,7 +98,7 @@ open class CompilerConfigurationProviderImpl(
             projectEnv,
             initialConfiguration,
             configFiles
-        ).also { configurators.forEach { it.registerCompilerExtensions(project) } }
+        ).also { configurators.forEach { it.registerCompilerExtensions(project, module) } }
     }
 
     @TestInfrastructureInternals

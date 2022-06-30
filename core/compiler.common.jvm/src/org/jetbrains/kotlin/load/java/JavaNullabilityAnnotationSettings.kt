@@ -36,12 +36,12 @@ val NULLABILITY_ANNOTATION_SETTINGS: NullabilityAnnotationStates<JavaNullability
         FqName("lombok") to JavaNullabilityAnnotationsStatus.DEFAULT,
         JSPECIFY_ANNOTATIONS_PACKAGE to JavaNullabilityAnnotationsStatus(
             reportLevelBefore = ReportLevel.WARN,
-            sinceVersion = KotlinVersion(1, 7),
+            sinceVersion = KotlinVersion(1, 8),
             reportLevelAfter = ReportLevel.STRICT
         ),
         FqName("io.reactivex.rxjava3.annotations") to JavaNullabilityAnnotationsStatus(
             reportLevelBefore = ReportLevel.WARN,
-            sinceVersion = KotlinVersion(1, 7),
+            sinceVersion = KotlinVersion(1, 8),
             reportLevelAfter = ReportLevel.STRICT
         ),
     )
@@ -72,7 +72,7 @@ fun getDefaultReportLevelForAnnotation(annotationFqName: FqName) =
 fun getReportLevelForAnnotation(
     annotation: FqName,
     configuredReportLevels: NullabilityAnnotationStates<ReportLevel>,
-    configuredKotlinVersion: KotlinVersion = KotlinVersion.CURRENT
+    configuredKotlinVersion: KotlinVersion = KotlinVersion(1, 7, 0)
 ): ReportLevel {
     configuredReportLevels[annotation]?.let { return it }
 

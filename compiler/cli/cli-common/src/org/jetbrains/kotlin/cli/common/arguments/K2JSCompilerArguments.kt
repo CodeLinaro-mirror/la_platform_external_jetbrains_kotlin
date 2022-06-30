@@ -131,14 +131,14 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
     )
     var irDceRuntimeDiagnostic: String? by NullableStringFreezableVar(null)
 
-    @Argument(value = "-Xir-dce-driven", description = "Perform a more experimental faster dead code elimination")
-    var irDceDriven: Boolean by FreezableVar(false)
-
     @Argument(value = "-Xir-dce-print-reachability-info", description = "Print declarations' reachability info to stdout during performing DCE")
     var irDcePrintReachabilityInfo: Boolean by FreezableVar(false)
 
     @Argument(value = "-Xir-property-lazy-initialization", description = "Perform lazy initialization for properties")
     var irPropertyLazyInitialization: Boolean by FreezableVar(true)
+
+    @Argument(value = "-Xir-minimized-member-names", description = "Perform minimization for names of members")
+    var irMinimizedMemberNames: Boolean by FreezableVar(false)
 
     @Argument(value = "-Xir-only", description = "Disables pre-IR backend")
     var irOnly: Boolean by FreezableVar(false)
@@ -245,13 +245,16 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
 
     @Argument(
             value = "-Xwasm-launcher",
-            valueDescription = "esm|nodejs",
+            valueDescription = "esm|nodejs|d8",
             description = "Picks flavor for the wasm launcher. Default is ESM."
     )
     var wasmLauncher: String? by NullableStringFreezableVar("esm")
 
     @Argument(value = "-Xwasm-kclass-fqn", description = "Enable support for FQ names in KClass")
     var wasmKClassFqn: Boolean by FreezableVar(false)
+
+    @Argument(value = "-Xwasm-enable-array-range-checks", description = "Turn on range checks for the array access functions")
+    var wasmEnableArrayRangeChecks: Boolean by FreezableVar(false)
 
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         return super.configureAnalysisFlags(collector, languageVersion).also {

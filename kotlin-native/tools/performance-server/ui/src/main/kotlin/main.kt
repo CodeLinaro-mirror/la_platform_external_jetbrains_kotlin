@@ -190,7 +190,7 @@ fun getDatesComponents() = "${beforeDate?.let {"&before=${encodeURIComponent(it)
         "${afterDate?.let {"&after=${encodeURIComponent(it)}"} ?: ""}"
 
 fun main(args: Array<String>) {
-    val serverUrl = "https://kotlin-native-perf-summary.labs.jb.gg"
+    val serverUrl = "https://kotlin-native-perf-summary.labs.jb.gg" // use "http://localhost:3000" for local debug.
     val zoomRatio = 2
 
     // Get parameters from request.
@@ -215,7 +215,7 @@ fun main(args: Array<String>) {
         val branches: Array<String> = JSON.parse(response)
         // Add release branches to selector.
         branches.filter { it != "master" }.forEach {
-            if ("v(\\d|\\.)+(-M\\d)?-fixes".toRegex().matches(it)) {
+            if ("^v?(\\d|\\.)+(-M\\d)?(-fixes)?$".toRegex().matches(it)) {
                 val option = Option(it, it)
                 js("$('#inputGroupBranch')").append(js("$(option)"))
             }
@@ -282,8 +282,12 @@ fun main(args: Array<String>) {
         }
     })
 
-    val platformSpecificBenchs = if (parameters["target"] == "Mac_OS_X") ",FrameworkBenchmarksAnalyzer,SpaceFramework_iosX64" else
-        if (parameters["target"] == "Linux") ",kotlinx.coroutines" else ""
+    val platformSpecificBenchs = when (parameters["target"]) {
+        "Mac_OS_X" -> ",FrameworkBenchmarksAnalyzer,SpaceFramework_iosX64"
+        "Mac_OS_X_Arm64" -> ",FrameworkBenchmarksAnalyzer"
+        "Linux" -> ",kotlinx.coroutines"
+        else -> ""
+    }
 
     var execData = listOf<String>() to listOf<List<Double?>>()
     var compileData = listOf<String>() to listOf<List<Double?>>()

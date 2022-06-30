@@ -16,9 +16,11 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
+        CheckContextReceivers,
         CheckDslScopeViolation,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
+        ConstraintSystemForks
     )
 
     object SyntheticSelect : CallKind(
@@ -27,7 +29,8 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
         CheckArguments,
-        EagerResolveOfCallableReferences
+        EagerResolveOfCallableReferences,
+        ConstraintSystemForks,
     )
 
     object Function : CallKind(
@@ -41,12 +44,14 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
+        CheckContextReceivers,
         CheckDslScopeViolation,
         CheckArguments,
         CheckCallModifiers,
         EagerResolveOfCallableReferences,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
+        ConstraintSystemForks,
     )
 
     object DelegatingConstructorCall : CallKind(
@@ -62,6 +67,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckDslScopeViolation,
         CheckArguments,
         EagerResolveOfCallableReferences,
+        ConstraintSystemForks,
     )
 
     object CallableReference : CallKind(
@@ -84,7 +90,8 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
         CheckArguments,
-        EagerResolveOfCallableReferences
+        EagerResolveOfCallableReferences,
+        ConstraintSystemForks,
     )
 
     internal class CustomForIde(vararg resolutionSequence: ResolutionStage) : CallKind(*resolutionSequence)
@@ -108,6 +115,7 @@ class ResolutionSequenceBuilder(
     var mapTypeArguments: Boolean = false,
     var resolveCallableReferenceArguments: Boolean = false,
     var checkCallableReferenceExpectedType: Boolean = false,
+    val checkContextReceivers: Boolean = false,
 ) {
     fun build(): CallKind {
         val stages = mutableListOf<ResolutionStage>().apply {
@@ -120,6 +128,7 @@ class ResolutionSequenceBuilder(
             if (checkDispatchReceiver) add(CheckDispatchReceiver)
             if (checkExtensionReceiver) add(CheckExtensionReceiver)
             if (checkArguments) add(CheckArguments)
+            if (checkContextReceivers) add(CheckContextReceivers)
             if (resolveCallableReferenceArguments) add(EagerResolveOfCallableReferences)
             if (checkLowPriorityInOverloadResolution) add(CheckLowPriorityInOverloadResolution)
             if (initializePostponedVariables) add(PostponedVariablesInitializerResolutionStage)

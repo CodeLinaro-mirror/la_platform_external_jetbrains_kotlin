@@ -1,4 +1,3 @@
-// !LANGUAGE: +MultiPlatformProjects
 // MODULE: m1-common
 // FILE: common.kt
 expect class Foo(
@@ -9,7 +8,7 @@ expect class Foo(
         "no"
     }
 
-    <!PRIMARY_CONSTRUCTOR_DELEGATION_CALL_EXPECTED!>constructor(s: String)<!> {
+    constructor(s: String) {
         "no"
     }
 

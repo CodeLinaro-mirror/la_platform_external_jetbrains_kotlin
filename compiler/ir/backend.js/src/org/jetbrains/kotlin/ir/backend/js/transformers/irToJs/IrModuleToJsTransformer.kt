@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 import org.jetbrains.kotlin.ir.backend.js.CompilationOutputs
 import org.jetbrains.kotlin.ir.backend.js.CompilerResult
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
-import org.jetbrains.kotlin.ir.backend.js.eliminateDeadDeclarations
+import org.jetbrains.kotlin.ir.backend.js.dce.eliminateDeadDeclarations
 import org.jetbrains.kotlin.ir.backend.js.export.ExportModelGenerator
 import org.jetbrains.kotlin.ir.backend.js.export.ExportModelToJsStatements
 import org.jetbrains.kotlin.ir.backend.js.export.ExportedModule
@@ -68,7 +68,7 @@ class IrModuleToJsTransformer(
 
         val code = EnumMap<TranslationMode, CompilationOutputs>(TranslationMode::class.java)
 
-        if (fullJs) code[TranslationMode.fromFlags(false, multiModule)] = generateWrappedModuleBody(modules, exportedModule, namer)
+        if (fullJs) code[TranslationMode.fromFlags(false, multiModule, false)] = generateWrappedModuleBody(modules, exportedModule, namer)
 
         if (dceJs) {
             eliminateDeadDeclarations(modules, backendContext, removeUnusedAssociatedObjects)
@@ -76,7 +76,7 @@ class IrModuleToJsTransformer(
             // TODO: is this mode relevant for scripting? If yes, refactor so that the external name tables are used here when needed.
             val namer = NameTables(emptyList(), context = backendContext)
             namer.merge(modules.flatMap { it.files }, additionalPackages)
-            code[TranslationMode.fromFlags(true, multiModule)] = generateWrappedModuleBody(modules, exportedModule, namer)
+            code[TranslationMode.fromFlags(true, multiModule, false)] = generateWrappedModuleBody(modules, exportedModule, namer)
         }
 
         return CompilerResult(code, dts)
@@ -98,7 +98,7 @@ class IrModuleToJsTransformer(
                 exportedModule,
                 namer,
                 refInfo,
-                generateMainCall = true
+                generateMainCall = true,
             )
 
             val dependencies = others.mapIndexed { index, module ->
@@ -112,7 +112,7 @@ class IrModuleToJsTransformer(
                     ExportedModule(moduleName, exportedModule.moduleKind, exportedDeclarations),
                     namer,
                     refInfo,
-                    generateMainCall = false
+                    generateMainCall = false,
                 )
             }.reversed()
 
@@ -123,7 +123,8 @@ class IrModuleToJsTransformer(
                 emptyList(),
                 exportedModule,
                 namer,
-                EmptyCrossModuleReferenceInfo
+                EmptyCrossModuleReferenceInfo,
+                generateMainCall = true,
             )
         }
     }
@@ -134,7 +135,7 @@ class IrModuleToJsTransformer(
         exportedModule: ExportedModule,
         namer: NameTables,
         refInfo: CrossModuleReferenceInfo,
-        generateMainCall: Boolean = true
+        generateMainCall: Boolean = true,
     ): CompilationOutputs {
 
         val nameGenerator = refInfo.withReferenceTracking(
@@ -147,6 +148,7 @@ class IrModuleToJsTransformer(
             globalNameScope = namer.globalNames
         )
 
+        val polyfillStatements = generatePolyfillStatements(modules)
         val (importStatements, importedJsModules) =
             generateImportStatements(
                 getNameForExternalDeclaration = { staticContext.getNameForStaticDeclaration(it) },
@@ -163,8 +165,10 @@ class IrModuleToJsTransformer(
         val crossModuleExports = generateCrossModuleExports(modules, refInfo, internalModuleName)
 
         val program = JsProgram()
+
         if (generateScriptModule) {
             with(program.globalBlock) {
+                statements.addWithComment("block: polyfills", polyfillStatements)
                 statements.addWithComment("block: imports", importStatements + crossModuleImports)
                 statements += moduleBody
                 statements.addWithComment("block: exports", exportStatements + crossModuleExports)
@@ -185,6 +189,7 @@ class IrModuleToJsTransformer(
                 }
             }
 
+            program.globalBlock.statements.addWithComment("block: polyfills", polyfillStatements)
             program.globalBlock.statements += ModuleWrapperTranslation.wrap(
                 exportedModule.name,
                 rootFunction,
@@ -223,7 +228,6 @@ class IrModuleToJsTransformer(
                 null
             }
 
-        staticContext.polyfills.addAllNeededPolyfillsTo(jsCode)
         program.accept(JsToStringGenerationVisitor(jsCode, sourceMapBuilderConsumer ?: NoOpSourceLocationConsumer))
 
         return CompilationOutputs(
@@ -290,7 +294,6 @@ class IrModuleToJsTransformer(
         val statements = mutableListOf<JsStatement>()
 
         val preDeclarationBlock = JsGlobalBlock()
-
         val postDeclarationBlock = JsGlobalBlock()
 
         statements.addWithComment("block: pre-declaration", preDeclarationBlock)
@@ -392,6 +395,13 @@ class IrModuleToJsTransformer(
             val generateContinuation = it.isLoweredSuspendFunction(backendContext)
             listOf(JsInvocation(jsName.makeRef(), generateMainArguments(generateArgv, generateContinuation, staticContext)).makeStmt())
         } ?: emptyList()
+    }
+
+    private fun generatePolyfillStatements(modules: Iterable<IrModuleFragment>): List<JsStatement> {
+        return modules.asSequence()
+            .flatMap { it.files }
+            .flatMap { backendContext.polyfills.getAllPolyfillsFor(it) }
+            .toList()
     }
 
     private fun generateImportStatements(

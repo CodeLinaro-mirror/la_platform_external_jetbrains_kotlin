@@ -10,8 +10,9 @@ import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.ObsoleteTestInfrastructure
-import org.jetbrains.kotlin.cli.jvm.compiler.PsiBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.PsiBasedProjectFileSearchScope
+import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
 import org.jetbrains.kotlin.fir.session.FirSessionFactory
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
@@ -29,18 +30,20 @@ fun createSessionForTests(
     librariesScope: AbstractProjectFileSearchScope = !sourceScope,
     moduleName: String = "TestModule",
     friendsPaths: List<Path> = emptyList(),
+    languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT
 ): FirSession = FirSessionFactory.createSessionWithDependencies(
     Name.identifier(moduleName),
     JvmPlatforms.unspecifiedJvmPlatform,
     JvmPlatformAnalyzerServices,
     externalSessionProvider = null,
     projectEnvironment,
-    languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
+    languageVersionSettings,
     sourceScope,
     librariesScope,
     lookupTracker = null,
-    providerAndScopeForIncrementalCompilation = null,
+    incrementalCompilationContext = null,
     extensionRegistrars = emptyList(),
+    needRegisterJavaElementFinder = true,
     dependenciesConfigurator = {
         friendDependencies(friendsPaths)
     }
@@ -60,13 +63,18 @@ fun createSessionForTests(
         JvmPlatforms.unspecifiedJvmPlatform,
         JvmPlatformAnalyzerServices,
         externalSessionProvider = null,
-        PsiBasedProjectEnvironment(project, VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.FILE_PROTOCOL), getPackagePartProvider),
+        VfsBasedProjectEnvironment(
+            project,
+            VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.FILE_PROTOCOL),
+            getPackagePartProvider
+        ),
         languageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
         PsiBasedProjectFileSearchScope(sourceScope),
         PsiBasedProjectFileSearchScope(librariesScope),
         lookupTracker = null,
-        providerAndScopeForIncrementalCompilation = null,
+        incrementalCompilationContext = null,
         extensionRegistrars = emptyList(),
+        needRegisterJavaElementFinder = true,
         dependenciesConfigurator = {
             friendDependencies(friendsPaths)
         }

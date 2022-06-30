@@ -49,19 +49,16 @@ abstract class IncrementalCompilerRunner<
     protected val buildHistoryFile: File,
     // there might be some additional output directories (e.g. for generated java in kapt)
     // to remove them correctly on rebuild, we pass them as additional argument
-    private val additionalOutputFiles: Collection<File> = emptyList()
+    private val additionalOutputFiles: Collection<File> = emptyList(),
+    protected val withAbiSnapshot: Boolean = false
 ) {
 
     protected val cacheDirectory = File(workingDir, cacheDirName)
-    private val dirtySourcesSinceLastTimeFile = File(workingDir, DIRTY_SOURCES_FILE_NAME)
+    protected val dirtySourcesSinceLastTimeFile = File(workingDir, DIRTY_SOURCES_FILE_NAME)
     protected val lastBuildInfoFile = File(workingDir, LAST_BUILD_INFO_FILE_NAME)
-    protected val abiSnapshotFile = File(workingDir, ABI_SNAPSHOT_FILE_NAME)
+    private val abiSnapshotFile = File(workingDir, ABI_SNAPSHOT_FILE_NAME)
     protected open val kotlinSourceFilesExtensions: List<String> = DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 
-    //TODO(valtman) temporal measure to ensure quick disable, should be deleted after successful release
-    protected val withSnapshot: Boolean = CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_CLASSPATH_SNAPSHOTS.value.toBooleanLenient() ?: false
-
-    protected abstract fun isICEnabled(): Boolean
     protected abstract fun createCacheManager(args: Args, projectDir: File?): CacheManager
     protected abstract fun destinationDir(args: Args): File
 
@@ -73,7 +70,7 @@ abstract class IncrementalCompilerRunner<
         // otherwise we track source files changes ourselves.
         providedChangedFiles: ChangedFiles?,
         projectDir: File? = null
-    ): ExitCode = reporter.measure(BuildTime.INCREMENTAL_COMPILATION) {
+    ): ExitCode = reporter.measure(BuildTime.INCREMENTAL_COMPILATION_DAEMON) {
         compileImpl(allSourceFiles, args, messageCollector, providedChangedFiles, projectDir)
     }
 
@@ -84,17 +81,16 @@ abstract class IncrementalCompilerRunner<
         providedChangedFiles: ChangedFiles?,
         projectDir: File? = null
     ): ExitCode {
-        assert(isICEnabled()) { "Incremental compilation is not enabled" }
         var caches = createCacheManager(args, projectDir)
 
-        if (withSnapshot) {
+        if (withAbiSnapshot) {
             reporter.report { "Incremental compilation with ABI snapshot enabled" }
         }
         //TODO if abi-snapshot is corrupted unable to rebuild. Should roll back to withSnapshot = false?
         val classpathAbiSnapshot =
-            if (withSnapshot) {
+            if (withAbiSnapshot) {
                 reporter.measure(BuildTime.SET_UP_ABI_SNAPSHOTS) {
-                    setupJarDependencies(args, withSnapshot, reporter)
+                    setupJarDependencies(args, withAbiSnapshot, reporter)
                 }
             } else {
                 emptyMap()
@@ -112,8 +108,10 @@ abstract class IncrementalCompilerRunner<
                 caches.inputsCache.sourceSnapshotMap.compareAndUpdate(allSourceFiles)
             }
             val allKotlinFiles = allSourceFiles.filter { it.isKotlinFile(kotlinSourceFilesExtensions) }
-            return compileIncrementally(args, caches, allKotlinFiles, CompilationMode.Rebuild(reason), messageCollector, withSnapshot,
-                                        classpathAbiSnapshot = classpathAbiSnapshot)
+            return compileIncrementally(
+                args, caches, allKotlinFiles, CompilationMode.Rebuild(reason), messageCollector, withAbiSnapshot,
+                classpathAbiSnapshot = classpathAbiSnapshot
+            )
         }
 
         // If compilation has crashed or we failed to close caches we have to clear them
@@ -136,7 +134,7 @@ abstract class IncrementalCompilerRunner<
 
             val exitCode = when (compilationMode) {
                 is CompilationMode.Incremental -> {
-                    if (withSnapshot) {
+                    if (withAbiSnapshot) {
                         val abiSnapshot = AbiSnapshotImpl.read(abiSnapshotFile, reporter)
                         if (abiSnapshot != null) {
                             compileIncrementally(
@@ -145,7 +143,7 @@ abstract class IncrementalCompilerRunner<
                                 allSourceFiles,
                                 compilationMode,
                                 messageCollector,
-                                withSnapshot,
+                                withAbiSnapshot,
                                 abiSnapshot,
                                 classpathAbiSnapshot
                             )
@@ -159,7 +157,7 @@ abstract class IncrementalCompilerRunner<
                             allSourceFiles,
                             compilationMode,
                             messageCollector,
-                            withSnapshot
+                            withAbiSnapshot
                         )
                     }
                 }
@@ -191,8 +189,10 @@ abstract class IncrementalCompilerRunner<
             return exitCode
         } catch (e: Exception) { // todo: catch only cache corruption
             // todo: warn?
-            reporter.report { "Rebuilding because of possible caches corruption: $e" }
-            rebuild(BuildAttribute.CACHE_CORRUPTION)
+            reporter.report { "Possible caches corruption: $e" }
+            rebuild(BuildAttribute.CACHE_CORRUPTION).also {
+                cachesMayBeCorrupted = false
+            }
         } finally {
             if (cachesMayBeCorrupted) {
                 cleanOutputsAndLocalStateOnRebuild(args)
@@ -218,7 +218,7 @@ abstract class IncrementalCompilerRunner<
                 }
                 it.isFile -> {
                     reporter.reportVerbose { "  Deleting file '${it.path}'" }
-                    it.forceDeleteRecursively()
+                    it.deleteRecursivelyOrThrow()
                 }
             }
         }
@@ -299,14 +299,16 @@ abstract class IncrementalCompilerRunner<
         }
 
     protected abstract fun runCompiler(
-        sourcesToCompile: Set<File>,
+        sourcesToCompile: List<File>,
         args: Args,
         caches: CacheManager,
         services: Services,
-        messageCollector: MessageCollector
-    ): ExitCode
+        messageCollector: MessageCollector,
+        allSources: List<File>,
+        isIncremental: Boolean
+    ): Pair<ExitCode, Collection<File>>
 
-    private fun compileIncrementally(
+    protected open fun compileIncrementally(
         args: Args,
         caches: CacheManager,
         allKotlinSources: List<File>,
@@ -316,18 +318,19 @@ abstract class IncrementalCompilerRunner<
         abiSnapshot: AbiSnapshot = AbiSnapshotImpl(mutableMapOf()),
         classpathAbiSnapshot: Map<String, AbiSnapshot> = HashMap()
     ): ExitCode {
+        if (compilationMode is CompilationMode.Rebuild) {
+            reporter.report { "Non-incremental compilation will be performed: ${compilationMode.reason}" }
+        }
+
         preBuildHook(args, compilationMode)
 
-        val buildTimeMode: BuildTime
         val dirtySources = when (compilationMode) {
             is CompilationMode.Incremental -> {
-                buildTimeMode = BuildTime.INCREMENTAL_ITERATION
-                compilationMode.dirtyFiles.toMutableList()
+                compilationMode.dirtyFiles.toMutableLinkedSet()
             }
             is CompilationMode.Rebuild -> {
-                buildTimeMode = BuildTime.NON_INCREMENTAL_ITERATION
                 reporter.addAttribute(compilationMode.reason)
-                allKotlinSources.toMutableList()
+                LinkedHashSet(allKotlinSources)
             }
         }
 
@@ -349,10 +352,6 @@ abstract class IncrementalCompilerRunner<
             //TODO(valtman) sourceToCompile calculate based on abiSnapshot
             val (sourcesToCompile, removedKotlinSources) = dirtySources.partition(File::exists)
 
-            allDirtySources.addAll(dirtySources)
-            val text = allDirtySources.joinToString(separator = System.getProperty("line.separator")) { it.canonicalPath }
-            dirtySourcesSinceLastTimeFile.writeText(text)
-
             val services = makeServices(
                 args, lookupTracker, expectActualTracker, caches,
                 dirtySources.toSet(), compilationMode is CompilationMode.Incremental
@@ -363,9 +362,21 @@ abstract class IncrementalCompilerRunner<
             val bufferingMessageCollector = BufferingMessageCollector()
             val messageCollectorAdapter = MessageCollectorToOutputItemsCollectorAdapter(bufferingMessageCollector, outputItemsCollector)
 
-            exitCode = reporter.measure(buildTimeMode) {
-                runCompiler(sourcesToCompile.toSet(), args, caches, services, messageCollectorAdapter)
+            val compiledSources = reporter.measure(BuildTime.COMPILATION_ROUND) {
+                runCompiler(
+                    sourcesToCompile, args, caches, services, messageCollectorAdapter,
+                    allKotlinSources, compilationMode is CompilationMode.Incremental
+                )
+            }.let { (ec, compiled) ->
+                exitCode = ec
+                compiled
             }
+
+            dirtySources.addAll(compiledSources)
+            allDirtySources.addAll(dirtySources)
+            val text = allDirtySources.joinToString(separator = System.getProperty("line.separator")) { it.canonicalPath }
+            dirtySourcesSinceLastTimeFile.writeText(text)
+
 
             val generatedFiles = outputItemsCollector.outputs.map(SimpleOutputItem::toGeneratedFile)
             if (compilationMode is CompilationMode.Incremental) {
@@ -379,7 +390,7 @@ abstract class IncrementalCompilerRunner<
                 }
             }
 
-            reporter.reportCompileIteration(compilationMode is CompilationMode.Incremental, sourcesToCompile, exitCode)
+            reporter.reportCompileIteration(compilationMode is CompilationMode.Incremental, compiledSources, exitCode)
             bufferingMessageCollector.flush(originalMessageCollector)
 
             if (exitCode != ExitCode.OK) break
@@ -516,9 +527,9 @@ abstract class IncrementalCompilerRunner<
     protected fun reportPerformanceData(defaultPerformanceManager: CommonCompilerPerformanceManager) {
         defaultPerformanceManager.getMeasurementResults().forEach {
             when (it) {
-                is CompilerInitializationMeasurement -> reporter.addTimeMetric(BuildTime.COMPILER_INITIALIZATION, it.milliseconds)
-                is CodeAnalysisMeasurement -> reporter.addTimeMetric(BuildTime.CODE_ANALYSIS, it.milliseconds)
-                is CodeGenerationMeasurement -> reporter.addTimeMetric(BuildTime.CODE_GENERATION, it.milliseconds)
+                is CompilerInitializationMeasurement -> reporter.addTimeMetricMs(BuildTime.COMPILER_INITIALIZATION, it.milliseconds)
+                is CodeAnalysisMeasurement -> reporter.addTimeMetricMs(BuildTime.CODE_ANALYSIS, it.milliseconds)
+                is CodeGenerationMeasurement -> reporter.addTimeMetricMs(BuildTime.CODE_GENERATION, it.milliseconds)
             }
         }
     }

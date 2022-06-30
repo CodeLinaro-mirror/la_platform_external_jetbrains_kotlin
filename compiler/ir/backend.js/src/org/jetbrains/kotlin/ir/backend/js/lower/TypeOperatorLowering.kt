@@ -211,6 +211,23 @@ class TypeOperatorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
                 }
             }
 
+            /**
+             * The general logic for generating a runtime type check is as follows:
+             * ```
+             *               ┌─────────────────────────────┬───────────────────────────────┐
+             *               │         to non-null         │          to nullable          │
+             * ┌─────────────╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+             * │             ┃                      instanceof check                       │
+             * │from non-null┃                             OR                              │
+             * │             ┃                       advanced check                        │
+             * ├─────────────╋─────────────────────────────┬───────────────────────────────┤
+             * │             ┃      instanceof check       │ null check + instanceof check │
+             * │from nullable┃             OR              │              OR               │
+             * │             ┃ null check + advanced check │  null check + advanced check  │
+             * └─────────────┻─────────────────────────────┴───────────────────────────────┘
+             * ```
+             * Note: advanced check is performed when casting to primitive types, array types, function types, or interfaces.
+             */
             private fun generateTypeCheck(argument: () -> IrExpression, toType: IrType): IrExpression {
                 val toNotNullable = toType.makeNotNull()
                 val argumentInstance = argument()

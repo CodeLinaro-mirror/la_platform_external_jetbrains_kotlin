@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ScriptDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.assertCast
 import org.jetbrains.kotlin.ir.builders.declarations.IrFunctionBuilder
 import org.jetbrains.kotlin.ir.declarations.DescriptorMetadataSource
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
@@ -38,6 +37,7 @@ import org.jetbrains.kotlin.psi2ir.intermediate.createTemporaryVariableInBlock
 import org.jetbrains.kotlin.psi2ir.intermediate.setExplicitReceiverValue
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.util.isSingleUnderscore
+import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import org.jetbrains.kotlin.utils.addIfNotNull
 
 class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationGeneratorExtension(declarationGenerator) {
@@ -100,7 +100,9 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                 ).also { it.parent = irScript }
             }
 
-            irScript.earlierScriptsParameter = descriptor.earlierScriptsConstructorParameter?.let(::createValueParameter)
+            if (context.extensions.lowerScriptToClass) {
+                irScript.earlierScriptsParameter = descriptor.earlierScriptsConstructorParameter?.let(::createValueParameter)
+            }
 
             irScript.explicitCallParameters = descriptor.explicitConstructorParameters.map(::createValueParameter)
 
@@ -197,7 +199,7 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                             context.irBuiltIns.unitType, IrStatementOrigin.DESTRUCTURING_DECLARATION
                         )
                         val ktInitializer = d.initializer!!
-                        val initializerExpr = ktInitializer.deparenthesize().accept(statementGenerator, null).assertCast<IrExpression>()
+                        val initializerExpr = ktInitializer.deparenthesize().accept(statementGenerator, null) as IrExpression
                         val containerValue =
                             statementGenerator.scope.createTemporaryVariableInBlock(context, initializerExpr, irBlock, "container")
 

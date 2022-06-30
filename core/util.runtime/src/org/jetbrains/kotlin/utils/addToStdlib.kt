@@ -178,6 +178,7 @@ inline fun <T, R> Iterable<T>.same(extractor: (T) -> R): Boolean {
 }
 
 inline fun <R> runIf(condition: Boolean, block: () -> R): R? = if (condition) block() else null
+inline fun <R> runUnless(condition: Boolean, block: () -> R): R? = if (condition) null else block()
 
 inline fun <T, R> Collection<T>.foldMap(transform: (T) -> R, operation: (R, R) -> R): R {
     val iterator = iterator()
@@ -254,3 +255,8 @@ inline fun <T, U, K, V> List<T>.flatGroupBy(
     }
     return result
 }
+
+fun <E> MutableList<E>.popLast(): E = removeAt(lastIndex)
+
+fun <K : Enum<K>, V> enumMapOf(vararg pairs: Pair<K, V>): EnumMap<K, V> = EnumMap(mapOf(*pairs))
+fun <T : Enum<T>> enumSetOf(element: T, vararg elements: T): EnumSet<T> = EnumSet.of(element, *elements)

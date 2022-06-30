@@ -86,6 +86,9 @@ val Project.testOutputExternal
 val Project.cacheRedirectorEnabled
     get() = findProperty("cacheRedirectorEnabled")?.toString()?.toBoolean() ?: false
 
+val Project.compileOnlyTests: Boolean
+    get() = hasProperty("test_compile_only")
+
 fun Project.redirectIfEnabled(url: String):String = if (cacheRedirectorEnabled) {
     val base = URL(url)
     "https://cache-redirector.jetbrains.com/${base.host}/${base.path}"
@@ -116,18 +119,20 @@ fun File.dependencies() =
 
 
 fun Task.dependsOnPlatformLibs() {
-    (this as? KonanTest)?.run {
-        project.file(source).dependencies().forEach {
-            this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
-            //this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-${it}Cache")
-        }
-        if (this is KonanLinkTest) {
-            project.file(lib).dependencies().forEach {
+    if (!project.hasPlatformLibs) {
+        (this as? KonanTest)?.run {
+            project.file(source).dependencies().forEach {
                 this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
+                //this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-${it}Cache")
             }
-        }
-        this.dependsOnDist()
-    } ?: error("unsupported task : $this")
+            if (this is KonanLinkTest) {
+                project.file(lib).dependencies().forEach {
+                    this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
+                }
+            }
+            this.dependsOnDist()
+        } ?: error("unsupported task : $this")
+    }
 }
 
 @Suppress("UNCHECKED_CAST")
@@ -340,8 +345,7 @@ fun String.splitCommaSeparatedOption(optionName: String) =
 
 data class Commit(val revision: String, val developer: String, val webUrlWithDescription: String)
 
-val teamCityUrl = "http://buildserver.labs.intellij.net"
-
+val teamCityUrl = "https://buildserver.labs.intellij.net"
 
 fun buildsUrl(buildLocator: String) =
         "$teamCityUrl/app/rest/builds/?locator=$buildLocator"

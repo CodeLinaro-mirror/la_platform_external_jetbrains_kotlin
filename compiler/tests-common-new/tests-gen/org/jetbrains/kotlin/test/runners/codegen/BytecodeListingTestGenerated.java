@@ -539,6 +539,12 @@ public class BytecodeListingTestGenerated extends AbstractBytecodeListingTest {
         }
 
         @Test
+        @TestMetadata("intArrayList.kt")
+        public void testIntArrayList() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeListing/collectionStubs/intArrayList.kt");
+        }
+
+        @Test
         @TestMetadata("kt44233.kt")
         public void testKt44233() throws Exception {
             runTest("compiler/testData/codegen/bytecodeListing/collectionStubs/kt44233.kt");
@@ -2138,6 +2144,12 @@ public class BytecodeListingTestGenerated extends AbstractBytecodeListingTest {
         @TestMetadata("samAdapterInInlineLambda.kt")
         public void testSamAdapterInInlineLambda() throws Exception {
             runTest("compiler/testData/codegen/bytecodeListing/sam/samAdapterInInlineLambda.kt");
+        }
+
+        @Test
+        @TestMetadata("severalProxyFunsInInit.kt")
+        public void testSeveralProxyFunsInInit() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeListing/sam/severalProxyFunsInInit.kt");
         }
 
         @Test

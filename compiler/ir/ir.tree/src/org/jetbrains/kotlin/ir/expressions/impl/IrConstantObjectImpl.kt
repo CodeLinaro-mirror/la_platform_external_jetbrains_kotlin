@@ -7,12 +7,8 @@ package org.jetbrains.kotlin.ir.expressions.impl
 
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.constructedClassType
-import org.jetbrains.kotlin.ir.util.transformInPlace
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.utils.SmartList
 
 class IrConstantPrimitiveImpl(
@@ -36,18 +32,6 @@ class IrConstantPrimitiveImpl(
     }
 
     override var type = value.type
-
-    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
-        value.accept(visitor, data)
-    }
-
-    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
-        value = value.transform(transformer, data) as IrConst<*>
-    }
-
-    override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
-        return visitor.visitConstantPrimitive(this, data)
-    }
 }
 
 class IrConstantObjectImpl constructor(
@@ -59,14 +43,6 @@ class IrConstantObjectImpl constructor(
     override var type: IrType = constructor.owner.constructedClassType,
 ) : IrConstantObject() {
     override val valueArguments = SmartList(initArguments)
-
-    override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
-        return visitor.visitConstantObject(this, data)
-    }
-
-    override fun putArgument(index: Int, value: IrConstantValue) {
-        valueArguments[index] = value
-    }
 
     override fun contentEquals(other: IrConstantValue): Boolean =
         other is IrConstantObject &&
@@ -88,14 +64,6 @@ class IrConstantObjectImpl constructor(
         }
         return res
     }
-
-    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
-        valueArguments.forEach { value -> value.accept(visitor, data) }
-    }
-
-    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
-        valueArguments.transformInPlace { it.transform(transformer, data) }
-    }
 }
 
 class IrConstantArrayImpl(
@@ -105,9 +73,6 @@ class IrConstantArrayImpl(
     initElements: List<IrConstantValue>,
 ) : IrConstantArray() {
     override val elements = SmartList(initElements)
-    override fun putElement(index: Int, value: IrConstantValue) {
-        elements[index] = value
-    }
 
     override fun contentEquals(other: IrConstantValue): Boolean =
         other is IrConstantArray &&
@@ -121,17 +86,5 @@ class IrConstantArrayImpl(
             res = res * 31 + value.contentHashCode()
         }
         return res
-    }
-
-    override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R {
-        return visitor.visitConstantArray(this, data)
-    }
-
-    override fun <D> acceptChildren(visitor: IrElementVisitor<Unit, D>, data: D) {
-        elements.forEach { value -> value.accept(visitor, data) }
-    }
-
-    override fun <D> transformChildren(transformer: IrElementTransformer<D>, data: D) {
-        elements.transformInPlace { value -> value.transform(transformer, data) }
     }
 }

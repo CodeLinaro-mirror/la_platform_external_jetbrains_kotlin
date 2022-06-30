@@ -39,10 +39,7 @@ internal fun IrType.erasure(): IrType {
         else -> TODO(classifier.toString())
     }
 
-    return if (this.hasQuestionMark)
-        upperBound.makeNullable()
-    else
-        upperBound
+    return upperBound.mergeNullability(this)
 }
 
 internal val IrType.erasedUpperBound get() = this.erasure().getClass() ?: error(this.render())
@@ -71,7 +68,7 @@ internal class TypeOperatorLowering(val context: CommonBackendContext) : FileLow
                                 type = expression.type,
                                 condition = irEqeqeq(irGet(argument.owner), irNull()),
 
-                                thenPart = if (typeOperand.isSimpleTypeWithQuestionMark)
+                                thenPart = if (typeOperand.isNullable())
                                     irNull()
                                 else
                                     irCall(this@TypeOperatorLowering.context.ir.symbols.throwNullPointerException.owner),
@@ -82,7 +79,7 @@ internal class TypeOperatorLowering(val context: CommonBackendContext) : FileLow
                 }
             }
 
-            typeOperand.isSimpleTypeWithQuestionMark -> builder.irAs(expression.argument, typeOperand.makeNotNull())
+            typeOperand.isMarkedNullable() -> builder.irAs(expression.argument, typeOperand.makeNotNull())
 
             typeOperand == expression.typeOperand -> expression
 

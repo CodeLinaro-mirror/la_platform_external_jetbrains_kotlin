@@ -329,13 +329,13 @@ fun IrType.remapTypeParameters(
                             target.typeParameters[classifier.index]
                         else
                             classifier
-                    IrSimpleTypeImpl(newClassifier.symbol, hasQuestionMark, arguments, annotations)
+                    IrSimpleTypeImpl(newClassifier.symbol, nullability, arguments, annotations)
                 }
 
                 classifier is IrClass ->
                     IrSimpleTypeImpl(
                         classifier.symbol,
-                        hasQuestionMark,
+                        nullability,
                         arguments.map {
                             when (it) {
                                 is IrTypeProjection -> makeTypeProjection(
@@ -356,9 +356,7 @@ fun IrType.remapTypeParameters(
 
 /* Copied from K/N */
 fun IrDeclarationContainer.addChild(declaration: IrDeclaration) {
-    declaration.factory.stageController.unrestrictDeclarationListsAccess {
-        this.declarations += declaration
-    }
+    this.declarations += declaration
     declaration.setDeclarationsParent(this)
 }
 
@@ -540,14 +538,14 @@ fun IrFactory.createStaticFunctionWithReceivers(
         var offset = 0
         val dispatchReceiver = oldFunction.dispatchReceiverParameter?.copyTo(
             this,
-            name = Name.identifier("this"),
+            name = Name.identifier("\$this"),
             index = offset++,
             type = remap(dispatchReceiverType!!),
             origin = IrDeclarationOrigin.MOVED_DISPATCH_RECEIVER
         )
         val extensionReceiver = oldFunction.extensionReceiverParameter?.copyTo(
             this,
-            name = Name.identifier("receiver"),
+            name = Name.identifier("\$receiver"),
             index = offset++,
             origin = IrDeclarationOrigin.MOVED_EXTENSION_RECEIVER,
             remapTypeMap = typeParameterMap

@@ -40,9 +40,13 @@ sealed class TowerGroupKind(val index: Byte) : Comparable<TowerGroupKind> {
 
     class ImplicitOrNonLocal(depth: Int, val kindForDebugSake: String) : WithDepth(6, depth)
 
-    object InvokeExtension : TowerGroupKind(7)
+    class ContextReceiverGroup(depth: Int) : WithDepth(7, depth)
 
-    object QualifierValue : TowerGroupKind(8)
+    object InvokeExtension : TowerGroupKind(8)
+
+    object QualifierValue : TowerGroupKind(9)
+
+    class UnqualifiedEnum(depth: Int) : WithDepth(9, depth)
 
     object Last : TowerGroupKind(0b1111)
 
@@ -157,10 +161,14 @@ private constructor(
 
         val Member = kindOf(TowerGroupKind.Member)
 
+        fun UnqualifiedEnum(depth: Int) = kindOf(TowerGroupKind.UnqualifiedEnum(depth))
+
         fun Local(depth: Int) = kindOf(TowerGroupKind.Local(depth))
 
         fun Implicit(depth: Int) = kindOf(TowerGroupKind.Implicit(depth))
         fun NonLocal(depth: Int) = kindOf(TowerGroupKind.NonLocal(depth))
+
+        fun ContextReceiverGroup(depth: Int) = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
 
         fun TopPrioritized(depth: Int) = kindOf(TowerGroupKind.TopPrioritized(depth))
 
@@ -175,6 +183,8 @@ private constructor(
 
     fun Implicit(depth: Int) = kindOf(TowerGroupKind.Implicit(depth))
     fun NonLocal(depth: Int) = kindOf(TowerGroupKind.NonLocal(depth))
+
+    fun ContextReceiverGroup(depth: Int) = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
 
     val InvokeExtension get() = kindOf(TowerGroupKind.InvokeExtension)
 

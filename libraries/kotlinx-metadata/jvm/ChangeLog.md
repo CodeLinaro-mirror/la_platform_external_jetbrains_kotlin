@@ -1,5 +1,13 @@
 # kotlinx-metadata-jvm
 
+## Next
+
+- kotlinx-metadata-jvm can no longer be used on JVM 1.6, and now requires JVM 1.8 or later.
+
+## 0.4.2
+
+- Add experimental internal API to read metadata of `.kotlin_builtins`/`.kotlin_metadata` files.
+
 ## 0.4.1
 
 - Add `KmProperty.syntheticMethodForDelegate` for optimized delegated properties (KT-39055).

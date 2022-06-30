@@ -13,9 +13,7 @@ internal data class NameAndSafeValue(val name: String, val safeValue: String)
 
 internal object SafeEnvVars : Iterable<NameAndSafeValue> {
     private val environment: List<NameAndSafeValue> by lazy {
-        // See KT-49925
-        @Suppress("RemoveExplicitTypeArguments")
-        buildList<NameAndSafeValue> {
+        buildList {
             System.getenv().forEach { (name, value) ->
                 val safeValue = if (isSafeEnvVar(name)) doEscape(value) else HIDDEN_VALUE
                 this += NameAndSafeValue(name, safeValue)
@@ -37,7 +35,7 @@ internal object SafeEnvVars : Iterable<NameAndSafeValue> {
 
     private const val KONAN_WORD = "KONAN"
 
-    private val SAFE_ENV_VARS = setOf("PATH", "USER", "LANG", "PWD", "TEMP", "TMP")
+    private val SAFE_ENV_VARS = setOf("PATH", "USER", "LANG", "PWD", "TEMP", "TMP", "GRADLE_OPTS")
     private val SAFE_ENV_VAR_PREFIXES = listOf("JAVA_", "JDK_")
     private val SAFE_ENV_VAR_SUFFIXES = listOf("DIR", "DIRS", "HOME", "ROOT", "PATH", "FILE")
 }
@@ -75,6 +73,9 @@ internal class SafeProperties : Iterable<NameAndSafeValue> {
             "org.gradle.",
             "org.jetbrains.",
             "os.",
+            "sun.arch.",
+            "sun.cpu.",
+            "sun.os.",
             "psi.",
             "user."
         )

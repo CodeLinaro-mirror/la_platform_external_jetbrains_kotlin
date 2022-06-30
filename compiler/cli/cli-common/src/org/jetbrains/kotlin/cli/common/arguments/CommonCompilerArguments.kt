@@ -75,8 +75,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
 
     @Argument(
         value = "-opt-in",
-        // Uncomment after deletion of optInDeprecated
-        // deprecatedName = "-Xopt-in",
+        deprecatedName = "-Xopt-in",
         valueDescription = "<fq.name>",
         description = "Enable usages of API that requires opt-in with an opt-in requirement marker with the given fully qualified name"
     )
@@ -159,20 +158,13 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     )
     var experimental: Array<String>? = null
 
-    @Argument(
-        value = "-Xuse-experimental",
-        valueDescription = "<fq.name>",
-        description = "Enable, but don't propagate usages of experimental API for marker annotation with the given fully qualified name"
+    @IDEAPluginsCompatibilityAPI(
+        IDEAPlatforms._212, // maybe 211 AS used it too
+        IDEAPlatforms._213,
+        message = "Please migrate to -opt-in",
+        plugins = "Android"
     )
     var useExperimental: Array<String>? by FreezableVar(null)
-
-    // NB: we have to keep this flag for some time due to bootstrapping problems
-    @Argument(
-        value = "-Xopt-in",
-        valueDescription = "<fq.name>",
-        description = "Enable usages of API that requires opt-in with an opt-in requirement marker with the given fully qualified name"
-    )
-    var optInDeprecated: Array<String>? by FreezableVar(null)
 
     @Argument(
         value = "-Xproper-ieee754-comparisons",
@@ -302,16 +294,29 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
 
     @GradleOption(DefaultValues.BooleanFalseDefault::class)
     @Argument(
-        value = "-Xuse-fir",
-        description = "Compile using Front-end IR. Warning: this feature is far from being production-ready"
+        value = "-Xuse-k2",
+        deprecatedName = "-Xuse-fir",
+        description = "Compile using experimental K2. K2 is a new compiler pipeline, no compatibility guarantees are yet provided"
     )
-    var useFir: Boolean by FreezableVar(false)
+    var useK2: Boolean by FreezableVar(false)
 
     @Argument(
         value = "-Xuse-fir-extended-checkers",
         description = "Use extended analysis mode based on Front-end IR. Warning: this feature is far from being production-ready"
     )
     var useFirExtendedCheckers: Boolean by FreezableVar(false)
+
+    @Argument(
+        value = "-Xuse-fir-ic",
+        description = "Compile using Front-end IR internal incremental compilation cycle. Warning: this feature is far from being production-ready"
+    )
+    var useFirIC: Boolean by FreezableVar(false)
+
+    @Argument(
+        value = "-Xuse-fir-lt",
+        description = "Compile using LightTree parser with Front-end IR. Warning: this feature is far from being production-ready"
+    )
+    var useFirLT: Boolean by FreezableVar(false)
 
     @Argument(
         value = "-Xdisable-ultra-light-classes",
@@ -404,6 +409,13 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     )
     var normalizeAbsolutePath: Boolean by FreezableVar(false)
 
+    @Argument(value = "-Xenable-incremental-compilation", description = "Enable incremental compilation")
+    var incrementalCompilation: Boolean? by FreezableVar(null)
+
+    @Argument(value = "-Xrender-internal-diagnostic-names", description = "Render internal names of warnings and errors")
+    var renderInternalDiagnosticNames: Boolean by FreezableVar(false)
+
+    @OptIn(IDEAPluginsCompatibilityAPI::class)
     open fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         return HashMap<AnalysisFlag<*>, Any>().apply {
             put(AnalysisFlags.skipMetadataVersionCheck, skipMetadataVersionCheck)
@@ -415,13 +427,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
                     WARNING, "'-Xuse-experimental' is deprecated and will be removed in a future release, please use -opt-in instead"
                 )
             }
-            val optInDeprecatedFqNames = optInDeprecated?.toList().orEmpty()
-            if (optInDeprecatedFqNames.isNotEmpty()) {
-                collector.report(
-                    WARNING, "'-Xopt-in' is deprecated and will be removed in a future release, please use -opt-in instead"
-                )
-            }
-            put(AnalysisFlags.optIn, useExperimentalFqNames + optInDeprecatedFqNames + optIn?.toList().orEmpty())
+            put(AnalysisFlags.optIn, useExperimentalFqNames + optIn?.toList().orEmpty())
             put(AnalysisFlags.expectActualLinker, expectActualLinker)
             put(AnalysisFlags.explicitApiVersion, apiVersion != null)
             put(AnalysisFlags.allowResultReturnType, allowResultReturnType)
@@ -580,13 +586,11 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
             configureLanguageFeatures(collector)
         )
 
-        if (!suppressVersionWarnings) {
-            checkLanguageVersionIsStable(languageVersion, collector)
-            checkOutdatedVersions(languageVersion, apiVersion, collector)
-            checkProgressiveMode(languageVersion, collector)
+        checkLanguageVersionIsStable(languageVersion, collector)
+        checkOutdatedVersions(languageVersion, apiVersion, collector)
+        checkProgressiveMode(languageVersion, collector)
 
-            checkIrSupport(languageVersionSettings, collector)
-        }
+        checkIrSupport(languageVersionSettings, collector)
 
         checkPlatformSpecificSettings(languageVersionSettings, collector)
 
@@ -607,7 +611,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     }
 
     private fun checkLanguageVersionIsStable(languageVersion: LanguageVersion, collector: MessageCollector) {
-        if (!languageVersion.isStable) {
+        if (!languageVersion.isStable && !suppressVersionWarnings) {
             collector.report(
                 CompilerMessageSeverity.STRONG_WARNING,
                 "Language version ${languageVersion.versionString} is experimental, there are no backwards compatibility guarantees for " +
@@ -626,7 +630,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
                             "please, use version ${supportedVersion!!.versionString} or greater."
                 )
             }
-            version.isDeprecated -> {
+            version.isDeprecated && !suppressVersionWarnings -> {
                 collector.report(
                     CompilerMessageSeverity.STRONG_WARNING,
                     "${versionKind.text} version ${version.versionString} is deprecated " +
@@ -647,7 +651,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     }
 
     private fun checkProgressiveMode(languageVersion: LanguageVersion, collector: MessageCollector) {
-        if (progressiveMode && languageVersion < LanguageVersion.LATEST_STABLE) {
+        if (progressiveMode && languageVersion < LanguageVersion.LATEST_STABLE && !suppressVersionWarnings) {
             collector.report(
                 CompilerMessageSeverity.STRONG_WARNING,
                 "'-progressive' is meaningful only for the latest language version (${LanguageVersion.LATEST_STABLE}), " +

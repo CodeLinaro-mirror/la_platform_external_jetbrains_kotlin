@@ -68,9 +68,13 @@ object FirSessionFactory {
         }
     }
 
-    data class ProviderAndScopeForIncrementalCompilation(
-        val packagePartProvider: PackagePartProvider,
-        val scope: AbstractProjectFileSearchScope
+    data class IncrementalCompilationContext(
+        // assuming that providers here do not intersect with the one being built from precompiled binaries
+        // (maybe easiest way to achieve is to delete libraries
+        // TODO: consider passing something more abstract instead of precompiler component, in order to avoid file ops here
+        val previousFirSessionsSymbolProviders: Collection<FirSymbolProvider>,
+        val precomiledBinariesPackagePartProvider: PackagePartProvider?,
+        val precompiledBinariesFileScope: AbstractProjectFileSearchScope?
     )
 
     inline fun createSessionWithDependencies(
@@ -80,11 +84,12 @@ object FirSessionFactory {
         externalSessionProvider: FirProjectSessionProvider?,
         projectEnvironment: AbstractProjectEnvironment,
         languageVersionSettings: LanguageVersionSettings,
-        sourceScope: AbstractProjectFileSearchScope,
+        javaSourcesScope: AbstractProjectFileSearchScope,
         librariesScope: AbstractProjectFileSearchScope,
         lookupTracker: LookupTracker?,
-        providerAndScopeForIncrementalCompilation: ProviderAndScopeForIncrementalCompilation?,
+        incrementalCompilationContext: IncrementalCompilationContext?,
         extensionRegistrars: List<FirExtensionRegistrar>,
+        needRegisterJavaElementFinder: Boolean,
         dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit = {},
         noinline sessionConfigurator: FirSessionConfigurator.() -> Unit = {},
     ): FirSession {
@@ -111,12 +116,13 @@ object FirSessionFactory {
         return createJavaModuleBasedSession(
             mainModuleData,
             sessionProvider,
-            sourceScope,
+            javaSourcesScope,
             projectEnvironment,
-            providerAndScopeForIncrementalCompilation,
+            incrementalCompilationContext,
             extensionRegistrars,
             languageVersionSettings = languageVersionSettings,
             lookupTracker = lookupTracker,
+            needRegisterJavaElementFinder,
             init = sessionConfigurator
         )
     }
@@ -124,12 +130,13 @@ object FirSessionFactory {
     fun createJavaModuleBasedSession(
         moduleData: FirModuleData,
         sessionProvider: FirProjectSessionProvider,
-        scope: AbstractProjectFileSearchScope,
+        javaSourcesScope: AbstractProjectFileSearchScope,
         projectEnvironment: AbstractProjectEnvironment,
-        providerAndScopeForIncrementalCompilation: ProviderAndScopeForIncrementalCompilation?,
+        incrementalCompilationContext: IncrementalCompilationContext?,
         extensionRegistrars: List<FirExtensionRegistrar>,
         languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
         lookupTracker: LookupTracker? = null,
+        needRegisterJavaElementFinder: Boolean,
         init: FirSessionConfigurator.() -> Unit = {}
     ): FirSession {
         return FirCliSession(sessionProvider, FirSession.Kind.Source).apply session@{
@@ -148,17 +155,19 @@ object FirSessionFactory {
             val firProvider = FirProviderImpl(this, kotlinScopeProvider)
             register(FirProvider::class, firProvider)
 
-            val symbolProviderForBinariesFromIncrementalCompilation = providerAndScopeForIncrementalCompilation?.let {
-                JvmClassFileBasedSymbolProvider(
-                    this@session,
-                    SingleModuleDataProvider(moduleData),
-                    kotlinScopeProvider,
-                    it.packagePartProvider,
-                    projectEnvironment.getKotlinClassFinder(it.scope),
-                    projectEnvironment.getFirJavaFacade(this, moduleData, it.scope),
-                    defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
-                )
-            }
+            val symbolProviderForBinariesFromIncrementalCompilation =
+                incrementalCompilationContext?.let { (_, precompiledBinariesPackagePartProvider, precompiledBinariesFileScope) ->
+                    if (precompiledBinariesPackagePartProvider == null || precompiledBinariesFileScope == null) null
+                    else JvmClassFileBasedSymbolProvider(
+                        this@session,
+                        SingleModuleDataProvider(moduleData),
+                        kotlinScopeProvider,
+                        precompiledBinariesPackagePartProvider,
+                        projectEnvironment.getKotlinClassFinder(precompiledBinariesFileScope),
+                        projectEnvironment.getFirJavaFacade(this, moduleData, precompiledBinariesFileScope),
+                        defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
+                    )
+                }
 
             FirSessionConfigurator(this).apply {
                 registerCommonCheckers()
@@ -177,9 +186,10 @@ object FirSessionFactory {
                     this,
                     listOfNotNull(
                         firProvider.symbolProvider,
+                        *(incrementalCompilationContext?.previousFirSessionsSymbolProviders?.toTypedArray() ?: emptyArray()),
                         symbolProviderForBinariesFromIncrementalCompilation,
                         generatedSymbolsProvider,
-                        JavaSymbolProvider(this, projectEnvironment.getFirJavaFacade(this, moduleData, scope)),
+                        JavaSymbolProvider(this, projectEnvironment.getFirJavaFacade(this, moduleData, javaSourcesScope)),
                         dependenciesSymbolProvider,
                     )
                 )
@@ -191,8 +201,9 @@ object FirSessionFactory {
                 FirDependenciesSymbolProvider::class,
                 dependenciesSymbolProvider
             )
-
-            projectEnvironment.registerAsJavaElementFinder(this)
+            if (needRegisterJavaElementFinder) {
+                projectEnvironment.registerAsJavaElementFinder(this)
+            }
         }
     }
 

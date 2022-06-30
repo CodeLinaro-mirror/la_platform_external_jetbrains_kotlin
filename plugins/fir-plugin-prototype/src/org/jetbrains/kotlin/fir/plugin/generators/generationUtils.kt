@@ -9,10 +9,7 @@ import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.containingClassForStaticMemberAttr
-import org.jetbrains.kotlin.fir.declarations.FirClass
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.FirPluginKey
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildPrimaryConstructor
 import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
@@ -26,6 +23,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
+import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjection
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.name.CallableId
@@ -38,6 +36,7 @@ fun FirDeclarationGenerationExtension.buildMaterializeFunction(
     key: FirPluginKey
 ): FirSimpleFunction {
     return buildSimpleFunction {
+        resolvePhase = FirResolvePhase.BODY_RESOLVE
         moduleData = session.moduleData
         origin = key.origin
         status = FirResolvedDeclarationStatusImpl(
@@ -65,6 +64,7 @@ fun FirDeclarationGenerationExtension.buildMaterializeFunction(
 fun FirDeclarationGenerationExtension.buildConstructor(classId: ClassId, isInner: Boolean, key: FirPluginKey): FirConstructor {
     val lookupTag = ConeClassLikeLookupTagImpl(classId)
     return buildPrimaryConstructor {
+        resolvePhase = FirResolvePhase.BODY_RESOLVE
         moduleData = session.moduleData
         origin = key.origin
         returnTypeRef = buildResolvedTypeRef {
@@ -91,10 +91,10 @@ fun FirDeclarationGenerationExtension.buildConstructor(classId: ClassId, isInner
     }
 }
 
-fun ClassId.toSimpleConeType(): ConeClassLikeType {
+fun ClassId.toSimpleConeType(typeArguments: Array<ConeKotlinTypeProjection> = emptyArray()): ConeClassLikeType {
     return ConeClassLikeTypeImpl(
         ConeClassLikeLookupTagImpl(this),
-        emptyArray(),
+        typeArguments,
         isNullable = false
     )
 }

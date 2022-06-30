@@ -300,7 +300,7 @@ extern "C" void Kotlin_native_internal_GC_collect(ObjHeader*) {
 
 extern "C" void Kotlin_native_internal_GC_collectCyclic(ObjHeader*) {
     // TODO: Remove when legacy MM is gone.
-    ThrowIllegalArgumentException();
+    // Nothing to do
 }
 
 // TODO: Maybe a pair of suspend/resume or start/stop may be useful in the future?
@@ -322,46 +322,33 @@ extern "C" void Kotlin_native_internal_GC_start(ObjHeader*) {
     // Nothing to do
 }
 
-extern "C" void Kotlin_native_internal_GC_setThreshold(ObjHeader*, int32_t value) {
-    if (value < 0) {
-        ThrowIllegalArgumentException();
-    }
-    mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold = static_cast<size_t>(value);
+extern "C" void Kotlin_native_internal_GC_setThreshold(ObjHeader*, KInt value) {
+    RuntimeAssert(value > 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold = value;
 }
 
-extern "C" int32_t Kotlin_native_internal_GC_getThreshold(ObjHeader*) {
-    auto threshold = mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold.load();
-    auto maxValue = std::numeric_limits<int32_t>::max();
-    if (threshold > static_cast<size_t>(maxValue)) {
-        return maxValue;
-    }
-    return static_cast<int32_t>(maxValue);
+extern "C" KInt Kotlin_native_internal_GC_getThreshold(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().threshold.load();
 }
 
 extern "C" void Kotlin_native_internal_GC_setCollectCyclesThreshold(ObjHeader*, int64_t value) {
     // TODO: Remove when legacy MM is gone.
-    ThrowIllegalArgumentException();
+    // Nothing to do
 }
 
 extern "C" int64_t Kotlin_native_internal_GC_getCollectCyclesThreshold(ObjHeader*) {
     // TODO: Remove when legacy MM is gone.
-    ThrowIllegalArgumentException();
+    // Nothing to do
+    return -1;
 }
 
 extern "C" void Kotlin_native_internal_GC_setThresholdAllocations(ObjHeader*, int64_t value) {
-    if (value < 0) {
-        ThrowIllegalArgumentException();
-    }
-    mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes = static_cast<size_t>(value);
+    RuntimeAssert(value > 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes = value;
 }
 
 extern "C" int64_t Kotlin_native_internal_GC_getThresholdAllocations(ObjHeader*) {
-    auto threshold = mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes.load();
-    auto maxValue = std::numeric_limits<int64_t>::max();
-    if (threshold > static_cast<size_t>(maxValue)) {
-        return maxValue;
-    }
-    return static_cast<int64_t>(maxValue);
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().allocationThresholdBytes.load();
 }
 
 extern "C" void Kotlin_native_internal_GC_setTuneThreshold(ObjHeader*, KBoolean value) {
@@ -370,6 +357,51 @@ extern "C" void Kotlin_native_internal_GC_setTuneThreshold(ObjHeader*, KBoolean 
 
 extern "C" KBoolean Kotlin_native_internal_GC_getTuneThreshold(ObjHeader*) {
     return mm::GlobalData::Instance().gc().gcSchedulerConfig().autoTune.load();
+}
+
+extern "C" KLong Kotlin_native_internal_GC_getRegularGCIntervalMicroseconds(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().regularGcIntervalMicroseconds.load();
+}
+
+extern "C" void Kotlin_native_internal_GC_setRegularGCIntervalMicroseconds(ObjHeader*, KLong value) {
+    RuntimeAssert(value >= 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().regularGcIntervalMicroseconds = value;
+}
+
+extern "C" KLong Kotlin_native_internal_GC_getTargetHeapBytes(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().targetHeapBytes.load();
+}
+
+extern "C" void Kotlin_native_internal_GC_setTargetHeapBytes(ObjHeader*, KLong value) {
+    RuntimeAssert(value >= 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().targetHeapBytes = value;
+}
+
+extern "C" KDouble Kotlin_native_internal_GC_getTargetHeapUtilization(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().targetHeapUtilization.load();
+}
+
+extern "C" void Kotlin_native_internal_GC_setTargetHeapUtilization(ObjHeader*, KDouble value) {
+    RuntimeAssert(value > 0 && value <= 1, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().targetHeapUtilization = value;
+}
+
+extern "C" KLong Kotlin_native_internal_GC_getMaxHeapBytes(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().maxHeapBytes.load();
+}
+
+extern "C" void Kotlin_native_internal_GC_setMaxHeapBytes(ObjHeader*, KLong value) {
+    RuntimeAssert(value >= 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().maxHeapBytes = value;
+}
+
+extern "C" KLong Kotlin_native_internal_GC_getMinHeapBytes(ObjHeader*) {
+    return mm::GlobalData::Instance().gc().gcSchedulerConfig().minHeapBytes.load();
+}
+
+extern "C" void Kotlin_native_internal_GC_setMinHeapBytes(ObjHeader*, KLong value) {
+    RuntimeAssert(value >= 0, "Must be handled by the caller");
+    mm::GlobalData::Instance().gc().gcSchedulerConfig().minHeapBytes = value;
 }
 
 extern "C" OBJ_GETTER(Kotlin_native_internal_GC_detectCycles, ObjHeader*) {
@@ -384,13 +416,13 @@ extern "C" OBJ_GETTER(Kotlin_native_internal_GC_findCycle, ObjHeader*, ObjHeader
 
 extern "C" bool Kotlin_native_internal_GC_getCyclicCollector(ObjHeader* gc) {
     // TODO: Remove when legacy MM is gone.
+    // Nothing to do.
     return false;
 }
 
 extern "C" void Kotlin_native_internal_GC_setCyclicCollector(ObjHeader* gc, bool value) {
     // TODO: Remove when legacy MM is gone.
-    if (value)
-        ThrowIllegalArgumentException();
+    // Nothing to do.
 }
 
 extern "C" bool Kotlin_Any_isShareable(ObjHeader* thiz) {
@@ -480,13 +512,10 @@ extern "C" void MutationCheck(ObjHeader* obj) {
 }
 
 extern "C" RUNTIME_NOTHROW void CheckLifetimesConstraint(ObjHeader* obj, ObjHeader* pointee) {
-    // TODO: Consider making it a `RuntimeCheck`. Probably all `RuntimeCheck`s and `RuntimeAssert`s should specify
-    //       that their firing is a compiler bug and should be reported.
-    if (!obj->local() && pointee != nullptr && pointee->local()) {
-        konan::consolePrintf("Attempt to store a stack object %p into a heap object %p\n", pointee, obj);
-        konan::consolePrintf("This is a compiler bug, please report it to https://kotl.in/issue\n");
-        konan::abort();
-    }
+    RuntimeAssert(obj->local() || pointee == nullptr || !pointee->local(),
+                  "Attempt to store a stack object %p into a heap object %p. "
+                  "This is a compiler bug, please report it to https://kotl.in/issue",
+                  pointee, obj);
 }
 
 extern "C" void FreezeSubgraph(ObjHeader* obj) {

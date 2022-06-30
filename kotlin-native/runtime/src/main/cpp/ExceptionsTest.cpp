@@ -13,6 +13,7 @@
 
 #include "Memory.h"
 #include "ObjectTestSupport.hpp"
+#include "ScopedThread.hpp"
 #include "TestSupportCompilerGenerated.hpp"
 #include "TestSupport.hpp"
 
@@ -162,6 +163,7 @@ TEST(ExceptionDeathTest, TerminateHandler_WithHook) {
                             konan::consoleErrorf("Unknown Exception\n");
                         }
                     }
+                    std::abort();
                 });
                 // The termination handler will check the initialization of the whole runtime, so we cannot use RunInNewThread here.
                 // This call also sets the K/N termination handler.
@@ -203,6 +205,7 @@ TEST(ExceptionDeathTest, TerminateHandler_NoHook) {
                             konan::consoleErrorf("Unknown Exception\n");
                         }
                     }
+                    std::abort();
                 });
                 // The termination handler will check the initialization of the whole runtime, so we cannot use RunInNewThread here.
                 // This call also sets the K/N termination handler.
@@ -246,6 +249,7 @@ TEST(ExceptionDeathTest, TerminateHandler_WithFailingHook) {
                             konan::consoleErrorf("Unknown Exception\n");
                         }
                     }
+                    std::abort();
                 });
                 // The termination handler will check the initialization of the whole runtime, so we cannot use RunInNewThread here.
                 // This call also sets the K/N termination handler.
@@ -283,6 +287,7 @@ TEST(ExceptionDeathTest, TerminateHandler_IgnoreHooks) {
                                 konan::consoleErrorf("Unknown Exception\n");
                             }
                         }
+                        std::abort();
                     });
                     SetKonanTerminateHandler();
                     try {
@@ -413,7 +418,7 @@ TEST(TerminationThreadStateDeathTest, UnhandledKotlinExceptionInRunnableState) {
 
         // Do not use RunInNewThread because the termination handler will check initiliazation
         // of the whole runtime while RunInNewThread initializes the memory only.
-        std::thread thread([]() {
+        ScopedThread([]() {
             Kotlin_initRuntimeIfNeeded();
             SwitchThreadState(mm::GetMemoryState(), ThreadState::kRunnable);
 
@@ -421,7 +426,6 @@ TEST(TerminationThreadStateDeathTest, UnhandledKotlinExceptionInRunnableState) {
             ObjHeader exception{};
             ExceptionObjHolder::Throw(&exception);
         });
-        thread.join();
     };
 
      EXPECT_DEATH(testBlock(), AllOf(ASSERTS_PASSED, KOTLIN_HANDLER_RAN, Not(NATIVE_HANDLER_RAN)));
@@ -437,14 +441,13 @@ TEST(TerminationThreadStateDeathTest, UnhandledKotlinExceptionInNativeState) {
 
         // Do not use RunInNewThread because the termination handler will check initiliazation
         // of the whole runtime while RunInNewThread initializes the memory only.
-        std::thread thread([]() {
+        ScopedThread([]() {
             Kotlin_initRuntimeIfNeeded();
 
             loggingAssert(GetThreadState() == ThreadState::kNative, "Expected kNative thread state before throwing");
             ObjHeader exception{};
             ExceptionObjHolder::Throw(&exception);
         });
-        thread.join();
     };
 
      EXPECT_DEATH(testBlock(), AllOf(ASSERTS_PASSED, KOTLIN_HANDLER_RAN, Not(NATIVE_HANDLER_RAN)));
@@ -457,7 +460,7 @@ TEST(TerminationThreadStateDeathTest, UnhandledKotlinExceptionInForeignThread) {
 
         // It is possible if a Kotlin exception thrown by a Kotlin callback is re-thrown in
         // another thread which is not attached to the Kotlin runtime at all.
-        std::thread foreignThread([]() {
+        ScopedThread([]() {
             loggingAssert(!mm::IsCurrentThreadRegistered(), "Expected unregistered thread before throwing");
 
             auto future = std::async(std::launch::async, []() {
@@ -472,7 +475,6 @@ TEST(TerminationThreadStateDeathTest, UnhandledKotlinExceptionInForeignThread) {
             // Re-throw the Kotlin exception in a foreign thread.
             future.get();
         });
-        foreignThread.join();
     };
 
      EXPECT_DEATH(testBlock(), AllOf(ASSERTS_PASSED, KOTLIN_HANDLER_RAN, Not(NATIVE_HANDLER_RAN)));
@@ -499,11 +501,10 @@ TEST(TerminationThreadStateDeathTest, UnhandledForeignExceptionInForeignThread) 
     auto testBlock = []() {
         setupMocks(/* expectRegisteredThread = */ false);
 
-        std::thread foreignThread([]() {
+        ScopedThread([]() {
             loggingAssert(!mm::IsCurrentThreadRegistered(), "Expected unregistered thread before throwing");
             throw std::runtime_error("Foreign exception");
         });
-        foreignThread.join();
     };
 
      EXPECT_DEATH(testBlock(), AllOf(ASSERTS_PASSED, NATIVE_HANDLER_RAN, Not(KOTLIN_HANDLER_RAN)));

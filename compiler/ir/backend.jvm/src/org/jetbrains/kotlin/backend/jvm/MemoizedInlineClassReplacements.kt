@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildProperty
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
 import org.jetbrains.kotlin.ir.types.isInt
@@ -34,19 +35,19 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class MemoizedInlineClassReplacements(
     private val mangleReturnTypes: Boolean,
-    private val irFactory: IrFactory,
-    private val context: JvmBackendContext
-) {
+    irFactory: IrFactory,
+    context: JvmBackendContext
+) : MemoizedValueClassAbstractReplacements(irFactory, context) {
     private val storageManager = LockBasedStorageManager("inline-class-replacements")
     private val propertyMap = ConcurrentHashMap<IrPropertySymbol, IrProperty>()
 
-    val originalFunctionForStaticReplacement: MutableMap<IrFunction, IrFunction> = ConcurrentHashMap()
+    override val originalFunctionForStaticReplacement: MutableMap<IrFunction, IrFunction> = ConcurrentHashMap()
     internal val originalFunctionForMethodReplacement: MutableMap<IrFunction, IrFunction> = ConcurrentHashMap()
 
     /**
      * Get a replacement for a function or a constructor.
      */
-    val getReplacementFunction: (IrFunction) -> IrSimpleFunction? =
+    override val getReplacementFunction: (IrFunction) -> IrSimpleFunction? =
         storageManager.createMemoizedFunctionWithNullableValues {
             when {
                 // Don't mangle anonymous or synthetic functions, except for generated SAM wrapper methods
@@ -63,7 +64,7 @@ class MemoizedInlineClassReplacements(
                         null
 
                 // Mangle all functions in the body of an inline class
-                it.parent.safeAs<IrClass>()?.isInline == true ->
+                it.parent.safeAs<IrClass>()?.isSingleFieldValueClass == true ->
                     when {
                         it.isRemoveAtSpecialBuiltinStub() ->
                             null
@@ -93,7 +94,7 @@ class MemoizedInlineClassReplacements(
         if (this !is IrSimpleFunction) return false
         if (!this.isFakeOverride) return false
         val parentClass = parentClassOrNull ?: return false
-        if (!parentClass.isInline) return false
+        if (!parentClass.isSingleFieldValueClass) return false
 
         val overridden = resolveFakeOverride() ?: return false
         if (!overridden.parentAsClass.isJvmInterface) return false
@@ -113,7 +114,7 @@ class MemoizedInlineClassReplacements(
      */
     val getBoxFunction: (IrClass) -> IrSimpleFunction =
         storageManager.createMemoizedFunction { irClass ->
-            require(irClass.isInline)
+            require(irClass.isSingleFieldValueClass)
             irFactory.buildFun {
                 name = Name.identifier(KotlinTypeMapper.BOX_JVM_METHOD_NAME)
                 origin = JvmLoweredDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
@@ -134,7 +135,7 @@ class MemoizedInlineClassReplacements(
      */
     val getUnboxFunction: (IrClass) -> IrSimpleFunction =
         storageManager.createMemoizedFunction { irClass ->
-            require(irClass.isInline)
+            require(irClass.isSingleFieldValueClass)
             irFactory.buildFun {
                 name = Name.identifier(KotlinTypeMapper.UNBOX_JVM_METHOD_NAME)
                 origin = JvmLoweredDeclarationOrigin.SYNTHETIC_INLINE_CLASS_MEMBER
@@ -147,7 +148,7 @@ class MemoizedInlineClassReplacements(
 
     private val specializedEqualsCache = storageManager.createCacheWithNotNullValues<IrClass, IrSimpleFunction>()
     fun getSpecializedEqualsMethod(irClass: IrClass, irBuiltIns: IrBuiltIns): IrSimpleFunction {
-        require(irClass.isInline)
+        require(irClass.isSingleFieldValueClass)
         return specializedEqualsCache.computeIfAbsent(irClass) {
             irFactory.buildFun {
                 name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_NAME
@@ -158,7 +159,7 @@ class MemoizedInlineClassReplacements(
                 parent = irClass
                 // We ignore type arguments here, since there is no good way to go from type arguments to types in the IR anyway.
                 val typeArgument =
-                    IrSimpleTypeImpl(null, irClass.symbol, false, List(irClass.typeParameters.size) { IrStarProjectionImpl }, listOf())
+                    IrSimpleTypeImpl(irClass.symbol, false, List(irClass.typeParameters.size) { IrStarProjectionImpl }, listOf())
                 addValueParameter {
                     name = InlineClassDescriptorResolver.SPECIALIZED_EQUALS_FIRST_PARAMETER_NAME
                     type = typeArgument
@@ -256,9 +257,9 @@ class MemoizedInlineClassReplacements(
             modality = Modality.OPEN
         }
         origin = when {
-            function.origin == IrDeclarationOrigin.GENERATED_INLINE_CLASS_MEMBER ->
+            function.origin == IrDeclarationOrigin.GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER ->
                 JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD
-            function is IrConstructor && function.constructedClass.isInline ->
+            function is IrConstructor && function.constructedClass.isSingleFieldValueClass ->
                 JvmLoweredDeclarationOrigin.STATIC_INLINE_CLASS_CONSTRUCTOR
             else ->
                 replacementOrigin
@@ -304,11 +305,21 @@ class MemoizedInlineClassReplacements(
                 }
             }
 
-            overriddenSymbols = function.overriddenSymbols.map {
-                getReplacementFunction(it.owner)?.symbol ?: it
-            }
+            overriddenSymbols = replaceOverriddenSymbols(function)
         }
 
         body()
     }
+
+    override val replaceOverriddenSymbols: (IrSimpleFunction) -> List<IrSimpleFunctionSymbol> =
+        storageManager.createMemoizedFunction { irSimpleFunction ->
+            irSimpleFunction.overriddenSymbols.map {
+                computeOverrideReplacement(it.owner).symbol
+            }
+        }
+
+    private fun computeOverrideReplacement(function: IrSimpleFunction): IrSimpleFunction =
+        getReplacementFunction(function) ?: function.also {
+            function.overriddenSymbols = replaceOverriddenSymbols(function)
+        }
 }

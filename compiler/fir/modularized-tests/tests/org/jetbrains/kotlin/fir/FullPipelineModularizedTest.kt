@@ -12,16 +12,17 @@ private val LANGUAGE_VERSION: String = System.getProperty("fir.bench.language.ve
 class FullPipelineModularizedTest : AbstractFullPipelineModularizedTest() {
 
     override fun configureArguments(args: K2JVMCompilerArguments, moduleData: ModuleData) {
-        args.useFir = true
+        args.useK2 = true
         args.useIR = true
         args.apiVersion = LANGUAGE_VERSION
         args.jvmDefault = "compatibility"
-        args.optIn = arrayOf(
+        args.optIn = moduleData.optInAnnotations.toTypedArray() + arrayOf(
             "kotlin.RequiresOptIn",
             "kotlin.contracts.ExperimentalContracts",
             "kotlin.io.path.ExperimentalPathApi",
             "org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI"
         )
+        args.renderInternalDiagnosticNames = true
     }
 
     fun testTotalKotlin() {

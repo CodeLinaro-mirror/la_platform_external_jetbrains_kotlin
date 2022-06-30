@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.resolve.checkers
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.diagnostics.Errors.PROGRESSIONS_CHANGING_RESOLVE
 import org.jetbrains.kotlin.resolve.calls.KotlinCallResolver
 import org.jetbrains.kotlin.resolve.calls.checkers.CallCheckerWithAdditionalResolve
@@ -71,7 +70,7 @@ class PassingProgressionAsCollectionCallChecker(private val kotlinCallResolver: 
             intersectTypes(
                 listOf(
                     KotlinTypeFactory.simpleNotNullType(
-                        Annotations.EMPTY,
+                        TypeAttributes.Empty,
                         builtIns.collection,
                         listOf(TypeProjectionImpl(progressionOrRangeElementType))
                     ),
@@ -150,7 +149,7 @@ class PassingProgressionAsCollectionCallChecker(private val kotlinCallResolver: 
 
     private fun makeCollectionOfAnyType(builtIns: KotlinBuiltIns): KotlinType =
         KotlinTypeFactory.simpleNotNullType(
-            Annotations.EMPTY,
+            TypeAttributes.Empty,
             builtIns.collection,
             listOf(TypeProjectionImpl(builtIns.nullableAnyType))
         )

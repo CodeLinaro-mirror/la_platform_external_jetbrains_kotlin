@@ -188,6 +188,10 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // with a fake source that refers to the value parameter in the function type notation
     // e.g., `(x: Int) -> Unit` becomes `Function1<@ParameterName("x") Int, Unit>`
     object ParameterNameAnnotationCall : KtFakeSourceElementKind()
+
+    // for implicit conversion from int to long with `.toLong` function
+    // e.g. val x: Long = 1 + 1 becomes val x: Long = (1 + 1).toLong()
+    object IntToLongConversion : KtFakeSourceElementKind()
 }
 
 sealed class AbstractKtSourceElement {
@@ -217,7 +221,7 @@ class KtOffsetsOnlySourceElement(
 
 // TODO: consider renaming to something like AstBasedSourceElement
 sealed class KtSourceElement : AbstractKtSourceElement() {
-    abstract val elementType: IElementType
+    abstract val elementType: IElementType?
     abstract val kind: KtSourceElementKind
     abstract val lighterASTNode: LighterASTNode
     abstract val treeStructure: FlyweightCapableTreeStructure<LighterASTNode>
@@ -229,11 +233,11 @@ sealed class KtSourceElement : AbstractKtSourceElement() {
     abstract override fun equals(other: Any?): Boolean
 }
 
-// NB: in certain situations, psi.node could be null
+// NB: in certain situations, psi.node could be null (see e.g. KT-44152)
 // Potentially exceptions can be provoked by elementType / lighterASTNode
 sealed class KtPsiSourceElement(val psi: PsiElement) : KtSourceElement() {
-    override val elementType: IElementType
-        get() = psi.node.elementType
+    override val elementType: IElementType?
+        get() = psi.node?.elementType
 
     override val startOffset: Int
         get() = psi.textRange.startOffset
@@ -436,3 +440,4 @@ inline fun LighterASTNode.toKtLightSourceElement(
     startOffset: Int = this.startOffset,
     endOffset: Int = this.endOffset
 ): KtLightSourceElement = KtLightSourceElement(this, startOffset, endOffset, tree, kind)
+

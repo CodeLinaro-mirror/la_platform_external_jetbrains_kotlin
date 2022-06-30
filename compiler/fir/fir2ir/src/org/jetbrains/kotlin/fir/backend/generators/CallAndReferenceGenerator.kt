@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.*
@@ -43,6 +44,7 @@ import org.jetbrains.kotlin.ir.util.isFunctionTypeOrSubtype
 import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.psi2ir.generators.hasNoSideEffects
 import org.jetbrains.kotlin.psi2ir.generators.isUnchanging
+import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator.commonSuperType
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 
 class CallAndReferenceGenerator(
@@ -61,9 +63,11 @@ class CallAndReferenceGenerator(
 
     fun convertToIrCallableReference(
         callableReferenceAccess: FirCallableReferenceAccess,
-        explicitReceiverExpression: IrExpression?
+        explicitReceiverExpression: IrExpression?,
+        isDelegate: Boolean
     ): IrExpression {
-        val type = callableReferenceAccess.typeRef.toIrType()
+        val type = approximateFunctionReferenceType(callableReferenceAccess.typeRef.coneType).toIrType()
+
         val callableSymbol = callableReferenceAccess.calleeReference.toResolvedCallableSymbol()
         if (callableSymbol?.origin == FirDeclarationOrigin.SamConstructor) {
             assert(explicitReceiverExpression == null) {
@@ -78,7 +82,7 @@ class CallAndReferenceGenerator(
 
         val symbol = callableReferenceAccess.calleeReference.toSymbolForCall(
             callableReferenceAccess.dispatchReceiver, session, classifierStorage, declarationStorage, conversionScope,
-            explicitReceiver = callableReferenceAccess.explicitReceiver
+            explicitReceiver = callableReferenceAccess.explicitReceiver, isDelegate = isDelegate
         )
         // val x by y ->
         //   val `x$delegate` = y
@@ -169,6 +173,40 @@ class CallAndReferenceGenerator(
                 }
             }
         }
+    }
+
+    private fun approximateFunctionReferenceType(kotlinType: ConeKotlinType): ConeKotlinType {
+        // This is a hack to support intersection types in function references on JVM.
+        // Function reference type KFunctionN<T1, ..., TN, R> might contain intersection types in its top-level arguments.
+        // Intersection types in expressions and local variable declarations usually don't bother us.
+        // However, in case of function references type mapping affects behavior:
+        // resulting function reference class will have a bridge method, which will downcast its arguments to the expected types.
+        // This would cause ClassCastException in case of usual type approximation,
+        // because '{ X1 & ... & Xm }' would be approximated to 'Nothing'.
+        // JVM_OLD just relies on type mapping for generic argument types in such case.
+        if (!kotlinType.isKFunctionType(session))
+            return kotlinType
+        if (kotlinType !is ConeSimpleKotlinType)
+            return kotlinType
+        if (kotlinType.typeArguments.none { it.type is ConeIntersectionType })
+            return kotlinType
+        val functionParameterTypes = kotlinType.typeArguments.take(kotlinType.typeArguments.size - 1)
+        val functionReturnType = kotlinType.typeArguments.last()
+        return ConeClassLikeTypeImpl(
+            (kotlinType as ConeClassLikeType).lookupTag,
+            (functionParameterTypes.map { approximateFunctionReferenceParameterType(it) } + functionReturnType).toTypedArray(),
+            kotlinType.isNullable,
+            kotlinType.attributes
+        )
+    }
+
+    private fun approximateFunctionReferenceParameterType(typeProjection: ConeTypeProjection): ConeTypeProjection {
+        if (typeProjection.isStarProjection) return typeProjection
+        val intersectionType = typeProjection as? ConeIntersectionType ?: return typeProjection
+        val newType = intersectionType.alternativeType
+            ?: session.typeContext.commonSuperType(intersectionType.intersectedTypes.toList()) as? ConeKotlinType
+            ?: return typeProjection
+        return newType.toTypeProjection(typeProjection.kind)
     }
 
     private fun computeFieldSymbolForCallableReference(
@@ -282,7 +320,7 @@ class CallAndReferenceGenerator(
                             getter != null -> IrCallImpl(
                                 startOffset, endOffset, type, getter.symbol,
                                 typeArgumentsCount = getter.typeParameters.size,
-                                valueArgumentsCount = 0,
+                                valueArgumentsCount = getter.valueParameters.size,
                                 origin = IrStatementOrigin.GET_PROPERTY,
                                 superQualifierSymbol = dispatchReceiver.superQualifierSymbol()
                             )
@@ -310,7 +348,7 @@ class CallAndReferenceGenerator(
                     else -> generateErrorCallExpression(startOffset, endOffset, calleeReference, type)
                 }
             }.applyTypeArguments(qualifiedAccess).applyReceivers(qualifiedAccess, explicitReceiverExpression)
-                .applyCallArguments(qualifiedAccess as? FirCall, annotationMode)
+                .applyCallArguments(qualifiedAccess, annotationMode)
         } catch (e: Throwable) {
             throw IllegalStateException(
                 "Error while translating ${qualifiedAccess.render()} " +
@@ -339,10 +377,11 @@ class CallAndReferenceGenerator(
                             setter != null -> IrCallImpl(
                                 startOffset, endOffset, type, setter.symbol,
                                 typeArgumentsCount = setter.typeParameters.size,
-                                valueArgumentsCount = 1,
+                                valueArgumentsCount = setter.valueParameters.size,
                                 origin = origin,
                                 superQualifierSymbol = variableAssignment.dispatchReceiver.superQualifierSymbol()
                             ).apply {
+                                putContextReceiverArguments(variableAssignment)
                                 putValueArgument(0, assignedValue)
                             }
                             else -> generateErrorCallExpression(startOffset, endOffset, calleeReference)
@@ -356,11 +395,11 @@ class CallAndReferenceGenerator(
                             setter != null -> IrCallImpl(
                                 startOffset, endOffset, type, setter.symbol,
                                 typeArgumentsCount = setter.typeParameters.size,
-                                valueArgumentsCount = 1,
+                                valueArgumentsCount = setter.valueParameters.size,
                                 origin = origin,
                                 superQualifierSymbol = variableAssignment.dispatchReceiver.superQualifierSymbol()
                             ).apply {
-                                putValueArgument(0, assignedValue)
+                                putValueArgument(putContextReceiverArguments(variableAssignment), assignedValue)
                             }
                             backingField != null -> IrSetFieldImpl(
                                 startOffset, endOffset, backingField.symbol, type,
@@ -512,10 +551,16 @@ class CallAndReferenceGenerator(
         return ConeSubstitutorByMap(map, session)
     }
 
-    internal fun IrExpression.applyCallArguments(call: FirCall?, annotationMode: Boolean): IrExpression {
-        if (call == null) return this
+    internal fun IrExpression.applyCallArguments(
+        statement: FirStatement?,
+        annotationMode: Boolean
+    ): IrExpression {
+        val qualifiedAccess = statement as? FirQualifiedAccess
+        val call = statement as? FirCall
         return when (this) {
             is IrMemberAccessExpression<*> -> {
+                val contextReceiverCount = putContextReceiverArguments(qualifiedAccess)
+                if (call == null) return this
                 val argumentsCount = call.arguments.size
                 if (argumentsCount <= valueArgumentsCount) {
                     apply {
@@ -537,7 +582,10 @@ class CallAndReferenceGenerator(
                         val substitutor = (call as? FirFunctionCall)?.buildSubstitutorByCalledFunction(function) ?: ConeSubstitutor.Empty
                         if (argumentMapping != null && (annotationMode || argumentMapping.isNotEmpty())) {
                             if (valueParameters != null) {
-                                return applyArgumentsWithReorderingIfNeeded(argumentMapping, valueParameters, substitutor, annotationMode)
+                                return applyArgumentsWithReorderingIfNeeded(
+                                    argumentMapping, valueParameters, substitutor, annotationMode,
+                                    contextReceiverCount,
+                                )
                             }
                         }
                         // Case without argument mapping (deserialized annotation)
@@ -548,7 +596,10 @@ class CallAndReferenceGenerator(
                                 else -> null
                             } ?: valueParameters?.get(index)
                             val argumentExpression = convertArgument(argument, valueParameter, substitutor)
-                            putValueArgument(valueParameters?.indexOf(valueParameter)?.takeIf { it >= 0 } ?: index, argumentExpression)
+                            putValueArgument(
+                                (valueParameters?.indexOf(valueParameter)?.takeIf { it >= 0 } ?: index) + contextReceiverCount,
+                                argumentExpression
+                            )
                         }
                     }
                 } else {
@@ -564,7 +615,7 @@ class CallAndReferenceGenerator(
                 }
             }
             is IrErrorCallExpressionImpl -> apply {
-                for (argument in call.arguments) {
+                for (argument in call?.arguments.orEmpty()) {
                     addArgument(visitor.convertToIrExpression(argument))
                 }
             }
@@ -572,11 +623,26 @@ class CallAndReferenceGenerator(
         }
     }
 
+    private fun IrMemberAccessExpression<*>.putContextReceiverArguments(statement: FirStatement?): Int {
+        val contextReceiverCount = (statement as? FirQualifiedAccess)?.contextReceiverArguments?.size ?: 0
+        if (statement is FirQualifiedAccess && contextReceiverCount > 0) {
+            for (index in 0 until contextReceiverCount) {
+                putValueArgument(
+                    index,
+                    visitor.convertToIrExpression(statement.contextReceiverArguments[index]),
+                )
+            }
+        }
+
+        return contextReceiverCount
+    }
+
     private fun IrMemberAccessExpression<*>.applyArgumentsWithReorderingIfNeeded(
         argumentMapping: Map<FirExpression, FirValueParameter>,
         valueParameters: List<FirValueParameter>,
         substitutor: ConeSubstitutor,
-        annotationMode: Boolean
+        annotationMode: Boolean,
+        contextReceiverCount: Int,
     ): IrExpression {
         val converted = argumentMapping.entries.map { (argument, parameter) ->
             parameter to convertArgument(argument, parameter, substitutor, annotationMode)
@@ -597,13 +663,16 @@ class CallAndReferenceGenerator(
                 dispatchReceiver = dispatchReceiver?.freeze("\$this")
                 extensionReceiver = extensionReceiver?.freeze("\$receiver")
                 for ((parameter, irArgument) in converted) {
-                    putValueArgument(valueParameters.indexOf(parameter), irArgument.freeze(parameter.name.asString()))
+                    putValueArgument(
+                        valueParameters.indexOf(parameter) + contextReceiverCount,
+                        irArgument.freeze(parameter.name.asString())
+                    )
                 }
                 statements.add(this@applyArgumentsWithReorderingIfNeeded)
             }
         } else {
             for ((parameter, irArgument) in converted) {
-                putValueArgument(valueParameters.indexOf(parameter), irArgument)
+                putValueArgument(valueParameters.indexOf(parameter) + contextReceiverCount, irArgument)
             }
             if (annotationMode) {
                 for ((index, parameter) in valueParameters.withIndex()) {

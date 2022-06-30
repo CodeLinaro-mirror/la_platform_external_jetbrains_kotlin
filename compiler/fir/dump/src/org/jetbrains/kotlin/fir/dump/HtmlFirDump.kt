@@ -843,7 +843,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
 
     private fun FlowContent.generate(type: ConeKotlinType) {
         when (type) {
-            is ConeClassErrorType -> error { +type.diagnostic.reason }
+            is ConeErrorType -> error { +type.diagnostic.reason }
             is ConeClassLikeType -> return generate(type)
             is ConeTypeParameterType -> resolved {
                 symbolRef(type.lookupTag.symbol) {
@@ -1245,7 +1245,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
             is ConeInapplicableCandidateError -> {
                 describeVerbose(diagnostic.candidate.symbol)
                 br
-                diagnostic.candidate.system.errors.forEach { callDiagnostic ->
+                diagnostic.candidate.errors.forEach { callDiagnostic ->
                     when (callDiagnostic) {
                         is NewConstraintError -> {
                             ident()
@@ -1595,21 +1595,21 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
 
         +"?."
 
-        val nestedQualifier = safeCallExpression.regularQualifiedAccess
-        if (nestedQualifier.explicitReceiver == safeCallExpression.checkedSubjectRef.value) {
-            when (nestedQualifier) {
+        val selector = safeCallExpression.selector
+        if (selector is FirQualifiedAccess && selector.explicitReceiver == safeCallExpression.checkedSubjectRef.value) {
+            when (selector) {
                 is FirFunctionCall -> {
-                    return generate(nestedQualifier, skipReceiver = true)
+                    return generate(selector, skipReceiver = true)
                 }
                 is FirQualifiedAccessExpression -> {
-                    return generate(nestedQualifier, skipReceiver = true)
+                    return generate(selector, skipReceiver = true)
                 }
             }
         }
 
         +"{ "
 
-        generate(nestedQualifier)
+        generate(selector)
 
         +" }"
     }

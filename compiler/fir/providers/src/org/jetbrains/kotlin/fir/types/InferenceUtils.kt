@@ -107,12 +107,15 @@ fun ConeKotlinType.suspendFunctionTypeToFunctionTypeWithContinuation(session: Fi
         if (isKFunctionType(session)) FunctionClassKind.KFunction
         else FunctionClassKind.Function
     val functionalTypeId = ClassId(kind.packageFqName, kind.numberedClassName(typeArguments.size))
+    val fullyExpandedType = type.fullyExpandedType(session)
+    val typeArguments = fullyExpandedType.typeArguments
+    val lastTypeArgument = typeArguments.last()
     return ConeClassLikeTypeImpl(
         ConeClassLikeLookupTagImpl(functionalTypeId),
-        typeArguments = (type.typeArguments.dropLast(1) + ConeClassLikeLookupTagImpl(continuationClassId).constructClassType(
-            arrayOf(type.typeArguments.last()),
+        typeArguments = (typeArguments.dropLast(1) + ConeClassLikeLookupTagImpl(continuationClassId).constructClassType(
+            arrayOf(lastTypeArgument),
             isNullable = false
-        ) + type.typeArguments.last()).toTypedArray(),
+        ) + lastTypeArgument).toTypedArray(),
         isNullable = false,
         attributes = attributes
     )
@@ -140,7 +143,7 @@ fun ConeKotlinType.findSubtypeOfNonSuspendFunctionalType(session: FirSession, ex
                 intersectedTypes.find { it.findSubtypeOfNonSuspendFunctionalType(session, expectedFunctionalType) != null }
         }
         is ConeTypeParameterType -> {
-            val bounds = lookupTag.typeParameterSymbol.fir.bounds.map { it.coneType }
+            val bounds = lookupTag.typeParameterSymbol.resolvedBounds.map { it.coneType }
             if (bounds.any { it.isSuspendFunctionType(session) })
                 null
             else
@@ -215,7 +218,9 @@ private fun ConeTypeProjection.typeOrDefault(default: ConeKotlinType): ConeKotli
 
 fun ConeKotlinType.receiverType(session: FirSession): ConeKotlinType? {
     if (!isBuiltinFunctionalType(session) || !isExtensionFunctionType(session)) return null
-    return fullyExpandedType(session).typeArguments.first().typeOrDefault(session.builtinTypes.nothingType.type)
+    return fullyExpandedType(session).let { expanded ->
+        expanded.typeArguments[expanded.contextReceiversNumberForFunctionType].typeOrDefault(session.builtinTypes.nothingType.type)
+    }
 }
 
 fun ConeKotlinType.returnType(session: FirSession): ConeKotlinType {

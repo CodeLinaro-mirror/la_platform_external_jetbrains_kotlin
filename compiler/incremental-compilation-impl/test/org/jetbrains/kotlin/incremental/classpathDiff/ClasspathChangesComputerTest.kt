@@ -5,36 +5,37 @@
 
 package org.jetbrains.kotlin.incremental.classpathDiff
 
-import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
+import org.jetbrains.kotlin.build.report.DoNothingBuildReporter
 import org.jetbrains.kotlin.incremental.ChangesEither
 import org.jetbrains.kotlin.incremental.LookupSymbol
-import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.Util.compileAll
-import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.Util.snapshot
-import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.Util.snapshotAll
+import org.jetbrains.kotlin.incremental.classpathDiff.ClassSnapshotGranularity.CLASS_LEVEL
+import org.jetbrains.kotlin.incremental.classpathDiff.ClassSnapshotGranularity.CLASS_MEMBER_LEVEL
+import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.ClassFileUtil.asFile
+import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.ClassFileUtil.snapshot
+import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotTestCommon.CompileUtil.compileAll
+import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.kotlin.resolve.sam.SAM_LOOKUP_NAME
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
 import java.io.File
 import kotlin.test.fail
 
+private val testDataDir =
+    File("compiler/incremental-compilation-impl/testData/org/jetbrains/kotlin/incremental/classpathDiff/ClasspathChangesComputerTest")
+
 abstract class ClasspathChangesComputerTest : ClasspathSnapshotTestCommon() {
 
-    // TODO Add more test cases:
-    //   - private/non-private fields
-    //   - inline functions
-    //   - changing supertype by adding somethings that changes/does not change the supertype ABI
-    //   - adding an annotation
+    @Test
+    abstract fun testAbiVersusNonAbiChanges()
 
     @Test
-    abstract fun testAbiChange_changePublicMethodSignature()
+    abstract fun testModifiedAddedRemovedElements()
 
     @Test
-    abstract fun testNonAbiChange_changeMethodImplementation()
+    abstract fun testModifiedAddedRemovedElements_ClassLevelSnapshot()
 
     @Test
-    abstract fun testVariousAbiChanges()
+    abstract fun testMixedClassSnapshotGranularities()
 
     @Test
     abstract fun testImpactAnalysis()
@@ -43,38 +44,21 @@ abstract class ClasspathChangesComputerTest : ClasspathSnapshotTestCommon() {
 class KotlinOnlyClasspathChangesComputerTest : ClasspathChangesComputerTest() {
 
     @Test
-    override fun testAbiChange_changePublicMethodSignature() {
-        val sourceFile = SimpleKotlinClass(tmpDir)
-        val previousSnapshot = sourceFile.compileAndSnapshot()
-        val currentSnapshot = sourceFile.changePublicMethodSignature().compileAndSnapshot()
-        val changes = computeClassChanges(currentSnapshot, previousSnapshot)
-
+    override fun testAbiVersusNonAbiChanges() {
+        val changes = computeClasspathChanges(File(testDataDir, "testAbiVersusNonAbiChanges/src/kotlin"), tmpDir)
         Changes(
             lookupSymbols = setOf(
-                LookupSymbol(name = "publicFunction", scope = "com.example.SimpleKotlinClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SimpleKotlinClass")
+                LookupSymbol(name = "publicPropertyChangedType", scope = "com.example.SomeClass"),
+                LookupSymbol(name = "publicFunctionChangedSignature", scope = "com.example.SomeClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SomeClass"),
             ),
-            fqNames = setOf("com.example.SimpleKotlinClass")
+            fqNames = setOf("com.example.SomeClass")
         ).assertEquals(changes)
     }
 
     @Test
-    override fun testNonAbiChange_changeMethodImplementation() {
-        val sourceFile = SimpleKotlinClass(tmpDir)
-        val previousSnapshot = sourceFile.compileAndSnapshot()
-        val currentSnapshot = sourceFile.changeMethodImplementation().compileAndSnapshot()
-        val changes = computeClassChanges(currentSnapshot, previousSnapshot)
-
-        Changes(emptySet(), emptySet()).assertEquals(changes)
-    }
-
-    @Test
-    override fun testVariousAbiChanges() {
-        val classpathSourceDir = File(testDataDir, "../ClasspathChangesComputerTest/testVariousAbiChanges/src/kotlin").canonicalFile
-        val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir)
-        val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir)
-        val changes = computeClasspathChanges(currentSnapshot, previousSnapshot)
-
+    override fun testModifiedAddedRemovedElements() {
+        val changes = computeClasspathChanges(File(testDataDir, "testModifiedAddedRemovedElements/src/kotlin"), tmpDir)
         Changes(
             lookupSymbols = setOf(
                 // ModifiedClassUnchangedMembers
@@ -94,8 +78,87 @@ class KotlinOnlyClasspathChangesComputerTest : ClasspathChangesComputerTest() {
 
                 // RemovedClass
                 LookupSymbol(name = "RemovedClass", scope = "com.example"),
+            ),
+            fqNames = setOf(
+                "com.example.ModifiedClassUnchangedMembers",
+                "com.example.ModifiedClassChangedMembers",
+                "com.example.AddedClass",
+                "com.example.RemovedClass",
+            )
+        ).assertEquals(changes)
+    }
 
-                // Top-level properties and functions
+    @Test
+    override fun testModifiedAddedRemovedElements_ClassLevelSnapshot() {
+        val changes = computeClasspathChanges(File(testDataDir, "testModifiedAddedRemovedElements/src/kotlin"), tmpDir, CLASS_LEVEL)
+        Changes(
+            lookupSymbols = setOf(
+                LookupSymbol(name = "ModifiedClassUnchangedMembers", scope = "com.example"),
+                LookupSymbol(name = "ModifiedClassChangedMembers", scope = "com.example"),
+                LookupSymbol(name = "AddedClass", scope = "com.example"),
+                LookupSymbol(name = "RemovedClass", scope = "com.example"),
+            ),
+            fqNames = setOf(
+                "com.example.ModifiedClassUnchangedMembers",
+                "com.example.ModifiedClassChangedMembers",
+                "com.example.AddedClass",
+                "com.example.RemovedClass",
+            )
+        ).assertEquals(changes)
+    }
+
+    @Test
+    override fun testMixedClassSnapshotGranularities() {
+        val currentClasspathSnapshot = testMixedClassSnapshotGranularities_snapshotClasspath("kotlin", "current-classpath", tmpDir)
+        val previousClasspathSnapshot = testMixedClassSnapshotGranularities_snapshotClasspath("kotlin", "previous-classpath", tmpDir)
+
+        val changes = computeClasspathChanges(currentClasspathSnapshot, previousClasspathSnapshot)
+        Changes(
+            lookupSymbols = setOf(
+                LookupSymbol(name = "CoarseGrainedFirstBuild_CoarseGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "CoarseGrainedFirstBuild_FineGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "FineGrainedFirstBuild_CoarseGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "modifiedProperty", scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"),
+                LookupSymbol(name = "modifiedFunction", scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class")
+            ),
+            fqNames = setOf(
+                "com.example.CoarseGrainedFirstBuild_CoarseGrainedSecondBuild_Class",
+                "com.example.CoarseGrainedFirstBuild_FineGrainedSecondBuild_Class",
+                "com.example.FineGrainedFirstBuild_CoarseGrainedSecondBuild_Class",
+                "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"
+            )
+        ).assertEquals(changes)
+    }
+
+    @Test
+    override fun testImpactAnalysis() {
+        val changes = computeClasspathChanges(File(testDataDir, "testImpactAnalysis_KotlinOnly/src"), tmpDir)
+        Changes(
+            lookupSymbols = setOf(
+                LookupSymbol(name = "changedProperty", scope = "com.example.ChangedSuperClass"),
+                LookupSymbol(name = "changedProperty", scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = "changedProperty", scope = "com.example.SubSubClassOfChangedSuperClass"),
+                LookupSymbol(name = "changedFunction", scope = "com.example.ChangedSuperClass"),
+                LookupSymbol(name = "changedFunction", scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = "changedFunction", scope = "com.example.SubSubClassOfChangedSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.ChangedSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubSubClassOfChangedSuperClass")
+            ),
+            fqNames = setOf(
+                "com.example.ChangedSuperClass",
+                "com.example.SubClassOfChangedSuperClass",
+                "com.example.SubSubClassOfChangedSuperClass"
+            )
+        ).assertEquals(changes)
+    }
+
+    @Test
+    fun testTopLevelMembers() {
+        val changes = computeClasspathChanges(File(testDataDir, "testTopLevelMembers_KotlinOnly/src"), tmpDir)
+        Changes(
+            lookupSymbols = setOf(
                 LookupSymbol(name = "modifiedTopLevelProperty", scope = "com.example"),
                 LookupSymbol(name = "addedTopLevelProperty", scope = "com.example"),
                 LookupSymbol(name = "removedTopLevelProperty", scope = "com.example"),
@@ -104,89 +167,91 @@ class KotlinOnlyClasspathChangesComputerTest : ClasspathChangesComputerTest() {
                 LookupSymbol(name = "addedTopLevelFunction", scope = "com.example"),
                 LookupSymbol(name = "removedTopLevelFunction", scope = "com.example"),
                 LookupSymbol(name = "movedTopLevelFunction", scope = "com.example"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example")
+            ),
+            fqNames = setOf("com.example")
+        ).assertEquals(changes)
+    }
+
+    @Test
+    fun testDifferentClassKinds() {
+        val changes = computeClasspathChanges(File(testDataDir, "testDifferentClassKinds_KotlinOnly/src"), tmpDir)
+        Changes(
+            lookupSymbols = setOf(
+                // NormalClass
+                LookupSymbol(name = "propertyInNormalClass", scope = "com.example.NormalClass"),
+                LookupSymbol(name = "functionInNormalClass", scope = "com.example.NormalClass"),
+
+                // NormalClass.CompanionObject
+                LookupSymbol(name = "propertyInCompanionObject", scope = "com.example.NormalClass.CompanionObject"),
+                LookupSymbol(name = "functionInCompanionObject", scope = "com.example.NormalClass.CompanionObject"),
+
+                // NormalClass.NestedClass
+                LookupSymbol(name = "propertyInNestedClass", scope = "com.example.NormalClass.NestedClass"),
+                LookupSymbol(name = "functionInNestedClass", scope = "com.example.NormalClass.NestedClass"),
+
+                // FileFacade
+                LookupSymbol(name = "propertyInFileFacade", scope = "com.example"),
+                LookupSymbol(name = "functionInFileFacade", scope = "com.example"),
+
+                // MultifileClass
+                LookupSymbol(name = "propertyInMultifileClass1", scope = "com.example"),
+                LookupSymbol(name = "functionInMultifileClass1", scope = "com.example"),
+                LookupSymbol(name = "propertyInMultifileClass2", scope = "com.example"),
+                LookupSymbol(name = "functionInMultifileClass2", scope = "com.example"),
+
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.NormalClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.NormalClass.CompanionObject"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.NormalClass.NestedClass"),
             ),
             fqNames = setOf(
-                "com.example.ModifiedClassUnchangedMembers",
-                "com.example.ModifiedClassChangedMembers",
-                "com.example.AddedClass",
-                "com.example.RemovedClass",
+                "com.example.NormalClass",
+                "com.example.NormalClass.CompanionObject",
+                "com.example.NormalClass.NestedClass",
                 "com.example"
             )
         ).assertEquals(changes)
     }
 
     @Test
-    override fun testImpactAnalysis() {
-        val classpathSourceDir =
-            File(testDataDir, "../ClasspathChangesComputerTest/testImpactAnalysis_KotlinOrJava/src/kotlin").canonicalFile
-        val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir)
-        val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir)
-        val changes = computeClasspathChanges(currentSnapshot, previousSnapshot)
-
+    fun testConstantsAndInlineFunctions() {
+        val changes = computeClasspathChanges(File(testDataDir, "testConstantsAndInlineFunctions_KotlinOnly/src"), tmpDir)
         Changes(
             lookupSymbols = setOf(
-                LookupSymbol(name = "changedProperty", scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = "changedProperty", scope = "com.example.SubClass"),
-                LookupSymbol(name = "changedProperty", scope = "com.example.SubSubClass"),
-                LookupSymbol(name = "changedFunction", scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = "changedFunction", scope = "com.example.SubClass"),
-                LookupSymbol(name = "changedFunction", scope = "com.example.SubSubClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubSubClass")
+                LookupSymbol(name = "constantChangedType", scope = "com.example.SomeClass.CompanionObject"),
+                LookupSymbol(name = "constantChangedValue", scope = "com.example.SomeClass.CompanionObject"),
+
+                LookupSymbol(name = "inlineFunctionChangedSignature", scope = "com.example.SomeClass"),
+                LookupSymbol(name = "inlineFunctionChangedImplementation", scope = "com.example.SomeClass"),
+
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SomeClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SomeClass.CompanionObject"),
             ),
             fqNames = setOf(
-                "com.example.ChangedSuperClass",
-                "com.example.SubClass",
-                "com.example.SubSubClass"
+                "com.example.SomeClass",
+                "com.example.SomeClass.CompanionObject",
             )
         ).assertEquals(changes)
     }
 }
 
-@RunWith(Parameterized::class)
-class JavaOnlyClasspathChangesComputerTest(private val protoBased: Boolean) : ClasspathChangesComputerTest() {
-
-    companion object {
-        @Parameterized.Parameters(name = "protoBased={0}")
-        @JvmStatic
-        fun parameters() = listOf(true, false)
-    }
+class JavaOnlyClasspathChangesComputerTest : ClasspathChangesComputerTest() {
 
     @Test
-    override fun testAbiChange_changePublicMethodSignature() {
-        val sourceFile = SimpleJavaClass(tmpDir)
-        val previousSnapshot = sourceFile.compile().snapshot(protoBased)
-        val currentSnapshot = sourceFile.changePublicMethodSignature().compile().snapshot(protoBased)
-        val changes = computeClassChanges(currentSnapshot, previousSnapshot)
-
+    override fun testAbiVersusNonAbiChanges() {
+        val changes = computeClasspathChanges(File(testDataDir, "testAbiVersusNonAbiChanges/src/java"), tmpDir)
         Changes(
             lookupSymbols = setOf(
-                LookupSymbol(name = "publicMethod", scope = "com.example.SimpleJavaClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SimpleJavaClass")
+                LookupSymbol(name = "publicFieldChangedType", scope = "com.example.SomeClass"),
+                LookupSymbol(name = "publicMethodChangedSignature", scope = "com.example.SomeClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SomeClass")
             ),
-            fqNames = setOf("com.example.SimpleJavaClass")
+            fqNames = setOf("com.example.SomeClass")
         ).assertEquals(changes)
     }
 
     @Test
-    override fun testNonAbiChange_changeMethodImplementation() {
-        val sourceFile = SimpleJavaClass(tmpDir)
-        val previousSnapshot = sourceFile.compile().snapshot(protoBased)
-        val currentSnapshot = sourceFile.changeMethodImplementation().compile().snapshot(protoBased)
-        val changes = computeClassChanges(currentSnapshot, previousSnapshot)
-
-        Changes(emptySet(), emptySet()).assertEquals(changes)
-    }
-
-    @Test
-    override fun testVariousAbiChanges() {
-        val classpathSourceDir = File(testDataDir, "../ClasspathChangesComputerTest/testVariousAbiChanges/src/java").canonicalFile
-        val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir, protoBased)
-        val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir, protoBased)
-        val changes = computeClasspathChanges(currentSnapshot, previousSnapshot)
-
+    override fun testModifiedAddedRemovedElements() {
+        val changes = computeClasspathChanges(File(testDataDir, "testModifiedAddedRemovedElements/src/java"), tmpDir)
         Changes(
             lookupSymbols = setOf(
                 // ModifiedClassUnchangedMembers
@@ -217,28 +282,67 @@ class JavaOnlyClasspathChangesComputerTest(private val protoBased: Boolean) : Cl
     }
 
     @Test
-    override fun testImpactAnalysis() {
-        val classpathSourceDir = File(testDataDir, "../ClasspathChangesComputerTest/testImpactAnalysis_KotlinOrJava/src/java").canonicalFile
-        val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir, protoBased)
-        val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir, protoBased)
-        val changes = computeClasspathChanges(currentSnapshot, previousSnapshot)
+    override fun testModifiedAddedRemovedElements_ClassLevelSnapshot() {
+        val changes = computeClasspathChanges(File(testDataDir, "testModifiedAddedRemovedElements/src/java"), tmpDir, CLASS_LEVEL)
+        Changes(
+            lookupSymbols = setOf(
+                LookupSymbol(name = "ModifiedClassUnchangedMembers", scope = "com.example"),
+                LookupSymbol(name = "ModifiedClassChangedMembers", scope = "com.example"),
+                LookupSymbol(name = "AddedClass", scope = "com.example"),
+                LookupSymbol(name = "RemovedClass", scope = "com.example")
+            ),
+            fqNames = setOf(
+                "com.example.ModifiedClassUnchangedMembers",
+                "com.example.ModifiedClassChangedMembers",
+                "com.example.AddedClass",
+                "com.example.RemovedClass"
+            )
+        ).assertEquals(changes)
+    }
 
+    @Test
+    override fun testMixedClassSnapshotGranularities() {
+        val currentClasspathSnapshot = testMixedClassSnapshotGranularities_snapshotClasspath("java", "current-classpath", tmpDir)
+        val previousClasspathSnapshot = testMixedClassSnapshotGranularities_snapshotClasspath("java", "previous-classpath", tmpDir)
+
+        val changes = computeClasspathChanges(currentClasspathSnapshot, previousClasspathSnapshot)
+        Changes(
+            lookupSymbols = setOf(
+                LookupSymbol(name = "CoarseGrainedFirstBuild_CoarseGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "CoarseGrainedFirstBuild_FineGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "FineGrainedFirstBuild_CoarseGrainedSecondBuild_Class", scope = "com.example"),
+                LookupSymbol(name = "modifiedField", scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"),
+                LookupSymbol(name = "modifiedMethod", scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class")
+            ),
+            fqNames = setOf(
+                "com.example.CoarseGrainedFirstBuild_CoarseGrainedSecondBuild_Class",
+                "com.example.CoarseGrainedFirstBuild_FineGrainedSecondBuild_Class",
+                "com.example.FineGrainedFirstBuild_CoarseGrainedSecondBuild_Class",
+                "com.example.FineGrainedFirstBuild_FineGrainedSecondBuild_Class"
+            )
+        ).assertEquals(changes)
+    }
+
+    @Test
+    override fun testImpactAnalysis() {
+        val changes = computeClasspathChanges(File(testDataDir, "testImpactAnalysis_JavaOnly/src"), tmpDir)
         Changes(
             lookupSymbols = setOf(
                 LookupSymbol(name = "changedField", scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = "changedField", scope = "com.example.SubClass"),
-                LookupSymbol(name = "changedField", scope = "com.example.SubSubClass"),
+                LookupSymbol(name = "changedField", scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = "changedField", scope = "com.example.SubSubClassOfChangedSuperClass"),
                 LookupSymbol(name = "changedMethod", scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = "changedMethod", scope = "com.example.SubClass"),
-                LookupSymbol(name = "changedMethod", scope = "com.example.SubSubClass"),
+                LookupSymbol(name = "changedMethod", scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = "changedMethod", scope = "com.example.SubSubClassOfChangedSuperClass"),
                 LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.ChangedSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubSubClass")
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubClassOfChangedSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.SubSubClassOfChangedSuperClass")
             ),
             fqNames = setOf(
                 "com.example.ChangedSuperClass",
-                "com.example.SubClass",
-                "com.example.SubSubClass"
+                "com.example.SubClassOfChangedSuperClass",
+                "com.example.SubSubClassOfChangedSuperClass"
             )
         ).assertEquals(changes)
     }
@@ -246,59 +350,84 @@ class JavaOnlyClasspathChangesComputerTest(private val protoBased: Boolean) : Cl
 
 class KotlinAndJavaClasspathChangesComputerTest : ClasspathSnapshotTestCommon() {
 
+    // TODO Add more test cases:
+    //   - Java class converted to Kotlin class
+
     @Test
     fun testImpactAnalysis() {
-        val classpathSourceDir = File(testDataDir, "../ClasspathChangesComputerTest/testImpactAnalysis_KotlinAndJava/src").canonicalFile
-        val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir)
-        val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir)
-        val changes = computeClasspathChanges(currentSnapshot, previousSnapshot)
-
+        val changes =
+            computeClasspathChanges(File(testDataDir, "testImpactAnalysis_KotlinAndJava/src"), tmpDir)
         Changes(
             lookupSymbols = setOf(
                 LookupSymbol(name = "changedProperty", scope = "com.example.ChangedKotlinSuperClass"),
-                LookupSymbol(name = "changedProperty", scope = "com.example.KotlinSubClassOfKotlinSuperClass"),
-                LookupSymbol(name = "changedProperty", scope = "com.example.JavaSubClassOfKotlinSuperClass"),
+                LookupSymbol(name = "changedProperty", scope = "com.example.KotlinSubClassOfChangedKotlinSuperClass"),
+                LookupSymbol(name = "changedProperty", scope = "com.example.JavaSubClassOfChangedKotlinSuperClass"),
                 LookupSymbol(name = "changedFunction", scope = "com.example.ChangedKotlinSuperClass"),
-                LookupSymbol(name = "changedFunction", scope = "com.example.KotlinSubClassOfKotlinSuperClass"),
-                LookupSymbol(name = "changedFunction", scope = "com.example.JavaSubClassOfKotlinSuperClass"),
+                LookupSymbol(name = "changedFunction", scope = "com.example.KotlinSubClassOfChangedKotlinSuperClass"),
+                LookupSymbol(name = "changedFunction", scope = "com.example.JavaSubClassOfChangedKotlinSuperClass"),
                 LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.ChangedKotlinSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.KotlinSubClassOfKotlinSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.JavaSubClassOfKotlinSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.KotlinSubClassOfChangedKotlinSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.JavaSubClassOfChangedKotlinSuperClass"),
                 LookupSymbol(name = "changedField", scope = "com.example.ChangedJavaSuperClass"),
-                LookupSymbol(name = "changedField", scope = "com.example.KotlinSubClassOfJavaSuperClass"),
-                LookupSymbol(name = "changedField", scope = "com.example.JavaSubClassOfJavaSuperClass"),
+                LookupSymbol(name = "changedField", scope = "com.example.KotlinSubClassOfChangedJavaSuperClass"),
+                LookupSymbol(name = "changedField", scope = "com.example.JavaSubClassOfChangedJavaSuperClass"),
                 LookupSymbol(name = "changedMethod", scope = "com.example.ChangedJavaSuperClass"),
-                LookupSymbol(name = "changedMethod", scope = "com.example.KotlinSubClassOfJavaSuperClass"),
-                LookupSymbol(name = "changedMethod", scope = "com.example.JavaSubClassOfJavaSuperClass"),
+                LookupSymbol(name = "changedMethod", scope = "com.example.KotlinSubClassOfChangedJavaSuperClass"),
+                LookupSymbol(name = "changedMethod", scope = "com.example.JavaSubClassOfChangedJavaSuperClass"),
                 LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.ChangedJavaSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.KotlinSubClassOfJavaSuperClass"),
-                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.JavaSubClassOfJavaSuperClass")
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.KotlinSubClassOfChangedJavaSuperClass"),
+                LookupSymbol(name = SAM_LOOKUP_NAME.asString(), scope = "com.example.JavaSubClassOfChangedJavaSuperClass")
             ),
             fqNames = setOf(
                 "com.example.ChangedKotlinSuperClass",
-                "com.example.KotlinSubClassOfKotlinSuperClass",
-                "com.example.JavaSubClassOfKotlinSuperClass",
+                "com.example.KotlinSubClassOfChangedKotlinSuperClass",
+                "com.example.JavaSubClassOfChangedKotlinSuperClass",
                 "com.example.ChangedJavaSuperClass",
-                "com.example.KotlinSubClassOfJavaSuperClass",
-                "com.example.JavaSubClassOfJavaSuperClass"
+                "com.example.KotlinSubClassOfChangedJavaSuperClass",
+                "com.example.JavaSubClassOfChangedJavaSuperClass"
             )
         ).assertEquals(changes)
     }
 }
 
-private fun snapshotClasspath(classpathSourceDir: File, tmpDir: TemporaryFolder, protoBased: Boolean = true): ClasspathSnapshot {
-    val classpath = mutableListOf<File>()
-    val classpathEntrySnapshots = classpathSourceDir.listFiles()!!.sortedBy { it.name }.map { classpathEntrySourceDir ->
-        val classFiles = compileAll(classpathEntrySourceDir, classpath, tmpDir)
-        classpath.addAll(listOfNotNull(classFiles.firstOrNull()?.classRoot))
+private fun testMixedClassSnapshotGranularities_snapshotClasspath(
+    language: String, classpathSourceDirName: String, tmpDir: TemporaryFolder
+): ClasspathSnapshot {
+    val classes = compileAll(File("$testDataDir/testMixedClassSnapshotGranularities/src/$language/$classpathSourceDirName/0"), tmpDir)
 
-        val relativePaths = classFiles.map { it.unixStyleRelativePath }
-        val classSnapshots = classFiles.snapshotAll(protoBased).map { it.withHash }
-        ClasspathEntrySnapshot(
-            classSnapshots = relativePaths.zip(classSnapshots).toMap(LinkedHashMap())
-        )
+    fun getGranularity(classFile: ClassFile): ClassSnapshotGranularity {
+        val granularity = when (val className = classFile.asFile().nameWithoutExtension) {
+            "CoarseGrainedFirstBuild_CoarseGrainedSecondBuild_Class" -> CLASS_LEVEL to CLASS_LEVEL
+            "CoarseGrainedFirstBuild_FineGrainedSecondBuild_Class" -> CLASS_LEVEL to CLASS_MEMBER_LEVEL
+            "FineGrainedFirstBuild_CoarseGrainedSecondBuild_Class" -> CLASS_MEMBER_LEVEL to CLASS_LEVEL
+            "FineGrainedFirstBuild_FineGrainedSecondBuild_Class" -> CLASS_MEMBER_LEVEL to CLASS_MEMBER_LEVEL
+            else -> error("Unrecognized class: $className")
+        }
+        return when (classpathSourceDirName) {
+            "previous-classpath" -> granularity.first
+            "current-classpath" -> granularity.second
+            else -> error("Unrecognized classpathSourceDirName: $classpathSourceDirName")
+        }
     }
-    return ClasspathSnapshot(classpathEntrySnapshots)
+
+    return classes.map { it.snapshot(getGranularity(it)) }.toClasspathSnapshot()
+}
+
+private fun List<ClassSnapshot>.toClasspathSnapshot(): ClasspathSnapshot {
+    val classpathEntrySnapshot = ClasspathEntrySnapshot(associateByTo(LinkedHashMap()) {
+        JvmClassName.byClassId((it as AccessibleClassSnapshot).classId).internalName + ".class"
+    })
+    return ClasspathSnapshot(listOf(classpathEntrySnapshot))
+}
+
+private fun computeClasspathChanges(
+    classpathSourceDir: File,
+    tmpDir: TemporaryFolder,
+    granularity: ClassSnapshotGranularity? = null
+): Changes {
+    val currentSnapshot = snapshotClasspath(File(classpathSourceDir, "current-classpath"), tmpDir, granularity)
+    val previousSnapshot = snapshotClasspath(File(classpathSourceDir, "previous-classpath"), tmpDir, granularity)
+    return computeClasspathChanges(currentSnapshot, previousSnapshot)
 }
 
 private fun computeClasspathChanges(
@@ -306,25 +435,17 @@ private fun computeClasspathChanges(
     previousClasspathSnapshot: ClasspathSnapshot
 ): Changes {
     return ClasspathChangesComputer.computeChangedAndImpactedSet(
-        currentClasspathSnapshot.getNonDuplicateClassSnapshots(),
-        previousClasspathSnapshot.getNonDuplicateClassSnapshots(),
-        DoNothingBuildMetricsReporter
-    ).normalize()
-}
-
-private fun computeClassChanges(currentClassSnapshot: ClassSnapshot, previousClassSnapshot: ClassSnapshot): Changes {
-    return ClasspathChangesComputer.computeClassChanges(
-        listOf(currentClassSnapshot),
-        listOf(previousClassSnapshot),
-        DoNothingBuildMetricsReporter
+        currentClasspathSnapshot.removeDuplicateAndInaccessibleClasses(),
+        previousClasspathSnapshot.removeDuplicateAndInaccessibleClasses(),
+        ClasspathSnapshotBuildReporter(DoNothingBuildReporter)
     ).normalize()
 }
 
 /** Adapted version of [ChangesEither.Known] for readability in this test. */
 private data class Changes(val lookupSymbols: Set<LookupSymbol>, val fqNames: Set<String>)
 
-private fun ChangeSet.normalize(): Changes {
-    val changes: ChangesEither.Known = getChanges()
+private fun ProgramSymbolSet.normalize(): Changes {
+    val changes: ChangesEither.Known = toChangesEither()
     return Changes(changes.lookupSymbols.toSet(), changes.fqNames.map { it.asString() }.toSet())
 }
 

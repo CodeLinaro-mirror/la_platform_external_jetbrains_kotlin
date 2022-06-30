@@ -121,26 +121,13 @@ fun StatementGenerator.generateReceiver(defaultStartOffset: Int, defaultEndOffse
                             context.symbolTable.referenceValueParameter(receiverClassDescriptor.thisAsReceiverParameter)
                         )
                 }
-                is ContextClassReceiver -> {
-                    val receiverClassDescriptor = receiver.classDescriptor
-                    val thisAsReceiverParameter = receiverClassDescriptor.thisAsReceiverParameter
-                    val thisReceiver = IrGetValueImpl(
-                        defaultStartOffset, defaultEndOffset,
-                        thisAsReceiverParameter.type.toIrType(),
-                        context.symbolTable.referenceValue(thisAsReceiverParameter)
-                    )
-                    IrGetFieldImpl(
-                        defaultStartOffset, defaultEndOffset,
-                        context.additionalDescriptorStorage.getSyntheticField(receiver).symbol,
-                        irReceiverType, thisReceiver
-                    )
-                }
+                is ContextClassReceiver -> loadContextReceiver(receiver, defaultStartOffset, defaultEndOffset)
                 is ThisClassReceiver ->
                     generateThisOrSuperReceiver(receiver, receiver.classDescriptor)
                 is SuperCallReceiverValue ->
                     generateThisOrSuperReceiver(receiver, receiver.thisType.constructor.declarationDescriptor as ClassDescriptor)
                 is ExpressionReceiver ->
-                    generateExpression(receiver.expression)
+                    generateStatement(receiver.expression) as IrExpression
                 is ExtensionReceiver -> {
                     IrGetValueImpl(
                         defaultStartOffset, defaultStartOffset, irReceiverType,
@@ -160,6 +147,26 @@ fun StatementGenerator.generateReceiver(defaultStartOffset: Int, defaultEndOffse
             }
     }
 }
+
+fun StatementGenerator.loadContextReceiver(
+    receiver: ContextClassReceiver,
+    defaultStartOffset: Int, defaultEndOffset: Int,
+): IrGetFieldImpl {
+    val receiverClassDescriptor = receiver.classDescriptor
+    val thisAsReceiverParameter = receiverClassDescriptor.thisAsReceiverParameter
+    val thisReceiver = IrGetValueImpl(
+        defaultStartOffset, defaultEndOffset,
+        thisAsReceiverParameter.type.toIrType(),
+        context.symbolTable.referenceValue(thisAsReceiverParameter)
+    )
+
+    return IrGetFieldImpl(
+        defaultStartOffset, defaultEndOffset,
+        context.additionalDescriptorStorage.getSyntheticField(receiver).symbol,
+        receiver.type.toIrType(), thisReceiver
+    )
+}
+
 
 fun StatementGenerator.generateSingletonReference(
     descriptor: ClassDescriptor,
@@ -292,6 +299,11 @@ private fun StatementGenerator.generateReceiverForCalleeImportedFromObject(
     }
 }
 
+private fun StatementGenerator.computeVarargType(type: KotlinType): IrType =
+    // Vararg type loaded from Java can be flexible, and have `Nothing` as lower bound after approximation. (See KT-52146.)
+    // Its upper bound should always have the form `Array<out T>`, though.
+    type.upperIfFlexible().toIrType()
+
 private fun StatementGenerator.generateVarargExpressionUsing(
     varargArgument: VarargValueArgument,
     valueParameter: ValueParameterDescriptor,
@@ -312,7 +324,7 @@ private fun StatementGenerator.generateVarargExpressionUsing(
     val varargElementType =
         valueParameter.varargElementType ?: throw AssertionError("Vararg argument for non-vararg parameter $valueParameter")
 
-    val irVararg = IrVarargImpl(varargStartOffset, varargEndOffset, valueParameter.type.toIrType(), varargElementType.toIrType())
+    val irVararg = IrVarargImpl(varargStartOffset, varargEndOffset, computeVarargType(valueParameter.type), varargElementType.toIrType())
 
     for (varargElementArgument in varargArgument.arguments) {
         val ktArgumentExpression = varargElementArgument.getArgumentExpression()
@@ -578,9 +590,9 @@ fun StatementGenerator.pregenerateExtensionInvokeCall(resolvedCall: ResolvedCall
             ExtensionInvokeCallReceiver(call, functionReceiverValue, extensionInvokeReceiverValue)
 
     call.irValueArgumentsByIndex[0] = null
-    resolvedCall.valueArgumentsByIndex!!.forEachIndexed { index, valueArgument ->
-        val valueParameter = call.descriptor.valueParameters[index]
-        call.irValueArgumentsByIndex[index + 1] = generateValueArgument(valueArgument, valueParameter, resolvedCall)
+    for ((valueParameter, valueArgument) in resolvedCall.valueArguments) {
+        call.irValueArgumentsByIndex[valueParameter.index + 1] =
+            generateValueArgument(valueArgument, valueParameter, resolvedCall)
     }
 
     return call
@@ -707,7 +719,7 @@ fun StatementGenerator.generateSamConversionForValueArgumentsIfRequired(call: Ca
 
                 IrVarargImpl(
                     originalArgument.startOffset, originalArgument.endOffset,
-                    substitutedVarargType.toIrType(),
+                    computeVarargType(substitutedVarargType),
                     irSamType
                 ).apply {
                     originalArgument.elements.mapIndexedTo(elements) { index, element ->

@@ -8,26 +8,27 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KtConstantInitializerValue
 import org.jetbrains.kotlin.analysis.api.KtInitializerValue
 import org.jetbrains.kotlin.analysis.api.KtNonConstantInitializerValue
+import org.jetbrains.kotlin.analysis.api.components.KtConstantEvaluationMode
 import org.jetbrains.kotlin.analysis.api.fir.evaluate.FirCompileTimeConstantEvaluator
+import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
+import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.classKind
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
-import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirModuleResolveState
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.withFirDeclaration
-import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.ResolveType
-import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
-import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.psi
+import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeNullability
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.*
 
@@ -48,18 +49,16 @@ internal fun KtExpression.unwrap(): KtExpression {
     } ?: this
 }
 
-internal fun FirNamedReference.getReferencedElementType(resolveState: FirModuleResolveState): ConeKotlinType {
+internal fun FirNamedReference.getReferencedElementType(): ConeKotlinType {
     val symbols = when (this) {
         is FirResolvedNamedReference -> listOf(resolvedSymbol)
         is FirErrorNamedReference -> getCandidateSymbols()
         else -> error("Unexpected ${this::class}")
     }
     val firCallableDeclaration = symbols.singleOrNull()?.fir as? FirCallableDeclaration
-        ?: return ConeClassErrorType(ConeUnresolvedNameError(name))
+        ?: return ConeErrorType(ConeUnresolvedNameError(name))
 
-    return firCallableDeclaration.withFirDeclaration(ResolveType.CallableReturnType, resolveState) {
-        it.returnTypeRef.coneType
-    }
+    return firCallableDeclaration.symbol.resolvedReturnType
 }
 
 internal fun KtTypeNullability.toConeNullability() = when (this) {
@@ -92,7 +91,9 @@ internal fun FirCallableSymbol<*>.computeImportableName(useSiteSession: FirSessi
 
 internal fun FirExpression.asKtInitializerValue(): KtInitializerValue {
     val ktExpression = psi as? KtExpression
-    return when (val evaluated = FirCompileTimeConstantEvaluator.evaluateAsKtConstantExpression(this)) {
+    val evaluated =
+        FirCompileTimeConstantEvaluator.evaluateAsKtConstantValue(this, KtConstantEvaluationMode.CONSTANT_EXPRESSION_EVALUATION)
+    return when (evaluated) {
         null -> KtNonConstantInitializerValue(ktExpression)
         else -> KtConstantInitializerValue(evaluated, ktExpression)
     }

@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.cli.common.setupCommonArguments
 import org.jetbrains.kotlin.cli.jvm.*
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
@@ -269,7 +270,8 @@ private fun createInitialCompilerConfiguration(
             ScriptingCompilerConfigurationComponentRegistrar()
         )
 
-        configureExplicitContentRoots(baseArguments)
+        configureJavaModulesContentRoots(baseArguments)
+        configureContentRootsFromClassPath(baseArguments)
 
         if (!baseArguments.noStdlib) {
             addModularRootIfNotNull(isModularJava, "kotlin.stdlib", KotlinJars.stdlib)
@@ -283,6 +285,9 @@ private fun createInitialCompilerConfiguration(
         put(CommonConfigurationKeys.MODULE_NAME, baseArguments.moduleName ?: "kotlin-script")
 
         configureAdvancedJvmOptions(baseArguments)
+        configureJdkClasspathRoots()
+
+        put(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM, true)
     }
 }
 

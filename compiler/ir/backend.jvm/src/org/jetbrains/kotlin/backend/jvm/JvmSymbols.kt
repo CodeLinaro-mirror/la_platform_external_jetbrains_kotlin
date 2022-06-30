@@ -84,14 +84,14 @@ class JvmSymbols(
         fqName: FqName,
         classKind: ClassKind = ClassKind.CLASS,
         classModality: Modality = Modality.FINAL,
-        classIsInline: Boolean = false,
+        classIsValue: Boolean = false,
         block: (IrClass) -> Unit = {}
     ): IrClassSymbol =
         irFactory.buildClass {
             name = fqName.shortName()
             kind = classKind
             modality = classModality
-            isInline = classIsInline
+            isValue = classIsValue
         }.apply {
             parent = when (fqName.parent().asString()) {
                 "kotlin" -> kotlinPackage
@@ -145,6 +145,10 @@ class JvmSymbols(
         klass.addFunction("checkNotNull", irBuiltIns.unitType, isStatic = true).apply {
             addValueParameter("object", irBuiltIns.anyNType)
         }
+        klass.addFunction("checkNotNull", irBuiltIns.unitType, isStatic = true).apply {
+            addValueParameter("object", irBuiltIns.anyNType)
+            addValueParameter("message", irBuiltIns.stringType)
+        }
         klass.addFunction("throwNpe", irBuiltIns.unitType, isStatic = true)
 
         klass.declarations.add(irFactory.buildClass {
@@ -162,7 +166,10 @@ class JvmSymbols(
         intrinsicsClass.functions.single { it.owner.name.asString() == "checkNotNullExpressionValue" }
 
     val checkNotNull: IrSimpleFunctionSymbol =
-        intrinsicsClass.functions.single { it.owner.name.asString() == "checkNotNull" }
+        intrinsicsClass.owner.functions.single { it.name.asString() == "checkNotNull" && it.valueParameters.size == 1 }.symbol
+
+    val checkNotNullWithMessage: IrSimpleFunctionSymbol =
+        intrinsicsClass.owner.functions.single { it.name.asString() == "checkNotNull" && it.valueParameters.size == 2 }.symbol
 
     val throwNpe: IrSimpleFunctionSymbol =
         intrinsicsClass.functions.single { it.owner.name.asString() == "throwNpe" }
@@ -264,9 +271,9 @@ class JvmSymbols(
         }
 
     private val resultClassStub: IrClassSymbol =
-        createClass(StandardNames.RESULT_FQ_NAME, classIsInline = true) { klass ->
+        createClass(StandardNames.RESULT_FQ_NAME, classIsValue = true) { klass ->
             klass.addTypeParameter("T", irBuiltIns.anyNType, Variance.OUT_VARIANCE)
-            klass.inlineClassRepresentation = InlineClassRepresentation(Name.identifier("value"), irBuiltIns.anyNType as IrSimpleType)
+            klass.valueClassRepresentation = InlineClassRepresentation(Name.identifier("value"), irBuiltIns.anyNType as IrSimpleType)
         }
 
     val resultOfAnyType: IrType = resultClassStub.typeWith(irBuiltIns.anyNType)
@@ -915,17 +922,18 @@ class JvmSymbols(
     val remainderUnsignedLong: IrSimpleFunctionSymbol = javaLangLong.functionByName("remainderUnsigned")
     val toUnsignedStringLong: IrSimpleFunctionSymbol = javaLangLong.functionByName("toUnsignedString")
 
-    val intPostfixIncr = createPostfixIncrDecrFun("<int++>", irBuiltIns.intType)
-    val intPostfixDecr = createPostfixIncrDecrFun("<int-->", irBuiltIns.intType)
+    val intPostfixIncrDecr = createIncrDecrFun("<int-postfix-incr-decr>")
+    val intPrefixIncrDecr = createIncrDecrFun("<int-prefix-incr-decr>")
 
-    private fun createPostfixIncrDecrFun(intrinsicName: String, type: IrType): IrSimpleFunctionSymbol =
+    private fun createIncrDecrFun(intrinsicName: String): IrSimpleFunctionSymbol =
         irFactory.buildFun {
             name = Name.special(intrinsicName)
             origin = IrDeclarationOrigin.IR_BUILTINS_STUB
         }.apply {
             parent = kotlinJvmInternalPackage
-            addValueParameter("value", type)
-            returnType = type
+            addValueParameter("value", irBuiltIns.intType)
+            addValueParameter("delta", irBuiltIns.intType)
+            returnType = irBuiltIns.intType
         }.symbol
 
     private fun createJavaPrimitiveClass(fqName: FqName, type: IrType): IrClassSymbol = createClass(fqName) { klass ->

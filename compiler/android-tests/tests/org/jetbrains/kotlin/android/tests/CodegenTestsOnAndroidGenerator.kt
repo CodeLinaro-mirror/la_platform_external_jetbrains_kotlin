@@ -12,6 +12,7 @@ import com.intellij.openapi.util.io.FileUtilRt
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.codegen.CodegenTestFiles
 import org.jetbrains.kotlin.codegen.GenerationUtils
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
@@ -59,7 +60,7 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
     //keep it globally to avoid test grouping on TC
     private val generatedTestNames = hashSetOf<String>()
 
-    private val COMMON = FlavorConfig(TargetBackend.ANDROID,"common", 3)
+    private val COMMON = FlavorConfig(TargetBackend.ANDROID,"common", 4)
     private val REFLECT = FlavorConfig(TargetBackend.ANDROID, "reflect", 1)
 
     private val COMMON_IR = FlavorConfig(TargetBackend.ANDROID_IR, "common_ir", 4)
@@ -215,7 +216,9 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
             val disposable = Disposer.newDisposable()
             val environment = KotlinCoreEnvironment.createForTests(
                 disposable,
-                configuration.copy().apply { put(CommonConfigurationKeys.MODULE_NAME, "android-module-" + currentModuleIndex++) },
+                configuration.copy().apply {
+                    put(CommonConfigurationKeys.MODULE_NAME, "android-module-" + currentModuleIndex++)
+                },
                 EnvironmentConfigFiles.JVM_CONFIG_FILES
             )
 

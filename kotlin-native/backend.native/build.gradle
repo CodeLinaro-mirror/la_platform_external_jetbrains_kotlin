@@ -47,9 +47,9 @@ kotlinNativeInterop {
     llvm {
 
         dependsOn ":kotlin-native:llvmDebugInfoC:${NativePluginKt.lib("debugInfo")}"
-        dependsOn ":kotlin-native:llvmCoverageMappingC:${NativePluginKt.lib("coverageMapping")}"
+        dependsOn ":kotlin-native:libllvmext:${NativePluginKt.lib("llvmext")}"
         defFile 'llvm.def'
-        compilerOpts "-I$llvmDir/include", "-I${rootProject.project(':kotlin-native:llvmDebugInfoC').projectDir}/src/main/include", "-I${rootProject.project(':kotlin-native:llvmCoverageMappingC').projectDir}/src/main/include"
+        compilerOpts "-I$llvmDir/include", "-I${rootProject.project(':kotlin-native:llvmDebugInfoC').projectDir}/src/main/include", "-I${rootProject.project(':kotlin-native:libllvmext').projectDir}/src/main/include"
         if (isMac()) {
             // $llvmDir/lib contains libc++.1.dylib too, and it seems to be preferred by the linker
             // over the sysroot-provided one.
@@ -61,7 +61,7 @@ kotlinNativeInterop {
             // To enforce linking with proper libc++, pass the default path explicitly:
             linkerOpts "-L${platformManager.hostPlatform.absoluteTargetSysRoot}/usr/lib"
         }
-        linkerOpts "-L$llvmDir/lib", "-L${rootProject.project(':kotlin-native:llvmDebugInfoC').buildDir}", "-L${rootProject.project(':kotlin-native:llvmCoverageMappingC').buildDir}"
+        linkerOpts "-L$llvmDir/lib", "-L${rootProject.project(':kotlin-native:llvmDebugInfoC').buildDir}", "-L${rootProject.project(':kotlin-native:libllvmext').buildDir}"
     }
 
     files {
@@ -74,6 +74,19 @@ kotlinNativeInterop {
         }
 
         pkg 'org.jetbrains.kotlin.backend.konan.files'
+    }
+
+
+    env {
+        linker 'clang++'
+        linkOutputs ":kotlin-native:common:${hostName}Env"
+
+        headers fileTree('../common/src/env/headers') {
+            include '**/*.h'
+            include '**/*.hpp'
+        }
+
+        pkg 'org.jetbrains.kotlin.backend.konan.env'
     }
 }
 
@@ -122,6 +135,7 @@ dependencies {
 
     compilerApi kotlinNativeInterop['llvm'].configuration
     compilerApi kotlinNativeInterop['files'].configuration
+    compilerApi kotlinNativeInterop['env'].configuration
 
 
     cli_bcApi sourceSets.compiler.output
@@ -136,6 +150,7 @@ jar {
     from sourceSets.cli_bc.output,
             sourceSets.compiler.output,
             sourceSets.filesInteropStubs.output,
+            sourceSets.envInteropStubs.output,
             sourceSets.llvmInteropStubs.output
 
     dependsOn ':kotlin-native:runtime:hostRuntime', 'external_jars'

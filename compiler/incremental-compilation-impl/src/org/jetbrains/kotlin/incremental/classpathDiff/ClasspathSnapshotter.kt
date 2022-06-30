@@ -5,14 +5,18 @@
 
 package org.jetbrains.kotlin.incremental.classpathDiff
 
-import org.jetbrains.kotlin.incremental.JavaClassDescriptorCreator
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.BuildTime
+import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.measure
+import org.jetbrains.kotlin.incremental.ChangesCollector.Companion.getNonPrivateMemberNames
 import org.jetbrains.kotlin.incremental.KotlinClassInfo
+import org.jetbrains.kotlin.incremental.PackagePartProtoData
+import org.jetbrains.kotlin.incremental.classpathDiff.ClassSnapshotGranularity.CLASS_MEMBER_LEVEL
 import org.jetbrains.kotlin.incremental.md5
-import org.jetbrains.kotlin.incremental.toSerializedJavaClass
-import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor
-import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
+import org.jetbrains.kotlin.incremental.storage.toByteArray
+import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader.Kind.*
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.utils.DFS
 import java.io.File
 import java.util.zip.ZipInputStream
 
@@ -22,48 +26,29 @@ object ClasspathEntrySnapshotter {
     private val DEFAULT_CLASS_FILTER = { unixStyleRelativePath: String, isDirectory: Boolean ->
         !isDirectory
                 && unixStyleRelativePath.endsWith(".class", ignoreCase = true)
-                && !unixStyleRelativePath.endsWith("module-info.class", ignoreCase = true)
-                && !unixStyleRelativePath.startsWith("meta-inf", ignoreCase = true)
+                && !unixStyleRelativePath.startsWith("meta-inf/", ignoreCase = true)
+                && !unixStyleRelativePath.equals("module-info.class", ignoreCase = true)
     }
 
-    fun snapshot(classpathEntry: File, protoBased: Boolean? = null): ClasspathEntrySnapshot {
-        val classes =
-            DirectoryOrJarContentsReader.read(classpathEntry, DEFAULT_CLASS_FILTER)
+    fun snapshot(
+        classpathEntry: File,
+        granularity: ClassSnapshotGranularity,
+        metrics: BuildMetricsReporter = DoNothingBuildMetricsReporter
+    ): ClasspathEntrySnapshot {
+        val classes = metrics.measure(BuildTime.LOAD_CLASSES) {
+            DirectoryOrJarContentsReader
+                .read(classpathEntry, DEFAULT_CLASS_FILTER)
                 .map { (unixStyleRelativePath, contents) ->
                     ClassFileWithContents(ClassFile(classpathEntry, unixStyleRelativePath), contents)
                 }
-
-        val snapshots = try {
-            ClassSnapshotter.snapshot(classes, protoBased).map { it.withHash }
-        } catch (e: Throwable) {
-            if ((protoBased ?: protoBasedDefaultValue) && isKnownProblematicClasspathEntry(classpathEntry)) {
-                classes.map { ContentHashJavaClassSnapshot(it.contents.md5()).withHash }
-            } else throw e
         }
 
-        val relativePathsToSnapshotsMap = classes.map { it.classFile.unixStyleRelativePath }.zipToMap(snapshots)
+        val snapshots = metrics.measure(BuildTime.SNAPSHOT_CLASSES) {
+            ClassSnapshotter.snapshot(classes, granularity, metrics = metrics)
+        }
+
+        val relativePathsToSnapshotsMap = classes.map { it.classFile.unixStyleRelativePath }.zip(snapshots).toMap(LinkedHashMap())
         return ClasspathEntrySnapshot(relativePathsToSnapshotsMap)
-    }
-
-    /** Returns `true` if it is known that the snapshot of the given classpath entry can't be created for some reason. */
-    private fun isKnownProblematicClasspathEntry(classpathEntry: File): Boolean {
-        if (classpathEntry.name.startsWith("tools-jar-api")) {
-            // [FAULTY JAR] kotlin/dependencies/tools-jar-api/build/libs/tools-jar-api-1.6.255-SNAPSHOT.jar contains class
-            // com/sun/tools/javac/comp/Infer$GraphStrategy$NodeNotFoundException, but doesn't contain its outer class
-            // com/sun/tools/javac/comp/Infer$GraphStrategy.
-            // This happens with a few other similar classes in this jar.
-            // Therefore, this is a faulty jar, and our snapshotting logic cannot process it.
-            return true
-        }
-        if (classpathEntry.name.startsWith("platform-impl")) {
-            // ~/.gradle/kotlin-build-dependencies/repo/kotlin.build/ideaIC/203.8084.24/artifacts/lib/platform-impl.jar contains class
-            // com/intellij/application/options/codeStyle/OptionTableWithPreviewPanel.IntOption. When processing that class,
-            // BinaryJavaAnnotation$Companion.computeTargetType$resolution_common_jvm in Annotations.kt requires the targetType to be
-            // JavaClassifierType, but the actual type is PlainJavaPrimitiveType.
-            // TODO: It's likely that this requirement is incorrect, but let's fix it later.
-            return true
-        }
-        return false
     }
 }
 
@@ -73,104 +58,49 @@ object ClassSnapshotter {
     /** Creates [ClassSnapshot]s of the given classes. */
     fun snapshot(
         classes: List<ClassFileWithContents>,
-        protoBased: Boolean? = null,
-        includeDebugInfoInSnapshot: Boolean? = null
+        granularity: ClassSnapshotGranularity = CLASS_MEMBER_LEVEL,
+        metrics: BuildMetricsReporter = DoNothingBuildMetricsReporter
     ): List<ClassSnapshot> {
-        val classesInfo: List<BasicClassInfo> = classes.map { BasicClassInfo.compute(it.contents) }
-
-        // Find inaccessible classes first, their snapshots will be `InaccessibleClassSnapshot`s.
-        val inaccessibleClasses: Set<BasicClassInfo> = getInaccessibleClasses(classesInfo).toSet()
-
-        // Snapshot the remaining accessible classes
-        val accessibleClasses: List<ClassFileWithContents> = classes.mapIndexedNotNull { index, clazz ->
-            if (classesInfo[index] in inaccessibleClasses) null else clazz
+        val classesInfo: List<BasicClassInfo> = metrics.measure(BuildTime.READ_CLASSES_BASIC_INFO) {
+            classes.map { it.classInfo }
         }
-        val accessibleClassesInfo: List<BasicClassInfo> = classesInfo.filterNot { it in inaccessibleClasses }
-        val accessibleSnapshots: List<ClassSnapshot> =
-            doSnapshot(accessibleClasses, accessibleClassesInfo, protoBased, includeDebugInfoInSnapshot)
-        val accessibleClassSnapshots: Map<ClassFileWithContents, ClassSnapshot> = accessibleClasses.zipToMap(accessibleSnapshots)
-
-        return classes.map { accessibleClassSnapshots[it] ?: InaccessibleClassSnapshot }
-    }
-
-    private fun doSnapshot(
-        classes: List<ClassFileWithContents>,
-        classesInfo: List<BasicClassInfo>,
-        protoBased: Boolean? = null,
-        includeDebugInfoInSnapshot: Boolean? = null
-    ): List<ClassSnapshot> {
-        // Snapshot Kotlin classes first
-        val kotlinSnapshots: List<KotlinClassSnapshot?> = classes.mapIndexed { index, clazz ->
-            trySnapshotKotlinClass(clazz, classesInfo[index])
+        val inaccessibleClassesInfo: Set<BasicClassInfo> = metrics.measure(BuildTime.FIND_INACCESSIBLE_CLASSES) {
+            findInaccessibleClasses(classesInfo)
         }
-        val kotlinClassSnapshots: Map<ClassFileWithContents, KotlinClassSnapshot?> = classes.zipToMap(kotlinSnapshots)
-
-        // Snapshot the remaining Java classes
-        val javaClasses: List<ClassFileWithContents> = classes.filter { kotlinClassSnapshots[it] == null }
-        val javaClassesInfo: List<BasicClassInfo> = classesInfo.mapIndexedNotNull { index, classInfo ->
-            val javaClass = classes[index]
-            if (kotlinClassSnapshots[javaClass] == null) classInfo else null
-        }
-        val javaSnapshots: List<JavaClassSnapshot> =
-            snapshotJavaClasses(javaClasses, javaClassesInfo, protoBased, includeDebugInfoInSnapshot)
-        val javaClassSnapshots: Map<ClassFileWithContents, JavaClassSnapshot> = javaClasses.zipToMap(javaSnapshots)
-
-        return classes.map { kotlinClassSnapshots[it] ?: javaClassSnapshots[it]!! }
-    }
-
-    /** Creates [KotlinClassSnapshot] of the given class, or returns `null` if the class is not a Kotlin class. */
-    private fun trySnapshotKotlinClass(classFile: ClassFileWithContents, classInfo: BasicClassInfo): KotlinClassSnapshot? {
-        return if (classInfo.isKotlinClass) {
-            val kotlinClassInfo = KotlinClassInfo.createFrom(classInfo.classId, classInfo.kotlinClassHeader!!, classFile.contents)
-            KotlinClassSnapshot(kotlinClassInfo, classInfo.supertypes)
-        } else null
-    }
-
-    /** Creates [JavaClassSnapshot]s of the given Java classes. */
-    private fun snapshotJavaClasses(
-        classes: List<ClassFileWithContents>,
-        classesInfo: List<BasicClassInfo>,
-        protoBased: Boolean? = null,
-        includeDebugInfoInSnapshot: Boolean? = null
-    ): List<JavaClassSnapshot> {
-        return if (protoBased ?: protoBasedDefaultValue) {
-            snapshotJavaClassesProtoBased(classes, classesInfo)
-        } else {
-            classes.mapIndexed { index, clazz ->
-                JavaClassSnapshotter.snapshot(clazz.contents, classesInfo[index], includeDebugInfoInSnapshot)
-            }
-        }
-    }
-
-    private fun snapshotJavaClassesProtoBased(
-        classFilesWithContents: List<ClassFileWithContents>,
-        classesInfo: List<BasicClassInfo>
-    ): List<JavaClassSnapshot> {
-        val classIds = classesInfo.map { it.classId }
-        val classesContents = classFilesWithContents.map { it.contents }
-        val descriptors: List<JavaClassDescriptor?> = JavaClassDescriptorCreator.create(classIds, classesContents)
-        val snapshots: List<JavaClassSnapshot> = descriptors.mapIndexed { index, descriptor ->
-            val classFileWithContents = classFilesWithContents[index]
-            if (descriptor != null) {
-                try {
-                    ProtoBasedJavaClassSnapshot(descriptor.toSerializedJavaClass())
-                } catch (e: Throwable) {
-                    if (isKnownExceptionWhenReadingDescriptor(e)) {
-                        ContentHashJavaClassSnapshot(classFileWithContents.contents.md5())
-                    } else throw e
+        return classes.map {
+            when {
+                it.classInfo in inaccessibleClassesInfo -> InaccessibleClassSnapshot
+                it.classInfo.isKotlinClass -> metrics.measure(BuildTime.SNAPSHOT_KOTLIN_CLASSES) {
+                    snapshotKotlinClass(it, granularity)
                 }
-            } else {
-                if (isKnownProblematicClass(classFileWithContents.classFile)) {
-                    ContentHashJavaClassSnapshot(classFileWithContents.contents.md5())
-                } else {
-                    error(
-                        "Failed to create JavaClassDescriptor for class '${classFileWithContents.classFile.unixStyleRelativePath}'" +
-                                " in '${classFileWithContents.classFile.classRoot.path}'"
-                    )
+                else -> metrics.measure(BuildTime.SNAPSHOT_JAVA_CLASSES) {
+                    JavaClassSnapshotter.snapshot(it, granularity)
                 }
             }
         }
-        return snapshots
+    }
+
+    /** Creates [KotlinClassSnapshot] of the given Kotlin class (the caller must ensure that the given class is a Kotlin class). */
+    private fun snapshotKotlinClass(classFile: ClassFileWithContents, granularity: ClassSnapshotGranularity): KotlinClassSnapshot {
+        val kotlinClassInfo =
+            KotlinClassInfo.createFrom(classFile.classInfo.classId, classFile.classInfo.kotlinClassHeader!!, classFile.contents)
+        val classId = kotlinClassInfo.classId
+        val classAbiHash = KotlinClassInfoExternalizer.toByteArray(kotlinClassInfo).hashToLong()
+        val classMemberLevelSnapshot = kotlinClassInfo.takeIf { granularity == CLASS_MEMBER_LEVEL }
+
+        return when (kotlinClassInfo.classKind) {
+            CLASS -> RegularKotlinClassSnapshot(classId, classAbiHash, classMemberLevelSnapshot, classFile.classInfo.supertypes)
+            FILE_FACADE, MULTIFILE_CLASS_PART -> PackageFacadeKotlinClassSnapshot(
+                classId, classAbiHash, classMemberLevelSnapshot,
+                packageMemberNames = (kotlinClassInfo.protoData as PackagePartProtoData).getNonPrivateMemberNames()
+            )
+            MULTIFILE_CLASS -> MultifileClassKotlinClassSnapshot(
+                classId, classAbiHash, classMemberLevelSnapshot,
+                constantNames = kotlinClassInfo.constantsMap.keys
+            )
+            SYNTHETIC_CLASS -> error("Unexpected class $classId with class kind ${SYNTHETIC_CLASS.name} (synthetic classes should have been removed earlier)")
+            UNKNOWN -> error("Can't handle class $classId with class kind ${UNKNOWN.name}")
+        }
     }
 
     /**
@@ -184,12 +114,12 @@ object ClassSnapshotter {
      * NOTE: If we do not have enough info to determine whether a class is inaccessible, we will assume that the class is accessible to be
      * safe.
      */
-    private fun getInaccessibleClasses(classesInfo: List<BasicClassInfo>): List<BasicClassInfo> {
+    private fun findInaccessibleClasses(classesInfo: List<BasicClassInfo>): Set<BasicClassInfo> {
         fun BasicClassInfo.isInaccessible(): Boolean {
             return if (this.isKotlinClass) {
                 when (this.kotlinClassHeader!!.kind) {
-                    KotlinClassHeader.Kind.CLASS -> isPrivate || isLocal || isAnonymous || isSynthetic
-                    KotlinClassHeader.Kind.SYNTHETIC_CLASS -> true
+                    CLASS -> isPrivate || isLocal || isAnonymous || isSynthetic
+                    SYNTHETIC_CLASS -> true
                     // We're not sure about the other kinds of Kotlin classes, so we assume it's accessible (see this method's kdoc)
                     else -> false
                 }
@@ -218,58 +148,7 @@ object ClassSnapshotter {
             }
         }
 
-        return classesInfo.filter { it.isTransitivelyInaccessible() }
-    }
-
-    /** Returns `true` if it is known that the given exception can be thrown when calling [JavaClassDescriptor.toSerializedJavaClass]. */
-    private fun isKnownExceptionWhenReadingDescriptor(throwable: Throwable): Boolean {
-        // When building the Kotlin repo with `./gradlew publish -Pbootstrap.local=true
-        // -Pbootstrap.local.path=/path/to/kotlin/build/repo -Pkotlin.incremental.useClasspathSnapshot=true`, the build can fail with:
-        //   org.gradle.api.internal.artifacts.transform.TransformException: Execution failed for ClasspathEntrySnapshotTransform: ~/.gradle/wrapper/dists/gradle-6.9-bin/2ecsmyp3bolyybemj56vfn4mt/gradle-6.9/lib/kotlin-reflect-1.4.20.jar
-        //   Caused by: java.lang.IncompatibleClassChangeError: Expected static method 'java.lang.Object org.jetbrains.kotlin.utils.DFS.dfsFromNode(java.lang.Object, org.jetbrains.kotlin.utils.DFS$Neighbors, org.jetbrains.kotlin.utils.DFS$Visited, org.jetbrains.kotlin.utils.DFS$NodeHandler)'
-        //     at org.jetbrains.kotlin.builtins.FunctionTypesKt.isTypeOrSubtypeOf(functionTypes.kt:31)
-        //     (... at JavaClassDescriptor.toSerializedJavaClass)
-        // The reason is that:
-        //   - org/jetbrains/kotlin/builtins/FunctionTypesKt.class is located in ~/.gradle/caches/jars-8/66425fb82fd14126e9aa07dcd3100b42/kotlin-compiler-embeddable-1.6.255-20210909.213620-55.jar
-        //   - org/jetbrains/kotlin/utils/DFS.class is located in ~/.gradle/caches/jars-8/c716e2e2d26b16f6f1462e59ba44cf3b/buildSrc.jar
-        // And somehow the two classes are incompatible (probably similar to the NoSuchMethodError documented at JavaClassDescriptorCreatorKt.createBinaryJavaClass).
-        // This happens to a few other jars inside gradle-6.9/lib.
-        // However, outside the Kotlin repo build, we don't have this issue (org/jetbrains/kotlin/builtins/FunctionTypesKt.class and
-        // org/jetbrains/kotlin/utils/DFS.class will be located in the same kotlin-compiler-embeddable.jar).
-        // Therefore, we special-case the Kotlin repo build below.
-        // TODO: See how we can address this issue.
-        return (throwable is IncompatibleClassChangeError &&
-                DFS::class.java.classLoader.getResource(DFS::class.java.name.replace('.', '/') + ".class")
-                    ?.path?.contains("buildSrc.jar") == true
-                )
-    }
-
-    /** Returns `true` if it is known that the snapshot of the given class can't be created for some reason. */
-    private fun isKnownProblematicClass(classFile: ClassFile): Boolean {
-        if (classFile.classRoot.name.startsWith("groovy")
-            && classFile.unixStyleRelativePath.endsWith("\$CollectorHelper.class")
-        ) {
-            // [FAULTY JAR] In groovy-all-1.3-2.5.12.jar and groovy-2.5.11.jar, the bytecode of
-            // groovy/cli/OptionField\$CollectorHelper.class indicates that its outer class is groovy/cli/OptionField, but the bytecode of
-            // groovy/cli/OptionField.class does not list any nested classes.
-            // This happens with a few other CollectorHelper classes in these jars.
-            // Therefore, these are faulty jars, and our snapshotting logic cannot process it.
-            return true
-        }
-        if (classFile.classRoot.name.startsWith("gradle-api")
-            && classFile.unixStyleRelativePath.startsWith("org/gradle/internal/impldep/META-INF/versions")
-        ) {
-            // [FAULTY JAR] gradle-api-6.9.jar has the following entries:
-            //   - org/gradle/internal/impldep/org/junit/platform/commons/util/ModuleUtils.class
-            //   - org/gradle/internal/impldep/META-INF/versions/9/org/junit/platform/commons/util/ModulesUtils.class
-            //   - org/gradle/internal/impldep/META-INF/versions/9/org/junit/platform/commons/util/ModuleUtils$ModuleReferenceScanner.class
-            // The META-INF directories are located not at the top level (which is not expected), and those directories escaped our filter
-            // which filters out top-level META-INF directories. We then failed to snapshot ModuleUtils$ModuleReferenceScanner.class as
-            // there are 2 versions of ModuleUtils.class, and the one outside the META-INF directory doesn't have any nested classes.
-            // Therefore, this is a faulty jar, and our snapshotting logic cannot process it.
-            return true
-        }
-        return false
+        return classesInfo.filterTo(mutableSetOf()) { it.isTransitivelyInaccessible() }
     }
 }
 
@@ -322,7 +201,7 @@ private object DirectoryOrJarContentsReader {
                 val entry = zipInputStream.nextEntry ?: break
                 val unixStyleRelativePath = entry.name
                 if (entryFilter == null || entryFilter(unixStyleRelativePath, entry.isDirectory)) {
-                    relativePathsToContents.computeIfAbsent(unixStyleRelativePath) { zipInputStream.readBytes() }
+                    relativePathsToContents.getOrPut(unixStyleRelativePath) { zipInputStream.readBytes() }
                 }
             }
         }
@@ -330,19 +209,8 @@ private object DirectoryOrJarContentsReader {
     }
 }
 
-/**
- * Combines two lists of the same size into a map.
- *
- * This method is more efficient than calling `[Iterable.zip].toMap()` as it doesn't create short-lived intermediate [Pair]s as done by
- * [Iterable.zip].
- */
-private fun <K, V> List<K>.zipToMap(other: List<V>): LinkedHashMap<K, V> {
-    check(this.size == other.size)
-    val map = LinkedHashMap<K, V>(size)
-    indices.forEach { index ->
-        map[this[index]] = other[index]
-    }
-    return map
+internal fun ByteArray.hashToLong(): Long {
+    // Note: md5 is 128-bit while Long is 64-bit.
+    // Use md5 for now until we find a better 64-bit hash function.
+    return md5()
 }
-
-private const val protoBasedDefaultValue = false

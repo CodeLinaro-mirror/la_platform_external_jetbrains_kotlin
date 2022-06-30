@@ -1,4 +1,3 @@
-// FIR_IDENTICAL
 annotation class AnnE(val i: String)
 
 enum class MyEnum {

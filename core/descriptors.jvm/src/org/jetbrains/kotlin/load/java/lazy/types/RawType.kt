@@ -19,7 +19,6 @@ package org.jetbrains.kotlin.load.java.lazy.types
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.load.java.components.TypeUsage
 import org.jetbrains.kotlin.renderer.DescriptorRenderer
 import org.jetbrains.kotlin.renderer.DescriptorRendererOptions
@@ -30,6 +29,8 @@ import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.checker.KotlinTypeRefiner
 import org.jetbrains.kotlin.types.TypeRefinement
+import org.jetbrains.kotlin.types.error.ErrorUtils
+import org.jetbrains.kotlin.types.error.ErrorTypeKind
 import org.jetbrains.kotlin.types.typeUtil.builtIns
 
 class RawTypeImpl private constructor(lowerBound: SimpleType, upperBound: SimpleType, disableAssertion: Boolean) :
@@ -54,8 +55,9 @@ class RawTypeImpl private constructor(lowerBound: SimpleType, upperBound: Simple
             return classDescriptor.getMemberScope(RawSubstitution())
         }
 
-    override fun replaceAnnotations(newAnnotations: Annotations) =
-        RawTypeImpl(lowerBound.replaceAnnotations(newAnnotations), upperBound.replaceAnnotations(newAnnotations))
+    override fun replaceAttributes(newAttributes: TypeAttributes) =
+        RawTypeImpl(lowerBound.replaceAttributes(newAttributes), upperBound.replaceAttributes(newAttributes))
+
 
     override fun makeNullableAsSpecified(newNullability: Boolean) =
         RawTypeImpl(lowerBound.makeNullableAsSpecified(newNullability), upperBound.makeNullableAsSpecified(newNullability))
@@ -144,15 +146,17 @@ internal class RawSubstitution(typeParameterUpperBoundEraser: TypeParameterUpper
                 TypeProjectionImpl(componentTypeProjection.projectionKind, eraseType(componentTypeProjection.type, attr))
             )
             return KotlinTypeFactory.simpleType(
-                type.annotations, type.constructor, arguments, type.isMarkedNullable
+                type.attributes, type.constructor, arguments, type.isMarkedNullable
             ) to false
         }
 
-        if (type.isError) return ErrorUtils.createErrorType("Raw error type: ${type.constructor}") to false
+        if (type.isError) {
+            return ErrorUtils.createErrorType(ErrorTypeKind.ERROR_RAW_TYPE, type.constructor.toString()) to false
+        }
 
         val memberScope = declaration.getMemberScope(this)
         return KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
-            type.annotations, declaration.typeConstructor,
+            type.attributes, declaration.typeConstructor,
             declaration.typeConstructor.parameters.map { parameter ->
                 computeProjection(parameter, attr)
             },

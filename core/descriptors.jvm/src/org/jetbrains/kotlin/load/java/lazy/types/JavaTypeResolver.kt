@@ -32,6 +32,8 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.Variance.*
+import org.jetbrains.kotlin.types.error.ErrorUtils
+import org.jetbrains.kotlin.types.error.ErrorTypeKind
 import org.jetbrains.kotlin.types.typeUtil.*
 import org.jetbrains.kotlin.utils.sure
 
@@ -92,7 +94,7 @@ class JavaTypeResolver(
     }
 
     private fun transformJavaClassifierType(javaType: JavaClassifierType, attr: JavaTypeAttributes): KotlinType {
-        fun errorType() = ErrorUtils.createErrorType("Unresolved java class ${javaType.presentableText}")
+        fun errorType() = ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_JAVA_CLASS, javaType.presentableText)
 
         val useFlexible = !attr.isForAnnotationParameter && attr.howThisTypeIsUsed != SUPERTYPE
         val isRaw = javaType.isRaw
@@ -119,8 +121,8 @@ class JavaTypeResolver(
         attr: JavaTypeAttributes,
         lowerResult: SimpleType?
     ): SimpleType? {
-        val annotations =
-            lowerResult?.annotations ?: LazyJavaAnnotations(c, javaType)
+        val attributes =
+            lowerResult?.attributes ?: LazyJavaAnnotations(c, javaType).toDefaultAttributes()
         val constructor = computeTypeConstructor(javaType, attr) ?: return null
         val isNullable = attr.isNullable()
 
@@ -130,7 +132,7 @@ class JavaTypeResolver(
 
         val arguments = computeArguments(javaType, attr, constructor)
 
-        return KotlinTypeFactory.simpleType(annotations, constructor, arguments, isNullable)
+        return KotlinTypeFactory.simpleType(attributes, constructor, arguments, isNullable)
     }
 
     private fun computeTypeConstructor(javaType: JavaClassifierType, attr: JavaTypeAttributes): TypeConstructor? {
@@ -256,7 +258,9 @@ class JavaTypeResolver(
 
         if (typeParameters.size != javaType.typeArguments.size) {
             // Most of the time this means there is an error in the Java code
-            return typeParameters.map { p -> TypeProjectionImpl(ErrorUtils.createErrorType(p.name.asString())) }.toList()
+            return typeParameters.map { p ->
+                TypeProjectionImpl(ErrorUtils.createErrorType(ErrorTypeKind.MISSED_TYPE_ARGUMENT_FOR_TYPE_PARAMETER, p.name.asString()))
+            }.toList()
         }
         return javaType.typeArguments.withIndex().map { indexedArgument ->
             val (i, javaTypeArgument) = indexedArgument

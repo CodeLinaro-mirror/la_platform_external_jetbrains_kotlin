@@ -114,7 +114,7 @@ class AndroidLinker(targetProperties: AndroidConfigurables)
     }
     private val prefix = "$absoluteTargetToolchain/bin/${clangTarget}${Android.API}"
     private val clang = if (HostManager.hostIsMingw) "$prefix-clang.cmd" else "$prefix-clang"
-    private val ar = "$absoluteTargetToolchain/${targetProperties.targetTriple}/bin/ar"
+    private val ar = "$absoluteTargetToolchain/${targetProperties.targetTriple.withoutVendor()}/bin/ar"
 
     override val useCompilerDriverAsLinker: Boolean get() = true
 
@@ -187,10 +187,9 @@ class MacOSBasedLinker(targetProperties: AppleConfigurables)
             Family.OSX -> "osx"
             else -> error("Target $target is unsupported")
         }
-        // TODO: remove after `minimalXcodeVersion` will be 12.
         // Separate libclang_rt version for simulator appeared in Xcode 12.
-        val compilerRtForSimulatorExists = Xcode.current.version.substringBefore('.').toInt() >= 12
-        val suffix = if ((libraryName.isNotEmpty() || compilerRtForSimulatorExists) && targetTriple.isSimulator) {
+        // We don't support Xcode versions older than 12.5 anymore, so no need to check Xcode version.
+        val suffix = if (targetTriple.isSimulator) {
             "sim"
         } else {
             ""

@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFunction
-import org.jetbrains.kotlin.fir.declarations.FirTypedDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.lookupTracker
@@ -15,7 +15,8 @@ import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.createFunctionalType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.inference.*
+import org.jetbrains.kotlin.fir.resolve.inference.preprocessCallableReference
+import org.jetbrains.kotlin.fir.resolve.inference.preprocessLambdaArgument
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
 import org.jetbrains.kotlin.fir.resolve.transformers.ensureResolvedTypeDeclaration
 import org.jetbrains.kotlin.fir.returnExpressions
@@ -63,8 +64,8 @@ fun Candidate.resolveArgumentExpression(
         // and then add constraint: typeOf(`$not-null-receiver$.bar()`).makeNullable() <: EXPECTED_TYPE
         // NB: argument.regularQualifiedAccess is either a call or a qualified access
         is FirSafeCallExpression -> {
-            val nestedQualifier = argument.regularQualifiedAccess
-            if (nestedQualifier is FirExpression) {
+            val nestedQualifier = argument.selector
+            if (nestedQualifier is FirQualifiedAccessExpression) {
                 resolveSubCallArgument(
                     csBuilder,
                     nestedQualifier,
@@ -195,7 +196,7 @@ fun Candidate.resolveSubCallArgument(
      * It's important to extract type from argument neither from symbol, because of symbol contains
      *   placeholder type with value 0, but argument contains type with proper literal value
      */
-    val type: ConeKotlinType = context.returnTypeCalculator.tryCalculateReturnType(candidate.symbol.fir as FirTypedDeclaration).type
+    val type: ConeKotlinType = context.returnTypeCalculator.tryCalculateReturnType(candidate.symbol.fir as FirCallableDeclaration).type
     val argumentType = candidate.substitutor.substituteOrSelf(type)
     resolvePlainArgumentType(
         csBuilder,
@@ -608,7 +609,7 @@ internal fun captureFromTypeParameterUpperBoundIfNeeded(
 
     val context = session.typeContext
 
-    val chosenSupertype = typeParameter.bounds.map { it.coneType }
+    val chosenSupertype = typeParameter.symbol.resolvedBounds.map { it.coneType }
         .singleOrNull { it.hasSupertypeWithGivenClassId(expectedTypeClassId, context) } ?: return argumentType
 
     val capturedType = context.captureFromExpression(chosenSupertype) as ConeKotlinType? ?: return argumentType

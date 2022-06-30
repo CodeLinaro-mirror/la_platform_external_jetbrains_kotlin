@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle
 import org.jetbrains.kotlin.gradle.util.modify
 import org.jetbrains.kotlin.konan.target.HostManager
 import java.io.File
+import java.util.*
 import java.util.zip.ZipFile
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -88,14 +89,13 @@ class KlibBasedMppIT : BaseGradleIT() {
         // The consumer should correctly receive the klibs of the host-specific source sets
 
         checkTaskCompileClasspath(
-            "compile${hostSpecificSourceSet.capitalize()}KotlinMetadata",
+            "compile${hostSpecificSourceSet.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}KotlinMetadata",
             listOf(
                 "published-producer-$hostSpecificSourceSet.klib",
                 "published-producer-commonMain.klib",
                 "published-dependency-$hostSpecificSourceSet.klib",
                 "published-dependency-commonMain.klib"
-            ),
-            isNative = true
+            )
         )
     }
 
@@ -164,7 +164,7 @@ class KlibBasedMppIT : BaseGradleIT() {
         val tasksToExecute = listOf(
             ":compileJvmAndJsMainKotlinMetadata",
             ":compileLinuxMainKotlinMetadata",
-            ":compile${hostSpecificSourceSet.capitalize()}KotlinMetadata"
+            ":compile${hostSpecificSourceSet.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}KotlinMetadata"
         )
 
         build("assemble") {
@@ -202,7 +202,14 @@ class KlibBasedMppIT : BaseGradleIT() {
     private fun checkPublishedHostSpecificMetadata(compiledProject: CompiledProject) = with(compiledProject) {
         val groupDir = project.projectDir.resolve("repo/com/example")
 
-        assertTasksExecuted(":$dependencyModuleName:compile${hostSpecificSourceSet.capitalize()}KotlinMetadata")
+        assertTasksExecuted(
+            ":$dependencyModuleName:compile${
+                hostSpecificSourceSet.replaceFirstChar {
+                    if (it.isLowerCase()) it.titlecase(
+                        Locale.getDefault()
+                    ) else it.toString()
+                }
+            }KotlinMetadata")
 
         // Check that the metadata JAR doesn't contain the host-specific source set entries, but contains the shared-Native source set
         // that can be built on every host:
@@ -223,7 +230,7 @@ class KlibBasedMppIT : BaseGradleIT() {
         }
 
         hostSpecificTargets.forEach { targetName ->
-            val moduleName = "$dependencyModuleName-${targetName.toLowerCase()}"
+            val moduleName = "$dependencyModuleName-${targetName.lowercase(Locale.getDefault())}"
             ZipFile(groupDir.resolve("$moduleName/1.0/$moduleName-1.0-metadata.jar")).use { metadataJar ->
                 assertTrue { metadataJar.entries().asSequence().any { it.name.startsWith(hostSpecificSourceSet) } }
                 assertTrue { metadataJar.entries().asSequence().none { it.name.startsWith("commonMain") } }
@@ -310,6 +317,47 @@ class KlibBasedMppIT : BaseGradleIT() {
                 assertSuccessful()
                 assertTasksExecuted(":compileCurrentHostAndLinuxKotlinMetadata", ":compileAllNativeKotlinMetadata")
             }
+        }
+    }
+
+    private var testBuildRunId = 0
+
+    private fun BaseGradleIT.Project.checkTaskCompileClasspath(
+        taskPath: String,
+        checkModulesInClasspath: List<String> = emptyList(),
+        checkModulesNotInClasspath: List<String> = emptyList()
+    ) {
+        val subproject = taskPath.substringBeforeLast(":").takeIf { it.isNotEmpty() && it != taskPath }
+        val taskName = taskPath.removePrefix(subproject.orEmpty())
+        val taskClass = "org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompileTool<*>"
+        val expression = """(tasks.getByName("$taskName") as $taskClass).libraries.toList()"""
+        checkPrintedItems(subproject, expression, checkModulesInClasspath, checkModulesNotInClasspath)
+    }
+
+    private fun BaseGradleIT.Project.checkPrintedItems(
+        subproject: String?,
+        itemsExpression: String,
+        checkAnyItemsContains: List<String>,
+        checkNoItemContains: List<String>
+    ) = with(testCase) {
+        setupWorkingDir()
+        val printingTaskName = "printItems${testBuildRunId++}"
+        gradleBuildScript(subproject).appendText(
+            """
+        ${'\n'}
+        tasks.create("$printingTaskName") {
+            doLast {
+                println("###$printingTaskName" + $itemsExpression)
+            }
+        }
+        """.trimIndent()
+        )
+        build("${subproject?.prependIndent(":").orEmpty()}:$printingTaskName") {
+            assertSuccessful()
+            val itemsLine = output.lines().single { "###$printingTaskName" in it }.substringAfter(printingTaskName)
+            val items = itemsLine.removeSurrounding("[", "]").split(", ").toSet()
+            checkAnyItemsContains.forEach { pattern -> assertTrue { items.any { pattern in it } } }
+            checkNoItemContains.forEach { pattern -> assertFalse { items.any { pattern in it } } }
         }
     }
 }

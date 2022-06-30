@@ -10,14 +10,15 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
-import org.jetbrains.kotlin.fir.utils.WeakPair
-import org.jetbrains.kotlin.fir.utils.component1
-import org.jetbrains.kotlin.fir.utils.component2
+import org.jetbrains.kotlin.util.WeakPair
+import org.jetbrains.kotlin.util.component1
+import org.jetbrains.kotlin.util.component2
 
 fun ConeClassLikeType.fullyExpandedType(
     useSiteSession: FirSession,
@@ -76,7 +77,7 @@ fun ConeClassLikeType.directExpansionType(
 
     val resultType = expandedConeType(typeAlias)
         ?.applyNullabilityFrom(useSiteSession, this)
-        ?.applyAttributesFrom(useSiteSession, this)
+        ?.applyAttributesFrom(this)
         ?: return null
 
     if (resultType.typeArguments.isEmpty()) return resultType
@@ -92,11 +93,10 @@ private fun ConeClassLikeType.applyNullabilityFrom(
 }
 
 private fun ConeClassLikeType.applyAttributesFrom(
-    session: FirSession,
     abbreviation: ConeClassLikeType
 ): ConeClassLikeType {
     val combinedAttributes = attributes.add(abbreviation.attributes)
-    return withAttributes(combinedAttributes, session.typeContext)
+    return withAttributes(combinedAttributes)
 }
 
 private fun mapTypeAliasArguments(
@@ -115,18 +115,26 @@ private fun mapTypeAliasArguments(
             return null
         }
 
-        override fun substituteArgument(projection: ConeTypeProjection): ConeTypeProjection? {
+        override fun substituteArgument(
+            projection: ConeTypeProjection,
+            lookupTag: ConeClassLikeLookupTag,
+            index: Int
+        ): ConeTypeProjection? {
             val type = (projection as? ConeKotlinTypeProjection)?.type ?: return null
-            val symbol = (type as? ConeTypeParameterType)?.lookupTag?.symbol ?: return super.substituteArgument(projection)
-            val mappedProjection = typeAliasMap[symbol] ?: return super.substituteArgument(projection)
+            val symbol = (type as? ConeTypeParameterType)?.lookupTag?.symbol ?: return super.substituteArgument(
+                projection,
+                lookupTag,
+                index
+            )
+            val mappedProjection = typeAliasMap[symbol] ?: return super.substituteArgument(projection, lookupTag, index)
             var mappedType = (mappedProjection as? ConeKotlinTypeProjection)?.type.updateNullabilityIfNeeded(type)
             mappedType = when (mappedType) {
-                is ConeClassErrorType,
+                is ConeErrorType,
                 is ConeClassLikeTypeImpl,
                 is ConeDefinitelyNotNullType,
                 is ConeTypeParameterTypeImpl,
                 is ConeFlexibleType -> {
-                    mappedType.withAttributes(type.attributes.add(mappedType.attributes), useSiteSession.typeContext)
+                    mappedType.withAttributes(type.attributes.add(mappedType.attributes))
                 }
                 null -> return mappedProjection
                 else -> mappedType

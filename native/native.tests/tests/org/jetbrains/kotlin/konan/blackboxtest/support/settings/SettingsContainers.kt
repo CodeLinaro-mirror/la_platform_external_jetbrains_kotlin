@@ -29,7 +29,7 @@ internal abstract class Settings(private val parent: Settings?, settings: Iterab
 }
 
 /**
- * The hierarchy of settings containers:
+ * The hierarchy of settings containers for Native black box tests:
  *
  * | Settings container    | Parent                 | Scope                                       |
  * | --------------------- | ---------------------- | ------------------------------------------- |
@@ -40,3 +40,15 @@ internal abstract class Settings(private val parent: Settings?, settings: Iterab
 internal class TestProcessSettings(vararg settings: Any) : Settings(parent = null, settings.asIterable())
 internal class TestClassSettings(parent: TestProcessSettings, settings: Iterable<Any>) : Settings(parent, settings)
 internal class TestRunSettings(parent: TestClassSettings, settings: Iterable<Any>) : Settings(parent, settings)
+
+/**
+ * The hierarchy of settings containers for simple Native tests (e.g. KLIB tests):
+ *
+ * | Settings container        | Parent                    | Scope                                       |
+ * | ------------------------- | ------------------------- | ------------------------------------------- |
+ * | [TestProcessSettings]     | `null`                    | The whole Gradle test executor process      |
+ * | [SimpleTestClassSettings] | [TestProcessSettings]     | The single top-level (enclosing) test class |
+ * | [SimpleTestRunSettings]   | [SimpleTestClassSettings] | The single test run of a test function      |
+ */
+internal class SimpleTestClassSettings(parent: TestProcessSettings, settings: Iterable<Any>) : Settings(parent, settings)
+internal class SimpleTestRunSettings(parent: SimpleTestClassSettings, settings: Iterable<Any>) : Settings(parent, settings)

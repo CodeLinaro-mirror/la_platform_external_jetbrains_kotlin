@@ -18,8 +18,7 @@ import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
 import org.jetbrains.kotlin.backend.common.serialization.KlibIrVersion
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataVersion
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
-import org.jetbrains.kotlin.build.report.BuildReporter
-import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
+import org.jetbrains.kotlin.build.report.DoNothingBuildReporter
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
@@ -28,7 +27,6 @@ import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.descriptors.konan.kotlinLibrary
 import org.jetbrains.kotlin.incremental.ChangedFiles
-import org.jetbrains.kotlin.incremental.EmptyICReporter
 import org.jetbrains.kotlin.incremental.IncrementalJsCompilerRunner
 import org.jetbrains.kotlin.incremental.multiproject.EmptyModulesApiHistory
 import org.jetbrains.kotlin.incremental.withJsIC
@@ -40,7 +38,7 @@ import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrModuleSeria
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.declarations.persistent.PersistentIrFactory
+import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltInsOverDescriptors
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
@@ -306,7 +304,7 @@ class GenerateIrRuntime {
             irOnly = true
             irModuleName = "kotlin"
             allowKotlinPackage = true
-            useExperimental = arrayOf("kotlin.contracts.ExperimentalContracts", "kotlin.Experimental", "kotlin.ExperimentalMultiplatform")
+            optIn = arrayOf("kotlin.contracts.ExperimentalContracts", "kotlin.Experimental", "kotlin.ExperimentalMultiplatform")
             allowResultReturnType = true
             multiPlatform = true
             languageVersion = "1.4"
@@ -319,10 +317,10 @@ class GenerateIrRuntime {
 
         val cleanBuildStart = System.nanoTime()
 
-        withJsIC {
+        withJsIC(args) {
             val buildHistoryFile = File(cachesDir, "build-history.bin")
             val compiler = IncrementalJsCompilerRunner(
-                cachesDir, BuildReporter(EmptyICReporter, DoNothingBuildMetricsReporter),
+                cachesDir, DoNothingBuildReporter,
                 buildHistoryFile = buildHistoryFile,
                 modulesApiHistory = EmptyModulesApiHistory
             )
@@ -363,10 +361,10 @@ class GenerateIrRuntime {
             done,
             update
         ) {
-            withJsIC {
+            withJsIC(args) {
                 val buildHistoryFile = File(cachesDir, "build-history.bin")
                 val compiler = IncrementalJsCompilerRunner(
-                    cachesDir, BuildReporter(EmptyICReporter, DoNothingBuildMetricsReporter),
+                    cachesDir, DoNothingBuildReporter,
                     buildHistoryFile = buildHistoryFile,
                     modulesApiHistory = EmptyModulesApiHistory
                 )
@@ -465,7 +463,7 @@ class GenerateIrRuntime {
 
     private fun doPsi2Ir(files: List<KtFile>, analysisResult: AnalysisResult): IrModuleFragment {
         val psi2Ir = Psi2IrTranslator(languageVersionSettings, Psi2IrConfiguration())
-        val symbolTable = SymbolTable(IdSignatureDescriptor(JsManglerDesc), PersistentIrFactory())
+        val symbolTable = SymbolTable(IdSignatureDescriptor(JsManglerDesc), IrFactoryImpl)
         val psi2IrContext = psi2Ir.createGeneratorContext(analysisResult.moduleDescriptor, analysisResult.bindingContext, symbolTable)
 
         val irLinker = JsIrLinker(
@@ -544,7 +542,7 @@ class GenerateIrRuntime {
     private fun doDeserializeIrModule(moduleDescriptor: ModuleDescriptorImpl): DeserializedModuleInfo {
         val mangler = JsManglerDesc
         val signaturer = IdSignatureDescriptor(mangler)
-        val symbolTable = SymbolTable(signaturer, PersistentIrFactory())
+        val symbolTable = SymbolTable(signaturer, IrFactoryImpl)
         val typeTranslator = TypeTranslatorImpl(symbolTable, languageVersionSettings, moduleDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
 
@@ -569,7 +567,7 @@ class GenerateIrRuntime {
         val moduleDescriptor = doDeserializeModuleMetadata(moduleRef)
         val mangler = JsManglerDesc
         val signaturer = IdSignatureDescriptor(mangler)
-        val symbolTable = SymbolTable(signaturer, PersistentIrFactory())
+        val symbolTable = SymbolTable(signaturer, IrFactoryImpl)
         val typeTranslator = TypeTranslatorImpl(symbolTable, languageVersionSettings, moduleDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
 

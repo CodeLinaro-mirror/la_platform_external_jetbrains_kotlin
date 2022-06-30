@@ -10,15 +10,18 @@ import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeFixVariableConstraintPosition
-import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ChainedSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.NotFixedTypeToVariableSubstitutorForDelegateInference
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.NewConstraintSystem
 import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionContext
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionMode
-import org.jetbrains.kotlin.resolve.calls.inference.model.*
+import org.jetbrains.kotlin.resolve.calls.inference.model.BuilderInferencePosition
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
+import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
 import org.jetbrains.kotlin.resolve.calls.inference.registerTypeVariableIfNotPresent
 import org.jetbrains.kotlin.types.model.*
 
@@ -26,12 +29,12 @@ class FirDelegatedPropertyInferenceSession(
     val property: FirProperty,
     resolutionContext: ResolutionContext,
     private val postponedArgumentsAnalyzer: PostponedArgumentsAnalyzer,
-) : AbstractManyCandidatesInferenceSession(resolutionContext) {
+) : FirInferenceSessionForChainedResolve(resolutionContext) {
 
     private val currentConstraintSystem = components.session.inferenceComponents.createConstraintSystem()
     override val currentConstraintStorage: ConstraintStorage get() = currentConstraintSystem.currentStorage()
 
-    private val unitType: ConeKotlinType = components.session.builtinTypes.unitType.type
+    private val unitType: ConeClassLikeType = components.session.builtinTypes.unitType.type
     private lateinit var resultingConstraintSystem: NewConstraintSystem
 
     private fun ConeKotlinType.containsStubType(): Boolean {
@@ -71,7 +74,7 @@ class FirDelegatedPropertyInferenceSession(
         if (callee.candidate.system.hasContradiction) return true
 
         val hasStubType =
-            callee.candidate.extensionReceiverValue?.type?.containsStubType() ?: false
+            callee.candidate.chosenExtensionReceiverValue?.type?.containsStubType() ?: false
                     || callee.candidate.dispatchReceiverValue?.type?.containsStubType() ?: false
 
         if (!hasStubType) {
@@ -106,11 +109,11 @@ class FirDelegatedPropertyInferenceSession(
 
     override fun inferPostponedVariables(
         lambda: ResolvedLambdaAtom,
-        initialStorage: ConstraintStorage,
+        constraintSystemBuilder: ConstraintSystemBuilder,
         completionMode: ConstraintSystemCompletionMode
     ): Map<ConeTypeVariableTypeConstructor, ConeKotlinType>? = null
 
-    private fun createNonFixedTypeToVariableSubstitutor(): ConeSubstitutor {
+    private fun createNonFixedTypeToVariableSubstitutor(): NotFixedTypeToVariableSubstitutorForDelegateInference {
         val typeContext = components.session.typeContext
 
         val bindings = mutableMapOf<TypeVariableMarker, ConeKotlinType>()
@@ -118,13 +121,7 @@ class FirDelegatedPropertyInferenceSession(
             bindings[synthetic] = variable.defaultType(typeContext) as ConeKotlinType
         }
 
-        return object : AbstractConeSubstitutor(typeContext) {
-            override fun substituteType(type: ConeKotlinType): ConeKotlinType? {
-                if (type !is ConeStubType) return null
-                if (type.constructor.isTypeVariableInSubtyping) return null
-                return bindings[type.constructor.variable].updateNullabilityIfNeeded(type)
-            }
-        }
+        return NotFixedTypeToVariableSubstitutorForDelegateInference(bindings, typeContext)
     }
 
 
@@ -210,7 +207,7 @@ class FirDelegatedPropertyInferenceSession(
                     found
                 }.candidate
                 postponedArgumentsAnalyzer.analyze(
-                    commonSystem.asPostponedArgumentsAnalyzerContext(),
+                    commonSystem,
                     lambdaAtom,
                     containingCandidateForLambda,
                     ConstraintSystemCompletionMode.FULL,
@@ -306,25 +303,11 @@ class FirDelegatedPropertyInferenceSession(
         var introducedConstraint = false
 
         for (initialConstraint in storage.initialConstraints) {
-            val lower =
-                nonFixedToVariablesSubstitutor.substituteOrSelf(callSubstitutor.substituteOrSelf(initialConstraint.a as ConeKotlinType)) // TODO: SUB
-            val upper =
-                nonFixedToVariablesSubstitutor.substituteOrSelf(callSubstitutor.substituteOrSelf(initialConstraint.b as ConeKotlinType)) // TODO: SUB
-
-            if (commonSystem.isProperType(lower) && (lower == upper || commonSystem.isProperType(upper))) continue
-
-            introducedConstraint = true
-
-            when (initialConstraint.constraintKind) {
-                ConstraintKind.LOWER -> error("LOWER constraint shouldn't be used, please use UPPER")
-
-                ConstraintKind.UPPER -> commonSystem.addSubtypeConstraint(lower, upper, initialConstraint.position)
-
-                ConstraintKind.EQUALITY ->
-                    with(commonSystem) {
-                        addSubtypeConstraint(lower, upper, initialConstraint.position)
-                        addSubtypeConstraint(upper, lower, initialConstraint.position)
-                    }
+            if (integrateConstraintToSystem(
+                    commonSystem, initialConstraint, callSubstitutor, nonFixedToVariablesSubstitutor, storage.fixedTypeVariables
+                )
+            ) {
+                introducedConstraint = true
             }
         }
 

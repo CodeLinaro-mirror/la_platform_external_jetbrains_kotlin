@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.backend.common
 
+import org.jetbrains.kotlin.backend.common.phaser.Action
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBody
@@ -138,10 +139,9 @@ private class DeclarationContainerLoweringVisitor(
 
 fun BodyLoweringPass.runOnFilePostfix(
     irFile: IrFile,
-    withLocalDeclarations: Boolean = false,
-    allowDeclarationModification: Boolean = false
+    withLocalDeclarations: Boolean = false
 ) {
-    val visitor = BodyLoweringVisitor(this, withLocalDeclarations, allowDeclarationModification)
+    val visitor = BodyLoweringVisitor(this, withLocalDeclarations)
     for (declaration in ArrayList(irFile.declarations)) {
         try {
             declaration.accept(visitor, null)
@@ -158,11 +158,8 @@ fun BodyLoweringPass.runOnFilePostfix(
     }
 }
 
-fun BodyAndScriptBodyLoweringPass.runOnFilePostfix(
-    irFile: IrFile,
-    allowDeclarationModification: Boolean = false
-) {
-    val visitor = ScriptBodyLoweringVisitor(this, allowDeclarationModification)
+fun BodyAndScriptBodyLoweringPass.runOnFilePostfix(irFile: IrFile) {
+    val visitor = ScriptBodyLoweringVisitor(this)
     for (declaration in ArrayList(irFile.declarations)) {
         declaration.accept(visitor, null)
     }
@@ -171,7 +168,6 @@ fun BodyAndScriptBodyLoweringPass.runOnFilePostfix(
 private open class BodyLoweringVisitor(
     private val loweringPass: BodyLoweringPass,
     private val withLocalDeclarations: Boolean,
-    private val allowDeclarationModification: Boolean,
 ) : IrElementVisitor<Unit, IrDeclaration?> {
     override fun visitElement(element: IrElement, data: IrDeclaration?) {
         element.acceptChildren(this, data)
@@ -191,13 +187,7 @@ private open class BodyLoweringVisitor(
         if (withLocalDeclarations) body.acceptChildren(this, null)
         val stageController = data!!.factory.stageController
         stageController.restrictTo(data) {
-            if (allowDeclarationModification) {
-                loweringPass.lower(body, data)
-            } else {
-                stageController.bodyLowering {
-                    loweringPass.lower(body, data)
-                }
-            }
+            loweringPass.lower(body, data)
         }
     }
 
@@ -208,25 +198,15 @@ private open class BodyLoweringVisitor(
 }
 
 private class ScriptBodyLoweringVisitor(
-    private val loweringPass: BodyAndScriptBodyLoweringPass,
-    private val allowDeclarationModification: Boolean
-) : BodyLoweringVisitor(loweringPass, false, allowDeclarationModification) {
+    private val loweringPass: BodyAndScriptBodyLoweringPass
+) : BodyLoweringVisitor(loweringPass, false) {
 
     override fun visitClass(declaration: IrClass, data: IrDeclaration?) {
         declaration.thisReceiver?.accept(this, declaration)
         declaration.typeParameters.forEach { it.accept(this, declaration) }
         ArrayList(declaration.declarations).forEach { it.accept(this, declaration) }
         if (declaration.origin == IrDeclarationOrigin.SCRIPT_CLASS) {
-            val stageController = declaration.factory.stageController
-            stageController.restrictTo(declaration) {
-                if (allowDeclarationModification) {
-                    loweringPass.lowerScriptBody(declaration, declaration)
-                } else {
-                    stageController.bodyLowering {
-                        loweringPass.lowerScriptBody(declaration, declaration)
-                    }
-                }
-            }
+            loweringPass.lowerScriptBody(declaration, declaration)
         }
     }
 }
@@ -265,13 +245,6 @@ interface DeclarationTransformer : FileLoweringPass {
     private class Visitor(private val transformer: DeclarationTransformer) : IrElementVisitorVoid {
         override fun visitElement(element: IrElement) {
             element.acceptChildrenVoid(this)
-        }
-
-        override fun visitBody(body: IrBody) {
-            if (transformer.withLocalDeclarations) {
-                super.visitBody(body)
-            }
-            // else stop
         }
 
         override fun visitFunction(declaration: IrFunction) {
@@ -322,7 +295,9 @@ interface DeclarationTransformer : FileLoweringPass {
             declaration.typeParameters.forEach { it.accept(this, null) }
             ArrayList(declaration.declarations).forEach { it.accept(this, null) }
 
-            declaration.declarations.transformFlat(transformer::transformFlatRestricted)
+            declaration.declarations.transformFlat {
+                transformer.transformFlatRestricted(it)
+            }
         }
 
         override fun visitScript(declaration: IrScript) {
@@ -334,6 +309,14 @@ interface DeclarationTransformer : FileLoweringPass {
             declaration.statements.transformSubsetFlat(transformer::transformFlatRestricted)
 
             declaration.thisReceiver.accept(this, null)
+        }
+    }
+}
+
+fun <C> Action<IrElement, C>.toMultiModuleAction(): Action<Iterable<IrModuleFragment>, C> {
+    return { state, modules, context ->
+        modules.forEach { module ->
+            this(state, module, context)
         }
     }
 }

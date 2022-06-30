@@ -255,8 +255,8 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xtemporary-files-dir", deprecatedName = "--temporary_files_dir", valueDescription = "<path>", description = "Save temporary files to the given directory")
     var temporaryFilesDir: String? = null
 
-    @Argument(value = "-Xsave-llvm-ir", description = "Save result of Kotlin IR to LLVM IR translation to the temporary files directory.")
-    var saveLlvmIr: Boolean = false
+    @Argument(value = "-Xsave-llvm-ir-after", description = "Save result of Kotlin IR to LLVM IR translation to the temporary files directory.")
+    var saveLlvmIrAfter: Array<String> = emptyArray()
 
     @Argument(value = "-Xverify-bitcode", deprecatedName = "--verify_bitcode", description = "Verify llvm bitcode after each method")
     var verifyBitCode: Boolean = false
@@ -327,7 +327,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value="-Xdestroy-runtime-mode", valueDescription = "<mode>", description = "When to destroy runtime. 'legacy' and 'on-shutdown' are currently supported. NOTE: 'legacy' mode is deprecated and will be removed.")
     var destroyRuntimeMode: String? = "on-shutdown"
 
-    @Argument(value="-Xgc", valueDescription = "<gc>", description = "GC to use, 'noop' and 'stms' are currently supported. Works only with -memory-model experimental")
+    @Argument(value="-Xgc", valueDescription = "<gc>", description = "GC to use, 'noop', 'stms' and 'cms' are currently supported. Works only with -memory-model experimental")
     var gc: String? = null
 
     @Argument(value = "-Xir-property-lazy-initialization", valueDescription = "{disable|enable}", description = "Initialize top level properties lazily per file")
@@ -361,8 +361,18 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xmeaningful-bridge-names", description = "(Unstable) Produce meaningful names for reverse bridges. Useful only for compiler tests.")
     var meaningfulBridgeNames: Boolean = false
 
+    @Argument(
+            value = "-Xdump-tests-to",
+            valueDescription = "<path>",
+            description = "Path to a file to dump the list of all available tests"
+    )
+    var testDumpOutputPath: String? = null
+
     @Argument(value = "-Xlazy-ir-for-caches", valueDescription = "{disable|enable}", description = "Use lazy IR for cached libraries")
     var lazyIrForCaches: String? = null
+
+    @Argument(value = "-Xpartial-linkage", description = "Allow unlinked symbols")
+    var partialLinkage: Boolean = false
 
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> =
             super.configureAnalysisFlags(collector, languageVersion).also {

@@ -17,10 +17,7 @@ import org.jetbrains.kotlin.codegen.state.KotlinTypeMapperBase
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
-import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrScriptSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
@@ -121,7 +118,7 @@ class IrTypeMapper(private val context: JvmBackendContext) : KotlinTypeMapperBas
 
     fun boxType(irType: IrType): Type {
         val irClass = irType.classOrNull?.owner
-        if (irClass != null && irClass.isInline) {
+        if (irClass != null && irClass.isSingleFieldValueClass) {
             return mapTypeAsDeclaration(irType)
         }
         val type = AbstractTypeMapper.mapType(this, irType)
@@ -242,7 +239,7 @@ private class IrTypeCheckerContextForTypeMapping(
     }
 
     override fun SimpleTypeMarker.isSuspendFunction(): Boolean {
-        require(this is IrSimpleType)
+        if (this !is IrSimpleType) return false
         return isSuspendFunctionImpl()
     }
 

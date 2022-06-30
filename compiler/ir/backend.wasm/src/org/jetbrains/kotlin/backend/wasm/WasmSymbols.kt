@@ -17,10 +17,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classifierOrFail
-import org.jetbrains.kotlin.ir.types.defaultType
-import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.render
@@ -62,6 +59,13 @@ class WasmSymbols(
     }
 
     internal val reflectionSymbols: WasmReflectionSymbols = WasmReflectionSymbols()
+
+    internal val eagerInitialization: IrClassSymbol = getIrClass(FqName("kotlin.EagerInitialization"))
+
+    internal val isNotFirstWasmExportCall: IrPropertySymbol = symbolTable.referenceProperty(
+        getProperty(FqName.fromSegments(listOf("kotlin", "wasm", "internal", "isNotFirstWasmExportCall")))
+    )
+    internal val throwAsJsException: IrSimpleFunctionSymbol = getInternalFunction("throwAsJsException")
 
     override val throwNullPointerException = getInternalFunction("THROW_NPE")
     override val throwISE = getInternalFunction("THROW_ISE")
@@ -152,6 +156,8 @@ class WasmSymbols(
 
     val wasmRefCast = getInternalFunction("wasm_ref_cast")
 
+    val rangeCheck = getInternalFunction("rangeCheck")
+
     val boxIntrinsic: IrSimpleFunctionSymbol = getInternalFunction("boxIntrinsic")
     val unboxIntrinsic: IrSimpleFunctionSymbol = getInternalFunction("unboxIntrinsic")
 
@@ -197,6 +203,24 @@ class WasmSymbols(
 
     val arraysCopyInto = findFunctions(collectionsPackage.memberScope, Name.identifier("copyInto"))
         .map { symbolTable.referenceSimpleFunction(it) }
+
+    private val contentToString: List<IrSimpleFunctionSymbol> =
+        findFunctions(collectionsPackage.memberScope, Name.identifier("contentToString"))
+            .map { symbolTable.referenceSimpleFunction(it) }
+
+    private val contentHashCode: List<IrSimpleFunctionSymbol> =
+        findFunctions(collectionsPackage.memberScope, Name.identifier("contentHashCode"))
+            .map { symbolTable.referenceSimpleFunction(it) }
+
+    private fun findOverloadForReceiver(arrayType: IrType, overloadsList: List<IrSimpleFunctionSymbol>): IrSimpleFunctionSymbol =
+        overloadsList.first {
+            val receiverType = it.owner.extensionReceiverParameter?.type
+            receiverType != null && arrayType.isNullable() == receiverType.isNullable() && arrayType.classOrNull == receiverType.classOrNull
+        }
+
+    fun findContentToStringOverload(arrayType: IrType): IrSimpleFunctionSymbol = findOverloadForReceiver(arrayType, contentToString)
+
+    fun findContentHashCodeOverload(arrayType: IrType): IrSimpleFunctionSymbol = findOverloadForReceiver(arrayType, contentHashCode)
 
     private val getProgressionLastElementSymbols =
         irBuiltIns.findFunctions(Name.identifier("getProgressionLastElement"), "kotlin", "internal")

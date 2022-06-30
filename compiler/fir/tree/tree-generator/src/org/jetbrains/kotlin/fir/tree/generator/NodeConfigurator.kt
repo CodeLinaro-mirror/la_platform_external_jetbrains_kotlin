@@ -70,6 +70,12 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +controlFlowGraphReferenceField
         }
 
+        contextReceiver.configure {
+            +field(typeRef, withReplace = true).withTransform()
+            +field("customLabelName", nameType, nullable = true)
+            +field("labelNameFromTypeRef", nameType, nullable = true)
+        }
+
         declaration.configure {
             +symbolWithPackage("fir.symbols", "FirBasedSymbol", "out FirDeclaration")
             +field("moduleData", firModuleDataType)
@@ -79,17 +85,16 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             shouldBeAbstractClass()
         }
 
-        typedDeclaration.configure {
-            +field("returnTypeRef", typeRef, withReplace = true).withTransform()
-        }
-
         callableDeclaration.configure {
+            +field("returnTypeRef", typeRef, withReplace = true).withTransform()
             +field("receiverTypeRef", typeRef, nullable = true, withReplace = true).withTransform()
             +field("deprecation", deprecationsPerUseSiteType, nullable = true).withReplace().apply { isMutable = true }
             +symbol("FirCallableSymbol", "out FirCallableDeclaration")
 
             +field("containerSource", type(DeserializedContainerSource::class), nullable = true)
             +field("dispatchReceiverType", coneSimpleKotlinTypeType, nullable = true)
+
+            +fieldList(contextReceiver, withReplace = true)
         }
 
         function.configure {
@@ -190,6 +195,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +typeArguments.withTransform()
             +receivers
             +field("source", sourceElementType, nullable = true, withReplace = true)
+            +fieldList("contextReceiverArguments", expressionType, withReplace = true)
         }
 
         propertyAccessExpression.configure {
@@ -254,6 +260,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +booleanField("hasLazyNestedClassifiers")
             +field("companionObjectSymbol", regularClassSymbolType, nullable = true, withReplace = true)
             +superTypeRefs(withReplace = true)
+            +fieldList(contextReceiver)
         }
 
         anonymousObject.configure {
@@ -294,7 +301,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         typeParameter.configure {
             +name
             +symbol("FirTypeParameterSymbol")
-            +field("containingDeclarationSymbol", firBasedSymbolType, "*", nullable = true).apply {
+            +field("containingDeclarationSymbol", firBasedSymbolType, "*").apply {
                 withBindThis = false
             }
             +field(varianceType)
@@ -415,7 +422,8 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +fieldList(import).withTransform()
             +declarations.withTransform()
             +stringField("name")
-            +stringField("path", nullable = true)
+            +field("sourceFile", sourceFileType, nullable = true)
+            +field("sourceFileLinesMapping", sourceFileLinesMappingType, nullable = true)
             +symbol("FirFileSymbol")
         }
 
@@ -461,10 +469,12 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         augmentedArraySetCall.configure {
-            +field("assignCall", functionCall)
-            +field("setGetBlock", block)
+            +field("lhsGetCall", functionCall)
+            +field("rhs", expression)
             +field("operation", operationType)
+            // Used for resolution errors reporting in case
             +field("calleeReference", reference, withReplace = true)
+            +field("arrayAccessSource", sourceElementType, nullable = true)
         }
 
         classReferenceExpression.configure {
@@ -506,7 +516,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             // Special node that might be used as a reference to receiver of a safe call after null check
             +field("checkedSubjectRef", safeCallCheckedSubjectReferenceType)
             // One that uses checkedReceiver as a receiver
-            +field("regularQualifiedAccess", qualifiedAccess, withReplace = true).withTransform()
+            +field("selector", statement, withReplace = true).withTransform()
         }
 
         checkedSafeCallSubject.configure {
@@ -613,6 +623,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         thisReference.configure {
             +stringField("labelName", nullable = true)
             +field("boundSymbol", firBasedSymbolType, "*", nullable = true, withReplace = true)
+            +intField("contextReceiverNumber", withReplace = true)
         }
 
         typeRef.configure {
@@ -638,6 +649,13 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +valueParameters
             +returnTypeRef
             +booleanField("isSuspend")
+
+            +fieldList("contextReceiverTypeRefs", typeRef)
+        }
+
+        intersectionTypeRef.configure {
+            +field("leftType", typeRef)
+            +field("rightType", typeRef)
         }
 
         thisReceiverExpression.configure {
