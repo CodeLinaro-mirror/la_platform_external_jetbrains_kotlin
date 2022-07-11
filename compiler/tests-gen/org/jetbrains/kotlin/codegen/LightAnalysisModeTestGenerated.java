@@ -11018,6 +11018,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
             runTest("compiler/testData/codegen/box/defaultArguments/kt48391.kt");
         }
 
+        @TestMetadata("kt52702.kt")
+        public void testKt52702() throws Exception {
+            runTest("compiler/testData/codegen/box/defaultArguments/kt52702.kt");
+        }
+
         @TestMetadata("kt6382.kt")
         public void testKt6382() throws Exception {
             runTest("compiler/testData/codegen/box/defaultArguments/kt6382.kt");
@@ -13961,11 +13966,6 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
     public static class Fir extends AbstractLightAnalysisModeTest {
-        @TestMetadata("flexibleIntegerLiterals.kt")
-        public void ignoreFlexibleIntegerLiterals() throws Exception {
-            runTest("compiler/testData/codegen/box/fir/flexibleIntegerLiterals.kt");
-        }
-
         @TestMetadata("SuspendExtension.kt")
         public void ignoreSuspendExtension() throws Exception {
             runTest("compiler/testData/codegen/box/fir/SuspendExtension.kt");
@@ -14017,6 +14017,11 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
         @TestMetadata("Fir2IrClassifierStorage.kt")
         public void testFir2IrClassifierStorage() throws Exception {
             runTest("compiler/testData/codegen/box/fir/Fir2IrClassifierStorage.kt");
+        }
+
+        @TestMetadata("flexibleIntegerLiterals.kt")
+        public void testFlexibleIntegerLiterals() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/flexibleIntegerLiterals.kt");
         }
 
         @TestMetadata("incorrectBytecodeWithEnhancedNullability.kt")
