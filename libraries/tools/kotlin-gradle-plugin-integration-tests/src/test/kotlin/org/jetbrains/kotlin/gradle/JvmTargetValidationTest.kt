@@ -326,7 +326,7 @@ class JvmTargetValidationTest : KGPBaseTest() {
                 """.trimIndent()
             )
 
-            build("assemble")
+            build("assemble", forceOutput = true)
         }
     }
 

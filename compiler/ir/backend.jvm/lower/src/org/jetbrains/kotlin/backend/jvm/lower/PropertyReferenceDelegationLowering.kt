@@ -85,7 +85,7 @@ private class PropertyReferenceDelegationTransformer(val context: JvmBackendCont
         }
 
     private val IrStatement.isStdlibCall: Boolean
-        get() = this is IrCall && symbol.owner.getPackageFragment()?.fqName == StandardNames.BUILT_INS_PACKAGE_FQ_NAME
+        get() = this is IrCall && symbol.owner.getPackageFragment().fqName == StandardNames.BUILT_INS_PACKAGE_FQ_NAME
 
     // Some receivers don't need to be stored in fields and can be reevaluated every time an accessor is called:
     private fun IrExpression.canInline(visibleScopes: Set<IrDeclarationParent>): Boolean = when (this) {
@@ -104,19 +104,6 @@ private class PropertyReferenceDelegationTransformer(val context: JvmBackendCont
         get() = origin == IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR &&
                 correspondingPropertySymbol?.let { it.owner.getter == this && it.owner.setter == null } == true &&
                 modality == Modality.FINAL
-
-    private fun IrExpression.inline(oldReceiver: IrValueParameter?, newReceiver: IrValueParameter?): IrExpression = when (this) {
-        is IrGetField ->
-            IrGetFieldImpl(startOffset, endOffset, symbol, type, receiver?.inline(oldReceiver, newReceiver), origin, superQualifierSymbol)
-        is IrGetValue ->
-            IrGetValueImpl(startOffset, endOffset, type, newReceiver?.symbol.takeIf { symbol == oldReceiver?.symbol } ?: symbol, origin)
-        is IrCall ->
-            IrCallImpl(startOffset, endOffset, type, symbol, typeArgumentsCount, valueArgumentsCount, origin, superQualifierSymbol).apply {
-                dispatchReceiver = this@inline.dispatchReceiver?.inline(oldReceiver, newReceiver)
-                extensionReceiver = this@inline.extensionReceiver?.inline(oldReceiver, newReceiver)
-            }
-        else -> shallowCopy()
-    }
 
     override fun visitClass(declaration: IrClass): IrStatement {
         declaration.transformChildren(this, null)
@@ -150,14 +137,14 @@ private class PropertyReferenceDelegationTransformer(val context: JvmBackendCont
             }
         }
         val originalThis = parentAsClass.thisReceiver
-        getter?.apply { body = accessorBody(delegate, backingField ?: receiver?.inline(originalThis, dispatchReceiverParameter)) }
-        setter?.apply { body = accessorBody(delegate, backingField ?: receiver?.inline(originalThis, dispatchReceiverParameter)) }
+        getter?.apply { body = accessorBody(delegate, backingField ?: receiver?.remapReceiver(originalThis, dispatchReceiverParameter)) }
+        setter?.apply { body = accessorBody(delegate, backingField ?: receiver?.remapReceiver(originalThis, dispatchReceiverParameter)) }
 
         // The `$delegate` method is generated as instance method here, see MakePropertyDelegateMethodsStaticLowering.
         val delegateMethod = context.createSyntheticMethodForPropertyDelegate(this).apply {
             body = context.createJvmIrBuilder(symbol).run {
                 val boundReceiver = backingField?.let { irGetField(dispatchReceiverParameter?.let(::irGet), it) }
-                    ?: receiver?.inline(originalThis, dispatchReceiverParameter)
+                    ?: receiver?.remapReceiver(originalThis, dispatchReceiverParameter)
                 irExprBody(with(delegate) {
                     val origin = PropertyReferenceLowering.REFLECTED_PROPERTY_REFERENCE
                     IrPropertyReferenceImpl(startOffset, endOffset, type, symbol, typeArgumentsCount, field, getter, setter, origin)
@@ -172,8 +159,14 @@ private class PropertyReferenceDelegationTransformer(val context: JvmBackendCont
         // When the receiver is inlined, it can have side effects in form of class initialization, so it should be evaluated here.
         val receiverBlock = receiver.takeIf { backingField == null }?.let {
             val symbol = IrAnonymousInitializerSymbolImpl(parentAsClass.symbol)
-            context.irFactory.createAnonymousInitializer(it.startOffset, it.endOffset, IrDeclarationOrigin.DEFINED, symbol).apply {
-                body = context.irFactory.createBlockBody(startOffset, endOffset, listOf(it.inline(null, null)))
+            context.irFactory.createAnonymousInitializer(
+                it.startOffset,
+                it.endOffset,
+                IrDeclarationOrigin.DEFINED,
+                symbol,
+                parentAsClass.isFacadeClass
+            ).apply {
+                body = context.irFactory.createBlockBody(startOffset, endOffset, listOf(it.remapReceiver(null, null)))
             }
         }
         return listOfNotNull(this, delegateMethod, receiverBlock)

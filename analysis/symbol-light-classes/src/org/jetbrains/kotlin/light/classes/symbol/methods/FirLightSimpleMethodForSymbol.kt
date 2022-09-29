@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.light.classes.symbol
 import com.intellij.psi.*
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.lifetime.isValid
 import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KtTypeMappingMode
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -95,8 +95,7 @@ internal class FirLightSimpleMethodForSymbol(
         )
 
         val visibility: String = functionSymbol.isOverride.ifTrue {
-            (containingClass as? FirLightClassForSymbol)
-                ?.tryGetEffectiveVisibility(functionSymbol)
+            tryGetEffectiveVisibility(functionSymbol)
                 ?.toPsiVisibilityForMember(isTopLevel)
         } ?: functionSymbol.toPsiVisibilityForMember(isTopLevel = isTopLevel)
 

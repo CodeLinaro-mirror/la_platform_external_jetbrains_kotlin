@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.providers
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getResolveState
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getContainingFile
 import org.jetbrains.kotlin.analysis.providers.KotlinAnnotationsResolver
@@ -72,8 +72,8 @@ internal class LLFirIdePredicateBasedProvider(
             this !is KtProperty
         ) return null
 
-        val resolveState = this.getResolveState()
-        return this.resolveToFirSymbol(resolveState).fir
+        val firResolveSession = this.getFirResolveSession()
+        return this.resolveToFirSymbol(firResolveSession).fir
     }
 
     override fun getOwnersOfDeclaration(declaration: FirDeclaration): List<FirBasedSymbol<*>>? {
@@ -107,10 +107,6 @@ internal class LLFirIdePredicateBasedProvider(
                           "this method should never be called, but it was called with $predicate")
         }
 
-        override fun visitAny(predicate: DeclarationPredicate.Any, data: FirDeclaration): Boolean {
-            return true
-        }
-
         override fun visitAnd(predicate: DeclarationPredicate.And, data: FirDeclaration): Boolean {
             return predicate.a.accept(this, data) && predicate.b.accept(this, data)
         }
@@ -123,15 +119,15 @@ internal class LLFirIdePredicateBasedProvider(
             return annotationsOnDeclaration(data).any { it in predicate.annotations }
         }
 
-        override fun visitUnderAnnotatedWith(predicate: UnderAnnotatedWith, data: FirDeclaration): Boolean {
+        override fun visitAncestorAnnotatedWith(predicate: AncestorAnnotatedWith, data: FirDeclaration): Boolean {
             return annotationsOnOuterDeclarations(data).any { it in predicate.annotations }
         }
 
-        override fun visitAnnotatedWithMeta(predicate: AnnotatedWithMeta, data: FirDeclaration): Boolean {
+        override fun visitMetaAnnotatedWith(predicate: MetaAnnotatedWith, data: FirDeclaration): Boolean {
             return metaAnnotationsOnDeclaration(data).any { it in predicate.metaAnnotations }
         }
 
-        override fun visitUnderMetaAnnotated(predicate: UnderMetaAnnotated, data: FirDeclaration): Boolean {
+        override fun visitAncestorMetaAnnotatedWith(predicate: AncestorMetaAnnotatedWith, data: FirDeclaration): Boolean {
             return metaAnnotationsOnOuterDeclarations(data).any { it in predicate.metaAnnotations }
         }
     }
@@ -158,7 +154,7 @@ internal class LLFirIdePredicateBasedProvider(
         val directAnnotations = annotationsOnDeclaration(declaration)
         val metaAnnotations = directAnnotations
             .asSequence()
-            .mapNotNull { declarationProvider.getClassesByClassId(ClassId.topLevel(it)).singleOrNull() }
+            .mapNotNull { declarationProvider.getAllClassesByClassId(ClassId.topLevel(it)).singleOrNull() }
             .flatMap { annotationsResolver.annotationsOnDeclaration(it) }
             .toSet()
 

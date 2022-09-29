@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.fir.deserialization
 
-import com.intellij.openapi.progress.ProcessCanceledException
+import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.createCache
@@ -107,19 +107,15 @@ abstract class AbstractFirDeserializedSymbolProvider(
         data class Metadata(
             val nameResolver: NameResolver,
             val classProto: ProtoBuf.Class,
-            val annotationDeserializer: AbstractAnnotationDeserializer,
-            val containingLibraryPath: Path?,
-            val sourceElement: DeserializedContainerSource,
-            val classPostProcessor: DeserializedClassPostProcessor
+            val annotationDeserializer: AbstractAnnotationDeserializer?,
+            val moduleData: FirModuleData?,
+            val sourceElement: DeserializedContainerSource?,
+            val classPostProcessor: DeserializedClassPostProcessor?
         ) : ClassMetadataFindResult()
     }
 
     private fun tryComputePackagePartInfos(packageFqName: FqName): List<PackagePartsCacheData> {
-        return try {
-            computePackagePartsInfos(packageFqName)
-        } catch (e: ProcessCanceledException) {
-            emptyList()
-        }
+        return computePackagePartsInfos(packageFqName)
     }
 
     private fun findAndDeserializeTypeAlias(classId: ClassId): FirTypeAliasSymbol? {
@@ -138,8 +134,8 @@ abstract class AbstractFirDeserializedSymbolProvider(
         return when (val result = extractClassMetadata(classId, parentContext)) {
             is ClassMetadataFindResult.NoMetadata -> FirRegularClassSymbol(classId) to result.classPostProcessor
             is ClassMetadataFindResult.Metadata -> {
-                val (nameResolver, classProto, annotationDeserializer, containingLibrary, sourceElement, postProcessor) = result
-                val moduleData = moduleDataProvider.getModuleData(containingLibrary) ?: return null to null
+                val (nameResolver, classProto, annotationDeserializer, moduleData, sourceElement, postProcessor) = result
+                moduleData ?: return null to null
                 val symbol = FirRegularClassSymbol(classId)
                 deserializeClassToSymbol(
                     classId,

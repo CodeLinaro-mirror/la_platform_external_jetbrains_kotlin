@@ -5,8 +5,6 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
-import org.jetbrains.kotlin.backend.common.ir.copyParameterDeclarationsFrom
-import org.jetbrains.kotlin.backend.common.ir.passTypeArgumentsFrom
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlockBody
 import org.jetbrains.kotlin.backend.common.lower.loops.forLoopsPhase
@@ -390,9 +388,12 @@ private class JvmInlineClassLowering(context: JvmBackendContext) : JvmValueClass
         if (field.origin == IrDeclarationOrigin.PROPERTY_BACKING_FIELD &&
             parent is IrClass &&
             parent.isSingleFieldValueClass &&
-            field.name == parent.inlineClassFieldName) {
+            field.name == parent.inlineClassFieldName
+        ) {
             val receiver = expression.receiver!!.transform(this, null)
-            return coerceInlineClasses(receiver, receiver.type, field.type)
+            // If we get the field of nullable variable, we can be sure, that type is not null,
+            // since we first generate null check.
+            return coerceInlineClasses(receiver, receiver.type.makeNotNull(), field.type)
         }
         return super.visitGetField(expression)
     }

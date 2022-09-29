@@ -86,6 +86,7 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun SimpleTypeMarker.typeConstructor(): TypeConstructorMarker = when (this) {
         is IrCapturedType -> constructor
         is IrSimpleType -> classifier
+        is IrErrorType -> symbol
         else -> error("Unknown type constructor")
     }
 
@@ -171,6 +172,8 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun TypeConstructorMarker.isInterface(): Boolean {
         return (this as? IrClassSymbol)?.owner?.isInterface == true
     }
+
+    override fun TypeConstructorMarker.isTypeParameterTypeConstructor(): Boolean = this is IrTypeParameterSymbol
 
     override fun TypeParameterMarker.getVariance() = (this as IrTypeParameterSymbol).owner.variance.convertVariance()
 

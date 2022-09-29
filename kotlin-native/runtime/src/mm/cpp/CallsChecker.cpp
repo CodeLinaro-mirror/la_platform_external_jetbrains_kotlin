@@ -13,6 +13,7 @@
 #include "ThreadData.hpp"
 #include "ThreadRegistry.hpp"
 #include "ExecFormat.h"
+#include "std_support/UnorderedSet.hpp"
 
 using namespace kotlin;
 
@@ -25,6 +26,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "\x01_mprotect",
         "close",
         "mprotect",
+        "posix_memalign",
 
         "_ZL15_objc_terminatev", // _objc_terminate()
         "_ZNKSt8__detail20_Prime_rehash_policy14_M_need_rehashEmmm", // std::__detail::_Prime_rehash_policy::_M_need_rehash(unsigned long, unsigned long, unsigned long) const
@@ -88,6 +90,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "cosh",
         "coshf",
         "coshf",
+        "cbrt",
+        "cbrtf",
         "exit",
         "exp",
         "expf",
@@ -99,6 +103,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "__exp10f",
         "free",
         "getrusage",
+        "gettimeofday",
         "hypot",
         "hypotf",
         "isinf",
@@ -140,6 +145,8 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "tanhf",
         "vsnprintf",
         "bcmp",
+
+        "gettid",
 
         "getenv",
         "setenv",
@@ -272,10 +279,13 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "VirtualAlloc",
         "FlsSetValue",
         "GetCurrentProcess",
+        "GetCurrentThreadId",
         "FlsFree",
         "K32GetProcessMemoryInfo",
         "VirtualFree",
         "madvise",
+        "_aligned_free",
+        "_aligned_malloc",
 };
 
 namespace {
@@ -314,7 +324,7 @@ public:
     ~KnownFunctionChecker() = delete;
 
 private:
-    KStdUnorderedSet<const void*> known_functions_;
+    std_support::unordered_set<const void*> known_functions_;
     std::string_view good_names_copy_[sizeof(Kotlin_callsCheckerGoodFunctionNames) / sizeof(Kotlin_callsCheckerGoodFunctionNames[0])];
 };
 

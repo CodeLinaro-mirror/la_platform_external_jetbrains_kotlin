@@ -15,6 +15,9 @@ sourceSets {
             srcDir 'src'
             srcDir commonSrcDir
             srcDir '../unsigned/src'
+            if(!BuildPropertiesKt.getKotlinBuildProperties(project).inIdeaSync) {
+                srcDir "$rootDir/core/builtins/src/kotlin/internal"
+            }
         }
     }
     test {
@@ -44,6 +47,7 @@ compileKotlinCommon {
                 "-opt-in=kotlin.ExperimentalMultiplatform",
                 "-opt-in=kotlin.contracts.ExperimentalContracts",
                 "-Xallow-kotlin-package",
+                "-XXLanguage:+RangeUntilOperator",
         ]
     }
 }
@@ -54,6 +58,7 @@ compileTestKotlinCommon {
                 "-opt-in=kotlin.RequiresOptIn",
                 "-opt-in=kotlin.ExperimentalUnsignedTypes",
                 "-opt-in=kotlin.ExperimentalStdlibApi",
+                "-XXLanguage:+RangeUntilOperator",
         ]
     }
 }

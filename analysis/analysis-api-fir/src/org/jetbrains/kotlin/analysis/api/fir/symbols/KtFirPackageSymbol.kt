@@ -11,33 +11,36 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.impl.file.PsiPackageImpl
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.api.ValidityTokenOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.utils.cached
 import org.jetbrains.kotlin.analysis.api.symbols.KtPackageSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointer
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.providers.createPackageProvider
 import org.jetbrains.kotlin.name.FqName
 
 class KtFirPackageSymbol(
     override val fqName: FqName,
     private val project: Project,
-    override val token: ValidityToken
-) : KtPackageSymbol(), ValidityTokenOwner {
+    override val token: KtLifetimeToken
+) : KtPackageSymbol(), KtLifetimeOwner {
     override val psi: PsiElement? by cached {
         JavaPsiFacade.getInstance(project).findPackage(fqName.asString())
             ?: KtPackage(PsiManager.getInstance(project), fqName, GlobalSearchScope.allScope(project)/*TODO*/)
     }
 
     override val origin: KtSymbolOrigin
-        get() = KtSymbolOrigin.SOURCE // TODO
+        get() = withValidityAssertion { KtSymbolOrigin.SOURCE } // TODO
 
-    override fun createPointer(): KtSymbolPointer<KtPackageSymbol> = symbolPointer { session ->
-        check(session is KtFirAnalysisSession)
-        session.firSymbolBuilder.createPackageSymbolIfOneExists(fqName)
+    override fun createPointer(): KtSymbolPointer<KtPackageSymbol> = withValidityAssertion {
+        symbolPointer { session ->
+            check(session is KtFirAnalysisSession)
+            session.firSymbolBuilder.createPackageSymbolIfOneExists(fqName)
+        }
     }
 
     override fun equals(other: Any?): Boolean {

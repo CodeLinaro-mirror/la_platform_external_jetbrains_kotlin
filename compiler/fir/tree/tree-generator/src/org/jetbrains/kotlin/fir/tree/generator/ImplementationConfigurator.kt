@@ -190,10 +190,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         noImpl(expressionWithSmartcast)
-        noImpl(expressionWithSmartcastToNull)
+        noImpl(expressionWithSmartcastToNothing)
 
         noImpl(whenSubjectExpressionWithSmartcast)
-        noImpl(whenSubjectExpressionWithSmartcastToNull)
+        noImpl(whenSubjectExpressionWithSmartcastToNothing)
 
         impl(getClassCall) {
             default("argument") {
@@ -224,7 +224,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 "getter", "setter",
                 withGetter = true
             )
-            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
+            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic, false)")
             useTypes(errorTypeRefImplType)
         }
 
@@ -351,7 +351,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = "whenRef.value.subject!!.typeRef"
                 withGetter = true
             }
-            useTypes(whenExpressionType)
+            useTypes(whenExpression)
         }
 
         impl(wrappedDelegateExpression) {
@@ -421,13 +421,13 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(errorExpression) {
-            default("typeRef", "FirErrorTypeRefImpl(source, null, ConeStubDiagnostic(diagnostic))")
+            default("typeRef", "FirErrorTypeRefImpl(source, null, ConeStubDiagnostic(diagnostic), false)")
             useTypes(errorTypeRefImplType, coneStubDiagnosticType)
         }
 
         impl(errorFunction) {
             defaultNull("receiverTypeRef", "body", withGetter = true)
-            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
+            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic, false)")
             useTypes(errorTypeRefImplType)
         }
 
@@ -471,11 +471,11 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         impl(simpleFunction)
 
         impl(safeCallExpression) {
-            useTypes(safeCallCheckedSubjectType)
+            useTypes(checkedSafeCallSubject)
         }
 
         impl(checkedSafeCallSubject) {
-            useTypes(expressionType)
+            useTypes(expression)
         }
 
         impl(resolvedQualifier) {
@@ -561,6 +561,8 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             "FirArrayOfCallImpl",
             "FirIntegerLiteralOperatorCallImpl",
             "FirContextReceiverImpl",
+            "FirClassReferenceExpressionImpl",
+            "FirGetClassCallImpl"
         )
         configureFieldInAllImplementations(
             field = "typeRef",

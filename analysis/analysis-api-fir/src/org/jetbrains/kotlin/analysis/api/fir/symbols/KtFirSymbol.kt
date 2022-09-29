@@ -6,10 +6,11 @@
 package org.jetbrains.kotlin.analysis.api.fir.symbols
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.analysis.api.ValidityTokenOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
@@ -22,12 +23,12 @@ import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectData
 import org.jetbrains.kotlin.fir.scopes.impl.originalForWrappedIntegerOperator
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 
-internal interface KtFirSymbol<out S : FirBasedSymbol<*>> : KtSymbol, ValidityTokenOwner {
+internal interface KtFirSymbol<out S : FirBasedSymbol<*>> : KtSymbol, KtLifetimeOwner {
     val firSymbol: S
 
-    abstract val resolveState: LLFirModuleResolveState
+    val firResolveSession: LLFirResolveSession
 
-    override val origin: KtSymbolOrigin get() = firSymbol.fir.ktSymbolOrigin()
+    override val origin: KtSymbolOrigin get() = withValidityAssertion { firSymbol.fir.ktSymbolOrigin() }
 }
 
 internal fun KtFirSymbol<*>.symbolEquals(other: Any?): Boolean {
@@ -50,7 +51,7 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KtSymbolOrigin = when (ori
     }
     FirDeclarationOrigin.Precompiled -> KtSymbolOrigin.SOURCE
     FirDeclarationOrigin.Library, FirDeclarationOrigin.BuiltIns -> KtSymbolOrigin.LIBRARY
-    FirDeclarationOrigin.Java -> KtSymbolOrigin.JAVA
+    is FirDeclarationOrigin.Java -> KtSymbolOrigin.JAVA
     FirDeclarationOrigin.SamConstructor -> KtSymbolOrigin.SAM_CONSTRUCTOR
     FirDeclarationOrigin.Enhancement -> KtSymbolOrigin.JAVA
     FirDeclarationOrigin.IntersectionOverride -> KtSymbolOrigin.INTERSECTION_OVERRIDE
@@ -75,11 +76,9 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KtSymbolOrigin = when (ori
         original.ktSymbolOrigin()
     }
     is FirDeclarationOrigin.Plugin -> KtSymbolOrigin.PLUGIN
-    else -> {
-        val overridden = (this as? FirCallableDeclaration)?.originalIfFakeOverride()
-            ?: throw InvalidFirDeclarationOriginForSymbol(this)
-        overridden.ktSymbolOrigin()
-    }
+    FirDeclarationOrigin.RenamedForOverride -> KtSymbolOrigin.JAVA
+    FirDeclarationOrigin.SubstitutionOverride -> KtSymbolOrigin.SUBSTITUTION_OVERRIDE
+    FirDeclarationOrigin.DynamicScope -> throw InvalidFirDeclarationOriginForSymbol(this)
 }
 
 class InvalidFirDeclarationOriginForSymbol(declaration: FirDeclaration) :

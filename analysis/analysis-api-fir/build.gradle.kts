@@ -12,6 +12,7 @@ dependencies {
     api(project(":compiler:fir:semantics"))
     api(project(":compiler:fir:checkers"))
     api(project(":compiler:fir:checkers:checkers.jvm"))
+    api(project(":compiler:fir:checkers:checkers.js"))
     api(project(":compiler:fir:java"))
     api(project(":analysis:low-level-api-fir"))
     api(project(":analysis:analysis-api"))
@@ -33,29 +34,26 @@ dependencies {
     testApi(project(":analysis:decompiled:decompiler-to-file-stubs"))
     testApi(project(":analysis:decompiled:decompiler-to-psi"))
     testApi(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(projectTests(":analysis:analysis-test-framework"))
 
     testApi(toolsJar())
     testApiJUnit5()
     testApi(project(":analysis:symbol-light-classes"))
-
-    // We use 'api' instead of 'implementation' because other modules might be using these jars indirectly
-    testApi(project(":plugins:fir-plugin-prototype"))
-    testApi(projectTests(":plugins:fir-plugin-prototype"))
 }
 
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
 projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
-
-    // PluginAnnotationsProvider needs this jar during tests
-    dependsOn(":plugins:fir-plugin-prototype:plugin-annotations:jar")
-}
+}.also { confugureFirPluginAnnotationsDependency(it) }
 
 testsJar()
 

@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.backend.jvm.codegen
 
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
-import org.jetbrains.kotlin.backend.common.ir.ir2string
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.JvmSymbols
@@ -217,7 +216,7 @@ abstract class AnnotationCodegen(
                 genCompileTimeValue(getAnnotationArgumentJvmName(annotationClass, param.name), value, annotationVisitor)
             else if (param.defaultValue != null)
                 continue // Default value will be supplied by JVM at runtime.
-            else
+            else if (context.state.classBuilderMode.generateBodies) //skip error for KAPT
                 error("No value for annotation parameter $param")
         }
     }

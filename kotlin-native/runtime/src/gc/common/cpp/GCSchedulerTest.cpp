@@ -11,10 +11,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "AppStateTrackingTestSupport.hpp"
 #include "ClockTestSupport.hpp"
 #include "GCSchedulerImpl.hpp"
 #include "SingleThreadExecutor.hpp"
 #include "TestSupport.hpp"
+#include "std_support/Vector.hpp"
 
 using namespace kotlin;
 
@@ -315,7 +317,7 @@ public:
     explicit GCSchedulerDataTestApi(GCSchedulerConfig& config) : scheduler_(config, scheduleGC_.AsStdFunction()) {
         mutators_.reserve(MutatorCount);
         for (int i = 0; i < MutatorCount; ++i) {
-            mutators_.emplace_back(make_unique<MutatorThread>(
+            mutators_.emplace_back(std_support::make_unique<MutatorThread>(
                     config, [this](GCSchedulerThreadData& threadData) { scheduler_.UpdateFromThreadData(threadData); }));
         }
     }
@@ -334,7 +336,7 @@ public:
     }
 
 private:
-    KStdVector<KStdUniquePtr<MutatorThread>> mutators_;
+    std_support::vector<std_support::unique_ptr<MutatorThread>> mutators_;
     testing::MockFunction<void()> scheduleGC_;
     GCScheduler scheduler_;
 };
@@ -367,7 +369,7 @@ TEST_F(GCSchedulerDataOnSafePointsTest, CollectOnTargetHeapReached) {
     GCSchedulerDataOnSafepointsTestApi<mutatorsCount> schedulerTestApi(config);
 
     EXPECT_CALL(schedulerTestApi.scheduleGC(), Call()).Times(0);
-    KStdVector<std::future<void>> futures;
+    std_support::vector<std::future<void>> futures;
     for (int i = 0; i < mutatorsCount; ++i) {
         futures.push_back(schedulerTestApi.Allocate(i, 10));
     }
@@ -405,7 +407,7 @@ TEST_F(GCSchedulerDataOnSafePointsTest, CollectOnTimeoutReached) {
 
     EXPECT_CALL(schedulerTestApi.scheduleGC(), Call()).Times(0);
     schedulerTestApi.advance_time(microseconds(5));
-    KStdVector<std::future<void>> futures;
+    std_support::vector<std::future<void>> futures;
     for (int i = 0; i < mutatorsCount; ++i) {
         futures.push_back(schedulerTestApi.Allocate(i, 0));
     }
@@ -550,7 +552,7 @@ TEST_F(GCSchedulerDataWithTimerTest, CollectOnTargetHeapReached) {
     GCSchedulerDataWithTimerTestApi<mutatorsCount> schedulerTestApi(config);
 
     EXPECT_CALL(schedulerTestApi.scheduleGC(), Call()).Times(0);
-    KStdVector<std::future<void>> futures;
+    std_support::vector<std::future<void>> futures;
     for (int i = 0; i < mutatorsCount; ++i) {
         futures.push_back(schedulerTestApi.Allocate(i, 10));
     }
@@ -707,6 +709,168 @@ TEST_F(GCSchedulerDataWithTimerTest, TuneTargetHeap) {
 
     // But the minimum is set to 5.
     EXPECT_THAT(config.targetHeapBytes.load(), 5);
+}
+
+TEST_F(GCSchedulerDataWithTimerTest, DoNotCollectOnTimerInBackground) {
+    constexpr int mutatorsCount = kDefaultThreadCount;
+
+    GCSchedulerConfig config;
+    config.regularGcIntervalMicroseconds = 10;
+    config.autoTune = false;
+    config.targetHeapBytes = std::numeric_limits<size_t>::max();
+    GCSchedulerDataWithTimerTestApi<mutatorsCount> schedulerTestApi(config);
+
+    // TODO: Not a global, please.
+    mm::AppStateTrackingTestSupport appStateTracking(mm::GlobalData::Instance().appStateTracking());
+
+    // Wait until the timer is initialized.
+    test_support::manual_clock::waitForPending(test_support::manual_clock::now() + microseconds(10));
+
+    // Now go into the background.
+    ASSERT_THAT(mm::GlobalData::Instance().appStateTracking().state(), mm::AppStateTracking::State::kForeground);
+    appStateTracking.setState(mm::AppStateTracking::State::kBackground);
+
+    // Timer works in the background, but does nothing.
+    EXPECT_CALL(schedulerTestApi.scheduleGC(), Call()).Times(0);
+    schedulerTestApi.advance_time(microseconds(10));
+    test_support::manual_clock::waitForPending(test_support::manual_clock::now() + microseconds(10));
+    testing::Mock::VerifyAndClearExpectations(&schedulerTestApi.scheduleGC());
+
+    // Now go back into the foreground.
+    appStateTracking.setState(mm::AppStateTracking::State::kForeground);
+
+    EXPECT_CALL(schedulerTestApi.scheduleGC(), Call());
+    schedulerTestApi.advance_time(microseconds(10));
+    test_support::manual_clock::waitForPending(test_support::manual_clock::now() + microseconds(10));
+    testing::Mock::VerifyAndClearExpectations(&schedulerTestApi.scheduleGC());
+    schedulerTestApi.OnPerformFullGC();
+    schedulerTestApi.UpdateAliveSetBytes(0);
+}
+
+// These tests require a stack trace to contain call site addresses but
+// on Windows a trace contains function addresses instead.
+// So skip these tests on Windows.
+#if (__MINGW32__ || __MINGW64__)
+#define SKIP_ON_WINDOWS() do { GTEST_SKIP() << "Skip on Windows"; } while(false)
+#else
+#define SKIP_ON_WINDOWS() do { } while(false)
+#endif
+
+TEST(SafePointTrackerTest, RegisterSafePoints) {
+    SKIP_ON_WINDOWS();
+    []() OPTNONE {
+        internal::SafePointTracker<> tracker;
+
+        for (size_t i = 0; i < 10; i++) {
+            bool registered1 = tracker.registerCurrentSafePoint(0);
+            bool registered2 = tracker.registerCurrentSafePoint(0);
+
+            bool expected = (i == 0);
+
+            EXPECT_THAT(registered1, expected);
+            EXPECT_THAT(registered2, expected);
+        }
+    }();
+}
+
+template <size_t SafePointStackSize>
+OPTNONE bool registerCurrentSafePoint(internal::SafePointTracker<SafePointStackSize>& tracker) {
+    return tracker.registerCurrentSafePoint(0);
+}
+
+TEST(SafePointTrackerTest, TrackTopFramesOnly) {
+    SKIP_ON_WINDOWS();
+    []() OPTNONE {
+        internal::SafePointTracker<16> longTracker;
+        internal::SafePointTracker<1> shortTracker;
+
+        bool longRegistered1 = registerCurrentSafePoint(longTracker);
+        bool longRegistered2 = registerCurrentSafePoint(longTracker);
+
+        EXPECT_THAT(longRegistered1, true);
+        EXPECT_THAT(longRegistered2, true);
+
+        bool shortRegistered1 = registerCurrentSafePoint(shortTracker);
+        bool shortRegistered2 = registerCurrentSafePoint(shortTracker);
+
+        EXPECT_THAT(shortRegistered1, true);
+        EXPECT_THAT(shortRegistered2, false);
+    }();
+}
+
+TEST(SafePointTrackerTest, CleanOnSizeLimit) {
+    SKIP_ON_WINDOWS();
+    []() OPTNONE {
+        internal::SafePointTracker<> tracker(2);
+
+        ASSERT_THAT(tracker.size(), 0);
+        ASSERT_THAT(tracker.maxSize(), 2);
+
+        for (size_t i = 0; i < 3; i++) {
+            bool registered1 = tracker.registerCurrentSafePoint(0);
+
+            EXPECT_THAT(registered1, true);
+            EXPECT_THAT(tracker.size(), 1);
+
+            bool registered2 = tracker.registerCurrentSafePoint(0);
+
+            EXPECT_THAT(registered2, true);
+            EXPECT_THAT(tracker.size(), 2);
+        }
+    }();
+}
+
+TEST(AggressiveSchedulerTest, TriggerGCOnUniqueSafePoint) {
+    SKIP_ON_WINDOWS();
+    []() OPTNONE {
+        testing::MockFunction<void()> scheduleGC;
+
+        GCSchedulerConfig config;
+        gc::internal::GCSchedulerDataAggressive scheduler(config, scheduleGC.AsStdFunction());
+        ASSERT_EQ(config.threshold, 1);
+
+        GCSchedulerThreadData threadSchedulerData(config, [](GCSchedulerThreadData&){});
+
+        EXPECT_CALL(scheduleGC, Call()).Times(1);
+        for (int i = 0; i < 10; i++) {
+            scheduler.UpdateFromThreadData(threadSchedulerData);
+        }
+        testing::Mock::VerifyAndClearExpectations(&scheduleGC);
+
+        EXPECT_CALL(scheduleGC, Call()).Times(1);
+        scheduler.UpdateFromThreadData(threadSchedulerData);
+        testing::Mock::VerifyAndClearExpectations(&scheduleGC);
+    }();
+}
+
+TEST(AggressiveSchedulerTest, TriggerGCOnAllocationThreshold) {
+    SKIP_ON_WINDOWS();
+    []() OPTNONE {
+        testing::MockFunction<void()> scheduleGC;
+
+        GCSchedulerConfig config;
+        gc::internal::GCSchedulerDataAggressive scheduler(config, scheduleGC.AsStdFunction());
+        GCSchedulerThreadData threadSchedulerData(config, [&scheduler](GCSchedulerThreadData& data){
+            scheduler.UpdateFromThreadData(data);
+        });
+
+        ASSERT_EQ(config.allocationThresholdBytes, 1);
+
+        config.autoTune = false;
+        config.targetHeapBytes = 10;
+
+        int i = 0;
+        // We trigger GC on the first iteration, when the unique allocation point is faced,
+        // and on the last iteration when target heap size is reached.
+        EXPECT_CALL(scheduleGC, Call())
+            .WillOnce([&i]() { EXPECT_THAT(i, 0); })
+            .WillOnce([&i]() { EXPECT_THAT(i, 9); });
+
+        for (; i < 10; i++) {
+            threadSchedulerData.OnSafePointAllocation(1);
+        }
+        testing::Mock::VerifyAndClearExpectations(&scheduleGC);
+    }();
 }
 
 } // namespace gc

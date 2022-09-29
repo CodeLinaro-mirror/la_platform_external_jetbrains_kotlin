@@ -21,8 +21,8 @@ import org.jetbrains.kotlin.KtSourceFile
 import org.jetbrains.kotlin.KtVirtualFileSourceFile
 import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.CommonCompilerPerformanceManager
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
@@ -48,6 +48,7 @@ import org.jetbrains.kotlin.fir.DependencyListForCliModule
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.checkers.registerExtendedCommonCheckers
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
@@ -60,6 +61,7 @@ import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.session.FirSessionFactory
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
+import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.javac.JavacWrapper
 import org.jetbrains.kotlin.load.kotlin.MetadataFinderFactory
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
@@ -105,7 +107,7 @@ fun compileModulesUsingFrontendIrAndLightTree(
 
     for (module in chunk) {
         val moduleConfiguration = compilerConfiguration.copy().applyModuleProperties(module, buildFile).apply {
-            addAll(JVMConfigurationKeys.FRIEND_PATHS, module.getFriendPaths())
+            put(JVMConfigurationKeys.FRIEND_PATHS, module.getFriendPaths())
         }
         val platformSources = linkedSetOf<KtSourceFile>()
         val commonSources = linkedSetOf<KtSourceFile>()
@@ -185,12 +187,12 @@ fun convertAnalyzedFirToIr(
     analysisResults: ModuleCompilerAnalyzedOutput,
     environment: ModuleCompilerEnvironment
 ): ModuleCompilerIrBackendInput {
-    val extensions = JvmGeneratorExtensionsImpl(input.configuration)
+    val extensions = JvmFir2IrExtensions(input.configuration, JvmIrDeserializerImpl(), JvmIrMangler)
 
     // fir2ir
     val irGenerationExtensions =
         (environment.projectEnvironment as? VfsBasedProjectEnvironment)?.project?.let { IrGenerationExtension.getInstances(it) }
-    val (irModuleFragment, symbolTable, components) =
+    val (irModuleFragment, components) =
         analysisResults.session.convertToIr(
             analysisResults.scopeSession, analysisResults.fir, extensions, irGenerationExtensions ?: emptyList()
         )
@@ -200,7 +202,7 @@ fun convertAnalyzedFirToIr(
         input.configuration,
         extensions,
         irModuleFragment,
-        symbolTable,
+        components.symbolTable,
         components,
         analysisResults.session
     )
@@ -215,7 +217,6 @@ fun generateCodeFromIr(
     val codegenFactory = JvmIrCodegenFactory(
         input.configuration,
         input.configuration.get(CLIConfigurationKeys.PHASE_CONFIG),
-        jvmGeneratorExtensions = input.extensions
     )
     val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
 
@@ -242,7 +243,7 @@ fun generateCodeFromIr(
 
     generationState.beforeCompile()
     codegenFactory.generateModuleInFrontendIRMode(
-        generationState, input.irModuleFragment, input.symbolTable, input.extensions,
+        generationState, input.irModuleFragment, input.symbolTable, input.components.irProviders, input.extensions,
         FirJvmBackendExtension(input.firSession, input.components)
     ) {
         performanceManager?.notifyIRLoweringFinished()
@@ -364,7 +365,6 @@ fun writeOutputs(
     return true
 }
 
-
 fun createSession(
     name: String,
     platform: TargetPlatform,
@@ -403,6 +403,7 @@ fun createSession(
         projectEnvironment.getSearchScopeForProjectJavaSources(),
         librariesScope,
         lookupTracker = moduleConfiguration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
+        enumWhenTracker = moduleConfiguration.get(CommonConfigurationKeys.ENUM_WHEN_TRACKER),
         providerAndScopeForIncrementalCompilation,
         extensionRegistrars = (projectEnvironment as? VfsBasedProjectEnvironment)?.let { FirExtensionRegistrar.getInstances(it.project) }
             ?: emptyList(),
@@ -460,11 +461,9 @@ private class ProjectEnvironmentWithCoreEnvironmentEmulation(
     override fun getPackagePartProvider(fileSearchScope: AbstractProjectFileSearchScope): PackagePartProvider {
         return super.getPackagePartProvider(fileSearchScope).also {
             (it as? JvmPackagePartProvider)?.run {
-                (it as? JvmPackagePartProvider)?.run {
-                    addRoots(initialRoots, configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY))
-                    packagePartProviders += this
-                    (ModuleAnnotationsResolver.getInstance(project) as CliModuleAnnotationsResolver).addPackagePartProvider(this)
-                }
+                addRoots(initialRoots, configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY))
+                packagePartProviders += this
+                (ModuleAnnotationsResolver.getInstance(project) as CliModuleAnnotationsResolver).addPackagePartProvider(this)
             }
         }
     }
@@ -549,18 +548,21 @@ fun createProjectEnvironment(
 }
 
 private fun contentRootToVirtualFile(
-    root: JvmContentRootBase, locaFileSystem: VirtualFileSystem, jarFileSystem: VirtualFileSystem, messageCollector: MessageCollector
+    root: JvmContentRootBase,
+    localFileSystem: VirtualFileSystem,
+    jarFileSystem: VirtualFileSystem,
+    messageCollector: MessageCollector,
 ): VirtualFile? =
     when (root) {
         // TODO: find out why non-existent location is not reported for JARs, add comment or fix
         is JvmClasspathRoot ->
             if (root.file.isFile) jarFileSystem.findJarRoot(root.file)
-            else locaFileSystem.findExistingRoot(root, "Classpath entry", messageCollector)
+            else localFileSystem.findExistingRoot(root, "Classpath entry", messageCollector)
         is JvmModulePathRoot ->
             if (root.file.isFile) jarFileSystem.findJarRoot(root.file)
-            else locaFileSystem.findExistingRoot(root, "Java module root", messageCollector)
+            else localFileSystem.findExistingRoot(root, "Java module root", messageCollector)
         is JavaSourceRoot ->
-            locaFileSystem.findExistingRoot(root, "Java source root", messageCollector)
+            localFileSystem.findExistingRoot(root, "Java source root", messageCollector)
         else ->
             throw IllegalStateException("Unexpected root: $root")
     }

@@ -9,12 +9,13 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.kotlin.dsl.named
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
+import org.jetbrains.kotlin.gradle.utils.named
+import javax.inject.Inject
 
-class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions>(
+abstract class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions> @Inject constructor(
     target: KotlinWithJavaTarget<KotlinOptionsType>,
     name: String,
     kotlinOptions: KotlinOptionsType

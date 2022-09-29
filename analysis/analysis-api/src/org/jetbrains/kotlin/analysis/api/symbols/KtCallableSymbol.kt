@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.name.CallableId
 
-public abstract class KtCallableSymbol : KtSymbol, KtSymbolWithKind, KtPossibleMemberSymbol, KtDeclarationSymbol {
+public sealed class KtCallableSymbol : KtSymbolWithKind, KtPossibleMemberSymbol, KtDeclarationSymbol {
     public abstract val callableIdIfNonLocal: CallableId?
     public abstract val returnType: KtType
 
@@ -27,4 +27,10 @@ public abstract class KtCallableSymbol : KtSymbol, KtSymbolWithKind, KtPossibleM
  */
 public abstract class KtReceiverParameterSymbol : KtSymbol {
     public abstract val type: KtType
+
+    /**
+     * Link to the corresponding function or property.
+     * In terms of the example above -- this is link to the function foo.
+     */
+    public abstract val owningCallableSymbol: KtCallableSymbol
 }

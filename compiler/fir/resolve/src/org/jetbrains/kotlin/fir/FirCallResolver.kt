@@ -68,7 +68,7 @@ class FirCallResolver(
     )
 
     val conflictResolver: ConeCallConflictResolver =
-        session.callConflictResolverFactory.create(TypeSpecificityComparator.NONE, session.inferenceComponents)
+        session.callConflictResolverFactory.create(TypeSpecificityComparator.NONE, session.inferenceComponents, components)
 
     @PrivateForInline
     var needTransformArguments: Boolean = true
@@ -220,11 +220,7 @@ class FirCallResolver(
             origin = origin
         )
         towerResolver.reset()
-        val result = if (collector != null) {
-            towerResolver.runResolver(info, resolutionContext, collector)
-        } else {
-            towerResolver.runResolver(info, resolutionContext)
-        }
+        val result = towerResolver.runResolver(info, resolutionContext, collector)
         val bestCandidates = result.bestCandidates()
 
         fun chooseMostSpecific(): Set<Candidate> {
@@ -366,7 +362,8 @@ class FirCallResolver(
                         qualifiedAccess.explicitReceiver,
                         referencedSymbol,
                         nonFatalDiagnosticFromExpression,
-                    )
+                    ),
+                    annotations = qualifiedAccess.annotations
                 )
             }
             referencedSymbol is FirTypeParameterSymbol && referencedSymbol.fir.isReified -> {
@@ -459,6 +456,19 @@ class FirCallResolver(
         }
 
         val chosenCandidate = reducedCandidates.single()
+        if (!resolvedCallableReferenceAtom.hasBeenPostponed &&
+            expectedType is ConeTypeVariableType &&
+            chosenCandidate.symbol.fir.let { func ->
+                func is FirSimpleFunction && func.valueParameters.any { param ->
+                    param.defaultValue != null
+                }
+            }
+        ) {
+            resolvedCallableReferenceAtom.hasBeenPostponed = true
+            return applicability to true
+        }
+
+
         constraintSystemBuilder.runTransaction {
             chosenCandidate.outerConstraintBuilderEffect!!(this)
             true
@@ -555,7 +565,7 @@ class FirCallResolver(
             explicitReceiver = null,
             annotation.argumentList,
             isImplicitInvoke = false,
-            typeArguments = emptyList(),
+            typeArguments = annotation.typeArguments,
             session,
             components.file,
             components.containingDeclarations
@@ -648,6 +658,7 @@ class FirCallResolver(
                 if (symbol is FirConstructorSymbol && symbol.fir.isInner) {
                     transformDispatchReceiver(StoreReceiver, singleCandidate.dispatchReceiverExpression())
                 }
+                replaceContextReceiverArguments(singleCandidate.contextReceiverArguments())
             }
         }
     }

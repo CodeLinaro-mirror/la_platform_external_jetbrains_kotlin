@@ -1,40 +1,52 @@
 KtValueParameterSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  generatedPrimaryConstructorProperty: KtKotlinPropertySymbol(/MyColor.x)
   hasDefaultValue: false
   isExtension: false
+  isImplicitLambdaParameter: false
   isVararg: false
   name: x
   origin: SOURCE
   receiverType: null
   returnType: kotlin/Int
   symbolKind: LOCAL
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtValueParameterSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  generatedPrimaryConstructorProperty: KtKotlinPropertySymbol(/MyColor.y)
   hasDefaultValue: false
   isExtension: false
+  isImplicitLambdaParameter: false
   isVararg: false
   name: y
   origin: SOURCE
   receiverType: null
   returnType: kotlin/Int
   symbolKind: LOCAL
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtValueParameterSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  generatedPrimaryConstructorProperty: KtKotlinPropertySymbol(/MyColor.z)
   hasDefaultValue: false
   isExtension: false
+  isImplicitLambdaParameter: false
   isVararg: false
   name: z
   origin: SOURCE
   receiverType: null
   returnType: kotlin/Int
   symbolKind: LOCAL
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -55,6 +67,7 @@ KtConstructorSymbol:
     KtValueParameterSymbol(z)
   ]
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -76,9 +89,11 @@ KtNamedClassOrObjectSymbol:
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtAnonymousFunctionSymbol:
+  annotationsList: []
   callableIdIfNonLocal: null
   hasStableParameterNames: true
   isExtension: false
@@ -86,7 +101,9 @@ KtAnonymousFunctionSymbol:
   receiverType: null
   returnType: MyColor
   symbolKind: LOCAL
+  typeParameters: []
   valueParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
@@ -115,6 +132,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): Some
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getDelegate
@@ -122,6 +140,7 @@ KtKotlinPropertySymbol:
   setterDeprecationStatus: null
 
 KtAnonymousFunctionSymbol:
+  annotationsList: []
   callableIdIfNonLocal: null
   hasStableParameterNames: true
   isExtension: false
@@ -129,7 +148,9 @@ KtAnonymousFunctionSymbol:
   receiverType: null
   returnType: MyColor
   symbolKind: LOCAL
+  typeParameters: []
   valueParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
@@ -158,6 +179,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): Some
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getLambda
@@ -190,6 +212,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): Some
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getNonLazy
@@ -215,4 +238,5 @@ KtNamedClassOrObjectSymbol:
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

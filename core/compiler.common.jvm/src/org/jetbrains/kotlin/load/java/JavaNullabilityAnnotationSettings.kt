@@ -72,7 +72,7 @@ fun getDefaultReportLevelForAnnotation(annotationFqName: FqName) =
 fun getReportLevelForAnnotation(
     annotation: FqName,
     configuredReportLevels: NullabilityAnnotationStates<ReportLevel>,
-    configuredKotlinVersion: KotlinVersion = KotlinVersion(1, 7, 0)
+    configuredKotlinVersion: KotlinVersion = KotlinVersion(1, 7, 20)
 ): ReportLevel {
     configuredReportLevels[annotation]?.let { return it }
 

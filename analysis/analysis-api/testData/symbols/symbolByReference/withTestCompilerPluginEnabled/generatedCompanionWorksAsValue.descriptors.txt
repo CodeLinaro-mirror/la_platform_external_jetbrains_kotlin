@@ -13,11 +13,12 @@ KtNamedClassOrObjectSymbol:
   isInner: false
   modality: FINAL
   name: WithGeneratedCompanion
-  origin: LIBRARY
+  origin: SOURCE
   superTypes: [
     kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

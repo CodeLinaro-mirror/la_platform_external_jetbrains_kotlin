@@ -37,10 +37,11 @@ internal fun test(name: String, ignored: Boolean, testFn: () -> Any?) {
     currentAdapter.test(name, ignored, testFn)
 }
 
-internal var currentAdapter: FrameworkAdapter = JasmineLikeAdapter()
+internal var currentAdapter: FrameworkAdapter = TeamcityAdapter()
 
 // This is called from the js-launcher alongside wasm start function
 @JsExport
+@OptIn(kotlin.js.ExperimentalJsExport::class)
 internal fun startUnitTests() {
     // This will be filled with the corresponding code during lowering
 }

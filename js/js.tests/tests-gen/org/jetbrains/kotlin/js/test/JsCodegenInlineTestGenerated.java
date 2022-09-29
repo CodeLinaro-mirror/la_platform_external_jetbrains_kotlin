@@ -159,6 +159,18 @@ public class JsCodegenInlineTestGenerated extends AbstractJsCodegenInlineTest {
         }
 
         @Test
+        @TestMetadata("fakeOverrideInDefaultMultiModule.kt")
+        public void testFakeOverrideInDefaultMultiModule() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/fakeOverrideInDefaultMultiModule.kt");
+        }
+
+        @Test
+        @TestMetadata("fakeOverrideMultiModule.kt")
+        public void testFakeOverrideMultiModule() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/fakeOverrideMultiModule.kt");
+        }
+
+        @Test
         @TestMetadata("functionExpression.kt")
         public void testFunctionExpression() throws Exception {
             runTest("compiler/testData/codegen/boxInline/anonymousObject/functionExpression.kt");
@@ -294,6 +306,12 @@ public class JsCodegenInlineTestGenerated extends AbstractJsCodegenInlineTest {
         @TestMetadata("kt42815_delegated.kt")
         public void testKt42815_delegated() throws Exception {
             runTest("compiler/testData/codegen/boxInline/anonymousObject/kt42815_delegated.kt");
+        }
+
+        @Test
+        @TestMetadata("kt51950.kt")
+        public void testKt51950() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/kt51950.kt");
         }
 
         @Test
@@ -3274,6 +3292,12 @@ public class JsCodegenInlineTestGenerated extends AbstractJsCodegenInlineTest {
         @TestMetadata("nestedInPrivateClass.kt")
         public void testNestedInPrivateClass() throws Exception {
             runTest("compiler/testData/codegen/boxInline/private/nestedInPrivateClass.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedInPrivateClass2.kt")
+        public void testNestedInPrivateClass2() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/private/nestedInPrivateClass2.kt");
         }
 
         @Test

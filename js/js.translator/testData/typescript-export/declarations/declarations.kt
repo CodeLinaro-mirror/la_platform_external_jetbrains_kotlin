@@ -35,8 +35,8 @@ fun sumNullable(x: Int?, y: Int?): Int =
     (x ?: 0) + (y ?: 0)
 
 @JsExport
-fun defaultParameters(x: Int = 10, y: String = "OK"): String =
-    x.toString() + y
+fun defaultParameters(a: String, x: Int = 10, y: String = "OK"): String =
+    a + x.toString() + y
 
 @JsExport
 fun <T> generic1(x: T): T = x
@@ -123,6 +123,10 @@ class A4 {
         set(value) { field = value * 10 }
 }
 
+@JsExport
+class A5<T>(val value: T) {
+    fun test(): T = value
+}
 
 @JsExport
 object O0
@@ -213,4 +217,75 @@ class OuterClass {
         A,
         B
     }
+}
+
+@JsExport
+open class KT38262 {
+    fun then(): Int = 42
+    fun catch(): Int = 24
+}
+
+@JsExport
+@JsName("JsNameTest")
+class __JsNameTest private constructor() {
+    @JsName("value")
+    val __value = 4
+
+    @JsName("runTest")
+    fun __runTest(): String {
+        return "JsNameTest"
+    }
+
+    companion object {
+        @JsName("create")
+        fun __create(): __JsNameTest {
+           return __JsNameTest()
+        }
+
+        @JsName("createChild")
+        fun __createChild(value: Int): __NestJsNameTest {
+           return  __NestJsNameTest(value)
+        }
+    }
+
+    @JsName("NestedJsName")
+    class __NestJsNameTest(@JsName("value") val __value: Int)
+}
+
+@JsExport
+data class KT39423(
+    val a: String,
+    val b: Int? = null
+)
+
+@JsExport
+object Parent {
+    object Nested1 {
+        val value: String = "Nested1"
+        class Nested2 {
+            companion object {
+                class Nested3
+            }
+        }
+    }
+}
+
+@JsExport
+fun getParent(): Parent {
+    return Parent
+}
+
+@JsExport
+fun createNested1(): Parent.Nested1 {
+    return Parent.Nested1
+}
+
+@JsExport
+fun createNested2(): Parent.Nested1.Nested2 {
+    return Parent.Nested1.Nested2()
+}
+
+@JsExport
+fun createNested3(): Parent.Nested1.Nested2.Companion.Nested3 {
+    return Parent.Nested1.Nested2.Companion.Nested3()
 }

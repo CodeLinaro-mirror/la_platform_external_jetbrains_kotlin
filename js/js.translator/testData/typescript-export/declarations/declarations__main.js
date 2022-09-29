@@ -30,6 +30,13 @@ var TestEnumClass = JS_TESTS.foo.TestEnumClass;
 var TestInterfaceImpl = JS_TESTS.foo.TestInterfaceImpl;
 var processInterface = JS_TESTS.foo.processInterface;
 var OuterClass = JS_TESTS.foo.OuterClass;
+var KT38262 = JS_TESTS.foo.KT38262;
+var JsNameTest = JS_TESTS.foo.JsNameTest;
+var Parent = JS_TESTS.foo.Parent;
+var getParent = JS_TESTS.foo.getParent;
+var createNested1 = JS_TESTS.foo.createNested1;
+var createNested2 = JS_TESTS.foo.createNested2;
+var createNested3 = JS_TESTS.foo.createNested3;
 function assert(condition) {
     if (!condition) {
         throw "Assertion failed";
@@ -49,7 +56,7 @@ function box() {
     assert(sumNullable(10, null) === 10);
     assert(sumNullable(undefined, 20) === 20);
     assert(sumNullable(1, 2) === 3);
-    assert(defaultParameters(20, "OK") === "20OK");
+    assert(defaultParameters("", 20, "OK") === "20OK");
     assert(generic1("FOO") === "FOO");
     assert(generic1({ x: 10 }).x === 10);
     assert(generic2(null) === true);
@@ -126,5 +133,22 @@ function box() {
     assert(OuterClass.NestedEnum.B.name === "B");
     assert(OuterClass.NestedEnum.A.ordinal === 0);
     assert(OuterClass.NestedEnum.B.ordinal === 1);
+    assert(new KT38262().then() == 42);
+    assert(new KT38262().catch() == 24);
+    var jsNameTest = JsNameTest.Companion.create();
+    assert(jsNameTest.value === 4);
+    assert(jsNameTest.runTest() === "JsNameTest");
+    var jsNameNestedTest = JsNameTest.Companion.createChild(42);
+    assert(jsNameNestedTest.value === 42);
+    // Do not strip types from those test cases (it is a check of nested objects types usability)
+    var parent = Parent;
+    var nested1 = Parent.Nested1;
+    var nested2 = new Parent.Nested1.Nested2();
+    var nested3 = new Parent.Nested1.Nested2.Companion.Nested3();
+    assert(nested1.value === "Nested1");
+    assert(getParent() === parent);
+    assert(createNested1() === nested1);
+    assert(createNested2() !== nested2);
+    assert(createNested3() !== nested3);
     return "OK";
 }

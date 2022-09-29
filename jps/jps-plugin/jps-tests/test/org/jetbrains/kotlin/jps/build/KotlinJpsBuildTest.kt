@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.jps.build
@@ -56,9 +45,11 @@ import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.JvmCodegenUtil
 import org.jetbrains.kotlin.config.IncrementalCompilation
+import org.jetbrains.kotlin.config.KotlinFacetSettings
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.jps.build.KotlinJpsBuildTestBase.LibraryDependency.*
 import org.jetbrains.kotlin.jps.incremental.CacheAttributesDiff
+import org.jetbrains.kotlin.jps.model.JpsKotlinFacetModuleExtension
 import org.jetbrains.kotlin.jps.model.kotlinCommonCompilerArguments
 import org.jetbrains.kotlin.jps.model.kotlinCompilerArguments
 import org.jetbrains.kotlin.jps.targets.KotlinModuleBuildTarget
@@ -66,6 +57,7 @@ import org.jetbrains.kotlin.load.kotlin.PackagePartClassUtils
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.MockLibraryUtilExt
+import org.jetbrains.kotlin.test.kotlinPathsForDistDirectoryForTests
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.utils.PathUtil
 import org.jetbrains.kotlin.utils.Printer
@@ -79,6 +71,8 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.URLClassLoader
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.*
 import java.util.zip.ZipOutputStream
 
@@ -243,7 +237,7 @@ open class KotlinJpsBuildTest : KotlinJpsBuildTestBase() {
     fun testKotlinJavaScriptProjectWithDirectoryAsStdlib() {
         initProject()
         setupKotlinJSFacet()
-        val jslibJar = PathUtil.kotlinPathsForDistDirectory.jsStdLibJarPath
+        val jslibJar = PathUtil.kotlinPathsForDistDirectoryForTests.jsStdLibJarPath
         val jslibDir = File(workDir, "KotlinJavaScript")
         try {
             Decompressor.Zip(jslibJar).extract(jslibDir)
@@ -959,6 +953,63 @@ open class KotlinJpsBuildTest : KotlinJpsBuildTestBase() {
 
     fun testKotlinLombokProjectBuild() {
         initProject(LOMBOK)
+        buildAllModules().assertSuccessful()
+    }
+
+    @WorkingDir("KotlinProject")
+    fun testModuleRebuildOnPluginClasspathsChange() {
+        initProject(JVM_MOCK_RUNTIME)
+        myProject.modules.forEach {
+            val facet = KotlinFacetSettings()
+            facet.useProjectSettings = false
+            facet.compilerArguments = K2JVMCompilerArguments()
+            facet.compilerArguments?.pluginClasspaths = arrayOf(PathUtil.kotlinPathsForDistDirectoryForTests.lombokPluginJarPath.path)
+
+            it.container.setChild(
+                JpsKotlinFacetModuleExtension.KIND,
+                JpsKotlinFacetModuleExtension(facet)
+            )
+        }
+        buildAllModules().assertSuccessful()
+        myProject.modules.forEach {
+            val facet = KotlinFacetSettings()
+            facet.useProjectSettings = false
+            facet.compilerArguments = K2JVMCompilerArguments()
+            facet.compilerArguments?.pluginClasspaths = arrayOf(
+                PathUtil.kotlinPathsForDistDirectoryForTests.lombokPluginJarPath.path,
+                PathUtil.kotlinPathsForDistDirectoryForTests.allOpenPluginJarPath.path
+            )
+            it.container.setChild(
+                JpsKotlinFacetModuleExtension.KIND,
+                JpsKotlinFacetModuleExtension(facet)
+            )
+        }
+
+        checkWhen(emptyArray(), null, packageClasses("kotlinProject", "src/test1.kt", "Test1Kt"))
+    }
+
+    fun testBuildAfterGdwBuild() {
+        initProject(JVM_FULL_RUNTIME)
+        findModule("module2").let {
+            val facet = KotlinFacetSettings()
+            facet.useProjectSettings = false
+            facet.compilerArguments = K2JVMCompilerArguments()
+
+            val libraryName = "module1-1.0-SNAPSHOT"
+            val libraryJar = MockLibraryUtilExt.compileJvmLibraryToJar(workDir.resolve("module1AsLib").absolutePath, libraryName)
+            val module1Lib = this.workDir.resolve("module1").resolve("build").resolve("libs").resolve("$libraryName.jar")
+            Files.createDirectories(module1Lib.parentFile.toPath())
+            Files.copy(libraryJar.toPath(), module1Lib.toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+            assert(module1Lib.exists())
+            (facet.compilerArguments as K2JVMCompilerArguments).classpath = module1Lib.path
+
+            it.container.setChild(
+                JpsKotlinFacetModuleExtension.KIND,
+                JpsKotlinFacetModuleExtension(facet)
+            )
+        }
+
         buildAllModules().assertSuccessful()
     }
 

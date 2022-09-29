@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkTask
 import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.native.tasks.*
 import org.jetbrains.kotlin.gradle.tasks.*
+import org.jetbrains.kotlin.gradle.utils.SingleWarningPerBuild
 import org.jetbrains.kotlin.gradle.utils.asValidTaskName
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.Family
@@ -136,6 +137,14 @@ internal val PodBuildSettingsProperties.frameworkSearchPaths: List<String>
         return frameworkPathsSelfIncluding
     }
 
+//Make frameworks headers discoverable with any syntax (quotes, brackets, @import, etc.)
+//https://github.com/CocoaPods/CocoaPods/blob/d18f49392c5e9ed9a2cdcb2ee89391cf7690ee5d/lib/cocoapods/target/build_settings.rb#L1188
+private val PodBuildSettingsProperties.frameworkHeadersSearchPaths: List<String>
+    get() = mutableListOf<String>().apply {
+        headerPaths?.let { addAll(it.splitQuotedArgs()) }
+        publicHeadersFolderPath?.let { add("${configurationBuildDir.trimQuotes()}/${it.trimQuotes()}") }
+    }
+
 /**
  * Splits a string using a whitespace characters as delimiters.
  * Ignores whitespaces in quotes and drops quotes, e.g. a string
@@ -160,7 +169,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         kotlinExtension.supportedTargets().all { target ->
             target.binaries.framework(POD_FRAMEWORK_PREFIX) {
                 baseName = cocoapodsExtension.frameworkNameInternal
-                isStatic = true
+                setIsStaticSilently(true)
             }
         }
     }
@@ -187,7 +196,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             "The project must have a target for at least one of the following platforms: " +
                     "${requestedPlatforms.joinToString { it.visibleName }}."
         }
-        fatTargets.forEach { platform, targets ->
+        fatTargets.forEach { (platform, targets) ->
             check(targets.size <= 1) {
                 "The project has more than one target for the requested platform: `${platform.visibleName}`"
             }
@@ -222,7 +231,33 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         check(targets.size == 1) { "The project has more than one target for the requested platform: `${requestedPlatform.visibleName}`" }
 
         val frameworkLinkTask = targets.single().binaries.getFramework(POD_FRAMEWORK_PREFIX, requestedBuildType).linkTaskProvider
-        project.createSyncFrameworkTask(frameworkLinkTask.flatMap { it.destinationDirectory.map { it.asFile }}, frameworkLinkTask)
+        project.createSyncFrameworkTask(frameworkLinkTask.flatMap { it.destinationDirectory.map { it.asFile } }, frameworkLinkTask)
+    }
+
+    private fun checkFrameworkLinkingType(
+        project: Project,
+        kotlinExtension: KotlinMultiplatformExtension
+    ) = project.whenEvaluated {
+        val anyPodTarget = kotlinExtension.supportedTargets().firstOrNull() ?: return@whenEvaluated
+        val anyPodFramework = anyPodTarget.binaries.firstOrNull { binary ->
+            binary is Framework && binary.name.startsWith(POD_FRAMEWORK_PREFIX)
+        } as? Framework ?: return@whenEvaluated
+
+        val hasDefaultLinkingType = !anyPodFramework.isStaticWasReassigned
+        if (hasDefaultLinkingType) SingleWarningPerBuild.show(
+            project,
+            """
+                |Cocoapods Gradle plugin uses default STATIC linking type for frameworks.
+                |Set it up explicitly because the default behavior will be changed to DYNAMIC linking in the 1.8 version.
+                |kotlin {
+                |  cocoapods {
+                |    framework {
+                |      isStatic = true //or false
+                |    }
+                |  }
+                |}
+                |""".trimMargin()
+        )
     }
 
     private fun createSyncTask(
@@ -340,10 +375,8 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                             // Here and below we need to split such paths taking this into account.
                             interop.compilerOpts.addAll(args.splitQuotedArgs())
                         }
-                        podBuildSettings.headerPaths?.let { args ->
-                            interop.compilerOpts.addAll(args.splitQuotedArgs().map { "-I$it" })
-                        }
 
+                        interop.compilerOpts.addAll(podBuildSettings.frameworkHeadersSearchPaths.map { "-I$it" })
                         interop.compilerOpts.addAll(podBuildSettings.frameworkSearchPaths.map { "-F$it" })
 
                     }
@@ -425,9 +458,12 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                     it.podName = project.provider { pod.name.asValidTaskName() }
                     it.podSource = project.provider<Git> { podSource }
                 }
-                is Url -> project.tasks.register(pod.toPodDownloadTaskName, PodDownloadUrlTask::class.java) {
-                    it.podName = project.provider { pod.name.asValidTaskName() }
-                    it.podSource = project.provider<Url> { podSource }
+                is Url -> {
+                    SingleWarningPerBuild.show(project, "Direct pod downloading by url will be removed in a 1.8 version. Use pods published as a git repository instead.")
+                    project.tasks.register(pod.toPodDownloadTaskName, PodDownloadUrlTask::class.java) {
+                        it.podName = project.provider { pod.name.asValidTaskName() }
+                        it.podSource = project.provider<Url> { podSource }
+                    }
                 }
                 else -> return@all
             }
@@ -451,6 +487,14 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             }
             families += family
 
+            val platformSettings = when (family) {
+                Family.IOS -> cocoapodsExtension.ios
+                Family.OSX -> cocoapodsExtension.osx
+                Family.TVOS -> cocoapodsExtension.tvos
+                Family.WATCHOS -> cocoapodsExtension.watchos
+                else -> error("Unknown cocoapods platform: $family")
+            }
+
             project.tasks.register(family.toPodGenTaskName, PodGenTask::class.java) {
                 it.description = "Сreates a synthetic Xcode project to retrieve CocoaPods dependencies"
                 it.podspec = podspecTaskProvider.map { task -> task.outputFile }
@@ -458,6 +502,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                 it.useLibraries = project.provider { cocoapodsExtension.useLibraries }
                 it.specRepos = project.provider { cocoapodsExtension.specRepos }
                 it.family = family
+                it.platformSettings = platformSettings
                 it.pods.set(cocoapodsExtension.pods)
                 it.dependsOn(downloadPods)
             }
@@ -682,11 +727,12 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
 
         pluginManager.withPlugin("kotlin-multiplatform") {
             val kotlinExtension = project.multiplatformExtension
-            val cocoapodsExtension = CocoapodsExtension(this)
+            val cocoapodsExtension = project.objects.newInstance(CocoapodsExtension::class.java, this)
             kotlinExtension.addExtension(COCOAPODS_EXTENSION_NAME, cocoapodsExtension)
             createDefaultFrameworks(kotlinExtension, cocoapodsExtension)
             registerDummyFrameworkTask(project, cocoapodsExtension)
             createSyncTask(project, kotlinExtension, cocoapodsExtension)
+            checkFrameworkLinkingType(project, kotlinExtension)
             registerPodspecTask(project, cocoapodsExtension)
 
             registerPodDownloadTask(project, cocoapodsExtension)

@@ -22,9 +22,7 @@ import org.jetbrains.kotlin.codegen.optimization.OptimizationClassBuilderFactory
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.config.LanguageVersion.*
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.descriptors.ScriptDescriptor
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
@@ -278,7 +276,6 @@ class GenerationState private constructor(
         this.moduleName,
         languageVersionSettings,
         useOldManglingSchemeForFunctionsWithInlineClassesInSignatures,
-        IncompatibleClassTracker.DoNothing,
         target,
         isIrBackend
     )
@@ -312,7 +309,6 @@ class GenerationState private constructor(
 
         // and the rest is an output from the codegen
         var resultFieldName: String? = null
-        var resultTypeString: String? = null
         var resultType: KotlinType? = null
     }
 
@@ -423,6 +419,11 @@ class GenerationState private constructor(
 
     private fun shouldOnlyCollectSignatures(origin: JvmDeclarationOrigin) =
         classBuilderMode == ClassBuilderMode.LIGHT_CLASSES && origin.originKind in doNotGenerateInLightClassMode
+
+    val newFragmentCaptureParameters: MutableList<Triple<String, KotlinType, DeclarationDescriptor>> = mutableListOf()
+    fun recordNewFragmentCaptureParameter(string: String, type: KotlinType, descriptor: DeclarationDescriptor) {
+        newFragmentCaptureParameters.add(Triple(string, type, descriptor))
+    }
 
     companion object {
         val LANGUAGE_TO_METADATA_VERSION = EnumMap<LanguageVersion, JvmMetadataVersion>(LanguageVersion::class.java).apply {

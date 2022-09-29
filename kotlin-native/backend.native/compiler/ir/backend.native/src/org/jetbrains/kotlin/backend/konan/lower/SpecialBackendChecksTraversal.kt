@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.ir.Symbols
-import org.jetbrains.kotlin.backend.common.ir.allParameters
 import org.jetbrains.kotlin.backend.common.lower.Closure
 import org.jetbrains.kotlin.backend.common.lower.ClosureAnnotator
 import org.jetbrains.kotlin.backend.common.peek
@@ -20,10 +19,7 @@ import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
 import org.jetbrains.kotlin.backend.konan.llvm.IntrinsicType
 import org.jetbrains.kotlin.backend.konan.llvm.tryGetIntrinsicType
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.isFinalClass
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -228,6 +224,10 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         irClass.companionObject()?.let {
             if (it.hasFields() || it.getSuperClassNotAny()?.hasFields() == true)
                 reportError(irClass, "Fields are not supported for Companion of subclass of ObjC type")
+        }
+
+        if (irClass.isObjCMetaClass() && (irClass.isCompanion && !irClass.parentAsClass.isKotlinObjCClass() || irClass.kind.isClass)) {
+            reportError(irClass, "Only companion objects of subclasses of Objective-C classes can inherit from Objective-C metaclasses")
         }
 
         var hasObjCClassSupertype = false
@@ -585,11 +585,11 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
     }
 
     override fun visitClass(declaration: IrClass) {
-        super.visitClass(declaration)
-
         if (declaration.isKotlinObjCClass()) {
             checkKotlinObjCClass(declaration)
         }
+        super.visitClass(declaration)
+
     }
 }
 

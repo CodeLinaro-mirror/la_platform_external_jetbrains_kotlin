@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.declarations.builder
 
 import kotlin.contracts.*
@@ -68,4 +70,25 @@ inline fun buildTypeParameter(init: FirTypeParameterBuilder.() -> Unit): FirType
         callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
     }
     return FirTypeParameterBuilder().apply(init).build()
+}
+
+@OptIn(ExperimentalContracts::class)
+inline fun buildTypeParameterCopy(original: FirTypeParameter, init: FirTypeParameterBuilder.() -> Unit): FirTypeParameter {
+    contract {
+        callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+    }
+    val copyBuilder = FirTypeParameterBuilder()
+    copyBuilder.source = original.source
+    copyBuilder.moduleData = original.moduleData
+    copyBuilder.resolvePhase = original.resolvePhase
+    copyBuilder.origin = original.origin
+    copyBuilder.attributes = original.attributes.copy()
+    copyBuilder.name = original.name
+    copyBuilder.symbol = original.symbol
+    copyBuilder.containingDeclarationSymbol = original.containingDeclarationSymbol
+    copyBuilder.variance = original.variance
+    copyBuilder.isReified = original.isReified
+    copyBuilder.bounds.addAll(original.bounds)
+    copyBuilder.annotations.addAll(original.annotations)
+    return copyBuilder.apply(init).build()
 }

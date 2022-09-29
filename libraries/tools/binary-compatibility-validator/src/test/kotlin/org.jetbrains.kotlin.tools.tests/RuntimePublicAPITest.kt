@@ -40,6 +40,13 @@ class RuntimePublicAPITest {
         )
     }
 
+    @Test fun kotlinGradlePluginIdeaProto() {
+        snapshotAPIAndCompare(
+            "../kotlin-gradle-plugin-idea-proto/build/libs", "kotlin-gradle-plugin-idea-proto-api(?!-[-a-z]+)",
+            nonPublicAnnotations = listOf("org/jetbrains/kotlin/gradle/kpm/idea/InternalKotlinGradlePluginApi")
+        )
+    }
+
     @Test fun kotlinToolingCore() {
         snapshotAPIAndCompare("../kotlin-tooling-core/build/libs", "kotlin-tooling-core(?!-[-a-z]+)")
     }
@@ -80,28 +87,4 @@ class RuntimePublicAPITest {
         return files.singleOrNull() ?: throw Exception("No single file matching $regex in $base:\n${files.joinToString("\n")}")
     }
 
-}
-
-/*
-Copied from `binary-compatibility-validator
-Can be removed after:
-https://github.com/Kotlin/binary-compatibility-validator/pull/75
-*/
-private fun List<ClassBinarySignature>.filterOutAnnotated(targetAnnotations: Set<String>): List<ClassBinarySignature> {
-    if (targetAnnotations.isEmpty()) return this
-    return filter {
-        it.annotations.all { ann -> !targetAnnotations.any { ann.refersToName(it) }  }
-    }.map {
-        ClassBinarySignature(
-            it.name,
-            it.superName,
-            it.outerName,
-            it.supertypes,
-            it.memberSignatures.filter { it.annotations.all { ann -> !targetAnnotations.any { ann.refersToName(it) } } },
-            it.access,
-            it.isEffectivelyPublic,
-            it.isNotUsedWhenEmpty,
-            it.annotations
-        )
-    }
 }

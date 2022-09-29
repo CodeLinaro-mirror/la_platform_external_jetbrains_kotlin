@@ -5,6 +5,7 @@
 
 import org.jetbrains.kotlin.native.test.debugger.lldbCommandRunOrContinue
 import org.jetbrains.kotlin.native.test.debugger.lldbComplexTest
+import org.jetbrains.kotlin.native.test.debugger.lldbCheckLineNumbers
 import org.jetbrains.kotlin.native.test.debugger.lldbTest
 import org.junit.Test
 
@@ -178,10 +179,10 @@ class LldbTests {
         val application = swiftc("application", swiftSrc, "-F", root.toString())
         """
             > b kfun:#b(){}kotlin.String
-            Breakpoint 1: where = [..]`kfun:#b(){}kotlin.String [..] at b.kt:1:12, [..]
+            Breakpoint 1: where = [..]`kfun:#b(){}kotlin.String [..] at b.kt:1:1, [..]
 
             > b kfun:#a(){}kotlin.String
-            Breakpoint 2: where = [..]`kfun:#a(){}kotlin.String [..] at a.kt:1:12, [..]
+            Breakpoint 2: where = [..]`kfun:#a(){}kotlin.String [..] at a.kt:1:1, [..]
             > q
         """.trimIndent().lldb(application)
     }
@@ -258,9 +259,9 @@ class LldbTests {
             > bt
             * thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
             * frame #0: [..] kt42208.kexe`ThrowException
-              frame #1: [..] kt42208.kexe`kfun:main${'$'}lambda-0#internal at kt42208-2.kt:3:18
-              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
-              frame #3: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-UNN>invoke(_this=[..]){}kotlin.Nothing#internal at kt42208-1.kt:2:5
+              frame #1: [..] kt42208.kexe`kfun:main${'$'}lambda${'$'}0#internal at kt42208-2.kt:3:18
+              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
+              frame #3: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-UNN>invoke(_this=[..]){}kotlin.Nothing#internal at kt42208-1.kt:2:5
               frame #4: [..] kt42208.kexe`kfun:#main(){} at kt42208-1.kt:2:5
               frame #5: [..] kt42208.kexe`Konan_start(args=[..]) at kt42208-1.kt:1:1
               frame #6: [..]
@@ -293,26 +294,26 @@ class LldbTests {
             > ${lldbCommandRunOrContinue()}
             > bt
             * thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
-            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda-0#internal at kt42208-2.kt:5:5
-              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
-              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
+            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda${'$'}0#internal at kt42208-2.kt:5:5
+              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
+              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
               frame #3: [..] kt42208.kexe`kfun:#main(){} at kt42208-1.kt:3:5
               frame #4: [..] kt42208.kexe`Konan_start(args=[..]) at kt42208-1.kt:1:1
               frame #5: [..]
             > c
             > bt
             * thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
-            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda-0#internal at kt42208-2.kt:5:5
-              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
-              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
+            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda${'$'}0#internal at kt42208-2.kt:5:5
+              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
+              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
               frame #3: [..] kt42208.kexe`kfun:#main(){} at kt42208-1.kt:4:5
               frame #4: [..] kt42208.kexe`Konan_start(args=[..]) at kt42208-1.kt:1:1
             > c
             > bt
             * thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
-            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda-0#internal at kt42208-2.kt:5:5
-              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
-              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
+            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda${'$'}0#internal at kt42208-2.kt:5:5
+              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
+              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
               frame #3: [..] kt42208.kexe`kfun:#main(){} at kt42208-1.kt:5:5
               frame #4: [..] kt42208.kexe`Konan_start(args=[..]) at kt42208-1.kt:1:1
             > q
@@ -342,15 +343,15 @@ class LldbTests {
                v()
             }
         """.feedOutput("kt42208-3.kt")
-        val binary = arrayOf(kt42208One, kt42208Two, kt42208Three).binary("kt42208", "-g", "-XXLanguage:+UnitConversion")
+        val binary = arrayOf(kt42208One, kt42208Two, kt42208Three).binary("kt42208", "-g", "-XXLanguage:+UnitConversionsOnArbitraryExpressions")
         """
             > b kt42208-2.kt:5
             > ${lldbCommandRunOrContinue()}
             > bt
             * thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1
-            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda-0#internal at kt42208-2.kt:5:5
-              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
-              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda-0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
+            * frame #0: [..] kt42208.kexe`kfun:main${'$'}lambda${'$'}0#internal at kt42208-2.kt:5:5
+              frame #1: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.invoke#internal(_this=[..]) at kt42208-1.kt:2:5
+              frame #2: [..] kt42208.kexe`kfun:${'$'}main${'$'}lambda${'$'}0${'$'}FUNCTION_REFERENCE${'$'}0.${'$'}<bridge-BNN>invoke(_this=[..]){}kotlin.Boolean#internal at kt42208-1.kt:2:5
               frame #3: [..] kt42208.kexe`kfun:#bar(v=[]){} at kt42208-3.kt:2:4
               frame #4: [..] kt42208.kexe`kfun:#main(){} at kt42208-1.kt:3:5
               frame #5: [..] kt42208.kexe`Konan_start(args=[]) at kt42208-1.kt:1:1
@@ -402,4 +403,96 @@ class LldbTests {
             > q
         """.trimIndent().lldb(binary)
     }
+
+    @Test
+    fun `lldb line numbers are valid in source`() {
+        // Whitespace is important, since the character offsets are what defines source lines
+        lldbCheckLineNumbers(mapOf(
+                "main.kt" to """
+    
+    fun main() {
+    
+        inliner {
+        
+            println("1")
+            
+        }
+        
+        inliner {
+            
+            println("2")
+            
+        }
+    
+    }
+    
+""", "inliner.kt" to """
+    ${" ".repeat(1000)}
+    inline fun inliner(block: ()->Unit) {
+    
+        block()
+    
+    }
+    
+"""), "main.kt:2", 15)
+    }
+
+    @Test
+    fun `works in native thread state`() = lldbComplexTest {
+        // This test checks that K/N runtime debug interface properly handles the cases when a calling thread is in native state.
+
+        // So we need to stop on a breakpoint in native code, but inspect Kotlin code.
+        // To achieve that, we set breakpoint on `write` function, and call `println` to trigger it.
+        // The `test` function is recursive -- this little trick helps us to switch to frame 10 in the debugger,
+        // and be sure that it is in `test` function regardless of how the inline works for println and its callees.
+
+        val program = """
+            fun main() {
+                test(10)
+            }
+
+            fun test(n: Int) {
+                val myData = MyData(1, longArrayOf(2, 3), "four", arrayOf("five", "six"))
+                val i = 7
+                val la = longArrayOf(8, 9)
+                val s = "ten"
+                val a = arrayOf("eleven")
+
+                if (n > 0) test(n - 1)
+
+                println("Hello")
+            }
+
+            class MyData(val i: Int, val la: LongArray, val s: String, val a: Array<String>)
+
+        """.trimIndent().binary("nativestate", "-g", "-Xbinary=runtimeAssertionsMode=panic")
+
+        // Now we can just stop on `write`, switch frame to Kotlin code and try using different debug interface functions, both directly
+        // and indirectly (through konan_lldb.py, which integrates the built-in lldb capabilities like `frame variable` command with
+        // K/N debug interface).
+        """
+            > b write
+            Breakpoint 1: [..]
+            > ${lldbCommandRunOrContinue()}
+            [..] stop reason = breakpoint [..]
+            > frame select 10
+            -> 12  	    if (n > 0) test(n - 1)
+            > frame variable
+            (int) i = 7
+            (ObjHeader *) myData = [la: ..., s: ..., a: ..., i: ...]
+            (ObjHeader *) la = [..., ...]
+            (ObjHeader *) s = [..]
+            (ObjHeader *) a = [...]
+            > expression -- (int32_t)Konan_DebugPrint(s)
+            ten(int32_t) [..] = 0
+            > expression -- (int32_t)Konan_DebugPrint(la)
+            [8, 9](int32_t) [..] = 0
+            > expression -- (int32_t)Konan_DebugPrint(myData)
+            MyData@[..](int32_t) [..] = 0
+            > script lldb.frame.FindVariable("myData").GetChildMemberWithName("i").Dereference().GetValue()
+            '1'
+            > q
+        """.trimIndent().lldb(program)
+    }
+
 }

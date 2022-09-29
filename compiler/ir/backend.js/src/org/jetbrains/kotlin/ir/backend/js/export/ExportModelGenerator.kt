@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.ir.backend.js.export
 
 import org.jetbrains.kotlin.backend.common.ir.isExpect
-import org.jetbrains.kotlin.backend.common.ir.isMethodOfAny
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -271,9 +270,7 @@ class ExportModelGenerator(
             listOf(privateConstructor) + members,
             nestedClasses
         ).let {
-            (it as ExportedClass).copy(
-                isAbstract = true,
-            )
+            (it as ExportedRegularClass).copy(isAbstract = true)
         }
     }
 
@@ -353,43 +350,29 @@ class ExportModelGenerator(
 
         val name = klass.getExportedIdentifier()
 
-        val exportedClass = ExportedClass(
-            name = name,
-            isInterface = klass.isInterface,
-            isAbstract = klass.modality == Modality.ABSTRACT,
-            superClass = superType,
-            superInterfaces = superInterfaces,
-            typeParameters = typeParameters,
-            members = members,
-            nestedClasses = nestedClasses,
-            ir = klass
-        )
-
-        if (klass.kind == ClassKind.OBJECT) {
-            var t: ExportedType = ExportedType.InlineInterfaceType(members + nestedClasses)
-            if (superType != null)
-                t = ExportedType.IntersectionType(t, superType)
-
-            for (superInterface in superInterfaces) {
-                t = ExportedType.IntersectionType(t, superInterface)
-            }
-
-            return ExportedProperty(
+        return if (klass.kind == ClassKind.OBJECT) {
+            return ExportedObject(
+                ir = klass,
                 name = name,
-                type = t,
-                mutable = false,
-                isMember = klass.parent is IrClass,
-                isStatic = !klass.isInner,
-                isAbstract = false,
-                isProtected = klass.visibility == DescriptorVisibilities.PROTECTED,
-                irGetter = context.mapping.objectToGetInstanceFunction[klass]!!,
-                irSetter = null,
-                exportedObject = exportedClass,
-                isField = false,
+                members = members,
+                superClass = superType,
+                nestedClasses = nestedClasses,
+                superInterfaces = superInterfaces,
+                irGetter = context.mapping.objectToGetInstanceFunction[klass]!!
+            )
+        } else {
+            ExportedRegularClass(
+                name = name,
+                isInterface = klass.isInterface,
+                isAbstract = klass.modality == Modality.ABSTRACT || klass.modality == Modality.SEALED,
+                superClass = superType,
+                superInterfaces = superInterfaces,
+                typeParameters = typeParameters,
+                members = members,
+                nestedClasses = nestedClasses,
+                ir = klass
             )
         }
-
-        return exportedClass
     }
 
     private fun exportAsEnumMember(
@@ -504,8 +487,10 @@ class ExportModelGenerator(
 
             classifier is IrClassSymbol -> {
                 val klass = classifier.owner
-                val isImplicitlyExported = !klass.isExported(context) && !klass.isExternal
-                val name = klass.getExportableName()
+                val isExported = klass.isExported(context)
+                val isImplicitlyExported = !isExported && !klass.isExternal
+                val isNonExportedExternal = klass.isExternal && !isExported
+                val name = klass.getFqNameWithJsNameWhenAvailable(!isNonExportedExternal && generateNamespacesForPackages).asString()
 
                 when (klass.kind) {
                     ClassKind.ANNOTATION_CLASS,
@@ -529,19 +514,6 @@ class ExportModelGenerator(
         }
 
         return exportedType.withNullability(isMarkedNullable)
-    }
-
-    private fun IrClass.getExportableName(): String {
-        val qualifier = (parent as? IrFile)?.getJsQualifier()
-        val supQualifier = (parent as? IrClass)?.getExportableName()
-        val name = getJsNameOrKotlinName()
-
-        return when {
-            qualifier != null -> "$qualifier.$name"
-            isExternal && !isExported(context) -> "${supQualifier?.plus(".") ?: ""}$name"
-            generateNamespacesForPackages -> fqNameWhenAvailable!!.asString()
-            else -> name.asString()
-        }
     }
 
     private fun IrDeclarationWithName.getExportedIdentifier(): String =
@@ -588,7 +560,7 @@ class ExportModelGenerator(
 
         val name = function.getExportedIdentifier()
         // TODO: Use [] syntax instead of prohibiting
-        if (name in allReservedWords)
+        if (parentClass == null && name in allReservedWords)
             return Exportability.Prohibited("Name is a reserved word")
 
         return Exportability.Allowed

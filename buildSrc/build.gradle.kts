@@ -21,6 +21,9 @@ buildscript {
         }
     }
 
+    // workaround for KGP build metrics reports: https://github.com/gradle/gradle/issues/20001
+    project.extensions.extraProperties["kotlin.build.report.output"] = null
+
     dependencies {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
         classpath("org.jetbrains.kotlin:kotlin-sam-with-receiver:${project.bootstrapKotlinVersion}")
@@ -163,7 +166,7 @@ dependencies {
     implementation(kotlin("stdlib", embeddedKotlinVersion))
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
-    implementation("com.gradle.publish:plugin-publish-plugin:1.0.0-rc-3")
+    implementation("com.gradle.publish:plugin-publish-plugin:1.0.0")
     implementation("org.jetbrains.dokka:dokka-gradle-plugin:1.6.10")
 
     implementation("net.rubygrapefruit:native-platform:${property("versions.native-platform")}")
@@ -178,7 +181,7 @@ dependencies {
     implementation("gradle.plugin.org.jetbrains.gradle.plugin.idea-ext:gradle-idea-ext:1.0.1")
 
     implementation("org.gradle:test-retry-gradle-plugin:1.2.0")
-    implementation("com.gradle.enterprise:test-distribution-gradle-plugin:2.1")
+    compileOnly("com.gradle.enterprise:test-distribution-gradle-plugin:2.2.3")
 
     compileOnly(gradleApi())
 
@@ -249,6 +252,10 @@ gradlePlugin {
         create("runtimeTesting") {
             id = "runtime-testing"
             implementationClass = "org.jetbrains.kotlin.testing.native.RuntimeTestingPlugin"
+        }
+        create("compilationDatabase") {
+            id = "compilation-database"
+            implementationClass = "org.jetbrains.kotlin.cpp.CompilationDatabasePlugin"
         }
         create("konan") {
             id = "konan"

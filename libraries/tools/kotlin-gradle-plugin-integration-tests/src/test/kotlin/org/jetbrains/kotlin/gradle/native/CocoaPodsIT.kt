@@ -29,6 +29,7 @@ import java.io.File
 import java.io.IOException
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -233,6 +234,29 @@ class CocoaPodsIT : BaseGradleIT() {
             addSpecRepo(podRepo)
         }
         project.testImportWithAsserts(listOf(podRepo))
+    }
+
+    @Test
+    fun testSyntheticProjectPodspecGeneration() {
+        val gradleProject = transformProjectWithPluginsDsl(cocoapodsSingleKtPod, gradleVersion)
+        gradleProject.gradleBuildScript().appendToCocoapodsBlock("""
+            ios.deploymentTarget = "14.1"
+            pod("SSZipArchive")
+            pod("AFNetworking", "~> 4.0.1")
+            pod("Alamofire") {
+                source = git("https://github.com/Alamofire/Alamofire.git") {
+                    tag = "5.6.1"
+                }
+            }
+        """.trimIndent())
+        gradleProject.build("podGenIOS", "-Pkotlin.native.cocoapods.generate.wrapper=true") {
+            assertSuccessful()
+            val podfileText = gradleProject.projectDir.resolve("build/cocoapods/synthetic/IOS/Podfile").readText().trim()
+            assertTrue(podfileText.contains("platform :ios, '14.1'"))
+            assertTrue(podfileText.contains("pod 'SSZipArchive'"))
+            assertTrue(podfileText.contains("pod 'AFNetworking', '~> 4.0.1'"))
+            assertTrue(podfileText.contains("pod 'Alamofire', :git => 'https://github.com/Alamofire/Alamofire.git', :tag => '5.6.1'"))
+        }
     }
 
     @Test
@@ -806,6 +830,22 @@ class CocoaPodsIT : BaseGradleIT() {
             testImport()
         }
     }
+
+    @Test
+    fun testWarningOfDefaultLinkingType() {
+        with(project) {
+            build("tasks") {
+                assertSuccessful()
+                assertContains("Cocoapods Gradle plugin uses default STATIC linking type for frameworks.")
+            }
+            gradleBuildScript().appendToCocoapodsBlock("framework { isStatic = true }")
+            build("tasks") {
+                assertSuccessful()
+                assertNotContains("Cocoapods Gradle plugin uses default STATIC linking type for frameworks.")
+            }
+        }
+    }
+
 
     @Test
     fun testSyncFramework() {
@@ -1554,8 +1594,8 @@ class CocoaPodsIT : BaseGradleIT() {
                             :execution_position => :before_compile,
                             :shell_path => '/bin/sh',
                             :script => <<-SCRIPT
-                                if [ "YES" = "${'$'}COCOAPODS_SKIP_KOTLIN_BUILD" ]; then
-                                  echo "Skipping Gradle build task invocation due to COCOAPODS_SKIP_KOTLIN_BUILD environment variable set to \"YES\""
+                                if [ "YES" = "${'$'}OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED" ]; then
+                                  echo "Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \"YES\""
                                   exit 0
                                 fi
                                 set -ev
@@ -1591,8 +1631,8 @@ class CocoaPodsIT : BaseGradleIT() {
                             :execution_position => :before_compile,
                             :shell_path => '/bin/sh',
                             :script => <<-SCRIPT
-                                if [ "YES" = "${'$'}COCOAPODS_SKIP_KOTLIN_BUILD" ]; then
-                                  echo "Skipping Gradle build task invocation due to COCOAPODS_SKIP_KOTLIN_BUILD environment variable set to \"YES\""
+                                if [ "YES" = "${'$'}OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED" ]; then
+                                  echo "Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \"YES\""
                                   exit 0
                                 fi
                                 set -ev

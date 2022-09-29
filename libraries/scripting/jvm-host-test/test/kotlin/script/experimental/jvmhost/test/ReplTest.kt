@@ -202,6 +202,31 @@ class ReplTest : TestCase() {
     }
 
     @Test
+    fun testCodegenErrors() {
+        checkEvaluateInReplDiags(
+            sequenceOf(
+                """
+                    val x = 1
+                    class C {
+                        companion object {
+                            fun f() = x
+                        }
+                    }
+                """.trimIndent()
+            ),
+            sequenceOf(
+                makeFailureResult(
+                    "Object Companion captures the script class instance. Try to use class or anonymous object instead",
+                    location = SourceCode.Location(
+                        SourceCode.Position(3, 15),
+                        SourceCode.Position(3, 21)
+                    )
+                ),
+            )
+        )
+    }
+
+    @Test
     // TODO: make it covering more cases
     fun testIrReceiverOvewrite() {
         checkEvaluateInRepl(
@@ -217,7 +242,11 @@ class ReplTest : TestCase() {
     }
 
     @Test
-    fun testNoEvaluationError() {
+    fun testNoErrorAfterBrokenCodegenSnippet() {
+        val errorMessage = "Platform declaration clash: The following declarations have the same JVM signature (getX()I):\n" +
+                "    fun `<get-X>`(): Int defined in Line_0_simplescript\n" +
+                "    fun `<get-x>`(): Int defined in Line_0_simplescript"
+
         checkEvaluateInReplDiags(
             sequenceOf(
                 """
@@ -225,19 +254,27 @@ class ReplTest : TestCase() {
                     val X = 1
                     val x = stack(1, X)
                 """.trimIndent(),
-                "val y = 42"
+                """
+                    val y = 42
+                    y
+                """.trimIndent()
             ),
             sequenceOf(
-                ResultValue.NotEvaluated.asSuccess(
-                    listOf(
-                        ScriptDiagnostic(
-                            ScriptDiagnostic.unspecifiedError,
-                            "Unable to instantiate class Line_0_simplescript: java.lang.ClassFormatError: " +
-                                    "Duplicate method name \"getX\" with signature \"()I\" in class file Line_0_simplescript"
+                ResultWithDiagnostics.Failure(
+                    errorMessage.asErrorDiagnostics(
+                        location = SourceCode.Location(
+                            SourceCode.Position(2, 1),
+                            SourceCode.Position(2, 6)
+                        )
+                    ),
+                    errorMessage.asErrorDiagnostics(
+                        location = SourceCode.Location(
+                            SourceCode.Position(3, 1),
+                            SourceCode.Position(3, 6)
                         )
                     )
                 ),
-                makeFailureResult("Snippet cannot be evaluated due to history mismatch")
+                42.asSuccess()
             )
         )
     }
@@ -332,7 +369,57 @@ class ReplTest : TestCase() {
         )
     }
 
+    @Test
+    fun testCompileWithoutEval() {
+        val replCompiler = KJvmReplCompilerBase<ReplCodeAnalyzerBase>()
+        val replEvaluator = BasicJvmReplEvaluator()
+        val compCfg = simpleScriptCompilationConfiguration
+        runBlocking {
+            replCompiler.compile("false".toScriptSource(), compCfg)
+            replCompiler.compile("true".toScriptSource(), compCfg).onSuccess {
+                replEvaluator.eval(it, simpleScriptEvaluationConfiguration)
+            }
+        }
+    }
+
+    @Test
+    fun testKotlinPackage() {
+        val greeting = "Hello from script!"
+        val error = "Only the Kotlin standard library is allowed to use the 'kotlin' package"
+        val script = "package kotlin\n\"$greeting\""
+        checkEvaluateInReplDiags(
+            sequenceOf(script),
+            sequenceOf(
+                makeFailureResult(
+                    error, path = "Line_0.simplescript.kts",
+                    location = SourceCode.Location(SourceCode.Position(1, 1), SourceCode.Position(1, 15))
+                )
+            )
+        )
+        checkEvaluateInRepl(
+            sequenceOf(script),
+            sequenceOf(greeting),
+            simpleScriptCompilationConfiguration.with {
+                compilerOptions("-Xallow-kotlin-package")
+            }
+        )
+    }
+
     companion object {
+        private fun positionsEqual(a: SourceCode.Position?, b: SourceCode.Position?): Boolean {
+            if (a == null || b == null) {
+                return a == null && b == null
+            }
+            return a.col == b.col && a.line == b.line
+        }
+
+        private fun locationsEqual(a: SourceCode.Location?, b: SourceCode.Location?): Boolean {
+            if (a == null || b == null) {
+                return a == null && b == null
+            }
+            return positionsEqual(a.start, b.start) && positionsEqual(a.end, b.end)
+        }
+
         private fun evaluateInRepl(
             snippets: Sequence<String>,
             compilationConfiguration: ScriptCompilationConfiguration = simpleScriptCompilationConfiguration,
@@ -389,7 +476,7 @@ class ReplTest : TestCase() {
                         Assert.assertTrue(
                             "#$index: Expected $expectedRes, got $res. Locations are different",
                             resReports.map { it.location }.zip(expectedRes.reports.map { it.location }).all {
-                                it.second == null || it.second == it.first
+                                it.second == null || locationsEqual(it.first, it.second)
                             }
                         )
                     }
@@ -405,8 +492,10 @@ class ReplTest : TestCase() {
                             is ResultValue.Unit -> Assert.assertNull("#$index: Expected $expectedVal, got Unit", expectedVal)
                             is ResultValue.Error -> Assert.assertTrue(
                                 "#$index: Expected $expectedVal, got Error: ${actualVal.error}",
-                                expectedVal is Throwable && expectedVal.message == actualVal.error.message
-                                        && expectedVal.cause?.message == actualVal.error.cause?.message
+                                        ((expectedVal as? Throwable) ?: (expectedVal as? ResultValue.Error)?.error).let {
+                                            it != null && it.message == actualVal.error.message
+                                                    && it.cause?.message == actualVal.error.cause?.message
+                                        }
                             )
                             is ResultValue.NotEvaluated -> Assert.assertEquals(
                                 "#$index: Expected $expectedVal, got NotEvaluated",

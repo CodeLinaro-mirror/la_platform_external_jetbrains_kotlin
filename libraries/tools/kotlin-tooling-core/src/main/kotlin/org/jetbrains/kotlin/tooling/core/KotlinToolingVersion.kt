@@ -3,32 +3,35 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("FunctionName")
+
 package org.jetbrains.kotlin.tooling.core
 
 import java.io.Serializable
 import java.util.*
 
 fun KotlinToolingVersion(kotlinVersionString: String): KotlinToolingVersion {
-    fun throwInvalid(): Nothing {
-        throw IllegalArgumentException("Invalid Kotlin version: $kotlinVersionString")
-    }
-
-    val baseVersion = kotlinVersionString.split("-", limit = 2)[0]
-    val classifier = kotlinVersionString.split("-", limit = 2).getOrNull(1)
-
-    val baseVersionSplit = baseVersion.split(".")
-    if (!(baseVersionSplit.size == 2 || baseVersionSplit.size == 3)) throwInvalid()
-
-    return KotlinToolingVersion(
-        major = baseVersionSplit[0].toIntOrNull() ?: throwInvalid(),
-        minor = baseVersionSplit[1].toIntOrNull() ?: throwInvalid(),
-        patch = baseVersionSplit.getOrNull(2)?.let { it.toIntOrNull() ?: throwInvalid() } ?: 0,
-        classifier = classifier
-    )
+    return KotlinToolingVersionOrNull(kotlinVersionString)
+        ?: throw IllegalArgumentException("Invalid Kotlin version: $kotlinVersionString")
 }
 
 fun KotlinToolingVersion(kotlinVersion: KotlinVersion, classifier: String? = null): KotlinToolingVersion {
     return KotlinToolingVersion(kotlinVersion.major, kotlinVersion.minor, kotlinVersion.patch, classifier)
+}
+
+fun KotlinToolingVersionOrNull(kotlinVersionString: String): KotlinToolingVersion? {
+    val baseVersion = kotlinVersionString.split("-", limit = 2)[0]
+    val classifier = kotlinVersionString.split("-", limit = 2).getOrNull(1)
+
+    val baseVersionSplit = baseVersion.split(".")
+    if (!(baseVersionSplit.size == 2 || baseVersionSplit.size == 3)) return null
+
+    return KotlinToolingVersion(
+        major = baseVersionSplit[0].toIntOrNull() ?: return null,
+        minor = baseVersionSplit[1].toIntOrNull() ?: return null,
+        patch = baseVersionSplit.getOrNull(2)?.let { it.toIntOrNull() ?: return null } ?: 0,
+        classifier = classifier
+    )
 }
 
 class KotlinToolingVersion(
@@ -50,7 +53,7 @@ class KotlinToolingVersion(
             classifier.matches(Regex("""beta(\d*)?(-release)?-?\d*""")) -> Maturity.BETA
             classifier.matches(Regex("""alpha(\d*)?(-release)?-?\d*""")) -> Maturity.ALPHA
             classifier.matches(Regex("""m\d+(-release)?(-\d*)?""")) -> Maturity.MILESTONE
-            classifier.matches(Regex("""dev-?\d*""")) -> Maturity.DEV
+            classifier.matches(Regex("""(dev|pub)(-(\w|-)+)?-?\d*""")) -> Maturity.DEV
             classifier == "snapshot" -> Maturity.SNAPSHOT
             else -> throw IllegalArgumentException("Can't infer maturity of KotlinVersion $this")
         }
@@ -184,6 +187,14 @@ val KotlinToolingVersion.buildNumber: Int?
 val KotlinToolingVersion.classifierNumber: Int?
     get() {
         if (classifier == null) return null
+
+        /*
+        dev builds allow additional wildcards in the version (like 1.6.20-dev-myWildcard21-510)
+        In this case, 510 will be the buildNumber, but there is still no associated classifierNumber.
+        In order to keep the regex below simple, we fast path out here, since we know that
+        dev builds never carry classifier numbers
+         */
+        if (maturity == KotlinToolingVersion.Maturity.DEV) return null
 
         /*
         Classifiers with only a buildNumber assigned

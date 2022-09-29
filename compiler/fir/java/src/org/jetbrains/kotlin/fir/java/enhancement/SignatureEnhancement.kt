@@ -127,6 +127,7 @@ class FirSignatureEnhancement(
                     this.symbol = symbol
                     this.name = name
                     returnTypeRef = newReturnTypeRef
+                    isFromSource = original.origin.fromSource
 
                     // TODO: Use some kind of copy mechanism
                     visibility = firElement.visibility
@@ -171,7 +172,7 @@ class FirSignatureEnhancement(
                 }.symbol
             }
             else -> {
-                if (original is FirPropertySymbol || original is FirSyntheticPropertySymbol) return original
+                if (original is FirPropertySymbol) return original
                 error("Can't make enhancement for $original: `${firElement.render()}`")
             }
         }
@@ -550,7 +551,7 @@ private class EnhancementSignatureParts(
     override fun KotlinTypeMarker.isArrayOrPrimitiveArray(): Boolean = (this as ConeKotlinType).isArrayOrPrimitiveArray
 
     override val TypeParameterMarker.isFromJava: Boolean
-        get() = (this as ConeTypeParameterLookupTag).symbol.fir.origin == FirDeclarationOrigin.Java
+        get() = (this as ConeTypeParameterLookupTag).symbol.fir.origin is FirDeclarationOrigin.Java
 }
 
 class FirEnhancedSymbolsStorage(val session: FirSession) : FirSessionComponent {

@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.builder
 
 import kotlin.contracts.*
@@ -28,24 +30,19 @@ import org.jetbrains.kotlin.fir.visitors.*
 @FirBuilderDsl
 class FirGetClassCallBuilder : FirCallBuilder, FirAnnotationContainerBuilder, FirExpressionBuilder {
     override var source: KtSourceElement? = null
+    override var typeRef: FirTypeRef = FirImplicitTypeRefImpl(null)
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
     override lateinit var argumentList: FirArgumentList
 
     override fun build(): FirGetClassCall {
         return FirGetClassCallImpl(
             source,
+            typeRef,
             annotations,
             argumentList,
         )
     }
 
-
-    @Deprecated("Modification of 'typeRef' has no impact for FirGetClassCallBuilder", level = DeprecationLevel.HIDDEN)
-    override var typeRef: FirTypeRef
-        get() = throw IllegalStateException()
-        set(_) {
-            throw IllegalStateException()
-        }
 }
 
 @OptIn(ExperimentalContracts::class)

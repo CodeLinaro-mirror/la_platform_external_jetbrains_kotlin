@@ -44,7 +44,6 @@ configurations {
 dependencies {
     api project(':kotlin-stdlib')
     testApi project(':kotlin-test:kotlin-test-junit')
-    kotlinCompilerClasspath project(':libraries:tools:stdlib-compiler-classpath')
 }
 
 jar {
@@ -79,6 +78,7 @@ compileTestKotlin {
             "-opt-in=kotlin.io.path.ExperimentalPathApi",
             "-Xcommon-sources=${fileTree('../test').join(',')}",
             "-Xsuppress-deprecated-jvm-target-warning",
+            "-XXLanguage:+RangeUntilOperator",
     ]
 }
 
@@ -89,10 +89,11 @@ LibrariesCommon.configureJava9Compilation(project, 'kotlin.stdlib.jdk7')
 task testJdk6Tests(type: Test) {
     dependsOn(':kotlin-stdlib:testClasses')
     group = "verification"
-
+    def kotlinStdLibTestOutput = project(':kotlin-stdlib').sourceSets.test.output
+    def objectFactory = project.objects
     doFirst {
-        testClassesDirs = project(':kotlin-stdlib').sourceSets.test.output
-        classpath = files(
+        testClassesDirs = kotlinStdLibTestOutput
+        classpath = objectFactory.fileCollection().from(
                 testClassesDirs,
                 sourceSets.test.compileClasspath
         )

@@ -253,7 +253,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     ConeUnresolvedQualifierError(typeRef.render())
                 }
             }
-            return ConeErrorType(diagnostic)
+            return ConeErrorType(diagnostic, attributes = typeRef.annotations.computeTypeAttributes(session))
         }
         if (symbol is FirTypeParameterSymbol) {
             for (part in typeRef.qualifier) {
@@ -523,7 +523,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                 ) to (result as? TypeResolutionResult.Resolved)?.typeCandidate?.diagnostic
             }
             is FirFunctionTypeRef -> createFunctionalType(typeRef) to null
-            is FirDynamicTypeRef -> ConeErrorType(ConeUnsupportedDynamicType()) to null
+            is FirDynamicTypeRef -> ConeDynamicType.create(session) to null
             is FirIntersectionTypeRef -> {
                 val leftType = typeRef.leftType.coneType
                 val rightType = typeRef.rightType.coneType

@@ -13,8 +13,8 @@ import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisFacade.Analysis
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
 import org.jetbrains.kotlin.analysis.api.diagnostics.KtDiagnosticWithPsi
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticFactory
 import org.jetbrains.kotlin.diagnostics.Severity
@@ -27,40 +27,36 @@ import kotlin.reflect.KClass
 internal class KtFe10DiagnosticProvider(
     override val analysisSession: KtFe10AnalysisSession
 ) : KtDiagnosticProvider(), Fe10KtAnalysisSessionComponent {
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
         get() = analysisSession.token
 
     override fun getDiagnosticsForElement(element: KtElement, filter: KtDiagnosticCheckerFilter): Collection<KtDiagnosticWithPsi<*>> {
-        withValidityAssertion {
-            val bindingContext = analysisContext.analyze(element, AnalysisMode.PARTIAL_WITH_DIAGNOSTICS)
-            val diagnostics = bindingContext.diagnostics.forElement(element)
-            return diagnostics.map { KtFe10Diagnostic(it, token) }
-        }
+        val bindingContext = analysisContext.analyze(element, AnalysisMode.PARTIAL_WITH_DIAGNOSTICS)
+        val diagnostics = bindingContext.diagnostics.forElement(element)
+        return diagnostics.map { KtFe10Diagnostic(it, token) }
     }
 
     override fun collectDiagnosticsForFile(ktFile: KtFile, filter: KtDiagnosticCheckerFilter): Collection<KtDiagnosticWithPsi<*>> {
-        withValidityAssertion {
-            val bindingContext = analysisContext.analyze(ktFile)
-            val result = mutableListOf<KtDiagnosticWithPsi<*>>()
-            for (diagnostic in bindingContext.diagnostics) {
-                if (diagnostic.psiFile == ktFile) {
-                    result += KtFe10Diagnostic(diagnostic, token)
-                }
+        val bindingContext = analysisContext.analyze(ktFile)
+        val result = mutableListOf<KtDiagnosticWithPsi<*>>()
+        for (diagnostic in bindingContext.diagnostics) {
+            if (diagnostic.psiFile == ktFile) {
+                result += KtFe10Diagnostic(diagnostic, token)
             }
-            return result
         }
+        return result
     }
 }
 
-internal class KtFe10Diagnostic(private val diagnostic: Diagnostic, override val token: ValidityToken) : KtDiagnosticWithPsi<PsiElement> {
+internal class KtFe10Diagnostic(private val diagnostic: Diagnostic, override val token: KtLifetimeToken) : KtDiagnosticWithPsi<PsiElement> {
     override val severity: Severity
-        get() = diagnostic.severity
+        get() = withValidityAssertion { diagnostic.severity }
 
     override val factoryName: String
-        get() = diagnostic.factory.name
+        get() = withValidityAssertion { diagnostic.factory.name }
 
     override val defaultMessage: String
-        get() {
+        get() = withValidityAssertion {
             @Suppress("UNCHECKED_CAST")
             val factory = diagnostic.factory as DiagnosticFactory<UnboundDiagnostic>?
             return factory?.defaultRenderer?.render(diagnostic)
@@ -69,11 +65,11 @@ internal class KtFe10Diagnostic(private val diagnostic: Diagnostic, override val
         }
 
     override val psi: PsiElement
-        get() = diagnostic.psiElement
+        get() = withValidityAssertion { diagnostic.psiElement }
 
     override val textRanges: Collection<TextRange>
-        get() = diagnostic.textRanges
+        get() = withValidityAssertion { diagnostic.textRanges }
 
     override val diagnosticClass: KClass<out KtDiagnosticWithPsi<PsiElement>>
-        get() = KtFe10Diagnostic::class
+        get() = withValidityAssertion { KtFe10Diagnostic::class }
 }

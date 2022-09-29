@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class BoxJsTestGenerated extends AbstractBoxJsTest {
     @Test
     public void testAllFilesPresentInBox() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true, "closure/inlineAnonymousFunctions");
     }
 
     @Nested
@@ -347,7 +347,7 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
     public class Closure {
         @Test
         public void testAllFilesPresentInClosure() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/closure"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/closure"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS, true, "inlineAnonymousFunctions");
         }
 
         @Test
@@ -751,6 +751,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("unitMaterializationInOverriddenMethod.kt")
+        public void testUnitMaterializationInOverriddenMethod() throws Exception {
+            runTest("js/js.translator/testData/box/coercion/unitMaterializationInOverriddenMethod.kt");
+        }
+
+        @Test
         @TestMetadata("unitNullCheck.kt")
         public void testUnitNullCheck() throws Exception {
             runTest("js/js.translator/testData/box/coercion/unitNullCheck.kt");
@@ -782,6 +788,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("debugStatement.kt")
         public void testDebugStatement() throws Exception {
             runTest("js/js.translator/testData/box/coroutines/debugStatement.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithValueClass.kt")
+        public void testLambdaWithValueClass() throws Exception {
+            runTest("js/js.translator/testData/box/coroutines/lambdaWithValueClass.kt");
         }
 
         @Test
@@ -4569,6 +4581,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("blocksMaterialization.kt")
+        public void testBlocksMaterialization() throws Exception {
+            runTest("js/js.translator/testData/box/inline/blocksMaterialization.kt");
+        }
+
+        @Test
         @TestMetadata("callFunction.kt")
         public void testCallFunction() throws Exception {
             runTest("js/js.translator/testData/box/inline/callFunction.kt");
@@ -4590,6 +4608,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("callableReference.kt")
         public void testCallableReference() throws Exception {
             runTest("js/js.translator/testData/box/inline/callableReference.kt");
+        }
+
+        @Test
+        @TestMetadata("callableReferenceOfLocalFun.kt")
+        public void testCallableReferenceOfLocalFun() throws Exception {
+            runTest("js/js.translator/testData/box/inline/callableReferenceOfLocalFun.kt");
         }
 
         @Test
@@ -6124,6 +6148,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("codeFromVariable.kt")
         public void testCodeFromVariable() throws Exception {
             runTest("js/js.translator/testData/box/jsCode/codeFromVariable.kt");
+        }
+
+        @Test
+        @TestMetadata("comments.kt")
+        public void testComments() throws Exception {
+            runTest("js/js.translator/testData/box/jsCode/comments.kt");
         }
 
         @Test

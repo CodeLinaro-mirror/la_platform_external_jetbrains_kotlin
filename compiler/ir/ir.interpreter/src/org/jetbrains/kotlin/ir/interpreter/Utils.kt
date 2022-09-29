@@ -7,7 +7,9 @@ package org.jetbrains.kotlin.ir.interpreter
 
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -29,6 +31,7 @@ import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 import org.jetbrains.kotlin.utils.keysToMap
 import java.lang.invoke.MethodType
 
+val intrinsicConstEvaluationAnnotation = FqName("kotlin.internal.IntrinsicConstEvaluation")
 val compileTimeAnnotation = FqName("kotlin.CompileTimeCalculation")
 val evaluateIntrinsicAnnotation = FqName("kotlin.EvaluateIntrinsic")
 val contractsDslAnnotation = FqName("kotlin.internal.ContractsDsl")
@@ -86,6 +89,18 @@ internal fun getPrimitiveClass(irType: IrType, asObject: Boolean = false): Class
         }
     }
 
+fun IrFunction.getFirstNonInterfaceOverridden(): IrFunction {
+    if (this !is IrSimpleFunction) return this
+
+    return generateSequence(listOf(this)) {
+        it.firstOrNull()?.overriddenSymbols?.map { overriddenSymbol -> overriddenSymbol.owner }
+    }.flatten().first { overriddenFunction ->
+        if (overriddenFunction.isFakeOverride) return@first false
+        val kind = overriddenFunction.parentClassOrNull?.kind
+        kind != ClassKind.INTERFACE
+    }
+}
+
 fun IrFunction.getLastOverridden(): IrFunction {
     if (this !is IrSimpleFunction) return this
 
@@ -118,11 +133,6 @@ fun IrFunctionAccessExpression.getVarargType(index: Int): IrType? {
 
 internal fun IrFunction.getCapitalizedFileName() = this.file.name.replace(".kt", "Kt").capitalizeAsciiOnly()
 
-internal fun IrType.isUnsigned() = this.getUnsignedType() != null
-internal fun IrType.isFunction() = this.getClass()?.fqName?.startsWith("kotlin.Function") ?: false
-internal fun IrType.isKFunction() = this.getClass()?.fqName?.startsWith("kotlin.reflect.KFunction") ?: false
-internal fun IrType.isTypeParameter() = classifierOrNull is IrTypeParameterSymbol
-internal fun IrType.isThrowable() = this.getClass()?.fqName == "kotlin.Throwable"
 internal fun IrClass.isSubclassOfThrowable(): Boolean {
     return generateSequence(this) { irClass ->
         if (irClass.defaultType.isAny()) return@generateSequence null
@@ -276,16 +286,6 @@ internal fun IrInterpreterEnvironment.loadReifiedTypeArguments(expression: IrFun
     }
 }
 
-internal fun IrFunctionAccessExpression.getSuperEnumCall(): IrEnumConstructorCall {
-    val name = this.symbol.owner.parentClassOrNull?.fqName
-    if (this is IrEnumConstructorCall && name == "kotlin.Enum") return this
-    return when (val delegatingCall = this.symbol.owner.body?.statements?.get(0)) {
-        is IrFunctionAccessExpression -> delegatingCall.getSuperEnumCall()
-        is IrTypeOperatorCall -> (delegatingCall.argument as IrFunctionAccessExpression).getSuperEnumCall()
-        else -> TODO("$delegatingCall is unexpected")
-    }
-}
-
 internal fun IrFunction.hasFunInterfaceParent(): Boolean {
     return this.parentClassOrNull?.isFun == true
 }
@@ -302,5 +302,32 @@ internal fun IrGetValue.isAccessToObject(): Boolean {
 }
 
 internal fun IrFunction.isAccessorOfPropertyWithBackingField(): Boolean {
-    return this is IrSimpleFunction && this.correspondingPropertySymbol?.owner?.backingField != null
+    return this is IrSimpleFunction && this.correspondingPropertySymbol?.owner?.backingField?.initializer != null
+}
+
+internal fun State.unsignedToString(): String {
+    return when (val value = (this.fields.values.single() as Primitive<*>).value) {
+        is Byte -> value.toUByte().toString()
+        is Short -> value.toUShort().toString()
+        is Int -> value.toUInt().toString()
+        else -> (value as Number).toLong().toULong().toString()
+    }
+}
+
+internal fun IrEnumEntry.toState(irBuiltIns: IrBuiltIns): Common {
+    val enumClass = this.symbol.owner.parentAsClass
+    val enumEntries = enumClass.declarations.filterIsInstance<IrEnumEntry>()
+    val enumClassObject = Common(this.correspondingClass ?: enumClass)
+
+    if (enumEntries.isNotEmpty()) {
+        val valueArguments = listOf(
+            Primitive(this.name.asString(), irBuiltIns.stringType),
+            Primitive(enumEntries.indexOf(this), irBuiltIns.intType)
+        )
+        irBuiltIns.enumClass.owner.declarations.filterIsInstance<IrProperty>().zip(valueArguments).forEach { (property, argument) ->
+            enumClassObject.setField(property.symbol, argument)
+        }
+    }
+
+    return enumClassObject
 }

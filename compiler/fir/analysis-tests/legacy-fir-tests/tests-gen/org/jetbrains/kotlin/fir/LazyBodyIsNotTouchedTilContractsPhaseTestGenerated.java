@@ -34,6 +34,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         runTest("compiler/fir/analysis-tests/testData/resolve/annotationOnDeclarationWithDifferentArguments.kt");
     }
 
+    @TestMetadata("annotationOnGetClassCall.kt")
+    public void testAnnotationOnGetClassCall() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotationOnGetClassCall.kt");
+    }
+
     @TestMetadata("annotationUsedAsAnnotationArgument.kt")
     public void testAnnotationUsedAsAnnotationArgument() throws Exception {
         runTest("compiler/fir/analysis-tests/testData/resolve/annotationUsedAsAnnotationArgument.kt");
@@ -144,6 +149,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         runTest("compiler/fir/analysis-tests/testData/resolve/derivedClass.kt");
     }
 
+    @TestMetadata("elvisReturnSimple.kt")
+    public void testElvisReturnSimple() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/elvisReturnSimple.kt");
+    }
+
     @TestMetadata("enum.kt")
     public void testEnum() throws Exception {
         runTest("compiler/fir/analysis-tests/testData/resolve/enum.kt");
@@ -219,6 +229,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         runTest("compiler/fir/analysis-tests/testData/resolve/genericReceiverPropertyOverride.kt");
     }
 
+    @TestMetadata("implicitTypeFromOtherModule.kt")
+    public void testImplicitTypeFromOtherModule() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/implicitTypeFromOtherModule.kt");
+    }
+
     @TestMetadata("implicitTypeInFakeOverride.kt")
     public void testImplicitTypeInFakeOverride() throws Exception {
         runTest("compiler/fir/analysis-tests/testData/resolve/implicitTypeInFakeOverride.kt");
@@ -237,6 +252,21 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
     @TestMetadata("incorrectSuperCall.kt")
     public void testIncorrectSuperCall() throws Exception {
         runTest("compiler/fir/analysis-tests/testData/resolve/incorrectSuperCall.kt");
+    }
+
+    @TestMetadata("inherentlyImportedTypeFromOtherModule.kt")
+    public void testInherentlyImportedTypeFromOtherModule() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inherentlyImportedTypeFromOtherModule.kt");
+    }
+
+    @TestMetadata("inherentlyImportedTypeFromOtherModule2.kt")
+    public void testInherentlyImportedTypeFromOtherModule2() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inherentlyImportedTypeFromOtherModule2.kt");
+    }
+
+    @TestMetadata("inherentlyImportedTypeFromOtherModule3.kt")
+    public void testInherentlyImportedTypeFromOtherModule3() throws Exception {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inherentlyImportedTypeFromOtherModule3.kt");
     }
 
     @TestMetadata("intersectionScope.kt")
@@ -856,6 +886,24 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         }
     }
 
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/cfa")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Cfa extends AbstractLazyBodyIsNotTouchedTilContractsPhaseTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInCfa() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/cfa"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @TestMetadata("initializationInTry.kt")
+        public void testInitializationInTry() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/cfa/initializationInTry.kt");
+        }
+    }
+
     @TestMetadata("compiler/fir/analysis-tests/testData/resolve/cfg")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -901,6 +949,16 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         @TestMetadata("flowFromInplaceLambda.kt")
         public void testFlowFromInplaceLambda() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/cfg/flowFromInplaceLambda.kt");
+        }
+
+        @TestMetadata("flowFromInplaceLambda2.kt")
+        public void testFlowFromInplaceLambda2() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/cfg/flowFromInplaceLambda2.kt");
+        }
+
+        @TestMetadata("flowFromTwoInplaceLambdas.kt")
+        public void testFlowFromTwoInplaceLambdas() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/cfg/flowFromTwoInplaceLambdas.kt");
         }
 
         @TestMetadata("initBlock.kt")
@@ -1065,6 +1123,16 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
 
         public void testAllFilesPresentInContracts() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contracts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @TestMetadata("contractFromOtherModule.kt")
+        public void testContractFromOtherModule() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contracts/contractFromOtherModule.kt");
+        }
+
+        @TestMetadata("contractFromOtherModule_samePackage.kt")
+        public void testContractFromOtherModule_samePackage() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contracts/contractFromOtherModule_samePackage.kt");
         }
 
         @TestMetadata("genericContract.kt")
@@ -2844,6 +2912,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
             runTest("compiler/fir/analysis-tests/testData/resolve/problems/doubleGenericDiamond.kt");
         }
 
+        @TestMetadata("emptySelectorInQualifiedExpression.kt")
+        public void testEmptySelectorInQualifiedExpression() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/problems/emptySelectorInQualifiedExpression.kt");
+        }
+
         @TestMetadata("expectConstructor.kt")
         public void testExpectConstructor() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/problems/expectConstructor.kt");
@@ -3290,6 +3363,11 @@ public class LazyBodyIsNotTouchedTilContractsPhaseTestGenerated extends Abstract
         @TestMetadata("smartcastInByClause.kt")
         public void testSmartcastInByClause() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/smartcasts/smartcastInByClause.kt");
+        }
+
+        @TestMetadata("smartcastOnImplicitReceiverOfCallableReference.kt")
+        public void testSmartcastOnImplicitReceiverOfCallableReference() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/smartcasts/smartcastOnImplicitReceiverOfCallableReference.kt");
         }
 
         @TestMetadata("smartcastToNothing.kt")

@@ -8,8 +8,12 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.sessions
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.analysis.api.impl.barebone.annotations.Immutable
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.ModuleFileCache
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirBuiltinsModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirKtModuleBasedModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirModuleData
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.analysis.project.structure.NoCacheForModuleException
+import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionProvider
@@ -20,15 +24,17 @@ class LLFirSessionProvider internal constructor(
     internal val rootModuleSession: LLFirResolvableModuleSession,
     private val moduleToSession: Map<KtModule, LLFirResolvableModuleSession>
 ) : FirSessionProvider() {
-    override fun getSession(moduleData: FirModuleData): FirSession? =
-        moduleToSession[moduleData.module]
 
-    fun getSession(module: KtModule): FirSession? =
-        moduleToSession[module]
+    override fun getSession(moduleData: FirModuleData): LLFirSession {
+        requireIsInstance<LLFirModuleData>(moduleData)
+        return when (moduleData) {
+            is LLFirBuiltinsModuleData -> moduleData.session as LLFirBuiltinsAndCloneableSession
+            is LLFirKtModuleBasedModuleData -> getSession(moduleData.ktModule)
+        }
+    }
 
-    internal fun getModuleCache(module: KtModule): ModuleFileCache =
-        moduleToSession[module]?.cache
-            ?: throw NoCacheForModuleException(module, moduleToSession.keys)
+    fun getSession(module: KtModule): LLFirResolvableModuleSession =
+        moduleToSession.getValue(module)
 
     val allSessions: Collection<LLFirModuleSession>
         get() = moduleToSession.values

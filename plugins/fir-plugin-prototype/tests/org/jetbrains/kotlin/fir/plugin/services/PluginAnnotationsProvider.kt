@@ -21,11 +21,24 @@ class PluginAnnotationsProvider(testServices: TestServices) : EnvironmentConfigu
     }
 
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
-        val libDir = File(ANNOTATIONS_JAR_DIR)
-        testServices.assertions.assertTrue(libDir.exists() && libDir.isDirectory, failMessage)
-        val jar = libDir.listFiles(ANNOTATIONS_JAR_FILTER)?.firstOrNull() ?: testServices.assertions.fail(failMessage)
-        configuration.addJvmClasspathRoot(jar)
+        val pluginAnnotationsJar = findJarFromProperty()
+            ?: findJarByPath()
+            ?: error("Jar with annotations does not exist. Please run :plugins:fir-plugin-prototype:plugin-annotations:jar or specify firPluginAnnotations.path system property")
+        configuration.addJvmClasspathRoot(pluginAnnotationsJar)
     }
 
-    private val failMessage = { "Jar with annotations does not exist. Please run :plugins:fir-plugin-prototype:plugin-annotations:jar" }
+    private fun findJarByPath(): File? {
+        val libDir = File(ANNOTATIONS_JAR_DIR)
+        if (!libDir.exists() || !libDir.isDirectory) return null
+        return libDir.listFiles(ANNOTATIONS_JAR_FILTER)?.firstOrNull()
+    }
+
+    private fun findJarFromProperty(): File? {
+        val firPluginAnnotationsPath = System.getProperty("firPluginAnnotations.path") ?: return null
+        return File(firPluginAnnotationsPath).takeIf {
+            it.isFile &&
+                    it.name.startsWith("plugin-annotations") &&
+                    it.name.endsWith(".jar")
+        }
+    }
 }

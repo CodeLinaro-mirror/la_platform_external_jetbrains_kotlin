@@ -60,7 +60,7 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
             callStack.popInstruction().handle()
         }
 
-        return callStack.popState().toIrExpression(expression).apply { callStack.dropFrame() }
+        return environment.stateToIrExpression(callStack.popState(), expression).apply { callStack.dropFrame() }
     }
 
     internal fun withNewCallStack(call: IrCall, init: IrInterpreter.() -> Any?): State {
@@ -206,7 +206,6 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
         if (callStack.peekState() == null) callStack.pushState(getUnitState()) // implicit Unit result
     }
 
-    @Suppress("UNUSED_PARAMETER")
     private fun interpretConstructor(constructor: IrConstructor) {
         callStack.pushState(callStack.loadState(constructor.parentAsClass.thisReceiver!!.symbol))
         callStack.dropFrameAndCopyResult()
@@ -221,7 +220,7 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
         // this check is used to be sure that object will be created once
         val objectState = when (constructorCall) {
             !is IrConstructorCall -> callStack.loadState(constructorCall.getThisReceiver())
-            else -> (if (irClass.isSubclassOfThrowable()) ExceptionState(irClass, callStack.getStackTrace()) else Common(irClass))
+            else -> (if (irClass.isSubclassOfThrowable()) ExceptionState(irClass, environment) else Common(irClass))
                 .apply {
                     // must set object's state here, before actual initialization, to avoid cyclic evaluation
                     if (irClass.isObject) environment.mapOfObjects[irClass.symbol] = this
@@ -390,33 +389,16 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
 
     private fun interpretEnumEntry(enumEntry: IrEnumEntry) {
         callInterceptor.interceptEnumEntry(enumEntry) {
-            val enumClass = enumEntry.symbol.owner.parentAsClass
-            val enumEntries = enumClass.declarations.filterIsInstance<IrEnumEntry>()
+            val enumClassObject = enumEntry.toState(irBuiltIns)
+            environment.mapOfEnums[enumEntry.symbol] = enumClassObject
+
             val enumInitializer = enumEntry.initializerExpression?.expression
                 ?: throw InterpreterError("Initializer at enum entry ${enumEntry.fqName} is null")
             val enumConstructorCall = enumInitializer as? IrEnumConstructorCall
                 ?: (enumInitializer as IrBlock).statements.filterIsInstance<IrEnumConstructorCall>().single()
-            val enumSuperCall = enumConstructorCall.getSuperEnumCall()
-
-            val cleanEnumSuperCall = fun() {
-                enumSuperCall.apply { (0 until this.valueArgumentsCount).forEach { putValueArgument(it, null) } } // restore to null
-                callStack.popState()    // result of constructor must be dropped, because next instruction will be `IrGetEnumValue`
-                callStack.dropSubFrame()
-            }
-
-            if (enumEntries.isNotEmpty()) {
-                val valueArguments = listOf(
-                    enumEntry.name.asString().toIrConst(irBuiltIns.stringType),
-                    enumEntries.indexOf(enumEntry).toIrConst(irBuiltIns.intType)
-                )
-                valueArguments.forEachIndexed { index, irConst -> enumSuperCall.putValueArgument(index, irConst) }
-            }
-
-            val enumClassObject = Common(enumEntry.correspondingClass ?: enumClass)
-            environment.mapOfEnums[enumEntry.symbol] = enumClassObject
 
             callStack.newSubFrame(enumEntry)
-            callStack.pushInstruction(CustomInstruction(cleanEnumSuperCall))
+            callStack.pushCompoundInstruction(enumEntry) // not really a compound instruction
             callStack.pushCompoundInstruction(enumInitializer)
             callStack.storeState(enumConstructorCall.getThisReceiver(), enumClassObject)
         }
@@ -584,8 +566,8 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
     private fun interpretFunctionReference(reference: IrFunctionReference) {
         val irFunction = reference.symbol.owner
 
-        val dispatchReceiver = reference.dispatchReceiver?.let { callStack.popState() }
-        val extensionReceiver = reference.extensionReceiver?.let { callStack.popState() }
+        val dispatchReceiver = irFunction.getDispatchReceiver()?.let { reference.dispatchReceiver?.let { callStack.popState() } }
+        val extensionReceiver = irFunction.getExtensionReceiver()?.let { reference.extensionReceiver?.let { callStack.popState() } }
 
         val function = KFunctionState(
             reference,
@@ -599,12 +581,20 @@ class IrInterpreter(internal val environment: IrInterpreterEnvironment, internal
 
     private fun interpretPropertyReference(propertyReference: IrPropertyReference) {
         // it is impossible to get KProperty2 through ::, so only one receiver can be not null (or both null)
-        val receiver = (propertyReference.dispatchReceiver ?: propertyReference.extensionReceiver)?.let { callStack.popState() }
+        val getter = propertyReference.getter?.owner
+        val dispatchReceiver = getter?.getDispatchReceiver()?.let { propertyReference.dispatchReceiver?.let { callStack.popState() } }
+        val extensionReceiver = getter?.getExtensionReceiver()?.let { propertyReference.extensionReceiver?.let { callStack.popState() } }
+        val receiver = dispatchReceiver ?: extensionReceiver
+
         val propertyState = KPropertyState(propertyReference, receiver)
 
         fun List<IrTypeParameter>.addToFields() {
             (0 until propertyReference.typeArgumentsCount).forEach { index ->
-                val kTypeState = KTypeState(propertyReference.getTypeArgument(index)!!, environment.kTypeClass.owner)
+                // We need nullable check for java case in FIR
+                // For some reason it is possible that typeArgumentsCount > 0, but all args are null
+                // TODO report as error after fix KT-52480
+                val typeArgument = propertyReference.getTypeArgument(index) ?: return@forEach
+                val kTypeState = KTypeState(typeArgument, environment.kTypeClass.owner)
                 propertyState.setField(this[index].symbol, kTypeState)
             }
         }

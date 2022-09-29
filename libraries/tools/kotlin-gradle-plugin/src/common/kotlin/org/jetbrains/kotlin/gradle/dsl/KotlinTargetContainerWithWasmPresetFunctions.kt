@@ -5,24 +5,33 @@
 
 package org.jetbrains.kotlin.gradle.dsl
 
-import groovy.lang.Closure
-import org.gradle.util.ConfigureUtil
+import org.gradle.api.Action
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
-import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinWasmTargetPreset
 
 interface KotlinTargetContainerWithWasmPresetFunctions : KotlinTargetContainerWithPresetFunctions {
+    @ExperimentalWasmDsl
     fun wasm(
         name: String = "wasm",
-        configure: KotlinJsTargetDsl.() -> Unit = { }
+        configure: KotlinWasmTargetDsl.() -> Unit = { }
     ): KotlinJsTargetDsl =
         configureOrCreate(
             name,
-            presets.getByName("wasm") as KotlinJsIrTargetPreset,
+            presets.getByName("wasm") as KotlinWasmTargetPreset,
             configure
         )
 
+    @ExperimentalWasmDsl
     fun wasm() = wasm("wasm") { }
+
+    @ExperimentalWasmDsl
     fun wasm(name: String) = wasm(name) { }
-    fun wasm(name: String, configure: Closure<*>) = wasm(name) { ConfigureUtil.configure(configure, this) }
-    fun wasm(configure: Closure<*>) = wasm { ConfigureUtil.configure(configure, this) }
+
+    @ExperimentalWasmDsl
+    fun wasm(name: String, configure: Action<KotlinWasmTargetDsl>) = wasm(name) { configure.execute(this) }
+
+    @ExperimentalWasmDsl
+    fun wasm(configure: Action<KotlinWasmTargetDsl>) = wasm { configure.execute(this) }
 }

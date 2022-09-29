@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyExpressionBlock
 import org.jetbrains.kotlin.fir.expressions.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.resolve.SessionHolder
+import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
@@ -98,18 +99,6 @@ fun FirClassSymbol<*>.isSupertypeOf(other: FirClassSymbol<*>, session: FirSessio
     return isSupertypeOf(other, mutableSetOf())
 }
 
-/**
- * Returns the FirRegularClassSymbol associated with this
- * or null of something goes wrong.
- */
-fun ConeClassLikeType.toRegularClassSymbol(session: FirSession): FirRegularClassSymbol? {
-    return fullyExpandedType(session).toSymbol(session) as? FirRegularClassSymbol
-}
-
-fun ConeKotlinType.toRegularClassSymbol(session: FirSession): FirRegularClassSymbol? {
-    return (this as? ConeClassLikeType)?.toRegularClassSymbol(session)
-}
-
 fun ConeKotlinType.isInlineClass(session: FirSession): Boolean = toRegularClassSymbol(session)?.isInline == true
 
 /**
@@ -149,20 +138,6 @@ fun FirClassSymbol<*>.getContainingDeclarationSymbol(session: FirSession): FirCl
     }
 
     return null
-}
-
-/**
- * Returns the FirClassLikeDeclaration that the
- * sequence of FirTypeAlias'es points to starting
- * with `this`. Or null if something goes wrong or we have anonymous object symbol.
- */
-tailrec fun FirClassLikeSymbol<*>.fullyExpandedClass(useSiteSession: FirSession): FirRegularClassSymbol? {
-    return when (this) {
-        is FirRegularClassSymbol -> this
-        is FirAnonymousObjectSymbol -> null
-        is FirTypeAliasSymbol -> resolvedExpandedTypeRef.coneTypeSafe<ConeClassLikeType>()
-            ?.toSymbol(useSiteSession)?.fullyExpandedClass(useSiteSession)
-    }
 }
 
 /**
@@ -280,7 +255,7 @@ fun FirClass.findNonInterfaceSupertype(context: CheckerContext): FirTypeRef? {
 }
 
 val FirFunctionCall.isIterator: Boolean
-    get() = this.calleeReference.name.asString() == "<iterator>"
+    get() = this.calleeReference.name == SpecialNames.ITERATOR
 
 fun ConeKotlinType.isSubtypeOfThrowable(session: FirSession): Boolean =
     session.builtinTypes.throwableType.type.isSupertypeOf(session.typeContext, this.fullyExpandedType(session))
@@ -293,80 +268,6 @@ val FirValueParameter.hasValOrVar: Boolean
 
 fun KotlinTypeMarker.isSupertypeOf(context: TypeCheckerProviderContext, type: KotlinTypeMarker?): Boolean =
     type != null && AbstractTypeChecker.isSubtypeOf(context, type, this)
-
-fun KotlinTypeMarker.isSubtypeOf(context: TypeCheckerProviderContext, type: KotlinTypeMarker?): Boolean =
-    type != null && AbstractTypeChecker.isSubtypeOf(context, this, type)
-
-fun ConeKotlinType.canHaveSubtypes(session: FirSession): Boolean {
-    if (this.isMarkedNullable) {
-        return true
-    }
-    val classSymbol = toRegularClassSymbol(session) ?: return true
-    if (classSymbol.isEnumClass || classSymbol.isExpect || classSymbol.modality != Modality.FINAL) {
-        return true
-    }
-
-    classSymbol.typeParameterSymbols.forEachIndexed { idx, typeParameterSymbol ->
-        val typeProjection = typeArguments[idx]
-
-        if (typeProjection.isStarProjection) {
-            return true
-        }
-
-        val argument = typeProjection.type!! //safe because it is not a star
-
-        when (typeParameterSymbol.variance) {
-            Variance.INVARIANT ->
-                when (typeProjection.kind) {
-                    ProjectionKind.INVARIANT ->
-                        if (lowerThanBound(session.typeContext, argument, typeParameterSymbol) || argument.canHaveSubtypes(session)) {
-                            return true
-                        }
-                    ProjectionKind.IN ->
-                        if (lowerThanBound(session.typeContext, argument, typeParameterSymbol)) {
-                            return true
-                        }
-                    ProjectionKind.OUT ->
-                        if (argument.canHaveSubtypes(session)) {
-                            return true
-                        }
-                    ProjectionKind.STAR ->
-                        return true
-                }
-            Variance.IN_VARIANCE ->
-                if (typeProjection.kind != ProjectionKind.OUT) {
-                    if (lowerThanBound(session.typeContext, argument, typeParameterSymbol)) {
-                        return true
-                    }
-                } else {
-                    if (argument.canHaveSubtypes(session)) {
-                        return true
-                    }
-                }
-            Variance.OUT_VARIANCE ->
-                if (typeProjection.kind != ProjectionKind.IN) {
-                    if (argument.canHaveSubtypes(session)) {
-                        return true
-                    }
-                } else {
-                    if (lowerThanBound(session.typeContext, argument, typeParameterSymbol)) {
-                        return true
-                    }
-                }
-        }
-    }
-
-    return false
-}
-
-private fun lowerThanBound(context: ConeInferenceContext, argument: ConeKotlinType, typeParameterSymbol: FirTypeParameterSymbol): Boolean {
-    typeParameterSymbol.resolvedBounds.forEach { boundTypeRef ->
-        if (argument != boundTypeRef.coneType && argument.isSubtypeOf(context, boundTypeRef.coneType)) {
-            return true
-        }
-    }
-    return false
-}
 
 fun FirMemberDeclaration.isInlineOnly(): Boolean =
     isInline && hasAnnotation(INLINE_ONLY_ANNOTATION_CLASS_ID)
@@ -614,9 +515,8 @@ fun checkTypeMismatch(
 }
 
 internal fun checkCondition(condition: FirExpression, context: CheckerContext, reporter: DiagnosticReporter) {
-    val coneType = condition.typeRef.coneTypeSafe<ConeKotlinType>()?.lowerBoundIfFlexible()
-    if (coneType != null &&
-        coneType !is ConeErrorType &&
+    val coneType = condition.typeRef.coneType.lowerBoundIfFlexible()
+    if (coneType !is ConeErrorType &&
         !coneType.isSubtypeOf(context.session.typeContext, context.session.builtinTypes.booleanType.type)
     ) {
         reporter.reportOn(
@@ -661,11 +561,6 @@ fun extractArgumentsTypeRefAndSource(typeRef: FirTypeRef?): List<FirTypeRefSourc
 
 data class FirTypeRefSource(val typeRef: FirTypeRef?, val source: KtSourceElement?)
 
-fun FirRegularClassSymbol.collectEnumEntries(): Collection<FirEnumEntrySymbol> {
-    assert(classKind == ClassKind.ENUM_CLASS)
-    return declarationSymbols.filterIsInstance<FirEnumEntrySymbol>()
-}
-
 val FirClassLikeSymbol<*>.classKind: ClassKind?
     get() = (this as? FirClassSymbol<*>)?.classKind
 
@@ -692,8 +587,7 @@ fun FirFunctionSymbol<*>.isFunctionForExpectTypeFromCastFeature(): Boolean {
     if ((returnType.lowerBoundIfFlexible() as? ConeTypeParameterType)?.lookupTag != typeParameterSymbol.toLookupTag()) return false
 
     fun FirTypeRef.isBadType() =
-        coneTypeSafe<ConeKotlinType>()
-            ?.contains { (it.lowerBoundIfFlexible() as? ConeTypeParameterType)?.lookupTag == typeParameterSymbol.toLookupTag() } != false
+        coneType.contains { (it.lowerBoundIfFlexible() as? ConeTypeParameterType)?.lookupTag == typeParameterSymbol.toLookupTag() }
 
     if (valueParameterSymbols.any { it.resolvedReturnTypeRef.isBadType() } || resolvedReceiverTypeRef?.isBadType() == true) return false
 

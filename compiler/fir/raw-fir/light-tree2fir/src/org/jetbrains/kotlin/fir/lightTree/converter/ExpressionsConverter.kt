@@ -74,10 +74,12 @@ class ExpressionsConverter(
                 val lambdaTree = LightTree2Fir.buildLightTreeLambdaExpression(expression.asText)
                 // Pass on label user to the lambda root
                 context.forwardLabelUsagePermission(expression, lambdaTree.root)
-                declarationsConverter.withOffset(offset + expression.startOffset) {
-                    ExpressionsConverter(baseSession, lambdaTree, declarationsConverter, context)
-                        .convertLambdaExpression(lambdaTree.root)
-                }
+                val lambdaDeclarationsConverter = DeclarationsConverter(
+                    baseSession, declarationsConverter.baseScopeProvider, lambdaTree,
+                    offset = offset + expression.startOffset, context
+                )
+                ExpressionsConverter(baseSession, lambdaTree, lambdaDeclarationsConverter, context)
+                    .convertLambdaExpression(lambdaTree.root)
             }
             BINARY_EXPRESSION -> convertBinaryExpression(expression)
             BINARY_WITH_TYPE -> convertBinaryWithTypeRHSExpression(expression) {
@@ -433,6 +435,7 @@ class ExpressionsConverter(
             when (it.tokenType) {
                 ANNOTATION -> firAnnotationList += declarationsConverter.convertAnnotation(it)
                 ANNOTATION_ENTRY -> firAnnotationList += declarationsConverter.convertAnnotationEntry(it)
+                BLOCK -> firExpression = declarationsConverter.convertBlockExpression(it)
                 else -> if (it.isExpression()) {
                     context.forwardLabelUsagePermission(annotatedExpression, it)
                     firExpression = getAsFirExpression(it)
@@ -440,7 +443,7 @@ class ExpressionsConverter(
             }
         }
 
-        val result = firExpression ?: buildErrorExpression(null, ConeNotAnnotationContainer(firExpression?.render() ?: "???"))
+        val result = firExpression ?: buildErrorExpression(null, ConeNotAnnotationContainer("???"))
         require(result is FirAnnotationContainer)
         (result.annotations as MutableList<FirAnnotation>) += firAnnotationList
         return result
@@ -554,10 +557,13 @@ class ExpressionsConverter(
             result = convertFirSelector(it, dotQualifiedExpression.toFirSourceElement(), firReceiver!!) as? FirExpression
         }
 
-        return result ?: buildErrorExpression(
-            null,
-            ConeSimpleDiagnostic("Qualified expression without selector", DiagnosticKind.Syntax)
-        )
+        return result ?: buildErrorExpression {
+            source = null
+            diagnostic = ConeSimpleDiagnostic("Qualified expression without selector", DiagnosticKind.Syntax)
+
+            // if there is no selector, we still want to resolve the receiver
+            expression = firReceiver
+        }
     }
 
     /**
@@ -1144,6 +1150,13 @@ class ExpressionsConverter(
         body?.forEachChildren {
             when (it.tokenType) {
                 BLOCK -> firBlock = declarationsConverter.convertBlockExpression(it)
+                ANNOTATED_EXPRESSION -> {
+                    if (it.getChildNodeByType(BLOCK) != null) {
+                        firBlock = getAsFirExpression(it)
+                    } else {
+                        firStatement = getAsFirExpression(it)
+                    }
+                }
                 else -> if (it.isExpression()) firStatement = getAsFirExpression(it)
             }
         }

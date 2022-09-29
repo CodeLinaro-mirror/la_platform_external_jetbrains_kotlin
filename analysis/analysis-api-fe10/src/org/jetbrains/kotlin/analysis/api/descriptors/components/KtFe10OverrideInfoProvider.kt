@@ -13,8 +13,8 @@ import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.bas
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithVisibility
@@ -25,10 +25,10 @@ import org.jetbrains.kotlin.util.ImplementationStatus
 internal class KtFe10OverrideInfoProvider(
     override val analysisSession: KtFe10AnalysisSession
 ) : KtOverrideInfoProvider(), Fe10KtAnalysisSessionComponent {
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
         get() = analysisSession.token
 
-    override fun isVisible(memberSymbol: KtCallableSymbol, classSymbol: KtClassOrObjectSymbol): Boolean = withValidityAssertion {
+    override fun isVisible(memberSymbol: KtCallableSymbol, classSymbol: KtClassOrObjectSymbol): Boolean  {
         val memberDescriptor = getSymbolDescriptor(memberSymbol) as? DeclarationDescriptorWithVisibility ?: return false
         val classDescriptor = getSymbolDescriptor(classSymbol) ?: return false
         return isVisibleWithAnyReceiver(memberDescriptor, classDescriptor, analysisSession.analysisContext.languageVersionSettings)
@@ -37,17 +37,17 @@ internal class KtFe10OverrideInfoProvider(
     override fun getImplementationStatus(
         memberSymbol: KtCallableSymbol,
         parentClassSymbol: KtClassOrObjectSymbol
-    ): ImplementationStatus? = withValidityAssertion {
+    ): ImplementationStatus?  {
         throw NotImplementedError("Method is not implemented for FE 1.0")
     }
 
-    override fun getOriginalOverriddenSymbol(symbol: KtCallableSymbol): KtCallableSymbol? = withValidityAssertion {
+    override fun getOriginalOverriddenSymbol(symbol: KtCallableSymbol): KtCallableSymbol?  {
         val callableDescriptor = getSymbolDescriptor(symbol) as? CallableMemberDescriptor ?: return null
         val originalCallableDescriptor = callableDescriptor.findOriginalTopMostOverriddenDescriptors().firstOrNull() ?: return null
         return originalCallableDescriptor.toKtCallableSymbol(analysisContext)
     }
 
-    override fun getOriginalContainingClassForOverride(symbol: KtCallableSymbol): KtClassOrObjectSymbol? = withValidityAssertion {
+    override fun getOriginalContainingClassForOverride(symbol: KtCallableSymbol): KtClassOrObjectSymbol?  {
         val callableDescriptor = getSymbolDescriptor(symbol) as? CallableMemberDescriptor ?: return null
         val originalCallableDescriptor = callableDescriptor.findOriginalTopMostOverriddenDescriptors().firstOrNull() ?: return null
         val containingClassDescriptor = originalCallableDescriptor.containingDeclaration as? ClassDescriptor ?: return null

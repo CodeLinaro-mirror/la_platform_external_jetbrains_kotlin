@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_GETTER
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_SETTER
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.lifetime.isValid
 import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyAccessorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyGetterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySetterSymbol
@@ -29,6 +29,7 @@ internal class FirLightAccessorMethodForSymbol(
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: FirLightClassBase,
     private val isTopLevel: Boolean,
+    private val suppressStatic: Boolean = false,
 ) : FirLightMethod(
     lightMemberOrigin,
     containingClass,
@@ -109,13 +110,14 @@ internal class FirLightAccessorMethodForSymbol(
         )
 
         val visibility = isOverrideMethod.ifTrue {
-            (containingClass as? FirLightClassForSymbol)
-                ?.tryGetEffectiveVisibility(containingPropertySymbol)
+            tryGetEffectiveVisibility(containingPropertySymbol)
                 ?.toPsiVisibilityForMember(isTopLevel)
         } ?: propertyAccessorSymbol.toPsiVisibilityForMember(isTopLevel)
         modifiers.add(visibility)
 
-        if (containingPropertySymbol.hasJvmStaticAnnotation(accessorSite)) {
+        if (!suppressStatic &&
+            (containingPropertySymbol.hasJvmStaticAnnotation() || propertyAccessorSymbol.hasJvmStaticAnnotation(accessorSite))
+        ) {
             modifiers.add(PsiModifier.STATIC)
         }
 

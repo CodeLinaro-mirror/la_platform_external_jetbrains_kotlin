@@ -48,8 +48,10 @@ class MethodInliner(
     private val errorPrefix: String,
     private val sourceMapper: SourceMapCopier,
     private val inlineCallSiteInfo: InlineCallSiteInfo,
-    private val inlineOnlySmapSkipper: InlineOnlySmapSkipper?, //non null only for root
-    private val shouldPreprocessApiVersionCalls: Boolean = false
+    private val overrideLineNumber: Boolean = false,
+    private val shouldPreprocessApiVersionCalls: Boolean = false,
+    private val defaultMaskStart: Int = -1,
+    private val defaultMaskEnd: Int = -1
 ) {
     private val languageVersionSettings = inliningContext.state.languageVersionSettings
     private val invokeCalls = ArrayList<InvokeCall>()
@@ -154,8 +156,16 @@ class MethodInliner(
 
         val fakeContinuationName = CoroutineTransformer.findFakeContinuationConstructorClassName(node)
         val markerShift = calcMarkerShift(parameters, node)
+        var currentLineNumber = if (overrideLineNumber) sourceMapper.callSite!!.line else -1
         val lambdaInliner = object : InlineAdapter(remappingMethodAdapter, parameters.argsSizeOnStack, sourceMapper) {
             private var transformationInfo: TransformationInfo? = null
+
+            override fun visitLineNumber(line: Int, start: Label) {
+                if (!overrideLineNumber) {
+                    currentLineNumber = line
+                }
+                super.visitLineNumber(line, start)
+            }
 
             private fun handleAnonymousObjectRegeneration() {
                 transformationInfo = iterator.next()
@@ -250,10 +260,29 @@ class MethodInliner(
                         store(valueParamShift, type)
                     }
                     if (expectedParameters.isEmpty()) {
-                        nop() // add something for a line number to bind onto
+                        nop() // add something for a line number to bind onto (TODO what line number?)
                     }
 
-                    inlineOnlySmapSkipper?.onInlineLambdaStart(remappingMethodAdapter, info.node.node, sourceMapper.parent)
+                    val firstLine = info.node.node.instructions.asSequence().mapNotNull { it as? LineNumberNode }.firstOrNull()?.line ?: -1
+                    if ((info is DefaultLambda != overrideLineNumber) && currentLineNumber >= 0 && firstLine == currentLineNumber) {
+                        // This can happen in two cases:
+                        //   1. `someInlineOnlyFunction { singleLineLambda }`: in this case line numbers are removed
+                        //      from the inline function, so the entirety of its bytecode has the line number of
+                        //      the call site;
+                        //   2. `inline fun someFunction(defaultLambda: ... = { ... }) = something(defaultLambda())`:
+                        //      all of `someFunction`, including `defaultLambda` if no value is provided at call site,
+                        //      has the line number of the declaration.
+                        // In those cases the debugger is unable to observe the boundary between the body of the function
+                        // and the inline lambda call, as they have the exact same line number. So to force a JDI
+                        // event we insert a fake line number separating those two real stretches. The event corresponding
+                        // to the fake line number itself should be ignored by the debugger though.
+                        val label = Label()
+                        val fakeLineNumber =
+                            sourceMapper.parent.mapSyntheticLineNumber(SourceMapper.LOCAL_VARIABLE_INLINE_ARGUMENT_SYNTHETIC_LINE_NUMBER)
+                        mv.visitLabel(label)
+                        mv.visitLineNumber(fakeLineNumber, label)
+                    }
+
                     addInlineMarker(this, true)
                     val lambdaParameters = info.addAllParameters(nodeRemapper)
 
@@ -270,7 +299,7 @@ class MethodInliner(
                         newCapturedRemapper,
                         if (info is DefaultLambda) isSameModule else true /*cause all nested objects in same module as lambda*/,
                         "Lambda inlining " + info.lambdaClassType.internalName,
-                        SourceMapCopier(sourceMapper.parent, info.node.classSMAP, callSite), inlineCallSiteInfo, null
+                        SourceMapCopier(sourceMapper.parent, info.node.classSMAP, callSite), inlineCallSiteInfo
                     )
 
                     val varRemapper = LocalVarRemapper(lambdaParameters, valueParamShift)
@@ -284,7 +313,18 @@ class MethodInliner(
                     StackValue.coerce(info.invokeMethod.returnType, info.invokeMethodReturnType, OBJECT_TYPE, nullableAnyType, this)
                     setLambdaInlining(false)
                     addInlineMarker(this, false)
-                    inlineOnlySmapSkipper?.onInlineLambdaEnd(remappingMethodAdapter)
+
+                    if (currentLineNumber != -1) {
+                        val endLabel = Label()
+                        mv.visitLabel(endLabel)
+                        if (overrideLineNumber) {
+                            // This is from the function we're inlining into, so no need to remap.
+                            mv.visitLineNumber(currentLineNumber, endLabel)
+                        } else {
+                            // Need to go through the superclass here to properly remap the line number via `sourceMapper`.
+                            super.visitLineNumber(currentLineNumber, endLabel)
+                        }
+                    }
                 } else if (isAnonymousConstructorCall(owner, name)) { //TODO add method
                     //TODO add proper message
                     val newInfo = transformationInfo as? AnonymousObjectTransformationInfo ?: throw AssertionError(
@@ -357,21 +397,25 @@ class MethodInliner(
         val reorderIrLambdaParameters = inliningContext.isInliningLambda &&
                 inliningContext.parent?.isInliningLambda == false &&
                 inliningContext.lambdaInfo is IrExpressionLambda
-        val newArgumentList = if (reorderIrLambdaParameters) {
+        val oldArgumentTypes = if (reorderIrLambdaParameters) {
             // In IR lambdas, captured variables come before real parameters, but after the extension receiver.
             // Move them to the end of the descriptor instead.
-            Type.getArgumentTypes(inliningContext.lambdaInfo!!.invokeMethod.descriptor) + parameters.capturedTypes
+            Type.getArgumentTypes(inliningContext.lambdaInfo!!.invokeMethod.descriptor)
         } else {
-            Type.getArgumentTypes(node.desc) + parameters.capturedTypes
+            Type.getArgumentTypes(node.desc)
         }
+        val oldArgumentOffsets = oldArgumentTypes.runningFold(0) { acc, type -> acc + type.size }
+        val newArgumentTypes = oldArgumentTypes.filterIndexed { index, _ ->
+            oldArgumentOffsets[index] !in defaultMaskStart..defaultMaskEnd
+        }.toTypedArray() + parameters.capturedTypes
         val transformedNode = MethodNode(
             Opcodes.API_VERSION, node.access, node.name,
-            Type.getMethodDescriptor(Type.getReturnType(node.desc), *newArgumentList),
+            Type.getMethodDescriptor(Type.getReturnType(node.desc), *newArgumentTypes),
             node.signature, node.exceptions?.toTypedArray()
         )
 
         val transformationVisitor = object : InlineMethodInstructionAdapter(transformedNode) {
-            private val GENERATE_DEBUG_INFO = GENERATE_SMAP && inlineOnlySmapSkipper == null
+            private val GENERATE_DEBUG_INFO = GENERATE_SMAP && !overrideLineNumber
 
             private val isInliningLambda = nodeRemapper.isInsideInliningLambda
 
@@ -623,38 +667,18 @@ class MethodInliner(
     }
 
     private fun markObsoleteInstruction(instructions: InsnList, sources: Array<out Frame<BasicValue>?>): SmartSet<AbstractInsnNode> {
-        val toDelete = SmartSet.create<AbstractInsnNode>()
-
-        for (insn in instructions) {
+        return instructions.filterIndexedTo(SmartSet.create()) { index, insn ->
             // Parameter checks are processed separately
-            if (insn.isAloadBeforeCheckParameterIsNotNull()) continue
-            val functionalArgument = getFunctionalArgumentIfExists(insn)
-            if (functionalArgument is LambdaInfo) {
-                toDelete.add(insn)
-            } else {
-                when (insn.opcode) {
-                    Opcodes.ASTORE -> {
-                        if (sources[instructions.indexOf(insn)]?.top().functionalArgument is LambdaInfo) {
-                            toDelete.add(insn)
-                        }
-                    }
-                    Opcodes.SWAP -> {
-                        if (sources[instructions.indexOf(insn)]?.peek(0).functionalArgument is LambdaInfo ||
-                            sources[instructions.indexOf(insn)]?.peek(1).functionalArgument is LambdaInfo
-                        ) {
-                            toDelete.add(insn)
-                        }
-                    }
-                    Opcodes.ALOAD -> {
-                        if (sources[instructions.indexOf(insn)]?.getLocal((insn as VarInsnNode).`var`).functionalArgument is LambdaInfo) {
-                            toDelete.add(insn)
-                        }
-                    }
-                }
+            !insn.isAloadBeforeCheckParameterIsNotNull() && when (insn.opcode) {
+                Opcodes.GETFIELD, Opcodes.GETSTATIC, Opcodes.ALOAD ->
+                    sources[index + 1]?.top().functionalArgument is LambdaInfo
+                Opcodes.PUTFIELD, Opcodes.PUTSTATIC, Opcodes.ASTORE ->
+                    sources[index]?.top().functionalArgument is LambdaInfo
+                Opcodes.SWAP ->
+                    sources[index]?.peek(0).functionalArgument is LambdaInfo || sources[index]?.peek(1).functionalArgument is LambdaInfo
+                else -> false
             }
         }
-
-        return toDelete
     }
 
     // Replace ALOAD 0
@@ -915,20 +939,18 @@ class MethodInliner(
         return inliningContext.typeRemapper.hasNoAdditionalMapping(owner)
     }
 
-    internal fun getFunctionalArgumentIfExists(insnNode: AbstractInsnNode): FunctionalArgument? {
+    internal fun getFunctionalArgumentIfExists(insnNode: FieldInsnNode): FunctionalArgument? {
         return when {
-            insnNode.opcode == Opcodes.ALOAD ->
-                getFunctionalArgumentIfExists((insnNode as VarInsnNode).`var`)
-            insnNode is FieldInsnNode && insnNode.name.startsWith(CAPTURED_FIELD_FOLD_PREFIX) ->
+            insnNode.name.startsWith(CAPTURED_FIELD_FOLD_PREFIX) ->
                 findCapturedField(insnNode, nodeRemapper).functionalArgument
-            insnNode is FieldInsnNode && inliningContext.root.sourceCompilerForInline.isSuspendLambdaCapturedByOuterObjectOrLambda(insnNode.name) ->
+            inliningContext.root.sourceCompilerForInline.isSuspendLambdaCapturedByOuterObjectOrLambda(insnNode.name) ->
                 NonInlineArgumentForInlineSuspendParameter.INLINE_LAMBDA_AS_VARIABLE
             else ->
                 null
         }
     }
 
-    private fun getFunctionalArgumentIfExists(varIndex: Int): FunctionalArgument? {
+    internal fun getFunctionalArgumentIfExists(varIndex: Int): FunctionalArgument? {
         if (varIndex < parameters.argsSizeOnStack) {
             return parameters.getParameterByDeclarationSlot(varIndex).functionalArgument
         }

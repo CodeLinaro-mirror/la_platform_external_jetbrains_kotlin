@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.declarations.builder
 
 import kotlin.contracts.*
@@ -43,4 +45,17 @@ inline fun buildContextReceiver(init: FirContextReceiverBuilder.() -> Unit): Fir
         callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
     }
     return FirContextReceiverBuilder().apply(init).build()
+}
+
+@OptIn(ExperimentalContracts::class)
+inline fun buildContextReceiverCopy(original: FirContextReceiver, init: FirContextReceiverBuilder.() -> Unit): FirContextReceiver {
+    contract {
+        callsInPlace(init, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+    }
+    val copyBuilder = FirContextReceiverBuilder()
+    copyBuilder.source = original.source
+    copyBuilder.typeRef = original.typeRef
+    copyBuilder.customLabelName = original.customLabelName
+    copyBuilder.labelNameFromTypeRef = original.labelNameFromTypeRef
+    return copyBuilder.apply(init).build()
 }

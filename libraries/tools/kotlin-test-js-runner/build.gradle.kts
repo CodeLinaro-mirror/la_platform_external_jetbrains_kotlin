@@ -4,7 +4,7 @@ description = "Simple Kotlin/JS tests runner with TeamCity reporter"
 
 plugins {
     id("base")
-    id("com.github.node-gradle.node") version "3.0.1"
+    id("com.github.node-gradle.node") version "3.2.1"
 }
 
 publish()
@@ -13,7 +13,7 @@ val default = configurations.getByName(Dependency.DEFAULT_CONFIGURATION)
 default.extendsFrom(configurations.publishedRuntime.get())
 
 node {
-    version.set("16.2.0")
+    version.set(nodejsVersion)
     download.set(true)
     nodeProjectDir.set(projectDir)
 }

@@ -1094,7 +1094,6 @@ open class CInteropProcess @Inject constructor(@get:Internal val settings: Defau
         get() = outputFileProvider.get()
 
     init {
-        outputs.upToDateWhen { outputFile.exists() }
         notCompatibleWithConfigurationCache("Task $name does not support Gradle Configuration Cache. Check KT-43293 for more info")
     }
 

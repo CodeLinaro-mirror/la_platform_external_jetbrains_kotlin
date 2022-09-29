@@ -8,8 +8,7 @@
 package org.jetbrains.kotlin.backend.jvm
 
 import org.jetbrains.kotlin.backend.common.ir.Symbols
-import org.jetbrains.kotlin.backend.common.ir.addChild
-import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.backend.common.ir.addExtensionReceiver
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.codegen.coroutines.INVOKE_SUSPEND_METHOD_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_CALL_RESULT_NAME
@@ -264,6 +263,11 @@ class JvmSymbols(
         }
 
     val assertionErrorConstructor = javaLangAssertionError.constructors.single()
+
+    private val javaLangNoSuchFieldError: IrClassSymbol =
+        createClass(FqName("java.lang.NoSuchFieldError"), classModality = Modality.OPEN) {}
+
+    val noSuchFieldErrorType = javaLangNoSuchFieldError.defaultType
 
     val continuationClass: IrClassSymbol =
         createClass(StandardNames.CONTINUATION_INTERFACE_FQ_NAME, ClassKind.INTERFACE) { klass ->
@@ -821,6 +825,9 @@ class JvmSymbols(
                 returnType = javaLangClass.starProjectedType
             }
         }.symbol
+
+    val kClassJavaPropertyGetter: IrSimpleFunction =
+        kClassJava.owner.getter!!
 
     val spreadBuilder: IrClassSymbol = createClass(FqName("kotlin.jvm.internal.SpreadBuilder")) { klass ->
         klass.addConstructor().apply {
