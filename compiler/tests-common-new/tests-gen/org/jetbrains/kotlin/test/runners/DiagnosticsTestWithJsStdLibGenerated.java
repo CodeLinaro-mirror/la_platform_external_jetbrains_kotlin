@@ -314,6 +314,12 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         }
 
         @Test
+        @TestMetadata("rangeUntilExpression.kt")
+        public void testRangeUntilExpression() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/dynamicTypes/rangeUntilExpression.kt");
+        }
+
+        @Test
         @TestMetadata("reified.kt")
         public void testReified() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/dynamicTypes/reified.kt");
@@ -399,6 +405,12 @@ public class DiagnosticsTestWithJsStdLibGenerated extends AbstractDiagnosticsTes
         @TestMetadata("jsExportOnNestedDeclarations.kt")
         public void testJsExportOnNestedDeclarations() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/jsExportOnNestedDeclarations.kt");
+        }
+
+        @Test
+        @TestMetadata("nonConsumableIdentifiers.kt")
+        public void testNonConsumableIdentifiers() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/nonConsumableIdentifiers.kt");
         }
 
         @Test

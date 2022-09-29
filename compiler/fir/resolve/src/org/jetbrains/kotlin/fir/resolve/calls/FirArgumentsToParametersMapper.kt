@@ -6,16 +6,24 @@
 package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.utils.isOperator
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildNamedArgumentExpression
+import org.jetbrains.kotlin.fir.isIntersectionOverride
+import org.jetbrains.kotlin.fir.isSubstitutionOrIntersectionOverride
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.defaultParameterResolver
 import org.jetbrains.kotlin.fir.resolve.getAsForbiddenNamedArgumentsTarget
 import org.jetbrains.kotlin.fir.scopes.FirScope
+import org.jetbrains.kotlin.fir.scopes.FirTypeScope
+import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.ForbiddenNamedArgumentsTarget
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -79,7 +87,11 @@ fun BodyResolveComponents.mapArguments(
 
     // If this is an indexed access set operator, it could have default values or a vararg parameter in the middle.
     // For proper argument mapping, wrap the last one, which is supposed to be the updated value, as a named argument.
-    val isIndexedSetOperator = function is FirSimpleFunction && function.isOperator && function.name == OperatorNameConventions.SET
+    val isIndexedSetOperator = function is FirSimpleFunction
+            && function.isOperator
+            && function.name == OperatorNameConventions.SET
+            && function.origin !is FirDeclarationOrigin.DynamicScope
+
     if (isIndexedSetOperator &&
         function.valueParameters.any { it.defaultValue != null || it.isVararg }
     ) {
@@ -123,7 +135,7 @@ private class FirCallArgumentsProcessor(
     val result: LinkedHashMap<FirValueParameter, ResolvedCallArgument> = LinkedHashMap(function.valueParameters.size)
 
     val forbiddenNamedArgumentsTarget: ForbiddenNamedArgumentsTarget? by lazy {
-        function.getAsForbiddenNamedArgumentsTarget(useSiteSession)
+        function.getAsForbiddenNamedArgumentsTarget(useSiteSession, originScope as? FirTypeScope)
     }
 
     private enum class State {
@@ -154,19 +166,25 @@ private class FirCallArgumentsProcessor(
     }
 
     private fun processNonLambdaArgument(argument: FirExpression, isLastArgument: Boolean) {
-        // process position argument
-        if (argument !is FirNamedArgumentExpression) {
-            if (processPositionArgument(argument, isLastArgument)) {
-                state = State.VARARG_POSITION
+        when {
+            // process position argument
+            argument !is FirNamedArgumentExpression -> {
+                if (processPositionArgument(argument, isLastArgument)) {
+                    state = State.VARARG_POSITION
+                }
             }
-        }
-        // process named argument
-        else {
-            if (state == State.VARARG_POSITION) {
-                completeVarargPositionArguments()
+            // process named argument
+            function.origin == FirDeclarationOrigin.DynamicScope -> {
+                if (processPositionArgument(argument.expression, isLastArgument)) {
+                    state = State.VARARG_POSITION
+                }
             }
-
-            processNamedArgument(argument)
+            else -> {
+                if (state == State.VARARG_POSITION) {
+                    completeVarargPositionArguments()
+                }
+                processNamedArgument(argument)
+            }
         }
     }
 
@@ -311,29 +329,74 @@ private class FirCallArgumentsProcessor(
     }
 
     private fun findParameterByName(argument: FirNamedArgumentExpression): FirValueParameter? {
-        val parameter = getParameterByName(argument.name)
+        var parameter = getParameterByName(argument.name)
 
-        // TODO
-//        if (descriptor is CallableMemberDescriptor && descriptor.kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE) {
-//            if (parameter == null) {
-//                for (valueParameter in descriptor.valueParameters) {
-//                    val matchedParameter = valueParameter.overriddenDescriptors.firstOrNull {
-//                        it.containingDeclaration.hasStableParameterNames() && it.name == name
-//                    }
-//                    if (matchedParameter != null) {
-//                        addDiagnostic(NamedArgumentReference(argument, valueParameter))
-//                        addDiagnostic(NameForAmbiguousParameter(argument, valueParameter, matchedParameter))
-//                        return valueParameter
-//                    }
-//                }
-//            } else {
-//                parameter.getOverriddenParameterWithOtherName()?.let {
-//                    addDiagnostic(NameForAmbiguousParameter(argument, parameter, it))
-//                }
-//            }
-//        }
-//
-        if (parameter == null) addDiagnostic(NameNotFound(argument, function))
+        val symbol = function.symbol as? FirNamedFunctionSymbol
+        var matchedIndex = -1
+
+        // Note: should be called when parameter != null && matchedIndex != -1
+        fun List<FirValueParameterSymbol>.findAndReportValueParameterWithDifferentName(): ProcessorAction {
+            val someParameter = getOrNull(matchedIndex)?.fir
+            val someName = someParameter?.name
+            if (someName != null && someName != argument.name) {
+                addDiagnostic(
+                    NameForAmbiguousParameter(argument, matchedParameter = parameter!!, someParameter)
+                )
+                return ProcessorAction.STOP
+            }
+            return ProcessorAction.NEXT
+        }
+
+        if (parameter == null) {
+            if (symbol != null && function.isSubstitutionOrIntersectionOverride) {
+                var allowedParameters: List<FirValueParameterSymbol>? = null
+                (originScope as? FirTypeScope)?.processOverriddenFunctions(symbol) {
+                    if (it.fir.getAsForbiddenNamedArgumentsTarget(useSiteSession) != null) {
+                        return@processOverriddenFunctions ProcessorAction.NEXT
+                    }
+                    val someParameterSymbols = it.valueParameterSymbols
+                    if (matchedIndex != -1) {
+                        someParameterSymbols.findAndReportValueParameterWithDifferentName()
+                    } else {
+                        matchedIndex = someParameterSymbols.indexOfFirst { originalParameter ->
+                            originalParameter.name == argument.name
+                        }
+                        if (matchedIndex != -1) {
+                            parameter = parameters[matchedIndex]
+                            val someParameter = allowedParameters?.getOrNull(matchedIndex)?.fir
+                            if (someParameter != null) {
+                                addDiagnostic(
+                                    NameForAmbiguousParameter(argument, matchedParameter = parameter!!, anotherParameter = someParameter)
+                                )
+                                ProcessorAction.STOP
+                            } else {
+                                ProcessorAction.NEXT
+                            }
+                        } else {
+                            allowedParameters = someParameterSymbols
+                            ProcessorAction.NEXT
+                        }
+                    }
+                }
+            }
+            if (parameter == null) {
+                addDiagnostic(NameNotFound(argument, function))
+            }
+        } else {
+            if (symbol != null && function.isSubstitutionOrIntersectionOverride) {
+                matchedIndex = parameters.indexOfFirst { originalParameter ->
+                    originalParameter.name == argument.name
+                }
+                if (matchedIndex != -1) {
+                    (originScope as? FirTypeScope)?.processOverriddenFunctions(symbol) {
+                        if (it.fir.getAsForbiddenNamedArgumentsTarget(useSiteSession) != null) {
+                            return@processOverriddenFunctions ProcessorAction.NEXT
+                        }
+                        it.valueParameterSymbols.findAndReportValueParameterWithDifferentName()
+                    }
+                }
+            }
+        }
 
         return parameter
     }

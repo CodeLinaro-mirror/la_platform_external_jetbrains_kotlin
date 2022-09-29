@@ -42,12 +42,12 @@ fun test(i: Inv<Nothing>, iUnit: Inv<Unit>) {
     }
     launch {
         @Suppress("UNSUPPORTED")
-        run<dynamic> <!ARGUMENT_TYPE_MISMATCH!>{ "" }<!>
+        run<dynamic> { "" }
     }
 
     if (iUnit is String) {
         launch {
-            run(A.flexible(iUnit)) { 42 }
+            run(A.<!INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION!>flexible<!>(iUnit)) { 42 }
         }
     }
 }

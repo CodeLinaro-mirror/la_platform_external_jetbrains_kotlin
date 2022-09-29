@@ -253,7 +253,7 @@ public class TokenStream {
 
         LAST_TOKEN  = 147,
         NUMBER_INT  = 148,
-    
+
         // This value is only used as a return value for getTokenHelper,
         // which is only called from getToken and exists to avoid an excessive
         // recursion problem if a number of lines in a row are comments.
@@ -532,13 +532,15 @@ public class TokenStream {
     }
 
     public int peekToken() throws IOException {
-        int result = getToken();
+        return peekTokenHelper(getToken());
+    }
 
-        this.pushbackToken = result;
+    private int peekTokenHelper(int token) throws IOException {
+        this.pushbackToken = token;
         lastPosition = secondToLastPosition;
         lastTokenPosition = tokenPosition;
         tokenno--;
-        return result;
+        return token;
     }
 
     public int peekTokenSameLine() throws IOException {
@@ -584,6 +586,10 @@ public class TokenStream {
         int c;
         while ((c = in.read()) != EOF_CHAR && c != '\n') { }
         in.unread();
+    }
+
+    public void collectCommentsAfter() throws IOException {
+        ungetToken(getToken());
     }
 
     public int getToken() throws IOException {
@@ -1059,18 +1065,24 @@ public class TokenStream {
         case '/':
             // is it a // comment?
             if (in.match('/')) {
-                skipLine();
+                stringBufferTop = 0;
+                while ((c = in.read()) != -1 && c != '\n') {
+                    addToString(c);
+                }
+                addCommentToQueue(new Comment(getStringFromBuffer(), false));
                 return RETRY_TOKEN;
             }
             if (in.match('*')) {
+                stringBufferTop = 0;
                 while ((c = in.read()) != -1 &&
                        !(c == '*' && in.match('/'))) {
-                    ; // empty loop body
+                    addToString(c);
                 }
                 if (c == EOF_CHAR) {
                     reportTokenError("msg.unterminated.comment", null);
                     return ERROR;
                 }
+                addCommentToQueue(new Comment(getStringFromBuffer(), true));
                 return RETRY_TOKEN;  // `goto retry'
             }
 
@@ -1454,6 +1466,17 @@ public class TokenStream {
         }
     }
 
+    private void addCommentToQueue(Comment comment) {
+        if (headComment == null) {
+            headComment = comment;
+            lastComment = comment;
+        }
+        else {
+            lastComment.setNext(comment);
+            lastComment = comment;
+        }
+    }
+
     public String getSourceName() { return sourceName; }
     public int getLineno() { return in.getLineno(); }
     public int getOp() { return op; }
@@ -1463,6 +1486,15 @@ public class TokenStream {
     public int getOffset() { return in.getOffset(); }
     public int getTokenno() { return tokenno; }
     public boolean eof() { return in.eof(); }
+
+    public Comment getHeadComment() {
+        return headComment;
+    }
+
+    public void releaseComments() {
+        headComment = null;
+        lastComment = null;
+    }
 
     // instance variables
     private LineBuffer in;
@@ -1483,6 +1515,9 @@ public class TokenStream {
     CodePosition lastPosition;
     CodePosition tokenPosition;
     CodePosition lastTokenPosition;
+
+    private Comment headComment;
+    private Comment lastComment;
 
     private int op;
     public boolean treatKeywordAsIdentifier;

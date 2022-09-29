@@ -12,6 +12,11 @@ abstract class AbstractIrCodegenBoxWasmTest : BasicWasmBoxTest(
     "codegen/wasmBox/"
 )
 
+abstract class AbstractIrCodegenBoxInlineWasmTest : BasicWasmBoxTest(
+    "compiler/testData/codegen/boxInline/",
+    "codegen/wasmBoxInline/"
+)
+
 abstract class AbstractIrCodegenWasmJsInteropWasmTest : BasicWasmBoxTest(
     "compiler/testData/codegen/wasmJsInterop",
     "codegen/wasmJsInteropJs"
@@ -20,4 +25,10 @@ abstract class AbstractIrCodegenWasmJsInteropWasmTest : BasicWasmBoxTest(
 abstract class AbstractJsTranslatorWasmTest : BasicWasmBoxTest(
     TEST_DATA_DIR_PATH + "box/",
     "js.translator/wasmBox"
+)
+
+abstract class AbstractJsTranslatorUnitWasmTest : BasicWasmBoxTest(
+    TEST_DATA_DIR_PATH + "box/",
+    "js.translator/wasmBox",
+    startUnitTests = true
 )

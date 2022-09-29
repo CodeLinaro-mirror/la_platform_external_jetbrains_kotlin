@@ -12,7 +12,7 @@ dependencies {
     compileOnly(project(":compiler:fir:checkers"))
     compileOnly(project(":compiler:fir:fir2ir"))
     compileOnly(project(":compiler:ir.backend.common"))
-    compileOnly(project(":compiler:ir.tree.impl"))
+    compileOnly(project(":compiler:ir.tree"))
     compileOnly(project(":compiler:fir:entrypoint"))
     compileOnly(project(":compiler:plugin-api"))
     compileOnly(intellijCore())
@@ -24,6 +24,7 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
+    testApi(project(":compiler:fir:checkers:checkers.js"))
 
     testCompileOnly(project(":kotlin-reflect-api"))
     testRuntimeOnly(project(":kotlin-reflect"))
@@ -61,9 +62,6 @@ projectTest(parallel = true, jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
-    jvmArgs!!.removeIf { it.contains("-Xmx") }
-    maxHeapSize = "3g"
-    dependsOn(":plugins:fir-plugin-prototype:plugin-annotations:jar")
-}
+}.also { confugureFirPluginAnnotationsDependency(it) }
 
 testsJar()

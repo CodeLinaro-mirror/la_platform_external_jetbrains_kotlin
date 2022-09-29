@@ -5,18 +5,16 @@
 
 package org.jetbrains.kotlin.analysis.api.components
 
-import org.jetbrains.kotlin.analysis.api.KtSymbolBasedReference
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.idea.references.KtReference
 
 public interface KtReferenceResolveMixIn : KtAnalysisSessionMixIn {
-    public fun KtReference.resolveToSymbols(): Collection<KtSymbol> {
-        check(this is KtSymbolBasedReference) { "To get reference symbol the one should be KtSymbolBasedReference" }
-        return analysisSession.resolveToSymbols()
+    public fun KtReference.resolveToSymbols(): Collection<KtSymbol> = withValidityAssertion {
+        return analysisSession.referenceResolveProvider.resolveToSymbols(this)
     }
 
-    public fun KtReference.resolveToSymbol(): KtSymbol? {
-        check(this is KtSymbolBasedReference) { "To get reference symbol the one should be KtSymbolBasedReference but was ${this::class}" }
+    public fun KtReference.resolveToSymbol(): KtSymbol? = withValidityAssertion {
         return resolveToSymbols().singleOrNull()
     }
 }

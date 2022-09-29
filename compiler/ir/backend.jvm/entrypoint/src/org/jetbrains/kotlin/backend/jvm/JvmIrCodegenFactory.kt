@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContextImpl
 import org.jetbrains.kotlin.backend.common.phaser.CompilerPhase
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
-import org.jetbrains.kotlin.backend.common.phaser.then
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IrIntrinsicMethods
 import org.jetbrains.kotlin.backend.jvm.ir.getIoFile
@@ -46,9 +45,10 @@ import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorForNotFoun
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
 import org.jetbrains.kotlin.psi2ir.generators.fragments.EvaluatorFragmentInfo
 import org.jetbrains.kotlin.psi2ir.generators.fragments.FragmentContext
-import org.jetbrains.kotlin.psi2ir.generators.generateTypicalIrProviderList
 import org.jetbrains.kotlin.psi2ir.preprocessing.SourceDeclarationsPreprocessor
 import org.jetbrains.kotlin.resolve.CleanableBindingContext
+import org.jetbrains.kotlin.utils.IDEAPlatforms
+import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
 
 open class JvmIrCodegenFactory(
     configuration: CompilerConfiguration,
@@ -56,16 +56,37 @@ open class JvmIrCodegenFactory(
     private val externalMangler: JvmDescriptorMangler? = null,
     private val externalSymbolTable: SymbolTable? = null,
     private val jvmGeneratorExtensions: JvmGeneratorExtensionsImpl = JvmGeneratorExtensionsImpl(configuration),
-    private val prefixPhases: CompilerPhase<JvmBackendContext, IrModuleFragment, IrModuleFragment>? = null,
     private val evaluatorFragmentInfoForPsi2Ir: EvaluatorFragmentInfo? = null,
     private val shouldStubAndNotLinkUnboundSymbols: Boolean = false,
 ) : CodegenFactory {
+
+    @IDEAPluginsCompatibilityAPI(IDEAPlatforms._221, message = "Please migrate to the other constructor", plugins = "Android Studio")
+    constructor(
+        configuration: CompilerConfiguration,
+        phaseConfig: PhaseConfig?,
+        externalMangler: JvmDescriptorMangler? = null,
+        externalSymbolTable: SymbolTable? = null,
+        jvmGeneratorExtensions: JvmGeneratorExtensionsImpl = JvmGeneratorExtensionsImpl(configuration),
+        @Suppress("UNUSED_PARAMETER")
+        prefixPhases: CompilerPhase<JvmBackendContext, IrModuleFragment, IrModuleFragment>? = null,
+        evaluatorFragmentInfoForPsi2Ir: EvaluatorFragmentInfo? = null,
+        shouldStubAndNotLinkUnboundSymbols: Boolean = false,
+    ) : this(
+        configuration,
+        phaseConfig,
+        externalMangler,
+        externalSymbolTable,
+        jvmGeneratorExtensions,
+        evaluatorFragmentInfoForPsi2Ir,
+        shouldStubAndNotLinkUnboundSymbols
+    )
+
     data class JvmIrBackendInput(
         val irModuleFragment: IrModuleFragment,
         val symbolTable: SymbolTable,
         val phaseConfig: PhaseConfig?,
         val irProviders: List<IrProvider>,
-        val extensions: JvmGeneratorExtensionsImpl,
+        val extensions: JvmGeneratorExtensions,
         val backendExtension: JvmBackendExtension,
         val notifyCodegenStart: () -> Unit
     ) : CodegenFactory.BackendInput
@@ -207,10 +228,7 @@ open class JvmIrCodegenFactory(
         // We need to compile all files we reference in Klibs
         irModuleFragment.files.addAll(dependencies.flatMap { it.files })
 
-        if (!input.configuration.getBoolean(JVMConfigurationKeys.DO_NOT_CLEAR_BINDING_CONTEXT) && !input.configuration.getBoolean(
-                JVMConfigurationKeys.USE_KAPT_WITH_JVM_IR
-            )
-        ) {
+        if (!input.configuration.getBoolean(JVMConfigurationKeys.DO_NOT_CLEAR_BINDING_CONTEXT)) {
             val originalBindingContext = input.bindingContext as? CleanableBindingContext
                 ?: error("BindingContext should be cleanable in JVM IR to avoid leaking memory: ${input.bindingContext}")
             originalBindingContext.clear()
@@ -258,11 +276,14 @@ open class JvmIrCodegenFactory(
         )
             JvmIrSerializerImpl(state.configuration)
         else null
-        val phases = prefixPhases?.then(jvmLoweringPhases) ?: jvmLoweringPhases
+        val phases = if (evaluatorFragmentInfoForPsi2Ir != null) jvmFragmentLoweringPhases else jvmLoweringPhases
         val phaseConfig = customPhaseConfig ?: PhaseConfig(phases)
         val context = JvmBackendContext(
             state, irModuleFragment.irBuiltins, irModuleFragment, symbolTable, phaseConfig, extensions, backendExtension, irSerializer,
         )
+        if (evaluatorFragmentInfoForPsi2Ir != null) {
+            context.localDeclarationsLoweringData = mutableMapOf()
+        }
         val intrinsics by lazy { IrIntrinsicMethods(irModuleFragment.irBuiltins, context.ir.symbols) }
         context.getIntrinsic = { symbol: IrFunctionSymbol -> intrinsics.getIntrinsic(symbol) }
         /* JvmBackendContext creates new unbound symbols, have to resolve them. */
@@ -292,26 +313,14 @@ open class JvmIrCodegenFactory(
         state: GenerationState,
         irModuleFragment: IrModuleFragment,
         symbolTable: SymbolTable,
-        extensions: JvmGeneratorExtensionsImpl,
+        irProviders: List<IrProvider>,
+        extensions: JvmGeneratorExtensions,
         backendExtension: JvmBackendExtension,
         notifyCodegenStart: () -> Unit = {}
     ) {
-        val irProviders = configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(irModuleFragment, symbolTable, extensions)
         generateModule(
             state,
             JvmIrBackendInput(irModuleFragment, symbolTable, phaseConfig, irProviders, extensions, backendExtension, notifyCodegenStart)
-        )
-    }
-
-    fun configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(
-        irModuleFragment: IrModuleFragment,
-        symbolTable: SymbolTable,
-        extensions: JvmGeneratorExtensionsImpl,
-    ): List<IrProvider> {
-        return generateTypicalIrProviderList(
-            irModuleFragment.descriptor, irModuleFragment.irBuiltins, symbolTable,
-            DescriptorByIdSignatureFinderImpl(irModuleFragment.descriptor, JvmDescriptorMangler(null)),
-            extensions = extensions
         )
     }
 }

@@ -44,6 +44,7 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.TransformData
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
 import org.jetbrains.kotlin.types.AbstractTypeChecker
@@ -636,7 +637,8 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
             }
             !assignIsSuccessful && operatorIsSuccessful -> chooseOperator()
             assignIsSuccessful && !operatorIsSuccessful -> chooseAssign()
-            assignIsSuccessful && operatorIsSuccessful && !operatorReturnTypeMatches -> chooseAssign()
+            leftArgument.typeRef.coneType is ConeDynamicType -> chooseAssign()
+            !operatorReturnTypeMatches -> chooseAssign()
             else -> reportAmbiguity()
         }
     }
@@ -787,6 +789,7 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
             return checkNotNullCall
         }
 
+        dataFlowAnalyzer.enterCall()
         checkNotNullCall.argumentList.transformArguments(transformer, ResolutionMode.ContextDependent)
         checkNotNullCall.transformAnnotations(transformer, ResolutionMode.ContextIndependent)
 
@@ -875,22 +878,24 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
 
         transformedLHS?.let { callableReferenceAccess.replaceExplicitReceiver(transformedLHS) }
 
-        if (data !is ResolutionMode.ContextDependent /* ContextDependentDelegate is Ok here */) {
-            val resolvedReference =
+        return when (data) {
+            is ResolutionMode.ContextDependent -> {
+                context.storeCallableReferenceContext(callableReferenceAccess)
+                callableReferenceAccess
+            }
+
+            else -> {
                 components.syntheticCallGenerator.resolveCallableReferenceWithSyntheticOuterCall(
                     callableReferenceAccess, data.expectedType, resolutionContext,
                 ) ?: callableReferenceAccess
-            dataFlowAnalyzer.exitCallableReference(resolvedReference)
-            return resolvedReference
+            }
+        }.also {
+            dataFlowAnalyzer.exitCallableReference(it)
         }
-
-        context.storeCallableReferenceContext(callableReferenceAccess)
-
-        dataFlowAnalyzer.exitCallableReference(callableReferenceAccess)
-        return callableReferenceAccess
     }
 
     override fun transformGetClassCall(getClassCall: FirGetClassCall, data: ResolutionMode): FirStatement {
+        getClassCall.transformAnnotations(transformer, ResolutionMode.ContextIndependent)
         val arg = getClassCall.argument
         val dataForLhs = if (arg is FirConstExpression<*>) {
             withExpectedType(arg.typeRef.resolvedTypeFromPrototype(arg.kind.expectedConeType(session)))
@@ -1018,15 +1023,17 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: ResolutionMode): FirStatement {
         if (annotationCall.resolved) return annotationCall
         annotationCall.transformAnnotationTypeRef(transformer, ResolutionMode.ContextIndependent)
-        return withFirArrayOfCallTransformer {
-            dataFlowAnalyzer.enterAnnotation(annotationCall)
-            val result = callResolver.resolveAnnotationCall(annotationCall)
-            dataFlowAnalyzer.exitAnnotation(result ?: annotationCall)
-            if (result == null) return annotationCall
-            callCompleter.completeCall(result, noExpectedType)
-            // TODO: FirBlackBoxCodegenTestGenerated.Annotations.testDelegatedPropertySetter, it fails with hard cast
-            (result.argumentList as? FirResolvedArgumentList)?.let { annotationCall.replaceArgumentMapping((it).toAnnotationArgumentMapping()) }
-            annotationCall
+        return context.forAnnotation {
+            withFirArrayOfCallTransformer {
+                dataFlowAnalyzer.enterAnnotation(annotationCall)
+                val result = callResolver.resolveAnnotationCall(annotationCall)
+                dataFlowAnalyzer.exitAnnotation(result ?: annotationCall)
+                if (result == null) return annotationCall
+                callCompleter.completeCall(result, noExpectedType)
+                // TODO: FirBlackBoxCodegenTestGenerated.Annotations.testDelegatedPropertySetter, it fails with hard cast
+                (result.argumentList as? FirResolvedArgumentList)?.let { annotationCall.replaceArgumentMapping((it).toAnnotationArgumentMapping()) }
+                annotationCall
+            }
         }
     }
 
@@ -1186,12 +1193,6 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
         val assignCallReference = resolvedAssignCall.calleeReference as? FirNamedReferenceWithCandidate
         val assignIsSuccessful = assignCallReference?.isError == false
 
-        // <array>.set(<index_i>, <array>.get(<index_i>).plus(c))
-        val info = tryResolveAugmentedArraySetCallAsSetGetBlock(augmentedArraySetCall, transformedLhsCall, transformedRhs)
-        val resolvedOperatorCall = info.operatorCall
-        val operatorCallReference = resolvedOperatorCall.calleeReference as? FirNamedReferenceWithCandidate
-        val operatorIsSuccessful = operatorCallReference?.isError == false
-
         fun completeAssignCall() {
             dataFlowAnalyzer.enterFunctionCall(resolvedAssignCall)
             callCompleter.completeCall(resolvedAssignCall, noExpectedType)
@@ -1202,6 +1203,17 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
             completeAssignCall()
             return resolvedAssignCall
         }
+
+        // prefer a "simpler" variant for dynamics
+        if (transformedLhsCall.calleeReference.resolvedSymbol?.origin == FirDeclarationOrigin.DynamicScope) {
+            return chooseAssign()
+        }
+
+        // <array>.set(<index_i>, <array>.get(<index_i>).plus(c))
+        val info = tryResolveAugmentedArraySetCallAsSetGetBlock(augmentedArraySetCall, transformedLhsCall, transformedRhs)
+        val resolvedOperatorCall = info.operatorCall
+        val operatorCallReference = resolvedOperatorCall.calleeReference as? FirNamedReferenceWithCandidate
+        val operatorIsSuccessful = operatorCallReference?.isError == false
 
         // if `plus` call already inapplicable then there is no need to try to resolve `set` call
         if (assignIsSuccessful && !operatorIsSuccessful) {
@@ -1303,7 +1315,7 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
         val arrayVariable = generateTemporaryVariable(
             session.moduleData,
             source = lhsGetCall.explicitReceiver?.source?.fakeElement(KtFakeSourceElementKind.DesugaredCompoundAssignment),
-            specialName = "<array>",
+            name = SpecialNames.ARRAY,
             initializer = lhsGetCall.explicitReceiver ?: buildErrorExpression {
                 source = augmentedArraySetCall.source
                     ?.fakeElement(KtFakeSourceElementKind.DesugaredCompoundAssignment)
@@ -1320,7 +1332,7 @@ open class FirExpressionsResolveTransformer(transformer: FirBodyResolveTransform
             generateTemporaryVariable(
                 session.moduleData,
                 source = index.source?.fakeElement(KtFakeSourceElementKind.DesugaredCompoundAssignment),
-                specialName = "<index_$i>",
+                name = SpecialNames.subscribeOperatorIndex(i),
                 initializer = index
             )
         }

@@ -121,7 +121,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         val (firstProject, secondProject) = prepareTestProjects(
             "AndroidProject",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42)
+            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
         )
 
         checkBuildCacheRelocation(
@@ -146,7 +146,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         val (firstProject, secondProject) = prepareTestProjects(
             "kapt2/android-dagger",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42)
+            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
         ) {
             it.subProject("app").buildGradle.append("\nkapt.useBuildCache = true")
         }
@@ -171,7 +171,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         val (firstProject, secondProject) = prepareTestProjects(
             "kapt2/android-dagger",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42)
+            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
         ) {
             it.subProject("app").buildGradle.append("\nkapt.useBuildCache = true")
         }
@@ -199,7 +199,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         val (firstProject, secondProject) = prepareTestProjects(
             "AndroidExtensionsProject",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42)
+            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
         ) {
             it.subProject("app").buildGradle.append(
                 """
@@ -335,7 +335,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
     @GradleTest
     fun testKotlinIncrementalCompilation_withGradleClasspathSnapshot(gradleVersion: GradleVersion) {
         checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion, defaultBuildOptions.copy(useGradleClasspathSnapshot = true)) {
-            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt"))
+            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt").toPaths())
         }
     }
 
@@ -343,7 +343,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
     @GradleTest
     fun testKotlinIncrementalCompilation_withICClasspathSnapshot(gradleVersion: GradleVersion) {
         checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion, defaultBuildOptions.copy(useICClasspathSnapshot = true)) {
-            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt"))
+            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt").toPaths())
             assertOutputContains("Incremental compilation with ABI snapshot enabled")
         }
     }

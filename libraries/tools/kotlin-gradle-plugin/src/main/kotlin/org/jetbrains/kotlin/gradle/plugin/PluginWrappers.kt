@@ -9,10 +9,11 @@ import com.android.build.gradle.BaseExtension
 import org.gradle.api.Named
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
+import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.model.ObjectFactory
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
-import org.jetbrains.kotlin.gradle.plugin.internal.MavenPluginConfigurator
-import org.jetbrains.kotlin.gradle.plugin.internal.MavenPluginConfiguratorG6
+import org.jetbrains.kotlin.gradle.plugin.internal.*
+import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessorG6
 import javax.inject.Inject
 
 private const val PLUGIN_VARIANT_NAME = "main"
@@ -125,9 +126,9 @@ open class KotlinPlatformAndroidPlugin : KotlinPlatformImplementationPluginBase(
     override fun addCommonSourceSetToPlatformSourceSet(commonSourceSet: Named, platformProject: Project) {
         val androidExtension = platformProject.extensions.getByName("android") as BaseExtension
         val androidSourceSet = androidExtension.sourceSets.findByName(commonSourceSet.name) ?: return
-        val kotlinSourceSet = androidSourceSet.getConvention(KOTLIN_DSL_NAME) as? KotlinSourceSet
+        val kotlinSourceSet = androidSourceSet.getExtension<SourceDirectorySet>(KOTLIN_DSL_NAME)
             ?: return
-        kotlinSourceSet.kotlin.source(getKotlinSourceDirectorySetSafe(commonSourceSet)!!)
+        kotlinSourceSet.source(getKotlinSourceDirectorySetSafe(commonSourceSet)!!)
     }
 }
 
@@ -142,4 +143,8 @@ private fun Project.registerVariantImplementations() {
     val factories = VariantImplementationFactories.get(gradle)
     factories[MavenPluginConfigurator.MavenPluginConfiguratorVariantFactory::class] =
         MavenPluginConfiguratorG6.Gradle6MavenPluginConfiguratorVariantFactory()
+    factories[JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory::class] =
+        JavaSourceSetsAccessorG6.JavaSourceSetAccessorVariantFactoryG70()
+    factories[BasePluginConfiguration.BasePluginConfigurationVariantFactory::class] =
+        BasePluginConfigurationG6.BasePluginConfigurationVariantFactoryG6()
 }

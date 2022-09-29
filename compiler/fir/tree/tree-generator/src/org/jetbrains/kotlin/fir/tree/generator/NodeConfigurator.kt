@@ -191,11 +191,14 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +field("rhs", expression).withTransform()
         }
 
+        contextReceiverArgumentListOwner.configure {
+            +fieldList("contextReceiverArguments", expression, withReplace = true)
+        }
+
         qualifiedAccess.configure {
             +typeArguments.withTransform()
             +receivers
             +field("source", sourceElementType, nullable = true, withReplace = true)
-            +fieldList("contextReceiverArguments", expressionType, withReplace = true)
         }
 
         propertyAccessExpression.configure {
@@ -458,6 +461,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +field("useSiteTarget", annotationUseSiteTargetType, nullable = true)
             +field("annotationTypeRef", typeRef).withTransform()
             +field("argumentMapping", annotationArgumentMapping, withReplace = true)
+            +typeArguments.withTransform()
         }
 
         annotationCall.configure {
@@ -497,7 +501,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +smartcastStability
         }
 
-        wrappedExpressionWithSmartcastToNull.configure {
+        wrappedExpressionWithSmartcastToNothing.configure {
             withArg("E", expression)
             parentArg(wrappedExpressionWithSmartcast, "E", "E")
             +field("smartcastTypeWithoutNullableNothing", typeRef)
@@ -507,8 +511,8 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             parentArg(wrappedExpressionWithSmartcast, "E", qualifiedAccessExpression)
         }
 
-        expressionWithSmartcastToNull.configure {
-            parentArg(wrappedExpressionWithSmartcastToNull, "E", qualifiedAccessExpression)
+        expressionWithSmartcastToNothing.configure {
+            parentArg(wrappedExpressionWithSmartcastToNothing, "E", qualifiedAccessExpression)
         }
 
         safeCallExpression.configure {
@@ -581,8 +585,8 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             parentArg(wrappedExpressionWithSmartcast, "E", whenSubjectExpression)
         }
 
-        whenSubjectExpressionWithSmartcastToNull.configure {
-            parentArg(wrappedExpressionWithSmartcastToNull, "E", whenSubjectExpression)
+        whenSubjectExpressionWithSmartcastToNothing.configure {
+            parentArg(wrappedExpressionWithSmartcastToNothing, "E", whenSubjectExpression)
         }
 
         wrappedExpression.configure {
@@ -633,6 +637,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         resolvedTypeRef.configure {
             +field("type", coneKotlinTypeType)
             +field("delegatedTypeRef", typeRef, nullable = true)
+            +booleanField("isFromStubType")
         }
 
         typeRefWithNullability.configure {

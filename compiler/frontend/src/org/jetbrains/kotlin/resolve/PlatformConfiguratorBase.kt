@@ -48,8 +48,11 @@ private val DEFAULT_DECLARATION_CHECKERS = listOf(
     SuspendFunctionAsSupertypeChecker,
     EnumCompanionInEnumConstructorCallChecker,
     ContextualDeclarationChecker,
+    SubtypingBetweenContextReceiversChecker,
     ValueParameterUsageInDefaultArgumentChecker,
     CyclicAnnotationsChecker,
+    UnsupportedUntilRangeDeclarationChecker,
+    DataObjectContentChecker,
 )
 
 private val DEFAULT_CALL_CHECKERS = listOf(
@@ -66,8 +69,7 @@ private val DEFAULT_CALL_CHECKERS = listOf(
     UnitConversionCallChecker, FunInterfaceConstructorReferenceChecker, NullableExtensionOperatorWithSafeCallChecker,
     ReferencingToUnderscoreNamedParameterOfCatchBlockChecker, VarargWrongExecutionOrderChecker, SelfCallInNestedObjectConstructorChecker,
     NewSchemeOfIntegerOperatorResolutionChecker, EnumEntryVsCompanionPriorityCallChecker, CompanionInParenthesesLHSCallChecker,
-    ResolutionToPrivateConstructorOfSealedClassChecker,
-    EqualityCallChecker,
+    ResolutionToPrivateConstructorOfSealedClassChecker, EqualityCallChecker, UnsupportedUntilOperatorChecker
 )
 private val DEFAULT_TYPE_CHECKERS = emptyList<AdditionalTypeChecker>()
 private val DEFAULT_CLASSIFIER_USAGE_CHECKERS = listOf(
@@ -121,7 +123,7 @@ abstract class PlatformConfiguratorBase(
     }
 
     override fun configureModuleDependentCheckers(container: StorageComponentContainer) {
-        container.useImpl<ExperimentalMarkerDeclarationAnnotationChecker>()
+        container.useImpl<OptInMarkerDeclarationAnnotationChecker>()
     }
 
     fun configureExtensionsAndCheckers(container: StorageComponentContainer) {

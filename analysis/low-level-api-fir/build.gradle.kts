@@ -14,9 +14,11 @@ dependencies {
     api(project(":compiler:fir:semantics"))
     api(project(":compiler:fir:checkers"))
     api(project(":compiler:fir:checkers:checkers.jvm"))
+    api(project(":compiler:fir:checkers:checkers.js"))
     api(project(":compiler:fir:java"))
     api(project(":compiler:backend.common.jvm"))
     api(project(":analysis:analysis-api-impl-barebone"))
+    api(project(":js:js.config"))
     testApi(project(":analysis:analysis-api-fir"))
     implementation(project(":compiler:frontend.common"))
     implementation(project(":compiler:ir.psi2ir"))
@@ -35,12 +37,19 @@ dependencies {
     testApi(projectTests(":compiler:tests-common"))
     testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testApi(projectTests(":analysis:analysis-api-impl-barebone"))
+    testApi(projectTests(":analysis:analysis-test-framework"))
+    testApi(projectTests(":analysis:analysis-api-impl-base"))
     testApi(project(":kotlin-test:kotlin-test-junit"))
     testApiJUnit5()
     testApi(project(":kotlin-reflect"))
     testImplementation(project(":analysis:symbol-light-classes"))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
+
+
+    // We use 'api' instead of 'implementation' because other modules might be using these jars indirectly
+    testApi(project(":plugins:fir-plugin-prototype"))
+    testApi(projectTests(":plugins:fir-plugin-prototype"))
 }
 
 sourceSets {

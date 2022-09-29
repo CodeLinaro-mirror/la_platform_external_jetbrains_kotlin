@@ -6,11 +6,13 @@
 package org.jetbrains.kotlin.analysis.api
 
 import org.jetbrains.kotlin.analysis.api.components.*
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolProvider
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolProviderMixIn
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 
@@ -26,7 +28,8 @@ import org.jetbrains.kotlin.psi.KtFile
  *
  * To create analysis session consider using [analyse]
  */
-public abstract class KtAnalysisSession(final override val token: ValidityToken) : ValidityTokenOwner,
+@Suppress("AnalysisApiMissingLifetimeCheck")
+public abstract class KtAnalysisSession(final override val token: KtLifetimeToken) : KtLifetimeOwner,
     KtSmartCastProviderMixIn,
     KtCallResolverMixIn,
     KtSamResolverMixIn,
@@ -53,7 +56,12 @@ public abstract class KtAnalysisSession(final override val token: ValidityToken)
     KtVisibilityCheckerMixIn,
     KtMemberSymbolProviderMixin,
     KtInheritorsProviderMixIn,
-    KtTypeCreatorMixIn {
+    KtTypeCreatorMixIn,
+    KtAnalysisScopeProviderMixIn,
+    KtSignatureSubstitutorMixIn,
+    KtScopeSubstitutionMixIn {
+
+    public abstract val useSiteModule: KtModule
 
     override val analysisSession: KtAnalysisSession get() = this
 
@@ -130,6 +138,23 @@ public abstract class KtAnalysisSession(final override val token: ValidityToken)
 
     internal val symbolInfoProvider: KtSymbolInfoProvider get() = symbolInfoProviderImpl
     protected abstract val symbolInfoProviderImpl: KtSymbolInfoProvider
+
+    internal val analysisScopeProvider: KtAnalysisScopeProvider get() = analysisScopeProviderImpl
+    protected abstract val analysisScopeProviderImpl: KtAnalysisScopeProvider
+
+    internal val referenceResolveProvider: KtReferenceResolveProvider get() = referenceResolveProviderImpl
+    protected abstract val referenceResolveProviderImpl: KtReferenceResolveProvider
+
+    internal val signatureSubstitutor: KtSignatureSubstitutor get() = signatureSubstitutorImpl
+    protected abstract val signatureSubstitutorImpl: KtSignatureSubstitutor
+
+    internal val scopeSubstitution: KtScopeSubstitution get() = scopeSubstitutionImpl
+    protected abstract val scopeSubstitutionImpl: KtScopeSubstitution
+
+    @KtAnalysisApiInternals
+    public val substitutorFactory: KtSubstitutorFactory get() = substitutorFactoryImpl
+    protected abstract val substitutorFactoryImpl: KtSubstitutorFactory
+
 
     @PublishedApi
     internal val typesCreator: KtTypeCreator

@@ -1063,6 +1063,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val name: String
     }
 
+    abstract class NameForAmbiguousParameter : KtFirDiagnostic<KtValueArgument>() {
+        override val diagnosticClass get() = NameForAmbiguousParameter::class
+    }
+
     abstract class AssignmentTypeMismatch : KtFirDiagnostic<KtExpression>() {
         override val diagnosticClass get() = AssignmentTypeMismatch::class
         abstract val expectedType: KtType
@@ -1405,6 +1409,22 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         abstract val kotlinClass: FqName
     }
 
+    abstract class InferredTypeVariableIntoEmptyIntersection : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = InferredTypeVariableIntoEmptyIntersection::class
+        abstract val typeVariableDescription: String
+        abstract val incompatibleTypes: List<KtType>
+        abstract val description: String
+        abstract val causingTypes: String
+    }
+
+    abstract class InferredTypeVariableIntoPossibleEmptyIntersection : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = InferredTypeVariableIntoPossibleEmptyIntersection::class
+        abstract val typeVariableDescription: String
+        abstract val incompatibleTypes: List<KtType>
+        abstract val description: String
+        abstract val causingTypes: String
+    }
+
     abstract class ExtensionInClassReferenceNotAllowed : KtFirDiagnostic<KtExpression>() {
         override val diagnosticClass get() = ExtensionInClassReferenceNotAllowed::class
         abstract val referencedDeclaration: KtCallableSymbol
@@ -1707,6 +1727,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class TailRecursionInTryIsNotSupported : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = TailRecursionInTryIsNotSupported::class
+    }
+
+    abstract class DataObjectCustomEqualsOrHashCode : KtFirDiagnostic<KtNamedFunction>() {
+        override val diagnosticClass get() = DataObjectCustomEqualsOrHashCode::class
     }
 
     abstract class FunInterfaceConstructorReference : KtFirDiagnostic<KtExpression>() {
@@ -2166,6 +2190,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class SenselessNullInWhen : KtFirDiagnostic<KtElement>() {
         override val diagnosticClass get() = SenselessNullInWhen::class
+    }
+
+    abstract class TypecheckerHasRunIntoRecursiveProblem : KtFirDiagnostic<KtExpression>() {
+        override val diagnosticClass get() = TypecheckerHasRunIntoRecursiveProblem::class
     }
 
     abstract class UnsafeCall : KtFirDiagnostic<PsiElement>() {
@@ -2699,6 +2727,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = ModifierFormForNonBuiltInSuspend::class
     }
 
+    abstract class ModifierFormForNonBuiltInSuspendFunError : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = ModifierFormForNonBuiltInSuspendFunError::class
+    }
+
+    abstract class ModifierFormForNonBuiltInSuspendFunWarning : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = ModifierFormForNonBuiltInSuspendFunWarning::class
+    }
+
     abstract class ReturnForBuiltInSuspend : KtFirDiagnostic<KtReturnExpression>() {
         override val diagnosticClass get() = ReturnForBuiltInSuspend::class
     }
@@ -2787,6 +2823,14 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class SynchronizedOnInline : KtFirDiagnostic<KtAnnotationEntry>() {
         override val diagnosticClass get() = SynchronizedOnInline::class
+    }
+
+    abstract class SynchronizedOnSuspendError : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = SynchronizedOnSuspendError::class
+    }
+
+    abstract class SynchronizedOnSuspendWarning : KtFirDiagnostic<KtAnnotationEntry>() {
+        override val diagnosticClass get() = SynchronizedOnSuspendWarning::class
     }
 
     abstract class OverloadsWithoutDefaultArguments : KtFirDiagnostic<KtAnnotationEntry>() {
@@ -3064,6 +3108,10 @@ sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI> {
 
     abstract class JavaSamInterfaceConstructorReference : KtFirDiagnostic<PsiElement>() {
         override val diagnosticClass get() = JavaSamInterfaceConstructorReference::class
+    }
+
+    abstract class Syntax : KtFirDiagnostic<PsiElement>() {
+        override val diagnosticClass get() = Syntax::class
     }
 
 }

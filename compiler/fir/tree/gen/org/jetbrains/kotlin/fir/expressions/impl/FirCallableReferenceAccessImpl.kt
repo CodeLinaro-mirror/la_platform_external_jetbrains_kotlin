@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.impl
 
 import org.jetbrains.kotlin.KtSourceElement
@@ -25,17 +27,18 @@ internal class FirCallableReferenceAccessImpl(
     override var source: KtSourceElement?,
     override var typeRef: FirTypeRef,
     override val annotations: MutableList<FirAnnotation>,
+    override val contextReceiverArguments: MutableList<FirExpression>,
     override val typeArguments: MutableList<FirTypeProjection>,
     override var explicitReceiver: FirExpression?,
     override var dispatchReceiver: FirExpression,
     override var extensionReceiver: FirExpression,
-    override val contextReceiverArguments: MutableList<FirExpression>,
     override var calleeReference: FirNamedReference,
     override var hasQuestionMarkAtLHS: Boolean,
 ) : FirCallableReferenceAccess() {
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         typeRef.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
+        contextReceiverArguments.forEach { it.accept(visitor, data) }
         typeArguments.forEach { it.accept(visitor, data) }
         explicitReceiver?.accept(visitor, data)
         if (dispatchReceiver !== explicitReceiver) {
@@ -50,6 +53,7 @@ internal class FirCallableReferenceAccessImpl(
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirCallableReferenceAccessImpl {
         typeRef = typeRef.transform(transformer, data)
         transformAnnotations(transformer, data)
+        contextReceiverArguments.transformInplace(transformer, data)
         transformTypeArguments(transformer, data)
         explicitReceiver = explicitReceiver?.transform(transformer, data)
         if (dispatchReceiver !== explicitReceiver) {
@@ -101,6 +105,11 @@ internal class FirCallableReferenceAccessImpl(
         typeRef = newTypeRef
     }
 
+    override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>) {
+        contextReceiverArguments.clear()
+        contextReceiverArguments.addAll(newContextReceiverArguments)
+    }
+
     override fun replaceTypeArguments(newTypeArguments: List<FirTypeProjection>) {
         typeArguments.clear()
         typeArguments.addAll(newTypeArguments)
@@ -108,11 +117,6 @@ internal class FirCallableReferenceAccessImpl(
 
     override fun replaceExplicitReceiver(newExplicitReceiver: FirExpression?) {
         explicitReceiver = newExplicitReceiver
-    }
-
-    override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>) {
-        contextReceiverArguments.clear()
-        contextReceiverArguments.addAll(newContextReceiverArguments)
     }
 
     override fun replaceCalleeReference(newCalleeReference: FirNamedReference) {

@@ -5,10 +5,18 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest.support.settings
 
+import org.jetbrains.kotlin.konan.blackboxtest.support.TestKind
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.LocalTestRunner
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.NoopTestRunner
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.Runner
+import org.jetbrains.kotlin.konan.properties.resolvablePropertyList
+import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import java.io.File
 import java.util.*
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The tested and the host Kotlin/Native targets.
@@ -53,6 +61,22 @@ internal enum class TestMode(private val description: String) {
 }
 
 /**
+ * Whether to force [TestKind.STANDALONE] for all tests where [TestKind] is assumed to be [TestKind.REGULAR] otherwise:
+ * - either explicitly specified in the test data file: // KIND: REGULAR
+ * - or // KIND: is not specified in the test data file and thus automatically considered as [TestKind.REGULAR]
+ */
+@JvmInline
+internal value class ForcedStandaloneTestKind(val value: Boolean)
+
+/**
+ * Whether tests should be compiled only (true) or compiled and executed (false, the default).
+ *
+ * TODO: need to reconsider this setting when other [Runner]s than [LocalTestRunner] and [NoopTestRunner] are supported
+ */
+@JvmInline
+internal value class ForcedNoopTestRunner(val value: Boolean)
+
+/**
  * Optimization mode to be applied.
  */
 internal enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
@@ -67,7 +91,10 @@ internal enum class OptimizationMode(private val description: String, val compil
  * The Kotlin/Native memory model.
  */
 internal enum class MemoryModel(val compilerFlags: List<String>?) {
-    DEFAULT(null),
+    /**
+     * but it should be done at some point.
+     */
+    LEGACY(listOf("-memory-model", "strict")),
     EXPERIMENTAL(listOf("-memory-model", "experimental"));
 
     override fun toString() = compilerFlags?.joinToString(prefix = "(", separator = " ", postfix = ")").orEmpty()
@@ -113,7 +140,11 @@ internal class BaseDirs(val testBuildDir: File)
 /**
  * Timeouts.
  */
-internal class Timeouts(val executionTimeout: Duration)
+internal class Timeouts(val executionTimeout: Duration) {
+    companion object {
+        val DEFAULT_EXECUTION_TIMEOUT: Duration get() = 15.seconds
+    }
+}
 
 /**
  * Used cache mode.
@@ -128,20 +159,24 @@ internal sealed interface CacheMode {
     }
 
     class WithStaticCache(
-        kotlinNativeHome: KotlinNativeHome,
+        distribution: Distribution,
         kotlinNativeTargets: KotlinNativeTargets,
         optimizationMode: OptimizationMode,
         override val staticCacheRequiredForEveryLibrary: Boolean
     ) : CacheMode {
-        override val staticCacheRootDir: File? = kotlinNativeHome.dir
-            .resolve("klib/cache")
+        override val staticCacheRootDir: File = File(distribution.klib)
+            .resolve("cache")
             .resolve(
                 computeCacheDirName(
                     testTarget = kotlinNativeTargets.testTarget,
                     cacheKind = CACHE_KIND,
                     debuggable = optimizationMode == OptimizationMode.DEBUG
                 )
-            ).takeIf { it.exists() }
+            ).also { rootCacheDir ->
+                assertTrue(rootCacheDir.exists()) { "The root cache directory is not found: $rootCacheDir" }
+                assertTrue(rootCacheDir.isDirectory) { "The root cache directory is not a directory: $rootCacheDir" }
+                assertTrue(rootCacheDir.list().orEmpty().isNotEmpty()) { "The root cache directory is empty: $rootCacheDir" }
+            }
 
         companion object {
             private const val CACHE_KIND = "STATIC"
@@ -151,6 +186,15 @@ internal sealed interface CacheMode {
     enum class Alias { NO, STATIC_ONLY_DIST, STATIC_EVERYWHERE }
 
     companion object {
+        fun defaultForTestTarget(distribution: Distribution, kotlinNativeTargets: KotlinNativeTargets): Alias {
+            val cacheableTargets = distribution.properties
+                .resolvablePropertyList("cacheableTargets", kotlinNativeTargets.hostTarget.name)
+                .map { KonanTarget.predefinedTargets.getValue(it) }
+                .toSet()
+
+            return if (kotlinNativeTargets.testTarget in cacheableTargets) Alias.STATIC_ONLY_DIST else Alias.NO
+        }
+
         private fun computeCacheDirName(testTarget: KonanTarget, cacheKind: String, debuggable: Boolean) =
             "$testTarget${if (debuggable) "-g" else ""}$cacheKind"
     }

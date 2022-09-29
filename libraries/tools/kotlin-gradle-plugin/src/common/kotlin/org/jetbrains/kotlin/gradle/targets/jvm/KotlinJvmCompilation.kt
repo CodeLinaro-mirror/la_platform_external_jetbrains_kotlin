@@ -6,14 +6,16 @@
 @file:Suppress("PackageDirectoryMismatch") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
+import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
+import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactory
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import javax.inject.Inject
 
-open class KotlinJvmCompilation(
+abstract class KotlinJvmCompilation @Inject constructor(
     compilationDetails: CompilationDetailsWithRuntime<KotlinJvmOptions>,
 ) : AbstractKotlinCompilationToRunnableFiles<KotlinJvmOptions>(compilationDetails), KotlinCompilationWithResources<KotlinJvmOptions> {
     override val target: KotlinJvmTarget get() = compilationDetails.target as KotlinJvmTarget
@@ -31,7 +33,9 @@ open class KotlinJvmCompilation(
     val compileJavaTaskProvider: TaskProvider<out JavaCompile>?
         get() = if (target.withJavaEnabled) {
             val project = target.project
-            val javaSourceSets = project.convention.getPlugin(JavaPluginConvention::class.java).sourceSets
+            val javaSourceSets = project.gradle.variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
+                .getInstance(project)
+                .sourceSets
             val javaSourceSet = javaSourceSets.getByName(compilationPurpose)
             project.tasks.withType(JavaCompile::class.java).named(javaSourceSet.compileJavaTaskName)
         } else null

@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.descriptors.components
 
-import org.jetbrains.kotlin.analysis.api.assertIsValidAndAccessible
 import org.jetbrains.kotlin.analysis.api.components.KtBuiltinTypes
 import org.jetbrains.kotlin.analysis.api.components.KtTypeProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
@@ -28,10 +27,11 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtPossibleMemberSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.nameOrAnonymous
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.assertIsValidAndAccessible
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -62,42 +62,42 @@ internal class KtFe10TypeProvider(
         )
     }
 
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
         get() = analysisSession.token
 
-    override val builtinTypes: KtBuiltinTypes by cached { KtFe10BuiltinTypes(analysisContext) }
+    override val builtinTypes: KtBuiltinTypes by lazy(LazyThreadSafetyMode.PUBLICATION) { KtFe10BuiltinTypes(analysisContext) }
 
-    override fun approximateToSuperPublicDenotableType(type: KtType): KtType? = withValidityAssertion {
+    override fun approximateToSuperPublicDenotableType(type: KtType): KtType?  {
         require(type is KtFe10Type)
         return typeApproximator.approximateToSuperType(type.type, PublicApproximatorConfiguration)?.toKtType(analysisContext)
     }
 
-    override fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType = withValidityAssertion {
+    override fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType  {
         val kotlinType = (getSymbolDescriptor(symbol) as? ClassDescriptor)?.defaultType
             ?: ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_CLASS_TYPE, symbol.nameOrAnonymous.toString())
 
         return kotlinType.toKtType(analysisContext)
     }
 
-    override fun commonSuperType(types: Collection<KtType>): KtType = withValidityAssertion {
+    override fun commonSuperType(types: Collection<KtType>): KtType  {
         val kotlinTypes = types.map { (it as KtFe10Type).type }
         return CommonSupertypes.commonSupertype(kotlinTypes).toKtType(analysisContext)
     }
 
-    override fun getKtType(ktTypeReference: KtTypeReference): KtType = withValidityAssertion {
+    override fun getKtType(ktTypeReference: KtTypeReference): KtType  {
         val bindingContext = analysisContext.analyze(ktTypeReference, AnalysisMode.PARTIAL)
         val kotlinType = bindingContext[BindingContext.TYPE, ktTypeReference]
             ?: ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_TYPE, ktTypeReference.text)
         return kotlinType.toKtType(analysisContext)
     }
 
-    override fun getReceiverTypeForDoubleColonExpression(expression: KtDoubleColonExpression): KtType? = withValidityAssertion {
+    override fun getReceiverTypeForDoubleColonExpression(expression: KtDoubleColonExpression): KtType?  {
         val bindingContext = analysisContext.analyze(expression, AnalysisMode.PARTIAL)
         val lhs = bindingContext[BindingContext.DOUBLE_COLON_LHS, expression] ?: return null
         return lhs.type.toKtType(analysisContext)
     }
 
-    override fun withNullability(type: KtType, newNullability: KtTypeNullability): KtType = withValidityAssertion {
+    override fun withNullability(type: KtType, newNullability: KtTypeNullability): KtType  {
         require(type is KtFe10Type)
         return type.type.makeNullableAsSpecified(newNullability == KtTypeNullability.NULLABLE).toKtType(analysisContext)
     }
@@ -125,7 +125,6 @@ internal class KtFe10TypeProvider(
     }
 
     override fun getDispatchReceiverType(symbol: KtCallableSymbol): KtType? {
-        assertIsValidAndAccessible()
         require(symbol is KtFe10Symbol)
 
         val descriptor = when (symbol) {
@@ -425,7 +424,7 @@ internal class KtFe10TypeProvider(
 }
 
 private class KtFe10BuiltinTypes(private val analysisContext: Fe10AnalysisContext) : KtBuiltinTypes() {
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
         get() = analysisContext.token
 
     override val INT: KtType

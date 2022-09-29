@@ -6,17 +6,20 @@
 package org.jetbrains.kotlin.konan.blackboxtest.support.runner
 
 import org.jetbrains.kotlin.konan.blackboxtest.support.TestName
+import org.jetbrains.kotlin.konan.blackboxtest.support.settings.ForcedNoopTestRunner
 import org.jetbrains.kotlin.konan.blackboxtest.support.settings.KotlinNativeTargets
 import org.jetbrains.kotlin.konan.blackboxtest.support.settings.Settings
 import org.jetbrains.kotlin.konan.blackboxtest.support.settings.Timeouts
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 
 internal object TestRunners {
-    // Currently, only local test runner is supported.
-    fun createProperTestRunner(testRun: TestRun, settings: Settings): AbstractRunner<*> = with(settings) {
-        with(get<KotlinNativeTargets>()) {
+    // Currently, only local and noop test runners are supported.
+    fun createProperTestRunner(testRun: TestRun, settings: Settings): Runner<Unit> = with(settings) {
+        if (get<ForcedNoopTestRunner>().value) {
+            NoopTestRunner
+        } else with(get<KotlinNativeTargets>()) {
             if (testTarget == hostTarget)
-                LocalTestRunner(testRun, get<Timeouts>().executionTimeout)
+                LocalTestRunner(testRun)
             else
                 runningAtNonHostTarget()
         }
@@ -26,7 +29,7 @@ internal object TestRunners {
     fun extractTestNames(executable: TestExecutable, settings: Settings): Collection<TestName> = with(settings) {
         with(get<KotlinNativeTargets>()) {
             if (testTarget == hostTarget)
-                LocalTestNameExtractor(executable, get<Timeouts>().executionTimeout).run()
+                LocalTestNameExtractor(executable, TestRunChecks.Default(get<Timeouts>().executionTimeout)).run()
             else
                 runningAtNonHostTarget()
         }

@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImp
 import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.resolve.calls.tower.*
 import org.jetbrains.kotlin.types.TypeSubstitutor
+import org.jetbrains.kotlin.types.model.TypeSubstitutorMarker
 import java.util.ArrayList
 
 sealed class ResolutionCandidate : Candidate, KotlinDiagnosticsHolder {
@@ -55,6 +56,8 @@ sealed class ResolutionCandidate : Candidate, KotlinDiagnosticsHolder {
     private var newSystem: NewConstraintSystemImpl? = null
     private var currentApplicability: CandidateApplicability = CandidateApplicability.RESOLVED
 
+    fun getResultingSubstitutor(): TypeSubstitutorMarker? = newSystem?.buildCurrentSubstitutor()
+
     abstract fun getSubResolvedAtoms(): List<ResolvedAtom>
     abstract fun addResolvedKtPrimitive(resolvedAtom: ResolvedAtom)
 
@@ -79,7 +82,8 @@ sealed class ResolutionCandidate : Candidate, KotlinDiagnosticsHolder {
     fun getSystem(): NewConstraintSystem {
         if (newSystem == null) {
             newSystem = NewConstraintSystemImpl(
-                callComponents.constraintInjector, callComponents.builtIns, callComponents.kotlinTypeRefiner
+                callComponents.constraintInjector, callComponents.builtIns,
+                callComponents.kotlinTypeRefiner, callComponents.languageVersionSettings
             )
             if (baseSystem != null) {
                 newSystem!!.addOtherSystem(baseSystem!!)

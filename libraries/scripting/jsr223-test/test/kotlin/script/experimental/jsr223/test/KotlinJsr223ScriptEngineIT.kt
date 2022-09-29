@@ -121,7 +121,7 @@ class KotlinJsr223ScriptEngineIT {
         try {
             engine.eval("java.lang.fish")
             Assert.fail("Script error expected")
-        } catch (e: ScriptException) {}
+        } catch (_: ScriptException) {}
 
         val res1 = engine.eval("val x = 3")
         Assert.assertNull(res1)
@@ -174,26 +174,27 @@ class KotlinJsr223ScriptEngineIT {
     @Test
     fun testInvocable() {
         val engine = ScriptEngineManager().getEngineByExtension("kts")!!
-        val res1 = engine.eval("""
+        val res0 = engine.eval("""
 fun fn(x: Int) = x + 2
 val obj = object {
     fun fn1(x: Int) = x + 3
 }
 obj
 """)
-        Assert.assertNotNull(res1)
+        Assert.assertNotNull(res0)
         val invocator = engine as? Invocable
         Assert.assertNotNull(invocator)
+        val res1 = invocator!!.invokeFunction("fn", 6)
+        Assert.assertEquals(8, res1)
         assertThrows(NoSuchMethodException::class.java) {
-            invocator!!.invokeFunction("fn1", 3)
+            invocator.invokeFunction("fn1", 3)
         }
-        val res2 = invocator!!.invokeFunction("fn", 3)
+        val res2 = invocator.invokeFunction("fn", 3)
         Assert.assertEquals(5, res2)
-        // TODO: fix and restore
-//        assertThrows(NoSuchMethodException::class.java) {
-//            invocator!!.invokeMethod(res1, "fn", 3)
-//        }
-        val res3 = invocator.invokeMethod(res1, "fn1", 3)
+        assertThrows(NoSuchMethodException::class.java) {
+            invocator.invokeMethod(res0, "fn", 3)
+        }
+        val res3 = invocator.invokeMethod(res0, "fn1", 3)
         Assert.assertEquals(6, res3)
     }
 
@@ -212,12 +213,17 @@ obj
     fun testSimpleCompilableWithBindings() {
         val engine = ScriptEngineManager().getEngineByExtension("kts")
         engine.put("z", 33)
-        val comp = (engine as Compilable).compile("val x = 10 + bindings[\"z\"] as Int\nx + 20")
-        val res1 = comp.eval()
+        val comp1 = (engine as Compilable).compile("val x = 10 + bindings[\"z\"] as Int\nx + 20")
+        val comp2 = (engine as Compilable).compile("val x = 10 + z\nx + 20")
+        val res1 = comp1.eval()
         Assert.assertEquals(63, res1)
+        val res12 = comp2.eval()
+        Assert.assertEquals(63, res12)
         engine.put("z", 44)
-        val res2 = comp.eval()
+        val res2 = comp1.eval()
         Assert.assertEquals(74, res2)
+        val res22 = comp2.eval()
+        Assert.assertEquals(74, res22)
     }
 
     @Test
@@ -439,6 +445,18 @@ obj
         } finally {
             tempDir.toFile().deleteRecursively()
         }
+    }
+
+    @Test
+    fun testEvalWithCompilationError() {
+        val engine = ScriptEngineManager().getEngineByExtension("kts")
+        val compilable: Compilable = engine as Compilable
+        assertThrows(ScriptException::class.java) {
+            compilable.compile("foo")
+        }
+        compilable.compile("true")
+        engine.eval("val x = 3")
+        compilable.compile("x")
     }
 }
 

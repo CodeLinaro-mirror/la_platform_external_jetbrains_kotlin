@@ -131,6 +131,16 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             runTest("compiler/testData/psi/CommentsBindingInStatementBlock.kt");
         }
 
+        @TestMetadata("complicateLTGT.kt")
+        public void testComplicateLTGT() throws Exception {
+            runTest("compiler/testData/psi/complicateLTGT.kt");
+        }
+
+        @TestMetadata("complicateLTGTE.kt")
+        public void testComplicateLTGTE() throws Exception {
+            runTest("compiler/testData/psi/complicateLTGTE.kt");
+        }
+
         @TestMetadata("Constructors.kt")
         public void testConstructors() throws Exception {
             runTest("compiler/testData/psi/Constructors.kt");
@@ -1836,6 +1846,44 @@ public class ParsingTestGenerated extends AbstractParsingTest {
             @TestMetadata("spaceBeforeLabelReference.kt")
             public void testSpaceBeforeLabelReference() throws Exception {
                 runTest("compiler/testData/psi/newLabels/spaceBeforeLabelReference.kt");
+            }
+        }
+
+        @TestMetadata("compiler/testData/psi/operators")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class Operators extends AbstractParsingTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doParsingTest, this, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInOperators() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/psi/operators"), Pattern.compile("^(.*)\\.kts?$"), null, true);
+            }
+
+            @TestMetadata("untilOperator.kt")
+            public void testUntilOperator() throws Exception {
+                runTest("compiler/testData/psi/operators/untilOperator.kt");
+            }
+
+            @TestMetadata("untilOperatorDifferentContexts.kt")
+            public void testUntilOperatorDifferentContexts() throws Exception {
+                runTest("compiler/testData/psi/operators/untilOperatorDifferentContexts.kt");
+            }
+
+            @TestMetadata("untilOperatorGenericsClash.kt")
+            public void testUntilOperatorGenericsClash() throws Exception {
+                runTest("compiler/testData/psi/operators/untilOperatorGenericsClash.kt");
+            }
+
+            @TestMetadata("untilOperatorGreater.kt")
+            public void testUntilOperatorGreater() throws Exception {
+                runTest("compiler/testData/psi/operators/untilOperatorGreater.kt");
+            }
+
+            @TestMetadata("untilOperatorWithWhitespace.kt")
+            public void testUntilOperatorWithWhitespace() throws Exception {
+                runTest("compiler/testData/psi/operators/untilOperatorWithWhitespace.kt");
             }
         }
 

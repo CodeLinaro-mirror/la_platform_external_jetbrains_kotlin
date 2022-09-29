@@ -4,6 +4,7 @@
  */
 
 import plugins.KotlinBuildPublishingPlugin.Companion.DEFAULT_MAIN_PUBLICATION_NAME
+import plugins.signLibraryPublication
 
 plugins {
     `java-library`
@@ -12,16 +13,23 @@ plugins {
     `maven-publish`
 }
 
-configureCommonPublicationSettingsForGradle()
+configureCommonPublicationSettingsForGradle(signLibraryPublication)
 configureKotlinCompileTasksGradleCompatibility()
 extensions.extraProperties["kotlin.stdlib.default.dependency"] = "false"
 
 val commonSourceSet = createGradleCommonSourceSet()
 reconfigureMainSourcesSetForGradlePlugin(commonSourceSet)
 
-// Used for Gradle 7.0+ versions
+// Used for Gradle 7.0 version
 createGradlePluginVariant(
     GradlePluginVariant.GRADLE_70,
+    commonSourceSet = commonSourceSet,
+    isGradlePlugin = false
+)
+
+// Used for Gradle 7.1+ versions
+createGradlePluginVariant(
+    GradlePluginVariant.GRADLE_71,
     commonSourceSet = commonSourceSet,
     isGradlePlugin = false
 )

@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.builder
 
 import kotlin.contracts.*
@@ -34,8 +36,8 @@ class FirThisReceiverExpressionBuilder : FirQualifiedAccessBuilder, FirAnnotatio
     override var source: KtSourceElement? = null
     override var typeRef: FirTypeRef = FirImplicitTypeRefImpl(null)
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
-    override val typeArguments: MutableList<FirTypeProjection> = mutableListOf()
     override val contextReceiverArguments: MutableList<FirExpression> = mutableListOf()
+    override val typeArguments: MutableList<FirTypeProjection> = mutableListOf()
     lateinit var calleeReference: FirThisReference
     var isImplicit: Boolean = false
 
@@ -44,8 +46,8 @@ class FirThisReceiverExpressionBuilder : FirQualifiedAccessBuilder, FirAnnotatio
             source,
             typeRef,
             annotations,
-            typeArguments,
             contextReceiverArguments,
+            typeArguments,
             calleeReference,
             isImplicit,
         )

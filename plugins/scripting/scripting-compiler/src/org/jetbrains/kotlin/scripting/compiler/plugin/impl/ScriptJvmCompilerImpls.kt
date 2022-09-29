@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.scripting.compiler.plugin.impl
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
+import org.jetbrains.kotlin.cli.common.checkKotlinPackageUsage
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -61,9 +62,8 @@ class ScriptJvmCompilerFromEnvironment(val environment: KotlinCoreEnvironment) :
     override fun compile(
         script: SourceCode,
         scriptCompilationConfiguration: ScriptCompilationConfiguration
-    ): ResultWithDiagnostics<CompiledScript> {
-        val parentMessageCollector = environment.configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY]
-        return withMessageCollector(script = script, parentMessageCollector = parentMessageCollector) { messageCollector ->
+    ): ResultWithDiagnostics<CompiledScript> =
+        withMessageCollector(script = script) { messageCollector ->
             withScriptCompilationCache(script, scriptCompilationConfiguration, messageCollector) {
 
                 val initialConfiguration = scriptCompilationConfiguration.refineBeforeParsing(script).valueOr {
@@ -72,17 +72,17 @@ class ScriptJvmCompilerFromEnvironment(val environment: KotlinCoreEnvironment) :
 
                 val context = createCompilationContextFromEnvironment(initialConfiguration, environment, messageCollector)
 
+                val previousMessageCollector = environment.configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY]
                 try {
                     environment.configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
 
                     compileImpl(script, context, initialConfiguration, messageCollector)
                 } finally {
-                    if (parentMessageCollector != null)
-                        environment.configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, parentMessageCollector)
+                    if (previousMessageCollector != null)
+                        environment.configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, previousMessageCollector)
                 }
             }
         }
-    }
 }
 
 private fun withScriptCompilationCache(
@@ -127,29 +127,33 @@ private fun compileImpl(
         messageCollector
     )
 
+    checkKotlinPackageUsage(context.environment.configuration, sourceFiles, messageCollector)
+
     if (messageCollector.hasErrors() || sourceDependencies.any { it.sourceDependencies is ResultWithDiagnostics.Failure }) {
         return failure(messageCollector)
     }
 
     val dependenciesProvider = ScriptDependenciesProvider.getInstance(context.environment.project)
     val getScriptConfiguration = { ktFile: KtFile ->
-        (dependenciesProvider?.getScriptConfiguration(ktFile)?.configuration ?: context.baseScriptCompilationConfiguration)
-            .with {
-                // Adjust definitions so all compiler dependencies are saved in the resulting compilation configuration, so evaluation
-                // performed with the expected classpath
-                // TODO: make this logic obsolete by injecting classpath earlier in the pipeline
-                val depsFromConfiguration = get(dependencies)?.flatMapTo(HashSet()) { (it as? JvmDependency)?.classpath ?: emptyList() }
-                val depsFromCompiler = context.environment.configuration.getList(CLIConfigurationKeys.CONTENT_ROOTS)
-                    .mapNotNull { if (it is JvmClasspathRoot && !it.isSdkRoot) it.file else null }
-                if (!depsFromConfiguration.isNullOrEmpty()) {
-                    val missingDeps = depsFromCompiler.filter { !depsFromConfiguration.contains(it) }
-                    if (missingDeps.isNotEmpty()) {
-                        dependencies.append(JvmDependency(missingDeps))
-                    }
-                } else {
-                    dependencies.append(JvmDependency(depsFromCompiler))
+        val refinedConfiguration =
+            dependenciesProvider?.getScriptConfigurationResult(ktFile, context.baseScriptCompilationConfiguration)
+                ?.valueOrNull()?.configuration ?: context.baseScriptCompilationConfiguration
+        refinedConfiguration.with {
+            // Adjust definitions so all compiler dependencies are saved in the resulting compilation configuration, so evaluation
+            // performed with the expected classpath
+            // TODO: make this logic obsolete by injecting classpath earlier in the pipeline
+            val depsFromConfiguration = get(dependencies)?.flatMapTo(HashSet()) { (it as? JvmDependency)?.classpath ?: emptyList() }
+            val depsFromCompiler = context.environment.configuration.getList(CLIConfigurationKeys.CONTENT_ROOTS)
+                .mapNotNull { if (it is JvmClasspathRoot && !it.isSdkRoot) it.file else null }
+            if (!depsFromConfiguration.isNullOrEmpty()) {
+                val missingDeps = depsFromCompiler.filter { !depsFromConfiguration.contains(it) }
+                if (missingDeps.isNotEmpty()) {
+                    dependencies.append(JvmDependency(missingDeps))
                 }
+            } else {
+                dependencies.append(JvmDependency(depsFromCompiler))
             }
+        }
     }
 
     return doCompile(context, script, sourceFiles, sourceDependencies, messageCollector, getScriptConfiguration)
@@ -159,9 +163,17 @@ internal fun registerPackageFragmentProvidersIfNeeded(
     scriptCompilationConfiguration: ScriptCompilationConfiguration,
     environment: KotlinCoreEnvironment
 ) {
-    scriptCompilationConfiguration[ScriptCompilationConfiguration.dependencies]?.forEach { dependency ->
-        if (dependency is JvmDependencyFromClassLoader) {
-            // TODO: consider implementing deduplication
+    val scriptDependencies = scriptCompilationConfiguration[ScriptCompilationConfiguration.dependencies] ?: return
+    val scriptDependenciesFromClassLoader = scriptDependencies.filterIsInstance<JvmDependencyFromClassLoader>().takeIf { it.isNotEmpty() }
+        ?: return
+    // TODO: consider implementing deduplication/diff processing
+    val alreadyRegistered =
+        environment.project.extensionArea.getExtensionPoint(PackageFragmentProviderExtension.extensionPointName).extensions.any {
+            (it is PackageFragmentFromClassLoaderProviderExtension) &&
+                    it.scriptCompilationConfiguration[ScriptCompilationConfiguration.dependencies] == scriptDependencies
+        }
+    if (!alreadyRegistered) {
+        scriptDependenciesFromClassLoader.forEach { dependency ->
             PackageFragmentProviderExtension.registerExtension(
                 environment.project,
                 PackageFragmentFromClassLoaderProviderExtension(

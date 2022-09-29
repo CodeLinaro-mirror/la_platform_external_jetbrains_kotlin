@@ -40,12 +40,17 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
+import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
-import org.jetbrains.kotlin.resolve.jvm.AsmTypes.*
+import org.jetbrains.kotlin.resolve.jvm.AsmTypes.JAVA_STRING_TYPE
+import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodParameterKind
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.types.TypeSystemCommonBackendContext
@@ -125,6 +130,7 @@ class Gap(val start: Label, val end: Label)
 
 class VariableInfo(val declaration: IrVariable, val index: Int, val type: Type, val startLabel: Label) {
     val gaps = mutableListOf<Gap>()
+    var explicitEndLabel: Label? = null
 }
 
 class ExpressionCodegen(
@@ -133,7 +139,6 @@ class ExpressionCodegen(
     override val frameMap: IrFrameMap,
     val mv: InstructionAdapter,
     val classCodegen: ClassCodegen,
-    val inlinedInto: ExpressionCodegen?,
     val smap: SourceMapper,
     val reifiedTypeParametersUsages: ReifiedTypeParametersUsages,
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
@@ -141,6 +146,9 @@ class ExpressionCodegen(
     override fun toString(): String = signature.toString()
 
     var finallyDepth = 0
+
+    val enclosingFunctionForLocalObjects: IrFunction
+        get() = generateSequence(irFunction) { context.enclosingMethodOverride[it] }.last()
 
     val context = classCodegen.context
     val typeMapper = context.typeMapper
@@ -280,14 +288,12 @@ class ExpressionCodegen(
         if (state.isParamAssertionsDisabled)
             return
 
-        if (inlinedInto != null ||
-            (DescriptorVisibilities.isPrivate(irFunction.visibility) && !shouldGenerateNonNullAssertionsForPrivateFun(irFunction)) ||
+        if ((DescriptorVisibilities.isPrivate(irFunction.visibility) && !shouldGenerateNonNullAssertionsForPrivateFun(irFunction)) ||
             irFunction.origin.isSynthetic ||
+            irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_LAMBDA ||
             // TODO: refine this condition to not generate nullability assertions on parameters
             //       corresponding to captured variables and anonymous object super constructor arguments
-            (irFunction is IrConstructor &&
-                    (irFunction.parentAsClass.isAnonymousObject ||
-                            irFunction.parentAsClass.origin == IrDeclarationOrigin.GENERATED_SAM_IMPLEMENTATION)) ||
+            (irFunction is IrConstructor && irFunction.parentAsClass.isAnonymousObject) ||
             // TODO: Implement this as a lowering, so that we can more easily exclude generated methods.
             irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD ||
             // Although these are accessible from Java, the functions they bridge to already have the assertions.
@@ -424,7 +430,8 @@ class ExpressionCodegen(
                     mv.visitLocalVariable(it.declaration.name.asString(), it.type.descriptor, null, start, gap.start, it.index)
                     start = gap.end
                 }
-                mv.visitLocalVariable(it.declaration.name.asString(), it.type.descriptor, null, start, endLabel, it.index)
+                val end = it.explicitEndLabel ?: endLabel
+                mv.visitLocalVariable(it.declaration.name.asString(), it.type.descriptor, null, start, end, it.index)
             }
         }
 
@@ -575,7 +582,7 @@ class ExpressionCodegen(
             // Copy-pasted bytecode blocks are not suspension points.
             symbol.owner.isInline ->
                 if (symbol.owner.name.asString() == "suspendCoroutineUninterceptedOrReturn" &&
-                    symbol.owner.getPackageFragment()?.fqName == FqName("kotlin.coroutines.intrinsics")
+                    symbol.owner.getPackageFragment().fqName == FqName("kotlin.coroutines.intrinsics")
                 )
                     SuspensionPointKind.ALWAYS
                 else
@@ -652,18 +659,6 @@ class ExpressionCodegen(
             val value = initializer.accept(this, data)
             initializer.markLineNumber(startOffset = true)
             value.materializeAt(varType, declaration.type)
-            // We need to generate CHECKCAST from ACONST_NULL here for coroutines,
-            // since otherwise, upon spilling and then unspilling, we will get VerifyError,
-            // because state-machine builder does not know the type of the ACONST_NULL
-            // and assumes it to be Ljava/lang/Object;, which is incorrect.
-            // Generating CHECKCAST hints the state-machine builder the type of the variable
-            // avoiding the issue of VerifyError. See KT-51718
-            // Exception is Ljava/lang/Object;, since CHECKCAST Ljava/lang/Object; is effectively no-op.
-            if (initializer.isNullConst() && varType != OBJECT_TYPE &&
-                (irFunction.isSuspend || irFunction.isInvokeSuspendOfLambda())
-            ) {
-                mv.checkcast(varType)
-            }
             declaration.markLineNumber(startOffset = true)
             mv.store(index, varType)
         } else if (declaration.isVisibleInLVT) {
@@ -869,7 +864,7 @@ class ExpressionCodegen(
 
     override fun visitClass(declaration: IrClass, data: BlockInfo): PromisedValue {
         if (declaration.origin != JvmLoweredDeclarationOrigin.CONTINUATION_CLASS) {
-            val childCodegen = ClassCodegen.getOrCreate(declaration, context, generateSequence(this) { it.inlinedInto }.last().irFunction)
+            val childCodegen = ClassCodegen.getOrCreate(declaration, context, enclosingFunctionForLocalObjects)
             childCodegen.generate()
             closureReifiedMarkers[declaration] = childCodegen.reifiedTypeParametersUsages
         }
@@ -1102,15 +1097,52 @@ class ExpressionCodegen(
         // We have a regular 'do-while' loop. Proceed as usual.
         mv.fakeAlwaysFalseIfeq(continueLabel)
         mv.fakeAlwaysFalseIfeq(endLabel)
+
         data.withBlock(loopInfo) {
             loop.body?.accept(this, data)?.discard()
             mv.visitLabel(continueLabel)
             loop.condition.markLineNumber(true)
             loop.condition.accept(this, data).coerceToBoolean().jumpIfTrue(entry)
+            endUnreferencedDoWhileLocals(data, loop, continueLabel)
         }
         mv.mark(endLabel)
         addInlineMarker(mv, false)
         return unitValue
+    }
+
+    // Locals introduced in the body of a do-while loop are not necessarily declared when the condition is
+    // reached. For example, there could be a continue from the body before the local is declared:
+    //
+    //   do {
+    //       if (shouldContinue(x)) {
+    //           continue
+    //       }
+    //       var y = 32 // this variable is not necessarily declared on the do-while condition
+    //       doSomething(y)
+    //   } while (x < 2)
+    //
+    // This is all fine for variables used in the condition. If a variable that is not definitely
+    // assigned is used in the condition, the frontend rightly rejects the code. However, for variables
+    // that are *not* referenced in the condition, we have to be conservative and make sure that
+    // they do not end up in the local variable table. Otherwise, the debugger and other build tools
+    // such as D8 will see locals information that makes no sense.
+    private fun endUnreferencedDoWhileLocals(blockInfo: BlockInfo, loop: IrDoWhileLoop, continueLabel: Label) {
+        val referencedValues = hashSetOf<IrValueSymbol>()
+        loop.condition.acceptVoid(object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+            }
+
+            override fun visitGetValue(expression: IrGetValue) {
+                referencedValues.add(expression.symbol)
+                super.visitGetValue(expression)
+            }
+        })
+        blockInfo.variables.forEach {
+            if (it.declaration.symbol !in referencedValues) {
+                it.explicitEndLabel = continueLabel
+            }
+        }
     }
 
     private fun unwindBlockStack(
@@ -1490,7 +1522,7 @@ class ExpressionCodegen(
     }
 
     val isFinallyMarkerRequired: Boolean
-        get() = irFunction.isInline || inlinedInto != null
+        get() = irFunction.isInline || irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_LAMBDA
 
     val IrType.isReifiedTypeParameter: Boolean
         get() = this.classifierOrNull?.safeAs<IrTypeParameterSymbol>()?.owner?.isReified == true

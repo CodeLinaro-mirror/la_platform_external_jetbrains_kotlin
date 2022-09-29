@@ -14,8 +14,8 @@ import org.jetbrains.kotlin.TestsCompiletimeError
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.GroupingMessageCollector
@@ -32,8 +32,10 @@ import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.fir.FirAnalyzerFacade
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.createSessionForTests
 import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
+import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.AnalyzingUtils
@@ -113,14 +115,13 @@ object GenerationUtils {
             emptyList(),
             IrGenerationExtension.getInstances(project)
         )
-        val extensions = JvmGeneratorExtensionsImpl(configuration)
-        val (moduleFragment, symbolTable, components) = firAnalyzerFacade.convertToIr(extensions)
+        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), JvmIrMangler)
+        val (moduleFragment, components) = firAnalyzerFacade.convertToIr(fir2IrExtensions)
         val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
 
         val codegenFactory = JvmIrCodegenFactory(
             configuration,
             configuration.get(CLIConfigurationKeys.PHASE_CONFIG),
-            jvmGeneratorExtensions = extensions
         )
 
         val generationState = GenerationState.Builder(
@@ -134,7 +135,8 @@ object GenerationUtils {
         generationState.beforeCompile()
         generationState.oldBEInitTrace(files)
         codegenFactory.generateModuleInFrontendIRMode(
-            generationState, moduleFragment, symbolTable, extensions, FirJvmBackendExtension(session, components),
+            generationState, moduleFragment, components.symbolTable, components.irProviders,
+            fir2IrExtensions, FirJvmBackendExtension(session, components),
         ) {}
 
         generationState.factory.done()
@@ -185,8 +187,7 @@ object GenerationUtils {
         configureGenerationState: GenerationState.Builder.() -> Unit = {},
     ): GenerationState {
         val isIrBackend =
-            (classBuilderFactory.classBuilderMode == ClassBuilderMode.FULL && configuration.getBoolean(JVMConfigurationKeys.IR)) ||
-                    configuration.getBoolean(JVMConfigurationKeys.USE_KAPT_WITH_JVM_IR)
+            configuration.getBoolean(JVMConfigurationKeys.IR)
         val generationState = GenerationState.Builder(
             project, classBuilderFactory, analysisResult.moduleDescriptor, analysisResult.bindingContext,
             configuration

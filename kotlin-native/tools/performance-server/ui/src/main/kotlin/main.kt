@@ -290,6 +290,7 @@ fun main(args: Array<String>) {
     }
 
     var execData = listOf<String>() to listOf<List<Double?>>()
+    var execDebugData = listOf<String>() to listOf<List<Double?>>()
     var compileData = listOf<String>() to listOf<List<Double?>>()
     var codeSizeData = listOf<String>() to listOf<List<Double?>>()
     var bundleSizeData = listOf<String>() to listOf<List<Int?>>()
@@ -298,6 +299,7 @@ fun main(args: Array<String>) {
 
     // Draw charts.
     var execChart: dynamic = null
+    var execChartDebug: dynamic = null
     var compileChart: dynamic = null
     var codeSizeChart: dynamic = null
     var bundleSizeChart: dynamic = null
@@ -334,36 +336,53 @@ fun main(args: Array<String>) {
 
     unstableBenchmarksPromise.then { unstableBenchmarks ->
         // Collect information for charts library.
-        val valuesToShow = mapOf("EXECUTION_TIME" to listOf(mapOf(
-                        "normalize" to "true"
+        val valuesToShow = mapOf(
+            "EXECUTION_TIME" to listOf(
+                mapOf(
+                    "normalize" to "true"
                 ),
                 mapOf(
-                        "normalize" to "true",
-                        "exclude" to unstableBenchmarks.joinToString(",")
+                    "normalize" to "true",
+                    "exclude" to unstableBenchmarks.joinToString(",")
                 ),
                 mapOf(
-                        "normalize" to "true",
-                        "buildSuffix" to "(NewMM)"
+                    "normalize" to "true",
+                    "buildSuffix" to "(NewMM)"
                 )
+            ),
+            "COMPILE_TIME" to listOf(
+                mapOf(
+                    "samples" to "HelloWorld,Videoplayer$platformSpecificBenchs",
+                    "agr" to "samples"
+                )
+            ),
+            "CODE_SIZE" to listOfNotNull(
+                mapOf(
+                    "normalize" to "true",
+                    "exclude" to when (parameters["target"]) {
+                        "Linux" -> "kotlinx.coroutines"
+                        "Mac_OS_X" -> "SpaceFramework_iosX64"
+                        else -> ""
+                    }
                 ),
-                "COMPILE_TIME" to listOf(mapOf(
-                        "samples" to "HelloWorld,Videoplayer$platformSpecificBenchs",
-                        "agr" to "samples"
-                )),
-                "CODE_SIZE" to listOf(mapOf(
-                        "normalize" to "true",
-                        "exclude" to if (parameters["target"] == "Linux")
-                            "kotlinx.coroutines"
-                        else if (parameters["target"] == "Mac_OS_X")
-                            "SpaceFramework_iosX64"
-                        else ""
-                ), if (platformSpecificBenchs.isNotEmpty()) mapOf(
-                        "normalize" to "true",
-                        "agr" to "samples",
-                        "samples" to platformSpecificBenchs.removePrefix(",")
-                ) else null).filterNotNull(),
-                "BUNDLE_SIZE" to listOf(mapOf("samples" to "KotlinNative",
-                        "agr" to "samples"))
+                mapOf(
+                    "normalize" to "true",
+                    "agr" to "samples",
+                    "samples" to platformSpecificBenchs.removePrefix(",")
+                ).takeIf { platformSpecificBenchs.isNotEmpty() }
+            ),
+            "EXECUTION_TIME_DEBUG" to listOf(
+                mapOf(
+                    "normalize" to "true",
+                    "buildSuffix" to "(DebugNewMM)"
+                )
+            ),
+            "BUNDLE_SIZE" to listOf(
+                mapOf(
+                    "samples" to "KotlinNative",
+                    "agr" to "samples"
+                )
+            )
         )
         // Send requests to get all needed metric values.
         valuesToShow.map { (metric, listOfSettings) ->
@@ -385,7 +404,8 @@ fun main(args: Array<String>) {
                     (if (getParameters.isEmpty()) "?" else "&") + "branch=${parameters["branch"]}"
                 else ""
 
-                val url = "$metricUrl$metric$getParameters$branchParameter${
+                val requestedMetric = if (metric.startsWith("EXECUTION_TIME")) "EXECUTION_TIME" else metric
+                val url = "$metricUrl$requestedMetric$getParameters$branchParameter${
                     if (parameters["type"] != "all")
                         (if (getParameters.isEmpty() && branchParameter.isEmpty()) "?" else "&") + "type=${parameters["type"]}"
                     else ""
@@ -434,6 +454,16 @@ fun main(args: Array<String>) {
                             execChart.update(getChartData(execData.first, execData.second))
                         }
                     }
+                    "EXECUTION_TIME_DEBUG" -> {
+                        execDebugData = labels to values
+                        execChartDebug = Chartist.Line("#exec_debug_chart",
+                                getChartData(labels, execDebugData.second),
+                                getChartOptions(arrayOf("Geometric Mean (All)"), "Normalized time"))
+                        buildsInfoPromise.then { builds ->
+                            customizeChart(execChartDebug, "exec_debug_chart", js("$(\"#exec_debug_chart\")"), builds, parameters)
+                            execChartDebug.update(getChartData(execDebugData.first, execDebugData.second))
+                        }
+                    }
                     "CODE_SIZE" -> {
                         codeSizeData = labels to values
                         codeSizeChart = Chartist.Line("#codesize_chart",
@@ -468,6 +498,7 @@ fun main(args: Array<String>) {
     // Update all charts with using same data.
     val updateAllCharts: () -> Unit = {
         execChart.update(getChartData(execData.first, execData.second))
+        execChartDebug.update(getChartData(execDebugData.first, execDebugData.second))
         compileChart.update(getChartData(compileData.first, compileData.second))
         codeSizeChart.update(getChartData(codeSizeData.first, codeSizeData.second, sizeClassNames))
         bundleSizeChart.update(getChartData(bundleSizeData.first, bundleSizeData.second, sizeClassNames))

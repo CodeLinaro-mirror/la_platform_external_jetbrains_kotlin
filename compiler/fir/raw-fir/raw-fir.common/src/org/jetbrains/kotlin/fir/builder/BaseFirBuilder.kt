@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.builder
 import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.KtNodeTypes.*
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.*
@@ -38,6 +39,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.parsing.*
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtPsiUtil
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -616,7 +618,12 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         val resultInitializer = buildFunctionCall {
             source = desugaredSource
             calleeReference = buildSimpleNamedReference {
-                source = operationReference?.toFirSourceElement()
+                val kind = if (prefix) {
+                    KtFakeSourceElementKind.DesugaredPrefixNameReference
+                } else {
+                    KtFakeSourceElementKind.DesugaredPostfixNameReference
+                }
+                source = operationReference?.toFirSourceElement(kind)
                 name = callName
             }
             explicitReceiver = if (prefix) {
@@ -631,7 +638,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         val resultVar = generateTemporaryVariable(
             baseModuleData,
             desugaredSource,
-            Name.special("<unary-result>"),
+            SpecialNames.UNARY_RESULT,
             resultInitializer
         )
 
@@ -715,7 +722,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             val argumentReceiverVariable = generateTemporaryVariable(
                 baseModuleData,
                 argumentReceiver?.toFirSourceElement(),
-                Name.special("<receiver>"),
+                SpecialNames.RECEIVER,
                 initializer = receiverFir,
             ).also { statements += it }
 
@@ -795,7 +802,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             val arrayVariable = generateTemporaryVariable(
                 baseModuleData,
                 array?.toFirSourceElement(),
-                Name.special("<array>"),
+                name = SpecialNames.ARRAY,
                 initializer = arrayReceiver,
             ).also { statements += it }
 
@@ -803,7 +810,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
                 generateTemporaryVariable(
                     baseModuleData,
                     index.toFirSourceElement(),
-                    Name.special("<index$i>"),
+                    name = SpecialNames.subscribeOperatorIndex(i),
                     index.convert()
                 ).also { statements += it }
             }
@@ -811,7 +818,7 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
             val firArgument = buildFunctionCall {
                 source = desugaredSource
                 calleeReference = buildSimpleNamedReference {
-                    source = receiver?.toFirSourceElement()
+                    source = receiver?.toFirSourceElement(KtFakeSourceElementKind.ArrayAccessNameReference)
                     name = OperatorNameConventions.GET
                 }
                 explicitReceiver = generateResolvedAccessExpression(arrayVariable.source, arrayVariable)
@@ -1073,8 +1080,10 @@ abstract class BaseFirBuilder<T>(val baseSession: FirSession, val context: Conte
         private val createParameterTypeRefWithSourceKind: (FirProperty, KtFakeSourceElementKind) -> FirTypeRef,
     ) {
         fun generate() {
-            generateComponentFunctions()
-            generateCopyFunction()
+            if (classBuilder.classKind != ClassKind.OBJECT) {
+                generateComponentFunctions()
+                generateCopyFunction()
+            }
             // Refer to (IR utils or FIR backend) DataClassMembersGenerator for generating equals, hashCode, and toString
         }
 

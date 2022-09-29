@@ -1,6 +1,7 @@
 // WITH_STDLIB
 // !DIAGNOSTICS: -OPT_IN_USAGE_ERROR
 // For FIR, see: KT-50704
+import kotlin.experimental.ExperimentalTypeInference
 
 @JvmName("foo1")
 fun foo(x: Inv<String>) {}
@@ -201,7 +202,8 @@ interface Foo2<K, V> {
     fun entries(): MutableSet<MutableMap.MutableEntry<K, V>>
 }
 
-fun <L, K, V> twoBuilderLambdas(block: Foo<L>.() -> Unit, block2: Foo2<K, V>.() -> Unit) {}
+@OptIn(ExperimentalTypeInference::class)
+fun <L, K, V> twoBuilderLambdas(@BuilderInference block: Foo<L>.() -> Unit, @BuilderInference block2: Foo2<K, V>.() -> Unit) {}
 
 fun test() {
     twoBuilderLambdas(
@@ -209,13 +211,13 @@ fun test() {
             add("")
             with (get()) {
                 with (listOf(1)) {
-                    <!STUB_TYPE_IN_RECEIVER_CAUSES_AMBIGUITY("String; L; String; LAMBDA_EXPRESSION")!><!DEBUG_INFO_ELEMENT_WITH_ERROR_TYPE, OVERLOAD_RESOLUTION_AMBIGUITY, OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES!>bar<!>()<!>
+                    <!STUB_TYPE_IN_RECEIVER_CAUSES_AMBIGUITY!><!DEBUG_INFO_ELEMENT_WITH_ERROR_TYPE, OVERLOAD_RESOLUTION_AMBIGUITY, OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES!>bar<!>()<!>
                 }
             }
         },
         {
             put(1, "one")
-            <!DEBUG_INFO_ELEMENT_WITH_ERROR_TYPE, OVERLOAD_RESOLUTION_AMBIGUITY, OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES!>foo11<!>(<!STUB_TYPE_IN_ARGUMENT_CAUSES_AMBIGUITY("MutableSet<MutableMap.MutableEntry<Int, String>>; K, V; Int, String")!>entries()<!>)
+            <!DEBUG_INFO_ELEMENT_WITH_ERROR_TYPE, OVERLOAD_RESOLUTION_AMBIGUITY, OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES!>foo11<!>(<!STUB_TYPE_IN_ARGUMENT_CAUSES_AMBIGUITY!>entries()<!>)
         }
     )
 }

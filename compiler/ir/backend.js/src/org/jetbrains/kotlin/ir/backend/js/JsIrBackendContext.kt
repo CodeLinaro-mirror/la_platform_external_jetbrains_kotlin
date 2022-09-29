@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
@@ -50,6 +51,13 @@ import org.jetbrains.kotlin.types.isNullable
 import org.jetbrains.kotlin.util.collectionUtils.filterIsInstanceMapNotNull
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 
+enum class IcCompatibleIr2Js(val isCompatible: Boolean, val incrementalCacheEnabled: Boolean) {
+    DISABLED(false, false),
+    COMPATIBLE(true, false),
+    IC_MODE(true, true)
+}
+
+@OptIn(ObsoleteDescriptorBasedAPI::class)
 class JsIrBackendContext(
     val module: ModuleDescriptor,
     override val irBuiltIns: IrBuiltIns,
@@ -65,7 +73,7 @@ class JsIrBackendContext(
     val safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
     override val mapping: JsMapping = JsMapping(),
     val granularity: JsGenerationGranularity = JsGenerationGranularity.WHOLE_PROGRAM,
-    val icCompatibleIr2Js: Boolean = false,
+    val icCompatibleIr2Js: IcCompatibleIr2Js = IcCompatibleIr2Js.DISABLED,
 ) : JsCommonBackendContext {
     val polyfills = JsPolyfills()
     val fieldToInitializer: MutableMap<IrField, IrExpression> = mutableMapOf()

@@ -30,6 +30,13 @@ import TestEnumClass = JS_TESTS.foo.TestEnumClass;
 import TestInterfaceImpl = JS_TESTS.foo.TestInterfaceImpl;
 import processInterface = JS_TESTS.foo.processInterface;
 import OuterClass = JS_TESTS.foo.OuterClass;
+import KT38262 = JS_TESTS.foo.KT38262;
+import JsNameTest = JS_TESTS.foo.JsNameTest;
+import Parent = JS_TESTS.foo.Parent;
+import getParent = JS_TESTS.foo.getParent;
+import createNested1 = JS_TESTS.foo.createNested1;
+import createNested2 = JS_TESTS.foo.createNested2;
+import createNested3 = JS_TESTS.foo.createNested3;
 
 function assert(condition: boolean) {
     if (!condition) {
@@ -52,7 +59,7 @@ function box(): string {
     assert(sumNullable(10, null) === 10);
     assert(sumNullable(undefined, 20) === 20);
     assert(sumNullable(1, 2) === 3);
-    assert(defaultParameters(20, "OK") === "20OK");
+    assert(defaultParameters("", 20, "OK") === "20OK");
     assert(generic1<string>("FOO") === "FOO");
     assert(generic1({x: 10}).x === 10);
     assert(generic2(null) === true);
@@ -152,5 +159,28 @@ function box(): string {
     assert(OuterClass.NestedEnum.A.ordinal === 0)
     assert(OuterClass.NestedEnum.B.ordinal === 1)
 
+    assert(new KT38262().then() == 42)
+    assert(new KT38262().catch() == 24)
+
+    const jsNameTest = JsNameTest.Companion.create();
+
+    assert(jsNameTest.value === 4)
+    assert(jsNameTest.runTest() === "JsNameTest")
+
+    const jsNameNestedTest = JsNameTest.Companion.createChild(42);
+
+    assert(jsNameNestedTest.value === 42)
+
+    // Do not strip types from those test cases (it is a check of nested objects types usability)
+    const parent: typeof Parent = Parent
+    const nested1: typeof Parent.Nested1 = Parent.Nested1
+    const nested2: Parent.Nested1.Nested2 = new Parent.Nested1.Nested2()
+    const nested3: Parent.Nested1.Nested2.Companion.Nested3 = new Parent.Nested1.Nested2.Companion.Nested3()
+
+    assert(nested1.value === "Nested1")
+    assert(getParent() === parent)
+    assert(createNested1() === nested1)
+    assert(createNested2() !== nested2)
+    assert(createNested3() !== nested3)
     return "OK";
 }

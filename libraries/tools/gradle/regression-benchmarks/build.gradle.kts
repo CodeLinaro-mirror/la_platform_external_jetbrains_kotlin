@@ -57,7 +57,7 @@ fun addBenchmarkTask(
         group = "Gradle Regression Benchmark"
         description = "Runs regression benchmark from $script"
 
-        dependsOn(":kotlin-gradle-plugin:install")
+        dependsOnKotlinGradlePluginInstall()
 
         outputs.upToDateWhen { false }
         javaLauncher.set(service.launcherFor {
@@ -120,7 +120,7 @@ fun JavaExec.usesAndroidSdk() {
     dependsOn(acceptAndroidSdkLicenses)
 
     doFirst {
-        environment("ANDROID_SDK_ROOT", configurations["androidSdk"].singleFile.canonicalPath)
+        environment("ANDROID_HOME", configurations["androidSdk"].singleFile.canonicalPath)
     }
 }
 

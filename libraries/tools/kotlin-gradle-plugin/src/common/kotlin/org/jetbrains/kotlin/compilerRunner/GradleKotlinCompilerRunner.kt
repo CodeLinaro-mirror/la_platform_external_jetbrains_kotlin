@@ -9,7 +9,6 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.logging.Logger
-import org.gradle.api.plugins.JavaPluginConvention
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.jvm.tasks.Jar
 import org.gradle.workers.WorkQueue
@@ -22,17 +21,21 @@ import org.jetbrains.kotlin.daemon.client.CompileServiceSession
 import org.jetbrains.kotlin.daemon.common.CompilerId
 import org.jetbrains.kotlin.daemon.common.configureDaemonJVMOptions
 import org.jetbrains.kotlin.daemon.common.filterExtractProps
+import org.jetbrains.kotlin.gradle.dsl.KotlinJsProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
 import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
+import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactory
 import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.IsolatedKotlinClasspathClassCastException
 import org.jetbrains.kotlin.gradle.utils.archivePathCompatible
+import org.jetbrains.kotlin.gradle.utils.findByType
 import org.jetbrains.kotlin.gradle.utils.newTmpFile
 import org.jetbrains.kotlin.gradle.utils.relativeOrCanonical
 import org.jetbrains.kotlin.incremental.IncrementalModuleEntry
@@ -153,6 +156,22 @@ internal open class GradleCompilerRunner(
                         report(StringMetrics.JVM_DEFAULTS, args.jvmDefault)
                         report(StringMetrics.USE_OLD_BACKEND, args.useOldBackend.toString())
                         report(StringMetrics.USE_FIR, args.useK2.toString())
+
+                        val pluginPatterns = listOf(Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_ALL_OPEN, "kotlin-allopen-.*jar"),
+                                                    Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_NO_ARG, "kotlin-noarg-.*jar"),
+                                                    Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_SAM_WITH_RECEIVER, "kotlin-sam-with-receiver-.*jar"),
+                                                    Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_LOMBOK, "kotlin-lombok-.*jar"),
+                                                    Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_PARSELIZE, "kotlin-parcelize-compiler-.*jar"),
+                                                    Pair(BooleanMetrics.ENABLED_COMPILER_PLUGIN_ATOMICFU, "atomicfu-.*jar")
+                        )
+                        val pluginJars = args.pluginClasspaths?.map { it.replace("\\", "/").split("/").last() }
+                        if (pluginJars != null) {
+                            for (pluginPattern in pluginPatterns) {
+                                if (pluginJars.any { it.matches(pluginPattern.second.toRegex())}) {
+                                    report(pluginPattern.first, true)
+                                }
+                            }
+                        }
                     }
                 }
                 is K2JSCompilerArguments -> {
@@ -305,12 +324,12 @@ internal open class GradleCompilerRunner(
                     nameToModules.getOrPut(module.name) { HashSet() }.add(module)
 
                     if (task is Kotlin2JsCompile) {
-                        jarForSourceSet(project, task.sourceSetName.get())?.let {
+                        (jarForJavaSourceSet(project, task.sourceSetName.get()) ?: jarForSingleTargetJs(project, task.sourceSetName.get()))?.let {
                             jarToModule[it] = module
                         }
                     }
                 } else if (task is InspectClassesForMultiModuleIC) {
-                    jarToClassListFile[File(task.archivePath.get())] = task.classesListFile
+                    jarToClassListFile[File(task.archivePath.get())] = task.classesListFile.get().asFile
                 }
             }
 
@@ -360,11 +379,27 @@ internal open class GradleCompilerRunner(
             }
         }
 
-        private fun jarForSourceSet(project: Project, sourceSetName: String): File? {
-            val javaConvention = project.convention.findPlugin(JavaPluginConvention::class.java)
-                ?: return null
-            val sourceSet = javaConvention.sourceSets.findByName(sourceSetName) ?: return null
+        private fun jarForJavaSourceSet(
+            project: Project,
+            sourceSetName: String
+        ): File? {
+            val sourceSets = project.gradle.variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
+                .getInstance(project)
+                .sourceSetsIfAvailable ?: return null
+            val sourceSet = sourceSets.findByName(sourceSetName) ?: return null
+
             val jarTask = project.tasks.findByName(sourceSet.jarTaskName) as? Jar
+            return jarTask?.archiveFile?.get()?.asFile
+        }
+
+        private fun jarForSingleTargetJs(
+            project: Project,
+            sourceSetName: String,
+        ): File? {
+            if (sourceSetName != KotlinCompilation.MAIN_COMPILATION_NAME) return null
+            val jarTaskName = project.extensions.findByType<KotlinJsProjectExtension>()?.js()?.artifactsTaskName
+
+            val jarTask = jarTaskName?.let { project.tasks.findByName(jarTaskName) } as? Jar
             return jarTask?.archiveFile?.get()?.asFile
         }
 

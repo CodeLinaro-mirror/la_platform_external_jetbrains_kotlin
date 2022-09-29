@@ -12,9 +12,8 @@ import org.jetbrains.kotlin.analysis.api.components.KtSmartCastProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtType
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.smartcasts.ExplicitSmartCasts
@@ -24,26 +23,24 @@ import org.jetbrains.kotlin.types.TypeIntersector
 internal class KtFe10SmartCastProvider(
     override val analysisSession: KtFe10AnalysisSession
 ) : KtSmartCastProvider(), Fe10KtAnalysisSessionComponent {
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
         get() = analysisSession.token
 
     override fun getSmartCastedInfo(expression: KtExpression): KtSmartCastInfo? {
-        withValidityAssertion {
-            val bindingContext = analysisContext.analyze(expression)
-            val stableSmartCasts = bindingContext[BindingContext.SMARTCAST, expression]
-            val unstableSmartCasts = bindingContext[BindingContext.UNSTABLE_SMARTCAST, expression]
+        val bindingContext = analysisContext.analyze(expression)
+        val stableSmartCasts = bindingContext[BindingContext.SMARTCAST, expression]
+        val unstableSmartCasts = bindingContext[BindingContext.UNSTABLE_SMARTCAST, expression]
 
-            return when {
-                stableSmartCasts != null -> {
-                    val type = stableSmartCasts.getKtType() ?: return null
-                    KtSmartCastInfo(type, true, token)
-                }
-                unstableSmartCasts != null -> {
-                    val type = unstableSmartCasts.getKtType() ?: return null
-                    KtSmartCastInfo(type, false, token)
-                }
-                else -> null
+        return when {
+            stableSmartCasts != null -> {
+                val type = stableSmartCasts.getKtType() ?: return null
+                KtSmartCastInfo(type, true, token)
             }
+            unstableSmartCasts != null -> {
+                val type = unstableSmartCasts.getKtType() ?: return null
+                KtSmartCastInfo(type, false, token)
+            }
+            else -> null
         }
     }
 
@@ -55,13 +52,11 @@ internal class KtFe10SmartCastProvider(
     }
 
     override fun getImplicitReceiverSmartCast(expression: KtExpression): Collection<KtImplicitReceiverSmartCast> {
-        withValidityAssertion {
-            val bindingContext = analysisContext.analyze(expression)
-            val smartCasts = bindingContext[BindingContext.IMPLICIT_RECEIVER_SMARTCAST, expression] ?: return emptyList()
-            return smartCasts.receiverTypes.map { (_, type) ->
-                val kind = KtImplicitReceiverSmartCastKind.DISPATCH // TODO provide precise kind
-                KtImplicitReceiverSmartCast(type.toKtType(analysisContext), kind, token)
-            }
+        val bindingContext = analysisContext.analyze(expression)
+        val smartCasts = bindingContext[BindingContext.IMPLICIT_RECEIVER_SMARTCAST, expression] ?: return emptyList()
+        return smartCasts.receiverTypes.map { (_, type) ->
+            val kind = KtImplicitReceiverSmartCastKind.DISPATCH // TODO provide precise kind
+            KtImplicitReceiverSmartCast(type.toKtType(analysisContext), kind, token)
         }
     }
 }

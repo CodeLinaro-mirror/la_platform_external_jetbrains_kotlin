@@ -11,7 +11,6 @@ import com.intellij.openapi.util.text.StringUtil
 import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataVersion
-import org.jetbrains.kotlin.backend.wasm.WasmLoaderKind
 import org.jetbrains.kotlin.backend.wasm.compileWasm
 import org.jetbrains.kotlin.backend.wasm.compileToLoweredIr
 import org.jetbrains.kotlin.backend.wasm.wasmPhases
@@ -140,6 +139,7 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
         configuration.put(JSConfigurationKeys.PARTIAL_LINKAGE, arguments.partialLinkage)
 
         configuration.put(JSConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS, arguments.wasmEnableArrayRangeChecks)
+        configuration.put(JSConfigurationKeys.WASM_ENABLE_ASSERTS, arguments.wasmEnableAsserts)
 
         val commonSourcesArray = arguments.commonSources
         val commonSources = commonSourcesArray?.toSet() ?: emptySet()
@@ -162,6 +162,7 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
         configurationJs.put(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE, arguments.allowKotlinPackage)
         configurationJs.put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
         configurationJs.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, arguments.irPropertyLazyInitialization)
+        configurationJs.put(JSConfigurationKeys.GENERATE_INLINE_ANONYMOUS_FUNCTIONS, arguments.irGenerateInlineAnonymousFunctions)
 
         if (!checkKotlinPackageUsage(environmentForJS.configuration, sourcesFiles)) return ExitCode.COMPILATION_ERROR
 
@@ -212,43 +213,42 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
             messageCollector.report(INFO, arguments.cacheDirectories ?: "")
             messageCollector.report(INFO, libraries.toString())
 
-            val includes = arguments.includes!!
-
-            var start = System.currentTimeMillis()
+            val start = System.currentTimeMillis()
 
             val cacheUpdater = CacheUpdater(
-                includes,
-                libraries,
-                configurationJs,
-                cacheDirectories,
-                { IrFactoryImplForJsIC(WholeWorldStageController()) },
-                mainCallArguments,
-                ::buildCacheForModuleFiles
+                mainModule = arguments.includes!!,
+                allModules = libraries,
+                icCachePaths = cacheDirectories,
+                compilerConfiguration = configurationJs,
+                irFactory = { IrFactoryImplForJsIC(WholeWorldStageController()) },
+                mainArguments = mainCallArguments,
+                executor = ::buildCacheForModuleFiles
             )
-            cacheUpdater.actualizeCaches { updateStatus, updatedModule ->
+
+            var tp = System.currentTimeMillis()
+            messageCollector.report(INFO, "IC cache updater initialization: ${tp - start}ms")
+
+            val artifacts = cacheUpdater.actualizeCaches {
                 val now = System.currentTimeMillis()
-                fun reportCacheStatus(status: String, removed: Set<String> = emptySet(), updated: Set<String> = emptySet()) {
-                    messageCollector.report(INFO, "IC per-file is $status duration ${now - start}ms; module [${File(updatedModule).name}]")
-                    removed.forEach { messageCollector.report(INFO, "  Removed: $it") }
-                    updated.forEach { messageCollector.report(INFO, "  Updated: $it") }
-                }
-                when (updateStatus) {
-                    is CacheUpdateStatus.FastPath -> reportCacheStatus("up-to-date; fast check")
-                    is CacheUpdateStatus.NoDirtyFiles -> reportCacheStatus("up-to-date; full check", updateStatus.removed)
-                    is CacheUpdateStatus.Dirty -> {
-                        var updated = updateStatus.updated
-                        val status = StringBuilder("dirty").apply {
-                            if (updateStatus.updatedAll) {
-                                append("; all ${updated.size} sources updated")
-                                updated = emptySet()
-                            }
-                            append("; cache building")
-                        }.toString()
-                        reportCacheStatus(status, updateStatus.removed, updated)
+                messageCollector.report(INFO, "IC $it: ${now - tp}ms")
+                tp = now
+            }
+
+            messageCollector.report(INFO, "IC rebuilt overall time: ${System.currentTimeMillis() - start}ms")
+
+            for ((libFile, srcFiles) in cacheUpdater.getDirtyFileStats()) {
+                val isCleanBuild = srcFiles.values.all { it.contains(DirtyFileState.ADDED_FILE) }
+                val msg = if (isCleanBuild) "fully rebuilt" else "partially rebuilt"
+                messageCollector.report(INFO, "module [${File(libFile.path).name}] was $msg")
+                if (!isCleanBuild) {
+                    for ((srcFile, stat) in srcFiles) {
+                        val statStr = stat.joinToString { it.str }
+                        messageCollector.report(INFO, "  file [${File(srcFile.path).name}]: ($statStr)")
                     }
                 }
-                start = now
             }
+
+            artifacts
         } else emptyList()
 
         // Run analysis if main module is sources
@@ -357,19 +357,12 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
                     backendContext = backendContext,
                     emitNameSection = arguments.wasmDebug,
                     allowIncompleteImplementations = arguments.irDce,
+                    generateWat = true,
                 )
-
-                val launcherKind = when (arguments.wasmLauncher) {
-                    "esm" -> WasmLoaderKind.BROWSER
-                    "nodejs" -> WasmLoaderKind.NODE
-                    "d8" -> WasmLoaderKind.D8
-                    else -> throw IllegalArgumentException("Unrecognized flavor for the wasm launcher")
-                }
 
                 writeCompilationResult(
                     result = res,
                     dir = outputFile.parentFile,
-                    loaderKind = launcherKind,
                     fileNameBase = outputFile.nameWithoutExtension
                 )
 
@@ -465,11 +458,7 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
 
     private fun File.write(outputs: CompilationOutputs) {
         writeText(outputs.jsCode)
-        outputs.sourceMap?.let {
-            val mapFile = resolveSibling("$name.map")
-            appendText("\n//# sourceMappingURL=${mapFile.name}")
-            mapFile.writeText(it)
-        }
+        outputs.writeSourceMapIfPresent(this)
     }
 
     override fun setupPlatformSpecificArgumentsAndServices(

@@ -5,13 +5,13 @@
 
 package org.jetbrains.kotlin.ir.backend.js.lower
 
-import org.jetbrains.kotlin.backend.common.ir.isTopLevel
 import org.jetbrains.kotlin.backend.common.lower.optimizations.PropertyAccessorInlineLowering
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.util.fileOrNull
+import org.jetbrains.kotlin.ir.util.isTopLevel
 
 class JsPropertyAccessorInlineLowering(
     val context: JsIrBackendContext
@@ -21,10 +21,11 @@ class JsPropertyAccessorInlineLowering(
             return false
 
         // Member properties could be safely inlined, because initialization processed via parent declaration
-        if (!isTopLevel) return true
+        if (!isTopLevel && !context.icCompatibleIr2Js.incrementalCacheEnabled)
+            return true
 
         // TODO: teach the deserializer to load constant property initializers
-        if (context.icCompatibleIr2Js) {
+        if (context.icCompatibleIr2Js.isCompatible) {
             val accessFile = accessContainer.fileOrNull ?: return false
             val file = fileOrNull ?: return false
 

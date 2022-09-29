@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.impl
 
 import org.jetbrains.kotlin.KtSourceElement
@@ -25,6 +27,7 @@ internal class FirDelegatedConstructorCallImpl(
     override val source: KtSourceElement?,
     override val annotations: MutableList<FirAnnotation>,
     override var argumentList: FirArgumentList,
+    override val contextReceiverArguments: MutableList<FirExpression>,
     override var constructedTypeRef: FirTypeRef,
     override var dispatchReceiver: FirExpression,
     override var calleeReference: FirReference,
@@ -35,6 +38,7 @@ internal class FirDelegatedConstructorCallImpl(
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         annotations.forEach { it.accept(visitor, data) }
         argumentList.accept(visitor, data)
+        contextReceiverArguments.forEach { it.accept(visitor, data) }
         constructedTypeRef.accept(visitor, data)
         calleeReference.accept(visitor, data)
     }
@@ -42,6 +46,7 @@ internal class FirDelegatedConstructorCallImpl(
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirDelegatedConstructorCallImpl {
         transformAnnotations(transformer, data)
         argumentList = argumentList.transform(transformer, data)
+        contextReceiverArguments.transformInplace(transformer, data)
         constructedTypeRef = constructedTypeRef.transform(transformer, data)
         transformCalleeReference(transformer, data)
         return this
@@ -64,6 +69,11 @@ internal class FirDelegatedConstructorCallImpl(
 
     override fun replaceArgumentList(newArgumentList: FirArgumentList) {
         argumentList = newArgumentList
+    }
+
+    override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>) {
+        contextReceiverArguments.clear()
+        contextReceiverArguments.addAll(newContextReceiverArguments)
     }
 
     override fun replaceConstructedTypeRef(newConstructedTypeRef: FirTypeRef) {

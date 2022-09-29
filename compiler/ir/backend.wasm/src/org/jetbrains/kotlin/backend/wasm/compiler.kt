@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.wasm.ir.convertors.WasmIrToText
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-class WasmCompilerResult(val wat: String, val js: String, val wasm: ByteArray)
+class WasmCompilerResult(val wat: String?, val js: String, val wasm: ByteArray)
 
 fun compileToLoweredIr(
     depsDescriptors: ModulesStructure,
@@ -76,15 +76,21 @@ fun compileWasm(
     backendContext: WasmBackendContext,
     emitNameSection: Boolean = false,
     allowIncompleteImplementations: Boolean = false,
+    generateWat: Boolean = false,
 ): WasmCompilerResult {
     val compiledWasmModule = WasmCompiledModuleFragment(backendContext.irBuiltIns)
     val codeGenerator = WasmModuleFragmentGenerator(backendContext, compiledWasmModule, allowIncompleteImplementations = allowIncompleteImplementations)
+    allModules.forEach { codeGenerator.collectInterfaceTables(it) }
     allModules.forEach { codeGenerator.generateModule(it) }
 
     val linkedModule = compiledWasmModule.linkWasmCompiledFragments()
-    val watGenerator = WasmIrToText()
-    watGenerator.appendWasmModule(linkedModule)
-    val wat = watGenerator.toString()
+    val wat = if (generateWat) {
+        val watGenerator = WasmIrToText()
+        watGenerator.appendWasmModule(linkedModule)
+        watGenerator.toString()
+    } else {
+        null
+    }
 
     val js = compiledWasmModule.generateJs()
 
@@ -114,64 +120,57 @@ fun WasmCompiledModuleFragment.generateJs(): String {
     return runtime + jsCode
 }
 
-enum class WasmLoaderKind {
-    D8,
-    NODE,
-    BROWSER,
-}
-
-fun generateJsWasmLoader(kind: WasmLoaderKind, wasmFilePath: String, externalJs: String): String {
-    val instantiation = when (kind) {
-        WasmLoaderKind.D8 ->
-            """
-                const wasmModule = new WebAssembly.Module(read('$wasmFilePath', 'binary'));
-                const wasmInstance = new WebAssembly.Instance(wasmModule, { js_code });
-            """.trimIndent()
-
-        WasmLoaderKind.NODE ->
-            """
-                const fs = require('fs');
-                var path = require('path');
-                const wasmBuffer = fs.readFileSync(path.resolve(__dirname, './$wasmFilePath'));
-                const wasmModule = new WebAssembly.Module(wasmBuffer);
-                const wasmInstance = new WebAssembly.Instance(wasmModule, { js_code });
-            """.trimIndent()
-
-        WasmLoaderKind.BROWSER ->
-            """
-                const { wasmInstance } = await WebAssembly.instantiateStreaming(fetch("$wasmFilePath"), { js_code });
-            """.trimIndent()
+fun generateJsWasmLoader(wasmFilePath: String, externalJs: String): String =
+    externalJs + """
+    
+    const isNodeJs = (typeof process !== 'undefined') && (process.release.name === 'node');
+    const isD8 = !isNodeJs && (typeof d8 !== 'undefined');
+    const isBrowser = !isNodeJs && !isD8 && (typeof window !== 'undefined');
+    
+    if (!isNodeJs && !isD8 && !isBrowser) {
+      throw "Supported JS engine not detected";
     }
-
-    val init =
-        """
-            
-            const wasmExports = wasmInstance.exports;
-            wasmExports.__init();
-            wasmExports.startUnitTests?.();
-            
-        """.trimIndent()
-
-    val export = when (kind) {
-        WasmLoaderKind.D8, WasmLoaderKind.BROWSER ->
-            "export default wasmExports;\n"
-
-        WasmLoaderKind.NODE ->
-            "module.exports = wasmExports;\n"
+    
+    let wasmInstance;
+    let require; // Placed here to give access to it from externals (js_code)
+    if (isNodeJs) {
+      const module = await import('node:module');
+      require = module.createRequire(import.meta.url);
+      const fs = require('fs');
+      const path = require('path');
+      const url = require('url');
+      const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+      const wasmBuffer = fs.readFileSync(path.resolve(__dirname, './$wasmFilePath'));
+      const wasmModule = new WebAssembly.Module(wasmBuffer);
+      wasmInstance = new WebAssembly.Instance(wasmModule, { js_code });
     }
-
-    return externalJs + instantiation + init + export
-}
+    
+    if (isD8) {
+      const wasmBuffer = read('$wasmFilePath', 'binary');
+      const wasmModule = new WebAssembly.Module(wasmBuffer);
+      wasmInstance = new WebAssembly.Instance(wasmModule, { js_code });
+    }
+    
+    if (isBrowser) {
+      wasmInstance = (await WebAssembly.instantiateStreaming(fetch('$wasmFilePath'), { js_code })).instance;
+    }
+    
+    const wasmExports = wasmInstance.exports;
+    wasmExports.__init();
+    export default wasmExports;
+    """.trimIndent()
 
 fun writeCompilationResult(
     result: WasmCompilerResult,
     dir: File,
-    loaderKind: WasmLoaderKind,
     fileNameBase: String = "index",
 ) {
     dir.mkdirs()
-    File(dir, "$fileNameBase.wat").writeText(result.wat)
+    if (result.wat != null) {
+        File(dir, "$fileNameBase.wat").writeText(result.wat)
+    }
     File(dir, "$fileNameBase.wasm").writeBytes(result.wasm)
-    val jsWithLoader = generateJsWasmLoader(loaderKind, "./$fileNameBase.wasm", result.js)
-    File(dir, "$fileNameBase.js").writeText(jsWithLoader)
+
+    val jsWithLoader = generateJsWasmLoader("./$fileNameBase.wasm", result.js)
+    File(dir, "$fileNameBase.mjs").writeText(jsWithLoader)
 }

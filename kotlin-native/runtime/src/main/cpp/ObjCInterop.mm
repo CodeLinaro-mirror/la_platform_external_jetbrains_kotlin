@@ -36,6 +36,9 @@
 #include "StackTrace.hpp"
 #include "Types.h"
 #include "Mutex.hpp"
+#include "std_support/String.hpp"
+
+using namespace kotlin;
 
 // Replaced in ObjCExportCodeGenerator.
 __attribute__((weak)) const char* Kotlin_ObjCInterop_uniquePrefix = nullptr;
@@ -58,7 +61,7 @@ struct KotlinObjCClassData {
 @protocol HasKotlinObjCClassData
 @required
 -(void*)_kotlinObjCClassData;
-@end;
+@end
 
 static inline struct KotlinObjCClassData* GetKotlinClassData(id objOrClass) {
   void* ptr = [(id<HasKotlinObjCClassData>)objOrClass _kotlinObjCClassData];
@@ -267,7 +270,7 @@ NO_EXTERNAL_CALLS_CHECK static Class allocateClass(const KotlinObjCClassInfo* in
     fprintf(stderr, "Class %s has multiple implementations. Which one will be used is undefined.\n", info->name);
   }
 
-  KStdString className = Kotlin_ObjCInterop_getUniquePrefix();
+  std_support::string className = Kotlin_ObjCInterop_getUniquePrefix();
 
   if (info->name != nullptr) {
     className += info->name;

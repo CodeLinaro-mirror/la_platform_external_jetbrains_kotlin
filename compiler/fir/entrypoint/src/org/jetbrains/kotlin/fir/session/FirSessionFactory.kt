@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.java.FirCliSession
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.java.JavaSymbolProvider
 import org.jetbrains.kotlin.fir.java.deserialization.JvmClassFileBasedSymbolProvider
+import org.jetbrains.kotlin.fir.java.deserialization.OptionalAnnotationClassesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
@@ -32,6 +33,7 @@ import org.jetbrains.kotlin.fir.resolve.scopes.wrapScopeWithJvmMapped
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
+import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.name.Name
@@ -73,7 +75,7 @@ object FirSessionFactory {
         // (maybe easiest way to achieve is to delete libraries
         // TODO: consider passing something more abstract instead of precompiler component, in order to avoid file ops here
         val previousFirSessionsSymbolProviders: Collection<FirSymbolProvider>,
-        val precomiledBinariesPackagePartProvider: PackagePartProvider?,
+        val precompiledBinariesPackagePartProvider: PackagePartProvider?,
         val precompiledBinariesFileScope: AbstractProjectFileSearchScope?
     )
 
@@ -87,6 +89,7 @@ object FirSessionFactory {
         javaSourcesScope: AbstractProjectFileSearchScope,
         librariesScope: AbstractProjectFileSearchScope,
         lookupTracker: LookupTracker?,
+        enumWhenTracker: EnumWhenTracker?,
         incrementalCompilationContext: IncrementalCompilationContext?,
         extensionRegistrars: List<FirExtensionRegistrar>,
         needRegisterJavaElementFinder: Boolean,
@@ -122,6 +125,7 @@ object FirSessionFactory {
             extensionRegistrars,
             languageVersionSettings = languageVersionSettings,
             lookupTracker = lookupTracker,
+            enumWhenTracker = enumWhenTracker,
             needRegisterJavaElementFinder,
             init = sessionConfigurator
         )
@@ -136,6 +140,7 @@ object FirSessionFactory {
         extensionRegistrars: List<FirExtensionRegistrar>,
         languageVersionSettings: LanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT,
         lookupTracker: LookupTracker? = null,
+        enumWhenTracker: EnumWhenTracker? = null,
         needRegisterJavaElementFinder: Boolean,
         init: FirSessionConfigurator.() -> Unit = {}
     ): FirSession {
@@ -146,7 +151,7 @@ object FirSessionFactory {
             registerCliCompilerOnlyComponents()
             registerCommonComponents(languageVersionSettings)
             registerCommonJavaComponents(projectEnvironment.getJavaModuleResolver())
-            registerResolveComponents(lookupTracker)
+            registerResolveComponents(lookupTracker, enumWhenTracker)
             registerJavaSpecificResolveComponents()
 
             val kotlinScopeProvider = FirKotlinScopeProvider(::wrapScopeWithJvmMapped)
@@ -155,19 +160,31 @@ object FirSessionFactory {
             val firProvider = FirProviderImpl(this, kotlinScopeProvider)
             register(FirProvider::class, firProvider)
 
-            val symbolProviderForBinariesFromIncrementalCompilation =
-                incrementalCompilationContext?.let { (_, precompiledBinariesPackagePartProvider, precompiledBinariesFileScope) ->
-                    if (precompiledBinariesPackagePartProvider == null || precompiledBinariesFileScope == null) null
-                    else JvmClassFileBasedSymbolProvider(
-                        this@session,
-                        SingleModuleDataProvider(moduleData),
-                        kotlinScopeProvider,
-                        precompiledBinariesPackagePartProvider,
-                        projectEnvironment.getKotlinClassFinder(precompiledBinariesFileScope),
-                        projectEnvironment.getFirJavaFacade(this, moduleData, precompiledBinariesFileScope),
-                        defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
-                    )
+            var symbolProviderForBinariesFromIncrementalCompilation: JvmClassFileBasedSymbolProvider? = null
+            var optionalAnnotationClassesProviderForBinariesFromIncrementalCompilation: OptionalAnnotationClassesProvider? = null
+            incrementalCompilationContext?.let {
+                if (it.precompiledBinariesPackagePartProvider != null && it.precompiledBinariesFileScope != null) {
+                    val moduleDataProvider = SingleModuleDataProvider(moduleData)
+                    symbolProviderForBinariesFromIncrementalCompilation =
+                        JvmClassFileBasedSymbolProvider(
+                            this@session,
+                            moduleDataProvider,
+                            kotlinScopeProvider,
+                            it.precompiledBinariesPackagePartProvider,
+                            projectEnvironment.getKotlinClassFinder(it.precompiledBinariesFileScope),
+                            projectEnvironment.getFirJavaFacade(this, moduleData, it.precompiledBinariesFileScope),
+                            defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
+                        )
+                    optionalAnnotationClassesProviderForBinariesFromIncrementalCompilation =
+                        OptionalAnnotationClassesProvider(
+                            this@session,
+                            moduleDataProvider,
+                            kotlinScopeProvider,
+                            it.precompiledBinariesPackagePartProvider,
+                            defaultDeserializationOrigin = FirDeclarationOrigin.Precompiled
+                        )
                 }
+            }
 
             FirSessionConfigurator(this).apply {
                 registerCommonCheckers()
@@ -191,6 +208,7 @@ object FirSessionFactory {
                         generatedSymbolsProvider,
                         JavaSymbolProvider(this, projectEnvironment.getFirJavaFacade(this, moduleData, javaSourcesScope)),
                         dependenciesSymbolProvider,
+                        optionalAnnotationClassesProviderForBinariesFromIncrementalCompilation,
                     )
                 )
             )
@@ -238,6 +256,13 @@ object FirSessionFactory {
                 projectEnvironment.getFirJavaFacade(this, moduleDataProvider.allModuleData.last(), scope)
             )
 
+            val optionalAnnotationClassesProvider = OptionalAnnotationClassesProvider(
+                this,
+                moduleDataProvider,
+                kotlinScopeProvider,
+                packagePartProvider
+            )
+
             val builtinsModuleData = createModuleDataForBuiltins(
                 mainModuleName,
                 moduleDataProvider.platform,
@@ -250,7 +275,8 @@ object FirSessionFactory {
                     classFileBasedSymbolProvider,
                     FirBuiltinSymbolProvider(this, builtinsModuleData, kotlinScopeProvider),
                     FirCloneableSymbolProvider(this, builtinsModuleData, kotlinScopeProvider),
-                    FirDependenciesSymbolProviderImpl(this)
+                    FirDependenciesSymbolProviderImpl(this),
+                    optionalAnnotationClassesProvider
                 )
             )
             register(FirSymbolProvider::class, symbolProvider)

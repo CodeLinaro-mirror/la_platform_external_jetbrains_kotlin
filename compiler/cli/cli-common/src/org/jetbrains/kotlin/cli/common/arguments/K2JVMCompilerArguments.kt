@@ -75,7 +75,7 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
     @Argument(
         value = "-jvm-target",
         valueDescription = "<version>",
-        description = "Target version of the generated JVM bytecode (1.8, 9, 10, ..., 18), default is 1.8"
+        description = "Target version of the generated JVM bytecode (${JvmTarget.SUPPORTED_VERSIONS_DESCRIPTION}), default is 1.8"
     )
     var jvmTarget: String? by NullableStringFreezableVar(null)
 
@@ -124,7 +124,7 @@ class K2JVMCompilerArguments : CommonCompilerArguments() {
                 "0 means use a thread per processor core.\n" +
                 "Default value is 1"
     )
-    var parallelBackendThreads: String by FreezableVar("1")
+    var backendThreads: String by FreezableVar("1")
 
     @Argument(value = "-Xmodule-path", valueDescription = "<path>", description = "Paths where to find Java 9+ modules")
     var javaModulePath: String? by NullableStringFreezableVar(null)
@@ -378,7 +378,7 @@ default: `indy-with-constants` for JVM target 9 or greater, `inline` otherwise""
         value = "-Xjdk-release",
         valueDescription = "<version>",
         description = """Compile against the specified JDK API version, similarly to javac's `-release`. Requires JDK 9 or newer.
-Supported versions depend on the used JDK; for JDK 17+ supported versions are 1.8, 9, 10, ..., 17.
+Supported versions depend on the used JDK; for JDK 17+ supported versions are ${JvmTarget.SUPPORTED_VERSIONS_DESCRIPTION}.
 Also sets `-jvm-target` value equal to the selected JDK version"""
     )
     var jdkRelease: String? by NullableStringFreezableVar(null)
@@ -506,10 +506,16 @@ Also sets `-jvm-target` value equal to the selected JDK version"""
 
     @Argument(
         value = "-Xlink-via-signatures",
-        description = "Link JVM IR symbols via signatures, instead of descriptors. \n" +
+        description = "Link JVM IR symbols via signatures, instead of descriptors.\n" +
                 "This mode is slower, but can be useful in troubleshooting problems with the JVM IR backend"
     )
     var linkViaSignatures: Boolean by FreezableVar(false)
+
+    @Argument(
+        value = "-Xignore-const-optimization-errors",
+        description = "Ignore all compilation exceptions while optimizing some constant expressions."
+    )
+    var ignoreConstOptimizationErrors: Boolean by FreezableVar(false)
 
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         val result = super.configureAnalysisFlags(collector, languageVersion)

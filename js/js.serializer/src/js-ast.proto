@@ -47,6 +47,8 @@ message Expression {
     optional bool synthetic = 3 [default = false];
     optional SideEffects side_effects = 4 [default = AFFECTS_STATE];
     optional JsImportedModule local_alias = 5;
+    repeated Comment before_comments = 6;
+    repeated Comment after_comments = 7;
 
     oneof expression {
         int32 simple_name_reference = 22;
@@ -126,6 +128,11 @@ message DocCommentTag {
         int32 value_string_id = 2;
         Expression expression = 3;
     }
+}
+
+message Comment {
+    required string text = 1;
+    required bool multiline = 2;
 }
 
 message BinaryOperation {
@@ -233,6 +240,8 @@ message Statement {
     optional int32 fileId = 1;
     optional Location location = 2;
     optional bool synthetic = 3 [default = false];
+    repeated Comment before_comments = 4;
+    repeated Comment after_comments = 5;
 
     oneof statement {
         Return return_statement = 21;
@@ -243,7 +252,7 @@ message Statement {
         ExpressionStatement expression = 26;
         Vars vars = 27;
         Block block = 28;
-        GlobalBlock global_block = 29;
+        CompositeBlock composite_block = 29;
         Label label = 30;
         If if_statement = 31;
         Switch switch_statement = 32;
@@ -254,6 +263,7 @@ message Statement {
         Try try_statement = 37;
         Empty empty = 38;
         SingleLineComment single_line_comment = 39;
+        MultiLineComment multi_line_comment = 40;
     }
 }
 
@@ -298,7 +308,7 @@ message Block {
     repeated Statement statement = 1;
 }
 
-message GlobalBlock {
+message CompositeBlock {
     repeated Statement statement = 1;
 }
 
@@ -377,6 +387,10 @@ message SingleLineComment {
     required string message = 1;
 }
 
+message MultiLineComment {
+    required string message = 1;
+}
+
 enum InlineStrategy {
     AS_FUNCTION = 0;
     IN_PLACE = 1;
@@ -389,9 +403,9 @@ enum InlineStrategy {
 message Fragment {
     repeated ImportedModule imported_module = 1;
     repeated Import import_entry = 2;
-    optional GlobalBlock declaration_block = 3;
-    optional GlobalBlock export_block = 4;
-    optional GlobalBlock initializer_block = 5;
+    optional CompositeBlock declaration_block = 3;
+    optional CompositeBlock export_block = 4;
+    optional CompositeBlock initializer_block = 5;
     repeated NameBinding name_binding = 6;
     repeated ClassModel class_model = 7;
     repeated Expression module_expression = 8;
@@ -404,12 +418,12 @@ message Fragment {
     optional string dts = 15;
     optional int32 suite_function = 16;
     repeated int32 definitions = 17;
-    optional GlobalBlock polyfills = 18;
+    optional CompositeBlock polyfills = 18;
 }
 
 message InlinedLocalDeclarations {
     required int32 tag = 1;
-    required GlobalBlock block = 2;
+    required CompositeBlock block = 2;
 }
 
 message ImportedModule {
@@ -432,14 +446,14 @@ message ClassModel {
     required int32 name_id = 1;
     optional int32 super_name_id = 2;
     repeated int32 interface_name_id = 4;
-    optional GlobalBlock post_declaration_block = 3;
+    optional CompositeBlock post_declaration_block = 3;
 }
 
 message IrClassModel {
     required int32 name_id = 1;
     repeated int32 super_classes = 2;
-    optional GlobalBlock pre_declaration_block = 3;
-    optional GlobalBlock post_declaration_block = 4;
+    optional CompositeBlock pre_declaration_block = 3;
+    optional CompositeBlock post_declaration_block = 4;
 }
 
 message InlineModule {

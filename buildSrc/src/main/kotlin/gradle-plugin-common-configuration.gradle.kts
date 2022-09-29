@@ -3,6 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 import com.gradle.publish.PluginBundleExtension
+import plugins.signLibraryPublication
 
 plugins {
     kotlin("jvm")
@@ -12,7 +13,11 @@ plugins {
     id("com.gradle.plugin-publish")
 }
 
-configureCommonPublicationSettingsForGradle()
+// Enable signing for publications into Gradle Plugin Portal
+val signPublication = !version.toString().contains("-SNAPSHOT") &&
+        (project.gradle.startParameter.taskNames.contains("publishPlugins") || signLibraryPublication)
+
+configureCommonPublicationSettingsForGradle(signPublication)
 configureKotlinCompileTasksGradleCompatibility()
 extensions.extraProperties["kotlin.stdlib.default.dependency"] = "false"
 
@@ -37,6 +42,12 @@ publishing {
     }
 }
 
+tasks {
+    named("install") {
+        dependsOn(named("validatePlugins"))
+    }
+}
+
 val commonSourceSet = createGradleCommonSourceSet()
 reconfigureMainSourcesSetForGradlePlugin(commonSourceSet)
 publishShadowedJar(sourceSets[SourceSet.MAIN_SOURCE_SET_NAME], commonSourceSet)
@@ -48,9 +59,18 @@ tasks.named("jar") {
     enabled = false
 }
 
-// Used for Gradle 7.0+ versions
-val gradle70SourceSet = createGradlePluginVariant(
-    GradlePluginVariant.GRADLE_70,
-    commonSourceSet = commonSourceSet
-)
-publishShadowedJar(gradle70SourceSet, commonSourceSet)
+if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+    // Used for Gradle 7.0 version
+    val gradle70SourceSet = createGradlePluginVariant(
+        GradlePluginVariant.GRADLE_70,
+        commonSourceSet = commonSourceSet
+    )
+    publishShadowedJar(gradle70SourceSet, commonSourceSet)
+
+    // Used for Gradle 7.1+ versions
+    val gradle71SourceSet = createGradlePluginVariant(
+        GradlePluginVariant.GRADLE_71,
+        commonSourceSet = commonSourceSet
+    )
+    publishShadowedJar(gradle71SourceSet, commonSourceSet)
+}

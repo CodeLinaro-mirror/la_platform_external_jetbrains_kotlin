@@ -519,6 +519,17 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
             .loadClass("SourceKt").getDeclaredMethod("run").invoke(null)
     }
 
+    fun testChangedEnumsInLibrary() {
+        val oldLibrary = compileLibrary("old", checkKotlinOutput = {})
+        val newLibrary = compileLibrary("new", checkKotlinOutput = {})
+        compileKotlin("source.kt", tmpdir, listOf(oldLibrary))
+
+        val result =
+            URLClassLoader(arrayOf(newLibrary.toURI().toURL(), tmpdir.toURI().toURL()), ForTestCompileRuntime.runtimeJarClassLoader())
+                .loadClass("SourceKt").getDeclaredMethod("run").invoke(null) as String
+        assertEquals("ABCAB", result)
+    }
+
     fun testClassFromJdkInLibrary() {
         val library = compileLibrary("library")
         compileKotlin("source.kt", tmpdir, listOf(library))
@@ -619,6 +630,15 @@ class CompileKotlinAgainstCustomBinariesTest : AbstractKotlinCompilerIntegration
     }
 
     fun testFirIncorrectJavaSignature() {
+        compileKotlin(
+            "source.kt", tmpdir,
+            listOf(),
+            additionalOptions = listOf("-Xuse-k2"),
+            additionalSources = listOf("A.java", "B.java"),
+        )
+    }
+
+    fun testFirIncorrectRemoveSignature() {
         compileKotlin(
             "source.kt", tmpdir,
             listOf(),

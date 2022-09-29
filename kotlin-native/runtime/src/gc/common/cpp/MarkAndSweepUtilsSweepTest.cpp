@@ -54,7 +54,7 @@ struct ObjectFactoryTraits {
         State state = State::kUnmarked;
     };
 
-    using Allocator = gc::AlignedAllocator;
+    using Allocator = gc::Allocator;
 };
 
 using ObjectFactory = mm::ObjectFactory<ObjectFactoryTraits>;
@@ -198,10 +198,10 @@ public:
         }
     }
 
-    KStdVector<ObjHeader*> Sweep() {
+    std_support::vector<ObjHeader*> Sweep() {
         gc::SweepExtraObjects<SweepTraits>(extraObjectFactory_);
         auto finalizers = gc::Sweep<SweepTraits>(objectFactory_);
-        KStdVector<ObjHeader*> objects;
+        std_support::vector<ObjHeader*> objects;
         for (auto node : finalizers.IterForTests()) {
             objects.push_back(node.GetObjHeader());
         }
@@ -209,16 +209,16 @@ public:
         return objects;
     }
 
-    KStdVector<ObjHeader*> Alive() {
-        KStdVector<ObjHeader*> objects;
+    std_support::vector<ObjHeader*> Alive() {
+        std_support::vector<ObjHeader*> objects;
         for (auto node : objectFactory_.LockForIter()) {
             objects.push_back(node.GetObjHeader());
         }
         return objects;
     }
 
-    KStdVector<mm::ExtraObjectData*> AliveExtraObjects() {
-        KStdVector<mm::ExtraObjectData*> objects;
+    std_support::vector<mm::ExtraObjectData*> AliveExtraObjects() {
+        std_support::vector<mm::ExtraObjectData*> objects;
         for (auto &node : extraObjectFactory_.LockForIter()) {
             objects.push_back(&node);
         }
@@ -268,10 +268,10 @@ private:
     kotlin::ScopedMemoryInit memoryInit;
     FinalizerHooksTestSupport finalizerHooks_;
     ObjectFactory objectFactory_;
-    ObjectFactory::ThreadQueue objectFactoryThreadQueue_{objectFactory_, gc::AlignedAllocator()};
+    ObjectFactory::ThreadQueue objectFactoryThreadQueue_{objectFactory_, gc::Allocator()};
     ExtraObjectsDataFactory extraObjectFactory_;
     ExtraObjectsDataFactory::ThreadQueue extraObjectFactoryThreadQueue_{extraObjectFactory_};
-    KStdVector<ObjectFactory::FinalizerQueue> finalizers_;
+    std_support::vector<ObjectFactory::FinalizerQueue> finalizers_;
 };
 
 } // namespace

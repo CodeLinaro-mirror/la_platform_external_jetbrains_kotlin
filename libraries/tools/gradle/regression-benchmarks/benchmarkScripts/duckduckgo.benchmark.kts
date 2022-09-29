@@ -4,13 +4,15 @@
 @file:BenchmarkProject(
     name = "duckduckgo",
     gitUrl = "https://github.com/duckduckgo/Android.git",
-    gitCommitSha = "18e2fcb53a6de6f4f9ef90f27a587d88b6d2e140"
+    gitCommitSha = "648b0aae2dd54c4da4176eb91b3a05ea44118fa5"
 )
 
 import java.io.File
 
 val stableReleasePatch = {
-    "duckduckgo-kotlin-1.6.20.patch" to File("benchmarkScripts/files/duckduckgo-kotlin-1.6.20.patch").inputStream()
+    "duckduckgo-kotlin-1.7.10.patch" to File("benchmarkScripts/files/duckduckgo-kotlin-1.7.10.patch")
+        .readText()
+        .byteInputStream()
 }
 
 val currentReleasePatch = {
@@ -26,7 +28,7 @@ runAllBenchmarks(
             title = "Clean build"
             useGradleArgs("--no-build-cache")
 
-            runTasks("assembleDebug")
+            runTasks(":app:assemblePlayDebug")
             runCleanupTasks("clean")
         }
 
@@ -34,29 +36,29 @@ runAllBenchmarks(
             title = "Incremental build with ABI change in common ViewModelFactory"
             useGradleArgs("--no-build-cache")
 
-            runTasks("assembleDebug")
-            applyAbiChangeTo("common/src/main/java/com/duckduckgo/app/global/ViewModelFactory.kt")
+            runTasks(":app:assemblePlayDebug")
+            applyAbiChangeTo("common/src/main/java/com/duckduckgo/app/global/VpnViewModelFactory.kt")
         }
 
         scenario {
             title = "Incremetal build with ABI change in Kapt component"
             useGradleArgs("--no-build-cache")
 
-            runTasks("assembleDebug")
-            applyAbiChangeTo("vpn-main/src/main/java/com/duckduckgo/mobile/android/vpn/di/VpnComponent.kt")
+            runTasks(":app:assemblePlayDebug")
+            applyAbiChangeTo("vpn/src/main/java/com/duckduckgo/mobile/android/vpn/di/VpnModule.kt")
         }
 
         scenario {
             title = "Incremental build with change in Android common string resource"
             useGradleArgs("--no-build-cache")
 
-            runTasks("assembleDebug")
+            runTasks(":app:assemblePlayDebug")
 
             applyAndroidResourceValueChange("common-ui/src/main/res/values/strings.xml")
         }
     },
     mapOf(
-        "1.6.20" to stableReleasePatch,
-        "1.7.0" to currentReleasePatch
+        "1.7.10" to stableReleasePatch,
+        "1.7.20" to currentReleasePatch
     )
 )

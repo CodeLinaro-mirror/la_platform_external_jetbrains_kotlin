@@ -5,7 +5,9 @@ KtApplicableCallCandidateInfo:
       dispatchReceiver = KtImplicitReceiverValue:
         symbol = KtReceiverParameterSymbol:
           origin: SOURCE
+          owningCallableSymbol: KtAnonymousFunctionSymbol(<local>/<no name provided>)
           type: test/Target<kotlin/String>
+        type = test.Target<Stub (chain inference): TypeVariable(T)>
       extensionReceiver = null
       signature = KtFunctionLikeSignature:
         receiverType = null
@@ -17,12 +19,16 @@ KtApplicableCallCandidateInfo:
             receiverType = null
             returnType = T
             symbol = t: T
+            callableIdIfNonLocal = null
         ]
+        callableIdIfNonLocal = test/Target.add
+    typeArgumentsMapping = {}
     argumentMapping = {
       s -> (KtVariableLikeSignature:
         name = t
         receiverType = null
         returnType = T
-        symbol = t: T)
+        symbol = t: T
+        callableIdIfNonLocal = null)
     }
   isInBestCandidates = true

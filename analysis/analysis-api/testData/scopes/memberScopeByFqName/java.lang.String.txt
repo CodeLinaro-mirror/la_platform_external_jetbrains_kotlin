@@ -1,4 +1,5 @@
 KtJavaFieldSymbol:
+  annotationsList: []
   callableIdIfNonLocal: java/lang/String.value
   isExtension: false
   isStatic: false
@@ -9,11 +10,14 @@ KtJavaFieldSymbol:
   receiverType: null
   returnType: ft<kotlin/CharArray, kotlin/CharArray?>
   symbolKind: CLASS_MEMBER
+  typeParameters: []
   visibility: Private
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtJavaFieldSymbol:
+  annotationsList: []
   callableIdIfNonLocal: java/lang/String.hash
   isExtension: false
   isStatic: false
@@ -24,8 +28,10 @@ KtJavaFieldSymbol:
   receiverType: null
   returnType: kotlin/Int
   symbolKind: CLASS_MEMBER
+  typeParameters: []
   visibility: Private
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -51,9 +57,11 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: PackageVisibility
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtJavaFieldSymbol:
+  annotationsList: []
   callableIdIfNonLocal: java/lang/String.hash32
   isExtension: false
   isStatic: false
@@ -64,8 +72,10 @@ KtJavaFieldSymbol:
   receiverType: null
   returnType: kotlin/Int
   symbolKind: CLASS_MEMBER
+  typeParameters: []
   visibility: Private
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtSyntheticJavaPropertySymbol:
@@ -94,6 +104,7 @@ KtSyntheticJavaPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: length
@@ -123,6 +134,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -146,10 +158,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(index)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -173,10 +186,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(index)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -200,11 +214,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(beginIndex)
+    KtValueParameterSymbol(endIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -228,11 +243,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(index)
+    KtValueParameterSymbol(codePointOffset)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -256,11 +272,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(dst)
+    KtValueParameterSymbol(dstBegin)
   ]
   visibility: PackageVisibility
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -284,13 +301,14 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(srcBegin)
+    KtValueParameterSymbol(srcEnd)
+    KtValueParameterSymbol(dst)
+    KtValueParameterSymbol(dstBegin)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -317,13 +335,14 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(srcBegin)
+    KtValueParameterSymbol(srcEnd)
+    KtValueParameterSymbol(dst)
+    KtValueParameterSymbol(dstBegin)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=Deprecated in Java)
 
 KtFunctionSymbol:
@@ -347,10 +366,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(charsetName)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -374,10 +394,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(charset)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -403,6 +424,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -426,10 +448,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(anObject)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -453,10 +476,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(sb)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -480,10 +504,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(cs)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -507,10 +532,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(anotherString)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -534,10 +560,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(anotherString)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -561,10 +588,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(str)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -588,13 +616,14 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(toffset)
+    KtValueParameterSymbol(other)
+    KtValueParameterSymbol(ooffset)
+    KtValueParameterSymbol(len)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -618,14 +647,15 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
-    KtValueParameterSymbol(p4)
+    KtValueParameterSymbol(ignoreCase)
+    KtValueParameterSymbol(toffset)
+    KtValueParameterSymbol(other)
+    KtValueParameterSymbol(ooffset)
+    KtValueParameterSymbol(len)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -649,11 +679,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(prefix)
+    KtValueParameterSymbol(toffset)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -677,10 +708,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(prefix)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -704,10 +736,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(suffix)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -733,6 +766,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -756,10 +790,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(ch)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -783,11 +818,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(ch)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -811,10 +847,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(str)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -838,11 +875,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(str)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -866,11 +904,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(ch)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Private
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -894,10 +933,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(ch)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -921,11 +961,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(ch)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -949,10 +990,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(str)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -976,11 +1018,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(str)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1004,11 +1047,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(ch)
+    KtValueParameterSymbol(fromIndex)
   ]
   visibility: Private
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1032,10 +1076,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(beginIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1059,11 +1104,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(beginIndex)
+    KtValueParameterSymbol(endIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1087,11 +1133,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(beginIndex)
+    KtValueParameterSymbol(endIndex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1115,10 +1162,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(str)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1142,11 +1190,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(oldChar)
+    KtValueParameterSymbol(newChar)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1170,11 +1219,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(target)
+    KtValueParameterSymbol(replacement)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1198,10 +1248,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(regex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1225,10 +1276,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(s)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1252,11 +1304,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(regex)
+    KtValueParameterSymbol(replacement)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1280,11 +1333,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(regex)
+    KtValueParameterSymbol(replacement)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1308,11 +1362,12 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(regex)
+    KtValueParameterSymbol(limit)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1336,10 +1391,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(regex)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1363,10 +1419,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(locale)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1392,6 +1449,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1415,10 +1473,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(locale)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1444,6 +1503,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1469,6 +1529,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1494,6 +1555,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1519,6 +1581,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1544,6 +1607,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1567,10 +1631,11 @@ KtFunctionSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(index)
   ]
   visibility: Public
   getDispatchReceiver(): java/lang/String
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -1594,6 +1659,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Private
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1610,6 +1676,7 @@ KtConstructorSymbol:
   typeParameters: []
   valueParameters: []
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1625,9 +1692,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(original)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1643,9 +1711,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(value)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1661,11 +1730,12 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
+    KtValueParameterSymbol(value)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(count)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1681,11 +1751,12 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
+    KtValueParameterSymbol(codePoints)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(count)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1704,12 +1775,13 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(ascii)
+    KtValueParameterSymbol(hibyte)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(count)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=Deprecated in Java)
 
 KtConstructorSymbol:
@@ -1728,10 +1800,11 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(ascii)
+    KtValueParameterSymbol(hibyte)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=Deprecated in Java)
 
 KtConstructorSymbol:
@@ -1747,12 +1820,13 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(bytes)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(length)
+    KtValueParameterSymbol(charsetName)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1768,12 +1842,13 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
-    KtValueParameterSymbol(p3)
+    KtValueParameterSymbol(bytes)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(length)
+    KtValueParameterSymbol(charset)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1789,10 +1864,11 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(bytes)
+    KtValueParameterSymbol(charsetName)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1808,10 +1884,11 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(bytes)
+    KtValueParameterSymbol(charset)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1827,11 +1904,12 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
+    KtValueParameterSymbol(bytes)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(length)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1847,9 +1925,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(bytes)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1865,9 +1944,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(buffer)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1883,9 +1963,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
+    KtValueParameterSymbol(builder)
   ]
   visibility: Public
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1901,10 +1982,11 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
+    KtValueParameterSymbol(value)
+    KtValueParameterSymbol(share)
   ]
   visibility: PackageVisibility
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: null
 
 KtConstructorSymbol:
@@ -1923,9 +2005,10 @@ KtConstructorSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p0)
-    KtValueParameterSymbol(p1)
-    KtValueParameterSymbol(p2)
+    KtValueParameterSymbol(offset)
+    KtValueParameterSymbol(count)
+    KtValueParameterSymbol(value)
   ]
   visibility: PackageVisibility
+  getContainingModule: KtSdkModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=Deprecated in Java)

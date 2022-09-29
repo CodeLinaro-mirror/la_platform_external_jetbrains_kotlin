@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.serialization.js.ast
 
 import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.backend.ast.metadata.*
-import java.io.File
 import java.util.*
 
 abstract class JsAstSerializerBase {
@@ -67,14 +66,15 @@ abstract class JsAstSerializerBase {
             }
 
             override fun visitBlock(x: JsBlock) {
-                if (x is JsGlobalBlock) {
-                    builder.globalBlock = serializeBlock(x)
-                } else {
-                    val blockBuilder = JsAstProtoBuf.Block.newBuilder()
-                    for (part in x.statements) {
-                        blockBuilder.addStatement(serialize(part))
+                when (x) {
+                    is JsCompositeBlock -> { builder.compositeBlock = serializeBlock(x) }
+                    else -> {
+                        val blockBuilder = JsAstProtoBuf.Block.newBuilder()
+                        for (part in x.statements) {
+                            blockBuilder.addStatement(serialize(part))
+                        }
+                        builder.block = blockBuilder.build()
                     }
-                    builder.block = blockBuilder.build()
                 }
             }
 
@@ -168,10 +168,16 @@ abstract class JsAstSerializerBase {
             override fun visitSingleLineComment(comment: JsSingleLineComment) {
                 builder.singleLineComment = JsAstProtoBuf.SingleLineComment.newBuilder().setMessage(comment.text).build()
             }
+
+            override fun visitMultiLineComment(comment: JsMultiLineComment) {
+                builder.multiLineComment = JsAstProtoBuf.MultiLineComment.newBuilder().setMessage(comment.text).build()
+            }
         }
 
-        withLocation(statement, { visitor.builder.fileId = it }, { visitor.builder.location = it }) {
-            statement.accept(visitor)
+        withComments(statement, { visitor.builder.addBeforeComments(it) }, { visitor.builder.addAfterComments(it) }) {
+            withLocation(statement, { visitor.builder.fileId = it }, { visitor.builder.location = it }) {
+                statement.accept(visitor)
+            }
         }
 
         if (statement is HasMetadata && statement.synthetic) {
@@ -344,8 +350,10 @@ abstract class JsAstSerializerBase {
             }
         }
 
-        withLocation(expression, { visitor.builder.fileId = it }, { visitor.builder.location = it }) {
-            expression.accept(visitor)
+        withComments(expression, { visitor.builder.addBeforeComments(it) }, { visitor.builder.addAfterComments(it) }) {
+            withLocation(expression, { visitor.builder.fileId = it }, { visitor.builder.location = it }) {
+                expression.accept(visitor)
+            }
         }
 
         with(visitor.builder) {
@@ -376,8 +384,8 @@ abstract class JsAstSerializerBase {
         return parameterBuilder.build()
     }
 
-    protected fun serializeBlock(block: JsGlobalBlock): JsAstProtoBuf.GlobalBlock {
-        val blockBuilder = JsAstProtoBuf.GlobalBlock.newBuilder()
+    protected fun serializeBlock(block: JsCompositeBlock): JsAstProtoBuf.CompositeBlock {
+        val blockBuilder = JsAstProtoBuf.CompositeBlock.newBuilder()
         for (part in block.statements) {
             blockBuilder.addStatement(serialize(part))
         }
@@ -518,6 +526,18 @@ abstract class JsAstSerializerBase {
         result
     }
 
+    protected fun serialize(comment: JsComment): JsAstProtoBuf.Comment {
+        val builder = JsAstProtoBuf.Comment.newBuilder().apply {
+            text = comment.text
+            multiline = when (comment) {
+                is JsSingleLineComment -> false
+                is JsMultiLineComment -> true
+                else -> error("Unknown type of comment ${comment.javaClass.name}")
+            }
+        }
+        return builder.build()
+    }
+
     private inline fun withLocation(node: JsNode, fileConsumer: (Int) -> Unit, locationConsumer: (JsAstProtoBuf.Location) -> Unit, inner: () -> Unit) {
         val location = extractLocation(node)
         var fileChanged = false
@@ -540,6 +560,17 @@ abstract class JsAstSerializerBase {
         if (fileChanged) {
             fileStack.pop()
         }
+    }
+
+    private inline fun withComments(
+        node: JsNode,
+        beforeCommentsConsumer: (JsAstProtoBuf.Comment) -> Unit,
+        afterCommentsConsumer: (JsAstProtoBuf.Comment) -> Unit,
+        inner: () -> Unit
+    ) {
+        node.commentsBeforeNode?.forEach { beforeCommentsConsumer(serialize(it))}
+        node.commentsAfterNode?.forEach { afterCommentsConsumer(serialize(it))}
+        inner()
     }
 
     abstract fun extractLocation(node: JsNode): JsLocation?

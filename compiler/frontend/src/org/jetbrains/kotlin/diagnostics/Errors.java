@@ -147,6 +147,8 @@ public interface Errors {
 
     DiagnosticFactory1<PsiElement, PropertyDescriptor> DEPRECATED_ACCESS_TO_ENUM_COMPANION_PROPERTY = DiagnosticFactory1.create(WARNING);
 
+    DiagnosticFactory2<PsiElement, PropertyDescriptor, ClassDescriptor> DEPRECATED_RESOLVE_WITH_AMBIGUOUS_ENUM_ENTRY = DiagnosticFactory2.create(WARNING);
+
     DiagnosticFactory1<PsiElement, ConstructorDescriptor> PROTECTED_CONSTRUCTOR_NOT_IN_SUPER_CALL = DiagnosticFactory1.create(ERROR);
 
     // Exposed visibility group
@@ -735,6 +737,7 @@ public interface Errors {
     DiagnosticFactory0<PsiElement> DATA_CLASS_WITHOUT_PARAMETERS = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtParameter> DATA_CLASS_VARARG_PARAMETER = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtParameter> DATA_CLASS_NOT_PROPERTY_PARAMETER = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<PsiElement> DATA_OBJECT_CUSTOM_EQUALS_OR_HASH_CODE = DiagnosticFactory0.create(ERROR);
 
     DiagnosticFactory0<KtParameter> CATCH_PARAMETER_WITH_DEFAULT_VALUE = DiagnosticFactory0.create(ERROR);
 
@@ -856,6 +859,9 @@ public interface Errors {
     DiagnosticFactory3<PsiElement, String, String, String> OVERLOAD_RESOLUTION_AMBIGUITY_BECAUSE_OF_STUB_TYPES = DiagnosticFactory3.create(ERROR);
     DiagnosticFactory3<PsiElement, KotlinType, String, String> STUB_TYPE_IN_ARGUMENT_CAUSES_AMBIGUITY = DiagnosticFactory3.create(ERROR);
     DiagnosticFactory4<PsiElement, KotlinType, String, String, BuilderLambdaLabelingInfo> STUB_TYPE_IN_RECEIVER_CAUSES_AMBIGUITY = DiagnosticFactory4.create(ERROR);
+    DiagnosticFactory2<PsiElement, Name, Name> BUILDER_INFERENCE_MULTI_LAMBDA_RESTRICTION = DiagnosticFactory2.create(ERROR);
+    DiagnosticFactory2<PsiElement, Name, Name> BUILDER_INFERENCE_STUB_RECEIVER = DiagnosticFactory2.create(ERROR);
+
     DiagnosticFactory1<PsiElement, Collection<? extends ResolvedCall<?>>> NONE_APPLICABLE = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, Collection<? extends ResolvedCall<?>>> CANNOT_COMPLETE_RESOLVE = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, Collection<? extends ResolvedCall<?>>> UNRESOLVED_REFERENCE_WRONG_RECEIVER =
@@ -888,6 +894,7 @@ public interface Errors {
 
     DiagnosticFactory1<PsiElement, InferenceErrorData> TYPE_INFERENCE_NO_INFORMATION_FOR_PARAMETER = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, String> NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER = DiagnosticFactory1.create(ERROR);
+    DiagnosticFactory1<PsiElement, String> INFERRED_INTO_DECLARED_UPPER_BOUNDS = DiagnosticFactory1.create(WARNING);
     DiagnosticFactory1<PsiElement, String> COULD_BE_INFERRED_ONLY_WITH_UNRESTRICTED_BUILDER_INFERENCE = DiagnosticFactory1.create(ERROR);
 
     DiagnosticFactory1<PsiElement, InferenceErrorData> TYPE_INFERENCE_CONFLICTING_SUBSTITUTIONS = DiagnosticFactory1.create(ERROR);
@@ -897,6 +904,10 @@ public interface Errors {
 
     DiagnosticFactoryForDeprecation1<PsiElement, TypeParameterDescriptor> TYPE_INFERENCE_ONLY_INPUT_TYPES =
             DiagnosticFactoryForDeprecation1.create(LanguageFeature.StrictOnlyInputTypesChecks);
+    DiagnosticFactoryForDeprecation4<PsiElement, String, Collection<KotlinType>, String, String> INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION =
+            DiagnosticFactoryForDeprecation4.create(LanguageFeature.ForbidInferringTypeVariablesIntoEmptyIntersection);
+    DiagnosticFactory4<PsiElement, String, Collection<KotlinType>, String, String> INFERRED_TYPE_VARIABLE_INTO_POSSIBLE_EMPTY_INTERSECTION =
+            DiagnosticFactory4.create(WARNING);
     DiagnosticFactory1<PsiElement, InferenceErrorData> TYPE_INFERENCE_UPPER_BOUND_VIOLATED = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory2<KtElement, KotlinType, KotlinType> TYPE_INFERENCE_EXPECTED_TYPE_MISMATCH = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory0<PsiElement> TYPE_INFERENCE_CANDIDATE_WITH_SAM_AND_VARARG = DiagnosticFactory0.create(WARNING);
@@ -1262,6 +1273,7 @@ public interface Errors {
             DiagnosticFactory1.create(ERROR, NOT_SUPPORTED_IN_INLINE_MOST_RELEVANT);
     DiagnosticFactory0<PsiElement> NOTHING_TO_INLINE = DiagnosticFactory0.create(WARNING);
     DiagnosticFactory2<KtElement, KtExpression, DeclarationDescriptor> USAGE_IS_NOT_INLINABLE = DiagnosticFactory2.create(ERROR);
+    DiagnosticFactory2<KtElement, KtExpression, DeclarationDescriptor> USAGE_IS_NOT_INLINABLE_WARNING = DiagnosticFactory2.create(WARNING);
     DiagnosticFactory2<KtElement, KtElement, DeclarationDescriptor> NULLABLE_INLINE_PARAMETER = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory2<KtElement, KtElement, DeclarationDescriptor> RECURSION_IN_INLINE = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory0<KtDeclaration> DECLARATION_CANT_BE_INLINED = DiagnosticFactory0.create(ERROR, INLINE_FUN_MODIFIER);
@@ -1290,7 +1302,8 @@ public interface Errors {
     DiagnosticFactory0<PsiElement> NON_MODIFIER_FORM_FOR_BUILT_IN_SUSPEND = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtReturnExpression> RETURN_FOR_BUILT_IN_SUSPEND = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<PsiElement> MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND = DiagnosticFactory0.create(ERROR);
-    DiagnosticFactory0<PsiElement> MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN = DiagnosticFactory0.create(WARNING);
+    DiagnosticFactoryForDeprecation0<PsiElement> MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN =
+            DiagnosticFactoryForDeprecation0.create(LanguageFeature.ModifierNonBuiltinSuspendFunError);
 
     DiagnosticFactory1<PsiElement, RenderedDiagnostic<?>> PLUGIN_ERROR = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory1<PsiElement, RenderedDiagnostic<?>> PLUGIN_WARNING = DiagnosticFactory1.create(WARNING);
@@ -1305,6 +1318,7 @@ public interface Errors {
     DiagnosticFactory1<KtElement, String> MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory0<KtElement> AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtElement> UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<KtElement> SUBTYPING_BETWEEN_CONTEXT_RECEIVERS = DiagnosticFactory0.create(ERROR);
 
     // Error sets
     ImmutableSet<? extends DiagnosticFactory<?>> UNRESOLVED_REFERENCE_DIAGNOSTICS = ImmutableSet.of(

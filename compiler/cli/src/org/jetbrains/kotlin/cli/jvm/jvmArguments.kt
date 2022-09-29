@@ -294,6 +294,8 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(JVMConfigurationKeys.LINK_VIA_SIGNATURES, arguments.linkViaSignatures)
 
+    put(JVMConfigurationKeys.IGNORE_CONST_OPTIMIZATION_ERRORS, arguments.ignoreConstOptimizationErrors)
+
     val assertionsMode =
         JVMAssertionsMode.fromStringOrNull(arguments.assertionsMode)
     if (assertionsMode == null) {
@@ -328,9 +330,25 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     arguments.declarationsOutputPath?.let { put(JVMConfigurationKeys.DECLARATIONS_JSON_PATH, it) }
 
-    val nThreadsRaw = arguments.parallelBackendThreads.toIntOrNull() ?: 1
+    val nThreadsRaw = parseBackendThreads(arguments.backendThreads, messageCollector)
     val nThreads = if (nThreadsRaw == 0) Runtime.getRuntime().availableProcessors() else nThreadsRaw
+    if (nThreads > 1) {
+        messageCollector.report(LOGGING, "Running backend in parallel with $nThreads threads")
+    }
     put(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS, nThreads)
+}
+
+private fun parseBackendThreads(stringValue: String, messageCollector: MessageCollector): Int {
+    val value = stringValue.toIntOrNull()
+    if (value == null) {
+        messageCollector.report(ERROR, "Cannot parse -Xbackend-threads value: \"$stringValue\". Please use an integer number")
+        return 1
+    }
+    if (value < 0) {
+        messageCollector.report(ERROR, "-Xbackend-threads value cannot be negative")
+        return 1
+    }
+    return value
 }
 
 fun CompilerConfiguration.configureKlibPaths(arguments: K2JVMCompilerArguments) {

@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.test.frontend.fir
 
-import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
@@ -15,7 +15,9 @@ import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.psi
+import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.CompilerEnvironment
 import org.jetbrains.kotlin.resolve.lazy.declarations.FileBasedDeclarationProviderFactory
@@ -40,13 +42,13 @@ class Fir2IrResultsConverter(
     ): IrBackendInput {
         val compilerConfigurationProvider = testServices.compilerConfigurationProvider
         val configuration = compilerConfigurationProvider.getCompilerConfiguration(module)
-        val extensions = JvmGeneratorExtensionsImpl(configuration)
 
-        val (irModuleFragment, symbolTable, components) = inputArtifact.firAnalyzerFacade.convertToIr(extensions)
+        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), JvmIrMangler)
+        val (irModuleFragment, components) = inputArtifact.firAnalyzerFacade.convertToIr(fir2IrExtensions)
         val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
 
         val phaseConfig = configuration.get(CLIConfigurationKeys.PHASE_CONFIG)
-        val codegenFactory = JvmIrCodegenFactory(configuration, phaseConfig, jvmGeneratorExtensions = extensions)
+        val codegenFactory = JvmIrCodegenFactory(configuration, phaseConfig)
 
         // TODO: handle fir from light tree
         val ktFiles = inputArtifact.firFiles.values.mapNotNull { it.psi as KtFile? }
@@ -70,17 +72,15 @@ class Fir2IrResultsConverter(
             FirJvmBackendClassResolver(components)
         ).build()
 
-        val irProviders = codegenFactory.configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(irModuleFragment, symbolTable, extensions)
-
         return IrBackendInput.JvmIrBackendInput(
             generationState,
             codegenFactory,
             JvmIrCodegenFactory.JvmIrBackendInput(
                 irModuleFragment,
-                symbolTable,
+                components.symbolTable,
                 phaseConfig,
-                irProviders,
-                extensions,
+                components.irProviders,
+                fir2IrExtensions,
                 FirJvmBackendExtension(inputArtifact.session, components),
                 notifyCodegenStart = {},
             ),

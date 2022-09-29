@@ -28,6 +28,8 @@ import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.jetbrains.kotlin.gradle.util.testResolveAllConfigurations
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.nio.file.Files
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -934,7 +936,6 @@ open class Kapt3IT : Kapt3BaseIT() {
     }
 
     @DisplayName("KT-46651: kapt is tracking source files properly with configuration cache enabled")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
     @GradleTest
     fun kaptGenerateStubsShouldNotCaptureSourcesStateInConfigurationCache(gradleVersion: GradleVersion) {
         project(
@@ -976,6 +977,41 @@ open class Kapt3IT : Kapt3BaseIT() {
                 assertTasksExecuted(":example:kaptKotlin")
                 assertTasksUpToDate(":example:kaptGenerateStubsKotlin")
             }
+        }
+    }
+
+    @DisplayName("KT-52392: Setup with different windows disks does not fail configuration")
+    @GradleTest
+    @EnabledOnOs(OS.WINDOWS)
+    fun testDifferentDisksSetupDoesNotFailConfiguration(gradleVersion: GradleVersion) {
+        project("simple".withPrefix, gradleVersion) {
+            fun findAnotherRoot() = ('A'..'Z').first { !projectPath.root.startsWith(it.toString()) }
+
+            //language=Gradle
+            buildGradle.append(
+                """
+
+                allprojects {
+                    buildDir = "${findAnotherRoot()}:/gradle-build/${'$'}{rootProject.name}/${'$'}{project.name}"
+                    
+                    // with dry-run `BuildResult#tasks` is empty, so we emulate dry-run to use `assertTasksSkipped`
+                    tasks.configureEach {
+                        enabled = false
+                    }
+                }
+                """.trimIndent()
+            )
+            build("assemble") {
+                assertTasksSkipped(":kaptGenerateStubsKotlin")
+            }
+        }
+    }
+
+    @DisplayName("KT-52761: generated sources attached to compile task are also used by generate stubs task")
+    @GradleTest
+    fun testGeneratedSourcesUsedInGenerateStubsTask(gradleVersion: GradleVersion) {
+        project("generatedSources".withPrefix, gradleVersion) {
+            build("assemble")
         }
     }
 }

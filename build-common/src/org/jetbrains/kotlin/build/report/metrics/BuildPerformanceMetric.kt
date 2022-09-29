@@ -13,6 +13,8 @@ enum class BuildPerformanceMetric(val parent: BuildPerformanceMetric? = null, va
         LOOKUP_SIZE(CACHE_DIRECTORY_SIZE, "Lookups size", type = SizeMetricType.BYTES),
         SNAPSHOT_SIZE(CACHE_DIRECTORY_SIZE, "ABI snapshot size", type = SizeMetricType.BYTES),
 
+    BUNDLE_SIZE(readableString = "Total size of the final bundle", type = SizeMetricType.BYTES),
+
     COMPILE_ITERATION(parent = null, "Total compiler iteration", type = SizeMetricType.NUMBER),
 
     // Metrics for the `kotlin.incremental.useClasspathSnapshot` feature
@@ -25,7 +27,9 @@ enum class BuildPerformanceMetric(val parent: BuildPerformanceMetric? = null, va
         CLASSPATH_ENTRY_COUNT(parent = SHRINK_AND_SAVE_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, "Number of classpath entries", type = SizeMetricType.NUMBER),
         CLASSPATH_SNAPSHOT_SIZE(parent = SHRINK_AND_SAVE_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, "Size of classpath snapshot", type = SizeMetricType.BYTES),
         SHRUNK_CLASSPATH_SNAPSHOT_SIZE(parent = SHRINK_AND_SAVE_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, "Size of shrunk classpath snapshot", type = SizeMetricType.BYTES),
-    LOAD_CLASSPATH_ENTRY_SNAPSHOT_CACHE_MISSES(parent = null, "Number of cache misses when loading classpath entry snapshots", type = SizeMetricType.NUMBER),
+    LOAD_CLASSPATH_SNAPSHOT_EXECUTION_COUNT(parent = null, "Number of times classpath snapshot is loaded", type = SizeMetricType.NUMBER),
+        LOAD_CLASSPATH_ENTRY_SNAPSHOT_CACHE_HITS(parent = LOAD_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, "Number of cache hits when loading classpath entry snapshots", type = SizeMetricType.NUMBER),
+        LOAD_CLASSPATH_ENTRY_SNAPSHOT_CACHE_MISSES(parent = LOAD_CLASSPATH_SNAPSHOT_EXECUTION_COUNT, "Number of cache misses when loading classpath entry snapshots", type = SizeMetricType.NUMBER),
     ;
 
     companion object {

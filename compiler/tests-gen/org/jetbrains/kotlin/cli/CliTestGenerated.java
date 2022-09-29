@@ -264,6 +264,11 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/duplicateSourcesInModule.args");
         }
 
+        @TestMetadata("duplicateSourcesNormalized.args")
+        public void testDuplicateSourcesNormalized() throws Exception {
+            runTest("compiler/testData/cli/jvm/duplicateSourcesNormalized.args");
+        }
+
         @TestMetadata("emptySources.args")
         public void testEmptySources() throws Exception {
             runTest("compiler/testData/cli/jvm/emptySources.args");
@@ -362,6 +367,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("fileClassClashMultipleFiles.args")
         public void testFileClassClashMultipleFiles() throws Exception {
             runTest("compiler/testData/cli/jvm/fileClassClashMultipleFiles.args");
+        }
+
+        @TestMetadata("firAllOpenPlugin.args")
+        public void testFirAllOpenPlugin() throws Exception {
+            runTest("compiler/testData/cli/jvm/firAllOpenPlugin.args");
         }
 
         @TestMetadata("firDfa.args")
@@ -704,6 +714,21 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/kt49209.args");
         }
 
+        @TestMetadata("kt51846_backendThreadsValidation1.args")
+        public void testKt51846_backendThreadsValidation1() throws Exception {
+            runTest("compiler/testData/cli/jvm/kt51846_backendThreadsValidation1.args");
+        }
+
+        @TestMetadata("kt51846_backendThreadsValidation2.args")
+        public void testKt51846_backendThreadsValidation2() throws Exception {
+            runTest("compiler/testData/cli/jvm/kt51846_backendThreadsValidation2.args");
+        }
+
+        @TestMetadata("kt51846_backendThreadsValidation3.args")
+        public void testKt51846_backendThreadsValidation3() throws Exception {
+            runTest("compiler/testData/cli/jvm/kt51846_backendThreadsValidation3.args");
+        }
+
         @TestMetadata("languageVersion.args")
         public void testLanguageVersion() throws Exception {
             runTest("compiler/testData/cli/jvm/languageVersion.args");
@@ -777,6 +802,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("nonExistingPhaseName.args")
         public void testNonExistingPhaseName() throws Exception {
             runTest("compiler/testData/cli/jvm/nonExistingPhaseName.args");
+        }
+
+        @TestMetadata("nonExistingPluginClassPath.args")
+        public void testNonExistingPluginClassPath() throws Exception {
+            runTest("compiler/testData/cli/jvm/nonExistingPluginClassPath.args");
         }
 
         @TestMetadata("nonExistingSourcePath.args")

@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.test.services
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -21,12 +20,12 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
 import org.jetbrains.kotlin.platform.js.isJs
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.isNative
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.ApplicationEnvironmentDisposer
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.model.FrontendKinds
@@ -34,20 +33,25 @@ import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.model.TestModule
 import java.io.File
 
-abstract class CompilerConfigurationProvider : TestService {
+abstract class CompilerConfigurationProvider(val testServices: TestServices) : TestService {
     abstract val testRootDisposable: Disposable
+    abstract val configurators: List<AbstractEnvironmentConfigurator>
 
     protected abstract fun getKotlinCoreEnvironment(module: TestModule): KotlinCoreEnvironment
 
-    fun getProject(module: TestModule): Project {
+    open fun getProject(module: TestModule): Project {
         return getKotlinCoreEnvironment(module).project
     }
 
-    fun getPackagePartProviderFactory(module: TestModule): (GlobalSearchScope) -> JvmPackagePartProvider {
+    fun registerCompilerExtensions(project: Project, module: TestModule, configuration: CompilerConfiguration) {
+        configurators.forEach { it.registerCompilerExtensions(project, module, configuration) }
+    }
+
+    open fun getPackagePartProviderFactory(module: TestModule): (GlobalSearchScope) -> JvmPackagePartProvider {
         return getKotlinCoreEnvironment(module)::createPackagePartProvider
     }
 
-    fun getCompilerConfiguration(module: TestModule): CompilerConfiguration {
+    open fun getCompilerConfiguration(module: TestModule): CompilerConfiguration {
         return getKotlinCoreEnvironment(module).configuration
     }
 
@@ -56,18 +60,15 @@ abstract class CompilerConfigurationProvider : TestService {
         val bootClasspath = mockJdk?.let { listOf(it) }
         environment.registerJavac(kotlinFiles = ktFiles, bootClasspath = bootClasspath)
     }
-
-    fun getJarFileSystem(module: TestModule): CoreJarFileSystem {
-        return getKotlinCoreEnvironment(module).projectEnvironment.environment.jarFileSystem as CoreJarFileSystem
-    }
 }
 
 val TestServices.compilerConfigurationProvider: CompilerConfigurationProvider by TestServices.testServiceAccessor()
 
 open class CompilerConfigurationProviderImpl(
+    testServices: TestServices,
     override val testRootDisposable: Disposable,
-    val configurators: List<AbstractEnvironmentConfigurator>
-) : CompilerConfigurationProvider() {
+    override val configurators: List<AbstractEnvironmentConfigurator>
+) : CompilerConfigurationProvider(testServices) {
     private val cache: MutableMap<TestModule, KotlinCoreEnvironment> = mutableMapOf()
 
     override fun getKotlinCoreEnvironment(module: TestModule): KotlinCoreEnvironment {
@@ -79,62 +80,75 @@ open class CompilerConfigurationProviderImpl(
     @OptIn(TestInfrastructureInternals::class)
     protected open fun createKotlinCoreEnvironment(module: TestModule): KotlinCoreEnvironment {
         val platform = module.targetPlatform
-        val configFiles = when {
-            platform.isJvm() -> EnvironmentConfigFiles.JVM_CONFIG_FILES
-            platform.isJs() -> EnvironmentConfigFiles.JS_CONFIG_FILES
-            platform.isNative() -> EnvironmentConfigFiles.NATIVE_CONFIG_FILES
-            // TODO: is it correct?
-            platform.isCommon() -> EnvironmentConfigFiles.METADATA_CONFIG_FILES
-            else -> error("Unknown platform: $platform")
-        }
+        val configFiles = platform.platformToEnvironmentConfigFiles()
         val applicationEnvironment = KotlinCoreEnvironment.getOrCreateApplicationEnvironmentForTests(
-            ApplicationEnvironmentDisposer.ROOT_DISPOSABLE,
+            testServices.applicationDisposableProvider.getApplicationRootDisposable(),
             CompilerConfiguration()
         )
-        val initialConfiguration = createCompilerConfiguration(module)
-        val projectEnv = KotlinCoreEnvironment.ProjectEnvironment(testRootDisposable, applicationEnvironment, initialConfiguration)
-        val project = projectEnv.project
+        val configuration = createCompilerConfiguration(module, configurators)
+        val projectEnv = KotlinCoreEnvironment.ProjectEnvironment(testRootDisposable, applicationEnvironment, configuration)
         return KotlinCoreEnvironment.createForTests(
             projectEnv,
-            initialConfiguration,
+            configuration,
             configFiles
-        ).also { configurators.forEach { it.registerCompilerExtensions(project, module) } }
+        ).also { registerCompilerExtensions(projectEnv.project, module, configuration) }
     }
 
-    @TestInfrastructureInternals
+
+    @OptIn(TestInfrastructureInternals::class)
     fun createCompilerConfiguration(module: TestModule): CompilerConfiguration {
-        val configuration = CompilerConfiguration()
-        configuration[CommonConfigurationKeys.MODULE_NAME] = module.name
-        if (JsEnvironmentConfigurationDirectives.PROPERTY_LAZY_INITIALIZATION in module.directives) {
-            configuration.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, true)
-        }
+        return createCompilerConfiguration(module, configurators)
+    }
+}
 
-        if (module.frontendKind == FrontendKinds.FIR) {
-            configuration[CommonConfigurationKeys.USE_FIR] = true
-        }
 
-        configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY] = object : MessageCollector {
-            override fun clear() {}
+@TestInfrastructureInternals
+fun TargetPlatform.platformToEnvironmentConfigFiles() = when {
+    isJvm() -> EnvironmentConfigFiles.JVM_CONFIG_FILES
+    isJs() -> EnvironmentConfigFiles.JS_CONFIG_FILES
+    isNative() -> EnvironmentConfigFiles.NATIVE_CONFIG_FILES
+    // TODO: is it correct?
+    isCommon() -> EnvironmentConfigFiles.METADATA_CONFIG_FILES
+    else -> error("Unknown platform: ${this}")
+}
 
-            override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?) {
-                if (severity == CompilerMessageSeverity.ERROR) {
-                    val prefix = if (location == null) "" else "(" + location.path + ":" + location.line + ":" + location.column + ") "
-                    throw AssertionError(prefix + message)
-                }
+@TestInfrastructureInternals
+fun createCompilerConfiguration(module: TestModule, configurators: List<AbstractEnvironmentConfigurator>): CompilerConfiguration {
+    val configuration = CompilerConfiguration()
+    configuration[CommonConfigurationKeys.MODULE_NAME] = module.name
+    if (JsEnvironmentConfigurationDirectives.PROPERTY_LAZY_INITIALIZATION in module.directives) {
+        configuration.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, true)
+    }
+
+    if (JsEnvironmentConfigurationDirectives.GENERATE_INLINE_ANONYMOUS_FUNCTIONS in module.directives) {
+        configuration.put(JSConfigurationKeys.GENERATE_INLINE_ANONYMOUS_FUNCTIONS, true)
+    }
+
+    if (module.frontendKind == FrontendKinds.FIR) {
+        configuration[CommonConfigurationKeys.USE_FIR] = true
+    }
+
+    configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY] = object : MessageCollector {
+        override fun clear() {}
+
+        override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?) {
+            if (severity == CompilerMessageSeverity.ERROR) {
+                val prefix = if (location == null) "" else "(" + location.path + ":" + location.line + ":" + location.column + ") "
+                throw AssertionError(prefix + message)
             }
-
-            override fun hasErrors(): Boolean = false
         }
-        configuration.languageVersionSettings = module.languageVersionSettings
 
-        configurators.forEach { it.configureCompileConfigurationWithAdditionalConfigurationKeys(configuration, module) }
-
-        return configuration
+        override fun hasErrors(): Boolean = false
     }
+    configuration.languageVersionSettings = module.languageVersionSettings
 
-    private operator fun <T : Any> CompilerConfiguration.set(key: CompilerConfigurationKey<T>, value: T) {
-        put(key, value)
-    }
+    configurators.forEach { it.configureCompileConfigurationWithAdditionalConfigurationKeys(configuration, module) }
+
+    return configuration
+}
+
+private operator fun <T : Any> CompilerConfiguration.set(key: CompilerConfigurationKey<T>, value: T) {
+    put(key, value)
 }
 
 val TestModule.javaFiles: List<TestFile>

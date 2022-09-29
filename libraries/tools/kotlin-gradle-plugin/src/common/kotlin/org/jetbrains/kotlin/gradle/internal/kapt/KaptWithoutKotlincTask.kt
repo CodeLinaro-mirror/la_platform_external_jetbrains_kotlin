@@ -12,11 +12,11 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.ProviderFactory
-import org.gradle.api.tasks.*
-import org.gradle.kotlin.dsl.listProperty
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
 import org.gradle.process.CommandLineArgumentProvider
 import org.gradle.work.InputChanges
-import org.gradle.workers.IsolationMode
 import org.gradle.workers.WorkAction
 import org.gradle.workers.WorkParameters
 import org.gradle.workers.WorkerExecutor
@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.gradle.internal.kapt.incremental.KaptIncrementalChan
 import org.jetbrains.kotlin.gradle.tasks.Kapt
 import org.jetbrains.kotlin.gradle.tasks.toSingleCompilerPluginOptions
 import org.jetbrains.kotlin.gradle.utils.isGradleVersionAtLeast
+import org.jetbrains.kotlin.gradle.utils.listPropertyWithConvention
 import org.jetbrains.kotlin.utils.PathUtil
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -59,7 +60,7 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
     internal val projectDir = project.projectDir
 
     @get:Input
-    val kaptProcessJvmArgs: ListProperty<String> = objectFactory.listProperty<String>().convention(emptyList())
+    val kaptProcessJvmArgs: ListProperty<String> = objectFactory.listPropertyWithConvention(emptyList())
 
     private fun getAnnotationProcessorOptions(): Map<String, String> {
         val result = mutableMapOf<String, String>()
@@ -224,6 +225,31 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
         val toolsJarURLSpec: Property<String>
         val kaptClasspath: ConfigurableFileCollection
         val classloadersCacheSize: Property<Int>
+    }
+
+    /**
+     * Copied over Gradle deprecated [IsolationMode] enum, so Gradle could remove it.
+     */
+    internal enum class IsolationMode {
+        /**
+         * Let Gradle decide, this is the default.
+         */
+        AUTO,
+
+        /**
+         * Don't attempt to isolate the work, use in-process workers.
+         */
+        NONE,
+
+        /**
+         * Isolate the work in it's own classloader, use in-process workers.
+         */
+        CLASSLOADER,
+
+        /**
+         * Isolate the work in a separate process, use out-of-process workers.
+         */
+        PROCESS
     }
 
     internal abstract class KaptExecutionWorkAction : WorkAction<KaptWorkParameters> {

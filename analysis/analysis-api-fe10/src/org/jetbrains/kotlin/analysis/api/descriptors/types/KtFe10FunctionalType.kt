@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.types.KtFunctionalType
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
 import org.jetbrains.kotlin.builtins.getReceiverTypeFromFunctionType
 import org.jetbrains.kotlin.builtins.getReturnTypeFromFunctionType
@@ -55,7 +55,12 @@ internal class KtFe10FunctionalType(
         get() = withValidityAssertion { type.getReturnTypeFromFunctionType().toKtType(analysisContext) }
 
     override val classId: ClassId
-        get() = ClassId(descriptor.functionKind.packageFqName, descriptor.functionKind.numberedClassName(descriptor.arity))
+        get() = withValidityAssertion {
+            ClassId(
+                descriptor.functionKind.packageFqName,
+                descriptor.functionKind.numberedClassName(descriptor.arity)
+            )
+        }
 
     override val classSymbol: KtClassLikeSymbol
         get() = withValidityAssertion { KtFe10DescNamedClassOrObjectSymbol(descriptor, analysisContext) }

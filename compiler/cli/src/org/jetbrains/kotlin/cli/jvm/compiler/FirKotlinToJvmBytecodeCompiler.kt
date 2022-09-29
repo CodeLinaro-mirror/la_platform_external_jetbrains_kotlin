@@ -8,8 +8,9 @@ package org.jetbrains.kotlin.cli.jvm.compiler
 import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
 import org.jetbrains.kotlin.asJava.FilteredJvmDiagnostics
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
+import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensions
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
+import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.CLICompiler
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.CommonCompilerPerformanceManager
@@ -32,6 +33,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.Fir2IrResult
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.checkers.registerExtendedCommonCheckers
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
@@ -51,6 +53,7 @@ import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.isArrayType
 import org.jetbrains.kotlin.fir.types.isString
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
+import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.load.kotlin.incremental.IncrementalPackagePartProvider
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
 import org.jetbrains.kotlin.modules.Module
@@ -86,13 +89,17 @@ object FirKotlinToJvmBytecodeCompiler {
         )
 
         projectConfiguration.get(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)?.let { pluginComponentRegistrars ->
-            val nonScriptPlugins = pluginComponentRegistrars.filter {
-                it::class.java.canonicalName != CLICompiler.SCRIPT_PLUGIN_REGISTRAR_NAME
+            val notSupportedPlugins = pluginComponentRegistrars.filter {
+                !it.supportsK2 && it::class.java.canonicalName != CLICompiler.SCRIPT_PLUGIN_REGISTRAR_NAME
             }
-            if (nonScriptPlugins.isNotEmpty()) {
+            if (notSupportedPlugins.isNotEmpty()) {
                 messageCollector.report(
                     CompilerMessageSeverity.ERROR,
-                    "Compiler plugins are enabled with K2 compiler.\n K2 does not support plugins yet, so please remove -Xuse-k2 flag"
+                    """
+                        |There are some plugins incompatible with K2 compiler:
+                        |${notSupportedPlugins.joinToString(separator = "\n|") { "  ${it::class.qualifiedName}" }}
+                        |Please remove -Xuse-k2
+                    """.trimMargin()
                 )
                 return false
             }
@@ -167,15 +174,15 @@ object FirKotlinToJvmBytecodeCompiler {
         performanceManager?.notifyGenerationStarted()
         performanceManager?.notifyIRTranslationStarted()
 
-        val extensions = JvmGeneratorExtensionsImpl(moduleConfiguration)
-        val fir2IrResult = firResult.session.convertToIr(firResult.scopeSession, firResult.fir, extensions, irGenerationExtensions)
+        val fir2IrExtensions = JvmFir2IrExtensions(moduleConfiguration, JvmIrDeserializerImpl(), JvmIrMangler)
+        val fir2IrResult = firResult.session.convertToIr(firResult.scopeSession, firResult.fir, fir2IrExtensions, irGenerationExtensions)
 
         performanceManager?.notifyIRTranslationFinished()
 
         val generationState = runBackend(
             allSources,
             fir2IrResult,
-            extensions,
+            fir2IrExtensions,
             firResult.session,
             diagnosticsReporter
         )
@@ -237,6 +244,7 @@ object FirKotlinToJvmBytecodeCompiler {
                 sourceScope,
                 librariesScope,
                 lookupTracker = moduleConfiguration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
+                enumWhenTracker = moduleConfiguration.get(CommonConfigurationKeys.ENUM_WHEN_TRACKER),
                 providerAndScopeForIncrementalCompilation,
                 firExtensionRegistrars,
                 needRegisterJavaElementFinder,
@@ -317,16 +325,15 @@ object FirKotlinToJvmBytecodeCompiler {
     private fun CompilationContext.runBackend(
         ktFiles: List<KtFile>,
         fir2IrResult: Fir2IrResult,
-        extensions: JvmGeneratorExtensionsImpl,
+        extensions: JvmGeneratorExtensions,
         session: FirSession,
         diagnosticsReporter: BaseDiagnosticsCollector
     ): GenerationState {
-        val (moduleFragment, symbolTable, components) = fir2IrResult
+        val (moduleFragment, components) = fir2IrResult
         val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
         val codegenFactory = JvmIrCodegenFactory(
             moduleConfiguration,
             moduleConfiguration.get(CLIConfigurationKeys.PHASE_CONFIG),
-            jvmGeneratorExtensions = extensions
         )
 
         val generationState = GenerationState.Builder(
@@ -350,7 +357,8 @@ object FirKotlinToJvmBytecodeCompiler {
         generationState.beforeCompile()
         generationState.oldBEInitTrace(ktFiles)
         codegenFactory.generateModuleInFrontendIRMode(
-            generationState, moduleFragment, symbolTable, extensions, FirJvmBackendExtension(session, components)
+            generationState, moduleFragment, components.symbolTable, components.irProviders,
+            extensions, FirJvmBackendExtension(session, components)
         ) {
             performanceManager?.notifyIRLoweringFinished()
             performanceManager?.notifyIRGenerationStarted()

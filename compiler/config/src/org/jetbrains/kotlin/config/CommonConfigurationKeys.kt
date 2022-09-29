@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.config
 
+import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
@@ -44,6 +45,9 @@ object CommonConfigurationKeys {
     val INLINE_CONST_TRACKER = CompilerConfigurationKey.create<InlineConstTracker>("inline constant tracker")
 
     @JvmField
+    val ENUM_WHEN_TRACKER = CompilerConfigurationKey.create<EnumWhenTracker>("enum when tracker")
+
+    @JvmField
     val METADATA_VERSION = CompilerConfigurationKey.create<BinaryVersion>("metadata version")
 
     @JvmField
@@ -70,6 +74,10 @@ object CommonConfigurationKeys {
     @JvmField
     val INCREMENTAL_COMPILATION =
         CompilerConfigurationKey.create<Boolean>("Enable incremental compilation")
+
+    @JvmField
+    val ALLOW_ANY_SCRIPTS_IN_SOURCE_ROOTS =
+        CompilerConfigurationKey.create<Boolean>("Allow to compile any scripts along with regular Kotlin sources")
 }
 
 var CompilerConfiguration.languageVersionSettings: LanguageVersionSettings

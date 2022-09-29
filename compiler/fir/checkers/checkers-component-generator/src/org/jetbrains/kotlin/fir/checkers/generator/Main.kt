@@ -6,12 +6,15 @@
 package org.jetbrains.kotlin.fir.checkers.generator
 
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.DIAGNOSTICS_LIST
+import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.JS_DIAGNOSTICS_LIST
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.JVM_DIAGNOSTICS_LIST
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model.generateDiagnostics
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import java.io.File
+import org.jetbrains.kotlin.fir.builder.SYNTAX_DIAGNOSTIC_LIST
+import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model.ErrorListDiagnosticListRenderer
 
 fun main(args: Array<String>) {
     val arguments = args.toList()
@@ -93,9 +96,13 @@ fun main(args: Array<String>) {
     }
 
     val jvmGenerationPath = File(arguments.getOrElse(1) { "compiler/fir/checkers/checkers.jvm/gen" })
+    val jsGenerationPath = File(arguments.getOrElse(2) { "compiler/fir/checkers/checkers.js/gen" })
+    val rawFirGenerationPath = File("compiler/fir/raw-fir/raw-fir.common/gen")
 
-    generateDiagnostics(generationPath, "$basePackage.diagnostics", DIAGNOSTICS_LIST)
-    generateDiagnostics(jvmGenerationPath, "$basePackage.diagnostics.jvm", JVM_DIAGNOSTICS_LIST)
+    generateDiagnostics(generationPath, "$basePackage.diagnostics", DIAGNOSTICS_LIST, starImportsToAdd = setOf(ErrorListDiagnosticListRenderer.BASE_PACKAGE, ErrorListDiagnosticListRenderer.DIAGNOSTICS_PACKAGE))
+    generateDiagnostics(jvmGenerationPath, "$basePackage.diagnostics.jvm", JVM_DIAGNOSTICS_LIST, starImportsToAdd = setOf(ErrorListDiagnosticListRenderer.BASE_PACKAGE, ErrorListDiagnosticListRenderer.DIAGNOSTICS_PACKAGE))
+    generateDiagnostics(jsGenerationPath, "$basePackage.diagnostics.js", JS_DIAGNOSTICS_LIST, starImportsToAdd = setOf(ErrorListDiagnosticListRenderer.BASE_PACKAGE, ErrorListDiagnosticListRenderer.DIAGNOSTICS_PACKAGE))
+    generateDiagnostics(rawFirGenerationPath, "org.jetbrains.kotlin.fir.builder", SYNTAX_DIAGNOSTIC_LIST, starImportsToAdd = setOf(ErrorListDiagnosticListRenderer.DIAGNOSTICS_PACKAGE))
 }
 
 /*

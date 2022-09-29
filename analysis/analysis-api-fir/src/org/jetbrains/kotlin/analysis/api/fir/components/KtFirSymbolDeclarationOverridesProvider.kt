@@ -15,8 +15,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -27,10 +26,11 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirIntersectionOverrideFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirIntersectionOverridePropertySymbol
+import org.jetbrains.kotlin.fir.types.toRegularClassSymbol
 
 internal class KtFirSymbolDeclarationOverridesProvider(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken
 ) : KtSymbolDeclarationOverridesProvider(), KtFirAnalysisSessionComponent {
 
     override fun <T : KtSymbol> getAllOverriddenSymbols(
@@ -117,9 +117,10 @@ internal class KtFirSymbolDeclarationOverridesProvider(
         val firContainer = containingDeclaration.firSymbol.fir
         val firCallableDeclaration = callableSymbol.firSymbol.fir
 
+        val firSession = firContainer.moduleData.session
         val firTypeScope = firContainer.unsubstitutedScope(
-            firContainer.moduleData.session,
-            ScopeSession(),
+            firSession,
+            analysisSession.getScopeSessionFor(firSession),
             withForcedTypeCalculator = false
         )
         firTypeScope.processCallableByName(firCallableDeclaration)

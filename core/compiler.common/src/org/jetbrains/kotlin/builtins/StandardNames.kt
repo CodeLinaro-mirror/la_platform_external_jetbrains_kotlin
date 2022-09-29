@@ -26,11 +26,15 @@ object StandardNames {
 
     @JvmField val DATA_CLASS_COPY = Name.identifier("copy")
 
+    @JvmField val DATA_CLASS_COMPONENT_PREFIX = "component"
+
     @JvmField val HASHCODE_NAME = Name.identifier("hashCode")
 
     @JvmField val CHAR_CODE = Name.identifier("code")
 
     @JvmField val CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME = Name.identifier("count")
+
+    @JvmField val DYNAMIC_FQ_NAME = FqName("<dynamic>")
 
     @JvmField val COROUTINES_PACKAGE_FQ_NAME = FqName("kotlin.coroutines")
 

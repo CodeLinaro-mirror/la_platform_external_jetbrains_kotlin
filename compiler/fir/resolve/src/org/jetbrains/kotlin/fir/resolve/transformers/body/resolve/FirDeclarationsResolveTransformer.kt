@@ -344,7 +344,11 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 typeVariableTypeToStubType, session.typeContext, approximateIntegerLiterals = true
             )
 
-            val stubTypeSubstituted = substitutor.substituteOrSelf(provideDelegateCandidate.substitutor.substituteOrSelf(components.typeFromCallee(provideDelegateCall).type))
+            val stubTypeSubstituted = substitutor.substituteOrSelf(
+                provideDelegateCandidate.substitutor.substituteOrSelf(
+                    components.typeFromCallee(provideDelegateCall).type
+                )
+            )
 
             provideDelegateCall.replaceTypeRef(provideDelegateCall.typeRef.resolvedTypeFromPrototype(stubTypeSubstituted))
             return provideDelegateCall
@@ -566,18 +570,16 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
             val returnType =
                 dataFlowAnalyzer.returnExpressionsOfAnonymousFunction(result)
                     .firstNotNullOfOrNull { (it as? FirExpression)?.resultType?.coneTypeSafe() }
-
-            if (returnType != null) {
-                result.transformReturnTypeRef(transformer, withExpectedType(returnType))
+            val resolutionMode = if (returnType != null) {
+                withExpectedType(returnType)
             } else {
-                result.transformReturnTypeRef(
-                    transformer,
-                    withExpectedType(buildErrorTypeRef {
-                        diagnostic =
-                            ConeSimpleDiagnostic("Unresolved lambda return type", DiagnosticKind.InferenceError)
-                    })
-                )
+                withExpectedType(buildErrorTypeRef {
+                    diagnostic =
+                        ConeSimpleDiagnostic("Unresolved lambda return type", DiagnosticKind.InferenceError)
+                })
             }
+
+            result.transformReturnTypeRef(transformer, resolutionMode)
         }
 
         return result
@@ -624,14 +626,15 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
         if (result.returnTypeRef is FirImplicitTypeRef) {
             val simpleFunction = function as? FirSimpleFunction
             val returnExpression = (body?.statements?.single() as? FirReturnExpression)?.result
-            if (returnExpression != null && returnExpression.typeRef is FirResolvedTypeRef) {
+            if (returnExpression?.typeRef is FirResolvedTypeRef) {
                 result.transformReturnTypeRef(
                     transformer,
                     withExpectedType(
                         returnExpression.resultType.approximatedIfNeededOrSelf(
                             session.typeApproximator,
                             simpleFunction?.visibilityForApproximation(),
-                            simpleFunction?.isInline == true
+                            session,
+                            isInlineFunction = simpleFunction?.isInline == true
                         )
                     )
                 )
@@ -682,12 +685,12 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
 
         dataFlowAnalyzer.enterFunction(constructor)
 
-        constructor.transformTypeParameters(transformer, data)
-            .transformAnnotations(transformer, data)
-            .transformReceiverTypeRef(transformer, data)
-            .transformReturnTypeRef(transformer, data)
-
         context.withConstructor(constructor) {
+            constructor.transformTypeParameters(transformer, data)
+                .transformAnnotations(transformer, data)
+                .transformReceiverTypeRef(transformer, data)
+                .transformReturnTypeRef(transformer, data)
+
             context.forConstructorParameters(constructor, owningClass, components) {
                 constructor.transformValueParameters(transformer, data)
             }
@@ -1009,6 +1012,7 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 expectedType.approximatedIfNeededOrSelf(
                     session.typeApproximator,
                     backingField.visibilityForApproximation(),
+                    session
                 )
             )
         )
@@ -1025,28 +1029,23 @@ open class FirDeclarationsResolveTransformer(transformer: FirBodyResolveTransfor
                 variable.getter != null && variable.getter !is FirDefaultPropertyAccessor -> variable.getter?.returnTypeRef
                 else -> null
             }
-            if (resultType != null) {
-                val expectedType = resultType.toExpectedTypeRef()
-                variable.transformReturnTypeRef(
-                    transformer,
-                    withExpectedType(
+
+            variable.transformReturnTypeRef(
+                transformer,
+                withExpectedType(
+                    resultType?.let {
+                        val expectedType = it.toExpectedTypeRef()
                         expectedType.approximatedIfNeededOrSelf(
                             session.typeApproximator,
                             variable.visibilityForApproximation(),
+                            session
                         )
-                    )
+                    } ?: buildErrorTypeRef {
+                        diagnostic = ConeLocalVariableNoTypeOrInitializer(variable)
+                        source = variable.source
+                    }
                 )
-            } else {
-                variable.transformReturnTypeRef(
-                    transformer,
-                    withExpectedType(
-                        buildErrorTypeRef {
-                            diagnostic = ConeLocalVariableNoTypeOrInitializer(variable)
-                            source = variable.source
-                        },
-                    )
-                )
-            }
+            )
             if (variable.getter?.returnTypeRef is FirImplicitTypeRef) {
                 variable.getter?.transformReturnTypeRef(transformer, withExpectedType(variable.returnTypeRef))
             }

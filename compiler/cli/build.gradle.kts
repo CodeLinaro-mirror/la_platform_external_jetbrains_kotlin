@@ -21,7 +21,6 @@ dependencies {
     api(project(":js:js.translator"))
     api(project(":native:frontend.native"))
     api(commonDependency("org.fusesource.jansi", "jansi"))
-    api(commonDependency("org.jline", "jline"))
     api(project(":compiler:fir:raw-fir:psi2fir"))
     api(project(":compiler:fir:resolve"))
     api(project(":compiler:fir:providers"))
@@ -32,11 +31,9 @@ dependencies {
     api(project(":compiler:fir:fir2ir:jvm-backend"))
     api(project(":compiler:fir:checkers"))
     api(project(":compiler:fir:checkers:checkers.jvm"))
+    api(project(":compiler:fir:checkers:checkers.js"))
     api(project(":kotlin-util-klib"))
     api(project(":kotlin-util-io"))
-
-    // TODO: as soon as cli-jvm is extracted out of this module, move this dependency there
-    compileOnly(project(":compiler:ir.tree.impl"))
 
     compileOnly(toolsJarApi())
     compileOnly(intellijCore())

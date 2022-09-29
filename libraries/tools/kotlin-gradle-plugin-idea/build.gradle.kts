@@ -1,3 +1,5 @@
+import plugins.KotlinBuildPublishingPlugin.Companion.ADHOC_COMPONENT_NAME
+
 plugins {
     kotlin("jvm")
     `java-test-fixtures`
@@ -11,11 +13,12 @@ kotlin.sourceSets.configureEach {
 }
 
 dependencies {
+    api(project(":kotlin-tooling-core"))
     implementation(kotlinStdlib())
     testImplementation(gradleApi())
     testImplementation(gradleKotlinDsl())
     testImplementation(project(":kotlin-gradle-plugin"))
-    testImplementation(project(":kotlin-gradle-statistics"))
+    testImplementation(project(":kotlin-gradle-plugin-idea-proto"))
     testImplementation(project(":kotlin-test:kotlin-test-junit"))
 
     testImplementation("org.reflections:reflections:0.10.2") {
@@ -24,10 +27,36 @@ dependencies {
 
     testFixturesImplementation(gradleApi())
     testFixturesImplementation(gradleKotlinDsl())
+    testFixturesImplementation(project(":kotlin-tooling-core"))
+    testFixturesImplementation(project(":kotlin-gradle-plugin-idea-proto"))
     testFixturesImplementation(project(":kotlin-test:kotlin-test-junit"))
 }
 
-publish()
+
+publish(moduleMetadata = true) {
+    fun ConfigurationVariantDetails.skipUnpublishable() {
+        if (configurationVariant.artifacts.any { JavaBasePlugin.UNPUBLISHABLE_VARIANT_ARTIFACTS.contains(it.type) }) {
+            skip()
+        }
+    }
+
+    suppressAllPomMetadataWarnings()
+
+    val kotlinLibraryComponent = components[ADHOC_COMPONENT_NAME] as AdhocComponentWithVariants
+
+    kotlinLibraryComponent.addVariantsFromConfiguration(configurations.testFixturesApiElements.get()) {
+        skipUnpublishable()
+        mapToMavenScope("compile")
+        mapToOptional()
+    }
+
+    kotlinLibraryComponent.addVariantsFromConfiguration(configurations.testFixturesRuntimeElements.get()) {
+        skipUnpublishable()
+        mapToMavenScope("runtime")
+        mapToOptional()
+    }
+}
+
 javadocJar()
 sourcesJar()
 
@@ -47,8 +76,10 @@ run {
 
     tasks.test {
         dependsOnKotlinGradlePluginInstall()
-        inputs.files(compatibilityTestClasspath)
-        doFirst { systemProperty("compatibilityTestClasspath", compatibilityTestClasspath.files.joinToString(";") { it.absolutePath }) }
+        dependsOn(compatibilityTestClasspath)
+        val conf: FileCollection = compatibilityTestClasspath
+        inputs.files(conf)
+        doFirst { systemProperty("compatibilityTestClasspath", conf.files.joinToString(";") { it.absolutePath }) }
     }
 }
 

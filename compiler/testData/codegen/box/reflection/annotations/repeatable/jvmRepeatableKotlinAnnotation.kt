@@ -1,11 +1,10 @@
 // !LANGUAGE: +RepeatableAnnotations
-// !OPT_IN: kotlin.ExperimentalStdlibApi
 // TARGET_BACKEND: JVM_IR
 // JVM_TARGET: 1.8
 // FULL_JDK
 // WITH_REFLECT
 
-// Android doesn't have @Repeatable, so findAnnotations can't unpack repeatable annotations.
+// Android doesn't have @Repeatable before API level 24, so findAnnotations can't unpack repeatable annotations.
 // IGNORE_BACKEND: ANDROID
 
 import kotlin.reflect.full.findAnnotation

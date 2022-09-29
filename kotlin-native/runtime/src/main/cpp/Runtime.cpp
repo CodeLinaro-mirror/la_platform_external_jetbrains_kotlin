@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "Alloc.h"
 #include "Atomic.h"
 #include "Cleaner.h"
 #include "CompilerConstants.hpp"
@@ -22,15 +21,20 @@
 #include "KAssert.h"
 #include "Memory.h"
 #include "ObjCExportInit.h"
+#include "ObjectAlloc.hpp"
 #include "Porting.h"
 #include "Runtime.h"
 #include "RuntimePrivate.hpp"
 #include "Worker.h"
 #include "KString.h"
+#include "std_support/New.hpp"
+#include <atomic>
 
 #ifndef KONAN_NO_THREADS
 #include <thread>
 #endif
+
+using namespace kotlin;
 
 using kotlin::internal::FILE_NOT_INITIALIZED;
 using kotlin::internal::FILE_BEING_INITIALIZED;
@@ -100,7 +104,8 @@ volatile GlobalRuntimeStatus globalRuntimeStatus = kGlobalRuntimeUninitialized;
 
 RuntimeState* initRuntime() {
   SetKonanTerminateHandler();
-  RuntimeState* result = konanConstructInstance<RuntimeState>();
+  initObjectPool();
+  RuntimeState* result = new (std_support::kalloc) RuntimeState();
   if (!result) return kInvalidRuntime;
   RuntimeCheck(!isValidRuntime(), "No active runtimes allowed");
   ::runtimeState = result;
@@ -188,7 +193,7 @@ void deinitRuntime(RuntimeState* state, bool destroyRuntime) {
   // Do not use ThreadStateGuard because memoryState will be destroyed during DeinitMemory.
   kotlin::SwitchThreadState(state->memoryState, kotlin::ThreadState::kNative);
   DeinitMemory(state->memoryState, destroyRuntime);
-  konanDestructInstance(state);
+  std_support::kdelete(state);
   WorkerDestroyThreadDataIfNeeded(workerId);
   ::runtimeState = kInvalidRuntime;
 }
@@ -467,7 +472,10 @@ RUNTIME_NOTHROW void Kotlin_initRuntimeIfNeededFromKotlin() {
     }
 }
 
-void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
+}  // extern "C"
+
+namespace {
+void callInitGlobalPossiblyLockImpl(int volatile* state, void (*init)()) {
     int localState = *state;
     if (localState == FILE_INITIALIZED) return;
     if (localState == FILE_FAILED_TO_INITIALIZE)
@@ -498,6 +506,7 @@ void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
             throw;
         }
 #endif
+        std::atomic_thread_fence(std::memory_order_release);
         *state = FILE_INITIALIZED;
     } else {
         // Switch to the native state to avoid dead-locks.
@@ -509,6 +518,16 @@ void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
                 kotlin::CallWithThreadState<kotlin::ThreadState::kRunnable>(ThrowFileFailedToInitializeException);
         } while (localState != FILE_INITIALIZED);
     }
+}
+}
+
+extern "C" {
+
+NO_INLINE void CallInitGlobalPossiblyLock(int volatile* state, void (*init)()) {
+    callInitGlobalPossiblyLockImpl(state, init);
+    // Ensure proper synchronization around reading/writing of [state] (release barrier defined in callInitGlobalPossiblyLockImpl),
+    // also there is an acquire load of [state] in IrToBitcode.kt::evaluateFileGlobalInitializerCall.
+    std::atomic_thread_fence(std::memory_order_acquire);
 }
 
 void CallInitThreadLocal(int volatile* globalState, int* localState, void (*init)()) {

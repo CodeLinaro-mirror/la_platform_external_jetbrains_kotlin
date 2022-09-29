@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
 
@@ -19,6 +19,7 @@ import kotlin.native.internal.NativePtrArray
  * @param cause the cause of this throwable.
  */
 @ExportTypeInfo("theThrowableTypeInfo")
+@OptIn(FreezingIsDeprecated::class)
 public open class Throwable(open val message: String?, open val cause: Throwable?) {
 
     constructor(message: String?) : this(message, null)
@@ -170,9 +171,10 @@ public actual inline fun Throwable.printStackTrace(): Unit = printStackTrace()
  * Adds the specified exception to the list of exceptions that were
  * suppressed in order to deliver this exception.
  *
- * Does nothing if this [Throwable] is frozen.
+ * Legacy MM: does nothing if this [Throwable] is frozen.
  */
 @SinceKotlin("1.4")
+@OptIn(FreezingIsDeprecated::class)
 public actual fun Throwable.addSuppressed(exception: Throwable) {
     if (this !== exception && !this.isFrozen) {
         val suppressed = suppressedExceptionsList
