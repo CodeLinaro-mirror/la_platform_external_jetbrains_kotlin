@@ -338,6 +338,12 @@ public class IrTextTestGenerated extends AbstractIrTextTest {
             }
 
             @Test
+            @TestMetadata("delegationInSealed.kt")
+            public void testDelegationInSealed() throws Exception {
+                runTest("compiler/testData/ir/irText/classes/dataClasses/delegationInSealed.kt");
+            }
+
+            @Test
             @TestMetadata("kt31649.kt")
             public void testKt31649() throws Exception {
                 runTest("compiler/testData/ir/irText/classes/dataClasses/kt31649.kt");
@@ -559,6 +565,12 @@ public class IrTextTestGenerated extends AbstractIrTextTest {
             @TestMetadata("annotationsWithVarargParameters.kt")
             public void testAnnotationsWithVarargParameters() throws Exception {
                 runTest("compiler/testData/ir/irText/declarations/annotations/annotationsWithVarargParameters.kt");
+            }
+
+            @Test
+            @TestMetadata("argWithDefaultValueInAnnotationClass.kt")
+            public void testArgWithDefaultValueInAnnotationClass() throws Exception {
+                runTest("compiler/testData/ir/irText/declarations/annotations/argWithDefaultValueInAnnotationClass.kt");
             }
 
             @Test
@@ -1116,6 +1128,12 @@ public class IrTextTestGenerated extends AbstractIrTextTest {
         @Test
         public void testAllFilesPresentInExpressions() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/expressions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("ambiguousFieldAccess.kt")
+        public void testAmbiguousFieldAccess() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/ambiguousFieldAccess.kt");
         }
 
         @Test
@@ -2474,6 +2492,12 @@ public class IrTextTestGenerated extends AbstractIrTextTest {
         @TestMetadata("candidateSymbol.kt")
         public void testCandidateSymbol() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/candidateSymbol.kt");
+        }
+
+        @Test
+        @TestMetadata("cannotCastToFunction.kt")
+        public void testCannotCastToFunction() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/cannotCastToFunction.kt");
         }
 
         @Test

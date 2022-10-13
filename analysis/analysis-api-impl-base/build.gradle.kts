@@ -19,6 +19,11 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":analysis:analysis-api-impl-barebone"))
+    testApi(project(":analysis:symbol-light-classes"))
+    testApi(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
+    testApi(project(":analysis:decompiled:decompiler-to-file-stubs"))
+    testApi(project(":analysis:decompiled:decompiler-to-psi"))
+    testApi(projectTests(":analysis:analysis-test-framework"))
     testImplementation(project(":kotlin-reflect"))
     testImplementation(toolsJar())
 }
@@ -26,6 +31,10 @@ dependencies {
 sourceSets {
     "main" { projectDefault() }
     "test" { projectDefault() }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
 }
 
 testsJar()

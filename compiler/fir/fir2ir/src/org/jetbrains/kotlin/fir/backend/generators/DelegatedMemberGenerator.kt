@@ -194,6 +194,10 @@ class DelegatedMemberGenerator(
                     declaration.overriddenSymbols = basePropertySymbols[declaration]?.flatMap {
                         fakeOverrideGenerator.getOverriddenSymbolsInSupertypes(it, superClasses)
                     }?.filter { it.owner != declaration }.orEmpty()
+                    declaration.getter!!.overriddenSymbols = declaration.overriddenSymbols.mapNotNull { it.owner.getter?.symbol }
+                    if (declaration.isVar) {
+                        declaration.setter!!.overriddenSymbols = declaration.overriddenSymbols.mapNotNull { it.owner.setter?.symbol }
+                    }
                 }
                 else -> continue
             }
@@ -213,7 +217,7 @@ class DelegatedMemberGenerator(
         val baseSymbols = mutableListOf<FirNamedFunctionSymbol>()
         // the overridden symbols should be collected only after all fake overrides for all superclases are created and bound to their
         // overridden symbols, otherwise in some cases they will be left in inconsistent state leading to the errors in IR
-        delegateOverride.processOverriddenFunctionSymbols(firSubClass, session, scopeSession) {
+        delegateOverride.processOverriddenFunctionSymbols(firSubClass) {
             baseSymbols.add(it)
         }
         baseFunctionSymbols[delegateFunction] = baseSymbols
@@ -294,29 +298,16 @@ class DelegatedMemberGenerator(
         // the overridden symbols should be collected only after all fake overrides for all superclases are created and bound to their
         // overridden symbols, otherwise in some cases they will be left in inconsistent state leading to the errors in IR
         val baseSymbols = mutableListOf<FirPropertySymbol>()
-        firDelegateProperty.processOverriddenPropertySymbols(firSubClass, session, scopeSession) {
+        firDelegateProperty.processOverriddenPropertySymbols(firSubClass) {
             baseSymbols.add(it)
         }
         basePropertySymbols[delegateProperty] = baseSymbols
         annotationGenerator.generate(delegateProperty, firDelegateProperty)
 
         val getter = delegateProperty.getter!!
-        getter.overriddenSymbols =
-            firDelegateProperty.generateOverriddenAccessorSymbols(
-                firSubClass,
-                isGetter = true,
-                session,
-                scopeSession,
-                declarationStorage,
-                fakeOverrideGenerator
-            )
         annotationGenerator.generate(getter, firDelegateProperty)
         if (delegateProperty.isVar) {
             val setter = delegateProperty.setter!!
-            setter.overriddenSymbols =
-                firDelegateProperty.generateOverriddenAccessorSymbols(
-                    firSubClass, isGetter = false, session, scopeSession, declarationStorage, fakeOverrideGenerator
-                )
             annotationGenerator.generate(setter, firDelegateProperty)
         }
 
@@ -325,6 +316,8 @@ class DelegatedMemberGenerator(
 
     companion object {
         private val PLATFORM_DEPENDENT_CLASS_ID = ClassId.topLevel(FqName("kotlin.internal.PlatformDependent"))
+
+        context(Fir2IrComponents)
         private fun <S : FirCallableSymbol<D>, D : FirCallableDeclaration> S.unwrapDelegateTarget(
             subClassLookupTag: ConeClassLikeLookupTag,
             firField: FirField,

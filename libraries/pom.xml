@@ -7,7 +7,7 @@
 
     <groupId>org.jetbrains.kotlin</groupId>
     <artifactId>kotlin-project</artifactId>
-    <version>1.6.255-SNAPSHOT</version>
+    <version>1.7.255-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Kotlin</name>
@@ -87,6 +87,7 @@
         <module>tools/kotlin-maven-lombok</module>
 
         <module>tools/kotlin-bom</module>
+        <module>tools/kotlin-dist-for-jps-meta</module>
 
         <module>tools/kotlin-maven-plugin-test</module>
 
@@ -233,6 +234,19 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>io.github.zlika</groupId>
+                <artifactId>reproducible-build-maven-plugin</artifactId>
+                <version>0.15</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>strip-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

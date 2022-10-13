@@ -14,17 +14,15 @@ import org.jetbrains.kotlin.analysis.api.descriptors.utils.cached
 import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySetterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
 import org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol
-import org.jetbrains.kotlin.analysis.api.annotations.KtAnnotationApplication
 import org.jetbrains.kotlin.analysis.api.annotations.KtAnnotationsList
 import org.jetbrains.kotlin.analysis.api.impl.base.annotations.KtEmptyAnnotationsList
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.name.CallableId
-import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 
 class KtFe10DescDefaultPropertySetterSymbol(
@@ -93,6 +91,9 @@ class KtFe10DescDefaultPropertySetterSymbol(
         override val isVararg: Boolean
             get() = withValidityAssertion { false }
 
+        override val isImplicitLambdaParameter: Boolean
+            get() = withValidityAssertion { false }
+
         override val name: Name
             get() = withValidityAssertion { Name.identifier("value") }
 
@@ -107,7 +108,6 @@ class KtFe10DescDefaultPropertySetterSymbol(
 
         override val annotationsList: KtAnnotationsList
             get() = withValidityAssertion { KtEmptyAnnotationsList(token) }
-
 
         override fun createPointer(): KtSymbolPointer<KtValueParameterSymbol> {
             withValidityAssertion {

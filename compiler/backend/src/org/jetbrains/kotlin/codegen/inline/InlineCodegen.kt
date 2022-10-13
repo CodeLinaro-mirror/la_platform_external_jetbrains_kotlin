@@ -74,7 +74,7 @@ abstract class InlineCodegen<out T : BaseExpressionCodegen>(
             val infos = expandMaskConditionsAndUpdateVariableNodes(
                 node, maskStartIndex, maskValues, methodHandleInDefaultMethodIndex,
                 parameters.parameters.filter { it.functionalArgument === DefaultValueOfInlineParameter }
-                    .mapTo(mutableSetOf()) { parameters.getDeclarationSlot(it) }
+                    .mapTo<_, _, MutableCollection<Int>>(mutableSetOf()) { parameters.getDeclarationSlot(it) }
             )
             for (info in infos) {
                 val lambda = DefaultLambda(info, sourceCompiler, node.name.substringBeforeLast("\$default"))
@@ -106,8 +106,7 @@ abstract class InlineCodegen<out T : BaseExpressionCodegen>(
             node, parameters, info, FieldRemapper(null, null, parameters), sourceCompiler.isCallInsideSameModuleAsCallee,
             "Method inlining " + sourceCompiler.callElementText,
             SourceMapCopier(sourceMapper, nodeAndSmap.classSMAP, callSite),
-            info.callSiteInfo, if (isInlineOnly) InlineOnlySmapSkipper(codegen) else null,
-            !isInlinedToInlineFunInKotlinRuntime()
+            info.callSiteInfo, isInlineOnly, !isInlinedToInlineFunInKotlinRuntime(), maskStartIndex, maskStartIndex + maskValues.size,
         ) //with captured
 
         val remapper = LocalVarRemapper(parameters, initialFrameSize)

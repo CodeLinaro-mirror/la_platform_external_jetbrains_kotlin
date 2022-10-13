@@ -5,32 +5,21 @@
 
 package org.jetbrains.kotlin.backend.jvm
 
-import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.backend.common.ir.createParameterDeclarations
 import org.jetbrains.kotlin.backend.common.serialization.signature.PublicIdSignatureComputer
-import org.jetbrains.kotlin.backend.jvm.lower.SingletonObjectJvmStaticTransformer
-import org.jetbrains.kotlin.backend.jvm.serialization.deserializeFromByteArray
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.JvmSerializeIrMode
-import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.FilteredAnnotations
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
-import org.jetbrains.kotlin.ir.builders.declarations.addConstructor
-import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.expressions.IrDelegatingConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
-import org.jetbrains.kotlin.ir.util.DeclarationStubGenerator
-import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
 import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor
@@ -38,8 +27,6 @@ import org.jetbrains.kotlin.load.java.descriptors.getParentJavaStaticClassScope
 import org.jetbrains.kotlin.load.java.sam.JavaSingleAbstractMethodUtils
 import org.jetbrains.kotlin.load.java.typeEnhancement.hasEnhancedNullability
 import org.jetbrains.kotlin.load.kotlin.FacadeClassSource
-import org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
-import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtPureClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.pureEndOffset
@@ -63,7 +50,7 @@ import org.jetbrains.kotlin.types.typeUtil.replaceAnnotations
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 open class JvmGeneratorExtensionsImpl(
-    configuration: CompilerConfiguration,
+    private val configuration: CompilerConfiguration,
     private val generateFacades: Boolean = true,
 ) : GeneratorExtensions(), JvmGeneratorExtensions {
     override val classNameOverride: MutableMap<IrClass, JvmClassName> = mutableMapOf()
@@ -72,15 +59,14 @@ open class JvmGeneratorExtensionsImpl(
 
     override val cachedFields = CachedFieldsForObjectInstances(IrFactoryImpl, configuration.languageVersionSettings)
 
-    override val samConversion: SamConversion
-        get() = JvmSamConversion
+    override val samConversion: SamConversion = JvmSamConversion()
 
-    open class JvmSamConversion : SamConversion() {
-
+    inner class JvmSamConversion : SamConversion() {
         override fun isPlatformSamType(type: KotlinType): Boolean =
             JavaSingleAbstractMethodUtils.isSamType(type)
 
-        companion object Instance : JvmSamConversion()
+        override fun isCarefulApproximationOfContravariantProjection(): Boolean =
+            configuration.get(JVMConfigurationKeys.SAM_CONVERSIONS) != JvmClosureGenerationScheme.CLASS
     }
 
     override fun getContainerSource(descriptor: DeclarationDescriptor): DeserializedContainerSource? {
@@ -110,7 +96,7 @@ open class JvmGeneratorExtensionsImpl(
             if (deserializedSource.facadeClassName != null) IrDeclarationOrigin.JVM_MULTIFILE_CLASS else IrDeclarationOrigin.FILE_CLASS,
             facadeName.fqNameForTopLevelClassMaybeWithDollars.shortName(),
             deserializedSource,
-            stubGenerator
+            deserializeIr = { facade -> deserializeClass(facade, stubGenerator, facade.parent) }
         ).also {
             it.createParameterDeclarations()
             classNameOverride[it] = facadeName
@@ -121,22 +107,9 @@ open class JvmGeneratorExtensionsImpl(
         irClass: IrClass,
         stubGenerator: DeclarationStubGenerator,
         parent: IrDeclarationParent,
-        allowErrorNodes: Boolean
-    ): Boolean {
-        val serializedIr = when (val source = irClass.source) {
-            is KotlinJvmBinarySourceElement -> source.binaryClass.classHeader.serializedIr
-            is JvmPackagePartSource -> source.knownJvmBinaryClass?.classHeader?.serializedIr
-            else -> null
-        } ?: return false
-        deserializeFromByteArray(
-            serializedIr,
-            stubGenerator.irBuiltIns, stubGenerator.symbolTable, listOf(stubGenerator),
-            irClass,
-            JvmIrTypeSystemContext(stubGenerator.irBuiltIns), allowErrorNodes
-        )
-        irClass.transform(SingletonObjectJvmStaticTransformer(stubGenerator.irBuiltIns, cachedFields), null)
-        return true
-    }
+    ): Boolean = JvmIrDeserializerImpl().deserializeTopLevelClass(
+        irClass, stubGenerator.irBuiltIns, stubGenerator.symbolTable, listOf(stubGenerator), this
+    )
 
     override fun isPropertyWithPlatformField(descriptor: PropertyDescriptor): Boolean =
         descriptor.hasJvmFieldAnnotation()
@@ -178,17 +151,8 @@ open class JvmGeneratorExtensionsImpl(
     private val specialAnnotationConstructors = mutableListOf<IrConstructor>()
 
     private fun createSpecialAnnotationClass(fqn: FqName, parent: IrPackageFragment) =
-        IrFactoryImpl.buildClass {
-            kind = ClassKind.ANNOTATION_CLASS
-            name = fqn.shortName()
-        }.apply {
-            createImplicitParameterDeclarationWithWrappedDescriptor()
-            this.parent = parent
-            addConstructor {
-                isPrimary = true
-            }.also { constructor ->
-                specialAnnotationConstructors.add(constructor)
-            }
+        IrFactoryImpl.createSpecialAnnotationClass(fqn, parent).apply {
+            specialAnnotationConstructors.add(constructors.single())
         }
 
     override fun createCustomSuperConstructorCall(
@@ -249,4 +213,10 @@ open class JvmGeneratorExtensionsImpl(
         }
         return null
     }
+
+    override val parametersAreAssignable: Boolean
+        get() = true
+
+    override val debugInfoOnlyOnVariablesInDestructuringDeclarations: Boolean
+        get() = true
 }

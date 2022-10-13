@@ -179,6 +179,12 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
     var irNewIr2Js: Boolean by FreezableVar(true)
 
     @Argument(
+        value = "-Xir-generate-inline-anonymous-functions",
+        description = "Lambda expressions that capture values are translated into in-line anonymous JavaScript functions"
+    )
+    var irGenerateInlineAnonymousFunctions: Boolean by FreezableVar(false)
+
+    @Argument(
         value = "-Xinclude",
         valueDescription = "<path>",
         description = "A path to an intermediate library that should be processed in the same manner as source files."
@@ -243,18 +249,14 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xwasm-debug-info", description = "Add debug info to WebAssembly compiled module")
     var wasmDebug: Boolean by FreezableVar(true)
 
-    @Argument(
-            value = "-Xwasm-launcher",
-            valueDescription = "esm|nodejs|d8",
-            description = "Picks flavor for the wasm launcher. Default is ESM."
-    )
-    var wasmLauncher: String? by NullableStringFreezableVar("esm")
-
     @Argument(value = "-Xwasm-kclass-fqn", description = "Enable support for FQ names in KClass")
     var wasmKClassFqn: Boolean by FreezableVar(false)
 
     @Argument(value = "-Xwasm-enable-array-range-checks", description = "Turn on range checks for the array access functions")
     var wasmEnableArrayRangeChecks: Boolean by FreezableVar(false)
+
+    @Argument(value = "-Xwasm-enable-asserts", description = "Turn on asserts")
+    var wasmEnableAsserts: Boolean by FreezableVar(false)
 
     override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> {
         return super.configureAnalysisFlags(collector, languageVersion).also {

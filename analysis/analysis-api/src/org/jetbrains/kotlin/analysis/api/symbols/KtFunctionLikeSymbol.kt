@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.symbols
 
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.markers.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
@@ -25,14 +26,17 @@ public abstract class KtFunctionLikeSymbol : KtCallableSymbol(), KtSymbolWithKin
 }
 
 public abstract class KtAnonymousFunctionSymbol : KtFunctionLikeSymbol() {
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.LOCAL
-    final override val callableIdIfNonLocal: CallableId? get() = null
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.LOCAL }
+    final override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { null }
+
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
 
     abstract override fun createPointer(): KtSymbolPointer<KtAnonymousFunctionSymbol>
 }
 
 public abstract class KtSamConstructorSymbol : KtFunctionLikeSymbol(), KtNamedSymbol {
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.SAM_CONSTRUCTOR
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.SAM_CONSTRUCTOR }
 
     abstract override fun createPointer(): KtSymbolPointer<KtSamConstructorSymbol>
 }
@@ -40,10 +44,8 @@ public abstract class KtSamConstructorSymbol : KtFunctionLikeSymbol(), KtNamedSy
 public abstract class KtFunctionSymbol : KtFunctionLikeSymbol(),
     KtNamedSymbol,
     KtPossibleMemberSymbol,
-    KtSymbolWithTypeParameters,
     KtSymbolWithModality,
-    KtSymbolWithVisibility,
-    KtAnnotatedSymbol {
+    KtSymbolWithVisibility {
 
     public abstract val isSuspend: Boolean
     public abstract val isOperator: Boolean
@@ -63,16 +65,15 @@ public abstract class KtFunctionSymbol : KtFunctionLikeSymbol(),
 
 public abstract class KtConstructorSymbol : KtFunctionLikeSymbol(),
     KtPossibleMemberSymbol,
-    KtAnnotatedSymbol,
-    KtSymbolWithVisibility,
-    KtSymbolWithTypeParameters {
+    KtSymbolWithVisibility {
+
     public abstract val isPrimary: Boolean
     public abstract val containingClassIdIfNonLocal: ClassId?
 
-    final override val callableIdIfNonLocal: CallableId? get() = null
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.CLASS_MEMBER
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { null }
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.CLASS_MEMBER }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
 
     abstract override fun createPointer(): KtSymbolPointer<KtConstructorSymbol>
 }

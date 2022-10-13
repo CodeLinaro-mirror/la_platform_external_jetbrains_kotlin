@@ -16,6 +16,9 @@ where advanced options include:
                              -Xassertions=jvm:            enable, depend on jvm assertion settings;
                              -Xassertions=legacy:         calculate condition on each call, check depends on jvm assertion settings in the kotlin package;
                              default: legacy
+  -Xbackend-threads=<N>      When using the IR backend, run lowerings by file in N parallel threads.
+                             0 means use a thread per processor core.
+                             Default value is 1
   -Xbuild-file=<path>        Path to the .xml build file to compile
   -Xcompile-java             Reuse javac analysis and compile Java source files
   -Xdump-declarations-to=<path> Path to JSON file to dump Java to Kotlin declaration mappings
@@ -30,13 +33,15 @@ where advanced options include:
   -Xenhance-type-parameter-types-to-def-not-null
                              Enhance not null annotated type parameter's types to definitely not null types (@NotNull T => T & Any)
   -Xfriend-paths=<path>      Paths to output directories for friend modules (whose internals should be visible)
+  -Xignore-const-optimization-errors
+                             Ignore all compilation exceptions while optimizing some constant expressions.
   -Xmultifile-parts-inherit  Compile multifile classes as a hierarchy of parts and facade
   -Xmodule-path=<path>       Paths where to find Java 9+ modules
   -Xjava-package-prefix      Package prefix for Java files
   -Xjava-source-roots=<path> Paths to directories with Java source files
   -Xjavac-arguments=<option[,]> Java compiler arguments
   -Xjdk-release=<version>    Compile against the specified JDK API version, similarly to javac's `-release`. Requires JDK 9 or newer.
-                             Supported versions depend on the used JDK; for JDK 17+ supported versions are 1.8, 9, 10, ..., 17.
+                             Supported versions depend on the used JDK; for JDK 17+ supported versions are 1.8, 9, 10, ..., 18.
                              Also sets `-jvm-target` value equal to the selected JDK version
   -Xjspecify-annotations=ignore|strict|warn
                              Specify behavior for jspecify annotations.
@@ -99,9 +104,6 @@ where advanced options include:
                                * ignore
                                * strict
                                * warn (report a warning)
-  -Xbackend-threads=<N>      When using the IR backend, run lowerings by file in N parallel threads.
-                             0 means use a thread per processor core.
-                             Default value is 1
   -Xprofile=<profilerPath:command:outputDir>
                              Debug option: Run compiler with async profiler and save snapshots to `outputDir`; `command` is passed to async-profiler on start.
                              `profilerPath` is a path to libasyncProfiler.so; async-profiler.jar should be on the compiler classpath.
@@ -150,6 +152,8 @@ where advanced options include:
   -Xuse-type-table           Use type table in metadata serialization
   -Xvalidate-bytecode        Validate generated JVM bytecode before and after optimizations
   -Xvalidate-ir              Validate IR before and after lowering
+  -Xallow-any-scripts-in-source-roots
+                             Allow to compile any scripts along with regular Kotlin sources
   -Xallow-kotlin-package     Allow compiling code in package 'kotlin' and allow not requiring kotlin.stdlib in module-info
   -Xallow-result-return-type Allow compiling code when `kotlin.Result` is used as a return type
   -Xbuiltins-from-sources    Compile builtIns from sources

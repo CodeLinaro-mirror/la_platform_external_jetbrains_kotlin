@@ -7,9 +7,6 @@ package org.jetbrains.kotlin.backend.konan.llvm
 
 import kotlinx.cinterop.*
 import llvm.*
-import org.jetbrains.kotlin.backend.common.ir.allParameters
-import org.jetbrains.kotlin.backend.common.ir.allParametersCount
-import org.jetbrains.kotlin.backend.common.ir.ir2string
 import org.jetbrains.kotlin.backend.common.lower.inline.InlinerExpressionLocationHint
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.cgen.CBridgeOrigin
@@ -442,7 +439,6 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
             codegen.objCDataGenerator?.finishModule()
 
             context.coverage.writeRegionInfo()
-            setRuntimeConstGlobals()
             overrideRuntimeGlobals()
             appendLlvmUsed("llvm.used", context.llvm.usedFunctions + context.llvm.usedGlobals)
             appendLlvmUsed("llvm.compiler.used", context.llvm.compilerUsedGlobals)
@@ -835,10 +831,10 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
                 || declaration.isExternal
                 || body == null)
             return
-        val isNotInlinedLambda = declaration.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
-        val file = ((declaration as? IrSimpleFunction)?.attributeOwnerId as? IrSimpleFunction)?.file.takeIf {
-            it ?: return@takeIf false
-            (currentCodeContext.fileScope() as FileScope).file != it && isNotInlinedLambda
+        val file = if (declaration.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA)
+            null
+        else ((declaration as? IrSimpleFunction)?.attributeOwnerId as? IrSimpleFunction)?.let { context.irLinker.getFileOf(it) }?.takeIf {
+            (currentCodeContext.fileScope() as FileScope).file != it
         }
         val scope = file?.let {
             FileScope(it)
@@ -1559,9 +1555,10 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
         with(functionGenerationContext) {
             ifThen(not(genInstanceOf(srcArg, dstClass))) {
                 if (dstClass.defaultType.isObjCObjectType()) {
+                    val dstFullClassName = dstClass.fqNameWhenAvailable?.toString() ?: dstClass.name.toString()
                     callDirect(
                             context.ir.symbols.throwTypeCastException.owner,
-                            emptyList(),
+                            listOf(srcArg, context.llvm.staticData.kotlinStringLiteral(dstFullClassName).llvm),
                             Lifetime.GLOBAL,
                             null
                     )
@@ -1740,7 +1737,12 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
     private fun needMutationCheck(irClass: IrClass): Boolean {
         // For now we omit mutation checks on immutable types, as this allows initialization in constructor
         // and it is assumed that API doesn't allow to change them.
-        return !irClass.isFrozen(context)
+        return context.config.freezing.enableFreezeChecks && !irClass.isFrozen(context)
+    }
+
+    private fun needLifetimeConstraintsCheck(valueToAssign: LLVMValueRef, irClass: IrClass): Boolean {
+        // TODO: Likely, we don't need isFrozen check here at all.
+        return functionGenerationContext.isObjectType(valueToAssign.type) && !irClass.isFrozen(context)
     }
 
     private fun isZeroConstValue(value: IrExpression): Boolean {
@@ -1776,13 +1778,14 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
             assert(thisPtr.type == codegen.kObjHeaderPtr) {
                 LLVMPrintTypeToString(thisPtr.type)?.toKString().toString()
             }
-            if (needMutationCheck(value.symbol.owner.parentAsClass)) {
+            val parentAsClass = value.symbol.owner.parentAsClass
+            if (needMutationCheck(parentAsClass)) {
                 functionGenerationContext.call(context.llvm.mutationCheck,
                         listOf(functionGenerationContext.bitcast(codegen.kObjHeaderPtr, thisPtr)),
                         Lifetime.IRRELEVANT, currentCodeContext.exceptionHandler)
-
-                if (functionGenerationContext.isObjectType(valueToAssign.type))
-                    functionGenerationContext.call(context.llvm.checkLifetimesConstraint, listOf(thisPtr, valueToAssign))
+            }
+            if (needLifetimeConstraintsCheck(valueToAssign, parentAsClass)) {
+                functionGenerationContext.call(context.llvm.checkLifetimesConstraint, listOf(thisPtr, valueToAssign))
             }
             functionGenerationContext.storeAny(valueToAssign, fieldPtrOfClass(thisPtr, value.symbol.owner), false)
         } else {
@@ -2418,9 +2421,8 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
         val bbExit = basicBlock("label_continue", null)
         moveBlockAfterEntry(bbExit)
         moveBlockAfterEntry(bbInit)
-        // TODO: Is it ok to use non-volatile read here since once value is FILE_INITIALIZED, it is no longer change?
         val state = load(statePtr)
-        LLVMSetVolatile(state, 1)
+        LLVMSetOrdering(state, LLVMAtomicOrdering.LLVMAtomicOrderingAcquire)
         condBr(icmpEq(state, Int32(FILE_INITIALIZED).llvm), bbExit, bbInit)
         positionAtEnd(bbInit)
         call(context.llvm.callInitGlobalPossiblyLock, listOf(statePtr, initializerPtr),
@@ -2717,26 +2719,6 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
         LLVMSetSection(llvmUsedGlobal.llvmGlobal, "llvm.metadata")
     }
 
-    // Globals set this way will be const, but can only be built into runtime-containing module. Which
-    // means they are set at stdlib-cache compilation time.
-    private fun setRuntimeConstGlobal(name: String, value: ConstValue) {
-        val global = context.llvm.staticData.placeGlobal(name, value)
-        global.setConstant(true)
-        global.setLinkage(LLVMLinkage.LLVMExternalLinkage)
-    }
-
-    private fun setRuntimeConstGlobals() {
-        if (!context.producedLlvmModuleContainsStdlib)
-            return
-
-        setRuntimeConstGlobal("KonanNeedDebugInfo", Int32(if (context.shouldContainDebugInfo()) 1 else 0))
-        setRuntimeConstGlobal("Kotlin_runtimeAssertsMode", Int32(context.config.runtimeAssertsMode.value))
-        val runtimeLogs = context.config.runtimeLogs?.let {
-            context.llvm.staticData.cStringLiteral(it)
-        } ?: NullPointer(int8Type)
-        setRuntimeConstGlobal("Kotlin_runtimeLogs", runtimeLogs)
-    }
-
     // Globals set this way cannot be const, but are overridable when producing final executable.
     private fun overrideRuntimeGlobal(name: String, value: ConstValue) {
         // TODO: A similar mechanism is used in `ObjCExportCodeGenerator`. Consider merging them.
@@ -2770,9 +2752,7 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
 
         overrideRuntimeGlobal("Kotlin_destroyRuntimeMode", Int32(context.config.destroyRuntimeMode.value))
         overrideRuntimeGlobal("Kotlin_workerExceptionHandling", Int32(context.config.workerExceptionHandling.value))
-        overrideRuntimeGlobal("Kotlin_freezingEnabled", Int32(if (context.config.freezing.enableFreezeAtRuntime) 1 else 0))
-        overrideRuntimeGlobal("Kotlin_freezingChecksEnabled", Int32(if (context.config.freezing.enableFreezeChecks) 1 else 0))
-        overrideRuntimeGlobal("Kotlin_gcSchedulerType", Int32(context.config.gcSchedulerType.value))
+        overrideRuntimeGlobal("Kotlin_suspendFunctionsFromAnyThreadFromObjC", Int32(if (context.config.suspendFunctionsFromAnyThreadFromObjC) 1 else 0))
         val getSourceInfoFunctionName = when (context.config.sourceInfoType) {
             SourceInfoType.NOOP -> null
             SourceInfoType.LIBBACKTRACE -> "Kotlin_getSourceInfo_libbacktrace"
@@ -2789,6 +2769,7 @@ internal class CodeGeneratorVisitor(val context: Context, val lifetimes: Map<IrE
             val programType = configuration.get(BinaryOptions.androidProgramType) ?: AndroidProgramType.Default
             overrideRuntimeGlobal("Kotlin_printToAndroidLogcat", Int32(if (programType.consolePrintsToLogcat) 1 else 0))
         }
+        overrideRuntimeGlobal("Kotlin_appStateTracking", Int32(context.config.appStateTracking.value))
     }
 
     //-------------------------------------------------------------------------//
@@ -2958,4 +2939,28 @@ internal class LocationInfo(val scope: DIScopeOpaqueRef,
     init {
         assert(line != 0)
     }
+}
+
+internal fun Context.generateRuntimeConstantsModule() : LLVMModuleRef {
+    val llvmModule = LLVMModuleCreateWithNameInContext("constants", llvmContext)!!
+    LLVMSetDataLayout(llvmModule, llvm.runtime.dataLayout)
+    val static = StaticData(llvmModule)
+
+    fun setRuntimeConstGlobal(name: String, value: ConstValue) {
+        val global = static.placeGlobal(name, value)
+        global.setConstant(true)
+        global.setLinkage(LLVMLinkage.LLVMExternalLinkage)
+    }
+
+    setRuntimeConstGlobal("Kotlin_needDebugInfo", Int32(if (shouldContainDebugInfo()) 1 else 0))
+    setRuntimeConstGlobal("Kotlin_runtimeAssertsMode", Int32(config.runtimeAssertsMode.value))
+    val runtimeLogs = config.runtimeLogs?.let {
+        static.cStringLiteral(it)
+    } ?: NullPointer(int8Type)
+    setRuntimeConstGlobal("Kotlin_runtimeLogs", runtimeLogs)
+    setRuntimeConstGlobal("Kotlin_freezingEnabled", Int32(if (config.freezing.enableFreezeAtRuntime) 1 else 0))
+    setRuntimeConstGlobal("Kotlin_freezingChecksEnabled", Int32(if (config.freezing.enableFreezeChecks) 1 else 0))
+    setRuntimeConstGlobal("Kotlin_gcSchedulerType", Int32(config.gcSchedulerType.value))
+
+    return llvmModule
 }

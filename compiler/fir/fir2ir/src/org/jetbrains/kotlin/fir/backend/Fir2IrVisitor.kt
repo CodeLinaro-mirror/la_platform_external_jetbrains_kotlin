@@ -6,10 +6,7 @@
 package org.jetbrains.kotlin.fir.backend
 
 import com.intellij.psi.tree.IElementType
-import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.KtNodeTypes
-import org.jetbrains.kotlin.KtPsiSourceElement
-import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -20,14 +17,9 @@ import org.jetbrains.kotlin.fir.backend.generators.OperatorExpressionGenerator
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
-import org.jetbrains.kotlin.fir.declarations.utils.isSealed
-import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
-import org.jetbrains.kotlin.fir.declarations.utils.visibility
+import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
-import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
-import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
+import org.jetbrains.kotlin.fir.expressions.impl.*
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.FirSuperReference
@@ -43,7 +35,7 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.defaultType
@@ -54,6 +46,7 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.KtBinaryExpression
 import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class Fir2IrVisitor(
     private val components: Fir2IrComponents,
@@ -164,7 +157,7 @@ class Fir2IrVisitor(
         }
         val irClass = classifierStorage.getCachedIrClass(regularClass)!!
         if (regularClass.isSealed) {
-            irClass.sealedSubclasses = regularClass.getIrSymbolsForSealedSubclasses(components)
+            irClass.sealedSubclasses = regularClass.getIrSymbolsForSealedSubclasses()
         }
         return conversionScope.withParent(irClass) {
             conversionScope.withContainingFirClass(regularClass) {
@@ -373,10 +366,50 @@ class Fir2IrVisitor(
         } else convertToIrExpression(this, annotationMode)
 
     private fun convertToIrCall(functionCall: FirFunctionCall, annotationMode: Boolean): IrExpression {
-        val explicitReceiverExpression = convertToIrReceiverExpression(
-            functionCall.explicitReceiver, functionCall.calleeReference
+        if (functionCall.isCalleeDynamic &&
+            functionCall.calleeReference.name == OperatorNameConventions.SET &&
+            functionCall.calleeReference.source?.kind == KtFakeSourceElementKind.ArrayAccessNameReference
+        ) {
+            return convertToIrArrayAccessDynamicCall(functionCall, annotationMode)
+        }
+        return convertToIrCall(functionCall, annotationMode, dynamicOperator = null)
+    }
+
+    private fun convertToIrCall(
+        functionCall: FirFunctionCall,
+        annotationMode: Boolean,
+        dynamicOperator: IrDynamicOperator?
+    ): IrExpression {
+        val explicitReceiverExpression = convertToIrReceiverExpression(functionCall.explicitReceiver, functionCall.calleeReference)
+        return callGenerator.convertToIrCall(
+            functionCall,
+            functionCall.typeRef,
+            explicitReceiverExpression,
+            annotationMode,
+            dynamicOperator
         )
-        return callGenerator.convertToIrCall(functionCall, functionCall.typeRef, explicitReceiverExpression, annotationMode)
+    }
+
+    private fun convertToIrArrayAccessDynamicCall(functionCall: FirFunctionCall, annotationMode: Boolean): IrExpression {
+        val explicitReceiverExpression = convertToIrCall(
+            functionCall, annotationMode, dynamicOperator = IrDynamicOperator.ARRAY_ACCESS
+        )
+        if (explicitReceiverExpression is IrDynamicOperatorExpression) {
+            explicitReceiverExpression.arguments.removeLast()
+        }
+        val result = callGenerator.convertToIrCall(
+            functionCall, functionCall.typeRef, explicitReceiverExpression,
+            annotationMode = annotationMode,
+            dynamicOperator = IrDynamicOperator.EQ
+        )
+        if (result is IrDynamicOperatorExpression) {
+            val arguments = result.arguments
+            arguments[0] = arguments[arguments.lastIndex]
+            while (arguments.size > 1) {
+                arguments.removeLast()
+            }
+        }
+        return result
     }
 
     override fun visitFunctionCall(functionCall: FirFunctionCall, data: Any?): IrExpression {
@@ -415,14 +448,23 @@ class Fir2IrVisitor(
     }
 
     override fun visitQualifiedAccessExpression(qualifiedAccessExpression: FirQualifiedAccessExpression, data: Any?): IrElement {
-        val explicitReceiverExpression = convertToIrReceiverExpression(
-            qualifiedAccessExpression.explicitReceiver, qualifiedAccessExpression.calleeReference
-        )
-        return callGenerator.convertToIrCall(qualifiedAccessExpression, qualifiedAccessExpression.typeRef, explicitReceiverExpression)
+        return convertQualifiedAccessExpression(qualifiedAccessExpression)
     }
 
     override fun visitPropertyAccessExpression(propertyAccessExpression: FirPropertyAccessExpression, data: Any?): IrElement {
-        return visitQualifiedAccessExpression(propertyAccessExpression, data)
+        return convertQualifiedAccessExpression(propertyAccessExpression)
+    }
+
+    private fun convertQualifiedAccessExpression(
+        qualifiedAccessExpression: FirQualifiedAccessExpression,
+        annotationMode: Boolean = false
+    ) : IrExpression {
+        val explicitReceiverExpression = convertToIrReceiverExpression(
+            qualifiedAccessExpression.explicitReceiver, qualifiedAccessExpression.calleeReference
+        )
+        return callGenerator.convertToIrCall(
+            qualifiedAccessExpression, qualifiedAccessExpression.typeRef, explicitReceiverExpression, annotationMode = annotationMode
+        )
     }
 
     // Note that this mimics psi2ir [StatementGenerator#isThisForClassPhysicallyAvailable].
@@ -455,15 +497,24 @@ class Fir2IrVisitor(
                 return thisReceiverExpression.convertWithOffsets { startOffset, endOffset ->
                     val thisRef = IrGetValueImpl(startOffset, endOffset, dispatchReceiver.type, dispatchReceiver.symbol)
                     if (calleeReference.contextReceiverNumber != -1) {
-                        val contextReceivers =
-                            components.classifierStorage.getFieldsWithContextReceiversForClass(irClass)
-                                ?: error("Not defined context receivers for $irClass")
+                        val constructorForCurrentlyGeneratedDelegatedConstructor =
+                            conversionScope.getConstructorForCurrentlyGeneratedDelegatedConstructor(irClass)
 
-                        IrGetFieldImpl(
-                            startOffset, endOffset, contextReceivers[calleeReference.contextReceiverNumber].symbol,
-                            thisReceiverExpression.typeRef.toIrType(),
-                            thisRef,
-                        )
+                        if (constructorForCurrentlyGeneratedDelegatedConstructor != null) {
+                            val constructorParameter =
+                                constructorForCurrentlyGeneratedDelegatedConstructor.valueParameters[calleeReference.contextReceiverNumber]
+                            IrGetValueImpl(startOffset, endOffset, constructorParameter.type, constructorParameter.symbol)
+                        } else {
+                            val contextReceivers =
+                                components.classifierStorage.getFieldsWithContextReceiversForClass(irClass)
+                                    ?: error("Not defined context receivers for $irClass")
+
+                            IrGetFieldImpl(
+                                startOffset, endOffset, contextReceivers[calleeReference.contextReceiverNumber].symbol,
+                                thisReceiverExpression.typeRef.toIrType(),
+                                thisRef,
+                            )
+                        }
                     } else {
                         thisRef
                     }
@@ -502,12 +553,12 @@ class Fir2IrVisitor(
         return implicitCastInserter.visitExpressionWithSmartcast(expressionWithSmartcast, value)
     }
 
-    override fun visitExpressionWithSmartcastToNull(
-        expressionWithSmartcastToNull: FirExpressionWithSmartcastToNull,
+    override fun visitExpressionWithSmartcastToNothing(
+        expressionWithSmartcastToNothing: FirExpressionWithSmartcastToNothing,
         data: Any?
     ): IrElement {
         // This should not be materialized. Generate the expression with the original expression.
-        return convertToIrExpression(expressionWithSmartcastToNull.originalExpression)
+        return convertToIrExpression(expressionWithSmartcastToNothing.originalExpression)
     }
 
     override fun visitWhenSubjectExpressionWithSmartcast(
@@ -518,12 +569,12 @@ class Fir2IrVisitor(
         return implicitCastInserter.visitWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast, value)
     }
 
-    override fun visitWhenSubjectExpressionWithSmartcastToNull(
-        whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull,
+    override fun visitWhenSubjectExpressionWithSmartcastToNothing(
+        whenSubjectExpressionWithSmartcastToNothing: FirWhenSubjectExpressionWithSmartcastToNothing,
         data: Any?
     ): IrElement {
         // This should not be materialized. Generate the expression with the original expression.
-        return visitWhenSubjectExpression(whenSubjectExpressionWithSmartcastToNull.originalExpression, data)
+        return visitWhenSubjectExpression(whenSubjectExpressionWithSmartcastToNothing.originalExpression, data)
     }
 
     override fun visitCallableReferenceAccess(callableReferenceAccess: FirCallableReferenceAccess, data: Any?): IrElement {
@@ -579,9 +630,10 @@ class Fir2IrVisitor(
                 val unwrappedExpression = expression.unwrapArgument()
                 if (annotationMode) {
                     when (unwrappedExpression) {
-                        is FirFunctionCall -> convertToIrCall(unwrappedExpression, annotationMode)
-                        is FirArrayOfCall -> convertToArrayOfCall(unwrappedExpression, annotationMode)
+                        is FirFunctionCall -> convertToIrCall(unwrappedExpression, true)
+                        is FirArrayOfCall -> convertToArrayOfCall(unwrappedExpression, true)
                         is FirCallableReferenceAccess -> convertCallableReferenceAccess(unwrappedExpression, isDelegate)
+                        is FirQualifiedAccessExpression -> convertQualifiedAccessExpression(unwrappedExpression, true)
                         else -> expression.accept(this, null) as IrExpression
                     }
                 } else {
@@ -700,7 +752,82 @@ class Fir2IrVisitor(
             return this == IrStatementOrigin.DO_WHILE_LOOP || this == IrStatementOrigin.WHILE_LOOP || this == IrStatementOrigin.FOR_LOOP
         }
 
+    private inline fun <reified K> List<*>.findFirst() = firstOrNull { it is K } as? K
+
+    private inline fun <reified K> List<*>.findLast() = lastOrNull { it is K } as? K
+
+    private fun extractOperationFromDynamicSetCall(functionCall: FirFunctionCall) =
+        functionCall.dynamicVarargArguments?.lastOrNull() as? FirFunctionCall
+
+    private val FirExpression.isIncrementOrDecrementCall: Boolean
+        get() {
+            val name = safeAs<FirFunctionCall>()?.calleeReference?.resolved?.name
+            return name == OperatorNameConventions.INC || name == OperatorNameConventions.DEC
+        }
+
+    private fun FirBlock.tryConvertDynamicIncrementOrDecrementToIr(): IrExpression? {
+        val receiver = statements.findFirst<FirProperty>() ?: return null
+        val receiverValue = receiver.initializer ?: return null
+
+        if (receiverValue.typeRef.coneType !is ConeDynamicType) {
+            return null
+        }
+
+        val savedValue = statements.findLast<FirProperty>()?.initializer ?: return null
+        val isPrefix = savedValue.isIncrementOrDecrementCall
+
+        val (operationReceiver, operationCall) = if (isPrefix) {
+            val operation = savedValue as? FirFunctionCall ?: return null
+            val operationReceiver = operation.explicitReceiver ?: return null
+            operationReceiver to operation
+        } else {
+            val operation = statements.findLast<FirVariableAssignment>()?.rValue as? FirFunctionCall
+                ?: statements.findLast<FirFunctionCall>()?.let { extractOperationFromDynamicSetCall(it) }
+                ?: return null
+            savedValue to operation
+        }
+
+        val isArrayAccess = receiver.name == SpecialNames.ARRAY
+
+        val explicitReceiverExpression = if (isArrayAccess) {
+            val arrayAccess = operationReceiver as? FirFunctionCall ?: return null
+            val originalVararg = arrayAccess.resolvedArgumentMapping?.keys?.filterIsInstance<FirVarargArgumentsExpression>()?.firstOrNull()
+            (callGenerator.convertToIrCall(
+                arrayAccess, arrayAccess.typeRef,
+                convertToIrReceiverExpression(receiverValue, arrayAccess.calleeReference),
+                noArguments = true
+            ) as IrDynamicOperatorExpression).apply {
+                originalVararg?.arguments?.forEach {
+                    val that = (it as? FirPropertyAccessExpression)?.calleeReference?.resolvedSymbol?.fir as? FirProperty
+                    val initializer = that?.initializer ?: return@forEach
+                    arguments.add(convertToIrExpression(initializer))
+                }
+            }
+        } else {
+            val qualifiedAccess = operationReceiver as? FirQualifiedAccessExpression ?: return null
+            val receiverExpression = if (receiverValue != qualifiedAccess) {
+                receiverValue
+            } else {
+                null
+            }
+            callGenerator.convertToIrCall(
+                qualifiedAccess,
+                qualifiedAccess.typeRef,
+                convertToIrReceiverExpression(receiverExpression, qualifiedAccess.calleeReference),
+                annotationMode = false
+            )
+        }
+        return callGenerator.convertToIrCall(
+            operationCall, operationCall.typeRef, explicitReceiverExpression, annotationMode = false
+        )
+    }
+
     private fun FirBlock.convertToIrExpressionOrBlock(origin: IrStatementOrigin? = null): IrExpression {
+        if (this.source?.kind == KtFakeSourceElementKind.DesugaredIncrementOrDecrement) {
+            tryConvertDynamicIncrementOrDecrementToIr()?.let {
+                return it
+            }
+        }
         return statements.convertToIrExpressionOrBlock(source, origin)
     }
 
@@ -1164,18 +1291,11 @@ class Fir2IrVisitor(
 
     private fun convertToArrayOfCall(arrayOfCall: FirArrayOfCall, annotationMode: Boolean): IrVararg {
         return arrayOfCall.convertWithOffsets { startOffset, endOffset ->
-            lateinit var elementType: IrType
-            lateinit var arrayType: IrType
-            // Resolved arrayOf call will have resolved type. FirArrayOfCall from collection literal won't.
-            if (arrayOfCall.typeRef is FirResolvedTypeRef) {
-                arrayType = arrayOfCall.typeRef.toIrType()
-                elementType = arrayType.getArrayElementType(irBuiltIns)
+            val arrayType = arrayOfCall.typeRef.toIrType()
+            val elementType = if (arrayOfCall.typeRef is FirResolvedTypeRef) {
+                arrayType.getArrayElementType(irBuiltIns)
             } else {
-                // TODO: The element type should be the least upper bound of all arguments' types, e.g., ["4", 2u, 0.42f] => Array<Any>
-                //   Currently, the type of elements in array literals still has integer literal type, which shouldn't be at this stage.
-                //   elementType = arrayOfCall.arguments.map { it.typeRef.toIrType() }.commonSupertype(irBuiltIns)
-                elementType = arrayOfCall.arguments.firstOrNull()?.typeRef?.toIrType() ?: createErrorType()
-                arrayType = elementType.toArrayOrPrimitiveArrayType(irBuiltIns)
+                createErrorType()
             }
             IrVarargImpl(
                 startOffset, endOffset,
@@ -1203,11 +1323,26 @@ class Fir2IrVisitor(
         return callGenerator.convertToGetObject(resolvedQualifier)
     }
 
+    private fun LogicOperationKind.toIrDynamicOperator() = when (this) {
+        LogicOperationKind.AND -> IrDynamicOperator.ANDAND
+        LogicOperationKind.OR -> IrDynamicOperator.OROR
+    }
+
     override fun visitBinaryLogicExpression(binaryLogicExpression: FirBinaryLogicExpression, data: Any?): IrElement {
         return binaryLogicExpression.convertWithOffsets<IrElement> { startOffset, endOffset ->
             val leftOperand = binaryLogicExpression.leftOperand.accept(this, data) as IrExpression
             val rightOperand = binaryLogicExpression.rightOperand.accept(this, data) as IrExpression
-            when (binaryLogicExpression.kind) {
+            if (leftOperand.type is IrDynamicType) {
+                IrDynamicOperatorExpressionImpl(
+                    startOffset,
+                    endOffset,
+                    irBuiltIns.booleanType,
+                    binaryLogicExpression.kind.toIrDynamicOperator(),
+                ).apply {
+                    receiver = leftOperand
+                    arguments.add(rightOperand)
+                }
+            } else when (binaryLogicExpression.kind) {
                 LogicOperationKind.AND -> {
                     IrIfThenElseImpl(startOffset, endOffset, irBuiltIns.booleanType, IrStatementOrigin.ANDAND).apply {
                         branches.add(IrBranchImpl(leftOperand, rightOperand))

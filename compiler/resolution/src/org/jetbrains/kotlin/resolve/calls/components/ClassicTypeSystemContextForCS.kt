@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.resolve.calls.components
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintInjector
 import org.jetbrains.kotlin.resolve.calls.inference.components.EmptySubstitutor
@@ -68,10 +67,11 @@ class ClassicTypeSystemContextForCS(
     }
 
     override fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker {
-        require(type is UnwrappedType, type::errorMessage)
+        require(type is KotlinType, type::errorMessage)
+        val unwrappedType = type.unwrap()
         return when (this) {
-            is NewTypeSubstitutor -> safeSubstitute(type)
-            is TypeSubstitutor -> safeSubstitute(type, Variance.INVARIANT)
+            is NewTypeSubstitutor -> safeSubstitute(unwrappedType)
+            is TypeSubstitutor -> safeSubstitute(unwrappedType, Variance.INVARIANT)
             else -> error(this.errorMessage())
         }
     }
@@ -109,8 +109,6 @@ class ClassicTypeSystemContextForCS(
     }
 }
 
-
-
 @Suppress("NOTHING_TO_INLINE")
 private inline fun Any?.errorMessage(): String {
     return "ClassicTypeSystemContextForCS couldn't handle: $this, ${this?.let { it::class }}"
@@ -120,7 +118,8 @@ private inline fun Any?.errorMessage(): String {
 fun NewConstraintSystemImpl(
     constraintInjector: ConstraintInjector,
     builtIns: KotlinBuiltIns,
-    kotlinTypeRefiner: KotlinTypeRefiner
+    kotlinTypeRefiner: KotlinTypeRefiner,
+    languageVersionSettings: LanguageVersionSettings
 ): NewConstraintSystemImpl {
-    return NewConstraintSystemImpl(constraintInjector, ClassicTypeSystemContextForCS(builtIns, kotlinTypeRefiner))
+    return NewConstraintSystemImpl(constraintInjector, ClassicTypeSystemContextForCS(builtIns, kotlinTypeRefiner), languageVersionSettings)
 }

@@ -325,6 +325,7 @@ internal class StackLocalsManagerImpl(
             symbols.array              to functionGenerationContext.kObjHeaderPtr,
             symbols.byteArray          to int8Type,
             symbols.charArray          to int16Type,
+            symbols.string             to int16Type,
             symbols.shortArray         to int16Type,
             symbols.intArray           to int32Type,
             symbols.longArray          to int64Type,
@@ -646,7 +647,7 @@ internal abstract class FunctionGenerationContext(
 
     fun switchThreadState(state: ThreadState) {
         check(context.memoryModel == MemoryModel.EXPERIMENTAL) {
-            "Thread state switching is allowed in the experimental memory model only."
+            "Thread state switching is allowed in the new MM only."
         }
         check(!forbidRuntime) {
             "Attempt to switch the thread state when runtime is forbidden"

@@ -120,6 +120,16 @@ abstract class DownloadCocoapodsTask : CocoapodsTask() {
 }
 
 open class PodDownloadUrlTask : DownloadCocoapodsTask() {
+    companion object {
+        private val permittedFileExtensions = listOf("tar.gz", "tar.bz2", "tar.xz", "tar", "tgz", "tbz", "txz", "zip", "gzip", "jar")
+
+        internal fun getFileExtension(fileName: String): String? {
+            val permittedFileNameFormat = Regex(
+                ".*(\\.)(${permittedFileExtensions.joinToString("|") { it.replace(".", "\\.") }})"
+            )
+            return permittedFileNameFormat.matchEntire(fileName)?.groups?.lastOrNull()?.value
+        }
+    }
 
     @get:Nested
     internal lateinit var podSource: Provider<Url>
@@ -133,15 +143,11 @@ open class PodDownloadUrlTask : DownloadCocoapodsTask() {
         urlDir.resolve(podName.get())
     }
 
-    @get:Internal
-    internal val permittedFileExtensions = listOf("tar.gz", "tar.bz2", "tar.xz", "tar", "tgz", "tbz", "txz", "zip", "gzip", "jar")
-
     @TaskAction
     fun download() {
         val podLocation = podSource.get()
         val fileName = podLocation.url.toString().substringAfterLast("/")
-        val permittedFileNameFormat = Regex(".*(\\.)(${permittedFileExtensions.joinToString("|") { it.replace(".", "\\.") }})")
-        val extension = permittedFileNameFormat.matchEntire(fileName)?.groups?.lastOrNull()?.value
+        val extension = getFileExtension(fileName)
         require(extension != null) {
             """
                 $fileName has an unsupported file extension 
@@ -403,6 +409,9 @@ open class PodGenTask : CocoapodsTask() {
     lateinit var family: Family
 
     @get:Nested
+    internal lateinit var platformSettings: PodspecPlatformSettings
+
+    @get:Nested
     internal lateinit var specRepos: Provider<SpecRepos>
 
     @get:Nested
@@ -474,21 +483,37 @@ open class PodGenTask : CocoapodsTask() {
             if (useLibraries.get().not()) {
                 appendLine("\tuse_frameworks!")
             }
+            val deploymentTarget = platformSettings.deploymentTarget
+            if (deploymentTarget != null) {
+                appendLine("\tplatform :${platformSettings.name}, '$deploymentTarget'")
+            } else {
+                appendLine("\tplatform :${platformSettings.name}")
+            }
             pods.get().mapNotNull {
                 buildString {
                     append("pod '${it.name}'")
 
-                    val pathType = when (it.source) {
-                        is Path -> "path"
-                        is Url -> "path"
-                        is Git -> "git"
-                        else -> null
-                    }
+                    val version = it.version
+                    val source = it.source
 
-                    val path = it.source?.getLocalPath(project, it.name)
+                    if (source != null) {
+                        when (source) {
+                            is Path, is Url -> {
+                                val path = source.getLocalPath(project, it.name)
+                                append(", :path => '$path'")
+                            }
 
-                    if (path != null && pathType != null) {
-                        append(", :$pathType => '$path'")
+                            is Git -> {
+                                append(", :git => '${source.url}'")
+                                when {
+                                    source.branch != null -> append(", :branch => '${source.branch}'")
+                                    source.tag != null -> append(", :tag => '${source.tag}'")
+                                    source.commit != null -> append(", :commit => '${source.commit}'")
+                                }
+                            }
+                        }
+                    } else if (version != null) {
+                        append(", '$version'")
                     }
 
                 }
@@ -608,6 +633,7 @@ data class PodBuildSettingsProperties(
     internal val podsTargetSrcRoot: String,
     internal val cflags: String? = null,
     internal val headerPaths: String? = null,
+    internal val publicHeadersFolderPath: String? = null,
     internal val frameworkPaths: String? = null
 ) {
 
@@ -627,6 +653,7 @@ data class PodBuildSettingsProperties(
             appendText("$PODS_TARGET_SRCROOT=$podsTargetSrcRoot\n")
             cflags?.let { appendText("$OTHER_CFLAGS=$it\n") }
             headerPaths?.let { appendText("$HEADER_SEARCH_PATHS=$it\n") }
+            publicHeadersFolderPath?.let { appendText("$PUBLIC_HEADERS_FOLDER_PATH=$it\n") }
             frameworkPaths?.let { appendText("$FRAMEWORK_SEARCH_PATHS=$it") }
         }
     }
@@ -638,6 +665,7 @@ data class PodBuildSettingsProperties(
         const val PODS_TARGET_SRCROOT = "PODS_TARGET_SRCROOT"
         const val OTHER_CFLAGS = "OTHER_CFLAGS"
         const val HEADER_SEARCH_PATHS = "HEADER_SEARCH_PATHS"
+        const val PUBLIC_HEADERS_FOLDER_PATH = "PUBLIC_HEADERS_FOLDER_PATH"
         const val FRAMEWORK_SEARCH_PATHS = "FRAMEWORK_SEARCH_PATHS"
 
         fun readSettingsFromReader(reader: Reader): PodBuildSettingsProperties {
@@ -650,6 +678,7 @@ data class PodBuildSettingsProperties(
                     readProperty(PODS_TARGET_SRCROOT),
                     readNullableProperty(OTHER_CFLAGS),
                     readNullableProperty(HEADER_SEARCH_PATHS),
+                    readNullableProperty(PUBLIC_HEADERS_FOLDER_PATH),
                     readNullableProperty(FRAMEWORK_SEARCH_PATHS)
                 )
             }

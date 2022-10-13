@@ -1,4 +1,5 @@
 KtLocalVariableSymbol:
+  annotationsList: []
   callableIdIfNonLocal: null
   isExtension: false
   isVal: true
@@ -7,6 +8,8 @@ KtLocalVariableSymbol:
   receiverType: null
   returnType: kotlin/Int
   symbolKind: LOCAL
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -31,6 +34,7 @@ KtFunctionSymbol:
   typeParameters: []
   valueParameters: []
   visibility: Local
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -52,6 +56,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: LOCAL
   typeParameters: []
   visibility: Local
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -76,4 +81,5 @@ KtFunctionSymbol:
   typeParameters: []
   valueParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.analysis.api.annotations.*
 import org.jetbrains.kotlin.analysis.api.base.KtConstantValue
 import org.jetbrains.kotlin.analysis.api.components.KtDeclarationRendererOptions
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10PackageSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.*
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.KtFe10PsiSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.types.*
@@ -18,16 +19,14 @@ import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
+import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
 import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
 import org.jetbrains.kotlin.descriptors.impl.*
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
-import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor
-import org.jetbrains.kotlin.load.java.descriptors.JavaForKotlinOverridePropertyDescriptor
-import org.jetbrains.kotlin.load.java.descriptors.JavaPropertyDescriptor
+import org.jetbrains.kotlin.load.java.descriptors.*
 import org.jetbrains.kotlin.load.java.sources.JavaSourceElement
 import org.jetbrains.kotlin.load.kotlin.toSourceElement
 import org.jetbrains.kotlin.name.CallableId
@@ -87,7 +86,9 @@ internal fun DeclarationDescriptor.toKtSymbol(analysisContext: Fe10AnalysisConte
 
     return when (this) {
         is ClassifierDescriptor -> toKtClassifierSymbol(analysisContext)
+        is ReceiverParameterDescriptor -> toKtReceiverParameterSymbol(analysisContext)
         is CallableDescriptor -> toKtCallableSymbol(analysisContext)
+        is PackageViewDescriptor -> toKtPackageSymbol(analysisContext)
         else -> null
     }
 }
@@ -108,6 +109,23 @@ internal fun ClassDescriptor.toKtClassSymbol(analysisContext: Fe10AnalysisContex
         KtFe10DescNamedClassOrObjectSymbol(this, analysisContext)
     }
 }
+
+internal fun PackageViewDescriptor.toKtPackageSymbol(analysisContext: Fe10AnalysisContext): KtPackageSymbol {
+    return KtFe10PackageSymbol(fqName, analysisContext)
+}
+
+internal fun ReceiverParameterDescriptor.toKtReceiverParameterSymbol(analysisContext: Fe10AnalysisContext): KtReceiverParameterSymbol {
+    return KtFe10ReceiverParameterSymbol(this, analysisContext)
+}
+
+internal fun KtSymbol.getDescriptor(): DeclarationDescriptor? {
+    return when (this) {
+        is KtFe10PsiSymbol<*, *> -> descriptor
+        is KtFe10DescSymbol<*> -> descriptor
+        else -> unexpectedElementError("KtSymbol", this)
+    }
+}
+
 
 internal fun ConstructorDescriptor.toKtConstructorSymbol(analysisContext: Fe10AnalysisContext): KtConstructorSymbol {
     if (this is TypeAliasConstructorDescriptor) {
@@ -214,6 +232,7 @@ private fun <T : CallableDescriptor> T.unwrapUseSiteSubstitutionOverride(): T {
 
 internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KtType {
     return when (val unwrappedType = unwrap()) {
+        is DynamicType -> KtFe10DynamicType(unwrappedType, analysisContext)
         is FlexibleType -> KtFe10FlexibleType(unwrappedType, analysisContext)
         is DefinitelyNotNullType -> KtFe10DefinitelyNotNullType(unwrappedType, analysisContext)
         is ErrorType -> KtFe10ClassErrorType(unwrappedType, analysisContext)
@@ -294,6 +313,11 @@ internal fun DeclarationDescriptor.getSymbolOrigin(analysisContext: Fe10Analysis
 
         val virtualFile = psi.containingFile.virtualFile
         return analysisContext.getOrigin(virtualFile)
+    } else { // psi == null
+        // Implicit lambda parameter
+        if (this is ValueParameterDescriptor && this.name.identifierOrNullIfSpecial == "it") {
+            return KtSymbolOrigin.SOURCE_MEMBER_GENERATED
+        }
     }
 
     return KtSymbolOrigin.SOURCE
@@ -326,7 +350,10 @@ internal val MemberDescriptor.ktModality: Modality
         if (selfModality == Modality.OPEN) {
             val containingDeclaration = this.containingDeclaration
             if (containingDeclaration is ClassDescriptor && containingDeclaration.modality == Modality.FINAL) {
-                return Modality.FINAL
+                if (this !is CallableMemberDescriptor || dispatchReceiverParameter != null) {
+                    // Non-static open callables in final class are counted as final (to match FIR)
+                    return Modality.FINAL
+                }
             }
         }
 
@@ -386,6 +413,9 @@ internal val CallableMemberDescriptor.callableIdIfNotLocal: CallableId?
     get() = calculateCallableId(allowLocal = false)
 
 internal fun CallableMemberDescriptor.calculateCallableId(allowLocal: Boolean): CallableId? {
+    if (this is SyntheticJavaPropertyDescriptor) {
+        return getMethod.calculateCallableId(allowLocal)?.copy(callableName = name)
+    }
     var current: DeclarationDescriptor = containingDeclaration
 
     val localName = mutableListOf<String>()
@@ -396,6 +426,14 @@ internal fun CallableMemberDescriptor.calculateCallableId(allowLocal: Boolean): 
             is PackageFragmentDescriptor -> {
                 return CallableId(
                     packageName = current.fqName,
+                    className = if (className.isNotEmpty()) FqName.fromSegments(className.asReversed()) else null,
+                    callableName = name,
+                    pathToLocal = if (localName.isNotEmpty()) FqName.fromSegments(localName.asReversed()) else null
+                )
+            }
+            is ModuleDescriptor -> {
+                return CallableId(
+                    packageName = FqName.ROOT,
                     className = if (className.isNotEmpty()) FqName.fromSegments(className.asReversed()) else null,
                     callableName = name,
                     pathToLocal = if (localName.isNotEmpty()) FqName.fromSegments(localName.asReversed()) else null

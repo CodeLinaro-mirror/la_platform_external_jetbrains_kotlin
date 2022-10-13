@@ -159,6 +159,18 @@ public class CompileKotlinAgainstInlineKotlinTestGenerated extends AbstractCompi
         }
 
         @Test
+        @TestMetadata("fakeOverrideInDefaultMultiModule.kt")
+        public void testFakeOverrideInDefaultMultiModule() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/fakeOverrideInDefaultMultiModule.kt");
+        }
+
+        @Test
+        @TestMetadata("fakeOverrideMultiModule.kt")
+        public void testFakeOverrideMultiModule() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/fakeOverrideMultiModule.kt");
+        }
+
+        @Test
         @TestMetadata("functionExpression.kt")
         public void testFunctionExpression() throws Exception {
             runTest("compiler/testData/codegen/boxInline/anonymousObject/functionExpression.kt");
@@ -336,6 +348,12 @@ public class CompileKotlinAgainstInlineKotlinTestGenerated extends AbstractCompi
         @TestMetadata("kt42815_delegated.kt")
         public void testKt42815_delegated() throws Exception {
             runTest("compiler/testData/codegen/boxInline/anonymousObject/kt42815_delegated.kt");
+        }
+
+        @Test
+        @TestMetadata("kt51950.kt")
+        public void testKt51950() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/anonymousObject/kt51950.kt");
         }
 
         @Test
@@ -2231,6 +2249,12 @@ public class CompileKotlinAgainstInlineKotlinTestGenerated extends AbstractCompi
         }
 
         @Test
+        @TestMetadata("kt52417.kt")
+        public void testKt52417() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/enclosingInfo/kt52417.kt");
+        }
+
+        @Test
         @TestMetadata("objectInInlineFun.kt")
         public void testObjectInInlineFun() throws Exception {
             runTest("compiler/testData/codegen/boxInline/enclosingInfo/objectInInlineFun.kt");
@@ -3661,6 +3685,12 @@ public class CompileKotlinAgainstInlineKotlinTestGenerated extends AbstractCompi
         }
 
         @Test
+        @TestMetadata("nestedInPrivateClass2.kt")
+        public void testNestedInPrivateClass2() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/private/nestedInPrivateClass2.kt");
+        }
+
+        @Test
         @TestMetadata("privateClass.kt")
         public void testPrivateClass() throws Exception {
             runTest("compiler/testData/codegen/boxInline/private/privateClass.kt");
@@ -5016,6 +5046,12 @@ public class CompileKotlinAgainstInlineKotlinTestGenerated extends AbstractCompi
         @TestMetadata("kt26658.kt")
         public void testKt26658() throws Exception {
             runTest("compiler/testData/codegen/boxInline/suspend/kt26658.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52198.kt")
+        public void testKt52198() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/suspend/kt52198.kt");
         }
 
         @Test

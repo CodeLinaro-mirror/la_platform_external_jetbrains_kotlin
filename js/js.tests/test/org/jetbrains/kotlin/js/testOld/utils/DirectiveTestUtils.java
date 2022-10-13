@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.js.testOld.utils;
 
 import com.intellij.openapi.util.text.StringUtil;
+import kotlin.text.StringsKt;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.js.backend.ast.*;
@@ -26,6 +27,8 @@ import org.jetbrains.kotlin.test.TargetBackend;
 import org.junit.runners.model.MultipleFailureException;
 
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import static org.jetbrains.kotlin.js.inline.util.CollectUtilsKt.collectInstances;
 import static org.jetbrains.kotlin.test.InTextDirectivesUtils.findLinesWithPrefixesRemoved;
@@ -164,6 +167,45 @@ public class DirectiveTestUtils {
         }
     };
 
+    private static abstract class NodeExistenceDirective extends DirectiveHandler {
+        private boolean isElementExists = false;
+        private boolean shouldCheckForExistence;
+
+        NodeExistenceDirective(@NotNull String directive, boolean shouldCheckForExistence) {
+            super(directive);
+            this.shouldCheckForExistence = shouldCheckForExistence;
+        }
+
+        protected abstract String getTextForError();
+        protected abstract JsVisitor getJsVisitorForElement();
+        protected abstract void loadArguments(@NotNull ArgumentsHelper arguments);
+
+        protected void setElementExists(boolean isElementExists) {
+            this.isElementExists = isElementExists;
+        }
+
+        protected boolean isElementExists() {
+            return isElementExists;
+        }
+
+        @Override
+        void processEntry(@NotNull JsNode ast, @NotNull ArgumentsHelper arguments) throws Exception {
+            loadArguments(arguments);
+            getJsVisitorForElement().accept(ast);
+            assertExistence();
+            setElementExists(false);
+        }
+
+        private void assertExistence() {
+            String message = getTextForError();
+            if (shouldCheckForExistence) {
+                assertTrue(message, isElementExists);
+            } else {
+                assertFalse(message, isElementExists);
+            }
+        }
+    }
+
     private static class CountNodesDirective<T extends JsNode> extends DirectiveHandler {
 
         @NotNull
@@ -255,6 +297,70 @@ public class DirectiveTestUtils {
 
             visitor.accept(ast);
         }
+    };
+
+    private static final DirectiveHandler CHECK_COMMENT_EXISTS = new NodeExistenceDirective("CHECK_COMMENT_EXISTS", true) {
+        private String text;
+        private boolean isMultiLine;
+
+        @Override
+        protected String getTextForError() {
+            return (isMultiLine ? "Multi line" : "Single line") + " comment with text '" + text + "' doesn't exist";
+        }
+
+        @Override
+        protected JsVisitor getJsVisitorForElement() {
+            return new RecursiveJsVisitor() {
+                @Override
+                protected void visitElement(@NotNull JsNode node) {
+                    checkCommentExistsIn(node.getCommentsBeforeNode());
+                    checkCommentExistsIn(node.getCommentsAfterNode());
+                    super.visitElement(node);
+                }
+
+                @Override
+                public void visitSingleLineComment(JsSingleLineComment comment) {
+                    checkCommentExistsIn(Arrays.asList(comment));
+                }
+
+                @Override
+                public void visitMultiLineComment(JsMultiLineComment comment) {
+                    checkCommentExistsIn(Arrays.asList(comment));
+                }
+                private void checkCommentExistsIn(List<JsComment> comments) {
+                    if (comments == null) return;
+                    for (JsComment comment : comments) {
+                        if (isNeededCommentType(comment) && isTheSameText(comment.getText(), text)) {
+                            setElementExists(true);
+                        }
+                    }
+                }
+
+                private boolean isNeededCommentType(JsComment comment) {
+                    return isMultiLine ? comment instanceof JsMultiLineComment : comment instanceof  JsSingleLineComment;
+                }
+            };
+        }
+
+        @Override
+        protected void loadArguments(@NotNull ArgumentsHelper arguments) {
+            this.text = arguments.findNamedArgument("text").replace("\\n", System.lineSeparator());;
+            this.isMultiLine = Boolean.parseBoolean(arguments.findNamedArgument("multiline"));
+        }
+
+        private boolean isTheSameText(String str1, String str2) {
+            List<String> lines1 = StringsKt.lines(str1);
+            List<String> lines2 = StringsKt.lines(str2);
+
+            if (lines1.size() != lines2.size()) return false;
+
+            for (int i = 0; i < lines1.size(); i++) {
+                if (!lines1.get(i).trim().equals(lines2.get(i).trim())) return false;
+            }
+
+            return true;
+        }
+
     };
 
     private static final DirectiveHandler ONLY_THIS_QUALIFIED_REFERENCES = new DirectiveHandler("ONLY_THIS_QUALIFIED_REFERENCES") {
@@ -374,6 +480,7 @@ public class DirectiveTestUtils {
             FUNCTION_NOT_CALLED_IN_SCOPE,
             FUNCTIONS_HAVE_SAME_LINES,
             ONLY_THIS_QUALIFIED_REFERENCES,
+            CHECK_COMMENT_EXISTS,
             COUNT_LABELS,
             COUNT_VARS,
             COUNT_BREAKS,
@@ -565,8 +672,8 @@ public class DirectiveTestUtils {
     /**
      * Arguments format: ((namedArg|positionalArg)\s+)*`
      *
-     * Where: namedArg -- "key=value"
-     *        positionalArg -- "value"
+     * Where: namedArg -- 'key=value' or 'key="spaced value"'
+     *        positionalArg -- 'value'
      *
      * Neither key, nor value should contain spaces.
      */
@@ -574,16 +681,25 @@ public class DirectiveTestUtils {
         private final List<String> positionalArguments = new ArrayList<>();
         private final Map<String, String> namedArguments = new HashMap<>();
         private final String entry;
+        private final Pattern argumentsPattern = Pattern.compile("[\\w$_;\\.]+(=((\".*?\")|[\\w$_;\\.]+))?");
 
         ArgumentsHelper(@NotNull String directiveEntry) {
             entry = directiveEntry;
 
-            for (String argument: directiveEntry.split("\\s+")) {
-                String[] keyVal = argument.split("=");
+            Matcher matcher = argumentsPattern.matcher(directiveEntry);
 
+            while (matcher.find()) {
+                String argument = matcher.group();
+                String[] keyVal = argument.split("=");
                 switch (keyVal.length) {
                     case 1: positionalArguments.add(keyVal[0]); break;
-                    case 2: namedArguments.put(keyVal[0], keyVal[1]); break;
+                    case 2:
+                        String value = keyVal[1];
+                        if (value.charAt(0) == '"') {
+                            value = value.substring(1, value.length() - 1);
+                        }
+                        namedArguments.put(keyVal[0], value);
+                        break;
                     default: throw new AssertionError("Wrong argument format: " + argument);
                 }
             }

@@ -5,13 +5,13 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.components
 
-import org.jetbrains.kotlin.analysis.api.assertIsValidAndAccessible
 import org.jetbrains.kotlin.analysis.api.components.KtImportOptimizer
 import org.jetbrains.kotlin.analysis.api.components.KtImportOptimizerResult
 import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
 import org.jetbrains.kotlin.analysis.api.fir.utils.computeImportableName
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.assertIsValidAndAccessible
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
@@ -37,19 +37,20 @@ import org.jetbrains.kotlin.psi.psiUtil.getCallNameExpression
 import org.jetbrains.kotlin.psi.psiUtil.getPossiblyQualifiedCallExpression
 import org.jetbrains.kotlin.psi.psiUtil.unwrapNullability
 import org.jetbrains.kotlin.resolve.ImportPath
+import org.jetbrains.kotlin.resolve.calls.util.getCalleeExpressionIfAny
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 internal class KtFirImportOptimizer(
-    override val token: ValidityToken,
-    private val firResolveState: LLFirModuleResolveState
+    override val token: KtLifetimeToken,
+    private val firResolveSession: LLFirResolveSession
 ) : KtImportOptimizer() {
     private val firSession: FirSession
-        get() = firResolveState.rootModuleSession
+        get() = firResolveSession.useSiteFirSession
 
     override fun analyseImports(file: KtFile): KtImportOptimizerResult {
         assertIsValidAndAccessible()
 
-        val firFile = file.getOrBuildFirFile(firResolveState).apply { ensureResolved(FirResolvePhase.BODY_RESOLVE) }
+        val firFile = file.getOrBuildFirFile(firResolveSession).apply { ensureResolved(FirResolvePhase.BODY_RESOLVE) }
 
         val existingImports = file.importDirectives
 
@@ -323,11 +324,14 @@ private sealed interface TypeQualifier {
 
         private val dotQualifier: KtDotQualifiedExpression? = qualifier as? KtDotQualifiedExpression
 
-        private val typeNameReference: KtNameReferenceExpression = when (qualifier) {
-            is KtDotQualifiedExpression -> qualifier.selectorExpression as? KtNameReferenceExpression
-            is KtNameReferenceExpression -> qualifier
-            else -> null
-        } ?: error("Cannot get referenced name from '${qualifier.text}'")
+        private val typeNameReference: KtNameReferenceExpression = run {
+            require(qualifier is KtNameReferenceExpression || qualifier is KtDotQualifiedExpression || qualifier is KtCallExpression) {
+                "Unexpected qualifier '${qualifier.text}' of type '${qualifier::class}'"
+            }
+
+            qualifier.getCalleeExpressionIfAny() as? KtNameReferenceExpression
+                ?: error("Cannot get referenced name from '${qualifier.text}'")
+        }
 
         override val referencedByName: Name
             get() = typeNameReference.getReferencedNameAsName()

@@ -8,53 +8,62 @@ package org.jetbrains.kotlin.light.classes.symbol.base
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiClass
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.api.impl.barebone.test.FrontendApiTestConfiguratorService
-import org.jetbrains.kotlin.analysis.api.impl.base.test.test.framework.AbstractHLApiSingleModuleTest
-import org.jetbrains.kotlin.analysis.api.impl.base.test.utils.libraries.CompilerExecutor
+import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedSingleModuleTest
+import org.jetbrains.kotlin.analysis.test.framework.services.libraries.CompiledLibraryProvider
+import org.jetbrains.kotlin.analysis.test.framework.services.libraries.CompilerExecutor
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
+import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.light.classes.symbol.base.service.NullabilityAnnotationSourceProvider
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.directives.ModuleStructureDirectives
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.model.TestModule
-import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
+import org.jetbrains.kotlin.test.services.service
 import org.jetbrains.kotlin.test.utils.FirIdenticalCheckerHelper
 import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.nameWithoutExtension
 
-abstract class AbstractSymbolLightClassesTestBase(
-    override val configurator: FrontendApiTestConfiguratorService
-) : AbstractHLApiSingleModuleTest() {
+// Same as LightProjectDescriptor.TEST_MODULE_NAME
+private const val TEST_MODULE_NAME = "light_idea_test_case"
 
-    override val enableTestInDependedMode: Boolean get() = false
+abstract class AbstractSymbolLightClassesTestBase(
+    override val configurator: AnalysisApiTestConfigurator
+) : AbstractAnalysisApiBasedSingleModuleTest() {
 
     override fun configureTest(builder: TestConfigurationBuilder) {
         super.configureTest(builder)
         with(builder) {
+            useAdditionalServices(service(::CompiledLibraryProvider))
             useDirectives(Directives, CompilerExecutor.Directives)
             useAdditionalSourceProviders(::NullabilityAnnotationSourceProvider)
+            defaultDirectives {
+                +ConfigurationDirectives.WITH_STDLIB
+                ModuleStructureDirectives.MODULE + TEST_MODULE_NAME
+            }
         }
-    }
-
-    override fun handleInitializationError(exception: Throwable, moduleStructure: TestModuleStructure): InitializationErrorAction {
-        return if (Directives.IGNORE_FIR in moduleStructure.allDirectives) InitializationErrorAction.IGNORE
-        else InitializationErrorAction.THROW
     }
 
     override fun doTestByFileStructure(ktFiles: List<KtFile>, module: TestModule, testServices: TestServices) {
         if (stopIfCompilationErrorDirectivePresent && CompilerExecutor.Directives.COMPILATION_ERRORS in module.directives) {
             return
         }
-        val testDataFile = module.files.first { it.name.endsWith(".kt") }.originalFile.toPath()
-        val project = ktFiles.first().project
+        val testDataFile = module.files.first {
+            it.originalFile.extension in DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
+        }.originalFile.toPath()
+
+        val ktFile = ktFiles.first()
+        val project = ktFile.project
 
         ignoreExceptionIfIgnoreFirPresent(module) {
-            val actual = getRenderResult(ktFiles.first(), testDataFile, module, project)
+            val actual = getRenderResult(ktFile, testDataFile, module, project)
             compareResults(testServices, actual)
             removeIgnoreFir(module)
             removeDuplicatedFirJava(testServices)

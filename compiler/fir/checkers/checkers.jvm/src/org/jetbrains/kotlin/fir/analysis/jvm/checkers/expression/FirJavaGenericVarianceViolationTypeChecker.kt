@@ -55,7 +55,7 @@ object FirJavaGenericVarianceViolationTypeChecker : FirFunctionCallChecker() {
         val argumentMapping = expression.argumentMapping ?: return
         val typeArgumentMap = mutableMapOf<FirTypeParameterSymbol, ConeKotlinType>()
         for (i in 0 until expression.typeArguments.size) {
-            val type = expression.typeArguments[i].safeAs<FirTypeProjectionWithVariance>()?.typeRef?.coneTypeSafe<ConeKotlinType>()
+            val type = expression.typeArguments[i].safeAs<FirTypeProjectionWithVariance>()?.typeRef?.coneType
             if (type != null) {
                 typeArgumentMap[calleeFunction.typeParameterSymbols[i]] = type
             }
@@ -176,7 +176,7 @@ object FirJavaGenericVarianceViolationTypeChecker : FirFunctionCallChecker() {
         return when (this) {
             is ConeKotlinTypeProjectionOut -> if (isCovariant) type else this
             is ConeKotlinTypeProjectionIn -> ConeKotlinTypeProjectionIn(type.removeOutProjection(!isCovariant))
-            is ConeStarProjection -> if (isCovariant) StandardTypes.Any else this
+            is ConeStarProjection -> if (isCovariant) StandardTypes.NullableAny else this
             // Don't remove nested projections for types at invariant position.
             is ConeKotlinTypeConflictingProjection,
             is ConeKotlinType -> this

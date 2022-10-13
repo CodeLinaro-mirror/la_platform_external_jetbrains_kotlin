@@ -5,12 +5,17 @@ KtSuccessCallInfo:
         original = KtImplicitReceiverValue:
           symbol = KtReceiverParameterSymbol:
             origin: SOURCE
+            owningCallableSymbol: KtFunctionSymbol(/test)
             type: kotlin/Any
-        smartCastType = kotlin.String
+          type = kotlin.Any
+        type = kotlin.String
       extensionReceiver = null
       signature = KtVariableLikeSignature:
         name = length
         receiverType = null
         returnType = kotlin.Int
         symbol = val length: kotlin.Int
+        callableIdIfNonLocal = kotlin/String.length
     simpleAccess = Read:
+
+    typeArgumentsMapping = {}

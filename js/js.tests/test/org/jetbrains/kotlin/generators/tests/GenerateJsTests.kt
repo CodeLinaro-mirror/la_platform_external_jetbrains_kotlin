@@ -12,18 +12,15 @@ import org.jetbrains.kotlin.js.test.*
 import org.jetbrains.kotlin.js.test.ir.*
 import org.jetbrains.kotlin.js.testOld.AbstractDceTest
 import org.jetbrains.kotlin.js.testOld.compatibility.binary.AbstractJsKlibBinaryCompatibilityTest
-import org.jetbrains.kotlin.js.testOld.wasm.semantics.AbstractIrCodegenBoxWasmTest
-import org.jetbrains.kotlin.js.testOld.wasm.semantics.AbstractIrCodegenWasmJsInteropWasmTest
-import org.jetbrains.kotlin.js.testOld.wasm.semantics.AbstractJsTranslatorWasmTest
+import org.jetbrains.kotlin.js.testOld.wasm.semantics.*
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.test.runners.ir.AbstractFir2IrJsTextTest
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
 
     val jvmOnlyBoxTests = listOf(
-        "testsWithJava9",
-        "testsWithJava15",
-        "testsWithJava17",
+        "compileKotlinAgainstKotlin",
     )
 
     // TODO: repair these tests
@@ -33,8 +30,11 @@ fun main(args: Array<String>) {
         testGroup("js/js.tests/tests-gen", "js/js.translator/testData", testRunnerMethodName = "runTest0") {
             testClass<AbstractJsTranslatorWasmTest> {
                 model("box/main", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM)
-                model("box/kotlin.test/", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM)
                 model("box/native/", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM)
+            }
+
+            testClass<AbstractJsTranslatorUnitWasmTest> {
+                model("box/kotlin.test/", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM)
             }
 
             testClass<AbstractDceTest> {
@@ -57,19 +57,12 @@ fun main(args: Array<String>) {
         testGroup("js/js.tests/tests-gen", "compiler/testData", testRunnerMethodName = "runTest0") {
             testClass<AbstractIrCodegenBoxWasmTest> {
                 model(
-                    "codegen/box", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM, excludeDirs = listOf(
-                        // TODO: Add stdlib
-                        "contracts", "platformTypes",
-
-                        // TODO: ArrayList
-                        "ranges/stepped/unsigned",
-
-                        // TODO: Support delegated properties
-                        "delegatedProperty",
-
-                        "compileKotlinAgainstKotlin"
-                    ) + jvmOnlyBoxTests
+                    "codegen/box", pattern = "^([^_](.+))\\.kt$", targetBackend = TargetBackend.WASM, excludeDirs = jvmOnlyBoxTests
                 )
+            }
+
+            testClass<AbstractIrCodegenBoxInlineWasmTest> {
+                model("codegen/boxInline", targetBackend = TargetBackend.WASM)
             }
 
             testClass<AbstractIrCodegenWasmJsInteropWasmTest> {
@@ -87,7 +80,7 @@ fun main(args: Array<String>) {
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup("js/js.tests/tests-gen", "js/js.translator/testData", testRunnerMethodName = "runTest0") {
             testClass<AbstractBoxJsTest> {
-                model("box/", pattern = "^([^_](.+))\\.kt$")
+                model("box/", pattern = "^([^_](.+))\\.kt$", excludeDirs = listOf("closure/inlineAnonymousFunctions"))
             }
 
             testClass<AbstractSourceMapGenerationSmokeTest> {
@@ -121,11 +114,15 @@ fun main(args: Array<String>) {
             testClass<AbstractJsIrLineNumberTest> {
                 model("lineNumbers/")
             }
+
+            testClass<AbstractFirJsTest> {
+                model("box/", pattern = "^([^_](.+))\\.kt$")
+            }
         }
 
         testGroup("js/js.tests/tests-gen", "compiler/testData", testRunnerMethodName = "runTest0") {
             testClass<AbstractJsCodegenBoxTest> {
-                model("codegen/box", excludeDirs = jvmOnlyBoxTests + "compileKotlinAgainstKotlin")
+                model("codegen/box", excludeDirs = jvmOnlyBoxTests)
             }
 
             testClass<AbstractJsCodegenInlineTest> {
@@ -137,11 +134,11 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractIrJsCodegenBoxTest> {
-                model("codegen/box", excludeDirs = jvmOnlyBoxTests + "compileKotlinAgainstKotlin")
+                model("codegen/box", excludeDirs = jvmOnlyBoxTests)
             }
 
             testClass<AbstractIrJsCodegenBoxErrorTest> {
-                model("codegen/boxError", excludeDirs = jvmOnlyBoxTests + "compileKotlinAgainstKotlin")
+                model("codegen/boxError", excludeDirs = jvmOnlyBoxTests)
             }
 
             testClass<AbstractIrJsCodegenInlineTest> {
@@ -150,6 +147,12 @@ fun main(args: Array<String>) {
 
             testClass<AbstractIrCodegenWasmJsInteropJsTest> {
                 model("codegen/boxWasmJsInterop")
+            }
+
+            testClass<AbstractFir2IrJsTextTest>(
+                suiteTestClassName = "Fir2IrJsTextTestGenerated"
+            ) {
+                model("ir/irJsText")
             }
         }
     }

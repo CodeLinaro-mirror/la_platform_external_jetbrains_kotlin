@@ -8,13 +8,13 @@ import org.jetbrains.kotlin.ideaExt.idea
 plugins {
     kotlin("jvm")
     id("jps-compatible")
-    id("com.github.node-gradle.node") version "3.0.1"
+    id("com.github.node-gradle.node") version "3.2.1"
     id("de.undercouch.download")
 }
 
 node {
     download.set(true)
-    version.set("10.16.2")
+    version.set(nodejsVersion)
     nodeProjectDir.set(buildDir)
 }
 
@@ -97,7 +97,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
 }
 
 enum class OsName { WINDOWS, MAC, LINUX, UNKNOWN }
-enum class OsArch { X86_32, X86_64, UNKNOWN }
+enum class OsArch { X86_32, X86_64, ARM64, UNKNOWN }
 data class OsType(val name: OsName, val arch: OsArch)
 val currentOsType = run {
     val gradleOs = OperatingSystem.current()
@@ -110,7 +110,10 @@ val currentOsType = run {
 
     val osArch = when (providers.systemProperty("sun.arch.data.model").forUseAtConfigurationTime().get()) {
         "32" -> OsArch.X86_32
-        "64" -> OsArch.X86_64
+        "64" -> when (providers.systemProperty("os.arch").forUseAtConfigurationTime().get().toLowerCase()) {
+            "aarch64" -> OsArch.ARM64
+            else -> OsArch.X86_64
+        }
         else -> OsArch.UNKNOWN
     }
 
@@ -121,7 +124,8 @@ val jsShellDirectory = "https://archive.mozilla.org/pub/firefox/nightly/2020/06/
 val jsShellSuffix = when (currentOsType) {
     OsType(OsName.LINUX, OsArch.X86_32) -> "linux-i686"
     OsType(OsName.LINUX, OsArch.X86_64) -> "linux-x86_64"
-    OsType(OsName.MAC, OsArch.X86_64) -> "mac"
+    OsType(OsName.MAC, OsArch.X86_64),
+    OsType(OsName.MAC, OsArch.ARM64) -> "mac"
     OsType(OsName.WINDOWS, OsArch.X86_32) -> "win32"
     OsType(OsName.WINDOWS, OsArch.X86_64) -> "win64"
     else -> error("unsupported os type $currentOsType")
@@ -147,13 +151,14 @@ val v8osString = when (currentOsType) {
     OsType(OsName.LINUX, OsArch.X86_32) -> "linux32"
     OsType(OsName.LINUX, OsArch.X86_64) -> "linux64"
     OsType(OsName.MAC, OsArch.X86_64) -> "mac64"
+    OsType(OsName.MAC, OsArch.ARM64) -> "mac-arm64"
     OsType(OsName.WINDOWS, OsArch.X86_32) -> "win32"
     OsType(OsName.WINDOWS, OsArch.X86_64) -> "win64"
     else -> error("unsupported os type $currentOsType")
 }
 
 val v8edition = "rel" // rel or dbg
-val v8version = "9.2.212"
+val v8version = "10.2.9"
 val v8fileName = "v8-${v8osString}-${v8edition}-${v8version}"
 val v8url = "https://storage.googleapis.com/chromium-v8/official/canary/$v8fileName.zip"
 
@@ -274,7 +279,6 @@ fun Test.setUpBoxTests() {
 
 projectTest(parallel = true, jUnitMode = JUnitMode.JUnit5) {
     setUpJsBoxTests(jsEnabled = true, jsIrEnabled = true)
-    maxHeapSize = "3g"
 
     inputs.dir(rootDir.resolve("compiler/cli/cli-common/resources")) // compiler.xml
 
@@ -294,19 +298,16 @@ projectTest(parallel = true, jUnitMode = JUnitMode.JUnit5) {
 
 projectTest("jsTest", parallel = true, jUnitMode = JUnitMode.JUnit5) {
     setUpJsBoxTests(jsEnabled = true, jsIrEnabled = false)
-    maxHeapSize = "3g"
     useJUnitPlatform()
 }
 
 projectTest("jsIrTest", true, jUnitMode = JUnitMode.JUnit5) {
     setUpJsBoxTests(jsEnabled = false, jsIrEnabled = true)
-    maxHeapSize = "3g"
     useJUnitPlatform()
 }
 
 projectTest("quickTest", parallel = true, jUnitMode = JUnitMode.JUnit5) {
     setUpJsBoxTests(jsEnabled = true, jsIrEnabled = false)
-    maxHeapSize = "3g"
     systemProperty("kotlin.js.skipMinificationTest", "true")
     useJUnitPlatform()
 }

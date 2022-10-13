@@ -1,4 +1,5 @@
 KtEnumEntrySymbol:
+  annotationsList: []
   callableIdIfNonLocal: /X.Y
   containingEnumClassIdIfNonLocal: X
   isExtension: false
@@ -7,9 +8,12 @@ KtEnumEntrySymbol:
   receiverType: null
   returnType: X
   symbolKind: CLASS_MEMBER
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtEnumEntrySymbol:
+  annotationsList: []
   callableIdIfNonLocal: /X.Z
   containingEnumClassIdIfNonLocal: X
   isExtension: false
@@ -18,6 +22,8 @@ KtEnumEntrySymbol:
   receiverType: null
   returnType: X
   symbolKind: CLASS_MEMBER
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -39,4 +45,5 @@ KtNamedClassOrObjectSymbol:
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

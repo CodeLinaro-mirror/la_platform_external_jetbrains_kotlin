@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.jvm.codegen
 
 import com.intellij.openapi.util.TextRange
 import org.jetbrains.kotlin.backend.common.CodegenUtil
-import org.jetbrains.kotlin.backend.common.ir.ir2string
 import org.jetbrains.kotlin.backend.jvm.hasMangledReturnType
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.codegen.inline.*
@@ -22,10 +21,7 @@ import org.jetbrains.kotlin.ir.declarations.name
 import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrLoop
-import org.jetbrains.kotlin.ir.util.isSuspend
-import org.jetbrains.kotlin.ir.util.kotlinFqName
-import org.jetbrains.kotlin.ir.util.module
-import org.jetbrains.kotlin.ir.util.parentAsClass
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.psi.doNotAnalyze
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmBackendErrors
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
@@ -46,12 +42,15 @@ class IrSourceCompilerForInline(
 
     override val inlineCallSiteInfo: InlineCallSiteInfo
         get() {
-            val root = generateSequence(codegen) { it.inlinedInto }.last()
+            val rootFunction = codegen.enclosingFunctionForLocalObjects
             return InlineCallSiteInfo(
-                root.classCodegen.type.internalName,
-                root.signature.asmMethod,
-                root.irFunction.inlineScopeVisibility,
-                root.irFunction.fileParent.getIoFile(),
+                codegen.classCodegen.type.internalName,
+                if (rootFunction === codegen.irFunction)
+                    codegen.signature.asmMethod
+                else
+                    codegen.methodSignatureMapper.mapAsmMethod(rootFunction),
+                rootFunction.inlineScopeVisibility,
+                rootFunction.fileParent.getIoFile(),
                 callElement.psiElement?.let { CodegenUtil.getLineNumberForElement(it, false) } ?: 0
             )
         }
@@ -66,7 +65,7 @@ class IrSourceCompilerForInline(
                 reifiedTypeParameters.addUsedReifiedParameter(typeParameter.name.asString())
             }
         }
-        return FunctionCodegen(lambdaInfo.function, codegen.classCodegen).generate(codegen, reifiedTypeParameters)
+        return FunctionCodegen(lambdaInfo.function, codegen.classCodegen).generate(reifiedTypeParameters)
     }
 
     override fun compileInlineFunction(jvmSignature: JvmMethodSignature): SMAPAndMethodNode {
@@ -100,7 +99,7 @@ class IrSourceCompilerForInline(
     override fun generateFinallyBlocks(finallyNode: MethodNode, curFinallyDepth: Int, returnType: Type, afterReturnLabel: Label, target: Label?) {
         ExpressionCodegen(
             codegen.irFunction, codegen.signature, codegen.frameMap, InstructionAdapter(finallyNode), codegen.classCodegen,
-            codegen.inlinedInto, codegen.smap, codegen.reifiedTypeParametersUsages
+            codegen.smap, codegen.reifiedTypeParametersUsages
         ).also {
             it.finallyDepth = curFinallyDepth
         }.generateFinallyBlocksIfNeeded(returnType, afterReturnLabel, data, target)

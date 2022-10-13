@@ -26,9 +26,7 @@ import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValueWithSmartCastI
 import org.jetbrains.kotlin.resolve.scopes.utils.parentsWithSelf
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.error.ErrorUtils
-import org.jetbrains.kotlin.types.model.KotlinTypeMarker
-import org.jetbrains.kotlin.types.model.TypeConstructorMarker
-import org.jetbrains.kotlin.types.model.typeConstructor
+import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.*
 import org.jetbrains.kotlin.utils.SmartList
 import org.jetbrains.kotlin.utils.addToStdlib.cast
@@ -303,25 +301,6 @@ internal object PostponedVariablesInitializerResolutionPart : ResolutionPart() {
                 }
             }
         }
-    }
-}
-
-internal object CompatibilityOfTypeVariableAsIntersectionTypePart : ResolutionPart() {
-    override fun ResolutionCandidate.process(workIndex: Int) {
-        val csBuilder = getSystem().getBuilder()
-        for ((_, variableWithConstraints) in csBuilder.currentStorage().notFixedTypeVariables) {
-            val constraints = variableWithConstraints.constraints.filter { csBuilder.isProperType(it.type) }
-
-            if (constraints.size <= 1) continue
-            if (constraints.any { it.kind.isLower() || it.kind.isEqual() }) continue
-
-            // See TypeBoundsImpl.computeValues(). It returns several values for such situation which means an error in OI
-            if (callComponents.statelessCallbacks.isOldIntersectionIsEmpty(constraints.map { it.type }.cast())) {
-                markCandidateForCompatibilityResolve()
-                return
-            }
-        }
-
     }
 }
 
@@ -683,9 +662,25 @@ internal object CheckReceivers : ResolutionPart() {
                 candidateDescriptor.dispatchReceiverParameter,
                 shouldCheckImplicitInvoke = true,
             )
+
             1 -> {
-                if (resolvedCall.extensionReceiverArgument == null) {
-                    resolvedCall.extensionReceiverArgument = chooseExtensionReceiverCandidate() ?: return
+                var extensionReceiverArgument = resolvedCall.extensionReceiverArgument
+                if (extensionReceiverArgument == null) {
+                    extensionReceiverArgument = chooseExtensionReceiverCandidate() ?: return
+                    resolvedCall.extensionReceiverArgument = extensionReceiverArgument
+                }
+                val checkBuilderInferenceRestriction =
+                    !callComponents.languageVersionSettings
+                        .supportsFeature(LanguageFeature.NoBuilderInferenceWithoutAnnotationRestriction)
+                if (checkBuilderInferenceRestriction &&
+                    extensionReceiverArgument.receiver.receiverValue.type is StubTypeForBuilderInference
+                ) {
+                    addDiagnostic(
+                        StubBuilderInferenceReceiver(
+                            extensionReceiverArgument,
+                            candidateDescriptor.extensionReceiverParameter!!
+                        )
+                    )
                 }
                 checkReceiver(
                     resolvedCall.extensionReceiverArgument,
@@ -898,5 +893,48 @@ internal object CheckContextReceiversResolutionPart : ResolutionPart() {
         }
         addDiagnostic(NoContextReceiver(candidateContextReceiverParameter))
         return null
+    }
+}
+
+internal object CheckIncompatibleTypeVariableUpperBounds : ResolutionPart() {
+    /*
+     * Check if the candidate was already discriminated by `CompatibilityOfTypeVariableAsIntersectionTypePart` resolution part
+     * If it's true we shouldn't mark the candidate with warning, but should mark with error, to repeat the existing proper behaviour
+     */
+    private fun ResolutionCandidate.wasPreviouslyDiscriminated(upperTypes: List<KotlinTypeMarker>) =
+        callComponents.statelessCallbacks.isOldIntersectionIsEmpty(upperTypes.cast())
+
+    override fun ResolutionCandidate.process(workIndex: Int) = with(getSystem().asConstraintSystemCompleterContext()) {
+        val constraintSystem = getSystem()
+        for (variableWithConstraints in constraintSystem.getBuilder().currentStorage().notFixedTypeVariables.values) {
+            val upperTypes = variableWithConstraints.constraints.extractUpperTypesToCheckIntersectionEmptiness()
+
+            when {
+                // TODO: consider reporting errors on bounded type variables by incompatible types but with other lower constraints
+                upperTypes.size <= 1 || variableWithConstraints.constraints.any { it.kind.isLower() } ->
+                    continue
+                wasPreviouslyDiscriminated(upperTypes) -> {
+                    markCandidateForCompatibilityResolve(needToReportWarning = false)
+                    continue
+                }
+                else -> {
+                    val emptyIntersectionTypeInfo = constraintSystem.getEmptyIntersectionTypeKind(upperTypes) ?: continue
+                    val isInferredEmptyIntersectionForbidden = callComponents.languageVersionSettings.supportsFeature(
+                        LanguageFeature.ForbidInferringTypeVariablesIntoEmptyIntersection
+                    )
+                    val errorFactory =
+                        if (isInferredEmptyIntersectionForbidden) ::InferredEmptyIntersectionError else ::InferredEmptyIntersectionWarning
+
+                    addError(
+                        errorFactory(
+                            upperTypes,
+                            emptyIntersectionTypeInfo.casingTypes.toList(),
+                            variableWithConstraints.typeVariable,
+                            emptyIntersectionTypeInfo.kind
+                        )
+                    )
+                }
+            }
+        }
     }
 }

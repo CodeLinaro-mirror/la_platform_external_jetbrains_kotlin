@@ -38,7 +38,7 @@ class TestConfigurationImpl(
     metaTestConfigurators: List<Constructor<MetaTestConfigurator>>,
     afterAnalysisCheckers: List<Constructor<AfterAnalysisChecker>>,
 
-    compilerConfigurationProvider: ((Disposable, List<AbstractEnvironmentConfigurator>) -> CompilerConfigurationProvider)?,
+    compilerConfigurationProvider: ((TestServices, Disposable, List<AbstractEnvironmentConfigurator>) -> CompilerConfigurationProvider)?,
     runtimeClasspathProviders: List<Constructor<RuntimeClasspathProvider>>,
 
     override val metaInfoHandlerEnabled: Boolean,
@@ -97,14 +97,15 @@ class TestConfigurationImpl(
 
     init {
         testServices.apply {
+            register(EnvironmentConfiguratorsProvider::class, EnvironmentConfiguratorsProvider(this@TestConfigurationImpl.environmentConfigurators))
             @OptIn(ExperimentalStdlibApi::class)
             val sourceFilePreprocessors = sourcePreprocessors.map { it.invoke(this@apply) }
             val sourceFileProvider = SourceFileProviderImpl(this, sourceFilePreprocessors)
             register(SourceFileProvider::class, sourceFileProvider)
 
             val environmentProvider =
-                compilerConfigurationProvider?.invoke(rootDisposable, this@TestConfigurationImpl.environmentConfigurators)
-                    ?: CompilerConfigurationProviderImpl(rootDisposable, this@TestConfigurationImpl.environmentConfigurators)
+                compilerConfigurationProvider?.invoke(this, rootDisposable, this@TestConfigurationImpl.environmentConfigurators)
+                    ?: CompilerConfigurationProviderImpl(this, rootDisposable, this@TestConfigurationImpl.environmentConfigurators)
             register(CompilerConfigurationProvider::class, environmentProvider)
 
             register(AssertionsService::class, assertions)

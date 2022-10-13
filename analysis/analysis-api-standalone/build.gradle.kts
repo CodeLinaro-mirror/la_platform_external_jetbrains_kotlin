@@ -18,6 +18,7 @@ dependencies {
     api(project(":analysis:low-level-api-fir"))
     api(project(":analysis:symbol-light-classes"))
     api(project(":analysis:decompiled:light-classes-for-decompiled"))
+    api(project(":analysis:analysis-api-standalone:analysis-api-standalone-base"))
 
     testApi(projectTests(":analysis:analysis-api-impl-base"))
     testApi(projectTests(":analysis:analysis-api-fir"))
@@ -33,14 +34,17 @@ kotlin {
 
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
 projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
-}
+}.also { confugureFirPluginAnnotationsDependency(it) }
 
 testsJar()
 

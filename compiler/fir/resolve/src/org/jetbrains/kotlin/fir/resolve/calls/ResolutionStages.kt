@@ -9,7 +9,9 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirVisibilityChecker
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.isInfix
+import org.jetbrains.kotlin.fir.declarations.utils.isOperator
+import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.matchingParameterFunctionType
@@ -25,7 +27,6 @@ import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.FirUnstableSmartcastTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
-import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.SyntheticSymbol
 import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -39,8 +40,7 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystem
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind.*
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
-import org.jetbrains.kotlin.types.AbstractNullabilityChecker
-import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
+import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 abstract class ResolutionStage {
@@ -151,7 +151,6 @@ private class ReceiverDescription(
 )
 
 object CheckDispatchReceiver : ResolutionStage() {
-    @OptIn(SymbolInternals::class)
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val explicitReceiverExpression = callInfo.explicitReceiver
         if (explicitReceiverExpression.isSuperCall()) {
@@ -256,7 +255,6 @@ private fun Candidate.findClosestMatchingReceivers(
 object CheckDslScopeViolation : ResolutionStage() {
     private val dslMarkerClassId = ClassId.fromString("kotlin/DslMarker")
 
-    @OptIn(ExperimentalStdlibApi::class)
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         fun checkReceiverValue(receiverValue: ReceiverValue?) {
             if (receiverValue is ImplicitReceiverValue<*>) {
@@ -333,7 +331,6 @@ object CheckDslScopeViolation : ResolutionStage() {
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun ImplicitReceiverValue<*>.getDslMarkersOfImplicitReceiver(context: ResolutionContext): Set<ClassId> {
         return buildSet {
             (boundSymbol as? FirAnonymousFunctionSymbol)?.fir?.matchingParameterFunctionType?.let {
@@ -358,14 +355,12 @@ object CheckDslScopeViolation : ResolutionStage() {
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun FirThisReceiverExpression.getDslMarkersOfThisReceiverExpression(context: ResolutionContext): Set<ClassId> {
         return buildSet {
             collectDslMarkerAnnotations(context, typeRef.coneType)
         }
     }
 
-    @OptIn(SymbolInternals::class)
     private fun MutableSet<ClassId>.collectDslMarkerAnnotations(context: ResolutionContext, type: ConeKotlinType) {
         collectDslMarkerAnnotations(context, type.attributes.customAnnotations)
         when (type) {
@@ -381,15 +376,15 @@ object CheckDslScopeViolation : ResolutionStage() {
             is ConeDefinitelyNotNullType -> collectDslMarkerAnnotations(context, type.original)
             is ConeIntersectionType -> type.intersectedTypes.forEach { collectDslMarkerAnnotations(context, it) }
             is ConeClassLikeType -> {
-                val classDeclaration = type.toSymbol(context.session)?.fir ?: return
-                collectDslMarkerAnnotations(context, classDeclaration.annotations)
+                val classDeclaration = type.toSymbol(context.session) ?: return
+                collectDslMarkerAnnotations(context, classDeclaration.resolvedAnnotationsWithClassIds)
                 when (classDeclaration) {
-                    is FirClass -> {
-                        for (superType in classDeclaration.superConeTypes) {
+                    is FirClassSymbol -> {
+                        for (superType in classDeclaration.resolvedSuperTypes) {
                             collectDslMarkerAnnotations(context, superType)
                         }
                     }
-                    is FirTypeAlias -> {
+                    is FirTypeAliasSymbol -> {
                         type.directExpansionType(context.session)?.let {
                             collectDslMarkerAnnotations(context, it)
                         }
@@ -400,11 +395,10 @@ object CheckDslScopeViolation : ResolutionStage() {
         }
     }
 
-    @OptIn(SymbolInternals::class)
     private fun MutableSet<ClassId>.collectDslMarkerAnnotations(context: ResolutionContext, annotations: Collection<FirAnnotation>) {
         for (annotation in annotations) {
             val annotationClass =
-                annotation.annotationTypeRef.coneType.fullyExpandedType(context.session).toSymbol(context.session)?.fir as? FirClass
+                annotation.annotationTypeRef.coneType.fullyExpandedType(context.session).toSymbol(context.session) as? FirClassSymbol
                     ?: continue
             if (annotationClass.hasAnnotation(dslMarkerClassId)) {
                 add(annotationClass.classId)
@@ -445,11 +439,10 @@ internal object CheckArguments : CheckerStage() {
         val argumentMapping =
             candidate.argumentMapping ?: error("Argument should be already mapped while checking arguments!")
         for (argument in callInfo.arguments) {
-            val parameter = argumentMapping[argument]
             candidate.resolveArgument(
                 callInfo,
                 argument,
-                parameter,
+                argumentMapping[argument],
                 isReceiver = false,
                 sink = sink,
                 context = context
@@ -525,7 +518,8 @@ internal object CheckVisibility : CheckerStage() {
         val symbol = candidate.symbol
         val declaration = symbol.fir
         if (declaration is FirMemberDeclaration) {
-            if (!checkVisibility(declaration, sink, candidate, visibilityChecker)) {
+            if (!visibilityChecker.isVisible(declaration, candidate)) {
+                sink.yieldDiagnostic(VisibilityError)
                 return
             }
         }
@@ -538,22 +532,12 @@ internal object CheckVisibility : CheckerStage() {
                 if (classSymbol.fir.classKind.isSingleton) {
                     sink.yieldDiagnostic(VisibilityError)
                 }
-                checkVisibility(classSymbol.fir, sink, candidate, visibilityChecker)
+
+                if (!visibilityChecker.isVisible(declaration, candidate.callInfo, dispatchReceiverValue = null)) {
+                    sink.yieldDiagnostic(VisibilityError)
+                }
             }
         }
-    }
-
-    private suspend fun <T : FirMemberDeclaration> checkVisibility(
-        declaration: T,
-        sink: CheckerSink,
-        candidate: Candidate,
-        visibilityChecker: FirVisibilityChecker
-    ): Boolean {
-        if (!visibilityChecker.isVisible(declaration, candidate)) {
-            sink.yieldDiagnostic(VisibilityError)
-            return false
-        }
-        return true
     }
 }
 
@@ -578,6 +562,31 @@ internal object CheckLowPriorityInOverloadResolution : CheckerStage() {
             sink.reportDiagnostic(ResolvedWithLowPriority)
         }
     }
+}
+
+internal object CheckIncompatibleTypeVariableUpperBounds : ResolutionStage() {
+    override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) =
+        with(candidate.system.asConstraintSystemCompleterContext()) {
+            for (variableWithConstraints in candidate.system.notFixedTypeVariables.values) {
+                val upperTypes = variableWithConstraints.constraints.extractUpperTypesToCheckIntersectionEmptiness()
+
+                // TODO: consider reporting errors on bounded type variables by incompatible types but with other lower constraints
+                if (upperTypes.size <= 1 || variableWithConstraints.constraints.any { it.kind.isLower() })
+                    continue
+
+                val emptyIntersectionTypeInfo = candidate.system.getEmptyIntersectionTypeKind(upperTypes) ?: continue
+
+                sink.yieldDiagnostic(
+                    @Suppress("UNCHECKED_CAST")
+                    InferredEmptyIntersectionDiagnostic(
+                        upperTypes as List<ConeKotlinType>,
+                        emptyIntersectionTypeInfo.casingTypes.toList() as List<ConeKotlinType>,
+                        variableWithConstraints.typeVariable as ConeTypeVariable,
+                        emptyIntersectionTypeInfo.kind
+                    )
+                )
+            }
+        }
 }
 
 internal object PostponedVariablesInitializerResolutionStage : ResolutionStage() {
@@ -631,6 +640,14 @@ internal object CheckDeprecatedSinceKotlin : ResolutionStage() {
         val deprecation = symbol.getDeprecation(callInfo.callSite)
         if (deprecation != null && deprecation.deprecationLevel == DeprecationLevelValue.HIDDEN) {
             sink.yieldDiagnostic(HiddenCandidate)
+        }
+    }
+}
+
+internal object LowerPriorityIfDynamic : ResolutionStage() {
+    override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
+        if (candidate.symbol.origin is FirDeclarationOrigin.DynamicScope) {
+            candidate.addDiagnostic(LowerPriorityForDynamic)
         }
     }
 }

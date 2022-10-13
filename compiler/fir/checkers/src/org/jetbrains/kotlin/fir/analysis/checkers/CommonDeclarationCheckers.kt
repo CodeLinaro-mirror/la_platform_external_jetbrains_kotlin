@@ -27,7 +27,6 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirExposedVisibilityDeclarationChecker,
             FirCyclicTypeBoundsChecker,
             FirExpectActualDeclarationChecker,
-            FirInvalidAndDangerousCharactersChecker,
             FirAmbiguousAnonymousTypeChecker,
             FirExplicitApiDeclarationChecker,
             FirAnnotationChecker,
@@ -44,7 +43,6 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         get() = setOf(
             FirContractChecker,
             FirFunctionParameterChecker,
-            FirInlineDeclarationChecker,
             FirFunctionReturnChecker,
         )
 
@@ -56,6 +54,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirTailrecFunctionChecker,
             FirTopLevelFunctionsChecker,
             FirMemberFunctionsChecker,
+            FirDataObjectContentChecker,
         )
 
     override val propertyCheckers: Set<FirPropertyChecker>
@@ -68,7 +67,6 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirInitializerTypeMismatchChecker,
             FirDelegatedPropertyChecker,
             FirPropertyFieldTypeChecker,
-            FirInlinePropertyChecker,
             FirPropertyFromParameterChecker,
             FirLocalVariableTypeParametersSyntaxChecker,
             FirDelegateUsesExtensionPropertyTypeParameterChecker,
@@ -165,5 +163,10 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
     override val enumEntryCheckers: Set<FirEnumEntryChecker>
         get() = setOf(
             FirEnumCompanionInEnumConstructorCallChecker,
+        )
+
+    override val valueParameterCheckers: Set<FirValueParameterChecker>
+        get() = setOf(
+            FirUnsupportedDefaultValueInFunctionTypeChecker
         )
 }

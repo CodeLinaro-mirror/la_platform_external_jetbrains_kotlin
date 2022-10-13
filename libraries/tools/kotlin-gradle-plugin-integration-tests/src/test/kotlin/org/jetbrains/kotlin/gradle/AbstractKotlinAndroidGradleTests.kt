@@ -4,6 +4,7 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
+import org.jetbrains.kotlin.gradle.testbase.NON_INCREMENTAL_COMPILATION_WILL_BE_PERFORMED
 import org.jetbrains.kotlin.gradle.testbase.TestVersions
 import org.jetbrains.kotlin.gradle.tooling.BuildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.util.*
@@ -694,7 +695,7 @@ open class KotlinAndroid70GradleIT : KotlinAndroid36GradleIT() {
 
         project.build(":app:testDebugUnitTest", options = options) {
             assertSuccessful()
-            assertNotContains("Non-incremental compilation will be performed")
+            assertNotContains(NON_INCREMENTAL_COMPILATION_WILL_BE_PERFORMED)
         }
     }
 
@@ -756,6 +757,8 @@ open class KotlinAndroid71GradleIT : KotlinAndroid70GradleIT() {
             // Special version added for testing KT-49798
             .plus(AGPVersion.fromString("7.1.0-beta02"))
             .filter { version -> version >= AGPVersion.v4_2_0 }
+            // Current Gradle version within kotlin.git is not sufficient to build with higher AGP
+            .filter { version -> version < AGPVersion.v7_2_2 }
 
         checkedConsumerAGPVersions.forEach { agpVersion ->
 
@@ -1001,12 +1004,12 @@ abstract class AbstractKotlinAndroidGradleTests : BaseGradleIT() {
 
         project.projectDir.resolve("app/build.gradle").appendText(
             """
-        |
-        |androidExtensions {
-            |    experimental = true
             |
-        }
-        """.trimMargin()
+            |androidExtensions {
+            |    experimental = true
+            |}
+            |
+            """.trimMargin()
         )
 
         project.build("assembleDebug") {

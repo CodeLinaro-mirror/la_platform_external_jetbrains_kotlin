@@ -8,28 +8,26 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtRealSourceElementKind
-import org.jetbrains.kotlin.analysis.api.assertIsValidAndAccessible
 import org.jetbrains.kotlin.analysis.api.components.KtSymbolContainingDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirTypeParameterSymbol
-import org.jetbrains.kotlin.analysis.api.impl.barebone.parentOfType
+import org.jetbrains.kotlin.analysis.api.fir.utils.getContainingKtModule
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithKind
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.*
 
 internal class KtFirSymbolContainingDeclarationProvider(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken
 ) : KtSymbolContainingDeclarationProvider(), KtFirAnalysisSessionComponent {
-    override fun getContainingDeclaration(symbol: KtSymbol): KtSymbolWithKind? {
-        assertIsValidAndAccessible()
-
-        if (symbol is KtReceiverParameterSymbol) {
+    override fun getContainingDeclaration(symbol: KtSymbol): KtSymbolWithKind? { if (symbol is KtReceiverParameterSymbol) {
             return firSymbolBuilder.buildSymbol((symbol as KtFirReceiverParameterSymbol).firSymbol) as KtSymbolWithKind
         }
 
@@ -53,13 +51,17 @@ internal class KtFirSymbolContainingDeclarationProvider(
                 KtSymbolOrigin.LIBRARY, KtSymbolOrigin.JAVA, KtSymbolOrigin.JAVA_SYNTHETIC_PROPERTY ->
                     getContainingDeclarationForLibrarySymbol(symbol)
                 KtSymbolOrigin.PROPERTY_BACKING_FIELD -> getContainingDeclarationForBackingFieldSymbol(symbol)
-                KtSymbolOrigin.INTERSECTION_OVERRIDE -> TODO()
+                KtSymbolOrigin.INTERSECTION_OVERRIDE, KtSymbolOrigin.SUBSTITUTION_OVERRIDE -> TODO()
                 KtSymbolOrigin.SAM_CONSTRUCTOR -> null
                 KtSymbolOrigin.PLUGIN -> TODO("Containing declaration is requested for ${ DebugSymbolRenderer.render(symbol) }")
                 KtSymbolOrigin.DELEGATED -> TODO()
             }
             else -> null
         }
+    }
+
+    override fun getContainingModule(symbol: KtSymbol): KtModule {
+       return symbol.getContainingKtModule(analysisSession.firResolveSession)
     }
 
     private fun getContainingDeclarationForBackingFieldSymbol(symbol: KtSymbolWithKind): KtSymbolWithKind {

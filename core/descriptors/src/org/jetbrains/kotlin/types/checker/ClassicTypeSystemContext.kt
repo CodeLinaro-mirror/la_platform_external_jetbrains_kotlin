@@ -20,10 +20,12 @@ import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.inference.CapturedType
 import org.jetbrains.kotlin.resolve.constants.IntegerLiteralTypeConstructor
 import org.jetbrains.kotlin.resolve.descriptorUtil.*
+import org.jetbrains.kotlin.resolve.scopes.SubstitutingScope
 import org.jetbrains.kotlin.resolve.substitutedUnderlyingType
 import org.jetbrains.kotlin.resolve.unsubstitutedUnderlyingType
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.error.ErrorTypeKind
+import org.jetbrains.kotlin.types.error.ErrorUtils
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.*
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -32,7 +34,6 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.types.typeUtil.isSignedOrUnsignedNumberType as classicIsSignedOrUnsignedNumberType
 import org.jetbrains.kotlin.types.typeUtil.isStubType as isSimpleTypeStubType
 import org.jetbrains.kotlin.types.typeUtil.isStubTypeForBuilderInference as isSimpleTypeStubTypeForBuilderInference
-import org.jetbrains.kotlin.types.error.ErrorUtils
 import org.jetbrains.kotlin.types.typeUtil.isStubTypeForVariableInSubtyping as isSimpleTypeStubTypeForVariableInSubtyping
 
 interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSystemCommonBackendContext {
@@ -304,6 +305,12 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return DescriptorUtils.isInterface(declarationDescriptor)
     }
 
+    override fun TypeConstructorMarker.isFinalClassConstructor(): Boolean {
+        require(this is TypeConstructor, this::errorMessage)
+        val classDescriptor = declarationDescriptor as? ClassDescriptor ?: return false
+        return classDescriptor.isFinalClass
+    }
+
     override fun TypeConstructorMarker.isCommonFinalClassConstructor(): Boolean {
         require(this is TypeConstructor, this::errorMessage)
         val classDescriptor = declarationDescriptor as? ClassDescriptor ?: return false
@@ -459,7 +466,6 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         require(this is SimpleType, this::errorMessage)
         return makeSimpleTypeDefinitelyNotNullOrNotNullInternal(this)
     }
-
 
     override fun KotlinTypeMarker.removeAnnotations(): KotlinTypeMarker {
         require(this is UnwrappedType, this::errorMessage)
@@ -710,6 +716,19 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return this is NewCapturedTypeConstructor
     }
 
+    override fun KotlinTypeMarker.eraseContainingTypeParameters(): KotlinTypeMarker {
+        val eraser = TypeParameterUpperBoundEraser(
+            ErasureProjectionComputer(),
+            TypeParameterErasureOptions(leaveNonTypeParameterTypes = true, intersectUpperBounds = true)
+        )
+        val typeParameters = this.extractTypeParameters()
+            .map { it as TypeParameterDescriptor }
+            .associateWith {
+                TypeProjectionImpl(Variance.OUT_VARIANCE, eraser.getErasedUpperBound(it, ErasureTypeAttributes(TypeUsage.COMMON)))
+            }
+        return TypeConstructorSubstitution.createByParametersMap(typeParameters).buildSubstitutor().safeSubstitute(this)
+    }
+
     override fun TypeConstructorMarker.isTypeParameterTypeConstructor(): Boolean {
         return this is ClassifierBasedTypeConstructor && this.declarationDescriptor is AbstractTypeParameterDescriptor
     }
@@ -858,12 +877,12 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return getKFunctionDescriptor(builtIns, parametersNumber, isSuspend).typeConstructor
     }
 
-    override fun SimpleTypeMarker.createConstraintPartForLowerBoundAndFlexibleTypeVariable(): KotlinTypeMarker =
-        if (this.isMarkedNullable()) {
-            this
-        } else {
-            createFlexibleType(this, this.withNullability(true))
-        }
+    override fun createSubstitutorForSuperTypes(baseType: KotlinTypeMarker): TypeSubstitutorMarker? {
+        require(baseType is KotlinType, baseType::errorMessage)
+        return (baseType.memberScope as? SubstitutingScope)?.substitutor
+    }
+
+    override fun useRefinedBoundsForTypeVariableInFlexiblePosition(): Boolean = false
 
     override fun substitutionSupertypePolicy(type: SimpleTypeMarker): TypeCheckerState.SupertypesPolicy {
         require(type is SimpleType, type::errorMessage)

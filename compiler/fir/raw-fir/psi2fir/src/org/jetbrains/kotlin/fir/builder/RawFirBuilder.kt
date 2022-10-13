@@ -9,7 +9,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.builtins.StandardNames.BACKING_FIELD
-import org.jetbrains.kotlin.builtins.StandardNames.DEFAULT_VALUE_PARAMETER
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -296,8 +295,17 @@ open class RawFirBuilder(
                     accept(this@Visitor, Unit) as FirBlock
                 null ->
                     buildEmptyExpressionBlock()
-                else ->
-                    FirSingleExpressionBlock(convert())
+                else -> {
+                    var firBlock: FirBlock? = null
+                    if (this is KtAnnotatedExpression) {
+                        val lastChild = children.lastOrNull()
+                        if (lastChild is KtBlockExpression) {
+                            firBlock = lastChild.toFirBlock()
+                            extractAnnotationsTo(firBlock.annotations as MutableList<FirAnnotation>)
+                        }
+                    }
+                    firBlock ?: FirSingleExpressionBlock(convert())
+                }
             }
 
         private fun KtDeclarationWithBody.buildFirBody(): Pair<FirBlock?, FirContractDescription?> =
@@ -406,7 +414,7 @@ open class RawFirBuilder(
                                 moduleData = baseModuleData
                                 origin = FirDeclarationOrigin.Source
                                 returnTypeRef = propertyTypeRefToUse
-                                symbol = FirValueParameterSymbol(DEFAULT_VALUE_PARAMETER)
+                                symbol = FirValueParameterSymbol(SpecialNames.IMPLICIT_SET_PARAMETER)
                                 annotations += parameterAnnotationsFromProperty
                             }
                         }
@@ -482,11 +490,11 @@ open class RawFirBuilder(
             }
             val status = obtainPropertyComponentStatus(componentVisibility, this, property)
             val backingFieldInitializer = when {
-                this?.hasInitializer() == false -> null
                 mode == BodyBuildingMode.LAZY_BODIES -> buildLazyExpression {
                     source = this@toFirBackingField?.initializer?.toFirSourceElement()
                 }
-                else -> this@toFirBackingField?.initializer.toFirExpression("Should have initializer")
+                this?.hasInitializer() != true -> null
+                else -> this@toFirBackingField.initializer?.toFirExpression("Should have initializer")
             }
             val returnType = this?.returnTypeReference.toFirOrImplicitType()
             val source = this?.toFirSourceElement()
@@ -1739,9 +1747,7 @@ open class RawFirBuilder(
                                     referenceExpression!!.toFirSourceElement(),
                                     referenceExpression!!.getReferencedNameAsName(),
                                     FirTypeArgumentListImpl(ktQualifier?.typeArgumentList?.toKtPsiSourceElement() ?: source).apply {
-                                        for (typeArgument in ktQualifier!!.typeArguments) {
-                                            typeArguments += typeArgument.convert<FirTypeProjection>()
-                                        }
+                                        typeArguments.appendTypeArguments(ktQualifier!!.typeArguments)
                                     }
                                 )
                                 qualifier.add(firQualifier)
@@ -1810,6 +1816,7 @@ open class RawFirBuilder(
                     source = (annotationEntry.typeReference?.typeElement as? KtUserType)?.referenceExpression?.toFirSourceElement()
                     this.name = name
                 }
+                typeArguments.appendTypeArguments(annotationEntry.typeArguments)
             }
         }
 
@@ -2359,9 +2366,7 @@ open class RawFirBuilder(
 
             return result.apply {
                 this.explicitReceiver = explicitReceiver
-                for (typeArgument in expression.typeArguments) {
-                    typeArguments += typeArgument.convert<FirTypeProjection>()
-                }
+                typeArguments.appendTypeArguments(expression.typeArguments)
             }.build()
         }
 
@@ -2389,14 +2394,19 @@ open class RawFirBuilder(
         }
 
         override fun visitQualifiedExpression(expression: KtQualifiedExpression, data: Unit): FirElement {
+            val receiver = expression.receiverExpression.toFirExpression("Incorrect receiver expression")
+
             val selector = expression.selectorExpression
-                ?: return buildErrorExpression(
-                    expression.toFirSourceElement(), ConeSimpleDiagnostic("Qualified expression without selector", DiagnosticKind.Syntax),
-                )
+                ?: return buildErrorExpression {
+                    source = expression.toFirSourceElement()
+                    diagnostic = ConeSimpleDiagnostic("Qualified expression without selector", DiagnosticKind.Syntax)
+
+                    // if there is no selector, we still want to resolve the receiver
+                    this.expression = receiver
+                }
+
             val firSelector = selector.toFirExpression("Incorrect selector expression")
             if (firSelector is FirQualifiedAccess) {
-                val receiver = expression.receiverExpression.toFirExpression("Incorrect receiver expression")
-
                 if (expression is KtSafeQualifiedExpression) {
                     @OptIn(FirImplementationDetail::class)
                     firSelector.replaceSource(expression.toFirSourceElement(KtFakeSourceElementKind.DesugaredSafeCallExpression))
@@ -2531,6 +2541,12 @@ open class RawFirBuilder(
         override fun visitExpression(expression: KtExpression, data: Unit): FirElement {
             return buildExpressionStub {
                 source = expression.toFirSourceElement()
+            }
+        }
+
+        private fun MutableList<FirTypeProjection>.appendTypeArguments(args: List<KtTypeProjection>) {
+            for (typeArgument in args) {
+                this += typeArgument.convert<FirTypeProjection>()
             }
         }
     }

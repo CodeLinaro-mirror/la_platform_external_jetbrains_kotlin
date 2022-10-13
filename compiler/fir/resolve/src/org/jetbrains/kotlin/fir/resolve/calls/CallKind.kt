@@ -20,7 +20,9 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckDslScopeViolation,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
-        ConstraintSystemForks
+        LowerPriorityIfDynamic,
+        ConstraintSystemForks,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     object SyntheticSelect : CallKind(
@@ -31,6 +33,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckArguments,
         EagerResolveOfCallableReferences,
         ConstraintSystemForks,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     object Function : CallKind(
@@ -51,7 +54,9 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         EagerResolveOfCallableReferences,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
+        LowerPriorityIfDynamic,
         ConstraintSystemForks,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     object DelegatingConstructorCall : CallKind(
@@ -64,10 +69,12 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
+        CheckContextReceivers,
         CheckDslScopeViolation,
         CheckArguments,
         EagerResolveOfCallableReferences,
         ConstraintSystemForks,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     object CallableReference : CallKind(
@@ -82,6 +89,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckDslScopeViolation,
         CheckCallableReferenceExpectedType,
         CheckLowPriorityInOverloadResolution,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     object SyntheticIdForCallableReferencesResolution : CallKind(
@@ -92,6 +100,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckArguments,
         EagerResolveOfCallableReferences,
         ConstraintSystemForks,
+        CheckIncompatibleTypeVariableUpperBounds,
     )
 
     internal class CustomForIde(vararg resolutionSequence: ResolutionStage) : CallKind(*resolutionSequence)

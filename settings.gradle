@@ -16,6 +16,10 @@ pluginManagement {
             maven { url "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies" }
         }
     }
+    
+    plugins {
+        id "de.undercouch.download" version "5.1.0"
+    }
 }
 
 buildscript {
@@ -34,31 +38,9 @@ buildscript {
 }
 
 plugins {
-    id "com.gradle.enterprise" version "3.8.1"
-    id "com.gradle.enterprise.test-distribution" version "2.2.2"
-    id "com.gradle.common-custom-user-data-gradle-plugin" version "1.6.2" apply false
-}
-
-File versionPropertiesFile = new File(rootProject.projectDir, "gradle/versions.properties")
-def versionProperties = new Properties()
-versionPropertiesFile.withInputStream {
-    versionProperties.load(it)
-}
-dependencyResolutionManagement {
-    components {
-        withModule("com.google.code.gson:gson") {
-            allVariants {
-                withDependencies {
-                   add("com.google.code.gson:gson") {
-                       version {
-                           it.require(versionProperties['versions.gson'])
-                       }
-                       because("Force using same gson version because of https://github.com/google/gson/pull/1991")
-                    }
-                }
-            }
-        }
-    }
+    id "com.gradle.enterprise" version "3.9"
+    id "com.gradle.enterprise.test-distribution" version "2.2.3"
+    id "com.gradle.common-custom-user-data-gradle-plugin" version "1.6.5" apply false
 }
 
 def buildProperties = BuildPropertiesKt.getKotlinBuildPropertiesForSettings(settings)
@@ -145,7 +127,7 @@ include ":benchmarks",
         ":kotlin-compiler-runner",
         ":compiler:cli-common",
         ":compiler:ir.tree",
-        ":compiler:ir.tree.impl",
+        ":compiler:ir.tree:tree-generator",
         ":compiler:ir.psi2ir",
         ":compiler:ir.ir2cfg",
         ":compiler:ir.backend.common",
@@ -208,11 +190,28 @@ include ":benchmarks",
         ":dependencies:intellij-core",
         ":plugins:android-extensions-compiler",
         ":kotlin-android-extensions",
-        ":kotlin-android-extensions-runtime",
-        ":kotlin-allopen-compiler-plugin",
-        ":kotlin-noarg-compiler-plugin",
-        ":kotlin-sam-with-receiver-compiler-plugin",
-        ":kotlin-imports-dumper-compiler-plugin",
+        ":kotlin-android-extensions-runtime"
+
+include ":kotlin-allopen-compiler-plugin",
+        ":kotlin-allopen-compiler-plugin.common",
+        ":kotlin-allopen-compiler-plugin.k1",
+        ":kotlin-allopen-compiler-plugin.k2",
+        ":kotlin-allopen-compiler-plugin.cli"
+
+include ":kotlin-noarg-compiler-plugin",
+        ":kotlin-noarg-compiler-plugin.common",
+        ":kotlin-noarg-compiler-plugin.k1",
+        ":kotlin-noarg-compiler-plugin.k2",
+        ":kotlin-noarg-compiler-plugin.backend",
+        ":kotlin-noarg-compiler-plugin.cli"
+
+include ":kotlin-sam-with-receiver-compiler-plugin",
+        ":kotlin-sam-with-receiver-compiler-plugin.common",
+        ":kotlin-sam-with-receiver-compiler-plugin.k1",
+        ":kotlin-sam-with-receiver-compiler-plugin.k2",
+        ":kotlin-sam-with-receiver-compiler-plugin.cli"
+
+include ":kotlin-imports-dumper-compiler-plugin",
         ":kotlin-script-runtime",
         ":plugins:fir-plugin-prototype",
         ":plugins:fir-plugin-prototype:plugin-annotations",
@@ -246,6 +245,7 @@ include ":benchmarks",
         ":kotlin-project-model",
         ":kotlin-gradle-plugin-api",
         ":kotlin-gradle-plugin-idea",
+        ":kotlin-gradle-plugin-idea-proto",
         ":kotlin-gradle-plugin-idea-for-compatibility-tests",
         ":kotlin-gradle-plugin-dsl-codegen",
         ":kotlin-gradle-plugin-npm-versions-codegen",
@@ -340,6 +340,7 @@ include ":compiler:fir",
         ":compiler:fir:dump",
         ":compiler:fir:checkers",
         ":compiler:fir:checkers:checkers.jvm",
+        ":compiler:fir:checkers:checkers.js",
         ":compiler:fir:checkers:checkers-component-generator",
         ":compiler:fir:entrypoint",
         ":compiler:fir:analysis-tests",
@@ -355,11 +356,19 @@ include ":compiler:test-infrastructure",
         ":compiler:tests-common-new"
 
 include ":plugins:parcelize:parcelize-compiler",
-        ":plugins:parcelize:parcelize-compiler:parcelize-fir",
+        ":plugins:parcelize:parcelize-compiler:parcelize.common",
+        ":plugins:parcelize:parcelize-compiler:parcelize.k1",
+        ":plugins:parcelize:parcelize-compiler:parcelize.k2",
+        ":plugins:parcelize:parcelize-compiler:parcelize.backend",
+        ":plugins:parcelize:parcelize-compiler:parcelize.cli",
         ":plugins:parcelize:parcelize-runtime",
         ":kotlin-parcelize-compiler"
 
-include ":plugins:lombok:lombok-compiler-plugin",
+include ":kotlin-lombok-compiler-plugin",
+        ":kotlin-lombok-compiler-plugin.common",
+        ":kotlin-lombok-compiler-plugin.k1",
+        ":kotlin-lombok-compiler-plugin.k2",
+        ":kotlin-lombok-compiler-plugin.cli",
         ":kotlin-lombok"
 
 if (!buildProperties.inJpsBuildIdeaSync) {
@@ -375,13 +384,15 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:kotlin-gradle-statistics-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-jps-common-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-jps-plugin-classpath",
+            ":prepare:ide-plugin-dependencies:kotlin-jps-plugin-tests-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-jps-plugin-testdata-for-ide",
             ":prepare:ide-plugin-dependencies:kotlinx-serialization-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:noarg-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:sam-with-receiver-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:parcelize-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:lombok-compiler-plugin-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-backend-native-for-ide",
             ":prepare:ide-plugin-dependencies:tests-common-tests-for-ide",
-            ":prepare:ide-plugin-dependencies:compiler-components-for-jps",
             ":prepare:ide-plugin-dependencies:kotlin-compiler-testdata-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-stdlib-minimal-for-test-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-compiler-tests-for-ide",
@@ -393,6 +404,7 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:high-level-api-fir-tests-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-fe10-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-fe10-tests-for-ide",
+            ":prepare:ide-plugin-dependencies:kt-references-fe10-for-ide",
             ":prepare:ide-plugin-dependencies:analysis-api-providers-for-ide",
             ":prepare:ide-plugin-dependencies:analysis-project-structure-for-ide",
             ":prepare:ide-plugin-dependencies:symbol-light-classes-for-ide",
@@ -552,6 +564,7 @@ if (attachedIntellijVersion == "master") {
 
 include ":jps:jps-common",
         ":jps:jps-plugin",
+        ":prepare:kotlin-jps-plugin",
         ":jps:jps-platform-api-signatures"
 
 include ":generators:analysis-api-generator",
@@ -564,10 +577,13 @@ include ":generators:analysis-api-generator",
         ":analysis:analysis-api-impl-base",
         ":analysis:analysis-api-providers",
         ":analysis:analysis-internal-utils",
+        ":analysis:analysis-test-framework",
         ":analysis:kt-references",
+        ":analysis:kt-references:kt-references-fe10",
         ":analysis:symbol-light-classes",
         ":analysis:project-structure",
         ":analysis:analysis-api-standalone",
+        ":analysis:analysis-api-standalone:analysis-api-standalone-base",
         ":analysis:analysis-api-fe10",
         ":analysis:decompiled:decompiler-to-psi",
         ":analysis:decompiled:decompiler-to-stubs",
@@ -661,7 +677,7 @@ project(':kotlin-compiler-runner-unshaded').projectDir = "$rootDir/compiler/comp
 project(':kotlin-compiler-runner').projectDir = "$rootDir/compiler/compiler-runner" as File
 project(':kotlin-ant').projectDir = "$rootDir/ant" as File
 project(':compiler:ir.tree').projectDir = "$rootDir/compiler/ir/ir.tree" as File
-project(':compiler:ir.tree.impl').projectDir = "$rootDir/compiler/ir/ir.tree.impl" as File
+project(':compiler:ir.tree:tree-generator').projectDir = "$rootDir/compiler/ir/ir.tree/tree-generator" as File
 project(':compiler:ir.psi2ir').projectDir = "$rootDir/compiler/ir/ir.psi2ir" as File
 project(':compiler:ir.ir2cfg').projectDir = "$rootDir/compiler/ir/ir.ir2cfg" as File
 project(':compiler:ir.backend.common').projectDir = "$rootDir/compiler/ir/backend.common" as File
@@ -687,13 +703,37 @@ project(':plugins:android-extensions-compiler').projectDir = "$rootDir/plugins/a
 project(':kotlin-android-extensions').projectDir = "$rootDir/prepare/android-extensions-compiler-gradle" as File
 project(':kotlin-parcelize-compiler').projectDir = "$rootDir/prepare/parcelize-compiler-gradle" as File
 project(':kotlin-android-extensions-runtime').projectDir = "$rootDir/plugins/android-extensions/android-extensions-runtime" as File
-project(':kotlin-allopen-compiler-plugin').projectDir = "$rootDir/plugins/allopen/allopen-cli" as File
-project(':kotlin-noarg-compiler-plugin').projectDir = "$rootDir/plugins/noarg/noarg-cli" as File
-project(':kotlin-sam-with-receiver-compiler-plugin').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver-cli" as File
+
+project(':kotlin-allopen-compiler-plugin').projectDir = "$rootDir/plugins/allopen" as File
+project(':kotlin-allopen-compiler-plugin.common').projectDir = "$rootDir/plugins/allopen/allopen.common" as File
+project(':kotlin-allopen-compiler-plugin.k1').projectDir = "$rootDir/plugins/allopen/allopen.k1" as File
+project(':kotlin-allopen-compiler-plugin.k2').projectDir = "$rootDir/plugins/allopen/allopen.k2" as File
+project(':kotlin-allopen-compiler-plugin.cli').projectDir = "$rootDir/plugins/allopen/allopen.cli" as File
+
+project(':kotlin-lombok-compiler-plugin').projectDir = "$rootDir/plugins/lombok" as File
+project(':kotlin-lombok-compiler-plugin.cli').projectDir = "$rootDir/plugins/lombok/lombok.cli" as File
+project(':kotlin-lombok-compiler-plugin.k1').projectDir = "$rootDir/plugins/lombok/lombok.k1" as File
+project(':kotlin-lombok-compiler-plugin.k2').projectDir = "$rootDir/plugins/lombok/lombok.k2" as File
+project(':kotlin-lombok-compiler-plugin.common').projectDir = "$rootDir/plugins/lombok/lombok.common" as File
+
+project(':kotlin-noarg-compiler-plugin').projectDir = "$rootDir/plugins/noarg" as File
+project(':kotlin-noarg-compiler-plugin.common').projectDir = "$rootDir/plugins/noarg/noarg.common" as File
+project(':kotlin-noarg-compiler-plugin.k1').projectDir = "$rootDir/plugins/noarg/noarg.k1" as File
+project(':kotlin-noarg-compiler-plugin.k2').projectDir = "$rootDir/plugins/noarg/noarg.k2" as File
+project(':kotlin-noarg-compiler-plugin.backend').projectDir = "$rootDir/plugins/noarg/noarg.backend" as File
+project(':kotlin-noarg-compiler-plugin.cli').projectDir = "$rootDir/plugins/noarg/noarg.cli" as File
+
+project(':kotlin-sam-with-receiver-compiler-plugin').projectDir = "$rootDir/plugins/sam-with-receiver" as File
+project(':kotlin-sam-with-receiver-compiler-plugin.common').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.common" as File
+project(':kotlin-sam-with-receiver-compiler-plugin.k1').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.k1" as File
+project(':kotlin-sam-with-receiver-compiler-plugin.k2').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.k2" as File
+project(':kotlin-sam-with-receiver-compiler-plugin.cli').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.cli" as File
+
 project(':tools:kotlinp').projectDir = "$rootDir/libraries/tools/kotlinp" as File
 project(':kotlin-project-model').projectDir = "$rootDir/libraries/tools/kotlin-project-model" as File
 project(':kotlin-gradle-plugin-api').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-api" as File
 project(':kotlin-gradle-plugin-idea').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-idea" as File
+project(':kotlin-gradle-plugin-idea-proto').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-idea-proto" as File
 project(':kotlin-gradle-plugin-idea-for-compatibility-tests').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-idea-for-compatibility-tests" as File
 project(':kotlin-gradle-plugin-dsl-codegen').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-dsl-codegen" as File
 project(':kotlin-gradle-plugin-npm-versions-codegen').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-npm-versions-codegen" as File
@@ -800,4 +840,7 @@ if (buildProperties.isKotlinNativeEnabled) {
     include ':kotlin-native:backend.native:tests'
     include ":kotlin-native-compiler-embeddable"
     project(":kotlin-native-compiler-embeddable").projectDir = "$rootDir/kotlin-native/prepare/kotlin-native-embeddable-compiler" as File
+    include ':kotlin-native:build-tools'
+    include ':kotlin-native-shared'
+    project(":kotlin-native-shared").projectDir = "$rootDir/kotlin-native/shared" as File
 }

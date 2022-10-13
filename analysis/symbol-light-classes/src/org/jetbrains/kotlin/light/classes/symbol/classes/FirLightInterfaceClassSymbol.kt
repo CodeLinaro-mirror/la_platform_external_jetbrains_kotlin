@@ -11,7 +11,7 @@ import com.intellij.psi.PsiReferenceList
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
-import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.lifetime.isValid
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
@@ -31,6 +31,7 @@ internal open class FirLightInterfaceClassSymbol(
     private val _ownFields: List<KtLightField> by lazyPub {
         mutableListOf<KtLightField>().also {
             addCompanionObjectFieldIfNeeded(it)
+            addFieldsFromCompanionIfNeeded(it)
         }
     }
 
@@ -46,6 +47,8 @@ internal open class FirLightInterfaceClassSymbol(
 
             createMethods(visibleDeclarations, result)
         }
+
+        addMethodsFromCompanionIfNeeded(result)
 
         result
     }

@@ -9,7 +9,7 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.base.KtFe10AnnotatedSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.base.KtFe10Symbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
@@ -21,10 +21,10 @@ internal interface KtFe10DescSymbol<T : DeclarationDescriptor> : KtFe10Symbol, K
     val descriptor: T
 
     override val annotationsObject: Annotations
-        get() = descriptor.annotations
+        get() = withValidityAssertion { descriptor.annotations }
 
     val source: SourceElement
-        get() {
+        get() = withValidityAssertion {
             val descriptor = this.descriptor
             if (descriptor is CallableMemberDescriptor && descriptor.kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE) {
                 val firstOverridden = descriptor.overriddenDescriptors.firstOrNull()

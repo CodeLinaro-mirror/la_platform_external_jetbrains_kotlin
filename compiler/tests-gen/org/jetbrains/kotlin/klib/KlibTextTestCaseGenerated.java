@@ -264,6 +264,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
                 runTest("compiler/testData/ir/irText/classes/dataClasses/dataClassesGeneric.kt");
             }
 
+            @TestMetadata("delegationInSealed.kt")
+            public void testDelegationInSealed() throws Exception {
+                runTest("compiler/testData/ir/irText/classes/dataClasses/delegationInSealed.kt");
+            }
+
             @TestMetadata("kt31649.kt")
             public void testKt31649() throws Exception {
                 runTest("compiler/testData/ir/irText/classes/dataClasses/kt31649.kt");
@@ -860,6 +865,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
 
         public void testAllFilesPresentInExpressions() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/expressions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+
+        @TestMetadata("ambiguousFieldAccess.kt")
+        public void testAmbiguousFieldAccess() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/ambiguousFieldAccess.kt");
         }
 
         @TestMetadata("argumentMappedWithError.kt")
@@ -1845,6 +1855,11 @@ public class KlibTextTestCaseGenerated extends AbstractKlibTextTestCase {
         @TestMetadata("candidateSymbol.kt")
         public void testCandidateSymbol() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/candidateSymbol.kt");
+        }
+
+        @TestMetadata("cannotCastToFunction.kt")
+        public void testCannotCastToFunction() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/cannotCastToFunction.kt");
         }
 
         @TestMetadata("DeepCopyIrTree.kt")

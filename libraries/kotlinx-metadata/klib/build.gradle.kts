@@ -33,6 +33,7 @@ dependencies {
     shadows(project(":compiler:serialization"))
     shadows(project(":kotlin-util-klib-metadata"))
     shadows(project(":kotlin-util-klib"))
+    shadows(project(":kotlin-util-io"))
     shadows(protobufLite())
 }
 
@@ -42,7 +43,7 @@ if (deployVersion != null) {
 
 runtimeJar(tasks.register<ShadowJar>("shadowJar")) {
     callGroovy("manifestAttributes", manifest, project)
-    manifest.attributes["Implementation-Version"] = version
+    manifest.attributes["Implementation-Version"] = archiveVersion
 
     from(mainSourceSet.output)
     exclude("**/*.proto")

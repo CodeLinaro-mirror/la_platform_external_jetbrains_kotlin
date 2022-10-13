@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import groovy.lang.Closure
+import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
 import org.gradle.api.artifacts.Dependency
@@ -14,7 +14,6 @@ import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
-import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptionsImpl
 import org.jetbrains.kotlin.gradle.plugin.*
@@ -39,11 +38,12 @@ import org.jetbrains.kotlin.project.model.LanguageSettings
 import org.jetbrains.kotlin.tooling.core.closure
 import java.util.*
 import java.util.concurrent.Callable
+import javax.inject.Inject
 
 interface CompilationDetails<T : KotlinCommonOptions> {
     val target: KotlinTarget
 
-    val compileDependencyFilesHolder: DependencyFilesHolder
+    val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder
 
     val kotlinDependenciesHolder: HasKotlinDependencies
 
@@ -66,7 +66,7 @@ interface CompilationDetails<T : KotlinCommonOptions> {
 }
 
 interface CompilationDetailsWithRuntime<T : KotlinCommonOptions> : CompilationDetails<T> {
-    val runtimeDependencyFilesHolder: DependencyFilesHolder
+    val runtimeDependencyFilesHolder: GradleKpmDependencyFilesHolder
 }
 
 internal val CompilationDetails<*>.associateCompilationsClosure: Iterable<CompilationDetails<*>>
@@ -90,7 +90,8 @@ open class DefaultCompilationDetails<T : KotlinCommonOptions>(
         get() = this
 
     override val kotlinDependenciesHolder: HasKotlinDependencies
-        get() = KotlinDependencyConfigurationsHolder(
+        get() = project.objects.newInstance(
+            KotlinDependencyConfigurationsHolder::class.java,
             project,
             lowerCamelCaseName(
                 target.disambiguationClassifier,
@@ -98,7 +99,7 @@ open class DefaultCompilationDetails<T : KotlinCommonOptions>(
             )
         )
 
-    override val compileDependencyFilesHolder: DependencyFilesHolder = project.newDependencyFilesHolder(
+    override val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder = project.newDependencyFilesHolder(
         lowerCamelCaseName(
             target.disambiguationClassifier,
             compilationPurpose.takeIf { it != KotlinCompilation.MAIN_COMPILATION_NAME }.orEmpty(),
@@ -154,7 +155,7 @@ open class DefaultCompilationDetails<T : KotlinCommonOptions>(
 
     override val ownModuleName: String
         get() {
-            val baseName = project.archivesName
+            val baseName = project.archivesName.orNull
                 ?: project.name
             val suffix = if (isMainCompilationData()) "" else "_$compilationPurpose"
             return filterModuleName("$baseName$suffix")
@@ -328,7 +329,7 @@ open class DefaultCompilationDetailsWithRuntime<T : KotlinCommonOptions>(
     compilationPurpose: String,
     createKotlinOptions: DefaultCompilationDetails<*>.() -> T
 ) : DefaultCompilationDetails<T>(target, compilationPurpose, createKotlinOptions), CompilationDetailsWithRuntime<T> {
-    override val runtimeDependencyFilesHolder: DependencyFilesHolder = project.newDependencyFilesHolder(
+    override val runtimeDependencyFilesHolder: GradleKpmDependencyFilesHolder = project.newDependencyFilesHolder(
         lowerCamelCaseName(
             target.disambiguationClassifier,
             compilationPurpose.takeIf { it != KotlinCompilation.MAIN_COMPILATION_NAME }.orEmpty(),
@@ -346,7 +347,7 @@ open class NativeCompilationDetails(
     compilationPurpose,
     createKotlinOptions
 ) {
-    override val compileDependencyFilesHolder: DependencyFilesHolder = project.newDependencyFilesHolder(
+    override val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder = project.newDependencyFilesHolder(
         lowerCamelCaseName(
             target.disambiguationClassifier,
             compilationPurpose.takeIf { it != KotlinCompilation.MAIN_COMPILATION_NAME }.orEmpty(),
@@ -402,8 +403,8 @@ internal open class MetadataMappedCompilationDetails<T : KotlinCommonOptions>(
     override val target: KotlinMetadataTarget,
     final override val compilationData: AbstractKotlinFragmentMetadataCompilationData<T>
 ) : CompilationDetails<T> {
-    override val compileDependencyFilesHolder: DependencyFilesHolder =
-        DependencyFilesHolder.ofMetadataCompilationDependencies(compilationData)
+    override val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder =
+        GradleKpmDependencyFilesHolder.ofMetadataCompilationDependencies(compilationData)
 
     override val kotlinDependenciesHolder: HasKotlinDependencies
         get() = compilationData.fragment
@@ -432,7 +433,7 @@ internal open class MetadataMappedCompilationDetails<T : KotlinCommonOptions>(
 }
 
 internal open class VariantMappedCompilationDetails<T : KotlinCommonOptions>(
-    open val variant: KotlinGradleVariantInternal,
+    open val variant: GradleKpmVariantInternal,
     override val target: KotlinTarget
 ) : CompilationDetails<T> {
 
@@ -458,8 +459,8 @@ internal open class VariantMappedCompilationDetails<T : KotlinCommonOptions>(
 
     override val associateCompilations: Set<CompilationDetails<*>> get() = emptySet()
 
-    override val compileDependencyFilesHolder: DependencyFilesHolder
-        get() = DependencyFilesHolder.ofVariantCompileDependencies(variant)
+    override val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder
+        get() = GradleKpmDependencyFilesHolder.ofVariantCompileDependencies(variant)
 
     override val kotlinDependenciesHolder: HasKotlinDependencies
         get() = variant
@@ -469,12 +470,12 @@ internal open class VariantMappedCompilationDetails<T : KotlinCommonOptions>(
 }
 
 internal open class VariantMappedCompilationDetailsWithRuntime<T : KotlinCommonOptions>(
-    override val variant: KotlinGradleVariantWithRuntimeInternal,
+    override val variant: GradleKpmVariantWithRuntimeInternal,
     target: KotlinTarget
 ) : VariantMappedCompilationDetails<T>(variant, target),
     CompilationDetailsWithRuntime<T> {
-    override val runtimeDependencyFilesHolder: DependencyFilesHolder
-        get() = DependencyFilesHolder.ofVariantRuntimeDependencies(variant)
+    override val runtimeDependencyFilesHolder: GradleKpmDependencyFilesHolder
+        get() = GradleKpmDependencyFilesHolder.ofVariantRuntimeDependencies(variant)
 }
 
 internal class WithJavaCompilationDetails<T : KotlinCommonOptions>(
@@ -490,14 +491,14 @@ internal class WithJavaCompilationDetails<T : KotlinCommonOptions>(
 
     override val output: KotlinCompilationOutput by lazy { KotlinWithJavaCompilationOutput(compilation) }
 
-    override val compileDependencyFilesHolder: DependencyFilesHolder
-        get() = object : DependencyFilesHolder {
+    override val compileDependencyFilesHolder: GradleKpmDependencyFilesHolder
+        get() = object : GradleKpmDependencyFilesHolder {
             override val dependencyConfigurationName: String by javaSourceSet::compileClasspathConfigurationName
             override var dependencyFiles: FileCollection by javaSourceSet::compileClasspath
         }
 
-    override val runtimeDependencyFilesHolder: DependencyFilesHolder
-        get() = object : DependencyFilesHolder {
+    override val runtimeDependencyFilesHolder: GradleKpmDependencyFilesHolder
+        get() = object : GradleKpmDependencyFilesHolder {
             override val dependencyConfigurationName: String by javaSourceSet::runtimeClasspathConfigurationName
             override var dependencyFiles: FileCollection by javaSourceSet::runtimeClasspath
         }
@@ -564,7 +565,7 @@ internal open class JsCompilationDetails(
     compilationPurpose: String,
 ) : DefaultCompilationDetailsWithRuntime<KotlinJsOptions>(target, compilationPurpose, { KotlinJsOptionsImpl() }) {
 
-    protected open class JsCompilationDependenciesHolder(
+    internal abstract class JsCompilationDependenciesHolder @Inject constructor(
         val target: KotlinTarget,
         val compilationPurpose: String
     ) : HasKotlinDependencies {
@@ -598,12 +599,12 @@ internal open class JsCompilationDetails(
         override fun dependencies(configure: KotlinDependencyHandler.() -> Unit): Unit =
             DefaultKotlinDependencyHandler(this, target.project).run(configure)
 
-        override fun dependencies(configureClosure: Closure<Any?>) =
-            dependencies f@{ project.configure(this@f, configureClosure) }
+        override fun dependencies(configure: Action<KotlinDependencyHandler>) =
+            dependencies { configure.execute(this) }
     }
 
     override val kotlinDependenciesHolder: HasKotlinDependencies
-        get() = JsCompilationDependenciesHolder(target, compilationPurpose)
+        get() = target.project.objects.newInstance(JsCompilationDependenciesHolder::class.java, target, compilationPurpose)
 
     override val defaultSourceSetName: String
         get() {
@@ -638,17 +639,17 @@ internal class JsIrCompilationDetails(target: KotlinTarget, compilationPurpose: 
             )
         }
 
-    private class JsIrCompilationDependencyHolder(target: KotlinTarget, compilationPurpose: String) :
+    internal abstract class JsIrCompilationDependencyHolder @Inject constructor(target: KotlinTarget, compilationPurpose: String) :
         JsCompilationDependenciesHolder(target, compilationPurpose) {
         override val disambiguationClassifierInPlatform: String?
             get() = (target as KotlinJsIrTarget).disambiguationClassifierInPlatform
     }
 
     override val kotlinDependenciesHolder: HasKotlinDependencies
-        get() = JsIrCompilationDependencyHolder(target, compilationPurpose)
+        get() = target.project.objects.newInstance(JsIrCompilationDependencyHolder::class.java, target, compilationPurpose)
 }
 
-internal class KotlinDependencyConfigurationsHolder(
+internal abstract class KotlinDependencyConfigurationsHolder @Inject constructor(
     val project: Project,
     private val configurationNamesPrefix: String?,
 ) : HasKotlinDependencies {
@@ -668,6 +669,6 @@ internal class KotlinDependencyConfigurationsHolder(
     override fun dependencies(configure: KotlinDependencyHandler.() -> Unit): Unit =
         DefaultKotlinDependencyHandler(this, project).run(configure)
 
-    override fun dependencies(configureClosure: Closure<Any?>) =
-        dependencies f@{ project.configure(this@f, configureClosure) }
+    override fun dependencies(configure: Action<KotlinDependencyHandler>) =
+        dependencies { configure.execute(this) }
 }

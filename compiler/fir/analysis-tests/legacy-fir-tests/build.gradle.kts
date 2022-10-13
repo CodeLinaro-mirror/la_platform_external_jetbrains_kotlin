@@ -19,6 +19,7 @@ dependencies {
     testApi(projectTests(":compiler:tests-common"))
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
+    testApi(project(":compiler:fir:checkers:checkers.js"))
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:frontend"))
 
@@ -47,11 +48,9 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(parallel = true) {
+projectTest(parallel = true, maxHeapSizeMb = 3072) {
     dependsOn(":dist")
     workingDir = rootDir
-    jvmArgs!!.removeIf { it.contains("-Xmx") }
-    maxHeapSize = "3g"
 }
 
 testsJar()

@@ -28,7 +28,19 @@ abstract class JsAstDeserializerBase {
         return statement
     }
 
-    protected fun deserializeNoMetadata(proto: JsAstProtoBuf.Statement): JsStatement = when (proto.statementCase) {
+    protected fun deserializeNoMetadata(proto: JsAstProtoBuf.Statement): JsStatement {
+        return deserializeNoMetadataHelper(proto).apply {
+            if (proto.beforeCommentsCount != 0) {
+                commentsBeforeNode = proto.beforeCommentsList.map(::deserializeComment)
+            }
+
+            if (proto.afterCommentsCount != 0) {
+                commentsAfterNode = proto.afterCommentsList.map(::deserializeComment)
+            }
+        }
+    }
+
+    protected fun deserializeNoMetadataHelper(proto: JsAstProtoBuf.Statement): JsStatement = when (proto.statementCase) {
         JsAstProtoBuf.Statement.StatementCase.RETURN_STATEMENT -> {
             val returnProto = proto.returnStatement
             JsReturn(if (returnProto.hasValue()) deserialize(returnProto.value) else null)
@@ -73,8 +85,8 @@ abstract class JsAstDeserializerBase {
             block
         }
 
-        JsAstProtoBuf.Statement.StatementCase.GLOBAL_BLOCK -> {
-            deserializeGlobalBlock(proto.globalBlock)
+        JsAstProtoBuf.Statement.StatementCase.COMPOSITE_BLOCK -> {
+            deserializeCompositeBlock(proto.compositeBlock)
         }
 
         JsAstProtoBuf.Statement.StatementCase.LABEL -> {
@@ -164,6 +176,8 @@ abstract class JsAstDeserializerBase {
 
         JsAstProtoBuf.Statement.StatementCase.SINGLE_LINE_COMMENT -> JsSingleLineComment(proto.singleLineComment.message)
 
+        JsAstProtoBuf.Statement.StatementCase.MULTI_LINE_COMMENT -> JsMultiLineComment(proto.multiLineComment.message)
+
         JsAstProtoBuf.Statement.StatementCase.STATEMENT_NOT_SET,
         null -> error("Statement not set")
     }
@@ -190,7 +204,19 @@ abstract class JsAstDeserializerBase {
         )
     }
 
-    protected fun deserializeNoMetadata(proto: JsAstProtoBuf.Expression): JsExpression = when (proto.expressionCase) {
+    protected fun deserializeNoMetadata(proto: JsAstProtoBuf.Expression): JsExpression {
+        return deserializeNoMetadataHelper(proto).apply {
+            if (proto.beforeCommentsCount != 0) {
+                commentsBeforeNode = proto.beforeCommentsList.map(::deserializeComment)
+            }
+
+            if (proto.afterCommentsCount != 0) {
+                commentsAfterNode = proto.afterCommentsList.map(::deserializeComment)
+            }
+        }
+    }
+
+    protected fun deserializeNoMetadataHelper(proto: JsAstProtoBuf.Expression): JsExpression = when (proto.expressionCase) {
         JsAstProtoBuf.Expression.ExpressionCase.THIS_LITERAL -> JsThisRef()
         JsAstProtoBuf.Expression.ExpressionCase.NULL_LITERAL -> JsNullLiteral()
         JsAstProtoBuf.Expression.ExpressionCase.TRUE_LITERAL -> JsBooleanLiteral(true)
@@ -336,8 +362,9 @@ abstract class JsAstDeserializerBase {
         return vars
     }
 
-    protected fun deserializeGlobalBlock(proto: JsAstProtoBuf.GlobalBlock): JsGlobalBlock {
-        return JsGlobalBlock().apply { statements += proto.statementList.map { deserialize(it) } }
+    protected fun deserializeCompositeBlock(proto: JsAstProtoBuf.CompositeBlock): JsCompositeBlock {
+        return JsCompositeBlock()
+            .apply { statements += proto.statementList.map { deserialize(it) } }
     }
 
     protected fun deserializeParameter(proto: JsAstProtoBuf.Parameter): JsParameter {
@@ -475,6 +502,14 @@ abstract class JsAstDeserializerBase {
         }
 
         return node
+    }
+
+    protected fun deserializeComment(comment: JsAstProtoBuf.Comment): JsComment {
+        return if (comment.multiline) {
+            JsMultiLineComment(comment.text)
+        } else {
+            JsSingleLineComment(comment.text)
+        }
     }
 
     protected abstract fun embedSources(deserializedLocation: JsLocation, file: String): JsLocationWithSource?

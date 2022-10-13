@@ -8,8 +8,6 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.compilationException
-import org.jetbrains.kotlin.backend.common.ir.copyTo
-import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
@@ -246,8 +244,7 @@ class CallableReferenceLowering(private val context: CommonBackendContext) : Bod
         }
 
         private fun createInvokeMethod(clazz: IrClass): IrSimpleFunction {
-            val superMethods = superFunctionInterface.declarations.filterIsInstance<IrSimpleFunction>()
-            val superMethod = superMethods.single { it.name.asString() == "invoke" }
+            val superMethod = superFunctionInterface.invokeFun!!
             return clazz.addFunction {
                 setSourceRange(if (isLambda) function else reference)
                 name = superMethod.name
@@ -255,9 +252,7 @@ class CallableReferenceLowering(private val context: CommonBackendContext) : Bod
                 isSuspend = superMethod.isSuspend
                 isOperator = superMethod.isOperator
             }.apply {
-                val secondSuperMethods: List<IrSimpleFunction>? =
-                    secondFunctionInterface?.declarations?.filterIsInstance<IrSimpleFunction>()
-                val secondSuperMethod = secondSuperMethods?.single { it.name.asString() == "invoke" }
+                val secondSuperMethod = secondFunctionInterface?.let { it.invokeFun!! }
 
                 overriddenSymbols = listOfNotNull(
                     superMethod.symbol,
@@ -378,11 +373,10 @@ class CallableReferenceLowering(private val context: CommonBackendContext) : Bod
                 }
             }
 
-            var j = 0
-
-            while (i < valueParameters.size) {
-                irCall.putValueArgument(j++, getValue(valueParameters[i++]))
+            repeat(funRef.valueArgumentsCount) {
+                irCall.putValueArgument(it, funRef.getValueArgument(it) ?: getValue(valueParameters[i++]))
             }
+            check(i == valueParameters.size) { "Unused parameters are left" }
 
             return irCall
         }

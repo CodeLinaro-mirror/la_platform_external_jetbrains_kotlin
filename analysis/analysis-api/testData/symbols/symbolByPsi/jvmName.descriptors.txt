@@ -24,6 +24,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): Foo
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getMyI
@@ -47,22 +48,28 @@ KtPropertyGetterSymbol:
   receiverType: null
   returnType: kotlin/Int
   symbolKind: ACCESSOR
+  typeParameters: []
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): Foo
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtValueParameterSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  generatedPrimaryConstructorProperty: null
   hasDefaultValue: false
   isExtension: false
+  isImplicitLambdaParameter: false
   isVararg: false
   name: value
   origin: SOURCE
   receiverType: null
   returnType: kotlin/Int
   symbolKind: LOCAL
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtPropertySetterSymbol:
@@ -83,11 +90,13 @@ KtPropertySetterSymbol:
   receiverType: null
   returnType: kotlin/Unit
   symbolKind: ACCESSOR
+  typeParameters: []
   valueParameters: [
     KtValueParameterSymbol(value)
   ]
   visibility: Public
   getDispatchReceiver(): Foo
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
@@ -116,6 +125,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): Foo
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getMyJ
@@ -141,4 +151,5 @@ KtNamedClassOrObjectSymbol:
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

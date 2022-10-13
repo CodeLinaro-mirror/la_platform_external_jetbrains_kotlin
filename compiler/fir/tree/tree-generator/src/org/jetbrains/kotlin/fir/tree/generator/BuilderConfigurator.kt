@@ -91,6 +91,10 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             withCopy()
         }
 
+        builder(typeParameter) {
+            withCopy()
+        }
+
         builder(field) {
             parents += declarationBuilder
             default("resolvePhase", "FirResolvePhase.DECLARATIONS")
@@ -261,6 +265,7 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
 
         builder(resolvedTypeRef) {
             defaultNull("delegatedTypeRef")
+            default("isFromStubType", "false")
             withCopy()
         }
 
@@ -278,6 +283,10 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
 
         builder(continueExpression) {
             parents += loopJumpBuilder
+        }
+
+        builder(contextReceiver) {
+            withCopy()
         }
 
         builder(valueParameter, type = "FirValueParameterImpl") {
@@ -362,7 +371,9 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             varargArgumentsExpression,
             checkedSafeCallSubject,
             safeCallExpression,
-            arrayOfCall
+            arrayOfCall,
+            classReferenceExpression,
+            getClassCall
         )
         elementsWithDefaultTypeRef.forEach {
             val (element, name) = when (it) {

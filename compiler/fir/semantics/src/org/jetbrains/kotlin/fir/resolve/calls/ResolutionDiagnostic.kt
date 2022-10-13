@@ -14,10 +14,12 @@ import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeTypeVariable
 import org.jetbrains.kotlin.resolve.ForbiddenNamedArgumentsTarget
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintSystemError
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability.*
+import org.jetbrains.kotlin.types.EmptyIntersectionTypeKind
 
 abstract class ResolutionDiagnostic(val applicability: CandidateApplicability)
 
@@ -26,6 +28,13 @@ abstract class InapplicableArgumentDiagnostic : ResolutionDiagnostic(INAPPLICABL
 }
 
 class MixingNamedAndPositionArguments(override val argument: FirExpression) : InapplicableArgumentDiagnostic()
+
+class InferredEmptyIntersectionDiagnostic(
+    val incompatibleTypes: Collection<ConeKotlinType>,
+    val causingTypes: Collection<ConeKotlinType>,
+    val typeVariable: ConeTypeVariable,
+    val kind: EmptyIntersectionTypeKind
+) : ResolutionDiagnostic(INAPPLICABLE)
 
 class TooManyArguments(
     val argument: FirExpression,
@@ -61,6 +70,12 @@ class NameNotFound(
     val function: FirFunction
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
+class NameForAmbiguousParameter(
+    val argument: FirNamedArgumentExpression,
+    val matchedParameter: FirValueParameter,
+    val anotherParameter: FirValueParameter
+) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
+
 object InapplicableCandidate : ResolutionDiagnostic(INAPPLICABLE)
 
 object HiddenCandidate : ResolutionDiagnostic(HIDDEN)
@@ -79,6 +94,8 @@ object NoCompanionObject : ResolutionDiagnostic(NO_COMPANION_OBJECT)
 class UnsafeCall(val actualType: ConeKotlinType) : ResolutionDiagnostic(UNSAFE_CALL)
 
 object LowerPriorityToPreserveCompatibilityDiagnostic : ResolutionDiagnostic(RESOLVED_NEED_PRESERVE_COMPATIBILITY)
+
+object LowerPriorityForDynamic : ResolutionDiagnostic(RESOLVED_LOW_PRIORITY)
 
 object CandidateChosenUsingOverloadResolutionByLambdaAnnotation : ResolutionDiagnostic(RESOLVED)
 

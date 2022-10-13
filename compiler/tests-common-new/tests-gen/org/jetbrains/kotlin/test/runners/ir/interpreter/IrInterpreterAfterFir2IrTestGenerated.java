@@ -206,6 +206,12 @@ public class IrInterpreterAfterFir2IrTestGenerated extends AbstractIrInterpreter
     }
 
     @Test
+    @TestMetadata("kt53480.kt")
+    public void testKt53480() throws Exception {
+        runTest("compiler/testData/ir/interpreter/kt53480.kt");
+    }
+
+    @Test
     @TestMetadata("lambda.kt")
     public void testLambda() throws Exception {
         runTest("compiler/testData/ir/interpreter/lambda.kt");
@@ -704,6 +710,12 @@ public class IrInterpreterAfterFir2IrTestGenerated extends AbstractIrInterpreter
         @TestMetadata("getClass.kt")
         public void testGetClass() throws Exception {
             runTest("compiler/testData/ir/interpreter/reference/getClass.kt");
+        }
+
+        @Test
+        @TestMetadata("javaPropertyReference.kt")
+        public void testJavaPropertyReference() throws Exception {
+            runTest("compiler/testData/ir/interpreter/reference/javaPropertyReference.kt");
         }
 
         @Test

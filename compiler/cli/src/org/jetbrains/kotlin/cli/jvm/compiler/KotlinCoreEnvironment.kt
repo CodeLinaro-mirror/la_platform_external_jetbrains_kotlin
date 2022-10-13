@@ -314,7 +314,7 @@ class KotlinCoreEnvironment private constructor(
     private val VirtualFile.javaFiles: List<VirtualFile>
         get() = mutableListOf<VirtualFile>().apply {
             VfsUtilCore.processFilesRecursively(this@javaFiles) { file ->
-                if (file.fileType == JavaFileType.INSTANCE) {
+                if (file.extension == JavaFileType.DEFAULT_EXTENSION || file.fileType == JavaFileType.INSTANCE) {
                     add(file)
                 }
                 true
@@ -637,6 +637,7 @@ class KotlinCoreEnvironment private constructor(
             JsSyntheticTranslateExtension.registerExtensionPoint(project)
             CompilerConfigurationExtension.registerExtensionPoint(project)
             CollectAdditionalSourcesExtension.registerExtensionPoint(project)
+            ProcessSourcesBeforeCompilingExtension.registerExtensionPoint(project)
             ExtraImportsProviderExtension.registerExtensionPoint(project)
             IrGenerationExtension.registerExtensionPoint(project)
             ScriptEvaluationExtension.registerExtensionPoint(project)

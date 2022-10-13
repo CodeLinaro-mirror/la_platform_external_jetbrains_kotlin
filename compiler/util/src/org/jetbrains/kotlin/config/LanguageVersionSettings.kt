@@ -142,7 +142,6 @@ enum class LanguageFeature(
     SamConversionForKotlinFunctions(KOTLIN_1_4),
     SamConversionPerArgument(KOTLIN_1_4),
     FunctionReferenceWithDefaultValueAsOtherType(KOTLIN_1_4),
-    UnitConversion(KOTLIN_1_4, defaultState = State.DISABLED),
     OverloadResolutionByLambdaReturnType(KOTLIN_1_4),
     ContractsOnCallsWithImplicitReceiver(KOTLIN_1_4),
     BooleanElvisBoundSmartCasts(KOTLIN_1_3, defaultState = State.DISABLED), // see KT-26357 for details
@@ -257,9 +256,14 @@ enum class LanguageFeature(
     ReportMissingUpperBoundsViolatedErrorOnAbbreviationAtSupertypes(KOTLIN_1_8, kind = BUG_FIX), // KT-29168
     IgnoreNullabilityForErasedValueParameters(KOTLIN_1_8, kind = BUG_FIX),
     ForbidUsingExtensionPropertyTypeParameterInDelegate(KOTLIN_1_8, kind = BUG_FIX),
-    ReportNonVarargSpreadOnGenericCalls(KOTLIN_1_8, kind = BUG_FIX), // KT-48162
+    ModifierNonBuiltinSuspendFunError(KOTLIN_1_8),
+    SynchronizedSuspendError(KOTLIN_1_8),
     EnableDfaWarningsInK2(KOTLIN_1_8, kind = OTHER), // KT-50965
+    ReportNonVarargSpreadOnGenericCalls(KOTLIN_1_8, kind = BUG_FIX), // KT-48162
     RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_8, kind = BUG_FIX),
+    RangeUntilOperator(KOTLIN_1_8), // KT-15613
+    GenericInlineClassParameter(sinceVersion = KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-32162
+    DataObjects(KOTLIN_1_8), // KT-4107
 
     // 1.9
 
@@ -273,9 +277,16 @@ enum class LanguageFeature(
     StopPropagatingDeprecationThroughOverrides(KOTLIN_1_9, kind = BUG_FIX), // KT-47902
     ReportTypeVarianceConflictOnQualifierArguments(KOTLIN_1_9, kind = BUG_FIX), // KT-50947
     ReportErrorsOnRecursiveTypeInsidePlusAssignment(KOTLIN_1_9, kind = BUG_FIX), // KT-48546
+    ForbidInferringTypeVariablesIntoEmptyIntersection(KOTLIN_1_9, kind = BUG_FIX), // KT-51221
+    ForbidExtensionCallsOnInlineFunctionalParameters(KOTLIN_1_9, kind = BUG_FIX), // KT-52502
+    ForbidInferringPostponedTypeVariableIntoDeclaredUpperBound(KOTLIN_1_9, kind = BUG_FIX), // KT-47986
+    SkipStandaloneScriptsInSourceRoots(KOTLIN_1_9, kind = OTHER), // KT-52525
 
     // Disabled for indefinite time. See KT-48535 and related discussion
     ApproximateIntegerLiteralTypesInReceiverPosition(sinceVersion = null),
+
+    // Disabled for indefinite time. Disables restrictions of builder inference without annotation
+    NoBuilderInferenceWithoutAnnotationRestriction(sinceVersion = null, kind = OTHER, defaultState = State.DISABLED),
 
     // Experimental features
 
@@ -291,10 +302,10 @@ enum class LanguageFeature(
     FunctionalTypeWithExtensionAsSupertype(sinceVersion = KOTLIN_1_6, defaultState = State.DISABLED),
     JsAllowInvalidCharsIdentifiersEscaping(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
     JsAllowValueClassesInExternals(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    ContextReceivers(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    GenericInlineClassParameter(sinceVersion = null, defaultState = State.ENABLED_WITH_WARNING, kind = UNSTABLE_FEATURE),
+    ContextReceivers(sinceVersion = null, defaultState = State.DISABLED),
     ValueClasses(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
     JavaSamConversionEqualsHashCode(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
+    UnitConversionsOnArbitraryExpressions(sinceVersion = null, defaultState = State.DISABLED),
     ;
 
     val presentableName: String

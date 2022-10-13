@@ -10,19 +10,17 @@ import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiReferenceList
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
+import org.jetbrains.kotlin.analysis.api.KtAllowAnalysisOnEdt
 import org.jetbrains.kotlin.analysis.providers.createProjectWideOutOfBlockModificationTracker
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithMembers
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithTypeParameters
 import org.jetbrains.kotlin.analysis.api.symbols.markers.isPrivateOrPrivateToThis
-import org.jetbrains.kotlin.analysis.api.tokens.HackToForceAllowRunningAnalyzeOnEDT
-import org.jetbrains.kotlin.analysis.api.tokens.hackyAllowRunningOnEdt
+import org.jetbrains.kotlin.analysis.api.lifetime.allowAnalysisOnEdt
 import org.jetbrains.kotlin.analysis.api.types.KtNonErrorClassType
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.project.structure.KtSourceModule
 import org.jetbrains.kotlin.analysis.project.structure.getKtModuleOfTypeSafe
-import org.jetbrains.kotlin.analysis.project.structure.NoCacheForModuleException
 import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
 import org.jetbrains.kotlin.asJava.classes.*
 import org.jetbrains.kotlin.asJava.elements.KtLightField
@@ -32,7 +30,6 @@ import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.light.classes.symbol.*
 import org.jetbrains.kotlin.load.java.JvmAbi
@@ -51,8 +48,8 @@ internal fun getOrCreateFirLightClass(classOrObject: KtClassOrObject): KtLightCl
             )
     }
 
-@OptIn(HackToForceAllowRunningAnalyzeOnEDT::class)
-internal fun createFirLightClassNoCache(classOrObject: KtClassOrObject): KtLightClass? = hackyAllowRunningOnEdt {
+@OptIn(KtAllowAnalysisOnEdt::class)
+internal fun createFirLightClassNoCache(classOrObject: KtClassOrObject): KtLightClass? = allowAnalysisOnEdt {
 
     val containingFile = classOrObject.containingFile
     if (containingFile is KtCodeFragment) {
@@ -75,7 +72,7 @@ internal fun createFirLightClassNoCache(classOrObject: KtClassOrObject): KtLight
 
     return when {
         classOrObject is KtEnumEntry -> lightClassForEnumEntry(classOrObject)
-        classOrObject.hasModifier(KtTokens.INLINE_KEYWORD) -> {
+        classOrObject.hasModifier(INLINE_KEYWORD) -> {
             analyseForLightClasses(classOrObject) {
                 classOrObject.getNamedClassOrObjectSymbol()?.let { FirLightInlineClass(it, classOrObject.manager) }
             }
@@ -96,10 +93,6 @@ internal fun KtClassOrObjectSymbol.createLightClassNoCache(manager: PsiManager):
         else -> FirLightClassForSymbol(this, manager)
     }
 }
-
-
-
-
 
 private fun lightClassForEnumEntry(ktEnumEntry: KtEnumEntry): KtLightClass? {
     if (ktEnumEntry.body == null) return null
@@ -188,7 +181,7 @@ internal fun FirLightClassBase.createMethods(
     declarations: Sequence<KtCallableSymbol>,
     result: MutableList<KtLightMethod>,
     isTopLevel: Boolean = false,
-    suppressStaticForMethods: Boolean = false
+    suppressStatic : Boolean = false
 ) {
     val declarationGroups = declarations.groupBy { it is KtPropertySymbol && it.isFromPrimaryConstructor }
 
@@ -208,7 +201,7 @@ internal fun FirLightClassBase.createMethods(
                         containingClass = this@createMethods,
                         isTopLevel = isTopLevel,
                         methodIndex = methodIndex,
-                        suppressStatic = suppressStaticForMethods
+                        suppressStatic = suppressStatic
                     )
                 )
 
@@ -234,8 +227,14 @@ internal fun FirLightClassBase.createMethods(
                     }
                 }
             }
-            is KtPropertySymbol -> createPropertyAccessors(result, declaration, isTopLevel)
+            is KtPropertySymbol -> createPropertyAccessors(
+                result,
+                declaration,
+                isTopLevel = isTopLevel,
+                suppressStatic = suppressStatic
+            )
             is KtConstructorSymbol -> error("Constructors should be handled separately and not passed to this function")
+            else -> { }
         }
     }
 
@@ -254,6 +253,8 @@ internal fun FirLightClassBase.createPropertyAccessors(
     declaration: KtPropertySymbol,
     isTopLevel: Boolean,
     isMutable: Boolean = !declaration.isVal,
+    onlyJvmStatic: Boolean = false,
+    suppressStatic: Boolean = false,
 ) {
     if (declaration is KtKotlinPropertySymbol && declaration.isConst) return
 
@@ -265,6 +266,7 @@ internal fun FirLightClassBase.createPropertyAccessors(
     if (declaration.hasJvmFieldAnnotation()) return
 
     fun KtPropertyAccessorSymbol.needToCreateAccessor(siteTarget: AnnotationUseSiteTarget): Boolean {
+        if (onlyJvmStatic && !hasJvmStaticAnnotation(siteTarget) && !declaration.hasJvmStaticAnnotation()) return false
         if (declaration.hasReifiedParameters) return false
         if (!hasBody && visibility.isPrivateOrPrivateToThis()) return false
         if (declaration.isHiddenOrSynthetic(project, siteTarget)) return false
@@ -293,7 +295,8 @@ internal fun FirLightClassBase.createPropertyAccessors(
                 containingPropertySymbol = declaration,
                 lightMemberOrigin = lightMemberOrigin,
                 containingClass = this@createPropertyAccessors,
-                isTopLevel = isTopLevel
+                isTopLevel = isTopLevel,
+                suppressStatic = suppressStatic,
             )
         )
     }
@@ -316,7 +319,8 @@ internal fun FirLightClassBase.createPropertyAccessors(
                 containingPropertySymbol = declaration,
                 lightMemberOrigin = lightMemberOrigin,
                 containingClass = this@createPropertyAccessors,
-                isTopLevel = isTopLevel
+                isTopLevel = isTopLevel,
+                suppressStatic = suppressStatic,
             )
         )
     }
@@ -436,37 +440,21 @@ internal fun KtSymbolWithMembers.createInnerClasses(
 }
 
 internal fun KtClassOrObject.checkIsInheritor(superClassOrigin: KtClassOrObject, checkDeep: Boolean): Boolean {
-    val subClassOrigin = this
-
-    fun KtAnalysisSession.check(): Boolean {
-        val subClassSymbol = subClassOrigin.getClassOrObjectSymbol()
+    if (this == superClassOrigin) return false
+    return analyseForLightClasses(this) {
+        if (!superClassOrigin.canBeAnalysed()) {
+            return false
+        }
+        val subClassSymbol = this@checkIsInheritor.getClassOrObjectSymbol()
         val superClassSymbol = superClassOrigin.getClassOrObjectSymbol()
 
-        if (subClassSymbol == superClassSymbol) return false
+        if (subClassSymbol == superClassSymbol) return@analyseForLightClasses false
 
-        return if (checkDeep) {
+        if (checkDeep) {
             subClassSymbol.isSubClassOf(superClassSymbol)
         } else {
             subClassSymbol.isDirectSubClassOf(superClassSymbol)
         }
-    }
-
-    // Due to the KT-51240 we cannot be sure which PSI element is better to analyse, so we try both.
-    //
-    // We specifically catch NoCacheForModuleException as a sign that LLFirSessionProvider.getModuleCache could not
-    // find a cache for the passed module. This means that `module(subClassOrigin)` does not have `module(superClassOrigin)` as
-    // its dependency, and we should try the other way around.
-    //
-    // Note, however, that the second call might also fail, since the modules can be completely independent.
-    // We can only hope that, since this code is invoked from the light classes, the passed PSI classes are
-    // relatively close to each other syntactically, meaning that there is some dependency between the modules
-    // they reside in.
-    //
-    // TODO: Avoid this hack when KT-51240 is fixed
-    return try {
-        analyseForLightClasses(subClassOrigin) { check() }
-    } catch (e: NoCacheForModuleException) {
-        analyseForLightClasses(superClassOrigin) { check() }
     }
 }
 

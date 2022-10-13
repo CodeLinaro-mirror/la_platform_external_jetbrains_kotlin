@@ -16,10 +16,7 @@ import org.jetbrains.kotlin.gradle.plugin.AbstractKotlinTargetConfigurator.Compa
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation.Companion.MAIN_COMPILATION_NAME
 import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType.LEGACY
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBrowserDsl
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsNodeDsl
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetContainerDsl
-import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.*
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsBinaryContainer
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.targets.js.subtargets.KotlinBrowserJs
@@ -29,12 +26,11 @@ import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.testing.internal.KotlinTestReport
 import org.jetbrains.kotlin.gradle.testing.testTaskName
 import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
-import org.jetbrains.kotlin.gradle.utils.listProperty
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.gradle.utils.setProperty
 import javax.inject.Inject
 
-open class KotlinJsTarget
+abstract class KotlinJsTarget
 @Inject
 constructor(
     project: Project,
@@ -74,9 +70,9 @@ constructor(
         if (irTarget == null)
             super.kotlinComponents
         else {
-            val mainCompilation = compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
+            val mainCompilation = compilations.getByName(MAIN_COMPILATION_NAME)
             val usageContexts = createUsageContexts(mainCompilation) +
-                    irTarget!!.createUsageContexts(irTarget!!.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME))
+                    irTarget!!.createUsageContexts(irTarget!!.compilations.getByName(MAIN_COMPILATION_NAME))
 
             val componentName =
                 if (project.kotlinExtension is KotlinMultiplatformExtension)
@@ -100,7 +96,7 @@ constructor(
 
         return usageContexts +
                 DefaultKotlinUsageContext(
-                    compilation = compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME),
+                    compilation = compilations.getByName(MAIN_COMPILATION_NAME),
                     usage = project.usageByName("java-api-jars"),
                     dependencyConfigurationName = commonFakeApiElementsConfigurationName,
                     overrideConfigurationArtifacts = project.setProperty { emptyList() }
@@ -143,6 +139,7 @@ constructor(
 
     private val propertiesProvider = PropertiesProvider(project)
 
+    //Browser
     private val browserLazyDelegate = lazy {
         project.objects.newInstance(KotlinBrowserJs::class.java, this).also {
             it.configure()
@@ -170,6 +167,7 @@ constructor(
         irTarget?.browser(body)
     }
 
+    //node.js
     private val nodejsLazyDelegate = lazy {
         project.objects.newInstance(KotlinNodeJs::class.java, this).also {
             it.configure()

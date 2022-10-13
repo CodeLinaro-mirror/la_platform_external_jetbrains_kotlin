@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.resolve.calls.inference.model
 
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability.*
+import org.jetbrains.kotlin.types.EmptyIntersectionTypeKind
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeVariableMarker
 
@@ -23,8 +24,11 @@ abstract class InjectedAnotherStubTypeConstraintPosition<T>(private val builderI
     override fun toString(): String = "Injected from $builderInferenceLambdaOfInjectedStubType builder inference call"
 }
 
-abstract class BuilderInferenceSubstitutionConstraintPosition<L, I>(private val builderInferenceLambda: L, val initialConstraint: I) :
-    ConstraintPosition(), OnlyInputTypeConstraintPosition {
+abstract class BuilderInferenceSubstitutionConstraintPosition<L, I>(
+    private val builderInferenceLambda: L,
+    val initialConstraint: I,
+    val isFromNotSubstitutedDeclaredUpperBound: Boolean = false
+) : ConstraintPosition(), OnlyInputTypeConstraintPosition {
     override fun toString(): String = "Incorporated builder inference constraint $initialConstraint " +
             "into $builderInferenceLambda call"
 }
@@ -127,6 +131,8 @@ open class NotEnoughInformationForTypeParameter<T>(
     val couldBeResolvedWithUnrestrictedBuilderInference: Boolean
 ) : ConstraintSystemError(INAPPLICABLE)
 
+class InferredIntoDeclaredUpperBounds(val typeVariable: TypeVariableMarker) : ConstraintSystemError(RESOLVED)
+
 class ConstrainingTypeIsError(
     val typeVariable: TypeVariableMarker,
     val constraintType: KotlinTypeMarker,
@@ -135,9 +141,31 @@ class ConstrainingTypeIsError(
 
 class NoSuccessfulFork(val position: IncorporationConstraintPosition) : ConstraintSystemError(INAPPLICABLE)
 
+sealed interface InferredEmptyIntersection {
+    val incompatibleTypes: List<KotlinTypeMarker>
+    val causingTypes: List<KotlinTypeMarker>
+    val typeVariable: TypeVariableMarker
+    val kind: EmptyIntersectionTypeKind
+}
+
+class InferredEmptyIntersectionWarning(
+    override val incompatibleTypes: List<KotlinTypeMarker>,
+    override val causingTypes: List<KotlinTypeMarker>,
+    override val typeVariable: TypeVariableMarker,
+    override val kind: EmptyIntersectionTypeKind,
+) : ConstraintSystemError(RESOLVED), InferredEmptyIntersection
+
+class InferredEmptyIntersectionError(
+    override val incompatibleTypes: List<KotlinTypeMarker>,
+    override val causingTypes: List<KotlinTypeMarker>,
+    override val typeVariable: TypeVariableMarker,
+    override val kind: EmptyIntersectionTypeKind,
+) : ConstraintSystemError(INAPPLICABLE), InferredEmptyIntersection
+
 class OnlyInputTypesDiagnostic(val typeVariable: TypeVariableMarker) : ConstraintSystemError(INAPPLICABLE)
 
-object LowerPriorityToPreserveCompatibility : ConstraintSystemError(RESOLVED_NEED_PRESERVE_COMPATIBILITY)
+class LowerPriorityToPreserveCompatibility(val needToReportWarning: Boolean) :
+    ConstraintSystemError(RESOLVED_NEED_PRESERVE_COMPATIBILITY)
 
 fun Constraint.isExpectedTypePosition() =
     position.from is ExpectedTypeConstraintPosition<*> || position.from is DelegatedPropertyConstraintPosition<*>

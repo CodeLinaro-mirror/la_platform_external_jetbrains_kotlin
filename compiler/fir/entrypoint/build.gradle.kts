@@ -12,6 +12,7 @@ dependencies {
     api(project(":compiler:fir:fir2ir"))
     api(project(":compiler:fir:checkers"))
     api(project(":compiler:fir:checkers:checkers.jvm"))
+    api(project(":compiler:fir:checkers:checkers.js"))
 
     // TODO: do not use GeneratorExtensions in `FirAnalyzerFacade.convertToIr`, and make this an 'implementation' dependency.
     api(project(":compiler:ir.psi2ir"))
@@ -21,7 +22,7 @@ dependencies {
     implementation(project(":compiler:backend.jvm"))
     implementation(project(":compiler:ir.serialization.common"))
     implementation(project(":compiler:ir.serialization.jvm"))
-    implementation(project(":compiler:ir.tree.impl"))
+    implementation(project(":compiler:ir.tree"))
 
     compileOnly(project(":kotlin-reflect-api"))
     compileOnly(intellijCore())

@@ -1,4 +1,5 @@
 KtSamConstructorSymbol:
+  annotationsList: []
   callableIdIfNonLocal: java/lang/Runnable
   hasStableParameterNames: true
   isExtension: false
@@ -7,7 +8,9 @@ KtSamConstructorSymbol:
   receiverType: null
   returnType: java/lang/Runnable
   symbolKind: SAM_CONSTRUCTOR
+  typeParameters: []
   valueParameters: [
     KtValueParameterSymbol(function)
   ]
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

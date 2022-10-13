@@ -20,9 +20,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.IrTypeArgument
 import org.jetbrains.kotlin.ir.types.IrTypeProjection
-import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
-import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
-import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
+import org.jetbrains.kotlin.ir.types.impl.*
 import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -114,7 +112,7 @@ class Fir2IrTypeConverter(
 
                 val irSymbol =
                     getBuiltInClassSymbol(classId)
-                        ?: lookupTag.toSymbol(session)?.toSymbol(session, classifierStorage, typeContext) {
+                        ?: lookupTag.toSymbol(session)?.toSymbol(typeContext) {
                             typeAnnotations += with(annotationGenerator) { it.toIrAnnotations() }
                         }
                         ?: (lookupTag as? ConeClassLikeLookupTag)?.let(classifierStorage::getIrClassSymbolForNotFoundClass)
@@ -163,13 +161,30 @@ class Fir2IrTypeConverter(
                 // (some reflection tests rely on this)
                 lowerBound.toIrType(
                     typeContext,
+                    annotations,
                     hasFlexibleNullability = lowerBound.nullability != upperBound.nullability,
                     addRawTypeAnnotation = true
                 )
             }
-            is ConeFlexibleType -> {
-                // TODO: yet we take more general type. Not quite sure it's Ok
-                upperBound.toIrType(typeContext, hasFlexibleNullability = lowerBound.nullability != upperBound.nullability)
+            is ConeDynamicType -> {
+                val typeAnnotations = with(annotationGenerator) { annotations.toIrAnnotations() }
+                return IrDynamicTypeImpl(null, typeAnnotations, Variance.INVARIANT)
+            }
+            is ConeFlexibleType -> with(session.typeContext) {
+                if (upperBound is ConeClassLikeType) {
+                    val upper = upperBound as ConeClassLikeType
+                    val lower = lowerBound as? ConeClassLikeType ?: error("Expecting class-like type, got $lowerBound")
+                    val intermediate = if (lower.lookupTag == upper.lookupTag) {
+                        lower.replaceArguments(upper.getArguments())
+                    } else lower
+                    (intermediate.withNullability(upper.isNullable) as ConeKotlinType)
+                        .withAttributes(lower.attributes)
+                        .toIrType(
+                            typeContext, annotations, hasFlexibleNullability = lower.nullability != upper.nullability
+                        )
+                } else {
+                    upperBound.toIrType(typeContext, annotations, hasFlexibleNullability = lowerBound.nullability != upperBound.nullability)
+                }
             }
             is ConeCapturedType -> {
                 val cached = capturedTypeCache[this]

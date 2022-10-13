@@ -5,21 +5,18 @@
 
 package org.jetbrains.kotlin.gradle.dsl
 
-import groovy.lang.Closure
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.internal.plugins.DslObject
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainSpec
-import org.gradle.util.ConfigureUtil
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsSingleTargetPreset
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.DefaultKpmGradleProjectModelContainer
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinGradleModule
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinGradleModuleFactory
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.GradleKpmDefaultProjectModelContainer
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinPm20ProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.targets.js.calculateJsCompilerType
@@ -27,7 +24,6 @@ import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrSingleTargetPreset
 import org.jetbrains.kotlin.gradle.tasks.CompileUsingKotlinDaemon
 import org.jetbrains.kotlin.gradle.tasks.withType
-import org.jetbrains.kotlin.gradle.utils.SingleWarningPerBuild
 import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
@@ -78,6 +74,17 @@ abstract class KotlinTopLevelExtension(internal val project: Project) : KotlinTo
     }
 
     /**
+     * Configures [Java toolchain](https://docs.gradle.org/current/userguide/toolchains.html) both for Kotlin JVM and Java tasks.
+     *
+     * @param jdkVersion - jdk version as number. For example, 17 for Java 17.
+     */
+    fun jvmToolchain(jdkVersion: Int) {
+        jvmToolchain {
+            it.languageVersion.set(JavaLanguageVersion.of(jdkVersion))
+        }
+    }
+
+    /**
      * Configures Kotlin daemon JVM arguments for all tasks in this project.
      *
      * **Note**: In case other projects are using different JVM arguments, new instance of Kotlin daemon will be started.
@@ -116,37 +123,45 @@ open class KotlinProjectExtension @Inject constructor(project: Project) : Kotlin
 
     internal val kpmModelContainer by lazy {
         if (project.kotlinPropertiesProvider.experimentalKpmModelMapping) {
-            DefaultKpmGradleProjectModelContainer.create(project)
+            GradleKpmDefaultProjectModelContainer.create(project)
         } else error("Model mapping is not enabled.")
     }
 }
 
-abstract class KotlinSingleTargetExtension(project: Project) : KotlinProjectExtension(project) {
-    abstract val target: KotlinTarget
+abstract class KotlinSingleTargetExtension<TARGET : KotlinTarget>(project: Project) : KotlinProjectExtension(project) {
+    abstract val target: TARGET
 
-    open fun target(body: Closure<out KotlinTarget>) = ConfigureUtil.configure(body, target)
+    fun target(body: Action<TARGET>) = body.execute(target)
 }
 
-abstract class KotlinSingleJavaTargetExtension(project: Project) : KotlinSingleTargetExtension(project) {
-    abstract override val target: KotlinWithJavaTarget<*>
-}
+abstract class KotlinSingleJavaTargetExtension(project: Project) : KotlinSingleTargetExtension<KotlinWithJavaTarget<*>>(project)
 
-open class KotlinJvmProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
+abstract class KotlinJvmProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
     override lateinit var target: KotlinWithJavaTarget<KotlinJvmOptions>
         internal set
 
     open fun target(body: KotlinWithJavaTarget<KotlinJvmOptions>.() -> Unit) = target.run(body)
 }
 
-open class Kotlin2JsProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
-    override lateinit var target: KotlinWithJavaTarget<KotlinJsOptions>
-        internal set
+abstract class Kotlin2JsProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
+    private lateinit var _target: KotlinWithJavaTarget<KotlinJsOptions>
+
+    override val target: KotlinWithJavaTarget<KotlinJsOptions>
+        get() {
+            if (!::_target.isInitialized) throw IllegalStateException("Extension target is not initialized!")
+
+            return _target
+        }
+
+    internal fun setTarget(target: KotlinWithJavaTarget<KotlinJsOptions>) {
+        _target = target
+    }
 
     open fun target(body: KotlinWithJavaTarget<KotlinJsOptions>.() -> Unit) = target.run(body)
 }
 
-open class KotlinJsProjectExtension(project: Project) :
-    KotlinSingleTargetExtension(project),
+abstract class KotlinJsProjectExtension(project: Project) :
+    KotlinSingleTargetExtension<KotlinJsTargetDsl>(project),
     KotlinJsCompilerTypeHolder {
     lateinit var irPreset: KotlinJsIrSingleTargetPreset
 
@@ -171,15 +186,12 @@ open class KotlinJsProjectExtension(project: Project) :
 
     @Deprecated("Use js() instead", ReplaceWith("js()"))
     @Suppress("DEPRECATION")
-    override var target: KotlinJsTargetDsl
+    override val target: KotlinJsTargetDsl
         get() {
             if (_target == null) {
                 js {}
             }
             return _target!!
-        }
-        set(value) {
-            _target = value
         }
 
     override lateinit var defaultJsCompilerType: KotlinJsCompilerType
@@ -252,18 +264,18 @@ open class KotlinJsProjectExtension(project: Project) :
 
     fun js() = js { }
 
-    fun js(compiler: KotlinJsCompilerType, configure: Closure<*>) =
+    fun js(compiler: KotlinJsCompilerType, configure: Action<KotlinJsTargetDsl>) =
         js(compiler = compiler) {
-            ConfigureUtil.configure(configure, this)
+            configure.execute(this)
         }
 
-    fun js(compiler: String, configure: Closure<*>) =
+    fun js(compiler: String, configure: Action<KotlinJsTargetDsl>) =
         js(compiler = compiler) {
-            ConfigureUtil.configure(configure, this)
+            configure.execute(this)
         }
 
-    fun js(configure: Closure<*>) = jsInternal {
-        ConfigureUtil.configure(configure, this)
+    fun js(configure: Action<KotlinJsTargetDsl>) = jsInternal {
+        configure.execute(this)
     }
 
     @Deprecated("Use js instead", ReplaceWith("js(body)"))
@@ -281,14 +293,14 @@ open class KotlinJsProjectExtension(project: Project) :
         }
 }
 
-open class KotlinCommonProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
+abstract class KotlinCommonProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
     override lateinit var target: KotlinWithJavaTarget<KotlinMultiplatformCommonOptions>
         internal set
 
     open fun target(body: KotlinWithJavaTarget<KotlinMultiplatformCommonOptions>.() -> Unit) = target.run(body)
 }
 
-open class KotlinAndroidProjectExtension(project: Project) : KotlinSingleTargetExtension(project) {
+abstract class KotlinAndroidProjectExtension(project: Project) : KotlinSingleTargetExtension<KotlinAndroidTarget>(project) {
     override lateinit var target: KotlinAndroidTarget
         internal set
 

@@ -48,6 +48,8 @@ import org.jetbrains.kotlin.name.JvmNames.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.JvmNames.TRANSIENT_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.JvmNames.VOLATILE_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.jvm.checkers.JvmSimpleNameBacktickChecker
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.*
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmClassSignature
@@ -57,7 +59,6 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.Method
 import java.io.File
-import java.lang.RuntimeException
 
 class ClassCodegen private constructor(
     val irClass: IrClass,
@@ -125,6 +126,9 @@ class ClassCodegen private constructor(
         //       blocks since they are `accept`ed once per each CFG edge out of the try-finally.
         if (generated) return
         generated = true
+
+        // Respect the [GenerateClassFilter] installed in the generation state
+        if (shouldSkipCodeGenerationAccordingToGenerationFilter()) return
 
         // Generate PermittedSubclasses attribute for sealed class.
         if (state.languageVersionSettings.supportsFeature(LanguageFeature.JvmPermittedSubclassesAttributeForSealed) &&
@@ -194,6 +198,14 @@ class ClassCodegen private constructor(
 
         visitor.done()
         jvmSignatureClashDetector.reportErrors(classOrigin)
+    }
+
+    private fun shouldSkipCodeGenerationAccordingToGenerationFilter(): Boolean {
+        val filter = state.generateDeclaredClassFilter
+        val ktFile = irClass.descriptorOrigin.element as? KtFile
+        val ktClass = irClass.psiElement as? KtClassOrObject
+        return (ktFile != null && !filter.shouldGeneratePackagePart(ktFile))
+                || (ktClass != null && !filter.shouldGenerateClass(ktClass))
     }
 
     private fun generatePermittedSubclasses() {
@@ -509,10 +521,15 @@ class ClassCodegen private constructor(
     private val IrDeclaration.descriptorOrigin: JvmDeclarationOrigin
         get() {
             val psiElement = PsiSourceManager.findPsiElement(this)
-            return if (origin == IrDeclarationOrigin.FILE_CLASS)
-                JvmDeclarationOrigin(JvmDeclarationOriginKind.PACKAGE_PART, psiElement, toIrBasedDescriptor())
-            else
-                OtherOrigin(psiElement, toIrBasedDescriptor())
+            return when {
+                origin == IrDeclarationOrigin.FILE_CLASS ->
+                    JvmDeclarationOrigin(JvmDeclarationOriginKind.PACKAGE_PART, psiElement, toIrBasedDescriptor())
+                (this is IrSimpleFunction && isSuspend && isEffectivelyInlineOnly()) ||
+                        origin == JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE ||
+                        origin == JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE ->
+                    JvmDeclarationOrigin(JvmDeclarationOriginKind.INLINE_VERSION_OF_SUSPEND_FUN, psiElement, toIrBasedDescriptor())
+                else -> OtherOrigin(psiElement, toIrBasedDescriptor())
+            }
         }
 
     private fun storeSerializedIr(serializedIr: ByteArray) {

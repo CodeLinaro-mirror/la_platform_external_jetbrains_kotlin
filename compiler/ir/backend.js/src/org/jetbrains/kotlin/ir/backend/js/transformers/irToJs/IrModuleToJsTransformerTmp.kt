@@ -62,6 +62,8 @@ enum class TranslationMode(
     }
 }
 
+class JsIrFragmentAndBinaryAst(val irFile: IrFile, val fragment: JsIrProgramFragment, val binaryAst: ByteArray)
+
 class IrModuleToJsTransformerTmp(
     private val backendContext: JsIrBackendContext,
     private val mainArguments: List<String>?,
@@ -84,7 +86,7 @@ class IrModuleToJsTransformerTmp(
             }
         }
 
-        val dts = wrapTypeScript(mainModuleName, moduleKind, exportData.values.flatMap { it.values.flatMap { it } }.toTypeScript(moduleKind))
+        val dts = ExportedModule(mainModuleName, moduleKind, exportData.values.flatMap { it.values.flatten() }).toTypeScript()
 
         modules.forEach { module ->
             module.files.forEach { StaticMembersLowering(backendContext).lower(it) }
@@ -125,14 +127,10 @@ class IrModuleToJsTransformerTmp(
         return CompilerResult(result, dts)
     }
 
-    class SrcFileFragmentAndBinaryAst(val srcPath: String, val fragment: JsIrProgramFragment, val binaryAst: ByteArray)
-
-    fun generateBinaryAst(files: Iterable<IrFile>, allModules: Iterable<IrModuleFragment>): List<SrcFileFragmentAndBinaryAst> {
+    fun generateBinaryAst(files: Collection<IrFile>, allModules: Collection<IrModuleFragment>): List<JsIrFragmentAndBinaryAst> {
         val exportModelGenerator = ExportModelGenerator(backendContext, generateNamespacesForPackages = true)
 
-        val exportData = files.associate { file ->
-            file to exportModelGenerator.generateExportWithExternals(file)
-        }
+        val exportData = files.map { it to exportModelGenerator.generateExportWithExternals(it) }
 
         allModules.forEach {
             it.files.forEach {
@@ -141,13 +139,12 @@ class IrModuleToJsTransformerTmp(
         }
 
         val serializer = JsIrAstSerializer()
-        return files.map { f ->
-            val exports = exportData[f]!! // TODO
-            val fragment = generateProgramFragment(f, exports, minimizedMemberNames = false)
+        return exportData.map { (file, exports) ->
+            val fragment = generateProgramFragment(file, exports, minimizedMemberNames = false)
             val output = ByteArrayOutputStream()
             serializer.serialize(fragment, output)
             val binaryAst = output.toByteArray()
-            SrcFileFragmentAndBinaryAst(f.fileEntry.name, fragment, binaryAst)
+            JsIrFragmentAndBinaryAst(file, fragment, binaryAst)
         }
     }
 
@@ -410,11 +407,7 @@ fun generateSingleWrappedModuleBody(
         val sourceMapPrefix = sourceMapsInfo.sourceMapPrefix
         sourceMapBuilder = SourceMap3Builder(null, jsCode, sourceMapPrefix)
 
-        val sourceRoots = sourceMapsInfo.sourceRoots.map(::File)
-        val generateRelativePathsInSourceMap = sourceMapPrefix.isEmpty() && sourceRoots.isEmpty()
-        val outputDir = if (generateRelativePathsInSourceMap) sourceMapsInfo.outputDir else null
-
-        val pathResolver = SourceFilePathResolver(sourceRoots, outputDir)
+        val pathResolver = SourceFilePathResolver.create(sourceMapsInfo.sourceRoots, sourceMapPrefix, sourceMapsInfo.outputDir)
 
         val sourceMapContentEmbedding =
             sourceMapsInfo.sourceMapContentEmbedding
