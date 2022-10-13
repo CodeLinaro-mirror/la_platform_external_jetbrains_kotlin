@@ -5,19 +5,15 @@
 
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import groovy.lang.Closure
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.DuplicatesStrategy
-import org.gradle.api.internal.plugins.DslObject
 import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.gradle.util.ConfigureUtil
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.configureOrCreate
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.internal.customizeKotlinDependencies
@@ -36,6 +32,7 @@ import org.jetbrains.kotlin.gradle.plugin.sources.checkSourceSetVisibilityRequir
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.scripting.internal.ScriptingGradleSubplugin
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinWasmTargetPreset
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.registerKotlinArtifactsExtension
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompileTool
 import org.jetbrains.kotlin.gradle.tasks.locateTask
@@ -48,15 +45,6 @@ import org.jetbrains.kotlin.statistics.metrics.StringMetrics
 import java.io.File
 
 class KotlinMultiplatformPlugin : Plugin<Project> {
-
-    private class TargetFromPresetExtension(val targetsContainer: KotlinTargetsContainerWithPresets) {
-        fun <T : KotlinTarget> fromPreset(preset: KotlinTargetPreset<T>, name: String, configureClosure: Closure<*>): T =
-            fromPreset(preset, name) { ConfigureUtil.configure(configureClosure, this) }
-
-        @JvmOverloads
-        fun <T : KotlinTarget> fromPreset(preset: KotlinTargetPreset<T>, name: String, configureAction: T.() -> Unit = { }): T =
-            targetsContainer.configureOrCreate(name, preset, configureAction)
-    }
 
     override fun apply(project: Project) {
         checkGradleCompatibility("the Kotlin Multiplatform plugin", GradleVersion.version("6.0"))
@@ -79,35 +67,21 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
             setupKpmModulesPublication(project)
             registerDefaultVariantFactories(project)
             with(project.kpmModules) {
-                create(KotlinGradleModule.MAIN_MODULE_NAME) {
+                create(GradleKpmModule.MAIN_MODULE_NAME) {
                     it.makePublic()
                 }
-                create(KotlinGradleModule.TEST_MODULE_NAME)
+                create(GradleKpmModule.TEST_MODULE_NAME)
             }
         }
 
-        val targetsContainer = project.container(KotlinTarget::class.java)
         val kotlinMultiplatformExtension = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
-        val targetsFromPreset = TargetFromPresetExtension(kotlinMultiplatformExtension)
-
-        kotlinMultiplatformExtension.apply {
-            DslObject(targetsContainer).addConvention("fromPreset", targetsFromPreset)
-
-            targets = targetsContainer
-            addExtension("targets", targets)
-
-            presets = project.container(KotlinTargetPreset::class.java)
-            addExtension("presets", presets)
-
-            defaultJsCompilerType = PropertiesProvider(project).jsCompiler
-        }
 
         setupDefaultPresets(project)
         customizeKotlinDependencies(project)
         configureSourceSets(project)
 
         // set up metadata publishing
-        targetsFromPreset.fromPreset(
+        kotlinMultiplatformExtension.targetFromPreset(
             KotlinMetadataTargetPreset(project),
             METADATA_TARGET_NAME
         )
@@ -116,7 +90,7 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
         if (!project.hasKpmModel) {
             configurePublishingWithMavenPublish(project)
         }
-        targetsContainer.withType(AbstractKotlinTarget::class.java).all { applyUserDefinedAttributes(it) }
+        kotlinMultiplatformExtension.targets.withType(AbstractKotlinTarget::class.java).all { applyUserDefinedAttributes(it) }
 
         // propagate compiler plugin options to the source set language settings
         setupAdditionalCompilerArguments(project)
@@ -124,14 +98,14 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
 
         project.pluginManager.apply(ScriptingGradleSubplugin::class.java)
 
-        exportProjectStructureMetadataForOtherBuilds(project)
+        exportProjectStructureMetadataForOtherBuilds(kotlinMultiplatformExtension)
     }
 
     private fun exportProjectStructureMetadataForOtherBuilds(
-        project: Project
+        extension: KotlinMultiplatformExtension
     ) {
-        GlobalProjectStructureMetadataStorage.registerProjectStructureMetadata(project) {
-            checkNotNull(buildKotlinProjectStructureMetadata(project))
+        GlobalProjectStructureMetadataStorage.registerProjectStructureMetadata(extension.project) {
+            extension.kotlinProjectStructureMetadata
         }
     }
 
@@ -176,15 +150,14 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
         with(project.multiplatformExtension.presets) {
             add(KotlinJvmTargetPreset(project))
             add(KotlinJsTargetPreset(project).apply { irPreset = null })
-            add(KotlinJsIrTargetPreset(project, isWasm = false).apply { mixedMode = false })
+            add(KotlinJsIrTargetPreset(project).apply { mixedMode = false })
             add(
                 KotlinJsTargetPreset(project).apply {
-                    irPreset = KotlinJsIrTargetPreset(project, isWasm = false)
-                        .apply { mixedMode = true }
+                    irPreset = KotlinJsIrTargetPreset(project).apply { mixedMode = true }
                 }
             )
-            add(KotlinJsIrTargetPreset(project, isWasm = true).apply { mixedMode = false })
-            add(KotlinAndroidTargetPreset(project))
+            add(KotlinWasmTargetPreset(project))
+            add(project.objects.newInstance(KotlinAndroidTargetPreset::class.java, project))
             add(KotlinJvmWithJavaTargetPreset(project))
 
             // Note: modifying these sets should also be reflected in the DSL code generator, see 'presetEntries.kt'
@@ -263,7 +236,7 @@ internal fun applyUserDefinedAttributes(target: AbstractKotlinTarget) {
 private fun applyUserDefinedAttributesWithKpm(
     target: AbstractKotlinTarget,
 ) {
-    fun copyAttributesToVariant(variant: KotlinGradleVariant, from: AttributeContainer) {
+    fun copyAttributesToVariant(variant: GradleKpmVariant, from: AttributeContainer) {
         variant.gradleVariantNames.forEach { configurationOrVariantName ->
             val configuration = variant.project.configurations.findByName(configurationOrVariantName)
                 ?: return@forEach
@@ -288,7 +261,7 @@ private fun applyUserDefinedAttributesWithKpm(
     }
 
     // Also handle the legacy-mapped variants, which are not accessible through the compilations in the loop above
-    project.kpmModules.getByName(KotlinGradleModule.MAIN_MODULE_NAME).variants.withType(LegacyMappedVariant::class.java).all { variant ->
+    project.kpmModules.getByName(GradleKpmModule.MAIN_MODULE_NAME).variants.withType(GradleKpmLegacyMappedVariant::class.java).all { variant ->
         val compilation = variant.compilation
         copyAttributesToVariant(variant, compilation.attributes)
     }
@@ -351,6 +324,8 @@ internal fun sourcesJarTaskNamed(
     val result = project.registerTask<Jar>(taskName) { sourcesJar ->
         sourcesJar.archiveAppendix.set(artifactNameAppendix)
         sourcesJar.archiveClassifier.set("sources")
+        sourcesJar.isPreserveFileTimestamps = false
+        sourcesJar.isReproducibleFileOrder = true
     }
 
     project.whenEvaluated {

@@ -30,7 +30,7 @@ interface PathContext {
 
     fun url(file: File): Pair<String, String> {
         val path = when {
-            file.isFile && file.extension.lowercase(Locale.getDefault()) == "jar" -> "jar://" + this(file) + "!/"
+            file.isFile && file.extension.lowercase(Locale.US) == "jar" -> "jar://" + this(file) + "!/"
             else -> "file://" + this(file)
         }
 

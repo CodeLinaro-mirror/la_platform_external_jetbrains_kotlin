@@ -1,5 +1,7 @@
 import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.kotlin.pill.PillExtension
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.github.jengelman.gradle.plugins.shadow.transformers.DontIncludeResourceTransformer
 
 plugins {
     id("gradle-plugin-common-configuration")
@@ -32,7 +34,6 @@ dependencies {
     commonApi(project(":kotlin-gradle-plugin-model"))
     commonApi(project(":kotlin-tooling-core"))
 
-    commonCompileOnly(gradleKotlinDsl())
     commonCompileOnly(project(":compiler"))
     commonCompileOnly(project(":compiler:incremental-compilation-impl"))
     commonCompileOnly(project(":daemon-common"))
@@ -54,19 +55,20 @@ dependencies {
     commonCompileOnly(project(":kotlin-reflect"))
     commonCompileOnly(intellijCore())
     commonCompileOnly(commonDependency("org.jetbrains.teamcity:serviceMessages"))
-    commonCompileOnly("com.gradle:gradle-enterprise-gradle-plugin:3.6.3")
-
-    commonImplementation(project(":kotlin-gradle-plugin-idea"))
-    commonImplementation(project(":kotlin-util-klib"))
-    commonImplementation(project(":native:kotlin-klib-commonizer-api"))
-    commonImplementation(project(":kotlin-tooling-metadata"))
-    commonImplementation(project(":kotlin-project-model"))
-    commonImplementation(commonDependency("com.google.code.gson:gson"))
-    commonImplementation(commonDependency("com.google.guava:guava"))
-    commonImplementation("de.undercouch:gradle-download-task:4.1.1")
-    commonImplementation("com.github.gundy:semver4j:0.16.4:nodeps") {
+    commonCompileOnly("com.gradle:gradle-enterprise-gradle-plugin:3.9")
+    commonCompileOnly(commonDependency("com.google.code.gson:gson"))
+    commonCompileOnly(commonDependency("com.google.guava:guava"))
+    commonCompileOnly("de.undercouch:gradle-download-task:4.1.1")
+    commonCompileOnly("com.github.gundy:semver4j:0.16.4:nodeps") {
         exclude(group = "*")
     }
+    commonCompileOnly(project(":kotlin-tooling-metadata"))
+
+    commonImplementation(project(":kotlin-gradle-plugin-idea"))
+    commonImplementation(project(":kotlin-gradle-plugin-idea-proto"))
+    commonImplementation(project(":kotlin-util-klib"))
+    commonImplementation(project(":native:kotlin-klib-commonizer-api"))
+    commonImplementation(project(":kotlin-project-model"))
 
     commonRuntimeOnly(project(":kotlin-compiler-embeddable"))
     commonRuntimeOnly(project(":kotlin-annotation-processing-gradle"))
@@ -81,6 +83,11 @@ dependencies {
     embedded(commonDependency("com.google.code.gson:gson")) { isTransitive = false }
     embedded(commonDependency("com.google.guava:guava")) { isTransitive = false }
     embedded(commonDependency("org.jetbrains.teamcity:serviceMessages")) { isTransitive = false }
+    embedded(project(":kotlin-tooling-metadata")) { isTransitive = false }
+    embedded("de.undercouch:gradle-download-task:4.1.1")
+    embedded("com.github.gundy:semver4j:0.16.4:nodeps") {
+        exclude(group = "*")
+    }
 
     if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         "functionalTestImplementation"("com.android.tools.build:gradle:4.0.1") {
@@ -88,6 +95,7 @@ dependencies {
         }
         "functionalTestImplementation"(gradleKotlinDsl())
         "functionalTestImplementation"(project(":kotlin-gradle-plugin-kpm-android"))
+        "functionalTestImplementation"(project(":kotlin-tooling-metadata"))
         "functionalTestImplementation"(testFixtures(project(":kotlin-gradle-plugin-idea")))
     }
 
@@ -103,6 +111,7 @@ dependencies {
     testImplementation(project(":kotlin-test:kotlin-test-junit"))
     testImplementation(commonDependency("junit:junit"))
     testImplementation(project(":kotlin-gradle-statistics"))
+    testImplementation(project(":kotlin-tooling-metadata"))
 }
 
 if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
@@ -128,10 +137,6 @@ tasks {
         enableStricterValidation.set(true)
     }
 
-    named("install") {
-        dependsOn(named("validatePlugins"))
-    }
-
     withType<DokkaTask>().configureEach {
         dokkaSourceSets.configureEach {
             includes.from("Module.md")
@@ -139,6 +144,17 @@ tasks {
     }
     register("dokka") {
         dependsOn(named("dokkaJavadoc"))
+    }
+
+    withType<ShadowJar>().configureEach {
+        relocate("com.github.gundy", "$kotlinEmbeddableRootPackage.com.github.gundy")
+        relocate("de.undercouch.gradle.tasks.download", "$kotlinEmbeddableRootPackage.de.undercouch.gradle.tasks.download")
+
+        // don't expose external Gradle plugin marker
+        // workaround from https://github.com/johnrengelman/shadow/issues/505#issuecomment-644098082
+        transform(DontIncludeResourceTransformer::class.java) {
+            resource = "META-INF/gradle-plugins/de.undercouch.download.properties"
+        }
     }
 }
 

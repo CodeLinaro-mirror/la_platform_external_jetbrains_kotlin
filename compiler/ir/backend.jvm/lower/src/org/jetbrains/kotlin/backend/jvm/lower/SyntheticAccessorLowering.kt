@@ -55,6 +55,7 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : FileL
             currentScope: ScopeWithIr?,
             inlineScopeResolver: IrInlineScopeResolver,
             withSuper: Boolean, thisObjReference: IrClassSymbol?,
+            fromOtherClassLoader: Boolean = false
         ): Boolean {
             /// We assume that IR code that reaches us has been checked for correctness at the frontend.
             /// This function needs to single out those cases where Java accessibility rules differ from Kotlin's.
@@ -88,12 +89,13 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : FileL
 
             val ownerClass = declaration.parent as? IrClass ?: return true // locals are always accessible
             val scopeClassOrPackage = inlineScopeResolver.findContainer(currentScope!!.irElement) ?: return false
-            val samePackage = ownerClass.getPackageFragment()?.fqName == scopeClassOrPackage.getPackageFragment()?.fqName
+            val samePackage = ownerClass.getPackageFragment().fqName == scopeClassOrPackage.getPackageFragment()?.fqName
             return when {
-                jvmVisibility == 0 /* package only */ -> samePackage
                 jvmVisibility == Opcodes.ACC_PRIVATE -> ownerClass == scopeClassOrPackage
-                // JVM `protected`, unlike Kotlin `protected`, permits accesses from the same package.
-                !withSuper && samePackage -> true
+                !withSuper && samePackage && jvmVisibility == 0 /* package only */ -> true
+                // JVM `protected`, unlike Kotlin `protected`, permits accesses from the same package,
+                // provided the call is not across class loader boundaries.
+                !withSuper && samePackage && !fromOtherClassLoader -> true
                 // Super calls and cross-package protected accesses are both only possible from a subclass of the declaration
                 // owner. Also, the target of a non-static call must be assignable to the current class. This is a verification
                 // constraint: https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.10.1.8

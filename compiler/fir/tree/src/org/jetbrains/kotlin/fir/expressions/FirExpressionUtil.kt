@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.fir.expressions
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
@@ -21,6 +23,7 @@ import org.jetbrains.kotlin.fir.resolvedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.TransformData
 import org.jetbrains.kotlin.fir.visitors.transformInplace
@@ -44,6 +47,15 @@ fun <T> buildConstOrErrorExpression(source: KtSourceElement?, kind: ConstantValu
 inline val FirCall.arguments: List<FirExpression> get() = argumentList.arguments
 
 inline val FirCall.argument: FirExpression get() = argumentList.arguments.first()
+
+inline val FirCall.dynamicVararg: FirVarargArgumentsExpression?
+    get() = arguments.firstOrNull() as? FirVarargArgumentsExpression
+
+inline val FirCall.dynamicVarargArguments: List<FirExpression>?
+    get() = dynamicVararg?.arguments
+
+inline val FirFunctionCall.isCalleeDynamic: Boolean
+    get() = (calleeReference.resolvedSymbol?.fir as? FirFunction)?.origin == FirDeclarationOrigin.DynamicScope
 
 inline val FirCall.resolvedArgumentMapping: Map<FirExpression, FirValueParameter>?
     get() = when (val argumentList = argumentList) {
@@ -78,6 +90,10 @@ fun buildErrorLoop(source: KtSourceElement?, diagnostic: ConeDiagnostic): FirErr
     return buildErrorLoop {
         this.source = source
         this.diagnostic = diagnostic
+    }.also {
+        it.block.replaceTypeRef(buildErrorTypeRef {
+            this.diagnostic = diagnostic
+        })
     }
 }
 

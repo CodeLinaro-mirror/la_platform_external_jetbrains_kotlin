@@ -106,7 +106,8 @@
 -keep class org.jetbrains.kotlin.container.** { *; }
 
 -keep class org.jetbrains.org.objectweb.asm.Opcodes { *; }
-
+-keep class org.jetbrains.org.objectweb.asm.tree.analysis.SimpleVerifier { *; }
+-keep class org.jetbrains.org.objectweb.asm.tree.analysis.Analyzer { *; }
 -keep class org.jetbrains.kotlin.codegen.extensions.** {
     public protected *;
 }
@@ -284,3 +285,6 @@
     public ** plus(java.lang.Object, java.lang.Object);
     public ** plusAll(java.util.Map);
 }
+
+# This class is needed for test framework
+-keep class com.intellij.openapi.util.text.StringUtil { *; }

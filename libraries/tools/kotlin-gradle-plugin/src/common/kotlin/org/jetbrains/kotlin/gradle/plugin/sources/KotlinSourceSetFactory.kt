@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.targets
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.targets
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
@@ -160,7 +160,6 @@ internal class DefaultKotlinSourceSetFactory(
             }
     }
 
-    override fun doCreateSourceSet(name: String): DefaultKotlinSourceSet {
-        return DefaultKotlinSourceSet(project, name)
-    }
+    override fun doCreateSourceSet(name: String): DefaultKotlinSourceSet =
+        project.objects.newInstance(DefaultKotlinSourceSet::class.java, project, name)
 }

@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.util
 
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.KtDeclarationAndFirDeclarationEqualityChecker
+import org.jetbrains.kotlin.analysis.utils.printer.getElementTextInContext
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.getClassDeclaredConstructors
@@ -24,7 +25,7 @@ internal class FirDeclarationForCompiledElementSearcher(private val symbolProvid
     fun findNonLocalDeclaration(ktDeclaration: KtDeclaration): FirDeclaration {
         return when (ktDeclaration) {
             is KtEnumEntry -> findNonLocalEnumEntry(ktDeclaration)
-            is KtClassOrObject -> findNonLocalClass(ktDeclaration)
+            is KtClassLikeDeclaration -> findNonLocalClassLikeDeclaration(ktDeclaration)
             is KtConstructor<*> -> findConstructorOfNonLocalClass(ktDeclaration)
             is KtNamedFunction -> findNonLocalFunction(ktDeclaration)
             is KtProperty -> findNonLocalProperty(ktDeclaration)
@@ -46,8 +47,7 @@ internal class FirDeclarationForCompiledElementSearcher(private val symbolProvid
         } as FirEnumEntry
     }
 
-    private fun findNonLocalClass(declaration: KtClassOrObject): FirClassLikeDeclaration {
-        require(!declaration.isLocal)
+    private fun findNonLocalClassLikeDeclaration(declaration: KtClassLikeDeclaration): FirClassLikeDeclaration {
         val classId = declaration.getClassId()
             ?: error("Non-local class should have classId. The class is ${declaration.getElementTextInContext()}")
 

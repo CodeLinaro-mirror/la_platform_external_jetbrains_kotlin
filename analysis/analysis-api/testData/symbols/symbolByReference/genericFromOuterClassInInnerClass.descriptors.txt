@@ -13,7 +13,7 @@ KtFunctionSymbol:
   isSuspend: false
   modality: FINAL
   name: withOuter
-  origin: LIBRARY
+  origin: SOURCE
   receiverType: null
   returnType: Outer?
   symbolKind: CLASS_MEMBER
@@ -21,4 +21,5 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): test/TopLevel<Outer>.test/TopLevel.Base<T>
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

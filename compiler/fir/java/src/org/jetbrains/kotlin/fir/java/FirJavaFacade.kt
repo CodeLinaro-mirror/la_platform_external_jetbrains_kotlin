@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.java
 
-import com.intellij.openapi.progress.ProcessCanceledException
 import org.jetbrains.kotlin.KtFakeSourceElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
@@ -51,10 +50,20 @@ import org.jetbrains.kotlin.toKtPsiSourceElement
 import org.jetbrains.kotlin.types.Variance.INVARIANT
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
+class FirJavaFacadeForSource(
+    session: FirSession,
+    private val sourceModuleData: FirModuleData,
+    classFinder: JavaClassFinder
+) : FirJavaFacade(session, sourceModuleData.session.builtinTypes, classFinder) {
+    override fun getModuleDataForClass(javaClass: JavaClass): FirModuleData {
+        return sourceModuleData
+    }
+}
+
 @ThreadSafeMutableState
-class FirJavaFacade(
+abstract class FirJavaFacade(
     private val session: FirSession,
-    private val baseModuleData: FirModuleData,
+    private val builtinTypes: BuiltinTypes,
     private val classFinder: JavaClassFinder
 ) {
     companion object {
@@ -79,24 +88,23 @@ class FirJavaFacade(
             ?.takeIf { it.classId == classId && !it.hasMetadataAnnotation() }
 
     fun getPackage(fqName: FqName): FqName? =
-        try {
-            packageCache.getValue(fqName)?.fqName
-        } catch (e: ProcessCanceledException) {
-            null
-        }
+        packageCache.getValue(fqName)?.fqName
 
     fun hasTopLevelClassOf(classId: ClassId): Boolean {
         val knownNames = knownClassNamesInPackage.getValue(classId.packageFqName) ?: return true
         return classId.relativeClassName.topLevelName() in knownNames
     }
 
+    abstract fun getModuleDataForClass(javaClass: JavaClass): FirModuleData
+
     private fun JavaTypeParameter.toFirTypeParameter(
         javaTypeParameterStack: JavaTypeParameterStack,
-        containingDeclarationSymbol: FirBasedSymbol<*>
+        containingDeclarationSymbol: FirBasedSymbol<*>,
+        moduleData: FirModuleData,
     ): FirTypeParameter {
         return buildTypeParameter {
-            moduleData = baseModuleData
-            origin = FirDeclarationOrigin.Java
+            this.moduleData = moduleData
+            origin = javaOrigin(isFromSource)
             resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
             name = this@toFirTypeParameter.name
             symbol = FirTypeParameterSymbol()
@@ -110,7 +118,6 @@ class FirJavaFacade(
                 bounds += upperBound.toFirJavaTypeRef(session, javaTypeParameterStack)
             }
             if (bounds.isEmpty()) {
-                val builtinTypes = baseModuleData.session.builtinTypes
                 bounds += buildResolvedTypeRef {
                     type = ConeFlexibleType(builtinTypes.anyType.type, builtinTypes.nullableAnyType.type)
                 }
@@ -120,9 +127,10 @@ class FirJavaFacade(
 
     private fun List<JavaTypeParameter>.convertTypeParameters(
         stack: JavaTypeParameterStack,
-        containingDeclarationSymbol: FirBasedSymbol<*>
+        containingDeclarationSymbol: FirBasedSymbol<*>,
+        moduleData: FirModuleData,
     ): List<FirTypeParameter> {
-        return map { it.toFirTypeParameter(stack, containingDeclarationSymbol) }
+        return map { it.toFirTypeParameter(stack, containingDeclarationSymbol, moduleData) }
     }
 
     private fun JavaClass.hasMetadataAnnotation(): Boolean =
@@ -221,11 +229,13 @@ class FirJavaFacade(
     ): FirJavaClass {
         val valueParametersForAnnotationConstructor = ValueParametersForAnnotationConstructor()
         val classIsAnnotation = javaClass.classKind == ClassKind.ANNOTATION_CLASS
+        val moduleData = getModuleDataForClass(javaClass)
         return buildJavaClass {
             source = (javaClass as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement()
-            moduleData = baseModuleData
+            this.moduleData = moduleData
             symbol = classSymbol
             name = javaClass.name
+            isFromSource = javaClass.isFromSource
             val visibility = javaClass.visibility
             this@buildJavaClass.visibility = visibility
             classKind = javaClass.classKind
@@ -244,7 +254,7 @@ class FirJavaFacade(
             val effectiveVisibility = parentEffectiveVisibility.lowerBound(selfEffectiveVisibility, session.typeContext)
             parentClassEffectiveVisibilityCache[classSymbol] = effectiveVisibility
 
-            val classTypeParameters = javaClass.typeParameters.convertTypeParameters(javaTypeParameterStack, classSymbol)
+            val classTypeParameters = javaClass.typeParameters.convertTypeParameters(javaTypeParameterStack, classSymbol, moduleData)
             typeParameters += classTypeParameters
             if (!isStatic && parentClassSymbol != null) {
                 typeParameters += parentClassSymbol.fir.typeParameters.map {
@@ -276,7 +286,7 @@ class FirJavaFacade(
             // TODO: may be we can process fields & methods later.
             // However, they should be built up to override resolve stage
             for (javaField in javaClass.fields) {
-                declarations += convertJavaFieldToFir(javaField, classId, javaTypeParameterStack, dispatchReceiver)
+                declarations += convertJavaFieldToFir(javaField, classId, javaTypeParameterStack, dispatchReceiver, moduleData)
             }
 
             for (javaMethod in javaClass.methods) {
@@ -285,12 +295,14 @@ class FirJavaFacade(
                     javaMethod,
                     classId,
                     javaTypeParameterStack,
-                    dispatchReceiver
+                    dispatchReceiver,
+                    moduleData,
                 )
                 declarations += firJavaMethod
 
                 if (classIsAnnotation) {
-                    val parameterForAnnotationConstructor = convertJavaAnnotationMethodToValueParameter(javaMethod, firJavaMethod)
+                    val parameterForAnnotationConstructor =
+                        convertJavaAnnotationMethodToValueParameter(javaMethod, firJavaMethod, moduleData)
                     if (javaMethod.name == VALUE_METHOD_NAME) {
                         valueParametersForAnnotationConstructor.valueParameterForValue = javaMethod to parameterForAnnotationConstructor
                     } else {
@@ -313,6 +325,7 @@ class FirJavaFacade(
                     classTypeParameters,
                     javaTypeParameterStack,
                     parentClassSymbol,
+                    moduleData,
                 )
             }
             for (javaConstructor in javaClassDeclaredConstructors) {
@@ -324,24 +337,26 @@ class FirJavaFacade(
                     classTypeParameters,
                     javaTypeParameterStack,
                     parentClassSymbol,
+                    moduleData,
                 )
             }
 
             if (classKind == ClassKind.ENUM_CLASS) {
                 generateValuesFunction(
-                    baseModuleData,
+                    moduleData,
                     classId.packageFqName,
                     classId.relativeClassName
                 )
-                generateValueOfFunction(baseModuleData, classId.packageFqName, classId.relativeClassName)
+                generateValueOfFunction(moduleData, classId.packageFqName, classId.relativeClassName)
             }
             if (classIsAnnotation) {
                 declarations +=
                     buildConstructorForAnnotationClass(
-                        classSource = (javaClass as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement(KtFakeSourceElementKind.ImplicitConstructor) as? KtFakeSourceElement,
+                        javaClass,
                         constructorId = constructorId,
                         ownerClassBuilder = this,
-                        valueParametersForAnnotationConstructor = valueParametersForAnnotationConstructor
+                        valueParametersForAnnotationConstructor = valueParametersForAnnotationConstructor,
+                        moduleData = moduleData,
                     )
             }
         }.apply {
@@ -369,7 +384,8 @@ class FirJavaFacade(
         javaField: JavaField,
         classId: ClassId,
         javaTypeParameterStack: JavaTypeParameterStack,
-        dispatchReceiver: ConeClassLikeType
+        dispatchReceiver: ConeClassLikeType,
+        moduleData: FirModuleData,
     ): FirDeclaration {
         val fieldName = javaField.name
         val fieldId = CallableId(classId.packageFqName, classId.relativeClassName, fieldName)
@@ -377,7 +393,7 @@ class FirJavaFacade(
         return when {
             javaField.isEnumEntry -> buildEnumEntry {
                 source = (javaField as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement()
-                moduleData = baseModuleData
+                this.moduleData = moduleData
                 symbol = FirEnumEntrySymbol(fieldId)
                 name = fieldName
                 status = FirResolvedDeclarationStatusImpl(
@@ -392,7 +408,7 @@ class FirJavaFacade(
                 }
                 returnTypeRef = returnType.toFirJavaTypeRef(session, javaTypeParameterStack)
                 resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
-                origin = FirDeclarationOrigin.Java
+                origin = javaOrigin(javaField.isFromSource)
                 // TODO: check if this works properly with annotations that take the enum class as an argument
                 annotations.addFromJava(session, javaField, javaTypeParameterStack)
             }.apply {
@@ -400,9 +416,10 @@ class FirJavaFacade(
             }
             else -> buildJavaField {
                 source = (javaField as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement()
-                moduleData = baseModuleData
+                this.moduleData = moduleData
                 symbol = FirFieldSymbol(fieldId)
                 name = fieldName
+                isFromSource = javaField.isFromSource
                 status = FirResolvedDeclarationStatusImpl(
                     javaField.visibility,
                     javaField.modality,
@@ -441,20 +458,22 @@ class FirJavaFacade(
         javaMethod: JavaMethod,
         classId: ClassId,
         javaTypeParameterStack: JavaTypeParameterStack,
-        dispatchReceiver: ConeClassLikeType
+        dispatchReceiver: ConeClassLikeType,
+        moduleData: FirModuleData,
     ): FirJavaMethod {
         val methodName = javaMethod.name
         val methodId = CallableId(classId.packageFqName, classId.relativeClassName, methodName)
         val methodSymbol = FirNamedFunctionSymbol(methodId)
         val returnType = javaMethod.returnType
         return buildJavaMethod {
-            moduleData = baseModuleData
+            this.moduleData = moduleData
             source = (javaMethod as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement()
             symbol = methodSymbol
             name = methodName
+            isFromSource = javaMethod.isFromSource
             returnTypeRef = returnType.toFirJavaTypeRef(session, javaTypeParameterStack)
             isStatic = javaMethod.isStatic
-            typeParameters += javaMethod.typeParameters.convertTypeParameters(javaTypeParameterStack, methodSymbol)
+            typeParameters += javaMethod.typeParameters.convertTypeParameters(javaTypeParameterStack, methodSymbol, moduleData)
             for ((index, valueParameter) in javaMethod.valueParameters.withIndex()) {
                 valueParameters += valueParameter.toFirValueParameter(session, moduleData, index, javaTypeParameterStack)
             }
@@ -488,11 +507,16 @@ class FirJavaFacade(
         }
     }
 
-    private fun convertJavaAnnotationMethodToValueParameter(javaMethod: JavaMethod, firJavaMethod: FirJavaMethod): FirJavaValueParameter =
+    private fun convertJavaAnnotationMethodToValueParameter(
+        javaMethod: JavaMethod,
+        firJavaMethod: FirJavaMethod,
+        moduleData: FirModuleData,
+    ): FirJavaValueParameter =
         buildJavaValueParameter {
             source = (javaMethod as? JavaElementImpl<*>)?.psi
                 ?.toKtPsiSourceElement(KtFakeSourceElementKind.ImplicitJavaAnnotationConstructor)
-            moduleData = baseModuleData
+            this.moduleData = moduleData
+            isFromSource = javaMethod.isFromSource
             returnTypeRef = firJavaMethod.returnTypeRef
             name = javaMethod.name
             isVararg = javaMethod.returnType is JavaArrayType && javaMethod.name == VALUE_METHOD_NAME
@@ -507,11 +531,13 @@ class FirJavaFacade(
         classTypeParameters: List<FirTypeParameter>,
         javaTypeParameterStack: JavaTypeParameterStack,
         outerClassSymbol: FirRegularClassSymbol?,
+        moduleData: FirModuleData,
     ): FirJavaConstructor {
         val constructorSymbol = FirConstructorSymbol(constructorId)
         return buildJavaConstructor {
             source = (javaConstructor as? JavaElementImpl<*>)?.psi?.toKtPsiSourceElement()
-            moduleData = baseModuleData
+            this.moduleData = moduleData
+            isFromSource = javaClass.isFromSource
             symbol = constructorSymbol
             isInner = javaClass.outerClass != null && !javaClass.isStatic
             val isThisInner = this.isInner
@@ -535,7 +561,7 @@ class FirJavaFacade(
             typeParameters += classTypeParameters.map { buildConstructedClassTypeParameterRef { symbol = it.symbol } }
 
             if (javaConstructor != null) {
-                this.typeParameters += javaConstructor.typeParameters.convertTypeParameters(javaTypeParameterStack, constructorSymbol)
+                this.typeParameters += javaConstructor.typeParameters.convertTypeParameters(javaTypeParameterStack, constructorSymbol, moduleData)
                 annotationBuilder = { javaConstructor.convertAnnotationsToFir(session, javaTypeParameterStack) }
                 for ((index, valueParameter) in javaConstructor.valueParameters.withIndex()) {
                     valueParameters += valueParameter.toFirValueParameter(session, moduleData, index, javaTypeParameterStack)
@@ -549,14 +575,18 @@ class FirJavaFacade(
     }
 
     private fun buildConstructorForAnnotationClass(
-        classSource: KtFakeSourceElement?,
+        javaClass: JavaClass,
         constructorId: CallableId,
         ownerClassBuilder: FirJavaClassBuilder,
-        valueParametersForAnnotationConstructor: ValueParametersForAnnotationConstructor
+        valueParametersForAnnotationConstructor: ValueParametersForAnnotationConstructor,
+        moduleData: FirModuleData,
     ): FirJavaConstructor {
         return buildJavaConstructor {
-            source = classSource
-            moduleData = baseModuleData
+            source = (javaClass as? JavaElementImpl<*>)
+                ?.psi
+                ?.toKtPsiSourceElement(KtFakeSourceElementKind.ImplicitConstructor) as? KtFakeSourceElement
+            this.moduleData = moduleData
+            isFromSource = javaClass.isFromSource
             symbol = FirConstructorSymbol(constructorId)
             status = FirResolvedDeclarationStatusImpl(Visibilities.Public, Modality.FINAL, EffectiveVisibility.Public)
             returnTypeRef = buildResolvedTypeRef {

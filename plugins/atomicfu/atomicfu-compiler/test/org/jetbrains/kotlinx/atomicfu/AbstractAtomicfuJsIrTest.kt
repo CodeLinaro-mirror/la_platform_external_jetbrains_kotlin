@@ -7,6 +7,7 @@ package org.jetbrains.kotlinx.atomicfu
 
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.js.test.ir.AbstractJsIrTest
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.model.TestModule
@@ -16,8 +17,8 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlinx.atomicfu.compiler.extensions.AtomicfuLoweringExtension
 import java.io.File
 
-private val atomicfuCompileDependency = System.getProperty("atomicfu.classpath")
-private val atomicfuRuntime = System.getProperty("atomicfuRuntimeForTests.classpath")
+private val atomicfuJsCompileDependency = System.getProperty("atomicfuJs.classpath")
+private val atomicfuJsIrRuntime = System.getProperty("atomicfuJsIrRuntimeForTests.classpath")
 
 open class AbstractAtomicfuJsIrTest : AbstractJsIrTest(
     pathToTestDir = "plugins/atomicfu/atomicfu-compiler/testData/box/",
@@ -27,19 +28,21 @@ open class AbstractAtomicfuJsIrTest : AbstractJsIrTest(
         super.configure(builder)
         with(builder) {
             useConfigurators(::AtomicfuEnvironmentConfigurator)
-            useCustomRuntimeClasspathProviders(::AtomicfuRuntimeClasspathProvider)
+            useCustomRuntimeClasspathProviders(::AtomicfuJsRuntimeClasspathProvider)
         }
     }
 }
 
-class AtomicfuRuntimeClasspathProvider(testServices: TestServices) : RuntimeClasspathProvider(testServices) {
-    override fun runtimeClassPaths(module: TestModule): List<File> {
-        return listOf(atomicfuCompileDependency, atomicfuRuntime).map { File(it) }
+class AtomicfuEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
+    override fun registerCompilerExtensions(project: Project, module: TestModule, configuration: CompilerConfiguration) {
+        IrGenerationExtension.registerExtension(project, AtomicfuLoweringExtension())
     }
 }
 
-class AtomicfuEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
-    override fun registerCompilerExtensions(project: Project, module: TestModule) {
-        IrGenerationExtension.registerExtension(project, AtomicfuLoweringExtension())
+class AtomicfuJsRuntimeClasspathProvider(
+    testServices: TestServices
+) : RuntimeClasspathProvider(testServices) {
+    override fun runtimeClassPaths(module: TestModule): List<File> {
+        return listOf(atomicfuJsCompileDependency, atomicfuJsIrRuntime).map { File(it) }
     }
 }

@@ -13,7 +13,7 @@ declare namespace JS_TESTS {
         function varargWithOtherParameters(x: string, y: Array<string>, z: string): number;
         function varargWithComplexType(x: Array<(p0: Array<Int32Array>) => Array<Int32Array>>): number;
         function sumNullable(x: Nullable<number>, y: Nullable<number>): number;
-        function defaultParameters(x?: number, y?: string): string;
+        function defaultParameters(a: string, x?: number, y?: string): string;
         function generic1<T>(x: T): T;
         function generic2<T>(x: Nullable<T>): boolean;
         function genericWithConstraint<T extends string>(x: T): T;
@@ -49,6 +49,11 @@ declare namespace JS_TESTS {
             get _varCustomWithField(): number;
             set _varCustomWithField(value: number);
         }
+        class A5<T> {
+            constructor(value: T);
+            get value(): T;
+            test(): T;
+        }
         const O0: {
         };
         const O: {
@@ -62,7 +67,7 @@ declare namespace JS_TESTS {
                 get x(): number;
             };
         }
-        class TestSealed {
+        abstract class TestSealed {
             protected constructor(name: string);
             get name(): string;
         }
@@ -162,5 +167,70 @@ declare namespace JS_TESTS {
                 get ordinal(): 0 | 1;
             }
         }
+        class KT38262 {
+            constructor();
+            then(): number;
+            catch(): number;
+        }
+        class JsNameTest {
+            private constructor();
+            get value(): number;
+            runTest(): string;
+            static get Companion(): {
+                create(): foo.JsNameTest;
+                createChild(value: number): foo.JsNameTest.NestedJsName;
+            };
+        }
+        namespace JsNameTest {
+            class NestedJsName {
+                constructor(__value: number);
+                get value(): number;
+            }
+        }
+        class KT39423 {
+            constructor(a: string, b?: Nullable<number>);
+            get a(): string;
+            get b(): Nullable<number>;
+            component1(): string;
+            component2(): Nullable<number>;
+            copy(a?: string, b?: Nullable<number>): foo.KT39423;
+            toString(): string;
+            hashCode(): number;
+            equals(other: Nullable<any>): boolean;
+        }
+        abstract class Parent {
+            private constructor();
+        }
+        namespace Parent {
+            abstract class Nested1 extends _objects_.foo$Parent$Nested1 {
+                private constructor();
+            }
+            namespace Nested1 {
+                class Nested2 {
+                    constructor();
+                }
+                namespace Nested2 {
+                    abstract class Companion {
+                        private constructor();
+                    }
+                    namespace Companion {
+                        class Nested3 {
+                            constructor();
+                        }
+                    }
+                }
+            }
+        }
+        function getParent(): typeof foo.Parent;
+        function createNested1(): typeof foo.Parent.Nested1;
+        function createNested2(): foo.Parent.Nested1.Nested2;
+        function createNested3(): foo.Parent.Nested1.Nested2.Companion.Nested3;
+    }
+    namespace _objects_ {
+        const foo$Parent$Nested1: {
+            get value(): string;
+        } & {
+            new(): any;
+        };
     }
 }

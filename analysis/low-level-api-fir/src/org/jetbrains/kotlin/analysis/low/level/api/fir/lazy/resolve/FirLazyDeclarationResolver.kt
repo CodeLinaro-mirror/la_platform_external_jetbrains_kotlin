@@ -5,12 +5,11 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve
 
+import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDeclarationDesignationWithFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDesignationWithFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.tryCollectDesignationWithFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.getNonLocalContainingOrThisDeclaration
-import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.FirFileBuilder
-import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.ModuleFileCache
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.runCustomResolveUnderLock
 import org.jetbrains.kotlin.analysis.low.level.api.fir.transformers.LLFirFileAnnotationsResolveTransformer
 import org.jetbrains.kotlin.analysis.low.level.api.fir.transformers.LLFirFirProviderInterceptor
@@ -30,7 +29,7 @@ import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtEnumEntry
 
-internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBuilder) {
+internal class FirLazyDeclarationResolver(val moduleComponents: LLFirModuleResolveComponents) {
     /**
      * Fully resolve file annotations (synchronized)
      * @see resolveFileAnnotationsWithoutLock not synchronized
@@ -38,13 +37,12 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
     fun resolveFileAnnotations(
         firFile: FirFile,
         annotations: List<FirAnnotation>,
-        moduleFileCache: ModuleFileCache,
         scopeSession: ScopeSession,
         checkPCE: Boolean,
         collector: FirTowerDataContextCollector? = null,
     ) {
         if (firFile.resolvePhase >= FirResolvePhase.IMPORTS && annotations.all { it.resolved }) return
-        moduleFileCache.firFileLockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
+        moduleComponents.globalResolveComponents.lockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
             resolveFileAnnotationsWithoutLock(
                 firFile = firFile,
                 annotations = annotations,
@@ -75,7 +73,7 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
                 session = firFile.moduleData.session,
                 scopeSession = scopeSession,
                 firTowerDataContextCollector = collector,
-            ).transformDeclaration(firFileBuilder.firPhaseRunner)
+            ).transformDeclaration(moduleComponents.globalResolveComponents.phaseRunner)
         }
     }
 
@@ -110,21 +108,19 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
 
     fun lazyResolveFileDeclaration(
         firFile: FirFile,
-        moduleFileCache: ModuleFileCache,
         toPhase: FirResolvePhase,
         scopeSession: ScopeSession,
         collector: FirTowerDataContextCollector? = null,
         checkPCE: Boolean = false,
     ) {
         if (toPhase == FirResolvePhase.RAW_FIR) return
-        resolveFileToImports(firFile, moduleFileCache, checkPCE)
+        resolveFileToImports(firFile, checkPCE)
         if (toPhase == FirResolvePhase.IMPORTS) return
         if (firFile.resolvePhase >= toPhase) return
-        moduleFileCache.firFileLockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
+        moduleComponents.globalResolveComponents.lockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
             ResolveTreeBuilder.resolveEnsure(firFile, toPhase) {
                 lazyResolveFileDeclarationWithoutLock(
                     firFile = firFile,
-                    moduleFileCache = moduleFileCache,
                     toPhase = toPhase,
                     collector = collector,
                     scopeSession = scopeSession,
@@ -134,9 +130,9 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
         }
     }
 
-    private fun resolveFileToImports(firFile: FirFile, moduleFileCache: ModuleFileCache, checkPCE: Boolean) {
+    private fun resolveFileToImports(firFile: FirFile, checkPCE: Boolean) {
         if (firFile.resolvePhase >= FirResolvePhase.IMPORTS) return
-        moduleFileCache.firFileLockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
+        moduleComponents.globalResolveComponents.lockProvider.runCustomResolveUnderLock(firFile, checkPCE) {
             resolveFileToImportsWithoutLock(firFile, checkPCE)
         }
     }
@@ -150,7 +146,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
 
     private fun lazyResolveFileDeclarationWithoutLock(
         firFile: FirFile,
-        moduleFileCache: ModuleFileCache,
         toPhase: FirResolvePhase,
         scopeSession: ScopeSession,
         checkPCE: Boolean = false,
@@ -183,7 +178,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
                         phase = currentPhase,
                         designation = it,
                         scopeSession = scopeSession,
-                        moduleFileCache = moduleFileCache,
                         lazyDeclarationResolver = this,
                         towerDataContextCollector = collector,
                         firProviderInterceptor = null,
@@ -193,9 +187,9 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
             }
             if (transformersToApply.isEmpty()) continue
 
-            firFileBuilder.firPhaseRunner.runPhaseWithCustomResolve(currentPhase) {
+            moduleComponents.globalResolveComponents.phaseRunner.runPhaseWithCustomResolve(currentPhase) {
                 for (currentTransformer in transformersToApply) {
-                    currentTransformer.transformDeclaration(firFileBuilder.firPhaseRunner)
+                    currentTransformer.transformDeclaration(moduleComponents.globalResolveComponents.phaseRunner)
                 }
             }
             firFile.replaceResolvePhase(currentPhase)
@@ -204,7 +198,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
 
     private fun fastTrackForImportsPhase(
         firDeclarationToResolve: FirDeclaration,
-        moduleFileCache: ModuleFileCache,
         checkPCE: Boolean,
     ): Boolean {
         val provider = firDeclarationToResolve.moduleData.session.firProvider
@@ -214,7 +207,7 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
             is FirClassLikeDeclaration -> provider.getFirClassifierContainerFile(firDeclarationToResolve.symbol)
             else -> null
         } ?: return false
-        resolveFileToImports(firFile, moduleFileCache, checkPCE)
+        resolveFileToImports(firFile, checkPCE)
         return true
     }
 
@@ -226,14 +219,13 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
      */
     fun lazyResolveDeclaration(
         firDeclarationToResolve: FirDeclaration,
-        moduleFileCache: ModuleFileCache,
         scopeSession: ScopeSession,
         toPhase: FirResolvePhase,
         checkPCE: Boolean,
     ) {
         if (toPhase == FirResolvePhase.RAW_FIR) return
         if (toPhase == FirResolvePhase.IMPORTS) {
-            if (fastTrackForImportsPhase(firDeclarationToResolve, moduleFileCache, checkPCE)) {
+            if (fastTrackForImportsPhase(firDeclarationToResolve, checkPCE)) {
                 return
             }
         }
@@ -241,7 +233,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
             is FirSyntheticPropertyAccessor -> {
                 lazyResolveDeclaration(
                     firDeclarationToResolve.delegate,
-                    moduleFileCache,
                     scopeSession,
                     toPhase,
                     checkPCE,
@@ -252,7 +243,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
             is FirBackingField -> {
                 lazyResolveDeclaration(
                     firDeclarationToResolve.propertySymbol.fir,
-                    moduleFileCache,
                     scopeSession,
                     toPhase,
                     checkPCE,
@@ -262,7 +252,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
             is FirFile -> {
                 lazyResolveFileDeclaration(
                     firFile = firDeclarationToResolve,
-                    moduleFileCache = moduleFileCache,
                     toPhase = toPhase,
                     scopeSession = scopeSession,
                     checkPCE = checkPCE,
@@ -297,16 +286,14 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
                 val enumEntry = possiblyLocalDeclaration.getContainingEnumEntryAsMemberOfEnumEntry() ?: return
 
                 declarationToResolve = enumEntry.findSourceNonLocalFirDeclaration(
-                    firFileBuilder,
-                    firDeclarationToResolve.moduleData.session.firProvider.symbolProvider,
-                    moduleFileCache
+                    moduleComponents.firFileBuilder,
+                    firDeclarationToResolve.moduleData.session.firProvider,
                 )
                 neededPhase = FirResolvePhase.BODY_RESOLVE
             } else {
                 declarationToResolve = nonLocalDeclaration.findSourceNonLocalFirDeclaration(
-                    firFileBuilder,
-                    firDeclarationToResolve.moduleData.session.firProvider.symbolProvider,
-                    moduleFileCache
+                    moduleComponents.firFileBuilder,
+                    firDeclarationToResolve.moduleData.session.firProvider,
                 )
                 neededPhase = toPhase
             }
@@ -320,15 +307,14 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
         if (designation.declaration.resolvePhase >= neededPhase) return
 
         if (neededPhase == FirResolvePhase.IMPORTS) {
-            resolveFileToImports(designation.firFile, moduleFileCache, checkPCE)
+            resolveFileToImports(designation.firFile, checkPCE)
             return
         }
 
-        moduleFileCache.firFileLockProvider.runCustomResolveUnderLock(designation.firFile, checkPCE) {
+        moduleComponents.globalResolveComponents.lockProvider.runCustomResolveUnderLock(designation.firFile, checkPCE) {
             ResolveTreeBuilder.resolveEnsure(designation.declaration, neededPhase) {
                 runLazyDesignatedResolveWithoutLock(
                     designation = designation,
-                    moduleFileCache = moduleFileCache,
                     scopeSession = scopeSession,
                     toPhase = neededPhase,
                     checkPCE = checkPCE,
@@ -341,7 +327,6 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
 
     private fun runLazyDesignatedResolveWithoutLock(
         designation: FirDeclarationDesignationWithFile,
-        moduleFileCache: ModuleFileCache,
         scopeSession: ScopeSession,
         toPhase: FirResolvePhase,
         checkPCE: Boolean,
@@ -363,18 +348,16 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
                 phase = currentPhase,
                 designation = designation,
                 scopeSession = scopeSession,
-                moduleFileCache = moduleFileCache,
                 lazyDeclarationResolver = this,
                 towerDataContextCollector = null,
                 firProviderInterceptor = null,
                 checkPCE = checkPCE,
-            ).transformDeclaration(firFileBuilder.firPhaseRunner)
+            ).transformDeclaration(moduleComponents.globalResolveComponents.phaseRunner)
         }
     }
 
     internal fun runLazyDesignatedOnAirResolveToBodyWithoutLock(
         designation: FirDeclarationDesignationWithFile,
-        moduleFileCache: ModuleFileCache,
         checkPCE: Boolean,
         onAirCreatedDeclaration: Boolean,
         towerDataContextCollector: FirTowerDataContextCollector?,
@@ -400,12 +383,11 @@ internal class FirLazyDeclarationResolver(private val firFileBuilder: FirFileBui
                 phase = currentPhase,
                 designation = designation,
                 scopeSession = scopeSession,
-                moduleFileCache = moduleFileCache,
                 lazyDeclarationResolver = this,
                 towerDataContextCollector = towerDataContextCollector,
                 firProviderInterceptor = firProviderInterceptor,
                 checkPCE = checkPCE,
-            ).transformDeclaration(firFileBuilder.firPhaseRunner)
+            ).transformDeclaration(moduleComponents.globalResolveComponents.phaseRunner)
         }
     }
 }

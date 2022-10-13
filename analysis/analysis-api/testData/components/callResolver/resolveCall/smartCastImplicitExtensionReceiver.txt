@@ -7,11 +7,15 @@ KtSuccessCallInfo:
         original = KtImplicitReceiverValue:
           symbol = KtReceiverParameterSymbol:
             origin: SOURCE
+            owningCallableSymbol: KtFunctionSymbol(/test)
             type: kotlin/Any
-        smartCastType = kotlin.String
+          type = kotlin.Any
+        type = kotlin.String
       signature = KtFunctionLikeSignature:
         receiverType = kotlin.String
         returnType = kotlin.Unit
         symbol = /foo(<extension receiver>: kotlin.String): kotlin.Unit
         valueParameters = []
+        callableIdIfNonLocal = /foo
+    typeArgumentsMapping = {}
     argumentMapping = {}

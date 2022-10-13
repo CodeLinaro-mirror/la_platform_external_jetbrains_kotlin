@@ -37,7 +37,7 @@ internal fun unfoldInstruction(element: IrElement?, environment: IrInterpreterEn
         is IrConstructor -> unfoldConstructor(element, callStack)
         is IrCall -> unfoldValueParameters(element, environment)
         is IrConstructorCall -> unfoldValueParameters(element, environment)
-        is IrEnumConstructorCall -> unfoldValueParameters(element, environment)
+        is IrEnumConstructorCall -> unfoldEnumConstructorCall(element, environment)
         is IrDelegatingConstructorCall -> unfoldValueParameters(element, environment)
         is IrInstanceInitializerCall -> unfoldInstanceInitializerCall(element, callStack)
         is IrField -> unfoldField(element, callStack)
@@ -49,6 +49,7 @@ internal fun unfoldInstruction(element: IrElement?, environment: IrInterpreterEn
         is IrGetValue -> unfoldGetValue(element, environment)
         is IrGetObjectValue -> unfoldGetObjectValue(element, environment)
         is IrGetEnumValue -> unfoldGetEnumValue(element, environment)
+        is IrEnumEntry -> unfoldEnumEntry(element, environment)
         is IrConst<*> -> callStack.pushSimpleInstruction(element)
         is IrVariable -> unfoldVariable(element, callStack)
         is IrSetValue -> unfoldSetValue(element, callStack)
@@ -89,7 +90,8 @@ private fun unfoldFunction(function: IrSimpleFunction, environment: IrInterprete
 
 private fun unfoldConstructor(constructor: IrConstructor, callStack: CallStack) {
     when (constructor.fqName) {
-        "kotlin.Enum.<init>", "kotlin.Throwable.<init>" -> {
+        "kotlin.Enum.<init>" -> return // all properties already initialized in `interpretEnumEntry`
+        "kotlin.Throwable.<init>" -> {
             val irClass = constructor.parentAsClass
             val receiverSymbol = irClass.thisReceiver!!.symbol
             val receiverState = callStack.loadState(receiverSymbol)
@@ -177,14 +179,33 @@ private fun unfoldValueParameters(expression: IrFunctionAccessExpression, enviro
     }
 }
 
+private fun unfoldEnumConstructorCall(element: IrEnumConstructorCall, environment: IrInterpreterEnvironment) {
+    val parentName = element.symbol.owner.parentClassOrNull?.fqName
+    if (parentName == "kotlin.Enum") {
+        // must create a copy here to avoid original data corruption
+        val constructorCallCopy = element.shallowCopy()
+        val enumObject = environment.callStack.loadState(element.getThisReceiver())
+        environment.irBuiltIns.enumClass.owner.declarations.filterIsInstance<IrProperty>().forEachIndexed { index, it ->
+            val field = enumObject.getField(it.symbol) as Primitive<*>
+            constructorCallCopy.putValueArgument(index, field.value.toIrConst(field.type))
+        }
+        return unfoldValueParameters(constructorCallCopy, environment)
+    }
+    unfoldValueParameters(element, environment)
+}
+
 private fun unfoldInstanceInitializerCall(instanceInitializerCall: IrInstanceInitializerCall, callStack: CallStack) {
     val irClass = instanceInitializerCall.classSymbol.owner
     val toInitialize = irClass.declarations.filter { it is IrProperty || it is IrAnonymousInitializer }
+    val state = irClass.thisReceiver?.symbol?.let { callStack.loadState(it) } // try to avoid recalculation of properties
 
     toInitialize.reversed().forEach {
         when {
             it is IrAnonymousInitializer -> callStack.pushCompoundInstruction(it.body)
-            it is IrProperty && it.backingField?.initializer?.expression != null -> callStack.pushCompoundInstruction(it.backingField)
+
+            it is IrProperty && it.backingField?.initializer?.expression != null && state?.getField(it.symbol) == null -> {
+                callStack.pushCompoundInstruction(it.backingField)
+            }
         }
     }
 }
@@ -256,12 +277,27 @@ private fun unfoldGetEnumValue(expression: IrGetEnumValue, environment: IrInterp
     val callStack = environment.callStack
     environment.mapOfEnums[expression.symbol]?.let { return callStack.pushState(it) }
 
+    val frameOwner = callStack.currentFrameOwner
+    if (frameOwner is IrCall && frameOwner.dispatchReceiver is IrGetEnumValue && frameOwner.symbol.owner.name.asString() == "<get-name>") {
+        // this optimization allow us to avoid creation of enum object when we try to interpret simple `name` call; see KT-53480
+        val enumEntry = (frameOwner.dispatchReceiver as IrGetEnumValue).symbol.owner
+        callStack.pushState(enumEntry.toState(environment.irBuiltIns))
+        return
+    }
+
     callStack.pushSimpleInstruction(expression)
     val enumEntry = expression.symbol.owner
     val enumClass = enumEntry.symbol.owner.parentAsClass
-    enumClass.declarations.filterIsInstance<IrEnumEntry>().forEach {
+    enumClass.declarations.filterIsInstance<IrEnumEntry>().reversed().forEach {
         callStack.pushSimpleInstruction(it)
     }
+}
+
+@Suppress("UNUSED_PARAMETER")
+private fun unfoldEnumEntry(enumEntry: IrEnumEntry, environment: IrInterpreterEnvironment) {
+    // a little hak and misconception here; we are not creating simple instructions from this and just do the cleaning after interpretation
+    environment.callStack.popState()
+    environment.callStack.dropSubFrame()
 }
 
 private fun unfoldVariable(variable: IrVariable, callStack: CallStack) {
@@ -358,13 +394,7 @@ private fun unfoldStringConcatenation(expression: IrStringConcatenation, environ
                 // TODO this check can be dropped after serialization introduction
                 // for now declarations in unsigned class don't have bodies and must be treated separately
                 if (state.irClass.defaultType.isUnsigned()) {
-                    val result = when (val value = (state.fields.values.single() as Primitive<*>).value) {
-                        is Byte -> value.toUByte().toString()
-                        is Short -> value.toUShort().toString()
-                        is Int -> value.toUInt().toString()
-                        else -> (value as Number).toLong().toULong().toString()
-                    }
-                    return callStack.pushState(environment.convertToState(result, environment.irBuiltIns.stringType))
+                    return callStack.pushState(environment.convertToState(state.unsignedToString(), environment.irBuiltIns.stringType))
                 }
                 val toStringCall = state.createToStringIrCall()
                 callStack.pushSimpleInstruction(toStringCall)
@@ -386,26 +416,21 @@ private fun unfoldComposite(element: IrComposite, callStack: CallStack) {
     }
 }
 
-private fun unfoldFunctionReference(reference: IrFunctionReference, callStack: CallStack) {
-    val function = reference.symbol.owner
+private fun unfoldCallableReference(reference: IrCallableReference<*>, callStack: CallStack) {
     callStack.pushSimpleInstruction(reference)
+    reference.getArgumentsWithIr().forEach { (parameter, arg) ->
+        callStack.pushSimpleInstruction(parameter)
+        callStack.pushCompoundInstruction(arg)
+    }
+}
 
-    reference.dispatchReceiver?.let { callStack.pushSimpleInstruction(function.dispatchReceiverParameter!!) }
-    reference.extensionReceiver?.let { callStack.pushSimpleInstruction(function.extensionReceiverParameter!!) }
-
-    reference.extensionReceiver?.let { callStack.pushCompoundInstruction(it) }
-    reference.dispatchReceiver?.let { callStack.pushCompoundInstruction(it) }
+private fun unfoldFunctionReference(reference: IrFunctionReference, callStack: CallStack) {
+    unfoldCallableReference(reference, callStack)
 }
 
 private fun unfoldPropertyReference(propertyReference: IrPropertyReference, callStack: CallStack) {
-    val getter = propertyReference.getter!!.owner
-    callStack.pushSimpleInstruction(propertyReference)
-
-    propertyReference.dispatchReceiver?.let { callStack.pushSimpleInstruction(getter.dispatchReceiverParameter!!) }
-    propertyReference.extensionReceiver?.let { callStack.pushSimpleInstruction(getter.extensionReceiverParameter!!) }
-
-    propertyReference.extensionReceiver?.let { callStack.pushCompoundInstruction(it) }
-    propertyReference.dispatchReceiver?.let { callStack.pushCompoundInstruction(it) }
+    if (propertyReference.field != null) return callStack.pushSimpleInstruction(propertyReference)
+    unfoldCallableReference(propertyReference, callStack)
 }
 
 private fun unfoldClassReference(classReference: IrClassReference, callStack: CallStack) {

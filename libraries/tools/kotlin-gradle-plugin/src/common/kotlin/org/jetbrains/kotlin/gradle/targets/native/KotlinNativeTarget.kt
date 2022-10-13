@@ -11,7 +11,6 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.attributes.Attribute
 import org.gradle.jvm.tasks.Jar
-import org.gradle.util.WrapUtil
 import org.jetbrains.kotlin.gradle.dsl.KotlinNativeBinaryContainer
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
@@ -32,7 +31,7 @@ import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import javax.inject.Inject
 
-open class KotlinNativeTarget @Inject constructor(
+abstract class KotlinNativeTarget @Inject constructor(
     project: Project,
     val konanTarget: KonanTarget
 ) : KotlinTargetWithBinaries<KotlinNativeCompilation, KotlinNativeBinaryContainer>(
@@ -113,7 +112,11 @@ open class KotlinNativeTarget @Inject constructor(
 
     override val binaries =
         // Use newInstance to allow accessing binaries by their names in Groovy using the extension mechanism.
-        project.objects.newInstance(KotlinNativeBinaryContainer::class.java, this, WrapUtil.toDomainObjectSet(NativeBinary::class.java))
+        project.objects.newInstance(
+            KotlinNativeBinaryContainer::class.java,
+            this,
+            project.objects.domainObjectSet(NativeBinary::class.java)
+        )
 
     override val artifactsTaskName: String
         get() = disambiguateName("binaries")
@@ -144,12 +147,15 @@ open class KotlinNativeTarget @Inject constructor(
 
 private val hostManager by lazy { HostManager() }
 
-internal fun isHostSpecificKonanTargetsSet(konanTargets: Iterable<KonanTarget>): Boolean {
-    val enabledByHost = hostManager.enabledByHost
-    val allHosts = enabledByHost.keys
-    fun canBeBuiltOnHosts(konanTarget: KonanTarget) = enabledByHost.filterValues { konanTarget in it }.keys
-    return konanTargets.flatMapTo(mutableSetOf(), ::canBeBuiltOnHosts) != allHosts
-}
+private val targetsEnabledOnAllHosts by lazy { hostManager.enabledByHost.values.reduce { acc, targets -> acc intersect targets } }
+
+/**
+ * The set of konanTargets is considered 'host specific' if the shared compilation of said set can *not* be built
+ * on *all* potential hosts. e.g. a set like (iosX64, macosX64) can only be built on macos hosts, and is therefore considered
+ * 'host specific'.
+ */
+internal fun isHostSpecificKonanTargetsSet(konanTargets: Iterable<KonanTarget>): Boolean =
+    konanTargets.none { target -> target in targetsEnabledOnAllHosts }
 
 private fun <T> getHostSpecificElements(
     fragments: Iterable<T>,
@@ -158,12 +164,12 @@ private fun <T> getHostSpecificElements(
 ): Set<T> = fragments.filterTo(mutableSetOf()) { isNativeShared(it) && isHostSpecificKonanTargetsSet(getKonanTargets(it)) }
 
 internal fun getHostSpecificFragments(
-    module: KotlinGradleModule
-): Set<KotlinGradleFragment> = getHostSpecificElements<KotlinGradleFragment>(
+    module: GradleKpmModule
+): Set<GradleKpmFragment> = getHostSpecificElements<GradleKpmFragment>(
     module.fragments,
     isNativeShared = { it.isNativeShared() },
     getKonanTargets = {
-        val nativeVariants = module.variantsContainingFragment(it).filterIsInstance<KotlinNativeVariantInternal>()
+        val nativeVariants = module.variantsContainingFragment(it).filterIsInstance<GradleKpmNativeVariantInternal>()
         nativeVariants.mapTo(mutableSetOf()) { it.konanTarget }
     }
 )
@@ -196,8 +202,8 @@ abstract class KotlinNativeTargetWithTests<T : KotlinNativeBinaryTestRun>(
         internal set
 }
 
-open class KotlinNativeTargetWithHostTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
+abstract class KotlinNativeTargetWithHostTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
     KotlinNativeTargetWithTests<KotlinNativeHostTestRun>(project, konanTarget)
 
-open class KotlinNativeTargetWithSimulatorTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
+abstract class KotlinNativeTargetWithSimulatorTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
     KotlinNativeTargetWithTests<KotlinNativeSimulatorTestRun>(project, konanTarget)

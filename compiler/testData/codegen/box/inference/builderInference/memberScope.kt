@@ -11,7 +11,7 @@ interface TestInterface<R> {
 }
 
 @OptIn(ExperimentalTypeInference::class)
-fun <R1> build(@BuilderInference block: TestInterface<R1>.() -> Unit) {}
+fun <R1> build(block: TestInterface<R1>.() -> Unit) {}
 
 fun Any.test() {}
 fun Any?.test2() {}
@@ -20,9 +20,10 @@ fun box(): String {
     val ret = build {
         emit(1)
         emit(null)
-        get()?.test()
-        get()?.test2()
-        get().test2()
+        // Error, resolved to extension on stub receiver
+//        get()?.test()
+//        get()?.test2()
+//        get().test2()
         get()?.hashCode()
         get()?.equals(1)
         val x = get()
@@ -38,9 +39,10 @@ fun box(): String {
             x.equals("")
             x.hashCode()
             x.toString()
-            x.test()
-            x?.test2()
-            x.test2()
+            // Error, resolved to extension on stub receiver
+//            x.test()
+//            x?.test2()
+//            x.test2()
         }
 
         if (x == null) {
@@ -50,8 +52,9 @@ fun box(): String {
 //            x.hashCode()
 //            x.toString()
 //            x.test()
-            x?.test2()
-            x.test2()
+            // Error, resolved to extension on stub receiver
+//            x?.test2()
+//            x.test2()
         }
 
         if (x === null) {
@@ -61,8 +64,9 @@ fun box(): String {
 //            x.hashCode()
 //            x.toString()
 //            x.test()
-            x?.test2()
-            x.test2()
+            // Error, resolved to extension on stub receiver
+//            x?.test2()
+//            x.test2()
         }
 
         ""

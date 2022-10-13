@@ -11,9 +11,9 @@ import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
 import org.jetbrains.kotlin.backend.common.ir.*
 import org.jetbrains.kotlin.backend.common.lower.inline.isInlineParameter
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
@@ -70,8 +70,9 @@ class LocalDeclarationsLowering(
     val context: CommonBackendContext,
     val localNameSanitizer: (String) -> String = { it },
     val visibilityPolicy: VisibilityPolicy = VisibilityPolicy.DEFAULT,
-    val suggestUniqueNames: Boolean = true, // When `true` appends a `-#index` suffix to lifted declaration names
-    val forceFieldsForInlineCaptures: Boolean = false // See `LocalClassContext`
+    val suggestUniqueNames: Boolean = true, // When `true` appends a `$#index` suffix to lifted declaration names
+    val forceFieldsForInlineCaptures: Boolean = false, // See `LocalClassContext`
+    private val postLocalDeclarationLoweringCallback: ((IntermediateDatastructures) -> Unit)? = null
 ) :
     BodyLoweringPass {
 
@@ -109,7 +110,7 @@ class LocalDeclarationsLowering(
             ScopeWithCounter(this)
         }
 
-    private abstract class LocalContext {
+    abstract class LocalContext {
         val capturedTypeParameterToTypeParameter: MutableMap<IrTypeParameter, IrTypeParameter> = mutableMapOf()
 
         // By the time typeRemapper is used, the map will be already filled
@@ -121,7 +122,7 @@ class LocalDeclarationsLowering(
         abstract fun irGet(startOffset: Int, endOffset: Int, valueDeclaration: IrValueDeclaration): IrExpression?
     }
 
-    private abstract class LocalContextWithClosureAsParameters : LocalContext() {
+    abstract class LocalContextWithClosureAsParameters : LocalContext() {
 
         abstract val declaration: IrFunction
         abstract val transformedDeclaration: IrFunction
@@ -135,7 +136,7 @@ class LocalDeclarationsLowering(
         }
     }
 
-    private class LocalFunctionContext(
+    class LocalFunctionContext(
         override val declaration: IrSimpleFunction,
         val index: Int,
         val ownerForLoweredDeclaration: IrDeclarationContainer
@@ -171,13 +172,9 @@ class LocalDeclarationsLowering(
         val capturedValueToField: MutableMap<IrValueDeclaration, PotentiallyUnusedField> = mutableMapOf()
 
         override fun irGet(startOffset: Int, endOffset: Int, valueDeclaration: IrValueDeclaration): IrExpression? {
-            // On the JVM backend, `AnonymousObjectTransformer` in the bytecode inliner uses field assignment
-            // instructions to find captured parameters. Most of the time this is unimportant, as captured
-            // parameters are effectively indistinguishable from normal ones; the exception is ones that can
-            // take an inline lambda value, as the parameter needs to be replaced with the lambda's capture.
-            // Thus we cannot erase the field - the inliner won't handle the inline lambda without it.
-            // (Most of the time this is inconsequential - if the object really is instantiated with an inline
-            // lambda, the field will be erased completely regardless of whether it's used.)
+            // TODO: this used to be a hack for the JVM bytecode inliner (which misbehaved when inline lambdas had no fields),
+            //  but it's no longer necessary. It is only here for backwards compatibility with old kotlinc versions
+            //  and can be removed, probably in 1.9.
             if (!forceFieldsForInlineCaptures || !valueDeclaration.isInlineDeclaration()) {
                 // We're in the initializer scope, which will be moved to a primary constructor later.
                 // Thus we can directly use that constructor's context and read from a parameter instead of a field.
@@ -246,6 +243,10 @@ class LocalDeclarationsLowering(
             rewriteDeclarations()
 
             insertLoweredDeclarationForLocalFunctions()
+
+            postLocalDeclarationLoweringCallback?.invoke(
+                IntermediateDatastructures(localFunctions, newParameterToOld, newParameterToCaptured)
+            )
         }
 
         private fun insertLoweredDeclarationForLocalFunctions() {
@@ -589,7 +590,7 @@ class LocalDeclarationsLowering(
             localFunctions[declaration]?.let {
                 val baseName = if (declaration.name.isSpecial) "lambda" else declarationName
                 if (it.index >= 0)
-                    return if (suggestUniqueNames) "$baseName-${it.index}" else baseName
+                    return if (suggestUniqueNames) "$baseName\$${it.index}" else baseName
             }
 
             return declarationName
@@ -882,7 +883,7 @@ class LocalDeclarationsLowering(
         }
 
         private fun collectLocalDeclarations() {
-            val enclosingFile = container.file
+            val enclosingFile by lazy { container.file }
             val enclosingClass = run {
                 var currentParent = container as? IrClass ?: container.parent
                 while (currentParent is IrDeclaration && currentParent !is IrClass) {
@@ -967,6 +968,12 @@ class LocalDeclarationsLowering(
             }, Data(null, false))
         }
     }
+
+    data class IntermediateDatastructures(
+        val localFunctions: Map<IrFunction, LocalFunctionContext>,
+        val newParameterToOld: Map<IrValueParameter, IrValueParameter>,
+        val newParameterToCaptured: Map<IrValueParameter, IrValueSymbol>
+    )
 }
 
 // Local inner classes capture anything through outer

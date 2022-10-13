@@ -1,21 +1,27 @@
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T1
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -39,16 +45,20 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T1)
   ]
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T2
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -72,36 +82,46 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T2)
   ]
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T3
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T4
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T5
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -125,16 +145,20 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T5)
   ]
   visibility: Local
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtTypeParameterSymbol:
+  annotationsList: []
   isReified: false
   name: T6
   origin: SOURCE
+  typeParameters: []
   upperBounds: [
     kotlin/Any?
   ]
   variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -158,6 +182,7 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T6)
   ]
   visibility: Local
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -181,6 +206,7 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T4)
   ]
   visibility: Local
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -208,6 +234,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): X<T>
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -231,4 +258,5 @@ KtNamedClassOrObjectSymbol:
     KtTypeParameterSymbol(T)
   ]
   visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

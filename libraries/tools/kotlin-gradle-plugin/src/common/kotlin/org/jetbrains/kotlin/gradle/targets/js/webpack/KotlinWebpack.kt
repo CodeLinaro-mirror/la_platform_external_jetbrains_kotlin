@@ -11,6 +11,7 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.file.FileResolver
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.deployment.internal.Deployment
@@ -18,12 +19,19 @@ import org.gradle.deployment.internal.DeploymentHandle
 import org.gradle.deployment.internal.DeploymentRegistry
 import org.gradle.process.internal.ExecHandle
 import org.gradle.process.internal.ExecHandleFactory
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporterImpl
+import org.jetbrains.kotlin.build.report.metrics.BuildPerformanceMetric
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.archivesName
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.distsDirectory
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.distsDirectory
+import org.jetbrains.kotlin.gradle.report.BuildMetricsReporterService
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
+import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
@@ -35,14 +43,14 @@ import org.jetbrains.kotlin.gradle.utils.property
 import java.io.File
 import javax.inject.Inject
 
-open class KotlinWebpack
+abstract class KotlinWebpack
 @Inject
 constructor(
     @Internal
     @Transient
     override val compilation: KotlinJsCompilation,
     objects: ObjectFactory
-) : DefaultTask(), RequiresNpmDependencies {
+) : DefaultTask(), RequiresNpmDependencies, WebpackRulesDsl {
     @Transient
     private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
     private val versions = nodeJs.versions
@@ -57,9 +65,19 @@ constructor(
     open val fileResolver: FileResolver
         get() = injected
 
+    override val rules: KotlinWebpackRulesContainer =
+        project.objects.webpackRulesContainer()
+
     @get:Inject
     open val execHandleFactory: ExecHandleFactory
         get() = injected
+
+    @get:Internal
+    internal abstract val buildMetricsReporterService: Property<BuildMetricsReporterService?>
+
+    @get:Internal
+    val metrics: Property<BuildMetricsReporter> = project.objects
+        .property(BuildMetricsReporterImpl())
 
     @Suppress("unused")
     @get:Input
@@ -111,7 +129,7 @@ constructor(
 
     @Nested
     val output: KotlinWebpackOutput = KotlinWebpackOutput(
-        library = project.archivesName,
+        library = project.archivesName.orNull,
         libraryTarget = KotlinWebpackOutput.Target.UMD,
         globalObject = "this"
     )
@@ -136,7 +154,7 @@ constructor(
         }
 
     private val defaultOutputFileName by lazy {
-        project.archivesName + ".js"
+        project.archivesName.orNull + ".js"
     }
 
     @get:Internal
@@ -192,8 +210,19 @@ constructor(
     @Input
     var sourceMaps: Boolean = true
 
-    @Nested
-    val cssSupport: KotlinWebpackCssSupport = KotlinWebpackCssSupport()
+    @get:Internal
+    @Deprecated("use cssSupport methods instead")
+    var cssSupport: KotlinWebpackCssRule
+        get() = rules.maybeCreate("css", KotlinWebpackCssRule::class.java)
+        set(value) {
+            rules.maybeCreate("css", KotlinWebpackCssRule::class.java).apply {
+                this.mode = value.mode
+                this.enabled = value.enabled
+                this.test = value.test
+                this.include = value.include
+                this.exclude = value.exclude
+            }
+        }
 
     @Input
     @Optional
@@ -207,7 +236,9 @@ constructor(
     var generateConfigOnly: Boolean = false
 
     @Nested
-    val synthConfig = KotlinWebpackConfig()
+    val synthConfig = KotlinWebpackConfig(
+        rules = project.objects.webpackRulesContainer(),
+    )
 
     @Input
     val webpackMajorVersion = PropertiesProvider(project).webpackMajorVersion
@@ -237,7 +268,7 @@ constructor(
         outputFileName = outputFileName,
         configDirectory = configDirectory,
         bundleAnalyzerReportDir = if (!forNpmDependencies && report) reportDir else null,
-        cssSupport = cssSupport,
+        rules = rules,
         devServer = devServer,
         devtool = devtool,
         sourceMaps = sourceMaps,
@@ -302,6 +333,18 @@ constructor(
                     progressReporterPathFilter = rootPackageDir.absolutePath
                 )
             ).execute(services)
+
+            val buildMetrics = metrics.get()
+            destinationDirectory.walkTopDown()
+                .filter { it.isFile }
+                .filter { it.extension == "js" }
+                .map { it.length() }
+                .sum()
+                .let {
+                    buildMetrics.addMetric(BuildPerformanceMetric.BUNDLE_SIZE, it)
+                }
+
+            buildMetricsReporterService.orNull?.also { it.addTask(path, this.javaClass, buildMetrics) }
         }
     }
 

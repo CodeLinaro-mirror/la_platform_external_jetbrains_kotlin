@@ -57,7 +57,7 @@ import org.jetbrains.kotlin.util.OperatorNameConventions.TO_STRING
  * fir own logic that traverses class hierarchies in fir elements. Also, this one creates and passes IR elements, instead of providing how
  * to declare them, to [DataClassMembersGenerator].
  */
-class DataClassMembersGenerator(val components: Fir2IrComponents) {
+class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrComponents by components {
 
     fun generateSingleFieldValueClassMembers(klass: FirClass, irClass: IrClass): List<FirDeclaration> =
         MyDataClassMethodsGenerator(irClass, klass.symbol.toLookupTag(), IrDeclarationOrigin.GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER)
@@ -87,6 +87,7 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) {
             IrGeneratorContextBase(components.irBuiltIns),
             components.symbolTable,
             irClass,
+            irClass.kotlinFqName,
             origin
         ) {
             override fun declareSimpleFunction(startOffset: Int, endOffset: Int, functionDescriptor: FunctionDescriptor): IrFunction {
@@ -155,7 +156,6 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) {
 
         fun generateDispatchReceiverParameter(irFunction: IrFunction) =
             irFunction.declareThisReceiverParameter(
-                components.symbolTable,
                 irClass.defaultType,
                 origin,
                 UNDEFINED_OFFSET,
@@ -184,9 +184,6 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) {
         fun generate(klass: FirClass): List<FirDeclaration> {
             val propertyParametersCount = irClass.primaryConstructor?.explicitParameters?.size ?: 0
             val properties = irClass.properties.filter { it.backingField != null }.take(propertyParametersCount).toList()
-            if (properties.isEmpty()) {
-                return emptyList()
-            }
 
             val result = mutableListOf<FirDeclaration>()
 

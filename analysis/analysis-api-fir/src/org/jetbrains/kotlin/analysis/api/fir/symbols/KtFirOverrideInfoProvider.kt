@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.analysis.api.fir.buildSymbol
 import org.jetbrains.kotlin.analysis.api.fir.components.KtFirAnalysisSessionComponent
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.fir.analysis.checkers.getImplementationStatus
 import org.jetbrains.kotlin.fir.analysis.checkers.isVisibleInClass
 import org.jetbrains.kotlin.fir.containingClass
@@ -29,7 +29,7 @@ import org.jetbrains.kotlin.util.ImplementationStatus
 
 internal class KtFirOverrideInfoProvider(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken,
 ) : KtOverrideInfoProvider(), KtFirAnalysisSessionComponent {
 
     override fun isVisible(memberSymbol: KtCallableSymbol, classSymbol: KtClassOrObjectSymbol): Boolean {
@@ -54,7 +54,10 @@ internal class KtFirOverrideInfoProvider(
         val parentClassFir = parentClassSymbol.firSymbol.fir as? FirClass ?: return null
 
         return memberFir.symbol.getImplementationStatus(
-            SessionHolderImpl(rootModuleSession, ScopeSession()),
+            SessionHolderImpl(
+                rootModuleSession,
+                analysisSession.getScopeSessionFor(analysisSession.useSiteSession),
+            ),
             parentClassFir.symbol
         )
     }

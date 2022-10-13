@@ -49,6 +49,8 @@ enum class TestProperty(shortName: String) {
     COMPILER_CLASSPATH("compilerClasspath"),
     TEST_TARGET("target"),
     TEST_MODE("mode"),
+    FORCE_STANDALONE("forceStandalone"),
+    COMPILE_ONLY("compileOnly"),
     OPTIMIZATION_MODE("optimizationMode"),
     MEMORY_MODEL("memoryModel"),
     USE_THREAD_STATE_CHECKER("useThreadStateChecker"),
@@ -67,7 +69,11 @@ enum class TestProperty(shortName: String) {
     fun readGradleProperty(task: Test): String? = task.project.findProperty(propertyName)?.toString()
 }
 
-fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jUnitMode = JUnitMode.JUnit5) {
+fun nativeTest(taskName: String, vararg tags: String) = projectTest(
+    taskName,
+    jUnitMode = JUnitMode.JUnit5,
+    maxHeapSizeMb = 3072 // Extra heap space for Kotlin/Native compiler.
+) {
     group = "verification"
 
     if (kotlinBuildProperties.isKotlinNativeEnabled) {
@@ -78,8 +84,8 @@ fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jU
             false
         }
 
-        maxHeapSize = "6G" // Extra heap space for Kotlin/Native compiler.
-        jvmArgs("-XX:MaxJavaStackTraceDepth=1000000") // Effectively remove the limit for the amount of stack trace elements in Throwable.
+        // Effectively remove the limit for the amount of stack trace elements in Throwable.
+        jvmArgs("-XX:MaxJavaStackTraceDepth=1000000")
 
         // Double the stack size. This is needed to compile some marginal tests with extra-deep IR tree, which requires a lot of stack frames
         // for visiting it. Example: codegen/box/strings/concatDynamicWithConstants.kt
@@ -115,6 +121,8 @@ fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jU
         // Pass Gradle properties as JVM properties so test process can read them.
         TestProperty.TEST_TARGET.setUpFromGradleProperty(this)
         TestProperty.TEST_MODE.setUpFromGradleProperty(this)
+        TestProperty.FORCE_STANDALONE.setUpFromGradleProperty(this)
+        TestProperty.COMPILE_ONLY.setUpFromGradleProperty(this)
         TestProperty.OPTIMIZATION_MODE.setUpFromGradleProperty(this)
         TestProperty.MEMORY_MODEL.setUpFromGradleProperty(this)
         TestProperty.USE_THREAD_STATE_CHECKER.setUpFromGradleProperty(this)
@@ -123,19 +131,24 @@ fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jU
         TestProperty.CACHE_MODE.setUpFromGradleProperty(this)
         TestProperty.EXECUTION_TIMEOUT.setUpFromGradleProperty(this)
 
+        // Pass the current Gradle task name so test can use it in logging.
+        environment("GRADLE_TASK_NAME", path)
+
         useJUnitPlatform {
             includeTags(*tags)
         }
 
-        logger.info(
-            buildString {
-                appendLine("$path parallel test execution parameters:")
-                append("  Available CPU cores = $availableCpuCores")
-                systemProperties.filterKeys { it.startsWith("junit.jupiter") }.toSortedMap().forEach { (key, value) ->
-                    append("\n  $key = $value")
+        doFirst {
+            logger.info(
+                buildString {
+                    appendLine("$path parallel test execution parameters:")
+                    append("  Available CPU cores = $availableCpuCores")
+                    systemProperties.filterKeys { it.startsWith("junit.jupiter") }.toSortedMap().forEach { (key, value) ->
+                        append("\n  $key = $value")
+                    }
                 }
-            }
-        )
+            )
+        }
     } else
         doFirst {
             throw GradleException(

@@ -189,16 +189,18 @@ abstract class KotlinIrLinker(
         return symbol.owner as IrDeclaration
     }
 
+    open fun getFileOf(declaration: IrDeclaration): IrFile = declaration.file
+
     override fun tryReferencingSimpleFunctionByLocalSignature(parent: IrDeclaration, idSignature: IdSignature): IrSimpleFunctionSymbol? {
         if (idSignature.isPubliclyVisible) return null
-        val file = parent.file
+        val file = getFileOf(parent)
         val moduleDescriptor = file.packageFragmentDescriptor.containingDeclaration
         return resolveModuleDeserializer(moduleDescriptor, null).referenceSimpleFunctionByLocalSignature(file, idSignature)
     }
 
     override fun tryReferencingPropertyByLocalSignature(parent: IrDeclaration, idSignature: IdSignature): IrPropertySymbol? {
         if (idSignature.isPubliclyVisible) return null
-        val file = parent.file
+        val file = getFileOf(parent)
         val moduleDescriptor = file.packageFragmentDescriptor.containingDeclaration
         return resolveModuleDeserializer(moduleDescriptor, null).referencePropertyByLocalSignature(file, idSignature)
     }
@@ -467,14 +469,16 @@ abstract class KotlinIrLinker(
 }
 
 enum class DeserializationStrategy(
+    val onDemand: Boolean,
     val needBodies: Boolean,
     val explicitlyExported: Boolean,
     val theWholeWorld: Boolean,
     val inlineBodies: Boolean
 ) {
-    ONLY_REFERENCED(true, false, false, true),
-    ALL(true, true, true, true),
-    EXPLICITLY_EXPORTED(true, true, false, true),
-    ONLY_DECLARATION_HEADERS(false, false, false, false),
-    WITH_INLINE_BODIES(false, false, false, true)
+    ON_DEMAND(true, true, false, false, true),
+    ONLY_REFERENCED(false, true, false, false, true),
+    ALL(false, true, true, true, true),
+    EXPLICITLY_EXPORTED(false, true, true, false, true),
+    ONLY_DECLARATION_HEADERS(false, false, false, false, false),
+    WITH_INLINE_BODIES(false, false, false, false, true)
 }

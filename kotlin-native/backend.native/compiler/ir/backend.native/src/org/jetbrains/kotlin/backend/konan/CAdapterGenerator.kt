@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.backend.common.descriptors.allParameters
 import org.jetbrains.kotlin.backend.common.descriptors.explicitParameters
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
-import org.jetbrains.kotlin.backend.konan.ir.isOverridable
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.builtins.UnsignedType
 import org.jetbrains.kotlin.descriptors.*
@@ -21,6 +20,7 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.util.SymbolTable
+import org.jetbrains.kotlin.ir.util.isOverridable
 import org.jetbrains.kotlin.ir.util.referenceFunction
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.name.isChildOf
@@ -214,20 +214,22 @@ private class ExportedElement(val kind: ElementKind,
                 cname = "_konan_function_${owner.nextFunctionIndex()}"
                 val llvmCallable = owner.codegen.llvmFunction(irFunction)
                 // If function is virtual, we need to resolve receiver properly.
-                val bridge = if (!DescriptorUtils.isTopLevelDeclaration(function) &&
-                        irFunction.isOverridable) {
-                    generateFunction(owner.codegen, llvmCallable.functionType, cname) {
+                val bridge = generateFunction(owner.codegen, llvmCallable.functionType, cname) {
+                    val callee = if (!DescriptorUtils.isTopLevelDeclaration(function) &&
+                            irFunction.isOverridable) {
                         val receiver = param(0)
-                        val numParams = LLVMCountParams(llvmCallable.llvmValue)
-                        val args = (0..numParams - 1).map { index -> param(index) }
-                        val callee = lookupVirtualImpl(receiver, irFunction)
-                        callee.attributeProvider.addFunctionAttributes(this.function)
-                        val result = call(callee, args, exceptionHandler = ExceptionHandler.Caller, verbatim = true)
-                        ret(result)
+                        lookupVirtualImpl(receiver, irFunction)
+                    } else {
+                        // KT-45468: Alias insertion may not be handled by LLVM properly, in case callee is in the cache.
+                        // Hence, insert not an alias but a wrapper, hoping it will be optimized out later.
+                        llvmCallable
                     }
-                } else {
-                    val aliasType = pointerType(llvmCallable.functionType)
-                    LLVMAddAlias(context.llvmModule, aliasType, llvmCallable.llvmValue, cname)!!
+
+                    val numParams = LLVMCountParams(llvmCallable.llvmValue)
+                    val args = (0..numParams - 1).map { index -> param(index) }
+                    callee.attributeProvider.addFunctionAttributes(this.function)
+                    val result = call(callee, args, exceptionHandler = ExceptionHandler.Caller, verbatim = true)
+                    ret(result)
                 }
                 LLVMSetLinkage(bridge, LLVMLinkage.LLVMExternalLinkage)
             }
@@ -982,12 +984,15 @@ internal class CAdapterGenerator(val context: Context) : DeclarationDescriptorVi
         |};
         |
         |static void DisposeStablePointerImpl(${prefix}_KNativePtr ptr) {
+        |  Kotlin_initRuntimeIfNeeded();
+        |  ScopedRunnableState stateGuard;
         |  DisposeStablePointer(ptr);
         |}
         |static void DisposeStringImpl(const char* ptr) {
         |  DisposeCString((char*)ptr);
         |}
         |static ${prefix}_KBoolean IsInstanceImpl(${prefix}_KNativePtr ref, const ${prefix}_KType* type) {
+        |  Kotlin_initRuntimeIfNeeded();
         |  ScopedRunnableState stateGuard;
         |  KObjHolder holder;
         |  return IsInstance(DerefStablePointer(ref, holder.slot()), (const KTypeInfo*)type);

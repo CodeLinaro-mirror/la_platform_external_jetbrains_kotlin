@@ -79,6 +79,7 @@ import org.jetbrains.kotlin.fir.expressions.FirAssignmentOperatorStatement
 import org.jetbrains.kotlin.fir.expressions.FirEqualityOperatorCall
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenBranch
+import org.jetbrains.kotlin.fir.expressions.FirContextReceiverArgumentListOwner
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccess
 import org.jetbrains.kotlin.fir.expressions.FirCheckNotNullCall
 import org.jetbrains.kotlin.fir.expressions.FirElvisExpression
@@ -98,9 +99,9 @@ import org.jetbrains.kotlin.fir.expressions.FirComponentCall
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcast
-import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcastToNull
+import org.jetbrains.kotlin.fir.expressions.FirWrappedExpressionWithSmartcastToNothing
 import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
-import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcastToNull
+import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcastToNothing
 import org.jetbrains.kotlin.fir.expressions.FirSafeCallExpression
 import org.jetbrains.kotlin.fir.expressions.FirCheckedSafeCallSubject
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
@@ -119,7 +120,7 @@ import org.jetbrains.kotlin.fir.expressions.FirThrowExpression
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcast
-import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcastToNull
+import org.jetbrains.kotlin.fir.expressions.FirWhenSubjectExpressionWithSmartcastToNothing
 import org.jetbrains.kotlin.fir.expressions.FirWrappedDelegateExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
@@ -445,6 +446,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(whenBranch, data)
     }
 
+    open fun transformContextReceiverArgumentListOwner(contextReceiverArgumentListOwner: FirContextReceiverArgumentListOwner, data: D): FirContextReceiverArgumentListOwner {
+        return transformElement(contextReceiverArgumentListOwner, data)
+    }
+
     open fun transformQualifiedAccess(qualifiedAccess: FirQualifiedAccess, data: D): FirStatement {
         return transformElement(qualifiedAccess, data)
     }
@@ -521,16 +526,16 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(wrappedExpressionWithSmartcast, data)
     }
 
-    open fun <E : FirExpression> transformWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>, data: D): FirWrappedExpressionWithSmartcastToNull<E> {
-        return transformElement(wrappedExpressionWithSmartcastToNull, data)
+    open fun <E : FirExpression> transformWrappedExpressionWithSmartcastToNothing(wrappedExpressionWithSmartcastToNothing: FirWrappedExpressionWithSmartcastToNothing<E>, data: D): FirWrappedExpressionWithSmartcastToNothing<E> {
+        return transformElement(wrappedExpressionWithSmartcastToNothing, data)
     }
 
     open fun transformExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: D): FirStatement {
         return transformElement(expressionWithSmartcast, data)
     }
 
-    open fun transformExpressionWithSmartcastToNull(expressionWithSmartcastToNull: FirExpressionWithSmartcastToNull, data: D): FirStatement {
-        return transformElement(expressionWithSmartcastToNull, data)
+    open fun transformExpressionWithSmartcastToNothing(expressionWithSmartcastToNothing: FirExpressionWithSmartcastToNothing, data: D): FirStatement {
+        return transformElement(expressionWithSmartcastToNothing, data)
     }
 
     open fun transformSafeCallExpression(safeCallExpression: FirSafeCallExpression, data: D): FirStatement {
@@ -605,8 +610,8 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElement(whenSubjectExpressionWithSmartcast, data)
     }
 
-    open fun transformWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull, data: D): FirStatement {
-        return transformElement(whenSubjectExpressionWithSmartcastToNull, data)
+    open fun transformWhenSubjectExpressionWithSmartcastToNothing(whenSubjectExpressionWithSmartcastToNothing: FirWhenSubjectExpressionWithSmartcastToNothing, data: D): FirStatement {
+        return transformElement(whenSubjectExpressionWithSmartcastToNothing, data)
     }
 
     open fun transformWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression, data: D): FirStatement {
@@ -997,6 +1002,10 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformWhenBranch(whenBranch, data)
     }
 
+    final override fun visitContextReceiverArgumentListOwner(contextReceiverArgumentListOwner: FirContextReceiverArgumentListOwner, data: D): FirContextReceiverArgumentListOwner {
+        return transformContextReceiverArgumentListOwner(contextReceiverArgumentListOwner, data)
+    }
+
     final override fun visitQualifiedAccess(qualifiedAccess: FirQualifiedAccess, data: D): FirStatement {
         return transformQualifiedAccess(qualifiedAccess, data)
     }
@@ -1073,16 +1082,16 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformWrappedExpressionWithSmartcast(wrappedExpressionWithSmartcast, data)
     }
 
-    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull: FirWrappedExpressionWithSmartcastToNull<E>, data: D): FirWrappedExpressionWithSmartcastToNull<E> {
-        return transformWrappedExpressionWithSmartcastToNull(wrappedExpressionWithSmartcastToNull, data)
+    final override fun <E : FirExpression> visitWrappedExpressionWithSmartcastToNothing(wrappedExpressionWithSmartcastToNothing: FirWrappedExpressionWithSmartcastToNothing<E>, data: D): FirWrappedExpressionWithSmartcastToNothing<E> {
+        return transformWrappedExpressionWithSmartcastToNothing(wrappedExpressionWithSmartcastToNothing, data)
     }
 
     final override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: D): FirStatement {
         return transformExpressionWithSmartcast(expressionWithSmartcast, data)
     }
 
-    final override fun visitExpressionWithSmartcastToNull(expressionWithSmartcastToNull: FirExpressionWithSmartcastToNull, data: D): FirStatement {
-        return transformExpressionWithSmartcastToNull(expressionWithSmartcastToNull, data)
+    final override fun visitExpressionWithSmartcastToNothing(expressionWithSmartcastToNothing: FirExpressionWithSmartcastToNothing, data: D): FirStatement {
+        return transformExpressionWithSmartcastToNothing(expressionWithSmartcastToNothing, data)
     }
 
     final override fun visitSafeCallExpression(safeCallExpression: FirSafeCallExpression, data: D): FirStatement {
@@ -1157,8 +1166,8 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformWhenSubjectExpressionWithSmartcast(whenSubjectExpressionWithSmartcast, data)
     }
 
-    final override fun visitWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull: FirWhenSubjectExpressionWithSmartcastToNull, data: D): FirStatement {
-        return transformWhenSubjectExpressionWithSmartcastToNull(whenSubjectExpressionWithSmartcastToNull, data)
+    final override fun visitWhenSubjectExpressionWithSmartcastToNothing(whenSubjectExpressionWithSmartcastToNothing: FirWhenSubjectExpressionWithSmartcastToNothing, data: D): FirStatement {
+        return transformWhenSubjectExpressionWithSmartcastToNothing(whenSubjectExpressionWithSmartcastToNothing, data)
     }
 
     final override fun visitWrappedDelegateExpression(wrappedDelegateExpression: FirWrappedDelegateExpression, data: D): FirStatement {

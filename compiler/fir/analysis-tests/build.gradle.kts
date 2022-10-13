@@ -20,6 +20,7 @@ dependencies {
     testApi(project(":compiler:cli"))
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
+    testApi(project(":compiler:fir:checkers:checkers.js"))
     testApi(project(":compiler:fir:fir-serialization"))
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:frontend"))
@@ -59,9 +60,6 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
 projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
-    jvmArgs!!.removeIf { it.contains("-Xmx") }
-    maxHeapSize = "3g"
-
     useJUnitPlatform()
 }
 

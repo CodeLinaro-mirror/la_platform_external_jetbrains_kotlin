@@ -8,11 +8,11 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
+import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
 import org.jetbrains.kotlin.gradle.dsl.topLevelExtensionOrNull
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinPm20ProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.hasKpmModel
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.kpmModules
-import org.jetbrains.kotlin.project.model.KotlinModuleIdentifier
+import org.jetbrains.kotlin.project.model.KpmModuleIdentifier
 import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipFile
@@ -25,7 +25,7 @@ sealed class MppDependencyProjectStructureMetadataExtractor {
 }
 
 internal class ProjectMppDependencyProjectStructureMetadataExtractor(
-    val moduleIdentifier: KotlinModuleIdentifier,
+    val moduleIdentifier: KpmModuleIdentifier,
     val dependencyProject: Project
 ) : MppDependencyProjectStructureMetadataExtractor() {
 
@@ -35,7 +35,8 @@ internal class ProjectMppDependencyProjectStructureMetadataExtractor(
             dependencyProject.hasKpmModel -> buildProjectStructureMetadata(
                 dependencyProject.kpmModules.single { it.moduleIdentifier == moduleIdentifier }
             )
-            else -> buildKotlinProjectStructureMetadata(dependencyProject)
+
+            else -> dependencyProject.multiplatformExtensionOrNull?.kotlinProjectStructureMetadata
         }
     }
 }

@@ -14,8 +14,8 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPackageSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.name.Name
 
 internal class KtFirFileScope(
     private val owner: KtFirFileSymbol,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken,
     private val builder: KtSymbolByFirBuilder
 ) : KtScope {
 
@@ -32,7 +32,7 @@ internal class KtFirFileScope(
         _callableNames + _classifierNames
     }
 
-    override fun getAllPossibleNames(): Set<Name> = allNamesCached
+    override fun getAllPossibleNames(): Set<Name> = withValidityAssertion { allNamesCached }
 
     private val _callableNames: Set<Name> by cached {
         val result = mutableSetOf<Name>()
@@ -48,7 +48,7 @@ internal class KtFirFileScope(
         result
     }
 
-    override fun getPossibleCallableNames(): Set<Name> = _callableNames
+    override fun getPossibleCallableNames(): Set<Name> = withValidityAssertion { _callableNames }
 
     private val _classifierNames: Set<Name> by cached {
         val result = mutableSetOf<Name>()
@@ -60,7 +60,7 @@ internal class KtFirFileScope(
         result
     }
 
-    override fun getPossibleClassifierNames(): Set<Name> = _classifierNames
+    override fun getPossibleClassifierNames(): Set<Name> = withValidityAssertion { _classifierNames }
 
     override fun getCallableSymbols(nameFilter: KtScopeNameFilter): Sequence<KtCallableSymbol> = withValidityAssertion {
         sequence {
@@ -94,7 +94,7 @@ internal class KtFirFileScope(
     }
 
 
-    override fun getConstructors(): Sequence<KtConstructorSymbol> = emptySequence()
+    override fun getConstructors(): Sequence<KtConstructorSymbol> = withValidityAssertion { emptySequence() }
 
     override fun getPackageSymbols(nameFilter: KtScopeNameFilter): Sequence<KtPackageSymbol> = withValidityAssertion {
         emptySequence()

@@ -14,10 +14,12 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinTargetTestRun
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetContainerDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmSubTargetContainerDsl
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.testing.KotlinReportAggregatingTestRun
 import org.jetbrains.kotlin.gradle.testing.KotlinTaskTestRun
 import org.jetbrains.kotlin.gradle.testing.requireCompilationOfTarget
+import javax.inject.Inject
 import kotlin.properties.Delegates
 
 class JsCompilationExecutionSource(override val compilation: KotlinJsCompilation) :
@@ -50,7 +52,7 @@ class JsAggregatingExecutionSource(private val aggregatingTestRun: KotlinJsRepor
         get() = aggregatingTestRun.getConfiguredExecutions().map { it.executionSource }
 }
 
-open class KotlinJsReportAggregatingTestRun(
+abstract class KotlinJsReportAggregatingTestRun @Inject constructor(
     testRunName: String,
     override val target: KotlinJsSubTargetContainerDsl
 ) : KotlinReportAggregatingTestRun<JsCompilationExecutionSource, JsAggregatingExecutionSource, KotlinJsPlatformTestRun>(testRunName),
@@ -82,6 +84,7 @@ open class KotlinJsReportAggregatingTestRun(
 
         target.whenBrowserConfigured { doConfigureInChildren(this) }
         target.whenNodejsConfigured { doConfigureInChildren(this) }
+        (target as? KotlinWasmSubTargetContainerDsl)?.whenD8Configured { doConfigureInChildren(this) }
     }
 
     override fun filter(configureFilter: Closure<*>) = filter { target.project.configure(this, configureFilter) }

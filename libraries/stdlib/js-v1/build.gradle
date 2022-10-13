@@ -100,13 +100,6 @@ task prepareBuiltinsSources(type: Copy) {
     from("${builtinsDir}/src/kotlin/") {
         include "annotation/Annotations.kt"
         include "Function.kt"
-        include "Iterators.kt"
-        include "Range.kt"
-        include "Progressions.kt"
-        include "ProgressionIterators.kt"
-        include "Ranges.kt"
-        include "internal/InternalAnnotations.kt"
-        include "internal/progressionUtil.kt"
         include "Unit.kt"
     }
     into builtinsSrcDir
@@ -141,6 +134,7 @@ compileKotlin2Js {
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlin.ExperimentalMultiplatform",
             "-opt-in=kotlin.contracts.ExperimentalContracts",
+            "-XXLanguage:+RangeUntilOperator",
         ]
     }
 }
@@ -152,6 +146,7 @@ compileTestKotlin2Js {
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlin.ExperimentalUnsignedTypes",
             "-opt-in=kotlin.ExperimentalStdlibApi",
+            "-XXLanguage:+RangeUntilOperator",
         ]
     }
 }
@@ -172,7 +167,7 @@ task compileJs(type: NoDebugJavaExec) {
         include '**/*.js'
     }
 
-    main = "org.jetbrains.kotlin.cli.js.internal.JSStdlibLinker"
+    mainClass = "org.jetbrains.kotlin.cli.js.internal.JSStdlibLinker"
 
     // local variables for configuration cache work
     def rootDir = rootDir
@@ -276,7 +271,8 @@ task libraryJarWithIr(type: Zip, dependsOn: libraryJarWithoutIr) {
 
     duplicatesStrategy DuplicatesStrategy.FAIL
 
-    from zipTree(libraryJarWithoutIr.archiveFile)
+    def archiveOperations = services.get(ArchiveOperations)
+    from { libraryJarWithoutIr.archiveFile.map {archiveOperations.zipTree(it) } }
     dependsOn(":kotlin-stdlib-js-ir:compileKotlinJs")
     from {
         def irKlib = tasks.getByPath(":kotlin-stdlib-js-ir:compileKotlinJs")
@@ -335,7 +331,7 @@ artifacts {
 
 node {
     download = true
-    version = '12.18.0'
+    version = DependenciesKt.getNodejsVersion(project)
     nodeProjectDir = buildDir
 }
 

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle
 
+import groovy.json.StringEscapeUtils
 import org.gradle.api.logging.LogLevel.INFO
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
@@ -38,7 +39,7 @@ class CommonizerIT : BaseGradleIT() {
             }
 
             build("commonize", "-Pkotlin.mpp.enableNativeDistributionCommonizationCache=true") {
-                assertTasksExecuted(":commonizeNativeDistribution")
+                assertTasksUpToDate(":commonizeNativeDistribution")
                 assertNativeDistributionCommonizationCacheHit()
                 assertContains("Native Distribution Commonization: All available targets are commonized already")
                 assertContains("Native Distribution Commonization: Lock acquired")
@@ -551,6 +552,7 @@ class CommonizerIT : BaseGradleIT() {
             build(":assemble", options = testSourceSetsDependingOnMainParameterOption) {
                 assertTestSourceSetsDependingOnMainParameter()
                 assertSuccessful()
+                assertTasksUpToDate(":commonizeNativeDistribution")
                 assertContains("Native Distribution Commonization: Cache hit")
                 assertTasksUpToDate(":commonizeCInterop")
             }
@@ -671,6 +673,29 @@ class CommonizerIT : BaseGradleIT() {
                 assertTasksSkipped(":cinteropSimpleTarget2")
                 assertTasksExecuted(":cinteropSimpleTarget1")
                 assertTasksExecuted(":commonizeCInterop")
+            }
+        }
+    }
+
+    @Test
+    fun `test KT-52243 cinterop caching`() {
+        with(preparedProject("commonizeCurlInterop")) {
+            val localBuildCacheDir = projectDir.resolve("local-build-cache-dir").also { assertTrue(it.mkdirs()) }
+            gradleSettingsScript().appendText("""
+                
+                buildCache {
+                    local {
+                        directory = "${StringEscapeUtils.escapeJava(localBuildCacheDir.absolutePath)}"
+                    }
+                }
+            """.trimIndent()
+            )
+            build(":commonize", options = defaultBuildOptions().copy(withBuildCache = true)) {
+                assertTasksExecuted(":cinteropCurlTargetA", ":cinteropCurlTargetB")
+            }
+            build(":clean") {}
+            build(":commonize", options = defaultBuildOptions().copy(withBuildCache = true)) {
+                assertTasksRetrievedFromCache(":cinteropCurlTargetA", ":cinteropCurlTargetB")
             }
         }
     }

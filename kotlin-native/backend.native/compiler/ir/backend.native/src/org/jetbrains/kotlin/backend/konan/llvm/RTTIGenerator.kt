@@ -462,6 +462,8 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
                     ""
             ) {
                 ret(getObjectValue(value, ExceptionHandler.Caller, startLocationInfo = null))
+            }.also {
+                LLVMSetLinkage(it, LLVMLinkage.LLVMPrivateLinkage)
             }
 
             Struct(runtime.associatedObjectTableRecordType, key.typeInfoPtr, constPointer(associatedObjectGetter))
@@ -564,7 +566,7 @@ internal class RTTIGenerator(override val context: Context) : ContextUtils {
     }
 
     private fun getReflectionInfo(irClass: IrClass): ReflectionInfo {
-        val packageName: String = irClass.findPackage().fqName.asString() // Compute and store package name in TypeInfo anyways.
+        val packageName: String = irClass.getPackageFragment().fqName.asString() // Compute and store package name in TypeInfo anyways.
         val relativeName: String?
         val flags: Int
 

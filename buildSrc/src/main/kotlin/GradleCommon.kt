@@ -13,6 +13,7 @@ import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.java.TargetJvmEnvironment
 import org.gradle.api.attributes.java.TargetJvmVersion
 import org.gradle.api.attributes.plugin.GradlePluginApiVersion
+import org.gradle.api.file.FileCollection
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
@@ -27,11 +28,12 @@ import org.gradle.kotlin.dsl.*
 import org.gradle.plugin.devel.plugins.JavaGradlePluginPlugin
 import org.jetbrains.dokka.DokkaVersion
 import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.kotlin.gradle.dsl.KotlinSingleTargetExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinSingleJavaTargetExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import plugins.configureDefaultPublishing
 import plugins.configureKotlinPomAttributes
+import java.util.*
 
 /**
  * Gradle plugins common variants.
@@ -46,15 +48,17 @@ enum class GradlePluginVariant(
 ) {
     GRADLE_MIN("main", "6.7", "6.9"),
     GRADLE_70("gradle70", "7.0", "7.0"),
-    //GRADLE_71("gradle71", "7.1", "7.1"),
+    GRADLE_71("gradle71", "7.1", "7.1"),
 }
 
 /**
  * Configures common pom configuration parameters
  */
-fun Project.configureCommonPublicationSettingsForGradle() {
+fun Project.configureCommonPublicationSettingsForGradle(
+    signingRequired: Boolean
+) {
     plugins.withId("maven-publish") {
-        configureDefaultPublishing()
+        configureDefaultPublishing(signingRequired)
 
         extensions.configure<PublishingExtension> {
             publications
@@ -133,7 +137,7 @@ fun Project.createGradleCommonSourceSet(): SourceSet {
 
     // Common outputs will also produce '${project.name}.kotlin_module' file, so we need to avoid
     // files clash
-    tasks.named<KotlinCompile>("compile${commonSourceSet.name.capitalize()}Kotlin") {
+    tasks.named<KotlinCompile>("compile${commonSourceSet.name.replaceFirstChar { it.uppercase() }}Kotlin") {
         kotlinOptions {
             moduleName = "${this@createGradleCommonSourceSet.name}_${commonSourceSet.name}"
         }
@@ -212,7 +216,7 @@ fun Project.wireGradleVariantToCommonGradleVariant(
     wireSourceSet.runtimeClasspath += commonSourceSet.output
 
     // Allowing to use 'internal' classes/methods from common source code
-    (extensions.getByName("kotlin") as KotlinSingleTargetExtension).target.compilations.run {
+    (extensions.getByName("kotlin") as KotlinSingleJavaTargetExtension).target.compilations.run {
         getByName(wireSourceSet.name).associateWith(getByName(commonSourceSet.name))
     }
 
@@ -285,19 +289,13 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
                 .extensions
                 .configure<JavaPluginExtension> {
                     withSourcesJar()
-                    // Enabling publishing docs jars only on CI build
-                    // Currently dokka task runs non-incrementally and takes big amount of time
-                    if (kotlinBuildProperties.publishGradlePluginsJavadoc ||
-                        kotlinBuildProperties.isTeamcityBuild
-                    ) {
+                    if (kotlinBuildProperties.publishGradlePluginsJavadoc) {
                         withJavadocJar()
                     }
                 }
         }
 
-        if (kotlinBuildProperties.publishGradlePluginsJavadoc ||
-            kotlinBuildProperties.isTeamcityBuild
-        ) {
+        if (kotlinBuildProperties.publishGradlePluginsJavadoc) {
             plugins.withId("org.jetbrains.dokka") {
                 val dokkaTask = tasks.named<DokkaTask>("dokkaJavadoc") {
                     dokkaSourceSets {
@@ -388,7 +386,7 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
     }
 
     // Allowing to use 'internal' classes/methods from common source code
-    (extensions.getByName("kotlin") as KotlinSingleTargetExtension).target.compilations.run {
+    (extensions.getByName("kotlin") as KotlinSingleJavaTargetExtension).target.compilations.run {
         getByName(SourceSet.TEST_SOURCE_SET_NAME).associateWith(getByName(commonSourceSet.name))
     }
 }
@@ -414,11 +412,7 @@ fun Project.createGradlePluginVariant(
                     capability(project.group.toString(), project.name, project.version.toString())
                 }
 
-                // Enabling publishing docs jars only on CI build
-                // Currently dokka task runs non-incrementally and takes big amount of time
-                if (kotlinBuildProperties.publishGradlePluginsJavadoc ||
-                    kotlinBuildProperties.isTeamcityBuild
-                ) {
+                if (kotlinBuildProperties.publishGradlePluginsJavadoc) {
                     withJavadocJar()
                 }
                 withSourcesJar()
@@ -433,13 +427,12 @@ fun Project.createGradlePluginVariant(
         }
     }
 
-    // Enabling publishing docs jars only on CI build
-    // Currently dokka task runs non-incrementally and takes big amount of time
-    if (kotlinBuildProperties.publishGradlePluginsJavadoc ||
-        kotlinBuildProperties.isTeamcityBuild
-    ) {
+    if (kotlinBuildProperties.publishGradlePluginsJavadoc) {
         plugins.withId("org.jetbrains.dokka") {
-            val dokkaTask = tasks.register<DokkaTask>("dokka${variantSourceSet.javadocTaskName.capitalize()}") {
+            val dokkaTask = tasks.register<DokkaTask>(
+                "dokka${
+                    variantSourceSet.javadocTaskName.replaceFirstChar { it.uppercase() }
+                }") {
                 description = "Generates documentation in 'javadoc' format for '${variantSourceSet.javadocTaskName}' variant"
 
                 plugins.dependencies.add(
@@ -484,7 +477,7 @@ fun Project.createGradlePluginVariant(
     }
 
     // KT-52138: Make module name the same for all variants, so KSP could access internal methods/properties
-    tasks.named<KotlinCompile>("compile${variantSourceSet.name.capitalize()}Kotlin") {
+    tasks.named<KotlinCompile>("compile${variantSourceSet.name.replaceFirstChar { it.uppercase() }}Kotlin") {
         kotlinOptions {
             moduleName = this@createGradlePluginVariant.name
         }
@@ -540,7 +533,7 @@ fun Project.publishShadowedJar(
     val jarTask = tasks.named<Jar>(sourceSet.jarTaskName)
 
     val shadowJarTask = embeddableCompilerDummyForDependenciesRewriting(
-        taskName = "$EMBEDDABLE_COMPILER_TASK_NAME${sourceSet.jarTaskName.capitalize()}"
+        taskName = "$EMBEDDABLE_COMPILER_TASK_NAME${sourceSet.jarTaskName.replaceFirstChar { it.uppercase() }}"
     ) {
         setupPublicJar(
             jarTask.flatMap { it.archiveBaseName },
@@ -552,8 +545,8 @@ fun Project.publishShadowedJar(
 
         // When Gradle traverses the inputs, reject the shaded compiler JAR,
         // which leads to the content of that JAR being excluded as well:
-        val compilerDummyJarFile = project.provider { project.configurations.getByName("compilerDummyJar").singleFile }
-        exclude { it.file == compilerDummyJarFile.get() }
+        val compilerDummyJarConfiguration: FileCollection = project.configurations.getByName("compilerDummyJar")
+        exclude { it.file == compilerDummyJarConfiguration.singleFile }
     }
 
     // Removing artifact produced by Jar task

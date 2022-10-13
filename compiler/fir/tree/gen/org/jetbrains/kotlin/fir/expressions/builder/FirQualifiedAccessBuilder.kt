@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.builder
 
 import org.jetbrains.kotlin.KtSourceElement
@@ -21,12 +23,11 @@ import org.jetbrains.kotlin.fir.visitors.*
 @FirBuilderDsl
 interface FirQualifiedAccessBuilder {
     abstract val annotations: MutableList<FirAnnotation>
+    abstract val contextReceiverArguments: MutableList<FirExpression>
     abstract val typeArguments: MutableList<FirTypeProjection>
     abstract var explicitReceiver: FirExpression?
     abstract var dispatchReceiver: FirExpression
     abstract var extensionReceiver: FirExpression
     abstract var source: KtSourceElement?
-    abstract val contextReceiverArguments: MutableList<FirExpression>
-
     fun build(): FirQualifiedAccess
 }

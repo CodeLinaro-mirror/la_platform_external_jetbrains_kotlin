@@ -41,6 +41,9 @@ object SpecialNames {
     val UNARY = Name.special("<unary>")
 
     @JvmField
+    val UNARY_RESULT = Name.special("<unary-result>")
+
+    @JvmField
     val THIS = Name.special("<this>")
 
     @JvmField
@@ -60,6 +63,24 @@ object SpecialNames {
 
     @JvmField
     val IMPLICIT_SET_PARAMETER = Name.special("<set-?>")
+
+    @JvmField
+    val ARRAY = Name.special("<array>")
+
+    @JvmField
+    val RECEIVER = Name.special("<receiver>")
+
+    /**
+     * Special name to store expressions used as indexes in subscription operators (`get` and `set`).
+     *
+     * For example, `bar1()` and `bar2()` are indexes in `foo[bar1(), bar2()]` call.
+     */
+    @JvmStatic
+    fun subscribeOperatorIndex(idx: Int): Name {
+        require(idx >= 0) { "Index should be non-negative, but was $idx" }
+
+        return Name.special("<index_$idx>")
+    }
 
     @JvmStatic
     fun safeIdentifier(name: Name?): Name {

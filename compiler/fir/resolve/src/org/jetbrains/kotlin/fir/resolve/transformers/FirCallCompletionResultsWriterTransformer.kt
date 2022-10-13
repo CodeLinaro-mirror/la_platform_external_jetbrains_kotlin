@@ -27,10 +27,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.FirErrorReferenceWithCandidate
 import org.jetbrains.kotlin.fir.resolve.calls.FirNamedReferenceWithCandidate
 import org.jetbrains.kotlin.fir.resolve.dfa.FirDataFlowAnalyzer
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeConstraintSystemHasContradiction
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableCandidateError
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConePropertyAsOperator
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeTypeParameterInQualifiedAccess
+import org.jetbrains.kotlin.fir.resolve.diagnostics.*
 import org.jetbrains.kotlin.fir.resolve.inference.ResolvedLambdaAtom
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -54,10 +51,12 @@ import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.visitors.FirDefaultTransformer
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.resolve.calls.inference.model.InferredEmptyIntersection
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.Variance
+import org.jetbrains.kotlin.types.isDefinitelyEmpty
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -549,15 +548,15 @@ class FirCallCompletionResultsWriterTransformer(
     ): List<ConeKotlinType> {
         val declaration = candidate.symbol.fir as? FirCallableDeclaration ?: return emptyList()
 
-        return declaration.typeParameters.map { ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false) }
-            .map { candidate.substitutor.substituteOrSelf(it) }
-            .map {
-                finalSubstitutor.substituteOrSelf(it).let { substitutedType ->
-                    typeApproximator.approximateToSuperType(
-                        substitutedType, TypeApproximatorConfiguration.TypeArgumentApproximation,
-                    ) ?: substitutedType
-                }
+        return declaration.typeParameters.map {
+            val typeParameter = ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false)
+            val substitution = candidate.substitutor.substituteOrSelf(typeParameter)
+            finalSubstitutor.substituteOrSelf(substitution).let { substitutedType ->
+                typeApproximator.approximateToSuperType(
+                    substitutedType, TypeApproximatorConfiguration.TypeArgumentApproximation,
+                ) ?: substitutedType
             }
+        }
     }
 
     override fun transformAnonymousFunctionExpression(
@@ -591,19 +590,16 @@ class FirCallCompletionResultsWriterTransformer(
                     val firRegularClass =
                         session.symbolProvider.getClassLikeSymbolByClassId(expectedArgumentType.lookupTag.classId)?.fir as? FirRegularClass
 
-                    firRegularClass?.let {
-                        val functionType = samResolver.getFunctionTypeForPossibleSamType(firRegularClass.defaultType())
-                        if (functionType != null) {
-                            createFunctionalType(
-                                functionType.typeArguments.dropLast(1).map { it as ConeKotlinType },
-                                null,
-                                functionType.typeArguments.last() as ConeKotlinType,
-                                functionType.classId?.relativeClassName?.asString()
-                                    ?.startsWith(FunctionClassKind.SuspendFunction.classNamePrefix) == true
-                            )
-                        } else {
-                            null
-                        }
+                    firRegularClass?.let answer@{
+                        val (_, functionType) = samResolver.getSamInfoForPossibleSamType(firRegularClass.defaultType())
+                            ?: return@answer null
+                        createFunctionalType(
+                            functionType.typeArguments.dropLast(1).map { it as ConeKotlinType },
+                            null,
+                            functionType.typeArguments.last() as ConeKotlinType,
+                            functionType.classId?.relativeClassName?.asString()
+                                ?.startsWith(FunctionClassKind.SuspendFunction.classNamePrefix) == true
+                        )
                     }
                 }
                 else -> null
@@ -655,17 +651,16 @@ class FirCallCompletionResultsWriterTransformer(
             expression.transform<FirElement, ExpectedArgumentType?>(this, finalType?.toExpectedType())
         }
 
-        val resultFunction = result
-        if (resultFunction.returnTypeRef.coneTypeSafe<ConeIntegerLiteralType>() != null) {
+        if (result.returnTypeRef.coneTypeSafe<ConeIntegerLiteralType>() != null) {
             val lastExpressionType =
                 (returnExpressionsOfAnonymousFunction.lastOrNull() as? FirExpression)
                     ?.typeRef?.coneTypeSafe<ConeKotlinType>()
 
-            val newReturnTypeRef = resultFunction.returnTypeRef.withReplacedConeType(lastExpressionType)
-            resultFunction.replaceReturnTypeRef(newReturnTypeRef)
+            val newReturnTypeRef = result.returnTypeRef.withReplacedConeType(lastExpressionType)
+            result.replaceReturnTypeRef(newReturnTypeRef)
             val resolvedTypeRef =
-                resultFunction.constructFunctionalTypeRef(isSuspend = expectedType?.isSuspendFunctionType(session) == true)
-            resultFunction.replaceTypeRef(resolvedTypeRef)
+                result.constructFunctionalTypeRef(isSuspend = expectedType?.isSuspendFunctionType(session) == true)
+            result.replaceTypeRef(resolvedTypeRef)
             session.lookupTracker?.let {
                 it.recordTypeResolveAsLookup(newReturnTypeRef, anonymousFunction.source, context.file.source)
                 it.recordTypeResolveAsLookup(resolvedTypeRef, anonymousFunction.source, context.file.source)
@@ -856,6 +851,9 @@ class FirCallCompletionResultsWriterTransformer(
         return varargArgumentsExpression
     }
 
+    private fun FirNamedReferenceWithCandidate.hasAdditionalResolutionErrors(): Boolean =
+        candidate.system.errors.any { it is InferredEmptyIntersection && it.kind.isDefinitelyEmpty() }
+
     private fun FirNamedReferenceWithCandidate.toResolvedReference(): FirNamedReference {
         val errorDiagnostic = when {
             this is FirErrorReferenceWithCandidate -> this.diagnostic
@@ -867,6 +865,9 @@ class FirCallCompletionResultsWriterTransformer(
 
                 ConeConstraintSystemHasContradiction(candidate)
             }
+            // NB: these additional errors might not lead to marking candidate unsuccessful because it may be a warning in FE 1.0
+            // We consider those warnings as errors in FIR
+            hasAdditionalResolutionErrors() -> ConeConstraintSystemHasContradiction(candidate)
             else -> null
         }
 
@@ -952,7 +953,7 @@ internal class FirDeclarationCompletionResultsWriter(
             typeRef.resolvedTypeFromPrototype(it)
         } ?: typeRef
         if (data is ApproximationData.ApproximateByStatus) {
-            return result.approximatedIfNeededOrSelf(typeApproximator, data.visibility, data.isInline)
+            return result.approximatedIfNeededOrSelf(typeApproximator, data.visibility, this.typeContext.session, data.isInline)
         }
         return result
     }

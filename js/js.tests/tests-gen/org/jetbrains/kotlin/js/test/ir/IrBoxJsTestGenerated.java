@@ -625,6 +625,58 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         public void testWrappedVariableInExtensionFun() throws Exception {
             runTest("js/js.translator/testData/box/closure/wrappedVariableInExtensionFun.kt");
         }
+
+        @Nested
+        @TestMetadata("js/js.translator/testData/box/closure/inlineAnonymousFunctions")
+        @TestDataPath("$PROJECT_ROOT")
+        public class InlineAnonymousFunctions {
+            @Test
+            public void testAllFilesPresentInInlineAnonymousFunctions() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/closure/inlineAnonymousFunctions"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+            }
+
+            @Test
+            @TestMetadata("closureCodeSize.kt")
+            public void testClosureCodeSize() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/closureCodeSize.kt");
+            }
+
+            @Test
+            @TestMetadata("closureInWithInsideWith.kt")
+            public void testClosureInWithInsideWith() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/closureInWithInsideWith.kt");
+            }
+
+            @Test
+            @TestMetadata("inlineChain.kt")
+            public void testInlineChain() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/inlineChain.kt");
+            }
+
+            @Test
+            @TestMetadata("lambdaChain.kt")
+            public void testLambdaChain() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/lambdaChain.kt");
+            }
+
+            @Test
+            @TestMetadata("lambdaParameters.kt")
+            public void testLambdaParameters() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/lambdaParameters.kt");
+            }
+
+            @Test
+            @TestMetadata("localParameterInCallback.kt")
+            public void testLocalParameterInCallback() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/localParameterInCallback.kt");
+            }
+
+            @Test
+            @TestMetadata("twiceRegeneratedAnonymousObject.kt")
+            public void testTwiceRegeneratedAnonymousObject() throws Exception {
+                runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/twiceRegeneratedAnonymousObject.kt");
+            }
+        }
     }
 
     @Nested
@@ -751,6 +803,24 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         }
 
         @Test
+        @TestMetadata("unitMaterializationInOverriddenMethod.kt")
+        public void testUnitMaterializationInOverriddenMethod() throws Exception {
+            runTest("js/js.translator/testData/box/coercion/unitMaterializationInOverriddenMethod.kt");
+        }
+
+        @Test
+        @TestMetadata("unitMaterializationOnAssign.kt")
+        public void testUnitMaterializationOnAssign() throws Exception {
+            runTest("js/js.translator/testData/box/coercion/unitMaterializationOnAssign.kt");
+        }
+
+        @Test
+        @TestMetadata("unitMaterializationOnCall.kt")
+        public void testUnitMaterializationOnCall() throws Exception {
+            runTest("js/js.translator/testData/box/coercion/unitMaterializationOnCall.kt");
+        }
+
+        @Test
         @TestMetadata("unitNullCheck.kt")
         public void testUnitNullCheck() throws Exception {
             runTest("js/js.translator/testData/box/coercion/unitNullCheck.kt");
@@ -782,6 +852,12 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("debugStatement.kt")
         public void testDebugStatement() throws Exception {
             runTest("js/js.translator/testData/box/coroutines/debugStatement.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithValueClass.kt")
+        public void testLambdaWithValueClass() throws Exception {
+            runTest("js/js.translator/testData/box/coroutines/lambdaWithValueClass.kt");
         }
 
         @Test
@@ -4953,6 +5029,12 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         }
 
         @Test
+        @TestMetadata("blocksMaterialization.kt")
+        public void testBlocksMaterialization() throws Exception {
+            runTest("js/js.translator/testData/box/inline/blocksMaterialization.kt");
+        }
+
+        @Test
         @TestMetadata("callFunction.kt")
         public void testCallFunction() throws Exception {
             runTest("js/js.translator/testData/box/inline/callFunction.kt");
@@ -4974,6 +5056,12 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("callableReference.kt")
         public void testCallableReference() throws Exception {
             runTest("js/js.translator/testData/box/inline/callableReference.kt");
+        }
+
+        @Test
+        @TestMetadata("callableReferenceOfLocalFun.kt")
+        public void testCallableReferenceOfLocalFun() throws Exception {
+            runTest("js/js.translator/testData/box/inline/callableReferenceOfLocalFun.kt");
         }
 
         @Test
@@ -5716,6 +5804,12 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("propertyAccessAndInitializer.kt")
         public void testPropertyAccessAndInitializer() throws Exception {
             runTest("js/js.translator/testData/box/inlineEvaluationOrder/propertyAccessAndInitializer.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAccessExternalWithSideEffect.kt")
+        public void testPropertyAccessExternalWithSideEffect() throws Exception {
+            runTest("js/js.translator/testData/box/inlineEvaluationOrder/propertyAccessExternalWithSideEffect.kt");
         }
 
         @Test
@@ -6514,6 +6608,12 @@ public class IrBoxJsTestGenerated extends AbstractIrBoxJsTest {
         @TestMetadata("codeFromVariable.kt")
         public void testCodeFromVariable() throws Exception {
             runTest("js/js.translator/testData/box/jsCode/codeFromVariable.kt");
+        }
+
+        @Test
+        @TestMetadata("comments.kt")
+        public void testComments() throws Exception {
+            runTest("js/js.translator/testData/box/jsCode/comments.kt");
         }
 
         @Test

@@ -56,7 +56,8 @@ task libraryJarWithIr(type: Zip, dependsOn: libraryJarWithoutIr) {
 
     duplicatesStrategy DuplicatesStrategy.FAIL
 
-    from zipTree(libraryJarWithoutIr.archiveFile)
+    def archiveOperations = services.get(ArchiveOperations)
+    from { libraryJarWithoutIr.archiveFile.map { archiveOperations.zipTree(it) } }
 
     dependsOn(":kotlin-test:kotlin-test-js-ir:compileKotlinJs")
     from {

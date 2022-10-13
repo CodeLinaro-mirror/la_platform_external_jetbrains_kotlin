@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DuplicatedCode")
+
 package org.jetbrains.kotlin.fir.expressions.impl
 
 import org.jetbrains.kotlin.KtSourceElement
@@ -30,10 +32,10 @@ import org.jetbrains.kotlin.fir.visitors.*
 internal class FirComponentCallImpl(
     override var source: KtSourceElement?,
     override val annotations: MutableList<FirAnnotation>,
+    override val contextReceiverArguments: MutableList<FirExpression>,
     override val typeArguments: MutableList<FirTypeProjection>,
     override var dispatchReceiver: FirExpression,
     override var extensionReceiver: FirExpression,
-    override val contextReceiverArguments: MutableList<FirExpression>,
     override var argumentList: FirArgumentList,
     override var explicitReceiver: FirExpression,
     override val componentIndex: Int,
@@ -45,6 +47,7 @@ internal class FirComponentCallImpl(
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         typeRef.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
+        contextReceiverArguments.forEach { it.accept(visitor, data) }
         typeArguments.forEach { it.accept(visitor, data) }
         argumentList.accept(visitor, data)
         calleeReference.accept(visitor, data)
@@ -60,6 +63,7 @@ internal class FirComponentCallImpl(
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirComponentCallImpl {
         typeRef = typeRef.transform(transformer, data)
         transformAnnotations(transformer, data)
+        contextReceiverArguments.transformInplace(transformer, data)
         transformTypeArguments(transformer, data)
         argumentList = argumentList.transform(transformer, data)
         transformCalleeReference(transformer, data)
@@ -112,14 +116,14 @@ internal class FirComponentCallImpl(
         typeRef = newTypeRef
     }
 
-    override fun replaceTypeArguments(newTypeArguments: List<FirTypeProjection>) {
-        typeArguments.clear()
-        typeArguments.addAll(newTypeArguments)
-    }
-
     override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>) {
         contextReceiverArguments.clear()
         contextReceiverArguments.addAll(newContextReceiverArguments)
+    }
+
+    override fun replaceTypeArguments(newTypeArguments: List<FirTypeProjection>) {
+        typeArguments.clear()
+        typeArguments.addAll(newTypeArguments)
     }
 
     override fun replaceArgumentList(newArgumentList: FirArgumentList) {

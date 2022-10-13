@@ -13,16 +13,16 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Nested
-import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinGradleModule
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.GradleKpmModule
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.hasKpmModel
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.withRefinesClosure
 import org.jetbrains.kotlin.gradle.plugin.sources.KotlinDependencyScope
 import org.jetbrains.kotlin.gradle.plugin.sources.sourceSetDependencyConfigurationByScope
 import org.jetbrains.kotlin.gradle.targets.metadata.dependsOnClosureWithInterCompilationDependencies
 import org.jetbrains.kotlin.gradle.targets.metadata.getPublishedPlatformCompilations
 import org.jetbrains.kotlin.gradle.targets.metadata.isSharedNativeSourceSet
 import org.jetbrains.kotlin.gradle.targets.native.internal.CInteropCommonizerCompositeMetadataJarBundling.cinteropMetadataDirectoryPath
+import org.jetbrains.kotlin.gradle.utils.getOrPut
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.Node
@@ -139,13 +139,19 @@ data class KotlinProjectStructureMetadata(
     }
 }
 
-internal fun buildKotlinProjectStructureMetadata(project: Project): KotlinProjectStructureMetadata? {
-    require(!project.hasKpmModel) { "this function only works with the stable plugin" }
+internal val KotlinMultiplatformExtension.kotlinProjectStructureMetadata: KotlinProjectStructureMetadata
+    get() = project.extensions.extraProperties.getOrPut("org.jetbrains.kotlin.gradle.plugin.mpp.kotlinProjectStructureMetadata") {
+        buildKotlinProjectStructureMetadata(this)
+    }
 
-    val sourceSetsWithMetadataCompilations =
-        project.multiplatformExtensionOrNull?.targets?.getByName(KotlinMultiplatformPlugin.METADATA_TARGET_NAME)?.compilations?.associate {
-            it.defaultSourceSet to it
-        } ?: return null
+private fun buildKotlinProjectStructureMetadata(extension: KotlinMultiplatformExtension): KotlinProjectStructureMetadata {
+    val project = extension.project
+    require(!project.hasKpmModel) { "this function only works with the stable plugin" }
+    require(project.state.executed) { "Cannot build 'KotlinProjectStructureMetadata' during project configuration phase" }
+
+    val sourceSetsWithMetadataCompilations = extension.targets
+        .getByName(KotlinMultiplatformPlugin.METADATA_TARGET_NAME)
+        .compilations.associateBy { it.defaultSourceSet }
 
     val publishedVariantsNamesWithCompilation = getPublishedPlatformCompilations(project).mapKeys { it.key.name }
 
@@ -191,7 +197,7 @@ internal fun buildKotlinProjectStructureMetadata(project: Project): KotlinProjec
     )
 }
 
-internal fun buildProjectStructureMetadata(module: KotlinGradleModule): KotlinProjectStructureMetadata {
+internal fun buildProjectStructureMetadata(module: GradleKpmModule): KotlinProjectStructureMetadata {
     val kotlinVariantToGradleVariantNames = module.variants.associate { it.name to it.gradleVariantNames }
 
     fun <T> expandVariantKeys(map: Map<String, T>) =
@@ -202,7 +208,7 @@ internal fun buildProjectStructureMetadata(module: KotlinGradleModule): KotlinPr
     val kotlinFragmentsPerKotlinVariant =
         module.variants.associate { variant -> variant.name to variant.withRefinesClosure.map { it.name }.toSet() }
     val fragmentRefinesRelation =
-        module.fragments.associate { it.name to it.directRefinesDependencies.map { it.fragmentName }.toSet() }
+        module.fragments.associate { it.name to it.declaredRefinesDependencies.map { it.fragmentName }.toSet() }
 
     // FIXME: support native implementation-as-api-dependencies
     // FIXME: support dependencies on auxiliary modules

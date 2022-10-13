@@ -11,10 +11,10 @@ import org.jetbrains.kotlin.analysis.api.components.KtTypeParameterTypeBuilder
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirTypeParameterSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtClassType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeParameterType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedSymbolError
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
@@ -26,10 +26,10 @@ import org.jetbrains.kotlin.fir.types.typeContext
 
 internal class KtFirTypeCreator(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
 ) : KtTypeCreator(), KtFirAnalysisSessionComponent {
 
-    override fun buildClassType(builder: KtClassTypeBuilder): KtClassType = withValidityAssertion {
+    override fun buildClassType(builder: KtClassTypeBuilder): KtClassType {
         val lookupTag = when (builder) {
             is KtClassTypeBuilder.ByClassId -> {
                 val classSymbol = rootModuleSession.symbolProvider.getClassLikeSymbolByClassId(builder.classId)
@@ -53,7 +53,7 @@ internal class KtFirTypeCreator(
         return coneType.asKtType() as KtClassType
     }
 
-    override fun buildTypeParameterType(builder: KtTypeParameterTypeBuilder): KtTypeParameterType = withValidityAssertion {
+    override fun buildTypeParameterType(builder: KtTypeParameterTypeBuilder): KtTypeParameterType  {
         val coneType = when (builder) {
             is KtTypeParameterTypeBuilder.BySymbol -> {
                 val symbol = builder.symbol

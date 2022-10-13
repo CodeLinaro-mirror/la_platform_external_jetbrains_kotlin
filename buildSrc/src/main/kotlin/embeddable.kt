@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.component.ProjectComponentSelector
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.named
@@ -125,10 +126,13 @@ fun Project.compilerDummyForDependenciesRewriting(
 const val COMPILER_DUMMY_JAR_CONFIGURATION_NAME = "compilerDummyJar"
 
 fun Project.compilerDummyJar(task: TaskProvider<out Jar>, body: Jar.() -> Unit = {}) {
-    task.configure(body)
-    task.configure {
-        addArtifact(COMPILER_DUMMY_JAR_CONFIGURATION_NAME, this, this)
+    configurations.getOrCreate(COMPILER_DUMMY_JAR_CONFIGURATION_NAME).apply {
+        isCanBeResolved = false
+        isCanBeConsumed = true
     }
+
+    task.configure(body)
+    addArtifact(COMPILER_DUMMY_JAR_CONFIGURATION_NAME, task)
 }
 
 const val EMBEDDABLE_COMPILER_TASK_NAME = "embeddable"
@@ -136,7 +140,11 @@ fun Project.embeddableCompilerDummyForDependenciesRewriting(
     taskName: String = EMBEDDABLE_COMPILER_TASK_NAME,
     body: ShadowJar.() -> Unit = {}
 ): TaskProvider<ShadowJar> {
-    val compilerDummyJar = configurations.getOrCreate("compilerDummyJar")
+    val compilerDummyJar = configurations.getOrCreate(COMPILER_DUMMY_JAR_CONFIGURATION_NAME).apply {
+        isCanBeResolved = true
+        isCanBeConsumed = false
+    }
+
     dependencies.add(
         compilerDummyJar.name,
         dependencies.project(":kotlin-compiler-embeddable", configuration = COMPILER_DUMMY_JAR_CONFIGURATION_NAME)
@@ -165,8 +173,8 @@ fun Project.rewriteDepsToShadedJar(
 
         // When Gradle traverses the inputs, reject the shaded compiler JAR,
         // which leads to the content of that JAR being excluded as well:
-        val compilerDummyJarFile = project.provider { project.configurations.getByName("compilerDummyJar").singleFile }
-        exclude { it.file == compilerDummyJarFile.get() }
+        val compilerDummyJarConfiguration: FileCollection = project.configurations.getByName("compilerDummyJar")
+        exclude { it.file == compilerDummyJarConfiguration.singleFile }
 
         archiveClassifier.set("original")
         body()

@@ -48,7 +48,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     var manifestFile: String? = null
 
     @Argument(value="-memory-model", valueDescription = "<model>", description = "Memory model to use, 'strict' and 'experimental' are currently supported")
-    var memoryModel: String? = "strict"
+    var memoryModel: String? = null
 
     @Argument(value="-module-name", deprecatedName = "-module_name", valueDescription = "<name>", description = "Specify a name for the compilation module")
     var moduleName: String? = null
@@ -105,7 +105,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
     @Argument(
             value = "-Xbundle-id",
             valueDescription = "<id>",
-            description = "Bundle ID to be set in Info.plist of a produced framework"
+            description = "Bundle ID to be set in Info.plist of a produced framework. Deprecated. Please use -Xbinary=bundleId=<id>."
     )
     var bundleId: String? = null
 
@@ -343,7 +343,7 @@ class K2NativeCompilerArguments : CommonCompilerArguments() {
 
     @Argument(
             value = "-Xllvm-variant",
-            valueDescription = "{dev|user}",
+            valueDescription = "{dev|user|absolute path to llvm}",
             description = "Choose LLVM distribution which will be used during compilation."
     )
     var llvmVariant: String? = null

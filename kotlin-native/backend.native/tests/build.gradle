@@ -93,13 +93,23 @@ tasks.withType(KonanCompileNativeBinary.class).configureEach {
     enableTwoStageCompilation = twoStageEnabled
 }
 
-ext.isExperimentalMM = project.globalTestArgs.contains("-memory-model") && project.globalTestArgs.contains("experimental")
+ext.isExperimentalMM = !(project.globalTestArgs.contains("-memory-model") &&
+                         project.globalTestArgs.contains("strict")) &&
+                         project.testTarget != 'wasm32'
 ext.isNoopGC = project.globalTestArgs.contains("-Xgc=noop")
+ext.isAggressiveGC = project.globalTestArgs.contains("-Xbinary=gcSchedulerType=aggressive")
+ext.isCmsGC = project.globalTestArgs.contains("-Xgc=cms") || !project.globalTestArgs.any { it.startsWith("-Xgc=") }
 
 // TODO: It also makes sense to test -g without asserts, and also to test -opt with asserts.
 if (project.globalTestArgs.contains("-g")) {
     tasks.withType(KonanCompileNativeBinary.class).configureEach {
         extraOpts "-Xbinary=runtimeAssertionsMode=panic"
+    }
+}
+
+if (!isExperimentalMM) {
+    tasks.withType(KonanCompileNativeBinary.class).configureEach {
+        extraOpts "-opt-in=kotlin.native.FreezingIsDeprecated"
     }
 }
 
@@ -178,12 +188,9 @@ run {
     // Add regular gradle test tasks
     dependsOn(tasksOf(Test))
     dependsOn(tasksOf(CoverageTest))
-    // Bitcode that is generated in presence of caches or two-stage compilation differs from the "closed world"-generated,
-    // so disable these tests for now.
-    if (cacheTesting == null && !twoStageEnabled && project.testTarget != 'linux_mips32') {
-        dependsOn(tasksOf(FileCheckTest))
-    }
+    dependsOn(tasksOf(FileCheckTest))
     dependsOn(":kotlin-native:Interop:Indexer:check")
+    dependsOn(":kotlin-native:Interop:StubGenerator:check")
 }
 
 task sanity {
@@ -992,6 +999,7 @@ task worker10(type: KonanLocalTest) {
 
 task worker11(type: KonanLocalTest) {
     enabled = (project.testTarget != 'wasm32') // Workers need pthreads.
+        && !isAggressiveGC // TODO: Investigate why too slow
     useGoldenData = true
     source = "runtime/workers/worker11.kt"
 }
@@ -1099,7 +1107,7 @@ standaloneTest("worker_threadlocal_no_leak") {
 }
 
 standaloneTest("freeze0") {
-    enabled = (project.testTarget != 'wasm32') // No workers on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No workers on WASM.
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze0.kt"
@@ -1107,7 +1115,7 @@ standaloneTest("freeze0") {
 }
 
 standaloneTest("freeze1") {
-    enabled = (project.testTarget != 'wasm32') // No exceptions on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze1.kt"
@@ -1115,7 +1123,8 @@ standaloneTest("freeze1") {
 }
 
 standaloneTest("freeze_stress") {
-    enabled = (project.testTarget != 'wasm32') // No exceptions on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
+        && !isAggressiveGC // TODO: Investigate why too slow
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze_stress.kt"
@@ -1123,7 +1132,7 @@ standaloneTest("freeze_stress") {
 }
 
 standaloneTest("freeze2") {
-    enabled = (project.testTarget != 'wasm32') // No exceptions on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze2.kt"
@@ -1131,7 +1140,7 @@ standaloneTest("freeze2") {
 }
 
 standaloneTest("freeze3") {
-    enabled = (project.testTarget != 'wasm32') // No exceptions on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze3.kt"
@@ -1139,7 +1148,7 @@ standaloneTest("freeze3") {
 }
 
 standaloneTest("freeze4") {
-    enabled = (project.testTarget != 'wasm32') // No exceptions on WASM.
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze4.kt"
@@ -1147,6 +1156,7 @@ standaloneTest("freeze4") {
 }
 
 standaloneTest("freeze5") {
+    enabled = cacheTesting == null
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze5.kt"
@@ -1154,8 +1164,8 @@ standaloneTest("freeze5") {
 }
 
 standaloneTest("freeze6") {
-    enabled = (project.testTarget != 'wasm32') && // No exceptions on WASM.
-        !isNoopGC
+    enabled = (project.testTarget != 'wasm32') && (cacheTesting == null) // No exceptions on WASM.
+        && !isNoopGC
     useGoldenData = true
     flags = ["-Xbinary=freezing=full", "-tr"]
     source = "runtime/workers/freeze6.kt"
@@ -1211,6 +1221,7 @@ standaloneTest("lazy3") {
 
 task lazy4(type: KonanLocalTest) {
     enabled = (project.testTarget != 'wasm32') // Workers need pthreads. Need exceptions
+        && !isAggressiveGC // TODO: Investigate why too slow
     source = "runtime/workers/lazy4.kt"
 }
 
@@ -2604,6 +2615,7 @@ task hash_map0(type: KonanLocalTest) {
 }
 
 task hash_map1(type: KonanLocalTest) {
+    disabled = isAggressiveGC // TODO: Investigate why too slow
     useGoldenData = true
     source = "runtime/collections/hash_map1.kt"
 }
@@ -2667,6 +2679,7 @@ task trim(type: KonanLocalTest) {
 }
 
 task chars0(type: KonanLocalTest) {
+    disabled = isAggressiveGC // TODO: Investigate why too slow
     expectedFail = (project.testTarget == 'wasm32') // Uses exceptions.
     source = "runtime/text/chars0.kt"
     expectedExitStatus = 0
@@ -2679,6 +2692,7 @@ task indexof(type: KonanLocalTest) {
 task utf8(type: KonanLocalTest) {
     // Uses exceptions so cannot run on wasm.
     enabled = project.testTarget != 'wasm32'
+        && !isAggressiveGC // TODO: Investigate why too slow
     useGoldenData = true
     source = "runtime/text/utf8.kt"
 }
@@ -3277,6 +3291,14 @@ standaloneTest("codegen_escapeAnalysis_stackAllocated") {
     source = "codegen/escapeAnalysis/stackAllocated.kt"
 }
 
+standaloneTest("codegen_escapeAnalysis_string") {
+    disabled = (cacheTesting != null) || // Cache is not compatible with -opt.
+        project.globalTestArgs.contains('-g') || // -g and -opt are incompatible
+        !isExperimentalMM // strings are frozen in legacy GC
+    flags = ['-opt', '-tr', '-opt-in=kotlin.native.internal.InternalForKotlinNative']
+    source = "codegen/escapeAnalysis/string.kt"
+}
+
 task memory_var1(type: KonanLocalTest) {
     source = "runtime/memory/var1.kt"
 }
@@ -3390,7 +3412,8 @@ standaloneTest("stress_gc_allocations") {
         (project.testTarget != "watchos_x86") &&
         (project.testTarget != "watchos_x64") &&
         (project.testTarget != "watchos_simulator_arm64") &&
-        !isNoopGC
+        !isNoopGC &&
+        !isAggressiveGC // TODO: Investigate why too slow
     source = "runtime/memory/stress_gc_allocations.kt"
     flags = ['-tr', '-opt-in=kotlin.native.internal.InternalForKotlinNative']
 }
@@ -3425,7 +3448,7 @@ standaloneTest("mpp_optional_expectation") {
 }
 
 standaloneTest("freezing_control_basic_full") {
-    enabled = isExperimentalMM
+    enabled = isExperimentalMM && cacheTesting == null
     source = "runtime/freezing_control/basic.kt"
     flags = [
             '-Xbinary=freezing=full',
@@ -3445,7 +3468,7 @@ standaloneTest("freezing_control_basic_disabled") {
 }
 
 standaloneTest("freezing_control_basic_explicitOnly") {
-    enabled = isExperimentalMM
+    enabled = isExperimentalMM && cacheTesting == null
     source = "runtime/freezing_control/basic.kt"
     flags = [
             '-Xbinary=freezing=explicitOnly',
@@ -3498,6 +3521,7 @@ task vararg_of_literals(type: KonanLocalTest) {
 }
 
 standaloneTest('tailrec') {
+    disabled = isAggressiveGC // TODO: Investigate why too slow
     useGoldenData = true
     source = "lower/tailrec.kt"
     flags = ['-XXLanguage:-ProhibitTailrecOnVirtualMember', '-e', 'lower.tailrec.main']
@@ -4005,12 +4029,14 @@ standaloneTest("testing_stacktrace") {
 
 // Just check that the driver is able to produce runnable binaries.
 tasks.register("driver0", KonanDriverTest) {
+    disabled = isAggressiveGC // No need to test with different GC schedulers
     useGoldenData = true
     source = "runtime/basic/driver0.kt"
 }
 
 tasks.register("driver_opt", KonanDriverTest) {
     disabled = (cacheTesting != null) // Cache is not compatible with -opt.
+        || isAggressiveGC // No need to test with different GC schedulers
     useGoldenData = true
     source = "runtime/basic/driver_opt.kt"
     flags = ["-opt"]
@@ -4348,6 +4374,21 @@ if (PlatformInfo.isAppleTarget(project)) {
     createInterop("objc_kt50648") {
         it.defFile 'interop/objc/kt50648/objclib.def'
     }
+
+    createInterop("kt49034_struct") {
+        it.defFile 'interop/objc/kt49034/struct/kt49034.def'
+        it.headers "$projectDir/interop/objc/kt49034/struct/kt49034.h"
+        it.extraOpts "-Xcompile-source", "$projectDir/interop/objc/kt49034/struct/impl.c"
+    }
+
+    createInterop("kt49034_objcclass") {
+        it.defFile 'interop/objc/kt49034/objcclass/kt49034.def'
+        it.headers "$projectDir/interop/objc/kt49034/objcclass/kt49034.h"
+    }
+    createInterop("kt49034_objcprotocol") {
+        it.defFile 'interop/objc/kt49034/objcprotocol/kt49034.def'
+        it.headers "$projectDir/interop/objc/kt49034/objcprotocol/kt49034.h"
+    }
 }
 
 createInterop("withSpaces") {
@@ -4487,6 +4528,7 @@ standaloneTest("interop5") {
 
 interopTest("interop_bitfields") {
     disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
+        || isAggressiveGC // TODO: Investigate why too slow
     expectedFail = (project.testTarget == 'linux_mips32') // fails because of big-endiannes
     source = "interop/basics/bf.kt"
     interop = 'bitfields'
@@ -4540,14 +4582,6 @@ interopTest("interop_vectors") {
     disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
     source = "interop/basics/vectors.kt"
     interop = 'cvectors'
-}
-
-interopTest("interop_vectors_mimalloc") {
-    disabled = (project.testTarget == 'wasm32') // No interop for wasm yet.
-    source = "interop/basics/vectors.kt"
-    interop = 'cvectors'
-    flags = [ "-Xallocator=mimalloc" ]
-    arguments = [ "mimalloc" ]
 }
 
 interopTest("interop_mangling") {
@@ -4878,6 +4912,35 @@ if (PlatformInfo.isAppleTarget(project)) {
         }
     }
 
+    // KT-49034 tests don't need whole compilation pipeline (only frontend) or platform libraries. Consider simplifying them when porting
+    // to the new test infra.
+    interopTest("interop_kt49034_struct") {
+        disabled = (project.testTarget == 'wasm32')
+        interop = 'kt49034_struct'
+        source = 'interop/objc/kt49034/struct/main.kt'
+
+        // The test depends on collision between kt49034.JSContext and platform.JavaScriptCore.JSContext
+        UtilsKt.dependsOnPlatformLibs(it)
+    }
+
+    interopTest("interop_kt49034_objcclass") {
+        disabled = (project.testTarget == 'wasm32')
+        interop = 'kt49034_objcclass'
+        source = 'interop/objc/kt49034/objcclass/main.kt'
+
+        // The test depends on collision between kt49034.__darwin_fp_control and platform.darwin.__darwin_fp_control
+        UtilsKt.dependsOnPlatformLibs(it)
+    }
+
+    interopTest("interop_kt49034_objcprotocol") {
+        disabled = (project.testTarget == 'wasm32')
+        interop = 'kt49034_objcprotocol'
+        source = 'interop/objc/kt49034/objcprotocol/main.kt'
+
+        // The test depends on collision between kt49034.__darwin_fp_control and platform.darwin.__darwin_fp_control
+        UtilsKt.dependsOnPlatformLibs(it)
+    }
+
     interopTest("interop_objc_global_initializer") {
         useGoldenData = true
         source = "interop/objc_with_initializer/objc_test.kt"
@@ -5048,6 +5111,21 @@ if (PlatformInfo.isAppleTarget(project)) {
         useGoldenData = true
         flags = ["-native-library", "$buildDir/objc_arc_contract.bc"]
     }
+}
+
+tasks.register("KT-50983", KonanDriverTest) {
+    // The test is not working on Windows Server 2019-based TeamCity agents for the unknown reason.
+    // TODO: Re-enable it after LLVM update where llvm-windres will be added.
+    enabled = false
+    doBeforeBuild {
+        mkdir(buildDir)
+        exec {
+            commandLine UtilsKt.binaryFromToolchain(project, "windres")
+            args "$projectDir/windows/KT-50983/File.rc", "-O", "coff", "-o", "$buildDir/File.res"
+        }
+    }
+    source = "windows/KT-50983/main.kt"
+    flags = ['-linker-option', "$buildDir/File.res"]
 }
 
 standaloneTest("jsinterop_math") {
@@ -5235,6 +5313,8 @@ interopTest("interop_exceptions_cCallback") {
 }
 
 tasks.register("library_ir_provider_mismatch", KonanDriverTest) {
+    disabled = isAggressiveGC // No need to test with different GC schedulers
+
     def dir = buildDir.absolutePath
     def lib = "$projectDir/link/ir_providers/library/empty.kt"
     def invalidManifest = "$projectDir/link/ir_providers/library/manifest.properties"
@@ -5389,11 +5469,14 @@ if (isAppleTarget(project)) {
         framework(frameworkName) {
             sources = ['objcexport']
             library = libraryName
-            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xexport-kdoc", "-Xbundle-id=foo.bar"]
+            opts = ["-Xemit-lazy-objc-header=$lazyHeader", "-Xexport-kdoc", "-Xbinary=bundleId=foo.bar"]
         }
         swiftSources = ['objcexport']
         if (isNoopGC) {
             swiftExtraOpts += ["-D", "NOOP_GC"]
+        }
+        if (isAggressiveGC) {
+            swiftExtraOpts += ["-D", "AGGRESSIVE_GC"]
         }
     }
 
@@ -5533,8 +5616,10 @@ if (isAppleTarget(project)) {
             artifact = frameworkArtifactName
             library = libraryName
             isStatic = true
+            opts = ["-Xbinary=objcExportSuspendFunctionLaunchThreadRestriction=none"]
         }
         swiftSources = ['objcexport']
+        swiftExtraOpts = [ '-D', 'ALLOW_SUSPEND_ANY_THREAD' ]
         if (isNoopGC) {
             swiftExtraOpts += ["-D", "NOOP_GC"]
         }
@@ -5571,10 +5656,11 @@ if (isAppleTarget(project)) {
     }
 
     frameworkTest("testMultipleFrameworksStatic") {
-        if (cacheTesting != null) {
+         // this test doesn't work with caches. For now caches are enabled only if isExperimentalMM is true, even if cacheTesting is passed
+         if (cacheTesting != null && isExperimentalMM) {
             // See https://youtrack.jetbrains.com/issue/KT-34261.
             expectedExitStatus = 134
-        }
+         }
 
         framework('FirstStatic') {
             artifact = 'First'
@@ -5650,15 +5736,24 @@ if (isAppleTarget(project)) {
 
         framework("Foo") {
             sources = ["framework/bundle_id/main.kt", "framework/bundle_id/lib.kt"]
+            opts = ["-Xbinary=bundleVersion=FooBundleVersion", "-Xbinary=bundleShortVersionString=FooBundleShortVersionString"]
         }
         swiftSources = []
 
         doLast {
             def frameworkPath = "$testOutputFramework/testFrameworkBundleId/$target/Foo.framework"
-            def pattern = ~"<key>CFBundleIdentifier</key>\n\\s*<string>Foo</string>"
+            def bundleIdPattern = ~"<key>CFBundleIdentifier</key>\n\\s*<string>Foo</string>"
+            def bundleShortVersionStringPattern = ~"<key>CFBundleShortVersionString</key>\n\\s*<string>FooBundleShortVersionString</string>"
+            def bundleVersionPattern = ~"<key>CFBundleVersion</key>\n\\s*<string>FooBundleVersion</string>"
             def plistContent = file("$frameworkPath/Resources/Info.plist").text
-            if (!pattern.matcher(plistContent).find()) {
-                throw new Error("Unexpected Info.plist content:\n$plistContent")
+            if (!bundleIdPattern.matcher(plistContent).find()) {
+                throw new Error("Unexpected CFBundleIdentifier in Info.plist:\n$plistContent")
+            }
+            if (!bundleShortVersionStringPattern.matcher(plistContent).find()) {
+                throw new Error("Unexpected CFBundleShortVersionString in Info.plist:\n$plistContent")
+            }
+            if (!bundleVersionPattern.matcher(plistContent).find()) {
+                throw new Error("Unexpected CFBundleVersion in Info.plist:\n$plistContent")
             }
         }
     }
@@ -5669,6 +5764,7 @@ if (isAppleTarget(project)) {
  */
 KotlinNativeTestKt.createTest(project, 'harmonyRegexTest', KonanGTest) { task ->
     task.enabled = (project.testTarget != 'wasm32') // Uses exceptions.
+        && !isAggressiveGC // TODO: Investigate why too slow
     task.useFilter = false
     task.testLogger = KonanTest.Logger.GTEST
 
@@ -5812,6 +5908,7 @@ standaloneTest("local_ea_arraysfieldwrite") {
 }
 
 tasks.register("override_konan_properties0", KonanDriverTest) {
+    disabled = isAggressiveGC // No need to test with different GC schedulers
     def overrides = PlatformInfo.isWindows()
             ? '-Xoverride-konan-properties="llvmInlineThreshold=76"'
             : '-Xoverride-konan-properties=llvmInlineThreshold=76'
@@ -5834,6 +5931,7 @@ tasks.register("llvm_variant_dev", KonanDriverTest) {
     // We use clang from Xcode on macOS for apple targets,
     // so it is hard to reliably detect LLVM variant for these targets.
     disabled = isAppleTarget(project)
+        || isAggressiveGC // No need to test with different GC schedulers
     flags = [
             "-Xllvm-variant=dev",
             "-Xverbose-phases=ObjectFiles"
@@ -5944,8 +6042,15 @@ Task fileCheckTest(String name, Closure<FileCheckTest> configureClosure) {
     return project.tasks.create(name, FileCheckTest) { task ->
         task.configure(configureClosure)
         task.llvmIr = project.file("$testOutputFileCheck/$name/$target/out.${task.phaseToCheck}.ll")
-        def target = task.target
+
+        KonanTarget target = task.target
         boolean isCrossCompiling = target != project.target
+
+        // Bitcode that is generated in presence of caches or two-stage compilation differs from the "closed world"-generated,
+        // so disable these tests for now.
+        if (task.enabled && (twoStageEnabled || target.name == 'linux_mips32'))
+            task.enabled = false
+
         if (task.enabled) {
             konanArtifacts {
                 def lib = task.interop
@@ -6002,6 +6107,7 @@ fileCheckTest("filecheck_smoke0") {
 
 if (HostManager.@Companion.hostIsMac) {
     fileCheckTest("filecheck_force_arm_instruction_set") {
+        enabled = enabled && cacheTesting == null
         annotatedSource = project.file('filecheck/force_arm_instruction_set.kt')
         targetName = "watchos_arm32"
         // Perform check after optimization pipeline because
@@ -6009,13 +6115,24 @@ if (HostManager.@Companion.hostIsMac) {
         phaseToCheck = "BitcodeOptimization"
     }
 
-    fileCheckTest("filecheck_redundant_safepoints_removal") {
+    fileCheckTest("filecheck_redundant_safepoints_removal_arm") {
         enabled = isExperimentalMM && project.globalTestArgs.contains("-opt")
         annotatedSource = project.file('filecheck/redundant_safepoints.kt')
         targetName = "watchos_arm32"
+        checkPrefix = "CHECK-ARM"
         extraOpts = ["-Xbinary=memoryModel=experimental", "-opt"]
         phaseToCheck = "RemoveRedundantSafepoints"
     }
+
+}
+
+fileCheckTest("filecheck_redundant_safepoints_removal") {
+    enabled = isExperimentalMM && isCmsGC &&
+            project.globalTestArgs.contains("-opt") &&
+            project.testTarget != "watchos_arm32" &&
+            project.testTarget != "ios_arm32"
+    annotatedSource = project.file('filecheck/redundant_safepoints.kt')
+    phaseToCheck = "RemoveRedundantSafepoints"
 }
 
 fileCheckTest("filecheck_replace_invoke_with_call") {
@@ -6033,6 +6150,10 @@ fileCheckTest("filecheck_escape_analysis_enabled") {
 }
 
 fileCheckTest("filecheck_enum_when") {
+    // In case of `-opt` we inline Enum.ordinal due to property inlining.
+    if (project.globalTestArgs.contains('-opt')) {
+        checkPrefix = "CHECK-OPT"
+    }
     annotatedSource = project.file('filecheck/enum_when.kt')
 }
 
@@ -6047,6 +6168,7 @@ fileCheckTest("filecheck_suspend_returnNothing") {
 }
 
 fileCheckTest("filecheck_bce") {
+    enabled = enabled && cacheTesting == null
     annotatedSource = project.file('filecheck/bce.kt')
 }
 
@@ -6074,6 +6196,7 @@ createInterop("filecheck_signext_zeroext_interop_input") {
 }
 
 fileCheckTest("filecheck_signext_zeroext_interop") {
+    enabled = enabled && cacheTesting == null
     annotatedSource = project.file('filecheck/signext_zeroext_interop.kt')
     interop = "filecheck_signext_zeroext_interop_input"
     if (project.testTarget == 'mingw_x64') {
@@ -6105,7 +6228,6 @@ dependencies {
     nopPluginApi project(":native:kotlin-native-utils")
     nopPluginApi project(":core:descriptors")
     nopPluginApi project(":compiler:ir.tree")
-    nopPluginApi project(":compiler:ir.tree.impl")
     nopPluginApi project(":compiler:ir.backend.common")
     nopPluginApi project(":compiler:util")
     nopPluginApi project(":native:frontend.native")
@@ -6128,6 +6250,7 @@ project.tasks.named("test").configure {
 
 project.tasks.register("debugger_test", Test.class) {
     enabled = (target.family.appleFamily)  // KT-30366
+        && !isAggressiveGC // No need to test with different GC schedulers
     testLogging { exceptionFormat = 'full' }
     UtilsKt.dependsOnDist(it)
     systemProperties = ['kotlin.native.home': kotlinNativeDist,

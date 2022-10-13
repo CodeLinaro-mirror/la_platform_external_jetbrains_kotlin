@@ -19,10 +19,13 @@ package org.jetbrains.kotlin.incremental
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.GeneratedFile
 import org.jetbrains.kotlin.build.report.BuildReporter
+import org.jetbrains.kotlin.build.report.debug
+import org.jetbrains.kotlin.build.report.info
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
 import org.jetbrains.kotlin.build.report.metrics.BuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.BuildTime
 import org.jetbrains.kotlin.build.report.metrics.measure
+import org.jetbrains.kotlin.build.report.warn
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -37,6 +40,7 @@ import org.jetbrains.kotlin.incremental.parsing.classesFqNames
 import org.jetbrains.kotlin.incremental.util.BufferingMessageCollector
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
+import org.jetbrains.kotlin.util.suffixIfNot
 import java.io.File
 
 abstract class IncrementalCompilerRunner<
@@ -97,7 +101,7 @@ abstract class IncrementalCompilerRunner<
         projectDir: File? = null,
         classpathAbiSnapshot: Map<String, AbiSnapshot>
     ): ExitCode {
-        reporter.report { "Non-incremental compilation will be performed: $reason" }
+        reporter.info { "Non-incremental compilation will be performed: $reason" }
         reporter.measure(BuildTime.CLEAR_OUTPUT_ON_REBUILD) {
             cleanOutputsAndLocalStateOnRebuild(args)
         }
@@ -112,7 +116,7 @@ abstract class IncrementalCompilerRunner<
                 classpathAbiSnapshot = classpathAbiSnapshot
             ).also {
                 if (it == ExitCode.OK) {
-                    performWorkAfterSuccessfulCompilation(caches)
+                    performWorkAfterSuccessfulCompilation(caches, wasIncremental = false)
                 }
             }
         } finally {
@@ -132,7 +136,7 @@ abstract class IncrementalCompilerRunner<
 
         val classpathAbiSnapshot =
             if (withAbiSnapshot) {
-                reporter.report { "Incremental compilation with ABI snapshot enabled" }
+                reporter.info { "Incremental compilation with ABI snapshot enabled" }
                 reporter.measure(BuildTime.SET_UP_ABI_SNAPSHOTS) {
                     setupJarDependencies(args, withAbiSnapshot, reporter)
                 }
@@ -166,6 +170,7 @@ abstract class IncrementalCompilerRunner<
             when (compilationMode) {
                 is CompilationMode.Incremental -> {
                     try {
+                        reporter.debug { "Performing incremental compilation" }
                         val exitCode = if (withAbiSnapshot) {
                             compileIncrementally(
                                 args, caches, allSourceFiles, compilationMode, messageCollector,
@@ -175,12 +180,13 @@ abstract class IncrementalCompilerRunner<
                             compileIncrementally(args, caches, allSourceFiles, compilationMode, messageCollector, withAbiSnapshot)
                         }
                         if (exitCode == ExitCode.OK) {
-                            performWorkAfterSuccessfulCompilation(caches)
+                            performWorkAfterSuccessfulCompilation(caches, wasIncremental = true)
                         }
                         return exitCode
                     } catch (e: Throwable) {
-                        reporter.report {
-                            "Incremental compilation failed: ${e.stackTraceToString()}.\nFalling back to non-incremental compilation."
+                        reporter.warn {
+                            "Incremental compilation failed: ${e.stackTraceToString().suffixIfNot("\n")}" +
+                                    "Falling back to non-incremental compilation"
                         }
                         rebuildReason = BuildAttribute.INCREMENTAL_COMPILATION_FAILED
                     }
@@ -188,12 +194,13 @@ abstract class IncrementalCompilerRunner<
                 is CompilationMode.Rebuild -> rebuildReason = compilationMode.reason
             }
         } catch (e: Exception) {
-            reporter.report {
-                "Incremental compilation analysis failed: ${e.stackTraceToString()}.\nFalling back to non-incremental compilation."
+            reporter.warn {
+                "Incremental compilation analysis failed: ${e.stackTraceToString().suffixIfNot("\n")}" +
+                        "Falling back to non-incremental compilation"
             }
         } finally {
-            if (!caches.close()) {
-                reporter.report { "Unable to close IC caches. Cleaning internal state" }
+            if (!caches.close(flush = true)) {
+                reporter.info { "Unable to close IC caches. Cleaning internal state" }
                 cleanOutputsAndLocalStateOnRebuild(args)
             }
         }
@@ -209,15 +216,15 @@ abstract class IncrementalCompilerRunner<
         // Use Set as additionalOutputFiles may already contain destinationDir and workingDir
         val outputFiles = setOf(destinationDir(args), workingDir) + additionalOutputFiles
 
-        reporter.reportVerbose { "Cleaning outputs on rebuild" }
+        reporter.debug { "Cleaning outputs on rebuild" }
         outputFiles.forEach {
             when {
                 it.isDirectory -> {
-                    reporter.reportVerbose { "  Deleting contents of directory '${it.path}'" }
+                    reporter.debug { "  Deleting contents of directory '${it.path}'" }
                     it.cleanDirectoryContents()
                 }
                 it.isFile -> {
-                    reporter.reportVerbose { "  Deleting file '${it.path}'" }
+                    reporter.debug { "  Deleting file '${it.path}'" }
                     it.deleteRecursivelyOrThrow()
                 }
             }
@@ -319,7 +326,7 @@ abstract class IncrementalCompilerRunner<
         classpathAbiSnapshot: Map<String, AbiSnapshot> = HashMap()
     ): ExitCode {
         if (compilationMode is CompilationMode.Rebuild) {
-            reporter.report { "Non-incremental compilation will be performed: ${compilationMode.reason}" }
+            reporter.info { "Non-incremental compilation will be performed: ${compilationMode.reason}" }
         }
 
         preBuildHook(args, compilationMode)
@@ -510,11 +517,13 @@ abstract class IncrementalCompilerRunner<
     }
 
     /**
-     * Performs some work after a compilation if the compilation completed successfully.
+     * Performs some work after a compilation if the compilation completed successfully (no exceptions were thrown AND exit code == 0).
      *
-     * This method MUST NOT be called when the compilation failed because the results produced by the work here would be incorrect.
+     * This method MUST NOT be called when the compilation failed because the results produced by the work here would be invalid.
+     *
+     * @wasIncremental whether the compilation was incremental or non-incremental
      */
-    protected open fun performWorkAfterSuccessfulCompilation(caches: CacheManager) {}
+    protected open fun performWorkAfterSuccessfulCompilation(caches: CacheManager, wasIncremental: Boolean) {}
 
     companion object {
         const val DIRTY_SOURCES_FILE_NAME = "dirty-sources.txt"
@@ -537,4 +546,3 @@ abstract class IncrementalCompilerRunner<
         }
     }
 }
-

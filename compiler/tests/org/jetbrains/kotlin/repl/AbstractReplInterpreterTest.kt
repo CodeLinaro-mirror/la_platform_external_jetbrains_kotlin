@@ -17,7 +17,10 @@
 package org.jetbrains.kotlin.repl
 
 import com.intellij.openapi.util.text.StringUtil
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.common.repl.ReplEvalResult
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.script.loadScriptingPlugin
 import org.jetbrains.kotlin.scripting.compiler.plugin.repl.ReplInterpreter
 import org.jetbrains.kotlin.scripting.compiler.plugin.repl.configuration.ConsoleReplConfiguration
@@ -26,7 +29,9 @@ import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.junit.Assert
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.PrintStream
 import java.io.PrintWriter
 import java.util.*
 import java.util.regex.Pattern
@@ -83,16 +88,40 @@ abstract class AbstractReplInterpreterTest : KtUsefulTestCase() {
         return result
     }
 
+    internal fun <T> captureOutErrRet(body: () -> T): Triple<String, String, T> {
+        val outStream = ByteArrayOutputStream()
+        val errStream = ByteArrayOutputStream()
+        val prevOut = System.out
+        val prevErr = System.err
+        System.setOut(PrintStream(outStream))
+        System.setErr(PrintStream(errStream))
+        val ret = try {
+            body()
+        } finally {
+            System.out.flush()
+            System.err.flush()
+            System.setOut(prevOut)
+            System.setErr(prevErr)
+        }
+        return Triple(outStream.toString().trim(), errStream.toString().trim(), ret)
+    }
+
     protected fun doTest(path: String) {
         val configuration = KotlinTestUtils.newConfiguration(ConfigurationKind.ALL, TestJdkKind.MOCK_JDK)
         loadScriptingPlugin(configuration)
+        val projectEnvironment =
+            KotlinCoreEnvironment.ProjectEnvironment(
+                testRootDisposable,
+                KotlinCoreEnvironment.getOrCreateApplicationEnvironmentForTests(testRootDisposable, configuration),
+                configuration
+            )
         val repl = ReplInterpreter(
-            testRootDisposable, configuration,
+            projectEnvironment, configuration,
             ConsoleReplConfiguration()
         )
 
         for ((code, expected) in loadLines(File(path))) {
-            val lineResult = repl.eval(code)
+            val (output, _, lineResult) = captureOutErrRet { repl.eval(code) }
 
             if (DUMP_BYTECODE) {
                 repl.dumpClasses(PrintWriter(System.out))
@@ -100,6 +129,7 @@ abstract class AbstractReplInterpreterTest : KtUsefulTestCase() {
 
             val actual = when (lineResult) {
                 is ReplEvalResult.ValueResult -> lineResult.value.toString()
+                is ReplEvalResult.Error.CompileTime -> output
                 is ReplEvalResult.Error -> lineResult.message
                 is ReplEvalResult.Incomplete -> INCOMPLETE_LINE_MESSAGE
                 is ReplEvalResult.UnitResult -> ""

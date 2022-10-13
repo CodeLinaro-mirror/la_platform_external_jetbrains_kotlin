@@ -8,10 +8,9 @@ package org.jetbrains.kotlin.backend.konan
 import llvm.LLVMModuleCreateWithNameInContext
 import llvm.LLVMModuleRef
 import llvm.LLVMStripModuleDebugInfo
-import org.jetbrains.kotlin.backend.konan.llvm.getName
+import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.llvm.llvmContext
 import org.jetbrains.kotlin.backend.konan.llvm.llvmLinkModules2
-import org.jetbrains.kotlin.backend.konan.llvm.parseBitcodeFile
 
 /**
  * To avoid combinatorial explosion, we split runtime into several LLVM modules.
@@ -62,30 +61,13 @@ internal sealed class RuntimeLinkageStrategy {
         }
     }
 
-    /**
-     * Used in cases when runtime is not linked directly, e.g. it is a part of stdlib cache.
-     */
-    object None : RuntimeLinkageStrategy() {
-        override fun run(): List<LLVMModuleRef> = emptyList()
-    }
-
     companion object {
         /**
          * Choose runtime linkage strategy based on current compiler configuration and [BinaryOptions.linkRuntime].
          */
-        internal fun pick(context: Context): RuntimeLinkageStrategy {
+        internal fun pick(context: Context, runtimeLlvmModules: List<LLVMModuleRef>): RuntimeLinkageStrategy {
             val binaryOption = context.config.configuration.get(BinaryOptions.linkRuntime)
-            val runtimeNativeLibraries = context.config.runtimeNativeLibraries
-                    .takeIf { context.producedLlvmModuleContainsStdlib }
-            val runtimeLlvmModules = runtimeNativeLibraries?.map {
-                val parsedModule = parseBitcodeFile(it)
-                if (!context.shouldUseDebugInfoFromNativeLibs()) {
-                    LLVMStripModuleDebugInfo(parsedModule)
-                }
-                parsedModule
-            }
             return when {
-                runtimeLlvmModules == null -> return None
                 binaryOption == RuntimeLinkageStrategyBinaryOption.Raw -> Raw(runtimeLlvmModules)
                 binaryOption == RuntimeLinkageStrategyBinaryOption.Optimize -> LinkAndOptimize(context, runtimeLlvmModules)
                 context.config.debug -> LinkAndOptimize(context, runtimeLlvmModules)

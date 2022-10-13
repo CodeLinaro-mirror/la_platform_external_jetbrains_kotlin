@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.descriptors.PackageViewDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.ReflectionSymbols
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
@@ -26,11 +27,14 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import java.lang.IllegalArgumentException
 
+@OptIn(ObsoleteDescriptorBasedAPI::class)
 class WasmSymbols(
     context: WasmBackendContext,
     private val symbolTable: SymbolTable
 ) : Symbols<WasmBackendContext>(context, context.irBuiltIns, symbolTable) {
 
+    private val kotlinTopLevelPackage: PackageViewDescriptor =
+        context.module.getPackage(FqName("kotlin"))
     private val wasmInternalPackage: PackageViewDescriptor =
         context.module.getPackage(FqName("kotlin.wasm.internal"))
     private val collectionsPackage: PackageViewDescriptor =
@@ -152,11 +156,12 @@ class WasmSymbols(
     val refEq = getInternalFunction("wasm_ref_eq")
     val refIsNull = getInternalFunction("wasm_ref_is_null")
     val refTest = getInternalFunction("wasm_ref_test")
+    val refCast = getInternalFunction("wasm_ref_cast")
+
     val intToLong = getInternalFunction("wasm_i64_extend_i32_s")
 
-    val wasmRefCast = getInternalFunction("wasm_ref_cast")
-
     val rangeCheck = getInternalFunction("rangeCheck")
+    val assertFuncs = findFunctions(kotlinTopLevelPackage.memberScope, Name.identifier("assert")).map { symbolTable.referenceSimpleFunction(it) }
 
     val boxIntrinsic: IrSimpleFunctionSymbol = getInternalFunction("boxIntrinsic")
     val unboxIntrinsic: IrSimpleFunctionSymbol = getInternalFunction("unboxIntrinsic")
@@ -170,10 +175,7 @@ class WasmSymbols(
     val wasmClassId = getInternalFunction("wasmClassId")
     val wasmInterfaceId = getInternalFunction("wasmInterfaceId")
 
-    val getVirtualMethodId = getInternalFunction("getVirtualMethodId")
-    val getInterfaceImplId = getInternalFunction("getInterfaceImplId")
-
-    val isInterface = getInternalFunction("isInterface")
+    val wasmIsInterface = getInternalFunction("wasmIsInterface")
 
     val nullableEquals = getInternalFunction("nullableEquals")
     val ensureNotNull = getInternalFunction("ensureNotNull")
@@ -249,6 +251,8 @@ class WasmSymbols(
 
     private val wasmDataRefClass = getIrClass(FqName("kotlin.wasm.internal.reftypes.dataref"))
     val wasmDataRefType by lazy { wasmDataRefClass.defaultType }
+
+    val wasmAnyRefClass = getIrClass(FqName("kotlin.wasm.internal.reftypes.anyref"))
 
     private val externalInterfaceClass = getIrClass(FqName("kotlin.wasm.internal.ExternalInterfaceType"))
     val externalInterfaceType by lazy { externalInterfaceClass.defaultType }

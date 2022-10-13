@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.jps.build
@@ -31,9 +20,13 @@ import org.jetbrains.jps.incremental.java.JavaBuilder
 import org.jetbrains.jps.model.JpsProject
 import org.jetbrains.kotlin.build.GeneratedFile
 import org.jetbrains.kotlin.build.GeneratedJvmClass
+import org.jetbrains.kotlin.build.report.ICReporter.ReportSeverity
+import org.jetbrains.kotlin.build.report.ICReporterBase
+import org.jetbrains.kotlin.build.report.debug
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.INFO
 import org.jetbrains.kotlin.cli.common.messages.MessageCollectorUtil
 import org.jetbrains.kotlin.compilerRunner.*
 import org.jetbrains.kotlin.config.IncrementalCompilation
@@ -41,11 +34,11 @@ import org.jetbrains.kotlin.config.KotlinModuleKind
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.daemon.common.isDaemonEnabled
 import org.jetbrains.kotlin.incremental.*
+import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
-import org.jetbrains.kotlin.build.report.ICReporterBase
-import org.jetbrains.kotlin.jps.KotlinJpsBundle
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
+import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.jps.KotlinJpsBundle
 import org.jetbrains.kotlin.jps.incremental.JpsIncrementalCache
 import org.jetbrains.kotlin.jps.incremental.JpsLookupStorageManager
 import org.jetbrains.kotlin.jps.model.kotlinKind
@@ -247,6 +240,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             LookupTracker.DO_NOTHING,
             ExpectActualTracker.DoNothing,
             InlineConstTracker.DoNothing,
+            EnumWhenTracker.DoNothing,
             chunk,
             messageCollector
         ) ?: return
@@ -367,7 +361,10 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         if (!kotlinChunk.haveSameCompiler) {
             messageCollector.report(
                 ERROR,
-                KotlinJpsBundle.message("error.text.cyclically.dependent.modules.0.should.have.same.compiler", kotlinChunk.presentableModulesToCompilersList)
+                KotlinJpsBundle.message(
+                    "error.text.cyclically.dependent.modules.0.should.have.same.compiler",
+                    kotlinChunk.presentableModulesToCompilersList
+                )
             )
             return ABORT
         }
@@ -405,8 +402,9 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
         val targetsWithoutOutputDir = targets.filter { it.outputDir == null }
         if (targetsWithoutOutputDir.isNotEmpty()) {
-            messageCollector.report(ERROR,
-                                    KotlinJpsBundle.message("error.text.output.directory.not.specified.for.0", targetsWithoutOutputDir.joinToString())
+            messageCollector.report(
+                ERROR,
+                KotlinJpsBundle.message("error.text.output.directory.not.specified.for.0", targetsWithoutOutputDir.joinToString())
             )
             return ABORT
         }
@@ -416,6 +414,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         val exceptActualTracer = ExpectActualTrackerImpl()
         val incrementalCaches = kotlinChunk.loadCaches()
         val inlineConstTracker = InlineConstTrackerImpl()
+        val enumWhenTracker = EnumWhenTrackerImpl()
         val environment = createCompileEnvironment(
             context,
             representativeTarget,
@@ -423,6 +422,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             lookupTracker,
             exceptActualTracer,
             inlineConstTracker,
+            enumWhenTracker,
             chunk,
             messageCollector
         ) ?: return ABORT
@@ -615,11 +615,19 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         lookupTracker: LookupTracker,
         exceptActualTracer: ExpectActualTracker,
         inlineConstTracker: InlineConstTracker,
+        enumWhenTracker: EnumWhenTracker,
         chunk: ModuleChunk,
         messageCollector: MessageCollectorAdapter
     ): JpsCompilerEnvironment? {
         val compilerServices = with(Services.Builder()) {
-            kotlinModuleBuilderTarget.makeServices(this, incrementalCaches, lookupTracker, exceptActualTracer, inlineConstTracker)
+            kotlinModuleBuilderTarget.makeServices(
+                this,
+                incrementalCaches,
+                lookupTracker,
+                exceptActualTracer,
+                inlineConstTracker,
+                enumWhenTracker
+            )
             build()
         }
 
@@ -636,11 +644,11 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
     // When JPS is run on TeamCity, it can not rely on Kotlin plugin layout,
     // so the path to Kotlin is specified in a system property
     private fun computeKotlinPathsForJpsPlugin(messageCollector: MessageCollectorAdapter): KotlinPaths? {
-        if (System.getProperty("kotlin.jps.tests").equals("true", ignoreCase = true)) {
+        val jpsKotlinHome = System.getProperty(JPS_KOTLIN_HOME_PROPERTY)?.let { File(it) }
+        if (System.getProperty("kotlin.jps.tests").equals("true", ignoreCase = true) && jpsKotlinHome == null) {
             return PathUtil.kotlinPathsForDistDirectory
         }
 
-        val jpsKotlinHome = System.getProperty(JPS_KOTLIN_HOME_PROPERTY)?.let { File(it) }
         return when {
             jpsKotlinHome == null -> {
                 messageCollector.report(ERROR, "Make sure that '$JPS_KOTLIN_HOME_PROPERTY' system property is set in JPS process")
@@ -725,14 +733,11 @@ private class JpsICReporter : ICReporterBase() {
     override fun reportCompileIteration(incremental: Boolean, sourceFiles: Collection<File>, exitCode: ExitCode) {
     }
 
-    override fun report(message: () -> String) {
+    override fun report(message: () -> String, severity: ReportSeverity) {
+        // Currently, all severity levels are mapped to debug
         if (KotlinBuilder.LOG.isDebugEnabled) {
             KotlinBuilder.LOG.debug(message())
         }
-    }
-
-    override fun reportVerbose(message: () -> String) {
-        report(message)
     }
 }
 
@@ -745,7 +750,7 @@ private fun ChangesCollector.processChangesUsingLookups(
     val allCaches = caches.flatMap { it.thisWithDependentCaches }
     val reporter = JpsICReporter()
 
-    reporter.reportVerbose { "Start processing changes" }
+    reporter.debug { "Start processing changes" }
 
     val dirtyFiles = getDirtyFiles(allCaches, lookupStorageManager)
     // if list of inheritors of sealed class has changed it should be recompiled with all the inheritors
@@ -759,7 +764,7 @@ private fun ChangesCollector.processChangesUsingLookups(
         excludeFiles = excludeFiles
     )
 
-    reporter.reportVerbose { "End of processing changes" }
+    reporter.debug { "End of processing changes" }
 }
 
 data class FilesToRecompile(val dirtyFiles: Set<File>, val forceRecompileTogether: Set<File>)

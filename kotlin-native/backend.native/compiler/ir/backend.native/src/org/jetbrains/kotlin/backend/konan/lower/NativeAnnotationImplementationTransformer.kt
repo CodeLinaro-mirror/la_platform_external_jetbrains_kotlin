@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.backend.konan.lower
 
-import org.jetbrains.kotlin.backend.common.ir.isFinalClass
 import org.jetbrains.kotlin.backend.common.lower.AnnotationImplementationTransformer
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.ir.declarations.*
@@ -70,7 +69,7 @@ internal class NativeAnnotationImplementationTransformer(context: Context, irFil
         properties.forEach { property ->
             generatedConstructor.addValueParameter(property.name.asString(), property.getter!!.returnType)
         }
-        createConstructorBody(generatedConstructor, annotationClass.constructors.single())
+        createConstructorBody(generatedConstructor, annotationClass.primaryConstructor ?: error("Annotation class does not have primary constructor"))
     }
 
     private fun createConstructorBody(constructor: IrConstructor, delegate: IrConstructor) {

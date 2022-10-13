@@ -200,6 +200,7 @@ fun findStandardKotlinTypeSerializer(module: ModuleDescriptor, kType: KotlinType
         "kotlin.FloatArray" -> "FloatArraySerializer"
         "kotlin.DoubleArray" -> "DoubleArraySerializer"
         "kotlin.BooleanArray" -> "BooleanArraySerializer"
+        "kotlin.time.Duration" -> "DurationSerializer"
         "java.lang.Boolean" -> "BooleanSerializer"
         "java.lang.Byte" -> "ByteSerializer"
         "java.lang.Short" -> "ShortSerializer"
@@ -224,7 +225,7 @@ fun findStandardKotlinTypeSerializer(module: ModuleDescriptor, kType: KotlinType
 
 fun findEnumTypeSerializer(module: ModuleDescriptor, kType: KotlinType): ClassDescriptor? {
     val classDescriptor = kType.toClassDescriptor ?: return null
-    return if (classDescriptor.kind == ClassKind.ENUM_CLASS && !classDescriptor.isInternallySerializableEnum())
+    return if (classDescriptor.kind == ClassKind.ENUM_CLASS && !classDescriptor.isEnumWithLegacyGeneratedSerializer())
         module.findClassAcrossModuleDependencies(enumSerializerId)
     else null
 }

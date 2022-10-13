@@ -70,7 +70,7 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
             PLUS, MINUS, EXCL, DIV, PERC, LTEQ,
             // TODO GTEQ,   foo<bar, baz>=x
             EQEQEQ, EXCLEQEQEQ, EQEQ, EXCLEQ, ANDAND, OROR, SAFE_ACCESS, ELVIS,
-            SEMICOLON, RANGE, EQ, MULTEQ, DIVEQ, PERCEQ, PLUSEQ, MINUSEQ, NOT_IN, NOT_IS,
+            SEMICOLON, RANGE, RANGE_UNTIL, EQ, MULTEQ, DIVEQ, PERCEQ, PLUSEQ, MINUSEQ, NOT_IN, NOT_IS,
             COLONCOLON,
             COLON
     );
@@ -170,7 +170,7 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
 
         MULTIPLICATIVE(MUL, DIV, PERC),
         ADDITIVE(PLUS, MINUS),
-        RANGE(KtTokens.RANGE),
+        RANGE(KtTokens.RANGE, RANGE_UNTIL),
         SIMPLE_NAME(IDENTIFIER),
         ELVIS(KtTokens.ELVIS),
         IN_OR_IS(IN_KEYWORD, NOT_IN, IS_KEYWORD, NOT_IS) {
@@ -1691,10 +1691,17 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
      * IDENTIFIER "@"
      */
     void parseLabelDefinition() {
+        assert isAtLabelDefinitionOrMissingIdentifier() : "Callers must check that current token is IDENTIFIER followed with '@'";
+
         PsiBuilder.Marker labelWrap = mark();
         PsiBuilder.Marker mark = mark();
 
-        assert _at(IDENTIFIER) && myBuilder.rawLookup(1) == AT : "Callers must check that current token is IDENTIFIER followed with '@'";
+        if (at(AT)) {
+            errorAndAdvance("Expecting identifier before '@' in label definition");
+            labelWrap.drop();
+            mark.drop();
+            return;
+        }
 
         advance(); // IDENTIFIER
         advance(); // AT

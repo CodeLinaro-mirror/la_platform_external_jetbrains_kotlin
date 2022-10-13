@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.codegen.optimization.common.*
 import org.jetbrains.kotlin.codegen.optimization.fixStack.FixStackMethodTransformer
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
+import org.jetbrains.kotlin.utils.addToStdlib.popLast
 import org.jetbrains.kotlin.utils.sure
 import org.jetbrains.org.objectweb.asm.Label
 import org.jetbrains.org.objectweb.asm.MethodVisitor
@@ -159,7 +160,39 @@ class CoroutineTransformerMethodVisitor(
             insert(firstStateLabel, withInstructionAdapter {
                 generateResumeWithExceptionCheck(dataIndex)
             })
+
+            // Insert throw of an IllegalStateException if the resumption point is unknown. This code does not correspond to
+            // anything in the input code. We give it the entry line number instead of letting it inherit the line number
+            // of the last branch to avoid debugger issues where reordering the blocks leads to inability to set a breakpoint
+            // on the last expression in a suspend function. See KT-51936 for a concrete example.
+            //
+            // The IntelliJ debugger tries to avoid stuttering by only setting a breakpoint on the first bytecode offset that
+            // corresponds to a line number. Therefore, if the code is generated as:
+            //
+            //    line 1: switch
+            //    line 2: case 1: ...
+            //    line 3:         ...
+            //    line 4: case 2: ...
+            //    line 5:         ...
+            //            default: throw IllegalStateException
+            //
+            // The default case ends up with line number 5. Now, compilers could (and the D8 dexer someties does) reorder
+            // the blocks for the cases to end up with:
+            //
+            //    line 1: switch
+            //    line 5: default : throw IllegalStateException
+            //    line 2: case 1: ...
+            //    line 3:         ...
+            //    line 4: case 2: ...
+            //    line 5:         ...
+            //
+            // This is equivalent to the original code. However, if the user tries to set a breakpoint on line 5, it will
+            // ONLY be set on the throw of the IllegalStateException and not in the actual user code in case 2. And therefore
+            // it is impossible for a developer to hit a breakpoint on the last line of a suspend function.
+            //
+            // Using line 1 for the default case limits this issue as the entry block is rarely (if ever) reordered.
             insert(last, defaultLabel)
+            insert(last, LineNumberNode(lineNumber, defaultLabel))
 
             insert(last, withInstructionAdapter {
                 AsmUtil.genThrow(this, "java/lang/IllegalStateException", ILLEGAL_STATE_ERROR_MESSAGE)
@@ -636,7 +669,7 @@ class CoroutineTransformerMethodVisitor(
                 val value = frame.getLocal(slot)
                 if (value.type == null || !livenessFrame.isAlive(slot)) continue
 
-                if (value == StrictBasicValue.NULL_VALUE || value is TypedNullValue) {
+                if (value == StrictBasicValue.NULL_VALUE) {
                     referencesToSpill += slot to null
                     continue
                 }
@@ -674,12 +707,22 @@ class CoroutineTransformerMethodVisitor(
         val suspensionPointEnds = suspensionPoints.associateBy { it.suspensionCallEnd }
         fun findSuspensionPointPredecessors(suspension: SuspensionPoint): List<SuspensionPoint> {
             val visited = mutableSetOf<AbstractInsnNode>()
-            fun dfs(current: AbstractInsnNode): List<SuspensionPoint> {
-                if (!visited.add(current)) return emptyList()
-                suspensionPointEnds[current]?.let { return listOf(it) }
-                return cfg.getPredecessorsIndices(current).flatMap { dfs(instructions[it]) }
+            val current = mutableListOf(suspension.suspensionCallBegin)
+            val result = mutableListOf<SuspensionPoint>()
+
+            while (current.isNotEmpty()) {
+                val insn = current.popLast()
+                if (!visited.add(insn)) continue
+
+                val end = suspensionPointEnds[insn]
+                if (end != null) {
+                    result.add(end)
+                    continue
+                }
+                current.addAll(cfg.getPredecessorsIndices(insn).map { instructions[it] })
             }
-            return dfs(suspension.suspensionCallBegin)
+
+            return result
         }
 
         val predSuspensionPoints = suspensionPoints.associateWith { findSuspensionPointPredecessors(it) }

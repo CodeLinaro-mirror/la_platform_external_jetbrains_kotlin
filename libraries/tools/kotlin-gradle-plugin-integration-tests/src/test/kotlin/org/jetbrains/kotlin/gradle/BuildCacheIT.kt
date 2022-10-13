@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 import kotlin.io.path.ExperimentalPathApi
@@ -122,6 +123,27 @@ class BuildCacheIT : KGPBaseTest() {
         }
     }
 
+    @DisplayName("Enabled statistic should not break build cache")
+    @GradleTest
+    fun testCacheWithStatistic(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            enableLocalBuildCache(localBuildCacheDir)
+
+            build(
+                ":assemble"
+            ) {
+                assertTasksPackedToCache(":compileKotlin")
+            }
+
+            build(
+                "clean", ":assemble",
+                buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
+            ) {
+                assertTasksFromCache(":compileKotlin")
+            }
+        }
+    }
+
     //doesn't work for build history files approach
     @DisplayName("Restore from build cache should not break incremental compilation")
     @GradleTest
@@ -138,11 +160,9 @@ class BuildCacheIT : KGPBaseTest() {
             bKtSourceFile.modify { it.replace("fun b() {}", "fun b() {}\nfun b2() {}") }
 
             build("assemble", buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, logLevel = LogLevel.DEBUG)) {
-                assertOutputDoesNotContain("[KOTLIN] [IC] Non-incremental compilation will be performed")
+                assertIncrementalCompilation(expectedCompiledKotlinFiles = setOf(bKtSourceFile).map { it.relativeTo(projectPath)})
                 assertOutputContains("Incremental compilation with ABI snapshot enabled")
-                assertCompiledKotlinSources(setOf(bKtSourceFile).map { it.relativeTo(projectPath)}, output)
             }
-
         }
     }
 

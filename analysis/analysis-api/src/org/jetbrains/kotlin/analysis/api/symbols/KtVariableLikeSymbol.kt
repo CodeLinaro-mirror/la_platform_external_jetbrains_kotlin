@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.analysis.api.symbols
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.*
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.analysis.api.symbols.markers.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
@@ -34,13 +35,16 @@ public sealed class KtVariableLikeSymbol : KtCallableSymbol(), KtNamedSymbol, Kt
 public abstract class KtBackingFieldSymbol : KtVariableLikeSymbol() {
     public abstract val owningProperty: KtKotlinPropertySymbol
 
-    final override val name: Name get() = fieldName
-    final override val psi: PsiElement? get() = null
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.LOCAL
-    override val origin: KtSymbolOrigin get() = KtSymbolOrigin.PROPERTY_BACKING_FIELD
-    final override val callableIdIfNonLocal: CallableId? get() = null
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val name: Name get() = withValidityAssertion { fieldName }
+    final override val psi: PsiElement? get() = withValidityAssertion { null }
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.LOCAL }
+    override val origin: KtSymbolOrigin get() = withValidityAssertion { KtSymbolOrigin.PROPERTY_BACKING_FIELD }
+    final override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { null }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
+
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
 
     abstract override fun createPointer(): KtSymbolPointer<KtVariableLikeSymbol>
 
@@ -51,9 +55,12 @@ public abstract class KtBackingFieldSymbol : KtVariableLikeSymbol() {
 
 
 public abstract class KtEnumEntrySymbol : KtVariableLikeSymbol(), KtSymbolWithMembers, KtSymbolWithKind {
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.CLASS_MEMBER
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.CLASS_MEMBER }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
+
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
 
     //todo reduntant, remove
     public abstract val containingEnumClassIdIfNonLocal: ClassId?
@@ -72,9 +79,13 @@ public abstract class KtJavaFieldSymbol :
     KtSymbolWithModality,
     KtSymbolWithVisibility,
     KtSymbolWithKind {
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.CLASS_MEMBER
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.CLASS_MEMBER }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
+
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
+
     public abstract val isStatic: Boolean
 
     abstract override fun createPointer(): KtSymbolPointer<KtJavaFieldSymbol>
@@ -82,10 +93,8 @@ public abstract class KtJavaFieldSymbol :
 
 public sealed class KtPropertySymbol : KtVariableSymbol(),
     KtPossibleMemberSymbol,
-    KtSymbolWithTypeParameters,
     KtSymbolWithModality,
     KtSymbolWithVisibility,
-    KtAnnotatedSymbol,
     KtSymbolWithKind {
 
     public abstract val hasGetter: Boolean
@@ -124,10 +133,10 @@ public abstract class KtKotlinPropertySymbol : KtPropertySymbol() {
 }
 
 public abstract class KtSyntheticJavaPropertySymbol : KtPropertySymbol() {
-    final override val hasBackingField: Boolean get() = true
-    final override val isDelegatedProperty: Boolean get() = false
-    final override val hasGetter: Boolean get() = true
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.CLASS_MEMBER
+    final override val hasBackingField: Boolean get() = withValidityAssertion { true }
+    final override val isDelegatedProperty: Boolean get() = withValidityAssertion { false }
+    final override val hasGetter: Boolean get() = withValidityAssertion { true }
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.CLASS_MEMBER }
 
     abstract override val getter: KtPropertyGetterSymbol
 
@@ -138,21 +147,39 @@ public abstract class KtSyntheticJavaPropertySymbol : KtPropertySymbol() {
 }
 
 public abstract class KtLocalVariableSymbol : KtVariableSymbol(), KtSymbolWithKind {
-    final override val callableIdIfNonLocal: CallableId? get() = null
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { null }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
+
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
 
     abstract override fun createPointer(): KtSymbolPointer<KtLocalVariableSymbol>
 }
 
 public abstract class KtValueParameterSymbol : KtVariableLikeSymbol(), KtSymbolWithKind, KtAnnotatedSymbol {
-    final override val symbolKind: KtSymbolKind get() = KtSymbolKind.LOCAL
-    final override val callableIdIfNonLocal: CallableId? get() = null
-    final override val isExtension: Boolean get() = false
-    final override val receiverType: KtType? get() = null
+    final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.LOCAL }
+    final override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { null }
+    final override val isExtension: Boolean get() = withValidityAssertion { false }
+    final override val receiverType: KtType? get() = withValidityAssertion { null }
 
+    final override val typeParameters: List<KtTypeParameterSymbol>
+        get() = withValidityAssertion { emptyList() }
+
+    /**
+     * Whether this value parameter has a default value or not.
+     */
     public abstract val hasDefaultValue: Boolean
+
+    /**
+     * Whether this value parameter represents a variable number of arguments (`vararg`) or not.
+     */
     public abstract val isVararg: Boolean
+
+    /**
+     * Whether this value parameter is an implicitly generated lambda parameter `it` or not.
+     */
+    public abstract val isImplicitLambdaParameter: Boolean
 
     abstract override fun createPointer(): KtSymbolPointer<KtValueParameterSymbol>
 
@@ -166,4 +193,9 @@ public abstract class KtValueParameterSymbol : KtVariableLikeSymbol(), KtSymbolW
      * The names of the value parameters for `invoke()` are "item" and "p2" (its default parameter name).
      */
     abstract override val name: Name
+
+    /**
+     * The corresponding [KtPropertySymbol] if the current value parameter is a `val` or `var` declared inside the primary constructor.
+     */
+    public open val generatedPrimaryConstructorProperty: KtKotlinPropertySymbol? get() = null
 }

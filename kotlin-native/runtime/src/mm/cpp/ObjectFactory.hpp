@@ -12,10 +12,10 @@
 #include <type_traits>
 
 #include "Alignment.hpp"
-#include "Alloc.h"
 #include "FinalizerHooks.hpp"
 #include "Memory.h"
 #include "Mutex.hpp"
+#include "Porting.h"
 #include "Types.h"
 #include "Utils.hpp"
 
@@ -27,6 +27,7 @@ namespace internal {
 // A queue that is constructed by collecting subqueues from several `Producer`s.
 // This is essentially a heterogeneous `MultiSourceQueue` on top of a singly linked list that
 // uses `Allocator` to allocate and free memory.
+// Precondition on `Allocator`: must allocate with alignment at least `DataAlignment`.
 // TODO: Consider merging with `MultiSourceQueue` somehow.
 template <size_t DataAlignment, typename Allocator>
 class ObjectFactoryStorage : private Pinned {
@@ -45,19 +46,17 @@ class ObjectFactoryStorage : private Pinned {
     using unique_ptr = std::unique_ptr<T, Deleter<T>>;
 
 public:
-    // This class does not know its size at compile-time. Does not inherit from `KonanAllocatorAware` because
-    // in `KonanAllocatorAware::operator new(size_t size, KonanAllocTag)` `size` would be incorrect.
+    // This class does not know its size at compile-time.
     class Node : private Pinned {
         constexpr static size_t DataOffset() noexcept { return AlignUp(sizeof(Node), DataAlignment); }
 
     public:
         ~Node() = default;
 
-        constexpr static std::pair<size_t, size_t> GetSizeAndAlignmentForDataSize(size_t dataSize) noexcept {
+        constexpr static size_t GetSizeForDataSize(size_t dataSize) noexcept {
             size_t dataSizeAligned = AlignUp(dataSize, DataAlignment);
-            size_t totalAlignment = std::max(alignof(Node), DataAlignment);
-            size_t totalSize = AlignUp(sizeof(Node) + dataSizeAligned, totalAlignment);
-            return std::make_pair(totalSize, totalAlignment);
+            size_t totalSize = AlignUp(sizeof(Node) + dataSizeAligned, DataAlignment);
+            return totalSize;
         }
 
         static Node& FromData(void* data) noexcept {
@@ -87,16 +86,16 @@ public:
         Node() noexcept = default;
 
         static unique_ptr<Node> Create(Allocator& allocator, size_t dataSize) noexcept {
-            auto [totalSize, totalAlignment] = GetSizeAndAlignmentForDataSize(dataSize);
+            auto totalSize = GetSizeForDataSize(dataSize);
             RuntimeAssert(
                     DataOffset() + dataSize <= totalSize, "totalSize %zu is not enough to fit data %zu at offset %zu", totalSize, dataSize,
                     DataOffset());
-            void* ptr = allocator.Alloc(totalSize, totalAlignment);
+            void* ptr = allocator.Alloc(totalSize);
             if (!ptr) {
                 konan::consoleErrorf("Out of memory trying to allocate %zu bytes. Aborting.\n", totalSize);
                 konan::abort();
             }
-            RuntimeAssert(IsAligned(ptr, totalAlignment), "Allocator returned unaligned to %zu pointer %p", totalAlignment, ptr);
+            RuntimeAssert(IsAligned(ptr, DataAlignment), "Allocator returned unaligned to %zu pointer %p", DataAlignment, ptr);
             return unique_ptr<Node>(new (ptr) Node());
         }
 
@@ -104,6 +103,7 @@ public:
         // There's some more data of an unknown (at compile-time) size here, but it cannot be represented
         // with C++ members.
     };
+    static_assert(alignof(Node) <= DataAlignment, "DataAlignment must be greater than Node alignment");
 
     class Producer : private MoveOnly {
     public:
@@ -453,18 +453,19 @@ public:
 
         static NodeRef From(ObjHeader* object) noexcept {
             RuntimeAssert(object->heap(), "Must be a heap object");
-            auto* heapObject = reinterpret_cast<HeapObjHeader*>(reinterpret_cast<uintptr_t>(object) - offsetof(HeapObjHeader, object));
-            RuntimeAssert(&heapObject->object == object, "HeapObjHeader layout has broken");
-            return NodeRef(Storage::Node::FromData(heapObject));
+            auto& heapObject = ownerOf(HeapObjHeader, object, *object);
+            return NodeRef(Storage::Node::FromData(&heapObject));
         }
 
         static NodeRef From(ArrayHeader* array) noexcept {
-            // `ArrayHeader` and `ObjHeader` are kept compatible, so the former can
-            // be always casted to the other.
-            RuntimeAssert(reinterpret_cast<ObjHeader*>(array)->heap(), "Must be a heap object");
-            auto* heapArray = reinterpret_cast<HeapArrayHeader*>(reinterpret_cast<uintptr_t>(array) - offsetof(HeapArrayHeader, array));
-            RuntimeAssert(&heapArray->array == array, "HeapArrayHeader layout has broken");
-            return NodeRef(Storage::Node::FromData(heapArray));
+            RuntimeAssert(array->obj()->heap(), "Must be a heap object");
+            auto& heapArray = ownerOf(HeapArrayHeader, array, *array);
+            return NodeRef(Storage::Node::FromData(&heapArray));
+        }
+
+        static NodeRef From(ObjectData& objectData) noexcept {
+            auto& heapObject = ownerOf(HeapObjHeader, gcData, objectData);
+            return NodeRef(Storage::Node::FromData(&heapObject));
         }
 
         NodeRef* operator->() noexcept { return this; }
@@ -515,7 +516,7 @@ public:
         static size_t ObjectAllocatedSize(const TypeInfo* typeInfo) noexcept {
             RuntimeAssert(!typeInfo->IsArray(), "Must not be an array");
             size_t allocSize = ObjectAllocatedDataSize(typeInfo);
-            return Storage::Node::GetSizeAndAlignmentForDataSize(allocSize).first;
+            return Storage::Node::GetSizeForDataSize(allocSize);
         }
 
         ObjHeader* CreateObject(const TypeInfo* typeInfo) noexcept {
@@ -532,7 +533,7 @@ public:
         static size_t ArrayAllocatedSize(const TypeInfo* typeInfo, uint32_t count) noexcept {
             RuntimeAssert(typeInfo->IsArray(), "Must be an array");
             size_t allocSize = ArrayAllocatedDataSize(typeInfo, count);
-            return Storage::Node::GetSizeAndAlignmentForDataSize(allocSize).first;
+            return Storage::Node::GetSizeForDataSize(allocSize);
         }
 
         ArrayHeader* CreateArray(const TypeInfo* typeInfo, uint32_t count) noexcept {

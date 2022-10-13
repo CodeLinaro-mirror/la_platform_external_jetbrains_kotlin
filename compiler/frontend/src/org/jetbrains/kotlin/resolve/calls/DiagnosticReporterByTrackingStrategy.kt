@@ -9,9 +9,12 @@ import org.jetbrains.kotlin.builtins.UnsignedTypes
 import org.jetbrains.kotlin.builtins.functions.FunctionInvokeDescriptor
 import org.jetbrains.kotlin.builtins.isExtensionFunctionType
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.diagnostics.Errors.*
 import org.jetbrains.kotlin.diagnostics.Errors.BadNamedArgumentsTarget.*
 import org.jetbrains.kotlin.diagnostics.reportDiagnosticOnce
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.isNull
 import org.jetbrains.kotlin.psi.psiUtil.lastBlockStatementOrThis
@@ -36,10 +39,12 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.scopes.receivers.ExpressionReceiver
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedCallableMemberDescriptor
 import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.StubTypeForBuilderInference
 import org.jetbrains.kotlin.types.TypeUtils
 import org.jetbrains.kotlin.types.checker.intersectWrappedTypes
 import org.jetbrains.kotlin.types.error.ErrorUtils
 import org.jetbrains.kotlin.types.expressions.ControlStructureTypingUtils
+import org.jetbrains.kotlin.types.isPossiblyEmpty
 import org.jetbrains.kotlin.types.model.TypeSystemInferenceExtensionContextDelegate
 import org.jetbrains.kotlin.types.model.TypeVariableMarker
 import org.jetbrains.kotlin.types.model.freshTypeConstructor
@@ -105,6 +110,14 @@ class DiagnosticReporterByTrackingStrategy(
             }
             CandidateChosenUsingOverloadResolutionByLambdaAnnotation::class.java -> {
                 trace.report(CANDIDATE_CHOSEN_USING_OVERLOAD_RESOLUTION_BY_LAMBDA_ANNOTATION.on(psiKotlinCall.psiCall.callElement))
+            }
+            EnumEntryAmbiguityWarning::class.java -> {
+                val propertyDescriptor = (diagnostic as EnumEntryAmbiguityWarning).property
+                val enumEntryDescriptor = diagnostic.enumEntry
+                val enumCompanionDescriptor = (enumEntryDescriptor.containingDeclaration as? ClassDescriptor)?.companionObjectDescriptor
+                if (enumCompanionDescriptor == null || propertyDescriptor.containingDeclaration != enumCompanionDescriptor) {
+                    trace.report(DEPRECATED_RESOLVE_WITH_AMBIGUOUS_ENUM_ENTRY.on(psiKotlinCall.psiCall.callElement, propertyDescriptor, enumEntryDescriptor))
+                }
             }
             CompatibilityWarning::class.java -> {
                 val callElement = psiKotlinCall.psiCall.callElement
@@ -186,6 +199,21 @@ class DiagnosticReporterByTrackingStrategy(
                 if (psiExpression is KtSuperExpression) {
                     trace.report(SUPER_CANT_BE_EXTENSION_RECEIVER.on(psiExpression, psiExpression.text))
                 }
+            }
+
+            StubBuilderInferenceReceiver::class.java -> {
+                diagnostic as StubBuilderInferenceReceiver
+
+                val stubType = callReceiver.receiver.receiverValue.type as? StubTypeForBuilderInference
+                val originalTypeParameter = stubType?.originalTypeVariable?.originalTypeParameter
+
+                trace.report(
+                    BUILDER_INFERENCE_STUB_RECEIVER.on(
+                        callReceiver.psiExpression ?: call.callElement,
+                        originalTypeParameter?.name ?: SpecialNames.NO_NAME_PROVIDED,
+                        originalTypeParameter?.containingDeclaration?.name ?: SpecialNames.NO_NAME_PROVIDED
+                    )
+                )
             }
         }
     }
@@ -306,6 +334,19 @@ class DiagnosticReporterByTrackingStrategy(
                 trace.report(
                     ADAPTED_CALLABLE_REFERENCE_AGAINST_REFLECTION_TYPE.on(
                         callArgument.psiCallArgument.valueArgument.asElement()
+                    )
+                )
+            }
+
+            MultiLambdaBuilderInferenceRestriction::class.java -> {
+                diagnostic as MultiLambdaBuilderInferenceRestriction
+                val typeParameter = diagnostic.typeParameter as? TypeParameterDescriptor
+
+                trace.reportDiagnosticOnce(
+                    BUILDER_INFERENCE_MULTI_LAMBDA_RESTRICTION.on(
+                        callArgument.psiCallArgument.valueArgument.asElement(),
+                        typeParameter?.name ?: SpecialNames.NO_NAME_PROVIDED,
+                        typeParameter?.containingDeclaration?.name ?: SpecialNames.NO_NAME_PROVIDED,
                     )
                 )
             }
@@ -540,6 +581,22 @@ class DiagnosticReporterByTrackingStrategy(
                 }
             }
 
+            InferredIntoDeclaredUpperBounds::class.java -> {
+                error as InferredIntoDeclaredUpperBounds
+
+                val psiCall = psiKotlinCall.psiCall
+                val expression = if (psiCall is CallTransformer.CallForImplicitInvoke) {
+                    psiCall.outerCall.calleeExpression
+                } else {
+                    psiCall.calleeExpression
+                } ?: return
+                val typeVariable = error.typeVariable as? TypeVariableFromCallableDescriptor ?: return
+
+                trace.reportDiagnosticOnce(
+                    INFERRED_INTO_DECLARED_UPPER_BOUNDS.on(expression, typeVariable.originalTypeParameter.name.asString())
+                )
+            }
+
             NotEnoughInformationForTypeParameterImpl::class.java -> {
                 error as NotEnoughInformationForTypeParameterImpl
 
@@ -599,6 +656,33 @@ class DiagnosticReporterByTrackingStrategy(
                     trace.report(
                         TYPE_INFERENCE_ONLY_INPUT_TYPES.on(context.languageVersionSettings, it, typeVariable.originalTypeParameter)
                     )
+                }
+            }
+
+            InferredEmptyIntersectionError::class.java, InferredEmptyIntersectionWarning::class.java -> {
+                val typeVariable = (error as InferredEmptyIntersection).typeVariable
+                psiKotlinCall.psiCall.calleeExpression?.let { expression ->
+                    val typeVariableText = (typeVariable as? TypeVariableFromCallableDescriptor)?.originalTypeParameter?.name?.asString()
+                        ?: typeVariable.toString()
+
+                    @Suppress("UNCHECKED_CAST")
+                    val incompatibleTypes = error.incompatibleTypes as List<KotlinType>
+
+                    @Suppress("UNCHECKED_CAST")
+                    val causingTypes = error.causingTypes as List<KotlinType>
+                    val causingTypesText = if (incompatibleTypes == causingTypes) "" else ": ${causingTypes.joinToString()}"
+                    val diagnostic = if (error.kind.isPossiblyEmpty()) {
+                        INFERRED_TYPE_VARIABLE_INTO_POSSIBLE_EMPTY_INTERSECTION.on(
+                            expression, typeVariableText, incompatibleTypes, error.kind.description, causingTypesText
+                        )
+                    } else {
+                        INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION.on(
+                            context.languageVersionSettings, expression, typeVariableText,
+                            incompatibleTypes, error.kind.description, causingTypesText
+                        )
+                    }
+
+                    trace.reportDiagnosticOnce(diagnostic)
                 }
             }
         }

@@ -5,11 +5,15 @@
 
 package org.jetbrains.kotlin.analysis.api.components
 
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithKind
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
 
 public abstract class KtSymbolContainingDeclarationProvider : KtAnalysisSessionComponent() {
     public abstract fun getContainingDeclaration(symbol: KtSymbol): KtSymbolWithKind?
+
+    public abstract fun getContainingModule(symbol: KtSymbol): KtModule
 }
 
 public interface KtSymbolContainingDeclarationProviderMixIn : KtAnalysisSessionMixIn {
@@ -20,5 +24,8 @@ public interface KtSymbolContainingDeclarationProviderMixIn : KtAnalysisSessionM
      *   for local declaration returns declaration it was declared it
      */
     public fun KtSymbol.getContainingSymbol(): KtSymbolWithKind? =
-        analysisSession.containingDeclarationProvider.getContainingDeclaration(this)
+        withValidityAssertion { analysisSession.containingDeclarationProvider.getContainingDeclaration(this) }
+
+    public fun KtSymbol.getContainingModule(): KtModule =
+        withValidityAssertion { analysisSession.containingDeclarationProvider.getContainingModule(this) }
 }

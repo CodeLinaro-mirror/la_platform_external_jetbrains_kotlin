@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.ir.declarations
 
+import org.jetbrains.kotlin.GeneratedDeclarationKey
+
 interface IrDeclarationOrigin {
     object DEFINED : IrDeclarationOriginImpl("DEFINED")
     object FAKE_OVERRIDE : IrDeclarationOriginImpl("FAKE_OVERRIDE")
@@ -29,6 +31,7 @@ interface IrDeclarationOrigin {
     object FILE_CLASS : IrDeclarationOriginImpl("FILE_CLASS")
     object SYNTHETIC_FILE_CLASS : IrDeclarationOriginImpl("SYNTHETIC_FILE_CLASS", isSynthetic = true)
     object JVM_MULTIFILE_CLASS : IrDeclarationOriginImpl("JVM_MULTIFILE_CLASS")
+    object ERROR_CLASS : IrDeclarationOriginImpl("ERROR_CLASS")
 
     object SCRIPT_CLASS : IrDeclarationOriginImpl("SCRIPT_CLASS")
     object SCRIPT_STATEMENT : IrDeclarationOriginImpl("SCRIPT_STATEMENT")
@@ -77,6 +80,22 @@ interface IrDeclarationOrigin {
     object LOWERED_SUSPEND_FUNCTION : IrDeclarationOriginImpl("LOWERED_SUSPEND_FUNCTION", isSynthetic = true)
 
     object SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT : IrDeclarationOriginImpl("SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT", isSynthetic = true)
+
+    class GeneratedByPlugin(val pluginKey: GeneratedDeclarationKey) : IrDeclarationOrigin {
+        override fun toString(): String {
+            return "GENERATED[${pluginKey}]"
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is GeneratedByPlugin) return false
+            return pluginKey == other.pluginKey
+        }
+
+        override fun hashCode(): Int {
+            return pluginKey.hashCode()
+        }
+    }
 
     val isSynthetic: Boolean get() = false
 }

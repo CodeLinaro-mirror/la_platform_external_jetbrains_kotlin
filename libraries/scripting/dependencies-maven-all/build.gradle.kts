@@ -1,6 +1,7 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.github.jengelman.gradle.plugins.shadow.transformers.ComponentsXmlResourceTransformer
 import org.gradle.internal.jvm.Jvm
+import org.gradle.kotlin.dsl.support.serviceOf
 
 description = "Shaded Maven dependencies resolver"
 
@@ -70,10 +71,12 @@ val normalizeComponentsXmlEndings by tasks.registering {
     dependsOn(relocatedJar)
     val outputDirectory = buildDir.resolve(name)
     val outputFile = outputDirectory.resolve(ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH)
+    val relocatedJarFile = project.provider { relocatedJar.get().singleOutputFile() }
+    val archiveOperations = serviceOf<ArchiveOperations>()
     outputs.file(outputFile)
 
     doFirst {
-        val componentsXml = zipTree(relocatedJar.get().singleOutputFile()).matching {
+        val componentsXml = archiveOperations.zipTree(relocatedJarFile.get()).matching {
             include { it.path == ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH }
         }.single().readText()
         val processedComponentsXml = componentsXml.replace("\r\n", "\n")
@@ -144,6 +147,4 @@ val resultJar by task<Jar> {
 }
 
 
-addArtifact("runtime", resultJar)
-addArtifact("runtimeElements", resultJar)
-addArtifact("archives", resultJar)
+setPublishableArtifact(resultJar)

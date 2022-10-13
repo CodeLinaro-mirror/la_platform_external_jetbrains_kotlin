@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
 
@@ -9,6 +9,9 @@ import kotlinx.cinterop.*
 import kotlin.native.internal.Frozen
 
 /**
+ * Note: modern Kotlin/Native memory manager allows to share objects between threads without additional ceremonies,
+ * so TransferMode has effect only in legacy memory manager.
+ *
  *  ## Object Transfer Basics.
  *
  *  Objects can be passed between threads in one of two possible modes.
@@ -32,6 +35,7 @@ import kotlin.native.internal.Frozen
  *
  *  @see [kotlin.native.internal.GC.collect].
  */
+// Not @FreezingIsDeprecated: every `Worker.execute` uses this.
 public enum class TransferMode(val value: Int) {
     /**
      * Reachibility check is performed.
@@ -49,6 +53,7 @@ public enum class TransferMode(val value: Int) {
  * externally, until it is attached with the [attach] extension function.
  */
 @Frozen
+@FreezingIsDeprecated
 public class DetachedObjectGraph<T> internal constructor(pointer: NativePtr) {
     @PublishedApi
     internal val stable = AtomicNativePtr(pointer)
@@ -78,6 +83,7 @@ public class DetachedObjectGraph<T> internal constructor(pointer: NativePtr) {
  * make sense anymore, and shall be discarded, so attach of one DetachedObjectGraph object can only
  * happen once.
  */
+@FreezingIsDeprecated
 public inline fun <reified T> DetachedObjectGraph<T>.attach(): T {
     var rawStable: NativePtr
     do {

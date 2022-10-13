@@ -52,6 +52,8 @@ val commonMainSources by task<Sync> {
     }
 
     into("$buildDir/commonMainSources")
+
+    dependsOn(":prepare:build.version:writeStdlibVersion")
 }
 
 val commonTestSources by task<Sync> {
@@ -74,13 +76,7 @@ val commonTestSources by task<Sync> {
 
 kotlin {
     wasm {
-        nodejs {
-            testTask {
-                useMocha {
-                    timeout = "10s"
-                }
-            }
-        }
+        d8()
     }
 
     sourceSets {
@@ -121,7 +117,8 @@ tasks.withType<KotlinCompile<*>>().configureEach {
         "-opt-in=kotlin.contracts.ExperimentalContracts",
         "-opt-in=kotlin.RequiresOptIn",
         "-opt-in=kotlin.ExperimentalUnsignedTypes",
-        "-opt-in=kotlin.ExperimentalStdlibApi"
+        "-opt-in=kotlin.ExperimentalStdlibApi",
+        "-XXLanguage:+RangeUntilOperator",
     )
 }
 
@@ -140,8 +137,8 @@ val compileTestKotlinWasm by tasks.existing(KotlinCompile::class) {
     }
 }
 
-tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasm") {
-    (this as KotlinCompile<*>).kotlinOptions.freeCompilerArgs += "-Xwasm-enable-array-range-checks"
+val compileTestDevelopmentExecutableKotlinWasm = tasks.named<KotlinJsIrLink>("compileTestDevelopmentExecutableKotlinWasm") {
+    (this as KotlinCompile<*>).kotlinOptions.freeCompilerArgs += listOf("-Xwasm-enable-array-range-checks")
 }
 
 val runtimeElements by configurations.creating {}
@@ -176,3 +173,15 @@ afterEvaluate {
     }
 }
 
+if (!isConfigurationCacheDisabled) {
+    tasks.matching {
+        it is org.jetbrains.kotlin.gradle.tooling.BuildKotlinToolingMetadataTask
+                || it is org.jetbrains.kotlin.gradle.plugin.mpp.GenerateProjectStructureMetadata
+                || it is org.jetbrains.kotlin.gradle.plugin.mpp.TransformKotlinGranularMetadata
+    }.configureEach {
+        onlyIf {
+            logger.warn("Task '$name' is disabled due to incompatibility with configuration cache. KT-49933")
+            false
+        }
+    }
+}

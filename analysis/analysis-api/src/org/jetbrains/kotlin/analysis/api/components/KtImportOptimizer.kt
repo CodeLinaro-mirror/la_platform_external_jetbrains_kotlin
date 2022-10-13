@@ -5,11 +5,12 @@
 
 package org.jetbrains.kotlin.analysis.api.components
 
-import org.jetbrains.kotlin.analysis.api.ValidityTokenOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
 
-public abstract class KtImportOptimizer : ValidityTokenOwner {
+public abstract class KtImportOptimizer : KtLifetimeOwner {
     public abstract fun analyseImports(file: KtFile): KtImportOptimizerResult
 }
 
@@ -21,7 +22,7 @@ public interface KtImportOptimizerMixIn : KtAnalysisSessionMixIn {
      *
      * Does **not** change the file.
      */
-    public fun analyseImports(file: KtFile): KtImportOptimizerResult {
+    public fun analyseImports(file: KtFile): KtImportOptimizerResult = withValidityAssertion {
         return analysisSession.importOptimizer.analyseImports(file)
     }
 }
