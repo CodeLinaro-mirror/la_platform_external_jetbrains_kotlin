@@ -20358,6 +20358,12 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
                 }
 
                 @Test
+                @TestMetadata("stringConcatenationWithObject.kt")
+                public void testStringConcatenationWithObject() throws Exception {
+                    runTest("compiler/testData/diagnostics/tests/modifiers/const/stringConcatenationWithObject.kt");
+                }
+
+                @Test
                 @TestMetadata("types.kt")
                 public void testTypes() throws Exception {
                     runTest("compiler/testData/diagnostics/tests/modifiers/const/types.kt");
@@ -35536,6 +35542,24 @@ public class FirOldFrontendDiagnosticsTestGenerated extends AbstractFirDiagnosti
             @TestMetadata("resolveUsualCallWithBuilderInferenceWithRestrictions.kt")
             public void testResolveUsualCallWithBuilderInferenceWithRestrictions() throws Exception {
                 runTest("compiler/testData/diagnostics/testsWithStdLib/builderInference/resolveUsualCallWithBuilderInferenceWithRestrictions.kt");
+            }
+
+            @Test
+            @TestMetadata("unsafeAssignment.kt")
+            public void testUnsafeAssignment() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/builderInference/unsafeAssignment.kt");
+            }
+
+            @Test
+            @TestMetadata("unsafeAssignmentExtra.kt")
+            public void testUnsafeAssignmentExtra() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/builderInference/unsafeAssignmentExtra.kt");
+            }
+
+            @Test
+            @TestMetadata("unsafeAssignment_noReport.kt")
+            public void testUnsafeAssignment_noReport() throws Exception {
+                runTest("compiler/testData/diagnostics/testsWithStdLib/builderInference/unsafeAssignment_noReport.kt");
             }
 
             @Test
