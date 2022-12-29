@@ -13,14 +13,14 @@ dependencies {
     implementation(project(":compiler:frontend.common-psi"))
     implementation(project(":compiler:psi"))
 
-    compileOnly(project(":kotlin-reflect-api"))
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     compileOnly(intellijCore())
 }
 
 sourceSets {
     "main" {
         projectDefault()
-        this.java.srcDir("gen")
+        generatedDir()
     }
     "test" { none() }
 }
@@ -37,6 +37,7 @@ val generationRoot = projectDir.resolve("gen")
 val platformGenerationRoots = listOf(
     "checkers.jvm",
     "checkers.js",
+    "checkers.native",
 ).map { projectDir.resolve(it).resolve("gen") }
 
 val generateCheckersComponents by tasks.registering(NoDebugJavaExec::class) {

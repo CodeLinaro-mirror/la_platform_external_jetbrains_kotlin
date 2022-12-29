@@ -7,7 +7,8 @@ dependencies {
     implementation(project(":compiler:psi"))
     implementation(project(":compiler:frontend.java"))
     implementation(project(":core:compiler.common"))
-    implementation(project(":compiler:light-classes"))
+    implementation(project(":analysis:light-classes-base"))
+    implementation(project(":compiler:backend.common.jvm"))
     implementation(project(":analysis:analysis-api-providers"))
     implementation(project(":analysis:analysis-api"))
     implementation(project(":analysis:analysis-internal-utils"))
@@ -19,6 +20,7 @@ dependencies {
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(projectTests(":analysis:analysis-api-impl-base"))
     testImplementation(projectTests(":analysis:analysis-api-fir"))
+    testImplementation(projectTests(":compiler:tests-common-new"))
 }
 
 sourceSets {
@@ -31,5 +33,10 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
     workingDir = rootDir
     useJUnitPlatform()
 }
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+}
+
 
 testsJar()

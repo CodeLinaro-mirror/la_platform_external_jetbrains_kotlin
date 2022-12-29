@@ -74,6 +74,9 @@ public class JSConfigurationKeys {
     public static final CompilerConfigurationKey<Boolean> GENERATE_COMMENTS_WITH_FILE_PATH =
             CompilerConfigurationKey.create("generate comments with file path at the start of each file block");
 
+    public static final CompilerConfigurationKey<Boolean> GENERATE_DTS =
+            CompilerConfigurationKey.create("generate TypeScript definition file");
+
     public static final CompilerConfigurationKey<Boolean> GENERATE_REGION_COMMENTS =
             CompilerConfigurationKey.create("generate special comments at the start and the end of each file block, " +
                                             "it allows to fold them and navigate to them in the IDEA");
@@ -102,6 +105,9 @@ public class JSConfigurationKeys {
 
     public static final CompilerConfigurationKey<Boolean> GENERATE_INLINE_ANONYMOUS_FUNCTIONS =
             CompilerConfigurationKey.create("translate lambdas into in-line anonymous functions");
+
+    public static final CompilerConfigurationKey<Boolean> GENERATE_STRICT_IMPLICIT_EXPORT =
+            CompilerConfigurationKey.create("enable strict implicitly exported entities types inside d.ts files");
 
     public static final CompilerConfigurationKey<Boolean> WASM_ENABLE_ARRAY_RANGE_CHECKS =
             CompilerConfigurationKey.create("enable array range checks");

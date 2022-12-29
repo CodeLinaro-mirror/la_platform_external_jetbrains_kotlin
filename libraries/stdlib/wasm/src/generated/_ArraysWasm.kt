@@ -1020,15 +1020,7 @@ public actual fun <T> Array<out T>.copyInto(destination: Array<T>, destinationOf
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1054,15 +1046,7 @@ public actual fun ByteArray.copyInto(destination: ByteArray, destinationOffset: 
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1088,15 +1072,7 @@ public actual fun ShortArray.copyInto(destination: ShortArray, destinationOffset
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1122,15 +1098,7 @@ public actual fun IntArray.copyInto(destination: IntArray, destinationOffset: In
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1156,15 +1124,7 @@ public actual fun LongArray.copyInto(destination: LongArray, destinationOffset: 
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1190,15 +1150,7 @@ public actual fun FloatArray.copyInto(destination: FloatArray, destinationOffset
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1224,15 +1176,7 @@ public actual fun DoubleArray.copyInto(destination: DoubleArray, destinationOffs
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1258,15 +1202,7 @@ public actual fun BooleanArray.copyInto(destination: BooleanArray, destinationOf
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 
@@ -1292,15 +1228,7 @@ public actual fun CharArray.copyInto(destination: CharArray, destinationOffset: 
     AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
     val rangeSize = endIndex - startIndex
     AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-    if (this !== destination || destinationOffset <= startIndex) {
-        for (index in 0 until rangeSize) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    } else {
-        for (index in rangeSize - 1 downTo 0) {
-            destination[destinationOffset + index] = this[startIndex + index]
-        }
-    }
+    kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
     return destination
 }
 

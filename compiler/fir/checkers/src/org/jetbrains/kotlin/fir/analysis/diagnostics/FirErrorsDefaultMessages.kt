@@ -56,6 +56,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.ACTUAL_TYPE_ALIAS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.ACTUAL_TYPE_ALIAS_WITH_USE_SITE_VARIANCE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.ACTUAL_WITHOUT_EXPECT
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.AMBIGUOUS_ACTUALS
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.AMBIGUOUS_ALTERED_ASSIGN
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.AMBIGUOUS_ANONYMOUS_TYPE_INFERRED
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.AMBIGUOUS_EXPECTS
@@ -251,6 +252,8 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCOMPATIBLE_TYPE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCONSISTENT_TYPE_PARAMETER_BOUNDS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCONSISTENT_TYPE_PARAMETER_VALUES
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCORRECT_CHARACTER_LITERAL
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCORRECT_LEFT_COMPONENT_OF_INTERSECTION
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INCORRECT_RIGHT_COMPONENT_OF_INTERSECTION
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INC_DEC_SHOULD_NOT_RETURN_UNIT
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INFERENCE_ERROR
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INFERENCE_UNSUCCESSFUL_FORK
@@ -358,6 +361,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NO_THIS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NO_TYPE_ARGUMENTS_ON_RHS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NO_VALUE_FOR_PARAMETER
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULLABLE_INLINE_PARAMETER
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULLABLE_ON_DEFINITELY_NOT_NULLABLE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULLABLE_SUPERTYPE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULLABLE_TYPE_IN_CLASS_LITERAL_LHS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.NULLABLE_TYPE_OF_ANNOTATION_MEMBER
@@ -469,6 +473,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SETTER_VISIBILITY
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SINGLETON_IN_SUPERTYPE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SMARTCAST_IMPOSSIBLE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SPREAD_OF_NULLABLE
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SUBCLASS_OPT_IN_INAPPLICABLE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SUPERCLASS_NOT_ACCESSIBLE_FROM_INTERFACE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SUPERTYPES_FOR_ANNOTATION_CLASS
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SUPERTYPE_APPEARS_TWICE
@@ -673,6 +678,12 @@ object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
             "Constructor of inner class {0} can be called only with receiver of containing class",
             SYMBOL
         )
+        map.put(
+            AMBIGUOUS_ALTERED_ASSIGN,
+            "Multiple extensions tried to alter this assignement at the same time. Extensions: {0}",
+            COLLECTION(NULLABLE_STRING)
+        )
+
         map.put(ILLEGAL_SELECTOR, "The expression cannot be a selector (occur after a dot)")
         map.put(NO_RECEIVER_ALLOWED, "No receiver can be passed to this function or property")
 
@@ -865,6 +876,8 @@ object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
             OPT_IN_MARKER_ON_OVERRIDE_WARNING,
             "Opt-in requirement marker annotation on override makes no sense without the same marker on base declaration"
         )
+        map.put(SUBCLASS_OPT_IN_INAPPLICABLE, "@SubclassOptInRequired is inapplicable on {0}", STRING)
+
         map.put(NOT_A_CLASS, "Not a class")
         map.put(
             WRONG_EXTENSION_FUNCTION_TYPE,
@@ -971,6 +984,18 @@ object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
             RENDER_COLLECTION_OF_TYPES,
             TO_STRING,
             TO_STRING
+        )
+        map.put(
+            NULLABLE_ON_DEFINITELY_NOT_NULLABLE,
+            "'!!' type cannot be marked as nullable"
+        )
+        map.put(
+            INCORRECT_LEFT_COMPONENT_OF_INTERSECTION,
+            "Intersection types are only supported for definitely non-nullable types: left part should be a type parameter with nullable bounds"
+        )
+        map.put(
+            INCORRECT_RIGHT_COMPONENT_OF_INTERSECTION,
+            "Intersection types are only supported for definitely non-nullable types: right part should be non-nullable Any"
         )
 
         map.put(TYPE_MISMATCH, "Type mismatch: inferred type is {1} but {0} was expected", TO_STRING, TO_STRING, NOT_RENDERED)
@@ -2018,7 +2043,8 @@ object FirErrorsDefaultMessages : BaseDiagnosticRendererFactory() {
         )
         map.put(
             MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN,
-            "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''"
+            "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''." +
+            " See https://youtrack.jetbrains.com/issue/KT-49264"
         )
         map.put(RETURN_FOR_BUILT_IN_SUSPEND, "Using implicit label for this lambda is prohibited")
 

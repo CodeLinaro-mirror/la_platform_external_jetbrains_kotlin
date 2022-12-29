@@ -8,8 +8,15 @@ plugins {
 }
 
 bitcode {
-    module("files")
-    module("env")
+    // These are only used in kotlin-native/backend.native/build.gradle where only the host target is needed.
+    hostTarget {
+        module("files") {
+            headersDirs.from(layout.projectDirectory.dir("src/files/headers"))
+        }
+        module("env") {
+            headersDirs.from(layout.projectDirectory.dir("src/env/headers"))
+        }
+    }
 }
 
 val hostName: String by project

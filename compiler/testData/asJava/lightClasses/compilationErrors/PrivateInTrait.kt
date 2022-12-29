@@ -8,5 +8,3 @@ interface PrivateInTrait {
         get() = ""
     private fun bar(a: String, b: String?): String?
 }
-
-// SKIP_IDE_TEST

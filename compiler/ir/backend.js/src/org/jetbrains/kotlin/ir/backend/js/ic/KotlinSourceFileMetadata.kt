@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.protobuf.CodedInputStream
 import org.jetbrains.kotlin.protobuf.CodedOutputStream
+import java.io.File
 
 @JvmInline
 value class KotlinLibraryFile(val path: String) {
@@ -20,6 +21,9 @@ value class KotlinLibraryFile(val path: String) {
     companion object {
         fun fromProtoStream(input: CodedInputStream) = KotlinLibraryFile(input.readString())
     }
+
+    // for debugging purposes only
+    override fun toString(): String = File(path).name
 }
 
 @JvmInline
@@ -31,6 +35,9 @@ value class KotlinSourceFile(val path: String) {
     companion object {
         fun fromProtoStream(input: CodedInputStream) = KotlinSourceFile(input.readString())
     }
+
+    // for debugging purposes only
+    override fun toString(): String = File(path).name
 }
 
 open class KotlinSourceFileMap<out T>(files: Map<KotlinLibraryFile, Map<KotlinSourceFile, T>>) :
@@ -38,6 +45,9 @@ open class KotlinSourceFileMap<out T>(files: Map<KotlinLibraryFile, Map<KotlinSo
 
     inline fun forEachFile(f: (KotlinLibraryFile, KotlinSourceFile, T) -> Unit) =
         forEach { (lib, files) -> files.forEach { (file, data) -> f(lib, file, data) } }
+
+    inline fun allFiles(p: (KotlinLibraryFile, KotlinSourceFile, T) -> Boolean) =
+        entries.all { (lib, files) -> files.entries.all { (file, data) -> p(lib, file, data) } }
 
     operator fun get(libFile: KotlinLibraryFile, sourceFile: KotlinSourceFile): T? = get(libFile)?.get(sourceFile)
 }
@@ -80,13 +90,6 @@ fun KotlinSourceFileMap<Set<IdSignature>>.flatSignatures(): Set<IdSignature> {
     return allSignatures
 }
 
-fun KotlinSourceFileMutableMap<MutableSet<IdSignature>>.addSignature(
-    lib: KotlinLibraryFile, src: KotlinSourceFile, signature: IdSignature
-) = when (val signatures = this[lib, src]) {
-    null -> this[lib, src] = mutableSetOf(signature)
-    else -> signatures += signature
-}
-
 abstract class KotlinSourceFileExports {
     abstract val inverseDependencies: KotlinSourceFileMap<Set<IdSignature>>
 
@@ -94,9 +97,7 @@ abstract class KotlinSourceFileExports {
 }
 
 abstract class KotlinSourceFileMetadata : KotlinSourceFileExports() {
-    abstract val directDependencies: KotlinSourceFileMap<Set<IdSignature>>
-
-    abstract val importedInlineFunctions: Map<IdSignature, ICHash>
+    abstract val directDependencies: KotlinSourceFileMap<Map<IdSignature, ICHash>>
 }
 
-fun KotlinSourceFileMetadata.isEmpty() = inverseDependencies.isEmpty() && directDependencies.isEmpty() && importedInlineFunctions.isEmpty()
+fun KotlinSourceFileMetadata.isEmpty() = inverseDependencies.isEmpty() && directDependencies.isEmpty()

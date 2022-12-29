@@ -4,6 +4,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.and
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -26,7 +27,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -35,6 +36,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -57,7 +59,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -66,6 +68,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -88,7 +91,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -97,6 +100,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -119,7 +123,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -128,6 +132,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -150,7 +155,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -159,6 +164,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -181,7 +187,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -190,6 +196,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.compareTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -212,12 +219,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.dec
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -238,7 +246,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -247,6 +255,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -269,7 +278,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -278,6 +287,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -300,7 +310,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -309,6 +319,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -331,7 +342,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -340,6 +351,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -362,7 +374,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -371,6 +383,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -393,7 +406,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -402,6 +415,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.div
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -424,7 +438,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -433,6 +447,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.equals
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -455,12 +470,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.inc
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -481,7 +497,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -490,6 +506,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.inv
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -510,7 +527,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -519,6 +536,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -541,7 +559,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -550,6 +568,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -572,7 +591,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -581,6 +600,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -603,7 +623,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -612,6 +632,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -634,7 +655,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -643,6 +664,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -665,7 +687,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -674,6 +696,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.minus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -696,7 +719,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -705,6 +728,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.or
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -727,7 +751,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -736,6 +760,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -758,7 +783,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -767,6 +792,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -789,7 +815,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -798,6 +824,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -820,7 +847,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -829,6 +856,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -851,7 +879,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -860,6 +888,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -882,7 +911,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -891,6 +920,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.plus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -913,12 +943,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.rangeTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -941,12 +972,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.rangeTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -969,12 +1001,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.rangeTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -997,12 +1030,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Int.rangeTo
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1025,7 +1059,143 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: [
+    kotlin/SinceKotlin(version = "1.7")
+      psi: null
+    kotlin/ExperimentalStdlibApi()
+      psi: null
+  ]
+  callableIdIfNonLocal: kotlin/Int.rangeUntil
+  contextReceivers: []
+  hasStableParameterNames: true
+  isBuiltinFunctionInvoke: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: true
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: rangeUntil
+  origin: LIBRARY
+  receiverType: null
+  returnType: kotlin/ranges/IntRange
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: [
+    KtValueParameterSymbol(other)
+  ]
+  visibility: Public
+  getDispatchReceiver(): kotlin/Int
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: [
+    kotlin/SinceKotlin(version = "1.7")
+      psi: null
+    kotlin/ExperimentalStdlibApi()
+      psi: null
+  ]
+  callableIdIfNonLocal: kotlin/Int.rangeUntil
+  contextReceivers: []
+  hasStableParameterNames: true
+  isBuiltinFunctionInvoke: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: true
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: rangeUntil
+  origin: LIBRARY
+  receiverType: null
+  returnType: kotlin/ranges/IntRange
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: [
+    KtValueParameterSymbol(other)
+  ]
+  visibility: Public
+  getDispatchReceiver(): kotlin/Int
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: [
+    kotlin/SinceKotlin(version = "1.7")
+      psi: null
+    kotlin/ExperimentalStdlibApi()
+      psi: null
+  ]
+  callableIdIfNonLocal: kotlin/Int.rangeUntil
+  contextReceivers: []
+  hasStableParameterNames: true
+  isBuiltinFunctionInvoke: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: true
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: rangeUntil
+  origin: LIBRARY
+  receiverType: null
+  returnType: kotlin/ranges/LongRange
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: [
+    KtValueParameterSymbol(other)
+  ]
+  visibility: Public
+  getDispatchReceiver(): kotlin/Int
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: [
+    kotlin/SinceKotlin(version = "1.7")
+      psi: null
+    kotlin/ExperimentalStdlibApi()
+      psi: null
+  ]
+  callableIdIfNonLocal: kotlin/Int.rangeUntil
+  contextReceivers: []
+  hasStableParameterNames: true
+  isBuiltinFunctionInvoke: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: true
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: rangeUntil
+  origin: LIBRARY
+  receiverType: null
+  returnType: kotlin/ranges/IntRange
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: [
+    KtValueParameterSymbol(other)
+  ]
+  visibility: Public
+  getDispatchReceiver(): kotlin/Int
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1036,6 +1206,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1058,7 +1229,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1069,6 +1240,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1091,7 +1263,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1102,6 +1274,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1124,7 +1297,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1135,6 +1308,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1157,7 +1331,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1168,6 +1342,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1190,7 +1365,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1201,6 +1376,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.rem
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1223,7 +1399,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1232,6 +1408,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.shl
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1254,7 +1431,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1263,6 +1440,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.shr
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1285,7 +1463,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1294,6 +1472,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1316,7 +1495,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1325,6 +1504,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1347,7 +1527,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1356,6 +1536,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1378,7 +1559,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1387,6 +1568,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1409,7 +1591,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1418,6 +1600,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1440,7 +1623,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1449,6 +1632,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.times
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1471,7 +1655,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1480,6 +1664,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toByte
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1500,7 +1685,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1509,6 +1694,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toChar
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1529,7 +1715,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1538,6 +1724,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toDouble
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1558,7 +1745,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1567,6 +1754,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toFloat
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1587,7 +1775,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1596,6 +1784,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toInt
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1616,7 +1805,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1625,6 +1814,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toLong
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1645,7 +1835,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1654,6 +1844,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toShort
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1674,7 +1865,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1683,6 +1874,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.toString
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1703,7 +1895,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1712,6 +1904,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.unaryMinus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1732,7 +1925,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1741,6 +1934,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.unaryPlus
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1761,7 +1955,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1770,6 +1964,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.ushr
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1792,7 +1987,7 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
@@ -1801,6 +1996,7 @@ KtFunctionSymbol:
       psi: null
   ]
   callableIdIfNonLocal: kotlin/Int.xor
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1823,12 +2019,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Int
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.hashCode
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -1849,7 +2046,7 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -1857,6 +2054,7 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: kotlin/Int.Companion
   classKind: COMPANION_OBJECT
   companionObject: null
+  contextReceivers: []
   isData: false
   isExternal: false
   isFun: false
@@ -1871,13 +2069,14 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtConstructorSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
   containingClassIdIfNonLocal: kotlin/Int
+  contextReceivers: []
   hasStableParameterNames: false
   isExtension: false
   isPrimary: false
@@ -1897,6 +2096,7 @@ KtConstructorSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
   containingClassIdIfNonLocal: kotlin/Int
+  contextReceivers: []
   hasStableParameterNames: true
   isExtension: false
   isPrimary: true
@@ -1907,5 +2107,5 @@ KtConstructorSymbol:
   typeParameters: []
   valueParameters: []
   visibility: Private
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null

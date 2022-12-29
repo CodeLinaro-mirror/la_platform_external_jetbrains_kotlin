@@ -44,6 +44,10 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create<List<String>>("paths to directories containing caches")
         val CACHED_LIBRARIES: CompilerConfigurationKey<Map<String, String>>
                 = CompilerConfigurationKey.create<Map<String, String>>("mapping from library paths to cache paths")
+        val FILE_TO_CACHE: CompilerConfigurationKey<String?>
+                = CompilerConfigurationKey.create<String?>("which file should be compiled to cache")
+        val MAKE_PER_FILE_CACHE: CompilerConfigurationKey<Boolean>
+                = CompilerConfigurationKey.create<Boolean>("make per-file cache")
         val FRAMEWORK_IMPORT_HEADERS: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("headers imported to framework header")
         val FRIEND_MODULES: CompilerConfigurationKey<List<String>>
@@ -170,10 +174,9 @@ class KonanConfigKeys {
         val LLVM_VARIANT: CompilerConfigurationKey<LlvmVariant?> = CompilerConfigurationKey.create("llvm variant")
         val RUNTIME_LOGS: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("enable runtime logging")
         val LAZY_IR_FOR_CACHES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("use lazy IR for cached libraries")
-        val MEANINGFUL_BRIDGE_NAMES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("enable meaningful bridge names")
         val PARTIAL_LINKAGE: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("allows some symbols in klibs be missed")
         val TEST_DUMP_OUTPUT_PATH: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to a file to dump the list of all available tests")
-
+        val OMIT_FRAMEWORK_BINARY: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("do not generate binary in framework")
     }
 }
 

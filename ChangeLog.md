@@ -1,31 +1,501 @@
-## 1.7.21
+## 1.8.0-RC2
 
 ### Compiler
 
+- [`KT-55357`](https://youtrack.jetbrains.com/issue/KT-55357) IllegalStateException when reading a class that delegates to a Java class with a definitely-not-null type with a flexible upper bound
+- [`KT-55068`](https://youtrack.jetbrains.com/issue/KT-55068) Kotlin Gradle DSL: No mapping for symbol: VALUE_PARAMETER SCRIPT_IMPLICIT_RECEIVER on JVM IR backend
+- [`KT-51284`](https://youtrack.jetbrains.com/issue/KT-51284) SAM conversion doesn't work if method has context receivers
+- [`KT-55065`](https://youtrack.jetbrains.com/issue/KT-55065) Kotlin Gradle DSL: Reflection cannot find class data for lambda, produced by JVM IR backend
+
+### Tools. Compiler plugins. Serialization
+
+- [`KT-55340`](https://youtrack.jetbrains.com/issue/KT-55340) Argument for kotlinx.serialization.UseSerializers does not implement KSerializer or does not provide serializer for concrete type
+
+### Tools. Gradle
+
+- [`KT-55334`](https://youtrack.jetbrains.com/issue/KT-55334) kaptGenerateStubs passes wrong android variant module names to compiler
+- [`KT-55255`](https://youtrack.jetbrains.com/issue/KT-55255) Gradle: stdlib version alignment fails build on dynamic stdlib version.
+- [`KT-55363`](https://youtrack.jetbrains.com/issue/KT-55363) [K1.8.0-Beta] Command line parsing treats plugin parameters as source files
+
+
+## 1.8.0-RC
+
+### Compiler
+
+- [`KT-55108`](https://youtrack.jetbrains.com/issue/KT-55108) IR interpreter: Error occurred while optimizing an expression: VARARG
+- [`KT-54884`](https://youtrack.jetbrains.com/issue/KT-54884) "StackOverflowError: null" caused by Enum constant name in constructor of the same Enum constant
+- [`KT-55013`](https://youtrack.jetbrains.com/issue/KT-55013) State checker use-after-free with XCode 14.1
+- [`KT-54275`](https://youtrack.jetbrains.com/issue/KT-54275) K2: "IllegalArgumentException: KtParameter is not a subtype of class KtAnnotationEntry for factory REPEATED_ANNOTATION"
+
+### JavaScript
+
+- [`KT-55097`](https://youtrack.jetbrains.com/issue/KT-55097) KJS / IR + IC: Using an internal function from a friend module throws an unbound symbol exception
+- [`KT-54934`](https://youtrack.jetbrains.com/issue/KT-54934) KJS / IR + IC: Suspend abstract function stubs are generated with unstable lowered ic signatures
+- [`KT-54895`](https://youtrack.jetbrains.com/issue/KT-54895) KJS / IR + IC: broken cross module references for function default param wrappers
+
+### Language Design
+
+- [`KT-48516`](https://youtrack.jetbrains.com/issue/KT-48516) Forbid @Synchronized annotation on suspend functions
+
+### Libraries
+
+- [`KT-54835`](https://youtrack.jetbrains.com/issue/KT-54835) Document that Iterable.all(emptyCollection) returns TRUE.
+- [`KT-54168`](https://youtrack.jetbrains.com/issue/KT-54168) Expand on natural order in comparator docs
+
+### Native. Platform Libraries
+
+- [`KT-54225`](https://youtrack.jetbrains.com/issue/KT-54225) Native: update to Xcode 14.1
+
+### Tools. Compiler plugins. Serialization
+
+- [`KT-55296`](https://youtrack.jetbrains.com/issue/KT-55296) Improve exceptions in serialization plugin
+- [`KT-55180`](https://youtrack.jetbrains.com/issue/KT-55180) KJS: regression in serialization for Kotlin 1.8.0-beta
+- [`KT-54878`](https://youtrack.jetbrains.com/issue/KT-54878) JVM/IR:  java.lang.ClassCastException: class org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl cannot be cast to class org.jetbrains.kotlin.ir.types.IrTypeProjection on serializer<Box<*>>()
+
+### Tools. Gradle
+
+- [`KT-50115`](https://youtrack.jetbrains.com/issue/KT-50115) Setting toolchain via Java extension does not configure 'kotlinOptions.jvmTarget' value when Kotlin compilation tasks are created eagerly
+- [`KT-55222`](https://youtrack.jetbrains.com/issue/KT-55222) Migrate AndroidDependencyResolver to the new Gradle API
+- [`KT-54993`](https://youtrack.jetbrains.com/issue/KT-54993) Raise kotlin.jvm.target.validation.mode check default level to error when build is running on Gradle 8+
+- [`KT-54995`](https://youtrack.jetbrains.com/issue/KT-54995) [1.8.0-Beta] compileAppleMainKotlinMetadata fails on default parameters with `No value passed for parameter 'mustExist'`
+- [`KT-45335`](https://youtrack.jetbrains.com/issue/KT-45335) kotlinOptions.jvmTarget conflicts with Gradle variants
+- [`KT-55019`](https://youtrack.jetbrains.com/issue/KT-55019) Gradle sync: UnknownConfigurationException when adding implementation dependencies to a Kotlin with Java compilation
+- [`KT-55004`](https://youtrack.jetbrains.com/issue/KT-55004) jvmTarget value is ignored by depending modules if a task "UsesKotlinJavaToolchain" is configured for all project modules using allProjects {}
+- [`KT-54888`](https://youtrack.jetbrains.com/issue/KT-54888) Add Gradle property to suppress kotlinOptions.freeCompilerArgs modification on execution phase
+
+### Tools. Gradle. JS
+
+- [`KT-55099`](https://youtrack.jetbrains.com/issue/KT-55099) K/JS: Second declaration of JS target without compiler type report warning incorrectly
+
+### Tools. Gradle. Multiplatform
+
+- [`KT-54634`](https://youtrack.jetbrains.com/issue/KT-54634) MPP: Test Failure causes: `KotlinJvmTest$Executor$execute$1 does not define failure`
+
+### Tools. Incremental Compile
+
+- [`KT-54144`](https://youtrack.jetbrains.com/issue/KT-54144) New IC: "IllegalStateException: The following LookupSymbols are not yet converted to ProgramSymbols" when changing an inline function with custom JvmName
+
+
+## 1.8.0-Beta
+
+### Android
+
+- [`KT-53013`](https://youtrack.jetbrains.com/issue/KT-53013) Increase AGP compile version in KGP to 4.1.3
+- [`KT-53709`](https://youtrack.jetbrains.com/issue/KT-53709) MPP, Android SSL2: Conflicting warnings for `androidTest/kotlin` source set folder
+
+### Backend. Native. Debug
+
+- [`KT-53561`](https://youtrack.jetbrains.com/issue/KT-53561) Invalid LLVM module: "inlinable function call in a function with debug info must have a !dbg location"
+
+### Compiler
+
+#### New Features
+
+- [`KT-53916`](https://youtrack.jetbrains.com/issue/KT-53916) Support Xcode 14 and new Objective-C frameworks in Kotlin/Native compiler
+- [`KT-54460`](https://youtrack.jetbrains.com/issue/KT-54460) Implementation of non-local break and continue
+- [`KT-32208`](https://youtrack.jetbrains.com/issue/KT-32208) Generate method annotations into bytecode for suspend lambdas (on invokeSuspend)
+- [`KT-53438`](https://youtrack.jetbrains.com/issue/KT-53438) Introduce a way to get SourceDebugExtension attribute value via JVMTI for profiler and coverage
+
+#### Performance Improvements
+
+- [`KT-53347`](https://youtrack.jetbrains.com/issue/KT-53347) Get rid of excess allocations in parser
+- [`KT-53689`](https://youtrack.jetbrains.com/issue/KT-53689) JVM: Optimize equality on class literals
+
+#### Fixes
+
+- [`KT-52974`](https://youtrack.jetbrains.com/issue/KT-52974) "IllegalStateException: Symbol with IrSimpleFunctionSymbolImpl is unbound" compiling native targets of MPP project
+- [`KT-48678`](https://youtrack.jetbrains.com/issue/KT-48678) Coroutine debugger: disable "was optimised out" compiler feature
+- [`KT-54745`](https://youtrack.jetbrains.com/issue/KT-54745) Restore KtToken constructors without tokenId parameter to preserve back compatibility
+- [`KT-54650`](https://youtrack.jetbrains.com/issue/KT-54650) Binary incompatible ABI change in Kotlin 1.7.20
+- [`KT-52786`](https://youtrack.jetbrains.com/issue/KT-52786) Frontend / K2: IndexOutOfBoundsException when opting in to K2
+- [`KT-54004`](https://youtrack.jetbrains.com/issue/KT-54004) Builder type inference does not work correctly with variable assignment and breaks run-time
+- [`KT-54581`](https://youtrack.jetbrains.com/issue/KT-54581) JVM: "VerifyError: Bad type on operand stack" with generic inline function and `when` inside try-catch block
+- [`KT-52913`](https://youtrack.jetbrains.com/issue/KT-52913) JVM / IR: "IllegalArgumentException: Inline class types should have the same representation" when trying to down cast cast a value class
+- [`KT-54600`](https://youtrack.jetbrains.com/issue/KT-54600) NPE on passing nullable Kotlin lambda as Java's generic SAM interface with `super` type bound
 - [`KT-54463`](https://youtrack.jetbrains.com/issue/KT-54463) Delegating to a field with a platform type causes java.lang.NoSuchFieldError: value$delegate
 - [`KT-54509`](https://youtrack.jetbrains.com/issue/KT-54509) Ir Interpreter: unable to evaluate string concatenation with "this" as argument
-- [`KT-54004`](https://youtrack.jetbrains.com/issue/KT-54004) Builder type inference does not work correctly with variable assignment and breaks run-time
 - [`KT-54393`](https://youtrack.jetbrains.com/issue/KT-54393) Change in behavior from 1.7.10 to 1.7.20 for java field override.
 - [`KT-54615`](https://youtrack.jetbrains.com/issue/KT-54615) JVM: Internal error in file lowering: java.lang.AssertionError: Error occurred while optimizing an expression
-- [`KT-54581`](https://youtrack.jetbrains.com/issue/KT-54581) JVM: "VerifyError: Bad type on operand stack" with generic inline function and `when` inside try-catch block
 - [`KT-53146`](https://youtrack.jetbrains.com/issue/KT-53146) JVM IR: unnecessary checkcast of null leads to NoClassDefFoundError if the type isn't available at runtime
-- [`KT-54600`](https://youtrack.jetbrains.com/issue/KT-54600) NPE on passing nullable Kotlin lambda as Java's generic SAM interface with `super` type bound
-- [`KT-54707`](https://youtrack.jetbrains.com/issue/KT-54707) "VerifyError: Bad type on operand stack" in inline call chain on a nullable array value
-- [`KT-54650`](https://youtrack.jetbrains.com/issue/KT-54650) Binary incompatible ABI change in Kotlin 1.7.20
+- [`KT-51868`](https://youtrack.jetbrains.com/issue/KT-51868) JVM / IR: Inconsistent behaviour between lambda expression and SAM interface conversion for the same interface
+- [`KT-53947`](https://youtrack.jetbrains.com/issue/KT-53947) IllegalStateException: No mapping for symbol: VALUE_PARAMETER INSTANCE_RECEIVER
+- [`KT-53712`](https://youtrack.jetbrains.com/issue/KT-53712) Add mode to prevent generating JVM 1.8+ annotation targets (TYPE_USE, TYPE_PARAMETER)
+- [`KT-48532`](https://youtrack.jetbrains.com/issue/KT-48532) Remove old JVM backend
+- [`KT-35187`](https://youtrack.jetbrains.com/issue/KT-35187) NullPointerException on compiling suspend inline fun with typealias to suspend function type
+- [`KT-54275`](https://youtrack.jetbrains.com/issue/KT-54275) K2: "IllegalArgumentException: KtParameter is not a subtype of class KtAnnotationEntry for factory REPEATED_ANNOTATION"
+- [`KT-47475`](https://youtrack.jetbrains.com/issue/KT-47475) "IncompatibleClassChangeError: disagree on InnerClasses attribute": cross-module inlined WhenMappings has mismatched InnerClasses
+- [`KT-53197`](https://youtrack.jetbrains.com/issue/KT-53197) K2: 'init' hides member of supertype 'UIComponent' and needs 'override' modifier
+- [`KT-53867`](https://youtrack.jetbrains.com/issue/KT-53867) K2: @JvmRecord does not compile to a java record
+- [`KT-53964`](https://youtrack.jetbrains.com/issue/KT-53964) K2 is unable to work with Java records
+- [`KT-53349`](https://youtrack.jetbrains.com/issue/KT-53349) K2: TYPE_MISMATCH caused by non-local return
+- [`KT-54100`](https://youtrack.jetbrains.com/issue/KT-54100) "Type variable TypeVariable(P) should not be fixed" crash in code with errors
+- [`KT-49017`](https://youtrack.jetbrains.com/issue/KT-49017) Forbid usages of super or super<Some> if in fact it accesses an abstract member
+- [`KT-54192`](https://youtrack.jetbrains.com/issue/KT-54192) Warn about unsupported feature on generic inline class parameters
+- [`KT-53723`](https://youtrack.jetbrains.com/issue/KT-53723) Friend modules aren't getting passed to cache build during box tests
+- [`KT-53873`](https://youtrack.jetbrains.com/issue/KT-53873) K2: Duplicated diagnostics reported from user type ref checkers
+- [`KT-50909`](https://youtrack.jetbrains.com/issue/KT-50909) "VerifyError: Bad type on operand stack" caused by smartcasting for nullable inline class property in class
+- [`KT-48031`](https://youtrack.jetbrains.com/issue/KT-48031) "IllegalStateException: Type variable TypeVariable(T) should not be fixed!"
+- [`KT-54115`](https://youtrack.jetbrains.com/issue/KT-54115) Restore Psi2IrTranslator constructor from 1.7.20
+- [`KT-53908`](https://youtrack.jetbrains.com/issue/KT-53908) K2: Self-referencing generics in Java class causes New Inference Error (IE: class Foo<T extends Foo<T>>)
+- [`KT-53193`](https://youtrack.jetbrains.com/issue/KT-53193) K2: compile error on project that compiles fine with normal 1.7.10
+- [`KT-53953`](https://youtrack.jetbrains.com/issue/KT-53953) Forbid usages of super or super<Some> if in fact it accesses an abstract member
+- [`KT-47473`](https://youtrack.jetbrains.com/issue/KT-47473) NI: Missed UPPER_BOUND_VIOLATED diagnostics if use type aliases with type parameters
+- [`KT-54049`](https://youtrack.jetbrains.com/issue/KT-54049) K2: false positive MANY_IMPL_MEMBER_NOT_IMPLEMENTED
+- [`KT-30054`](https://youtrack.jetbrains.com/issue/KT-30054) Wrong approximation if nullable anonymous object with implemented interface is used
+- [`KT-53751`](https://youtrack.jetbrains.com/issue/KT-53751) Postpone IgnoreNullabilityForErasedValueParameters feature
+- [`KT-53324`](https://youtrack.jetbrains.com/issue/KT-53324) Implement Enum.entries lowering on K/N
+- [`KT-44441`](https://youtrack.jetbrains.com/issue/KT-44441) K2: report redeclaration error if there is a Java class with the same name as the Kotlin class
+- [`KT-53493`](https://youtrack.jetbrains.com/issue/KT-53493) K2: `val on function parameter` counts as just warning
+- [`KT-53435`](https://youtrack.jetbrains.com/issue/KT-53435) K2: "IllegalArgumentException: class KtValueArgument is not a subtype of class KtExpression for factory ANNOTATION_ARGUMENT_MUST_BE_CONST" if string in nested annotation is concatenated
+- [`KT-52927`](https://youtrack.jetbrains.com/issue/KT-52927) AssertionError: LambdaKotlinCallArgumentImpl
+- [`KT-53922`](https://youtrack.jetbrains.com/issue/KT-53922) Make Enum.entries unstable feature to poison binaries
+- [`KT-53783`](https://youtrack.jetbrains.com/issue/KT-53783) Exception during psi2ir when declaring expect data object
+- [`KT-41670`](https://youtrack.jetbrains.com/issue/KT-41670) JVM IR: AbstractMethodError when using inheritance for fun interfaces
+- [`KT-53178`](https://youtrack.jetbrains.com/issue/KT-53178) K2: implement diagnostics for serialization plugin
+- [`KT-53465`](https://youtrack.jetbrains.com/issue/KT-53465) Unnecessary checkcast to array of reified type is not optimized since Kotlin 1.6.20
+- [`KT-52970`](https://youtrack.jetbrains.com/issue/KT-52970) Default value constant in companion object works on JVM and JS, but fails on native
+- [`KT-27936`](https://youtrack.jetbrains.com/issue/KT-27936) Write InnerClasses attribute for all class names used in a class file
+- [`KT-53007`](https://youtrack.jetbrains.com/issue/KT-53007) JVM: "Bad invokespecial instruction: current class isn't assignable to reference class" when call superclass of outer class method from inner class
+- [`KT-53261`](https://youtrack.jetbrains.com/issue/KT-53261) Evaluate effect from <T-unbox> inline for primitive types
+- [`KT-39492`](https://youtrack.jetbrains.com/issue/KT-39492) Kotlin.Metadata's packageName field cannot be an empty string
+- [`KT-53664`](https://youtrack.jetbrains.com/issue/KT-53664) Ir Interpreter: unable to evaluate name of function reference marked with JvmStatic from another module
+- [`KT-52478`](https://youtrack.jetbrains.com/issue/KT-52478) [Native] Partial linkage: Building native binary from cached KLIBs fails if one library depends on removed nested callable member from another one
+- [`KT-53667`](https://youtrack.jetbrains.com/issue/KT-53667) Compiler crashes on attempt to alloc a string on the stack in new MM
+- [`KT-48822`](https://youtrack.jetbrains.com/issue/KT-48822) CompilationException: Back-end (JVM) Internal error: Failed to generate expression: KtProperty - ConcurrentModificationException
+- [`KT-50281`](https://youtrack.jetbrains.com/issue/KT-50281) IllegalStateException: unsupported call of reified inlined function
+- [`KT-53480`](https://youtrack.jetbrains.com/issue/KT-53480) Internal error in file lowering: java.lang.ClassNotFoundException: com.android.systemui.R$string
+- [`KT-50083`](https://youtrack.jetbrains.com/issue/KT-50083) Different error messages in android and JVM (Intrinsics.checkNotNullParameter).
+- [`KT-53270`](https://youtrack.jetbrains.com/issue/KT-53270) K1: implement synthetic Enum.entries property
+- [`KT-41017`](https://youtrack.jetbrains.com/issue/KT-41017) FIR: should we support smartcast after null check
+- [`KT-52823`](https://youtrack.jetbrains.com/issue/KT-52823) Cannot access class Thread.State after upgrading to 1.7 from 1.6.1 using -Xjdk-release=1.8
+- [`KT-53257`](https://youtrack.jetbrains.com/issue/KT-53257) FIR: Improper context receiver argument is chosen when there are two extension receiver candidates
+- [`KT-53090`](https://youtrack.jetbrains.com/issue/KT-53090) Anonymous function and extension function literals are generated as classes even with -Xlambdas=indy
+- [`KT-53208`](https://youtrack.jetbrains.com/issue/KT-53208) K2: Cannot get annotation for default interface method parameter when compiled with `-Xuse-k2`
+- [`KT-53184`](https://youtrack.jetbrains.com/issue/KT-53184) K2: NoSuchMethodError on KProperty1.get() referenced via nullable typealias
+- [`KT-53198`](https://youtrack.jetbrains.com/issue/KT-53198) K2: Return type mismatch: expected kotlin/Unit, actual kotlin/Unit?
+- [`KT-53100`](https://youtrack.jetbrains.com/issue/KT-53100) Optimization needed: <T-unbox>(CONSTANT_PRIMITIVE(x: T?)) => x
+- [`KT-49875`](https://youtrack.jetbrains.com/issue/KT-49875) [FIR] Support infering PRIVATE_TO_THIS visibility
+- [`KT-53024`](https://youtrack.jetbrains.com/issue/KT-53024) Refactor FIR renderer to composable architecture
+- [`KT-29168`](https://youtrack.jetbrains.com/issue/KT-29168) Prohibit upper bounds violation with generic typealias using not all type parameters as arguments for underlying type in supertypes
+- [`KT-53148`](https://youtrack.jetbrains.com/issue/KT-53148) K1: introduce warning for inline virtual member in enum
+- [`KT-53041`](https://youtrack.jetbrains.com/issue/KT-53041) NPE in Kotlin 1.7.0 when using RxJava Maybe.doOnEvent with anonymous parameters
+- [`KT-49847`](https://youtrack.jetbrains.com/issue/KT-49847) Devirtualization fails to eliminate boxing in function reference context
+- [`KT-52875`](https://youtrack.jetbrains.com/issue/KT-52875) Extension function literal creation with `-Xlambdas=indy` fails with incorrect arguments
+- [`KT-53072`](https://youtrack.jetbrains.com/issue/KT-53072) INVALID_IF_AS_EXPRESSION error isn't shown in the IDE (LV 1.8)
+- [`KT-52985`](https://youtrack.jetbrains.com/issue/KT-52985) Native: a function with type `T?` returned a `kotlin.Unit` instead of `null`
+- [`KT-52020`](https://youtrack.jetbrains.com/issue/KT-52020) FIR warning message includes internal rendering
+- [`KT-50835`](https://youtrack.jetbrains.com/issue/KT-50835) Inline functions with suspend lambdas break the tail-call optimization
+- [`KT-54802`](https://youtrack.jetbrains.com/issue/KT-54802) "VerifyError: Bad type on operand stack" for inline functions on arrays
 
+### IDE
+
+- [`KT-48773`](https://youtrack.jetbrains.com/issue/KT-48773) Investigate the possibility of removing dependency on old JVM backend in light classes
+- [`KT-51101`](https://youtrack.jetbrains.com/issue/KT-51101) FIR IDE: Exception on "Show Type Info" action
+- [`KT-51656`](https://youtrack.jetbrains.com/issue/KT-51656) FIR IDE: ProgressCancelled exception is masked in the compiler during resolve
+- [`KT-51315`](https://youtrack.jetbrains.com/issue/KT-51315) FIR IDE: move out base modules from fe10 plugin to reuse in k2 plugin
+- [`KT-53097`](https://youtrack.jetbrains.com/issue/KT-53097) Extract common part of light classes to another module
+
+### IDE. Debugger
+
+- [`KT-51755`](https://youtrack.jetbrains.com/issue/KT-51755) Compilation exception with scripting compilation during debug session
+
+### IDE. Gradle Integration
+
+- [`KT-53514`](https://youtrack.jetbrains.com/issue/KT-53514) HMPP: False positive for `None of the following functions can be called with the arguments supplied.` with Enum in common module
+- [`KT-48135`](https://youtrack.jetbrains.com/issue/KT-48135) In the IDE import, reuse dependency granular source set KLIBs across multi-project build to avoid duplicate external libraries
+- [`KT-51583`](https://youtrack.jetbrains.com/issue/KT-51583) Gradle 7.4+ | SamplesVariantRule interference: Could not resolve all files for configuration ':kotlinKlibCommonizerClasspath'
+
+### IDE. Inspections and Intentions
+
+- [`KT-49643`](https://youtrack.jetbrains.com/issue/KT-49643) Intentions: "Implement members" fails when base type function declaration uses unresolved generic types
+
+### IDE. Navigation
+
+- [`KT-51314`](https://youtrack.jetbrains.com/issue/KT-51314) FIR IDE: show Kotlin declarations in search symbol
+
+### IDE. Script
+
+- [`KT-54325`](https://youtrack.jetbrains.com/issue/KT-54325) .settings.gradle.kts and .init.gradle.kts are reported as standalone scripts
+
+### IDE. Tests Support
+
+- [`KT-50269`](https://youtrack.jetbrains.com/issue/KT-50269) FIR IDE: Allow running tests via gutter
+
+### JavaScript
+
+#### Fixes
+
+- [`KT-53931`](https://youtrack.jetbrains.com/issue/KT-53931) KJS / Gradle: Regression with 1.7.20-RC: ReferenceError: println is not defined
+- [`KT-54520`](https://youtrack.jetbrains.com/issue/KT-54520) KJS / IR Allow IdSignature clashes
+- [`KT-54686`](https://youtrack.jetbrains.com/issue/KT-54686) KJS / IR: Incorrect generation of signatures when one of argument is nested class
+- [`KT-54479`](https://youtrack.jetbrains.com/issue/KT-54479) KJS / IR + IC: Adding or removing companion fields leads java.lang.IllegalStateException in the compiler IC infrastructure
+- [`KT-54382`](https://youtrack.jetbrains.com/issue/KT-54382) KJS / IR: Wrong type check for inheritors of suspend functions
+- [`KT-54323`](https://youtrack.jetbrains.com/issue/KT-54323) KJS / IR + IC: Intrinsics from stdlib may lose their dependencies in incremental rebuild
+- [`KT-53361`](https://youtrack.jetbrains.com/issue/KT-53361) KJS / IR: No debug info is generated for in-line js code
+- [`KT-53321`](https://youtrack.jetbrains.com/issue/KT-53321) Implement Enum.entries lowering on JS/IR
+- [`KT-53112`](https://youtrack.jetbrains.com/issue/KT-53112) KJS IR turn on IC infra by default
+- [`KT-50503`](https://youtrack.jetbrains.com/issue/KT-50503) Kotlin/JS: IR + IC: compileTestDevelopmentExecutableKotlinJs fails with ISE: "Could not find library" after removing module dependency
+- [`KT-54120`](https://youtrack.jetbrains.com/issue/KT-54120) JS IR + IC: pointless invalidation of dependent code after modifying companions
+- [`KT-54011`](https://youtrack.jetbrains.com/issue/KT-54011) JS IR + IC: EnumEntries don't work well when IC is enabled
+- [`KT-54010`](https://youtrack.jetbrains.com/issue/KT-54010) JS IR + IC: Force IC cache invalidation after updating language version or features
+- [`KT-53672`](https://youtrack.jetbrains.com/issue/KT-53672) KJS / IR: "IndexOutOfBoundsException: Index 0 out of bounds for length 0" caused by function reference to extension function of reified type variable
+- [`KT-43455`](https://youtrack.jetbrains.com/issue/KT-43455) KJS: IR. Incremental compilation problem with unbound symbols
+- [`KT-53539`](https://youtrack.jetbrains.com/issue/KT-53539) KJS: Exported class inherited non-exported class shows warning
+- [`KT-53443`](https://youtrack.jetbrains.com/issue/KT-53443) KJS/IR: NullPointerException caused by anonymous objects inside lambdas
+- [`KT-52795`](https://youtrack.jetbrains.com/issue/KT-52795) K/JS and K/Native IR-validation/compilation errors for a valid kotlin code
+- [`KT-52805`](https://youtrack.jetbrains.com/issue/KT-52805) KJS/IR: Invalid call of inline function in `also` block
+- [`KT-51151`](https://youtrack.jetbrains.com/issue/KT-51151) KJS / IR: Wrong overloaded generic method with receiver is called
+- [`KT-52830`](https://youtrack.jetbrains.com/issue/KT-52830) KJS/IR: Sourcemap disabling doesn't work
+- [`KT-52968`](https://youtrack.jetbrains.com/issue/KT-52968) KJS / IR: Buggy generation of overridden methods
+- [`KT-53063`](https://youtrack.jetbrains.com/issue/KT-53063) KJS / IR + IC: undefined cross module reference for implemented interface functions
+- [`KT-51099`](https://youtrack.jetbrains.com/issue/KT-51099) KJS / IR + IC: Cache invalidation doesn't check generic class variance annotations (in, out)
+- [`KT-51090`](https://youtrack.jetbrains.com/issue/KT-51090) KJS / IR + IC: Cache invalidation doesn't check suspend qualifier
+- [`KT-51088`](https://youtrack.jetbrains.com/issue/KT-51088) KJS / IR + IC: Cache invalidation doesn't check class qualifiers (data, inline)
+- [`KT-51083`](https://youtrack.jetbrains.com/issue/KT-51083) KJS / IR + IC: Cache invalidation doesn't check inline function which was non inline initially
+- [`KT-51896`](https://youtrack.jetbrains.com/issue/KT-51896) KJS / IR + IC: Cache invalidation doesn't trigger rebuild for fake overridden inline functions
+
+### Language Design
+
+- [`KT-41886`](https://youtrack.jetbrains.com/issue/KT-41886) Ability to require opt-in for interface implementation, but not for usage
+- [`KT-34943`](https://youtrack.jetbrains.com/issue/KT-34943) OVERLOAD_RESOLUTION_AMBIGUITY inconsistent with the equivalent Java code
+- [`KT-49110`](https://youtrack.jetbrains.com/issue/KT-49110) Prohibit access to members of companion of enum class from initializers of entries of this enum
+
+### Libraries
+
+#### New Features
+
+- [`KT-21007`](https://youtrack.jetbrains.com/issue/KT-21007) Provide Kotlin OSGI Bundle with extensions for JRE8 (and JRE7)
+- [`KT-54082`](https://youtrack.jetbrains.com/issue/KT-54082) Comparable and subtractible TimeMarks
+- [`KT-50484`](https://youtrack.jetbrains.com/issue/KT-50484) Extensions for java.util.Optional in stdlib
+- [`KT-52928`](https://youtrack.jetbrains.com/issue/KT-52928) Provide copyToRecursively and deleteRecursively extension functions for java.nio.file.Path
+- [`KT-52932`](https://youtrack.jetbrains.com/issue/KT-52932) Open-ended ranges in the standard library
+- [`KT-49425`](https://youtrack.jetbrains.com/issue/KT-49425) Update OptIn documentation to reflect latest design changes
+- [`KT-54005`](https://youtrack.jetbrains.com/issue/KT-54005) Allow calling `declaringJavaClass` on Enum<E>
+- [`KT-52933`](https://youtrack.jetbrains.com/issue/KT-52933) rangeUntil members in built-in types
+
+#### Performance Improvements
+
+- [`KT-53508`](https://youtrack.jetbrains.com/issue/KT-53508) Cache typeOf-related KType instances when kotlin-reflect is used
+
+#### Fixes
+
+- [`KT-51907`](https://youtrack.jetbrains.com/issue/KT-51907) Switch JVM target of the standard libraries to 1.8
+- [`KT-53277`](https://youtrack.jetbrains.com/issue/KT-53277) Stabilize experimental API for 1.8
+- [`KT-53864`](https://youtrack.jetbrains.com/issue/KT-53864) Review deprecations in stdlib for 1.8
+- [`KT-47707`](https://youtrack.jetbrains.com/issue/KT-47707) Remove the system property and the brittle `contains` optimization code itself
+- [`KT-52336`](https://youtrack.jetbrains.com/issue/KT-52336) Different behavior on JVM and Native in stringBuilder.append(charArray, 0, 1)
+- [`KT-53927`](https://youtrack.jetbrains.com/issue/KT-53927) Remove deprecation from ConcurrentModificationException constructors
+- [`KT-53134`](https://youtrack.jetbrains.com/issue/KT-53134) stdlib > object Charsets > not thread safe lazy initialization
+- [`KT-51063`](https://youtrack.jetbrains.com/issue/KT-51063) Gradle project with JPS runner: "JUnitException: Failed to parse version" JUnit runner internal error with JUnit
+- [`KT-52908`](https://youtrack.jetbrains.com/issue/KT-52908) Native: setUnhandledExceptionHook swallows exceptions
+
+### Native
+
+- [`KT-51043`](https://youtrack.jetbrains.com/issue/KT-51043) Kotlin Native: ObjC-Interop: kotlin.ClassCastException: null cannot be cast to kotlin.Function2
+- [`KT-50786`](https://youtrack.jetbrains.com/issue/KT-50786) Native: prohibit suspend calls inside autoreleasepool {}
+- [`KT-53346`](https://youtrack.jetbrains.com/issue/KT-53346) MPP project with kotlinx-serialization-json:1.4.0-RC is not built
+- [`KT-52834`](https://youtrack.jetbrains.com/issue/KT-52834) Implement test infrastructure for K2/Native
+
+### Native. C Export
+
+- [`KT-36878`](https://youtrack.jetbrains.com/issue/KT-36878) Reverse C Interop: incorrect headers generation for primitive unassigned type arrays
+- [`KT-53599`](https://youtrack.jetbrains.com/issue/KT-53599) [Reverse C Interop] Provide box/unbox API for unsigned primitive types
+- [`KT-41904`](https://youtrack.jetbrains.com/issue/KT-41904) Kotlin/Native : error: duplicate member for interface and function with the same name
+- [`KT-42830`](https://youtrack.jetbrains.com/issue/KT-42830) [Reverse C Interop] Add API to get value of boxed primitives
+- [`KT-39496`](https://youtrack.jetbrains.com/issue/KT-39496) K/N C: optional unsigned types as function parameters crash the compiler
+- [`KT-39015`](https://youtrack.jetbrains.com/issue/KT-39015) Cannot compile native library with nullable inline class
+
+### Native. C and ObjC Import
+
+- [`KT-54738`](https://youtrack.jetbrains.com/issue/KT-54738) Cocoapods cinterop: linking platform.CoreGraphics package
+- [`KT-54001`](https://youtrack.jetbrains.com/issue/KT-54001) Kotlin/Native: support header exclusion in cinterop def files
+- [`KT-53151`](https://youtrack.jetbrains.com/issue/KT-53151) Native: Custom declarations in .def don't work with modules, only headers
+
+### Native. ObjC Export
+
+- [`KT-53680`](https://youtrack.jetbrains.com/issue/KT-53680) Obj-C refinement annotations
+- [`KT-54119`](https://youtrack.jetbrains.com/issue/KT-54119) Native: runtime assertion failed due to missing thread state switch
+- [`KT-42641`](https://youtrack.jetbrains.com/issue/KT-42641) Don't export generated component* methods from Kotlin data classes to Obj-C header
+
+### Native. Platform Libraries
+
+- [`KT-39747`](https://youtrack.jetbrains.com/issue/KT-39747) Why is there no WinHttp API in Kotlin/Native's Windows API?
+
+### Native. Runtime
+
+- [`KT-49228`](https://youtrack.jetbrains.com/issue/KT-49228) Kotlin/Native: Allow to unset unhandled exception hook
+- [`KT-27305`](https://youtrack.jetbrains.com/issue/KT-27305) Fix __FILE__ macro inside `RuntimeCheck` and `RuntimeAssert`
 
 ### Native. Runtime. Memory
 
 - [`KT-54498`](https://youtrack.jetbrains.com/issue/KT-54498) Deprecation message of 'FreezingIsDeprecated' is not really helpful
+- [`KT-53182`](https://youtrack.jetbrains.com/issue/KT-53182) New memory manager: Unexpected memory usage on IOS
+
+### Native. Stdlib
+
+- [`KT-52429`](https://youtrack.jetbrains.com/issue/KT-52429) Small Usability Improvements for Worker API
+
+### Reflection
+
+- [`KT-54611`](https://youtrack.jetbrains.com/issue/KT-54611) `KTypeImpl`  does not take into account class loader from the `classifier` property
+- [`KT-48136`](https://youtrack.jetbrains.com/issue/KT-48136) Make `Reflection.getOrCreateKotlinPackage` use cache when `kotlin-reflect` is used
+- [`KT-50705`](https://youtrack.jetbrains.com/issue/KT-50705) Use ClassValue to cache KClass objects in kotlin-reflect
+- [`KT-53454`](https://youtrack.jetbrains.com/issue/KT-53454) Properly cache the same class's KClass when it's loaded by multiple classloaders in getOrCreateKotlinClass
+
+### Specification
+
+- [`KT-53646`](https://youtrack.jetbrains.com/issue/KT-53646) Incorporate rangeUntil (..<) operator into specification
+
+### Tools. CLI
+
+- [`KT-54116`](https://youtrack.jetbrains.com/issue/KT-54116) Add JVM target bytecode version 19
+- [`KT-53278`](https://youtrack.jetbrains.com/issue/KT-53278) Support values 6 and 8 for -Xjdk-release
+- [`KT-46312`](https://youtrack.jetbrains.com/issue/KT-46312) CLI: Kotlin runner should use platform class loader to load JDK modules on Java 9+
+
+### Tools. Commonizer
+
+- [`KT-54310`](https://youtrack.jetbrains.com/issue/KT-54310) Commonizer fails on 1.8.0-dev K/N distributions
+- [`KT-48576`](https://youtrack.jetbrains.com/issue/KT-48576) [Commonizer] platform.posix.pselect not commonized in Ktor
+
+### Tools. Compiler Plugins
+
+- [`KT-46959`](https://youtrack.jetbrains.com/issue/KT-46959) Kotlin Lombok: Support generated builders (@Builder)
+- [`KT-53647`](https://youtrack.jetbrains.com/issue/KT-53647) [K2] Unresolved reference compilation error occurs if a field is annotated with @ Singular and has type Iterable<>
+
+### Tools. Compiler plugins. Serialization
+
+- [`KT-53157`](https://youtrack.jetbrains.com/issue/KT-53157) Recursion detected in a lazy value under LockBasedStorageManager in kotlinx.serialization
+- [`KT-49660`](https://youtrack.jetbrains.com/issue/KT-49660) kotlinx.serialization: IndexOutOfBoundsException for parameterized sealed class
+- [`KT-43910`](https://youtrack.jetbrains.com/issue/KT-43910) JS IR: Serialization with base class: "IndexOutOfBoundsException: Index 0 out of bounds for length 0"
+
+### Tools. Daemon
+
+- [`KT-52622`](https://youtrack.jetbrains.com/issue/KT-52622) Kotlin/JS, Kotlin/Common compilations start Kotlin daemon incompatible with Kotlin/JVM compilation on JDK 8
+
+### Tools. Gradle
+
+- [`KT-54703`](https://youtrack.jetbrains.com/issue/KT-54703) Stdlib substitution does not work with JPMS modules
+
+
+#### New Features
+
+- [`KT-53357`](https://youtrack.jetbrains.com/issue/KT-53357) Change single build metrics property
+- [`KT-34464`](https://youtrack.jetbrains.com/issue/KT-34464) Kotlin build report path not clickable in the IDE
+
+#### Performance Improvements
+
+- [`KT-52520`](https://youtrack.jetbrains.com/issue/KT-52520) Remove usage of reflection from CompilerArgumentsGradleInput
+- [`KT-53118`](https://youtrack.jetbrains.com/issue/KT-53118) Fully up-to-date builds are slower with Kotlin 1.7.0
+
+#### Fixes
+
+- [`KT-54136`](https://youtrack.jetbrains.com/issue/KT-54136) Duplicated classes cause build failure if a dependency to kotlin-stdlib specified in an android project
+- [`KT-51923`](https://youtrack.jetbrains.com/issue/KT-51923) Improve usability of errors and warnings by being able to click on them
+- [`KT-54439`](https://youtrack.jetbrains.com/issue/KT-54439) Project failed to sync Native LaguageSettings to compiler options in afterEvaluate
+- [`KT-54399`](https://youtrack.jetbrains.com/issue/KT-54399) Undeprecate 'kotlinOptions' DSL
+- [`KT-54306`](https://youtrack.jetbrains.com/issue/KT-54306) Change the naming of newly added Compiler*Options classes and interfaces
+- [`KT-53885`](https://youtrack.jetbrains.com/issue/KT-53885) Bump minimal supported Gradle version to 6.8.3
+- [`KT-53773`](https://youtrack.jetbrains.com/issue/KT-53773) Protect and system properties can contain sensitive data
+- [`KT-53732`](https://youtrack.jetbrains.com/issue/KT-53732) Add custom values limits for build scan reports
+- [`KT-52624`](https://youtrack.jetbrains.com/issue/KT-52624) Compatibility with Gradle 7.3 release
+- [`KT-51831`](https://youtrack.jetbrains.com/issue/KT-51831) Gradle: remove `kotlin.compiler.execution.strategy` system property
+- [`KT-51679`](https://youtrack.jetbrains.com/issue/KT-51679) Change deprecation level to error for KotlinCompile setClasspath/getClasspath methods
+- [`KT-48843`](https://youtrack.jetbrains.com/issue/KT-48843) Add ability to disable Kotlin daemon fallback strategy
+- [`KT-53617`](https://youtrack.jetbrains.com/issue/KT-53617) KotlinCompilerExecutionStrategy value  is ignored by depending modules if configure once for all project modules using allProjects {}
+- [`KT-53823`](https://youtrack.jetbrains.com/issue/KT-53823) Kotlin Gradle Plugin uses deprecated Gradle API: Provider.forUseAtConfigurationTime()
+- [`KT-54142`](https://youtrack.jetbrains.com/issue/KT-54142) Increase Kotlin Gradle plugin Gradle target API to 7.5
+- [`KT-50161`](https://youtrack.jetbrains.com/issue/KT-50161) Android variant filter breaks KotlinCompile cache compatibility
+- [`KT-54113`](https://youtrack.jetbrains.com/issue/KT-54113) LanguageSettings to KotlinNativeLink.toolOptions sync are executed on the wrong context
+- [`KT-54112`](https://youtrack.jetbrains.com/issue/KT-54112) Missing target input on KotlinNativeLink task
+- [`KT-45879`](https://youtrack.jetbrains.com/issue/KT-45879) Documentation: Wrong kotlin languageVersion "1.6 (EXPERIMENTAL)"
+- [`KT-54103`](https://youtrack.jetbrains.com/issue/KT-54103) Remove JvmTarget.JVM_1_6 from generated Gradle compiler type
+- [`KT-50598`](https://youtrack.jetbrains.com/issue/KT-50598) MULTIPLE_KOTLIN_PLUGINS_SPECIFIC_PROJECTS_WARNING is only shown on first build
+- [`KT-52209`](https://youtrack.jetbrains.com/issue/KT-52209) Corrupted cache and non-incremental build if produce caches "in process" and restore then compiling with kotlin daemon
+- [`KT-41642`](https://youtrack.jetbrains.com/issue/KT-41642) "TaskDependencyResolveException: Could not determine the dependencies" when trying to apply stdlib
+- [`KT-53390`](https://youtrack.jetbrains.com/issue/KT-53390) Drop usage of -Xjava-source-roots when passing java sources required for Kotlin compilation
+- [`KT-38622`](https://youtrack.jetbrains.com/issue/KT-38622) Non-incremental compilation because of R.jar with Android Gradle plugin 3.6
+- [`KT-53615`](https://youtrack.jetbrains.com/issue/KT-53615) Gradle: Fix deprecation warnings in CleanableStoreImpl
+- [`KT-38576`](https://youtrack.jetbrains.com/issue/KT-38576) AnalysisResult.RetryWithAdditionalRoots crashes during incremental compilation with java classes in classpath
+- [`KT-53244`](https://youtrack.jetbrains.com/issue/KT-53244) Report from gradle about compiler plugins
+- [`KT-45747`](https://youtrack.jetbrains.com/issue/KT-45747) Add basic JUnit 5 Kotlin Gradle Plugin Android tests setup
+- [`KT-52839`](https://youtrack.jetbrains.com/issue/KT-52839) Warn in Gradle log why incremental compilation failed
+
+### Tools. Gradle. Cocoapods
+
+- [`KT-54314`](https://youtrack.jetbrains.com/issue/KT-54314) Cocoapods: Signing pod dependency for Xcode 14
+- [`KT-54060`](https://youtrack.jetbrains.com/issue/KT-54060) Xcode 14: disable bitcode embedding for Apple frameworks
+- [`KT-53127`](https://youtrack.jetbrains.com/issue/KT-53127) Cocoapod plugin ignores pod version
+- [`KT-53340`](https://youtrack.jetbrains.com/issue/KT-53340) Change default linking type for frameworks registered by cocoapods plugin
+- [`KT-53392`](https://youtrack.jetbrains.com/issue/KT-53392) Deprecate and delete downloading pod dependencies by direct link
+- [`KT-53695`](https://youtrack.jetbrains.com/issue/KT-53695) Build of macOS application fails if a framework is integrated via Cocoapods plugin
+- [`KT-53174`](https://youtrack.jetbrains.com/issue/KT-53174) CocoaPods: Synthetic Podfile does not specify platform
+
+### Tools. Gradle. JS
+
+- [`KT-53374`](https://youtrack.jetbrains.com/issue/KT-53374) KJS / Gradle: Implement IDEA sync detection logic via ValueSource to improve configuration cache support
+- [`KT-53788`](https://youtrack.jetbrains.com/issue/KT-53788) KJS / Gradle: Disable Gradle build cache for KotlinJsDce when development mode is enabled
+- [`KT-53614`](https://youtrack.jetbrains.com/issue/KT-53614) Kotlin/JS upgrade npm dependencies
+- [`KT-52950`](https://youtrack.jetbrains.com/issue/KT-52950) KJS: Report if yarn.lock was updated during built
+- [`KT-53367`](https://youtrack.jetbrains.com/issue/KT-53367) KJS: Migrate cssSupport API
+- [`KT-45789`](https://youtrack.jetbrains.com/issue/KT-45789) KJS / IR: Transitive NPM dependencies are not included in PublicPackageJsonTask output
 
 ### Tools. Gradle. Multiplatform
 
+#### New Features
+
+- [`KT-53396`](https://youtrack.jetbrains.com/issue/KT-53396) Support 'implementation platform()' by gradle kotlin mpp plugin for JVM target
+- [`KT-40489`](https://youtrack.jetbrains.com/issue/KT-40489) MPP / Gradle: support BOM (enforcedPlatform) artifacts in source set dependencies DSL
+
+#### Fixes
+
+- [`KT-27292`](https://youtrack.jetbrains.com/issue/KT-27292) MPP: jvm { withJava() }: Gradle build: Java source under Kotlin root is resolved while building, but does not produce output class files
+- [`KT-34650`](https://youtrack.jetbrains.com/issue/KT-34650) Naming clash in MPP+Android: androidTest vs androidAndroidTest
 - [`KT-54387`](https://youtrack.jetbrains.com/issue/KT-54387) Remove MPP alpha stability warning
-- [`KT-48436`](https://youtrack.jetbrains.com/issue/KT-48436) False positive "The Kotlin source set androidAndroidTestRelease was configured but not added to any Kotlin compilation"
+- [`KT-31468`](https://youtrack.jetbrains.com/issue/KT-31468) Targets disambiguation doesn't work if a depending multiplatform module uses `withJava()` mode
+- [`KT-35916`](https://youtrack.jetbrains.com/issue/KT-35916) Gradle MPP plugin: Configurations for a main compilation and its default source set have different naming
+- [`KT-54090`](https://youtrack.jetbrains.com/issue/KT-54090) Take an Apple test device from the device list
+- [`KT-53256`](https://youtrack.jetbrains.com/issue/KT-53256) Implement K/N compiler downloading for KPM
+- [`KT-45412`](https://youtrack.jetbrains.com/issue/KT-45412) KotlinCompilation: Make sure .kotlinSourceSets and .allKotlinSourceSets include the default source set
+- [`KT-54071`](https://youtrack.jetbrains.com/issue/KT-54071) MPP/AGP compatibility: Bump maxSupportedVersion to 7.3.0
+
+### Tools. Gradle. Native
+
+- [`KT-53191`](https://youtrack.jetbrains.com/issue/KT-53191) Native cinterop sync problem with gradle
+- [`KT-54583`](https://youtrack.jetbrains.com/issue/KT-54583) watchosDeviceArm64 target shouldn't register test tasks
+- [`KT-53107`](https://youtrack.jetbrains.com/issue/KT-53107) Add arm64 support for watchOS targets (Xcode 14)
+- [`KT-52303`](https://youtrack.jetbrains.com/issue/KT-52303) Gradle / Native: Build tasks ignore project.buildDir
+- [`KT-47355`](https://youtrack.jetbrains.com/issue/KT-47355) Support macos target for FatFramework task
+- [`KT-53339`](https://youtrack.jetbrains.com/issue/KT-53339) MPP / CocoaPods: The static framework fails to install on a real iOS device
+- [`KT-31573`](https://youtrack.jetbrains.com/issue/KT-31573) Missing description for Native Gradle tasks
+- [`KT-53131`](https://youtrack.jetbrains.com/issue/KT-53131) Gradle Sync: "NoSuchElementException: Array contains no element matching the predicate" with CocoaPods
+- [`KT-53686`](https://youtrack.jetbrains.com/issue/KT-53686) Task assembleReleaseXCFramework fails with "error: the path does not point to a valid framework" if project name contains a dash
+
+### Tools. Incremental Compile
+
+- [`KT-53266`](https://youtrack.jetbrains.com/issue/KT-53266) Increment Compilation: "IllegalStateException: The following LookupSymbols are not yet converted to ProgramSymbols" when changing companion object constant field
+- [`KT-53871`](https://youtrack.jetbrains.com/issue/KT-53871) New IC: "IllegalStateException: The following LookupSymbols are not yet converted to ProgramSymbols" when changing an inline property accessor
+- [`KT-53231`](https://youtrack.jetbrains.com/issue/KT-53231) New IC reports build failures for missing classpath snapshots
+- [`KT-19804`](https://youtrack.jetbrains.com/issue/KT-19804) Relocatable IC caches
+- [`KT-52946`](https://youtrack.jetbrains.com/issue/KT-52946) CompileKotlinJs task is executed non-incrementally if there were changes made to the dependant module
 
 ### Tools. JPS
 
 - [`KT-45474`](https://youtrack.jetbrains.com/issue/KT-45474) False positive NO_ELSE_IN_WHEN on sealed class with incremental compilation
+- [`KT-54228`](https://youtrack.jetbrains.com/issue/KT-54228) Switching abstract to sealed classes causes incremental issue
+- [`KT-38483`](https://youtrack.jetbrains.com/issue/KT-38483) JPS: Stopping compilation causes IDE CompilationCanceledException
+- [`KT-50310`](https://youtrack.jetbrains.com/issue/KT-50310) False positive NO_ELSE_IN_WHEN on incremental build when adding sealed classes
+- [`KT-48813`](https://youtrack.jetbrains.com/issue/KT-48813) Move cache version to compiler
+
+### Tools. Kapt
+
+- [`KT-54187`](https://youtrack.jetbrains.com/issue/KT-54187) JVM IR + kapt: incorrect modifier `final` is generated for nested enum in interface
+- [`KT-48827`](https://youtrack.jetbrains.com/issue/KT-48827) Remove 'kapt.use.worker.api' property
+- [`KT-52761`](https://youtrack.jetbrains.com/issue/KT-52761) Kotlin 1.7.0 breaks kapt processing for protobuf generated java sources
+
+### Tools. Scripts
+
+- [`KT-54355`](https://youtrack.jetbrains.com/issue/KT-54355) Scripts: Internal compiler error (languageVersion=1.9)
+- [`KT-53009`](https://youtrack.jetbrains.com/issue/KT-53009) Scripting: NDFDE “Descriptor wasn't found for declaration SCRIPT” on using script definition with kotlin from master
 
 
 ## 1.7.20
@@ -415,345 +885,128 @@
 
 - [`KT-52761`](https://youtrack.jetbrains.com/issue/KT-52761) Kotlin 1.7.0 breaks kapt processing for protobuf generated java sources
 
-## 1.7.20-RC
+## 1.7.10
 
 ### Compiler
 
-- [`KT-53739`](https://youtrack.jetbrains.com/issue/KT-53739) Builder inference, extension hides members
-- [`KT-53733`](https://youtrack.jetbrains.com/issue/KT-53733) Kotlin/Native: update source documentation for the new default memory manager
-- [`KT-53667`](https://youtrack.jetbrains.com/issue/KT-53667) Compiler crashes on attempt to alloc a string on the stack in new MM
-- [`KT-53480`](https://youtrack.jetbrains.com/issue/KT-53480) Internal error in file lowering: java.lang.ClassNotFoundException: com.android.systemui.R$string
-- [`KT-52843`](https://youtrack.jetbrains.com/issue/KT-52843) Compose: NPE at Parameters.getParameterByDeclarationSlot if inline function with default arguments takes a lambda which captures value class represented by Long
-- [`KT-51868`](https://youtrack.jetbrains.com/issue/KT-51868) JVM / IR: Inconsistent behaviour between lambda expression and SAM interface conversion for the same interface
-- [`KT-53475`](https://youtrack.jetbrains.com/issue/KT-53475) Kotlin/Native for iOS: "IllegalArgumentException: Sequence has more than one element"
-
-### Libraries
-
-- [`KT-52910`](https://youtrack.jetbrains.com/issue/KT-52910) Provide visit extension functions for java.nio.file.Path
-- [`KT-52909`](https://youtrack.jetbrains.com/issue/KT-52909) Implement a walk extension function for java.nio.file.Path
-
-### Native
-
-- [`KT-53346`](https://youtrack.jetbrains.com/issue/KT-53346) MPP project with kotlinx-serialization-json:1.4.0-RC is not built
-
-### Native. C and ObjC Import
-
-- [`KT-53373`](https://youtrack.jetbrains.com/issue/KT-53373) Native: @ExportObjCClass doesn't work with the new memory manager
-
-### Native. Runtime
-
-- [`KT-53534`](https://youtrack.jetbrains.com/issue/KT-53534) Kotlin/Native: `-Xruntime-logs=gc=info` flag doesn't with compiler caches in 1.7.20-beta
-
-### Tools. Gradle
-
-- [`KT-53670`](https://youtrack.jetbrains.com/issue/KT-53670) Gradle: Cyclic dependency between kotlin-gradle-plugin-idea-1.7.20-Beta and kotlin-gradle-plugin-idea-proto-1.7.20-Beta
-- [`KT-53615`](https://youtrack.jetbrains.com/issue/KT-53615) Gradle: Fix deprecation warnings in CleanableStoreImpl
-- [`KT-53118`](https://youtrack.jetbrains.com/issue/KT-53118) Fully up-to-date builds are slower with Kotlin 1.7.0
-
-### Tools. Gradle. Cocoapods
-
-- [`KT-53337`](https://youtrack.jetbrains.com/issue/KT-53337) Add warning about future changing default linking type of framework provided via cocoapods plugin
-
-### Tools. Incremental Compile
-
-- [`KT-53266`](https://youtrack.jetbrains.com/issue/KT-53266) Increment Compilation: "IllegalStateException: The following LookupSymbols are not yet converted to ProgramSymbols" when changing companion object constant field
-- [`KT-53231`](https://youtrack.jetbrains.com/issue/KT-53231) New IC reports build failures for missing classpath snapshots
-
-### Tools. Kapt
-
-- [`KT-52761`](https://youtrack.jetbrains.com/issue/KT-52761) Kotlin 1.7.0 breaks kapt processing for protobuf generated java sources
-
-
-## 1.7.20-Beta
-
-### Analysis API
-
-- [`KT-52667`](https://youtrack.jetbrains.com/issue/KT-52667) FIR IDE: fun interfaces (SAM interfaces) are not properly resolved
-- [`KT-52136`](https://youtrack.jetbrains.com/issue/KT-52136) FIR: Implicit type declaration from the other module cannot be used for overloading
-
-### Analysis API. FE1.0
-
-- [`KT-51962`](https://youtrack.jetbrains.com/issue/KT-51962) Analysis API: Finish Analysis API for FE1.0
-
-### Analysis API. FIR
-
-- [`KT-52779`](https://youtrack.jetbrains.com/issue/KT-52779) FIR IDE: Import Optimizer cannot handle generic type qualifiers
-- [`KT-50236`](https://youtrack.jetbrains.com/issue/KT-50236) Fix OOB modification trackers for non-Kotlin code
-- [`KT-51240`](https://youtrack.jetbrains.com/issue/KT-51240) Analysis API: KtAnalysisSession for a specific module cannot create a symbol for PSI that cannot be seen from that module.
-- [`KT-50868`](https://youtrack.jetbrains.com/issue/KT-50868) Analysis API: decompiled type aliases are not resolved
-
-### Compiler
-
-#### New Features
-
-- [`KT-33755`](https://youtrack.jetbrains.com/issue/KT-33755) Kotlin/Native: Provide a way to customize a bundle Identifier of a generated framework
-- [`KT-51665`](https://youtrack.jetbrains.com/issue/KT-51665) FIR: implement label resolve for "typed this" case
-- [`KT-52361`](https://youtrack.jetbrains.com/issue/KT-52361) Report warning on potentially empty intersection types
-
-#### Performance Improvements
-
-- [`KT-47816`](https://youtrack.jetbrains.com/issue/KT-47816) Disable script discovery for non-script environments
-- [`KT-48635`](https://youtrack.jetbrains.com/issue/KT-48635) JVM IR: Double/Float values are boxed when comparing for equality in equals method of data/value classes
-- [`KT-23397`](https://youtrack.jetbrains.com/issue/KT-23397) Optimize out field for property delegate when it's safe (JVM)
-
-#### Fixes
-
-- [`KT-53272`](https://youtrack.jetbrains.com/issue/KT-53272) Backend Internal error: Exception during IR lowering / No such value argument slot: 2
-- [`KT-53124`](https://youtrack.jetbrains.com/issue/KT-53124) Receiver type mismatch when combining extension properties, type projections, Java sources, and F-bounded type-variables
-- [`KT-51868`](https://youtrack.jetbrains.com/issue/KT-51868) JVM / IR: Inconsistent behaviour between lambda expression and SAM interface conversion for the same interface
-- [`KT-36770`](https://youtrack.jetbrains.com/issue/KT-36770) Prohibit unsafe calls with expected @NotNull T and given Kotlin generic parameter with nullable bound
-- [`KT-52974`](https://youtrack.jetbrains.com/issue/KT-52974) "IllegalStateException: Symbol with IrSimpleFunctionSymbolImpl is unbound" compiling native targets of MPP project
-- [`KT-53007`](https://youtrack.jetbrains.com/issue/KT-53007) JVM: "Bad invokespecial instruction: current class isn't assignable to reference class" when call superclass of outer class method from inner class
-- [`KT-53019`](https://youtrack.jetbrains.com/issue/KT-53019) K2: cannot cast callable reference to Function1 in runtime
-- [`KT-53031`](https://youtrack.jetbrains.com/issue/KT-53031) K2 compiler crashes with IllegalStateException: No type in ProtoBuf.ValueParameter
-- [`KT-29168`](https://youtrack.jetbrains.com/issue/KT-29168) Prohibit upper bounds violation with generic typealias using not all type parameters as arguments for underlying type in supertypes
-- [`KT-52432`](https://youtrack.jetbrains.com/issue/KT-52432) Using the IDE compiled with K2 (useFir) throws VerifyError exception
-- [`KT-52327`](https://youtrack.jetbrains.com/issue/KT-52327) False negative: TYPECHECKER_HAS_RUN_INTO_RECURSIVE_PROBLEM isn't reported
-- [`KT-49682`](https://youtrack.jetbrains.com/issue/KT-49682) Support JVM IR in KAPT stub generation
-- [`KT-24643`](https://youtrack.jetbrains.com/issue/KT-24643) Prohibit using a type parameter declared for an extension property inside delegate
-- [`KT-51972`](https://youtrack.jetbrains.com/issue/KT-51972) FIR, Gradle: "Symbol is invisible" compilation error with enabled Kotlin Lombok compiler plugin
-- [`KT-52011`](https://youtrack.jetbrains.com/issue/KT-52011) [FIR] All-open compiler plugin isn't supported
-- [`KT-51950`](https://youtrack.jetbrains.com/issue/KT-51950) JVM IR: "IndexOutOfBoundsException: Cannot pop operand off an empty stack" with crossinline lambdas and interface delegation
-- [`KT-52540`](https://youtrack.jetbrains.com/issue/KT-52540) Native: kotlin.NotImplementedError with Arrow library
-- [`KT-48031`](https://youtrack.jetbrains.com/issue/KT-48031) "IllegalStateException: Type variable TypeVariable(T) should not be fixed!"
-- [`KT-47708`](https://youtrack.jetbrains.com/issue/KT-47708) RequiresOptIn check does not flag experimental method usage in SAM lambda expressions
-- [`KT-52913`](https://youtrack.jetbrains.com/issue/KT-52913) JVM / IR: "IllegalArgumentException: Inline class types should have the same representation" when trying to down cast cast a value class
-- [`KT-50771`](https://youtrack.jetbrains.com/issue/KT-50771) IR partial linkage: Removed abstract callable members are not supported
-- [`KT-52994`](https://youtrack.jetbrains.com/issue/KT-52994) Enable generic inline classes as experimental feature
-- [`KT-52742`](https://youtrack.jetbrains.com/issue/KT-52742) CYCLE_IN_ANNOTATION_PARAMETER_ERROR false positive on annotations with default values
-- [`KT-52743`](https://youtrack.jetbrains.com/issue/KT-52743) Non-null generic functions throws NPE when assigned to val
-- [`KT-52745`](https://youtrack.jetbrains.com/issue/KT-52745) Frontend  / K2: "IncompatibleClassChangeError: class A$B overrides final method A.length()I" caused by delegation in a sealed class
-- [`KT-52832`](https://youtrack.jetbrains.com/issue/KT-52832) Tree-generator's method FirExpression::isFirType returns true and false for different field names; it should always be true
-- [`KT-52403`](https://youtrack.jetbrains.com/issue/KT-52403) IncompatibleClassChangeError when inlining suspend funs
-- [`KT-50107`](https://youtrack.jetbrains.com/issue/KT-50107) Missed USAGE_IS_NOT_INLINABLE diagnostic: Leaking inline lambda parameter through extension receiver
-- [`KT-47965`](https://youtrack.jetbrains.com/issue/KT-47965) Missed USAGE_IS_NOT_INLINABLE diagnostic on inline lambda parameter usage as receiver of .let call
-- [`KT-25787`](https://youtrack.jetbrains.com/issue/KT-25787) No error on crossinline usage of receiver parameter of functional type in an inline function
-- [`KT-52762`](https://youtrack.jetbrains.com/issue/KT-52762) Frontend / K2: Named arguments for Java classes lead to "Cannot find a parameter with this name"
-- [`KT-52680`](https://youtrack.jetbrains.com/issue/KT-52680) K2: overload resolution ambiguity if `this` is casted in a different method
-- [`KT-52676`](https://youtrack.jetbrains.com/issue/KT-52676) K2: Unsupported compile-time value IrGetFieldImpl instead of IrConst in AnnotationCodegen for constant from Java
-- [`KT-50293`](https://youtrack.jetbrains.com/issue/KT-50293) False positive: USELESS_CAST on stub types
-- [`KT-52175`](https://youtrack.jetbrains.com/issue/KT-52175) WRONG_ANNOTATION_TARGET for annotation that used inside if
-- [`KT-52338`](https://youtrack.jetbrains.com/issue/KT-52338) "IncompatibleClassChangeError: Expected non-static field" with Kotlin class with same-named companion object property as base Java class field
-- [`KT-49507`](https://youtrack.jetbrains.com/issue/KT-49507) JVM: "IllegalAccessError: class X tried to access private field" with same-named Kotlin property and Java base class field
-- [`KT-44512`](https://youtrack.jetbrains.com/issue/KT-44512) FIR DFA: incorrect smartcast after null assignment inside a lambda
-- [`KT-49200`](https://youtrack.jetbrains.com/issue/KT-49200) FIR/FE 1.0: different behavior with multiple matching star imports
+- [`KT-52702`](https://youtrack.jetbrains.com/issue/KT-52702) Invalid locals information when compiling `kotlinx.collections.immutable` with Kotlin 1.7.0-RC2
+- [`KT-52892`](https://youtrack.jetbrains.com/issue/KT-52892) Disappeared specific builder inference resolution ambiguity errors
+- [`KT-52782`](https://youtrack.jetbrains.com/issue/KT-52782) Appeared receiver type mismatch error due to ProperTypeInferenceConstraintsProcessing compiler feature
 - [`KT-52718`](https://youtrack.jetbrains.com/issue/KT-52718) declaringClass deprecation message mentions the wrong replacement in 1.7
-- [`KT-52190`](https://youtrack.jetbrains.com/issue/KT-52190) FIR2IR: Unexpected IrErrorTypeImpl type for put method inside buildMap
-- [`KT-52197`](https://youtrack.jetbrains.com/issue/KT-52197) Incorrect inference of var type inside lambda that passed to extension function with type parameters that defined inside this lambda
-- [`KT-52057`](https://youtrack.jetbrains.com/issue/KT-52057) Unsupported compile-time value STRING_CONCATENATION and GET_FIELD in annotation arguments
-- [`KT-47823`](https://youtrack.jetbrains.com/issue/KT-47823) JVM IR: "IllegalArgumentException: Inline class types should have the same representation" with `break` usage in the loop range
-- [`KT-51883`](https://youtrack.jetbrains.com/issue/KT-51883) Kotlin 1.6.20 generates "-" in type names around lambdas and inline extension function with reified type which breaks Apache Beam
-- [`KT-52684`](https://youtrack.jetbrains.com/issue/KT-52684) Syntax error regression on complicated combination of LT and GTEQ
-- [`KT-52417`](https://youtrack.jetbrains.com/issue/KT-52417) Reflection: Can't reflect on type parameters captured by SAM converted lambda
-- [`KT-46797`](https://youtrack.jetbrains.com/issue/KT-46797) JVM IR: suspendImpl has no generic signature, breaking reified types in anonymous object supertypes when using the type token pattern
-- [`KT-51464`](https://youtrack.jetbrains.com/issue/KT-51464) FIR: Unable to infer type in coroutines flow code
-- [`KT-52163`](https://youtrack.jetbrains.com/issue/KT-52163) JVM IR: Double.compareTo(Int) compiled to integer comparison
-- [`KT-41980`](https://youtrack.jetbrains.com/issue/KT-41980) FIR: erroneous scope during annotation resolve
-- [`KT-47159`](https://youtrack.jetbrains.com/issue/KT-47159) `KtPsiUtils.areParenthesesUseless()` is returning a false positive on expressions for interface delegation
-- [`KT-51418`](https://youtrack.jetbrains.com/issue/KT-51418) Substitute anonymous type's supertypes
-- [`KT-35544`](https://youtrack.jetbrains.com/issue/KT-35544) kotlin.TypeCastException has no message on Native
-- [`KT-52386`](https://youtrack.jetbrains.com/issue/KT-52386) StackOverflowError during Kotlin/Native gradle build
-- [`KT-52592`](https://youtrack.jetbrains.com/issue/KT-52592) NPE from KProperty.getExtensionDelegate on property delegated to another property
-- [`KT-52551`](https://youtrack.jetbrains.com/issue/KT-52551) Delegating to object property reference does not invoke object's initializer
-- [`KT-51704`](https://youtrack.jetbrains.com/issue/KT-51704) Contracts: "AssertionError: Arguments and parameters size mismatch" with companion object
-- [`KT-25527`](https://youtrack.jetbrains.com/issue/KT-25527) False positive UNUSED_VALUE for delegated property/variable
-- [`KT-51002`](https://youtrack.jetbrains.com/issue/KT-51002) [FIR] Hidden declaration hides visible one
-- [`KT-51008`](https://youtrack.jetbrains.com/issue/KT-51008) [FIR] Star import does not work for nested calssifiers of java class
-- [`KT-52407`](https://youtrack.jetbrains.com/issue/KT-52407) FIR: Star import has lower priority than built-in import
-- [`KT-52431`](https://youtrack.jetbrains.com/issue/KT-52431) Reported error instead of warning due to empty intersection type found
-- [`KT-49394`](https://youtrack.jetbrains.com/issue/KT-49394) Bad message and suggestion: The feature "unit conversion" is disabled
-- [`KT-51168`](https://youtrack.jetbrains.com/issue/KT-51168) FIR: Inference error with Java interop and captured types
-- [`KT-49961`](https://youtrack.jetbrains.com/issue/KT-49961) "AssertionError: Left expression was not processed: BINARY_EXPRESSION" when analyzing dangling [bracketed] expression inside elvis
-- [`KT-50108`](https://youtrack.jetbrains.com/issue/KT-50108) Difference in fun interface conversion behavior for uninitialized not-null function values
-- [`KT-51889`](https://youtrack.jetbrains.com/issue/KT-51889) Calls to super-classes constructors with context receivers fail on runtime
-- [`KT-51228`](https://youtrack.jetbrains.com/issue/KT-51228) [FIR] Unresolved reference on callable reference on implicit `this` with smartcast
-- [`KT-52364`](https://youtrack.jetbrains.com/issue/KT-52364) False positive for INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION
-- [`KT-52237`](https://youtrack.jetbrains.com/issue/KT-52237) JVM / IR: "IllegalArgumentException: No argument for parameter VALUE_PARAMETER CONTINUATION_CLASS" when implementing Map interface on class with suspending functions
-- [`KT-50832`](https://youtrack.jetbrains.com/issue/KT-50832) Method references to suspend inline functions are processed incorrectly
-- [`KT-52194`](https://youtrack.jetbrains.com/issue/KT-52194) False positive "Class 'my.packge.MyClass' is compiled by a pre-release version of Kotlin and cannot be loaded by this version of the compiler" but builds fine
-- [`KT-47203`](https://youtrack.jetbrains.com/issue/KT-47203) JVM Debugger: Parameter value doesn't change for tailrec function
-- [`KT-52131`](https://youtrack.jetbrains.com/issue/KT-52131) False positive variable unused warning when calling inline function in finally block
-- [`KT-51738`](https://youtrack.jetbrains.com/issue/KT-51738) Debugger: stepping over in inline function with multiple inline lambda invocations is incorrect
-- [`KT-52198`](https://youtrack.jetbrains.com/issue/KT-52198) Losing reference to the value of an outer variable (Ref$ObjectRef) when using suspend inline with suspendCancellableCoroutine
-- [`KT-50994`](https://youtrack.jetbrains.com/issue/KT-50994) FIR: AssertionError during inference of delegated properties with implicit types
-- [`KT-51757`](https://youtrack.jetbrains.com/issue/KT-51757) FIR does not see various JS/Native specific declarations in common modules
-- [`KT-51201`](https://youtrack.jetbrains.com/issue/KT-51201) FIR: ARGUMENT_TYPE_MISMATCH diagnostic contains generic parameter instead of the actual type
-- [`KT-48444`](https://youtrack.jetbrains.com/issue/KT-48444) FIR: type argument rejected for annotation
-- [`KT-51754`](https://youtrack.jetbrains.com/issue/KT-51754) JVM: Local variable table invalid for do-while with continue
-- [`KT-51936`](https://youtrack.jetbrains.com/issue/KT-51936) Breakpoint not hit on last line of suspend function on Android
-- [`KT-27333`](https://youtrack.jetbrains.com/issue/KT-27333) Forbid @Synchronized annotation on suspend functions
-- [`KT-51530`](https://youtrack.jetbrains.com/issue/KT-51530) "StackOverflowError: CoroutineTransformerMethodVisitor.spillVariables" with data class in Flow
-- [`KT-51460`](https://youtrack.jetbrains.com/issue/KT-51460) FIR: Protected property inaccessible from inner class
 
 ### IDE
 
-- [`KT-52571`](https://youtrack.jetbrains.com/issue/KT-52571) MPP Tasks on import are not up-to-date after subsequent launches
-- [`KT-47777`](https://youtrack.jetbrains.com/issue/KT-47777) ISE thrown from KtLightClassForFacadeImpl.Companion.createForFacadeNoCache has wrong message.
+#### Fixes
+
+- [`KTIJ-19088`](https://youtrack.jetbrains.com/issue/KTIJ-19088) KotlinUFunctionCallExpression.resolve() returns null for calls to @JvmSynthetic functions
+- [`KTIJ-19624`](https://youtrack.jetbrains.com/issue/KTIJ-19624) NoDescriptorForDeclarationException on iosTest.kt.vm
+- [`KTIJ-21515`](https://youtrack.jetbrains.com/issue/KTIJ-21515) Load JVM target 1.6 as 1.8 in Maven projects
+- [`KTIJ-21735`](https://youtrack.jetbrains.com/issue/KTIJ-21735) Exception when opening a project
+- [`KTIJ-17414`](https://youtrack.jetbrains.com/issue/KTIJ-17414) UAST: Synthetic enum methods have null return values
+- [`KTIJ-17444`](https://youtrack.jetbrains.com/issue/KTIJ-17444) UAST: Synthetic enum methods are missing nullness annotations
+- [`KTIJ-19043`](https://youtrack.jetbrains.com/issue/KTIJ-19043) UElement#comments is empty for a Kotlin property with a getter
+- [`KTIJ-10031`](https://youtrack.jetbrains.com/issue/KTIJ-10031) IDE fails to suggest a project declaration import if the name clashes with internal declaration with implicit import from stdlib (ex. @Serializable)
+- [`KTIJ-21151`](https://youtrack.jetbrains.com/issue/KTIJ-21151) Exception about wrong read access from "Java overriding methods searcher" with Kotlin overrides
+- [`KTIJ-20736`](https://youtrack.jetbrains.com/issue/KTIJ-20736) NoClassDefFoundError: Could not initialize class org.jetbrains.kotlin.idea.roots.KotlinNonJvmOrderEnumerationHandler. Kotlin plugin 1.7 fails to start
+- [`KTIJ-21063`](https://youtrack.jetbrains.com/issue/KTIJ-21063) IDE highlighting: False positive error "Context receivers should be enabled explicitly"
+- [`KTIJ-20810`](https://youtrack.jetbrains.com/issue/KTIJ-20810) NoClassDefFoundError: org/jetbrains/kotlin/idea/util/SafeAnalyzeKt errors in 1.7.0-master-212 kotlin plugin on project open
+- [`KTIJ-17869`](https://youtrack.jetbrains.com/issue/KTIJ-17869) KotlinUFunctionCallExpression.resolve() returns null for instantiations of local classes with default constructors
+- [`KTIJ-21061`](https://youtrack.jetbrains.com/issue/KTIJ-21061) UObjectLiteralExpression.getExpressionType() returns the base class type for Kotlin object literals instead of the anonymous class type
+- [`KTIJ-20200`](https://youtrack.jetbrains.com/issue/KTIJ-20200) UAST: @Deprecated(level=HIDDEN) constructors are not returning UMethod.isConstructor=true
+
+### IDE. Code Style, Formatting
+
+- [`KTIJ-20554`](https://youtrack.jetbrains.com/issue/KTIJ-20554) Introduce some code style for definitely non-null types
+
+### IDE. Completion
+
+- [`KTIJ-14740`](https://youtrack.jetbrains.com/issue/KTIJ-14740) Multiplatform declaration actualised in an intermediate source set is shown twice in a completion popup called in the source set
+
+### IDE. Debugger
+
+- [`KTIJ-20815`](https://youtrack.jetbrains.com/issue/KTIJ-20815) MPP Debugger: Evaluation of expect function for the project with intermediate source set may fail with java.lang.NoSuchMethodError
+
+### IDE. Decompiler, Indexing, Stubs
+
+- [`KTIJ-21472`](https://youtrack.jetbrains.com/issue/KTIJ-21472) "java.lang.IllegalStateException: Could not read file" exception on indexing invalid class file
+- [`KTIJ-20802`](https://youtrack.jetbrains.com/issue/KTIJ-20802) Definitely Not-Null types: "UpToDateStubIndexMismatch: PSI and index do not match" plugin error when trying to use library function with T&Any
 
 ### IDE. FIR
 
-- [`KT-52360`](https://youtrack.jetbrains.com/issue/KT-52360) FIR IDE: Make the fix of `isInheritor` method better
-- [`KT-51786`](https://youtrack.jetbrains.com/issue/KT-51786) FIR IDE: IllegalStateException exception in Inspections' infrastructure
-- [`KT-52331`](https://youtrack.jetbrains.com/issue/KT-52331) Analysis API: ArrayIndexOutOfBoundsException exception in Diagnostics' infrastructure
+- [`KTIJ-20971`](https://youtrack.jetbrains.com/issue/KTIJ-20971) FIR IDE: "Parameter Info" shows parameters of uncallable methods
+- [`KTIJ-21021`](https://youtrack.jetbrains.com/issue/KTIJ-21021) FIR IDE: Completion of extension function does not work on nullable receiver
+- [`KTIJ-21343`](https://youtrack.jetbrains.com/issue/KTIJ-21343) FIR IDE: Navigation from explicit invoke call does not work
+- [`KTIJ-21013`](https://youtrack.jetbrains.com/issue/KTIJ-21013) FIR IDE: Inconsistent smartcasts highlighting
+- [`KTIJ-21374`](https://youtrack.jetbrains.com/issue/KTIJ-21374) FIR IDE: Incorrect highlighting for operators
+- [`KTIJ-20443`](https://youtrack.jetbrains.com/issue/KTIJ-20443) FIR IDE: Work in Dumb mode
+- [`KTIJ-20852`](https://youtrack.jetbrains.com/issue/KTIJ-20852) FIR IDE: Exception when checking `isInheritor` on two classes in different modules
+- [`KTIJ-20637`](https://youtrack.jetbrains.com/issue/KTIJ-20637) FIR IDE: Strange exception while commenting-uncommenting FirReferenceResolveHelper.kt
 
 ### IDE. Gradle Integration
 
-- [`KT-47627`](https://youtrack.jetbrains.com/issue/KT-47627) IDE import fails with com.intellij.util.lang.PathClassLoader error for `runCommonizer` Gradle task on 212, 213 IDEAs
+- [`KTIJ-21807`](https://youtrack.jetbrains.com/issue/KTIJ-21807) Gradle to IDEA import: language and API version settings are not imported for Native facet
+- [`KTIJ-21692`](https://youtrack.jetbrains.com/issue/KTIJ-21692) Kotlin Import Test maintenance: 1.7.0-Beta
+- [`KTIJ-20567`](https://youtrack.jetbrains.com/issue/KTIJ-20567) Kotlin/JS: Gradle import into IDEA creates no proper sub-modules, source sets, facets
 
-### IDE. Script
+### IDE. Hints. Inlay
 
-- [`KT-52525`](https://youtrack.jetbrains.com/issue/KT-52525) Update scripts handling in source roots
+- [`KTIJ-20552`](https://youtrack.jetbrains.com/issue/KTIJ-20552) Support definitely non-null types in inlay hints
 
-### JavaScript
+### IDE. Inspections and Intentions
 
 #### New Features
 
-- [`KT-39423`](https://youtrack.jetbrains.com/issue/KT-39423) KJS: Optionally generate a method to handle optional parameters for function in typescript
-- [`KT-42282`](https://youtrack.jetbrains.com/issue/KT-42282) KJS IR: add an ability to run separate tests
-
-#### Performance Improvements
-
-- [`KT-50270`](https://youtrack.jetbrains.com/issue/KT-50270) KJS IR: Unnecessary getter and setter calls when accessing class members
+- [`KTIJ-18979`](https://youtrack.jetbrains.com/issue/KTIJ-18979) Quickfix for INTEGER_OPERATOR_RESOLVE_WILL_CHANGE to add explicit conversion call
+- [`KTIJ-19950`](https://youtrack.jetbrains.com/issue/KTIJ-19950) Provide quickfixes for `INVALID_IF_AS_EXPRESSION_WARNING` and `NO_ELSE_IN_WHEN_WARNING`
+- [`KTIJ-19866`](https://youtrack.jetbrains.com/issue/KTIJ-19866) Create quick-fix for effective visibility error on private-in-file interface exposing private class
+- [`KTIJ-19939`](https://youtrack.jetbrains.com/issue/KTIJ-19939) Provide quickfix for deprecated confusing expressions in when branches
 
 #### Fixes
 
-- [`KT-51133`](https://youtrack.jetbrains.com/issue/KT-51133) Kotlin/JS - IR: even simple lambdas generate a lot of useless boilerplate
-- [`KT-51123`](https://youtrack.jetbrains.com/issue/KT-51123) Provide a way to add comments to generated JS
-- [`KT-48493`](https://youtrack.jetbrains.com/issue/KT-48493) KJS / IR: Invalid d.ts for inner classes inside objects
-- [`KT-52553`](https://youtrack.jetbrains.com/issue/KT-52553) KJS / IR: diamond hierarchy with super.toString produces stack overflow in runtime
-- [`KT-23252`](https://youtrack.jetbrains.com/issue/KT-23252) JS: Unit materialization on declaration and assignment
-- [`KT-51128`](https://youtrack.jetbrains.com/issue/KT-51128) Kotlin/JS - IR generate huge count of useless blocks
-- [`KT-50778`](https://youtrack.jetbrains.com/issue/KT-50778) KJS/IR: Inline class has no field when building production distribution
-- [`KT-50157`](https://youtrack.jetbrains.com/issue/KT-50157) KSJ IR: Applying identity equality operator to Chars always returns false
-- [`KT-38262`](https://youtrack.jetbrains.com/issue/KT-38262) Javascript generation (and Typescript) fails on 'then', 'catch' and 'finally' (and others?) claiming they are reserved names
-- [`KT-51066`](https://youtrack.jetbrains.com/issue/KT-51066) KJS / IR: suspend lambda parameter of value class is undefined
-- [`KT-51102`](https://youtrack.jetbrains.com/issue/KT-51102) KJS/IR: Assertion failed at translateCallArguments(jsAstUtils.kt:343)
-- [`KT-51878`](https://youtrack.jetbrains.com/issue/KT-51878) KJS / Legacy: Unit is not materialized in an overridden method, but it should be
+- [`KTIJ-20705`](https://youtrack.jetbrains.com/issue/KTIJ-20705) Register quickfix for `NO_CONSTRUCTOR_WARNING` diagnostic
+- [`KTIJ-21226`](https://youtrack.jetbrains.com/issue/KTIJ-21226) "Remove else branch" quick fix is not suggested
+- [`KTIJ-20981`](https://youtrack.jetbrains.com/issue/KTIJ-20981) Definitely non-null types: quick-fixes suggested incorrectly for LV=1.6 when Xenhance-type-parameter-types-to-def-not-null flag is set
+- [`KTIJ-20953`](https://youtrack.jetbrains.com/issue/KTIJ-20953) Add quickfix for OVERRIDE_DEPRECATION warning to 1.7 - 1.9 migration
+- [`KTIJ-20734`](https://youtrack.jetbrains.com/issue/KTIJ-20734) Replace with [@JvmInline] value quick fix should be appliable on a whole project
+- [`KTIJ-21420`](https://youtrack.jetbrains.com/issue/KTIJ-21420) Add 'else' branch quick fix suggestion is displayed twice in case 'if' isn't completed
+- [`KTIJ-21192`](https://youtrack.jetbrains.com/issue/KTIJ-21192) "Make protected" intention is redundant for interface properties
+- [`KTIJ-18120`](https://youtrack.jetbrains.com/issue/KTIJ-18120) "Make public" intention does not add explicit "public" modifier when using ExplicitApi Strict mode
+- [`KTIJ-20493`](https://youtrack.jetbrains.com/issue/KTIJ-20493) "Create expect" quick fix doesn't warn about platform-specific annotations
 
-### Language Design
+### IDE. Misc
 
-- [`KT-47986`](https://youtrack.jetbrains.com/issue/KT-47986) Implicit inferring a type variable into an upper bound in the builder inference context
-- [`KT-49264`](https://youtrack.jetbrains.com/issue/KT-49264) Deprecate infix function calls of functions named "suspend" with dangling function literal
+- [`KTIJ-21582`](https://youtrack.jetbrains.com/issue/KTIJ-21582) Notification for Kotlin EAP survey
 
-### Libraries
+### IDE. Native
 
-- [`KT-52932`](https://youtrack.jetbrains.com/issue/KT-52932) Open-ended ranges in the standard library
-- [`KT-52909`](https://youtrack.jetbrains.com/issue/KT-52909) Implement a walk extension function for java.nio.file.Path
-- [`KT-52910`](https://youtrack.jetbrains.com/issue/KT-52910) Provide visit extension functions for java.nio.file.Path
-- [`KT-48232`](https://youtrack.jetbrains.com/issue/KT-48232) Multiplatform function for computing cubic root
-- [`KT-52778`](https://youtrack.jetbrains.com/issue/KT-52778) The documentation for the `Duration` does not indicate any differences from the ISO-8601
-- [`KT-52618`](https://youtrack.jetbrains.com/issue/KT-52618) ThreadLocalRandom is not a good source of randomness on Android before SDK 34, so don't use it for Kotlin Random
+- [`KTIJ-21602`](https://youtrack.jetbrains.com/issue/KTIJ-21602) With Native Debugging Support plugin Gradle run configurations can't be executed from IDEA: LLDB_NATVIS_RENDERERS_ENABLED
 
-### Native
+### IDE. Wizards
 
-- [`KT-51297`](https://youtrack.jetbrains.com/issue/KT-51297) Native: allow calling Kotlin suspend functions on non-main thread from Swift
-- [`KT-48558`](https://youtrack.jetbrains.com/issue/KT-48558) Windres broken in new MinGW toolchain
-- [`KT-50983`](https://youtrack.jetbrains.com/issue/KT-50983) Linker fails on Windows if add .res file with VERSIONINFO
-- [`KT-52150`](https://youtrack.jetbrains.com/issue/KT-52150) harmony_LICENSE.txt contains invalid utf8 characters
-
-### Native. C Export
-
-- [`KT-45468`](https://youtrack.jetbrains.com/issue/KT-45468) Kotlin/Native: Bitcode verification error when trying to export a cached klib to a static or dynamic library
-
-### Native. C and ObjC Import
-
-- [`KT-49034`](https://youtrack.jetbrains.com/issue/KT-49034) Kotlin/Native: `cnames.structs.Foo` resolves into wrong declaration
-- [`KT-26478`](https://youtrack.jetbrains.com/issue/KT-26478) Objective-C object's class name is null in ClassCastException's message
-
-### Native. ObjC Export
-
-- [`KT-51593`](https://youtrack.jetbrains.com/issue/KT-51593) Include more information in Objective-C header documentation
-- [`KT-33117`](https://youtrack.jetbrains.com/issue/KT-33117) Improve customizing Info.plist in produced frameworks
-- [`KT-52681`](https://youtrack.jetbrains.com/issue/KT-52681) Native: `@end;` for Objective-C is generated with an unnecessary semicolon
-
-### Native. Platforms
-
-- [`KT-52226`](https://youtrack.jetbrains.com/issue/KT-52226) Kotlin/Native: Add support for cross-compilation of MIPS targets from macOS and Windows hosts
-
-### Native. Runtime
-
-- [`KT-52430`](https://youtrack.jetbrains.com/issue/KT-52430) KMM 1.6.21 framework built with Xcode13, new MM GC Can't support iOS 9.x
-
-### Native. Runtime. Memory
-
-- [`KT-52692`](https://youtrack.jetbrains.com/issue/KT-52692) Kotlin/Native: fix tests with aggressive GC
-- [`KT-52130`](https://youtrack.jetbrains.com/issue/KT-52130) Kotlin/Native: use Xallocator for Kotlin objects only
-- [`KT-51436`](https://youtrack.jetbrains.com/issue/KT-51436) Kotlin/Native: optimize mark queue
-
-### Reflection
-
-- [`KT-51804`](https://youtrack.jetbrains.com/issue/KT-51804) An error occurs when callBy a KFunction that contains a value class as an argument, has a default argument set, and has more than 32 arguments.
-
-### Tools. CLI
-
-- [`KT-52465`](https://youtrack.jetbrains.com/issue/KT-52465) CLI: IllegalStateException IrSimpleFunctionPublicSymbolImpl when source root is duplicated
-- [`KT-52380`](https://youtrack.jetbrains.com/issue/KT-52380) Invalid path to compiler plugins should be reported as a compiler error
-- [`KT-51025`](https://youtrack.jetbrains.com/issue/KT-51025) JVM CLI compiler takes class file from classpath instead of input java source file
-- [`KT-51846`](https://youtrack.jetbrains.com/issue/KT-51846) Setting random value to the compiler argument where number is expected should produce an error. "-Xbackend-threads=abcd"
-
-### Tools. Compiler Plugins
-
-- [`KT-52486`](https://youtrack.jetbrains.com/issue/KT-52486) [K2] Looking for function/constructor whose parameters are annotated or meta annotated
-- [`KT-52872`](https://youtrack.jetbrains.com/issue/KT-52872) Mark supportsK2 in ComponentRegistrar.kt as JvmDefault to avoid compatibility problems
-- [`KT-52804`](https://youtrack.jetbrains.com/issue/KT-52804) A function obtained by Fir IrBuiltins has an incorrect package
-- [`KT-52468`](https://youtrack.jetbrains.com/issue/KT-52468) Rename module and jar for lombok compiler plugin
+- [`KTIJ-20919`](https://youtrack.jetbrains.com/issue/KTIJ-20919) Update ktor-html-builder dependency in kotlin wizards
+- [`KTIJ-20962`](https://youtrack.jetbrains.com/issue/KTIJ-20962) Wizard: Invalid Ktor imports
 
 ### Tools. Gradle
 
-- [`KT-51923`](https://youtrack.jetbrains.com/issue/KT-51923) Improve usability of errors and warnings by being able to click on them
-- [`KT-53244`](https://youtrack.jetbrains.com/issue/KT-53244) Report from gradle about compiler plugins
-- [`KT-52839`](https://youtrack.jetbrains.com/issue/KT-52839) Warn in Gradle log why incremental compilation failed
-- [`KT-46019`](https://youtrack.jetbrains.com/issue/KT-46019) Compatibility with Gradle 7.1 release
-- [`KT-47047`](https://youtrack.jetbrains.com/issue/KT-47047) Migrate Kotlin Gradle Plugin from using Gradle conventions
-- [`KT-52698`](https://youtrack.jetbrains.com/issue/KT-52698) Don't add InspectClassesForMultiModuleIC task when new incremental compilation is enabled
-- [`KT-52867`](https://youtrack.jetbrains.com/issue/KT-52867) Provide simplified JVM toolchain configuration method
-- [`KT-45747`](https://youtrack.jetbrains.com/issue/KT-45747) Add basic JUnit 5 Kotlin Gradle Plugin Android tests setup
-
-### Tools. Gradle. Cocoapods
-
-- [`KT-53174`](https://youtrack.jetbrains.com/issue/KT-53174) CocoaPods: Synthetic Podfile does not specify platform
-- [`KT-53127`](https://youtrack.jetbrains.com/issue/KT-53127) "MaterialComponents normal armv7" in Cocoapods plugin between Kotlin 1.6.21 and 1.7.0
-- [`KT-44155`](https://youtrack.jetbrains.com/issue/KT-44155) Cocoapods doesn't support pods without module map file inside
-- [`KT-49032`](https://youtrack.jetbrains.com/issue/KT-49032) Cocoapods cinterop: some header files are not found
+- [`KT-52777`](https://youtrack.jetbrains.com/issue/KT-52777) 'org.jetbrains.kotlinx:atomicfu:1.7.0' Gradle 7.0+ plugin variant was published with missing classes
 
 ### Tools. Gradle. JS
 
-- [`KT-52637`](https://youtrack.jetbrains.com/issue/KT-52637) KJS / Gradle: Add SCSS webpack config
-- [`KT-51527`](https://youtrack.jetbrains.com/issue/KT-51527) Kotlin/JS: BrowserXRun causes full-screen Webpack error "Compiled with problems: asset size limit/entrypoint size limit" for fresh Kotlin-React project from wizard
-- [`KT-51532`](https://youtrack.jetbrains.com/issue/KT-51532) Kotlin/JS: passing environment variable via Gradle script causes "Execution optimizations have been disabled" warnings
+- [`KT-52856`](https://youtrack.jetbrains.com/issue/KT-52856) Kotlin/JS: Upgrade NPM dependencies
 
 ### Tools. Gradle. Multiplatform
 
-- [`KT-52243`](https://youtrack.jetbrains.com/issue/KT-52243) CInteropProcess  is not cacheable despite the annotation
-- [`KT-52741`](https://youtrack.jetbrains.com/issue/KT-52741) MPP: klib outputs are not reproducible
-- [`KT-52208`](https://youtrack.jetbrains.com/issue/KT-52208) MPP: Gradle plugin 1.7 doesn't support latest api versions (1.8, 1.9)
-
-### Tools. Gradle. Native
-
-- [`KT-52632`](https://youtrack.jetbrains.com/issue/KT-52632) Gradle / Native: commonizeNativeDistributionTask can never be up-to-date
-- [`KT-52328`](https://youtrack.jetbrains.com/issue/KT-52328) "ld: framework not found SQLCipher" linkDebugTestIosSimulatorArm64 error
+- [`KT-52955`](https://youtrack.jetbrains.com/issue/KT-52955) SourceSetMetadataStorageForIde: Broken 'cleanupStaleEntries' with enabled configuration caching or isolated ClassLoaders
+- [`KT-52694`](https://youtrack.jetbrains.com/issue/KT-52694) Kotlin 1.7.0 breaks Configuration Caching in Android projects
 
 ### Tools. Incremental Compile
 
-- [`KT-53168`](https://youtrack.jetbrains.com/issue/KT-53168) Incremental compilation doesn't perform correctly after a few iterations
-- [`KT-52925`](https://youtrack.jetbrains.com/issue/KT-52925) [IR BE] Non incremental build  occurs after build failure for compileKotlinJs task
-- [`KT-52946`](https://youtrack.jetbrains.com/issue/KT-52946) CompileKotlinJs task is executed non-incrementally if there were changes made to the dependant module
-- [`KT-52329`](https://youtrack.jetbrains.com/issue/KT-52329) Reduce memory usage of classpath snapshot cache
+- [`KT-52669`](https://youtrack.jetbrains.com/issue/KT-52669) Full rebuild in IC exception recovery leaves corrupt IC data
 
 ### Tools. JPS
 
-- [`KT-47824`](https://youtrack.jetbrains.com/issue/KT-47824) 'when expression must be exhaustive' isn't thrown during incremental compilation
-- [`KT-51873`](https://youtrack.jetbrains.com/issue/KT-51873) JPS build is incorrect after gdw build
-
-### Tools. REPL
-
-- [`KT-45065`](https://youtrack.jetbrains.com/issue/KT-45065) REPL: Incorrect output for unsigned value
-
-### Tools. Scripts
-
-- [`KT-52598`](https://youtrack.jetbrains.com/issue/KT-52598) Scripts and REPL snippets are not checked against using 'kotlin' package
-- [`KT-47187`](https://youtrack.jetbrains.com/issue/KT-47187) Kotlin ScriptEngine Failes to Compile a Trivial Statement After Failing to Compile a Broken One
-- [`KT-47191`](https://youtrack.jetbrains.com/issue/KT-47191) [Kotlin Script Engine] Compiling Without Evaluating Leaves Engine in a Bad State
+- [`KTIJ-17280`](https://youtrack.jetbrains.com/issue/KTIJ-17280) JPS: don't use java.io.File.createTempFile as it is not working sometimes
+- [`KTIJ-20954`](https://youtrack.jetbrains.com/issue/KTIJ-20954) NPE at at org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil.readNameResolver on compiling by JPS with LV > 1.7
 
 
 ## 1.7.0

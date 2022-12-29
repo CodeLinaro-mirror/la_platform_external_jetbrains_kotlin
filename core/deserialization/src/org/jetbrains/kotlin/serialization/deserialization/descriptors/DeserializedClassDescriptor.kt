@@ -52,7 +52,12 @@ class DeserializedClassDescriptor(
         VersionRequirementTable.create(classProto.versionRequirementTable), metadataVersion
     )
 
-    private val staticScope = if (kind == ClassKind.ENUM_CLASS) StaticScopeForKotlinEnum(c.storageManager, this) else MemberScope.Empty
+    private val staticScope =
+        if (kind == ClassKind.ENUM_CLASS)
+            StaticScopeForKotlinEnum(c.storageManager, this)
+        else
+            MemberScope.Empty
+
     private val typeConstructor = DeserializedClassTypeConstructor()
 
     private val memberScopeHolder =
@@ -150,7 +155,12 @@ class DeserializedClassDescriptor(
         val contextReceiverType = c.typeDeserializer.type(it)
         ReceiverParameterDescriptorImpl(
             thisAsReceiverParameter,
-            ContextClassReceiver(this, contextReceiverType, null),
+            ContextClassReceiver(
+                this,
+                contextReceiverType,
+                /* customLabelName = */ null/*todo store custom label name in metadata?*/,
+                null
+            ),
             Annotations.EMPTY
         );
     }

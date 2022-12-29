@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.api
 
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.createEmptySession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.builder.BodyBuildingMode
@@ -96,7 +97,6 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
         return true
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun FirTypeRef.renderTypeAsKotlinType(isVararg: Boolean = false): String {
         val rendered = when (this) {
             is FirResolvedTypeRef -> type.renderTypeAsKotlinType()
@@ -132,7 +132,7 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
                     }
                 }
             }
-            else -> error("Invalid type reference $this")
+            else -> errorWithFirSpecificEntries("Invalid type reference", fir = this)
         }
         return if (isVararg) {
             rendered.asArrayType()
@@ -146,7 +146,6 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
         return "kotlin.Array<out $this>"
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private val classIdToName: Map<String, String> = buildList<Pair<String, String>> {
         StandardClassIds.primitiveArrayTypeByElementType.mapTo(this) { (classId, arrayClassId) ->
             classId.asString().replace('/', '.') to arrayClassId.asString().replace('/', '.')
@@ -165,7 +164,7 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
             }
             append(typeRef.renderTypeAsKotlinType())
         }
-        else -> error("Invalid type projection $this")
+        else -> errorWithFirSpecificEntries("Invalid type reference", fir = this)
     }
 
     private fun isTheSameTypes(
@@ -200,7 +199,7 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
                 // Can be present as return type
                 "${lowerBound.renderTypeAsKotlinType()}..${upperBound.renderTypeAsKotlinType()}"
             }
-            else -> error("Type $this should not be present in Kotlin declaration")
+            else -> errorWithFirSpecificEntries("Type should not be present in Kotlin declaration", coneType = this)
         }.replace('/', '.')
         return rendered + nullability.suffix
     }

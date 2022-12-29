@@ -15,6 +15,8 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.JvmPackagePartProvider
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.compiler.plugin.registerInProject
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
@@ -44,7 +46,14 @@ abstract class CompilerConfigurationProvider(val testServices: TestServices) : T
     }
 
     fun registerCompilerExtensions(project: Project, module: TestModule, configuration: CompilerConfiguration) {
-        configurators.forEach { it.registerCompilerExtensions(project, module, configuration) }
+        val extensionStorage = CompilerPluginRegistrar.ExtensionStorage()
+        for (configurator in configurators) {
+            configurator.legacyRegisterCompilerExtensions(project, module, configuration)
+            with(configurator) {
+                extensionStorage.registerCompilerExtensions(module, configuration)
+            }
+        }
+        extensionStorage.registerInProject(project)
     }
 
     open fun getPackagePartProviderFactory(module: TestModule): (GlobalSearchScope) -> JvmPackagePartProvider {
@@ -116,12 +125,13 @@ fun TargetPlatform.platformToEnvironmentConfigFiles() = when {
 fun createCompilerConfiguration(module: TestModule, configurators: List<AbstractEnvironmentConfigurator>): CompilerConfiguration {
     val configuration = CompilerConfiguration()
     configuration[CommonConfigurationKeys.MODULE_NAME] = module.name
-    if (JsEnvironmentConfigurationDirectives.PROPERTY_LAZY_INITIALIZATION in module.directives) {
-        configuration.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, true)
+
+    if (JsEnvironmentConfigurationDirectives.GENERATE_STRICT_IMPLICIT_EXPORT in module.directives) {
+        configuration.put(JSConfigurationKeys.GENERATE_STRICT_IMPLICIT_EXPORT, true)
     }
 
-    if (JsEnvironmentConfigurationDirectives.GENERATE_INLINE_ANONYMOUS_FUNCTIONS in module.directives) {
-        configuration.put(JSConfigurationKeys.GENERATE_INLINE_ANONYMOUS_FUNCTIONS, true)
+    if (JsEnvironmentConfigurationDirectives.GENERATE_DTS in module.directives) {
+        configuration.put(JSConfigurationKeys.GENERATE_DTS, true)
     }
 
     if (module.frontendKind == FrontendKinds.FIR) {
@@ -150,6 +160,3 @@ fun createCompilerConfiguration(module: TestModule, configurators: List<Abstract
 private operator fun <T : Any> CompilerConfiguration.set(key: CompilerConfigurationKey<T>, value: T) {
     put(key, value)
 }
-
-val TestModule.javaFiles: List<TestFile>
-    get() = files.filter { it.isJavaFile }

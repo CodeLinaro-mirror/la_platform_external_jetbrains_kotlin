@@ -448,9 +448,14 @@ internal class KtFe10CallResolver(
                     if (callElement.isCallToThis) KtDelegatedConstructorCall.Kind.THIS_CALL else KtDelegatedConstructorCall.Kind.SUPER_CALL,
                     argumentMapping
                 )
+                is KtSuperTypeCallEntry -> return KtDelegatedConstructorCall(
+                    partiallyAppliedConstructorSymbol,
+                    KtDelegatedConstructorCall.Kind.SUPER_CALL,
+                    argumentMapping
+                )
             }
         }
-        @Suppress("UNCHECKED_CAST")
+
         return KtSimpleFunctionCall(
             partiallyAppliedSymbol,
             argumentMapping,

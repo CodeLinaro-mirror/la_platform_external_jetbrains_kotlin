@@ -20,6 +20,7 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
         private val serialVersionUID = 0L
 
         const val PLUGIN_OPTION_FORMAT = "plugin:<pluginId>:<optionName>=<value>"
+        const val PLUGIN_DECLARATION_FORMAT = "<path>[=<optionName>=<value>]"
 
         const val WARN = "warn"
         const val ERROR = "error"
@@ -30,7 +31,10 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     @get:Transient
     var autoAdvanceLanguageVersion: Boolean by FreezableVar(true)
 
-    @GradleOption(DefaultValues.LanguageVersions::class)
+    @GradleOption(
+        value = DefaultValue.LANGUAGE_VERSIONS,
+        gradleInputType = GradleInputTypes.INPUT
+    )
     @Argument(
         value = "-language-version",
         valueDescription = "<version>",
@@ -41,7 +45,10 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     @get:Transient
     var autoAdvanceApiVersion: Boolean by FreezableVar(true)
 
-    @GradleOption(DefaultValues.ApiVersions::class)
+    @GradleOption(
+        value = DefaultValue.API_VERSIONS,
+        gradleInputType = GradleInputTypes.INPUT
+    )
     @Argument(
         value = "-api-version",
         valueDescription = "<version>",
@@ -69,9 +76,6 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
 
     @Argument(value = "-script", description = "Evaluate the given Kotlin script (*.kts) file")
     var script: Boolean by FreezableVar(false)
-
-    @Argument(value = "-P", valueDescription = PLUGIN_OPTION_FORMAT, description = "Pass an option to a plugin")
-    var pluginOptions: Array<String>? by FreezableVar(null)
 
     @Argument(
         value = "-opt-in",
@@ -106,6 +110,12 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
 
     @Argument(value = "-Xplugin", valueDescription = "<path>", description = "Load plugins from the given classpath")
     var pluginClasspaths: Array<String>? by FreezableVar(null)
+
+    @Argument(value = "-P", valueDescription = PLUGIN_OPTION_FORMAT, description = "Pass an option to a plugin")
+    var pluginOptions: Array<String>? by FreezableVar(null)
+
+    @Argument(value = "-Xcompiler-plugin", valueDescription = "<path1>,<path2>:<optionName>=<value>,<optionName>=<value>", description = "Register compiler plugin", delimiter = "")
+    var pluginConfigurations: Array<String>? by FreezableVar(null)
 
     @Argument(value = "-Xmulti-platform", description = "Enable experimental language support for multi-platform projects")
     var multiPlatform: Boolean by FreezableVar(false)
@@ -292,7 +302,10 @@ abstract class CommonCompilerArguments : CommonToolArguments() {
     )
     var checkStickyPhaseConditions: Boolean by FreezableVar(false)
 
-    @GradleOption(DefaultValues.BooleanFalseDefault::class)
+    @GradleOption(
+        DefaultValue.BOOLEAN_FALSE_DEFAULT,
+        gradleInputType = GradleInputTypes.INPUT
+    )
     @Argument(
         value = "-Xuse-k2",
         deprecatedName = "-Xuse-fir",

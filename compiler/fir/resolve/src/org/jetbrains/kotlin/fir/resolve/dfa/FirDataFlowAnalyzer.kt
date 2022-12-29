@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.dfa
 
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.contracts.FirResolvedContractDescription
@@ -167,6 +168,7 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
 
     fun isAccessToUnstableLocalVariable(expression: FirExpression): Boolean {
         val qualifiedAccessExpression = when (expression) {
+            is FirSmartCastExpression -> expression.originalExpression as FirQualifiedAccessExpression
             is FirQualifiedAccessExpression -> expression
             is FirWhenSubjectExpression -> {
                 val whenExpression = expression.whenRef.value
@@ -284,6 +286,13 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         // TODO: questionable
         postponedLambdaEnterNode?.mergeIncomingFlow()
         functionEnterNode.mergeIncomingFlow(shouldForkFlow = true)
+        when (anonymousFunction.invocationKind) {
+            EventOccurrencesRange.AT_LEAST_ONCE,
+            EventOccurrencesRange.MORE_THAN_ONCE,
+            EventOccurrencesRange.UNKNOWN, null ->
+                enterCapturingStatement(functionEnterNode, anonymousFunction)
+            else -> {}
+        }
         logicSystem.updateAllReceivers(functionEnterNode.flow)
     }
 
@@ -292,9 +301,16 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
             anonymousFunction
         )
         val (functionExitNode, postponedLambdaExitNode, graph) = graphBuilder.exitAnonymousFunction(anonymousFunction)
+        when (anonymousFunction.invocationKind) {
+            EventOccurrencesRange.AT_LEAST_ONCE,
+            EventOccurrencesRange.MORE_THAN_ONCE,
+            EventOccurrencesRange.UNKNOWN, null ->
+                exitCapturingStatement(anonymousFunction)
+            else -> {}
+        }
         // TODO: questionable
-        postponedLambdaExitNode?.mergeIncomingFlow()
         functionExitNode.mergeIncomingFlow()
+        postponedLambdaExitNode?.mergeIncomingFlow()
         logicSystem.updateAllReceivers(graph.enterNode.computeIncomingFlow().first)
         return FirControlFlowGraphReferenceImpl(graph)
     }
@@ -987,6 +1003,10 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         processConditionalContract(qualifiedAccessExpression)
     }
 
+    fun exitSmartCastExpression(smartCastExpression: FirSmartCastExpression) {
+        graphBuilder.exitSmartCastExpression(smartCastExpression).mergeIncomingFlow()
+    }
+
     fun enterSafeCallAfterNullCheck(safeCall: FirSafeCallExpression) {
         val node = graphBuilder.enterSafeCall(safeCall).mergeIncomingFlow()
         val previousNode = node.firstPreviousNode
@@ -1047,19 +1067,26 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
         graphBuilder.enterCall()
     }
 
+    private tailrec fun FirExpression.getAnonymousFunction(): FirAnonymousFunction? = when (this) {
+        is FirAnonymousFunctionExpression -> anonymousFunction
+        is FirLambdaArgumentExpression -> expression.getAnonymousFunction()
+        else -> null
+    }
+
+    private var functionCallLevel = 0
+
     fun enterFunctionCall(functionCall: FirFunctionCall) {
-        val lambdaArgs = functionCall.arguments.mapNotNull { (it as? FirAnonymousFunctionExpression)?.anonymousFunction }
-        if (lambdaArgs.size > 1) {
-            getOrCreateLocalVariableAssignmentAnalyzer(lambdaArgs.first())?.enterFunctionCallWithMultipleLambdaArgs(lambdaArgs)
-        }
+        val lambdaArgs = functionCall.arguments.mapNotNullTo(mutableSetOf()) { it.getAnonymousFunction() }
+        val localVariableAssignmentAnalyzer = context.firLocalVariableAssignmentAnalyzer
+            ?: if (lambdaArgs.isNotEmpty()) getOrCreateLocalVariableAssignmentAnalyzer(lambdaArgs.first()) else null
+        localVariableAssignmentAnalyzer?.enterFunctionCall(lambdaArgs, functionCallLevel)
+        functionCallLevel++
     }
 
     @OptIn(PrivateForInline::class)
     fun exitFunctionCall(functionCall: FirFunctionCall, callCompleted: Boolean) {
-        val lambdaArgs = functionCall.arguments.mapNotNull { (it as? FirAnonymousFunctionExpression)?.anonymousFunction }
-        if (lambdaArgs.size > 1) {
-            getOrCreateLocalVariableAssignmentAnalyzer(lambdaArgs.first())?.exitFunctionCallWithMultipleLambdaArgs()
-        }
+        functionCallLevel--
+        context.firLocalVariableAssignmentAnalyzer?.exitFunctionCall(callCompleted)
         if (ignoreFunctionCalls) {
             graphBuilder.exitIgnoredCall(functionCall)
             return
@@ -1217,7 +1244,7 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
             logicSystem.recordNewAssignment(flow, propertyVariable, context.newAssignmentIndex())
         }
 
-        variableStorage.getOrCreateRealVariable(flow, initializer.symbol, initializer)
+        variableStorage.getOrCreateRealVariable(flow, initializer.symbol, initializer.unwrapSmartcastExpression())
             ?.let { initializerVariable ->
                 val isInitializerStable =
                     initializerVariable.isStable || (initializerVariable.hasLocalStability && initializer.isAccessToStableVariable())
@@ -1252,7 +1279,7 @@ abstract class FirDataFlowAnalyzer<FLOW : Flow>(
     }
 
     private fun FirExpression.isAccessToStableVariable(): Boolean =
-        this is FirQualifiedAccessExpression && !isAccessToUnstableLocalVariable(this)
+        !isAccessToUnstableLocalVariable(this)
 
     private val RealVariable.isStable get() = stability == PropertyStability.STABLE_VALUE
     private val RealVariable.hasLocalStability get() = stability == PropertyStability.LOCAL_VAR

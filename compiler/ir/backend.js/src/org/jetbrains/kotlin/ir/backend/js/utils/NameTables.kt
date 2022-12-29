@@ -115,23 +115,8 @@ fun Int.toJsIdentifier(): String {
     }
 }
 
-fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): String {
-    require(!declaration.isStaticMethodOfClass)
-    require(declaration.dispatchReceiverParameter != null)
-
-    var declarationName = declaration.getJsNameOrKotlinName().asString()
-
-    if (declaration.hasStableJsName(context)) {
-        // TODO: Handle reserved suffix in FE
-        require(!declarationName.endsWith(RESERVED_MEMBER_NAME_SUFFIX)) {
-            "Function ${declaration.fqNameWhenAvailable} uses reserved name suffix \"$RESERVED_MEMBER_NAME_SUFFIX\""
-        }
-        return declarationName
-    }
-
-    declaration.nameIfPropertyAccessor()?.let {
-        declarationName = it
-    }
+fun calculateJsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): String {
+    val declarationName = declaration.nameIfPropertyAccessor() ?: declaration.getJsNameOrKotlinName().asString()
 
     val nameBuilder = StringBuilder()
     nameBuilder.append(declarationName)
@@ -139,7 +124,13 @@ fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): S
     // TODO should we skip type parameters and use upper bound of type parameter when print type of value parameters?
     declaration.typeParameters.ifNotEmpty {
         nameBuilder.append("_\$t")
-        joinTo(nameBuilder, "") { "_${it.name.asString()}" }
+        forEach { typeParam ->
+            nameBuilder.append("_").append(typeParam.name.asString())
+            typeParam.superTypes.ifNotEmpty {
+                nameBuilder.append("$")
+                joinTo(nameBuilder, "") { type -> type.asString() }
+            }
+        }
     }
     declaration.extensionReceiverParameter?.let {
         nameBuilder.append("_r$${it.type.asString()}")
@@ -162,6 +153,26 @@ fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): S
         declarationName,
         withHash = false
     ) + "_" + abs(signature.hashCode()).toString(Character.MAX_RADIX) + RESERVED_MEMBER_NAME_SUFFIX
+}
+
+fun jsFunctionSignature(
+    declaration: IrFunction,
+    context: JsIrBackendContext
+): String {
+    require(!declaration.isStaticMethodOfClass)
+    require(declaration.dispatchReceiverParameter != null)
+
+    if (declaration.hasStableJsName(context)) {
+        val declarationName = declaration.getJsNameOrKotlinName().asString()
+        // TODO: Handle reserved suffix in FE
+        require(!declarationName.endsWith(RESERVED_MEMBER_NAME_SUFFIX)) {
+            "Function ${declaration.fqNameWhenAvailable} uses reserved name suffix \"$RESERVED_MEMBER_NAME_SUFFIX\""
+        }
+        return declarationName
+    }
+
+    val declarationSignature = (declaration as? IrSimpleFunction)?.resolveFakeOverride() ?: declaration
+    return calculateJsFunctionSignature(declarationSignature, context)
 }
 
 class NameTables(
@@ -405,7 +416,8 @@ fun sanitizeName(name: String, withHash: Boolean = true): String {
     if (name.isValidES5Identifier()) return name
     if (name.isEmpty()) return "_"
 
-    val builder = StringBuilder()
+    // 7 = _ + MAX_INT.toString(Character.MAX_RADIX)
+    val builder = StringBuilder(name.length + if (withHash) 7 else 0)
 
     val first = name.first()
 

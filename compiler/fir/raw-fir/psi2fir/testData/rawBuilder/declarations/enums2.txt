@@ -19,7 +19,7 @@ FILE: enums2.kt
         }
 
         public? final? [IsFromPrimaryConstructor=true] val x: Some = R|<local>/x|
-            [ContainingClassKey=SomeEnum] public? get(): Some
+            public? [ContainingClassKey=SomeEnum] get(): Some
 
         public final static [ContainingClassKey=SomeEnum] enum entry FIRST: R|SomeEnum| = object : R|SomeEnum| {
             private [ContainingClassKey=<anonymous>] constructor(): R|<anonymous>| {
@@ -50,5 +50,8 @@ FILE: enums2.kt
 
         public final static [ContainingClassKey=SomeEnum] fun valueOf(value: R|kotlin/String|): R|SomeEnum| {
         }
+
+        public final static [ContainingClassKey=SomeEnum] val entries: R|kotlin/enums/EnumEntries<SomeEnum>|
+            public get(): R|kotlin/enums/EnumEntries<SomeEnum>|
 
     }

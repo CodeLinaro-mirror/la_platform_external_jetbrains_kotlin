@@ -3,6 +3,7 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: java/lang/String
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
   isData: false
   isExternal: false
   isFun: false
@@ -14,7 +15,7 @@ KtNamedClassOrObjectSymbol:
   superTypes: [
     kotlin/Any
     java/io/Serializable
-    kotlin/Comparable<ft<kotlin/String, kotlin/String?>>
+    kotlin/Comparable<kotlin/String!>
     kotlin/CharSequence
   ]
   symbolKind: TOP_LEVEL

@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.lightTree.LightTree2Fir
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirProviderImpl
+import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
 import org.jetbrains.kotlin.fir.session.FirSessionFactory
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -105,9 +106,6 @@ abstract class AbstractFirBaseDiagnosticsTest : BaseDiagnosticsTest() {
                 needRegisterJavaElementFinder = true
             ) {
                 configureSession()
-                getFirExtensions()?.let {
-                    registerExtensions(it)
-                }
             }
         }
 
@@ -125,10 +123,6 @@ abstract class AbstractFirBaseDiagnosticsTest : BaseDiagnosticsTest() {
         }
 
         runAnalysis(testDataFile, files, firFilesPerSession)
-    }
-
-    protected open fun getFirExtensions(): BunchOfRegisteredExtensions? {
-        return null
     }
 
     private fun mapKtFilesToFirFiles(session: FirSession, ktFiles: List<KtFile>, firFiles: MutableList<FirFile>, useLightTree: Boolean) {
@@ -359,5 +353,5 @@ abstract class AbstractFirBaseDiagnosticsTest : BaseDiagnosticsTest() {
         return result
     }
 
-    protected open fun FirSessionFactory.FirSessionConfigurator.configureSession() {}
+    protected open fun FirSessionConfigurator.configureSession() {}
 }

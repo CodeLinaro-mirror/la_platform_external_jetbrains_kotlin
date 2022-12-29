@@ -253,13 +253,12 @@ class GenerationState private constructor(
             JvmClosureGenerationScheme.CLASS
     }
 
-    val lambdasScheme = run {
-        val fromConfig = configuration.get(JVMConfigurationKeys.LAMBDAS)
-            ?: JvmClosureGenerationScheme.DEFAULT
-        if (target >= fromConfig.minJvmTarget)
-            fromConfig
-        else
-            JvmClosureGenerationScheme.DEFAULT
+    val lambdasScheme = configuration.get(JVMConfigurationKeys.LAMBDAS).let { fromConfig ->
+        if (fromConfig == null || target < fromConfig.minJvmTarget) {
+            if (languageVersionSettings.supportsFeature(LanguageFeature.LightweightLambdas) && target >= JvmClosureGenerationScheme.INDY.minJvmTarget)
+                JvmClosureGenerationScheme.INDY
+            else JvmClosureGenerationScheme.CLASS
+        } else fromConfig
     }
 
     val moduleName: String = moduleName ?: JvmCodegenUtil.getModuleName(module)
@@ -323,6 +322,7 @@ class GenerationState private constructor(
     val unifiedNullChecks: Boolean =
         languageVersionSettings.apiVersion >= ApiVersion.KOTLIN_1_4 &&
                 !configuration.getBoolean(JVMConfigurationKeys.NO_UNIFIED_NULL_CHECKS)
+    val generateSmapCopyToAnnotation: Boolean = !configuration.getBoolean(JVMConfigurationKeys.NO_SOURCE_DEBUG_EXTENSION)
     val functionsWithInlineClassReturnTypesMangled: Boolean =
         languageVersionSettings.supportsFeature(LanguageFeature.MangleClassMembersReturningInlineClasses)
     val shouldValidateIr = configuration.getBoolean(JVMConfigurationKeys.VALIDATE_IR)
@@ -349,6 +349,8 @@ class GenerationState private constructor(
 
     val abiStability = configuration.get(JVMConfigurationKeys.ABI_STABILITY)
 
+    val noNewJavaAnnotationTargets = configuration.getBoolean(JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS)
+
     val globalSerializationBindings = JvmSerializationBindings()
     var mapInlineClass: (ClassDescriptor) -> Type = { descriptor -> typeMapper.mapType(descriptor.defaultType) }
 
@@ -357,6 +359,8 @@ class GenerationState private constructor(
             TypeApproximator(module.builtIns, languageVersionSettings)
         else
             null
+
+    val oldInnerClassesLogic = configuration.getBoolean(JVMConfigurationKeys.OLD_INNER_CLASSES_LOGIC)
 
     init {
         this.interceptedBuilderFactory = builderFactory
@@ -435,8 +439,8 @@ class GenerationState private constructor(
             this[KOTLIN_1_4] = JvmMetadataVersion(1, 4, 3)
             this[KOTLIN_1_5] = JvmMetadataVersion(1, 5, 1)
             this[KOTLIN_1_6] = JvmMetadataVersion(1, 6, 0)
-            this[KOTLIN_1_7] = JvmMetadataVersion.INSTANCE
-            this[KOTLIN_1_8] = JvmMetadataVersion(1, 8, 0)
+            this[KOTLIN_1_7] = JvmMetadataVersion(1, 7, 0)
+            this[KOTLIN_1_8] = JvmMetadataVersion.INSTANCE
             this[KOTLIN_1_9] = JvmMetadataVersion(1, 9, 0)
 
             check(size == LanguageVersion.values().size) {

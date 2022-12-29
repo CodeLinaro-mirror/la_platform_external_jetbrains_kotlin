@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -33,10 +33,6 @@ private const val COROUTINES_METADATA_METHOD_NAME_JVM_NAME = "m"
 private const val COROUTINES_METADATA_CLASS_NAME_JVM_NAME = "c"
 private const val COROUTINES_METADATA_VERSION_JVM_NAME = "v"
 
-const val SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME = "\$completion"
-const val SUSPEND_CALL_RESULT_NAME = "\$result"
-const val ILLEGAL_STATE_ERROR_MESSAGE = "call to 'resume' before 'invoke' with coroutine"
-
 class CoroutineTransformerMethodVisitor(
     delegate: MethodVisitor,
     access: Int,
@@ -61,7 +57,8 @@ class CoroutineTransformerMethodVisitor(
     // JVM_IR backend generates $completion, while old backend does not
     private val putContinuationParameterToLvt: Boolean = true,
     // Parameters of suspend lambda are put to the same fields as spilled variables
-    private val initialVarsCountByType: Map<Type, Int> = emptyMap()
+    private val initialVarsCountByType: Map<Type, Int> = emptyMap(),
+    private val shouldOptimiseUnusedVariables: Boolean = true
 ) : TransformationMethodVisitor(delegate, access, name, desc, signature, exceptions) {
 
     private val classBuilderForCoroutineState: ClassBuilder by lazy(obtainClassBuilderForCoroutineState)
@@ -206,7 +203,9 @@ class CoroutineTransformerMethodVisitor(
         dropUnboxInlineClassMarkers(methodNode, suspensionPoints)
         methodNode.removeEmptyCatchBlocks()
 
-        updateLvtAccordingToLiveness(methodNode, isForNamedFunction, stateLabels)
+        if (shouldOptimiseUnusedVariables) {
+            updateLvtAccordingToLiveness(methodNode, isForNamedFunction, stateLabels)
+        }
 
         writeDebugMetadata(methodNode, suspensionPointLineNumbers, spilledToVariableMapping)
     }
@@ -667,7 +666,7 @@ class CoroutineTransformerMethodVisitor(
             for (slot in 0 until localsCount) {
                 if (slot == continuationIndex || slot == dataIndex) continue
                 val value = frame.getLocal(slot)
-                if (value.type == null || !livenessFrame.isAlive(slot)) continue
+                if (value.type == null || (shouldOptimiseUnusedVariables && !livenessFrame.isAlive(slot))) continue
 
                 if (value == StrictBasicValue.NULL_VALUE) {
                     referencesToSpill += slot to null
@@ -875,12 +874,16 @@ class CoroutineTransformerMethodVisitor(
             for ((slot, referenceToSpill) in referencesToSpillBySuspensionPointIndex[suspensionPointIndex]) {
                 generateSpillAndUnspill(suspension, slot, referenceToSpill)
             }
-            val (currentSpilledCount, predSpilledCount) = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
-            if (predSpilledCount > currentSpilledCount) {
-                for (fieldIndex in currentSpilledCount until predSpilledCount) {
-                    cleanUpField(suspension, fieldIndex)
+
+            if (shouldOptimiseUnusedVariables) {
+                val (currentSpilledCount, predSpilledCount) = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
+                if (predSpilledCount > currentSpilledCount) {
+                    for (fieldIndex in currentSpilledCount until predSpilledCount) {
+                        cleanUpField(suspension, fieldIndex)
+                    }
                 }
             }
+
             for ((slot, primitiveToSpill) in primitivesToSpillBySuspensionPointIndex[suspensionPointIndex]) {
                 generateSpillAndUnspill(suspension, slot, primitiveToSpill)
             }

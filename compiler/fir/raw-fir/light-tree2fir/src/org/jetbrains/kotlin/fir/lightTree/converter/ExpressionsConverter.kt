@@ -195,7 +195,7 @@ class ExpressionsConverter(
                         if (statements.isEmpty()) {
                             statements.add(
                                 buildReturnExpression {
-                                    source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitReturn)
+                                    source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitReturn.FromExpressionBody)
                                     this.target = target
                                     result = buildUnitExpression {
                                         source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitUnit)
@@ -1059,7 +1059,7 @@ class ExpressionsConverter(
         var blockNode: LighterASTNode? = null
         forLoop.forEachChildren {
             when (it.tokenType) {
-                VALUE_PARAMETER -> parameter = declarationsConverter.convertValueParameter(it)
+                VALUE_PARAMETER -> parameter = declarationsConverter.convertValueParameter(it, ValueParameterDeclaration.FOR_LOOP)
                 LOOP_RANGE -> rangeExpression = getAsFirExpression(it, "No range in for loop")
                 BODY -> blockNode = it
             }

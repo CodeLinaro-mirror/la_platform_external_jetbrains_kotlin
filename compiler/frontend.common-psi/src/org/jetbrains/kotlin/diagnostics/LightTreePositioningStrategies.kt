@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.psi.KtParameter.VAL_VAR_TOKEN_SET
 import org.jetbrains.kotlin.psi.stubs.elements.KtConstantExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStringTemplateExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
+import org.jetbrains.kotlin.psi.stubs.elements.KtTokenSets
 import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 
 object LightTreePositioningStrategies {
@@ -596,7 +597,7 @@ object LightTreePositioningStrategies {
                 return super.mark(node, startOffset, endOffset, tree)
             }
             if (node.tokenType == KtNodeTypes.TYPE_REFERENCE) {
-                val typeElement = tree.findChildByType(node, KtStubElementTypes.TYPE_ELEMENT_TYPES)
+                val typeElement = tree.findChildByType(node, KtTokenSets.TYPE_ELEMENT_TYPES)
                 if (typeElement != null) {
                     val referencedTypeExpression = tree.referencedTypeExpression(typeElement)
                     if (referencedTypeExpression != null) {
@@ -612,7 +613,7 @@ object LightTreePositioningStrategies {
         return when (node.tokenType) {
             KtNodeTypes.USER_TYPE -> findChildByType(node, KtNodeTypes.REFERENCE_EXPRESSION)
                 ?: findChildByType(node, KtNodeTypes.ENUM_ENTRY_SUPERCLASS_REFERENCE_EXPRESSION)
-            KtNodeTypes.NULLABLE_TYPE -> findChildByType(node, KtStubElementTypes.TYPE_ELEMENT_TYPES)
+            KtNodeTypes.NULLABLE_TYPE -> findChildByType(node, KtTokenSets.TYPE_ELEMENT_TYPES)
                 ?.let { referencedTypeExpression(it) }
             else -> null
         }
@@ -687,7 +688,7 @@ object LightTreePositioningStrategies {
                     return markElement(nodeToMark, startOffset, endOffset, tree, node)
                 }
                 node.tokenType == KtNodeTypes.IMPORT_DIRECTIVE -> {
-                    val nodeToMark = tree.findChildByType(node, KtStubElementTypes.INSIDE_DIRECTIVE_EXPRESSIONS) ?: node
+                    val nodeToMark = tree.findChildByType(node, KtTokenSets.INSIDE_DIRECTIVE_EXPRESSIONS) ?: node
                     return markElement(nodeToMark, startOffset, endOffset, tree, node)
                 }
                 node.tokenType != KtNodeTypes.DOT_QUALIFIED_EXPRESSION &&
@@ -854,6 +855,14 @@ object LightTreePositioningStrategies {
             }
             if (node.tokenType == KtNodeTypes.LABEL_QUALIFIER) {
                 return super.mark(node, startOffset, endOffset - 1, tree)
+            }
+            if (node.tokenType == KtNodeTypes.PACKAGE_DIRECTIVE) {
+                val referenceExpression = tree.findLastDescendant(node) {
+                    it.tokenType == KtNodeTypes.REFERENCE_EXPRESSION
+                }
+                if (referenceExpression != null) {
+                    return markElement(referenceExpression, startOffset, endOffset, tree, node)
+                }
             }
             return DEFAULT.mark(node, startOffset, endOffset, tree)
         }
@@ -1449,8 +1458,28 @@ fun FlyweightCapableTreeStructure<LighterASTNode>.findFirstDescendant(
 ): LighterASTNode? {
     val childrenRef = Ref<Array<LighterASTNode?>>()
     getChildren(node, childrenRef)
-    return childrenRef.get()?.firstOrNull { it != null && predicate(it) }
-        ?: childrenRef.get()?.firstNotNullOfOrNull { child -> child?.let { findFirstDescendant(it, predicate) } }
+    val nodes = childrenRef.get()
+    return nodes?.firstOrNull { it != null && predicate(it) }
+        ?: nodes?.firstNotNullOfOrNull { child -> child?.let { findFirstDescendant(it, predicate) } }
+}
+
+fun FlyweightCapableTreeStructure<LighterASTNode>.findLastDescendant(
+    node: LighterASTNode,
+    predicate: (LighterASTNode) -> Boolean
+): LighterASTNode? {
+    val childrenRef = Ref<Array<LighterASTNode?>>()
+    getChildren(node, childrenRef)
+    val nodes = childrenRef.get()
+    return nodes?.lastOrNull { it != null && predicate(it) }
+        ?: run {
+            for (child in nodes.reversed()) {
+                val result = child?.let { findLastDescendant(it, predicate) }
+                if (result != null) {
+                    return result
+                }
+            }
+            return null
+        }
 }
 
 fun FlyweightCapableTreeStructure<LighterASTNode>.collectDescendantsOfType(

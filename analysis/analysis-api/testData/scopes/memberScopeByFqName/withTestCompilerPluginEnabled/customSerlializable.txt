@@ -1,6 +1,7 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: test/Serializer.serializeFirstTarget
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -29,6 +30,7 @@ KtFunctionSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: test/Serializer.serializeSecondTarget
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -57,6 +59,7 @@ KtFunctionSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.equals
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -79,12 +82,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.hashCode
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -105,12 +109,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.toString
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -131,13 +136,14 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtConstructorSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
   containingClassIdIfNonLocal: test/Serializer
+  contextReceivers: []
   hasStableParameterNames: true
   isExtension: false
   isPrimary: true

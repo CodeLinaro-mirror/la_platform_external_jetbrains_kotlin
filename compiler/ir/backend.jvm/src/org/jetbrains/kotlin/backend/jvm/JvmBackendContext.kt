@@ -71,8 +71,8 @@ class JvmBackendContext(
 
     override val builtIns = state.module.builtIns
     override val typeSystem: IrTypeSystemContext = JvmIrTypeSystemContext(irBuiltIns)
-    val typeMapper = IrTypeMapper(this)
-    val methodSignatureMapper = MethodSignatureMapper(this)
+    val defaultTypeMapper = IrTypeMapper(this)
+    val defaultMethodSignatureMapper = MethodSignatureMapper(this, defaultTypeMapper)
 
     val innerClassesSupport = JvmInnerClassesSupport(irFactory)
     val cachedDeclarations = JvmCachedDeclarations(
@@ -149,17 +149,15 @@ class JvmBackendContext(
 
     val inlineMethodGenerationLock = Any()
 
-    val directInvokedLambdas = mutableListOf<IrAttributeContainer>()
-
     val publicAbiSymbols = mutableSetOf<IrClassSymbol>()
 
     init {
         state.mapInlineClass = { descriptor ->
-            typeMapper.mapType(referenceClass(descriptor).defaultType)
+            defaultTypeMapper.mapType(referenceClass(descriptor).defaultType)
         }
     }
 
-    internal fun referenceClass(descriptor: ClassDescriptor): IrClassSymbol =
+    fun referenceClass(descriptor: ClassDescriptor): IrClassSymbol =
         symbolTable.lazyWrapper.referenceClass(descriptor)
 
     internal fun referenceTypeParameter(descriptor: TypeParameterDescriptor): IrTypeParameterSymbol =

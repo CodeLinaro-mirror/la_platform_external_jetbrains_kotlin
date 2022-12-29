@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.FirDeclarationInspector
 import org.jetbrains.kotlin.fir.analysis.checkers.FirDeclarationPresenter
@@ -13,7 +14,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirOuterClassTypeParameterRef
 import org.jetbrains.kotlin.fir.resolve.getContainingDeclaration
@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirPackageMemberScope
 import org.jetbrains.kotlin.fir.scopes.impl.PACKAGE_MEMBER
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.util.ListMultimap
@@ -83,7 +83,7 @@ object FirConflictsChecker : FirBasicDeclarationChecker() {
             conflictingFile: FirFile?,
             session: FirSession
         ) {
-            conflictingSymbol.ensureResolved(FirResolvePhase.STATUS)
+            conflictingSymbol.lazyResolveToPhase(FirResolvePhase.STATUS)
             @OptIn(SymbolInternals::class)
             val conflicting = conflictingSymbol.fir
             if (declaration.moduleData != conflicting.moduleData) return
@@ -95,13 +95,18 @@ object FirConflictsChecker : FirBasicDeclarationChecker() {
                     is FirCallableSymbol<*> -> session.firProvider.getFirCallableContainerFile(conflictingSymbol)
                     else -> null
                 }
-            if (containingFile == actualConflictingFile) return // TODO: rewrite local decls checker to the same logic and then remove the check
+            if (containingFile == actualConflictingFile && conflicting.origin == FirDeclarationOrigin.Precompiled) {
+                return // TODO: rewrite local decls checker to the same logic and then remove the check
+            }
             if (areCompatibleMainFunctions(declaration, containingFile, conflicting, actualConflictingFile)) return
             if (isExpectAndActual(declaration, conflicting)) return
             if (
                 conflicting is FirMemberDeclaration &&
                 !session.visibilityChecker.isVisible(conflicting, session, containingFile, emptyList(), null)
             ) return
+            val declarationIsLowPriority = hasLowPriorityAnnotation(declaration.annotations)
+            val conflictingIsLowPriority = hasLowPriorityAnnotation(conflicting.annotations)
+            if (declarationIsLowPriority != conflictingIsLowPriority) return
             declarationConflictingSymbols.getOrPut(declaration) { SmartSet.create() }.add(conflictingSymbol)
         }
 
@@ -125,7 +130,7 @@ object FirConflictsChecker : FirBasicDeclarationChecker() {
                             )
                         }
                         packageMemberScope.processClassifiersByNameWithSubstitution(declarationName) { symbol, _ ->
-                            symbol.ensureResolved(FirResolvePhase.STATUS)
+                            symbol.lazyResolveToPhase(FirResolvePhase.STATUS)
                             @OptIn(SymbolInternals::class)
                             val classWithSameName = symbol.fir as? FirRegularClass
                             classWithSameName?.onConstructors { constructor ->
@@ -228,23 +233,21 @@ object FirConflictsChecker : FirBasicDeclarationChecker() {
             inspector.declarationConflictingSymbols.forEach { (conflictingDeclaration, symbols) ->
                 val source = conflictingDeclaration.source
                 if (source != null && symbols.isNotEmpty()) {
-                    withSuppressedDiagnostics(conflictingDeclaration, context) { ctx ->
-                        when (conflictingDeclaration) {
-                            is FirSimpleFunction,
-                            is FirConstructor -> {
-                                reporter.reportOn(source, FirErrors.CONFLICTING_OVERLOADS, symbols, ctx)
+                    when (conflictingDeclaration) {
+                        is FirSimpleFunction,
+                        is FirConstructor -> {
+                            reporter.reportOn(source, FirErrors.CONFLICTING_OVERLOADS, symbols, context)
+                        }
+                        else -> {
+                            val factory = if (conflictingDeclaration is FirClassLikeDeclaration &&
+                                conflictingDeclaration.getContainingDeclaration(context.session) == null &&
+                                symbols.any { it is FirClassLikeSymbol<*> }
+                            ) {
+                                FirErrors.PACKAGE_OR_CLASSIFIER_REDECLARATION
+                            } else {
+                                FirErrors.REDECLARATION
                             }
-                            else -> {
-                                val factory = if (conflictingDeclaration is FirClassLikeDeclaration &&
-                                    conflictingDeclaration.getContainingDeclaration(ctx.session) == null &&
-                                    symbols.any { it is FirClassLikeSymbol<*> }
-                                ) {
-                                    FirErrors.PACKAGE_OR_CLASSIFIER_REDECLARATION
-                                } else {
-                                    FirErrors.REDECLARATION
-                                }
-                                reporter.reportOn(source, factory, symbols, ctx)
-                            }
+                            reporter.reportOn(source, factory, symbols, context)
                         }
                     }
                 }
@@ -288,10 +291,6 @@ object FirConflictsChecker : FirBasicDeclarationChecker() {
                 is FirTypeParameterRef -> {
                     symbol = parameter.symbol
                     name = symbol.name
-                }
-                is FirTypeParameter -> {
-                    symbol = parameter.symbol
-                    name = parameter.name
                 }
                 else -> throw AssertionError("Invalid parameter type")
             }
@@ -359,7 +358,7 @@ class FirNameConflictsTracker : FirNameConflictsTrackerComponent() {
     }
 }
 
-private fun FirDeclaration.onConstructors(action: (ctor: FirConstructor) -> Unit) {
+private fun FirRegularClass.onConstructors(action: (ctor: FirConstructor) -> Unit) {
 
     class ClassConstructorVisitor : FirVisitorVoid() {
         override fun visitElement(element: FirElement) {}
@@ -374,7 +373,9 @@ private fun FirDeclaration.onConstructors(action: (ctor: FirConstructor) -> Unit
         override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {}
     }
 
-    acceptChildren(ClassConstructorVisitor())
+    if (classKind != ClassKind.OBJECT && classKind != ClassKind.ENUM_ENTRY) {
+        acceptChildren(ClassConstructorVisitor())
+    }
 }
 
 

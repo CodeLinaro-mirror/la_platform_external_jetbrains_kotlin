@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.codegen.coroutines.INVOKE_SUSPEND_METHOD_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_CALL_RESULT_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_FUNCTION_CREATE_METHOD_NAME
-import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.InlineClassRepresentation
@@ -55,6 +54,7 @@ class JvmSymbols(
     private val kotlinJvmPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm"))
     private val kotlinJvmInternalPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm.internal"))
     private val kotlinJvmFunctionsPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm.functions"))
+    private val kotlinEnumsPackage: IrPackageFragment = createPackage(FqName("kotlin.enums"))
     private val kotlinReflectPackage: IrPackageFragment = createPackage(FqName("kotlin.reflect"))
     private val javaLangPackage: IrPackageFragment = createPackage(FqName("java.lang"))
     private val javaLangInvokePackage: IrPackageFragment = createPackage(FqName("java.lang.invoke"))
@@ -96,6 +96,7 @@ class JvmSymbols(
                 "kotlin" -> kotlinPackage
                 "kotlin.coroutines" -> kotlinCoroutinesPackage
                 "kotlin.coroutines.jvm.internal" -> kotlinCoroutinesJvmInternalPackage
+                "kotlin.enums" -> kotlinEnumsPackage
                 "kotlin.jvm.internal" -> kotlinJvmInternalPackage
                 "kotlin.jvm.functions" -> kotlinJvmFunctionsPackage
                 "kotlin.jvm" -> kotlinJvmPackage
@@ -213,6 +214,20 @@ class JvmSymbols(
             }
         }
     }
+
+    val enumEntries: IrClassSymbol = createClass(FqName("kotlin.enums.EnumEntries"), ClassKind.INTERFACE) { klass ->
+        // Actually it is E : Enum<E>, but doesn't seem to have any effect yet
+        klass.addTypeParameter("E", irBuiltIns.anyNType)
+    }
+
+    private val enumEntriesKt: IrClassSymbol = createClass(FqName("kotlin.enums.EnumEntriesKt")) { klass ->
+        klass.addFunction("enumEntries", enumEntries.defaultType, isStatic = true).apply {
+            addValueParameter("entriesProvider",
+                              irBuiltIns.functionN(0).typeWith(irBuiltIns.arrayClass.typeWith(klass.typeParameters.map { it.defaultType })))
+        }
+    }
+
+    val createEnumEntries: IrSimpleFunctionSymbol = enumEntriesKt.functions.single { it.owner.name.asString() == "enumEntries" }
 
     override val defaultConstructorMarker: IrClassSymbol =
         createClass(FqName("kotlin.jvm.internal.DefaultConstructorMarker"))
@@ -1104,7 +1119,7 @@ class JvmSymbols(
             KotlinRetention.RUNTIME to rpRuntime
         )
 
-        private val jvm6TargetMap = mutableMapOf(
+        val jvmTargetMap = mutableMapOf(
             KotlinTarget.CLASS to buildEnumEntry(elementTypeEnum, "TYPE"),
             KotlinTarget.ANNOTATION_CLASS to buildEnumEntry(elementTypeEnum, "ANNOTATION_TYPE"),
             KotlinTarget.CONSTRUCTOR to buildEnumEntry(elementTypeEnum, "CONSTRUCTOR"),
@@ -1116,13 +1131,8 @@ class JvmSymbols(
             KotlinTarget.VALUE_PARAMETER to buildEnumEntry(elementTypeEnum, "PARAMETER")
         )
 
-        private val jvm8TargetMap = jvm6TargetMap + mutableMapOf(
-            KotlinTarget.TYPE_PARAMETER to buildEnumEntry(elementTypeEnum, "TYPE_PARAMETER"),
-            KotlinTarget.TYPE to buildEnumEntry(elementTypeEnum, "TYPE_USE")
-        )
-
-        fun getAnnotationTargetMap(target: JvmTarget): Map<KotlinTarget, IrEnumEntry> =
-            if (target == JvmTarget.JVM_1_6) jvm6TargetMap else jvm8TargetMap
+        val typeParameterTarget = buildEnumEntry(elementTypeEnum, "TYPE_PARAMETER")
+        val typeUseTarget = buildEnumEntry(elementTypeEnum, "TYPE_USE")
     }
 
     companion object {

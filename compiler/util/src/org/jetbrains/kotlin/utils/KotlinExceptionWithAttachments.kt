@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.utils
 
 import com.intellij.openapi.diagnostic.Attachment
 import com.intellij.openapi.diagnostic.ExceptionWithAttachments
+import java.nio.charset.StandardCharsets
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -17,8 +18,18 @@ open class KotlinExceptionWithAttachments : RuntimeException, ExceptionWithAttac
 
     constructor(message: String?, cause: Throwable?) : super(message, cause) {
         if (cause is KotlinExceptionWithAttachments) {
-            attachments.addAll(cause.attachments)
+            cause.attachments.mapTo(attachments) { attachment ->
+                attachment.copyWithNewName("case_${attachment.path}")
+            }
         }
+        if (cause != null) {
+            withAttachment("causeThrowable", cause.stackTraceToString())
+        }
+    }
+
+    private fun Attachment.copyWithNewName(newName: String): Attachment {
+        val content = String(bytes, StandardCharsets.UTF_8)
+        return Attachment(newName, content)
     }
 
     override fun getAttachments(): Array<Attachment> = attachments.toTypedArray()
@@ -29,9 +40,10 @@ open class KotlinExceptionWithAttachments : RuntimeException, ExceptionWithAttac
     }
 }
 
+
 @OptIn(ExperimentalContracts::class)
 inline fun checkWithAttachment(value: Boolean, lazyMessage: () -> String, attachments: (KotlinExceptionWithAttachments) -> Unit = {}) {
-    contract { returns() implies(value) }
+    contract { returns() implies (value) }
 
     if (!value) {
         val e = KotlinExceptionWithAttachments(lazyMessage())

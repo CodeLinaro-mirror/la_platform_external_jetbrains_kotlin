@@ -179,7 +179,7 @@ open class RawFirBuilder(
         open fun convertValueParameter(
             valueParameter: KtParameter,
             defaultTypeRef: FirTypeRef? = null,
-            valueParameterDeclaration: ValueParameterDeclaration = ValueParameterDeclaration.OTHER,
+            valueParameterDeclaration: ValueParameterDeclaration,
             additionalAnnotations: List<FirAnnotation> = emptyList()
         ): FirValueParameter = valueParameter.toFirValueParameter(defaultTypeRef, valueParameterDeclaration, additionalAnnotations)
 
@@ -406,7 +406,7 @@ open class RawFirBuilder(
                         annotations += accessorAnnotationsFromProperty
                         this@RawFirBuilder.context.firFunctionTargets += accessorTarget
                         extractValueParametersTo(
-                            this, ValueParameterDeclaration.OTHER, propertyTypeRefToUse, parameterAnnotationsFromProperty
+                            this, ValueParameterDeclaration.SETTER, propertyTypeRefToUse, parameterAnnotationsFromProperty
                         )
                         if (!isGetter && valueParameters.isEmpty()) {
                             valueParameters += buildDefaultSetterValueParameter {
@@ -538,6 +538,7 @@ open class RawFirBuilder(
                 returnTypeRef = when {
                     typeReference != null -> typeReference.toFirOrErrorType()
                     defaultTypeRef != null -> defaultTypeRef
+                    valueParameterDeclaration.shouldExplicitParameterTypeBePresent -> createNoTypeForParameterTypeRef()
                     else -> null.toFirOrImplicitType()
                 }
                 this.name = name
@@ -568,7 +569,7 @@ open class RawFirBuilder(
 
         private fun KtParameter.toFirProperty(firParameter: FirValueParameter): FirProperty {
             require(hasValOrVar())
-            val type = typeReference.toFirOrErrorType()
+            val type = typeReference.convertSafe<FirTypeRef>() ?: createNoTypeForParameterTypeRef()
             val status = FirDeclarationStatusImpl(visibility, modality).apply {
                 isExpect = hasExpectModifier() || this@RawFirBuilder.context.containerIsExpect
                 isActual = hasActualModifier()
@@ -600,6 +601,15 @@ open class RawFirBuilder(
                 isVar = isMutable
                 symbol = FirPropertySymbol(callableIdForName(propertyName))
                 isLocal = false
+                backingField = FirDefaultPropertyBackingField(
+                    moduleData = baseModuleData,
+                    annotations = mutableListOf(),
+                    returnTypeRef = returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DefaultAccessor),
+                    isVar = isVar,
+                    propertySymbol = symbol,
+                    status = status.copy(),
+                )
+
                 this.status = status
                 val defaultAccessorSource = propertySource.fakeElement(KtFakeSourceElementKind.DefaultAccessor)
                 getter = FirDefaultPropertyGetter(
@@ -1166,6 +1176,10 @@ open class RawFirBuilder(
                                 baseModuleData, context.packageFqName, context.className,
                                 classIsExpect
                             )
+                            generateEntriesGetter(
+                                baseModuleData, context.packageFqName, context.className,
+                                classIsExpect
+                            )
                         }
 
                         initCompanionObjectSymbolAttr()
@@ -1310,7 +1324,7 @@ open class RawFirBuilder(
                     valueParameters += convertValueParameter(
                         valueParameter,
                         null,
-                        if (isAnonymousFunction) ValueParameterDeclaration.LAMBDA else ValueParameterDeclaration.OTHER
+                        if (isAnonymousFunction) ValueParameterDeclaration.LAMBDA else ValueParameterDeclaration.FUNCTION
                     )
                 }
                 val actualTypeParameters = if (this is FirSimpleFunctionBuilder)
@@ -1435,7 +1449,7 @@ open class RawFirBuilder(
                         if (statements.isEmpty()) {
                             statements.add(
                                 buildReturnExpression {
-                                    source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitReturn)
+                                    source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitReturn.FromExpressionBody)
                                     this.target = target
                                     result = buildUnitExpression {
                                         source = expressionSource.fakeElement(KtFakeSourceElementKind.ImplicitUnit)
@@ -1485,7 +1499,7 @@ open class RawFirBuilder(
                 this@RawFirBuilder.context.firFunctionTargets += target
                 extractAnnotationsTo(this)
                 typeParameters += constructorTypeParametersFromConstructedClass(ownerTypeParameters)
-                extractValueParametersTo(this, ValueParameterDeclaration.OTHER)
+                extractValueParametersTo(this, ValueParameterDeclaration.FUNCTION)
 
 
                 val (body, _) = buildFirBody()
@@ -1774,7 +1788,7 @@ open class RawFirBuilder(
                         // TODO: probably implicit type should not be here
                         returnTypeRef = unwrappedElement.returnTypeReference.toFirOrErrorType()
                         for (valueParameter in unwrappedElement.parameters) {
-                            valueParameters += valueParameter.convert<FirValueParameter>()
+                            valueParameters += convertValueParameter(valueParameter, valueParameterDeclaration = ValueParameterDeclaration.FUNCTIONAL_TYPE)
                         }
 
                         contextReceiverTypeRefs.addAll(
@@ -1847,9 +1861,6 @@ open class RawFirBuilder(
                 }
             }
         }
-
-        override fun visitParameter(parameter: KtParameter, data: Unit): FirElement =
-            convertValueParameter(parameter)
 
         override fun visitBlockExpression(expression: KtBlockExpression, data: Unit): FirElement {
             return configureBlockWithoutBuilding(expression).build()

@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirOptInUsageBaseCh
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirOptInUsageBaseChecker.Experimentality
 import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
 import org.jetbrains.kotlin.fir.analysis.overridesBackwardCompatibilityHelper
 import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.*
@@ -25,6 +24,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isFinal
 import org.jetbrains.kotlin.fir.declarations.utils.isOverride
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.originalOrSelf
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenFunctions
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenProperties
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visibilityChecker
@@ -52,9 +52,7 @@ object FirOverrideChecker : FirClassChecker() {
         for (it in declaration.declarations) {
             if (it is FirSimpleFunction || it is FirProperty) {
                 val callable = it as FirCallableDeclaration
-                withSuppressedDiagnostics(callable, context) {
-                    checkMember(callable.symbol, declaration, reporter, typeCheckerState, firTypeScope, it)
-                }
+                checkMember(callable.symbol, declaration, reporter, typeCheckerState, firTypeScope, context)
             }
         }
     }
@@ -65,10 +63,12 @@ object FirOverrideChecker : FirClassChecker() {
                 processFunctionsByName(memberSymbol.name) {}
                 getDirectOverriddenFunctions(memberSymbol)
             }
+
             is FirPropertySymbol -> {
                 processPropertiesByName(memberSymbol.name) {}
                 getDirectOverriddenProperties(memberSymbol)
             }
+
             else -> throw IllegalArgumentException("unexpected member kind $memberSymbol")
         }
     }
@@ -163,7 +163,7 @@ object FirOverrideChecker : FirClassChecker() {
         val containingDeclarations = context.containingDeclarations + containingClass
         val visibilityChecker = context.session.visibilityChecker
         val hasVisibleBase = overriddenSymbols.any {
-            it.ensureResolved(FirResolvePhase.STATUS)
+            it.lazyResolveToPhase(FirResolvePhase.STATUS)
             @OptIn(SymbolInternals::class)
             val fir = it.fir
             visibilityChecker.isVisible(
@@ -188,10 +188,11 @@ object FirOverrideChecker : FirClassChecker() {
         overriddenSymbols: List<FirCallableSymbol<*>>,
         context: CheckerContext
     ) {
-        val ownDeprecation = this.deprecation
+        val ownDeprecation = this.getDeprecation(context.session.languageVersionSettings.apiVersion)
         if (ownDeprecation == null || ownDeprecation.isNotEmpty()) return
         for (overriddenSymbol in overriddenSymbols) {
-            val deprecationInfoFromOverridden = overriddenSymbol.deprecation ?: continue
+            val deprecationInfoFromOverridden = overriddenSymbol.getDeprecation(context.session.languageVersionSettings.apiVersion)
+                ?: continue
             val deprecationFromOverriddenSymbol = deprecationInfoFromOverridden.all
                 ?: deprecationInfoFromOverridden.bySpecificSite?.values?.firstOrNull()
                 ?: continue
@@ -268,7 +269,22 @@ object FirOverrideChecker : FirClassChecker() {
 
             if (kind !is KtRealSourceElementKind && kind !is KtFakeSourceElementKind.PropertyFromParameter) return
 
-            val overridden = overriddenMemberSymbols.first().originalOrSelf()
+            val visibilityChecker = context.session.visibilityChecker
+            val file = context.findClosest<FirFile>() ?: return
+            val containingDeclarations = context.containingDeclarations + containingClass
+
+            @OptIn(SymbolInternals::class)
+            val overridden = overriddenMemberSymbols.firstOrNull {
+                it.lazyResolveToPhase(FirResolvePhase.STATUS)
+                visibilityChecker.isVisible(
+                    it.originalOrSelf().fir,
+                    context.session,
+                    file,
+                    containingDeclarations,
+                    null,
+                    skipCheckForContainingClassVisibility = true
+                )
+            }?.originalOrSelf() ?: return
             val originalContainingClassSymbol = overridden.containingClass()?.toSymbol(context.session) as? FirRegularClassSymbol ?: return
             reporter.reportOn(
                 member.source,

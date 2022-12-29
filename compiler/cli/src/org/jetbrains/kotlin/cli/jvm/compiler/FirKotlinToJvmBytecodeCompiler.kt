@@ -1,12 +1,13 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
+
+@file:Suppress("DEPRECATION")
 
 package org.jetbrains.kotlin.cli.jvm.compiler
 
 import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
-import org.jetbrains.kotlin.asJava.FilteredJvmDiagnostics
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensions
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
@@ -44,8 +46,8 @@ import org.jetbrains.kotlin.fir.pipeline.convertToIr
 import org.jetbrains.kotlin.fir.pipeline.runCheckers
 import org.jetbrains.kotlin.fir.pipeline.runResolution
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.session.FirSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionFactory.createSessionWithDependencies
+import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.types.arrayElementType
@@ -88,21 +90,21 @@ object FirKotlinToJvmBytecodeCompiler {
             "ATTENTION!\n This build uses experimental K2 compiler: \n  -Xuse-k2"
         )
 
-        projectConfiguration.get(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)?.let { pluginComponentRegistrars ->
-            val notSupportedPlugins = pluginComponentRegistrars.filter {
-                !it.supportsK2 && it::class.java.canonicalName != CLICompiler.SCRIPT_PLUGIN_REGISTRAR_NAME
-            }
-            if (notSupportedPlugins.isNotEmpty()) {
-                messageCollector.report(
-                    CompilerMessageSeverity.ERROR,
-                    """
-                        |There are some plugins incompatible with K2 compiler:
-                        |${notSupportedPlugins.joinToString(separator = "\n|") { "  ${it::class.qualifiedName}" }}
-                        |Please remove -Xuse-k2
-                    """.trimMargin()
-                )
-                return false
-            }
+        val notSupportedPlugins = mutableListOf<String?>().apply {
+            projectConfiguration.get(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS).collectIncompatiblePluginNamesTo(this, ComponentRegistrar::supportsK2)
+            projectConfiguration.get(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS).collectIncompatiblePluginNamesTo(this, CompilerPluginRegistrar::supportsK2)
+        }
+
+        if (notSupportedPlugins.isNotEmpty()) {
+            messageCollector.report(
+                CompilerMessageSeverity.ERROR,
+                """
+                    |There are some plugins incompatible with K2 compiler:
+                    |${notSupportedPlugins.joinToString(separator = "\n|") { "  $it" }}
+                    |Please remove -Xuse-k2
+                """.trimMargin()
+            )
+            return false
         }
         if (projectConfiguration.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects)) {
             messageCollector.report(
@@ -154,6 +156,14 @@ object FirKotlinToJvmBytecodeCompiler {
         )
     }
 
+    private fun <T : Any> List<T>?.collectIncompatiblePluginNamesTo(
+        destination: MutableList<String?>,
+        supportsK2: T.() -> Boolean
+    ) {
+        this?.filter { !it.supportsK2() && it::class.java.canonicalName != CLICompiler.SCRIPT_PLUGIN_REGISTRAR_NAME }
+            ?.mapTo(destination) { it::class.qualifiedName }
+    }
+
     private fun CompilationContext.compileModule(): Pair<FirResult, GenerationState>? {
         performanceManager?.notifyAnalysisStarted()
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
@@ -162,7 +172,7 @@ object FirKotlinToJvmBytecodeCompiler {
 
         val renderDiagnosticNames = moduleConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
 
-        val diagnosticsReporter = DiagnosticReporterFactory.createReporter()
+        val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
         val firResult = runFrontend(allSources, diagnosticsReporter).also {
             performanceManager?.notifyAnalysisFinished()
         }
@@ -175,7 +185,10 @@ object FirKotlinToJvmBytecodeCompiler {
         performanceManager?.notifyIRTranslationStarted()
 
         val fir2IrExtensions = JvmFir2IrExtensions(moduleConfiguration, JvmIrDeserializerImpl(), JvmIrMangler)
-        val fir2IrResult = firResult.session.convertToIr(firResult.scopeSession, firResult.fir, fir2IrExtensions, irGenerationExtensions)
+        val linkViaSignatures = moduleConfiguration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES)
+        val fir2IrResult = firResult.session.convertToIr(
+            firResult.scopeSession, firResult.fir, fir2IrExtensions, irGenerationExtensions, linkViaSignatures
+        )
 
         performanceManager?.notifyIRTranslationFinished()
 
@@ -305,7 +318,7 @@ object FirKotlinToJvmBytecodeCompiler {
 
     private fun CompilationContext.createComponentsForIncrementalCompilation(
         sourceScope: AbstractProjectFileSearchScope
-    ): FirSessionFactory.IncrementalCompilationContext? {
+    ): IncrementalCompilationContext? {
         if (targetIds == null || incrementalComponents == null) return null
         val directoryWithIncrementalPartsFromPreviousCompilation =
             moduleConfiguration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
@@ -319,7 +332,7 @@ object FirKotlinToJvmBytecodeCompiler {
             projectEnvironment.getPackagePartProvider(sourceScope),
             targetIds.map(incrementalComponents::getIncrementalCache)
         )
-        return FirSessionFactory.IncrementalCompilationContext(emptyList(), packagePartProvider, incrementalCompilationScope)
+        return IncrementalCompilationContext(emptyList(), packagePartProvider, incrementalCompilationScope)
     }
 
     private fun CompilationContext.runBackend(

@@ -180,6 +180,8 @@ public class DefaultErrorMessages {
         MAP.put(OPT_IN_MARKER_ON_OVERRIDE, "Opt-in requirement marker annotation on override requires the same marker on base declaration");
         MAP.put(OPT_IN_MARKER_ON_OVERRIDE_WARNING, "Opt-in requirement marker annotation on override makes no sense without the same marker on base declaration");
 
+        MAP.put(SUBCLASS_OPT_IN_INAPPLICABLE, "@SubclassOptInRequired is inapplicable on {0}", STRING);
+
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS, "{0}", STRING);
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS_ERROR, "{0}", STRING);
 
@@ -226,7 +228,7 @@ public class DefaultErrorMessages {
         });
 
         MAP.put(VARARG_OUTSIDE_PARENTHESES, "Passing value as a vararg is only allowed inside a parenthesized argument list");
-        MAP.put(NON_VARARG_SPREAD, "The spread operator (*foo) may only be applied in a vararg position");
+        MAP.put(NON_VARARG_SPREAD, "The spread operator (*foo) may only be applied in a vararg position. See https://youtrack.jetbrains.com/issue/KT-48162 for more details.");
         MAP.put(SPREAD_OF_NULLABLE, "The spread operator (*foo) may not be applied to an argument of nullable type");
         MAP.put(SPREAD_OF_LAMBDA_OR_CALLABLE_REFERENCE, "The spread operator (*foo) cannot be applied to lambda argument or callable reference");
 
@@ -592,7 +594,7 @@ public class DefaultErrorMessages {
         });
 
         MAP.put(UPPER_BOUND_VIOLATED, "Type argument is not within its bounds: should be subtype of ''{0}''", RENDER_TYPE, RENDER_TYPE);
-        MAP.put(UPPER_BOUND_VIOLATED_WARNING, "Type argument is not within its bounds: should be subtype of ''{0}''", RENDER_TYPE, RENDER_TYPE);
+        MAP.put(UPPER_BOUND_VIOLATED_WARNING, "Type argument is not within its bounds: ''{1}'' should be subtype of ''{0}''. This warning will become an error in K2", RENDER_TYPE, RENDER_TYPE);
         MAP.put(FINAL_UPPER_BOUND, "''{0}'' is a final type, and thus a value of the type parameter is predetermined", RENDER_TYPE);
         MAP.put(UPPER_BOUND_IS_EXTENSION_FUNCTION_TYPE, "Extension function type can not be used as an upper bound");
         MAP.put(ONLY_ONE_CLASS_BOUND_ALLOWED, "Only one of the upper bounds can be a class");
@@ -1065,6 +1067,10 @@ public class DefaultErrorMessages {
         MAP.put(CATCH_PARAMETER_WITH_DEFAULT_VALUE, "Catch clause parameter may not have a default value");
 
         MAP.put(AMBIGUOUS_ANONYMOUS_TYPE_INFERRED, "Right-hand side has anonymous type. Please specify type explicitly", TO_STRING);
+        MAP.put(APPROXIMATED_LOCAL_TYPE_WILL_BECOME_NULLABLE,
+                "Declaration return type inferred as ''{0}'' instead of ''{0}?''. This will be fixed in Kotlin 1.9. Please specify the type explicitly to avoid future errors or unexpected changes in behavior. See https://youtrack.jetbrains.com/issue/KT-53982 for details.", TO_STRING);
+        MAP.put(APPROXIMATED_LOCAL_TYPE_WILL_BECOME_FLEXIBLE,
+                "Declaration return type inferred as ''{0}'' but it may be nullable. This will be fixed in Kotlin 1.9. Please specify the type explicitly to avoid unexpected changes in behavior. See https://youtrack.jetbrains.com/issue/KT-53982 for details.", TO_STRING);
         MAP.put(KCLASS_WITH_NULLABLE_TYPE_PARAMETER_IN_SIGNATURE,
                 "Declaration has an inconsistent return type. Please add upper bound Any for type parameter ''{0}'' or specify return type explicitly", NAME);
 
@@ -1087,6 +1093,7 @@ public class DefaultErrorMessages {
         MAP.put(PRIVATE_CLASS_MEMBER_FROM_INLINE, "Non-private inline function cannot access members of private classes: ''{0}''", SHORT_NAMES_IN_TYPES, SHORT_NAMES_IN_TYPES);
         MAP.put(NOT_YET_SUPPORTED_IN_INLINE, "{0} are not yet supported in inline functions", STRING);
         MAP.put(DECLARATION_CANT_BE_INLINED, "'inline' modifier is not allowed on virtual members. Only private or final members can be inlined");
+        MAP.put(DECLARATION_CANT_BE_INLINED_WARNING, "'inline' modifier is not allowed on virtual enum members. Only private or final members can be inlined. This warning will become an error in K2");
         MAP.put(OVERRIDE_BY_INLINE, "Override by an inline function");
         MAP.put(REIFIED_TYPE_PARAMETER_IN_OVERRIDE, "Override by a function with reified type parameter");
         MAP.put(NOTHING_TO_INLINE, "Expected performance impact from inlining is insignificant. Inlining works best for functions with parameters of functional types");
@@ -1115,7 +1122,10 @@ public class DefaultErrorMessages {
         MAP.put(IMPLICIT_NOTHING_TYPE_ARGUMENT_AGAINST_NOT_NOTHING_EXPECTED_TYPE, "Returning type parameter has been inferred to Nothing implicitly because Nothing is more specific than specified expected type. Please specify type arguments explicitly in accordance with expected type to hide this warning. Nothing can produce an exception at runtime. See KT-36776 for more details.");
         MAP.put(RETURN_FOR_BUILT_IN_SUSPEND, "Using implicit label for this lambda is prohibited");
         MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND, "Calls having a form of ''suspend {}'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Add empty argument list to the call: ''suspend() { ... }''");
-        MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN, "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''");
+        MAP.put(MODIFIER_FORM_FOR_NON_BUILT_IN_SUSPEND_FUN,
+                "Calls having a form of ''suspend fun'' are deprecated because ''suspend'' in the context will have a meaning of a modifier. Surround the argument of the call with parens: ''suspend(fun() { ... })''." +
+                " See https://youtrack.jetbrains.com/issue/KT-49264"
+        );
 
         MAP.put(PLUGIN_ERROR, "{0}", (d, c) -> d.getText());
         MAP.put(PLUGIN_WARNING, "{0}", (d, c) -> d.getText());

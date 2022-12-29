@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollectorV
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
+import org.jetbrains.kotlin.fir.analysis.checkers.getModifier
 import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.fir.types.isNullable
 import org.jetbrains.kotlin.fir.types.toSymbol
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 abstract class FirInlineDeclarationChecker : FirFunctionChecker() {
@@ -52,10 +53,8 @@ abstract class FirInlineDeclarationChecker : FirFunctionChecker() {
         if (declaration !is FirPropertyAccessor && declaration !is FirSimpleFunction) return
 
         val effectiveVisibility = declaration.effectiveVisibility
-        withSuppressedDiagnostics(declaration, context) { ctx ->
-            checkInlineFunctionBody(declaration, effectiveVisibility, ctx, reporter)
-            checkCallableDeclaration(declaration, ctx, reporter)
-        }
+        checkInlineFunctionBody(declaration, effectiveVisibility, context, reporter)
+        checkCallableDeclaration(declaration, context, reporter)
     }
 
     protected fun checkInlineFunctionBody(
@@ -115,7 +114,7 @@ abstract class FirInlineDeclarationChecker : FirFunctionChecker() {
         }
 
         // prevent delegation to visitQualifiedAccessExpression, which causes redundant diagnostics
-        override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: CheckerContext) {}
+        override fun visitSmartCastExpression(smartCastExpression: FirSmartCastExpression, data: CheckerContext) {}
 
         override fun visitVariableAssignment(variableAssignment: FirVariableAssignment, data: CheckerContext) {
             val propertySymbol = variableAssignment.calleeReference.toResolvedCallableSymbol() as? FirPropertySymbol ?: return
@@ -375,7 +374,10 @@ abstract class FirInlineDeclarationChecker : FirFunctionChecker() {
 
             if (isSuspendFunctionalType && !param.isCrossinline) {
                 if (function.isSuspend) {
-                    reporter.reportOn(param.returnTypeRef.source, FirErrors.REDUNDANT_INLINE_SUSPEND_FUNCTION_TYPE, context)
+                    val modifier = param.returnTypeRef.getModifier(KtTokens.SUSPEND_KEYWORD)
+                    if (modifier != null) {
+                        reporter.reportOn(param.returnTypeRef.source, FirErrors.REDUNDANT_INLINE_SUSPEND_FUNCTION_TYPE, context)
+                    }
                 } else {
                     reporter.reportOn(param.source, FirErrors.INLINE_SUSPEND_FUNCTION_TYPE_UNSUPPORTED, context)
                 }

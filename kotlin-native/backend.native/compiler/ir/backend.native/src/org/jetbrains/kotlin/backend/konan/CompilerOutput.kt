@@ -28,11 +28,12 @@ import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 /**
  * Supposed to be true for a single LLVM module within final binary.
  */
-val CompilerOutputKind.isFinalBinary: Boolean get() = when (this) {
+val KonanConfig.isFinalBinary: Boolean get() = when (this.produce) {
     CompilerOutputKind.PROGRAM, CompilerOutputKind.DYNAMIC,
-    CompilerOutputKind.STATIC, CompilerOutputKind.FRAMEWORK -> true
-    CompilerOutputKind.DYNAMIC_CACHE, CompilerOutputKind.STATIC_CACHE,
+    CompilerOutputKind.STATIC -> true
+    CompilerOutputKind.DYNAMIC_CACHE, CompilerOutputKind.STATIC_CACHE, CompilerOutputKind.PRELIMINARY_CACHE,
     CompilerOutputKind.LIBRARY, CompilerOutputKind.BITCODE -> false
+    CompilerOutputKind.FRAMEWORK -> !omitFrameworkBinary
 }
 
 val CompilerOutputKind.involvesBitcodeGeneration: Boolean
@@ -41,16 +42,30 @@ val CompilerOutputKind.involvesBitcodeGeneration: Boolean
 internal val Context.producedLlvmModuleContainsStdlib: Boolean
     get() = this.llvmModuleSpecification.containsModule(this.stdlibModule)
 
-val CompilerOutputKind.involvesLinkStage: Boolean
-    get() = when (this) {
+internal val Context.shouldDefineFunctionClasses: Boolean
+    get() = producedLlvmModuleContainsStdlib &&
+            config.libraryToCache?.strategy?.contains(KonanFqNames.internalPackageName, "KFunctionImpl.kt") != false
+
+internal val Context.shouldDefineCachedBoxes: Boolean
+    get() = producedLlvmModuleContainsStdlib &&
+            config.libraryToCache?.strategy?.contains(KonanFqNames.internalPackageName, "Boxing.kt") != false
+
+internal val Context.shouldLinkRuntimeNativeLibraries: Boolean
+    get() = producedLlvmModuleContainsStdlib &&
+            config.libraryToCache?.strategy?.contains(KonanFqNames.packageName, "Runtime.kt") != false
+
+val KonanConfig.involvesLinkStage: Boolean
+    get() = when (this.produce) {
         CompilerOutputKind.PROGRAM, CompilerOutputKind.DYNAMIC,
         CompilerOutputKind.DYNAMIC_CACHE, CompilerOutputKind.STATIC_CACHE,
-        CompilerOutputKind.STATIC, CompilerOutputKind.FRAMEWORK -> true
-        CompilerOutputKind.LIBRARY, CompilerOutputKind.BITCODE -> false
+        CompilerOutputKind.STATIC -> true
+        CompilerOutputKind.LIBRARY, CompilerOutputKind.BITCODE, CompilerOutputKind.PRELIMINARY_CACHE -> false
+        CompilerOutputKind.FRAMEWORK -> !omitFrameworkBinary
     }
 
 val CompilerOutputKind.isCache: Boolean
-    get() = (this == CompilerOutputKind.STATIC_CACHE || this == CompilerOutputKind.DYNAMIC_CACHE)
+    get() = this == CompilerOutputKind.STATIC_CACHE || this == CompilerOutputKind.DYNAMIC_CACHE
+            || this == CompilerOutputKind.PRELIMINARY_CACHE
 
 internal fun llvmIrDumpCallback(state: ActionState, module: IrModuleFragment, context: Context) {
     module.let{}
@@ -113,7 +128,6 @@ private fun collectLlvmModules(context: Context, generatedBitcodeFiles: List<Str
             exceptionsSupportNativeLibrary
 
     val runtimeNativeLibraries = context.config.runtimeNativeLibraries
-            .takeIf { context.producedLlvmModuleContainsStdlib }.orEmpty()
 
 
     fun parseBitcodeFiles(files: List<String>): List<LLVMModuleRef> = files.map { bitcodeFile ->
@@ -124,7 +138,10 @@ private fun collectLlvmModules(context: Context, generatedBitcodeFiles: List<Str
         parsedModule
     }
 
-    val runtimeModules = parseBitcodeFiles(runtimeNativeLibraries + bitcodePartOfStdlib)
+    val runtimeModules = parseBitcodeFiles(
+            (runtimeNativeLibraries + bitcodePartOfStdlib)
+                    .takeIf { context.shouldLinkRuntimeNativeLibraries }.orEmpty()
+    )
     val additionalModules = parseBitcodeFiles(additionalBitcodeFiles)
     return LlvmModules(
             runtimeModules.ifNotEmpty { this + context.generateRuntimeConstantsModule() } ?: emptyList(),
@@ -174,14 +191,21 @@ internal fun linkBitcodeDependencies(context: Context) {
         embedAppleLinkerOptionsToBitcode(context.llvm, context.config)
     }
     linkAllDependencies(context, generatedBitcodeFiles)
+
 }
 
 internal fun produceOutput(context: Context) {
 
     val config = context.config.configuration
     val tempFiles = context.config.tempFiles
-    val produce = config.get(KonanConfigKeys.PRODUCE)
-
+    val produce = context.config.produce
+    if (produce == CompilerOutputKind.FRAMEWORK) {
+        context.objCExport.produceFrameworkInterface()
+        if (context.config.omitFrameworkBinary) {
+            // Compiler does not compile anything in this mode, so return early.
+            return
+        }
+    }
     when (produce) {
         CompilerOutputKind.STATIC,
         CompilerOutputKind.DYNAMIC,
@@ -246,7 +270,7 @@ internal fun produceOutput(context: Context) {
             context.bitcodeFileName = output
             LLVMWriteBitcodeToFile(context.llvmModule!!, output)
         }
-        null -> {}
+        CompilerOutputKind.PRELIMINARY_CACHE -> {}
     }
 }
 

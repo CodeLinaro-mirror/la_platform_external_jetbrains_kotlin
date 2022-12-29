@@ -14,6 +14,7 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 import java.io.File
+import kotlin.io.path.appendText
 
 @JvmGradlePluginTests
 @DisplayName("Kotlin Java Toolchain support")
@@ -362,6 +363,14 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
                 JavaVersion.VERSION_11
             )
 
+            //language=properties
+            gradleProperties.append(
+                """
+                # suppress inspection "UnusedProperty"
+                kotlin.jvm.target.validation.mode = warning
+                """.trimIndent()
+            )
+
             build("build") {
                 assertOutputContains("-jvm-target 11")
                 assertOutputDoesNotContain("-jvm-target 1.8")
@@ -421,6 +430,14 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             setJvmTarget("1.8")
             useToolchainToCompile(11)
 
+            //language=properties
+            gradleProperties.append(
+                """
+                # suppress inspection "UnusedProperty"
+                kotlin.jvm.target.validation.mode = warning
+                """.trimIndent()
+            )
+
             build("build") {
                 assertOutputContains("-jvm-target 1.8")
                 assertOutputDoesNotContain("-jvm-target 11")
@@ -456,7 +473,41 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
                 """.trimIndent()
             )
 
-            build("build")
+            build("build") {
+                assertOutputContains("[KOTLIN] Kotlin compilation 'jdkHome' argument: ${getJdk11Path().replace("\\\\", "\\")}")
+            }
+        }
+    }
+
+    @DisplayName("Setting toolchain via java extension should update jvm-target argument on eager task creation")
+    @GradleTest
+    internal fun settingToolchainViaJavaUpdateJvmTarget(gradleVersion: GradleVersion) {
+        project(
+            projectName = "kotlinJavaProject".fullProjectName,
+            gradleVersion = gradleVersion
+        ) {
+            //language=groovy
+            buildGradle.append(
+                """
+                tasks.named("compileKotlin").get() // Trigger task eager creation
+                
+                java {
+                    toolchain {
+                        languageVersion.set(JavaLanguageVersion.of(11))
+                    }
+                }
+                
+                """.trimIndent()
+            )
+
+            build("build", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+                val compilerArgs = output.lineSequence()
+                    .filter { it.contains(":compileKotlin Kotlin compiler args:") }
+                    .first()
+                assert(compilerArgs.contains("-jvm-target 11")) {
+                    "Kotlin compilation jvm-target argument is ${output.substringAfter("-jvm-target ").substringBefore(" ")}"
+                }
+            }
         }
     }
 
@@ -492,11 +543,21 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         }
     }
 
+    @AndroidGradlePluginTests
     @DisplayName("Toolchain should take into account kotlin options that are set via android extension")
-    @GradleTestVersions
-    @GradleTest
-    internal fun kotlinOptionsAndroidAndToolchain(gradleVersion: GradleVersion) {
-        project("android".fullProjectName, gradleVersion) {
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_42)
+    @GradleAndroidTest
+    internal fun kotlinOptionsAndroidAndToolchain(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        providedJdk: JdkVersions.ProvidedJdk
+    ) {
+        project(
+            "android".fullProjectName,
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildJdk = providedJdk.location
+        ) {
             useToolchainExtension(11)
 
             //language=properties
@@ -507,12 +568,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
                 """.trimIndent()
             )
 
-            build(
-                "assembleDebug",
-                buildOptions = defaultBuildOptions.copy(
-                    androidVersion = TestVersions.AGP.AGP_42.version
-                )
-            )
+            build("assembleDebug")
         }
     }
 
@@ -540,13 +596,21 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             gradleVersion = gradleVersion,
             buildJdk = getJdk11().javaHome
         ) {
+            //language=properties
+            gradleProperties.append(
+                """
+                # suppress inspection "UnusedProperty"
+                kotlin.jvm.target.validation.mode = warning
+                """.trimIndent()
+            )
+
             //language=Groovy
             buildGradle.append(
                 """
                 tasks.named("compileKotlin") {
                     doLast {
-                        def actualJvmTarget = filteredArgumentsMap['jvmTarget']
-                        if (actualJvmTarget != "null") {
+                        def actualJvmTarget = compilerOptions.jvmTarget.orNull
+                        if (actualJvmTarget != null) {
                             //noinspection GroovyAssignabilityCheck
                             throw new GradleException("Expected `jvmTarget` value is 'null' but the actual value was ${'$'}actualJvmTarget")
                         }
@@ -635,6 +699,48 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
 
             build("assemble") {
                 assertJdkHomeIsUsingJdk(getToolchainExecPathFromLogs())
+            }
+        }
+    }
+
+    @DisplayName("KT-55004: Should use non-default toolchain for parent project")
+    @GradleTest
+    internal fun toolchainFromParentProject(gradleVersion: GradleVersion) {
+        project(
+            projectName = "multiproject".fullProjectName,
+            gradleVersion = gradleVersion,
+            buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)
+        ) {
+            //language=Groovy
+            subProject("lib").buildGradle.appendText(
+                """
+                |
+                |tasks.named("compileJava", JavaCompile) {
+                |    targetCompatibility = JavaVersion.VERSION_11
+                |    sourceCompatibility = JavaVersion.VERSION_11
+                |}
+                """.trimMargin()
+            )
+
+            //language=Groovy
+            buildGradle.appendText(
+                """
+                |
+                |allprojects {
+                |    tasks.withType(org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain.class)
+                |         .configureEach {
+                |              kotlinJavaToolchain.jdk.use(
+                |                  "${getJdk11Path()}",
+                |                  JavaVersion.VERSION_11
+                |              )
+                |         }
+                |}
+                """.trimMargin()
+            )
+
+            build(":lib:compileKotlin") {
+                assertOutputDoesNotContain("-jvm-target 1.8")
+                assertOutputContains("-jvm-target 11")
             }
         }
     }

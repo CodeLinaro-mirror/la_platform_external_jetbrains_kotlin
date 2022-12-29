@@ -6,8 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.providers.impl
 
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.ThreadSafeMutableState
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirOuterClassTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.utils.isEnumClass
@@ -16,7 +15,6 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeUnexpectedTypeArgumentsError
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
-import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCallInfo
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCandidate
@@ -33,7 +31,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
-import org.jetbrains.kotlin.fir.visibilityChecker
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintSystemError
@@ -123,11 +120,11 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             var diagnostic: ConeDiagnostic? = null
 
             if (!symbol.isVisible(useSiteFile, containingDeclarations, supertypeSupplier)) {
-                symbolApplicability = minOf(CandidateApplicability.VISIBILITY_ERROR, symbolApplicability)
+                symbolApplicability = minOf(CandidateApplicability.K2_VISIBILITY_ERROR, symbolApplicability)
                 diagnostic = ConeVisibilityError(symbol)
             }
 
-            val deprecation = symbol.getDeprecation(useSiteFile)
+            val deprecation = symbol.getDeprecation(session, useSiteFile)
             if (deprecation != null && deprecation.deprecationLevel == DeprecationLevelValue.HIDDEN) {
                 symbolApplicability = minOf(CandidateApplicability.HIDDEN, symbolApplicability)
                 diagnostic = null
@@ -526,14 +523,11 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             is FirDynamicTypeRef -> ConeDynamicType.create(session) to null
             is FirIntersectionTypeRef -> {
                 val leftType = typeRef.leftType.coneType
-                val rightType = typeRef.rightType.coneType
-
-                if (rightType.isAny && leftType is ConeTypeParameterType) {
+                if (leftType is ConeTypeParameterType) {
                     ConeDefinitelyNotNullType(leftType) to null
                 } else {
-                    ConeErrorType(ConeUnsupported("Intersection types are not supported yet", typeRef.source)) to null
+                    ConeErrorType(ConeForbiddenIntersection) to null
                 }
-
             }
             else -> error(typeRef.render())
         }

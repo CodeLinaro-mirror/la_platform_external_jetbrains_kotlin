@@ -48,6 +48,7 @@ class FirAnalyzerFacade(
     val irGeneratorExtensions: Collection<IrGenerationExtension>,
     val useLightTree: Boolean = false,
     val enablePluginPhases: Boolean = false,
+    val generateSignatures: Boolean = false,
 ) : AbstractFirAnalyzerFacade() {
     private var firFiles: List<FirFile>? = null
     private var _scopeSession: ScopeSession? = null
@@ -92,7 +93,7 @@ class FirAnalyzerFacade(
         val collector = FirDiagnosticsCollector.create(session, scopeSession)
         collectedDiagnostics = buildMap {
             for (file in firFiles!!) {
-                val reporter = DiagnosticReporterFactory.createReporter()
+                val reporter = DiagnosticReporterFactory.createPendingReporter()
                 collector.collectDiagnostics(file, reporter)
                 put(file, reporter.diagnostics)
             }
@@ -110,14 +111,15 @@ class FirAnalyzerFacade(
             .filter { it.kind == FirSession.Kind.Source }
             .flatMap { (it.firProvider as FirProviderImpl).getAllFirFiles() }
 
-        return Fir2IrConverter.createModuleFragment(
+        return Fir2IrConverter.createModuleFragmentWithSignaturesIfNeeded(
             session, _scopeSession!!, firFiles!! + commonFirFiles,
             languageVersionSettings, signaturer,
             fir2IrExtensions,
             FirJvmKotlinMangler(session), JvmIrMangler, IrFactoryImpl,
             FirJvmVisibilityConverter,
             Fir2IrJvmSpecialAnnotationSymbolProvider(),
-            irGeneratorExtensions
+            irGeneratorExtensions,
+            generateSignatures
         )
     }
 }

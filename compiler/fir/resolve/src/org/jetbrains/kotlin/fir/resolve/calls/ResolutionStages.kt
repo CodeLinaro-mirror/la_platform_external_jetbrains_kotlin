@@ -5,9 +5,9 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.fir.FirVisibilityChecker
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isInfix
 import org.jetbrains.kotlin.fir.declarations.utils.isOperator
@@ -22,20 +22,20 @@ import org.jetbrains.kotlin.fir.resolve.inference.ConeTypeParameterBasedTypeVari
 import org.jetbrains.kotlin.fir.resolve.inference.ResolvedCallableReferenceAtom
 import org.jetbrains.kotlin.fir.resolve.inference.csBuilder
 import org.jetbrains.kotlin.fir.resolve.inference.hasBuilderInferenceAnnotation
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeExplicitTypeParameterConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.FirUnstableSmartcastTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
 import org.jetbrains.kotlin.fir.symbols.SyntheticSymbol
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visibilityChecker
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.inference.isSubtypeConstraintCompatible
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
 import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystemConstraintPosition
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind.*
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
@@ -169,7 +169,7 @@ object CheckDispatchReceiver : ResolutionStage() {
         val smartcastedReceiver = when (explicitReceiverExpression) {
             is FirCheckNotNullCall -> explicitReceiverExpression.argument
             else -> explicitReceiverExpression
-        } as? FirExpressionWithSmartcast
+        } as? FirSmartCastExpression
 
         if (smartcastedReceiver != null &&
             !smartcastedReceiver.isStable &&
@@ -187,7 +187,7 @@ object CheckDispatchReceiver : ResolutionStage() {
                 UnstableSmartCast(
                     smartcastedReceiver,
                     targetType,
-                    context.session.typeContext.isTypeMismatchDueToNullability(smartcastedReceiver.originalType.coneType, targetType)
+                    context.session.typeContext.isTypeMismatchDueToNullability(smartcastedReceiver.originalExpression.typeRef.coneType, targetType)
                 )
             )
         } else if (isReceiverNullable) {
@@ -203,7 +203,7 @@ object CheckContextReceivers : ResolutionStage() {
         }?.takeUnless { it.isEmpty() } ?: return
 
         val receiverGroups: List<List<ImplicitReceiverValue<*>>> =
-            context.bodyResolveContext.towerDataContext.towerDataElements.mapNotNull { towerDataElement ->
+            context.bodyResolveContext.towerDataContext.towerDataElements.asReversed().mapNotNull { towerDataElement ->
                 towerDataElement.implicitReceiver?.let(::listOf) ?: towerDataElement.contextReceiverGroup
             }
 
@@ -435,7 +435,7 @@ internal object MapArguments : ResolutionStage() {
 
 internal object CheckArguments : CheckerStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
-        candidate.symbol.ensureResolved(FirResolvePhase.STATUS)
+        candidate.symbol.lazyResolveToPhase(FirResolvePhase.STATUS)
         val argumentMapping =
             candidate.argumentMapping ?: error("Argument should be already mapped while checking arguments!")
         for (argument in callInfo.arguments) {
@@ -453,6 +453,7 @@ internal object CheckArguments : CheckerStage() {
             candidate.system.hasContradiction && callInfo.arguments.isNotEmpty() -> {
                 sink.yieldDiagnostic(InapplicableCandidate)
             }
+
             candidate.usesSAM && !candidate.isJavaApplicableCandidate() -> {
                 sink.markCandidateForCompatibilityResolve(context)
             }
@@ -461,9 +462,12 @@ internal object CheckArguments : CheckerStage() {
 }
 
 private fun Candidate.isJavaApplicableCandidate(): Boolean {
-    val symbol = symbol as? FirNamedFunctionSymbol ?: return false
+    val symbol = symbol as? FirFunctionSymbol ?: return false
     if (symbol.origin == FirDeclarationOrigin.Enhancement) return true
     if (originScope !is FirTypeScope) return false
+    // Note: constructor can also be Java applicable with enhancement origin, but it doesn't have overridden functions
+    // See samConstructorVsFun.kt diagnostic test
+    if (symbol !is FirNamedFunctionSymbol) return false
 
     var result = false
 
@@ -507,7 +511,10 @@ internal object EagerResolveOfCallableReferences : CheckerStage() {
 internal object DiscriminateSynthetics : CheckerStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         if (candidate.symbol is SyntheticSymbol) {
-            sink.reportDiagnostic(ResolvedWithLowPriority)
+            sink.reportDiagnostic(ResolvedWithSynthetic)
+        }
+        if (candidate.symbol is FirPropertySymbol && candidate.symbol.source?.kind is KtFakeSourceElementKind.EnumGeneratedDeclaration) {
+            sink.reportDiagnostic(ResolvedWithSynthetic)
         }
     }
 }
@@ -542,9 +549,6 @@ internal object CheckVisibility : CheckerStage() {
 }
 
 internal object CheckLowPriorityInOverloadResolution : CheckerStage() {
-    private val LOW_PRIORITY_IN_OVERLOAD_RESOLUTION_CLASS_ID: ClassId =
-        ClassId(FqName("kotlin.internal"), Name.identifier("LowPriorityInOverloadResolution"))
-
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val annotations = when (val fir = candidate.symbol.fir) {
             is FirSimpleFunction -> fir.annotations
@@ -553,12 +557,7 @@ internal object CheckLowPriorityInOverloadResolution : CheckerStage() {
             else -> return
         }
 
-        val hasLowPriorityAnnotation = annotations.any {
-            val lookupTag = it.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()?.lookupTag ?: return@any false
-            lookupTag.classId == LOW_PRIORITY_IN_OVERLOAD_RESOLUTION_CLASS_ID
-        }
-
-        if (hasLowPriorityAnnotation) {
+        if (hasLowPriorityAnnotation(annotations)) {
             sink.reportDiagnostic(ResolvedWithLowPriority)
         }
     }
@@ -575,7 +574,13 @@ internal object CheckIncompatibleTypeVariableUpperBounds : ResolutionStage() {
                     continue
 
                 val emptyIntersectionTypeInfo = candidate.system.getEmptyIntersectionTypeKind(upperTypes) ?: continue
-
+                if (variableWithConstraints.constraints.any {
+                        it.kind == ConstraintKind.EQUALITY &&
+                                it.position.initialConstraint.position is ConeExplicitTypeParameterConstraintPosition
+                    }
+                ) {
+                    return
+                }
                 sink.yieldDiagnostic(
                     @Suppress("UNCHECKED_CAST")
                     InferredEmptyIntersectionDiagnostic(
@@ -637,7 +642,7 @@ internal object CheckCallModifiers : CheckerStage() {
 internal object CheckDeprecatedSinceKotlin : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val symbol = candidate.symbol as? FirCallableSymbol<*> ?: return
-        val deprecation = symbol.getDeprecation(callInfo.callSite)
+        val deprecation = symbol.getDeprecation(context.session, callInfo.callSite)
         if (deprecation != null && deprecation.deprecationLevel == DeprecationLevelValue.HIDDEN) {
             sink.yieldDiagnostic(HiddenCandidate)
         }
@@ -646,8 +651,11 @@ internal object CheckDeprecatedSinceKotlin : ResolutionStage() {
 
 internal object LowerPriorityIfDynamic : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
-        if (candidate.symbol.origin is FirDeclarationOrigin.DynamicScope) {
-            candidate.addDiagnostic(LowerPriorityForDynamic)
+        when {
+            candidate.symbol.origin is FirDeclarationOrigin.DynamicScope ->
+                candidate.addDiagnostic(LowerPriorityForDynamic)
+            candidate.callInfo.isImplicitInvoke && candidate.callInfo.explicitReceiver?.typeRef?.coneTypeSafe<ConeDynamicType>() != null ->
+                candidate.addDiagnostic(LowerPriorityForDynamic)
         }
     }
 }

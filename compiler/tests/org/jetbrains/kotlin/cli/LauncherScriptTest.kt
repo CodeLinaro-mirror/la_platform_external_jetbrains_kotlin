@@ -141,7 +141,7 @@ class LauncherScriptTest : TestCaseWithTmpdir() {
         runProcess(
             "kotlinc-js",
             "$testDataDirectory/emptyMain.kt",
-            "-output", File(tmpdir, "out.js").path
+            "-Xlegacy-deprecated-no-warn", "-Xuse-deprecated-legacy-compiler", "-output", File(tmpdir, "out.js").path
         )
     }
 
@@ -442,6 +442,33 @@ println(42)
             "kotlin", "../HelloWorldKt.class", expectedExitCode = 1,
             expectedStderr = "error: could not find or load main class ../HelloWorldKt.class\n",
             workDirectory = subDir
+        )
+    }
+
+    fun testKotlinUseJdkModuleFromMainClass() {
+        val jdk11 = mapOf("JAVA_HOME" to KtTestUtil.getJdk11Home().absolutePath)
+        runProcess(
+            "kotlinc", "$testDataDirectory/jdkModuleUsage.kt", "-d", tmpdir.path,
+            environment = jdk11,
+        )
+        runProcess(
+            "kotlin", "-cp", tmpdir.path, "test.JdkModuleUsageKt",
+            expectedStdout = "interface java.sql.Driver\n",
+            environment = jdk11,
+        )
+    }
+
+    fun testKotlinUseJdkModuleFromJar() {
+        val jdk11 = mapOf("JAVA_HOME" to KtTestUtil.getJdk11Home().absolutePath)
+        val output = tmpdir.resolve("out.jar")
+        runProcess(
+            "kotlinc", "$testDataDirectory/jdkModuleUsage.kt", "-d", output.path,
+            environment = jdk11,
+        )
+        runProcess(
+            "kotlin", output.path,
+            expectedStdout = "interface java.sql.Driver\n",
+            environment = jdk11,
         )
     }
 

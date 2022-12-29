@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.symbols
 
+import org.jetbrains.kotlin.analysis.api.base.KtContextReceiver
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.markers.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
@@ -12,7 +13,7 @@ import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 
-public abstract class KtFunctionLikeSymbol : KtCallableSymbol(), KtSymbolWithKind {
+public sealed class KtFunctionLikeSymbol : KtCallableSymbol(), KtSymbolWithKind {
     public abstract val valueParameters: List<KtValueParameterSymbol>
 
     /**
@@ -74,6 +75,7 @@ public abstract class KtConstructorSymbol : KtFunctionLikeSymbol(),
     final override val symbolKind: KtSymbolKind get() = withValidityAssertion { KtSymbolKind.CLASS_MEMBER }
     final override val isExtension: Boolean get() = withValidityAssertion { false }
     final override val receiverType: KtType? get() = withValidityAssertion { null }
+    final override val contextReceivers: List<KtContextReceiver> get() = withValidityAssertion { emptyList() }
 
     abstract override fun createPointer(): KtSymbolPointer<KtConstructorSymbol>
 }

@@ -1,14 +1,7 @@
 package org.jetbrains.kotlin.backend.konan
 
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.toKStringFromUtf8
-import llvm.LLVMGetModuleIdentifier
-import llvm.LLVMPrintModuleToFile
 import org.jetbrains.kotlin.backend.common.*
 import org.jetbrains.kotlin.backend.common.lower.*
-import org.jetbrains.kotlin.backend.common.lower.StringConcatenationLowering
 import org.jetbrains.kotlin.backend.common.lower.inline.FunctionInlining
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesExtractionFromInlineFunctionsLowering
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineFunctionsLowering
@@ -16,10 +9,11 @@ import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineLamb
 import org.jetbrains.kotlin.backend.common.lower.loops.ForLoopsLowering
 import org.jetbrains.kotlin.backend.common.lower.optimizations.FoldConstantLowering
 import org.jetbrains.kotlin.backend.common.lower.optimizations.PropertyAccessorInlineLowering
+import org.jetbrains.kotlin.backend.konan.lower.UnboxInlineLowering
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.backend.konan.ir.FunctionsWithoutBoundCheckGenerator
+import org.jetbrains.kotlin.backend.konan.llvm.redundantCoercionsCleaningPhase
 import org.jetbrains.kotlin.backend.konan.lower.*
-import org.jetbrains.kotlin.backend.konan.lower.FinallyBlocksLowering
 import org.jetbrains.kotlin.backend.konan.lower.InitializersLowering
 import org.jetbrains.kotlin.backend.konan.optimizations.KonanBCEForLoopBodyTransformer
 import org.jetbrains.kotlin.ir.IrElement
@@ -28,6 +22,7 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
 private val validateAll = false
 
@@ -165,6 +160,12 @@ internal val extractLocalClassesFromInlineBodies = makeKonanFileOpPhase(
         prerequisite = setOf(sharedVariablesPhase), // TODO: add "soft" dependency on inventNamesForLocalClasses
 )
 
+internal val wrapInlineDeclarationsWithReifiedTypeParametersLowering = makeKonanFileLoweringPhase(
+        ::WrapInlineDeclarationsWithReifiedTypeParametersLowering,
+        name = "WrapInlineDeclarationsWithReifiedTypeParameters",
+        description = "Wrap inline declarations with reified type parameters"
+)
+
 internal val inlinePhase = makeKonanFileOpPhase(
         { context, irFile ->
             irFile.acceptChildrenVoid(object : IrElementVisitorVoid {
@@ -174,7 +175,7 @@ internal val inlinePhase = makeKonanFileOpPhase(
 
                 override fun visitFunction(declaration: IrFunction) {
                     if (declaration.isInline)
-                        context.specialDeclarationsFactory.getNonLoweredInlineFunction(declaration)
+                        context.inlineFunctionsSupport.getNonLoweredInlineFunction(declaration)
                     declaration.acceptChildrenVoid(this)
                 }
             })
@@ -215,6 +216,13 @@ internal val stringConcatenationPhase = makeKonanFileLoweringPhase(
         ::StringConcatenationLowering,
         name = "StringConcatenation",
         description = "String concatenation lowering"
+)
+
+internal val stringConcatenationTypeNarrowingPhase = makeKonanFileLoweringPhase(
+        ::StringConcatenationTypeNarrowing,
+        name = "StringConcatenationTypeNarrowing",
+        description = "String concatenation type narrowing",
+        prerequisite = setOf(stringConcatenationPhase)
 )
 
 internal val kotlinNothingValueExceptionPhase = makeKonanFileLoweringPhase(
@@ -301,8 +309,8 @@ internal val dataClassesPhase = makeKonanFileLoweringPhase(
         description = "Data classes lowering"
 )
 
-internal val finallyBlocksPhase = makeKonanFileLoweringPhase(
-        ::FinallyBlocksLowering,
+internal val finallyBlocksPhase = makeKonanFileOpPhase(
+        { context, irFile -> FinallyBlocksLowering(context, context.irBuiltIns.throwableType).lower(irFile) },
         name = "FinallyBlocks",
         description = "Finally blocks lowering",
         prerequisite = setOf(initializersPhase, localFunctionsPhase, tailrecPhase)
@@ -408,10 +416,23 @@ internal val autoboxPhase = makeKonanFileLoweringPhase(
         prerequisite = setOf(bridgesPhase, coroutinesPhase)
 )
 
+internal val unboxInlinePhase = makeKonanModuleLoweringPhase(
+        ::UnboxInlineLowering,
+        name = "UnboxInline",
+        description = "Unbox functions inline lowering",
+        prerequisite = setOf(autoboxPhase, redundantCoercionsCleaningPhase)
+)
+
 internal val expressionBodyTransformPhase = makeKonanFileLoweringPhase(
         ::ExpressionBodyTransformer,
         name = "ExpressionBodyTransformer",
         description = "Replace IrExpressionBody with IrBlockBody"
+)
+
+internal val constantInliningPhase = makeKonanFileLoweringPhase(
+        ::ConstLowering,
+        name = "ConstantInlining",
+        description = "Inline const fields reads",
 )
 
 internal val fileInitializersPhase = makeKonanFileLoweringPhase(
@@ -438,4 +459,16 @@ internal val computeStringTrimPhase = makeKonanFileLoweringPhase(
         ::StringTrimLowering,
         name = "StringTrimLowering",
         description = "Compute trimIndent and trimMargin operations on constant strings"
+)
+
+internal val exportInternalAbiPhase = makeKonanFileLoweringPhase(
+        ::ExportCachesAbiVisitor,
+        name = "ExportInternalAbi",
+        description = "Add accessors to private entities"
+)
+
+internal val useInternalAbiPhase = makeKonanFileLoweringPhase(
+        ::ImportCachesAbiTransformer,
+        name = "UseInternalAbi",
+        description = "Use internal ABI functions to access private entities"
 )

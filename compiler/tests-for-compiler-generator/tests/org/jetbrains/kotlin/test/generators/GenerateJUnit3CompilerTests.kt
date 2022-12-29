@@ -47,8 +47,6 @@ import org.jetbrains.kotlin.repl.AbstractReplInterpreterTest
 import org.jetbrains.kotlin.resolve.AbstractResolveTest
 import org.jetbrains.kotlin.resolve.calls.AbstractResolvedCallsTest
 import org.jetbrains.kotlin.resolve.calls.AbstractResolvedConstructorDelegationCallsTests
-import org.jetbrains.kotlin.resolve.constraintSystem.AbstractConstraintSystemTest
-import org.jetbrains.kotlin.serialization.AbstractLocalClassProtoTest
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.types.AbstractTypeBindingTest
 
@@ -73,10 +71,6 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
 
             testClass<AbstractResolvedConstructorDelegationCallsTests> {
                 model("resolveConstructorDelegationCalls")
-            }
-
-            testClass<AbstractConstraintSystemTest> {
-                model("constraintSystem", extension = "constraints")
             }
 
             testClass<AbstractParsingTest> {
@@ -111,6 +105,10 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
             }
 
             testClass<AbstractCustomScriptCodegenTest> {
+                model("codegen/customScript", pattern = "^(.*)$")
+            }
+
+            testClass<AbstractIrCustomScriptCodegenTest> {
                 model("codegen/customScript", pattern = "^(.*)$")
             }
 
@@ -251,6 +249,7 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
 
             testClass<AbstractCliTest> {
                 model("cli/jvm/readingConfigFromEnvironment", extension = "args", testMethod = "doJvmTest", recursive = false)
+                model("cli/jvm/plugins", extension = "args", testMethod = "doJvmTest", recursive = false)
                 model("cli/jvm", extension = "args", testMethod = "doJvmTest", recursive = false)
                 model("cli/js", extension = "args", testMethod = "doJsTest", recursive = false)
                 model("cli/js-dce", extension = "args", testMethod = "doJsDceTest", recursive = false)
@@ -288,10 +287,6 @@ fun generateJUnit3CompilerTests(args: Array<String>) {
 
             testClass<AbstractTypeBindingTest> {
                 model("type/binding")
-            }
-
-            testClass<AbstractLocalClassProtoTest> {
-                model("serialization/local")
             }
 
             testClass<AbstractKDocLexerTest> {

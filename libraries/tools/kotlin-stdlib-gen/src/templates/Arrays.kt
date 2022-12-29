@@ -925,16 +925,7 @@ object ArrayOps : TemplateGroupBase() {
                         AbstractList.checkRangeIndexes(startIndex, endIndex, this.size)
                         val rangeSize = endIndex - startIndex
                         AbstractList.checkRangeIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
-                        
-                        if (this !== destination || destinationOffset <= startIndex) {
-                            for (index in 0 until rangeSize) {
-                                destination[destinationOffset + index] = this[startIndex + index]
-                            }
-                        } else {
-                            for (index in rangeSize - 1 downTo 0) {
-                                destination[destinationOffset + index] = this[startIndex + index]
-                            }
-                        }
+                        kotlin.wasm.internal.copyWasmArray(this.storage, destination.storage, startIndex, destinationOffset, rangeSize)
                         return destination
                         """
                     }

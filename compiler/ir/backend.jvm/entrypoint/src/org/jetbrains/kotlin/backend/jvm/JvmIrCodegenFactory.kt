@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.backend.common.phaser.CompilerPhase
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
+import org.jetbrains.kotlin.backend.common.serialization.linkerissues.checkNoUnboundSymbols
+import org.jetbrains.kotlin.backend.jvm.codegen.JvmIrIntrinsicExtension
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IrIntrinsicMethods
 import org.jetbrains.kotlin.backend.jvm.ir.getIoFile
 import org.jetbrains.kotlin.backend.jvm.ir.getKtFile
@@ -113,15 +115,16 @@ open class JvmIrCodegenFactory(
                 val symbolTable = SymbolTable(signaturer, IrFactoryImpl)
                 mangler to symbolTable
             }
+        val messageLogger = input.configuration.irMessageLogger
         val psi2ir = Psi2IrTranslator(
             input.languageVersionSettings,
             Psi2IrConfiguration(
                 input.ignoreErrors,
                 allowUnboundSymbols = false,
-                input.skipBodies,
-            )
+                input.skipBodies
+            ),
+            messageLogger::checkNoUnboundSymbols
         )
-        val messageLogger = input.configuration[IrMessageLogger.IR_MESSAGE_LOGGER] ?: IrMessageLogger.None
         val psi2irContext = psi2ir.createGeneratorContext(
             input.module,
             input.bindingContext,
@@ -284,8 +287,12 @@ open class JvmIrCodegenFactory(
         if (evaluatorFragmentInfoForPsi2Ir != null) {
             context.localDeclarationsLoweringData = mutableMapOf()
         }
+        val generationExtensions = IrGenerationExtension.getInstances(state.project)
+            .mapNotNull { it.getPlatformIntrinsicExtension(context) as? JvmIrIntrinsicExtension }
         val intrinsics by lazy { IrIntrinsicMethods(irModuleFragment.irBuiltins, context.ir.symbols) }
-        context.getIntrinsic = { symbol: IrFunctionSymbol -> intrinsics.getIntrinsic(symbol) }
+        context.getIntrinsic = { symbol: IrFunctionSymbol ->
+            intrinsics.getIntrinsic(symbol) ?: generationExtensions.firstNotNullOfOrNull { it.getIntrinsic(symbol) }
+        }
         /* JvmBackendContext creates new unbound symbols, have to resolve them. */
         ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
 

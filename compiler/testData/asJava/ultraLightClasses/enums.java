@@ -1,8 +1,18 @@
+@java.lang.annotation.Retention(value = java.lang.annotation.RetentionPolicy.RUNTIME)
+public abstract @interface Some /* Some*/ {
+}
+
 public enum Direction /* Direction*/ {
   NORTH,
   SOUTH,
   WEST,
   EAST;
+
+  @org.jetbrains.annotations.NotNull()
+  public static Direction valueOf(@org.jetbrains.annotations.NotNull() java.lang.String) throws java.lang.IllegalArgumentException;//  valueOf(java.lang.String)
+
+  @org.jetbrains.annotations.NotNull()
+  public static Direction[] values();//  values()
 
   private  Direction();//  .ctor()
 
@@ -15,6 +25,12 @@ public enum Color /* Color*/ {
 
   private final int rgb;
 
+  @org.jetbrains.annotations.NotNull()
+  public static Color valueOf(@org.jetbrains.annotations.NotNull() java.lang.String) throws java.lang.IllegalArgumentException;//  valueOf(java.lang.String)
+
+  @org.jetbrains.annotations.NotNull()
+  public static Color[] values();//  values()
+
   private  Color(@org.jetbrains.annotations.NotNull() java.lang.String);//  .ctor(java.lang.String)
 
   private  Color(int);//  .ctor(int)
@@ -25,14 +41,14 @@ public enum Color /* Color*/ {
 
 public enum ProtocolState /* ProtocolState*/ {
   WAITING {
-     WAITING();//  .ctor()
+    WAITING();//  .ctor()
 
     @org.jetbrains.annotations.NotNull()
     public ProtocolState signal();//  signal()
 
   },
   TALKING {
-     TALKING();//  .ctor()
+    TALKING();//  .ctor()
 
     @org.jetbrains.annotations.NotNull()
     public ProtocolState signal();//  signal()
@@ -42,18 +58,24 @@ public enum ProtocolState /* ProtocolState*/ {
   @org.jetbrains.annotations.NotNull()
   public abstract ProtocolState signal();//  signal()
 
+  @org.jetbrains.annotations.NotNull()
+  public static ProtocolState valueOf(@org.jetbrains.annotations.NotNull() java.lang.String) throws java.lang.IllegalArgumentException;//  valueOf(java.lang.String)
+
+  @org.jetbrains.annotations.NotNull()
+  public static ProtocolState[] values();//  values()
+
   private  ProtocolState();//  .ctor()
 
 
 
   class TALKING ...
 
-    class WAITING ...
+  class WAITING ...
 
-  }
+}
 
 public static final class WAITING /* ProtocolState.WAITING*/ extends ProtocolState {
-   WAITING();//  .ctor()
+  WAITING();//  .ctor()
 
   @org.jetbrains.annotations.NotNull()
   public ProtocolState signal();//  signal()
@@ -61,7 +83,7 @@ public static final class WAITING /* ProtocolState.WAITING*/ extends ProtocolSta
 }
 
 public static final class TALKING /* ProtocolState.TALKING*/ extends ProtocolState {
-   TALKING();//  .ctor()
+  TALKING();//  .ctor()
 
   @org.jetbrains.annotations.NotNull()
   public ProtocolState signal();//  signal()
@@ -70,19 +92,25 @@ public static final class TALKING /* ProtocolState.TALKING*/ extends ProtocolSta
 
 public enum IntArithmetics /* IntArithmetics*/ implements java.util.function.BinaryOperator<java.lang.Integer>, java.util.function.IntBinaryOperator {
   PLUS {
-     PLUS();//  .ctor()
+    PLUS();//  .ctor()
 
     @org.jetbrains.annotations.NotNull()
     public java.lang.Integer apply(int, int);//  apply(int, int)
 
   },
   TIMES {
-     TIMES();//  .ctor()
+    TIMES();//  .ctor()
 
     @org.jetbrains.annotations.NotNull()
     public java.lang.Integer apply(int, int);//  apply(int, int)
 
   };
+
+  @org.jetbrains.annotations.NotNull()
+  public static IntArithmetics valueOf(@org.jetbrains.annotations.NotNull() java.lang.String) throws java.lang.IllegalArgumentException;//  valueOf(java.lang.String)
+
+  @org.jetbrains.annotations.NotNull()
+  public static IntArithmetics[] values();//  values()
 
   private  IntArithmetics();//  .ctor()
 
@@ -92,12 +120,12 @@ public enum IntArithmetics /* IntArithmetics*/ implements java.util.function.Bin
 
   class PLUS ...
 
-    class TIMES ...
+  class TIMES ...
 
-  }
+}
 
 public static final class PLUS /* IntArithmetics.PLUS*/ extends IntArithmetics {
-   PLUS();//  .ctor()
+  PLUS();//  .ctor()
 
   @org.jetbrains.annotations.NotNull()
   public java.lang.Integer apply(int, int);//  apply(int, int)
@@ -105,7 +133,7 @@ public static final class PLUS /* IntArithmetics.PLUS*/ extends IntArithmetics {
 }
 
 public static final class TIMES /* IntArithmetics.TIMES*/ extends IntArithmetics {
-   TIMES();//  .ctor()
+  TIMES();//  .ctor()
 
   @org.jetbrains.annotations.NotNull()
   public java.lang.Integer apply(int, int);//  apply(int, int)

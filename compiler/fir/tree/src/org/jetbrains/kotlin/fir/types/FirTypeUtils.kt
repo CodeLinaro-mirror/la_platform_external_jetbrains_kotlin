@@ -6,12 +6,8 @@
 package org.jetbrains.kotlin.fir.types
 
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.builtins.functions.FunctionClassKind
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.expressions.FirAnnotation
-import org.jetbrains.kotlin.fir.expressions.FirConstExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.typeAttributeExtensions
 import org.jetbrains.kotlin.fir.render
@@ -59,9 +55,9 @@ val FirExpression.isNullLiteral: Boolean
 @OptIn(ExperimentalContracts::class)
 fun FirExpression.isStableSmartcast(): Boolean {
     contract {
-        returns(true) implies (this@isStableSmartcast is FirExpressionWithSmartcast)
+        returns(true) implies (this@isStableSmartcast is FirSmartCastExpression)
     }
-    return this is FirExpressionWithSmartcast && this.isStable
+    return this is FirSmartCastExpression && this.isStable
 }
 
 private val FirTypeRef.lookupTagBasedOrNull: ConeLookupTagBasedType?
@@ -195,13 +191,7 @@ val ConeKotlinType.canBeNull: Boolean
         }
     }
 
-val ConeKotlinType?.functionTypeKind: FunctionClassKind?
-    get() {
-        val classId = (this as? ConeClassLikeType)?.lookupTag?.classId ?: return null
-        return FunctionClassKind.getFunctionalClassKind(
-            classId.shortClassName.asString(), classId.packageFqName
-        )
-    }
+val FirIntersectionTypeRef.isLeftValidForDefinitelyNotNullable
+    get() = leftType.coneType.let { it is ConeTypeParameterType && it.canBeNull && !it.isMarkedNullable }
 
-val FirResolvedTypeRef.functionTypeKind: FunctionClassKind?
-    get() = type.functionTypeKind
+val FirIntersectionTypeRef.isRightValidForDefinitelyNotNullable get() = rightType.coneType.isAny

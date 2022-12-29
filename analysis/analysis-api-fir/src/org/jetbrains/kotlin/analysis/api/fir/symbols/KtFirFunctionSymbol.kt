@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.api.fir.symbols
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.analysis.api.base.KtContextReceiver
 import org.jetbrains.kotlin.analysis.api.fir.KtSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.annotations.KtFirAnnotationListForDeclaration
 import org.jetbrains.kotlin.analysis.api.fir.findPsi
@@ -28,7 +29,6 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.containingClass
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.resolve.getHasStableParameterNames
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -50,7 +50,8 @@ internal class KtFirFunctionSymbol(
 
     override val returnType: KtType get() = withValidityAssertion { firSymbol.returnType(builder) }
     override val receiverType: KtType? get() = withValidityAssertion { firSymbol.receiverType(builder) }
-    
+    override val contextReceivers: List<KtContextReceiver> by cached { firSymbol.createContextReceivers(builder) }
+
     override val typeParameters by cached { firSymbol.createKtTypeParameters(builder) }
     override val valueParameters: List<KtValueParameterSymbol> by cached { firSymbol.createKtValueParameters(builder) }
 
@@ -84,9 +85,7 @@ internal class KtFirFunctionSymbol(
     override val visibility: Visibility get() = withValidityAssertion { firSymbol.visibility }
 
     override fun createPointer(): KtSymbolPointer<KtFunctionSymbol> = withValidityAssertion {
-        if (firSymbol.fir.origin != FirDeclarationOrigin.SubstitutionOverride) {
-            KtPsiBasedSymbolPointer.createForSymbolFromSource(this)?.let { return it }
-        }
+        KtPsiBasedSymbolPointer.createForSymbolFromSource(this)?.let { return it }
 
         return when (symbolKind) {
             KtSymbolKind.TOP_LEVEL ->

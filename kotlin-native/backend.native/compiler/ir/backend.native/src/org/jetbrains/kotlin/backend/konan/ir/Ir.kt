@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the LICENSE file.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.konan.ir
@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
@@ -123,6 +124,10 @@ internal class KonanSymbols(
     val interopCOpaque = symbolTable.referenceClass(context.interopBuiltIns.cOpaque)
     val interopObjCObject = symbolTable.referenceClass(context.interopBuiltIns.objCObject)
     val interopObjCObjectBase = symbolTable.referenceClass(context.interopBuiltIns.objCObjectBase)
+    val interopObjCObjectBaseMeta = symbolTable.referenceClass(context.interopBuiltIns.objCObjectBaseMeta)
+    val interopObjCClass = symbolTable.referenceClass(context.interopBuiltIns.objCClass)
+    val interopObjCClassOf = symbolTable.referenceClass(context.interopBuiltIns.objCClassOf)
+    val interopObjCProtocol = symbolTable.referenceClass(context.interopBuiltIns.objCProtocol)
 
     val interopObjCRelease = interopFunction("objc_release")
 
@@ -175,7 +180,13 @@ internal class KonanSymbols(
 
     val interopObjCGetSelector = interopFunction("objCGetSelector")
 
+    val interopCEnum = interopClass("CEnum")
+
+    val interopCPrimitiveVar = interopClass("CPrimitiveVar")
+
     val interopCEnumVar = interopClass("CEnumVar")
+
+    val interopCStructVar = interopClass("CStructVar")
 
     val nativeMemUtils = symbolTable.referenceClass(context.interopBuiltIns.nativeMemUtils)
 
@@ -292,6 +303,11 @@ internal class KonanSymbols(
     val valuesForEnum = internalFunction("valuesForEnum")
 
     val valueOfForEnum = internalFunction("valueOfForEnum")
+
+    val createEnumEntries = irBuiltIns.findFunctions(Name.identifier("enumEntries"), "kotlin", "enums")
+            .single { it.descriptor.valueParameters.singleOrNull()?.type?.constructor?.declarationDescriptor == array.descriptor }
+
+    val enumEntriesInterface = irBuiltIns.findClass(Name.identifier("EnumEntries"), "kotlin", "enums")!!
 
     val createUninitializedInstance = internalFunction("createUninitializedInstance")
 

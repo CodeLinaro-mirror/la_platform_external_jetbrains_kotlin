@@ -1,39 +1,30 @@
+/*
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.common.checkDeclarationParents
 import org.jetbrains.kotlin.backend.common.IrValidator
 import org.jetbrains.kotlin.backend.common.IrValidatorConfig
-import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
 import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataMonolithicSerializer
 import org.jetbrains.kotlin.backend.konan.descriptors.isFromInteropLibrary
 import org.jetbrains.kotlin.backend.konan.llvm.*
+import org.jetbrains.kotlin.backend.konan.lower.CacheInfoBuilder
 import org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier
 import org.jetbrains.kotlin.backend.konan.lower.SamSuperTypesChecker
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExport
 import org.jetbrains.kotlin.backend.konan.serialization.*
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.buildFun
-import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrGetObjectValue
-import org.jetbrains.kotlin.ir.expressions.IrGetField
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
-import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 
 internal fun moduleValidationCallback(state: ActionState, module: IrModuleFragment, context: Context) {
     if (!context.config.needVerifyIr) return
@@ -129,37 +120,11 @@ internal val psiToIrPhase = konanUnitPhase(
 internal val buildAdditionalCacheInfoPhase = konanUnitPhase(
         op = {
             irModules.values.single().let { module ->
-                val moduleDeserializer = irLinker.nonCachedLibraryModuleDeserializers[module.descriptor]
+                val moduleDeserializer = irLinker.moduleDeserializers[module.descriptor]
                 if (moduleDeserializer == null) {
                     require(module.descriptor.isFromInteropLibrary()) { "No module deserializer for ${module.descriptor}" }
                 } else {
-                    val compatibleMode = CompatibilityMode(moduleDeserializer.libraryAbiVersion).oldSignatures
-                    module.acceptChildrenVoid(object : IrElementVisitorVoid {
-                        override fun visitElement(element: IrElement) {
-                            element.acceptChildrenVoid(this)
-                        }
-
-                        override fun visitClass(declaration: IrClass) {
-                            declaration.acceptChildrenVoid(this)
-
-                            if (!declaration.isInterface && declaration.visibility != DescriptorVisibilities.LOCAL
-                                    && declaration.isExported && declaration.origin != DECLARATION_ORIGIN_FUNCTION_CLASS)
-                                classFields.add(moduleDeserializer.buildClassFields(declaration, getLayoutBuilder(declaration).getDeclaredFields()))
-                        }
-
-                        override fun visitFunction(declaration: IrFunction) {
-                            declaration.acceptChildrenVoid(this)
-
-                            if (declaration.isFakeOverride || !declaration.isExportedInlineFunction) return
-                            inlineFunctionBodies.add(moduleDeserializer.buildInlineFunctionReference(declaration))
-                        }
-
-                        private val IrClass.isExported
-                            get() = with(KonanManglerIr) { isExported(compatibleMode) }
-
-                        private val IrFunction.isExportedInlineFunction
-                            get() = isInline && with(KonanManglerIr) { isExported(compatibleMode) }
-                    })
+                    CacheInfoBuilder(this, moduleDeserializer).build()
                 }
             }
         },
@@ -240,6 +205,12 @@ internal val serializerPhase = konanUnitPhase(
         description = "Serialize descriptor tree and inline IR bodies"
 )
 
+internal val saveAdditionalCacheInfoPhase = konanUnitPhase(
+        op = { CacheStorage(this).saveAdditionalCacheInfo() },
+        name = "SaveAdditionalCacheInfo",
+        description = "Save additional cache info (inline functions bodies and fields of classes)"
+)
+
 internal val objectFilesPhase = konanUnitPhase(
         op = { compilerOutput = BitcodeCompiler(this).makeObjectFiles(bitcodeFileName) },
         name = "ObjectFiles",
@@ -250,6 +221,12 @@ internal val linkerPhase = konanUnitPhase(
         op = { Linker(this).link(compilerOutput) },
         name = "Linker",
         description = "Linker"
+)
+
+internal val finalizeCachePhase = konanUnitPhase(
+        op = { CacheStorage(this).renameOutput() },
+        name = "FinalizeCache",
+        description = "Finalize cache (rename temp to the final dist)"
 )
 
 internal val allLoweringsPhase = NamedCompilerPhase(
@@ -268,6 +245,7 @@ internal val allLoweringsPhase = NamedCompilerPhase(
                         sharedVariablesPhase,
                         inventNamesForLocalClasses,
                         extractLocalClassesFromInlineBodies,
+                        wrapInlineDeclarationsWithReifiedTypeParametersLowering,
                         inlinePhase,
                         provisionalFunctionExpressionPhase,
                         postInlinePhase,
@@ -279,6 +257,7 @@ internal val allLoweringsPhase = NamedCompilerPhase(
                         foldConstantLoweringPhase,
                         computeStringTrimPhase,
                         stringConcatenationPhase,
+                        stringConcatenationTypeNarrowingPhase,
                         enumConstructorsPhase,
                         initializersPhase,
                         localFunctionsPhase,
@@ -302,8 +281,11 @@ internal val allLoweringsPhase = NamedCompilerPhase(
                         coroutinesPhase,
                         typeOperatorPhase,
                         expressionBodyTransformPhase,
+                        constantInliningPhase,
                         fileInitializersPhase,
                         bridgesPhase,
+                        exportInternalAbiPhase,
+                        useInternalAbiPhase,
                         autoboxPhase,
                 )
         ),
@@ -355,19 +337,18 @@ internal val dumpTestsPhase = makeCustomPhase<Context, IrModuleFragment>(
             val testDumpFile = context.config.testDumpFile
             requireNotNull(testDumpFile)
 
-            if (context.testCasesToDump.isEmpty()) {
-                testDumpFile.writeText("")
-                return@makeCustomPhase
-            }
+            if (!testDumpFile.exists)
+                testDumpFile.createNew()
 
-            testDumpFile.writeText(
-                    context.testCasesToDump.asSequence()
+            if (context.testCasesToDump.isEmpty())
+                return@makeCustomPhase
+
+            testDumpFile.appendLines(
+                    context.testCasesToDump
                             .flatMap { (suiteClassId, functionNames) ->
                                 val suiteName = suiteClassId.asString()
                                 functionNames.asSequence().map { "$suiteName:$it" }
                             }
-                            .sorted()
-                            .joinToString(separator = "\n")
             )
         }
 )
@@ -385,132 +366,10 @@ internal val entryPointPhase = makeCustomPhase<Context, IrModuleFragment>(
             } else {
                 // `main` function is compiled to other LLVM module.
                 // For example, test running support uses `main` defined in stdlib.
-                context.irModule!!.addFile(NaiveSourceBasedFileEntryImpl("entryPointOwner"), FqName("kotlin.native.caches.abi"))
+                context.irModule!!.addFile(NaiveSourceBasedFileEntryImpl("entryPointOwner"), FqName("kotlin.native.internal.abi"))
             }
 
             file.addChild(makeEntryPoint(context))
-        }
-)
-
-internal val exportInternalAbiPhase = makeKonanModuleOpPhase(
-        name = "exportInternalAbi",
-        description = "Add accessors to private entities",
-        prerequisite = emptySet(),
-        op = { context, module ->
-            val visitor = object : IrElementVisitorVoid {
-                override fun visitElement(element: IrElement) {
-                    element.acceptChildrenVoid(this)
-                }
-
-                override fun visitClass(declaration: IrClass) {
-                    declaration.acceptChildrenVoid(this)
-                    if (declaration.isCompanion) {
-                        val function = context.irFactory.buildFun {
-                            name = InternalAbi.getCompanionObjectAccessorName(declaration)
-                            origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                            returnType = declaration.defaultType
-                        }
-                        context.createIrBuilder(function.symbol).apply {
-                            function.body = irBlockBody {
-                                +irReturn(irGetObjectValue(declaration.defaultType, declaration.symbol))
-                            }
-                        }
-                        context.internalAbi.declare(function, declaration.module)
-                    }
-
-                    if (declaration.isInner) {
-                        val function = context.irFactory.buildFun {
-                            name = InternalAbi.getInnerClassOuterThisAccessorName(declaration)
-                            origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                            returnType = declaration.parentAsClass.defaultType
-                        }
-                        function.addValueParameter {
-                            name = Name.identifier("innerClass")
-                            origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                            type = declaration.defaultType
-                        }
-
-                        context.createIrBuilder(function.symbol).apply {
-                            function.body = irBlockBody {
-                                +irReturn(irGetField(
-                                        irGet(function.valueParameters[0]),
-                                        context.specialDeclarationsFactory.getOuterThisField(declaration))
-                                )
-                            }
-                        }
-                        context.internalAbi.declare(function, declaration.module)
-                    }
-                }
-            }
-            module.acceptChildrenVoid(visitor)
-        }
-)
-
-internal val useInternalAbiPhase = makeKonanModuleOpPhase(
-        name = "useInternalAbi",
-        description = "Use internal ABI functions to access private entities",
-        prerequisite = emptySet(),
-        op = { context, module ->
-            val companionObjectAccessors = mutableMapOf<IrClass, IrSimpleFunction>()
-            val outerThisAccessors = mutableMapOf<IrClass, IrSimpleFunction>()
-            val transformer = object : IrElementTransformerVoid() {
-                override fun visitGetObjectValue(expression: IrGetObjectValue): IrExpression {
-                    val irClass = expression.symbol.owner
-                    if (!irClass.isCompanion || context.llvmModuleSpecification.containsDeclaration(irClass)) {
-                        return expression
-                    }
-                    val parent = irClass.parentAsClass
-                    if (parent.isObjCClass()) {
-                        // Access to Obj-C metaclass is done via intrinsic.
-                        return expression
-                    }
-                    val accessor = companionObjectAccessors.getOrPut(irClass) {
-                        context.irFactory.buildFun {
-                            name = InternalAbi.getCompanionObjectAccessorName(irClass)
-                            returnType = irClass.defaultType
-                            origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                            isExternal = true
-                        }.also {
-                            context.internalAbi.reference(it, irClass.module)
-                        }
-                    }
-                    return IrCallImpl(expression.startOffset, expression.endOffset, expression.type, accessor.symbol, accessor.typeParameters.size, accessor.valueParameters.size)
-                }
-
-                override fun visitGetField(expression: IrGetField): IrExpression {
-                    val field = expression.symbol.owner
-                    val irClass = field.parentClassOrNull ?: return expression
-                    if (!irClass.isInner || context.llvmModuleSpecification.containsDeclaration(irClass)
-                            || context.specialDeclarationsFactory.getOuterThisField(irClass) != field
-                    ) {
-                        return expression
-                    }
-                    val accessor = outerThisAccessors.getOrPut(irClass) {
-                        context.irFactory.buildFun {
-                            name = InternalAbi.getInnerClassOuterThisAccessorName(irClass)
-                            returnType = irClass.parentAsClass.defaultType
-                            origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                            isExternal = true
-                        }.also { function ->
-                            context.internalAbi.reference(function, irClass.module)
-
-                            function.addValueParameter {
-                                name = Name.identifier("innerClass")
-                                origin = InternalAbi.INTERNAL_ABI_ORIGIN
-                                type = irClass.defaultType
-                            }
-                        }
-                    }
-                    return IrCallImpl(
-                            expression.startOffset, expression.endOffset,
-                            expression.type, accessor.symbol,
-                            accessor.typeParameters.size, accessor.valueParameters.size
-                    ).apply {
-                        putValueArgument(0, expression.receiver)
-                    }
-                }
-            }
-            module.transformChildrenVoid(transformer)
         }
 )
 
@@ -528,6 +387,7 @@ internal val bitcodePhase = NamedCompilerPhase(
                                                  // from dependencies can be changed during lowerings.
                 inlineClassPropertyAccessorsPhase then
                 redundantCoercionsCleaningPhase then
+                unboxInlinePhase then
                 createLLVMDeclarationsPhase then
                 ghaPhase then
                 RTTIPhase then
@@ -554,14 +414,12 @@ private val backendCodegen = namedUnitPhase(
         name = "Backend codegen",
         description = "Backend code generation",
         lower = takeFromContext<Context, Unit, IrModuleFragment> { it.irModule!! } then
+                entryPointPhase then
                 functionsWithoutBoundCheck then
                 allLoweringsPhase then // Lower current module first.
                 dependenciesLowerPhase then // Then lower all libraries in topological order.
                                             // With that we guarantee that inline functions are unlowered while being inlined.
                 dumpTestsPhase then
-                entryPointPhase then
-                exportInternalAbiPhase then
-                useInternalAbiPhase then
                 bitcodePhase then
                 verifyBitcodePhase then
                 printBitcodePhase then
@@ -592,8 +450,10 @@ val toplevelPhase: CompilerPhase<*, Unit, Unit> = namedUnitPhase(
                                 disposeLLVMPhase then
                                 unitSink()
                 ) then
+                saveAdditionalCacheInfoPhase then
                 objectFilesPhase then
-                linkerPhase
+                linkerPhase then
+                finalizeCachePhase
 )
 
 internal fun PhaseConfig.disableIf(phase: AnyNamedPhase, condition: Boolean) {
@@ -618,28 +478,36 @@ internal fun PhaseConfig.konanPhasesConfig(config: KonanConfig) {
         disableUnless(serializerPhase, config.produce == CompilerOutputKind.LIBRARY)
         disableUnless(entryPointPhase, config.produce == CompilerOutputKind.PROGRAM)
         disableUnless(buildAdditionalCacheInfoPhase, config.produce.isCache && config.lazyIrForCaches)
+        disableUnless(saveAdditionalCacheInfoPhase, config.produce.isCache && config.lazyIrForCaches)
+        disableUnless(finalizeCachePhase, config.produce.isCache)
         disableUnless(exportInternalAbiPhase, config.produce.isCache)
-        disableIf(backendCodegen, config.produce == CompilerOutputKind.LIBRARY)
-        disableUnless(bitcodePostprocessingPhase, config.produce.involvesLinkStage)
-        disableUnless(linkBitcodeDependenciesPhase, config.produce.involvesLinkStage)
+        disableIf(backendCodegen, config.produce == CompilerOutputKind.LIBRARY || config.omitFrameworkBinary || config.produce == CompilerOutputKind.PRELIMINARY_CACHE)
         disableUnless(checkExternalCallsPhase, getBoolean(KonanConfigKeys.CHECK_EXTERNAL_CALLS))
         disableUnless(rewriteExternalCallsCheckerGlobals, getBoolean(KonanConfigKeys.CHECK_EXTERNAL_CALLS))
+        disableUnless(stringConcatenationTypeNarrowingPhase, config.optimizationsEnabled)
         disableUnless(optimizeTLSDataLoadsPhase, config.optimizationsEnabled)
-        disableUnless(objectFilesPhase, config.produce.involvesLinkStage)
-        disableUnless(linkerPhase, config.produce.involvesLinkStage)
+        if (!config.involvesLinkStage) {
+            disable(bitcodePostprocessingPhase)
+            disable(linkBitcodeDependenciesPhase)
+            disable(objectFilesPhase)
+            disable(linkerPhase)
+        }
         disableIf(testProcessorPhase, getNotNull(KonanConfigKeys.GENERATE_TEST_RUNNER) == TestRunnerKind.NONE)
         disableIf(dumpTestsPhase, getNotNull(KonanConfigKeys.GENERATE_TEST_RUNNER) == TestRunnerKind.NONE || config.testDumpFile == null)
-        disableUnless(buildDFGPhase, config.optimizationsEnabled)
-        disableUnless(devirtualizationAnalysisPhase, config.optimizationsEnabled)
-        disableUnless(devirtualizationPhase, config.optimizationsEnabled)
-        disableUnless(escapeAnalysisPhase, config.optimizationsEnabled)
-        // Inline accessors only in optimized builds due to separate compilation and possibility to get broken
-        // debug information.
-        disableUnless(propertyAccessorInlinePhase, config.optimizationsEnabled)
-        disableUnless(inlineClassPropertyAccessorsPhase, config.optimizationsEnabled)
-        disableUnless(dcePhase, config.optimizationsEnabled)
-        disableUnless(removeRedundantCallsToFileInitializersPhase, config.optimizationsEnabled)
-        disableUnless(ghaPhase, config.optimizationsEnabled)
+        if (!config.optimizationsEnabled) {
+            disable(buildDFGPhase)
+            disable(devirtualizationAnalysisPhase)
+            disable(devirtualizationPhase)
+            disable(escapeAnalysisPhase)
+            // Inline accessors only in optimized builds due to separate compilation and possibility to get broken
+            // debug information.
+            disable(propertyAccessorInlinePhase)
+            disable(unboxInlinePhase)
+            disable(inlineClassPropertyAccessorsPhase)
+            disable(dcePhase)
+            disable(removeRedundantCallsToFileInitializersPhase)
+            disable(ghaPhase)
+        }
         disableUnless(verifyBitcodePhase, config.needCompilerVerification || getBoolean(KonanConfigKeys.VERIFY_BITCODE))
 
         disableUnless(fileInitializersPhase, config.propertyLazyInitialization)
@@ -647,11 +515,11 @@ internal fun PhaseConfig.konanPhasesConfig(config: KonanConfig) {
 
         disableUnless(removeRedundantSafepointsPhase, config.memoryModel == MemoryModel.EXPERIMENTAL)
 
-        val isDescriptorsOnlyLibrary = config.metadataKlib == true
-        disableIf(psiToIrPhase, isDescriptorsOnlyLibrary)
-        disableIf(destroySymbolTablePhase, isDescriptorsOnlyLibrary)
-        disableIf(copyDefaultValuesToActualPhase, isDescriptorsOnlyLibrary)
-        disableIf(specialBackendChecksPhase, isDescriptorsOnlyLibrary)
-        disableIf(checkSamSuperTypesPhase, isDescriptorsOnlyLibrary)
+        if (config.metadataKlib || config.omitFrameworkBinary) {
+            disable(psiToIrPhase)
+            disable(copyDefaultValuesToActualPhase)
+            disable(specialBackendChecksPhase)
+            disable(checkSamSuperTypesPhase)
+        }
     }
 }

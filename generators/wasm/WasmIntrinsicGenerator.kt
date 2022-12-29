@@ -106,6 +106,10 @@ fun wasmArrayForType(
                 fun len(): Int =
                     implementedAsIntrinsic
             }
+            
+            internal inline fun copyWasmArray(source: $name, destination: $name, sourceIndex: Int, destinationIndex: Int, length: Int) {
+                wasm_array_copy<$name>(destination, destinationIndex, source, sourceIndex, length)
+            }
     
             internal inline fun $name.fill(size: Int, init: (Int) -> $type) {
                 var i = 0
@@ -113,8 +117,7 @@ fun wasmArrayForType(
                     set(i, init(i))
                     i++
                 }
-            }
-            
+            }            
             """.trimIndent()
 }
 

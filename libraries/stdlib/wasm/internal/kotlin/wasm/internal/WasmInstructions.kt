@@ -21,6 +21,12 @@ internal fun wasm_unreachable(): Nothing =
 internal fun <To> wasm_ref_cast(a: Any?): To =
     implementedAsIntrinsic
 
+internal fun <To> wasm_ref_test(a: Any?): Boolean =
+    implementedAsIntrinsic
+
+internal fun <T> wasm_array_copy(destination: T, destinationIndex: Int, source: T, sourceIndex: Int, length: Int): Unit =
+    implementedAsIntrinsic
+
 @WasmOp(WasmOp.I32_EQ)
 public external fun wasm_i32_eq(a: Int, b: Int): Boolean
 
@@ -285,9 +291,6 @@ public external fun wasm_ref_is_null(a: Any?): Boolean
 @WasmOp(WasmOp.REF_EQ)
 public external fun wasm_ref_eq(a: Any?, b: Any?): Boolean
 
-@WasmOp(WasmOp.REF_TEST)
-public external fun <T> wasm_ref_test(a: Any?): Boolean
-
 // ---
 
 @WasmOp(WasmOp.F32_NEAREST)
@@ -371,17 +374,11 @@ public external fun wasm_i64_ctz(a: Long): Long
 
 // Reference type operators
 
-@WasmOp(WasmOp.REF_IS_FUNC)
-internal external fun wasm_ref_is_func(x: anyref): Boolean
-
 @WasmOp(WasmOp.REF_IS_DATA)
 internal external fun wasm_ref_is_data(x: anyref): Boolean
 
 @WasmOp(WasmOp.REF_IS_I31)
 internal external fun wasm_ref_is_i31(x: anyref): Boolean
-
-@WasmOp(WasmOp.REF_AS_FUNC)
-internal external fun wasm_ref_as_func(x: anyref): funcref
 
 @WasmOp(WasmOp.REF_AS_DATA)
 internal external fun wasm_ref_as_data(x: anyref): dataref

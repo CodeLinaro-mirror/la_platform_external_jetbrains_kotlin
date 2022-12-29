@@ -36,7 +36,7 @@ import org.jetbrains.kotlin.gradle.utils.unavailableValueError
  * Regularly tasks share the same instance of this class, but with configuration cache each task that holds a reference to the instance will
  * create an own copy. We use build services as a single storage for the heavy state of this class.
  */
-internal class KotlinRootNpmResolver internal constructor(
+class KotlinRootNpmResolver internal constructor(
     @Transient
     val nodeJs: NodeJsRootExtension?,
     val forceFullResolve: Boolean
@@ -58,17 +58,11 @@ internal class KotlinRootNpmResolver internal constructor(
         rootProject_.version.toString()
     }
 
-    enum class State {
-        CONFIGURING,
-        PROJECTS_CLOSED,
-        INSTALLED
-    }
-
     @Transient
     @Volatile
-    private var state_: State? = State.CONFIGURING
+    private var state_: RootResolverState? = RootResolverState.CONFIGURING
 
-    private var state
+    var state
         get() = state_ ?: resolverStateHolder.get().state
         set(value) {
             if (state_ != null) {
@@ -88,7 +82,7 @@ internal class KotlinRootNpmResolver internal constructor(
                 it.parameters.rootProjectDir.set(rootProject_.projectDir)
             }
 
-    val gradleNodeModules: GradleNodeModulesCache
+    internal val gradleNodeModules: GradleNodeModulesCache
         get() = gradleNodeModulesProvider.get().also {
             it.archiveOperations = archiveOperations
             it.fs = fs
@@ -101,7 +95,7 @@ internal class KotlinRootNpmResolver internal constructor(
                 it.parameters.rootProjectDir.set(rootProject_.projectDir)
             }
 
-    val compositeNodeModules: CompositeNodeModulesCache
+    internal val compositeNodeModules: CompositeNodeModulesCache
         get() = compositeNodeModulesProvider.get()
 
     @Transient
@@ -163,7 +157,7 @@ internal class KotlinRootNpmResolver internal constructor(
             return projResolvers
         }
 
-    val plugins
+    internal val plugins
         get() = plugins_ ?: resolverStateHolder.get().parameters.plugins.get()
 
     private val projectResolvers
@@ -191,12 +185,12 @@ internal class KotlinRootNpmResolver internal constructor(
 
     fun addProject(target: Project) {
         synchronized(projectResolvers) {
-            check(state == State.CONFIGURING) { alreadyResolvedMessage("add new project: $target") }
+            check(state == RootResolverState.CONFIGURING) { alreadyResolvedMessage("add new project: $target") }
             projectResolvers[target.path] = KotlinProjectNpmResolver(target, this)
         }
     }
 
-    operator fun get(projectPath: String) = projectResolvers[projectPath] ?: error("$projectPath is not configured for JS usage")
+    internal operator fun get(projectPath: String) = projectResolvers[projectPath] ?: error("$projectPath is not configured for JS usage")
 
     val compilations: Collection<KotlinJsCompilation>
         get() = projectResolvers.values.flatMap { it.compilationResolvers.map { it.compilation } }
@@ -204,7 +198,7 @@ internal class KotlinRootNpmResolver internal constructor(
     internal fun getPackageJsonHandlers(projectPath: String, compilationDisambiguatedName: String): List<PackageJson.() -> Unit> =
         resolverStateHolder.get().parameters.packageJsonHandlers.get()["$projectPath:$compilationDisambiguatedName"] ?: emptyList()
 
-    fun findDependentResolver(src: Project, target: Project): List<KotlinCompilationNpmResolver>? {
+    internal fun findDependentResolver(src: Project, target: Project): List<KotlinCompilationNpmResolver>? {
         // todo: proper finding using KotlinTargetComponent.findUsageContext
         val targetResolver = this[target.path]
         val mainCompilations = targetResolver.compilationResolvers.filter { it.compilation.isMain() }
@@ -230,6 +224,7 @@ internal class KotlinRootNpmResolver internal constructor(
                         containsIrJs = true
                     }
                 }
+
                 else -> {
                     check(!containsLegacyJs) { errorMessage }
                     containsLegacyJs = true
@@ -246,10 +241,7 @@ internal class KotlinRootNpmResolver internal constructor(
      */
     internal fun prepareInstallation(logger: Logger): Installation {
         synchronized(projectResolvers) {
-            check(state == State.CONFIGURING) {
-                "Projects must be configuring"
-            }
-            state = State.PROJECTS_CLOSED
+            state = RootResolverState.PROJECTS_CLOSED
 
             val projectResolutions = projectResolvers.values
                 .map { it.close() }
@@ -288,10 +280,13 @@ internal class KotlinRootNpmResolver internal constructor(
             logger: Logger
         ): KotlinRootNpmResolution {
             synchronized(projectResolvers) {
-                check(state == State.PROJECTS_CLOSED) {
+                if (state == RootResolverState.INSTALLED) {
+                    return KotlinRootNpmResolution(rootProject, projectResolutions)
+                }
+                check(state == RootResolverState.PROJECTS_CLOSED) {
                     "Projects must be closed"
                 }
-                state = State.INSTALLED
+                state = RootResolverState.INSTALLED
 
                 val allNpmPackages = projectResolutions
                     .values
@@ -325,6 +320,12 @@ internal class KotlinRootNpmResolver internal constructor(
             }
         }
     }
+}
+
+enum class RootResolverState {
+    CONFIGURING,
+    PROJECTS_CLOSED,
+    INSTALLED
 }
 
 const val PACKAGE_JSON_UMBRELLA_TASK_NAME = "packageJsonUmbrella"

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -24,15 +24,14 @@ public abstract class KotlinDeclarationProvider {
     public abstract fun getAllClassesByClassId(classId: ClassId): Collection<KtClassOrObject>
     public abstract fun getAllTypeAliasesByClassId(classId: ClassId): Collection<KtTypeAlias>
 
-    public abstract fun getClassNamesInPackage(packageFqName: FqName): Set<Name>
-    public abstract fun getTypeAliasNamesInPackage(packageFqName: FqName): Set<Name>
+    public abstract fun getTopLevelKotlinClassLikeDeclarationNamesInPackage(packageFqName: FqName): Set<Name>
 
     public abstract fun getTopLevelProperties(callableId: CallableId): Collection<KtProperty>
     public abstract fun getTopLevelFunctions(callableId: CallableId): Collection<KtNamedFunction>
 
-    public abstract fun getPropertyNamesInPackage(packageFqName: FqName): Set<Name>
-    public abstract fun getFunctionsNamesInPackage(packageFqName: FqName): Set<Name>
-    public abstract fun getFacadeFilesInPackage(packageFqName: FqName): Collection<KtFile>
+    public abstract fun getTopLevelCallableNamesInPackage(packageFqName: FqName): Set<Name>
+
+    public abstract fun findFilesForFacadeByPackage(packageFqName: FqName): Collection<KtFile>
     public abstract fun findFilesForFacade(facadeFqName: FqName): Collection<KtFile>
 }
 

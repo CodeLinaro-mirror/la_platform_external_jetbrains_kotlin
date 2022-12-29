@@ -53,12 +53,16 @@ sourceSets {
     "test" { }
 }
 
+allprojects {
+    optInToExperimentalCompilerApi()
+}
+
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
     kotlinOptions {
         languageVersion = "1.4"
         apiVersion = "1.4"
         freeCompilerArgs = freeCompilerArgs - "-progressive" + listOf(
-            "-Xskip-prerelease-check", "-Xsuppress-version-warnings", "-Xuse-mixed-named-arguments", "-Xnew-inference"
+            "-Xskip-prerelease-check", "-Xsuppress-version-warnings", "-Xuse-mixed-named-arguments"
         )
     }
 }

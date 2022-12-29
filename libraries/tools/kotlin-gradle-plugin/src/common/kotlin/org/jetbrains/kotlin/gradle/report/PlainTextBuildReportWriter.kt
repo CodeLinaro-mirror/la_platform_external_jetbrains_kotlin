@@ -8,29 +8,15 @@ package org.jetbrains.kotlin.gradle.report
 import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.build.report.metrics.*
 import org.jetbrains.kotlin.gradle.report.data.BuildExecutionData
-import org.jetbrains.kotlin.gradle.report.data.BuildExecutionDataProcessor
 import org.jetbrains.kotlin.gradle.report.data.BuildOperationRecord
 import org.jetbrains.kotlin.gradle.utils.Printer
+import org.jetbrains.kotlin.gradle.utils.asString
+import org.jetbrains.kotlin.gradle.utils.formatSize
+import org.jetbrains.kotlin.gradle.utils.formatTime
 import java.io.File
 import java.io.Serializable
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.max
-
-internal class PlainTextBuildReportWriterDataProcessor(
-    val reportingSettings: FileReportSettings,
-    val rootProjectName: String
-) : BuildExecutionDataProcessor, Serializable {
-    override fun process(build: BuildExecutionData, log: Logger) {
-        val ts = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(Calendar.getInstance().time)
-        val reportFile = reportingSettings.buildReportDir.resolve("${rootProjectName}-build-$ts.txt")
-
-        PlainTextBuildReportWriter(
-            outputFile = reportFile,
-            printMetrics = reportingSettings.includeMetricsInReport
-        ).process(build, log)
-    }
-}
 
 internal class PlainTextBuildReportWriter(
     private val outputFile: File,
@@ -40,6 +26,7 @@ internal class PlainTextBuildReportWriter(
     private lateinit var p: Printer
 
     fun process(build: BuildExecutionData, log: Logger) {
+        val buildReportPath = outputFile.toPath().toUri().toString()
         try {
             outputFile.parentFile.mkdirs()
             if (!(outputFile.parentFile.exists() && outputFile.parentFile.isDirectory)) {
@@ -52,9 +39,9 @@ internal class PlainTextBuildReportWriter(
                 printBuildReport(build)
             }
 
-            log.lifecycle("Kotlin build report is written to ${outputFile.canonicalPath}")
+            log.lifecycle("Kotlin build report is written to $buildReportPath")
         } catch (e: Exception) {
-            log.error("Could not write Kotlin build report to ${outputFile.canonicalPath}", e)
+            log.error("Could not write Kotlin build report to $buildReportPath", e)
         }
     }
 
@@ -74,7 +61,13 @@ internal class PlainTextBuildReportWriter(
 
     private fun printBuildInfo(build: BuildExecutionData) {
         p.withIndent("Gradle start parameters:") {
-            build.startParameters.forEach { p.println(it) }
+            build.startParameters.let {
+                p.println("tasks = ${it.tasks}")
+                p.println("excluded tasks = ${it.excludedTasks}")
+                p.println("current dir = ${it.currentDir}")
+                p.println("project properties args = ${it.projectProperties}")
+                p.println(" system properties args = ${it.systemProperties}")
+            }
         }
         p.println()
 

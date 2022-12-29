@@ -310,6 +310,9 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             withCopy()
         }
 
+        builder(smartCastExpression) {
+        }
+
         builder(tryExpression) {
             default("calleeReference", "FirStubReference")
             useTypes(stubReferenceType)
@@ -419,6 +422,13 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             fieldPredicate = { it.type == declarationAttributesType.type }
         ) {
             default(it, "${declarationAttributesType.type}()")
+        }
+
+        configureFieldInAllLeafBuilders(
+            field = "deprecationsProvider"
+        ) {
+            default(it, "UnresolvedDeprecationProvider")
+            useTypes(unresolvedDeprecationsProviderType)
         }
     }
 

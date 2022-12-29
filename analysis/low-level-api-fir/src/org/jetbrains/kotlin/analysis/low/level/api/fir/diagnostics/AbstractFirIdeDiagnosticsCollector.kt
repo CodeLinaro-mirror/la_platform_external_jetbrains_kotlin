@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.firKtModuleBasedModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.CheckersComponentInternal
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.expression.ExpressionCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.type.ComposedTypeCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.type.TypeCheckers
 import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollector
+import org.jetbrains.kotlin.fir.analysis.collectors.DiagnosticCollectorComponents
 import org.jetbrains.kotlin.fir.analysis.collectors.components.*
 import org.jetbrains.kotlin.fir.analysis.extensions.FirAdditionalCheckersExtension
 import org.jetbrains.kotlin.fir.analysis.extensions.additionalCheckers
@@ -46,15 +47,15 @@ private object CheckersFactory {
         session: FirSession,
         reporter: DiagnosticReporter,
         useExtendedCheckers: Boolean
-    ): List<AbstractDiagnosticCollectorComponent> {
-        val module = session.firKtModuleBasedModuleData.ktModule
+    ): DiagnosticCollectorComponents {
+        val module = session.llFirModuleData.ktModule
         val platform = module.platform.componentPlatforms.first()
         val extensionCheckers = session.extensionService.additionalCheckers
         val declarationCheckers = createDeclarationCheckers(useExtendedCheckers, platform, extensionCheckers)
         val expressionCheckers = createExpressionCheckers(useExtendedCheckers, platform, extensionCheckers)
         val typeCheckers = createTypeCheckers(useExtendedCheckers, platform, extensionCheckers)
 
-        return buildList {
+        val regularComponents = buildList {
             if (!useExtendedCheckers) {
                 add(ErrorNodeDiagnosticCollectorComponent(session, reporter))
             }
@@ -63,6 +64,7 @@ private object CheckersFactory {
             add(TypeCheckersDiagnosticComponent(session, reporter, typeCheckers))
             add(ControlFlowAnalysisDiagnosticComponent(session, reporter, declarationCheckers))
         }
+        return DiagnosticCollectorComponents(regularComponents, ReportCommitterDiagnosticComponent(session, reporter))
     }
 
 

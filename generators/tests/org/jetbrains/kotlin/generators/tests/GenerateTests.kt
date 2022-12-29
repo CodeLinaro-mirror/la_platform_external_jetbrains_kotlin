@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,29 +16,32 @@ import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidBoxTest
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidBytecodeShapeTest
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidIrBoxTest
 import org.jetbrains.kotlin.android.synthetic.test.AbstractAndroidSyntheticPropertyDescriptorTest
+import org.jetbrains.kotlin.assignment.plugin.AbstractFirBlackBoxCodegenTestForAssignmentPlugin
+import org.jetbrains.kotlin.assignment.plugin.AbstractFirAssignmentPluginDiagnosticTest
+import org.jetbrains.kotlin.assignment.plugin.AbstractIrBlackBoxCodegenTestAssignmentPlugin
+import org.jetbrains.kotlin.assignment.plugin.AbstractAssignmentPluginDiagnosticTest
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirPluginBlackBoxCodegenTest
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirPluginDiagnosticTest
 import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.impl.generateTestGroupSuite
+import org.jetbrains.kotlin.generators.model.annotation
 import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.jvm.abi.*
 import org.jetbrains.kotlin.kapt.cli.test.AbstractArgumentParsingTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractKaptToolIntegrationTest
-import org.jetbrains.kotlin.kapt3.test.AbstractClassFileToSourceStubConverterTest
-import org.jetbrains.kotlin.kapt3.test.AbstractIrClassFileToSourceStubConverterTest
-import org.jetbrains.kotlin.kapt3.test.AbstractIrKotlinKaptContextTest
-import org.jetbrains.kotlin.kapt3.test.AbstractKotlinKaptContextTest
+import org.jetbrains.kotlin.kapt3.test.runners.AbstractClassFileToSourceStubConverterTest
+import org.jetbrains.kotlin.kapt3.test.runners.AbstractIrClassFileToSourceStubConverterTest
+import org.jetbrains.kotlin.kapt3.test.runners.AbstractIrKotlinKaptContextTest
+import org.jetbrains.kotlin.kapt3.test.runners.AbstractKotlinKaptContextTest
 import org.jetbrains.kotlin.lombok.*
 import org.jetbrains.kotlin.noarg.*
 import org.jetbrains.kotlin.parcelize.test.runners.*
 import org.jetbrains.kotlin.samWithReceiver.*
 import org.jetbrains.kotlin.test.TargetBackend
-import org.jetbrains.kotlinx.serialization.AbstractSerializationIrBytecodeListingTest
-import org.jetbrains.kotlinx.serialization.AbstractSerializationPluginBytecodeListingTest
-import org.jetbrains.kotlinx.serialization.AbstractSerializationPluginDiagnosticTest
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJsIrTest
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJvmIrTest
+import org.junit.jupiter.api.Tag
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
@@ -52,7 +55,6 @@ fun main(args: Array<String>) {
                 model("incremental/incrementalJvmCompilerOnly", extension = null, excludeParentDirs = true, targetBackend = targetBackend)
             }
             testClass<AbstractIncrementalJvmCompilerRunnerTest>(init = incrementalJvmTestData(TargetBackend.JVM_IR))
-            testClass<AbstractIncrementalJvmOldBackendCompilerRunnerTest>(init = incrementalJvmTestData(TargetBackend.JVM))
             testClass<AbstractIncrementalFirJvmCompilerRunnerTest>(init = incrementalJvmTestData(TargetBackend.JVM_IR, excludePattern = "^.*Expect.*"))
             testClass<AbstractIncrementalFirICLightTreeJvmCompilerRunnerTest>(init = incrementalJvmTestData(TargetBackend.JVM_IR, excludePattern = "^.*Expect.*"))
             testClass<AbstractIncrementalFirLightTreeJvmCompilerRunnerTest>(init = incrementalJvmTestData(TargetBackend.JVM_IR, excludePattern = "^.*Expect.*"))
@@ -152,26 +154,14 @@ fun main(args: Array<String>) {
 
         testGroup("plugins/jvm-abi-gen/test", "plugins/jvm-abi-gen/testData") {
             testClass<AbstractCompareJvmAbiTest> {
-                model("compare", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
-            }
-
-            testClass<AbstractJvmAbiContentTest> {
-                model("content", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
-            }
-
-            testClass<AbstractCompileAgainstJvmAbiTest> {
-                model("compile", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
-            }
-
-            testClass<AbstractIrCompareJvmAbiTest> {
                 model("compare", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
 
-            testClass<AbstractIrJvmAbiContentTest> {
+            testClass<AbstractJvmAbiContentTest> {
                 model("content", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
 
-            testClass<AbstractIrCompileAgainstJvmAbiTest> {
+            testClass<AbstractCompileAgainstJvmAbiTest> {
                 model("compile", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
         }
@@ -182,43 +172,15 @@ fun main(args: Array<String>) {
             additionalRunnerArguments = listOf("\"// IGNORE_BACKEND_LEGACY: \"")
         ) {
             testClass<AbstractLegacyCompareJvmAbiTest> {
-                model("compare", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
+                model("compare", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
 
             testClass<AbstractLegacyJvmAbiContentTest> {
-                model("content", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
+                model("content", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
 
             testClass<AbstractLegacyCompileAgainstJvmAbiTest> {
-                model("compile", recursive = false, extension = null, targetBackend = TargetBackend.JVM)
-            }
-        }
-
-        testGroup("plugins/kapt3/kapt3-compiler/test", "plugins/kapt3/kapt3-compiler/testData") {
-            testClass<AbstractClassFileToSourceStubConverterTest> {
-                model("converter")
-            }
-
-            testClass<AbstractKotlinKaptContextTest> {
-                model("kotlinRunner")
-            }
-
-            testClass<AbstractIrClassFileToSourceStubConverterTest> {
-                model("converter", targetBackend = TargetBackend.JVM_IR)
-            }
-
-            testClass<AbstractIrKotlinKaptContextTest> {
-                model("kotlinRunner", targetBackend = TargetBackend.JVM_IR)
-            }
-        }
-
-        testGroup("plugins/kapt3/kapt3-cli/test", "plugins/kapt3/kapt3-cli/testData") {
-            testClass<AbstractArgumentParsingTest> {
-                model("argumentParsing", extension = "txt")
-            }
-
-            testClass<AbstractKaptToolIntegrationTest> {
-                model("integration", recursive = false, extension = null)
+                model("compile", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
         }
 
@@ -231,97 +193,6 @@ fun main(args: Array<String>) {
                 model("script", extension = "kts")
             }
         }
-
-        testGroup(
-            "plugins/kotlin-serialization/kotlin-serialization-compiler/test",
-            "plugins/kotlin-serialization/kotlin-serialization-compiler/testData"
-        ) {
-            testClass<AbstractSerializationPluginDiagnosticTest> {
-                model("diagnostics")
-            }
-
-            testClass<AbstractSerializationPluginBytecodeListingTest> {
-                model("codegen")
-            }
-
-            testClass<AbstractSerializationIrBytecodeListingTest> {
-                model("codegen")
-            }
-        }
-/*
-    testGroup("plugins/android-extensions/android-extensions-idea/tests", "plugins/android-extensions/android-extensions-idea/testData") {
-        testClass<AbstractAndroidCompletionTest> {
-            model("android/completion", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidGotoTest> {
-            model("android/goto", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidRenameTest> {
-            model("android/rename", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidLayoutRenameTest> {
-            model("android/renameLayout", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidFindUsagesTest> {
-            model("android/findUsages", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidUsageHighlightingTest> {
-            model("android/usageHighlighting", recursive = false, extension = null)
-        }
-
-        testClass<AbstractAndroidExtractionTest> {
-            model("android/extraction", recursive = false, extension = null)
-        }
-
-        testClass<AbstractParcelCheckerTest> {
-            model("android/parcel/checker", excludeParentDirs = true)
-        }
-
-        testClass<AbstractParcelQuickFixTest> {
-            model("android/parcel/quickfix", pattern = """^(\w+)\.((before\.Main\.\w+)|(test))$""", testMethod = "doTestWithExtraFile")
-        }
-    }
-
-    testGroup("idea/idea-android/tests", "idea/testData") {
-        testClass<AbstractConfigureProjectTest> {
-            model("configuration/android-gradle", pattern = """(\w+)_before\.gradle$""", testMethod = "doTestAndroidGradle")
-            model("configuration/android-gsk", pattern = """(\w+)_before\.gradle.kts$""", testMethod = "doTestAndroidGradle")
-        }
-
-        testClass<AbstractAndroidIntentionTest> {
-            model("android/intention", pattern = "^([\\w\\-_]+)\\.kt$")
-        }
-
-        testClass<AbstractAndroidResourceIntentionTest> {
-            model("android/resourceIntention", extension = "test", singleClass = true)
-        }
-
-        testClass<AbstractAndroidQuickFixMultiFileTest> {
-            model("android/quickfix", pattern = """^(\w+)\.((before\.Main\.\w+)|(test))$""", testMethod = "doTestWithExtraFile")
-        }
-
-        testClass<AbstractKotlinLintTest> {
-            model("android/lint", excludeParentDirs = true)
-        }
-
-        testClass<AbstractAndroidLintQuickfixTest> {
-            model("android/lintQuickfix", pattern = "^([\\w\\-_]+)\\.kt$")
-        }
-
-        testClass<AbstractAndroidResourceFoldingTest> {
-            model("android/folding")
-        }
-
-        testClass<AbstractAndroidGutterIconTest> {
-            model("android/gutterIcon")
-        }
-    }
-*/
 
         testGroup("plugins/fir-plugin-prototype/fir-plugin-ic-test/tests-gen", "plugins/fir-plugin-prototype/fir-plugin-ic-test/testData") {
             testClass<AbstractIncrementalFirJvmWithPluginCompilerRunnerTest> {
@@ -461,6 +332,50 @@ fun main(args: Array<String>) {
                 model("codegen", excludedPattern = excludedFirTestdataPattern)
             }
             testClass<AbstractFirBlackBoxCodegenTestForSamWithReceiver> {
+                model("codegen", excludedPattern = excludedFirTestdataPattern)
+            }
+        }
+
+        testGroup("plugins/kapt3/kapt3-cli/tests-gen", "plugins/kapt3/kapt3-cli/testData") {
+            testClass<AbstractArgumentParsingTest> {
+                model("argumentParsing", extension = "txt")
+            }
+
+            testClass<AbstractKaptToolIntegrationTest> {
+                model("integration", recursive = false, extension = null)
+            }
+        }
+
+        testGroup("plugins/kapt3/kapt3-compiler/tests-gen", "plugins/kapt3/kapt3-compiler/testData") {
+            val annotations = listOf(annotation(Tag::class.java, "IgnoreJDK11"))
+            testClass<AbstractKotlinKaptContextTest>(annotations = annotations) {
+                model("kotlinRunner")
+            }
+
+            testClass<AbstractIrKotlinKaptContextTest>(annotations = annotations) {
+                model("kotlinRunner")
+            }
+
+            testClass<AbstractClassFileToSourceStubConverterTest> {
+                model("converter")
+            }
+
+            testClass<AbstractIrClassFileToSourceStubConverterTest> {
+                model("converter")
+            }
+        }
+
+        testGroup("plugins/assign-plugin/tests-gen", "plugins/assign-plugin/testData") {
+            testClass<AbstractAssignmentPluginDiagnosticTest> {
+                model("diagnostics", excludedPattern = excludedFirTestdataPattern)
+            }
+            testClass<AbstractFirAssignmentPluginDiagnosticTest> {
+                model("diagnostics", excludedPattern = excludedFirTestdataPattern)
+            }
+            testClass<AbstractIrBlackBoxCodegenTestAssignmentPlugin> {
+                model("codegen", excludedPattern = excludedFirTestdataPattern)
+            }
+            testClass<AbstractFirBlackBoxCodegenTestForAssignmentPlugin> {
                 model("codegen", excludedPattern = excludedFirTestdataPattern)
             }
         }

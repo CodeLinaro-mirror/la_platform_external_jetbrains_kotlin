@@ -26,6 +26,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 val kotlinGradlePluginAndItsRequired = arrayOf(
+    ":kotlin-assignment",
     ":kotlin-allopen",
     ":kotlin-noarg",
     ":kotlin-sam-with-receiver",
@@ -202,8 +203,8 @@ fun Project.projectTest(
         environment("PROJECT_CLASSES_DIRS", project.testSourceSet.output.classesDirs.asPath)
         environment("PROJECT_BUILD_DIR", project.buildDir)
         systemProperty("jps.kotlin.home", project.rootProject.extra["distKotlinHomeDir"]!!)
-        systemProperty("kotlin.ni", if (project.rootProject.hasProperty("newInferenceTests")) "true" else "false")
         systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (project.rootProject.hasProperty("skipMutedTests")) "true" else "false")
+        systemProperty("cacheRedirectorEnabled", project.rootProject.findProperty("cacheRedirectorEnabled")?.toString() ?: "false")
         project.kotlinBuildProperties.junit5NumberOfThreadsForParallelExecution?.let { n ->
             systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
             systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", n)
@@ -327,6 +328,15 @@ fun Project.confugureFirPluginAnnotationsDependency(testTask: TaskProvider<Test>
         dependsOn(firPluginAnnotations)
         doFirst {
             systemProperty("firPluginAnnotations.path", firPluginAnnotations.singleFile.canonicalPath)
+        }
+    }
+}
+
+fun Project.optInToExperimentalCompilerApi() {
+    @Suppress("DEPRECATION")
+    tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().configureEach {
+        kotlinOptions {
+            freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi"
         }
     }
 }

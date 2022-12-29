@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,14 +35,17 @@ internal class WasmAnyArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmAnyArray, destination: WasmAnyArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmAnyArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmAnyArray.fill(size: Int, init: (Int) -> Any?) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Byte::class, isNullable = false)
 internal class WasmByteArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET_S)
@@ -58,14 +61,17 @@ internal class WasmByteArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmByteArray, destination: WasmByteArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmByteArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmByteArray.fill(size: Int, init: (Int) -> Byte) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Char::class, isNullable = false)
 internal class WasmCharArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET_U)
@@ -81,14 +87,17 @@ internal class WasmCharArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmCharArray, destination: WasmCharArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmCharArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmCharArray.fill(size: Int, init: (Int) -> Char) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Short::class, isNullable = false)
 internal class WasmShortArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET_S)
@@ -104,14 +113,17 @@ internal class WasmShortArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmShortArray, destination: WasmShortArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmShortArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmShortArray.fill(size: Int, init: (Int) -> Short) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Int::class, isNullable = false)
 internal class WasmIntArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET)
@@ -127,14 +139,17 @@ internal class WasmIntArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmIntArray, destination: WasmIntArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmIntArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmIntArray.fill(size: Int, init: (Int) -> Int) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Long::class, isNullable = false)
 internal class WasmLongArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET)
@@ -150,14 +165,17 @@ internal class WasmLongArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmLongArray, destination: WasmLongArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmLongArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmLongArray.fill(size: Int, init: (Int) -> Long) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Float::class, isNullable = false)
 internal class WasmFloatArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET)
@@ -173,14 +191,17 @@ internal class WasmFloatArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmFloatArray, destination: WasmFloatArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmFloatArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmFloatArray.fill(size: Int, init: (Int) -> Float) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
 @WasmArrayOf(Double::class, isNullable = false)
 internal class WasmDoubleArray(size: Int) {
     @WasmOp(WasmOp.ARRAY_GET)
@@ -196,11 +217,14 @@ internal class WasmDoubleArray(size: Int) {
         implementedAsIntrinsic
 }
 
+internal inline fun copyWasmArray(source: WasmDoubleArray, destination: WasmDoubleArray, sourceIndex: Int, destinationIndex: Int, length: Int) {
+    wasm_array_copy<WasmDoubleArray>(destination, destinationIndex, source, sourceIndex, length)
+}
+
 internal inline fun WasmDoubleArray.fill(size: Int, init: (Int) -> Double) {
     var i = 0
     while (i < size) {
         set(i, init(i))
         i++
     }
-}
-
+}            
