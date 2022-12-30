@@ -69,7 +69,11 @@ class KtPsiFactory @JvmOverloads constructor(private val project: Project, val m
     }
 
     fun createExpressionIfPossible(@NonNls text: String): KtExpression? {
-        val expression = doCreateExpression(text) ?: return null
+        val expression = try {
+            doCreateExpression(text) ?: return null
+        } catch (ignored: Throwable) {
+            return null
+        }
         return if (expression.text == text) expression else null
     }
 
@@ -350,7 +354,7 @@ class KtPsiFactory @JvmOverloads constructor(private val project: Project, val m
     }
 
     fun createModifierList(@NonNls text: String): KtModifierList {
-        return createProperty("$text val x").modifierList!!
+        return createClass("$text interface x").modifierList!!
     }
 
     fun createEmptyModifierList() = createModifierList(KtTokens.PRIVATE_KEYWORD).apply { firstChild.delete() }

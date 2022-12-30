@@ -10,7 +10,8 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveCompone
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.FirTowerContextProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.getNonLocalContainingOrThisDeclaration
-import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.firModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirLibrarySession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirResolvableModuleSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionProvider
@@ -33,6 +34,8 @@ import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.analysis.utils.errors.buildErrorWithAttachment
+import org.jetbrains.kotlin.analysis.utils.errors.*
 
 internal abstract class LLFirResolvableResolveSession(
     private val sessionProvider: LLFirSessionProvider,
@@ -41,7 +44,7 @@ internal abstract class LLFirResolvableResolveSession(
 
     final override val useSiteFirSession = sessionProvider.rootModuleSession
 
-    override fun getSessionFor(module: KtModule): FirSession =
+    override fun getSessionFor(module: KtModule): LLFirSession =
         sessionProvider.getSession(module)
 
     override fun getScopeSessionFor(firSession: FirSession): ScopeSession {
@@ -61,7 +64,7 @@ internal abstract class LLFirResolvableResolveSession(
 
     protected fun getModuleComponentsForElement(element: KtElement): LLFirModuleResolveComponents {
         val ktModule = element.getKtModule()
-        return sessionProvider.getSession(ktModule).moduleComponents
+        return sessionProvider.getResolvableSession(ktModule).moduleComponents
     }
 
     override fun resolveToFirSymbol(
@@ -80,7 +83,9 @@ internal abstract class LLFirResolvableResolveSession(
             "This method will only work on compiled declarations, but this declaration is not compiled: ${ktDeclaration.getElementTextInContext()}"
         }
 
-        val searcher = FirDeclarationForCompiledElementSearcher(useSiteFirSession.symbolProvider)
+        val ktModule = ktDeclaration.getKtModule(project)
+        val firSession = sessionProvider.getSession(ktModule)
+        val searcher = FirDeclarationForCompiledElementSearcher(firSession.symbolProvider)
         val firDeclaration = searcher.findNonLocalDeclaration(ktDeclaration)
         return firDeclaration.symbol
     }
@@ -97,10 +102,13 @@ internal abstract class LLFirResolvableResolveSession(
             "Declaration should be resolvable module, instead it had ${module::class}"
         }
         val nonLocalNamedDeclaration = ktDeclaration.getNonLocalContainingOrThisDeclaration()
-            ?: error("Declaration should have non-local container${ktDeclaration.getElementTextInContext()}")
+            ?: buildErrorWithAttachment("Declaration should have non-local container") {
+                withPsiEntry("ktDeclaration", ktDeclaration)
+                withEntry("module", module) { it.moduleDescription }
+            }
 
         if (ktDeclaration == nonLocalNamedDeclaration) {
-            val session = sessionProvider.getSession(module)
+            val session = sessionProvider.getResolvableSession(module)
             return nonLocalNamedDeclaration.findSourceNonLocalFirDeclaration(
                 firFileBuilder = session.moduleComponents.firFileBuilder,
                 provider = session.firProvider,
@@ -124,10 +132,10 @@ internal abstract class LLFirResolvableResolveSession(
 
     override fun resolveFirToPhase(declaration: FirDeclaration, toPhase: FirResolvePhase) {
         if (toPhase == FirResolvePhase.RAW_FIR) return
-        val llFirResolvableModuleSession = declaration.firModuleData.session as? LLFirResolvableModuleSession ?: return
+        val llFirResolvableModuleSession = declaration.llFirModuleData.session as? LLFirResolvableModuleSession ?: return
 
         val moduleComponents = llFirResolvableModuleSession.moduleComponents
-        moduleComponents.lazyFirDeclarationsResolver.lazyResolveDeclaration(
+        moduleComponents.firModuleLazyDeclarationResolver.lazyResolveDeclaration(
             firDeclarationToResolve = declaration,
             scopeSession = moduleComponents.scopeSessionProvider.getScopeSession(),
             toPhase = toPhase,

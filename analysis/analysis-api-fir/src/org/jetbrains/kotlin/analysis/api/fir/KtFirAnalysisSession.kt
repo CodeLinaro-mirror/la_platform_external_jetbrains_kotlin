@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.analysis.api.fir
 
 import com.intellij.openapi.project.Project
+import com.intellij.psi.search.GlobalSearchScope
+import org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.fir.components.*
@@ -18,6 +20,8 @@ import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LowLevelFirApiFacadeForResolveOnAir
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.providers.KotlinDeclarationProvider
+import org.jetbrains.kotlin.analysis.providers.createDeclarationProvider
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -27,10 +31,11 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 
+@OptIn(KtAnalysisApiInternals::class)
 @Suppress("AnalysisApiMissingLifetimeCheck")
 internal class KtFirAnalysisSession
 private constructor(
-    private val project: Project,
+    val project: Project,
     val firResolveSession: LLFirResolveSession,
     token: KtLifetimeToken,
     private val mode: AnalysisSessionMode,
@@ -61,7 +66,7 @@ private constructor(
     override val scopeProviderImpl by threadLocal { KtFirScopeProvider(this, firSymbolBuilder, project, firResolveSession) }
 
     override val symbolProviderImpl =
-        KtFirSymbolProvider(this, firResolveSession.useSiteFirSession.symbolProvider, firResolveSession, firSymbolBuilder)
+        KtFirSymbolProvider(this, firResolveSession.useSiteFirSession.symbolProvider)
 
     override val completionCandidateCheckerImpl = KtFirCompletionCandidateChecker(this, token)
 
@@ -109,6 +114,8 @@ private constructor(
 
     override val substitutorFactoryImpl: KtSubstitutorFactory = KtFirSubstitutorFactory(this)
 
+    override val symbolProviderByJavaPsiImpl = KtFirSymbolProviderByJavaPsi(this)
+
     @Suppress("AnalysisApiMissingLifetimeCheck")
     override fun createContextDependentCopy(originalKtFile: KtFile, elementToReanalyze: KtElement): KtAnalysisSession {
         check(mode == AnalysisSessionMode.REGULAR) {
@@ -133,6 +140,9 @@ private constructor(
     internal val useSiteSession: FirSession get() = firResolveSession.useSiteFirSession
     internal val firSymbolProvider: FirSymbolProvider get() = useSiteSession.symbolProvider
     internal val targetPlatform: TargetPlatform get() = useSiteSession.moduleData.platform
+
+    val useSiteAnalysisScope: GlobalSearchScope = analysisScopeProviderImpl.getAnalysisScope()
+    val useSiteScopeDeclarationProvider: KotlinDeclarationProvider = project.createDeclarationProvider(useSiteAnalysisScope)
 
     fun getScopeSessionFor(session: FirSession): ScopeSession = withValidityAssertion { firResolveSession.getScopeSessionFor(session) }
 

@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
+import org.jetbrains.kotlin.konan.target.SanitizerKind
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadOnlyProperty
 
@@ -30,6 +31,8 @@ object BinaryOptions : BinaryOptionRegistry() {
 
     val gcSchedulerType by option<GCSchedulerType>()
 
+    val gcMarkSingleThreaded by booleanOption()
+
     val linkRuntime by option<RuntimeLinkageStrategyBinaryOption>()
 
     val bundleId by stringOption()
@@ -37,6 +40,10 @@ object BinaryOptions : BinaryOptionRegistry() {
     val bundleVersion by stringOption()
 
     val appStateTracking by option<AppStateTracking>()
+
+    val sanitizer by option<SanitizerKind>()
+
+    val mimallocUseDefaultOptions by booleanOption()
 }
 
 open class BinaryOption<T : Any>(

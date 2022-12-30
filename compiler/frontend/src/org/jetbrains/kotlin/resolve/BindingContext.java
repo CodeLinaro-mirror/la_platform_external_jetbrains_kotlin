@@ -52,7 +52,6 @@ import java.util.Collections;
 
 import static org.jetbrains.kotlin.util.slicedMap.RewritePolicy.DO_NOTHING;
 import static org.jetbrains.kotlin.util.slicedMap.Slices.COMPILE_TIME_VALUE_REWRITE_POLICY;
-import static org.jetbrains.kotlin.util.slicedMap.Slices.CONSERVATIVE_SET_INCLUSION_SEMANTICS;
 
 public interface BindingContext {
     BindingContext EMPTY = new BindingContext() {
@@ -172,7 +171,7 @@ public interface BindingContext {
 
     WritableSlice<ScriptDescriptor, LexicalScope> SCRIPT_SCOPE = Slices.createSimpleSlice();
 
-    WritableSlice<KtExpression, Boolean> VARIABLE_REASSIGNMENT = Slices.createSimpleSetSlice();
+    WritableSlice<KtExpression, Boolean> VARIABLE_REASSIGNMENT =  new BasicWritableSlice<>(DO_NOTHING);
     WritableSlice<ValueParameterDescriptor, Boolean> AUTO_CREATED_IT = Slices.createSimpleSetSlice();
 
     WritableSlice<Pair<AnonymousFunctionDescriptor, Integer>, Boolean> SUSPEND_LAMBDA_PARAMETER_USED = Slices.createSimpleSlice();
@@ -184,8 +183,8 @@ public interface BindingContext {
      */
     WritableSlice<KtExpression, Boolean> PROCESSED = Slices.createSimpleSlice();
     // Please do not use this slice (USED_AS_EXPRESSION) directly,
-    // use extension element.isUsedAsExpression() instead
-    WritableSlice<KtElement, Boolean> USED_AS_EXPRESSION = new BasicWritableSlice<>(CONSERVATIVE_SET_INCLUSION_SEMANTICS);
+    // use extension element.isUsedAsExpression() for read and element.recordUsedAsExpression() for write
+    WritableSlice<KtElement, Boolean> USED_AS_EXPRESSION = new BasicWritableSlice<>(DO_NOTHING);
     WritableSlice<KtElement, Boolean> USED_AS_RESULT_OF_LAMBDA = Slices.createSimpleSetSlice();
 
     WritableSlice<VariableDescriptor, CaptureKind> CAPTURED_IN_CLOSURE = new BasicWritableSlice<>(DO_NOTHING);
@@ -193,7 +192,7 @@ public interface BindingContext {
 
     WritableSlice<Box<DeferredType>, Boolean> DEFERRED_TYPE = Slices.createCollectiveSetSlice();
 
-    WritableSlice<PropertyDescriptor, Boolean> BACKING_FIELD_REQUIRED = new SetSlice<PropertyDescriptor>(DO_NOTHING) {
+    WritableSlice<PropertyDescriptor, Boolean> BACKING_FIELD_REQUIRED = new BasicWritableSlice<PropertyDescriptor, Boolean>(DO_NOTHING) {
         @Override
         public Boolean computeValue(
                 SlicedMap map,
@@ -204,7 +203,6 @@ public interface BindingContext {
             if (propertyDescriptor.getKind() != CallableMemberDescriptor.Kind.DECLARATION) {
                 return false;
             }
-            backingFieldRequired = valueNotFound ? false : backingFieldRequired;
             PsiElement declarationPsiElement = DescriptorToSourceUtils.descriptorToDeclaration(propertyDescriptor);
             if (declarationPsiElement instanceof KtParameter) {
                 KtParameter jetParameter = (KtParameter) declarationPsiElement;

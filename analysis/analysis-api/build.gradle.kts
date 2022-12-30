@@ -8,7 +8,8 @@ kotlin {
 }
 
 dependencies {
-    compileOnly(project(":kotlin-reflect-api"))
+    implementation(kotlinxCollectionsImmutable())
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
     compileOnly(project(":compiler:psi"))
     compileOnly(project(":compiler:frontend"))
@@ -40,6 +41,5 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 testsJar()
 
 projectTest {
-    dependsOn(":dist")
     workingDir = rootDir
 }

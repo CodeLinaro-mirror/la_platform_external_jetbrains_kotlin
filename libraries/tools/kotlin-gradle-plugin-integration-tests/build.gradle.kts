@@ -10,6 +10,8 @@ pill {
     variant = PillExtension.Variant.FULL
 }
 
+testsJar()
+
 val kotlinGradlePluginTest = project(":kotlin-gradle-plugin").sourceSets.named("test").map { it.output }
 
 dependencies {
@@ -38,6 +40,11 @@ dependencies {
             requireCapability("org.jetbrains.kotlin:kotlin-sam-with-receiver-common")
         }
     }
+    testImplementation(project(":kotlin-assignment")) {
+        capabilities {
+            requireCapability("org.jetbrains.kotlin:kotlin-assignment-common")
+        }
+    }
     testImplementation(project(":atomicfu")) {
         capabilities {
             requireCapability("org.jetbrains.kotlin:atomicfu-common")
@@ -62,17 +69,18 @@ dependencies {
 
     testImplementation(project(path = ":examples:annotation-processor-example"))
     testImplementation(kotlinStdlib("jdk8"))
-    testImplementation(project(":kotlin-reflect"))
-    testImplementation(project(":kotlin-android-extensions"))
     testImplementation(project(":kotlin-parcelize-compiler"))
     testImplementation(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
+    testImplementation(commonDependency("io.ktor", "ktor-server-test-host"))
+    testImplementation(commonDependency("io.ktor", "ktor-server-core"))
+    testImplementation(commonDependency("io.ktor", "ktor-server-netty"))
+    testImplementation(commonDependency("io.ktor", "ktor-client-mock"))
 
     testImplementation(gradleApi())
     testImplementation(gradleTestKit())
     testImplementation(commonDependency("com.google.code.gson:gson"))
     testApiJUnit5(vintageEngine = true, jupiterParams = true)
 
-    testRuntimeOnly(project(":kotlin-android-extensions"))
     testRuntimeOnly(project(":compiler:tests-mutes"))
 
     // Workaround for missing transitive import of the common(project `kotlin-test-common`
@@ -122,7 +130,7 @@ fun Test.includeTestsWithPattern(include: Boolean, patterns: (MutableSet<String>
 }
 
 fun Test.advanceGradleVersion() {
-    val gradleVersionForTests = "7.1.1"
+    val gradleVersionForTests = "7.3.3"
     systemProperty("kotlin.gradle.version.for.tests", gradleVersionForTests)
 }
 

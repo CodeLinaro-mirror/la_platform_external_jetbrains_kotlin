@@ -210,7 +210,6 @@ private class FirShorteningContext(val analysisSession: KtFirAnalysisSession) {
         return element
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     fun findScopesAtPosition(
         position: KtElement,
         newImports: List<FqName>,
@@ -625,8 +624,6 @@ private class ShortenCommandImpl(
 ) : ShortenCommand {
 
     override fun invokeShortening() {
-        ApplicationManager.getApplication().assertWriteAccessAllowed()
-
         for (nameToImport in importsToAdd) {
             addImportToFile(targetFile.project, targetFile, nameToImport)
         }

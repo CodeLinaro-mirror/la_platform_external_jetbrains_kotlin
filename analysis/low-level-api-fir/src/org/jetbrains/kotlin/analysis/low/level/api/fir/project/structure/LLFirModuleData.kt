@@ -15,69 +15,36 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 
-sealed class LLFirModuleData : FirModuleData()
-
-val FirDeclaration.firModuleData: LLFirModuleData
+val FirDeclaration.llFirModuleData: LLFirModuleData
     get() {
         return moduleData as LLFirModuleData
     }
 
-val FirSession.firModuleData: LLFirModuleData
+val FirSession.llFirModuleData: LLFirModuleData
     get() {
         return moduleData as LLFirModuleData
     }
 
-val FirSession.firKtModuleBasedModuleData: LLFirKtModuleBasedModuleData
-    get() {
-        return moduleData as LLFirKtModuleBasedModuleData
-    }
+
+val FirBasedSymbol<*>.llFirModuleData: LLFirModuleData
+    get() = fir.llFirModuleData
 
 
-val FirBasedSymbol<*>.firModuleData: LLFirModuleData
-    get() = fir.firModuleData
-
-class LLFirBuiltinsModuleData(val useSiteKtModule: KtModule) : LLFirModuleData() {
-    override val name: Name
-        get() = Name.special("<builtins for ${useSiteKtModule.moduleDescription}>")
-
-    override val dependencies: List<FirModuleData> get() = emptyList()
-    override val dependsOnDependencies: List<FirModuleData> get() = emptyList()
-    override val friendDependencies: List<FirModuleData> get() = emptyList()
-
-    override val platform: TargetPlatform get() = useSiteKtModule.platform
-    override val analyzerServices: PlatformDependentAnalyzerServices get() = useSiteKtModule.analyzerServices
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as LLFirBuiltinsModuleData
-
-        if (useSiteKtModule != other.useSiteKtModule) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        return useSiteKtModule.hashCode()
-    }
-}
-
-class LLFirKtModuleBasedModuleData(
+class LLFirModuleData(
     val ktModule: KtModule,
-) : LLFirModuleData() {
+) : FirModuleData() {
     override val name: Name get() = Name.special("<${ktModule.moduleDescription}>")
 
     override val dependencies: List<FirModuleData> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        ktModule.directRegularDependencies.map(::LLFirKtModuleBasedModuleData)
+        ktModule.directRegularDependencies.map(::LLFirModuleData)
     }
 
     override val dependsOnDependencies: List<FirModuleData> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        ktModule.directRefinementDependencies.map(::LLFirKtModuleBasedModuleData)
+        ktModule.directRefinementDependencies.map(::LLFirModuleData)
     }
 
     override val friendDependencies: List<FirModuleData> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        ktModule.directRefinementDependencies.map(::LLFirKtModuleBasedModuleData)
+        ktModule.directRefinementDependencies.map(::LLFirModuleData)
     }
 
     override val platform: TargetPlatform get() = ktModule.platform
@@ -88,7 +55,7 @@ class LLFirKtModuleBasedModuleData(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as LLFirKtModuleBasedModuleData
+        other as LLFirModuleData
 
         if (ktModule != other.ktModule) return false
 

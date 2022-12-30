@@ -10,9 +10,10 @@ dependencies {
     api(project(":kotlin-util-klib-metadata"))
     api(project(":compiler:util"))
     implementation(project(":compiler:psi"))
-    compileOnly(project(":kotlin-reflect-api"))
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
     compileOnly(intellijCore())
+    compileOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
 }
 
 sourceSets {

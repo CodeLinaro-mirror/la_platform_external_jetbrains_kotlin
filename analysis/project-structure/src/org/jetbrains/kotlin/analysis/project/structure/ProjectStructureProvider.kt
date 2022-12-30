@@ -13,14 +13,6 @@ public abstract class ProjectStructureProvider {
      * For a given [PsiElement] get a [KtModule] to which [PsiElement] belongs.
      */
     public abstract fun getKtModuleForKtElement(element: PsiElement): KtModule
-
-    /**
-     * Returns all dependent [KtBinaryModule]s in this project.
-     */
-    // TODO: We rather need a session or facade that maintains this information.
-    public abstract fun getKtBinaryModules(): Collection<KtBinaryModule>
-
-    public abstract fun getStdlibWithBuiltinsModule(module: KtModule): KtLibraryModule?
 }
 
 /**

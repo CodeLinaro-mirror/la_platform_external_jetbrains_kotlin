@@ -18,6 +18,8 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.KtToFirMap
 import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirResolvableModuleSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirResolvableSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.originalDeclaration
 import org.jetbrains.kotlin.analysis.project.structure.getKtModule
 import org.jetbrains.kotlin.analysis.utils.printer.getElementTextInContext
@@ -37,6 +39,8 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.isAncestor
+import org.jetbrains.kotlin.analysis.utils.errors.buildErrorWithAttachment
+import org.jetbrains.kotlin.analysis.utils.errors.*
 
 object LowLevelFirApiFacadeForResolveOnAir {
 
@@ -54,7 +58,6 @@ object LowLevelFirApiFacadeForResolveOnAir {
         }
 
     private fun recordOriginalDeclaration(targetDeclaration: KtNamedDeclaration, originalDeclaration: KtNamedDeclaration) {
-        require(!targetDeclaration.isPhysical)
         require(originalDeclaration.containingKtFile !== targetDeclaration.containingKtFile)
         val originalDeclarationParents = originalDeclaration.parentsOfType<KtDeclaration>().toList()
         val fakeDeclarationParents = targetDeclaration.parentsOfType<KtDeclaration>().toList()
@@ -69,7 +72,6 @@ object LowLevelFirApiFacadeForResolveOnAir {
         elementToResolve: T,
     ): FirElement {
         require(firResolveSession is LLFirResolvableResolveSession)
-        require(place.isPhysical)
 
         val declaration = runBodyResolveOnAir(
             firResolveSession = firResolveSession,
@@ -89,7 +91,10 @@ object LowLevelFirApiFacadeForResolveOnAir {
         }
 
         declaration.accept(expressionLocator)
-        return expressionLocator.result ?: error("Resolved on-air element was not found in containing declaration")
+        return expressionLocator.result ?: errorWithFirSpecificEntries("Resolved on-air element was not found in containing declaration") {
+            withPsiEntry("place", place)
+            withPsiEntry("elementToResolve", elementToResolve)
+        }
     }
 
     fun onAirGetTowerContextProvider(
@@ -120,14 +125,13 @@ object LowLevelFirApiFacadeForResolveOnAir {
         firResolveSession: LLFirResolvableResolveSession,
         file: KtFile,
     ): FirTowerDataContext {
-        require(file.isPhysical)
         val session = firResolveSession.getSessionFor(file.getKtModule(firResolveSession.project)) as LLFirResolvableModuleSession
         val moduleComponents = session.moduleComponents
 
         val firFile = moduleComponents.firFileBuilder.buildRawFirFileWithCaching(file)
 
         val scopeSession = firResolveSession.getScopeSessionFor(session)
-        moduleComponents.lazyFirDeclarationsResolver.lazyResolveFileDeclaration(
+        moduleComponents.firModuleLazyDeclarationResolver.lazyResolveFileDeclaration(
             firFile = firFile,
             scopeSession = scopeSession,
             toPhase = FirResolvePhase.IMPORTS
@@ -145,7 +149,6 @@ object LowLevelFirApiFacadeForResolveOnAir {
     ): LLFirResolveSession {
         require(originalFirResolveSession is LLFirResolvableResolveSession)
         require(elementToAnalyze !is KtFile) { "KtFile for dependency element not supported" }
-        require(!elementToAnalyze.isPhysical) { "Depended session should be build only for non-physical elements" }
 
         val dependencyNonLocalDeclaration = findEnclosingNonLocalDeclaration(elementToAnalyze)
             ?: return LLFirResolveSessionDepended(
@@ -156,7 +159,10 @@ object LowLevelFirApiFacadeForResolveOnAir {
 
 
         val sameDeclarationInOriginalFile = PsiTreeUtil.findSameElementInCopy(dependencyNonLocalDeclaration, originalKtFile)
-            ?: error("Cannot find original function matching to ${dependencyNonLocalDeclaration.getElementTextInContext()} in $originalKtFile")
+            ?: buildErrorWithAttachment("Cannot find original function matching") {
+                withPsiEntry("matchingPsi", dependencyNonLocalDeclaration)
+                withPsiEntry("originalFile", originalKtFile)
+            }
 
         recordOriginalDeclaration(
             targetDeclaration = dependencyNonLocalDeclaration,
@@ -187,8 +193,11 @@ object LowLevelFirApiFacadeForResolveOnAir {
             fileAnnotation = annotationEntry,
             replacement = replacement
         )
-        val llFirResolvableSession = firFile.llFirResolvableSession ?: error("FirFile session expected to be a resolvable session")
-        val declarationResolver = llFirResolvableSession.moduleComponents.lazyFirDeclarationsResolver
+        val llFirResolvableSession = firFile.llFirResolvableSession
+            ?: buildErrorWithAttachment("FirFile session expected to be a resolvable session but was ${firFile.llFirSession::class.java}") {
+                withEntry("firSession", firFile.llFirSession) { it.toString() }
+            }
+        val declarationResolver = llFirResolvableSession.moduleComponents.firModuleLazyDeclarationResolver
 
         declarationResolver.resolveFileAnnotations(
             firFile = firFile,
@@ -261,7 +270,7 @@ object LowLevelFirApiFacadeForResolveOnAir {
             ResolveTreeBuilder.resolveEnsure(onAirDesignation.declaration, FirResolvePhase.BODY_RESOLVE) {
                 val resolvableSession = onAirDesignation.declaration.llFirResolvableSession
                     ?: error("Expected resolvable session")
-                resolvableSession.moduleComponents.lazyFirDeclarationsResolver
+                resolvableSession.moduleComponents.firModuleLazyDeclarationResolver
                     .runLazyDesignatedOnAirResolveToBodyWithoutLock(
                         designation = onAirDesignation,
                         checkPCE = true,

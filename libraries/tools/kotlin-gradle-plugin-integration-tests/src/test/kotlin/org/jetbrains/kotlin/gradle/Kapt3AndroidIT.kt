@@ -10,15 +10,11 @@ import org.junit.Assume
 import org.junit.Ignore
 import org.junit.Test
 import java.io.File
+import kotlin.test.assertTrue
 
-class Kapt3WorkersAndroid36IT : Kapt3Android36IT() {
-    override fun kaptOptions(): KaptOptions =
-        super.kaptOptions().copy(useWorkers = true)
-}
-
-open class Kapt3Android36IT : Kapt3AndroidIT() {
+open class Kapt3Android41IT : Kapt3AndroidIT() {
     override val androidGradlePluginVersion: AGPVersion
-        get() = AGPVersion.v3_6_0
+        get() = AGPVersion.v4_1_0
 
     // AGP 3.+ is not working with Gradle 7+
     override val defaultGradleVersion: GradleVersionRequired
@@ -39,6 +35,12 @@ open class Kapt3Android36IT : Kapt3AndroidIT() {
     fun testKotlinProcessorUsingFiler() {
         val project = Project("AndroidLibraryKotlinProject").apply {
             setupWorkingDir()
+            gradleProperties().appendText(
+                """
+                |
+                |kotlin.jvm.target.validation.mode = warning
+                """.trimMargin()
+            )
             gradleBuildScript().appendText(
                 """
                 apply plugin: 'kotlin-kapt'
@@ -142,7 +144,7 @@ class Kapt3Android42IT : BaseGradleIT() {
     }
 
     private fun kaptOptions(): KaptOptions =
-        KaptOptions(verbose = true, useWorkers = false)
+        KaptOptions(verbose = true)
 
     private fun CompiledProject.assertKaptSuccessful() {
         KAPT_SUCCESSFUL_REGEX.findAll(this.output).count() > 0
@@ -174,7 +176,7 @@ abstract class Kapt3AndroidIT : BaseGradleIT() {
     }
 
     protected open fun kaptOptions(): KaptOptions =
-        KaptOptions(verbose = true, useWorkers = false)
+        KaptOptions(verbose = true)
 
     fun CompiledProject.assertKaptSuccessful() {
         KAPT_SUCCESSFUL_REGEX.findAll(this.output).count() > 0
@@ -323,10 +325,16 @@ abstract class Kapt3AndroidIT : BaseGradleIT() {
 
     @Test
     open fun testDatabinding() {
+        val javaHome = File(System.getProperty("jdk11Home")!!)
+        Assume.assumeTrue("JDK 11 should be available", javaHome.isDirectory)
+
         val project = Project("android-databinding", directoryPrefix = "kapt2")
         setupDataBinding(project)
 
-        project.build("assembleDebug", "assembleAndroidTest") {
+        project.build(
+            "assembleDebug", "assembleAndroidTest",
+            options = defaultBuildOptions().copy(javaHome = javaHome)
+        ) {
             assertSuccessful()
             assertKaptSuccessful()
             assertFileExists("app/build/generated/source/kapt/debug/com/example/databinding/BR.java")
@@ -428,6 +436,34 @@ abstract class Kapt3AndroidIT : BaseGradleIT() {
                 assertNotContains(
                     "The input changes require a full rebuild for incremental task ':app:kaptGenerateStubsDebugKotlin'."
                 )
+            }
+        }
+    }
+
+    // KT-55334: Kapt generate stubs and related compile task use same -module-name value
+    @Test
+    fun kaptGenerateStubsModuleName() {
+        with(
+            Project(
+                "android-dagger",
+                directoryPrefix = "kapt2",
+                minLogLevel = LogLevel.DEBUG
+            )
+        ) {
+            build(":app:compileDebugAndroidTestKotlin") {
+                val stubsFile = projectDir
+                    .resolve("app/build/tmp/kapt3/stubs/debugAndroidTest/com/example/dagger/kotlin/TestClass.java")
+                assertTrue(stubsFile.exists(), "File does not exist: ${stubsFile.absolutePath}")
+                assertTrue(
+                    stubsFile.readText()
+                        .contains("public final void bar${'$'}app_debug() {"),
+                    "Actual generated stub content:\n${stubsFile.readText()}"
+                )
+
+                val compilerClassFile = projectDir
+                    .resolve("app/build/tmp/kotlin-classes/debugAndroidTest/com/example/dagger/kotlin/TestClass.class")
+                assertTrue(compilerClassFile.exists(), "File does not exist: ${compilerClassFile.absolutePath}")
+                checkBytecodeContains(compilerClassFile, "public final bar${'$'}app_debug()V")
             }
         }
     }

@@ -6,7 +6,9 @@
 package org.jetbrains.kotlin.backend.wasm
 
 import org.jetbrains.kotlin.backend.common.ir.Symbols
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrCall
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.PackageViewDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
@@ -14,10 +16,11 @@ import org.jetbrains.kotlin.descriptors.SimpleFunctionDescriptor
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.ReflectionSymbols
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
+import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.constructors
@@ -35,6 +38,8 @@ class WasmSymbols(
 
     private val kotlinTopLevelPackage: PackageViewDescriptor =
         context.module.getPackage(FqName("kotlin"))
+    private val enumsInternalPackage: PackageViewDescriptor =
+        context.module.getPackage(FqName("kotlin.enums"))
     private val wasmInternalPackage: PackageViewDescriptor =
         context.module.getPackage(FqName("kotlin.wasm.internal"))
     private val collectionsPackage: PackageViewDescriptor =
@@ -100,6 +105,11 @@ class WasmSymbols(
     override val returnIfSuspended =
         getInternalFunction("returnIfSuspended")
 
+    val enumEntries = getIrClass(FqName.fromSegments(listOf("kotlin", "enums", "EnumEntries")))
+    val createEnumEntries = findFunctions(enumsInternalPackage.memberScope, Name.identifier("enumEntries"))
+        .find { it.valueParameters.firstOrNull()?.type?.isFunctionType == true }
+        .let { symbolTable.referenceSimpleFunction(it!!) }
+
     val coroutineEmptyContinuation: IrPropertySymbol = symbolTable.referenceProperty(
         getProperty(FqName.fromSegments(listOf("kotlin", "wasm", "internal", "EmptyContinuation")))
     )
@@ -157,6 +167,7 @@ class WasmSymbols(
     val refIsNull = getInternalFunction("wasm_ref_is_null")
     val refTest = getInternalFunction("wasm_ref_test")
     val refCast = getInternalFunction("wasm_ref_cast")
+    val wasmArrayCopy = getInternalFunction("wasm_array_copy")
 
     val intToLong = getInternalFunction("wasm_i64_extend_i32_s")
 
@@ -185,6 +196,7 @@ class WasmSymbols(
     val nullableDoubleIeee754Equals = getInternalFunction("nullableDoubleIeee754Equals")
 
     val unsafeGetScratchRawMemory = getInternalFunction("unsafeGetScratchRawMemory")
+    val unsafeGetScratchRawMemorySize = getInternalFunction("unsafeGetScratchRawMemorySize")
     val startCoroutineUninterceptedOrReturnIntrinsics =
         (0..2).map { getInternalFunction("startCoroutineUninterceptedOrReturnIntrinsic$it") }
 
@@ -304,7 +316,6 @@ class WasmSymbols(
             return null
         return symbolTable.referenceSimpleFunction(tmp.single())
     }
-
 
     private fun getInternalFunction(name: String) = getFunction(name, wasmInternalPackage)
 

@@ -7,10 +7,13 @@ package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
 import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
+import org.jetbrains.kotlin.ir.backend.js.sourceMapsInfo
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.*
@@ -20,8 +23,13 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.common.isValidES5Identifier
+import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addIfNotNull
+import java.io.FileInputStream
+import java.io.IOException
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
 
 fun jsVar(name: JsName, initializer: IrExpression?, context: JsGenerationContext): JsVars {
     val jsInitializer = initializer?.accept(IrElementToJsExpressionTransformer(), context)
@@ -44,10 +52,13 @@ fun <T : JsNode> IrWhen.toJsNode(
     }
 
 fun jsElementAccess(name: String, receiver: JsExpression?): JsExpression =
-    if (receiver == null || name.isValidES5Identifier()) {
-        JsNameRef(JsName(name, false), receiver)
+    jsElementAccess(JsName(name, false), receiver)
+
+fun jsElementAccess(name: JsName, receiver: JsExpression?): JsExpression =
+    if (receiver == null || name.ident.isValidES5Identifier()) {
+        JsNameRef(name, receiver)
     } else {
-        JsArrayAccess(receiver, JsStringLiteral(name))
+        JsArrayAccess(receiver, JsStringLiteral(name.ident))
     }
 
 fun jsAssignment(left: JsExpression, right: JsExpression) = JsBinaryOperation(JsBinaryOperator.ASG, left, right)
@@ -55,10 +66,7 @@ fun jsAssignment(left: JsExpression, right: JsExpression) = JsBinaryOperation(Js
 fun prototypeOf(classNameRef: JsExpression) = JsNameRef(Namer.PROTOTYPE_NAME, classNameRef)
 
 fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerationContext): JsFunction {
-    val jsFun = declaration.getJsFunAnnotation()
-    if (jsFun != null) {
-        // JsFun internal annotation must have string containing valid function expression
-        val function = (parseJsCode(jsFun)!!.single() as JsExpressionStatement).expression as JsFunction
+    context.staticContext.backendContext.getJsCodeForFunction(declaration.symbol)?.let { function ->
         function.name = name
         return function
     }
@@ -492,17 +500,53 @@ internal fun <T : JsNode> T.withSource(node: IrElement, context: JsGenerationCon
 
 @Suppress("NOTHING_TO_INLINE")
 private inline fun <T : JsNode> T.addSourceInfoIfNeed(node: IrElement, context: JsGenerationContext) {
-    if (!context.staticContext.genSourcemaps) return
 
-    if (node.startOffset == UNDEFINED_OFFSET || node.endOffset == UNDEFINED_OFFSET) return
+    val sourceMapsInfo = context.staticContext.backendContext.sourceMapsInfo ?: return
 
-    val fileEntry = context.currentFile.fileEntry
+    val location = context.getLocationForIrElement(node) ?: return
 
-    val path = fileEntry.name
-    val startLine = fileEntry.getLineNumber(node.startOffset)
-    val startColumn = fileEntry.getColumnNumber(node.startOffset)
+    val isNodeFromCurrentModule = context.currentFile.module.descriptor == context.staticContext.backendContext.module
 
     // TODO maybe it's better to fix in JsExpressionStatement
     val locationTarget = if (this is JsExpressionStatement) this.expression else this
-    locationTarget.source = JsLocation(path, startLine, startColumn)
+
+    locationTarget.source = when (sourceMapsInfo.sourceMapContentEmbedding) {
+        SourceMapSourceEmbedding.NEVER -> location
+        SourceMapSourceEmbedding.INLINING -> if (isNodeFromCurrentModule) location else location.withEmbeddedSource(context)
+        SourceMapSourceEmbedding.ALWAYS -> location.withEmbeddedSource(context)
+    }
+}
+
+private fun JsLocation.withEmbeddedSource(
+    @Suppress("UNUSED_PARAMETER")
+    context: JsGenerationContext
+): JsLocationWithEmbeddedSource {
+    // FIXME: fileIdentity is used to distinguish between different files with the same paths.
+    // For now we use the file's path to read its content, which makes fileIdentity useless.
+    // However, when we have a mechanism to reliably get the source code from an IrFile or IrFileEntry no matter what's stored
+    // in fileEntry.name (including the source code for external libraries or klibs with relative paths in them).
+    // Another issue is that JS AST serializer/deserializer ignores fileIdentity, which means that this will not work with incremental
+    // compilation.
+    return JsLocationWithEmbeddedSource(this, fileIdentity = null /*context.currentFile.fileEntry*/) {
+        try {
+            InputStreamReader(FileInputStream(file), StandardCharsets.UTF_8)
+        } catch (e: IOException) {
+            // TODO: If the source file is not available at path (e. g. it's an stdlib file), use heuristics to find it.
+            // If all heuristics fail, use dumpKotlinLike() on freshly deserialized IrFile.
+            null
+        }
+    }
+}
+
+fun IrElement.getSourceInfo(container: IrDeclaration): JsLocation? {
+    val fileEntry = container.fileOrNull?.fileEntry ?: return null
+    return getSourceInfo(fileEntry)
+}
+
+fun IrElement.getSourceInfo(fileEntry: IrFileEntry): JsLocation? {
+    if (startOffset == UNDEFINED_OFFSET || endOffset == UNDEFINED_OFFSET) return null
+    val path = fileEntry.name
+    val startLine = fileEntry.getLineNumber(startOffset)
+    val startColumn = fileEntry.getColumnNumber(startOffset)
+    return JsLocation(path, startLine, startColumn)
 }

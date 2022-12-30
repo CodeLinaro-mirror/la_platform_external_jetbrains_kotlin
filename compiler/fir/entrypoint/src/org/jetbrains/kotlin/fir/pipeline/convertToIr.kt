@@ -28,23 +28,32 @@ fun FirSession.convertToIr(
     scopeSession: ScopeSession,
     firFiles: List<FirFile>,
     fir2IrExtensions: Fir2IrExtensions,
-    irGeneratorExtensions: Collection<IrGenerationExtension>
+    irGeneratorExtensions: Collection<IrGenerationExtension>,
+    linkViaSignatures: Boolean
 ): Fir2IrResult {
-    val mangler = JvmDescriptorMangler(null)
-    val signaturer = JvmIdSignatureDescriptor(mangler)
-
     val commonFirFiles = moduleData.dependsOnDependencies
         .map { it.session }
         .filter { it.kind == FirSession.Kind.Source }
         .flatMap { (it.firProvider as FirProviderImpl).getAllFirFiles() }
 
-    return Fir2IrConverter.createModuleFragment(
-        this, scopeSession, firFiles + commonFirFiles,
-        languageVersionSettings, signaturer,
-        fir2IrExtensions,
-        FirJvmKotlinMangler(this), JvmIrMangler, IrFactoryImpl,
-        FirJvmVisibilityConverter,
-        Fir2IrJvmSpecialAnnotationSymbolProvider(),
-        irGeneratorExtensions
-    )
+    if (linkViaSignatures) {
+        val signaturer = JvmIdSignatureDescriptor(mangler = JvmDescriptorMangler(mainDetector = null))
+        return Fir2IrConverter.createModuleFragmentWithSignaturesIfNeeded(
+            this, scopeSession, firFiles + commonFirFiles,
+            languageVersionSettings, signaturer, fir2IrExtensions,
+            FirJvmKotlinMangler(this),
+            JvmIrMangler, IrFactoryImpl, FirJvmVisibilityConverter,
+            Fir2IrJvmSpecialAnnotationSymbolProvider(),
+            irGeneratorExtensions, true
+        )
+    } else {
+        return Fir2IrConverter.createModuleFragmentWithoutSignatures(
+            this, scopeSession, firFiles + commonFirFiles,
+            languageVersionSettings, fir2IrExtensions,
+            FirJvmKotlinMangler(this),
+            JvmIrMangler, IrFactoryImpl, FirJvmVisibilityConverter,
+            Fir2IrJvmSpecialAnnotationSymbolProvider(),
+            irGeneratorExtensions
+        )
+    }
 }

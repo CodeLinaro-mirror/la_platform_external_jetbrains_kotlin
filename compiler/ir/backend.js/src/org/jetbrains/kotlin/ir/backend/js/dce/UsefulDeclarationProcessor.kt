@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.ir.backend.js.utils.isAssociatedObjectAnnotatedAnnot
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
@@ -52,8 +53,10 @@ abstract class UsefulDeclarationProcessor(
 
         override fun visitBlock(expression: IrBlock, data: IrDeclaration) {
             super.visitBlock(expression, data)
-            if (expression !is IrReturnableBlock) return
-            expression.inlineFunctionSymbol?.owner?.enqueue(data, "inline function usage")
+
+            if (expression is IrReturnableBlock) {
+                expression.inlineFunctionSymbol?.owner?.addToUsefulPolyfilledDeclarations()
+            }
         }
 
         override fun visitFieldAccess(expression: IrFieldAccessExpression, data: IrDeclaration) {
@@ -111,6 +114,14 @@ abstract class UsefulDeclarationProcessor(
         if (this !in result) {
             result.add(this)
             queue.addLast(this)
+
+            addToUsefulPolyfilledDeclarations()
+        }
+    }
+
+    private fun IrDeclaration.addToUsefulPolyfilledDeclarations() {
+        if (hasJsPolyfill() && this !in usefulPolyfilledDeclarations) {
+            usefulPolyfilledDeclarations.add(this)
         }
     }
 
@@ -128,12 +139,12 @@ abstract class UsefulDeclarationProcessor(
     protected val result = hashSetOf<IrDeclaration>()
     protected val classesWithObjectAssociations = hashSetOf<IrClass>()
 
+    val usefulPolyfilledDeclarations = hashSetOf<IrDeclaration>()
+
     protected open fun processField(irField: IrField): Unit = Unit
 
     protected open fun processClass(irClass: IrClass) {
-        irClass.superTypes.forEach {
-            (it.classifierOrNull as? IrClassSymbol)?.owner?.enqueue(irClass, "superTypes")
-        }
+        processSuperTypes(irClass)
 
         if (irClass.isObject && isExported(irClass)) {
             context.mapping.objectToGetInstanceFunction[irClass]
@@ -146,6 +157,12 @@ abstract class UsefulDeclarationProcessor(
                 classesWithObjectAssociations += irClass
                 annotationClass.enqueue(irClass, "@AssociatedObject annotated annotation class")
             }
+        }
+    }
+
+    protected open fun processSuperTypes(irClass: IrClass) {
+        irClass.superTypes.forEach {
+            (it.classifierOrNull as? IrClassSymbol)?.owner?.enqueue(irClass, "superTypes")
         }
     }
 
@@ -185,6 +202,10 @@ abstract class UsefulDeclarationProcessor(
             }
         }
 
+        if (declaration is IrSimpleFunction && declaration.isAccessorForOverriddenExternalField()) {
+            declaration.enqueue(declaration.correspondingPropertySymbol!!.owner, "overrides external property")
+        }
+
         // A hack to enforce property lowering.
         // Until a getter is accessed it doesn't get moved to the declaration list.
         if (declaration is IrProperty) {
@@ -195,6 +216,14 @@ abstract class UsefulDeclarationProcessor(
                 findOverriddenContagiousDeclaration()?.let { enqueue(declaration, "(setter) overrides useful declaration") }
             }
         }
+    }
+
+    private fun IrSimpleFunction.isAccessorForOverriddenExternalField(): Boolean {
+        return correspondingPropertySymbol?.owner?.isExternalOrOverriddenExternal() ?: false
+    }
+
+    private fun IrProperty.isExternalOrOverriddenExternal(): Boolean {
+        return isEffectivelyExternal() || overriddenSymbols.any { it.owner.isExternalOrOverriddenExternal() }
     }
 
     protected open fun handleAssociatedObjects(): Unit = Unit

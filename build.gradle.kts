@@ -1,5 +1,6 @@
 import org.gradle.crypto.checksum.Checksum
 import org.gradle.plugins.ide.idea.model.IdeaModel
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockMismatchReport
 
 buildscript {
     val cacheRedirectorEnabled = findProperty("cacheRedirectorEnabled")?.toString()?.toBoolean() == true
@@ -69,12 +70,12 @@ val isTeamcityBuild = project.kotlinBuildProperties.isTeamcityBuild
 val defaultSnapshotVersion: String by extra
 val buildNumber by extra(findProperty("build.number")?.toString() ?: defaultSnapshotVersion)
 val kotlinVersion by extra(
-        findProperty("deployVersion")?.toString()?.let { deploySnapshotStr ->
-            if (deploySnapshotStr != "default.snapshot") deploySnapshotStr else defaultSnapshotVersion
-        } ?: buildNumber
+    findProperty("deployVersion")?.toString()?.let { deploySnapshotStr ->
+        if (deploySnapshotStr != "default.snapshot") deploySnapshotStr else defaultSnapshotVersion
+    } ?: buildNumber
 )
 
-val kotlinLanguageVersion by extra("1.7")
+val kotlinLanguageVersion by extra("1.8")
 
 extra["kotlin_root"] = rootDir
 
@@ -126,7 +127,7 @@ rootProject.apply {
 IdeVersionConfigurator.setCurrentIde(project)
 
 if (!project.hasProperty("versions.kotlin-native")) {
-    extra["versions.kotlin-native"] = "1.7.20-dev-2651"
+    extra["versions.kotlin-native"] = "1.8.0-dev-3049"
 }
 
 val irCompilerModules = arrayOf(
@@ -142,10 +143,11 @@ val irCompilerModules = arrayOf(
 val commonCompilerModules = arrayOf(
     ":compiler:psi",
     ":compiler:frontend.common-psi",
-    ":compiler:light-classes", // TODO split this module to base and FE1.0 implementation modules
+    ":analysis:light-classes-base",
     ":compiler:frontend.common",
     ":compiler:util",
     ":compiler:config.jvm",
+    ":compiler:cli-common",
     ":compiler:resolution.common",
     ":compiler:resolution.common.jvm",
     ":core:metadata",
@@ -195,6 +197,7 @@ val fe10CompilerModules = arrayOf(
     ":core:descriptors.runtime",
     ":core:descriptors",
     ":core:descriptors.jvm",
+    ":compiler:light-classes",
     ":compiler:resolution",
     ":compiler:serialization",
     ":compiler:frontend",
@@ -273,11 +276,14 @@ extra["kotlinJpsPluginEmbeddedDependencies"] = listOf(
 extra["kotlinJpsPluginMavenDependencies"] = listOf(
     ":kotlin-daemon-client",
     ":kotlin-build-common",
-    ":kotlin-reflect",
     ":kotlin-util-io",
     ":kotlin-util-klib",
     ":kotlin-util-klib-metadata",
     ":native:kotlin-native-utils"
+)
+
+extra["kotlinJpsPluginMavenDependenciesNonTransitiveLibs"] = listOf(
+    commonDependency("org.jetbrains.kotlin:kotlin-reflect")
 )
 
 extra["compilerArtifactsForIde"] = listOfNotNull(
@@ -296,6 +302,7 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
     ":prepare:ide-plugin-dependencies:kotlinx-serialization-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:noarg-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:sam-with-receiver-compiler-plugin-for-ide",
+    ":prepare:ide-plugin-dependencies:assignment-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:parcelize-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:lombok-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-backend-native-for-ide".takeIf { kotlinBuildProperties.isKotlinNativeEnabled },
@@ -330,6 +337,11 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
     ":plugins:parcelize:parcelize-runtime",
     ":kotlin-stdlib-common",
     ":kotlin-stdlib",
+    ":kotlin-stdlib-js",
+    ":kotlin-test",
+    ":kotlin-daemon",
+    ":kotlin-compiler",
+    ":kotlin-annotations-jvm",
     ":kotlin-stdlib-jdk7",
     ":kotlin-stdlib-jdk8",
     ":kotlin-reflect",
@@ -357,7 +369,11 @@ val coreLibProjects by extra {
 
 val projectsWithEnabledContextReceivers by extra {
     listOf(
-        ":compiler:fir:fir2ir"
+        ":core:descriptors.jvm",
+        ":compiler:frontend.common",
+        ":compiler:fir:fir2ir",
+        ":kotlin-lombok-compiler-plugin.k1",
+        ":kotlinx-serialization-compiler-plugin.k2",
     )
 }
 
@@ -372,23 +388,78 @@ val gradlePluginProjects = listOf(
     ":kotlin-noarg",
     ":kotlin-sam-with-receiver",
     ":kotlin-parcelize-compiler",
-    ":kotlin-lombok"
+    ":kotlin-lombok",
+    ":kotlin-assignment"
 )
 
 val ignoreTestFailures by extra(project.kotlinBuildProperties.ignoreTestFailures)
+
+val dependencyOnSnapshotReflectWhitelist = setOf(
+    ":kotlin-compiler",
+    ":kotlin-reflect",
+    ":tools:binary-compatibility-validator",
+    ":tools:kotlin-stdlib-gen",
+)
 
 allprojects {
     if (!project.path.startsWith(":kotlin-ide.")) {
         pluginManager.apply("common-configuration")
     }
+    configurations.all {
+        val configuration = this
+        if (name != "compileClasspath") {
+            return@all
+        }
+        resolutionStrategy.eachDependency {
+            if (requested.group != "org.jetbrains.kotlin") {
+                return@eachDependency
+            }
+            val isReflect = requested.name == "kotlin-reflect" || requested.name == "kotlin-reflect-api"
+            // More strict check for "compilerModules". We can't apply this check for all modules because it would force to
+            // exclude kotlin-reflect from transitive dependencies of kotlin-poet, ktor, com.android.tools.build:gradle, etc
+            if (project.path in (rootProject.extra["compilerModules"] as Array<String>)) {
+                val expectedReflectVersion = commonDependencyVersion("org.jetbrains.kotlin", "kotlin-reflect")
+                if (isReflect) {
+                    check(requested.version == expectedReflectVersion) {
+                        """
+                            $configuration: 'kotlin-reflect' should have '$expectedReflectVersion' version. But it was '${requested.version}'
+                            Suggestions:
+                                1. Use 'commonDependency("org.jetbrains.kotlin:kotlin-reflect") { isTransitive = false }'
+                                2. Avoid 'kotlin-reflect' leakage from transitive dependencies with 'exclude("org.jetbrains.kotlin")'
+                        """.trimIndent()
+                    }
+                }
+                if (requested.name.startsWith("kotlin-stdlib")) {
+                    check(requested.version != expectedReflectVersion) {
+                        """
+                            $configuration: '${requested.name}' has a wrong version. It's not allowed to be '$expectedReflectVersion'
+                            Suggestions:
+                                1. Most likely, it leaked from 'kotlin-reflect' transitive dependencies. Use 'isTransitive = false' for
+                                   'kotlin-reflect' dependencies
+                                2. Avoid '${requested.name}' leakage from other transitive dependencies with 'exclude("org.jetbrains.kotlin")'
+                        """.trimIndent()
+                    }
+                }
+            }
+            if (isReflect && project.path !in dependencyOnSnapshotReflectWhitelist) {
+                check(requested.version != kotlinVersion) {
+                    """
+                        $configuration: 'kotlin-reflect' is not allowed to have '$kotlinVersion' version.
+                        Suggestion: Use 'commonDependency("org.jetbrains.kotlin:kotlin-reflect") { isTransitive = false }'
+                    """.trimIndent()
+                }
+            }
+        }
+    }
     val mirrorRepo: String? = findProperty("maven.repository.mirror")?.toString()
 
     repositories {
-        when(kotlinBuildProperties.getOrNull("attachedIntellijVersion")) {
-             null -> {}
+        when (kotlinBuildProperties.getOrNull("attachedIntellijVersion")) {
+            null -> {}
             "master" -> {
                 maven { setUrl("https://www.jetbrains.com/intellij-repository/snapshots") }
             }
+
             else -> {
                 kotlinBuildLocalRepo(project)
             }
@@ -405,13 +476,6 @@ allprojects {
         bootstrapKotlinRepo?.let(::maven)?.apply {
             content {
                 includeGroup("org.jetbrains.kotlin")
-            }
-        }
-
-        maven(protobufRepo) {
-            content {
-                includeModule("org.jetbrains.kotlin", "protobuf-lite")
-                includeModule("org.jetbrains.kotlin", "protobuf-relocated")
             }
         }
 
@@ -504,7 +568,7 @@ tasks {
             ":kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
             ":kotlinx-metadata-jvm",
             ":tools:binary-compatibility-validator",
-            ":kotlin-stdlib-wasm",
+            //":kotlin-stdlib-wasm",
         )).forEach {
             dependsOn("$it:check")
         }
@@ -690,6 +754,7 @@ tasks {
 
     register("kaptTests") {
         dependsOn(":kotlin-annotation-processing:test")
+        dependsOn(":kotlin-annotation-processing:testJdk11")
         dependsOn(":kotlin-annotation-processing-base:test")
         dependsOn(":kotlin-annotation-processing-cli:test")
     }
@@ -720,12 +785,14 @@ tasks {
 
     register("publishIdeArtifacts") {
         idePluginDependency {
+            @Suppress("UNCHECKED_CAST")
             dependsOn((rootProject.extra["compilerArtifactsForIde"] as List<String>).map { "$it:publish" })
         }
     }
 
     register("installIdeArtifacts") {
         idePluginDependency {
+            @Suppress("UNCHECKED_CAST")
             dependsOn((rootProject.extra["compilerArtifactsForIde"] as List<String>).map { "$it:install" })
         }
     }
@@ -828,6 +895,8 @@ if (disableVerificationTasks) {
     }
 }
 
+gradle.taskGraph.whenReady(checkYarnAndNPMSuppressed)
+
 plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class) {
     extensions.configure(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension::class.java) {
         npmInstallTaskProvider?.configure {
@@ -842,6 +911,8 @@ afterEvaluate {
         rootProject.plugins.withType(org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin::class.java) {
             rootProject.the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().downloadBaseUrl =
                 "https://cache-redirector.jetbrains.com/github.com/yarnpkg/yarn/releases/download"
+            rootProject.the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().yarnLockMismatchReport =
+                YarnLockMismatchReport.WARNING
         }
     }
 }

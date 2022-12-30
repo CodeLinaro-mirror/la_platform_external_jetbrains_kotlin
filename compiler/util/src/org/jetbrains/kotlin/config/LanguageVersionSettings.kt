@@ -243,27 +243,20 @@ enum class LanguageFeature(
     // 1.8
 
     DontLoseDiagnosticsDuringOverloadResolutionByReturnType(KOTLIN_1_8),
-    ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated(KOTLIN_1_8, kind = BUG_FIX), // KT-36770
     ProhibitConfusingSyntaxInWhenBranches(KOTLIN_1_8, kind = BUG_FIX), // KT-48385
     UseConsistentRulesForPrivateConstructorsOfSealedClasses(sinceVersion = KOTLIN_1_8, kind = BUG_FIX), // KT-44866
     ProgressionsChangingResolve(KOTLIN_1_8), // KT-49276
     AbstractClassMemberNotImplementedWithIntermediateAbstractClass(KOTLIN_1_8, kind = BUG_FIX), // KT-45508
-    ForbidSuperDelegationToAbstractFakeOverride(KOTLIN_1_8), // KT-49017
     ForbidSuperDelegationToAbstractAnyMethod(KOTLIN_1_8), // KT-38078
     ProperEqualityChecksInBuilderInferenceCalls(KOTLIN_1_8, kind = BUG_FIX),
     ProhibitNonExhaustiveIfInRhsOfElvis(KOTLIN_1_8, kind = BUG_FIX), // KT-44705
-    ProhibitAccessToEnumCompanionMembersInEnumConstructorCall(KOTLIN_1_8, kind = BUG_FIX), // KT-49110
     ReportMissingUpperBoundsViolatedErrorOnAbbreviationAtSupertypes(KOTLIN_1_8, kind = BUG_FIX), // KT-29168
-    IgnoreNullabilityForErasedValueParameters(KOTLIN_1_8, kind = BUG_FIX),
     ForbidUsingExtensionPropertyTypeParameterInDelegate(KOTLIN_1_8, kind = BUG_FIX),
-    ModifierNonBuiltinSuspendFunError(KOTLIN_1_8),
     SynchronizedSuspendError(KOTLIN_1_8),
-    EnableDfaWarningsInK2(KOTLIN_1_8, kind = OTHER), // KT-50965
     ReportNonVarargSpreadOnGenericCalls(KOTLIN_1_8, kind = BUG_FIX), // KT-48162
-    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_8, kind = BUG_FIX),
     RangeUntilOperator(KOTLIN_1_8), // KT-15613
     GenericInlineClassParameter(sinceVersion = KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-32162
-    DataObjects(KOTLIN_1_8), // KT-4107
+    LightweightLambdas(KOTLIN_1_8, defaultState = State.DISABLED),
 
     // 1.9
 
@@ -280,7 +273,24 @@ enum class LanguageFeature(
     ForbidInferringTypeVariablesIntoEmptyIntersection(KOTLIN_1_9, kind = BUG_FIX), // KT-51221
     ForbidExtensionCallsOnInlineFunctionalParameters(KOTLIN_1_9, kind = BUG_FIX), // KT-52502
     ForbidInferringPostponedTypeVariableIntoDeclaredUpperBound(KOTLIN_1_9, kind = BUG_FIX), // KT-47986
+    KeepNullabilityWhenApproximatingLocalType(KOTLIN_1_9, kind = BUG_FIX), // KT-53982
     SkipStandaloneScriptsInSourceRoots(KOTLIN_1_9, kind = OTHER), // KT-52525
+    ModifierNonBuiltinSuspendFunError(KOTLIN_1_9),
+    BreakContinueInInlineLambdas(KOTLIN_1_9, defaultState = State.ENABLED), // KT-1436
+    EnumEntries(KOTLIN_1_9, sinceApiVersion = ApiVersion.KOTLIN_1_8, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE), // KT-48872
+    EnableDfaWarningsInK2(KOTLIN_1_9, kind = OTHER), // KT-50965
+    ForbidSuperDelegationToAbstractFakeOverride(KOTLIN_1_9), // KT-49017
+    DataObjects(KOTLIN_1_9), // KT-4107
+    ProhibitAccessToEnumCompanionMembersInEnumConstructorCall(KOTLIN_1_9, kind = BUG_FIX), // KT-49110
+    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_9, kind = BUG_FIX),
+
+    // This feature effectively might be removed because we decided to disable it until K2 and there it will be unconditionally enabled.
+    // But we leave it here just to minimize the changes in K1 and also to allow use the feature once somebody needs it.
+    // The reason for it's being disabled is described at KT-55357
+    ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated(sinceVersion = null), // KT-36770
+
+    // Disabled for indefinite time. See KT-53751
+    IgnoreNullabilityForErasedValueParameters(sinceVersion = null, kind = BUG_FIX),
 
     // Disabled for indefinite time. See KT-48535 and related discussion
     ApproximateIntegerLiteralTypesInReceiverPosition(sinceVersion = null),
@@ -423,7 +433,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
             str.split(".", "-").let { if (it.size >= 2) fromVersionString("${it[0]}.${it[1]}") else null }
 
         // Version status
-        //            1.0  1.1  1.2   1.3  1.4           1.5..1.7    1.8 1.9
+        //            1.0  1.1  1.2   1.3  1.4           1.5..1.8    1.9
         // Language:  UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
         // API:       UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
 
@@ -437,7 +447,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
         val FIRST_NON_DEPRECATED = KOTLIN_1_5
 
         @JvmField
-        val LATEST_STABLE = KOTLIN_1_7
+        val LATEST_STABLE = KOTLIN_1_8
     }
 }
 

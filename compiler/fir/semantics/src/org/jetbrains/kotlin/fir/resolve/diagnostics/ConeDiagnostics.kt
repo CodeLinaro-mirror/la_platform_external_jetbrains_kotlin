@@ -232,3 +232,12 @@ private fun describeSymbol(symbol: FirBasedSymbol<*>): String {
         else -> "$symbol"
     }
 }
+
+class ConeAmbiguousAlteredAssign(val altererNames: List<String?>) : ConeDiagnostic {
+    override val reason: String
+        get() = "Assign altered by multiple extensions"
+}
+
+object ConeForbiddenIntersection : ConeDiagnostic {
+    override val reason: String get() = "Such an intersection type is not allowed"
+}

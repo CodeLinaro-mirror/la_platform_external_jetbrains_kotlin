@@ -5,7 +5,7 @@ FILE: enum.kt
         }
 
         public final [BODY_RESOLVE] val x: R|kotlin/Int| = R|<local>/x|
-            [BODY_RESOLVE] public get(): R|kotlin/Int|
+            public [BODY_RESOLVE] get(): R|kotlin/Int|
 
         public final static [BODY_RESOLVE] enum entry A: R|Enum| = object : R|Enum| {
             private [BODY_RESOLVE] constructor(): R|<anonymous>| {
@@ -19,5 +19,8 @@ FILE: enum.kt
 
         public final static [BODY_RESOLVE] fun valueOf([BODY_RESOLVE] value: R|kotlin/String|): R|Enum| {
         }
+
+        public final static [BODY_RESOLVE] val entries: R|kotlin/enums/EnumEntries<Enum>|
+            public [RAW_FIR] get(): R|kotlin/enums/EnumEntries<Enum>|
 
     }

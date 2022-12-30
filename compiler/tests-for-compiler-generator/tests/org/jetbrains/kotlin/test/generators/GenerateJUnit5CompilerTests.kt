@@ -38,15 +38,24 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
             }
 
             testClass<AbstractDiagnosticsTestWithOldJvmBackend> {
-                model("diagnostics/testsWithJvmBackend", targetBackend = TargetBackend.JVM_OLD)
+                model(
+                    "diagnostics/testsWithJvmBackend",
+                    targetBackend = TargetBackend.JVM_OLD,
+                    excludedPattern = excludedFirTestdataPattern
+                )
             }
 
             testClass<AbstractDiagnosticsTestWithJvmIrBackend> {
-                model("diagnostics/testsWithJvmBackend", pattern = "^(.+)\\.kts?$", targetBackend = TargetBackend.JVM_IR)
+                model(
+                    "diagnostics/testsWithJvmBackend",
+                    pattern = "^(.+)\\.kts?$",
+                    targetBackend = TargetBackend.JVM_IR,
+                    excludedPattern = excludedFirTestdataPattern
+                )
             }
 
             testClass<AbstractDiagnosticsNativeTest> {
-                model("diagnostics/nativeTests")
+                model("diagnostics/nativeTests", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractDiagnosticsWithMultiplatformCompositeAnalysisTest> {
@@ -217,6 +226,18 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
                 model("diagnostics/foreignAnnotationsTests/java8Tests", excludedPattern = excludedFirTestdataPattern)
                 model("diagnostics/foreignAnnotationsTests/java11Tests", excludedPattern = excludedFirTestdataPattern)
             }
+
+            testClass<AbstractFirNativeDiagnosticsTest>(
+                suiteTestClassName = "FirOldFrontendNativeDiagnosticsTestGenerated"
+            ) {
+                model("diagnostics/nativeTests", excludedPattern = excludedFirTestdataPattern)
+            }
+
+            testClass<AbstractFirNativeDiagnosticsWithLightTreeTest>(
+                suiteTestClassName = "FirOldFrontendNativeDiagnosticsWithLightTreeTestGenerated"
+            ) {
+                model("diagnostics/nativeTests", excludedPattern = excludedFirTestdataPattern)
+            }
         }
 
         testGroup(testsRoot = "compiler/fir/fir2ir/tests-gen", testDataRoot = "compiler/testData") {
@@ -250,6 +271,10 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
             testClass<AbstractFirDiagnosticsTestWithJvmIrBackend> {
                 model("diagnostics/firTestWithJvmBackend")
+            }
+
+            testClass<AbstractFirDiagnosticsTestWithJvmIrBackend>(suiteTestClassName = "FirOldDiagnosticsTestWithJvmIrBackendGenerated") {
+                model("diagnostics/testsWithJvmBackend", excludedPattern = excludedFirTestdataPattern)
             }
 
             testClass<AbstractFirSerializeCompileKotlinAgainstInlineKotlinTest> {

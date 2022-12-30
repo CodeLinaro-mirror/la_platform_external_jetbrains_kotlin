@@ -28,8 +28,6 @@ dependencies {
     }
 }
 
-project.applyFixForStdlib16()
-
 apply(from = "$rootDir/gradle/cacheRedirector.gradle.kts")
 project.configureJvmDefaultToolchain()
 project.addEmbeddedConfigurations()
@@ -89,8 +87,6 @@ fun Project.configureJavaCompile() {
 
 fun Project.configureJavaBasePlugin() {
     plugins.withId("java-base") {
-        project.configureShadowJarSubstitutionInCompileClasspath()
-
         fun File.toProjectRootRelativePathOrSelf() = (relativeToOrNull(rootDir)?.takeUnless { it.startsWith("..") } ?: this).path
 
         fun FileCollection.printClassPath(role: String) =
@@ -110,7 +106,7 @@ fun Project.configureKotlinCompilationOptions() {
     plugins.withType<KotlinBasePluginWrapper> {
         val commonCompilerArgs = listOfNotNull(
             "-opt-in=kotlin.RequiresOptIn",
-            "-progressive".takeIf { hasProperty("test.progressive.mode") }
+            "-progressive".takeIf { getBooleanProperty("test.progressive.mode") ?: false }
         )
 
         val kotlinLanguageVersion: String by rootProject.extra
@@ -119,6 +115,7 @@ fun Project.configureKotlinCompilationOptions() {
         val useFirIC by extra(project.kotlinBuildProperties.useFirTightIC)
         val renderDiagnosticNames by extra(project.kotlinBuildProperties.renderDiagnosticNames)
 
+        @Suppress("DEPRECATION")
         tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>>().configureEach {
             kotlinOptions {
                 languageVersion = kotlinLanguageVersion
@@ -131,8 +128,10 @@ fun Project.configureKotlinCompilationOptions() {
                     !kotlinBuildProperties.getBoolean("kotlin.build.use.absolute.paths.in.klib")
                 }
 
+            // Workaround to avoid remote build cache misses due to absolute paths in relativePathBaseArg
             doFirst {
                 if (relativePathBaseArg != null) {
+                    @Suppress("DEPRECATION")
                     kotlinOptions.freeCompilerArgs += relativePathBaseArg
                 }
             }
@@ -141,7 +140,6 @@ fun Project.configureKotlinCompilationOptions() {
         val jvmCompilerArgs = listOf(
             "-Xno-optimized-callable-references",
             "-Xno-kotlin-nothing-value-exception",
-            "-Xsuppress-deprecated-jvm-target-warning" // Remove as soon as there are no modules for JDK 1.6 & 1.7
         )
 
         val coreLibProjects: List<String> by rootProject.extra
@@ -155,16 +153,14 @@ fun Project.configureKotlinCompilationOptions() {
             // Requires serialization plugin
             ":wasm:wasm.ir",
             // Uses multiplatform
-            ":kotlin-stdlib-jvm-minimal-for-test"
+            ":kotlin-stdlib-jvm-minimal-for-test",
+            // Requires serialization plugin
+            ":js:js.tests",
         )
 
         // TODO: fix remaining warnings and remove this property.
         val tasksWithWarnings = listOf(
             ":kotlin-gradle-plugin:compileCommonKotlin",
-            // Temporarily disable -Werror for the following modules because of deprecation warning for `-Xjvm-default=compatibility`.
-            // These modules should be removed after they are migrated to `-Xjvm-default=all/all-compatibility`.
-            ":compiler:frontend:compileKotlin",
-            ":kotlin-scripting-intellij:compileKotlin",
         )
 
         val projectsWithEnabledContextReceivers: List<String> by rootProject.extra
@@ -193,17 +189,10 @@ fun Project.configureKotlinCompilationOptions() {
                 if (project.path in projectsWithEnabledContextReceivers) {
                     freeCompilerArgs += "-Xcontext-receivers"
                 }
+                if (!skipJvmDefaultAllForModule(project.path)) {
+                    freeCompilerArgs += "-Xjvm-default=all"
+                }
             }
-        }
-    }
-}
-
-// Still compile stdlib, reflect, kotlin.test and scripting runtimes
-// with JVM target 1.6 to simplify migration from Kotlin 1.6 to 1.7.
-fun Project.applyFixForStdlib16() {
-    plugins.withType<KotlinBasePluginWrapper>() {
-        dependencies {
-            "kotlinCompilerClasspath"(project(":libraries:tools:stdlib-compiler-classpath"))
         }
     }
 }
@@ -262,3 +251,19 @@ fun Project.configureTests() {
         apply(from = "$rootDir/gradle/testRetry.gradle.kts")
     }
 }
+
+// TODO: migrate remaining modules to the new JVM default scheme.
+fun skipJvmDefaultAllForModule(path: String): Boolean =
+// Gradle plugin modules are disabled because different Gradle versions bundle different Kotlin compilers,
+    // and not all of them support the new JVM default scheme.
+    "-gradle" in path || "-runtime" in path || path == ":kotlin-project-model" ||
+            // Visitor/transformer interfaces in ir.tree are very sensitive to the way interface methods are implemented.
+            // Enabling default method generation results in a performance loss of several % on full pipeline test on Kotlin.
+            // TODO: investigate the performance difference and enable new mode for ir.tree.
+            path == ":compiler:ir.tree" ||
+            // Workaround a Proguard issue:
+            //     java.lang.IllegalAccessError: tried to access method kotlin.reflect.jvm.internal.impl.types.checker.ClassicTypeSystemContext$substitutionSupertypePolicy$2.<init>(
+            //       Lkotlin/reflect/jvm/internal/impl/types/checker/ClassicTypeSystemContext;Lkotlin/reflect/jvm/internal/impl/types/TypeSubstitutor;
+            //     )V from class kotlin.reflect.jvm.internal.impl.resolve.OverridingUtilTypeSystemContext
+            // KT-54749
+            path == ":core:descriptors"

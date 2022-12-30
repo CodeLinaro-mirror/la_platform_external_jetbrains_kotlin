@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-project</artifactId>
-        <version>1.7.255-SNAPSHOT</version>
+        <version>1.8.255-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -70,6 +70,11 @@
                         <goals>
                             <goal>js</goal>
                         </goals>
+                        <configuration>
+                            <args>
+                                <arg>-Xuse-deprecated-legacy-compiler</arg>
+                            </args>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>test-compile</id>

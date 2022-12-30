@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.gradle.tasks.configuration
 import org.gradle.api.Project
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinTopLevelExtension
 import org.jetbrains.kotlin.gradle.internal.transforms.ClasspathEntrySnapshotTransform
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmAndroidCompilation
@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinCompilationData
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultLanguageSettingsBuilder
-import org.jetbrains.kotlin.gradle.report.BuildMetricsReporterService
+import org.jetbrains.kotlin.gradle.report.BuildMetricsService
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.project.model.LanguageSettings
 
@@ -40,7 +40,7 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
                 task.incremental = propertiesProvider.incrementalJvm ?: true
 
                 if (propertiesProvider.useK2 == true) {
-                    task.kotlinOptions.useK2 = true
+                    task.compilerOptions.useK2.value(true)
                 }
                 task.usePreciseJavaTracking = propertiesProvider.usePreciseJavaTracking ?: true
                 task.jvmTargetValidationMode.set(propertiesProvider.jvmTargetValidationMode)
@@ -60,26 +60,23 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
         }
     }
 
-    @Suppress("ConvertSecondaryConstructorToPrimary")
     constructor(compilation: KotlinCompilationData<*>) : super(compilation) {
-        val javaTaskProvider = when (compilation) {
-            is KotlinJvmCompilation -> compilation.compileJavaTaskProvider
-            is KotlinJvmAndroidCompilation -> compilation.compileJavaTaskProvider
-            is KotlinWithJavaCompilation<*> -> compilation.compileJavaTaskProvider
-            else -> null
-        }
+        val javaTaskProvider = project.providers.provider {
+            when (compilation) {
+                is KotlinJvmCompilation -> compilation.compileJavaTaskProvider
+                is KotlinJvmAndroidCompilation -> compilation.compileJavaTaskProvider
+                is KotlinWithJavaCompilation<*, *> -> compilation.compileJavaTaskProvider
+                else -> null
+            }
+        }.flatMap { it }
 
         configureTaskProvider { taskProvider ->
             taskProvider.configure { task ->
-                javaTaskProvider?.let {
-                    task.associatedJavaCompileTaskTargetCompatibility.value(javaTaskProvider.map { it.targetCompatibility })
-                    task.associatedJavaCompileTaskSources.from(javaTaskProvider.map { it.source })
-                    task.associatedJavaCompileTaskName.value(javaTaskProvider.name)
-                }
-                task.ownModuleName.value(providers.provider {
-                    (compilation.kotlinOptions as? KotlinJvmOptions)?.moduleName ?: task.parentKotlinOptions.orNull?.moduleName
-                    ?: compilation.ownModuleName
-                })
+                task.associatedJavaCompileTaskTargetCompatibility.value(javaTaskProvider.map { it.targetCompatibility })
+                task.associatedJavaCompileTaskName.value(javaTaskProvider.map { it.name })
+                task.ownModuleName.value(
+                    (compilation.compilerOptions.options as KotlinJvmCompilerOptions).moduleName.orElse(compilation.ownModuleName)
+                )
             }
         }
     }
@@ -111,18 +108,18 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
         }
         project.extensions.extraProperties[TRANSFORMS_REGISTERED] = true
 
-        val buildMetricsReporterService = BuildMetricsReporterService.registerIfAbsent(project)
+        val buildMetricsService = BuildMetricsService.registerIfAbsent(project)
         project.dependencies.registerTransform(ClasspathEntrySnapshotTransform::class.java) {
             it.from.attribute(ARTIFACT_TYPE_ATTRIBUTE, JAR_ARTIFACT_TYPE)
             it.to.attribute(ARTIFACT_TYPE_ATTRIBUTE, CLASSPATH_ENTRY_SNAPSHOT_ARTIFACT_TYPE)
             it.parameters.gradleUserHomeDir.set(project.gradle.gradleUserHomeDir)
-            buildMetricsReporterService?.apply { it.parameters.buildMetricsReporterService.set(this) }
+            buildMetricsService?.apply { it.parameters.buildMetricsService.set(this) }
         }
         project.dependencies.registerTransform(ClasspathEntrySnapshotTransform::class.java) {
             it.from.attribute(ARTIFACT_TYPE_ATTRIBUTE, DIRECTORY_ARTIFACT_TYPE)
             it.to.attribute(ARTIFACT_TYPE_ATTRIBUTE, CLASSPATH_ENTRY_SNAPSHOT_ARTIFACT_TYPE)
             it.parameters.gradleUserHomeDir.set(project.gradle.gradleUserHomeDir)
-            buildMetricsReporterService?.apply { it.parameters.buildMetricsReporterService.set(this) }
+            buildMetricsService?.apply { it.parameters.buildMetricsService.set(this) }
         }
     }
 

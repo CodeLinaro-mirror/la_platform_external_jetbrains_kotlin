@@ -5,10 +5,13 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.api.logging.LogLevel
+import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.targets.js.dukat.ExternalsOutputFormat
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.konan.target.HostManager
 import org.junit.jupiter.api.DisplayName
 
 @DisplayName("Configuration cache")
@@ -64,11 +67,77 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     fun testMppWithMavenPublish(gradleVersion: GradleVersion) {
         project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
             // KT-49933: Support Gradle Configuration caching with HMPP
-            val publishedTargets = listOf(/*"kotlinMultiplatform",*/ "jvm6", "nodeJs")
+            val publishedTargets = listOf(/*"kotlinMultiplatform",*/ "jvm6", "nodeJs", "linux64", "mingw64", "mingw86")
 
             testConfigurationCacheOf(
                 ":buildKotlinToolingMetadata", // Remove it when KT-49933 is fixed and `kotlinMultiplatform` publication works
                 *(publishedTargets.map { ":publish${it.replaceFirstChar { it.uppercaseChar() }}PublicationToMavenRepository" }.toTypedArray()),
+                checkUpToDateOnRebuild = false
+            )
+        }
+    }
+
+    @NativeGradlePluginTests
+    @DisplayName("works with native tasks in complex project")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_4)
+    @GradleTest
+    fun testNativeTasks(gradleVersion: GradleVersion) {
+        val expectedTasks = mutableListOf(
+            ":lib:cinteropMyCinteropLinuxX64",
+            ":lib:commonizeCInterop",
+            ":lib:compileKotlinLinuxX64",
+            ":lib:copyCinteropMyCinteropLinuxX64",
+            ":lib:linkExecutableDebugExecutableLinuxX64",
+            ":lib:linkSharedDebugSharedLinuxX64",
+            ":lib:linkStaticDebugStaticLinuxX64",
+            ":lib:linkDebugTestLinuxX64",
+        )
+
+        if (HostManager.hostIsMac) {
+            expectedTasks += listOf(
+                ":lib:cinteropMyCinteropIosX64",
+                ":lib:compileKotlinIosX64",
+                ":lib:copyCinteropMyCinteropIosX64",
+                ":lib:assembleMyframeDebugFrameworkIosArm64",
+                ":lib:assembleMyfatframeDebugFatFramework",
+                ":lib:assembleLibDebugXCFramework",
+                ":lib:compileTestKotlinIosX64",
+                ":lib:linkDebugTestIosX64",
+            )
+        }
+
+        project("native-configuration-cache", gradleVersion) {
+            testConfigurationCacheOf(
+                "build",
+                executedTaskNames = expectedTasks,
+                checkConfigurationCacheFileReport = false,
+                buildOptions = defaultBuildOptions.copy(
+                    configurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL,
+                    warningMode = WarningMode.All,
+                    freeArgs = listOf(
+                        // remove after KT-49933 is fixed
+                        "-x", ":lib:transformCommonMainDependenciesMetadata",
+                        "-x", ":lib:transformCommonMainCInteropDependenciesMetadata",
+                    )
+                )
+            )
+        }
+    }
+
+    @NativeGradlePluginTests
+    @DisplayName("works with commonizer")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_4)
+    @GradleTest
+    fun testCommonizer(gradleVersion: GradleVersion) {
+        project("native-configuration-cache", gradleVersion) {
+            val buildOptions = buildOptions.copy(freeArgs = listOf("--rerun-tasks"))
+            testConfigurationCacheOf(
+                ":lib:commonizeCInterop",
+                ":commonizeNativeDistribution",
+                buildOptions = buildOptions,
+                // TODO(alakotka): Report will be still generated due to incorrect consumption of properties and environmental variables.
+                //  https://docs.gradle.org/7.4.2/userguide/configuration_cache.html#config_cache:requirements:reading_sys_props_and_env_vars
+                checkConfigurationCacheFileReport = false,
                 checkUpToDateOnRebuild = false
             )
         }
@@ -88,7 +157,6 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
                     incremental = true,
                     kaptOptions = BuildOptions.KaptOptions(
                         verbose = true,
-                        useWorkers = true,
                         incrementalKapt = true,
                         includeCompileClasspath = false
                     )
@@ -187,14 +255,33 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @DisplayName("with build report")
     @GradleTest
     fun testBuildReportSmokeTestForConfigurationCache(gradleVersion: GradleVersion) {
-        project("simpleProject", gradleVersion) {
-            val buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
-            build("assemble", buildOptions = buildOptions) {
-                assertOutputContains("Kotlin build report is written to")
+        project(
+            "simpleProject",
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
+        ) {
+            build("assemble") {
+                assertBuildReportPathIsPrinted()
             }
 
-            build("assemble", buildOptions = buildOptions) {
-                assertOutputContains("Kotlin build report is written to")
+            build("assemble") {
+                assertBuildReportPathIsPrinted()
+            }
+        }
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("with build build scan report")
+    @GradleTest
+    fun testBuildScanReportSmokeTestForConfigurationCache(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            val buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.BUILD_SCAN), logLevel = LogLevel.DEBUG)
+            build("clean", "assemble", "-Pkotlin.build.report.build_scan.custom_values_limit=0", "--scan", buildOptions = buildOptions) {
+                assertOutputContains("Can't add any more custom values into build scan")
+            }
+
+            build("clean", "assemble", "-Pkotlin.build.report.build_scan.custom_values_limit=0", "--scan", buildOptions = buildOptions) {
+                assertOutputContains("Can't add any more custom values into build scan")
             }
         }
     }
@@ -208,12 +295,14 @@ abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
         vararg taskNames: String,
         executedTaskNames: List<String>? = null,
         checkUpToDateOnRebuild: Boolean = true,
+        checkConfigurationCacheFileReport: Boolean = true,
         buildOptions: BuildOptions = defaultBuildOptions
     ) {
         assertSimpleConfigurationCacheScenarioWorks(
             *taskNames,
             executedTaskNames = executedTaskNames,
             checkUpToDateOnRebuild = checkUpToDateOnRebuild,
+            checkConfigurationCacheFileReport = checkConfigurationCacheFileReport,
             buildOptions = buildOptions,
         )
     }

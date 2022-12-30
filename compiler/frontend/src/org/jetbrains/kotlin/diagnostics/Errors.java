@@ -11,7 +11,6 @@ import com.intellij.psi.impl.source.tree.LeafPsiElement;
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.config.LanguageFeature;
-import org.jetbrains.kotlin.config.LanguageVersion;
 import org.jetbrains.kotlin.config.LanguageVersionSettings;
 import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.diagnostics.rendering.DeclarationWithDiagnosticComponents;
@@ -27,7 +26,6 @@ import org.jetbrains.kotlin.name.Name;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.resolve.VarianceConflictDiagnosticData;
 import org.jetbrains.kotlin.resolve.calls.inference.InferenceErrorData;
-import org.jetbrains.kotlin.resolve.calls.inference.model.TypeVariableTypeConstructor;
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall;
 import org.jetbrains.kotlin.resolve.calls.tower.WrongResolutionToClassifier;
 import org.jetbrains.kotlin.resolve.calls.util.BuilderLambdaLabelingInfo;
@@ -43,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.jetbrains.kotlin.config.LanguageFeature.ReportTypeVarianceConflictOnQualifierArguments;
 import static org.jetbrains.kotlin.diagnostics.ClassicPositioningStrategies.ACTUAL_DECLARATION_NAME;
 import static org.jetbrains.kotlin.diagnostics.ClassicPositioningStrategies.INCOMPATIBLE_DECLARATION;
 import static org.jetbrains.kotlin.diagnostics.PositioningStrategies.*;
@@ -339,6 +336,8 @@ public interface Errors {
     DiagnosticFactory0<KtAnnotationEntry> OPT_IN_MARKER_ON_OVERRIDE = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtAnnotationEntry> OPT_IN_MARKER_ON_OVERRIDE_WARNING = DiagnosticFactory0.create(WARNING);
 
+    DiagnosticFactory1<KtAnnotationEntry, String> SUBCLASS_OPT_IN_INAPPLICABLE = DiagnosticFactory1.create(ERROR);
+
     DiagnosticFactory1<PsiElement, String> EXPERIMENTAL_UNSIGNED_LITERALS = DiagnosticFactory1.create(WARNING);
     DiagnosticFactory1<PsiElement, String> EXPERIMENTAL_UNSIGNED_LITERALS_ERROR = DiagnosticFactory1.create(ERROR);
 
@@ -620,6 +619,10 @@ public interface Errors {
 
     DiagnosticFactory1<KtDeclaration, Collection<KotlinType>> AMBIGUOUS_ANONYMOUS_TYPE_INFERRED =
             DiagnosticFactory1.create(ERROR, DECLARATION_SIGNATURE);
+    DiagnosticFactory1<KtDeclaration, KotlinType> APPROXIMATED_LOCAL_TYPE_WILL_BECOME_NULLABLE =
+            DiagnosticFactory1.create(WARNING, DECLARATION_SIGNATURE);
+    DiagnosticFactory1<KtDeclaration, KotlinType> APPROXIMATED_LOCAL_TYPE_WILL_BECOME_FLEXIBLE =
+            DiagnosticFactory1.create(WARNING, DECLARATION_SIGNATURE);
 
     DiagnosticFactory1<KtNamedDeclaration, TypeParameterDescriptor>
             KCLASS_WITH_NULLABLE_TYPE_PARAMETER_IN_SIGNATURE = DiagnosticFactory1.create(ERROR, PositioningStrategies.DECLARATION_NAME);
@@ -1277,6 +1280,7 @@ public interface Errors {
     DiagnosticFactory2<KtElement, KtElement, DeclarationDescriptor> NULLABLE_INLINE_PARAMETER = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory2<KtElement, KtElement, DeclarationDescriptor> RECURSION_IN_INLINE = DiagnosticFactory2.create(ERROR);
     DiagnosticFactory0<KtDeclaration> DECLARATION_CANT_BE_INLINED = DiagnosticFactory0.create(ERROR, INLINE_FUN_MODIFIER);
+    DiagnosticFactory0<KtDeclaration> DECLARATION_CANT_BE_INLINED_WARNING = DiagnosticFactory0.create(WARNING, INLINE_FUN_MODIFIER);
     DiagnosticFactory0<KtDeclaration> OVERRIDE_BY_INLINE = DiagnosticFactory0.create(WARNING, DECLARATION_SIGNATURE);
     DiagnosticFactory0<PsiElement> REIFIED_TYPE_PARAMETER_IN_OVERRIDE = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory1<PsiElement, CallableDescriptor> INLINE_CALL_CYCLE = DiagnosticFactory1.create(ERROR, DEFAULT);

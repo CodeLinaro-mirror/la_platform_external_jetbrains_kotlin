@@ -37,13 +37,12 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure-utils"))
 
     // FIR dependencies
+    testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
     testApi(project(":compiler:fir:checkers:checkers.js"))
     testRuntimeOnly(project(":compiler:fir:fir-serialization"))
 
-    testCompileOnly(project(":kotlin-reflect-api"))
-    testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
 
     testApi(commonDependency("junit:junit"))
@@ -59,6 +58,8 @@ dependencies {
     layoutLib("org.jetbrains.intellij.deps.android.tools:layoutlib:26.5.0") { isTransitive = false }
     layoutLibApi("com.android.tools.layoutlib:layoutlib-api:26.5.0") { isTransitive = false }
 }
+
+optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" { none() }

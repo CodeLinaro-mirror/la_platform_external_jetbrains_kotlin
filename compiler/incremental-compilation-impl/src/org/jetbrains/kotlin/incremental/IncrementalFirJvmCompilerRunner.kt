@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.KtSourceFile
 import org.jetbrains.kotlin.KtVirtualFileSourceFile
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
-import org.jetbrains.kotlin.backend.jvm.serialization.JvmIdSignatureDescriptor
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.report.BuildReporter
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
@@ -55,7 +54,6 @@ import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistory
-import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmDescriptorMangler
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
@@ -74,7 +72,7 @@ class IncrementalFirJvmCompilerRunner(
     workingDir: File,
     reporter: BuildReporter,
     buildHistoryFile: File,
-    outputFiles: Collection<File>,
+    outputDirs: Collection<File>?,
     modulesApiHistory: ModulesApiHistory,
     kotlinSourceFilesExtensions: List<String> = DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS,
     classpathChanges: ClasspathChanges
@@ -83,7 +81,7 @@ class IncrementalFirJvmCompilerRunner(
     reporter,
     false,
     buildHistoryFile,
-    outputFiles,
+    outputDirs,
     modulesApiHistory,
     kotlinSourceFilesExtensions,
     classpathChanges
@@ -146,10 +144,11 @@ class IncrementalFirJvmCompilerRunner(
             if (collector.hasErrors()) return ExitCode.COMPILATION_ERROR to emptyList()
 
             // -- plugins
-            val pluginClasspaths: Iterable<String> = args.pluginClasspaths?.asIterable() ?: emptyList()
+            val pluginClasspaths = args.pluginClasspaths?.toList() ?: emptyList()
             val pluginOptions = args.pluginOptions?.toMutableList() ?: ArrayList()
+            val pluginConfigurations = args.pluginConfigurations?.toList() ?: emptyList()
             // TODO: add scripting support when ready in FIR
-            val pluginLoadResult = PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, configuration)
+            val pluginLoadResult = PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, configuration)
             if (pluginLoadResult != ExitCode.OK) return pluginLoadResult to emptyList()
             // -- /plugins
 
@@ -189,7 +188,7 @@ class IncrementalFirJvmCompilerRunner(
                 else allPlatformSourceFiles.add(file)
             }
 
-            val diagnosticsReporter = DiagnosticReporterFactory.createReporter()
+            val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
             val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
             val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, diagnosticsReporter)
 
@@ -272,17 +271,15 @@ class IncrementalFirJvmCompilerRunner(
             val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), JvmIrMangler)
             val irGenerationExtensions =
                 (projectEnvironment as? VfsBasedProjectEnvironment)?.project?.let { IrGenerationExtension.getInstances(it) }.orEmpty()
-            val signaturer = JvmIdSignatureDescriptor(JvmDescriptorMangler(null))
             val allCommonFirFiles = cycleResult.session.moduleData.dependsOnDependencies
                 .map { it.session }
                 .filter { it.kind == FirSession.Kind.Source }
                 .flatMap { (it.firProvider as FirProviderImpl).getAllFirFiles() }
 
-            val (irModuleFragment, components) = Fir2IrConverter.createModuleFragment(
+            val (irModuleFragment, components) = Fir2IrConverter.createModuleFragmentWithoutSignatures(
                 cycleResult.session, cycleResult.scopeSession, cycleResult.fir + allCommonFirFiles,
-                cycleResult.session.languageVersionSettings, signaturer,
-                extensions, FirJvmKotlinMangler(cycleResult.session), JvmIrMangler, IrFactoryImpl,
-                FirJvmVisibilityConverter,
+                cycleResult.session.languageVersionSettings, extensions,
+                FirJvmKotlinMangler(cycleResult.session), JvmIrMangler, IrFactoryImpl, FirJvmVisibilityConverter,
                 Fir2IrJvmSpecialAnnotationSymbolProvider(),
                 irGenerationExtensions
             )

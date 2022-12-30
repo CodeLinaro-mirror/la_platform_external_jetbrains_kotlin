@@ -192,6 +192,17 @@ fun IrValueParameter.createStubDefaultValue(): IrExpressionBody =
         IrErrorExpressionImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, type, "Stub expression for default value of $name")
     )
 
+val IrProperty.isSimpleProperty: Boolean
+    get() {
+        val getterFun = getter
+        val setterFun = setter
+        return !isFakeOverride &&
+                !isLateinit &&
+                modality === Modality.FINAL &&
+                (getterFun == null || getterFun.origin == IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR) &&
+                (setterFun == null || setterFun.origin == IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR)
+    }
+
 val IrClass.functions: Sequence<IrSimpleFunction>
     get() = declarations.asSequence().filterIsInstance<IrSimpleFunction>()
 

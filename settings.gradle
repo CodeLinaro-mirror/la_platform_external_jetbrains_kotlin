@@ -16,7 +16,7 @@ pluginManagement {
             maven { url "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies" }
         }
     }
-    
+
     plugins {
         id "de.undercouch.download" version "5.1.0"
     }
@@ -153,7 +153,6 @@ include ":benchmarks",
         ":compiler:tests-common",
         ":compiler:tests-mutes",
         ":compiler:tests-mutes:tc-integration",
-        ":compiler:tests-common-jvm6",
         ":compiler:tests-against-klib",
         ":compiler:tests-for-compiler-generator",
         ":js:js.ast",
@@ -211,6 +210,13 @@ include ":kotlin-sam-with-receiver-compiler-plugin",
         ":kotlin-sam-with-receiver-compiler-plugin.k2",
         ":kotlin-sam-with-receiver-compiler-plugin.cli"
 
+include ":kotlin-assignment-compiler-plugin",
+        ":kotlin-assignment-compiler-plugin.common",
+        ":kotlin-assignment-compiler-plugin.k1",
+        ":kotlin-assignment-compiler-plugin.k2",
+        ":kotlin-assignment-compiler-plugin.cli",
+        ":kotlin-assignment-compiler-plugin.embeddable"
+
 include ":kotlin-imports-dumper-compiler-plugin",
         ":kotlin-script-runtime",
         ":plugins:fir-plugin-prototype",
@@ -243,6 +249,8 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":generators:test-generator",
         ":tools:kotlinp",
         ":kotlin-project-model",
+        ":kotlin-project-model-tests-generator",
+        ":kotlin-gradle-compiler-types",
         ":kotlin-gradle-plugin-api",
         ":kotlin-gradle-plugin-idea",
         ":kotlin-gradle-plugin-idea-proto",
@@ -264,6 +272,7 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":kotlin-allopen",
         ":kotlin-noarg",
         ":kotlin-sam-with-receiver",
+        ":kotlin-assignment",
         ":kotlin-gradle-subplugin-example",
         ":examples:annotation-processor-example",
         ":kotlin-script-util",
@@ -310,11 +319,7 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":plugins:jvm-abi-gen",
         ":plugins:jvm-abi-gen-embeddable",
         ":test-instrumenter",
-        ":kotlinx-serialization-compiler-plugin",
-        ":kotlin-serialization",
-        ":kotlin-serialization-unshaded",
-        ":wasm:wasm.ir",
-        ":libraries:tools:stdlib-compiler-classpath"
+        ":wasm:wasm.ir"
 
 
 include ":kotlinx-atomicfu-compiler-plugin",
@@ -341,6 +346,7 @@ include ":compiler:fir",
         ":compiler:fir:checkers",
         ":compiler:fir:checkers:checkers.jvm",
         ":compiler:fir:checkers:checkers.js",
+        ":compiler:fir:checkers:checkers.native",
         ":compiler:fir:checkers:checkers-component-generator",
         ":compiler:fir:entrypoint",
         ":compiler:fir:analysis-tests",
@@ -371,6 +377,15 @@ include ":kotlin-lombok-compiler-plugin",
         ":kotlin-lombok-compiler-plugin.cli",
         ":kotlin-lombok"
 
+include ":kotlinx-serialization-compiler-plugin",
+        ":kotlinx-serialization-compiler-plugin.common",
+        ":kotlinx-serialization-compiler-plugin.k1",
+        ":kotlinx-serialization-compiler-plugin.k2",
+        ":kotlinx-serialization-compiler-plugin.backend",
+        ":kotlinx-serialization-compiler-plugin.cli",
+        ":kotlin-serialization",
+        ":kotlin-serialization-unshaded"
+
 if (!buildProperties.inJpsBuildIdeaSync) {
     include ":prepare:ide-plugin-dependencies:android-extensions-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:allopen-compiler-plugin-for-ide",
@@ -389,6 +404,7 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:kotlinx-serialization-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:noarg-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:sam-with-receiver-compiler-plugin-for-ide",
+            ":prepare:ide-plugin-dependencies:assignment-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:parcelize-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:lombok-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-backend-native-for-ide",
@@ -581,6 +597,7 @@ include ":generators:analysis-api-generator",
         ":analysis:kt-references",
         ":analysis:kt-references:kt-references-fe10",
         ":analysis:symbol-light-classes",
+        ":analysis:light-classes-base",
         ":analysis:project-structure",
         ":analysis:analysis-api-standalone",
         ":analysis:analysis-api-standalone:analysis-api-standalone-base",
@@ -729,8 +746,17 @@ project(':kotlin-sam-with-receiver-compiler-plugin.k1').projectDir = "$rootDir/p
 project(':kotlin-sam-with-receiver-compiler-plugin.k2').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.k2" as File
 project(':kotlin-sam-with-receiver-compiler-plugin.cli').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.cli" as File
 
+project(':kotlin-assignment-compiler-plugin').projectDir = "$rootDir/plugins/assign-plugin" as File
+project(':kotlin-assignment-compiler-plugin.common').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.common" as File
+project(':kotlin-assignment-compiler-plugin.k1').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.k1" as File
+project(':kotlin-assignment-compiler-plugin.k2').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.k2" as File
+project(':kotlin-assignment-compiler-plugin.cli').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.cli" as File
+project(':kotlin-assignment-compiler-plugin.embeddable').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.embeddable" as File
+
 project(':tools:kotlinp').projectDir = "$rootDir/libraries/tools/kotlinp" as File
 project(':kotlin-project-model').projectDir = "$rootDir/libraries/tools/kotlin-project-model" as File
+project(':kotlin-project-model-tests-generator').projectDir = "$rootDir/libraries/tools/kotlin-project-model-tests-generator" as File
+project(':kotlin-gradle-compiler-types').projectDir = "$rootDir/libraries/tools/kotlin-gradle-compiler-types" as File
 project(':kotlin-gradle-plugin-api').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-api" as File
 project(':kotlin-gradle-plugin-idea').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-idea" as File
 project(':kotlin-gradle-plugin-idea-proto').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-idea-proto" as File
@@ -752,6 +778,7 @@ project(':kotlin-tooling-core').projectDir = "$rootDir/libraries/tools/kotlin-to
 project(':kotlin-allopen').projectDir = "$rootDir/libraries/tools/kotlin-allopen" as File
 project(':kotlin-noarg').projectDir = "$rootDir/libraries/tools/kotlin-noarg" as File
 project(':kotlin-sam-with-receiver').projectDir = "$rootDir/libraries/tools/kotlin-sam-with-receiver" as File
+project(':kotlin-assignment').projectDir = "$rootDir/libraries/tools/kotlin-assignment" as File
 project(':kotlin-lombok').projectDir = "$rootDir/libraries/tools/kotlin-lombok" as File
 project(':kotlin-gradle-subplugin-example').projectDir = "$rootDir/libraries/examples/kotlin-gradle-subplugin-example" as File
 project(':examples:annotation-processor-example').projectDir = "$rootDir/libraries/examples/annotation-processor-example" as File
@@ -802,7 +829,12 @@ project(':plugins:jvm-abi-gen-embeddable').projectDir = "$rootDir/plugins/jvm-ab
 project(':js:js.tests').projectDir = "$rootDir/js/js.tests" as File
 project(':js:js.engines').projectDir = "$rootDir/js/js.engines" as File
 
-project(':kotlinx-serialization-compiler-plugin').projectDir = file("$rootDir/plugins/kotlin-serialization/kotlin-serialization-compiler")
+project(':kotlinx-serialization-compiler-plugin').projectDir = "$rootDir/plugins/kotlinx-serialization" as File
+project(':kotlinx-serialization-compiler-plugin.cli').projectDir = "$rootDir/plugins/kotlinx-serialization/kotlinx-serialization.cli" as File
+project(':kotlinx-serialization-compiler-plugin.backend').projectDir = "$rootDir/plugins/kotlinx-serialization/kotlinx-serialization.backend" as File
+project(':kotlinx-serialization-compiler-plugin.k1').projectDir = "$rootDir/plugins/kotlinx-serialization/kotlinx-serialization.k1" as File
+project(':kotlinx-serialization-compiler-plugin.k2').projectDir = "$rootDir/plugins/kotlinx-serialization/kotlinx-serialization.k2" as File
+project(':kotlinx-serialization-compiler-plugin.common').projectDir = "$rootDir/plugins/kotlinx-serialization/kotlinx-serialization.common" as File
 project(':kotlin-serialization').projectDir = file("$rootDir/libraries/tools/kotlin-serialization")
 project(':kotlin-serialization-unshaded').projectDir = file("$rootDir/libraries/tools/kotlin-serialization-unshaded")
 

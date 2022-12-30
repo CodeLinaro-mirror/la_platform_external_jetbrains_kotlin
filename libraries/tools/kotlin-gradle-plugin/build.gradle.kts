@@ -1,7 +1,7 @@
-import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.kotlin.pill.PillExtension
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.github.jengelman.gradle.plugins.shadow.transformers.DontIncludeResourceTransformer
+import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.kotlin.pill.PillExtension
 
 plugins {
     id("gradle-plugin-common-configuration")
@@ -27,6 +27,7 @@ kotlin.sourceSets.all {
     languageSettings.optIn("org.jetbrains.kotlin.gradle.plugin.mpp.pm20.AdvancedKotlinGradlePluginApi")
     languageSettings.optIn("org.jetbrains.kotlin.gradle.kpm.idea.InternalKotlinGradlePluginApi")
     languageSettings.optIn("org.jetbrains.kotlin.gradle.plugin.ExperimentalKotlinGradlePluginApi")
+    languageSettings.optIn("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
 }
 
 dependencies {
@@ -37,8 +38,8 @@ dependencies {
     commonCompileOnly(project(":compiler"))
     commonCompileOnly(project(":compiler:incremental-compilation-impl"))
     commonCompileOnly(project(":daemon-common"))
+    commonCompileOnly(project(":kotlin-gradle-compiler-types"))
     commonCompileOnly(project(":native:kotlin-native-utils"))
-    commonCompileOnly(project(":kotlin-reflect-api"))
     commonCompileOnly(project(":kotlin-android-extensions"))
     commonCompileOnly(project(":kotlin-build-common"))
     commonCompileOnly(project(":kotlin-compiler-runner"))
@@ -52,7 +53,6 @@ dependencies {
     commonCompileOnly("com.android.tools.build:builder:3.6.4")
     commonCompileOnly("com.android.tools.build:builder-model:3.6.4")
     commonCompileOnly("org.codehaus.groovy:groovy-all:2.4.12")
-    commonCompileOnly(project(":kotlin-reflect"))
     commonCompileOnly(intellijCore())
     commonCompileOnly(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     commonCompileOnly("com.gradle:gradle-enterprise-gradle-plugin:3.9")
@@ -90,17 +90,20 @@ dependencies {
     }
 
     if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
-        "functionalTestImplementation"("com.android.tools.build:gradle:4.0.1") {
-            because("Functional tests are using APIs from Android. Latest Version is used to avoid NoClassDefFoundError")
+        val functionalTestImplementation by configurations.getting
+        functionalTestImplementation("com.android.tools.build:gradle:7.2.1")
+        functionalTestImplementation("com.android.tools.build:gradle-api:7.2.1")
+        functionalTestImplementation(gradleKotlinDsl())
+        functionalTestImplementation(project(":kotlin-gradle-plugin-kpm-android"))
+        functionalTestImplementation(project(":kotlin-tooling-metadata"))
+        functionalTestImplementation(testFixtures(project(":kotlin-gradle-plugin-idea")))
+        functionalTestImplementation("com.github.gundy:semver4j:0.16.4:nodeps") {
+            exclude(group = "*")
         }
-        "functionalTestImplementation"(gradleKotlinDsl())
-        "functionalTestImplementation"(project(":kotlin-gradle-plugin-kpm-android"))
-        "functionalTestImplementation"(project(":kotlin-tooling-metadata"))
-        "functionalTestImplementation"(testFixtures(project(":kotlin-gradle-plugin-idea")))
+        functionalTestImplementation("org.reflections:reflections:0.10.2")
     }
 
     testCompileOnly(project(":compiler"))
-    testCompileOnly(project(":kotlin-reflect-api"))
     testCompileOnly(project(":kotlin-annotation-processing"))
     testCompileOnly(project(":kotlin-annotation-processing-gradle"))
 
@@ -112,6 +115,14 @@ dependencies {
     testImplementation(commonDependency("junit:junit"))
     testImplementation(project(":kotlin-gradle-statistics"))
     testImplementation(project(":kotlin-tooling-metadata"))
+}
+
+if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+    tasks.withType<Test>().named("functionalTest").configure {
+        javaLauncher.set(javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(11))
+        })
+    }
 }
 
 if (kotlinBuildProperties.isInJpsBuildIdeaSync) {

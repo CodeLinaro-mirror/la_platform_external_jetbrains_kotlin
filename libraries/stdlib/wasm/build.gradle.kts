@@ -1,10 +1,13 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
+import org.jetbrains.kotlin.gradle.targets.js.d8.D8RootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 
 plugins {
     `maven-publish`
     kotlin("multiplatform")
 }
+
+suppressYarnAndNpmForAssemble()
 
 description = "Kotlin Standard Library for experimental WebAssembly platform"
 
@@ -73,6 +76,8 @@ val commonTestSources by task<Sync> {
 
     into("$buildDir/commonTestSources")
 }
+
+D8RootPlugin.apply(rootProject).version = v8Version
 
 kotlin {
     wasm {

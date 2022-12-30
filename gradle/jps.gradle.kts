@@ -24,6 +24,7 @@ fun updateCompilerXml() {
         "libraries/tools/kotlin-allopen",
         "libraries/tools/kotlin-annotation-processing",
         "libraries/tools/kotlin-annotation-processing-maven",
+        "libraries/tools/kotlin-assignment",
         "libraries/tools/kotlin-bom",
         "libraries/tools/kotlin-gradle-build-metrics",
         "libraries/tools/kotlin-gradle-plugin",
@@ -64,10 +65,10 @@ fun updateCompilerXml() {
         "libraries/tools/maven-archetypes",
         "libraries/tools/mutability-annotations-compat",
         "libraries/tools/script-runtime",
-        "libraries/tools/stdlib-compiler-classpath",
         "native/commonizer-api",
         "libraries/examples",
         "libraries/tools/kotlin-gradle-plugin-idea-proto",
+        "libraries/tools/kotlin-project-model-tests-generator",
     )
 
     val d = '$'
@@ -103,7 +104,6 @@ fun JUnit.configureForKotlin(xmx: String = "1600m") {
         "-Didea.home.path=$ideaSdkPath",
         "-Didea.use.native.fs.for.win=false",
         "-Djps.kotlin.home=${ideaPluginDir.absolutePath}",
-        "-Dkotlin.ni=" + if (rootProject.hasProperty("newInferenceTests")) "true" else "false",
         "-Duse.jps=true",
         "-Djava.awt.headless=true"
     ).filterNotNull().joinToString(" ")
@@ -224,7 +224,7 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
                     inheritOutputDirs = true
                 }
             }
-            
+
             if (this != rootProject) {
                 evaluationDependsOn(path)
             }
@@ -419,7 +419,7 @@ fun NamedDomainObjectContainer<TopLevelArtifact>.kotlinc() {
         directory("license") {
             directoryContent("$rootDir/license")
         }
-        
+
         file("$rootDir/bootstrap/build.txt")
     }
 }
@@ -521,7 +521,7 @@ fun RecursiveArtifact.sourceJarsFromConfiguration(configuration: Configuration, 
         .resolvedArtifacts
 
     jarsFromExternalModules(resolvedArtifacts, renamer)
-    
+
     resolvedArtifacts
         .map { it.id.componentIdentifier }
         .filterIsInstance<ProjectComponentIdentifier>()

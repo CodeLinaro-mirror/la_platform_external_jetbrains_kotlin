@@ -17,6 +17,7 @@ import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.configurationcache.extensions.serviceOf
+import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.categoryByName
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
@@ -80,7 +81,10 @@ internal class KotlinCompilationNpmResolver(
             npmProject.publicPackageJsonTaskName,
             listOf(compilation)
         ) {
-            it.dependsOn(nodeJs_.npmInstallTaskProvider)
+            it.dependsOn(
+                nodeJs_.npmInstallTaskProvider,
+                nodeJs_.storeYarnLockTaskProvider,
+            )
             it.dependsOn(packageJsonTaskHolder)
         }.also { packageJsonTask ->
             if (compilation.isMain()) {
@@ -179,7 +183,7 @@ internal class KotlinCompilationNpmResolver(
             )
             all.extendsFrom(compilationConfiguration)
             compilation.allKotlinSourceSets.forEach { sourceSet ->
-                val sourceSetConfiguration = project.sourceSetDependencyConfigurationByScope(sourceSet, scope)
+                val sourceSetConfiguration = project.configurations.sourceSetDependencyConfigurationByScope(sourceSet, scope)
                 all.extendsFrom(sourceSetConfiguration)
             }
         }
@@ -387,11 +391,13 @@ internal class KotlinCompilationNpmResolver(
 
         @get:PathSensitive(PathSensitivity.ABSOLUTE)
         @get:IgnoreEmptyDirectories
+        @get:NormalizeLineEndings
         @get:InputFiles
         val internalCompositeDependencies: Collection<File>,
 
         @get:PathSensitive(PathSensitivity.ABSOLUTE)
         @get:IgnoreEmptyDirectories
+        @get:NormalizeLineEndings
         @get:InputFiles
         val externalGradleDependencies: Collection<File>,
 
@@ -446,6 +452,9 @@ internal class KotlinCompilationNpmResolver(
                         )
                     }
             }.filterNotNull()
+            val transitiveNpmDependencies = importedExternalGradleDependencies.flatMap {
+                it.dependencies
+            }.filter { it.scope != NpmDependency.Scope.DEV }
 
             val compositeDependencies = internalCompositeDependencies.flatMap { dependency ->
                 dependency.getPackages()
@@ -456,8 +465,7 @@ internal class KotlinCompilationNpmResolver(
                             file
                         )
                     }
-            }
-                .filterNotNull()
+            }.filterNotNull()
 
             val toolsNpmDependencies = compilationResolver.rootResolver.taskRequirements
                 .getCompilationNpmRequirements(projectPath, compilationResolver.compilationDisambiguatedName)
@@ -473,7 +481,8 @@ internal class KotlinCompilationNpmResolver(
                 )
             } else emptySet()
 
-            val allNpmDependencies = externalNpmDependencies + toolsNpmDependencies + dukatIfNecessary
+            val otherNpmDependencies = toolsNpmDependencies + dukatIfNecessary + transitiveNpmDependencies
+            val allNpmDependencies = disambiguateDependencies(externalNpmDependencies, otherNpmDependencies)
             val packageJsonHandlers = if (compilationResolver.compilation != null) {
                 compilationResolver.compilation.packageJsonHandlers
             } else {
@@ -509,6 +518,32 @@ internal class KotlinCompilationNpmResolver(
                 allNpmDependencies,
                 packageJson
             )
+        }
+
+        private fun disambiguateDependencies(
+            direct: Collection<NpmDependencyDeclaration>,
+            others: Collection<NpmDependencyDeclaration>,
+        ): Collection<NpmDependencyDeclaration> {
+            val unique = others.groupBy(NpmDependencyDeclaration::name)
+                .filterKeys { k -> direct.none { it.name == k } }
+                .mapNotNull { (name, dependencies) ->
+                    dependencies.maxByOrNull { dep ->
+                        SemVer.from(dep.version, true)
+                    }?.also { selected ->
+                        if (dependencies.size > 1) {
+                            compilationResolver.project.logger.warn(
+                                """
+                                Transitive npm dependency version clash for compilation "${compilationResolver.compilation.name}"
+                                    Candidates:
+                                ${dependencies.joinToString("\n") { "\t\t" + it.name + "@" + it.version }}
+                                    Selected:
+                                        ${selected.name}@${selected.version}
+                                """.trimIndent()
+                            )
+                        }
+                    }
+                }
+            return direct + unique
         }
 
         private fun CompositeDependency.getPackages(): List<File> {

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
@@ -15,10 +16,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.SMARTCAST_IMPOSSI
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirErrorFunction
-import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
-import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
-import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
-import org.jetbrains.kotlin.fir.expressions.isExhaustive
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.types.*
 
 object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
@@ -36,6 +34,13 @@ object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
             context.session.builtinTypes.unitType.coneType
         else
             targetElement.returnTypeRef.coneType
+        if (targetElement is FirAnonymousFunction &&
+            expression.source?.kind is KtFakeSourceElementKind.ImplicitReturn.FromLastStatement &&
+            functionReturnType.isUnit
+        ) {
+            return
+        }
+
         val typeContext = context.session.typeContext
         val returnExpressionType = resultExpression.typeRef.coneType
 
@@ -45,7 +50,7 @@ object FirFunctionReturnTypeMismatchChecker : FirReturnExpressionChecker() {
             } else {
                 val isDueToNullability =
                     context.session.typeContext.isTypeMismatchDueToNullability(returnExpressionType, functionReturnType)
-                if (resultExpression is FirExpressionWithSmartcast && !resultExpression.isStable &&
+                if (resultExpression is FirSmartCastExpression && !resultExpression.isStable &&
                     isSubtypeForTypeMismatch(typeContext, subtype = resultExpression.smartcastType.coneType, supertype = functionReturnType)
                 ) {
                     reporter.reportOn(

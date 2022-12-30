@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -143,14 +143,15 @@ private fun <D, T> buildTypeParameterList(
 }
 
 
-internal fun KtDeclaration.getKotlinType(): KotlinType? {
-    val descriptor = resolve()
-    return when (descriptor) {
-        is ValueDescriptor -> descriptor.type
-        is CallableDescriptor -> if (descriptor is FunctionDescriptor && descriptor.isSuspend)
-            descriptor.module.builtIns.nullableAnyType else descriptor.returnType
-        else -> null
-    }
+internal fun KtDeclaration.getKotlinType(): KotlinType? = when (val descriptor = resolve()) {
+    is ValueDescriptor -> descriptor.type
+    is CallableDescriptor ->
+        if (descriptor is FunctionDescriptor && descriptor.isSuspend)
+            descriptor.module.builtIns.nullableAnyType
+        else
+            descriptor.returnType
+
+    else -> null
 }
 
 internal fun KtDeclaration.resolve() = LightClassGenerationSupport.getInstance(project).resolveToDescriptor(this)
@@ -190,12 +191,11 @@ private fun annotateByKotlinType(
     psiType: PsiType,
     kotlinType: KotlinType,
     psiContext: PsiElement,
-    ultraLightSupport: KtUltraLightSupport
 ): PsiType {
 
     fun KotlinType.getAnnotationsSequence(): Sequence<List<PsiAnnotation>> =
         sequence {
-            yield(annotations.mapNotNull { it.toLightAnnotation(ultraLightSupport, psiContext) })
+            yield(annotations.mapNotNull { it.toLightAnnotation(psiContext) })
             for (argument in arguments) {
                 yieldAll(argument.type.getAnnotationsSequence())
             }
@@ -245,7 +245,7 @@ internal fun KtUltraLightSupport.mapType(
     return createTypeFromCanonicalText(kotlinType, canonicalSignature, psiContext)
 }
 
-private fun KtUltraLightSupport.createTypeFromCanonicalText(
+private fun createTypeFromCanonicalText(
     kotlinType: KotlinType?,
     canonicalSignature: String,
     psiContext: PsiElement,
@@ -256,7 +256,7 @@ private fun KtUltraLightSupport.createTypeFromCanonicalText(
     val typeText = TypeInfo.createTypeText(typeInfo) ?: return PsiType.NULL
 
     val typeElement = ClsTypeElementImpl(psiContext, typeText, '\u0000')
-    val type = if (kotlinType != null) annotateByKotlinType(typeElement.type, kotlinType, typeElement, this) else typeElement.type
+    val type = if (kotlinType != null) annotateByKotlinType(typeElement.type, kotlinType, typeElement) else typeElement.type
 
     if (type is PsiArrayType && psiContext is KtUltraLightParameter && psiContext.isVarArgs) {
         return PsiEllipsisType(type.componentType, type.annotationProvider)
@@ -330,7 +330,7 @@ private fun KtUltraLightClass.lightMethod(
             descriptor,
             OwnerKind.IMPLEMENTATION,
             support.deprecationResolver,
-            support.typeMapper.jvmDefaultMode,
+            support.jvmDefaultMode,
         )
         packMethodFlags(asmFlags, JvmCodegenUtil.isJvmInterface(kotlinOrigin.resolve() as? ClassDescriptor))
     }
@@ -392,11 +392,12 @@ internal fun KtModifierListOwner.isHiddenByDeprecation(support: KtUltraLightSupp
     val annotations = annotationEntries.filter { annotation ->
         annotation.looksLikeDeprecated()
     }
-    if (annotations.isNotEmpty()) { // some candidates found
+
+    return if (annotations.isNotEmpty()) { // some candidates found
         val deprecated = support.findAnnotation(this, StandardNames.FqNames.deprecated)?.second
-        return (deprecated?.argumentValue("level") as? EnumValue)?.enumEntryName?.asString() == "HIDDEN"
+        (deprecated?.argumentValue("level") as? EnumValue)?.enumEntryName?.asString() == "HIDDEN"
     } else {
-        return false
+        false
     }
 }
 
@@ -506,6 +507,7 @@ private fun ConstantValue<*>.asStringForPsiLiteral(parent: PsiElement): String =
 
             "$canonicalText$arrayPart.class"
         }
+
         is EnumValue -> "${enumClassId.asSingleFqName().asString()}.$enumEntryName"
         else -> when (value) {
             is Long -> "${value}L"
@@ -538,10 +540,6 @@ fun KotlinType.tryResolveMarkerInterfaceFQName(): String? {
 internal inline fun Project.applyCompilerPlugins(body: (UltraLightClassModifierExtension) -> Unit) {
     UltraLightClassModifierExtension.getInstances(this).forEach { body(it) }
 }
-
-internal fun <L : Any> L.invalidAccess(): Nothing =
-    error("Cls delegate shouldn't be loaded for not too complex ultra-light classes! Qualified name: ${javaClass.name}")
-
 
 inline fun <T> runReadAction(crossinline runnable: () -> T): T {
     return ApplicationManager.getApplication().runReadAction(Computable { runnable() })
@@ -601,7 +599,6 @@ internal fun List<KtAnnotationEntry>.toLightAnnotations(
             name = entry.shortName?.identifier,
             lazyQualifiedName = { entry.analyzeAnnotation()?.fqName?.asString() },
             kotlinOrigin = entry,
-            parent = parent,
-            lazyClsDelegate = null
+            parent = parent
         )
     }

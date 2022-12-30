@@ -166,6 +166,7 @@ abstract class AbstractJsLookupTrackerTest : AbstractLookupTrackerTest() {
             libraries = libPaths.joinToString(File.pathSeparator)
             reportOutputFiles = true
             freeArgs = filesToCompile.map { it.canonicalPath }
+            useDeprecatedLegacyCompiler = true
         }
         configureAdditionalArgs(args)
         return runJSCompiler(args, env)
@@ -360,6 +361,10 @@ class TestLookupTracker : LookupTracker {
         val internedName = interner.intern(name)
 
         lookups.add(LookupInfo(internedFilePath, position, internedScopeFqName, scopeKind, internedName))
+    }
+
+    override fun clear() {
+        lookups.clear()
     }
 }
 

@@ -11,7 +11,7 @@ import java.util.regex.Pattern
 
 class ProjectInfo(val name: String, val modules: List<String>, val steps: List<ProjectBuildStep>, val muted: Boolean) {
 
-    class ProjectBuildStep(val id: Int, val order: List<String>, val dirtyJS: List<String>)
+    class ProjectBuildStep(val id: Int, val order: List<String>, val dirtyJS: List<String>, val language: List<String>)
 }
 
 class ModuleInfo(val moduleName: String) {
@@ -43,6 +43,7 @@ class ModuleInfo(val moduleName: String) {
 
     class ModuleStep(
         val id: Int,
+        val friends: Collection<String>,
         val dependencies: Collection<String>,
         val modifications: List<Modification>,
         val expectedFileStats: Map<String, Set<String>>
@@ -98,6 +99,7 @@ class ProjectInfoParser(infoFile: File) : InfoParser<ProjectInfo>(infoFile) {
     private fun parseSteps(firstId: Int, lastId: Int): List<ProjectInfo.ProjectBuildStep> {
         val order = mutableListOf<String>()
         val dirtyJS = mutableListOf<String>()
+        val language = mutableListOf<String>()
 
         loop { line ->
             val splitIndex = line.indexOf(':')
@@ -120,13 +122,16 @@ class ProjectInfoParser(infoFile: File) : InfoParser<ProjectInfo>(infoFile) {
                 "dirty js" -> {
                     dirtyJS += splitted[1].splitAndTrim()
                 }
+                "language" -> {
+                    language += splitted[1].splitAndTrim()
+                }
                 else -> println(diagnosticMessage("Unknown op $op", line))
             }
 
             false
         }
 
-        return (firstId..lastId).map { ProjectInfo.ProjectBuildStep(it, order, dirtyJS) }
+        return (firstId..lastId).map { ProjectInfo.ProjectBuildStep(it, order, dirtyJS, language) }
     }
 
     override fun parse(entryName: String): ProjectInfo {
@@ -201,6 +206,7 @@ class ModuleInfoParser(infoFile: File) : InfoParser<ModuleInfo>(infoFile) {
     private fun parseSteps(firstId: Int, lastId: Int): List<ModuleInfo.ModuleStep> {
         val expectedFileStats = mutableMapOf<String, Set<String>>()
         val dependencies = mutableSetOf<String>()
+        val friends = mutableSetOf<String>()
         val modifications = mutableListOf<ModuleInfo.Modification>()
 
         loop { line ->
@@ -220,6 +226,7 @@ class ModuleInfoParser(infoFile: File) : InfoParser<ModuleInfo>(infoFile) {
             } else {
                 when (op) {
                     "dependencies" -> getOpArgs().forEach { dependencies.add(it) }
+                    "friends" -> getOpArgs().forEach { friends.add(it) }
                     "modifications" -> modifications.addAll(parseModifications())
                     else -> println(diagnosticMessage("Unknown op $op", line))
                 }
@@ -231,6 +238,7 @@ class ModuleInfoParser(infoFile: File) : InfoParser<ModuleInfo>(infoFile) {
         return (firstId..lastId).map {
             ModuleInfo.ModuleStep(
                 id = it,
+                friends = friends,
                 dependencies = dependencies,
                 modifications = modifications,
                 expectedFileStats = expectedFileStats

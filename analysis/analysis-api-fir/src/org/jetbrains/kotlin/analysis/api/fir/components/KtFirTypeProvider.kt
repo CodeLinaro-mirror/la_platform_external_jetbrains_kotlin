@@ -14,28 +14,25 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.dispatchReceiverType
 import org.jetbrains.kotlin.analysis.api.fir.types.KtFirType
 import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.toConeNullability
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
-import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker.isCompatible
-import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.analysis.checkers.typeParameterSymbols
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
+import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
-import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
@@ -68,7 +65,7 @@ internal class KtFirTypeProvider(
 
     override fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType {
         require(symbol is KtFirNamedClassOrObjectSymbol)
-        symbol.firSymbol.ensureResolved(FirResolvePhase.SUPER_TYPES)
+        symbol.firSymbol.lazyResolveToPhase(FirResolvePhase.SUPER_TYPES)
         val firClass = symbol.firSymbol.fir
         val type = ConeClassLikeTypeImpl(
             firClass.symbol.toLookupTag(),
@@ -149,9 +146,9 @@ internal class KtFirTypeProvider(
         val session = analysisSession.firResolveSession.useSiteFirSession
         val symbol = lookupTag.toSymbol(session)
         val superTypes = when (symbol) {
-            is FirAnonymousObjectSymbol -> symbol.superConeTypes
-            is FirRegularClassSymbol -> symbol.superConeTypes
-            is FirTypeAliasSymbol -> symbol.fullyExpandedClass(session)?.superConeTypes ?: return emptySequence()
+            is FirAnonymousObjectSymbol -> symbol.resolvedSuperTypes
+            is FirRegularClassSymbol -> symbol.resolvedSuperTypes
+            is FirTypeAliasSymbol -> symbol.fullyExpandedClass(session)?.resolvedSuperTypes ?: return emptySequence()
             is FirTypeParameterSymbol -> symbol.resolvedBounds.map { it.type }
             else -> return emptySequence()
         }
@@ -161,8 +158,9 @@ internal class KtFirTypeProvider(
             ?: this.typeArguments.mapNotNull { it.type })
 
         require(typeParameterSymbols.size == argumentTypes.size) {
-            "'${symbol.fir.render(FirRenderer.RenderMode.NoBodies)}' expects '${typeParameterSymbols.size}' type arguments " +
-                    "but type '${this.render()}' has ${argumentTypes.size} type arguments."
+            val renderedSymbol = FirRenderer.noAnnotationBodiesAccessorAndArguments().renderElementAsString(symbol.fir)
+            "'$renderedSymbol' expects '${typeParameterSymbols.size}' type arguments " +
+                    "but type '${this.renderForDebugging()}' has ${argumentTypes.size} type arguments."
         }
 
         val substitutor = substitutorByMap(typeParameterSymbols.zip(argumentTypes).toMap(), session)

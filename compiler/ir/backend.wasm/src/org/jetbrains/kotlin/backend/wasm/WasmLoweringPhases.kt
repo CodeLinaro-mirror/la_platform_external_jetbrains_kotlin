@@ -14,13 +14,11 @@ import org.jetbrains.kotlin.backend.common.lower.optimizations.PropertyAccessorI
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.backend.common.toMultiModuleAction
 import org.jetbrains.kotlin.backend.wasm.lower.*
-import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.AddContinuationToFunctionCallsLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.AddContinuationToNonLocalSuspendFunctionsLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.JsSuspendFunctionsLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.inline.RemoveInlineDeclarationsWithReifiedTypeParametersLowering
-import org.jetbrains.kotlin.ir.backend.js.lower.inline.WrapInlineDeclarationsWithReifiedTypeParametersLowering
 import org.jetbrains.kotlin.ir.backend.wasm.lower.generateMainFunctionCalls
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
@@ -144,6 +142,12 @@ private val tailrecLoweringPhase = makeWasmModulePhase(
     description = "Replace `tailrec` call sites with equivalent loop"
 )
 
+private val wasmStringSwitchOptimizerLowering = makeWasmModulePhase(
+    ::WasmStringSwitchOptimizerLowering,
+    name = "WasmStringSwitchOptimizerLowering",
+    description = "Replace when with constant string cases to binary search by string hashcodes"
+)
+
 private val complexExternalDeclarationsToTopLevelFunctionsLowering = makeWasmModulePhase(
     ::ComplexExternalDeclarationsToTopLevelFunctionsLowering,
     name = "ComplexExternalDeclarationsToTopLevelFunctionsLowering",
@@ -209,10 +213,14 @@ private val enumEntryCreateGetInstancesFunsLoweringPhase = makeWasmModulePhase(
 )
 
 private val enumSyntheticFunsLoweringPhase = makeWasmModulePhase(
-    ::EnumSyntheticFunctionsLowering,
-    name = "EnumSyntheticFunctionsLowering",
-    description = "Implement `valueOf` and `values`",
-    prerequisite = setOf(enumClassConstructorLoweringPhase, enumClassCreateInitializerLoweringPhase)
+    { EnumSyntheticFunctionsAndPropertiesLowering(it, syntheticFieldsShouldBeReinitialized = true) },
+    name = "EnumSyntheticFunctionsAndPropertiesLowering",
+    description = "Implement `valueOf`, `values` and `entries`",
+    prerequisite = setOf(
+        enumClassConstructorLoweringPhase,
+        enumClassCreateInitializerLoweringPhase,
+        enumEntryCreateGetInstancesFunsLoweringPhase
+    )
 )
 
 private val enumUsageLoweringPhase = makeWasmModulePhase(
@@ -395,13 +403,6 @@ private val tryCatchCanonicalization = makeWasmModulePhase(
     prerequisite = setOf(functionInliningPhase)
 )
 
-private val returnableBlockLoweringPhase = makeWasmModulePhase(
-    ::ReturnableBlockLowering,
-    name = "ReturnableBlockLowering",
-    description = "Replace returnable block with do-while loop",
-    prerequisite = setOf(functionInliningPhase)
-)
-
 private val bridgesConstructionPhase = makeWasmModulePhase(
     ::WasmBridgesConstruction,
     name = "BridgesConstruction",
@@ -424,12 +425,6 @@ private val autoboxingTransformerPhase = makeWasmModulePhase(
     { context -> AutoboxingTransformer(context) },
     name = "AutoboxingTransformer",
     description = "Insert box/unbox intrinsics"
-)
-
-private val wasmNullSpecializationLowering = makeWasmModulePhase(
-    { context -> WasmNullCoercingLowering(context) },
-    name = "WasmNullCoercingLowering",
-    description = "Specialize assigning Nothing? values to other types."
 )
 
 private val staticMembersLoweringPhase = makeWasmModulePhase(
@@ -576,6 +571,11 @@ val wasmPhases = NamedCompilerPhase(
 
             enumClassConstructorLoweringPhase then
             enumClassConstructorBodyLoweringPhase then
+            enumEntryInstancesLoweringPhase then
+            enumEntryInstancesBodyLoweringPhase then
+            enumClassCreateInitializerLoweringPhase then
+            enumEntryCreateGetInstancesFunsLoweringPhase then
+            enumSyntheticFunsLoweringPhase then
 
             sharedVariablesLoweringPhase then
             propertyReferenceLowering then
@@ -592,17 +592,14 @@ val wasmPhases = NamedCompilerPhase(
             delegateToPrimaryConstructorLoweringPhase then
             // Common prefix ends
 
+            wasmStringSwitchOptimizerLowering then
+
             complexExternalDeclarationsToTopLevelFunctionsLowering then
             complexExternalDeclarationsUsagesLowering then
 
             jsInteropFunctionsLowering then
             jsInteropFunctionCallsLowering then
 
-            enumEntryInstancesLoweringPhase then
-            enumEntryInstancesBodyLoweringPhase then
-            enumClassCreateInitializerLoweringPhase then
-            enumEntryCreateGetInstancesFunsLoweringPhase then
-            enumSyntheticFunsLoweringPhase then
             enumUsageLoweringPhase then
             enumEntryRemovalLoweringPhase then
 
@@ -617,7 +614,6 @@ val wasmPhases = NamedCompilerPhase(
             unhandledExceptionLowering then
 
             tryCatchCanonicalization then
-            returnableBlockLoweringPhase then
 
             forLoopsLoweringPhase then
             propertyLazyInitLoweringPhase then
@@ -659,6 +655,5 @@ val wasmPhases = NamedCompilerPhase(
 
             virtualDispatchReceiverExtractionPhase then
             staticMembersLoweringPhase then
-            wasmNullSpecializationLowering then
             validateIrAfterLowering
 )

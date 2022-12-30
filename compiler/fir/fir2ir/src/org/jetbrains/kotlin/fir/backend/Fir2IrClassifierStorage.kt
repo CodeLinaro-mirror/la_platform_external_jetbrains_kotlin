@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.backend
 
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.fir.containingClass
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
@@ -22,7 +23,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrEnumConstructorCallImpl
@@ -35,6 +35,7 @@ import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 
 class Fir2IrClassifierStorage(
     private val components: Fir2IrComponents
@@ -292,14 +293,14 @@ class Fir2IrClassifierStorage(
         predefinedOrigin: IrDeclarationOrigin? = null
     ): IrClass {
         val visibility = regularClass.visibility
-        val modality = if (regularClass.classKind == ClassKind.ENUM_CLASS) {
-            regularClass.enumClassModality()
-        } else if (regularClass.classKind == ClassKind.ANNOTATION_CLASS) {
-            Modality.OPEN
-        } else {
-            regularClass.modality ?: Modality.FINAL
+        val modality = when (regularClass.classKind) {
+            ClassKind.ENUM_CLASS -> regularClass.enumClassModality()
+            ClassKind.ANNOTATION_CLASS -> Modality.OPEN
+            else -> regularClass.modality ?: Modality.FINAL
         }
-        val signature = if (regularClass.isLocal) null else signatureComposer.composeSignature(regularClass)
+        val signature = runUnless(regularClass.isLocal || !generateSignatures) {
+            signatureComposer.composeSignature(regularClass)
+        }
         val irClass = regularClass.convertWithOffsets { startOffset, endOffset ->
             declareIrClass(signature) { symbol ->
                 irFactory.createClass(
@@ -461,6 +462,43 @@ class Fir2IrClassifierStorage(
             factory(IrEnumEntrySymbolImpl())
         else
             symbolTable.declareEnumEntry(signature, { Fir2IrEnumEntrySymbol(signature) }, factory)
+
+    fun getIrEnumEntry(
+        enumEntry: FirEnumEntry,
+        irParent: IrClass?,
+        predefinedOrigin: IrDeclarationOrigin? = null,
+        forceTopLevelPrivate: Boolean = false,
+    ): IrEnumEntry {
+        getCachedIrEnumEntry(enumEntry)?.let { return it }
+        val containingFile = firProvider.getFirCallableContainerFile(enumEntry.symbol)
+        val irParentClass = irParent ?: enumEntry.containingClass()?.let { findIrClass(it) }
+
+        @Suppress("NAME_SHADOWING")
+        val predefinedOrigin = predefinedOrigin ?: if (containingFile != null) {
+            IrDeclarationOrigin.DEFINED
+        } else {
+            irParentClass?.origin ?: IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
+        }
+        return createIrEnumEntry(
+            enumEntry,
+            irParent = irParentClass,
+            predefinedOrigin = predefinedOrigin,
+            forceTopLevelPrivate
+        )
+    }
+
+    fun findIrClass(lookupTag: ConeClassLikeLookupTag): IrClass? {
+        return if (lookupTag.classId.isLocal) {
+            getCachedLocalClass(lookupTag)
+        } else {
+            val firSymbol = lookupTag.toSymbol(session)
+            if (firSymbol is FirClassSymbol) {
+                getIrClassSymbol(firSymbol).owner
+            } else {
+                null
+            }
+        }
+    }
 
     fun createIrEnumEntry(
         enumEntry: FirEnumEntry,

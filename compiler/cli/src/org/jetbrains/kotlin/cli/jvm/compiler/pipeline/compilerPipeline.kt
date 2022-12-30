@@ -59,6 +59,7 @@ import org.jetbrains.kotlin.fir.pipeline.runCheckers
 import org.jetbrains.kotlin.fir.pipeline.runResolution
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.session.FirSessionFactory
+import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
@@ -120,7 +121,7 @@ fun compileModulesUsingFrontendIrAndLightTree(
         }
 
         val renderDiagnosticName = moduleConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
-        val diagnosticsReporter = DiagnosticReporterFactory.createReporter()
+        val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
 
         val compilerInput = ModuleCompilerInput(
             TargetId(module),
@@ -191,10 +192,13 @@ fun convertAnalyzedFirToIr(
 
     // fir2ir
     val irGenerationExtensions =
-        (environment.projectEnvironment as? VfsBasedProjectEnvironment)?.project?.let { IrGenerationExtension.getInstances(it) }
+        (environment.projectEnvironment as? VfsBasedProjectEnvironment)?.project?.let {
+            IrGenerationExtension.getInstances(it)
+        } ?: emptyList()
+    val linkViaSignatures = input.configuration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES)
     val (irModuleFragment, components) =
         analysisResults.session.convertToIr(
-            analysisResults.scopeSession, analysisResults.fir, extensions, irGenerationExtensions ?: emptyList()
+            analysisResults.scopeSession, analysisResults.fir, extensions, irGenerationExtensions, linkViaSignatures
         )
 
     return ModuleCompilerIrBackendInput(
@@ -427,7 +431,7 @@ private fun createContextForIncrementalCompilation(
     sourceScope: AbstractProjectFileSearchScope,
     previousStepsSymbolProviders: List<FirSymbolProvider>,
     incrementalExcludesScope: AbstractProjectFileSearchScope?,
-): FirSessionFactory.IncrementalCompilationContext? {
+): IncrementalCompilationContext? {
     val targetIds = compilerConfiguration.get(JVMConfigurationKeys.MODULES)?.map(::TargetId)
     val incrementalComponents = compilerConfiguration.get(JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS)
     if (targetIds == null || incrementalComponents == null) return null
@@ -440,7 +444,7 @@ private fun createContextForIncrementalCompilation(
         }
 
     return if (incrementalCompilationScope == null && previousStepsSymbolProviders.isEmpty()) null
-    else FirSessionFactory.IncrementalCompilationContext(
+    else IncrementalCompilationContext(
         previousStepsSymbolProviders, IncrementalPackagePartProvider(
             projectEnvironment.getPackagePartProvider(sourceScope),
             targetIds.map(incrementalComponents::getIncrementalCache)

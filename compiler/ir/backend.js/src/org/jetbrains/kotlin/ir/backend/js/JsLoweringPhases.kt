@@ -13,9 +13,7 @@ import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineFunc
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineLambdasLowering
 import org.jetbrains.kotlin.backend.common.lower.loops.ForLoopsLowering
 import org.jetbrains.kotlin.backend.common.lower.optimizations.FoldConstantLowering
-import org.jetbrains.kotlin.backend.common.lower.optimizations.PropertyAccessorInlineLowering
 import org.jetbrains.kotlin.backend.common.phaser.*
-import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.lower.calls.CallsLowering
@@ -339,10 +337,14 @@ private val enumEntryCreateGetInstancesFunsLoweringPhase = makeDeclarationTransf
 )
 
 private val enumSyntheticFunsLoweringPhase = makeDeclarationTransformerPhase(
-    ::EnumSyntheticFunctionsLowering,
-    name = "EnumSyntheticFunctionsLowering",
-    description = "Implement `valueOf` and `values`",
-    prerequisite = setOf(enumClassConstructorLoweringPhase, enumClassCreateInitializerLoweringPhase)
+    { EnumSyntheticFunctionsAndPropertiesLowering(it, supportRawFunctionReference = true) },
+    name = "EnumSyntheticFunctionsAndPropertiesLowering",
+    description = "Implement `valueOf, `values` and `entries`",
+    prerequisite = setOf(
+        enumClassConstructorLoweringPhase,
+        enumClassCreateInitializerLoweringPhase,
+        enumEntryCreateGetInstancesFunsLoweringPhase
+    )
 )
 
 private val enumUsageLoweringPhase = makeBodyLoweringPhase(
@@ -524,7 +526,7 @@ private val privateMemberUsagesLoweringPhase = makeBodyLoweringPhase(
 private val propertyReferenceLoweringPhase = makeBodyLoweringPhase(
     ::PropertyReferenceLowering,
     name = "PropertyReferenceLowering",
-    description = "Transform property references"
+    description = "Transform property references",
 )
 
 private val interopCallableReferenceLoweringPhase = makeBodyLoweringPhase(
@@ -667,7 +669,7 @@ private val typeOperatorLoweringPhase = makeBodyLoweringPhase(
         bridgesConstructionPhase,
         removeInlineDeclarationsWithReifiedTypeParametersLoweringPhase,
         singleAbstractMethodPhase, errorExpressionLoweringPhase,
-        interopCallableReferenceLoweringPhase
+        interopCallableReferenceLoweringPhase,
     )
 )
 
@@ -703,7 +705,6 @@ private val constLoweringPhase = makeBodyLoweringPhase(
     name = "ConstLowering",
     description = "Wrap Long and Char constants into constructor invocation"
 )
-
 private val inlineClassDeclarationLoweringPhase = makeDeclarationTransformerPhase(
     { InlineClassLowering(it).inlineClassDeclarationLowering },
     name = "InlineClassDeclarationLowering",
@@ -734,10 +735,18 @@ private val blockDecomposerLoweringPhase = makeBodyLoweringPhase(
     prerequisite = setOf(typeOperatorLoweringPhase, suspendFunctionsLoweringPhase)
 )
 
+private val jsClassUsageInReflectionPhase = makeBodyLoweringPhase(
+    ::JsClassUsageInReflectionLowering,
+    name = "JsClassUsageInReflectionLowering",
+    description = "[Optimization] Eliminate ClassReference and GetClassExpression usages in a simple case of usage raw js constructor",
+    prerequisite = setOf(functionInliningPhase)
+)
+
 private val classReferenceLoweringPhase = makeBodyLoweringPhase(
     ::ClassReferenceLowering,
     name = "ClassReferenceLowering",
-    description = "Handle class references"
+    description = "Handle class references",
+    prerequisite = setOf(jsClassUsageInReflectionPhase)
 )
 
 private val primitiveCompanionLoweringPhase = makeBodyLoweringPhase(
@@ -789,6 +798,13 @@ private val escapedIdentifiersLowering = makeBodyLoweringPhase(
     name = "EscapedIdentifiersLowering",
     description = "Convert global variables with invalid names access to globalThis member expression"
 )
+
+private val implicitlyExportedDeclarationsMarkingLowering = makeDeclarationTransformerPhase(
+    ::ImplicitlyExportedDeclarationsMarkingLowering,
+    name = "ImplicitlyExportedDeclarationsMarkingLowering",
+    description = "Add @JsImplicitExport annotation to declarations which are not exported but are used inside other exported declarations as a type"
+)
+
 
 private val cleanupLoweringPhase = makeBodyLoweringPhase(
     { CleanupLowering() },
@@ -845,6 +861,7 @@ val loweringList = listOf<Lowering>(
     innerClassesLoweringPhase,
     innerClassesMemberBodyLoweringPhase,
     innerClassConstructorCallsLoweringPhase,
+    jsClassUsageInReflectionPhase,
     propertiesLoweringPhase,
     primaryConstructorLoweringPhase,
     delegateToPrimaryConstructorLoweringPhase,
@@ -911,6 +928,7 @@ val loweringList = listOf<Lowering>(
     captureStackTraceInThrowablesPhase,
     callsLoweringPhase,
     escapedIdentifiersLowering,
+    implicitlyExportedDeclarationsMarkingLowering,
     cleanupLoweringPhase,
     // Currently broken due to static members lowering making single-open-class
     // files non-recognizable as single-class files

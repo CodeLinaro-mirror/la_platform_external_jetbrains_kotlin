@@ -9,6 +9,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
@@ -27,8 +28,8 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.setupFragmentsMetadataForKpmM
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.setupKpmModulesPublication
 import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.copyAttributes
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultLanguageSettingsBuilder
-import org.jetbrains.kotlin.gradle.plugin.sources.SourceSetMetadataStorageForIde
 import org.jetbrains.kotlin.gradle.plugin.sources.checkSourceSetVisibilityRequirements
+import org.jetbrains.kotlin.gradle.plugin.sources.internal
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.scripting.internal.ScriptingGradleSubplugin
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
@@ -106,8 +107,8 @@ class KotlinMultiplatformPlugin : Plugin<Project> {
             project.multiplatformExtension.metadata().compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
 
         val primaryCompilationsBySourceSet by lazy { // don't evaluate eagerly: Android targets are not created at this point
-            val allCompilationsForSourceSets = CompilationSourceSetUtil.compilationsBySourceSets(project).mapValues { (_, compilations) ->
-                compilations.filter { it.target.platformType != KotlinPlatformType.common }
+            val allCompilationsForSourceSets = project.multiplatformExtension.sourceSets.associateWith { sourceSet ->
+                sourceSet.internal.compilations.filter { compilation -> compilation.target.platformType != KotlinPlatformType.common }
             }
 
             allCompilationsForSourceSets.mapValues { (_, compilations) -> // choose one primary compilation
@@ -290,21 +291,23 @@ private fun applyUserDefinedAttributesWithLegacyModel(
     }
 }
 
-internal fun sourcesJarTask(compilation: KotlinCompilation<*>, componentName: String?, artifactNameAppendix: String): TaskProvider<Jar> =
+internal fun sourcesJarTask(compilation: KotlinCompilation<*>, componentName: String, artifactNameAppendix: String): TaskProvider<Jar> =
     sourcesJarTask(compilation.target.project, lazy { compilation.allKotlinSourceSets.associate { it.name to it.kotlin } }, componentName, artifactNameAppendix)
 
-internal fun sourcesJarTask(
+private fun sourcesJarTask(
     project: Project,
     sourceSets: Lazy<Map<String, Iterable<File>>>,
-    componentName: String?,
+    taskNamePrefix: String,
     artifactNameAppendix: String
-): TaskProvider<Jar> = sourcesJarTaskNamed(lowerCamelCaseName(componentName, "sourcesJar"), project, sourceSets, artifactNameAppendix)
+): TaskProvider<Jar> = sourcesJarTaskNamed(lowerCamelCaseName(taskNamePrefix, "sourcesJar"), taskNamePrefix, project, sourceSets, artifactNameAppendix)
 
 internal fun sourcesJarTaskNamed(
     taskName: String,
+    componentName: String,
     project: Project,
     sourceSets: Lazy<Map<String, Iterable<File>>>,
-    artifactNameAppendix: String
+    artifactNameAppendix: String,
+    componentTypeName: String = "target",
 ): TaskProvider<Jar> {
     project.locateTask<Jar>(taskName)?.let {
         return it
@@ -315,6 +318,8 @@ internal fun sourcesJarTaskNamed(
         sourcesJar.archiveClassifier.set("sources")
         sourcesJar.isPreserveFileTimestamps = false
         sourcesJar.isReproducibleFileOrder = true
+        sourcesJar.group = BasePlugin.BUILD_GROUP
+        sourcesJar.description = "Assembles a jar archive containing the sources of $componentTypeName '$componentName'."
     }
 
     project.whenEvaluated {
@@ -336,14 +341,14 @@ internal fun sourcesJarTaskNamed(
 
 internal fun Project.setupGeneralKotlinExtensionParameters() {
     val sourceSetsInMainCompilation by lazy {
-        CompilationSourceSetUtil.compilationsBySourceSets(project).filterValues { compilations ->
-            compilations.any {
+        kotlinExtension.sourceSets.filter { sourceSet ->
+            sourceSet.internal.compilations.any {
                 // kotlin main compilation
                 it.isMain()
                         // android compilation which is NOT in tested variant
                         || (it as? KotlinJvmAndroidCompilation)?.let { getTestedVariantData(it.androidVariant) == null } == true
             }
-        }.keys
+        }
     }
 
     kotlinExtension.sourceSets.all { sourceSet ->

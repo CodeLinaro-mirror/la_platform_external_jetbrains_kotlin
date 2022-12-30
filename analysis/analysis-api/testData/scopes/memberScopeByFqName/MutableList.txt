@@ -1,6 +1,7 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.add
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -23,12 +24,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.add
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -52,12 +54,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.addAll
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -81,12 +84,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.addAll
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -109,12 +113,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.clear
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -135,12 +140,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.listIterator
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -161,12 +167,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.listIterator
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -189,12 +196,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.remove
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -217,12 +225,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.removeAll
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -245,12 +254,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.removeAt
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -273,12 +283,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.retainAll
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -301,12 +312,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.set
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -330,12 +342,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.subList
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -359,12 +372,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.contains
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -387,12 +401,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.containsAll
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -415,12 +430,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.get
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -443,12 +459,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.indexOf
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -471,12 +488,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/List.isEmpty
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -497,12 +515,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/collections/List<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.iterator
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -523,12 +542,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/MutableList.lastIndexOf
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -551,12 +571,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/collections/MutableList<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/List.size
+  contextReceivers: []
   getter: KtPropertyGetterSymbol(<getter>)
   hasBackingField: false
   hasGetter: true
@@ -580,7 +601,7 @@ KtKotlinPropertySymbol:
   typeParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/collections/List<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
   getterDeprecationStatus: null
   javaGetterName: getSize
@@ -590,6 +611,7 @@ KtKotlinPropertySymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.equals
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -612,12 +634,13 @@ KtFunctionSymbol:
   ]
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.hashCode
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -638,12 +661,13 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.toString
+  contextReceivers: []
   hasStableParameterNames: true
   isBuiltinFunctionInvoke: false
   isExtension: false
@@ -664,5 +688,5 @@ KtFunctionSymbol:
   valueParameters: []
   visibility: Public
   getDispatchReceiver(): kotlin/Any
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null

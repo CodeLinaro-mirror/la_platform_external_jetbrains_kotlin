@@ -338,11 +338,8 @@ enum class WasmOp(
     CALL_REF("call_ref", 0x14),
     RETURN_CALL_REF("return_call_ref", 0x15),
     FUNC_BIND("func.bind", 0x16, FUNC_IDX),
-    LET("let", 0x17, listOf(BLOCK_TYPE, LOCAL_DEFS)),
 
     // GC
-    STRUCT_NEW_WITH_RTT("struct.new_with_rtt", 0xFB_01, STRUCT_TYPE_IDX),
-    STRUCT_NEW_DEFAULT_WITH_RTT("struct.new_default_with_rtt", 0xFB_02, STRUCT_TYPE_IDX),
     STRUCT_NEW("struct.new", 0xFB_07, STRUCT_TYPE_IDX),
     STRUCT_NEW_DEFAULT("struct.new_default", 0xFB_08, STRUCT_TYPE_IDX),
     STRUCT_GET("struct.get", 0xFB_03, listOf(STRUCT_TYPE_IDX, STRUCT_FIELD_IDX)),
@@ -350,8 +347,6 @@ enum class WasmOp(
     STRUCT_GET_U("struct.get_u", 0xFB_05, listOf(STRUCT_TYPE_IDX, STRUCT_FIELD_IDX)),
     STRUCT_SET("struct.set", 0xFB_06, listOf(STRUCT_TYPE_IDX, STRUCT_FIELD_IDX)),
 
-    ARRAY_NEW_WITH_RTT("array.new_with_rtt", 0xFB_11, STRUCT_TYPE_IDX),
-    ARRAY_NEW_DEFAULT_WITH_RTT("array.new_default_with_rtt", 0xFB_12, STRUCT_TYPE_IDX),
     ARRAY_NEW("array.new", 0xFB_1B, STRUCT_TYPE_IDX),
     ARRAY_NEW_DEFAULT("array.new_default", 0xFB_1C, STRUCT_TYPE_IDX),
     ARRAY_GET("array.get", 0xFB_13, listOf(STRUCT_TYPE_IDX)),
@@ -359,37 +354,30 @@ enum class WasmOp(
     ARRAY_GET_U("array.get_u", 0xFB_15, listOf(STRUCT_TYPE_IDX)),
     ARRAY_SET("array.set", 0xFB_16, listOf(STRUCT_TYPE_IDX)),
     ARRAY_LEN("array.len", 0xFB_17, listOf(STRUCT_TYPE_IDX)),
+    ARRAY_COPY("array.copy", 0xFB_18, listOf(STRUCT_TYPE_IDX, STRUCT_TYPE_IDX)),
 
     I31_NEW("i31.new", 0xFB_20),
     I31_GET_S("i31.get_s", 0xFB_21),
     I31_GET_U("i31.get_u", 0xFB_22),
 
-    RTT_CANON("rtt.canon", 0xFB_30, TYPE_IDX),
+    REF_TEST("ref.test", 0xFB_44, STRUCT_TYPE_IDX),
+    REF_CAST("ref.cast", 0xFB_45, STRUCT_TYPE_IDX),
 
-    REF_TEST("ref.test", 0xFB_40),
-    REF_TEST_STATIC("ref.test_static", 0xFB_44, STRUCT_TYPE_IDX),
-    REF_CAST("ref.cast", 0xFB_41),
-    REF_CAST_STATIC("ref.cast_static", 0xFB_45, STRUCT_TYPE_IDX),
+    BR_ON_CAST_FAIL("br_on_cast_fail", 0xfb47, listOf(LABEL_IDX, STRUCT_TYPE_IDX)),
 
-    BR_ON_CAST("br_on_cast", 0xFB_42, listOf(LABEL_IDX)),
-
-    BR_ON_CAST_FAIL("br_on_cast_fail", 0xfb43, listOf(LABEL_IDX)),
-    BR_ON_CAST_STATIC_FAIL("br_on_cast_static_fail", 0xfb47, listOf(LABEL_IDX, STRUCT_TYPE_IDX)),
-
-    REF_IS_FUNC("ref.is_func", 0xfb50),
     REF_IS_DATA("ref.is_data", 0xfb51),
     REF_IS_I31("ref.is_i31", 0xfb52),
-    REF_AS_FUNC("ref.as_func", 0xfb58),
     REF_AS_DATA("ref.as_data", 0xfb59),
     REF_AS_I31("ref.as_i31", 0xfb5a),
 
-    BR_ON_FUNC("br_on_func", 0xfb60, listOf(LABEL_IDX)),
     BR_ON_DATA("br_on_data", 0xfb61, listOf(LABEL_IDX)),
     BR_ON_I31("br_on_i31", 0xfb62, listOf(LABEL_IDX)),
 
-    BR_ON_NON_FUNC("br_on_non_func", 0xfb63, listOf(LABEL_IDX)),
     BR_ON_NON_DATA("br_on_non_data", 0xfb64, listOf(LABEL_IDX)),
     BR_ON_NON_I31("br_on_non_i31", 0xfb65, listOf(LABEL_IDX)),
+
+    EXTERN_INTERNALIZE("extern.internalize", 0xfb70), // externref -> anyref
+    EXTERN_EXTERNALIZE("extern.externalize", 0xfb71), // anyref -> externref
 
     // Pseudo-instruction, just alias for a normal call. It's used to easily spot get_unit on the wasm level.
     GET_UNIT("call", 0x10, FUNC_IDX)

@@ -1,4 +1,7 @@
-// Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+/*
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
 
 package org.jetbrains.kotlin.analysis.decompiled.light.classes
 
@@ -9,11 +12,11 @@ import com.intellij.psi.util.MethodSignature
 import com.intellij.psi.util.MethodSignatureBackedByPsiMethod
 import org.jetbrains.kotlin.analysis.decompiled.light.classes.origin.LightMemberOriginForCompiledMethod
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
+import org.jetbrains.kotlin.asJava.demangleInternalName
 import org.jetbrains.kotlin.asJava.elements.KtLightElementBase
 import org.jetbrains.kotlin.asJava.elements.KtLightMember
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.asJava.propertyNameByAccessor
-import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.psi.KtDeclaration
 
 class KtLightMethodForDecompiledDeclaration(
@@ -97,13 +100,19 @@ class KtLightMethodForDecompiledDeclaration(
 
     override fun toString(): String = "${this.javaClass.simpleName} of $funParent"
 
-    override val clsDelegate: PsiMethod = funDelegate
-
     override fun isValid(): Boolean = parent.isValid
+
+    override fun getOriginalElement() = funDelegate
+
+    override fun isEquivalentTo(another: PsiElement?): Boolean {
+        return this == another ||
+                another is KtLightMethodForDecompiledDeclaration && funDelegate.isEquivalentTo(another.funDelegate) ||
+                funDelegate.isEquivalentTo(another)
+    }
 }
 
 private fun KtLightMethod.checkIsMangled(): Boolean {
-    val demangledName = KotlinTypeMapper.InternalNameMapper.demangleInternalName(name) ?: return false
+    val demangledName = demangleInternalName(name) ?: return false
     val originalName = propertyNameByAccessor(demangledName, this) ?: demangledName
     return originalName == kotlinOrigin?.name
 }

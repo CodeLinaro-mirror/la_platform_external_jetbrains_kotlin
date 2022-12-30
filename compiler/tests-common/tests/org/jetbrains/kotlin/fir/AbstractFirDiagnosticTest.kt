@@ -18,10 +18,11 @@ import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
+import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FirControlFlowGraphRenderVisitor
 import org.jetbrains.kotlin.fir.resolve.transformers.createAllCompilerResolveProcessors
@@ -102,7 +103,9 @@ abstract class AbstractKtDiagnosticsTest : AbstractFirBaseDiagnosticsTest() {
     }
 
     fun checkFir(testDataFile: File, firFiles: List<FirFile>) {
-        val firFileDump = StringBuilder().apply { firFiles.forEach { it.accept(FirRenderer(this), null) } }.toString()
+        val renderer = FirRenderer()
+        firFiles.forEach { renderer.renderElementAsString(it) }
+        val firFileDump = renderer.toString()
         val expectedPath = testDataFile.absolutePath.replace(".kt", ".txt")
         KotlinTestUtils.assertEqualsToFile(
             File(expectedPath),
@@ -167,7 +170,7 @@ abstract class AbstractKtDiagnosticsTest : AbstractFirBaseDiagnosticsTest() {
         diagnosedRangesToDiagnosticNames: MutableMap<IntRange, MutableSet<String>>
     ): KtDiagnosticWithParameters1<String>? =
         DebugInfoDiagnosticFactory1.EXPRESSION_TYPE.createDebugInfoDiagnostic(element, diagnosedRangesToDiagnosticNames) {
-            element.typeRef.renderAsString((element as? FirExpressionWithSmartcast)?.originalType)
+            element.typeRef.renderAsString((element as? FirSmartCastExpression)?.originalExpression?.typeRef)
         }
 
     private fun FirTypeRef.renderAsString(originalTypeRef: FirTypeRef?): String {
@@ -198,7 +201,7 @@ abstract class AbstractKtDiagnosticsTest : AbstractFirBaseDiagnosticsTest() {
         val sourceElement = element.source ?: return null
         val sourceKind = sourceElement.kind
         if (sourceKind !in allowedKindsForDebugInfo) {
-            if (sourceKind != KtFakeSourceElementKind.ImplicitReturn || sourceElement.elementType != KtNodeTypes.RETURN) {
+            if (sourceKind !is KtFakeSourceElementKind.ImplicitReturn || sourceElement.elementType != KtNodeTypes.RETURN) {
                 return null
             }
         }
@@ -267,7 +270,7 @@ abstract class AbstractKtDiagnosticsTest : AbstractFirBaseDiagnosticsTest() {
         for (firFile in firFiles) {
             val session = firFile.moduleData.session
             val collector = collectors.computeIfAbsent(session) { createCollector(session) }
-            val reporter = DiagnosticReporterFactory.createReporter()
+            val reporter = DiagnosticReporterFactory.createPendingReporter()
             collector.collectDiagnostics(firFile, reporter)
             result[firFile] = reporter.diagnostics
         }

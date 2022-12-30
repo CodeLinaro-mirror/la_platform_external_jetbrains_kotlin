@@ -387,9 +387,10 @@ internal class ObjCExportTranslatorImpl(
 
                     descriptor.enumEntries.forEach {
                         val entryName = namer.getEnumEntrySelector(it)
+                        val swiftName = namer.getEnumEntrySwiftName(it)
                         add {
                             ObjCProperty(entryName, it, type, listOf("class", "readonly"),
-                                    declarationAttributes = listOf(swiftNameAttribute(entryName)))
+                                    declarationAttributes = listOf(swiftNameAttribute(swiftName)))
                         }
                     }
 
@@ -589,7 +590,8 @@ internal class ObjCExportTranslatorImpl(
 
         val getterBridge = mapper.bridgeMethod(baseProperty.getter!!)
         val type = mapReturnType(getterBridge.returnBridge, property.getter!!, objCExportScope)
-        val name = namer.getPropertyName(baseProperty)
+        val propertyName = namer.getPropertyName(baseProperty)
+        val name = propertyName.objCName
 
         val attributes = mutableListOf<String>()
 
@@ -611,10 +613,12 @@ internal class ObjCExportTranslatorImpl(
         val getterSelector = getSelector(baseProperty.getter!!)
         val getterName: String? = if (getterSelector != name) getterSelector else null
 
-        val declarationAttributes = mutableListOf(swiftNameAttribute(name))
+        val declarationAttributes = mutableListOf(property.getSwiftPrivateAttribute() ?: swiftNameAttribute(propertyName.swiftName))
         declarationAttributes.addIfNotNull(mapper.getDeprecation(property)?.toDeprecationAttribute())
 
-        val commentOrNull = objCCommentOrNull(mustBeDocumentedAttributeList(property.annotations))
+        val visibilityComments = visibilityComments(property.visibility, "property")
+
+        val commentOrNull = objCCommentOrNull(mustBeDocumentedAttributeList(property.annotations) + visibilityComments)
         return ObjCProperty(name, property, type, attributes, setterName, getterName, declarationAttributes, commentOrNull)
     }
 
@@ -697,7 +701,7 @@ internal class ObjCExportTranslatorImpl(
         val swiftName = namer.getSwiftName(baseMethod)
         val attributes = mutableListOf<String>()
 
-        attributes += swiftNameAttribute(swiftName)
+        attributes += method.getSwiftPrivateAttribute() ?: swiftNameAttribute(swiftName)
         if (baseMethodBridge.returnBridge is MethodBridge.ReturnValue.WithError.ZeroForError
                 && baseMethodBridge.returnBridge.successMayBeZero) {
 
@@ -723,17 +727,7 @@ internal class ObjCExportTranslatorImpl(
     }
 
     private fun getDeprecationAttribute(method: FunctionDescriptor): String? {
-        mapper.getDeprecation(method)?.toDeprecationAttribute()?.let { return it }
-
-        if (method.kind == CallableMemberDescriptor.Kind.SYNTHESIZED) {
-            val parent = method.containingDeclaration
-            if (parent is ClassDescriptor && parent.isData && DataClassResolver.isComponentLike(method.name)) {
-                // componentN methods of data classes.
-                return renderDeprecationAttribute("deprecated", "use corresponding property instead")
-            }
-        }
-
-        return null
+        return mapper.getDeprecation(method)?.toDeprecationAttribute()
     }
 
     private fun splitSelector(selector: String): List<String> {
@@ -770,15 +764,19 @@ internal class ObjCExportTranslatorImpl(
             }
         } else emptyList()
 
-        val visibilityComments = when (method.visibility) {
-            DescriptorVisibilities.PROTECTED -> listOf("@note This method has protected visibility in Kotlin source and is intended only for use by subclasses.")
-            else -> emptyList()
-        }
+        val visibilityComments = visibilityComments(method.visibility, "method")
         val paramComments = parameters.flatMap { parameter ->
             parameter.descriptor?.let { mustBeDocumentedParamAttributeList(parameter, descriptor = it) } ?: emptyList()
         }
         val annotationsComments = mustBeDocumentedAttributeList(method.annotations)
         return objCCommentOrNull(annotationsComments + paramComments + throwsComments + visibilityComments)
+    }
+
+    private fun visibilityComments(visibility: DescriptorVisibility, kind: String): List<String> {
+        return when (visibility) {
+            DescriptorVisibilities.PROTECTED -> listOf("@note This $kind has protected visibility in Kotlin source and is intended only for use by subclasses.")
+            else -> emptyList()
+        }
     }
 
     private fun mustBeDocumentedParamAttributeList(parameter: ObjCParameter, descriptor: ParameterDescriptor): List<String> {
@@ -808,7 +806,7 @@ internal class ObjCExportTranslatorImpl(
         }
     }
 
-    private val mustBeDocumentedAnnotationsStopList = setOf(StandardNames.FqNames.deprecated)
+    private val mustBeDocumentedAnnotationsStopList = setOf(StandardNames.FqNames.deprecated, KonanFqNames.objCName, KonanFqNames.shouldRefineInSwift)
     private fun mustBeDocumentedAnnotations(annotations: Annotations): List<String> {
         return annotations.mapNotNull { it ->
             it.annotationClass?.let { annotationClass ->
@@ -1408,8 +1406,11 @@ internal fun ClassDescriptor.needCompanionObjectProperty(namer: ObjCExportNamer,
     val companionObject = companionObjectDescriptor
     if (companionObject == null || !mapper.shouldBeExposed(companionObject)) return false
 
-    if (kind == ClassKind.ENUM_CLASS && enumEntries.any { namer.getEnumEntrySelector(it) == ObjCExportNamer.companionObjectPropertyName })
-        return false // 'companion' property would clash with enum entry, don't generate it.
+    if (kind == ClassKind.ENUM_CLASS && enumEntries.any {
+                namer.getEnumEntrySelector(it) == ObjCExportNamer.companionObjectPropertyName ||
+                        namer.getEnumEntrySwiftName(it) == ObjCExportNamer.companionObjectPropertyName
+            }
+    ) return false // 'companion' property would clash with enum entry, don't generate it.
 
     return true
 }
@@ -1429,6 +1430,17 @@ private fun DeprecationInfo.toDeprecationAttribute(): String {
 }
 
 private fun renderDeprecationAttribute(attribute: String, message: String) = "$attribute(${quoteAsCStringLiteral(message)})"
+
+private fun CallableMemberDescriptor.isRefinedInSwift(): Boolean = when {
+    // Note: the front-end checker requires all overridden descriptors to be either refined or not refined.
+    overriddenDescriptors.isNotEmpty() -> overriddenDescriptors.first().isRefinedInSwift()
+    else -> annotations.any { annotation ->
+        annotation.annotationClass?.annotations?.any { it.fqName == KonanFqNames.refinesInSwift } == true
+    }
+}
+
+private fun CallableMemberDescriptor.getSwiftPrivateAttribute(): String? =
+        if (isRefinedInSwift()) "swift_private" else null
 
 private fun quoteAsCStringLiteral(str: String): String = buildString {
     append('"')

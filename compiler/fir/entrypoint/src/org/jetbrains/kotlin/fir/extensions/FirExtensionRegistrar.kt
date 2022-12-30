@@ -20,10 +20,6 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             return FirExtensionRegistrarAdapter.getInstances(project) as List<FirExtensionRegistrar>
         }
 
-        fun registerExtension(project: Project, extension: FirExtensionRegistrar) {
-            FirExtensionRegistrarAdapter.registerExtension(project, extension)
-        }
-
         internal val AVAILABLE_EXTENSIONS = listOf(
             FirStatusTransformerExtension::class,
             FirDeclarationGenerationExtension::class,
@@ -33,6 +29,7 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             FirExpressionResolutionExtension::class,
             FirExtensionSessionComponent::class,
             FirSamConversionTransformerExtension::class,
+            FirAssignExpressionAltererExtension::class,
         )
     }
 
@@ -81,6 +78,11 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             registerExtension(FirSamConversionTransformerExtension::class, this)
         }
 
+        @JvmName("plusAssignExpressionAltererExtension")
+        operator fun (FirAssignExpressionAltererExtension.Factory).unaryPlus() {
+            registerExtension(FirAssignExpressionAltererExtension::class, this)
+        }
+
         // ------------------ reference methods ------------------
 
         @JvmName("plusStatusTransformerExtension")
@@ -123,6 +125,11 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             FirSamConversionTransformerExtension.Factory { this.invoke(it) }.unaryPlus()
         }
 
+        @JvmName("plusAssignExpressionAltererExtension")
+        operator fun ((FirSession) -> FirAssignExpressionAltererExtension).unaryPlus() {
+            FirAssignExpressionAltererExtension.Factory { this.invoke(it) }.unaryPlus()
+        }
+
         // ------------------ utilities ------------------
 
         @JvmName("bindLeft")
@@ -146,46 +153,48 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             ExtensionRegistrarContext().configurePlugin()
         }
 
-        return BunchOfRegisteredExtensions(map.values)
+        return BunchOfRegisteredExtensions(map)
     }
 
-    class RegisteredExtensionsFactories(val kClass: KClass<out FirExtension>) {
-        val extensionFactories: MutableList<FirExtension.Factory<FirExtension>> = mutableListOf()
-    }
-
-    private val map: Map<KClass<out FirExtension>, RegisteredExtensionsFactories> = AVAILABLE_EXTENSIONS.associateWith {
-        RegisteredExtensionsFactories(it)
+    private val map: Map<KClass<out FirExtension>, MutableList<FirExtension.Factory<FirExtension>>> = AVAILABLE_EXTENSIONS.associateWith {
+        mutableListOf()
     }
 
     private var isInitialized: AtomicBoolean = AtomicBoolean(false)
 
     private fun <P : FirExtension> registerExtension(kClass: KClass<out P>, factory: FirExtension.Factory<P>) {
         val registeredExtensions = map.getValue(kClass)
-        registeredExtensions.extensionFactories += factory
+        registeredExtensions += factory
     }
 }
 
 class BunchOfRegisteredExtensions @PluginServicesInitialization constructor(
-    val extensions: Collection<FirExtensionRegistrar.RegisteredExtensionsFactories>
+    val extensions: Map<KClass<out FirExtension>, List<FirExtension.Factory<FirExtension>>>
 ) {
     companion object {
         @OptIn(PluginServicesInitialization::class)
         fun empty(): BunchOfRegisteredExtensions {
-            val extensions = FirExtensionRegistrar.AVAILABLE_EXTENSIONS.map { FirExtensionRegistrar.RegisteredExtensionsFactories(it) }
-            return BunchOfRegisteredExtensions(extensions)
+            return BunchOfRegisteredExtensions(FirExtensionRegistrar.AVAILABLE_EXTENSIONS.associateWith { listOf() })
         }
     }
 
     @OptIn(PluginServicesInitialization::class)
     operator fun plus(other: BunchOfRegisteredExtensions): BunchOfRegisteredExtensions {
-        return BunchOfRegisteredExtensions(extensions + other.extensions)
+        val combinedExtensions = buildMap {
+            for (extensionClass in FirExtensionRegistrar.AVAILABLE_EXTENSIONS) {
+                put(extensionClass, extensions.getValue(extensionClass) + other.extensions.getValue(extensionClass))
+            }
+        }
+        return BunchOfRegisteredExtensions(combinedExtensions)
     }
 }
 
 @SessionConfiguration
 @OptIn(PluginServicesInitialization::class)
 fun FirExtensionService.registerExtensions(registeredExtensions: BunchOfRegisteredExtensions) {
-    registeredExtensions.extensions.forEach { registerExtensions(it.kClass, it.extensionFactories) }
+    registeredExtensions.extensions.forEach { (extensionClass, extensionFactories) ->
+        registerExtensions(extensionClass, extensionFactories)
+    }
     extensionSessionComponents.forEach {
         session.register(it.componentClass, it)
     }

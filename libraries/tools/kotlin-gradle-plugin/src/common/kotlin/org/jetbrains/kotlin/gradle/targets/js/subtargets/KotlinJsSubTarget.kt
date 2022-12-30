@@ -98,7 +98,7 @@ abstract class KotlinJsSubTarget(
             testRun.subtargetTestTaskName(),
             listOf(compilation)
         ) { testJs ->
-            val compileTask = compilation.compileKotlinTaskProvider
+            val compileTask = compilation.compileTaskProvider
 
             testJs.group = LifecycleBasePlugin.VERIFICATION_GROUP
             testJs.description = testTaskDescription
@@ -106,7 +106,12 @@ abstract class KotlinJsSubTarget(
             val compileOutputFile = compileTask.flatMap { it.outputFileProperty }
             testJs.inputFileProperty.fileProvider(compileOutputFile)
 
-            testJs.dependsOn(nodeJs.npmInstallTaskProvider, compileTask, nodeJs.nodeJsSetupTaskProvider)
+            testJs.dependsOn(
+                nodeJs.npmInstallTaskProvider,
+                nodeJs.storeYarnLockTaskProvider,
+                compileTask,
+                nodeJs.nodeJsSetupTaskProvider
+            )
 
             testJs.onlyIf {
                 compileOutputFile.get().exists()

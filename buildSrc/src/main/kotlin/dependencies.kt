@@ -248,20 +248,16 @@ private fun DependencyHandler.testApi(dependencyNotation: Any) {
     add("testApi", dependencyNotation)
 }
 
-val Project.protobufVersion: String get() = findProperty("versions.protobuf") as String
-
-val Project.protobufRepo: String
-    get() =
-        "https://teamcity.jetbrains.com/guestAuth/app/rest/builds/buildType:(id:Kotlin_Protobuf),status:SUCCESS,pinned:true,tag:$protobufVersion/artifacts/content/internal/repo/"
-
-fun Project.protobufLite(): String = "org.jetbrains.kotlin:protobuf-lite:$protobufVersion"
-fun Project.protobufFull(): String = "org.jetbrains.kotlin:protobuf-relocated:$protobufVersion"
+val Project.protobufRelocatedVersion: String get() = findProperty("versions.protobuf-relocated") as String
+fun Project.protobufLite(): String = "org.jetbrains.kotlin:protobuf-lite:$protobufRelocatedVersion"
+fun Project.protobufFull(): String = "org.jetbrains.kotlin:protobuf-relocated:$protobufRelocatedVersion"
 fun Project.kotlinxCollectionsImmutable() =
     "org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:${rootProject.extra["versions.kotlinx-collections-immutable"]}"
 
 val Project.kotlinNativeVersion: String get() = property("versions.kotlin-native") as String
 
 val Project.nodejsVersion: String get() = property("versions.nodejs") as String
+val Project.v8Version: String get() = property("versions.v8") as String
 
 fun File.matchMaybeVersionedArtifact(baseName: String) = name.matches(baseName.toMaybeVersionedJarRegex())
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,12 +8,10 @@ package org.jetbrains.kotlin.ir.backend.js
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
-import org.jetbrains.kotlin.ir.backend.js.utils.getJsName
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.isLong
 import org.jetbrains.kotlin.ir.util.constructors
@@ -109,6 +107,9 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
 
     // RTTI:
+    val implementSymbol = getInternalFunction("implement")
+    val setMetadataForSymbol = getInternalFunction("setMetadataFor")
+
     val isInterfaceSymbol = getInternalFunction("isInterface")
     val isArraySymbol = getInternalFunction("isArray")
     //    val isCharSymbol = getInternalFunction("isChar")
@@ -179,6 +180,13 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
 
     val jsNumberRangeToNumber = getInternalFunction("numberRangeToNumber")
     val jsNumberRangeToLong = getInternalFunction("numberRangeToLong")
+
+    private val _rangeUntilFunctions = irBuiltIns.findFunctions(Name.identifier("until"), "kotlin", "ranges")
+    val rangeUntilFunctions by lazy {
+        _rangeUntilFunctions
+            .filter { it.owner.extensionReceiverParameter != null && it.owner.valueParameters.size == 1 }
+            .associateBy { it.owner.extensionReceiverParameter!!.type to it.owner.valueParameters[0].type }
+    }
 
     val longClassSymbol = getInternalClassWithoutPackage("kotlin.Long")
 
@@ -310,6 +318,8 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns, val context: JsIrBackendC
     // TODO move to IntrinsifyCallsLowering
     val doNotIntrinsifyAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("DoNotIntrinsify"))
     val jsFunAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("JsFun"))
+
+    val jsImplicitExportAnnotationSymbol = context.symbolTable.referenceClass(context.getJsInternalClass("JsImplicitExport"))
 
     // TODO move CharSequence-related stiff to IntrinsifyCallsLowering
     val charSequenceClassSymbol = context.symbolTable.referenceClass(context.getClass(FqName("kotlin.CharSequence")))

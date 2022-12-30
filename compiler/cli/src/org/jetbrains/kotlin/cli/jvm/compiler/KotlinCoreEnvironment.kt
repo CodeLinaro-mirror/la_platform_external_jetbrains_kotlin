@@ -1,18 +1,9 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
+
+@file:Suppress("DEPRECATION")
 
 package org.jetbrains.kotlin.cli.jvm.compiler
 
@@ -36,7 +27,10 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtilRt
 import com.intellij.openapi.util.text.StringUtil
-import com.intellij.openapi.vfs.*
+import com.intellij.openapi.vfs.PersistentFSConstants
+import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileSystem
 import com.intellij.openapi.vfs.impl.ZipHandler
 import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.PsiManager
@@ -51,10 +45,11 @@ import com.intellij.util.lang.UrlClassLoader
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
 import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
-import org.jetbrains.kotlin.asJava.classes.FacadeCache
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.cli.common.*
+import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
+import org.jetbrains.kotlin.cli.common.CliModuleVisibilityManagerImpl
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.config.ContentRoot
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
@@ -64,20 +59,23 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.common.toBooleanLenient
 import org.jetbrains.kotlin.cli.jvm.compiler.jarfs.FastJarFileSystem
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
 import org.jetbrains.kotlin.cli.jvm.javac.JavacWrapperRegistrar
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleFinder
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
-import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension
 import org.jetbrains.kotlin.codegen.extensions.ClassFileFactoryFinalizerExtension
 import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
+import org.jetbrains.kotlin.compiler.plugin.registerInProject
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.extensions.*
 import org.jetbrains.kotlin.extensions.internal.CandidateInterceptor
+import org.jetbrains.kotlin.extensions.internal.InternalNonStableExtensionPoints
 import org.jetbrains.kotlin.extensions.internal.TypeResolutionInterceptor
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.idea.KotlinFileType
@@ -90,6 +88,7 @@ import org.jetbrains.kotlin.parsing.KotlinParserDefinition
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.CodeAnalyzerInitializer
 import org.jetbrains.kotlin.resolve.ModuleAnnotationsResolver
+import org.jetbrains.kotlin.resolve.extensions.AssignResolutionAltererExtension
 import org.jetbrains.kotlin.resolve.extensions.ExtraImportsProviderExtension
 import org.jetbrains.kotlin.resolve.extensions.SyntheticResolveExtension
 import org.jetbrains.kotlin.resolve.jvm.KotlinJavaPsiFacade
@@ -419,7 +418,11 @@ class KotlinCoreEnvironment private constructor(
         return result
     }
 
-    fun getSourceFiles(): List<KtFile> = sourceFiles
+    fun getSourceFiles(): List<KtFile> =
+        ProcessSourcesBeforeCompilingExtension.getInstances(project)
+            .fold(sourceFiles as Collection<KtFile>) { files, extension ->
+                extension.processSources(files, configuration)
+            }.toList()
 
     internal fun report(severity: CompilerMessageSeverity, message: String) = configuration.report(severity, message)
 
@@ -622,6 +625,7 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @JvmStatic
+        @OptIn(InternalNonStableExtensionPoints::class)
         @Suppress("MemberVisibilityCanPrivate") // made public for CLI Android Lint
         fun registerPluginExtensionPoints(project: MockProject) {
             ExpressionCodegenExtension.registerExtensionPoint(project)
@@ -647,26 +651,39 @@ class KotlinCoreEnvironment private constructor(
             DescriptorSerializerPlugin.registerExtensionPoint(project)
             FirExtensionRegistrarAdapter.registerExtensionPoint(project)
             TypeAttributeTranslatorExtension.registerExtensionPoint(project)
+            AssignResolutionAltererExtension.registerExtensionPoint(project)
         }
 
         internal fun registerExtensionsFromPlugins(project: MockProject, configuration: CompilerConfiguration) {
+            fun createErrorMessage(extension: Any): String {
+                return "The provided plugin ${extension.javaClass.name} is not compatible with this version of compiler"
+            }
+
             val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+
             for (registrar in configuration.getList(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)) {
                 try {
                     registrar.registerProjectComponents(project, configuration)
                 } catch (e: AbstractMethodError) {
-                    val message = "The provided plugin ${registrar.javaClass.name} is not compatible with this version of compiler"
+                    val message = createErrorMessage(registrar)
                     // Since the scripting plugin is often discovered in the compiler environment, it is often taken from the incompatible
                     // location, and in many cases this is not a fatal error, therefore strong warning is generated instead of exception
                     if (registrar.javaClass.simpleName == "ScriptingCompilerConfigurationComponentRegistrar") {
                         messageCollector?.report(STRONG_WARNING, "Default scripting plugin is disabled: $message")
                     } else {
-                        throw IllegalStateException(message, e)
+                        val errorMessageWithStackTrace = "$message.\n" +
+                                e.stackTraceToString().lines().take(6).joinToString("\n")
+                        messageCollector?.report(ERROR, errorMessageWithStackTrace)
                     }
                 }
             }
-        }
 
+            val extensionStorage = CompilerPluginRegistrar.ExtensionStorage()
+            for (registrar in configuration.getList(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS)) {
+                with(registrar) { extensionStorage.registerExtensions(configuration) }
+            }
+            extensionStorage.registerInProject(project) { createErrorMessage(it) }
+        }
 
         private fun registerApplicationServicesForCLI(applicationEnvironment: KotlinCoreApplicationEnvironment) {
             // ability to get text from annotations xml files
@@ -713,7 +730,6 @@ class KotlinCoreEnvironment private constructor(
         fun registerProjectServices(project: MockProject) {
             with(project) {
                 registerService(KotlinJavaPsiFacade::class.java, KotlinJavaPsiFacade(this))
-                registerService(FacadeCache::class.java, FacadeCache(this))
                 registerService(ModuleAnnotationsResolver::class.java, CliModuleAnnotationsResolver())
             }
         }
@@ -731,7 +747,7 @@ class KotlinCoreEnvironment private constructor(
             with(project) {
                 val traceHolder = CliTraceHolder()
                 val cliLightClassGenerationSupport = CliLightClassGenerationSupport(traceHolder, project)
-                val kotlinAsJavaSupport = CliKotlinAsJavaSupport(this, traceHolder)
+                val kotlinAsJavaSupport = CliKotlinAsJavaSupport(project, traceHolder)
                 registerService(LightClassGenerationSupport::class.java, cliLightClassGenerationSupport)
                 registerService(CliLightClassGenerationSupport::class.java, cliLightClassGenerationSupport)
                 registerService(KotlinAsJavaSupport::class.java, kotlinAsJavaSupport)

@@ -9,7 +9,8 @@ dependencies {
     api(project(":compiler:config.jvm"))
     api(project(":js:js.config"))
     api(project(":native:kotlin-native-utils"))
-    compileOnly(project(":kotlin-reflect-api"))
+    api(project(":compiler:plugin-api"))
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     compileOnly(intellijCore())
     compileOnly(commonDependency("com.google.guava:guava"))
     compileOnly(commonDependency("org.jetbrains.intellij.deps:asm-all"))
@@ -19,6 +20,8 @@ sourceSets {
     "main" { projectDefault() }
     "test" {}
 }
+
+optInToExperimentalCompilerApi()
 
 tasks.getByName<Jar>("jar") {
     //excludes unused bunch files

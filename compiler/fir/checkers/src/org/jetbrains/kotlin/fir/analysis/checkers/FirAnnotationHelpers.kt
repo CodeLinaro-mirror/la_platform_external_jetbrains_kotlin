@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.context.findClosest
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
 import org.jetbrains.kotlin.fir.expressions.*
@@ -24,7 +23,7 @@ import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolved
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -51,7 +50,7 @@ fun FirAnnotation.getAllowedAnnotationTargets(session: FirSession): Set<KotlinTa
     if (annotationTypeRef is FirErrorTypeRef) return KotlinTarget.values().toSet()
     val annotationClassSymbol = (this.annotationTypeRef.coneType as? ConeClassLikeType)
         ?.fullyExpandedType(session)?.lookupTag?.toSymbol(session) ?: return defaultAnnotationTargets
-    annotationClassSymbol.ensureResolved(FirResolvePhase.BODY_RESOLVE)
+    annotationClassSymbol.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
     return annotationClassSymbol.getAllowedAnnotationTargets()
 }
 
@@ -93,10 +92,14 @@ fun FirClassLikeSymbol<*>.getTargetAnnotation(): FirAnnotation? {
 
 fun FirExpression.extractClassesFromArgument(): List<FirRegularClassSymbol> {
     return unfoldArrayOrVararg().mapNotNull {
-        if (it !is FirGetClassCall) return@mapNotNull null
-        val qualifier = it.argument as? FirResolvedQualifier ?: return@mapNotNull null
-        qualifier.symbol as? FirRegularClassSymbol
+        it.extractClassFromArgument()
     }
+}
+
+fun FirExpression.extractClassFromArgument(): FirRegularClassSymbol? {
+    if (this !is FirGetClassCall) return null
+    val qualifier = argument as? FirResolvedQualifier ?: return null
+    return qualifier.symbol as? FirRegularClassSymbol
 }
 
 fun checkRepeatedAnnotation(
@@ -184,10 +187,7 @@ fun checkRepeatedAnnotation(
         val useSiteTarget = annotation.useSiteTarget ?: annotationContainer?.getDefaultUseSiteTarget(annotation, context)
         val existingTargetsForAnnotation = annotationsMap.getOrPut(annotation.annotationTypeRef.coneType) { arrayListOf() }
 
-        withSuppressedDiagnostics(annotation, context) {
-            checkRepeatedAnnotation(useSiteTarget, existingTargetsForAnnotation, annotation, it, reporter)
-        }
-
+        checkRepeatedAnnotation(useSiteTarget, existingTargetsForAnnotation, annotation, context, reporter)
         existingTargetsForAnnotation.add(useSiteTarget)
     }
 }
