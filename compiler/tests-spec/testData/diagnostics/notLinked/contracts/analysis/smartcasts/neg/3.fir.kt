@@ -1,5 +1,13 @@
 // !OPT_IN: kotlin.contracts.ExperimentalContracts
 
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (NEGATIVE)
+ *
+ * SECTIONS: contracts, analysis, smartcasts
+ * NUMBER: 3
+ * DESCRIPTION: Smartcasts using Returns effects with complex (conjunction/disjunction) type checking and not-null conditions inside contract.
+ */
+
 // FILE: contracts.kt
 
 package contracts
@@ -105,7 +113,7 @@ class case_3_class {
         contracts.case_3(value_1, value_2, o.prop_1, this.prop_1)
         println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
         println(value_2?.toByte())
-        <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+        println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
     }
 }
 
@@ -158,22 +166,22 @@ class case_6_class {
         if (contracts.case_6_1(value_1, value_2, o.prop_1, this.prop_1)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (!contracts.case_6_2(value_1, value_2, o.prop_1, this.prop_1)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (contracts.case_6_3(value_1, value_2, o.prop_1, this.prop_1) == null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (contracts.case_6_4(value_1, value_2, o.prop_1, this.prop_1) != null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
     }
 }

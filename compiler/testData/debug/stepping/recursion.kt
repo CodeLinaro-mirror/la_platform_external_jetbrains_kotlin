@@ -1,3 +1,4 @@
+// IGNORE_BACKEND: WASM
 // FILE: test.kt
 fun box() {
     val n = 3
@@ -11,16 +12,29 @@ fun foo(n :Int ) : Int {
     return foo(n-1) * n
 }
 
-// EXPECTATIONS
-// test.kt:3 box
-// test.kt:4 box
-// test.kt:8 foo
-// test.kt:11 foo
-// test.kt:8 foo
-// test.kt:11 foo
-// test.kt:8 foo
-// test.kt:9 foo
-// test.kt:11 foo
-// test.kt:11 foo
+// EXPECTATIONS JVM JVM_IR
 // test.kt:4 box
 // test.kt:5 box
+// test.kt:9 foo
+// test.kt:12 foo
+// test.kt:9 foo
+// test.kt:12 foo
+// test.kt:9 foo
+// test.kt:10 foo
+// test.kt:12 foo
+// test.kt:12 foo
+// test.kt:5 box
+// test.kt:6 box
+
+// EXPECTATIONS JS_IR
+// test.kt:4 box
+// test.kt:5 box
+// test.kt:9 foo
+// test.kt:12 foo
+// test.kt:9 foo
+// test.kt:12 foo
+// test.kt:9 foo
+// test.kt:10 foo
+// test.kt:12 foo
+// test.kt:12 foo
+// test.kt:6 box

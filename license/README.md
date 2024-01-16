@@ -35,10 +35,6 @@ the Kotlin IntelliJ IDEA plugin:
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
 
- - Path: core/reflection.jvm/src/kotlin.reflect/jvm/internal/pcollections
-     - License: MIT ([license/third_party/pcollections_LICENSE.txt][pcollections])
-     - Origin: Derived from PCollections, A Persistent Java Collections Library (https://pcollections.org/)
-
  - Path: eval4j/src/org/jetbrains/eval4j/interpreterLoop.kt
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
@@ -98,7 +94,7 @@ the Kotlin IntelliJ IDEA plugin:
       - Origin: Derived from boost special math functions, Copyright Eric Ford & Hubert Holin 2001.
 
  - Path: libraries/stdlib/wasm/internal/kotlin/wasm/internal/Number2String.kt
-      - License: Apache 2 ([third_party/assemblyscript_license.txt][assemblyscript])
+      - License: Apache 2 ([license/third_party/assemblyscript_license.txt][assemblyscript])
       - Origin: Derived from assemblyscript standard library
 
  - Path: plugins/lint/android-annotations
@@ -237,6 +233,10 @@ any distributions of the tools or libraries:
       - License: Eclipse Public License v1.0 ([license/third_party/testdata/eclipse_license.txt][eclipse])
              and Eclipse Distribution License - v1.0 ([license/third_party/testdata/eclipse_distribution_license.txt][eclipse-distribution])
       - Origin: javax.persistence, Copyright (c) 2008, 2017 Sun Microsystems, Oracle Corporation.
+
+ - Path: libraries/tools/kotlin-gradle-plugin/src/common/kotlin/org/jetbrains/kotlin/gradle/targets/js/nodejs/Platform.kt
+      - License: Apache License 2.0 ([license/third_party/gradle-node-plugin_LICENSE.txt](third_party/gradle-node-plugin_LICENSE.txt))
+      - Origin: Copyright (c) 2013 node-gradle/gradle-node-plugin
       
  - Path: libraries/tools/kotlin-test-js-runner/karma-kotlin-reporter.js
       - License: MIT ([license/third_party/karma_LICENSE.txt](third_party/karma_LICENSE.txt)
@@ -272,6 +272,8 @@ any distributions of the compiler, libraries or plugin:
 
 [aosp]: third_party/aosp_license.txt
 [asm]: third_party/asm_license.txt
+[asmble]: third_party/asmble_license.txt
+[assemblyscript]: third_party/assemblyscript_license.txt
 [boost]: third_party/boost_LICENSE.txt
 [closure-compiler]: third_party/closure-compiler_LICENSE.txt
 [dagger]: third_party/testdata/dagger_license.txt
@@ -283,10 +285,10 @@ any distributions of the compiler, libraries or plugin:
 [guava]: third_party/guava_license.txt
 [gwt]: third_party/gwt_license.txt
 [jquery]: third_party/jquery_license.txt
+[jspecify]: third_party/testdata/jspecify_license.txt
 [lombok]: third_party/testdata/lombok_license.txt
-[pcollections]: third_party/pcollections_LICENSE.txt
 [qunit]: third_party/qunit_license.txt
 [rhino]: third_party/rhino_LICENSE.txt
 [rxjava]: third_party/testdata/rxjava_license.txt
 [spring]: third_party/testdata/spring_license.txt
-[assemblyscript]: third_party/assemblyscript_license.txt
+[sun]: third_party/sun_license.txt

@@ -6,10 +6,10 @@ plugins {
 }
 
 dependencies {
-    embedded(project(":kotlin-lombok-compiler-plugin.common"))
-    embedded(project(":kotlin-lombok-compiler-plugin.k1"))
-    embedded(project(":kotlin-lombok-compiler-plugin.k2"))
-    embedded(project(":kotlin-lombok-compiler-plugin.cli"))
+    embedded(project(":kotlin-lombok-compiler-plugin.common")) { isTransitive = false }
+    embedded(project(":kotlin-lombok-compiler-plugin.k1")) { isTransitive = false }
+    embedded(project(":kotlin-lombok-compiler-plugin.k2")) { isTransitive = false }
+    embedded(project(":kotlin-lombok-compiler-plugin.cli")) { isTransitive = false }
 
     testImplementation(intellijCore())
     testImplementation(project(":kotlin-lombok-compiler-plugin.common"))
@@ -17,7 +17,7 @@ dependencies {
     testImplementation(project(":kotlin-lombok-compiler-plugin.k2"))
     testImplementation(project(":kotlin-lombok-compiler-plugin.cli"))
 
-    testImplementation("org.projectlombok:lombok:1.18.16")
+    testImplementation(commonDependency("org.projectlombok:lombok"))
 
     testApi(project(":compiler:util"))
     testApi(project(":compiler:backend"))
@@ -28,21 +28,25 @@ dependencies {
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(projectTests(":compiler:test-infrastructure-utils"))
+    testImplementation(libs.junit.jupiter.api)
 
     // FIR dependencies
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
     testRuntimeOnly(project(":compiler:fir:fir-serialization"))
 
-    testCompileOnly(project(":kotlin-reflect-api"))
-    testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
+    testRuntimeOnly(libs.junit.jupiter.engine)
 
-    testApi(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
 
-
+    testRuntimeOnly(libs.guava)
+    testRuntimeOnly(commonDependency("org.codehaus.woodstox:stax2-api"))
+    testRuntimeOnly(commonDependency("com.fasterxml:aalto-xml"))
     testRuntimeOnly(toolsJar())
 }
+
+optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" { none() }
@@ -52,10 +56,22 @@ sourceSets {
     }
 }
 
-projectTest(parallel = true) {
+projectTest(jUnitMode = JUnitMode.JUnit5) {
+    useJUnitPlatform()
     workingDir = rootDir
-    dependsOn(":dist")
+
+    doFirst {
+        project.configurations
+            .testRuntimeClasspath.get()
+            .files
+            .find { "guava" in it.name }
+            ?.absolutePath
+            ?.let { systemProperty("org.jetbrains.kotlin.test.guava-location", it) }
+
+    }
 }
+
+publish()
 
 runtimeJar()
 sourcesJar()

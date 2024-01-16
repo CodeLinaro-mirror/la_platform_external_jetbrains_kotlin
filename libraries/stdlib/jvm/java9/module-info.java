@@ -11,7 +11,9 @@ module kotlin.stdlib {
     exports kotlin.coroutines.cancellation;
     exports kotlin.coroutines.intrinsics;
     exports kotlin.coroutines.jvm.internal;
+    exports kotlin.enums;
     exports kotlin.io;
+    exports kotlin.io.encoding;
     exports kotlin.jvm;
     exports kotlin.jvm.functions;
     exports kotlin.math;
@@ -29,6 +31,18 @@ module kotlin.stdlib {
     exports kotlin.internal;
     exports kotlin.jvm.internal;
     exports kotlin.jvm.internal.markers;
+
+    // JDK 7
+    exports kotlin.jdk7;
+    exports kotlin.io.path;
+
+    // JDK 8
+    exports kotlin.jvm.optionals;
+    exports kotlin.jvm.jdk8;
+    exports kotlin.collections.jdk8;
+    exports kotlin.streams.jdk8;
+    exports kotlin.text.jdk8;
+    exports kotlin.time.jdk8;
 
     // Open packages with .kotlin_builtins files to kotlin-reflect, to allow reflection to load built-in declarations from there
     opens kotlin to kotlin.reflect;

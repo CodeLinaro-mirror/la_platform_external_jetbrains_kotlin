@@ -68,6 +68,7 @@ object RangeOps : TemplateGroupBase() {
     } builder {
         infix(true)
         doc { "Returns a progression that goes over the same range with the given step." }
+        sample("samples.ranges.Ranges.step$primitive")
         signature("step(step: ${primitive!!.stepType})", notForSorting = true)
         returns("TProgression")
         body {
@@ -152,30 +153,6 @@ object RangeOps : TemplateGroupBase() {
         }
     }
 
-    val f_rangeUntil = fn("rangeUntil(to: Primitive)").byTwoPrimitives {
-        include(Primitives, integralCombinations + unsignedMappings)
-    } builderWith { (fromType, toType) ->
-        operator()
-        inlineOnly()
-        since("1.7")
-        annotation("@ExperimentalStdlibApi")
-        signature("rangeUntil(to: $toType)")
-
-        val elementType = rangeElementType(fromType, toType)
-        val progressionType = elementType.name + "Range"
-        returns(progressionType)
-
-        doc {
-            """
-            Returns a range from this value up to but excluding the specified [to] value.
-
-            If the [to] value is less than or equal to `this` value, then the returned range is empty.
-            """
-        }
-
-        body { "return until(to)" }
-    }
-
     val f_containsMixedClosed = fn("contains(value: Primitive)").byTwoPrimitives {
         include(Ranges, numericCombinations)
         filter { _, (rangeType, itemType) -> rangeType != itemType }
@@ -210,8 +187,8 @@ object RangeOps : TemplateGroupBase() {
     } builderWith { (rangeType, itemType) ->
         operator()
         specialFor(OpenRanges) {
-            since("1.7")
-            annotation("@ExperimentalStdlibApi")
+            since("1.9")
+            annotation("@WasExperimental(ExperimentalStdlibApi::class)")
         }
         signature("contains(value: $itemType)")
 

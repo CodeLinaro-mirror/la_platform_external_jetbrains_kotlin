@@ -10,11 +10,14 @@ import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnaly
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10FileSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10PackageSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtClassSymbol
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.*
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.descriptors.findClassAcrossModuleDependencies
+import org.jetbrains.kotlin.descriptors.findTypeAliasAcrossModuleDependencies
+import org.jetbrains.kotlin.descriptors.isEmpty
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -32,6 +35,10 @@ internal class KtFe10SymbolProvider(
 
     override fun getFileSymbol(psi: KtFile): KtFileSymbol {
         return KtFe10FileSymbol(psi, analysisContext)
+    }
+
+    override fun getScriptSymbol(psi: KtScript): KtScriptSymbol {
+        return KtFe10PsiScriptSymbol(psi, analysisContext)
     }
 
     override fun getParameterSymbol(psi: KtParameter): KtVariableLikeSymbol {
@@ -86,8 +93,10 @@ internal class KtFe10SymbolProvider(
         return KtFe10PsiAnonymousObjectSymbol(psi.objectDeclaration, analysisContext)
     }
 
-    override fun getClassOrObjectSymbol(psi: KtClassOrObject): KtClassOrObjectSymbol {
-        return if (psi is KtObjectDeclaration && psi.isObjectLiteral()) {
+    override fun getClassOrObjectSymbol(psi: KtClassOrObject): KtClassOrObjectSymbol? {
+        return if (psi is KtEnumEntry) {
+            null
+        } else if (psi is KtObjectDeclaration && psi.isObjectLiteral()) {
             KtFe10PsiAnonymousObjectSymbol(psi, analysisContext)
         } else {
             KtFe10PsiNamedClassOrObjectSymbol(psi, analysisContext)
@@ -119,7 +128,12 @@ internal class KtFe10SymbolProvider(
         return descriptor.toKtClassSymbol(analysisContext)
     }
 
-    override fun getTopLevelCallableSymbols(packageFqName: FqName, name: Name): Sequence<KtSymbol> {
+    override fun getTypeAliasByClassId(classId: ClassId): KtTypeAliasSymbol? {
+        val descriptor = analysisContext.resolveSession.moduleDescriptor.findTypeAliasAcrossModuleDependencies(classId) ?: return null
+        return descriptor.toKtClassifierSymbol(analysisContext) as? KtTypeAliasSymbol
+    }
+
+    override fun getTopLevelCallableSymbols(packageFqName: FqName, name: Name): Sequence<KtCallableSymbol> {
         val packageViewDescriptor = analysisContext.resolveSession.moduleDescriptor.getPackage(packageFqName)
         return packageViewDescriptor.memberScope.getContributedDescriptors(DescriptorKindFilter.ALL, nameFilter = { it == name })
             .asSequence()
@@ -127,7 +141,16 @@ internal class KtFe10SymbolProvider(
             .mapNotNull { it.toKtSymbol(analysisContext) as? KtCallableSymbol }
     }
 
+    override fun getPackageSymbolIfPackageExists(packageFqName: FqName): KtPackageSymbol? {
+        if (analysisContext.resolveSession.packageFragmentProvider.isEmpty(packageFqName)) return null
+        return KtFe10PackageSymbol(packageFqName, analysisContext)
+    }
+
     override fun getDestructuringDeclarationEntrySymbol(psi: KtDestructuringDeclarationEntry): KtLocalVariableSymbol {
         return KtFe10PsiLocalVariableSymbol(psi, analysisContext)
+    }
+
+    override fun getDestructuringDeclarationSymbol(psi: KtDestructuringDeclaration): KtDestructuringDeclarationSymbol {
+        return KtFe10PsiDestructuringDeclarationSymbol(psi, analysisSession)
     }
 }

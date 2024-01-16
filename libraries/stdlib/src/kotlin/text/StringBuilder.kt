@@ -70,6 +70,60 @@ expect class StringBuilder : Appendable, CharSequence {
     fun append(value: Boolean): StringBuilder
 
     /**
+     * Appends the string representation of the specified byte [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Byte): StringBuilder
+
+    /**
+     * Appends the string representation of the specified short [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Short): StringBuilder
+
+    /**
+     * Appends the string representation of the specified int [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Int): StringBuilder
+
+    /**
+     * Appends the string representation of the specified long [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Long): StringBuilder
+
+    /**
+     * Appends the string representation of the specified float [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Float): StringBuilder
+
+    /**
+     * Appends the string representation of the specified double [value] to this string builder and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was appended to this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun append(value: Double): StringBuilder
+
+    /**
      * Appends characters in the specified character array [value] to this string builder and returns this instance.
      *
      * Characters are appended in order, starting at the index 0.
@@ -90,10 +144,10 @@ expect class StringBuilder : Appendable, CharSequence {
      * Returns the current capacity of this string builder.
      *
      * The capacity is the maximum length this string builder can have before an allocation occurs.
+     *
+     * In Kotlin/JS implementation of StringBuilder the value returned from this method may not indicate the actual size of the backing storage.
      */
     @SinceKotlin("1.3")
-//    @ExperimentalStdlibApi
-    @Deprecated("Obtaining StringBuilder capacity is not supported in JS and common code.", level = DeprecationLevel.ERROR)
     fun capacity(): Int
 
     /**
@@ -156,6 +210,72 @@ expect class StringBuilder : Appendable, CharSequence {
     @SinceKotlin("1.4")
     @WasExperimental(ExperimentalStdlibApi::class)
     fun insert(index: Int, value: Boolean): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified byte [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Byte): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified short [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Short): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified int [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Int): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified long [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Long): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified float [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Float): StringBuilder
+
+    /**
+     * Inserts the string representation of the specified double [value] into this string builder at the specified [index] and returns this instance.
+     *
+     * The overall effect is exactly as if the [value] were converted to a string by the `value.toString()` method,
+     * and then that string was inserted into this string builder at the specified [index].
+     *
+     * @throws IndexOutOfBoundsException if [index] is less than zero or greater than the length of this string builder.
+     */
+    @SinceKotlin("1.9")
+    fun insert(index: Int, value: Double): StringBuilder
 
     /**
      * Inserts the specified character [value] into this string builder at the specified [index] and returns this instance.
@@ -437,6 +557,12 @@ public fun StringBuilder.append(vararg value: Any?): StringBuilder {
     return this
 }
 
+// KT-52336
+@Deprecated("Use appendRange instead.", ReplaceWith("this.appendRange(str, offset, offset + len)"), level = DeprecationLevel.ERROR)
+@kotlin.internal.InlineOnly
+@Suppress("UNUSED_PARAMETER")
+public inline fun StringBuilder.append(str: CharArray, offset: Int, len: Int): StringBuilder = throw NotImplementedError()
+
 /** Appends a line feed character (`\n`) to this StringBuilder. */
 @SinceKotlin("1.4")
 @kotlin.internal.InlineOnly
@@ -471,3 +597,27 @@ public inline fun StringBuilder.appendLine(value: Char): StringBuilder = append(
 @SinceKotlin("1.4")
 @kotlin.internal.InlineOnly
 public inline fun StringBuilder.appendLine(value: Boolean): StringBuilder = append(value).appendLine()
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Byte): StringBuilder
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Short): StringBuilder
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Int): StringBuilder
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Long): StringBuilder
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Float): StringBuilder
+
+/** Appends [value] to this [StringBuilder], followed by a line feed character (`\n`). */
+@SinceKotlin("1.9")
+public expect fun StringBuilder.appendLine(value: Double): StringBuilder

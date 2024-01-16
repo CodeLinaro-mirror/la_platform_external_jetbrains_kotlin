@@ -13,6 +13,8 @@
 namespace kotlin {
 namespace mm {
 
+class ThreadData;
+
 namespace internal {
 
 extern std::atomic<bool> gSuspensionRequested;
@@ -20,46 +22,57 @@ extern std::atomic<bool> gSuspensionRequested;
 } // namespace internal
 
 inline bool IsThreadSuspensionRequested() noexcept {
-    // TODO: Consider using a more relaxed memory order.
+    // Must use seq_cst ordering for synchronization with GC
+    // in native->runnable transition.
     return internal::gSuspensionRequested.load();
 }
 
 class ThreadSuspensionData : private Pinned {
+private:
+    class MutatorPauseHandle : private Pinned {
+    public:
+        explicit MutatorPauseHandle(const char* reason, ThreadData& threadData) noexcept;
+        ~MutatorPauseHandle() noexcept;
+        void resume() noexcept;
+    private:
+        const char* reason_;
+        ThreadData& threadData_;
+        uint64_t pauseStartTimeMicros_;
+        bool resumed = false;
+    };
+
 public:
-    explicit ThreadSuspensionData(ThreadState initialState) noexcept : state_(initialState), suspended_(false) {}
+    explicit ThreadSuspensionData(ThreadState initialState, mm::ThreadData& threadData) noexcept : state_(initialState), threadData_(threadData) {}
 
     ~ThreadSuspensionData() = default;
 
     ThreadState state() noexcept { return state_; }
 
-    ThreadState setState(ThreadState newState) noexcept {
-        ThreadState oldState = state_.exchange(newState);
-        if (oldState == ThreadState::kNative && newState == ThreadState::kRunnable) {
-            suspendIfRequested();
-        }
-        return oldState;
-    }
+    ThreadState setState(ThreadState newState) noexcept;
+    ThreadState setStateNoSafePoint(ThreadState newState) noexcept { return state_.exchange(newState, std::memory_order_acq_rel); }
 
-    bool suspended() noexcept { return suspended_; }
+    bool suspendedOrNative() noexcept { return state() == kotlin::ThreadState::kNative; }
 
-    NO_EXTERNAL_CALLS_CHECK void suspendIfRequested() noexcept {
-        if (IsThreadSuspensionRequested()) {
-            suspendIfRequestedSlowPath();
-        }
-    }
+    void suspendIfRequested() noexcept;
+
+    /**
+     * Signals that the thread would not mutate a heap during a relatively long time.
+     * For example while waiting for or participating in the GC.
+     * Effectively sets the thread's state to `kNative`.
+     *
+     * The pause is considered completed upon destruction of a returned pause-handle object.
+     *
+     * NOTE: the safe point actions will NOT be automatically executed after the pause.
+     */
+    [[nodiscard]] MutatorPauseHandle pauseMutationInScope(const char* reason) noexcept;
 
 private:
-    friend void SuspendIfRequestedSlowPath() noexcept;
-
     std::atomic<ThreadState> state_;
-    std::atomic<bool> suspended_;
-    void suspendIfRequestedSlowPath() noexcept;
+    mm::ThreadData& threadData_;
 };
 
 bool RequestThreadsSuspension() noexcept;
 void WaitForThreadsSuspension() noexcept;
-void SuspendIfRequestedSlowPath() noexcept;
-void SuspendIfRequested() noexcept;
 
 /**
  * Suspends all threads registered in ThreadRegistry except threads that are in the Native state.

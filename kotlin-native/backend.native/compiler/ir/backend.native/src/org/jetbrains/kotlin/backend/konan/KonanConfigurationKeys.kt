@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
-import org.jetbrains.kotlin.serialization.js.ModuleKind
 
 class KonanConfigKeys {
     companion object {
@@ -20,34 +19,40 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("add debug information")
         val FAKE_OVERRIDE_VALIDATOR: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("fake override validator")
-        val DISABLED_PHASES: CompilerConfigurationKey<List<String>> 
-                = CompilerConfigurationKey.create("disable backend phases")
         val BITCODE_EMBEDDING_MODE: CompilerConfigurationKey<BitcodeEmbedding.Mode>
                 = CompilerConfigurationKey.create("bitcode embedding mode")
         val EMIT_LAZY_OBJC_HEADER_FILE: CompilerConfigurationKey<String?> =
                 CompilerConfigurationKey.create("output file to emit lazy Obj-C header")
         val ENABLE_ASSERTIONS: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("enable runtime assertions in generated code")
-        val ENABLED_PHASES: CompilerConfigurationKey<List<String>> 
-                = CompilerConfigurationKey.create("enable backend phases")
         val ENTRY: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("fully qualified main() name")
         val EXPORTED_LIBRARIES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("libraries included into produced framework API")
         val FULL_EXPORTED_NAME_PREFIX: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("prefix used when exporting Kotlin names to other languages")
-        val LIBRARIES_TO_CACHE: CompilerConfigurationKey<List<String>>
-                = CompilerConfigurationKey.create<List<String>>("paths to libraries that to be compiled to cache")
         val LIBRARY_TO_ADD_TO_CACHE: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create<String?>("path to library that to be added to cache")
         val CACHE_DIRECTORIES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("paths to directories containing caches")
+        val AUTO_CACHEABLE_FROM: CompilerConfigurationKey<List<String>>
+                = CompilerConfigurationKey.create<List<String>>("paths to the root directories from which dependencies are to be cached automatically")
+        val AUTO_CACHE_DIR: CompilerConfigurationKey<String>
+                = CompilerConfigurationKey.create<String>("path to the directory where to put caches for auto-cacheable dependencies")
+        val INCREMENTAL_CACHE_DIR: CompilerConfigurationKey<String>
+                = CompilerConfigurationKey.create<String>("path to the directory where to put incremental build caches")
         val CACHED_LIBRARIES: CompilerConfigurationKey<Map<String, String>>
                 = CompilerConfigurationKey.create<Map<String, String>>("mapping from library paths to cache paths")
+        val FILES_TO_CACHE: CompilerConfigurationKey<List<String>>
+                = CompilerConfigurationKey.create<List<String>>("which files should be compiled to cache")
+        val MAKE_PER_FILE_CACHE: CompilerConfigurationKey<Boolean>
+                = CompilerConfigurationKey.create<Boolean>("make per-file cache")
         val FRAMEWORK_IMPORT_HEADERS: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("headers imported to framework header")
         val FRIEND_MODULES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create<List<String>>("friend module paths")
+        val REFINES_MODULES: CompilerConfigurationKey<List<String>>
+                = CompilerConfigurationKey.create<List<String>>("refines module paths")
         val GENERATE_TEST_RUNNER: CompilerConfigurationKey<TestRunnerKind>
                 = CompilerConfigurationKey.create("generate test runner") 
         val INCLUDED_BINARY_FILES: CompilerConfigurationKey<List<String>>
@@ -64,19 +69,13 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("generates debug trampolines to make debugger breakpoint resolution more accurate")
         val LINKER_ARGS: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create("additional linker arguments")
-        val LIST_PHASES: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("list backend phases")
         val LIST_TARGETS: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("list available targets")
         val MANIFEST_FILE: CompilerConfigurationKey<String?> 
                 = CompilerConfigurationKey.create("provide manifest addend file")
-        val META_INFO: CompilerConfigurationKey<List<String>>
-                = CompilerConfigurationKey.create("generate metadata")
-        val METADATA_KLIB: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("metadata klib")
-        val MODULE_KIND: CompilerConfigurationKey<ModuleKind> 
-                = CompilerConfigurationKey.create("module kind")
-        val MODULE_NAME: CompilerConfigurationKey<String?> 
+        val HEADER_KLIB: CompilerConfigurationKey<String?>
+                = CompilerConfigurationKey.create("path to file where header klib should be produced")
+        val MODULE_NAME: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey.create("module name")
         val NATIVE_LIBRARY_FILES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey.create("native library file paths")
@@ -104,14 +103,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("print bitcode")
         val CHECK_EXTERNAL_CALLS: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("check external calls")
-        val PRINT_DESCRIPTORS: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("print descriptors")
-        val PRINT_IR: CompilerConfigurationKey<Boolean> 
+        val PRINT_IR: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("print ir")
-        val PRINT_IR_WITH_DESCRIPTORS: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("print ir with descriptors")
-        val PRINT_LOCATIONS: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("print locations")
         val PRINT_FILES: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("print files")
         val PRODUCE: CompilerConfigurationKey<CompilerOutputKind>
@@ -124,8 +117,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("override default runtime file path")
         val INCLUDED_LIBRARIES: CompilerConfigurationKey<List<String>>
                 = CompilerConfigurationKey("klibs processed in the same manner as source files")
-        val SOURCE_MAP: CompilerConfigurationKey<List<String>> 
-                = CompilerConfigurationKey.create("generate source map")
         val SHORT_MODULE_NAME: CompilerConfigurationKey<String?>
                 = CompilerConfigurationKey("short module name for IDE and export")
         val STATIC_FRAMEWORK: CompilerConfigurationKey<Boolean>
@@ -138,8 +129,8 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("save LLVM IR")
         val VERIFY_BITCODE: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify bitcode")
-        val VERIFY_IR: CompilerConfigurationKey<Boolean>
-                = CompilerConfigurationKey.create("verify IR")
+        val VERIFY_IR: CompilerConfigurationKey<IrVerificationMode>
+                = CompilerConfigurationKey.create("IR verification mode")
         val VERIFY_COMPILER: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify compiler")
         val DEBUG_INFO_VERSION: CompilerConfigurationKey<Int>
@@ -160,8 +151,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("override konan.properties values")
         val DESTROY_RUNTIME_MODE: CompilerConfigurationKey<DestroyRuntimeMode>
                 = CompilerConfigurationKey.create("when to destroy runtime")
-        val GARBAGE_COLLECTOR: CompilerConfigurationKey<GC> = CompilerConfigurationKey.create("gc")
-        val CHECK_LLD_COMPATIBILITY: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("check compatibility with LLD")
         val PROPERTY_LAZY_INITIALIZATION: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("lazy top level properties initialization")
         val WORKER_EXCEPTION_HANDLING: CompilerConfigurationKey<WorkerExceptionHandling> = CompilerConfigurationKey.create("unhandled exception processing in Worker.executeAfter")
@@ -170,10 +159,13 @@ class KonanConfigKeys {
         val LLVM_VARIANT: CompilerConfigurationKey<LlvmVariant?> = CompilerConfigurationKey.create("llvm variant")
         val RUNTIME_LOGS: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("enable runtime logging")
         val LAZY_IR_FOR_CACHES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("use lazy IR for cached libraries")
-        val MEANINGFUL_BRIDGE_NAMES: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("enable meaningful bridge names")
-        val PARTIAL_LINKAGE: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("allows some symbols in klibs be missed")
         val TEST_DUMP_OUTPUT_PATH: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to a file to dump the list of all available tests")
-
+        val OMIT_FRAMEWORK_BINARY: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("do not generate binary in framework")
+        val COMPILE_FROM_BITCODE: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to bitcode file to compile")
+        val SERIALIZED_DEPENDENCIES: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to serialized dependencies for native linking")
+        val SAVE_DEPENDENCIES_PATH: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to save serialized dependencies to")
+        val SAVE_LLVM_IR_DIRECTORY: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("directory to store LLVM IR from phases")
+        val KONAN_DATA_DIR: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("directory for storing konan dependencies, cache and prebuilds")
     }
 }
 

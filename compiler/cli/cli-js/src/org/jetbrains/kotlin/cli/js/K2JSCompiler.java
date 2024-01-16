@@ -90,6 +90,7 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
         moduleKindMap.put(K2JsArgumentConstants.MODULE_COMMONJS, ModuleKind.COMMON_JS);
         moduleKindMap.put(K2JsArgumentConstants.MODULE_AMD, ModuleKind.AMD);
         moduleKindMap.put(K2JsArgumentConstants.MODULE_UMD, ModuleKind.UMD);
+        moduleKindMap.put(K2JsArgumentConstants.MODULE_ES, ModuleKind.ES);
 
         sourceMapContentEmbeddingMap.put(K2JsArgumentConstants.SOURCE_MAP_SOURCE_CONTENT_ALWAYS, SourceMapSourceEmbedding.ALWAYS);
         sourceMapContentEmbeddingMap.put(K2JsArgumentConstants.SOURCE_MAP_SOURCE_CONTENT_NEVER, SourceMapSourceEmbedding.NEVER);
@@ -100,7 +101,7 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
         doMain(new K2JSCompiler(), args);
     }
 
-    final K2JSCompilerPerformanceManager performanceManager = new K2JSCompilerPerformanceManager();
+    private final K2JSCompilerPerformanceManager performanceManager = new K2JSCompilerPerformanceManager();
 
     @NotNull
     @Override
@@ -172,18 +173,22 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
             @Nullable KotlinPaths paths
     ) {
         MessageCollector messageCollector = configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY);
-        if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
-            messageCollector.report(ERROR, "K2 does not support JS target right now", null);
-            return ExitCode.COMPILATION_ERROR;
-        }
 
         ExitCode exitCode = OK;
 
-        if (K2JSCompilerArgumentsKt.isIrBackendEnabled(arguments)) {
+        boolean useFir = Boolean.TRUE.equals(configuration.get(CommonConfigurationKeys.USE_FIR));
+        if (K2JSCompilerArgumentsKt.isIrBackendEnabled(arguments) || useFir) {
             exitCode = getIrCompiler().doExecute(arguments, configuration.copy(), rootDisposable, paths);
         }
-        if (K2JSCompilerArgumentsKt.isPreIrBackendDisabled(arguments)) {
+        if (K2JSCompilerArgumentsKt.isPreIrBackendDisabled(arguments) || useFir) {
             return exitCode;
+        }
+
+        LanguageVersionSettings languageVersionSettings = CommonConfigurationKeysKt.getLanguageVersionSettings(configuration);
+
+        if (!arguments.getForceDeprecatedLegacyCompilerUsage() && languageVersionSettings.getLanguageVersion().compareTo(LanguageVersion.KOTLIN_1_9) >= 0) {
+            messageCollector.report(ERROR, "Old Kotlin/JS compiler is no longer supported. Please migrate to the new JS IR backend", null);
+            return COMPILATION_ERROR;
         }
 
         if (arguments.getFreeArgs().isEmpty() && (!incrementalCompilationIsEnabledForJs(arguments))) {
@@ -215,7 +220,7 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
         environmentForJS.getConfiguration().put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.getRenderInternalDiagnosticNames());
 
 
-        if (!UtilsKt.checkKotlinPackageUsage(environmentForJS.getConfiguration(), sourcesFiles)) return ExitCode.COMPILATION_ERROR;
+        if (!HelpersKt.checkKotlinPackageUsageForPsi(environmentForJS.getConfiguration(), sourcesFiles)) return ExitCode.COMPILATION_ERROR;
 
         if (arguments.getOutputFile() == null) {
             messageCollector.report(ERROR, "Specify output file via -output", null);
@@ -320,7 +325,6 @@ public class K2JSCompiler extends CLICompiler<K2JSCompilerArguments> {
         TranslationResult translationResult;
 
         try {
-            //noinspection unchecked
             translationResult = translate(reporter, sourcesFiles, jsAnalysisResult, mainCallParameters, config);
         }
         catch (Exception e) {

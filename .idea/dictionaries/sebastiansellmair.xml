@@ -2,10 +2,12 @@
   <dictionary name="sebastiansellmair">
     <words>
       <w>actuals</w>
+      <w>associator</w>
       <w>cinterops</w>
       <w>instantiator</w>
       <w>interops</w>
       <w>klibrary</w>
+      <w>undispatched</w>
     </words>
   </dictionary>
 </component>

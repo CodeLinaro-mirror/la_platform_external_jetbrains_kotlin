@@ -1,12 +1,15 @@
 KtNamedClassOrObjectSymbol:
   annotationsList: [
-    kotlin/annotation/Target(allowedTargets = kotlin.annotation.AnnotationTarget.TYPE)
+    kotlin/annotation/Target(allowedTargets = [kotlin.annotation.AnnotationTarget.TYPE])
       psi: KtAnnotationEntry
   ]
   classIdIfNonLocal: Anno1
   classKind: ANNOTATION_CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -15,23 +18,30 @@ KtNamedClassOrObjectSymbol:
   name: Anno1
   origin: SOURCE
   superTypes: [
-    kotlin/Annotation
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Annotation
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: [TYPE]
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
   annotationsList: [
-    kotlin/annotation/Target(allowedTargets = kotlin.annotation.AnnotationTarget.TYPE)
+    kotlin/annotation/Target(allowedTargets = [kotlin.annotation.AnnotationTarget.TYPE])
       psi: KtAnnotationEntry
   ]
   classIdIfNonLocal: Anno2
   classKind: ANNOTATION_CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -40,23 +50,30 @@ KtNamedClassOrObjectSymbol:
   name: Anno2
   origin: SOURCE
   superTypes: [
-    kotlin/Annotation
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Annotation
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: [TYPE]
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
   annotationsList: [
-    kotlin/annotation/Target(allowedTargets = kotlin.annotation.AnnotationTarget.TYPE)
+    kotlin/annotation/Target(allowedTargets = [kotlin.annotation.AnnotationTarget.TYPE])
       psi: KtAnnotationEntry
   ]
   classIdIfNonLocal: Anno3
   classKind: ANNOTATION_CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -65,23 +82,30 @@ KtNamedClassOrObjectSymbol:
   name: Anno3
   origin: SOURCE
   superTypes: [
-    kotlin/Annotation
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Annotation
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: [TYPE]
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
   annotationsList: [
-    kotlin/annotation/Target(allowedTargets = kotlin.annotation.AnnotationTarget.TYPE)
+    kotlin/annotation/Target(allowedTargets = [kotlin.annotation.AnnotationTarget.TYPE])
       psi: KtAnnotationEntry
   ]
   classIdIfNonLocal: Anno4
   classKind: ANNOTATION_CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -90,12 +114,177 @@ KtNamedClassOrObjectSymbol:
   name: Anno4
   origin: SOURCE
   superTypes: [
-    kotlin/Annotation
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Annotation
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: [TYPE]
+  deprecationStatus: null
+
+KtConstructorSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: null
+  containingClassIdIfNonLocal: Anno5
+  contextReceivers: []
+  hasStableParameterNames: true
+  isActual: false
+  isExpect: false
+  isExtension: false
+  isPrimary: true
+  origin: SOURCE
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: Anno5
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: [
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: KtKotlinPropertySymbol:
+        annotationsList: []
+        backingFieldSymbol: KtBackingFieldSymbol:
+          annotationsList: []
+          callableIdIfNonLocal: null
+          contextReceivers: []
+          isExtension: false
+          name: field
+          origin: PROPERTY_BACKING_FIELD
+          owningProperty: KtKotlinPropertySymbol(/Anno5.s)
+          receiverParameter: null
+          returnType: KtUsualClassType:
+            annotationsList: []
+            ownTypeArguments: []
+            type: kotlin/String
+          symbolKind: LOCAL
+          typeParameters: []
+          getContainingModule: KtSourceModule "Sources of main"
+          deprecationStatus: null
+        callableIdIfNonLocal: /Anno5.s
+        contextReceivers: []
+        getter: KtPropertyGetterSymbol:
+          annotationsList: []
+          callableIdIfNonLocal: null
+          contextReceivers: []
+          hasBody: false
+          hasStableParameterNames: true
+          isDefault: true
+          isExtension: false
+          isInline: false
+          isOverride: false
+          modality: FINAL
+          origin: SOURCE
+          receiverParameter: null
+          returnType: KtUsualClassType:
+            annotationsList: []
+            ownTypeArguments: []
+            type: kotlin/String
+          symbolKind: ACCESSOR
+          typeParameters: []
+          valueParameters: []
+          visibility: Public
+          getDispatchReceiver(): KtUsualClassType:
+            annotationsList: []
+            ownTypeArguments: []
+            type: Anno5
+          getContainingModule: KtSourceModule "Sources of main"
+          deprecationStatus: null
+        hasBackingField: true
+        hasGetter: true
+        hasSetter: false
+        initializer: KtNonConstantInitializerValue(val s: String)
+        isActual: false
+        isConst: false
+        isDelegatedProperty: false
+        isExpect: false
+        isExtension: false
+        isFromPrimaryConstructor: true
+        isLateInit: false
+        isOverride: false
+        isStatic: false
+        isVal: true
+        modality: FINAL
+        name: s
+        origin: SOURCE
+        receiverParameter: null
+        returnType: KtUsualClassType:
+          annotationsList: []
+          ownTypeArguments: []
+          type: kotlin/String
+        setter: null
+        symbolKind: CLASS_MEMBER
+        typeParameters: []
+        visibility: Public
+        getDispatchReceiver(): KtUsualClassType:
+          annotationsList: []
+          ownTypeArguments: []
+          type: Anno5
+        getContainingModule: KtSourceModule "Sources of main"
+        deprecationStatus: null
+        getterDeprecationStatus: null
+        javaGetterName: getS
+        javaSetterName: null
+        setterDeprecationStatus: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: s
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: []
+        type: kotlin/String
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingModule: KtSourceModule "Sources of main"
+      deprecationStatus: null
+  ]
+  visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
+  deprecationStatus: null
+
+KtNamedClassOrObjectSymbol:
+  annotationsList: [
+    kotlin/annotation/Target(allowedTargets = [kotlin.annotation.AnnotationTarget.TYPE])
+      psi: KtAnnotationEntry
+  ]
+  classIdIfNonLocal: Anno5
+  classKind: ANNOTATION_CLASS
+  companionObject: null
+  contextReceivers: []
+  isActual: false
+  isData: false
+  isExpect: false
+  isExternal: false
+  isFun: false
+  isInline: false
+  isInner: false
+  modality: FINAL
+  name: Anno5
+  origin: SOURCE
+  superTypes: [
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Annotation
+  ]
+  symbolKind: TOP_LEVEL
+  typeParameters: []
+  visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: [TYPE]
   deprecationStatus: null
 
 KtNamedClassOrObjectSymbol:
@@ -103,7 +292,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: I
   classKind: INTERFACE
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -112,39 +304,27 @@ KtNamedClassOrObjectSymbol:
   name: I
   origin: SOURCE
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
-  deprecationStatus: null
-
-KtValueParameterSymbol:
-  annotationsList: []
-  callableIdIfNonLocal: null
-  generatedPrimaryConstructorProperty: null
-  hasDefaultValue: false
-  isExtension: false
-  isImplicitLambdaParameter: false
-  isVararg: false
-  name: arg
-  origin: SOURCE
-  receiverType: null
-  returnType: [
-    Anno2()
-      psi: KtAnnotationEntry
-  ] @R|Anno2|()  I
-  symbolKind: LOCAL
-  typeParameters: []
-  getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: null
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /X.f
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -156,31 +336,113 @@ KtFunctionSymbol:
   modality: FINAL
   name: f
   origin: SOURCE
-  receiverType: null
-  returnType: [
-    Anno3()
-      psi: KtAnnotationEntry
-  ] @R|Anno3|()  I
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: [
+      Anno3()
+        psi: KtAnnotationEntry
+    ]
+    ownTypeArguments: []
+    type: @R|Anno3|()  I
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(arg)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: arg
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtUsualClassType:
+        annotationsList: [
+          Anno2()
+            psi: KtAnnotationEntry
+        ]
+        ownTypeArguments: []
+        type: @R|Anno2|()  I
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingModule: KtSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: Public
-  getDispatchReceiver(): X
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: X
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
   annotationsList: []
+  backingFieldSymbol: KtBackingFieldSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    isExtension: false
+    name: field
+    origin: PROPERTY_BACKING_FIELD
+    owningProperty: KtKotlinPropertySymbol(/X.x)
+    receiverParameter: null
+    returnType: KtUsualClassType:
+      annotationsList: [
+        Anno4()
+          psi: KtAnnotationEntry
+      ]
+      ownTypeArguments: []
+      type: @R|Anno4|()  I
+    symbolKind: LOCAL
+    typeParameters: []
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
   callableIdIfNonLocal: /X.x
-  getter: KtPropertyGetterSymbol(<getter>)
+  contextReceivers: []
+  getter: KtPropertyGetterSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    hasBody: false
+    hasStableParameterNames: true
+    isDefault: true
+    isExtension: false
+    isInline: false
+    isOverride: false
+    modality: FINAL
+    origin: SOURCE
+    receiverParameter: null
+    returnType: KtUsualClassType:
+      annotationsList: [
+        Anno4()
+          psi: KtAnnotationEntry
+      ]
+      ownTypeArguments: []
+      type: @R|Anno4|()  I
+    symbolKind: ACCESSOR
+    typeParameters: []
+    valueParameters: []
+    visibility: Public
+    getDispatchReceiver(): KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: X
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
   hasBackingField: true
   hasGetter: true
   hasSetter: false
   initializer: KtNonConstantInitializerValue(this)
+  isActual: false
   isConst: false
   isDelegatedProperty: false
+  isExpect: false
   isExtension: false
   isFromPrimaryConstructor: false
   isLateInit: false
@@ -190,16 +452,22 @@ KtKotlinPropertySymbol:
   modality: FINAL
   name: x
   origin: SOURCE
-  receiverType: null
-  returnType: [
-    Anno4()
-      psi: KtAnnotationEntry
-  ] @R|Anno4|()  I
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: [
+      Anno4()
+        psi: KtAnnotationEntry
+    ]
+    ownTypeArguments: []
+    type: @R|Anno4|()  I
   setter: null
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
-  getDispatchReceiver(): X
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: X
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
@@ -212,7 +480,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: X
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -221,13 +492,142 @@ KtNamedClassOrObjectSymbol:
   name: X
   origin: SOURCE
   superTypes: [
-    [
-      Anno1()
-        psi: KtAnnotationEntry
-    ] @R|Anno1|()  I
+    KtUsualClassType:
+      annotationsList: [
+        Anno1()
+          psi: KtAnnotationEntry
+      ]
+      ownTypeArguments: []
+      type: @R|Anno1|()  I
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
+  visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: null
+  deprecationStatus: null
+
+KtTypeParameterSymbol:
+  annotationsList: []
+  isReified: false
+  name: T
+  origin: SOURCE
+  typeParameters: []
+  upperBounds: []
+  variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: /foo
+  contextReceivers: []
+  contractEffects: []
+  hasStableParameterNames: true
+  isActual: false
+  isBuiltinFunctionInvoke: false
+  isExpect: false
+  isExtension: true
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: false
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: foo
+  origin: SOURCE
+  receiverParameter: KtReceiverParameterSymbol:
+    annotationsList: []
+    origin: SOURCE
+    owningCallableSymbol: KtFunctionSymbol(/foo)
+    type: KtTypeParameterType:
+      annotationsList: []
+      type: T
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: [
+          Anno5(s = "1")
+            psi: KtAnnotationEntry
+        ]
+        type: @R|Anno5|(s = String(1))  T
+    ]
+    type: kotlin/collections/List<@R|Anno5|(s = String(1))  T>?
+  symbolKind: TOP_LEVEL
+  typeParameters: [
+    KtTypeParameterSymbol(T)
+  ]
+  valueParameters: []
+  visibility: Public
+  getContainingModule: KtSourceModule "Sources of main"
+  deprecationStatus: null
+
+KtTypeParameterSymbol:
+  annotationsList: []
+  isReified: false
+  name: T
+  origin: SOURCE
+  typeParameters: []
+  upperBounds: []
+  variance: INVARIANT
+  getContainingModule: KtSourceModule "Sources of main"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: /foo2
+  contextReceivers: []
+  contractEffects: []
+  hasStableParameterNames: true
+  isActual: false
+  isBuiltinFunctionInvoke: false
+  isExpect: false
+  isExtension: true
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: false
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: FINAL
+  name: foo2
+  origin: SOURCE
+  receiverParameter: KtReceiverParameterSymbol:
+    annotationsList: []
+    origin: SOURCE
+    owningCallableSymbol: KtFunctionSymbol(/foo2)
+    type: KtTypeParameterType:
+      annotationsList: []
+      type: T
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: [
+          KtTypeParameterType:
+            annotationsList: [
+              Anno5(s = "1")
+                psi: KtAnnotationEntry
+            ]
+            type: @R|Anno5|(s = String(1))  T
+        ]
+        type: kotlin/collections/List<@R|Anno5|(s = String(1))  T>
+    ]
+    type: kotlin/collections/List<kotlin/collections/List<@R|Anno5|(s = String(1))  T>>?
+  symbolKind: TOP_LEVEL
+  typeParameters: [
+    KtTypeParameterSymbol(T)
+  ]
+  valueParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

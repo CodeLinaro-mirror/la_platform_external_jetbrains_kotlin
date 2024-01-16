@@ -2,6 +2,7 @@
  * Copyright 2010-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
+@file:OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
 
 package coroutines
 
@@ -222,4 +223,26 @@ suspend fun invoke1(block: suspend (Any?) -> Any?, argument: Any?): Any? = block
 fun getKSuspendCallableReference0(): KSuspendFunction0<String> = ::suspendCallableReference0Target
 fun getKSuspendCallableReference1(): KSuspendFunction1<String, String> = ::suspendCallableReference1Target
 
-fun gc() = kotlin.native.internal.GC.collect()
+@Throws(Throwable::class)
+fun startCoroutineUninterceptedOrReturn(fn: suspend () -> Any?, resultHolder: ResultHolder<Any?>) =
+        fn.startCoroutineUninterceptedOrReturn(ResultHolderCompletion(resultHolder))
+
+@Throws(Throwable::class)
+fun startCoroutineUninterceptedOrReturn(fn: suspend Any?.() -> Any?, receiver: Any?, resultHolder: ResultHolder<Any?>) =
+        fn.startCoroutineUninterceptedOrReturn(receiver, ResultHolderCompletion(resultHolder))
+
+@Throws(Throwable::class)
+@Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+fun startCoroutineUninterceptedOrReturn(fn: suspend Any?.(Any?) -> Any?, receiver: Any?, param: Any?, resultHolder: ResultHolder<Any?>) =
+        fn.startCoroutineUninterceptedOrReturn(receiver, param, ResultHolderCompletion(resultHolder))
+
+@Throws(Throwable::class)
+fun createCoroutineUninterceptedAndResume(fn: suspend () -> Any?, resultHolder: ResultHolder<Any?>) =
+        fn.createCoroutine(ResultHolderCompletion(resultHolder)).resume(Unit)
+
+@Throws(Throwable::class)
+fun createCoroutineUninterceptedAndResume(fn: suspend Any?.() -> Any?, receiver: Any?, resultHolder: ResultHolder<Any?>) =
+        fn.createCoroutine(receiver, ResultHolderCompletion(resultHolder)).resume(Unit)
+
+@OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+fun gc() = kotlin.native.runtime.GC.collect()

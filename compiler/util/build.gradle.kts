@@ -6,12 +6,18 @@ plugins {
 dependencies {
     api(kotlinStdlib())
     api(project(":compiler:compiler.version"))
+    api(project(":core:util.runtime"))
 
     compileOnly(intellijCore())
     compileOnly(commonDependency("org.jetbrains.intellij.deps:log4j"))
     compileOnly(commonDependency("org.jetbrains.intellij.deps:asm-all"))
     compileOnly(jpsModel()) { isTransitive = false }
     compileOnly(jpsModelImpl()) { isTransitive = false }
+
+    testImplementation(projectTests(":compiler:tests-common"))
+    testImplementation(intellijCore())
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit4)
 }
 
 sourceSets {
@@ -19,5 +25,13 @@ sourceSets {
         projectDefault()
         resources.srcDir(File(rootDir, "resources"))
     }
-    "test" {}
+    "test" {
+        projectDefault()
+    }
+}
+
+testsJar()
+
+projectTest(parallel = true) {
+    workingDir = rootDir
 }

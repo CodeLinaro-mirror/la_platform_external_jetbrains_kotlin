@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.resolve.calls.tower
 
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.contracts.EffectSystem
@@ -617,8 +618,8 @@ class PSICallResolver(
             }
             if (allValueArguments.isEmpty()) {
                 throw KotlinExceptionWithAttachments("Can not find an external argument for 'set' method")
-                    .withAttachment("callElement.kt", oldCall.callElement.text)
-                    .withAttachment("file.kt", oldCall.callElement.takeIf { it.isValid }?.containingFile?.text ?: "<no file>")
+                    .withPsiAttachment("callElement.kt", oldCall.callElement)
+                    .withPsiAttachment("file.kt", oldCall.callElement.takeIf { it.isValid }?.containingFile)
             }
             allValueArguments.last()
         } else {

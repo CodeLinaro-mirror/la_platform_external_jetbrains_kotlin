@@ -1,9 +1,4 @@
-import java.util.stream.Collectors
-import com.github.jengelman.gradle.plugins.shadow.transformers.Transformer
-import com.github.jengelman.gradle.plugins.shadow.transformers.TransformerContext
 import org.gradle.kotlin.dsl.support.serviceOf
-import shadow.org.apache.tools.zip.ZipEntry
-import shadow.org.apache.tools.zip.ZipOutputStream
 
 description = "Kotlin Compiler (embeddable)"
 
@@ -24,13 +19,10 @@ val testCompilerClasspath by configurations.creating {
 dependencies {
     runtimeOnly(kotlinStdlib())
     runtimeOnly(project(":kotlin-script-runtime"))
-    runtimeOnly(project(":kotlin-reflect"))
+    runtimeOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     runtimeOnly(project(":kotlin-daemon-embeddable"))
     runtimeOnly(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
-    Platform[203].orHigher {
-        runtimeOnly(commonDependency("net.java.dev.jna", "jna"))
-    }
-    testApi(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
     testApi(project(":kotlin-test:kotlin-test-junit"))
     testCompilationClasspath(kotlinStdlib())
 }

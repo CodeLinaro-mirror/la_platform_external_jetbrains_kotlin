@@ -1,8 +1,12 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/List.listIterator
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -14,13 +18,27 @@ KtFunctionSymbol:
   modality: ABSTRACT
   name: listIterator
   origin: LIBRARY
-  receiverType: null
-  returnType: kotlin/collections/ListIterator<E>
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/ListIterator<E>
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
   visibility: Public
-  getDispatchReceiver(): kotlin/collections/List<E>
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/List<E>
   getContainingModule: Could not render due to java.lang.NullPointerException: null cannot be cast to non-null type org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
 
   deprecationStatus: null
@@ -28,8 +46,12 @@ KtFunctionSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/List.listIterator
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -41,15 +63,51 @@ KtFunctionSymbol:
   modality: ABSTRACT
   name: listIterator
   origin: LIBRARY
-  receiverType: null
-  returnType: kotlin/collections/ListIterator<E>
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/ListIterator<E>
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(index)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: index
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: []
+        type: kotlin/Int
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingModule: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KtFe10DescValueParameterSymbol
+
+      deprecationStatus: null
   ]
   visibility: Public
-  getDispatchReceiver(): kotlin/collections/List<E>
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/List<E>
   getContainingModule: Could not render due to java.lang.NullPointerException: null cannot be cast to non-null type org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
 
   deprecationStatus: null

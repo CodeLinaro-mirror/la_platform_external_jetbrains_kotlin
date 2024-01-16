@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.integration;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties;
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime;
 
 import java.io.File;

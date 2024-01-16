@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.declarations.builder
 
@@ -12,16 +12,22 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
-import org.jetbrains.kotlin.fir.declarations.DeprecationsPerUseSite
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.declarations.DeprecationsProvider
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationAttributes
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.declarations.FirResolveState
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.declarations.ResolveStateAccess
+import org.jetbrains.kotlin.fir.declarations.UnresolvedDeprecationProvider
+import org.jetbrains.kotlin.fir.declarations.asResolveState
 import org.jetbrains.kotlin.fir.declarations.builder.FirDeclarationBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParametersOwnerBuilder
 import org.jetbrains.kotlin.fir.declarations.impl.FirTypeAliasImpl
+import org.jetbrains.kotlin.fir.declarations.resolvePhase
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -36,12 +42,12 @@ import org.jetbrains.kotlin.name.Name
 @FirBuilderDsl
 class FirTypeAliasBuilder : FirDeclarationBuilder, FirTypeParametersOwnerBuilder, FirAnnotationContainerBuilder {
     override var source: KtSourceElement? = null
-    override lateinit var moduleData: FirModuleData
     override var resolvePhase: FirResolvePhase = FirResolvePhase.RAW_FIR
+    override lateinit var moduleData: FirModuleData
     override lateinit var origin: FirDeclarationOrigin
     override var attributes: FirDeclarationAttributes = FirDeclarationAttributes()
     lateinit var status: FirDeclarationStatus
-    var deprecation: DeprecationsPerUseSite? = null
+    var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
     override val typeParameters: MutableList<FirTypeParameter> = mutableListOf()
     lateinit var name: Name
     lateinit var symbol: FirTypeAliasSymbol
@@ -51,17 +57,17 @@ class FirTypeAliasBuilder : FirDeclarationBuilder, FirTypeParametersOwnerBuilder
     override fun build(): FirTypeAlias {
         return FirTypeAliasImpl(
             source,
-            moduleData,
             resolvePhase,
+            moduleData,
             origin,
             attributes,
             status,
-            deprecation,
+            deprecationsProvider,
             typeParameters,
             name,
             symbol,
             expandedTypeRef,
-            annotations,
+            annotations.toMutableOrEmpty(),
         )
     }
 
@@ -82,12 +88,12 @@ inline fun buildTypeAliasCopy(original: FirTypeAlias, init: FirTypeAliasBuilder.
     }
     val copyBuilder = FirTypeAliasBuilder()
     copyBuilder.source = original.source
-    copyBuilder.moduleData = original.moduleData
     copyBuilder.resolvePhase = original.resolvePhase
+    copyBuilder.moduleData = original.moduleData
     copyBuilder.origin = original.origin
     copyBuilder.attributes = original.attributes.copy()
     copyBuilder.status = original.status
-    copyBuilder.deprecation = original.deprecation
+    copyBuilder.deprecationsProvider = original.deprecationsProvider
     copyBuilder.typeParameters.addAll(original.typeParameters)
     copyBuilder.name = original.name
     copyBuilder.symbol = original.symbol

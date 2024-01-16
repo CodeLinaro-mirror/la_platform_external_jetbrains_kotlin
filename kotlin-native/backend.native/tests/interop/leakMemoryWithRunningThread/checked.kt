@@ -1,4 +1,7 @@
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class, kotlin.native.runtime.NativeRuntimeApi::class)
+
 import leakMemory.*
+import kotlin.concurrent.AtomicInt
 import kotlin.native.concurrent.*
 import kotlin.native.Platform
 import kotlin.test.*
@@ -16,7 +19,7 @@ fun ensureInititalized() {
 
 fun main() {
     Platform.isMemoryLeakCheckerActive = true
-    kotlin.native.internal.Debugging.forceCheckedShutdown = true
+    kotlin.native.runtime.Debugging.forceCheckedShutdown = true
     assertTrue(global.value == 0)
     // Created a thread, made sure Kotlin is initialized there.
     test_RunInNewThread(staticCFunction(::ensureInititalized))

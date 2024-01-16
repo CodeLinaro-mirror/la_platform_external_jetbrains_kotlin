@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -53,6 +53,17 @@ public fun <K, V> emptyMap(): Map<K, V> = @Suppress("UNCHECKED_CAST") (EmptyMap 
  */
 public fun <K, V> mapOf(vararg pairs: Pair<K, V>): Map<K, V> =
     if (pairs.size > 0) pairs.toMap(LinkedHashMap(mapCapacity(pairs.size))) else emptyMap()
+
+/**
+ * Returns a new read-only map, mapping only the specified key to the
+ * specified value.
+ *
+ * The returned map is serializable (JVM).
+ *
+ * @sample samples.collections.Maps.Instantiation.mapFromPairs
+ */
+@SinceKotlin("1.9")
+public expect fun <K, V> mapOf(pair: Pair<K, V>): Map<K, V>
 
 /**
  * Returns an empty read-only map.
@@ -317,7 +328,8 @@ public inline operator fun <K, V> Map.Entry<K, V>.component2(): V = value
 public inline fun <K, V> Map.Entry<K, V>.toPair(): Pair<K, V> = Pair(key, value)
 
 /**
- * Returns the value for the given key, or the result of the [defaultValue] function if there was no entry for the given key.
+ * Returns the value for the given [key] if the value is present and not `null`.
+ * Otherwise, returns the result of the [defaultValue] function.
  *
  * @sample samples.collections.Maps.Usage.getOrElse
  */
@@ -348,8 +360,9 @@ internal inline fun <K, V> Map<K, V>.getOrElseNullable(key: K, defaultValue: () 
 public fun <K, V> Map<K, V>.getValue(key: K): V = getOrImplicitDefault(key)
 
 /**
- * Returns the value for the given key. If the key is not found in the map, calls the [defaultValue] function,
- * puts its result into the map under the given key and returns it.
+ * Returns the value for the given [key] if the value is present and not `null`.
+ * Otherwise, calls the [defaultValue] function,
+ * puts its result into the map under the given key and returns the call result.
  *
  * Note that the operation is not guaranteed to be atomic if the map is being modified concurrently.
  *

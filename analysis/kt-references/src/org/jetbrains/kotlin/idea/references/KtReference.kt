@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.idea.references
 
-import com.intellij.openapi.components.ServiceManager
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.*
 import com.intellij.psi.impl.source.resolve.ResolveCache
 import org.jetbrains.kotlin.asJava.unwrapped
@@ -31,7 +31,7 @@ abstract class AbstractKtReference<T : KtElement>(element: T) : PsiPolyVariantRe
     override fun multiResolve(incompleteCode: Boolean): Array<ResolveResult> =
         ResolveCache.getInstance(expression.project).resolveWithCaching(this, resolver, false, incompleteCode)
 
-    override fun getCanonicalText(): String = "<TBD>"
+    override fun getCanonicalText(): String = expression.text
 
     open fun canRename(): Boolean = false
     override fun handleElementRename(newElementName: String): PsiElement? =
@@ -44,7 +44,7 @@ abstract class AbstractKtReference<T : KtElement>(element: T) : PsiPolyVariantRe
         getKtReferenceMutateService().bindToElement(this, element)
 
     protected fun getKtReferenceMutateService(): KtReferenceMutateService =
-        ServiceManager.getService(KtReferenceMutateService::class.java)
+        ApplicationManager.getApplication().getService(KtReferenceMutateService::class.java)
             ?: throw IllegalStateException("Cannot handle element rename because KtReferenceMutateService is missing")
 
     @Suppress("UNCHECKED_CAST")
@@ -54,10 +54,8 @@ abstract class AbstractKtReference<T : KtElement>(element: T) : PsiPolyVariantRe
 
     override fun toString() = this::class.java.simpleName + ": " + expression.text
 
-    @Suppress("UNUSED_PARAMETER")
     protected open fun canBeReferenceTo(candidateTarget: PsiElement): Boolean = true
 
-    @Suppress("UNUSED_PARAMETER")
     protected open fun isReferenceToImportAlias(alias: KtImportAlias): Boolean = false
 
     override fun isReferenceTo(candidateTarget: PsiElement): Boolean {

@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the LICENSE file.
  */
 
 #if KONAN_OBJC_INTEROP
@@ -25,6 +14,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 #include "Memory.h"
 #include "MemorySharedRefs.hpp"
@@ -36,7 +26,6 @@
 #include "StackTrace.hpp"
 #include "Types.h"
 #include "Mutex.hpp"
-#include "std_support/String.hpp"
 
 using namespace kotlin;
 
@@ -50,12 +39,6 @@ const char* Kotlin_ObjCInterop_getUniquePrefix() {
 }
 
 extern "C" id objc_msgSendSuper2(struct objc_super *super, SEL op, ...);
-
-struct KotlinObjCClassData {
-  const TypeInfo* typeInfo;
-  Class objcClass;
-  int32_t bodyOffset;
-};
 
 // Acts only as container for the method, not actually applied to any class.
 @protocol HasKotlinObjCClassData
@@ -132,8 +115,18 @@ void releaseImp(id self, SEL _cmd) {
   getBackRef(self)->releaseRef();
 }
 
-void releaseAsAssociatedObjectImp(id self, SEL _cmd, ReleaseMode mode) {
+void releaseAsAssociatedObjectImp(id self, SEL _cmd) {
   auto* classData = GetKotlinClassData(self);
+  if (CurrentMemoryModel == MemoryModel::kExperimental) {
+    // No need for any special handling. Weak reference handling machinery
+    // has already cleaned up the reference to Kotlin object.
+    // [super release]
+    Class clazz = classData->objcClass;
+    struct objc_super s = {self, clazz};
+    auto messenger = reinterpret_cast<void (*) (struct objc_super*, SEL _cmd)>(objc_msgSendSuper2);
+    messenger(&s, @selector(release));
+    return;
+  }
 
   // This function is called by the GC. It made a decision to reclaim Kotlin object, and runs
   // deallocation hooks at the moment, including deallocation of the "associated object" ([self])
@@ -149,33 +142,39 @@ void releaseAsAssociatedObjectImp(id self, SEL _cmd, ReleaseMode mode) {
   // Generally retaining and releasing Kotlin object that is being deallocated would lead to
   // use-after-dispose and double-dispose problems (with unpredictable consequences) or to an assertion failure.
   // To workaround this, detach the back ref from the Kotlin object:
-  if (ReleaseModeHasDetach(mode)) {
-    backRef->detach();
-  } else {
-    // With Mark&Sweep this object should already have been detached earlier.
-    backRef->assertDetached();
-  }
+  backRef->detach();
 
   // So retain/release/etc. on [self] won't affect the Kotlin object, and an attempt to get
   // the reference to it (e.g. when calling Kotlin method on [self]) would crash.
   // The latter is generally ok, because by the time superclass dealloc gets launched, subclass state
   // should already be deinitialized, and Kotlin methods operate on the subclass.
-  if (ReleaseModeHasRelease(mode)) {
-    // [super release]
-    Class clazz = classData->objcClass;
-    struct objc_super s = {self, clazz};
-    auto messenger = reinterpret_cast<void (*) (struct objc_super*, SEL _cmd)>(objc_msgSendSuper2);
-    messenger(&s, @selector(release));
-  }
+  // [super release]
+  Class clazz = classData->objcClass;
+  struct objc_super s = {self, clazz};
+  auto messenger = reinterpret_cast<void (*) (struct objc_super*, SEL _cmd)>(objc_msgSendSuper2);
+  messenger(&s, @selector(release));
+}
+
+void deallocImp(id self, SEL _cmd) {
+  getBackRef(self)->dealloc();
+
+  // [super dealloc]
+  auto* classData = GetKotlinClassData(self);
+  Class clazz = classData->objcClass;
+  struct objc_super s = {self, clazz};
+  auto messenger = reinterpret_cast<void (*) (struct objc_super*, SEL _cmd)>(objc_msgSendSuper2);
+  messenger(&s, @selector(dealloc));
 }
 
 }
 
 extern "C" {
 
-Class Kotlin_Interop_getObjCClass(const char* name);
-
-const TypeInfo* GetObjCKotlinTypeInfo(ObjHeader* obj) RUNTIME_NOTHROW;
+Class Kotlin_Interop_getObjCClass(const char* name) {
+    Class result = objc_lookUpClass(name);
+    RuntimeCheck(result != nil, "Objective-C class '%s' not found. Ensure that the containing framework or library was linked.", name);
+    return result;
+}
 
 RUNTIME_NOTHROW const TypeInfo* GetObjCKotlinTypeInfo(ObjHeader* obj) {
     void* objcPtr = obj->GetAssociatedObject();
@@ -219,35 +218,6 @@ static void AddKotlinClassData(bool isClassMethod, Class clazz, void* imp) {
   RuntimeCheck(added, "Unable to add method to Objective-C class");
 }
 
-struct ObjCMethodDescription {
-  void* (*imp)(void*, void*, ...);
-  const char* selector;
-  const char* encoding;
-};
-
-struct KotlinObjCClassInfo {
-  const char* name;
-  int exported;
-
-  const char* superclassName;
-  const char** protocolNames;
-
-  const struct ObjCMethodDescription* instanceMethods;
-  int32_t instanceMethodsNum;
-
-  const struct ObjCMethodDescription* classMethods;
-  int32_t classMethodsNum;
-
-  int32_t* bodyOffset;
-
-  const TypeInfo* typeInfo;
-  const TypeInfo* metaTypeInfo;
-
-  void** createdClass;
-
-  KotlinObjCClassData* (*classDataImp)(void*, void*);
-};
-
 static void AddMethods(Class clazz, const struct ObjCMethodDescription* methods, int32_t methodsNum) {
   for (int32_t i = 0; i < methodsNum; ++i) {
     const struct ObjCMethodDescription* method = &methods[i];
@@ -270,7 +240,7 @@ NO_EXTERNAL_CALLS_CHECK static Class allocateClass(const KotlinObjCClassInfo* in
     fprintf(stderr, "Class %s has multiple implementations. Which one will be used is undefined.\n", info->name);
   }
 
-  std_support::string className = Kotlin_ObjCInterop_getUniquePrefix();
+  std::string className = Kotlin_ObjCInterop_getUniquePrefix();
 
   if (info->name != nullptr) {
     className += info->name;
@@ -293,6 +263,8 @@ void* CreateKotlinObjCClass(const KotlinObjCClassInfo* info) {
   if (createdClass != nullptr) {
     return createdClass;
   }
+
+  kotlin::NativeOrUnregisteredThreadGuard threadStateGuard(/* reentrant = */ true);
 
   Class newClass = allocateClass(info);
 
@@ -319,6 +291,9 @@ void* CreateKotlinObjCClass(const KotlinObjCClassInfo* info) {
   AddNSObjectOverride(false, newClass, @selector(release), (void*)&releaseImp);
   AddNSObjectOverride(false, newClass, Kotlin_ObjCExport_releaseAsAssociatedObjectSelector,
       (void*)&releaseAsAssociatedObjectImp);
+  if (CurrentMemoryModel == MemoryModel::kExperimental) {
+    AddNSObjectOverride(false, newClass, @selector(dealloc), (void*)&deallocImp);
+  }
 
   AddMethods(newClass, info->instanceMethods, info->instanceMethodsNum);
   AddMethods(newMetaclass, info->classMethods, info->classMethodsNum);
@@ -364,7 +339,7 @@ konan::AutoreleasePool::AutoreleasePool()
   : handle(objc_autoreleasePoolPush()) {}
 
 konan::AutoreleasePool::~AutoreleasePool() {
-  kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative);
+  kotlin::ThreadStateGuard guard(kotlin::ThreadState::kNative, true);
   objc_autoreleasePoolPop(handle);
 }
 
@@ -391,8 +366,17 @@ void Kotlin_objc_release(id ptr) {
   objc_release(ptr);
 }
 
-Class Kotlin_objc_lookUpClass(const char* name) {
-  return objc_lookUpClass(name);
+void Kotlin_objc_detachObjCObject(KRef ref) {
+  id associatedObject = GetAssociatedObject(ref);
+  while (true) {
+    if (associatedObject == nullptr) break;
+    id actualAssociatedObject = AtomicCompareAndSwapAssociatedObject(ref, associatedObject, nullptr);
+    if (actualAssociatedObject == associatedObject) {
+      Kotlin_ObjCExport_releaseAssociatedObject(associatedObject);
+      break;
+    }
+    associatedObject = actualAssociatedObject;
+  }
 }
 
 } // extern "C"
@@ -426,9 +410,8 @@ void Kotlin_objc_release(void* ptr) {
   RuntimeAssert(false, "Objective-C interop is disabled");
 }
 
-void* Kotlin_objc_lookUpClass(const char* name) {
+void Kotlin_objc_detachObjCObject(void* ref) {
   RuntimeAssert(false, "Objective-C interop is disabled");
-  return nullptr;
 }
 
 } // extern "C"

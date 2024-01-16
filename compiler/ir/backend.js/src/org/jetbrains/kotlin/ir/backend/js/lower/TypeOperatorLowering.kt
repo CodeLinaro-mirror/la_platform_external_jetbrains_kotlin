@@ -44,15 +44,16 @@ class TypeOperatorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
     private val throwNPE = context.ir.symbols.throwNullPointerException
 
     private val eqeq = context.irBuiltIns.eqeqSymbol
+    private val booleanNot = context.irBuiltIns.booleanNotSymbol
 
     private val isInterfaceSymbol get() = context.intrinsics.isInterfaceSymbol
     private val isArraySymbol get() = context.intrinsics.isArraySymbol
     private val isSuspendFunctionSymbol = context.intrinsics.isSuspendFunctionSymbol
 
     //    private val isCharSymbol get() = context.intrinsics.isCharSymbol
-    private val isObjectSymbol get() = context.intrinsics.isObjectSymbol
 
     private val instanceOfIntrinsicSymbol = context.intrinsics.jsInstanceOf
+    private val isExternalObjectSymbol = context.intrinsics.isExternalObject
     private val typeOfIntrinsicSymbol = context.intrinsics.jsTypeOf
     private val jsClassIntrinsicSymbol = context.intrinsics.jsClass
 
@@ -254,7 +255,7 @@ class TypeOperatorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
                     toType is IrDynamicType -> argument
                     toType.isAny() -> generateIsObjectCheck(argument)
                     toType.isNothing() -> JsIrBuilder.buildComposite(context.irBuiltIns.booleanType, listOf(argument, litFalse))
-                    toType.isSuspendFunctionTypeOrSubtype() -> generateSuspendFunctionCheck(argument, toType)
+                    toType.isSuspendFunction() -> generateSuspendFunctionCheck(argument, toType)
                     isTypeOfCheckingType(toType) -> generateTypeOfCheck(argument, toType)
 //                    toType.isChar() -> generateCheckForChar(argument)
                     toType.isNumber() -> generateNumberCheck(argument)
@@ -270,12 +271,13 @@ class TypeOperatorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
                             generateInterfaceCheck(argument, toType)
                         }
                     }
+                    toType.isExternalObject() -> generateIsExternalObject(argument, toType)
                     else -> generateNativeInstanceOf(argument, toType)
                 }
             }
 
-            private fun generateIsObjectCheck(argument: IrExpression) = JsIrBuilder.buildCall(isObjectSymbol).apply {
-                putValueArgument(0, argument)
+            private fun generateIsObjectCheck(argument: IrExpression) = JsIrBuilder.buildCall(booleanNot).apply {
+                dispatchReceiver = nullCheck(argument)
             }
 
             private fun generateTypeCheckWithTypeParameter(argument: IrExpression, toType: IrType): IrExpression {
@@ -355,6 +357,14 @@ class TypeOperatorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
             private fun generateInterfaceCheck(argument: IrExpression, toType: IrType): IrExpression {
                 val irType = wrapTypeReference(toType)
                 return JsIrBuilder.buildCall(isInterfaceSymbol).apply {
+                    putValueArgument(0, argument)
+                    putValueArgument(1, irType)
+                }
+            }
+
+            private fun generateIsExternalObject(argument: IrExpression, toType: IrType): IrExpression {
+                val irType = wrapTypeReference(toType)
+                return JsIrBuilder.buildCall(isExternalObjectSymbol).apply {
                     putValueArgument(0, argument)
                     putValueArgument(1, irType)
                 }

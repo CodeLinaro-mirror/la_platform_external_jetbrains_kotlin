@@ -1,13 +1,57 @@
 KtKotlinPropertySymbol:
   annotationsList: []
+  backingFieldSymbol: KtBackingFieldSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    isExtension: false
+    name: field
+    origin: PROPERTY_BACKING_FIELD
+    owningProperty: KtKotlinPropertySymbol(/Foo.p)
+    receiverParameter: null
+    returnType: KtDynamicType:
+      annotationsList: []
+      type: dynamic
+    symbolKind: LOCAL
+    typeParameters: []
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
   callableIdIfNonLocal: /Foo.p
-  getter: KtPropertyGetterSymbol(<getter>)
+  contextReceivers: []
+  getter: KtPropertyGetterSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    hasBody: false
+    hasStableParameterNames: true
+    isDefault: true
+    isExtension: false
+    isInline: false
+    isOverride: false
+    modality: FINAL
+    origin: SOURCE
+    receiverParameter: null
+    returnType: KtDynamicType:
+      annotationsList: []
+      type: dynamic
+    symbolKind: ACCESSOR
+    typeParameters: []
+    valueParameters: []
+    visibility: Public
+    getDispatchReceiver(): KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: Foo
+    getContainingModule: KtSourceModule "Sources of main"
+    deprecationStatus: null
   hasBackingField: true
   hasGetter: true
   hasSetter: false
   initializer: KtConstantInitializerValue(null)
+  isActual: false
   isConst: false
   isDelegatedProperty: false
+  isExpect: false
   isExtension: false
   isFromPrimaryConstructor: false
   isLateInit: false
@@ -17,13 +61,18 @@ KtKotlinPropertySymbol:
   modality: FINAL
   name: p
   origin: SOURCE
-  receiverType: null
-  returnType: dynamic
+  receiverParameter: null
+  returnType: KtDynamicType:
+    annotationsList: []
+    type: dynamic
   setter: null
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
-  getDispatchReceiver(): Foo
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: Foo
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
   getterDeprecationStatus: null
@@ -31,31 +80,17 @@ KtKotlinPropertySymbol:
   javaSetterName: null
   setterDeprecationStatus: null
 
-KtValueParameterSymbol:
-  annotationsList: []
-  callableIdIfNonLocal: null
-  generatedPrimaryConstructorProperty: null
-  hasDefaultValue: false
-  isExtension: false
-  isImplicitLambdaParameter: false
-  isVararg: false
-  name: p
-  origin: SOURCE
-  receiverType: null
-  returnType: dynamic
-  symbolKind: LOCAL
-  typeParameters: []
-  getContainingModule: KtSourceModule "Sources of main"
-  deprecationStatus: null
-
 KtAnonymousFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  contextReceivers: []
   hasStableParameterNames: true
   isExtension: false
   origin: SOURCE
-  receiverType: null
-  returnType: dynamic
+  receiverParameter: null
+  returnType: KtDynamicType:
+    annotationsList: []
+    type: dynamic
   symbolKind: LOCAL
   typeParameters: []
   valueParameters: []
@@ -65,8 +100,12 @@ KtAnonymousFunctionSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /Foo.f
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -78,15 +117,40 @@ KtFunctionSymbol:
   modality: FINAL
   name: f
   origin: SOURCE
-  receiverType: null
-  returnType: dynamic
+  receiverParameter: null
+  returnType: KtDynamicType:
+    annotationsList: []
+    type: dynamic
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(p)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: p
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtDynamicType:
+        annotationsList: []
+        type: dynamic
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingModule: KtSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: Public
-  getDispatchReceiver(): Foo
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: Foo
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -95,7 +159,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: Foo
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -104,10 +171,14 @@ KtNamedClassOrObjectSymbol:
   name: Foo
   origin: SOURCE
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: null
   deprecationStatus: null

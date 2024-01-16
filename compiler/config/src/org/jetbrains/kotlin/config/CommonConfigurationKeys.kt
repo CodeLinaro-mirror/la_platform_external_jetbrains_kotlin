@@ -16,10 +16,8 @@
 
 package org.jetbrains.kotlin.config
 
-import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
-import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.InlineConstTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.constant.EvaluatedConstTracker
+import org.jetbrains.kotlin.incremental.components.*
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 
 object CommonConfigurationKeys {
@@ -48,13 +46,22 @@ object CommonConfigurationKeys {
     val ENUM_WHEN_TRACKER = CompilerConfigurationKey.create<EnumWhenTracker>("enum when tracker")
 
     @JvmField
+    val IMPORT_TRACKER = CompilerConfigurationKey.create<ImportTracker>("import tracker")
+
+    @JvmField
     val METADATA_VERSION = CompilerConfigurationKey.create<BinaryVersion>("metadata version")
 
     @JvmField
     val USE_FIR = CompilerConfigurationKey.create<Boolean>("front-end IR")
 
     @JvmField
-    val EXPECT_ACTUAL_LINKER = CompilerConfigurationKey.create<Boolean>("Experimental expext/actual linker")
+    val USE_LIGHT_TREE = CompilerConfigurationKey.create<Boolean>("light tree")
+
+    @JvmField
+    val HMPP_MODULE_STRUCTURE = CompilerConfigurationKey.create<HmppCliModuleStructure>("HMPP module structure")
+
+    @JvmField
+    val METADATA_KLIB = CompilerConfigurationKey.create<Boolean>("Produce metadata klib")
 
     @JvmField
     val USE_FIR_EXTENDED_CHECKERS = CompilerConfigurationKey.create<Boolean>("fir extended checkers")
@@ -82,6 +89,17 @@ object CommonConfigurationKeys {
     @JvmField
     val ALLOW_ANY_SCRIPTS_IN_SOURCE_ROOTS =
         CompilerConfigurationKey.create<Boolean>("Allow to compile any scripts along with regular Kotlin sources")
+
+    @JvmField
+    val IGNORE_CONST_OPTIMIZATION_ERRORS = CompilerConfigurationKey.create<Boolean>("Ignore errors from IrConstTransformer")
+
+    @JvmField
+    val EVALUATED_CONST_TRACKER =
+        CompilerConfigurationKey.create<EvaluatedConstTracker>("Keeps track of all evaluated by IrInterpreter constants")
+
+    @JvmField
+    val USE_IR_FAKE_OVERRIDE_BUILDER =
+        CompilerConfigurationKey.create<Boolean>("Generate fake overrides via IR. See KT-61514")
 }
 
 var CompilerConfiguration.languageVersionSettings: LanguageVersionSettings

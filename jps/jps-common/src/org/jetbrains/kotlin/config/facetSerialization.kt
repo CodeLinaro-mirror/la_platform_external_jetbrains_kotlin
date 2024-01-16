@@ -18,10 +18,9 @@ import org.jetbrains.kotlin.arguments.CompilerArgumentsSerializerV5
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.platform.*
-import org.jetbrains.kotlin.platform.impl.FakeK2NativeCompilerArguments
 import org.jetbrains.kotlin.platform.impl.JvmIdePlatformKind
-import org.jetbrains.kotlin.platform.js.isJs
 import org.jetbrains.kotlin.platform.jvm.JdkPlatform
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.*
 import java.lang.reflect.Modifier
@@ -43,7 +42,8 @@ fun TargetPlatform.createArguments(init: (CommonCompilerArguments).() -> Unit = 
             jvmTarget = (single() as? JdkPlatform)?.targetVersion?.description ?: JvmTarget.DEFAULT.description
         }
         isJs() -> K2JSCompilerArguments().apply { init() }
-        isNative() -> FakeK2NativeCompilerArguments().apply { init() }
+        isWasm() -> K2JSCompilerArguments().apply { init() }
+        isNative() -> K2NativeCompilerArguments().apply { init() }
         else -> error("Unknown platform $this")
     }
 }
@@ -113,7 +113,7 @@ fun Element.getFacetPlatformByConfigurationElement(): TargetPlatform {
     getAttributeValue("allPlatforms").deserializeTargetPlatformByComponentPlatforms()?.let { return it }
 
     // failed to read list of all platforms. Fallback to legacy algorithm
-    val platformName = getAttributeValue("platform") ?: return DefaultIdeTargetPlatformKindProvider.defaultPlatform
+    val platformName = getAttributeValue("platform") ?: return JvmPlatforms.defaultJvmPlatform
 
     return CommonPlatforms.allSimplePlatforms.firstOrNull {
         // first, look for exact match through all simple platforms
@@ -124,7 +124,7 @@ fun Element.getFacetPlatformByConfigurationElement(): TargetPlatform {
     } ?: NativePlatforms.unspecifiedNativePlatform.takeIf {
         // if none of the above succeeded, check if it's an old-style record about native platform (without suffix with target name)
         it.oldFashionedDescription.startsWith(platformName)
-    }.orDefault() // finally, fallback to the default platform
+    } ?: JvmPlatforms.defaultJvmPlatform // finally, fallback to the default platform
 }
 
 private fun readV2AndLaterConfig(
@@ -137,6 +137,7 @@ private fun readV2AndLaterConfig(
         this.targetPlatform = targetPlatform
         readElementsList(element, "implements", "implement")?.let { implementedModuleNames = it }
         readElementsList(element, "dependsOnModuleNames", "dependsOn")?.let { dependsOnModuleNames = it }
+        readElementsList(element, "additionalVisibleModuleNames", "friend")?.let { additionalVisibleModuleNames = it.toSet() }
         element.getChild("externalSystemTestTasks")?.let {
             val testRunTasks = it.getChildren("externalSystemTestTask")
                 .mapNotNull { (it.content.firstOrNull() as? Text)?.textTrim }
@@ -218,7 +219,10 @@ fun deserializeFacetSettings(element: Element): KotlinFacetSettings {
         2, 3, 4 -> readV2Config(element)
         KotlinFacetSettings.CURRENT_VERSION -> readLatestConfig(element)
         else -> return KotlinFacetSettings() // Reset facet configuration if versions don't match
-    }.apply { this.version = version }
+    }.apply {
+        this.version = version
+        updateMergedArguments()
+    }
 }
 
 fun CommonCompilerArguments.convertPathsToSystemIndependent() {
@@ -308,6 +312,7 @@ private fun KotlinFacetSettings.writeConfig(element: Element) {
     }
     saveElementsList(element, implementedModuleNames, "implements", "implement")
     saveElementsList(element, dependsOnModuleNames, "dependsOnModuleNames", "dependsOn")
+    saveElementsList(element, additionalVisibleModuleNames.toList(), "additionalVisibleModuleNames", "friend")
 
     if (sourceSetNames.isNotEmpty()) {
         element.addContent(
@@ -330,7 +335,7 @@ private fun KotlinFacetSettings.writeConfig(element: Element) {
         element.addContent(
             Element("externalSystemTestTasks").apply {
                 externalSystemRunTasks.forEach { task ->
-                    when(task) {
+                    when (task) {
                         is ExternalSystemTestRunTask -> {
                             addContent(
                                 Element("externalSystemTestTask").apply { addContent(task.toStringRepresentation()) }
@@ -359,14 +364,14 @@ private fun KotlinFacetSettings.writeConfig(element: Element) {
             element.addContent(Element("testOutputPath").apply { addContent(FileUtilRt.toSystemIndependentName(it)) })
         }
     }
-    compilerSettings?.let { copyBean(it) }?.let {
+    compilerSettings?.copyOf()?.let {
         it.convertPathsToSystemIndependent()
         buildChildElement(element, "compilerSettings", it, filter)
     }
 }
 
 private fun KotlinFacetSettings.writeV2toV4Config(element: Element) = writeConfig(element).apply {
-    compilerArguments?.let { copyBean(it) }?.let {
+    compilerArguments?.copyOf()?.let {
         it.convertPathsToSystemIndependent()
         val compilerArgumentsXml = buildChildElement(element, "compilerArguments", it, SkipDefaultsSerializationFilter())
         compilerArgumentsXml.dropVersionsIfNecessary(it)
@@ -374,7 +379,7 @@ private fun KotlinFacetSettings.writeV2toV4Config(element: Element) = writeConfi
 }
 
 private fun KotlinFacetSettings.writeLatestConfig(element: Element) = writeConfig(element).apply {
-    compilerArguments?.let { copyBean(it) }?.let {
+    compilerArguments?.copyOf()?.let {
         it.convertPathsToSystemIndependent()
         val compilerArgumentsXml = CompilerArgumentsSerializerV5(it).serializeTo(element)
         compilerArgumentsXml.dropVersionsIfNecessary(it)
@@ -424,7 +429,7 @@ fun KotlinFacetSettings.serializeFacetSettings(element: Element) = when (version
 }
 
 
-private fun TargetPlatform.serializeComponentPlatforms(): String {
+fun TargetPlatform.serializeComponentPlatforms(): String {
     val componentPlatforms = componentPlatforms
     val componentPlatformNames = componentPlatforms.mapTo(ArrayList()) { it.serializeToString() }
 
@@ -435,7 +440,7 @@ private fun TargetPlatform.serializeComponentPlatforms(): String {
     return componentPlatformNames.sorted().joinToString("/")
 }
 
-private fun String?.deserializeTargetPlatformByComponentPlatforms(): TargetPlatform? {
+fun String?.deserializeTargetPlatformByComponentPlatforms(): TargetPlatform? {
     val componentPlatformNames = this?.split('/')?.toSet()?.takeIf { it.isNotEmpty() } ?: return null
 
     val knownComponentPlatforms = HashMap<String, SimplePlatform>() // "serialization presentation" to "simple platform name"

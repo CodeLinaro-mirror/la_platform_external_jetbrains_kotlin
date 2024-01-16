@@ -6,38 +6,37 @@
 package org.jetbrains.kotlin.ir.backend.js.ic
 
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsIrModule
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsIrProgramFragment
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsIrProgramFragments
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.safeModuleName
-import org.jetbrains.kotlin.ir.backend.js.utils.serialization.JsIrAstDeserializer
-import java.io.ByteArrayInputStream
+import org.jetbrains.kotlin.ir.backend.js.utils.serialization.deserializeJsIrProgramFragment
 import java.io.File
 
-class SrcFileArtifact(val srcFilePath: String, private val fragment: JsIrProgramFragment?, private val astArtifact: File? = null) {
-    fun loadJsIrFragment(deserializer: JsIrAstDeserializer): JsIrProgramFragment? {
-        if (fragment != null) {
-            return fragment
+class SrcFileArtifact(val srcFilePath: String, private val fragments: JsIrProgramFragments?, private val astArtifact: File? = null) {
+    fun loadJsIrFragments(): JsIrProgramFragments? {
+        if (fragments != null) {
+            return fragments
         }
-        return astArtifact?.ifExists { readBytes() }?.let {
-            ByteArrayInputStream(it).use { byteStream ->
-                deserializer.deserialize(byteStream)
-            }
-        }
+        return astArtifact?.ifExists { readBytes() }?.let { deserializeJsIrProgramFragment(it) }
     }
 
-    fun isModified() = fragment != null
+    fun isModified() = fragments != null
 }
 
 class ModuleArtifact(
     moduleName: String,
     val fileArtifacts: List<SrcFileArtifact>,
     val artifactsDir: File? = null,
-    val forceRebuildJs: Boolean = false
+    val forceRebuildJs: Boolean = false,
+    externalModuleName: String? = null
 ) {
     val moduleSafeName = moduleName.safeModuleName
+    val moduleExternalName = externalModuleName ?: moduleSafeName
 
     fun loadJsIrModule(): JsIrModule {
-        val deserializer = JsIrAstDeserializer()
-        val fragments = fileArtifacts.sortedBy { it.srcFilePath }.mapNotNull { it.loadJsIrFragment(deserializer) }
-        return JsIrModule(moduleSafeName, moduleSafeName, fragments)
+        val fragments = fileArtifacts.sortedBy { it.srcFilePath }.flatMap {
+            val fragments = it.loadJsIrFragments()
+            listOfNotNull(fragments?.mainFragment, fragments?.exportFragment)
+        }
+        return JsIrModule(moduleSafeName, moduleExternalName, fragments)
     }
 }

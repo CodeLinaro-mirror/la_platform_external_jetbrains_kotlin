@@ -14,14 +14,9 @@ import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.error.ErrorTypeKind
 import org.jetbrains.kotlin.types.error.ErrorUtils
-import org.jetbrains.kotlin.types.model.TypeConstructorMarker
-import org.jetbrains.kotlin.types.model.TypeVariableMarker
-import org.jetbrains.kotlin.types.model.TypeVariableTypeConstructorMarker
-import org.jetbrains.kotlin.types.model.safeSubstitute
+import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.asTypeProjection
 import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.utils.addToStdlib.cast
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 class KotlinConstraintSystemCompleter(
     private val resultTypeResolver: ResultTypeResolver,
@@ -212,7 +207,7 @@ class KotlinConstraintSystemCompleter(
         diagnosticsHolder: KotlinDiagnosticsHolder,
         analyze: (PostponedResolvedAtom) -> Unit
     ): Boolean {
-        if (completionMode == ConstraintSystemCompletionMode.PARTIAL) return false
+        if (completionMode != ConstraintSystemCompletionMode.FULL) return false
 
         val useBuilderInferenceOnlyIfNeeded = languageVersionSettings.supportsFeature(LanguageFeature.UseBuilderInferenceOnlyIfNeeded)
 
@@ -291,8 +286,8 @@ class KotlinConstraintSystemCompleter(
         argument: PostponedAtomWithRevisableExpectedType,
         diagnosticsHolder: KotlinDiagnosticsHolder
     ): Boolean = with(c) {
-        val revisedExpectedType: UnwrappedType =
-            argument.revisedExpectedType?.takeIf { it.isFunctionOrKFunctionWithAnySuspendability() }?.cast() ?: return false
+        val revisedExpectedType: UnwrappedType = argument.revisedExpectedType
+            ?.takeIf { it.isFunctionOrKFunctionWithAnySuspendability() } as UnwrappedType? ?: return false
 
         when (argument) {
             is PostponedCallableReferenceAtom ->
@@ -455,14 +450,23 @@ class KotlinConstraintSystemCompleter(
 
     private fun reportWarningIfFixedIntoDeclaredUpperBounds(
         diagnosticsHolder: KotlinDiagnosticsHolder,
-        variableWithConstraints: VariableWithConstraints
+        variableWithConstraints: VariableWithConstraints,
+        resultType: KotlinTypeMarker
     ) {
-        val areAllConstraintFromDeclaredUpperBounds = variableWithConstraints.constraints.all {
-            val position = it.position.from
-            position is BuilderInferenceSubstitutionConstraintPosition<*, *> && position.isFromNotSubstitutedDeclaredUpperBound
+        var upperBoundType: KotlinTypeMarker? = null
+        val constraintFromDeclaredUpperBoundExists = variableWithConstraints.constraints.any { constraint ->
+            val position = constraint.position.from.let { basicPosition ->
+                if (basicPosition is IncorporationConstraintPosition) basicPosition.from else basicPosition
+            }
+            if (position is BuilderInferenceSubstitutionConstraintPosition<*> && position.isFromNotSubstitutedDeclaredUpperBound) {
+                upperBoundType = constraint.type
+                true
+            } else {
+                false
+            }
         }
 
-        if (areAllConstraintFromDeclaredUpperBounds) {
+        if (constraintFromDeclaredUpperBoundExists && upperBoundType == resultType) {
             diagnosticsHolder.addDiagnostic(
                 KotlinConstraintSystemDiagnostic(InferredIntoDeclaredUpperBounds(variableWithConstraints.typeVariable))
             )
@@ -480,7 +484,7 @@ class KotlinConstraintSystemCompleter(
         val variable = variableWithConstraints.typeVariable
         val resolvedAtom = findResolvedAtomBy(variable, topLevelAtoms) ?: topLevelAtoms.firstOrNull()
 
-        reportWarningIfFixedIntoDeclaredUpperBounds(diagnosticsHolder, variableWithConstraints)
+        reportWarningIfFixedIntoDeclaredUpperBounds(diagnosticsHolder, variableWithConstraints, resultType)
 
         c.fixVariable(variable, resultType, FixVariableConstraintPositionImpl(variable, resolvedAtom))
     }
@@ -488,7 +492,7 @@ class KotlinConstraintSystemCompleter(
     companion object {
         fun getOrderedNotAnalyzedPostponedArguments(topLevelAtoms: List<ResolvedAtom>): List<PostponedResolvedAtom> {
             fun ResolvedAtom.process(to: MutableList<PostponedResolvedAtom>) {
-                to.addIfNotNull(this.safeAs<PostponedResolvedAtom>()?.takeUnless { it.analyzed })
+                to.addIfNotNull((this as? PostponedResolvedAtom)?.takeUnless { it.analyzed })
 
                 if (analyzed) {
                     subResolvedAtoms?.forEach { it.process(to) }

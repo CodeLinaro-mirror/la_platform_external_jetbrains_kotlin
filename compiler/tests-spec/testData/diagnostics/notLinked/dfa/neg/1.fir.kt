@@ -1,7 +1,15 @@
-// !LANGUAGE: +NewInference
-// !DIAGNOSTICS: -UNUSED_EXPRESSION -UNUSED_VARIABLE
+// !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
 // WITH_EXTENDED_CHECKERS
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (NEGATIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 1
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, functions, typealiases, properties, enumClasses, interfaces, sealedClasses
+ */
 
 // TESTCASE NUMBER: 1
 fun case_1(x: Any?) {
@@ -21,7 +29,7 @@ fun case_1(x: Any?) {
 
 // TESTCASE NUMBER: 3
 fun case_3() {
-    if (<!SENSELESS_COMPARISON!>Object.prop_1 == null !== null<!>)
+    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>Object.prop_1 == null !== null<!>)
     else {
         Object.prop_1
         Object.prop_1<!UNSAFE_CALL!>.<!>equals(null)
@@ -56,7 +64,7 @@ fun case_4(x: Char?) {
 fun case_5() {
     val x: Unit? = null
 
-    if (<!EQUALITY_NOT_APPLICABLE!>x !== <!USELESS_IS_CHECK!>null is Boolean?<!><!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Unit?")!>x<!>
+    if (<!FORBIDDEN_IDENTITY_EQUALS!>x !== <!USELESS_IS_CHECK!>null is Boolean?<!><!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Unit?")!>x<!>
     if (<!SENSELESS_COMPARISON!>x !== null == null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Unit?")!>x<!><!UNSAFE_CALL!>.<!>equals(null)
     if (<!SENSELESS_COMPARISON!>x !== null == null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Unit?")!>x<!>.propT
     if (<!SENSELESS_COMPARISON!>x !== null == null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Unit?")!>x<!><!UNSAFE_CALL!>.<!>propAny
@@ -88,7 +96,7 @@ fun case_6(x: EmptyClass?) {
 
 // TESTCASE NUMBER: 7
 fun case_7() {
-    if (nullableNumberProperty != null || <!SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number? & kotlin.Nothing?")!>nullableNumberProperty<!> != null is Boolean<!>) {
+    if (nullableNumberProperty != null || <!EQUALITY_NOT_APPLICABLE, SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number? & kotlin.Nothing?")!>nullableNumberProperty<!> != null is Boolean<!>) {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number?")!>nullableNumberProperty<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number?")!>nullableNumberProperty<!><!UNSAFE_CALL!>.<!>equals(null)
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number?")!>nullableNumberProperty<!>.propT
@@ -104,13 +112,13 @@ fun case_7() {
 
 // TESTCASE NUMBER: 8
 fun case_8(x: TypealiasNullableString) {
-    if (<!SENSELESS_COMPARISON!>x !== null === null<!> && <!SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!> != null != null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!><!UNSAFE_CALL!>.<!>get(0)
-    if (<!SENSELESS_COMPARISON!>x !== null != null<!> && <!SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!> != null === null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!><!UNSAFE_CALL!>.<!>get(0)
+    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>x !== null === null<!> && <!SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!> != null != null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!><!UNSAFE_CALL!>.<!>get(0)
+    if (<!SENSELESS_COMPARISON!>x !== null != null<!> && <!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!><!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!> != null === null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString")!>x<!><!UNSAFE_CALL!>.<!>get(0)
 }
 
 // TESTCASE NUMBER: 9
 fun case_9(x: TypealiasNullableString<!REDUNDANT_NULLABLE!>?<!>) {
-    if (<!SENSELESS_COMPARISON!>x === null === null<!>) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>x === null === null<!>) {
 
     } else if (<!USELESS_IS_CHECK!>false is Boolean<!>) {
         <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableString?")!>x<!>
@@ -122,8 +130,8 @@ fun case_9(x: TypealiasNullableString<!REDUNDANT_NULLABLE!>?<!>) {
 fun case_10() {
     val a = Class()
 
-    if (a.prop_4 === null || <!USELESS_IS_CHECK!>true is Boolean<!>) {
-        if (<!SENSELESS_COMPARISON!>a.prop_4 != null !== null<!>) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING!>a.prop_4 === null<!> || <!USELESS_IS_CHECK!>true is Boolean<!>) {
+        if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>a.prop_4 != null !== null<!>) {
             a.prop_4
             a.prop_4<!UNSAFE_CALL!>.<!>equals(null)
             a.prop_4.propT
@@ -166,8 +174,8 @@ fun case_11(x: TypealiasNullableStringIndirect<!REDUNDANT_NULLABLE!>?<!>, y: Typ
 
 // TESTCASE NUMBER: 12
 fun case_12(x: TypealiasNullableStringIndirect, y: TypealiasNullableStringIndirect) =
-    if (<!USELESS_IS_CHECK!>(x == null) !is Boolean<!> === false) "1"
-    else if (<!USELESS_IS_CHECK!>(<!SENSELESS_COMPARISON!>y === null !== null<!>) is Boolean<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableStringIndirect")!>x<!>
+    if (<!DEPRECATED_IDENTITY_EQUALS!><!USELESS_IS_CHECK!>(x == null) !is Boolean<!> === false<!>) "1"
+    else if (<!USELESS_IS_CHECK!>(<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>y === null !== null<!>) is Boolean<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableStringIndirect")!>x<!>
     else if (<!SENSELESS_COMPARISON!>y === null != null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableStringIndirect")!>x<!>.equals(null)
     else if (<!SENSELESS_COMPARISON!>y === null != null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableStringIndirect")!>x<!>.propT
     else if (<!SENSELESS_COMPARISON!>y === null != null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableStringIndirect")!>x<!><!UNSAFE_CALL!>.<!>propAny
@@ -180,8 +188,8 @@ fun case_12(x: TypealiasNullableStringIndirect, y: TypealiasNullableStringIndire
     else "-1"
 
 // TESTCASE NUMBER: 13
-fun case_13(x: <!UNRESOLVED_REFERENCE!>otherpackage.Case13<!>?) =
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean")!>if ((x == null !is Boolean) !== true) {
+fun case_13(x: <!UNRESOLVED_REFERENCE!>otherpackage<!>.Case13?) =
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean")!>if (<!DEPRECATED_IDENTITY_EQUALS!>(x == null !is Boolean) !== true<!>) {
         throw Exception()
     } else {
         <!DEBUG_INFO_EXPRESSION_TYPE("ERROR CLASS: Symbol not found for otherpackage.Case13? & kotlin.Boolean")!>x<!>
@@ -190,7 +198,7 @@ fun case_13(x: <!UNRESOLVED_REFERENCE!>otherpackage.Case13<!>?) =
 
 // TESTCASE NUMBER: 14
 class Case14 {
-    val x: <!UNRESOLVED_REFERENCE!>otherpackage.Case14<!>?
+    val x: <!UNRESOLVED_REFERENCE!>otherpackage<!>.Case14?
     init {
         x = <!UNRESOLVED_REFERENCE!>otherpackage<!>.Case14()
     }
@@ -204,18 +212,18 @@ fun case_14() {
         if (a.x != null == true) {
             if (<!SENSELESS_COMPARISON!>a.x !== null<!> == false) {
                 if (<!SENSELESS_COMPARISON!><!SENSELESS_COMPARISON!>a.x != null<!> == null<!>) {
-                    if (<!SENSELESS_COMPARISON!><!SENSELESS_COMPARISON!>a.x != null<!> !== null<!>) {
-                        if (<!SENSELESS_COMPARISON!>a.x != null<!> === true) {
-                            if (<!SENSELESS_COMPARISON!>a.x !== null<!> === <!USELESS_IS_CHECK!>true !is Boolean<!> == true) {
-                                if (<!SENSELESS_COMPARISON!>a.x != null<!> !== false) {
-                                    if (<!SENSELESS_COMPARISON!>a.x != null<!> === false) {
-                                        if (<!SENSELESS_COMPARISON!>a.x !== null<!> === true) {
+                    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!><!SENSELESS_COMPARISON!>a.x != null<!> !== null<!>) {
+                        if (<!DEPRECATED_IDENTITY_EQUALS!><!SENSELESS_COMPARISON!>a.x != null<!> === true<!>) {
+                            if (<!DEPRECATED_IDENTITY_EQUALS!><!SENSELESS_COMPARISON!>a.x !== null<!> === <!USELESS_IS_CHECK!>true !is Boolean<!><!> == true) {
+                                if (<!DEPRECATED_IDENTITY_EQUALS!><!SENSELESS_COMPARISON!>a.x != null<!> !== false<!>) {
+                                    if (<!DEPRECATED_IDENTITY_EQUALS!><!SENSELESS_COMPARISON!>a.x != null<!> === false<!>) {
+                                        if (<!DEPRECATED_IDENTITY_EQUALS!><!SENSELESS_COMPARISON!>a.x !== null<!> === true<!>) {
                                             if (<!USELESS_IS_CHECK!>(<!SENSELESS_COMPARISON!>a.x != null<!> != true) !is Boolean<!>) {
                                                 if (a.x != null is Boolean) {
                                                     if (a.x != <!USELESS_IS_CHECK!>null is Boolean is Boolean<!>) {
-                                                        if (a.x !== null is Boolean) {
+                                                        if (<!IMPLICIT_BOXING_IN_IDENTITY_EQUALS!>a.x !== null is Boolean<!>) {
                                                             if (a.x != null is Boolean) {
-                                                                if ((a.x !== null !is Boolean) == false) {
+                                                                if ((<!IMPLICIT_BOXING_IN_IDENTITY_EQUALS!>a.x !== null !is Boolean<!>) == false) {
                                                                     a.x
                                                                     a.x.equals(a.x)
                                                                 }
@@ -238,7 +246,7 @@ fun case_14() {
 
 // TESTCASE NUMBER: 15
 fun case_15(x: EmptyObject) {
-    val t = if (<!EQUALITY_NOT_APPLICABLE!>x === <!USELESS_IS_CHECK!><!USELESS_IS_CHECK!>null is Boolean is Boolean<!> is Boolean<!><!>) "" else {
+    val <!UNUSED_VARIABLE!>t<!> = if (<!FORBIDDEN_IDENTITY_EQUALS!>x === <!USELESS_IS_CHECK!><!USELESS_IS_CHECK!>null is Boolean is Boolean<!> is Boolean<!><!>) "" else {
         <!DEBUG_INFO_EXPRESSION_TYPE("EmptyObject")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("EmptyObject")!>x<!>.equals(null)
         <!DEBUG_INFO_EXPRESSION_TYPE("EmptyObject")!>x<!>.propT
@@ -256,7 +264,7 @@ fun case_15(x: EmptyObject) {
 fun case_16() {
     val x: TypealiasNullableNothing = null
 
-    if (<!EQUALITY_NOT_APPLICABLE!>x != <!USELESS_IS_CHECK!><!USELESS_IS_CHECK!><!USELESS_IS_CHECK!><!USELESS_IS_CHECK!>null !is Boolean !is Boolean<!> !is Boolean<!> !is Boolean<!> !is Boolean<!><!>) {
+    if (<!SENSELESS_COMPARISON!>x != <!USELESS_IS_CHECK!><!USELESS_IS_CHECK!><!USELESS_IS_CHECK!><!USELESS_IS_CHECK!>null !is Boolean !is Boolean<!> !is Boolean<!> !is Boolean<!> !is Boolean<!><!>) {
         <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableNothing")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("TypealiasNullableNothing")!>x<!><!UNSAFE_CALL!>.<!>java
     }
@@ -265,12 +273,12 @@ fun case_16() {
 // TESTCASE NUMBER: 17
 val case_17 = if (nullableIntProperty == null == true == false) 0 else {
     <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>nullableIntProperty<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>nullableIntProperty<!><!UNSAFE_CALL!>.<!>java
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>nullableIntProperty<!><!UNSAFE_CALL!>.<!><!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>java<!>
 }
 
 //TESTCASE NUMBER: 18
 fun case_18(a: DeepObject.A.B.C.D.E.F.G.J?) {
-    if (<!SENSELESS_COMPARISON!>a != null !== null<!>) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>a != null !== null<!>) {
         <!DEBUG_INFO_EXPRESSION_TYPE("DeepObject.A.B.C.D.E.F.G.J?")!>a<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("DeepObject.A.B.C.D.E.F.G.J?")!>a<!><!UNSAFE_CALL!>.<!>equals(null)
         <!DEBUG_INFO_EXPRESSION_TYPE("DeepObject.A.B.C.D.E.F.G.J?")!>a<!>.propT
@@ -304,7 +312,7 @@ fun case_19(b: Boolean) {
         }
     } else null
 
-    if (<!EQUALITY_NOT_APPLICABLE!>a != null !is Boolean<!> && <!EQUALITY_NOT_APPLICABLE!>a<!UNSAFE_CALL!>.<!>B19 != null is Boolean<!> && <!EQUALITY_NOT_APPLICABLE!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19 != null is Boolean<!> && <!SENSELESS_COMPARISON!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19 != null == null<!> && <!SENSELESS_COMPARISON!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19<!UNSAFE_CALL!>.<!>x != null !== null<!>) {
+    if (<!EQUALITY_NOT_APPLICABLE!>a != null !is Boolean<!> && <!EQUALITY_NOT_APPLICABLE!>a<!UNSAFE_CALL!>.<!>B19 != null is Boolean<!> && <!EQUALITY_NOT_APPLICABLE!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19 != null is Boolean<!> && <!SENSELESS_COMPARISON!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19 != null == null<!> && <!FORBIDDEN_IDENTITY_EQUALS_WARNING, SENSELESS_COMPARISON!>a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19<!UNSAFE_CALL!>.<!>x != null !== null<!>) {
         a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19<!UNSAFE_CALL!>.<!>x
         a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19<!UNSAFE_CALL!>.<!>x<!UNSAFE_CALL!>.<!>equals(null)
         a<!UNSAFE_CALL!>.<!>B19<!UNSAFE_CALL!>.<!>C19<!UNSAFE_CALL!>.<!>D19<!UNSAFE_CALL!>.<!>x.propT
@@ -330,7 +338,7 @@ fun case_20(b: Boolean) {
         }
     }
 
-    if (<!EQUALITY_NOT_APPLICABLE!>a.B19.C19.D19 !== null !is Boolean<!>) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS!>a.B19.C19.D19 !== null !is Boolean<!>) {
         a.B19.C19.D19
         a.B19.C19.D19<!UNSAFE_CALL!>.<!>equals(null)
         a.B19.C19.D19.propT
@@ -346,7 +354,7 @@ fun case_20(b: Boolean) {
 
 // TESTCASE NUMBER: 21
 fun case_21() {
-    if (<!EQUALITY_NOT_APPLICABLE_WARNING!>EnumClassWithNullableProperty.B.prop_1 !== null is Boolean<!> == <!USELESS_IS_CHECK!>true !is Boolean<!> != true) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS!>EnumClassWithNullableProperty.B.prop_1 !== null is Boolean<!> == <!USELESS_IS_CHECK!>true !is Boolean<!> != true) {
         EnumClassWithNullableProperty.B.prop_1
         EnumClassWithNullableProperty.B.prop_1<!UNSAFE_CALL!>.<!>equals(null)
         EnumClassWithNullableProperty.B.prop_1.propT
@@ -378,7 +386,7 @@ fun case_22(a: (() -> Unit)?) {
 
 // TESTCASE NUMBER: 23
 fun case_23(a: ((Float) -> Int?)?, b: Float?) {
-    if (<!EQUALITY_NOT_APPLICABLE!>a != null !is Boolean<!> && <!EQUALITY_NOT_APPLICABLE_WARNING!>b !== null is Boolean<!>) {
+    if (<!EQUALITY_NOT_APPLICABLE!>a != null !is Boolean<!> && <!FORBIDDEN_IDENTITY_EQUALS!>b !== null is Boolean<!>) {
         val x = <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int?")!><!UNSAFE_IMPLICIT_INVOKE_CALL!>a<!>(<!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Float?")!>b<!>)<!>
         if (x != null) {
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Int")!>x<!>
@@ -397,7 +405,7 @@ fun case_23(a: ((Float) -> Int?)?, b: Float?) {
 
 // TESTCASE NUMBER: 24
 fun case_24(a: ((() -> Unit) -> Unit)?, b: (() -> Unit)?) =
-    if (<!EQUALITY_NOT_APPLICABLE!>a !== null is Boolean<!> && <!EQUALITY_NOT_APPLICABLE!>b !== null !is Boolean<!>) {
+    if (<!FORBIDDEN_IDENTITY_EQUALS!>a !== null is Boolean<!> && <!FORBIDDEN_IDENTITY_EQUALS!>b !== null !is Boolean<!>) {
         <!UNSAFE_IMPLICIT_INVOKE_CALL!>a<!>(<!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Function0<kotlin.Unit>?")!>b<!>)
         <!UNSAFE_IMPLICIT_INVOKE_CALL!>a<!>(b)
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Function0<kotlin.Unit>?")!>b<!><!UNSAFE_CALL!>.<!>equals(null)
@@ -421,10 +429,10 @@ fun case_25(b: Boolean) {
 
     val y = if (b) x else null
 
-    if (y !== null === true) {
+    if (<!DEPRECATED_IDENTITY_EQUALS!>y !== null === true<!>) {
         val z = <!DEBUG_INFO_EXPRESSION_TYPE("<anonymous>?")!>y()<!>
 
-        if (z != null !== false) {
+        if (<!DEPRECATED_IDENTITY_EQUALS!>z != null !== false<!>) {
             <!DEBUG_INFO_EXPRESSION_TYPE("<anonymous>? & <anonymous>")!>z<!>.a
             <!DEBUG_INFO_EXPRESSION_TYPE("<anonymous>? & <anonymous>")!>z<!>.a.equals(null)
             <!DEBUG_INFO_EXPRESSION_TYPE("<anonymous>? & <anonymous>")!>z<!>.a.propT
@@ -443,7 +451,7 @@ fun case_25(b: Boolean) {
 fun case_26(a: ((Float) -> Int?)?, b: Float?) {
     if (a != null == true == false && b != null == true == false) {
         val x = <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int?")!><!UNSAFE_IMPLICIT_INVOKE_CALL!>a<!>(<!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Float? & kotlin.Nothing?")!>b<!>)<!>
-        if (x != null == true === false) {
+        if (<!DEPRECATED_IDENTITY_EQUALS!>x != null == true === false<!>) {
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>x<!>
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>x<!>.equals(null)
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int? & kotlin.Nothing?")!>x<!>.propT

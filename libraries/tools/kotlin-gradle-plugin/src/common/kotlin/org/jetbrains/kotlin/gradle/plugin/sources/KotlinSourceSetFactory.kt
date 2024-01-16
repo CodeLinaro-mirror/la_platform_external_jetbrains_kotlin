@@ -14,11 +14,12 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.targets
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.targets.metadata.isKotlinGranularMetadataEnabled
+import org.jetbrains.kotlin.gradle.utils.getOrCreate
+import org.jetbrains.kotlin.gradle.utils.targets
 import java.io.File
 
 internal abstract class KotlinSourceSetFactory<T : KotlinSourceSet> internal constructor(
@@ -39,7 +40,15 @@ internal abstract class KotlinSourceSetFactory<T : KotlinSourceSet> internal con
     }
 
     private fun defineSourceSetConfigurations(project: Project, sourceSet: KotlinSourceSet) = with(project.configurations) {
-        sourceSet.relatedConfigurationNames.forEach { configurationName ->
+        val configurationNames = sourceSet.run {
+            listOfNotNull(
+                apiConfigurationName,
+                implementationConfigurationName,
+                compileOnlyConfigurationName,
+                runtimeOnlyConfigurationName,
+            )
+        }
+        configurationNames.forEach { configurationName ->
             maybeCreate(configurationName).apply {
                 if (!configurationName.endsWith(METADATA_CONFIGURATION_NAME_SUFFIX)) {
                     isCanBeResolved = false
@@ -75,17 +84,17 @@ internal class DefaultKotlinSourceSetFactory(
         sourceSet.resources.srcDir(defaultSourceFolder(project, sourceSet.name, "resources"))
 
         val dependencyConfigurationWithMetadata = with(sourceSet) {
+            @Suppress("DEPRECATION")
             listOf(
                 apiConfigurationName to apiMetadataConfigurationName,
                 implementationConfigurationName to implementationMetadataConfigurationName,
                 compileOnlyConfigurationName to compileOnlyMetadataConfigurationName,
-                runtimeOnlyConfigurationName to runtimeOnlyMetadataConfigurationName,
                 null to intransitiveMetadataConfigurationName
             )
         }
 
         dependencyConfigurationWithMetadata.forEach { (configurationName, metadataName) ->
-            project.configurations.maybeCreate(metadataName).apply {
+            project.configurations.getOrCreate(metadataName).apply {
                 attributes.attribute(KotlinPlatformType.attribute, KotlinPlatformType.common)
                 attributes.attribute(Usage.USAGE_ATTRIBUTE, project.usageByName(KotlinUsages.KOTLIN_API))
                 attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
@@ -101,7 +110,7 @@ internal class DefaultKotlinSourceSetFactory(
                 }
 
                 project.afterEvaluate {
-                    setJsCompilerIfNecessary(sourceSet, this@apply)
+                    setJsCompilerIfNecessary(sourceSet, this)
                 }
             }
         }

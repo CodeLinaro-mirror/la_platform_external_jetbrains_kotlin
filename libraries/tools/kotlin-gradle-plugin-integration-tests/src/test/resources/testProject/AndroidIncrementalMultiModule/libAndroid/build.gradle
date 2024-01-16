@@ -2,8 +2,9 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace "com.example.lib"
+
     compileSdkVersion 23
-    buildToolsVersion "25.0.2"
 
     defaultConfig {
         minSdkVersion 14
@@ -11,6 +12,10 @@ android {
         versionCode 1
         versionName "1.0"
     }
+    kotlin {
+        jvmToolchain(8)
+    }
+
     buildTypes.release.minifyEnabled = false
     lintOptions.abortOnError = false
 }

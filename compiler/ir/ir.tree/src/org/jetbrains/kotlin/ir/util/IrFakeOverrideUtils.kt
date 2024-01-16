@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.ir.util
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 val IrDeclaration.isReal: Boolean get() = !isFakeOverride
 
@@ -93,23 +92,34 @@ fun Collection<IrOverridableMember>.collectAndFilterRealOverrides(): Set<IrOverr
     else -> error("all members should be of the same kind, got ${map { it.render() }}")
 }
 
-// TODO: use this implementation instead of any other
 fun <S : IrSymbol, T : IrOverridableDeclaration<S>> T.resolveFakeOverride(
+    allowAbstract: Boolean = false,
+    toSkip: (T) -> Boolean = { false }
+): T? =
+    resolveFakeOverrideOrNull(allowAbstract, toSkip).also {
+        if (allowAbstract && it == null) {
+            error("No real overrides for ${this.render()}")
+        }
+    }
+
+// TODO: use this implementation instead of any other
+fun <S : IrSymbol, T : IrOverridableDeclaration<S>> T.resolveFakeOverrideOrNull(
     allowAbstract: Boolean = false,
     toSkip: (T) -> Boolean = { false }
 ): T? {
     if (!isFakeOverride && !toSkip(this)) return this
     return if (allowAbstract) {
-        val reals = collectRealOverrides(toSkip)
-        if (reals.isEmpty()) error("No real overrides for ${this.render()}")
-        reals.first()
+        collectRealOverrides(toSkip).firstOrNull()
     } else {
         collectRealOverrides(toSkip, { it.modality == Modality.ABSTRACT })
             .let { realOverrides ->
                 // Kotlin forbids conflicts between overrides, but they may trickle down from Java.
-                realOverrides.singleOrNull { it.parent.safeAs<IrClass>()?.isInterface != true }
+                realOverrides.singleOrNull { (it.parent as? IrClass)?.isInterface != true }
                 // TODO: We take firstOrNull instead of singleOrNull here because of KT-36188.
                     ?: realOverrides.firstOrNull()
             }
     }
 }
+
+fun <S : IrSymbol, T : IrOverridableDeclaration<S>> T.resolveFakeOverrideOrFail(): T =
+    resolveFakeOverride() ?: error("No real overrides for ${this.render()}")

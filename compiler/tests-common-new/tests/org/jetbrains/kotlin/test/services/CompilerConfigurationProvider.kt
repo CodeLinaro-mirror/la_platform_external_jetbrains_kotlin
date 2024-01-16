@@ -11,25 +11,29 @@ import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
+import org.jetbrains.kotlin.cli.common.messages.IrMessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.JvmPackagePartProvider
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.compiler.plugin.registerInProject
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.ir.util.IrMessageLogger
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
-import org.jetbrains.kotlin.platform.js.isJs
+import org.jetbrains.kotlin.platform.isJs
+import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.isNative
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.model.FrontendKinds
-import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.model.TestModule
 import java.io.File
 
@@ -44,7 +48,14 @@ abstract class CompilerConfigurationProvider(val testServices: TestServices) : T
     }
 
     fun registerCompilerExtensions(project: Project, module: TestModule, configuration: CompilerConfiguration) {
-        configurators.forEach { it.registerCompilerExtensions(project, module, configuration) }
+        val extensionStorage = CompilerPluginRegistrar.ExtensionStorage()
+        for (configurator in configurators) {
+            configurator.legacyRegisterCompilerExtensions(project, module, configuration)
+            with(configurator) {
+                extensionStorage.registerCompilerExtensions(module, configuration)
+            }
+        }
+        extensionStorage.registerInProject(project)
     }
 
     open fun getPackagePartProviderFactory(module: TestModule): (GlobalSearchScope) -> JvmPackagePartProvider {
@@ -107,6 +118,7 @@ fun TargetPlatform.platformToEnvironmentConfigFiles() = when {
     isJvm() -> EnvironmentConfigFiles.JVM_CONFIG_FILES
     isJs() -> EnvironmentConfigFiles.JS_CONFIG_FILES
     isNative() -> EnvironmentConfigFiles.NATIVE_CONFIG_FILES
+    isWasm() -> EnvironmentConfigFiles.WASM_CONFIG_FILES
     // TODO: is it correct?
     isCommon() -> EnvironmentConfigFiles.METADATA_CONFIG_FILES
     else -> error("Unknown platform: ${this}")
@@ -116,19 +128,24 @@ fun TargetPlatform.platformToEnvironmentConfigFiles() = when {
 fun createCompilerConfiguration(module: TestModule, configurators: List<AbstractEnvironmentConfigurator>): CompilerConfiguration {
     val configuration = CompilerConfiguration()
     configuration[CommonConfigurationKeys.MODULE_NAME] = module.name
-    if (JsEnvironmentConfigurationDirectives.PROPERTY_LAZY_INITIALIZATION in module.directives) {
-        configuration.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, true)
+
+    if (JsEnvironmentConfigurationDirectives.GENERATE_STRICT_IMPLICIT_EXPORT in module.directives) {
+        configuration.put(JSConfigurationKeys.GENERATE_STRICT_IMPLICIT_EXPORT, true)
     }
 
-    if (JsEnvironmentConfigurationDirectives.GENERATE_INLINE_ANONYMOUS_FUNCTIONS in module.directives) {
-        configuration.put(JSConfigurationKeys.GENERATE_INLINE_ANONYMOUS_FUNCTIONS, true)
+    if (JsEnvironmentConfigurationDirectives.GENERATE_DTS in module.directives) {
+        configuration.put(JSConfigurationKeys.GENERATE_DTS, true)
+    }
+
+    if (JsEnvironmentConfigurationDirectives.ES6_MODE in module.directives) {
+        configuration.put(JSConfigurationKeys.USE_ES6_CLASSES, true)
     }
 
     if (module.frontendKind == FrontendKinds.FIR) {
         configuration[CommonConfigurationKeys.USE_FIR] = true
     }
 
-    configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY] = object : MessageCollector {
+    val messageCollector = object : MessageCollector {
         override fun clear() {}
 
         override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?) {
@@ -140,6 +157,8 @@ fun createCompilerConfiguration(module: TestModule, configurators: List<Abstract
 
         override fun hasErrors(): Boolean = false
     }
+    configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY] = messageCollector
+    configuration[IrMessageLogger.IR_MESSAGE_LOGGER] = IrMessageCollector(messageCollector)
     configuration.languageVersionSettings = module.languageVersionSettings
 
     configurators.forEach { it.configureCompileConfigurationWithAdditionalConfigurationKeys(configuration, module) }
@@ -150,6 +169,3 @@ fun createCompilerConfiguration(module: TestModule, configurators: List<Abstract
 private operator fun <T : Any> CompilerConfiguration.set(key: CompilerConfigurationKey<T>, value: T) {
     put(key, value)
 }
-
-val TestModule.javaFiles: List<TestFile>
-    get() = files.filter { it.isJavaFile }

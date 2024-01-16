@@ -4,6 +4,7 @@
  */
 
 #include <thread>
+#include <vector>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -12,7 +13,6 @@
 #include "TestSupport.hpp"
 #include "ThreadData.hpp"
 #include "Types.h"
-#include "std_support/Vector.hpp"
 
 using namespace kotlin;
 
@@ -20,12 +20,10 @@ namespace {
 
 class ExceptionObjHolderTest : public ::testing::Test {
 public:
-    static std_support::vector<ObjHeader*> Collect(mm::ThreadData& threadData) {
-        auto& stableRefs = mm::StableRefRegistry::Instance();
-        stableRefs.ProcessThread(&threadData);
-        stableRefs.ProcessDeletions();
-        std_support::vector<ObjHeader*> result;
-        for (const auto& obj : stableRefs.LockForIter()) {
+    static std::vector<ObjHeader*> Collect(mm::ThreadData& threadData) {
+        threadData.specialRefRegistry().publish();
+        std::vector<ObjHeader*> result;
+        for (const auto& obj : mm::SpecialRefRegistry::instance().roots()) {
             result.push_back(obj);
         }
         return result;
@@ -66,7 +64,7 @@ TEST_F(ExceptionObjHolderTest, ThrowInsideCatch) {
             try {
                 ExceptionObjHolder::Throw(&exception2);
             } catch (...) {
-                EXPECT_THAT(Collect(threadData), testing::ElementsAre(&exception1, &exception2));
+                EXPECT_THAT(Collect(threadData), testing::UnorderedElementsAre(&exception1, &exception2));
             }
             EXPECT_THAT(Collect(threadData), testing::ElementsAre(&exception1));
         }
@@ -94,7 +92,7 @@ TEST_F(ExceptionObjHolderTest, StoreException) {
         } catch (...) {
             storedException2 = std::current_exception();
         }
-        EXPECT_THAT(Collect(threadData), testing::ElementsAre(&exception1, &exception2));
+        EXPECT_THAT(Collect(threadData), testing::UnorderedElementsAre(&exception1, &exception2));
 
         storedException1 = std::exception_ptr();
         EXPECT_THAT(Collect(threadData), testing::ElementsAre(&exception2));

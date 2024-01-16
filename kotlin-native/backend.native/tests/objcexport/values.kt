@@ -5,10 +5,11 @@
 
 // All classes and methods should be used in tests
 @file:Suppress("UNUSED")
-@file:OptIn(FreezingIsDeprecated::class)
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class, FreezingIsDeprecated::class, kotlin.native.runtime.NativeRuntimeApi::class)
 
 package conversions
 
+import kotlin.concurrent.AtomicReference
 import kotlin.native.concurrent.freeze
 import kotlin.native.concurrent.isFrozen
 import kotlin.native.internal.ObjCErrorException
@@ -251,6 +252,7 @@ fun IC3.getValue3() = value
 fun IC3?.getValueOrNull3() = this?.value
 
 fun isFrozen(obj: Any): Boolean = obj.isFrozen
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 fun isFreezingEnabled() = Platform.isFreezingEnabled
 fun kotlinLambda(block: (Any) -> Any): Any = block
 
@@ -536,9 +538,6 @@ fun isFunction0(obj: Any?): Boolean = obj is Function0<*>
 
 abstract class MyAbstractList : List<Any?>
 
-fun takeForwardDeclaredClass(obj: objcnames.classes.ForwardDeclaredClass) {}
-fun takeForwardDeclaredProtocol(obj: objcnames.protocols.ForwardDeclaredProtocol) {}
-
 class TestKClass {
     fun getKotlinClass(clazz: ObjCClass) = getOriginalKotlinClass(clazz)
     fun getKotlinClass(protocol: ObjCProtocol) = getOriginalKotlinClass(protocol)
@@ -810,7 +809,7 @@ open class TestDeprecation() {
 @Deprecated("warning", level = DeprecationLevel.WARNING) var warningVar: Any? = null
 
 fun gc() {
-    kotlin.native.internal.GC.collect()
+    kotlin.native.runtime.GC.collect()
 }
 
 class TestWeakRefs(private val frozen: Boolean) {
@@ -865,7 +864,7 @@ class SharedRefs {
     fun createFrozenCollection() = createCollection().freeze()
 
     fun hasAliveObjects(): Boolean {
-        kotlin.native.internal.GC.collect()
+        kotlin.native.runtime.GC.collect()
         return mustBeRemoved.any { it.get() != null }
     }
 
@@ -948,7 +947,7 @@ class TestStringConversion {
     lateinit var str: Any
 }
 
-fun foo(a: kotlin.native.concurrent.AtomicReference<*>) {}
+fun foo(a: kotlin.concurrent.AtomicReference<*>) {}
 
 interface GH3825 {
     @Throws(MyException::class) fun call0(callback: () -> Boolean)

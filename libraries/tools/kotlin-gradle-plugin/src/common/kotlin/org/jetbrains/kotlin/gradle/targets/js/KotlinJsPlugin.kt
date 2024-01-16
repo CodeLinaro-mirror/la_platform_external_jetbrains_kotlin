@@ -13,15 +13,14 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.internal.customizeKotlinDependencies
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation.Companion.MAIN_COMPILATION_NAME
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation.Companion.TEST_COMPILATION_NAME
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsSingleTargetPreset
+import org.jetbrains.kotlin.gradle.plugin.mpp.compilerOptions
+import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.plugin.mpp.setupGeneralKotlinExtensionParameters
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrSingleTargetPreset
 import org.jetbrains.kotlin.gradle.utils.*
 
-open class KotlinJsPlugin(
-    private val kotlinPluginVersion: String
-) : Plugin<Project> {
+open class KotlinJsPlugin: Plugin<Project> {
 
     override fun apply(project: Project) {
         project.setupGeneralKotlinExtensionParameters()
@@ -33,13 +32,14 @@ open class KotlinJsPlugin(
 
         checkGradleCompatibility()
 
+        project.enableKgpDependencyResolution(isEnabled = false)
+
         val kotlinExtension = project.kotlinExtension as KotlinJsProjectExtension
         customizeKotlinDependencies(project)
 
         kotlinExtension.apply {
             irPreset = KotlinJsIrSingleTargetPreset(project)
             legacyPreset = KotlinJsSingleTargetPreset(project)
-            defaultJsCompilerType = PropertiesProvider(project).jsCompiler
         }
 
         project.runProjectConfigurationHealthCheckWhenEvaluated {
@@ -58,6 +58,13 @@ open class KotlinJsPlugin(
                     """.trimIndent()
                 )
             }
+
+            project.logger.warn(
+                """
+                        w: 'kotlin-js' Gradle plugin is deprecated and will be removed in the future. 
+                        Please use 'kotlin("multiplatform")' plugin with a 'js()' target instead. See the migration guide: https://kotl.in/t6m3vu
+                    """.trimIndent()
+            )
         }
 
         // Explicitly create configurations for main and test
@@ -86,5 +93,9 @@ open class KotlinJsPlugin(
         // Also create predefined source sets
         kotlinExtension.sourceSets.maybeCreate(MAIN_COMPILATION_NAME)
         kotlinExtension.sourceSets.maybeCreate(TEST_COMPILATION_NAME)
+
+        kotlinExtension.registerTargetObserver { target ->
+            target?.internal?.compilerOptions?.configureExperimentalTryK2(project)
+        }
     }
 }

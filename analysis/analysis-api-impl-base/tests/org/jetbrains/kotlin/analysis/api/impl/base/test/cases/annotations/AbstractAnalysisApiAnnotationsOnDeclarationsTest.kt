@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.annotations
 
+import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
+import org.jetbrains.kotlin.analysis.api.annotations.KtAnnotationsList
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtAnnotatedSymbol
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiSingleFileTest
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
@@ -16,14 +18,17 @@ import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractAnalysisApiAnnotationsOnDeclarationsTest : AbstractAnalysisApiSingleFileTest() {
 
+    context(KtAnalysisSession)
+    open fun renderAnnotations(annotations: KtAnnotationsList): String = TestAnnotationRenderer.renderAnnotations(annotations)
+
     override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
         val ktDeclaration = testServices.expressionMarkerProvider
-            .getElementOfTypAtCaret<KtDeclaration>(ktFile)
+            .getElementOfTypeAtCaret<KtDeclaration>(ktFile)
         val actual = analyseForTest(ktDeclaration) {
             val declarationSymbol = ktDeclaration.getSymbol() as KtAnnotatedSymbol
             buildString {
                 appendLine("KtDeclaration: ${ktDeclaration::class.simpleName} ${ktDeclaration.name}")
-                append(TestAnnotationRenderer.renderAnnotations(declarationSymbol.annotationsList))
+                append(renderAnnotations(declarationSymbol.annotationsList))
             }
         }
 

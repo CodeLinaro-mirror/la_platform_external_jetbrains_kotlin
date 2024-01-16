@@ -16,21 +16,26 @@
 
 package org.jetbrains.kotlin.incremental.storage
 
+import com.intellij.util.io.EnumeratorStringDescriptor
+import org.jetbrains.kotlin.incremental.IncrementalCompilationContext
 import org.jetbrains.kotlin.incremental.dumpCollection
 import org.jetbrains.kotlin.name.FqName
 import java.io.File
 
-internal open class ClassOneToManyMap(storageFile: File) : BasicStringMap<Collection<String>>(storageFile, StringCollectionExternalizer) {
-    override fun dumpValue(value: Collection<String>): String = value.dumpCollection()
+internal open class ClassOneToManyMap(
+    storageFile: File,
+    icContext: IncrementalCompilationContext,
+) : AppendableBasicStringMap<String, Collection<String>>(storageFile, EnumeratorStringDescriptor.INSTANCE, icContext) {
+    override fun dumpValue(value: Collection<String>): String = value.toSet().dumpCollection()
 
     @Synchronized
     fun add(key: FqName, value: FqName) {
-        storage.append(key.asString(), listOf(value.asString()))
+        storage.append(key.asString(), value.asString())
     }
 
     @Synchronized
     operator fun get(key: FqName): Collection<FqName> =
-        storage[key.asString()]?.map(::FqName) ?: setOf()
+        storage[key.asString()]?.mapTo(mutableSetOf(), ::FqName) ?: setOf()
 
     @Synchronized
     operator fun set(key: FqName, values: Collection<FqName>) {
@@ -56,5 +61,12 @@ internal open class ClassOneToManyMap(storageFile: File) : BasicStringMap<Collec
     }
 }
 
-internal class SubtypesMap(storageFile: File) : ClassOneToManyMap(storageFile)
-internal class SupertypesMap(storageFile: File) : ClassOneToManyMap(storageFile)
+internal class SubtypesMap(
+    storageFile: File,
+    icContext: IncrementalCompilationContext,
+) : ClassOneToManyMap(storageFile, icContext)
+
+internal class SupertypesMap(
+    storageFile: File,
+    icContext: IncrementalCompilationContext,
+) : ClassOneToManyMap(storageFile, icContext)

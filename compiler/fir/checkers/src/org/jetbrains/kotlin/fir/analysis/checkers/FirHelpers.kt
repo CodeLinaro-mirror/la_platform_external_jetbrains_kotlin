@@ -1,67 +1,85 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.analysis.checkers
 
-import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.KtSourceElement
+import com.intellij.lang.LighterASTNode
+import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.KtFakeSourceElementKind.DesugaredComponentFunctionCall
 import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
-import org.jetbrains.kotlin.diagnostics.*
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.isExpression
+import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.primaryConstructorSymbol
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.getChild
-import org.jetbrains.kotlin.fir.containingClass
-import org.jetbrains.kotlin.fir.containingClassForLocalAttr
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
+import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
+import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyExpressionBlock
-import org.jetbrains.kotlin.fir.expressions.toResolvedCallableSymbol
-import org.jetbrains.kotlin.fir.resolve.SessionHolder
-import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.references.FirSuperReference
+import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
+import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
-import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.scopes.FirTypeScope
-import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.*
+import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
 import org.jetbrains.kotlin.fir.scopes.impl.multipleDelegatesWithTheSameSignature
-import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
-import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
+import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.unwrapFakeOverrides
-import org.jetbrains.kotlin.lexer.KtTokens
-import org.jetbrains.kotlin.name.*
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtParameter.VAL_VAR_TOKEN_SET
 import org.jetbrains.kotlin.resolve.AnnotationTargetList
 import org.jetbrains.kotlin.resolve.AnnotationTargetLists
 import org.jetbrains.kotlin.types.AbstractTypeChecker
-import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeCheckerProviderContext
 import org.jetbrains.kotlin.util.ImplementationStatus
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.util.getChildren
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 private val INLINE_ONLY_ANNOTATION_CLASS_ID: ClassId = ClassId.topLevel(FqName("kotlin.internal.InlineOnly"))
 
 fun FirClass.unsubstitutedScope(context: CheckerContext): FirTypeScope =
-    this.unsubstitutedScope(context.sessionHolder.session, context.sessionHolder.scopeSession, withForcedTypeCalculator = false)
+    this.unsubstitutedScope(
+        context.sessionHolder.session,
+        context.sessionHolder.scopeSession,
+        withForcedTypeCalculator = false,
+        memberRequiredPhase = FirResolvePhase.STATUS,
+    )
 
 fun FirClassSymbol<*>.unsubstitutedScope(context: CheckerContext): FirTypeScope =
-    this.unsubstitutedScope(context.sessionHolder.session, context.sessionHolder.scopeSession, withForcedTypeCalculator = false)
+    this.unsubstitutedScope(
+        context.sessionHolder.session,
+        context.sessionHolder.scopeSession,
+        withForcedTypeCalculator = false,
+        memberRequiredPhase = FirResolvePhase.STATUS,
+    )
+
+fun FirClassSymbol<*>.declaredMemberScope(context: CheckerContext): FirContainingNamesAwareScope =
+    this.declaredMemberScope(
+        context.sessionHolder.session,
+        memberRequiredPhase = FirResolvePhase.STATUS,
+    )
 
 fun FirTypeRef.toClassLikeSymbol(session: FirSession): FirClassLikeSymbol<*>? {
     return coneTypeSafe<ConeClassLikeType>()?.toSymbol(session)
@@ -99,7 +117,32 @@ fun FirClassSymbol<*>.isSupertypeOf(other: FirClassSymbol<*>, session: FirSessio
     return isSupertypeOf(other, mutableSetOf())
 }
 
-fun ConeKotlinType.isInlineClass(session: FirSession): Boolean = toRegularClassSymbol(session)?.isInline == true
+fun ConeKotlinType.isValueClass(session: FirSession): Boolean {
+    // Value classes have inline modifier in FIR
+    return toRegularClassSymbol(session)?.isInline == true
+}
+
+fun ConeKotlinType.isSingleFieldValueClass(session: FirSession): Boolean = with(session.typeContext) {
+    isRecursiveSingleFieldValueClassType(session) || typeConstructor().isInlineClass()
+}
+
+fun ConeKotlinType.isRecursiveSingleFieldValueClassType(session: FirSession) =
+    isRecursiveValueClassType(hashSetOf(), session, onlyInline = true)
+
+fun ConeKotlinType.isRecursiveValueClassType(session: FirSession) =
+    isRecursiveValueClassType(hashSetOf(), session, onlyInline = false)
+
+private fun ConeKotlinType.isRecursiveValueClassType(visited: HashSet<ConeKotlinType>, session: FirSession, onlyInline: Boolean): Boolean {
+    val asRegularClass = this.toRegularClassSymbol(session)?.takeIf { it.isInlineOrValueClass() } ?: return false
+    val primaryConstructor = asRegularClass.declarationSymbols
+        .firstOrNull { it is FirConstructorSymbol && it.isPrimary } as FirConstructorSymbol?
+        ?: return false
+
+    if (primaryConstructor.valueParameterSymbols.size > 1 && onlyInline) return false
+    return !visited.add(this) || primaryConstructor.valueParameterSymbols.any {
+        it.resolvedReturnTypeRef.coneType.isRecursiveValueClassType(visited, session, onlyInline)
+    }.also { visited.remove(this) }
+}
 
 /**
  * Returns the FirRegularClass associated with this
@@ -113,16 +156,26 @@ fun FirTypeRef.toRegularClassSymbol(session: FirSession): FirRegularClassSymbol?
  * Returns the ClassLikeDeclaration where the Fir object has been defined
  * or null if no proper declaration has been found.
  */
-fun FirDeclaration.getContainingClassSymbol(session: FirSession): FirClassLikeSymbol<*>? =
-    this.safeAs<FirCallableDeclaration>()?.containingClass()?.toSymbol(session)
+fun FirBasedSymbol<*>.getContainingClassSymbol(session: FirSession): FirClassLikeSymbol<*>? = when (this) {
+    is FirCallableSymbol<*> -> containingClassLookupTag()?.toSymbol(session)
+    is FirClassLikeSymbol<*> -> getContainingClassLookupTag()?.toSymbol(session)
+    is FirAnonymousInitializerSymbol -> dispatchReceiverType?.toSymbol(session) as? FirClassLikeSymbol<*>
+    else -> null
+}
 
-@OptIn(SymbolInternals::class)
-fun FirBasedSymbol<*>.getContainingClassSymbol(session: FirSession): FirClassLikeSymbol<*>? = fir.getContainingClassSymbol(session)
+/**
+ * Returns the containing class or file if the callable is top-level.
+ */
+fun FirCallableSymbol<*>.getContainingSymbol(session: FirSession): FirBasedSymbol<*>? {
+    return getContainingClassSymbol(session)
+        ?: session.firProvider.getFirCallableContainerFile(this)?.symbol
+}
+
+fun FirDeclaration.getContainingClassSymbol(session: FirSession) = symbol.getContainingClassSymbol(session)
 
 fun FirClassLikeSymbol<*>.outerClassSymbol(context: CheckerContext): FirClassLikeSymbol<*>? {
     if (this !is FirClassSymbol<*>) return null
-    val outerClassId = classId.outerClassId ?: return null
-    return context.session.symbolProvider.getClassLikeSymbolByClassId(outerClassId)
+    return getContainingDeclarationSymbol(context.session)
 }
 
 @OptIn(SymbolInternals::class)
@@ -132,7 +185,7 @@ fun FirClassSymbol<*>.getContainingDeclarationSymbol(session: FirSession): FirCl
     } else {
         val parentId = classId.relativeClassName.parent()
         if (!parentId.isRoot) {
-            val containingDeclarationId = ClassId(classId.packageFqName, parentId, false)
+            val containingDeclarationId = ClassId(classId.packageFqName, parentId, isLocal = false)
             return session.symbolProvider.getClassLikeSymbolByClassId(containingDeclarationId)
         }
     }
@@ -158,34 +211,16 @@ fun CheckerContext.findClosestClassOrObject(): FirClass? {
     return null
 }
 
-/**
- * Returns the list of functions that overridden by given
- */
-fun FirSimpleFunction.overriddenFunctions(
-    containingClass: FirClassSymbol<*>,
-    context: CheckerContext
-): List<FirFunctionSymbol<*>> {
-    return symbol.overriddenFunctions(containingClass, context)
-}
-
 fun FirNamedFunctionSymbol.overriddenFunctions(
     containingClass: FirClassSymbol<*>,
-    context: CheckerContext
+    context: CheckerContext,
 ): List<FirFunctionSymbol<*>> {
-    val firTypeScope = containingClass.unsubstitutedScope(
-        context.sessionHolder.session,
-        context.sessionHolder.scopeSession,
-        withForcedTypeCalculator = true
-    )
+    return overriddenFunctions(containingClass, context.session, context.scopeSession)
+}
 
-    val overriddenFunctions = mutableListOf<FirFunctionSymbol<*>>()
-    firTypeScope.processFunctionsByName(callableId.callableName) { }
-    firTypeScope.processOverriddenFunctions(this) {
-        overriddenFunctions.add(it)
-        ProcessorAction.NEXT
-    }
-
-    return overriddenFunctions
+fun FirClass.collectSupertypesWithDelegates(): Map<FirTypeRef, FirFieldSymbol?> {
+    val fieldsMap = delegateFieldsMap ?: emptyMap()
+    return superTypeRefs.mapIndexed { index, it -> it to fieldsMap[index] }.toMap()
 }
 
 /**
@@ -199,35 +234,27 @@ fun FirClass.modality(): Modality? {
 }
 
 /**
- * returns implicit modality by FirMemberDeclaration<*>
+ * Returns a set of [Modality] modifiers which are redundant for the given [FirMemberDeclaration]. If a modality modifier is redundant, the
+ * declaration's modality won't be changed by the modifier.
  */
-fun FirMemberDeclaration.implicitModality(context: CheckerContext): Modality {
-    if (this is FirRegularClass && (this.classKind == ClassKind.CLASS || this.classKind == ClassKind.OBJECT)) {
-        if (this.classKind == ClassKind.INTERFACE) return Modality.ABSTRACT
-        return Modality.FINAL
-    }
-
-    val klass = context.findClosestClassOrObject() ?: return Modality.FINAL
-    val source = source ?: return Modality.FINAL
-    val tree = source.treeStructure
-    if (tree.overrideModifier(source.lighterASTNode) != null) {
-        val klassModalityTokenType = klass.source?.let { tree.modalityModifier(it.lighterASTNode)?.tokenType }
-        if (klassModalityTokenType == KtTokens.ABSTRACT_KEYWORD ||
-            klassModalityTokenType == KtTokens.OPEN_KEYWORD ||
-            klassModalityTokenType == KtTokens.SEALED_KEYWORD
-        ) {
-            return Modality.OPEN
+fun FirMemberDeclaration.redundantModalities(context: CheckerContext): Set<Modality> {
+    if (this is FirRegularClass) {
+        return when (classKind) {
+            ClassKind.INTERFACE -> setOf(Modality.ABSTRACT, Modality.OPEN)
+            else -> setOf(Modality.FINAL)
         }
     }
 
-    if (klass is FirRegularClass
-        && klass.classKind == ClassKind.INTERFACE
-        && tree.visibilityModifier(source.lighterASTNode)?.tokenType != KtTokens.PRIVATE_KEYWORD
-    ) {
-        return if (this.hasBody()) Modality.OPEN else Modality.ABSTRACT
-    }
+    val containingClass = context.findClosestClassOrObject() ?: return setOf(Modality.FINAL)
 
-    return Modality.FINAL
+    return when {
+        isOverride && !containingClass.isFinal -> setOf(Modality.OPEN)
+        containingClass.isInterface -> when {
+            hasBody() -> setOf(Modality.OPEN)
+            else -> setOf(Modality.ABSTRACT, Modality.OPEN)
+        }
+        else -> setOf(Modality.FINAL)
+    }
 }
 
 private fun FirDeclaration.hasBody(): Boolean = when (this) {
@@ -242,7 +269,7 @@ private fun FirDeclaration.hasBody(): Boolean = when (this) {
  */
 fun FirClass.findNonInterfaceSupertype(context: CheckerContext): FirTypeRef? {
     for (superTypeRef in superTypeRefs) {
-        val lookupTag = superTypeRef.coneType.safeAs<ConeClassLikeType>()?.lookupTag ?: continue
+        val lookupTag = (superTypeRef.coneType as? ConeClassLikeType)?.lookupTag ?: continue
 
         val symbol = lookupTag.toSymbol(context.session) as? FirClassSymbol<*> ?: continue
 
@@ -269,52 +296,28 @@ val FirValueParameter.hasValOrVar: Boolean
 fun KotlinTypeMarker.isSupertypeOf(context: TypeCheckerProviderContext, type: KotlinTypeMarker?): Boolean =
     type != null && AbstractTypeChecker.isSubtypeOf(context, type, this)
 
-fun FirMemberDeclaration.isInlineOnly(): Boolean =
-    isInline && hasAnnotation(INLINE_ONLY_ANNOTATION_CLASS_ID)
+fun FirMemberDeclaration.isInlineOnly(session: FirSession): Boolean =
+    isInline && hasAnnotation(INLINE_ONLY_ANNOTATION_CLASS_ID, session)
 
 fun isSubtypeForTypeMismatch(context: ConeInferenceContext, subtype: ConeKotlinType, supertype: ConeKotlinType): Boolean {
     val subtypeFullyExpanded = subtype.fullyExpandedType(context.session)
     val supertypeFullyExpanded = supertype.fullyExpandedType(context.session)
     return AbstractTypeChecker.isSubtypeOf(context, subtypeFullyExpanded, supertypeFullyExpanded)
-            || isSubtypeOfForFunctionalTypeReturningUnit(context.session.typeContext, subtypeFullyExpanded, supertypeFullyExpanded)
-}
-
-private fun isSubtypeOfForFunctionalTypeReturningUnit(
-    context: ConeInferenceContext,
-    subtype: ConeKotlinType,
-    supertype: ConeKotlinType
-): Boolean {
-    if (!supertype.isBuiltinFunctionalType(context.session)) return false
-    val functionalTypeReturnType = supertype.typeArguments.lastOrNull()
-    if ((functionalTypeReturnType as? ConeClassLikeType)?.isUnit == true) {
-        // We don't try to match return type for this case
-        // Dropping the return type (getting only the lambda args)
-        val superTypeArgs = supertype.typeArguments.dropLast(1)
-        val subTypeArgs = subtype.typeArguments.dropLast(1)
-        if (superTypeArgs.size != subTypeArgs.size) return false
-
-        for (i in superTypeArgs.indices) {
-            val subTypeArg = subTypeArgs[i].type ?: return false
-            val superTypeArg = superTypeArgs[i].type ?: return false
-
-            if (!AbstractTypeChecker.isSubtypeOf(context.session.typeContext, subTypeArg, superTypeArg)) {
-                return false
-            }
-        }
-
-        return true
-    }
-    return false
 }
 
 fun FirCallableDeclaration.isVisibleInClass(parentClass: FirClass): Boolean {
     return symbol.isVisibleInClass(parentClass.symbol)
 }
 
-fun FirCallableSymbol<*>.isVisibleInClass(parentClassSymbol: FirClassSymbol<*>): Boolean {
+fun FirBasedSymbol<*>.isVisibleInClass(parentClassSymbol: FirClassSymbol<*>): Boolean {
     val classPackage = parentClassSymbol.classId.packageFqName
+    val (visibility, packageName) = when (this) {
+        is FirCallableSymbol<*> -> visibility to callableId.packageName
+        is FirClassLikeSymbol<*> -> visibility to classId.packageFqName
+        else -> return true
+    }
     if (visibility == Visibilities.Private ||
-        !visibility.visibleFromPackage(classPackage, callableId.packageName)
+        !visibility.visibleFromPackage(classPackage, packageName)
     ) return false
     if (
         visibility == Visibilities.Internal &&
@@ -343,44 +346,76 @@ fun FirCallableSymbol<*>.getImplementationStatus(
         if (containingClassSymbol === parentClassSymbol && symbol.subjectToManyNotImplemented(sessionHolder)) {
             return ImplementationStatus.AMBIGUOUSLY_INHERITED
         }
+
+        var hasAbstractFromClass = false
+        var hasInterfaceDelegation = false
+        var hasAbstractVar = false
+        var hasImplementation = false
+        var hasImplementationVar = false
+
+        for (intersection in symbol.intersections) {
+            @OptIn(SymbolInternals::class)
+            val fir = intersection.fir
+            val unwrappedFir = fir.unwrapFakeOverrides()
+            val isVar = unwrappedFir is FirProperty && unwrappedFir.isVar
+            val isFromClass = unwrappedFir.getContainingClassSymbol(sessionHolder.session)?.classKind == ClassKind.CLASS
+
+            if (fir.isAbstract) {
+                if (isFromClass) {
+                    hasAbstractFromClass = true
+                }
+                if (isVar) {
+                    hasAbstractVar = true
+                }
+            } else {
+                if (fir.origin == FirDeclarationOrigin.Delegated) {
+                    hasInterfaceDelegation = true
+                }
+                if (isFromClass) {
+                    hasImplementation = true
+                    if (isVar) {
+                        hasImplementationVar = true
+                    }
+                }
+            }
+        }
+
         // In Java 8, non-abstract intersection overrides having abstract symbol from base class
         // still should be implemented in current class (even when they have default interface implementation)
-        if (symbol.intersections.any {
-                @OptIn(SymbolInternals::class)
-                val fir = it.fir.unwrapFakeOverrides()
-                fir.isAbstract && (fir.getContainingClassSymbol(sessionHolder.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
-            }
-        ) {
-            // Exception from the rule above: interface implementation via delegation
-            if (symbol.intersections.none {
-                    @OptIn(SymbolInternals::class)
-                    val fir = it.fir
-                    fir.origin == FirDeclarationOrigin.Delegated && !fir.isAbstract
-                }
+        // Exception to the rule above: interface implementation via delegation
+        if (hasAbstractFromClass && !hasInterfaceDelegation) {
+            return ImplementationStatus.NOT_IMPLEMENTED
+        }
+        if (hasAbstractVar && hasImplementation && !hasImplementationVar) {
+            return ImplementationStatus.VAR_IMPLEMENTED_BY_VAL
+        }
+    }
+
+    when (symbol) {
+        is FirNamedFunctionSymbol -> {
+            if (
+                parentClassSymbol is FirRegularClassSymbol &&
+                parentClassSymbol.isData &&
+                symbol.matchesDataClassSyntheticMemberSignatures
             ) {
-                return ImplementationStatus.NOT_IMPLEMENTED
+                return ImplementationStatus.INHERITED_OR_SYNTHESIZED
+            }
+            // TODO, KT-59818: suspend function overridden by a Java class in the middle is not properly regarded as an override
+            if (isSuspend) {
+                return ImplementationStatus.INHERITED_OR_SYNTHESIZED
             }
         }
+        is FirFieldSymbol -> if (symbol.isJavaOrEnhancement) return ImplementationStatus.CANNOT_BE_IMPLEMENTED
     }
-    if (this is FirNamedFunctionSymbol) {
-        if (parentClassSymbol is FirRegularClassSymbol && parentClassSymbol.isData && matchesDataClassSyntheticMemberSignatures) {
-            return ImplementationStatus.INHERITED_OR_SYNTHESIZED
-        }
-        // TODO: suspend function overridden by a Java class in the middle is not properly regarded as an override
-        if (isSuspend) {
-            return ImplementationStatus.INHERITED_OR_SYNTHESIZED
-        }
-    }
+
     return when {
         isFinal -> ImplementationStatus.CANNOT_BE_IMPLEMENTED
         containingClassSymbol === parentClassSymbol && (origin == FirDeclarationOrigin.Source || origin == FirDeclarationOrigin.Precompiled) ->
             ImplementationStatus.ALREADY_IMPLEMENTED
-        containingClassSymbol is FirRegularClassSymbol && containingClassSymbol.isExpect -> ImplementationStatus.CANNOT_BE_IMPLEMENTED
         isAbstract -> ImplementationStatus.NOT_IMPLEMENTED
         else -> ImplementationStatus.INHERITED_OR_SYNTHESIZED
     }
 }
-
 
 private fun FirIntersectionCallableSymbol.subjectToManyNotImplemented(sessionHolder: SessionHolder): Boolean {
     var nonAbstractCountInClass = 0
@@ -429,7 +464,7 @@ private val FirNamedFunctionSymbol.matchesHashCodeSignature: Boolean
 private val FirNamedFunctionSymbol.matchesToStringSignature: Boolean
     get() = valueParameterSymbols.isEmpty()
 
-val Name.isDelegated: Boolean get() = asString().startsWith("<\$\$delegate_")
+val Name.isDelegated: Boolean get() = asString().startsWith("\$\$delegate_")
 
 val ConeTypeProjection.isConflictingOrNotInvariant: Boolean get() = kind != ProjectionKind.INVARIANT || this is ConeKotlinTypeConflictingProjection
 
@@ -443,7 +478,7 @@ fun checkTypeMismatch(
     isInitializer: Boolean
 ) {
     var lValueType = lValueOriginalType
-    var rValueType = rValue.typeRef.coneType
+    var rValueType = rValue.resolvedType
     if (source.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement) {
         if (!lValueType.isNullable && rValueType.isNullable) {
             val tempType = rValueType
@@ -454,71 +489,57 @@ fun checkTypeMismatch(
 
     val typeContext = context.session.typeContext
 
-    if (!isSubtypeForTypeMismatch(typeContext, subtype = rValueType, supertype = lValueType)) {
-        if (rValueType is ConeClassLikeType &&
-            rValueType.lookupTag.classId == StandardClassIds.Int &&
-            lValueType.fullyExpandedType(context.session).isIntegerTypeOrNullableIntegerTypeOfAnySize &&
-            rValueType.nullability == ConeNullability.NOT_NULL
-        ) {
-            // val p: Byte = 42 or similar situation
-            // TODO: remove after fix of KT-46047
-            return
+    // there is nothing to report if types are matching
+    if (isSubtypeForTypeMismatch(typeContext, subtype = rValueType, supertype = lValueType)) return
+
+    val resolvedSymbol = assignment?.calleeReference?.toResolvedCallableSymbol() as? FirPropertySymbol
+    when {
+        resolvedSymbol != null && lValueType is ConeCapturedType && lValueType.constructor.projection.kind.let {
+            it == ProjectionKind.STAR || it == ProjectionKind.OUT
+        } -> {
+            reporter.reportOn(assignment.source, FirErrors.SETTER_PROJECTED_OUT, resolvedSymbol, context)
         }
-        if (lValueType.isExtensionFunctionType || rValueType.isExtensionFunctionType) {
-            // TODO: remove after fix of KT-45989
-            return
+        rValue.isNullLiteral && lValueType.nullability == ConeNullability.NOT_NULL -> {
+            reporter.reportOn(rValue.source, FirErrors.NULL_FOR_NONNULL_TYPE, lValueType, context)
         }
-        val resolvedSymbol = assignment?.calleeReference?.toResolvedCallableSymbol() as? FirPropertySymbol
-        when {
-            resolvedSymbol != null && lValueType is ConeCapturedType && lValueType.constructor.projection.kind.let {
-                it == ProjectionKind.STAR || it == ProjectionKind.OUT
-            } -> {
-                reporter.reportOn(assignment.source, FirErrors.SETTER_PROJECTED_OUT, resolvedSymbol, context)
+        isInitializer -> {
+            reporter.reportOn(
+                source,
+                FirErrors.INITIALIZER_TYPE_MISMATCH,
+                lValueType,
+                rValueType,
+                context.session.typeContext.isTypeMismatchDueToNullability(rValueType, lValueType),
+                context
+            )
+        }
+        source.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement || assignment?.source?.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement -> {
+            if (!lValueType.isNullable && rValueType.isNullable) {
+                val tempType = rValueType
+                rValueType = lValueType
+                lValueType = tempType
             }
-            rValue.isNullLiteral && lValueType.nullability == ConeNullability.NOT_NULL -> {
-                reporter.reportOn(rValue.source, FirErrors.NULL_FOR_NONNULL_TYPE, context)
+            if (rValueType.isUnit) {
+                reporter.reportOn(source, FirErrors.INC_DEC_SHOULD_NOT_RETURN_UNIT, context)
+            } else {
+                reporter.reportOn(source, FirErrors.RESULT_TYPE_MISMATCH, lValueType, rValueType, context)
             }
-            isInitializer -> {
-                reporter.reportOn(
-                    source,
-                    FirErrors.INITIALIZER_TYPE_MISMATCH,
-                    lValueType,
-                    rValueType,
-                    context.session.typeContext.isTypeMismatchDueToNullability(rValueType, lValueType),
-                    context
-                )
-            }
-            source.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement -> {
-                if (!lValueType.isNullable && rValueType.isNullable) {
-                    val tempType = rValueType
-                    rValueType = lValueType
-                    lValueType = tempType
-                }
-                if (rValueType.isUnit) {
-                    reporter.reportOn(source, FirErrors.INC_DEC_SHOULD_NOT_RETURN_UNIT, context)
-                } else {
-                    reporter.reportOn(source, FirErrors.RESULT_TYPE_MISMATCH, lValueType, rValueType, context)
-                }
-            }
-            else -> {
-                reporter.reportOn(
-                    source,
-                    FirErrors.ASSIGNMENT_TYPE_MISMATCH,
-                    lValueType,
-                    rValueType,
-                    context.session.typeContext.isTypeMismatchDueToNullability(rValueType, lValueType),
-                    context
-                )
-            }
+        }
+        else -> {
+            reporter.reportOn(
+                source,
+                FirErrors.ASSIGNMENT_TYPE_MISMATCH,
+                lValueType,
+                rValueType,
+                context.session.typeContext.isTypeMismatchDueToNullability(rValueType, lValueType),
+                context
+            )
         }
     }
 }
 
 internal fun checkCondition(condition: FirExpression, context: CheckerContext, reporter: DiagnosticReporter) {
-    val coneType = condition.typeRef.coneType.lowerBoundIfFlexible()
-    if (coneType !is ConeErrorType &&
-        !coneType.isSubtypeOf(context.session.typeContext, context.session.builtinTypes.booleanType.type)
-    ) {
+    val coneType = condition.resolvedType.lowerBoundIfFlexible()
+    if (coneType !is ConeErrorType && !coneType.isSubtypeOf(context.session.typeContext, context.session.builtinTypes.booleanType.type)) {
         reporter.reportOn(
             condition.source,
             FirErrors.CONDITION_TYPE_MISMATCH,
@@ -543,10 +564,10 @@ fun extractArgumentsTypeRefAndSource(typeRef: FirTypeRef?): List<FirTypeRefSourc
             }
         }
         is FirFunctionTypeRef -> {
-            val valueParameters = delegatedTypeRef.valueParameters
+            val parameters = delegatedTypeRef.parameters
 
             delegatedTypeRef.receiverTypeRef?.let { result.add(FirTypeRefSource(it, it.source)) }
-            for (valueParameter in valueParameters) {
+            for (valueParameter in parameters) {
                 val valueParamTypeRef = valueParameter.returnTypeRef
                 result.add(FirTypeRefSource(valueParamTypeRef, valueParamTypeRef.source))
             }
@@ -567,8 +588,7 @@ val FirClassLikeSymbol<*>.classKind: ClassKind?
 val FirBasedSymbol<*>.typeParameterSymbols: List<FirTypeParameterSymbol>?
     get() = when (this) {
         is FirCallableSymbol<*> -> typeParameterSymbols
-        is FirClassSymbol<*> -> typeParameterSymbols
-        is FirTypeAliasSymbol -> typeParameterSymbols
+        is FirClassLikeSymbol<*> -> typeParameterSymbols
         else -> null
     }
 
@@ -594,10 +614,12 @@ fun FirFunctionSymbol<*>.isFunctionForExpectTypeFromCastFeature(): Boolean {
     return true
 }
 
-fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
-    fun CallableId.isMember(): Boolean {
-        return classId != null || isLocal // TODO: Replace with .containingClass (after fixing)
-    }
+private val FirCallableDeclaration.isMember get() = dispatchReceiverType != null
+
+fun getActualTargetList(container: FirAnnotationContainer): AnnotationTargetList {
+    val annotated =
+        if (container is FirBackingField && !container.propertySymbol.hasBackingField) container.propertyIfBackingField
+        else container
 
     return when (annotated) {
         is FirRegularClass -> {
@@ -611,12 +633,12 @@ fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
         is FirProperty -> {
             when {
                 annotated.isLocal ->
-                    if (annotated.source?.kind == KtFakeSourceElementKind.DesugaredComponentFunctionCall) {
-                        TargetLists.T_DESTRUCTURING_DECLARATION
-                    } else {
-                        TargetLists.T_LOCAL_VARIABLE
+                    when {
+                        annotated.source?.kind == DesugaredComponentFunctionCall -> TargetLists.T_DESTRUCTURING_DECLARATION
+                        annotated.isCatchParameter == true -> TargetLists.T_CATCH_PARAMETER
+                        else -> TargetLists.T_LOCAL_VARIABLE
                     }
-                annotated.symbol.callableId.isMember() ->
+                annotated.isMember ->
                     if (annotated.source?.kind == KtFakeSourceElementKind.PropertyFromParameter) {
                         TargetLists.T_VALUE_PARAMETER_WITH_VAL
                     } else {
@@ -639,7 +661,7 @@ fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
         is FirSimpleFunction -> {
             when {
                 annotated.isLocal -> TargetLists.T_LOCAL_FUNCTION
-                annotated.symbol.callableId.isMember() -> TargetLists.T_MEMBER_FUNCTION
+                annotated.isMember -> TargetLists.T_MEMBER_FUNCTION
                 else -> TargetLists.T_TOP_LEVEL_FUNCTION
             }
         }
@@ -648,6 +670,7 @@ fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
         is FirBackingField -> TargetLists.T_BACKING_FIELD
         is FirFile -> TargetLists.T_FILE
         is FirTypeParameter -> TargetLists.T_TYPE_PARAMETER
+        is FirReceiverParameter -> TargetLists.T_TYPE_REFERENCE
         is FirAnonymousInitializer -> TargetLists.T_INITIALIZER
         is FirAnonymousObject ->
             if (annotated.source?.kind == KtFakeSourceElementKind.EnumInitializer) {
@@ -662,7 +685,7 @@ fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
             } else {
                 TargetLists.T_OBJECT_LITERAL
             }
-//            TODO: properly implement those cases
+//            TODO, KT-59819: properly implement those cases
 //            is KtDestructuringDeclarationEntry -> TargetLists.T_LOCAL_VARIABLE
 //            is KtDestructuringDeclaration -> TargetLists.T_DESTRUCTURING_DECLARATION
 //            is KtLambdaExpression -> TargetLists.T_FUNCTION_LITERAL
@@ -671,3 +694,181 @@ fun getActualTargetList(annotated: FirDeclaration): AnnotationTargetList {
 }
 
 private typealias TargetLists = AnnotationTargetLists
+
+fun FirQualifiedAccessExpression.explicitReceiverIsNotSuperReference(): Boolean {
+    return (this.explicitReceiver as? FirQualifiedAccessExpression)?.calleeReference !is FirSuperReference
+}
+
+
+internal val KtSourceElement.defaultValueForParameter: KtSourceElement?
+    get() = when (this) {
+        is KtPsiSourceElement -> (psi as? KtParameter)?.defaultValue?.toKtPsiSourceElement()
+        is KtLightSourceElement -> findDefaultValue(this)
+    }
+
+private fun findDefaultValue(source: KtLightSourceElement): KtLightSourceElement? {
+    var defaultValue: LighterASTNode? = null
+    var defaultValueOffset = source.startOffset
+
+    val nodes = source.lighterASTNode.getChildren(source.treeStructure)
+    for (node in nodes) {
+        if (node.isExpression()) {
+            defaultValue = node
+            break
+        } else {
+            defaultValueOffset += node.endOffset - node.startOffset
+        }
+    }
+    if (defaultValue == null) return null
+
+    return defaultValue.toKtLightSourceElement(
+        source.treeStructure,
+        startOffset = defaultValueOffset,
+        endOffset = defaultValueOffset + defaultValue.textLength,
+    )
+}
+
+fun ConeKotlinType.getInlineClassUnderlyingType(session: FirSession): ConeKotlinType {
+    require(this.isSingleFieldValueClass(session))
+    return toRegularClassSymbol(session)!!.primaryConstructorSymbol(session)!!.valueParameterSymbols[0].resolvedReturnTypeRef.coneType
+}
+
+fun FirNamedFunctionSymbol.directOverriddenFunctions(session: FirSession, scopeSession: ScopeSession): List<FirNamedFunctionSymbol> {
+    val classSymbol = getContainingClassSymbol(session) as? FirClassSymbol ?: return emptyList()
+    val scope = classSymbol.unsubstitutedScope(
+        session,
+        scopeSession,
+        withForcedTypeCalculator = false,
+        memberRequiredPhase = FirResolvePhase.STATUS,
+    )
+
+    scope.processFunctionsByName(name) { }
+    return scope.getDirectOverriddenFunctions(this, true)
+}
+
+fun FirNamedFunctionSymbol.directOverriddenFunctions(context: CheckerContext) =
+    directOverriddenFunctions(context.session, context.sessionHolder.scopeSession)
+
+inline fun <C : MutableCollection<FirNamedFunctionSymbol>> FirNamedFunctionSymbol.collectOverriddenFunctionsWhere(
+    collection: C,
+    context: CheckerContext,
+    crossinline condition: (FirNamedFunctionSymbol) -> Boolean,
+) = collection.apply {
+    processOverriddenFunctions(context) {
+        if (condition(it)) {
+            add(it)
+        }
+    }
+}
+
+inline fun FirNamedFunctionSymbol.processOverriddenFunctions(
+    context: CheckerContext,
+    crossinline action: (FirNamedFunctionSymbol) -> Unit,
+) {
+    val containingClass = getContainingClassSymbol(context.session) as? FirClassSymbol ?: return
+    val firTypeScope = containingClass.unsubstitutedScope(context)
+
+    firTypeScope.processFunctionsByName(callableId.callableName) { }
+
+    firTypeScope.processOverriddenFunctions(this) {
+        action(it)
+        ProcessorAction.NEXT
+    }
+}
+
+val CheckerContext.closestNonLocal get() = containingDeclarations.takeWhile { it.isNonLocal }.lastOrNull()
+
+fun CheckerContext.closestNonLocalWith(declaration: FirDeclaration) =
+    (containingDeclarations + declaration).takeWhile { it.isNonLocal }.lastOrNull()
+
+val CheckerContext.isTopLevel get() = containingDeclarations.lastOrNull().let { it is FirFile || it is FirScript }
+
+fun FirBasedSymbol<*>.hasAnnotationOrInsideAnnotatedClass(classId: ClassId, session: FirSession): Boolean {
+    if (hasAnnotation(classId, session)) return true
+    val container = getContainingClassSymbol(session) ?: return false
+    return container.hasAnnotationOrInsideAnnotatedClass(classId, session)
+}
+
+fun FirDeclaration.hasAnnotationOrInsideAnnotatedClass(classId: ClassId, session: FirSession) =
+    symbol.hasAnnotationOrInsideAnnotatedClass(classId, session)
+
+fun FirBasedSymbol<*>.getAnnotationFirstArgument(classId: ClassId, session: FirSession): FirExpression? {
+    val annotation = getAnnotationByClassId(classId, session)
+    return annotation?.argumentMapping?.mapping?.values?.firstOrNull()
+}
+
+fun FirBasedSymbol<*>.getAnnotationStringParameter(classId: ClassId, session: FirSession): String? {
+    val expression = getAnnotationFirstArgument(classId, session) as? FirConstExpression<*>
+    return expression?.value as? String
+}
+
+fun FirElement.isLhsOfAssignment(context: CheckerContext): Boolean {
+    if (this !is FirQualifiedAccessExpression) return false
+    val lastQualified = context.callsOrAssignments.lastOrNull { it != this } ?: return false
+    return lastQualified is FirVariableAssignment && lastQualified.lValue == this
+}
+
+/**
+ * Collects the upper bounds as [ConeClassLikeType].
+ */
+fun ConeKotlinType?.collectUpperBounds(): Set<ConeClassLikeType> {
+    if (this == null) return emptySet()
+
+    val upperBounds = mutableSetOf<ConeClassLikeType>()
+    val seen = mutableSetOf<ConeKotlinType>()
+    fun collect(type: ConeKotlinType) {
+        if (!seen.add(type)) return // Avoid infinite recursion.
+
+        when (type) {
+            is ConeErrorType -> return // Ignore error types
+            is ConeLookupTagBasedType -> when (type) {
+                is ConeClassLikeType -> upperBounds.add(type)
+                is ConeTypeVariableType -> {
+                    val symbol = (type.lookupTag.originalTypeParameter as? ConeTypeParameterLookupTag)?.typeParameterSymbol ?: return
+                    symbol.resolvedBounds.forEach { collect(it.coneType) }
+                }
+                is ConeTypeParameterType -> {
+                    val symbol = type.lookupTag.typeParameterSymbol
+                    symbol.resolvedBounds.forEach { collect(it.coneType) }
+                }
+                else -> throw IllegalStateException("missing branch for ${javaClass.name}")
+            }
+            is ConeDefinitelyNotNullType -> collect(type.original)
+            is ConeIntersectionType -> type.intersectedTypes.forEach(::collect)
+            is ConeFlexibleType -> collect(type.upperBound)
+            is ConeCapturedType -> type.constructor.supertypes?.forEach(::collect)
+            is ConeIntegerConstantOperatorType -> upperBounds.add(type.getApproximatedType())
+            is ConeStubType, is ConeIntegerLiteralConstantType -> throw IllegalStateException("$type should not reach here")
+        }
+    }
+
+    collect(this)
+    return upperBounds
+}
+
+fun ConeKotlinType.leastUpperBound(session: FirSession): ConeKotlinType {
+    val upperBounds = collectUpperBounds().takeIf { it.isNotEmpty() } ?: return session.builtinTypes.nullableAnyType.type
+    return ConeTypeIntersector.intersectTypes(session.typeContext, upperBounds)
+}
+
+fun ConeKotlinType.fullyExpandedClassId(session: FirSession): ClassId? {
+    return fullyExpandedType(session).classId
+}
+
+@OptIn(ExperimentalContracts::class)
+fun ConeKotlinType.hasDiagnosticKind(kind: DiagnosticKind): Boolean {
+    contract { returns(true) implies (this@hasDiagnosticKind is ConeErrorType) }
+    return this is ConeErrorType && (diagnostic as? ConeSimpleDiagnostic)?.kind == kind
+}
+
+fun FirResolvedQualifier.isStandalone(
+    context: CheckerContext,
+): Boolean {
+    val lastQualifiedAccess = context.callsOrAssignments.lastOrNull() as? FirQualifiedAccessExpression
+    // Note: qualifier isn't standalone when it's in receiver (SomeClass.foo) or getClass (SomeClass::class) position
+    if (lastQualifiedAccess?.explicitReceiver === this || lastQualifiedAccess?.dispatchReceiver === this) return false
+    val lastGetClass = context.getClassCalls.lastOrNull()
+    if (lastGetClass?.argument === this) return false
+
+    return true
+}

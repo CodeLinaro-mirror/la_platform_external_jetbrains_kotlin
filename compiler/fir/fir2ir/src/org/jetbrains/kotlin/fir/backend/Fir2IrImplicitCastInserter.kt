@@ -8,18 +8,18 @@ package org.jetbrains.kotlin.fir.backend
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
 import org.jetbrains.kotlin.fir.references.FirReference
+import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolvedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
+import org.jetbrains.kotlin.ir.symbols.IrSymbolInternals
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.parentAsClass
@@ -30,9 +30,13 @@ class Fir2IrImplicitCastInserter(
     private val components: Fir2IrComponents
 ) : Fir2IrComponents by components, FirDefaultVisitor<IrElement, IrElement>() {
 
-    private fun FirTypeRef.toIrType(): IrType = with(typeConverter) { toIrType() }
+    private fun FirTypeRef.toIrType(typeOrigin: ConversionTypeOrigin): IrType = with(typeConverter) {
+        toIrType(typeOrigin)
+    }
 
-    private fun ConeKotlinType.toIrType(): IrType = with(typeConverter) { toIrType() }
+    private fun ConeKotlinType.toIrType(typeOrigin: ConversionTypeOrigin): IrType = with(typeConverter) {
+        toIrType(typeOrigin)
+    }
 
     override fun visitElement(element: FirElement, data: IrElement): IrElement {
         TODO("Should not be here: ${element::class}: ${element.render()}")
@@ -67,6 +71,11 @@ class Fir2IrImplicitCastInserter(
 
     override fun visitResolvedQualifier(resolvedQualifier: FirResolvedQualifier, data: IrElement): IrElement = data
 
+    override fun visitErrorResolvedQualifier(errorResolvedQualifier: FirErrorResolvedQualifier, data: IrElement): IrElement {
+        // Support for error suppression case
+        return visitResolvedQualifier(errorResolvedQualifier, data)
+    }
+
     override fun visitGetClassCall(getClassCall: FirGetClassCall, data: IrElement): IrElement = data
 
     override fun visitFunctionCall(functionCall: FirFunctionCall, data: IrElement): IrElement = data
@@ -80,7 +89,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitStringConcatenationCall(stringConcatenationCall: FirStringConcatenationCall, data: IrElement): IrElement = data
 
     // TODO: element-wise cast?
-    override fun visitArrayOfCall(arrayOfCall: FirArrayOfCall, data: IrElement): IrElement = data
+    override fun visitArrayLiteral(arrayLiteral: FirArrayLiteral, data: IrElement): IrElement = data
 
     // TODO: something to do w.r.t. SAM?
     override fun visitLambdaArgumentExpression(lambdaArgumentExpression: FirLambdaArgumentExpression, data: IrElement): IrElement = data
@@ -99,7 +108,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitExpression(expression: FirExpression, data: IrElement): IrElement {
         return when (expression) {
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
-            is FirUnitExpression -> (data as IrExpression).let { coerceToUnitIfNeeded(it, irBuiltIns) }
+            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, irBuiltIns)
             else -> data
         }
     }
@@ -107,8 +116,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitStatement(statement: FirStatement, data: IrElement): IrElement {
         return when (statement) {
             is FirTypeAlias -> data
-            FirStubStatement -> data
-            is FirUnitExpression -> (data as IrExpression).let { coerceToUnitIfNeeded(it, irBuiltIns) }
+            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, irBuiltIns)
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
             else -> statement.accept(this, data)
         }
@@ -133,7 +141,6 @@ class Fir2IrImplicitCastInserter(
 
     override fun visitWhenSubjectExpression(whenSubjectExpression: FirWhenSubjectExpression, data: IrElement): IrElement = data
 
-    // TODO: cast `condition` expression to boolean?
     override fun visitWhenBranch(whenBranch: FirWhenBranch, data: IrElement): IrBranch {
         val irBranch = data as IrBranch
         (irBranch.result as? IrContainerExpression)?.let {
@@ -147,7 +154,6 @@ class Fir2IrImplicitCastInserter(
 
     // ==================================================================================
 
-    // TODO: cast `condition` expression to boolean?
     override fun visitDoWhileLoop(doWhileLoop: FirDoWhileLoop, data: IrElement): IrElement {
         val loop = data as IrDoWhileLoop
         (loop.body as? IrContainerExpression)?.let {
@@ -156,7 +162,6 @@ class Fir2IrImplicitCastInserter(
         return data
     }
 
-    // TODO: cast `condition` expression to boolean?
     override fun visitWhileLoop(whileLoop: FirWhileLoop, data: IrElement): IrElement {
         val loop = data as IrWhileLoop
         (loop.body as? IrContainerExpression)?.let {
@@ -174,40 +179,45 @@ class Fir2IrImplicitCastInserter(
     override fun visitTryExpression(tryExpression: FirTryExpression, data: IrElement): IrElement {
         val irTry = data as IrTry
         (irTry.finallyExpression as? IrContainerExpression)?.let {
-            irTry.finallyExpression = it.insertImplicitCasts()
+            irTry.finallyExpression = it.insertImplicitCasts(coerceLastExpressionToUnit = true)
         }
         return data
     }
 
     override fun visitThrowExpression(throwExpression: FirThrowExpression, data: IrElement): IrElement =
-        (data as IrThrow).cast(throwExpression, throwExpression.exception.typeRef, throwExpression.typeRef)
+        (data as IrThrow).cast(throwExpression, throwExpression.exception.resolvedType, throwExpression.resolvedType)
 
     override fun visitBlock(block: FirBlock, data: IrElement): IrElement =
         (data as? IrContainerExpression)?.insertImplicitCasts() ?: data
 
     override fun visitReturnExpression(returnExpression: FirReturnExpression, data: IrElement): IrElement {
-        val irReturn = data as IrReturn
+        val irReturn = data as? IrReturn ?: return data
         val expectedType = returnExpression.target.labeledElement.returnTypeRef
-        irReturn.value = irReturn.value.cast(returnExpression.result, returnExpression.result.typeRef, expectedType)
+        irReturn.value = irReturn.value.cast(returnExpression.result, returnExpression.result.resolvedType, expectedType.coneType)
         return data
     }
 
     // ==================================================================================
 
-    internal fun IrExpression.cast(expression: FirExpression, valueType: FirTypeRef, expectedType: FirTypeRef): IrExpression {
+    internal fun IrExpression.cast(expression: FirExpression, valueTypeRef: ConeKotlinType, expectedTypeRef: ConeKotlinType): IrExpression {
         if (this is IrTypeOperatorCall) {
             return this
         }
+
+        if (this is IrContainerExpression) {
+            insertImplicitCasts()
+        }
+
+        val valueType = valueTypeRef.fullyExpandedType(session)
+        val expectedType = expectedTypeRef.fullyExpandedType(session)
+
         return when {
-            this is IrContainerExpression -> {
-                insertImplicitCasts()
-            }
             expectedType.isUnit -> {
                 coerceToUnitIfNeeded(this, irBuiltIns)
             }
-            valueType.coneTypeSafe<ConeDynamicType>() != null -> {
-                if (expectedType.coneType !is ConeDynamicType && !expectedType.isNullableAny) {
-                    implicitCast(this, expectedType.toIrType())
+            valueType is ConeDynamicType -> {
+                if (expectedType !is ConeDynamicType && !expectedType.isNullableAny) {
+                    implicitCast(this, expectedType.toIrType(ConversionTypeOrigin.DEFAULT))
                 } else {
                     this
                 }
@@ -221,8 +231,9 @@ class Fir2IrImplicitCastInserter(
         }
     }
 
-    private fun FirTypeRef.acceptsNullValues(): Boolean =
-        canBeNull || hasEnhancedNullability()
+    private fun ConeKotlinType.acceptsNullValues(): Boolean {
+        return canBeNull || hasEnhancedNullability
+    }
 
     private fun IrExpression.insertImplicitNotNullCastIfNeeded(expression: FirExpression): IrExpression {
         if (this is IrGetEnumValue) return this
@@ -232,13 +243,13 @@ class Fir2IrImplicitCastInserter(
         return implicitNotNullCast(this)
     }
 
-    private fun IrContainerExpression.insertImplicitCasts(): IrContainerExpression {
+    private fun IrContainerExpression.insertImplicitCasts(coerceLastExpressionToUnit: Boolean = false): IrContainerExpression {
         if (statements.isEmpty()) return this
 
         val lastIndex = statements.lastIndex
         statements.forEachIndexed { i, irStatement ->
             if (irStatement !is IrErrorCallExpression && irStatement is IrExpression) {
-                if (i != lastIndex) {
+                if (i != lastIndex || coerceLastExpressionToUnit) {
                     statements[i] = coerceToUnitIfNeeded(irStatement, irBuiltIns)
                 }
                 // TODO: for the last statement, need to cast to the return type if mismatched
@@ -259,79 +270,58 @@ class Fir2IrImplicitCastInserter(
         return this
     }
 
-    override fun visitExpressionWithSmartcast(expressionWithSmartcast: FirExpressionWithSmartcast, data: IrElement): IrExpression {
-        return if (expressionWithSmartcast.isStable) {
-            implicitCastOrExpression(data as IrExpression, expressionWithSmartcast.typeRef)
+    override fun visitSmartCastExpression(smartCastExpression: FirSmartCastExpression, data: IrElement): IrElement {
+        // We don't want an implicit cast to Nothing?. This expression just encompasses nullability after null check.
+        return if (smartCastExpression.isStable && smartCastExpression.smartcastTypeWithoutNullableNothing == null) {
+            implicitCastOrExpression(data as IrExpression, smartCastExpression.resolvedType)
         } else {
             data as IrExpression
         }
-    }
-
-    override fun visitExpressionWithSmartcastToNothing(
-        expressionWithSmartcastToNothing: FirExpressionWithSmartcastToNothing,
-        data: IrElement
-    ): IrElement {
-        // We don't want an implicit cast to Nothing?. This expression just encompasses nullability after null check.
-        return data
-    }
-
-    override fun visitWhenSubjectExpressionWithSmartcast(
-        whenSubjectExpressionWithSmartcast: FirWhenSubjectExpressionWithSmartcast,
-        data: IrElement
-    ): IrElement {
-        return if (whenSubjectExpressionWithSmartcast.isStable) {
-            implicitCastOrExpression(data as IrExpression, whenSubjectExpressionWithSmartcast.typeRef)
-        } else {
-            data as IrExpression
-        }
-    }
-
-    override fun visitWhenSubjectExpressionWithSmartcastToNothing(
-        whenSubjectExpressionWithSmartcastToNothing: FirWhenSubjectExpressionWithSmartcastToNothing,
-        data: IrElement
-    ): IrElement {
-        // We don't want an implicit cast to Nothing?. This expression just encompasses nullability after null check.
-        return data
     }
 
     internal fun implicitCastFromDispatchReceiver(
         original: IrExpression,
-        originalTypeRef: FirTypeRef,
-        calleeReference: FirReference,
+        coneKotlinType: ConeKotlinType,
+        calleeReference: FirReference?,
+        typeOrigin: ConversionTypeOrigin,
     ): IrExpression {
-        val referencedDeclaration = (calleeReference.resolvedSymbol as? FirCallableSymbol<*>)?.unwrapCallRepresentative()?.fir
+        val referencedDeclaration = calleeReference?.toResolvedCallableSymbol()?.unwrapCallRepresentative()?.fir
 
         val dispatchReceiverType =
             referencedDeclaration?.dispatchReceiverType as? ConeClassLikeType
-                ?: return implicitCastOrExpression(original, originalTypeRef)
+                ?: return implicitCastOrExpression(original, coneKotlinType)
 
         val starProjectedDispatchReceiver = dispatchReceiverType.replaceArgumentsWithStarProjections()
 
-        val castType = originalTypeRef.coneTypeSafe<ConeIntersectionType>()
+        val castType = coneKotlinType as? ConeIntersectionType
         castType?.intersectedTypes?.forEach { componentType ->
             if (AbstractTypeChecker.isSubtypeOf(session.typeContext, componentType, starProjectedDispatchReceiver)) {
-                return implicitCastOrExpression(original, componentType)
+                return implicitCastOrExpression(original, componentType, typeOrigin)
             }
         }
 
-        return implicitCastOrExpression(original, originalTypeRef)
+        return implicitCastOrExpression(original, coneKotlinType, typeOrigin)
     }
 
-    private fun implicitCastOrExpression(original: IrExpression, castType: ConeKotlinType): IrExpression {
-        return implicitCastOrExpression(original, castType.toIrType())
+    private fun implicitCastOrExpression(
+        original: IrExpression, castType: ConeKotlinType, typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT
+    ): IrExpression {
+        return implicitCastOrExpression(original, castType.toIrType(typeOrigin))
     }
 
-    private fun implicitCastOrExpression(original: IrExpression, castType: FirTypeRef): IrExpression {
-        return implicitCastOrExpression(original, castType.toIrType())
-    }
-
-    internal fun implicitCastOrExpression(original: IrExpression, castType: IrType): IrExpression {
-        val originalNotNull = original.type.makeNotNull()
-        if (originalNotNull == castType.makeNotNull()) return original
-        return implicitCast(original, castType)
+    private fun implicitCastOrExpression(
+        original: IrExpression, castType: FirTypeRef, typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT
+    ): IrExpression {
+        return implicitCastOrExpression(original, castType.toIrType(typeOrigin))
     }
 
     companion object {
+        internal fun implicitCastOrExpression(original: IrExpression, castType: IrType): IrExpression {
+            val originalNotNull = original.type.makeNotNull()
+            if (originalNotNull == castType.makeNotNull()) return original
+            return implicitCast(original, castType)
+        }
+
         private fun implicitCast(original: IrExpression, castType: IrType): IrExpression {
             val typeOperator = if (original.type is IrDynamicType) {
                 IrTypeOperator.IMPLICIT_DYNAMIC_CAST
@@ -366,8 +356,15 @@ class Fir2IrImplicitCastInserter(
         internal fun implicitNotNullCast(original: IrExpression): IrTypeOperatorCall {
             // Cast type massage 1. Remove @EnhancedNullability
             // Cast type massage 2. Convert it to a non-null variant (in case of @FlexibleNullability)
-            val castType = original.type.removeAnnotations {
-                val classId = it.symbol.owner.parentAsClass.classId
+            val castType = original.type.removeAnnotations { annotationCall ->
+                val constructorSymbol = annotationCall.symbol.takeIf { it.isBound } ?: return@removeAnnotations false
+                /*
+                 * @EnhancedNullability and @FlexibleNullability are symbols from builtins and should be already
+                 *   bound at the time of body conversion, so it's safe to take the owner for them
+                 * If symbol is unbound then this annotation can not be neither @EnhancedNullability or @FlexibleNullability
+                 */
+                @OptIn(IrSymbolInternals::class)
+                val classId = constructorSymbol.owner.parentAsClass.classId
                 classId == StandardClassIds.Annotations.EnhancedNullability ||
                         classId == StandardClassIds.Annotations.FlexibleNullability
             }.makeNotNull()
@@ -381,17 +378,18 @@ class Fir2IrImplicitCastInserter(
             )
         }
 
-        internal fun typeCanBeEnhancedOrFlexibleNullable(typeRef: FirTypeRef): Boolean {
+        internal fun typeCanBeEnhancedOrFlexibleNullable(type: ConeKotlinType): Boolean {
             return when {
-                typeRef.hasEnhancedNullability() -> true
-                typeRef.isNullabilityFlexible() && typeRef.canBeNull -> true
+                type.hasEnhancedNullability -> true
+                type.hasFlexibleNullability && type.canBeNull -> true
                 else -> false
             }
         }
 
-        private fun FirTypeRef.isNullabilityFlexible(): Boolean {
-            val flexibility = coneTypeSafe<ConeFlexibleType>() ?: return false
-            return flexibility.lowerBound.isMarkedNullable != flexibility.upperBound.isMarkedNullable
-        }
+        private val ConeKotlinType.hasFlexibleNullability: Boolean
+            get() {
+                if (this !is ConeFlexibleType) return false
+                return lowerBound.isMarkedNullable != upperBound.isMarkedNullable
+            }
     }
 }

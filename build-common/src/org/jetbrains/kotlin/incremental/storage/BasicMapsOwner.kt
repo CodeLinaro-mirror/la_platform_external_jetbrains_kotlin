@@ -36,16 +36,20 @@ open class BasicMapsOwner(val cachesDir: File) {
         return map
     }
 
-    open fun clean() {
-        forEachMapSafe("clean", BasicMap<*, *>::clean)
+    fun flush(memoryCachesOnly: Boolean) {
+        forEachMapSafe("flush") { it.flush(memoryCachesOnly) }
     }
 
     open fun close() {
         forEachMapSafe("close", BasicMap<*, *>::close)
     }
 
-    open fun flush(memoryCachesOnly: Boolean) {
-        forEachMapSafe("flush") { it.flush(memoryCachesOnly) }
+    open fun deleteStorageFiles() {
+        forEachMapSafe("deleteStorageFiles", BasicMap<*, *>::deleteStorageFiles)
+    }
+
+    fun clean() {
+        forEachMapSafe("clean", BasicMap<*, *>::clean)
     }
 
     @Synchronized

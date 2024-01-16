@@ -16,6 +16,7 @@ import java.util.*
 
 @RunWith(Parameterized::class)
 class MppHighlightingTestDataWithGradleIT : BaseGradleIT() {
+    override val defaultGradleVersion: GradleVersionRequired = GradleVersionRequired.FOR_MPP_SUPPORT
 
     @Test
     fun runTestK2NativeCli() = doTest(CliCompiler.NATIVE)
@@ -209,7 +210,7 @@ class MppHighlightingTestDataWithGradleIT : BaseGradleIT() {
     ) {
         val isAllowedInCli
             get() = when (expectedErrorKind) {
-                "NO_ACTUAL_FOR_EXPECT", "ACTUAL_WITHOUT_EXPECT", null /*TODO are some nulls better than others?*/ -> true
+                "NO_ACTUAL_FOR_EXPECT", null /*TODO are some nulls better than others?*/ -> true
                 else -> false
             }
     }

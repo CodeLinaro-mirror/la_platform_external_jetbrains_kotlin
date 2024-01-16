@@ -57,11 +57,20 @@
 # The appropriate jar is either loaded separately or added explicitly to the classpath then needed
 -dontwarn org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar
 
+# Ignore generated Gradle DSL types
+# They will be added separately on generating Gradle DSL for compiler options
+-dontwarn org.jetbrains.kotlin.cli.common.arguments.DefaultValues$*
+
 -dontwarn org.jdom.xpath.jaxen.*
 -dontwarn com.intellij.util.io.Decompressor*
 -dontwarn org.w3c.dom.Location
 -dontwarn org.w3c.dom.Window
 -dontwarn org.slf4j.**
+
+# This class in com.intellij.platform.utils has accidental dependency on Java 11,
+# but it is not used in the production code, so it should be fine to ignore this.
+# The fix commit in platform: cbf405263b98ef2ad0ecb0d5a47dc18e1b325c9f
+-dontwarn com.intellij.util.io.WalRecord$Companion
 
 #-libraryjars '<rtjar>'
 #-libraryjars '<jssejar>'
@@ -250,6 +259,12 @@
     public void registerExtension(...);
 }
 
+# Temporary for klint https://github.com/pinterest/ktlint/blob/c5a81e0d4198fa5cb2cac69967080e01e365b837/ktlint-rule-engine/src/main/kotlin/com/pinterest/ktlint/rule/engine/internal/KotlinPsiFileFactory.kt#L121
+# Should be removed after after 26.04.2024
+-keepclassmembers class com.intellij.openapi.extensions.ExtensionsArea {
+    public void registerExtensionPoint(java.lang.String, java.lang.String, com.intellij.openapi.extensions.ExtensionPoint$Kind);
+}
+
 # Serialization plugin
 
 -keep class com.intellij.openapi.util.io.JarUtil {
@@ -288,3 +303,22 @@
 
 # This class is needed for test framework
 -keep class com.intellij.openapi.util.text.StringUtil { *; }
+
+
+# This is used from standalone analysis API, which is NOT a part of the compiler but is bundled into kotlin-annotation-processing.
+-keepclassmembers class com.intellij.openapi.vfs.VirtualFileManager {
+    com.intellij.openapi.vfs.VirtualFile findFileByNioPath(java.nio.file.Path);
+}
+-keepclassmembers class com.intellij.openapi.application.Application {
+    void addApplicationListener(com.intellij.openapi.application.ApplicationListener, com.intellij.openapi.Disposable);
+}
+-keepclassmembers class com.intellij.openapi.extensions.ExtensionPointName {
+    java.util.List getExtensionList(com.intellij.openapi.extensions.AreaInstance);
+}
+-keepclassmembers class kotlinx.collections.immutable.ExtensionsKt {
+    kotlinx.collections.immutable.PersistentMap toPersistentHashMap(java.util.Map);
+    kotlinx.collections.immutable.PersistentSet persistentHashSetOf(java.lang.Object[]);
+}
+-keepclassmembers class com.intellij.lang.jvm.JvmParameter {
+    com.intellij.lang.jvm.types.JvmType getType();
+}

@@ -4,7 +4,7 @@ apply plugin: 'kotlin-platform-jvm'
 
 archivesBaseName = 'kotlin-test'
 
-JvmToolchain.configureJvmToolchain(project, JdkMajorVersion.JDK_1_6)
+JvmToolchain.configureJvmToolchain(project, JdkMajorVersion.JDK_1_8)
 
 def includeJava9 = BuildPropertiesExtKt.getIncludeJava9(project.kotlinBuildProperties)
 
@@ -16,27 +16,25 @@ sourceSets {
 
 dependencies {
     expectedBy project(':kotlin-test:kotlin-test-common')
-    api(kotlinStdlib())
+    api(RepoDependencies.kotlinStdlib(project))
     testApi(project(":kotlin-test:kotlin-test-junit"))
     testApi('junit:junit:4.13.2')
 }
 
 jar {
-    manifestAttributes(manifest, project, 'Test', true)
+    LibrariesCommon.manifestAttributes(project, manifest, 'Test', true)
     if (includeJava9) {
         from sourceSets.java9.output
     }
 }
 
-configureSourcesJar()
-
-configureJavadocJar()
+RepoArtifacts.sourcesJar(project)
+RepoArtifacts.javadocJar(project)
 
 compileKotlin {
     kotlinOptions.freeCompilerArgs = [
         "-Xallow-kotlin-package",
         "-opt-in=kotlin.contracts.ExperimentalContracts",
-        "-Xsuppress-deprecated-jvm-target-warning",
         "-opt-in=kotlin.RequiresOptIn",
     ]
     kotlinOptions.moduleName = project.archivesBaseName
@@ -45,12 +43,11 @@ compileKotlin {
 compileTestKotlin {
     kotlinOptions.freeCompilerArgs = [
         "-Xallow-kotlin-package",
-        "-Xsuppress-deprecated-jvm-target-warning",
         "-opt-in=kotlin.RequiresOptIn",
     ]
 }
 
-configureFrontendIr(project)
+LibrariesCommon.configureFrontendIr(project)
 
 if (includeJava9) {
     LibrariesCommon.configureJava9Compilation(project, 'kotlin.test')

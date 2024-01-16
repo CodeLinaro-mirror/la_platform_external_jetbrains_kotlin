@@ -57,7 +57,7 @@ import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.types.typeUtil.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
-fun insertImplicitCasts(file: IrFile, context: GeneratorContext) {
+internal fun insertImplicitCasts(file: IrFile, context: GeneratorContext) {
     InsertImplicitCasts(
         context.irBuiltIns,
         context.typeTranslator,
@@ -472,7 +472,7 @@ internal class InsertImplicitCasts(
         return IrCallImpl(
             startOffset, endOffset,
             targetType.toIrType(),
-            symbolTable.referenceSimpleFunction(coercionFunction),
+            symbolTable.descriptorExtension.referenceSimpleFunction(coercionFunction),
             typeArgumentsCount = 0, valueArgumentsCount = 0
         ).also { irCall ->
             irCall.dispatchReceiver = this
@@ -494,7 +494,7 @@ internal class InsertImplicitCasts(
         return IrCallImpl(
             startOffset, endOffset,
             targetType.toIrType(),
-            symbolTable.referenceSimpleFunction(coercionFunction),
+            symbolTable.descriptorExtension.referenceSimpleFunction(coercionFunction),
             typeArgumentsCount = 0, valueArgumentsCount = 0
         ).also { irCall ->
             irCall.extensionReceiver = this
@@ -528,6 +528,7 @@ internal class InsertImplicitCasts(
     // This is a kludge to remove IR-based descriptors where possible.
     private fun KotlinType.toNonIrBased(): KotlinType {
         if (this !is SimpleType) return this
+        if (this.isError) return this
         val newDescriptor = constructor.declarationDescriptor?.let {
             if (it is IrBasedDeclarationDescriptor<*> && it.owner.symbol.hasDescriptor)
                 it.owner.symbol.descriptor as ClassifierDescriptor

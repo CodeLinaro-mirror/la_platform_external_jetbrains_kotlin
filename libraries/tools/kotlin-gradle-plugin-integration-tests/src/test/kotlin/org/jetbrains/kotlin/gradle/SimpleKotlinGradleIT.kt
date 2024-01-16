@@ -6,6 +6,8 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
+import java.util.zip.ZipFile
+import kotlin.io.path.*
 
 @JvmGradlePluginTests
 @DisplayName("KGP simple tests")
@@ -78,7 +80,7 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
     fun testJvmTarget(gradleVersion: GradleVersion) {
         project("jvmTarget", gradleVersion) {
             buildAndFail("build") {
-                assertOutputContains("Unknown JVM target version: 1.7")
+                assertOutputContains("Unknown Kotlin JVM target: 1.7")
             }
         }
     }
@@ -197,30 +199,29 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
         }
     }
 
-    @GradleTest
-    @DisplayName("Should be compatible with project isolation")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_1, maxVersion = TestVersions.Gradle.G_7_1)
-    fun testProjectIsolation(gradleVersion: GradleVersion) {
-        project(
-            projectName = "instantExecution",
-            gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = true, projectIsolation = true),
-        ) {
-            build(":main-project:compileKotlin")
-        }
-    }
-
     @DisplayName("Proper Gradle plugin variant is used")
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_0],
-        maxVersion = TestVersions.Gradle.G_7_1
+        additionalVersions = [
+            TestVersions.Gradle.G_7_0,
+            TestVersions.Gradle.G_7_1,
+            TestVersions.Gradle.G_7_3,
+            TestVersions.Gradle.G_7_4,
+            TestVersions.Gradle.G_7_5,
+            TestVersions.Gradle.G_7_6,
+            TestVersions.Gradle.G_8_0,
+        ],
     )
     @GradleTest
     internal fun pluginVariantIsUsed(gradleVersion: GradleVersion) {
         project("kotlinProject", gradleVersion) {
-            build("tasks") {
+            build("help") {
                 val expectedVariant = when (gradleVersion) {
-                    GradleVersion.version(TestVersions.Gradle.G_7_1) -> "gradle71"
+                    in GradleVersion.version(TestVersions.Gradle.G_8_1)..GradleVersion.version(TestVersions.Gradle.G_8_2) -> "gradle81"
+                    GradleVersion.version(TestVersions.Gradle.G_8_0) -> "gradle80"
+                    GradleVersion.version(TestVersions.Gradle.G_7_6) -> "gradle76"
+                    GradleVersion.version(TestVersions.Gradle.G_7_5) -> "gradle75"
+                    GradleVersion.version(TestVersions.Gradle.G_7_4) -> "gradle74"
+                    in GradleVersion.version(TestVersions.Gradle.G_7_1)..GradleVersion.version(TestVersions.Gradle.G_7_3) -> "gradle71"
                     GradleVersion.version(TestVersions.Gradle.G_7_0) -> "gradle70"
                     else -> "main"
                 }
@@ -230,29 +231,62 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
         }
     }
 
-    @DisplayName("Validate Gradle plugins inputs")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.MAX_SUPPORTED) // Always should use only latest Gradle version
-    @GradleTest
-    internal fun validatePluginInputs(gradleVersion: GradleVersion) {
-        project("kotlinProject", gradleVersion) {
-            buildGradle.modify {
-                """
-                plugins {
-                    id "validate-external-gradle-plugin"
-                ${it.substringAfter("plugins {")}
-                """.trimIndent()
-            }
-
-            build("validateExternalPlugins")
-        }
-    }
-
     @DisplayName("Accessing Kotlin SourceSet in KotlinDSL")
     @GradleTestVersions(maxVersion = TestVersions.Gradle.G_7_1)
     @GradleTest
     internal fun kotlinDslSourceSets(gradleVersion: GradleVersion) {
         project("sourceSetsKotlinDsl", gradleVersion) {
             build("assemble")
+        }
+    }
+
+    @DisplayName("Changing compile task destination directory does not break test compilation")
+    @GradleTest
+    internal fun customDestinationDir(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            //language=Groovy
+            buildGradle.appendText(
+                """
+                |
+                |def compileKotlinTask = tasks.named("compileKotlin", org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile.class)
+                |
+                |compileKotlinTask.configure {
+                |    it.destinationDirectory.set(project.layout.buildDirectory.dir("banana"))
+                |}
+                |
+                |def compileKotlinTaskOutput = compileKotlinTask.flatMap { it.destinationDirectory }
+                |sourceSets.test.compileClasspath.from(compileKotlinTaskOutput)
+                |sourceSets.test.runtimeClasspath.from(compileKotlinTaskOutput)
+                |
+                """.trimMargin()
+            )
+
+            build("build") {
+                assertFileInProjectExists("build/banana/demo/KotlinGreetingJoiner.class")
+                assertFileInProjectExists("build/libs/simpleProject.jar")
+                ZipFile(projectPath.resolve("build/libs/simpleProject.jar").toFile()).use { jar ->
+                    assert(jar.entries().asSequence().count { it.name == "demo/KotlinGreetingJoiner.class" } == 1) {
+                        "The jar should contain one entry `demo/KotlinGreetingJoiner.class` with no duplicates\n" +
+                                jar.entries().asSequence().map { it.name }.joinToString()
+                    }
+                }
+            }
+        }
+    }
+
+    @DisplayName("Default jar content should not contain duplicates")
+    @GradleTest
+    internal fun defaultJarContent(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            build("build") {
+                assertFileInProjectExists("build/libs/simpleProject.jar")
+                ZipFile(projectPath.resolve("build/libs/simpleProject.jar").toFile()).use { jar ->
+                    assert(jar.entries().asSequence().count { it.name == "demo/KotlinGreetingJoiner.class" } == 1) {
+                        "The jar should contain one entry `demo/KotlinGreetingJoiner.class` with no duplicates\n" +
+                                jar.entries().asSequence().map { it.name }.joinToString()
+                    }
+                }
+            }
         }
     }
 }

@@ -1,7 +1,8 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class, kotlinx.cinterop.ExperimentalForeignApi::class)
 
 import kotlin.test.*
 import cmacros.*
@@ -44,5 +45,22 @@ fun main(args: Array<String>) {
         counter.value = 42
         increment(counter.ptr)
         assertEquals(43, counter.value)
+    }
+
+
+    /**
+     * Mips processors are using different notation for quite/signaling nans.
+     * In particular, same clang intrinsic __builtin_nan() return other bitpatterns on mips,
+     * to avoid values, which would be singaling on MIPS. So, tested values are incorrect in that case.
+     */
+    if (Platform.cpuArchitecture != CpuArchitecture.MIPS32 && Platform.cpuArchitecture != CpuArchitecture.MIPSEL32) {
+        val floatNanBase = Float.NaN.toRawBits()
+        assertEquals(floatNanBase, 0x7fc00000)
+        val doubleNanBase = Double.NaN.toRawBits()
+        assertEquals(doubleNanBase, 0x7ff8000000000000L)
+        assertEquals(floatNanBase, DEFAULT_FLOAT_NAN.toRawBits())
+        assertEquals(doubleNanBase, DEFAULT_DOUBLE_NAN.toRawBits())
+        assertEquals(floatNanBase, OTHER_FLOAT_NAN.toRawBits())
+        assertEquals(doubleNanBase, OTHER_DOUBLE_NAN.toRawBits())
     }
 }

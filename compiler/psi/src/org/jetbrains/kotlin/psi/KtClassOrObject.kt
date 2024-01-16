@@ -20,15 +20,14 @@ import com.intellij.lang.ASTNode
 import com.intellij.navigation.ItemPresentation
 import com.intellij.navigation.ItemPresentationProviders
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.impl.CheckUtil
 import com.intellij.psi.stubs.IStubElementType
 import com.intellij.psi.tree.TokenSet
 import com.intellij.psi.util.PsiTreeUtil
-import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.psiUtil.ClassIdCalculator
 import org.jetbrains.kotlin.psi.stubs.KotlinClassOrObjectStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
@@ -54,7 +53,7 @@ abstract class KtClassOrObject :
             return EditCommaSeparatedListHelper.addItem(it, superTypeListEntries, superTypeListEntry)
         }
 
-        val psiFactory = KtPsiFactory(this)
+        val psiFactory = KtPsiFactory(project)
         val specifierListToAdd = psiFactory.createSuperTypeCallEntry("A()").replace(superTypeListEntry).parent
         val colon = addBefore(psiFactory.createColon(), getBody())
         return (addAfter(specifierListToAdd, colon) as KtSuperTypeList).entries.first()
@@ -78,7 +77,11 @@ abstract class KtClassOrObject :
     inline fun <reified T : KtDeclaration> addDeclaration(declaration: T): T {
         val body = getOrCreateBody()
         val anchor = PsiTreeUtil.skipSiblingsBackward(body.rBrace ?: body.lastChild!!, PsiWhiteSpace::class.java)
-        return body.addAfter(declaration, anchor) as T
+        return if (anchor?.nextSibling is PsiErrorElement) {
+            body.addBefore(declaration, anchor)
+        } else {
+            body.addAfter(declaration, anchor)
+        } as T
     }
 
     inline fun <reified T : KtDeclaration> addDeclarationAfter(declaration: T, anchor: PsiElement?): T {
@@ -124,12 +127,11 @@ abstract class KtClassOrObject :
 
     fun isAnnotation(): Boolean = hasModifier(KtTokens.ANNOTATION_KEYWORD)
 
-    fun getDeclarationKeyword(): PsiElement? =
-        findChildByType(
-            TokenSet.create(
-                KtTokens.CLASS_KEYWORD, KtTokens.INTERFACE_KEYWORD, KtTokens.OBJECT_KEYWORD
-            )
-        )
+    fun getDeclarationKeyword(): PsiElement? = findChildByType(classInterfaceObjectTokenSet)
+
+    private val classInterfaceObjectTokenSet = TokenSet.create(
+        KtTokens.CLASS_KEYWORD, KtTokens.INTERFACE_KEYWORD, KtTokens.OBJECT_KEYWORD
+    )
 
     override fun delete() {
         CheckUtil.checkWritable(this)
@@ -200,7 +202,7 @@ abstract class KtClassOrObject :
 fun KtClassOrObject.getOrCreateBody(): KtClassBody {
     getBody()?.let { return it }
 
-    val newBody = KtPsiFactory(this).createEmptyClassBody()
+    val newBody = KtPsiFactory(project).createEmptyClassBody()
     if (this is KtEnumEntry) return addAfter(newBody, initializerList ?: nameIdentifier) as KtClassBody
     return add(newBody) as KtClassBody
 }

@@ -1,7 +1,6 @@
+// FIR_IDENTICAL
 // !LANGUAGE: +ContextReceivers
-// TARGET_BACKEND: JVM_IR
 // WITH_STDLIB
-
 class View {
     val coefficient = 42
 }

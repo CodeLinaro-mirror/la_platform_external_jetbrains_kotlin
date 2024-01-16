@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.js.config;
 
+import org.jetbrains.kotlin.konan.file.ZipFileSystemAccessor;
 import org.jetbrains.kotlin.config.CompilerConfigurationKey;
 import org.jetbrains.kotlin.incremental.js.IncrementalNextRoundChecker;
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider;
@@ -12,7 +13,6 @@ import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer;
 import org.jetbrains.kotlin.serialization.js.ModuleKind;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +37,9 @@ public class JSConfigurationKeys {
 
     public static final CompilerConfigurationKey<SourceMapSourceEmbedding> SOURCE_MAP_EMBED_SOURCES =
             CompilerConfigurationKey.create("embed source files into source map");
+
+    public static final CompilerConfigurationKey<SourceMapNamesPolicy> SOURCEMAP_NAMES_POLICY = CompilerConfigurationKey.create(
+            "a policy to generate a mapping from generated identifiers to their corresponding original names");
 
     public static final CompilerConfigurationKey<Boolean> META_INFO =
             CompilerConfigurationKey.create("generate .meta.js and .kjsm files");
@@ -74,6 +77,12 @@ public class JSConfigurationKeys {
     public static final CompilerConfigurationKey<Boolean> GENERATE_COMMENTS_WITH_FILE_PATH =
             CompilerConfigurationKey.create("generate comments with file path at the start of each file block");
 
+    public static final CompilerConfigurationKey<Boolean> GENERATE_POLYFILLS =
+            CompilerConfigurationKey.create("generate polyfills for newest properties, methods and classes from ES6+");
+
+    public static final CompilerConfigurationKey<Boolean> GENERATE_DTS =
+            CompilerConfigurationKey.create("generate TypeScript definition file");
+
     public static final CompilerConfigurationKey<Boolean> GENERATE_REGION_COMMENTS =
             CompilerConfigurationKey.create("generate special comments at the start and the end of each file block, " +
                                             "it allows to fold them and navigate to them in the IDEA");
@@ -85,17 +94,14 @@ public class JSConfigurationKeys {
     public static final CompilerConfigurationKey<Boolean> PRINT_REACHABILITY_INFO =
             CompilerConfigurationKey.create("print declarations' reachability info during performing DCE");
 
+    public static final CompilerConfigurationKey<String> DUMP_REACHABILITY_INFO_TO_FILE =
+            CompilerConfigurationKey.create("dump declarations' reachability info to file during performing DCE");
+
     public static final CompilerConfigurationKey<Boolean> FAKE_OVERRIDE_VALIDATOR =
             CompilerConfigurationKey.create("IR fake override validator");
 
     public static final CompilerConfigurationKey<ErrorTolerancePolicy> ERROR_TOLERANCE_POLICY =
             CompilerConfigurationKey.create("set up policy to ignore compilation errors");
-
-    public static final CompilerConfigurationKey<Collection<String>> REPOSITORIES =
-            CompilerConfigurationKey.create("set up additional repository paths");
-
-    public static final CompilerConfigurationKey<Boolean> PARTIAL_LINKAGE =
-            CompilerConfigurationKey.create("allows some symbols in klibs be missed");
 
     public static final CompilerConfigurationKey<Boolean> PROPERTY_LAZY_INITIALIZATION =
             CompilerConfigurationKey.create("perform lazy initialization for properties");
@@ -103,9 +109,30 @@ public class JSConfigurationKeys {
     public static final CompilerConfigurationKey<Boolean> GENERATE_INLINE_ANONYMOUS_FUNCTIONS =
             CompilerConfigurationKey.create("translate lambdas into in-line anonymous functions");
 
+    public static final CompilerConfigurationKey<Boolean> GENERATE_STRICT_IMPLICIT_EXPORT =
+            CompilerConfigurationKey.create("enable strict implicitly exported entities types inside d.ts files");
+
     public static final CompilerConfigurationKey<Boolean> WASM_ENABLE_ARRAY_RANGE_CHECKS =
             CompilerConfigurationKey.create("enable array range checks");
 
     public static final CompilerConfigurationKey<Boolean> WASM_ENABLE_ASSERTS =
             CompilerConfigurationKey.create("enable asserts");
+
+    public static final CompilerConfigurationKey<Boolean> WASM_GENERATE_WAT =
+            CompilerConfigurationKey.create("generate wat file");
+
+    public static final CompilerConfigurationKey<WasmTarget> WASM_TARGET =
+            CompilerConfigurationKey.create("wasm target");
+
+    public static final CompilerConfigurationKey<Boolean> WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS =
+            CompilerConfigurationKey.create("use wasm traps instead of throwing exceptions");
+
+    public static final CompilerConfigurationKey<ZipFileSystemAccessor> ZIP_FILE_SYSTEM_ACCESSOR =
+            CompilerConfigurationKey.create("zip file system accessor, used for klib reading");
+
+    public static final CompilerConfigurationKey<Boolean> OPTIMIZE_GENERATED_JS =
+            CompilerConfigurationKey.create("perform additional optimizations on the generated JS code");
+
+    public static final CompilerConfigurationKey<Boolean> USE_ES6_CLASSES =
+            CompilerConfigurationKey.create("perform ES6 class usage");
 }

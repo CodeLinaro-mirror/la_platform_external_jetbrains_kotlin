@@ -8,6 +8,8 @@ package org.jetbrains.kotlin.gradle.targets.js.dsl
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.NamedDomainObjectContainer
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
@@ -33,7 +35,7 @@ interface KotlinJsSubTargetContainerDsl : KotlinTarget {
     fun whenBrowserConfigured(body: KotlinJsBrowserDsl.() -> Unit)
 }
 
-interface KotlinJsTargetDsl : KotlinTarget {
+interface KotlinJsTargetDsl : KotlinTarget, KotlinTargetWithNodeJsDsl {
     var moduleName: String?
 
     fun browser() = browser { }
@@ -44,15 +46,10 @@ interface KotlinJsTargetDsl : KotlinTarget {
         }
     }
 
-    fun nodejs() = nodejs { }
-    fun nodejs(body: KotlinJsNodeDsl.() -> Unit)
-    fun nodejs(fn: Action<KotlinJsNodeDsl>) {
-        nodejs {
-            fn.execute(this)
-        }
-    }
-
     fun useCommonJs()
+    fun useEsModules()
+
+    fun generateTypeScriptDefinitions()
 
     val binaries: KotlinJsBinaryContainer
 
@@ -71,60 +68,36 @@ interface KotlinJsTargetDsl : KotlinTarget {
     override val compilations: NamedDomainObjectContainer<out KotlinJsCompilation>
 }
 
+interface KotlinTargetWithNodeJsDsl {
+    fun nodejs() = nodejs { }
+    fun nodejs(body: KotlinJsNodeDsl.() -> Unit)
+    fun nodejs(fn: Action<KotlinJsNodeDsl>) {
+        nodejs {
+            fn.execute(this)
+        }
+    }
+}
+
 interface KotlinJsSubTargetDsl {
     @ExperimentalDistributionDsl
-    fun distribution(body: Distribution.() -> Unit)
+    fun distribution(body: Action<Distribution>)
 
-    @ExperimentalDistributionDsl
-    fun distribution(fn: Action<Distribution>) {
-        distribution {
-            fn.execute(this)
-        }
-    }
-
-    fun testTask(body: KotlinJsTest.() -> Unit)
-    fun testTask(fn: Action<KotlinJsTest>) {
-        testTask {
-            fn.execute(this)
-        }
-    }
+    fun testTask(body: Action<KotlinJsTest>)
 
     val testRuns: NamedDomainObjectContainer<KotlinJsPlatformTestRun>
 }
 
 interface KotlinJsBrowserDsl : KotlinJsSubTargetDsl {
-    fun commonWebpackConfig(body: KotlinWebpackConfig.() -> Unit)
-    fun commonWebpackConfig(fn: Action<KotlinWebpackConfig>) {
-        commonWebpackConfig {
-            fn.execute(this)
-        }
-    }
+    fun commonWebpackConfig(body: Action<KotlinWebpackConfig>)
 
-    fun runTask(body: KotlinWebpack.() -> Unit)
-    fun runTask(fn: Action<KotlinWebpack>) {
-        runTask {
-            fn.execute(this)
-        }
-    }
+    fun runTask(body: Action<KotlinWebpack>)
 
-    fun webpackTask(body: KotlinWebpack.() -> Unit)
-    fun webpackTask(fn: Action<KotlinWebpack>) {
-        webpackTask {
-            fn.execute(this)
-        }
-    }
+    fun webpackTask(body: Action<KotlinWebpack>)
 
     @ExperimentalDceDsl
-    fun dceTask(body: KotlinJsDce.() -> Unit)
-
-    @ExperimentalDceDsl
-    fun dceTask(fn: Action<KotlinJsDce>) {
-        dceTask {
-            fn.execute(this)
-        }
-    }
+    fun dceTask(body: Action<KotlinJsDce>)
 }
 
 interface KotlinJsNodeDsl : KotlinJsSubTargetDsl {
-    fun runTask(body: NodeJsExec.() -> Unit)
+    fun runTask(body: Action<NodeJsExec>)
 }

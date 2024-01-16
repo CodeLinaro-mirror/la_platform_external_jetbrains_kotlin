@@ -1,6 +1,8 @@
-package org.jetbrains.kotlin.library.resolver
+package org.jetbrains.kotlin.library.metadata.resolver
 
-import org.jetbrains.kotlin.library.*
+import org.jetbrains.kotlin.library.KotlinLibrary
+import org.jetbrains.kotlin.library.SearchPathResolver
+import org.jetbrains.kotlin.library.UnresolvedLibrary
 import org.jetbrains.kotlin.library.metadata.PackageAccessHandler
 
 interface KotlinLibraryResolver<L: KotlinLibrary> {
@@ -16,7 +18,22 @@ interface KotlinLibraryResolver<L: KotlinLibrary> {
         noStdLib: Boolean = false,
         noDefaultLibs: Boolean = false,
         noEndorsedLibs: Boolean = false
-    ): KotlinLibraryResolveResult
+    ): KotlinLibraryResolveResult =
+        resolveWithoutDependencies(
+            unresolvedLibraries,
+            noStdLib,
+            noDefaultLibs,
+            noEndorsedLibs
+        ).resolveDependencies()
+
+    fun resolveWithoutDependencies(
+        unresolvedLibraries: List<UnresolvedLibrary>,
+        noStdLib: Boolean = false,
+        noDefaultLibs: Boolean = false,
+        noEndorsedLibs: Boolean = false
+    ): List<KotlinLibrary>
+
+    fun List<KotlinLibrary>.resolveDependencies(): KotlinLibraryResolveResult
 }
 
 interface KotlinLibraryResolveResult {

@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.codegen.ClassBuilder
 import org.jetbrains.kotlin.codegen.ClassBuilderFactory
 import org.jetbrains.kotlin.codegen.DelegatingClassBuilder
 import org.jetbrains.kotlin.codegen.DelegatingClassBuilderFactory
-import org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.diagnostics.DiagnosticSink
 import org.jetbrains.kotlin.psi.KtElement
@@ -34,7 +33,8 @@ import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import org.jetbrains.org.objectweb.asm.MethodVisitor
 import org.jetbrains.org.objectweb.asm.Opcodes
 
-abstract class AbstractAndroidOnDestroyClassBuilderInterceptorExtension : ClassBuilderInterceptorExtension {
+abstract class AbstractAndroidOnDestroyClassBuilderInterceptorExtension :
+    @Suppress("DEPRECATION_ERROR") org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension {
     override fun interceptClassBuilderFactory(
         interceptedFactory: ClassBuilderFactory,
         bindingContext: BindingContext,
@@ -78,7 +78,7 @@ abstract class AbstractAndroidOnDestroyClassBuilderInterceptorExtension : ClassB
             super.defineClass(origin, version, access, name, signature, superName, interfaces)
         }
 
-        override fun done() {
+        override fun done(generateSmapCopyToAnnotation: Boolean) {
             if (hasCache && !hasOnDestroy) {
                 val mv = newMethod(
                     JvmDeclarationOrigin.NO_ORIGIN, Opcodes.ACC_PUBLIC or Opcodes.ACC_SYNTHETIC, ON_DESTROY_METHOD_NAME, "()V",
@@ -91,7 +91,7 @@ abstract class AbstractAndroidOnDestroyClassBuilderInterceptorExtension : ClassB
                 mv.visitMaxs(1, 1)
                 mv.visitEnd()
             }
-            super.done()
+            super.done(generateSmapCopyToAnnotation)
         }
 
         override fun newMethod(

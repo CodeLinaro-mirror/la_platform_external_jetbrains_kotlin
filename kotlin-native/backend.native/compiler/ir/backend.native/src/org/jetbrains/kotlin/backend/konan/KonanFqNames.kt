@@ -6,12 +6,12 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.NativeRuntimeNames
 
 internal const val NATIVE_PTR_NAME = "NativePtr"
 internal const val NON_NULL_NATIVE_PTR_NAME = "NonNullNativePtr"
-internal const val VECTOR128 = "Vector128"
+internal const val IMMUTABLE_BLOB_OF = "immutableBlobOf"
 
 object KonanFqNames {
     val function = FqName("kotlin.Function")
@@ -20,11 +20,12 @@ object KonanFqNames {
     val internalPackageName = FqName("kotlin.native.internal")
     val nativePtr = internalPackageName.child(Name.identifier(NATIVE_PTR_NAME)).toUnsafe()
     val nonNullNativePtr = internalPackageName.child(Name.identifier(NON_NULL_NATIVE_PTR_NAME)).toUnsafe()
-    val Vector128 = packageName.child(Name.identifier(VECTOR128))
+    val Vector128 = FqName("kotlinx.cinterop.Vector128")
     val throws = FqName("kotlin.Throws")
     val cancellationException = FqName("kotlin.coroutines.cancellation.CancellationException")
     val threadLocal = FqName("kotlin.native.concurrent.ThreadLocal")
     val sharedImmutable = FqName("kotlin.native.concurrent.SharedImmutable")
+    val volatile = FqName("kotlin.concurrent.Volatile")
     val frozen = FqName("kotlin.native.internal.Frozen")
     val frozenLegacyMM = FqName("kotlin.native.internal.FrozenLegacyMM")
     val leakDetectorCandidate = FqName("kotlin.native.internal.LeakDetectorCandidate")
@@ -34,7 +35,12 @@ object KonanFqNames {
     val objCMethod = FqName("kotlinx.cinterop.ObjCMethod")
     val hasFinalizer = FqName("kotlin.native.internal.HasFinalizer")
     val hasFreezeHook = FqName("kotlin.native.internal.HasFreezeHook")
-    val gcUnsafeCall = FqName("kotlin.native.internal.GCUnsafeCall")
+    val gcUnsafeCall = NativeRuntimeNames.Annotations.gcUnsafeCallClassId.asSingleFqName()
     val eagerInitialization = FqName("kotlin.native.EagerInitialization")
     val noReorderFields = FqName("kotlin.native.internal.NoReorderFields")
+    val objCName = FqName("kotlin.native.ObjCName")
+    val hidesFromObjC = FqName("kotlin.native.HidesFromObjC")
+    val refinesInSwift = FqName("kotlin.native.RefinesInSwift")
+    val shouldRefineInSwift = FqName("kotlin.native.ShouldRefineInSwift")
+    val reflectionPackageName = FqName("kotlin.native.internal.ReflectionPackageName")
 }

@@ -12,93 +12,96 @@ class FakeOverrideCopier(
     private val symbolRemapper: SymbolRemapper,
     private val typeRemapper: TypeRemapper,
     private val symbolRenamer: SymbolRenamer,
-    private val makeExternal: Boolean = false,
+    private val parent: IrClass,
+    private val unimplementedOverridesStrategy: IrUnimplementedOverridesStrategy
 ) : DeepCopyIrTreeWithSymbols(symbolRemapper, typeRemapper, symbolRenamer) {
 
-    private fun <T : IrFunction> T.transformFunctionChildren(declaration: T): T =
-        apply {
+    override fun visitSimpleFunction(declaration: IrSimpleFunction): IrSimpleFunction {
+        val customization = unimplementedOverridesStrategy.computeCustomization(declaration, parent)
+
+        return declaration.factory.createFunctionWithLateBinding(
+            startOffset = declaration.startOffset,
+            endOffset = declaration.endOffset,
+            origin = customization.origin ?: IrDeclarationOrigin.FAKE_OVERRIDE,
+            name = symbolRenamer.getFunctionName(declaration.symbol),
+            visibility = declaration.visibility,
+            isInline = declaration.isInline,
+            isExpect = declaration.isExpect,
+            returnType = declaration.returnType,
+            modality = customization.modality ?: declaration.modality,
+            isTailrec = declaration.isTailrec,
+            isSuspend = declaration.isSuspend,
+            isOperator = declaration.isOperator,
+            isInfix = declaration.isInfix,
+            isExternal = declaration.isExternal,
+        ).apply {
             transformAnnotations(declaration)
             copyTypeParametersFrom(declaration)
             typeRemapper.withinScope(this) {
                 // This is the more correct way to produce dispatch receiver for a fake override,
                 // but some lowerings still expect the below behavior as produced by the current psi2ir.
                 /*
-                val superDispatchReceiver = declaration.dispatchReceiverParameter!!
-                val dispatchReceiverSymbol = IrValueParameterSymbolImpl(WrappedReceiverParameterDescriptor())
-                val dispatchReceiverType = destinationClass.defaultType
-                dispatchReceiverParameter = IrValueParameterImpl(
-                    superDispatchReceiver.startOffset,
-                    superDispatchReceiver.endOffset,
-                    superDispatchReceiver.origin,
-                    dispatchReceiverSymbol,
-                    superDispatchReceiver.name,
-                    superDispatchReceiver.index,
-                    dispatchReceiverType,
-                    null,
-                    superDispatchReceiver.isCrossinline,
-                    superDispatchReceiver.isNoinline
-                )
-                */
+                    val superDispatchReceiver = declaration.dispatchReceiverParameter!!
+                    val dispatchReceiverSymbol = IrValueParameterSymbolImpl(WrappedReceiverParameterDescriptor())
+                    val dispatchReceiverType = destinationClass.defaultType
+                    dispatchReceiverParameter = IrValueParameterImpl(
+                        superDispatchReceiver.startOffset,
+                        superDispatchReceiver.endOffset,
+                        superDispatchReceiver.origin,
+                        dispatchReceiverSymbol,
+                        superDispatchReceiver.name,
+                        superDispatchReceiver.index,
+                        dispatchReceiverType,
+                        null,
+                        superDispatchReceiver.isCrossinline,
+                        superDispatchReceiver.isNoinline
+                    )
+                    */
                 // Should fake override's receiver be the current class is an open question.
                 dispatchReceiverParameter = declaration.dispatchReceiverParameter?.transform()
                 extensionReceiverParameter = declaration.extensionReceiverParameter?.transform()
                 returnType = typeRemapper.remapType(declaration.returnType)
-                this.valueParameters = declaration.valueParameters.transform()
+                valueParameters = declaration.valueParameters.transform()
             }
         }
+    }
 
-    override fun visitSimpleFunction(declaration: IrSimpleFunction): IrSimpleFunction =
-        declaration.factory.createFakeOverrideFunction(
+    override fun visitProperty(declaration: IrProperty): IrProperty {
+        val customization = unimplementedOverridesStrategy.computeCustomization(declaration, parent)
+
+        return declaration.factory.createPropertyWithLateBinding(
             declaration.startOffset, declaration.endOffset,
-            IrDeclarationOrigin.FAKE_OVERRIDE,
-            symbolRenamer.getFunctionName(declaration.symbol),
-            declaration.visibility,
-            declaration.modality,
-            declaration.returnType,
-            isInline = declaration.isInline,
-            isExternal = makeExternal,
-            isTailrec = declaration.isTailrec,
-            isSuspend = declaration.isSuspend,
-            isExpect = declaration.isExpect,
-            isOperator = declaration.isOperator,
-            isInfix = declaration.isInfix
-        ).apply {
-            transformFunctionChildren(declaration)
-        }
-
-
-    override fun visitProperty(declaration: IrProperty): IrProperty =
-        declaration.factory.createFakeOverrideProperty(
-            declaration.startOffset, declaration.endOffset,
-            IrDeclarationOrigin.FAKE_OVERRIDE,
+            customization.origin ?: IrDeclarationOrigin.FAKE_OVERRIDE,
             declaration.name,
             declaration.visibility,
-            declaration.modality,
+            customization.modality ?: declaration.modality,
             isVar = declaration.isVar,
             isConst = declaration.isConst,
             isLateinit = declaration.isLateinit,
             isDelegated = declaration.isDelegated,
             isExpect = declaration.isExpect,
-            isExternal = makeExternal
+            isExternal = declaration.isExternal,
         ).apply {
             transformAnnotations(declaration)
             this.getter = declaration.getter?.transform()
             this.setter = declaration.setter?.transform()
         }
+    }
 
     override fun visitValueParameter(declaration: IrValueParameter): IrValueParameter =
         declaration.factory.createValueParameter(
-            declaration.startOffset, declaration.endOffset,
-            mapDeclarationOrigin(declaration.origin),
-            symbolRemapper.getDeclaredValueParameter(declaration.symbol),
-            symbolRenamer.getValueParameterName(declaration.symbol),
-            declaration.index,
-            declaration.type.remapType(),
-            declaration.varargElementType?.remapType(),
-            declaration.isCrossinline,
-            declaration.isNoinline,
-            declaration.isHidden,
-            declaration.isAssignable
+            startOffset = declaration.startOffset,
+            endOffset = declaration.endOffset,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = symbolRenamer.getValueParameterName(declaration.symbol),
+            type = declaration.type.remapType(),
+            isAssignable = declaration.isAssignable,
+            symbol = symbolRemapper.getDeclaredValueParameter(declaration.symbol),
+            index = declaration.index,
+            varargElementType = declaration.varargElementType?.remapType(),
+            isCrossinline = declaration.isCrossinline,
+            isNoinline = declaration.isNoinline,
+            isHidden = declaration.isHidden,
         ).apply {
             transformAnnotations(declaration)
             // Don't set the default value for fake overrides.

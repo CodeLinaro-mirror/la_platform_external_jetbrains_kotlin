@@ -15,14 +15,18 @@ import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.cgen.*
 import org.jetbrains.kotlin.backend.konan.descriptors.allOverriddenFunctions
+import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
 import org.jetbrains.kotlin.backend.konan.llvm.IntrinsicType
 import org.jetbrains.kotlin.backend.konan.llvm.tryGetIntrinsicType
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
@@ -30,19 +34,28 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.fileUtils.descendantRelativeTo
 import java.io.File
 
-internal class SpecialBackendChecksTraversal(val context: Context) : FileLoweringPass {
-    override fun lower(irFile: IrFile) = irFile.acceptChildrenVoid(BackendChecker(context, irFile))
+/**
+ * Kotlin/Native-specific language checks. Most importantly, it checks C/Objective-C interop restrictions.
+ * TODO: Should be moved to compiler frontend after K2.
+ */
+internal class SpecialBackendChecksTraversal(
+        private val context: PhaseContext,
+        private val symbols: KonanSymbols,
+        private val irBuiltIns: IrBuiltIns,
+) : FileLoweringPass {
+    override fun lower(irFile: IrFile) = irFile.acceptChildrenVoid(BackendChecker(context, symbols, irBuiltIns, irFile))
 }
 
-private class BackendChecker(val context: Context, val irFile: IrFile) : IrElementVisitorVoid {
-    val interop = context.interopBuiltIns
-    val symbols = context.ir.symbols
-    val irBuiltIns = context.irBuiltIns
+private class BackendChecker(
+        private val context: PhaseContext,
+        val symbols: KonanSymbols,
+        val irBuiltIns: IrBuiltIns,
+        private val irFile: IrFile,
+) : IrElementVisitorVoid {
     val target = context.config.target
 
     fun reportError(location: IrElement, message: String): Nothing =
@@ -95,7 +108,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
     }
 
     private fun IrConstructor.isOverrideInit() =
-            this.annotations.hasAnnotation(context.interopBuiltIns.objCOverrideInit.fqNameSafe)
+            this.annotations.hasAnnotation(InteropFqNames.objCOverrideInit)
 
     private fun checkCanGenerateOverrideInit(irClass: IrClass, constructor: IrConstructor) {
         val superClass = irClass.getSuperClassNotAny()!!
@@ -104,7 +117,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         }.toList()
 
         val superConstructor = superConstructors.singleOrNull() ?: run {
-            val annotation = context.interopBuiltIns.objCOverrideInit.name
+            val annotation = InteropFqNames.objCOverrideInit
             if (superConstructors.isEmpty())
                 reportError(constructor,
                         """
@@ -122,7 +135,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         // Remove fake overrides of this init method, also check for explicit overriding:
         irClass.declarations.forEach {
             if (it is IrSimpleFunction && initMethod.symbol in it.overriddenSymbols && it.isReal) {
-                val annotation = context.interopBuiltIns.objCOverrideInit.name
+                val annotation = InteropFqNames.objCOverrideInit
                 reportError(constructor,
                         "constructor with @$annotation overrides initializer that is already overridden explicitly"
                 )
@@ -131,49 +144,49 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
     }
 
     private fun IrConstructor.overridesConstructor(other: IrConstructor) =
-            this.descriptor.valueParameters.size == other.descriptor.valueParameters.size &&
-                    this.descriptor.valueParameters.all {
-                        val otherParameter = other.descriptor.valueParameters[it.index]
+            this.valueParameters.size == other.valueParameters.size &&
+                    this.valueParameters.all {
+                        val otherParameter = other.valueParameters[it.index]
                         it.name == otherParameter.name && it.type == otherParameter.type
                     }
 
     private fun checkCanGenerateActionImp(function: IrSimpleFunction) {
-        val action = "@${context.interopBuiltIns.objCAction.name}"
+        val action = "@${InteropFqNames.objCAction}"
 
         function.extensionReceiverParameter?.let {
             reportError(it, "$action method must not have extension receiver")
         }
 
         function.valueParameters.forEach {
-            val kotlinType = it.descriptor.type
+            val kotlinType = it.type
             if (!kotlinType.isObjCObjectType())
-                reportError(it, "Unexpected $action method parameter type: $kotlinType\n" +
+                reportError(it, "Unexpected $action method parameter type: ${it.type.classFqName}\n" +
                         "Only Objective-C object types are supported here")
         }
 
         val returnType = function.returnType
         if (!returnType.isUnit())
-            reportError(function, "Unexpected $action method return type: ${returnType.toKotlinType()}\n" +
+            reportError(function, "Unexpected $action method return type: ${returnType.classFqName}\n" +
                     "Only 'Unit' is supported here")
 
         checkCanGenerateFunctionImp(function)
     }
 
+    @OptIn(ObsoleteDescriptorBasedAPI::class)
     private fun checkCanGenerateOutletSetterImp(property: IrProperty) {
-        val descriptor = property.descriptor
 
-        val outlet = "@${context.interopBuiltIns.objCOutlet.name}"
+        val outlet = "@${InteropFqNames.objCOutlet}"
 
-        if (!descriptor.isVar)
+        if (!property.isVar)
             reportError(property, "$outlet property must be var")
 
         property.getter?.extensionReceiverParameter?.let {
             reportError(it, "$outlet must not have extension receiver")
         }
 
-        val type = descriptor.type
+        val type = property.descriptor.type
         if (!type.isObjCObjectType())
-            reportError(property, "Unexpected $outlet type: $type\n" +
+            reportError(property, "Unexpected $outlet type: ${property.getter?.returnType?.classFqName}\n" +
                     "Only Objective-C object types are supported here")
 
         checkCanGenerateFunctionImp(property.setter!!)
@@ -195,9 +208,9 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
 
     private fun checkKotlinObjCClass(irClass: IrClass) {
         for (declaration in irClass.declarations) {
-            if (declaration is IrSimpleFunction && declaration.annotations.hasAnnotation(interop.objCAction.fqNameSafe))
+            if (declaration is IrSimpleFunction && declaration.annotations.hasAnnotation(InteropFqNames.objCAction))
                 checkCanGenerateActionImp(declaration)
-            if (declaration is IrProperty && declaration.annotations.hasAnnotation(interop.objCOutlet.fqNameSafe))
+            if (declaration is IrProperty && declaration.annotations.hasAnnotation(InteropFqNames.objCOutlet))
                 checkCanGenerateOutletSetterImp(declaration)
             if (declaration is IrConstructor && declaration.isOverrideInit())
                 checkCanGenerateOverrideInit(irClass, declaration)
@@ -214,11 +227,11 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
             }
         }
 
-        val kind = irClass.descriptor.kind
+        val kind = irClass.kind
         if (kind != ClassKind.CLASS && kind != ClassKind.OBJECT)
             reportError(irClass, "Only classes are supported as subtypes of Objective-C types")
 
-        if (!irClass.descriptor.isFinalClass)
+        if (!irClass.isFinalClass)
             reportError(irClass, "Non-final Kotlin subclasses of Objective-C classes are not yet supported")
 
         irClass.companionObject()?.let {
@@ -231,19 +244,19 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         }
 
         var hasObjCClassSupertype = false
-        irClass.descriptor.defaultType.constructor.supertypes.forEach {
-            val descriptor = it.constructor.declarationDescriptor as ClassDescriptor
-            if (!descriptor.isObjCClass())
+        irClass.defaultType.superTypes().forEach {
+            val clazz = it.classOrFail.owner
+            if (!clazz.isObjCClass())
                 reportError(irClass, "Mixing Kotlin and Objective-C supertypes is not supported")
 
-            if (descriptor.kind == ClassKind.CLASS)
+            if (clazz.kind == ClassKind.CLASS)
                 hasObjCClassSupertype = true
         }
 
         if (!hasObjCClassSupertype)
             reportError(irClass, "Kotlin implementation of Objective-C protocol must have Objective-C superclass (e.g. NSObject)")
 
-        val methodsOfAny = context.ir.symbols.any.owner.declarations.filterIsInstance<IrSimpleFunction>().toSet()
+        val methodsOfAny = symbols.any.owner.declarations.filterIsInstance<IrSimpleFunction>().toSet()
 
         irClass.declarations.filterIsInstance<IrSimpleFunction>().filter { it.isReal }.forEach { method ->
             val overriddenMethodOfAny = method.allOverriddenFunctions.firstOrNull {
@@ -258,10 +271,9 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
                     else -> "corresponding Objective-C method"
                 }
 
-                context.report(
+                reportError(
                         method,
                         "can't override '${method.name}', override $correspondingObjCMethod instead",
-                        isError = true
                 )
             }
         }
@@ -318,7 +330,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         }
 
         if (callee.returnType.isNativePointed(symbols) &&
-            !callee.hasCCallAnnotation("CppClassConstructor"))
+                !callee.hasCCallAnnotation("CppClassConstructor"))
             reportError(expression, "Native interop types constructors must not be called directly")
     }
 
@@ -328,8 +340,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         val parent = declaration.parent
 
         if (parent is IrClass && parent.defaultType.isNativePointed(symbols) && parent.symbol != symbols.nativePointed) {
-            val nativePointed = symbols.nativePointed.owner.name
-            reportError(declaration, "Subclasses of $nativePointed cannot have properties with backing fields")
+            reportError(declaration, "Subclasses of ${InteropFqNames.nativePointed} cannot have properties with backing fields")
         }
     }
 
@@ -341,7 +352,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         else ", but captures at:\n    ${captures.joinToString("\n    ") {
             val location = it.getCompilerMessageLocation(irFile)!!
             val relativePath = File(location.path).descendantRelativeTo(cwd).path
-            val capturedValueName = if (it is IrGetValue) ": ${it.symbol.owner.name.asString()}" else "" 
+            val capturedValueName = if (it is IrGetValue) ": ${it.symbol.owner.name.asString()}" else ""
             "$relativePath:${location.line}:${location.column}$capturedValueName"
         }}"
 
@@ -365,7 +376,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
         }
 
         callee.getExternalObjCMethodInfo()?.let { _ ->
-            val isInteropStubsFile = irFile.annotations.hasAnnotation(FqName("kotlinx.cinterop.InteropStubs"))
+            val isInteropStubsFile = irFile.annotations.hasAnnotation(InteropFqNames.interopStubs)
 
             // Special case: bridge from Objective-C method implementation template to Kotlin method;
             // handled in CodeGeneratorVisitor.callVirtual.
@@ -402,12 +413,13 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
                 val signatureTypes = target.allParameters.map { it.type } + target.returnType
 
                 callee.typeParameters.indices.forEach { index ->
-                    val typeArgument = expression.getTypeArgument(index)!!.toKotlinType()
-                    val signatureType = signatureTypes[index].toKotlinType()
-                    if (typeArgument.constructor != signatureType.constructor ||
-                            typeArgument.isMarkedNullable != signatureType.isMarkedNullable
+                    val typeArgument = expression.getTypeArgument(index)!!
+                    val signatureType = signatureTypes[index]
+                    if (typeArgument.classifierOrNull != signatureType.classifierOrNull ||
+                            typeArgument.isMarkedNullable() != signatureType.isMarkedNullable()
                     ) {
-                        reportError(expression, "C function signature element mismatch: expected '$signatureType', got '$typeArgument'")
+                        reportError(expression, "C function signature element mismatch: " +
+                                "expected '${signatureTypes[index].classFqName}', got '${expression.getTypeArgument(index)!!.classFqName}'")
                     }
                 }
 
@@ -424,25 +436,22 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
 
                 val receiver = expression.extensionReceiver!!
                 val typeOperand = expression.getSingleTypeArgument()
-                val kotlinTypeOperand = typeOperand.toKotlinType()
 
                 val receiverTypeIndex = integerTypePredicates.indexOfFirst { it(receiver.type) }
                 val typeOperandIndex = integerTypePredicates.indexOfFirst { it(typeOperand) }
 
-                val receiverKotlinType = receiver.type.toKotlinType()
-
                 if (receiverTypeIndex == -1)
-                    reportError(receiver, "Receiver's type $receiverKotlinType is not an integer type")
+                    reportError(receiver, "Receiver's type ${receiver.type.classFqName} is not an integer type")
 
                 if (typeOperandIndex == -1)
-                    reportError(expression, "Type argument $kotlinTypeOperand is not an integer type")
+                    reportError(expression, "Type argument ${typeOperand.classFqName} is not an integer type")
 
                 when (intrinsicType) {
                     IntrinsicType.INTEROP_SIGN_EXTEND -> if (receiverTypeIndex > typeOperandIndex)
-                        reportError(expression, "unable to sign extend $receiverKotlinType to $kotlinTypeOperand")
+                        reportError(expression, "unable to sign extend ${receiver.type.classFqName} to ${typeOperand.classFqName}")
 
                     IntrinsicType.INTEROP_NARROW -> if (receiverTypeIndex < typeOperandIndex)
-                        reportError(expression, "unable to narrow $receiverKotlinType to $kotlinTypeOperand")
+                        reportError(expression, "unable to narrow ${receiver.type.classFqName} to ${typeOperand.classFqName}")
 
                     else -> error(intrinsicType)
                 }
@@ -453,7 +462,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
                 val receiverType = expression.symbol.owner.extensionReceiverParameter!!.type
 
                 if (typeOperand !is IrSimpleType || typeOperand.classifier !in integerClasses || typeOperand.isNullable())
-                    reportError(expression, "unable to convert ${receiverType.toKotlinType()} to ${typeOperand.toKotlinType()}")
+                    reportError(expression, "unable to convert ${receiverType.classFqName} to ${typeOperand.classFqName}")
             }
             IntrinsicType.WORKER_EXECUTE -> {
                 val (function, captures) = getUnboundReferencedFunction(expression.getValueArgument(2)!!)
@@ -533,7 +542,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
 
     private fun getUnboundReferencedFunction(expression: IrExpression) = when (expression) {
         is IrFunctionReference -> {
-            val arguments = expression.getArguments()
+            val arguments = expression.getArgumentsWithIr()
             val capturedVariables = captures(expression.symbol.owner)
             ReferencedFunctionWithCapture(
                     expression.symbol.owner.takeIf { arguments.isEmpty() && capturedVariables.isEmpty() },
@@ -585,7 +594,7 @@ private class BackendChecker(val context: Context, val irFile: IrFile) : IrEleme
     }
 
     override fun visitClass(declaration: IrClass) {
-        if (declaration.isKotlinObjCClass()) {
+        if (!declaration.isExpect && declaration.isKotlinObjCClass()) {
             checkKotlinObjCClass(declaration)
         }
         super.visitClass(declaration)
@@ -726,8 +735,8 @@ private fun BackendChecker.checkCanMapCalleeFunctionParameter(
 ) {
     val classifier = type.classifierOrNull
     when {
-        classifier == symbols.interopCValues || // Note: this should not be accepted, but is required for compatibility
-                classifier == symbols.interopCValuesRef -> return
+        classifier?.isClassWithFqName(InteropFqNames.cValues.toUnsafe()) == true || // Note: this should not be accepted, but is required for compatibility
+                classifier?.isClassWithFqName(InteropFqNames.cValuesRef.toUnsafe()) == true -> return
 
         classifier == symbols.string && (variadic || parameter?.isCStringParameter() == true) -> {
             if (variadic && isObjCMethod) {

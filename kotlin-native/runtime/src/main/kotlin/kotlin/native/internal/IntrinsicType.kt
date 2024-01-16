@@ -1,6 +1,6 @@
 package kotlin.native.internal
 
-class IntrinsicType {
+internal class IntrinsicType {
     companion object {
         // Arithmetic
         const val PLUS                  = "PLUS"
@@ -52,16 +52,18 @@ class IntrinsicType {
         const val IDENTITY                      = "IDENTITY"
         const val IMMUTABLE_BLOB                = "IMMUTABLE_BLOB"
         const val INIT_INSTANCE                 = "INIT_INSTANCE"
+        const val IS_SUBTYPE                    = "IS_SUBTYPE"
         const val IS_EXPERIMENTAL_MM            = "IS_EXPERIMENTAL_MM"
+        const val THE_UNIT_INSTANCE             = "THE_UNIT_INSTANCE"
 
         // Enums
         const val ENUM_VALUES                   = "ENUM_VALUES"
         const val ENUM_VALUE_OF                 = "ENUM_VALUE_OF"
+        const val ENUM_ENTRIES                  = "ENUM_ENTRIES"
 
         // Coroutines
         const val GET_CONTINUATION              = "GET_CONTINUATION"
         const val RETURN_IF_SUSPENDED           = "RETURN_IF_SUSPENDED"
-        const val COROUTINE_LAUNCHPAD           = "COROUTINE_LAUNCHPAD"
 
         // Interop
         const val INTEROP_READ_PRIMITIVE        = "INTEROP_READ_PRIMITIVE"
@@ -80,5 +82,24 @@ class IntrinsicType {
 
         // Worker
         const val WORKER_EXECUTE                = "WORKER_EXECUTE"
+
+        // Atomic
+        const val ATOMIC_GET_FIELD              = "ATOMIC_GET_FIELD"
+        const val ATOMIC_SET_FIELD              = "ATOMIC_SET_FIELD"
+        const val COMPARE_AND_SET_FIELD         = "COMPARE_AND_SET_FIELD"
+        const val COMPARE_AND_EXCHANGE_FIELD    = "COMPARE_AND_EXCHANGE_FIELD"
+        const val GET_AND_SET_FIELD             = "GET_AND_SET_FIELD"
+        const val GET_AND_ADD_FIELD             = "GET_AND_ADD_FIELD"
+        const val COMPARE_AND_SET               = "COMPARE_AND_SET"
+        const val COMPARE_AND_EXCHANGE          = "COMPARE_AND_EXCHANGE"
+        const val GET_AND_SET                   = "GET_AND_SET"
+        const val GET_AND_ADD                   = "GET_AND_ADD"
+        const val ATOMIC_GET_ARRAY_ELEMENT      = "ATOMIC_GET_ARRAY_ELEMENT"
+        const val ATOMIC_SET_ARRAY_ELEMENT      = "ATOMIC_SET_ARRAY_ELEMENT"
+        const val COMPARE_AND_EXCHANGE_ARRAY_ELEMENT = "COMPARE_AND_EXCHANGE_ARRAY_ELEMENT"
+        const val GET_AND_SET_ARRAY_ELEMENT     = "GET_AND_SET_ARRAY_ELEMENT"
+        const val GET_AND_ADD_ARRAY_ELEMENT     = "GET_AND_ADD_ARRAY_ELEMENT"
+        const val COMPARE_AND_SET_ARRAY_ELEMENT = "COMPARE_AND_SET_ARRAY_ELEMENT"
+
     }
 }

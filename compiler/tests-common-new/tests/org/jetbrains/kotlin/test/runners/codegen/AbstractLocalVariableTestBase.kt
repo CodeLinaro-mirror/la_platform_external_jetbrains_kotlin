@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.test.runners.codegen
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
+import org.jetbrains.kotlin.test.backend.BlackBoxInlinerCodegenSuppressor
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.REQUIRES_SEPARATE_PROCESS
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
@@ -23,11 +24,13 @@ abstract class AbstractLocalVariableTestBase<R : ResultingArtifact.FrontendOutpu
     abstract val backendFacade: Constructor<BackendFacade<I, BinaryArtifacts.Jvm>>
 
     override fun TestConfigurationBuilder.configuration() {
-        commonConfigurationForDebugTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
+        commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade) {
+            commonServicesConfigurationForDebugTest(it)
+        }
 
         configureCommonHandlersForLocalVariableTest()
 
-        useAfterAnalysisCheckers(::BlackBoxCodegenSuppressor)
+        useAfterAnalysisCheckers(::BlackBoxCodegenSuppressor, ::BlackBoxInlinerCodegenSuppressor)
 
         defaultDirectives {
             +REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO

@@ -1,3 +1,5 @@
+// IGNORE_BACKEND: WASM
+// IGNORE_CODEGEN_WITH_IR_FAKE_OVERRIDE_GENERATION: KT-61384
 
 // MODULE: lib
 // FILE: l.kt
@@ -10,7 +12,7 @@ open internal class In {
     fun k() = "K"
 }
 
-// MODULE: main(lib)(lib)
+// MODULE: main()(lib)
 // FILE: m.kt
 
 class Derived: Base()

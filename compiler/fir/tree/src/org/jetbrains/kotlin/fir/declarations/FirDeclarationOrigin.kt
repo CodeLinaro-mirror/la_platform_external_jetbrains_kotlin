@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.fir.declarations
 
 import org.jetbrains.kotlin.GeneratedDeclarationKey
+import org.jetbrains.kotlin.fir.declarations.utils.FirScriptCustomizationKind
 
 sealed class FirDeclarationOrigin(
     private val displayName: String? = null,
     val fromSupertypes: Boolean = false,
     val generated: Boolean = false,
-    val fromSource: Boolean = false
+    val fromSource: Boolean = false,
+    val generatedAnyMethod: Boolean = false,
 ) {
     object Source : FirDeclarationOrigin(fromSource = true)
     object Library : FirDeclarationOrigin()
@@ -22,17 +24,34 @@ sealed class FirDeclarationOrigin(
         object Library : Java("Java(Library)")
     }
 
-    object Synthetic : FirDeclarationOrigin()
+    sealed class Synthetic(generatedAnyMethod: Boolean = false) : FirDeclarationOrigin(generatedAnyMethod = generatedAnyMethod) {
+        object DataClassMember : Synthetic(generatedAnyMethod = true)
+        object ValueClassMember : Synthetic(generatedAnyMethod = true)
+        object JavaProperty : Synthetic()
+        object DelegateField : Synthetic()
+        object PluginFile : Synthetic()
+        object Error : Synthetic()
+        object TypeAliasConstructor : Synthetic()
+        object FakeFunction : Synthetic()
+        object ForwardDeclaration : Synthetic()
+    }
     object DynamicScope : FirDeclarationOrigin()
     object SamConstructor : FirDeclarationOrigin()
     object Enhancement : FirDeclarationOrigin()
-    object ImportedFromObject : FirDeclarationOrigin()
-    object SubstitutionOverride : FirDeclarationOrigin(fromSupertypes = true)
+    object ImportedFromObjectOrStatic : FirDeclarationOrigin()
+    sealed class SubstitutionOverride(displayName: String) : FirDeclarationOrigin(displayName, fromSupertypes = true) {
+        object DeclarationSite : SubstitutionOverride("SubstitutionOverride(DeclarationSite)")
+        object CallSite : SubstitutionOverride("SubstitutionOverride(CallSite)")
+    }
+
     object IntersectionOverride : FirDeclarationOrigin(fromSupertypes = true)
     object Delegated : FirDeclarationOrigin()
     object RenamedForOverride : FirDeclarationOrigin()
     object WrappedIntegerOperator : FirDeclarationOrigin()
-
+    sealed class ScriptCustomization(val kind: FirScriptCustomizationKind) : FirDeclarationOrigin() {
+        object Default : ScriptCustomization(FirScriptCustomizationKind.DEFAULT)
+        object ResultProperty : ScriptCustomization(FirScriptCustomizationKind.RESULT_PROPERTY)
+    }
     class Plugin(val key: GeneratedDeclarationKey) : FirDeclarationOrigin(displayName = "Plugin[$key]", generated = true)
 
     override fun toString(): String {

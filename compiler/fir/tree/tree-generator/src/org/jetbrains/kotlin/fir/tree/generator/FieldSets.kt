@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -26,18 +26,25 @@ object FieldSets {
     val receivers by lazy {
         fieldSet(
             field("explicitReceiver", expression, nullable = true, withReplace = true).withTransform(),
-            field("dispatchReceiver", expression).withTransform(),
-            field("extensionReceiver", expression).withTransform()
+            field("dispatchReceiver", expression, nullable = true, withReplace = true),
+            field("extensionReceiver", expression, nullable = true, withReplace = true)
         )
     }
 
-    val typeArguments by lazy { fieldList("typeArguments", typeProjection, withReplace = true) }
+    val typeArguments by lazy { fieldList("typeArguments", typeProjection, useMutableOrEmpty = true, withReplace = true) }
 
     val arguments by lazy { fieldList("arguments", expression) }
 
     val declarations by lazy { fieldList(declaration.withArgs("E" to "*")) }
 
-    val annotations by lazy { fieldList("annotations", annotation).withTransform(needTransformInOtherChildren = true) }
+    val annotations by lazy {
+        fieldList(
+            "annotations",
+            annotation,
+            withReplace = true,
+            useMutableOrEmpty = true
+        ).withTransform(needTransformInOtherChildren = true)
+    }
 
     fun symbolWithPackage(packageName: String?, symbolClassName: String, argument: String? = null): Field {
         return field("symbol", type(packageName, symbolClassName), argument)
@@ -53,10 +60,6 @@ object FieldSets {
 
     val typeRefField = field(typeRef, withReplace = true)
 
-    fun receiverTypeRef(nullable: Boolean = false) = field("receiverTypeRef", typeRef, nullable)
-
-    val valueParameters by lazy { fieldList(valueParameter) }
-
     val typeParameters by lazy { fieldList("typeParameters", typeParameter) }
 
     val typeParameterRefs by lazy { fieldList("typeParameters", typeParameterRef) }
@@ -69,7 +72,7 @@ object FieldSets {
 
     val classKind by lazy { field(classKindType) }
 
-    val status by lazy { field("status", declarationStatus) }
+    val status by lazy { field("status", declarationStatus, withReplace = true) }
 
     val controlFlowGraphReferenceField by lazy { field("controlFlowGraphReference", controlFlowGraphReference, withReplace = true, nullable = true) }
 
@@ -77,7 +80,9 @@ object FieldSets {
 
     val effectiveVisibility by lazy { field("effectiveVisibility", effectiveVisibilityType) }
 
-    val modality by lazy { field(modalityType, nullable = true) }
+    fun modality(nullable: Boolean): Field {
+        return field(modalityType, nullable = nullable)
+    }
 
     val scopeProvider by lazy { field("scopeProvider", firScopeProviderType) }
 

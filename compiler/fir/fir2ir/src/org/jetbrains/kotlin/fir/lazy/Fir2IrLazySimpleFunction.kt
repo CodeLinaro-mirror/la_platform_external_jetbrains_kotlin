@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,13 +7,17 @@ package org.jetbrains.kotlin.fir.lazy
 
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
 import org.jetbrains.kotlin.fir.backend.contextReceiversForFunctionOrContainingProperty
-import org.jetbrains.kotlin.fir.backend.generateOverriddenFunctionSymbols
+import org.jetbrains.kotlin.fir.backend.generators.Fir2IrCallableDeclarationsGenerator
+import org.jetbrains.kotlin.fir.backend.generators.generateOverriddenFunctionSymbols
 import org.jetbrains.kotlin.fir.backend.toIrType
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.initialSignatureAttr
-import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.lazy.lazyVar
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -40,9 +44,7 @@ class Fir2IrLazySimpleFunction(
 
     override var name: Name
         get() = fir.name
-        set(_) {
-            throw UnsupportedOperationException()
-        }
+        set(_) = mutationNotSupported()
 
     override var returnType: IrType by lazyVar(lock) {
         fir.returnTypeRef.toIrType(typeConverter)
@@ -50,38 +52,43 @@ class Fir2IrLazySimpleFunction(
 
     override var dispatchReceiverParameter: IrValueParameter? by lazyVar(lock) {
         val containingClass = parent as? IrClass
-        if (containingClass != null && shouldHaveDispatchReceiver(containingClass, fir)) {
-            createThisReceiverParameter(thisType = containingClass.thisReceiver?.type ?: error("No this receiver for containing class"))
+        if (containingClass != null && shouldHaveDispatchReceiver(containingClass)) {
+            val thisType = Fir2IrCallableDeclarationsGenerator.computeDispatchReceiverType(
+                this,
+                fir,
+                containingClass
+            )
+            createThisReceiverParameter(thisType ?: error("No dispatch receiver receiver for function"))
         } else null
     }
 
     override var extensionReceiverParameter: IrValueParameter? by lazyVar(lock) {
-        fir.receiverTypeRef?.let {
-            createThisReceiverParameter(it.toIrType(typeConverter))
+        fir.receiverParameter?.let {
+            createThisReceiverParameter(it.typeRef.toIrType(typeConverter), it)
         }
     }
 
     override var contextReceiverParametersCount: Int = fir.contextReceiversForFunctionOrContainingProperty().size
 
     override var valueParameters: List<IrValueParameter> by lazyVar(lock) {
-        declarationStorage.enterScope(this)
+        declarationStorage.enterScope(this.symbol)
 
         buildList {
-            declarationStorage.addContextReceiverParametersTo(
+            callablesGenerator.addContextReceiverParametersTo(
                 fir.contextReceiversForFunctionOrContainingProperty(),
                 this@Fir2IrLazySimpleFunction,
-                this@buildList,
+                this@buildList
             )
 
             fir.valueParameters.mapIndexedTo(this) { index, valueParameter ->
-                declarationStorage.createIrParameter(
-                    valueParameter, index, skipDefaultParameter = isFakeOverride
+                callablesGenerator.createIrParameter(
+                    valueParameter, index + contextReceiverParametersCount, skipDefaultParameter = isFakeOverride
                 ).apply {
                     this.parent = this@Fir2IrLazySimpleFunction
                 }
             }
         }.apply {
-            declarationStorage.leaveScope(this@Fir2IrLazySimpleFunction)
+            declarationStorage.leaveScope(this@Fir2IrLazySimpleFunction.symbol)
         }
     }
 
@@ -92,13 +99,19 @@ class Fir2IrLazySimpleFunction(
             fakeOverrideGenerator.calcBaseSymbolsForFakeOverrideFunction(
                 firParent, this, fir.symbol
             )
-            fakeOverrideGenerator.getOverriddenSymbolsForFakeOverride(this)?.let { return@lazyVar it }
+            fakeOverrideGenerator.getOverriddenSymbolsForFakeOverride(this)?.let {
+                assert(!it.contains(symbol)) { "Cannot add function $symbol to its own overriddenSymbols" }
+                return@lazyVar it
+            }
         }
         fir.generateOverriddenFunctionSymbols(firParent)
     }
 
     override val initialSignatureFunction: IrFunction? by lazy {
-        (fir.initialSignatureAttr as? FirFunction)?.symbol?.let { declarationStorage.getIrFunctionSymbol(it).owner }?.takeIf { it !== this }
+        val originalFunction = fir.initialSignatureAttr as? FirFunction ?: return@lazy null
+        declarationStorage.getOrCreateIrFunction(originalFunction, parent).also {
+            check(it !== this) { "Initial function can not be the same as remapped function" }
+        }
     }
 
     override val containerSource: DeserializedContainerSource?

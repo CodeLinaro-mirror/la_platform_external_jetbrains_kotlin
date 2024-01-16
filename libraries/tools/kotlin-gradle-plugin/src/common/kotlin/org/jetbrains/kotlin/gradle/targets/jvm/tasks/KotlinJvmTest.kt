@@ -10,38 +10,35 @@ import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.testing.Test
-import org.gradle.api.tasks.testing.TestFilter
-import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinTestRun
+import org.jetbrains.kotlin.gradle.plugin.UsesVariantImplementationFactories
+import org.jetbrains.kotlin.gradle.plugin.internal.MppTestReportHelper
+import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactoryProvider
 
 @CacheableTask
-open class KotlinJvmTest : Test() {
+open class KotlinJvmTest : Test(), UsesVariantImplementationFactories {
     @Input
     @Optional
     var targetName: String? = null
 
+    private val testReporter = project
+        .variantImplementationFactoryProvider<MppTestReportHelper.MppTestReportHelperVariantFactory>()
+        .map { it.getInstance() }
+
     override fun createTestExecuter(): TestExecuter<JvmTestExecutionSpec> =
         if (targetName != null) Executor(
             super.createTestExecuter(),
-            targetName!!
+            targetName!!,
+            testReporter.get(),
         )
         else super.createTestExecuter()
 
     class Executor(
         private val delegate: TestExecuter<JvmTestExecutionSpec>,
-        private val targetName: String
+        private val targetName: String,
+        private val testReporter: MppTestReportHelper,
     ) : TestExecuter<JvmTestExecutionSpec> by delegate {
         override fun execute(testExecutionSpec: JvmTestExecutionSpec, testResultProcessor: TestResultProcessor) {
-            delegate.execute(testExecutionSpec, object : TestResultProcessor by testResultProcessor {
-                override fun started(test: TestDescriptorInternal, event: TestStartEvent) {
-                    val myTest = object : TestDescriptorInternal by test {
-                        override fun getDisplayName(): String = "${test.displayName}[$targetName]"
-                        override fun getClassName(): String? = test.className?.replace('$', '.')
-                        override fun getClassDisplayName(): String? = test.classDisplayName?.replace('$', '.')
-                    }
-                    testResultProcessor.started(myTest, event)
-                }
-            })
+            delegate.execute(testExecutionSpec, testReporter.createDelegatingTestReportProcessor(testResultProcessor, targetName))
         }
     }
 }

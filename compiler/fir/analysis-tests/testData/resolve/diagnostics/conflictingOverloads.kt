@@ -1,5 +1,3 @@
-// FIR_IDE_IGNORE
-
 <!CONFLICTING_OVERLOADS!>fun test(x: Int)<!> {}
 
 <!CONFLICTING_OVERLOADS!>fun test(y: Int)<!> {}
@@ -35,6 +33,9 @@ enum class <!PACKAGE_OR_CLASSIFIER_REDECLARATION!>B<!>
 val <!REDECLARATION!>u<!> = 10
 val <!REDECLARATION!>u<!> = 20
 
+val <!SYNTAX!>(a,b)<!> = 30 to 40
+val <!SYNTAX!>(c,d)<!> = 50 to 60
+
 typealias <!PACKAGE_OR_CLASSIFIER_REDECLARATION!>TA<!> = A
 typealias <!PACKAGE_OR_CLASSIFIER_REDECLARATION!>TA<!> = B
 
@@ -52,7 +53,7 @@ fun lol(a: Array<Boolean>) {}
 
 class M {
     companion <!REDECLARATION!>object<!> {}
-    val <!REDECLARATION!>Companion<!> = object : Any {}
+    val <!REDECLARATION!>Companion<!> = object : Any() {}
 }
 
 fun B.foo() {}
@@ -61,9 +62,9 @@ class L {
     fun B.foo() {}
 }
 
-fun mest() {}
+<!CONFLICTING_OVERLOADS!>fun mest()<!> {}
 
-class mest
+class <!CONFLICTING_OVERLOADS!>mest<!>
 
 <!FUNCTION_DECLARATION_WITH_NO_NAME!>fun()<!> {}
 

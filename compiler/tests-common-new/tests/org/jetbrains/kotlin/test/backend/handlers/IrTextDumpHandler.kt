@@ -5,22 +5,14 @@
 
 package org.jetbrains.kotlin.test.backend.handlers
 
-import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
-import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
-import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.descriptors.findClassAcrossModuleDependencies
+import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.util.DeclarationStubGenerator
-import org.jetbrains.kotlin.ir.util.SymbolTable
+import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.dumpTreesFromLineNumber
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_EXTERNAL_CLASS
@@ -29,6 +21,7 @@ import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.EXTERNAL_FILE
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_IDENTICAL
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
+import org.jetbrains.kotlin.test.model.BackendKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.model.TestModule
@@ -39,13 +32,22 @@ import org.jetbrains.kotlin.test.utils.withExtension
 import org.jetbrains.kotlin.test.utils.withSuffixAndExtension
 import java.io.File
 
-class IrTextDumpHandler(testServices: TestServices) : AbstractIrHandler(testServices) {
+class IrTextDumpHandler(
+    testServices: TestServices,
+    artifactKind: BackendKind<IrBackendInput>,
+) : AbstractIrHandler(testServices, artifactKind) {
     companion object {
         const val DUMP_EXTENSION = "ir.txt"
 
-        fun computeDumpExtension(module: TestModule, defaultExtension: String): String {
-            return if (module.frontendKind == FrontendKinds.ClassicFrontend || FIR_IDENTICAL in module.directives)
-                defaultExtension else "fir.$defaultExtension"
+        fun computeDumpExtension(module: TestModule, defaultExtension: String, ignoreFirIdentical: Boolean = false): String {
+            return if (
+                module.frontendKind == FrontendKinds.ClassicFrontend ||
+                (!ignoreFirIdentical && FIR_IDENTICAL in module.directives)
+            ) {
+                defaultExtension
+            } else {
+                "fir.$defaultExtension"
+            }
         }
 
         fun List<IrFile>.groupWithTestFiles(module: TestModule): List<Pair<TestFile?, IrFile>> = mapNotNull { irFile ->
@@ -61,60 +63,62 @@ class IrTextDumpHandler(testServices: TestServices) : AbstractIrHandler(testServ
     private val baseDumper = MultiModuleInfoDumper()
     private val buildersForSeparateFileDumps: MutableMap<File, StringBuilder> = mutableMapOf()
 
-    @OptIn(ExperimentalStdlibApi::class)
     override fun processModule(module: TestModule, info: IrBackendInput) {
         if (DUMP_IR !in module.directives) return
-        val irFiles = info.irModuleFragment.files
-        val testFileToIrFile = irFiles.groupWithTestFiles(module)
-        val builder = baseDumper.builderForModule(module)
-        for ((testFile, irFile) in testFileToIrFile) {
-            if (testFile?.directives?.contains(EXTERNAL_FILE) == true) continue
-            var actualDump = irFile.dumpTreesFromLineNumber(lineNumber = 0, normalizeNames = true)
-            if (actualDump.isEmpty()) {
-                actualDump = irFile.dumpTreesFromLineNumber(lineNumber = UNDEFINED_OFFSET, normalizeNames = true)
+
+        val dumpOptions = DumpIrTreeOptions(
+            normalizeNames = true,
+            printFacadeClassInFqNames = false,
+            printFlagsInDeclarationReferences = false,
+            // KT-60248 Abbreviations should not be rendered to make K2 IR dumps closer to K1 IR dumps during irText tests.
+            // PSI2IR assigns field `abbreviation` with type abbreviation. It serves only debugging purposes, and no compiler functionality relies on it.
+            // FIR2IR does not initialize field `abbreviation` at all.
+            printTypeAbbreviations = false,
+        )
+
+        info.processAllIrModuleFragments(module) { irModuleFragment, moduleName ->
+            val builder = baseDumper.builderForModule(moduleName)
+            val testFileToIrFile = irModuleFragment.files.groupWithTestFiles(module)
+
+            for ((testFile, irFile) in testFileToIrFile) {
+                if (testFile?.directives?.contains(EXTERNAL_FILE) == true) continue
+                var actualDump = irFile.dumpTreesFromLineNumber(lineNumber = 0, dumpOptions)
+                if (actualDump.isEmpty()) {
+                    actualDump = irFile.dumpTreesFromLineNumber(lineNumber = UNDEFINED_OFFSET, dumpOptions)
+                }
+                builder.append(actualDump)
             }
-            builder.append(actualDump)
         }
+
         compareDumpsOfExternalClasses(module, info)
     }
 
     private fun compareDumpsOfExternalClasses(module: TestModule, info: IrBackendInput) {
-        // FIR doesn't support searching descriptors
-        if (module.frontendKind == FrontendKinds.FIR) return
-
-        val externalClassFqns = module.directives[DUMP_EXTERNAL_CLASS]
-        if (externalClassFqns.isEmpty()) return
-
-        // TODO: why JS one is used here in original AbstractIrTextTestCase?
-        val mangler = JsManglerDesc
-        val signaturer = IdSignatureDescriptor(mangler)
-        val irModule = info.irModuleFragment
-        val stubGenerator = DeclarationStubGeneratorImpl(
-            irModule.descriptor,
-            SymbolTable(signaturer, IrFactoryImpl), // TODO
-            irModule.irBuiltins,
-            DescriptorByIdSignatureFinderImpl(irModule.descriptor, mangler)
-        )
+        val externalClassIds = module.directives[DUMP_EXTERNAL_CLASS]
+        if (externalClassIds.isEmpty()) return
 
         val baseFile = testServices.moduleStructure.originalTestDataFiles.first()
-        for (externalClassFqn in externalClassFqns) {
-            val classDump = stubGenerator.generateExternalClass(irModule.descriptor, externalClassFqn).dump()
-            val expectedFile = baseFile.withSuffixAndExtension("__$externalClassFqn", module.dumpExtension)
-            assertions.assertEqualsToFile(expectedFile, classDump)
-        }
+        assertions.assertAll(
+            externalClassIds.map { externalClassId ->
+                {
+                    val classDump = info.irPluginContext.findExternalClass(externalClassId).dump()
+                    val suffix = ".__${externalClassId.replace("/", ".")}"
+                    val expectedFile = baseFile.withSuffixAndExtension(suffix, module.getDumpExtension(ignoreFirIdentical = true))
+                    assertions.assertEqualsToFile(expectedFile, classDump)
+                }
+            }
+        )
     }
 
-    private fun DeclarationStubGenerator.generateExternalClass(descriptor: ModuleDescriptor, externalClassFqn: String): IrClass {
-        val classDescriptor =
-            descriptor.findClassAcrossModuleDependencies(ClassId.topLevel(FqName(externalClassFqn)))
-                ?: throw AssertionError("Can't find a class in external dependencies: $externalClassFqn")
-
-        return generateMemberStub(classDescriptor) as IrClass
+    private fun IrPluginContext.findExternalClass(externalClassId: String): IrClass {
+        val classId = ClassId.fromString(externalClassId)
+        return referenceClass(classId)?.owner ?: assertions.fail { "Can't find a class in external dependencies: $externalClassId" }
     }
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
         val moduleStructure = testServices.moduleStructure
-        val defaultExpectedFile = moduleStructure.originalTestDataFiles.first().withExtension(moduleStructure.modules.first().dumpExtension)
+        val defaultExpectedFile = moduleStructure.originalTestDataFiles.first()
+            .withExtension(moduleStructure.modules.first().getDumpExtension())
         checkOneExpectedFile(defaultExpectedFile, baseDumper.generateResultingDump())
         buildersForSeparateFileDumps.entries.forEach { (expectedFile, dump) -> checkOneExpectedFile(expectedFile, dump.toString()) }
     }
@@ -125,6 +129,7 @@ class IrTextDumpHandler(testServices: TestServices) : AbstractIrHandler(testServ
         }
     }
 
-    private val TestModule.dumpExtension: String
-        get() = computeDumpExtension(this, DUMP_EXTENSION)
+    private fun TestModule.getDumpExtension(ignoreFirIdentical: Boolean = false): String {
+        return computeDumpExtension(this, DUMP_EXTENSION, ignoreFirIdentical)
+    }
 }

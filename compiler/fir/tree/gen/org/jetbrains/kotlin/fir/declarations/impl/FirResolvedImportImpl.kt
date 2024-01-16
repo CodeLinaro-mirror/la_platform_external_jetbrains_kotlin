@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
@@ -30,7 +30,7 @@ internal class FirResolvedImportImpl(
     override val isAllUnder: Boolean get() = delegate.isAllUnder
     override val aliasName: Name? get() = delegate.aliasName
     override val aliasSource: KtSourceElement? get() = delegate.aliasSource
-    override val resolvedParentClassId: ClassId? get() = relativeParentClassName?.let { ClassId(packageFqName, it, false) }
+    override val resolvedParentClassId: ClassId? get() = relativeParentClassName?.let { ClassId(packageFqName, it, isLocal = false) }
     override val importedName: Name? get() = importedFqName?.shortName()
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {

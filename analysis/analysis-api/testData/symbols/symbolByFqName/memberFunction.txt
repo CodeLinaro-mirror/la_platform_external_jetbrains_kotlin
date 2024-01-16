@@ -1,8 +1,12 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/collections/List.get
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -14,14 +18,44 @@ KtFunctionSymbol:
   modality: ABSTRACT
   name: get
   origin: LIBRARY
-  receiverType: null
-  returnType: E
+  receiverParameter: null
+  returnType: KtTypeParameterType:
+    annotationsList: []
+    type: E
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(index)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: index
+      origin: LIBRARY
+      receiverParameter: null
+      returnType: KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: []
+        type: kotlin/Int
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+      deprecationStatus: null
   ]
   visibility: Public
-  getDispatchReceiver(): kotlin/collections/List<E>
-  getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/List<E>
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null

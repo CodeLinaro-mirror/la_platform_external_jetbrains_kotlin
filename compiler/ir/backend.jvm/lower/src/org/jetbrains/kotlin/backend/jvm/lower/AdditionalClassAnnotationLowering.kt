@@ -8,11 +8,11 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
-import org.jetbrains.kotlin.backend.jvm.ir.getAnnotationRetention
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
@@ -37,6 +37,8 @@ internal val additionalClassAnnotationPhase = makeIrFilePhase(
 
 private class AdditionalClassAnnotationLowering(private val context: JvmBackendContext) : ClassLoweringPass {
     private val symbols = context.ir.symbols.javaAnnotations
+    private val noNewJavaAnnotationTargets =
+        context.config.noNewJavaAnnotationTargets || !context.isCompilingAgainstJdk8OrLater
 
     override fun lower(irClass: IrClass) {
         if (!irClass.isAnnotationClass) return
@@ -78,10 +80,9 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
     private fun generateTargetAnnotation(irClass: IrClass) {
         if (irClass.hasAnnotation(JvmAnnotationNames.TARGET_ANNOTATION)) return
-        val annotationTargetMap = symbols.getAnnotationTargetMap(context.state.target)
 
         val targets = irClass.applicableTargetSet() ?: return
-        val javaTargets = targets.mapNotNullTo(HashSet()) { annotationTargetMap[it] }.sortedBy {
+        val javaTargets = targets.mapNotNullTo(HashSet(), ::mapTarget).sortedBy {
             ElementType.valueOf(it.symbol.owner.name.asString())
         }
 
@@ -105,6 +106,13 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
                 putValueArgument(0, vararg)
             }
     }
+
+    private fun mapTarget(target: KotlinTarget): IrEnumEntry? =
+        when (target) {
+            KotlinTarget.TYPE_PARAMETER -> symbols.typeParameterTarget.takeUnless { noNewJavaAnnotationTargets }
+            KotlinTarget.TYPE -> symbols.typeUseTarget.takeUnless { noNewJavaAnnotationTargets }
+            else -> symbols.jvmTargetMap[target]
+        }
 
     private fun generateRepeatableAnnotation(irClass: IrClass) {
         if (!irClass.hasAnnotation(StandardNames.FqNames.repeatable) ||

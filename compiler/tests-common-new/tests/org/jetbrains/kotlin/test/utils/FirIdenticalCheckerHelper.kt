@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.test.utils
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import java.io.File
 
 abstract class FirIdenticalCheckerHelper(private val testServices: TestServices) {
@@ -25,16 +26,16 @@ abstract class FirIdenticalCheckerHelper(private val testServices: TestServices)
     }
 
     fun contentsAreEquals(classicFile: File, firFile: File, trimLines: Boolean = false): Boolean {
-        val classicFileContent = classicFile.readContent(trimLines)
-        val firFileContent = firFile.readContent(trimLines)
+        val classicFileContent = readContent(classicFile, trimLines)
+        val firFileContent = readContent(firFile, trimLines)
         return classicFileContent == firFileContent
     }
 
-    private fun File.readContent(trimLines: Boolean): String {
+    fun readContent(file: File, trimLines: Boolean): String {
         return if (trimLines) {
-            this.readLines().joinToString("\n") { it.trimEnd() }.trimEnd()
+            file.readLines().joinToString("\n") { it.trimEnd() }.trim()
         } else {
-            this.readText()
+            file.readText()
         }
     }
 

@@ -8,143 +8,70 @@
 package org.jetbrains.kotlin.gradle.targets.js.webpack
 
 import com.google.gson.GsonBuilder
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Nested
-import org.gradle.api.tasks.Optional
+import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.appendConfigsFromDir
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWebpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl
 import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
-import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackMajorVersion.Companion.choose
 import org.jetbrains.kotlin.gradle.utils.appendLine
+import org.jetbrains.kotlin.gradle.utils.relativeOrAbsolute
 import java.io.File
 import java.io.Serializable
 import java.io.StringWriter
 
 @Suppress("MemberVisibilityCanBePrivate")
 data class KotlinWebpackConfig(
-    @Input
+    val npmProjectDir: Provider<File>? = null,
     var mode: Mode = Mode.DEVELOPMENT,
-    @Internal
     var entry: File? = null,
-    @Nested
-    @Optional
     var output: KotlinWebpackOutput? = null,
-    @Internal
     var outputPath: File? = null,
-    @Input
-    @Optional
     var outputFileName: String? = entry?.name,
-    @Internal
     var configDirectory: File? = null,
-    @Internal
-    var bundleAnalyzerReportDir: File? = null,
-    @Internal
     var reportEvaluatedConfigFile: File? = null,
-    @Input
-    @Optional
     var devServer: DevServer? = null,
-    @Input
+    var watchOptions: WatchOptions? = null,
     var experiments: MutableSet<String> = mutableSetOf(),
-    @Nested
     override val rules: KotlinWebpackRulesContainer,
-    @Input
-    @Optional
     var devtool: String? = WebpackDevtool.EVAL_SOURCE_MAP,
-    @Input
     var showProgress: Boolean = false,
-    @Input
+    var optimization: Optimization? = null,
     var sourceMaps: Boolean = false,
-    @Input
     var export: Boolean = true,
-    @Input
     var progressReporter: Boolean = false,
-    @Input
-    @Optional
-    var progressReporterPathFilter: String? = null,
-    @Input
-    var resolveFromModulesFirst: Boolean = false,
-    @Input
-    val webpackMajorVersion: WebpackMajorVersion = WebpackMajorVersion.V5
+    var progressReporterPathFilter: File? = null,
+    var resolveFromModulesFirst: Boolean = false
 ) : WebpackRulesDsl {
-    @get:Internal
-    @Deprecated("use cssSupport methods instead")
-    var cssSupport: KotlinWebpackCssRule
-        get() = rules.maybeCreate("css", KotlinWebpackCssRule::class.java)
-        set(value) {
-            rules.maybeCreate("css", KotlinWebpackCssRule::class.java).apply {
-                this.mode = value.mode
-                this.enabled = value.enabled
-                this.test = value.test
-                this.include = value.include
-                this.exclude = value.exclude
-            }
-        }
 
-    @get:Input
-    @get:Optional
     val entryInput: String?
-        get() = entry?.absoluteFile?.normalize()?.absolutePath
+        get() = npmProjectDir?.get()?.let { npmProjectDir -> entry?.relativeOrAbsolute(npmProjectDir) }
 
-    @get:Input
-    @get:Optional
     val outputPathInput: String?
-        get() = outputPath?.absoluteFile?.normalize()?.absolutePath
+        get() = npmProjectDir?.get()?.let { npmProjectDir -> outputPath?.relativeOrAbsolute(npmProjectDir) }
 
-    @get:Input
-    @get:Optional
-    val configDirectoryInput: String?
-        get() = configDirectory?.absoluteFile?.normalize()?.absolutePath
-
-    @get:Input
-    @get:Optional
-    val bundleAnalyzerReportDirInput: String?
-        get() = bundleAnalyzerReportDir?.absoluteFile?.normalize()?.absolutePath
-
-    @get:Input
-    @get:Optional
-    val reportEvaluatedConfigFileInput: String?
-        get() = reportEvaluatedConfigFile?.absoluteFile?.normalize()?.absolutePath
+    val progressReporterPathFilterInput: String?
+        get() = npmProjectDir?.get()?.let { npmProjectDir -> progressReporterPathFilter?.relativeOrAbsolute(npmProjectDir) }
 
     fun getRequiredDependencies(versions: NpmVersions) =
         mutableSetOf<RequiredKotlinJsDependency>().also {
-            it.add(versions.kotlinJsTestRunner)
             it.add(
-                webpackMajorVersion.choose(
-                    versions.webpack,
-                    versions.webpack4
-                )
+                versions.webpack
             )
             it.add(
-                webpackMajorVersion.choose(
-                    versions.webpackCli,
-                    versions.webpackCli3
-                )
+                versions.webpackCli
             )
-            it.add(versions.formatUtil)
-
-            if (bundleAnalyzerReportDir != null) {
-                it.add(versions.webpackBundleAnalyzer)
-            }
 
             if (sourceMaps) {
                 it.add(
-                    webpackMajorVersion.choose(
-                        versions.sourceMapLoader,
-                        versions.sourceMapLoader1
-                    )
+                    versions.sourceMapLoader
                 )
             }
 
             if (devServer != null) {
                 it.add(
-                    webpackMajorVersion.choose(
-                        versions.webpackDevServer,
-                        versions.webpackDevServer3
-                    )
+                    versions.webpackDevServer
                 )
             }
 
@@ -159,15 +86,6 @@ data class KotlinWebpackConfig(
         DEVELOPMENT("development"),
         PRODUCTION("production")
     }
-
-    @Suppress("unused")
-    data class BundleAnalyzerPlugin(
-        val analyzerMode: String,
-        val reportFilename: String,
-        val openAnalyzer: Boolean,
-        val generateStatsFile: Boolean,
-        val statsFilename: String
-    ) : Serializable
 
     @Suppress("unused")
     data class DevServer(
@@ -187,6 +105,18 @@ data class KotlinWebpackConfig(
             ) : Serializable
         }
     }
+
+    @Suppress("unused")
+    data class Optimization(
+        var runtimeChunk: Any?,
+        var splitChunks: Any?
+    ) : Serializable
+
+    @Suppress("unused")
+    data class WatchOptions(
+        var aggregateTimeout: Int? = null,
+        var ignored: Any? = null
+    ) : Serializable
 
     fun save(configFile: File) {
         configFile.writer().use {
@@ -218,8 +148,8 @@ data class KotlinWebpackConfig(
             appendEntry()
             appendResolveModules()
             appendSourceMaps()
+            appendOptimization()
             appendDevServer()
-            appendReport()
             appendProgressReporter()
             rules.forEach { rule ->
                 if (rule.active) {
@@ -228,7 +158,6 @@ data class KotlinWebpackConfig(
             }
             appendErrorPlugin()
             appendFromConfigDir()
-            appendEvaluatedFileReport()
             appendExperiments()
 
             if (export) {
@@ -236,26 +165,6 @@ data class KotlinWebpackConfig(
                 appendLine("module.exports = config")
             }
         }
-    }
-
-    private fun Appendable.appendEvaluatedFileReport() {
-        if (reportEvaluatedConfigFile == null) return
-
-        val filePath = reportEvaluatedConfigFile!!.canonicalPath.jsQuoted()
-
-        //language=JavaScript 1.8
-        appendLine(
-            """
-                // save evaluated config file
-                ;(function(config) {
-                    const util = require('util');
-                    const fs = require('fs');
-                    const evaluatedConfig = util.inspect(config, {showHidden: false, depth: null, compact: false});
-                    fs.writeFile($filePath, evaluatedConfig, function (err) {});
-                })(config);
-                
-            """.trimIndent()
-        )
     }
 
     private fun Appendable.appendFromConfigDir() {
@@ -266,38 +175,22 @@ data class KotlinWebpackConfig(
         appendLine()
     }
 
-    private fun Appendable.appendReport() {
-        if (bundleAnalyzerReportDir == null) return
+    private fun Appendable.appendDevServer() {
+        if (devServer != null) {
 
-        entry ?: error("Entry should be defined for report")
+            appendLine("// dev server")
+            appendLine("config.devServer = ${json(devServer!!)};")
+            appendLine()
+        }
 
-        val reportBasePath = "${bundleAnalyzerReportDir!!.canonicalPath}/${entry!!.name}"
-        val config = BundleAnalyzerPlugin(
-            "static",
-            "$reportBasePath.report.html",
-            false,
-            true,
-            "$reportBasePath.stats.json"
-        )
+        if (watchOptions == null) return
 
         //language=JavaScript 1.8
         appendLine(
             """
-                // save webpack-bundle-analyzer report 
-                var BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin; 
-                config.plugins.push(new BundleAnalyzerPlugin(${json(config)}));
-                
-           """.trimIndent()
+                config.watchOptions = ${json(watchOptions!!)};
+            """.trimIndent()
         )
-        appendLine()
-    }
-
-    private fun Appendable.appendDevServer() {
-        if (devServer == null) return
-
-        appendLine("// dev server")
-        appendLine("config.devServer = ${json(devServer!!)};")
-        appendLine()
     }
 
     private fun Appendable.appendExperiments() {
@@ -323,42 +216,46 @@ data class KotlinWebpackConfig(
                         enforce: "pre"
                 });
                 config.devtool = ${devtool?.let { "'$it'" } ?: false};
-                ${
-                webpackMajorVersion.choose(
-                    "config.ignoreWarnings = [/Failed to parse source map/]",
-                    """
-                config.stats = config.stats || {}
-                Object.assign(config.stats, config.stats, {
-                    warningsFilter: [/Failed to parse source map/]
-                })
-                """
-                )
+            ${
+                "config.ignoreWarnings = [/Failed to parse source map/]"
             }
                 
             """.trimIndent()
         )
     }
 
-    private fun Appendable.appendEntry() {
-        if (
-            entry == null
-            || outputPath == null
-            || output == null
-        )
-            return
-
-        val multiEntryOutput = "${outputFileName!!.removeSuffix(".js")}-[name].js"
+    private fun Appendable.appendOptimization() {
+        if (optimization == null) return
 
         //language=JavaScript 1.8
         appendLine(
             """
+                // optimization
+                config.optimization = config.optimization || ${json(optimization!!)};
+            """.trimIndent()
+        )
+    }
+
+    private fun Appendable.appendEntry() {
+        if (entry != null) {
+            //language=JavaScript 1.8
+            appendLine(
+                """
                 // entry
                 config.entry = {
-                    main: [${entry!!.canonicalPath.jsQuoted()}]
+                    main: [require('path').resolve(__dirname, ${entryInput!!.jsQuoted()})]
                 };
-                
+                """.trimIndent()
+            )
+        }
+
+        if (output != null) {
+            val multiEntryOutput = "${outputFileName!!.removeSuffix(".js")}-[name].js"
+
+            //language=JavaScript 1.8
+            appendLine(
+                """
                 config.output = {
-                    path: ${outputPath!!.canonicalPath.jsQuoted()},
                     filename: (chunkData) => {
                         return chunkData.chunk.name === 'main'
                             ? ${outputFileName!!.jsQuoted()}
@@ -368,7 +265,19 @@ data class KotlinWebpackConfig(
                     ${output!!.libraryTarget?.let { "libraryTarget: ${it.jsQuoted()}," } ?: ""}
                     globalObject: "${output!!.globalObject}"
                 };
-                
+                """.trimIndent()
+            )
+        }
+
+        if (
+            outputPath == null
+        )
+            return
+
+        //language=JavaScript 1.8
+        appendLine(
+            """
+                config.output.path = require('path').resolve(__dirname, ${outputPathInput!!.jsQuoted()})
             """.trimIndent()
         )
     }
@@ -418,8 +327,8 @@ data class KotlinWebpackConfig(
                         const p = percentage * 100;
                         let msg = `${"$"}{Math.trunc(p / 10)}${"$"}{Math.trunc(p % 10)}% ${"$"}{message} ${"$"}{args.join(' ')}`;
                         ${
-                if (progressReporterPathFilter == null) "" else """
-                            msg = msg.replace(${progressReporterPathFilter!!.jsQuoted()}, '');
+                if (progressReporterPathFilterInput == null) "" else """
+                            msg = msg.replace(require('path').resolve(__dirname, ${progressReporterPathFilterInput!!.jsQuoted()}), '');
                         """.trimIndent()
             };
                         console.log(msg);

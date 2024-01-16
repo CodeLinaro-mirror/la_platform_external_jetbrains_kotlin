@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
 
 interface FileLoweringPass {
     fun lower(irFile: IrFile)
@@ -75,6 +76,8 @@ fun FileLoweringPass.lower(
         lower(it)
     } catch (e: CompilationException) {
         e.file = it
+        throw e
+    } catch (e: KotlinExceptionWithAttachments) {
         throw e
     } catch (e: Throwable) {
         throw e.wrapWithCompilationException(
@@ -192,7 +195,7 @@ private open class BodyLoweringVisitor(
     }
 
     override fun visitScript(declaration: IrScript, data: IrDeclaration?) {
-        declaration.thisReceiver.accept(this, declaration)
+        declaration.thisReceiver?.accept(this, declaration)
         ArrayList(declaration.statements).forEach { it.accept(this, declaration) }
     }
 }
@@ -308,7 +311,7 @@ interface DeclarationTransformer : FileLoweringPass {
             }
             declaration.statements.transformSubsetFlat(transformer::transformFlatRestricted)
 
-            declaration.thisReceiver.accept(this, null)
+            declaration.thisReceiver?.accept(this, null)
         }
     }
 }

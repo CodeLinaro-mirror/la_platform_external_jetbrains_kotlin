@@ -22,24 +22,22 @@ import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.ir.util.initializeParameterArguments
+import org.jetbrains.kotlin.ir.util.initializeTypeArguments
 
 class IrFunctionReferenceImpl(
     override val startOffset: Int,
     override val endOffset: Int,
     override var type: IrType,
-    override val symbol: IrFunctionSymbol,
+    override var symbol: IrFunctionSymbol,
     typeArgumentsCount: Int,
     valueArgumentsCount: Int,
-    override val reflectionTarget: IrFunctionSymbol? = symbol,
-    override val origin: IrStatementOrigin? = null,
+    override var reflectionTarget: IrFunctionSymbol? = symbol,
+    override var origin: IrStatementOrigin? = null,
 ) : IrFunctionReference() {
-    override val referencedName: Name
-        get() = symbol.owner.name
+    override val typeArguments: Array<IrType?> = initializeTypeArguments(typeArgumentsCount)
 
-    override val typeArgumentsByIndex: Array<IrType?> = arrayOfNulls(typeArgumentsCount)
-
-    override val argumentsByParameterIndex: Array<IrExpression?> = arrayOfNulls(valueArgumentsCount)
+    override val valueArguments: Array<IrExpression?> = initializeParameterArguments(valueArgumentsCount)
 
     companion object {
         @ObsoleteDescriptorBasedAPI
@@ -56,7 +54,7 @@ class IrFunctionReferenceImpl(
             type,
             symbol,
             typeArgumentsCount,
-            symbol.descriptor.valueParameters.size,
+            symbol.descriptor.valueParameters.size + symbol.descriptor.contextReceiverParameters.size,
             reflectionTarget,
             origin
         )

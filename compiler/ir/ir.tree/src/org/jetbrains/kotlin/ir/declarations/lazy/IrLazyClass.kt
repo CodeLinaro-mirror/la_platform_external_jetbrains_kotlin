@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.ir.declarations.lazy
 
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities.isPrivate
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -26,16 +27,16 @@ class IrLazyClass(
     @OptIn(ObsoleteDescriptorBasedAPI::class)
     override val descriptor: ClassDescriptor,
     override var name: Name,
-    override val kind: ClassKind,
+    override var kind: ClassKind,
     override var visibility: DescriptorVisibility,
     override var modality: Modality,
-    override val isCompanion: Boolean,
-    override val isInner: Boolean,
-    override val isData: Boolean,
-    override val isExternal: Boolean,
-    override val isValue: Boolean,
-    override val isExpect: Boolean,
-    override val isFun: Boolean,
+    override var isCompanion: Boolean,
+    override var isInner: Boolean,
+    override var isData: Boolean,
+    override var isExternal: Boolean,
+    override var isValue: Boolean,
+    override var isExpect: Boolean,
+    override var isFun: Boolean,
     override val stubGenerator: DeclarationStubGenerator,
     override val typeTranslator: TypeTranslator
 ) : IrClass(), IrLazyDeclarationBase, DeserializableClass {
@@ -73,10 +74,10 @@ class IrLazyClass(
     }
 
     private fun shouldBuildStub(descriptor: DeclarationDescriptor): Boolean =
-        descriptor !is DeclarationDescriptorWithVisibility ||
-                !DescriptorVisibilities.isPrivate(descriptor.visibility) ||
+        descriptor !is DeclarationDescriptorWithVisibility
+                || (!isPrivate(descriptor.visibility) && descriptor.visibility != DescriptorVisibilities.INVISIBLE_FAKE)
                 // This exception is needed for K/N caches usage.
-                isObject && descriptor is ClassConstructorDescriptor
+                || isObject && descriptor is ClassConstructorDescriptor
 
     override var typeParameters: List<IrTypeParameter> by lazyVar(stubGenerator.lock) {
         descriptor.declaredTypeParameters.mapTo(arrayListOf()) {
@@ -107,6 +108,7 @@ class IrLazyClass(
     }
 
     override var attributeOwnerId: IrAttributeContainer = this
+    override var originalBeforeInline: IrAttributeContainer? = null
 
     val classProto: ProtoBuf.Class? get() = (descriptor as? DeserializedClassDescriptor)?.classProto
     val nameResolver: NameResolver? get() = (descriptor as? DeserializedClassDescriptor)?.c?.nameResolver

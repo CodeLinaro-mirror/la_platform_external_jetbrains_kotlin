@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-import org.jetbrains.gradle.plugins.tools.lib
+import org.jetbrains.kotlin.tools.lib
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.konan.target.ClangArgs
 import org.jetbrains.kotlin.konan.target.Family.*
 import org.jetbrains.kotlin.konan.target.HostManager
 
 plugins {
-    `native`
+    id("kotlin.native.build-tools-conventions")
+    id("native")
 }
 
 native {
@@ -42,6 +43,7 @@ native {
         OSX -> {
             cxxflags += "-DKONAN_MACOS=1"
         }
+        else -> Unit
     }
     suffixes {
         (".cpp" to ".$obj") {
@@ -59,7 +61,7 @@ native {
 
     target(lib("llvmext"), objSet) {
         tool(*platformManager.hostPlatform.clangForJni.llvmAr("").toTypedArray())
-        flags("-qv", ruleOut(), *ruleInAll())
+        flags("-qcv", ruleOut(), *ruleInAll())
     }
 }
 

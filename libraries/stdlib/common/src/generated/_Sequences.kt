@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -805,7 +805,16 @@ public fun <T> Sequence<T>.toHashSet(): HashSet<T> {
  * The operation is _terminal_.
  */
 public fun <T> Sequence<T>.toList(): List<T> {
-    return this.toMutableList().optimizeReadOnlyList()
+    val it = iterator()
+    if (!it.hasNext())
+        return emptyList()
+    val element = it.next()
+    if (!it.hasNext())
+        return listOf(element)
+    val dst = ArrayList<T>()
+    dst.add(element)
+    while (it.hasNext()) dst.add(it.next())
+    return dst
 }
 
 /**
@@ -825,7 +834,16 @@ public fun <T> Sequence<T>.toMutableList(): MutableList<T> {
  * The operation is _terminal_.
  */
 public fun <T> Sequence<T>.toSet(): Set<T> {
-    return toCollection(LinkedHashSet<T>()).optimizeReadOnlySet()
+    val it = iterator()
+    if (!it.hasNext())
+        return emptySet()
+    val element = it.next()
+    if (!it.hasNext())
+        return setOf(element)
+    val dst = LinkedHashSet<T>()
+    dst.add(element)
+    while (it.hasNext()) dst.add(it.next())
+    return dst
 }
 
 /**
@@ -1193,6 +1211,10 @@ public fun <T> Sequence<T>.toMutableSet(): MutableSet<T> {
 
 /**
  * Returns `true` if all elements match the given [predicate].
+ * 
+ * Note that if the sequence contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  *
  * The operation is _terminal_.
  * 
@@ -2610,10 +2632,6 @@ public operator fun <T> Sequence<T>.minus(element: T): Sequence<T> {
  * 
  * Note that the source sequence and the array being subtracted are iterated only when an `iterator` is requested from
  * the resulting sequence. Changing any of them between successive calls to `iterator` may affect the result.
- * 
- * Before Kotlin 1.6, the [elements] array may have been converted to a [HashSet] to speed up the operation, thus the elements were required to have
- * a correct and stable implementation of `hashCode()` that didn't change between successive invocations.
- * On JVM, you can enable this behavior back with the system property `kotlin.collections.convert_arg_to_set_in_removeAll` set to `true`.
  *
  * The operation is _intermediate_ and _stateful_.
  */
@@ -2621,8 +2639,7 @@ public operator fun <T> Sequence<T>.minus(elements: Array<out T>): Sequence<T> {
     if (elements.isEmpty()) return this
     return object: Sequence<T> {
         override fun iterator(): Iterator<T> {
-            val other = elements.convertToSetForSetOperation()
-            return this@minus.filterNot { it in other }.iterator()
+            return this@minus.filterNot { it in elements }.iterator()
         }
     }
 }
@@ -2632,17 +2649,13 @@ public operator fun <T> Sequence<T>.minus(elements: Array<out T>): Sequence<T> {
  * 
  * Note that the source sequence and the collection being subtracted are iterated only when an `iterator` is requested from
  * the resulting sequence. Changing any of them between successive calls to `iterator` may affect the result.
- * 
- * Before Kotlin 1.6, the [elements] collection may have been converted to a [HashSet] to speed up the operation, thus the elements were required to have
- * a correct and stable implementation of `hashCode()` that didn't change between successive invocations.
- * On JVM, you can enable this behavior back with the system property `kotlin.collections.convert_arg_to_set_in_removeAll` set to `true`.
  *
  * The operation is _intermediate_ and _stateful_.
  */
 public operator fun <T> Sequence<T>.minus(elements: Iterable<T>): Sequence<T> {
     return object: Sequence<T> {
         override fun iterator(): Iterator<T> {
-            val other = elements.convertToSetForSetOperation()
+            val other = elements.convertToListIfNotCollection()
             if (other.isEmpty())
                 return this@minus.iterator()
             else
@@ -2658,15 +2671,11 @@ public operator fun <T> Sequence<T>.minus(elements: Iterable<T>): Sequence<T> {
  * the resulting sequence. Changing any of them between successive calls to `iterator` may affect the result.
  * 
  * The operation is _intermediate_ for this sequence and _terminal_ and _stateful_ for the [elements] sequence.
- * 
- * Before Kotlin 1.6, the [elements] sequence may have been converted to a [HashSet] to speed up the operation, thus the elements were required to have
- * a correct and stable implementation of `hashCode()` that didn't change between successive invocations.
- * On JVM, you can enable this behavior back with the system property `kotlin.collections.convert_arg_to_set_in_removeAll` set to `true`.
  */
 public operator fun <T> Sequence<T>.minus(elements: Sequence<T>): Sequence<T> {
     return object: Sequence<T> {
         override fun iterator(): Iterator<T> {
-            val other = elements.convertToSetForSetOperation()
+            val other = elements.toList()
             if (other.isEmpty())
                 return this@minus.iterator()
             else

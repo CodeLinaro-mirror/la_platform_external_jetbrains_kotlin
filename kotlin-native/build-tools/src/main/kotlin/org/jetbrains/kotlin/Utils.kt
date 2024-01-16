@@ -6,55 +6,28 @@
 
 package org.jetbrains.kotlin
 
+import com.google.gson.GsonBuilder
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.api.tasks.TaskState
-import org.gradle.api.logging.LogLevel
-import org.gradle.api.tasks.TaskCollection
+import org.gradle.api.file.FileCollection
+import org.gradle.api.plugins.ExtraPropertiesExtension
+import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.konan.properties.loadProperties
 import org.jetbrains.kotlin.konan.properties.propertyList
 import org.jetbrains.kotlin.konan.properties.saveProperties
 import org.jetbrains.kotlin.konan.target.*
-import org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS
 import java.io.File
 import java.util.concurrent.TimeUnit
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.file.Path
 import org.jetbrains.kotlin.konan.file.File as KFile
-import org.gradle.nativeplatform.toolchain.internal.*
-import org.gradle.nativeplatform.toolchain.plugins.ClangCompilerPlugin
-import org.gradle.api.Incubating
-import org.gradle.api.NamedDomainObjectFactory
-import org.gradle.api.NonNullApi
-import org.gradle.api.Plugin
-import org.gradle.api.internal.file.FileResolver
-import org.gradle.api.internal.plugins.PotentialPlugin
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.internal.operations.BuildOperationExecutor
-import org.gradle.internal.os.OperatingSystem
-import org.gradle.internal.reflect.Instantiator
-import org.gradle.internal.service.ServiceRegistry
-import org.gradle.internal.work.WorkerLeaseService
-import org.gradle.model.Defaults
-import org.gradle.model.RuleSource
-import org.gradle.nativeplatform.internal.CompilerOutputFileNamingSchemeFactory
-import org.gradle.nativeplatform.platform.internal.NativePlatformInternal
-import org.gradle.nativeplatform.plugins.NativeComponentPlugin
-import org.gradle.nativeplatform.toolchain.Clang
-import org.gradle.nativeplatform.toolchain.internal.clang.ClangToolChain
-import org.gradle.nativeplatform.toolchain.internal.gcc.AbstractGccCompatibleToolChain
-import org.gradle.nativeplatform.toolchain.internal.gcc.DefaultGccPlatformToolChain
-import org.gradle.nativeplatform.toolchain.internal.gcc.metadata.SystemLibraryDiscovery
-import org.gradle.nativeplatform.toolchain.internal.metadata.CompilerMetaDataProviderFactory
-import org.gradle.nativeplatform.toolchain.internal.tools.CommandLineToolSearchResult
-import org.gradle.nativeplatform.toolchain.internal.tools.GccCommandLineToolConfigurationInternal
-import org.gradle.nativeplatform.toolchain.internal.tools.ToolSearchPath
-import org.gradle.process.internal.ExecActionFactory
-import java.io.ByteArrayOutputStream
-import java.net.URI
 import java.util.*
 import kotlin.collections.HashSet
+
+/**
+ * Copy-pasted from [org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS]
+ */
+private const val KLIB_PROPERTY_NATIVE_TARGETS = "native_targets"
 
 //region Project properties.
 
@@ -76,26 +49,14 @@ val Project.testOutputRoot
 val Project.testOutputLocal
     get() = (findProperty("testOutputLocal") as File).toString()
 
-val Project.testOutputStdlib
-    get() = (findProperty("testOutputStdlib") as File).toString()
-
 val Project.testOutputFramework
     get() = (findProperty("testOutputFramework") as File).toString()
 
 val Project.testOutputExternal
     get() = (findProperty("testOutputExternal") as File).toString()
 
-val Project.cacheRedirectorEnabled
-    get() = findProperty("cacheRedirectorEnabled")?.toString()?.toBoolean() ?: false
-
 val Project.compileOnlyTests: Boolean
     get() = hasProperty("test_compile_only")
-
-fun Project.redirectIfEnabled(url: String): String = if (cacheRedirectorEnabled) {
-    val base = URL(url)
-    "https://cache-redirector.jetbrains.com/${base.host}/${base.path}"
-} else
-    url
 
 val validPropertiesNames = listOf(
     "konan.home",
@@ -114,6 +75,9 @@ val kotlinNativeHome
 
 val Project.useCustomDist
     get() = validPropertiesNames.any { hasProperty(it) }
+
+val Project.nativeBundlesLocation
+    get() = file(findProperty("nativeBundlesLocation") ?: project.projectDir)
 
 private val libraryRegexp = Regex("""^import\s+platform\.(\S+)\..*$""")
 fun File.dependencies() =
@@ -190,12 +154,6 @@ fun isSimulatorTarget(project: Project, target: KonanTarget): Boolean =
     project.platformManager.platform(target).targetTriple.isSimulator
 
 /**
- * Check that [target] is an Apple device.
- */
-fun supportsRunningTestsOnDevice(target: KonanTarget): Boolean =
-    target == KonanTarget.IOS_ARM32 || target == KonanTarget.IOS_ARM64
-
-/**
  * Creates a list of file paths to be compiled from the given [compile] list with regard to [exclude] list.
  */
 fun Project.getFilesToCompile(compile: List<String>, exclude: List<String>): List<String> {
@@ -246,14 +204,13 @@ private val Project.hasPlatformLibs: Boolean
         return false
     }
 
-private val Project.isCrossDist: Boolean
-    get() {
-        if (!isDefaultNativeHome) {
-            return File(buildDistribution(project.kotlinNativeDist.absolutePath).runtime(project.testTarget))
+private fun Project.isCrossDist(target: KonanTarget): Boolean {
+    if (!isDefaultNativeHome) {
+        return File(buildDistribution(project.kotlinNativeDist.absolutePath).runtime(target))
                 .exists()
-        }
-        return false
     }
+    return false
+}
 
 fun Task.dependsOnDist() {
     val target = project.testTarget
@@ -265,7 +222,7 @@ fun Task.dependsOnDist() {
             dependsOn(":kotlin-native:${target.name}CrossDist")
         }
     } else {
-        if (!project.isCrossDist) {
+        if (!project.isCrossDist(project.testTarget)) {
             dependsOn(":kotlin-native:${target.name}CrossDist")
         }
     }
@@ -279,7 +236,7 @@ fun Task.dependsOnCrossDist(target: KonanTarget) {
             dependsOn(":kotlin-native:${target.name}CrossDist")
         }
     } else {
-        if (!project.isCrossDist) {
+        if (!project.isCrossDist(target)) {
             dependsOn(":kotlin-native:${target.name}CrossDist")
         }
     }
@@ -326,57 +283,6 @@ fun Task.dependsOnKonanBuildingTask(artifact: String, target: KonanTarget) {
 }
 
 //endregion
-// Run command line from string.
-fun Array<String>.runCommand(
-    workingDir: File = File("."),
-    timeoutAmount: Long = 60,
-    timeoutUnit: TimeUnit = TimeUnit.SECONDS
-): String {
-    return try {
-        ProcessBuilder(*this)
-            .directory(workingDir)
-            .redirectOutput(ProcessBuilder.Redirect.PIPE)
-            .redirectError(ProcessBuilder.Redirect.PIPE)
-            .start().apply {
-                waitFor(timeoutAmount, timeoutUnit)
-            }.inputStream.bufferedReader().readText()
-    } catch (e: Exception) {
-        println("Couldn't run command ${this.joinToString(" ")}")
-        println(e.stackTrace.joinToString("\n"))
-        error(e.message!!)
-    }
-}
-
-fun String.splitCommaSeparatedOption(optionName: String) =
-    split("\\s*,\\s*".toRegex()).map {
-        if (it.isNotEmpty()) listOf(optionName, it) else listOf(null)
-    }.flatten().filterNotNull()
-
-data class Commit(val revision: String, val developer: String, val webUrlWithDescription: String)
-
-val teamCityUrl = "https://buildserver.labs.intellij.net"
-
-fun buildsUrl(buildLocator: String) =
-    "$teamCityUrl/app/rest/builds/?locator=$buildLocator"
-
-fun getBuild(buildLocator: String, user: String, password: String) =
-    try {
-        sendGetRequest(buildsUrl(buildLocator), user, password)
-    } catch (t: Throwable) {
-        error("Try to get build! TeamCity is unreachable!")
-    }
-
-fun sendGetRequest(url: String, username: String? = null, password: String? = null): String {
-    val connection = URL(url).openConnection() as HttpURLConnection
-    if (username != null && password != null) {
-        val auth = Base64.getEncoder().encode(("$username:$password").toByteArray()).toString(Charsets.UTF_8)
-        connection.addRequestProperty("Authorization", "Basic $auth")
-    }
-    connection.setRequestProperty("Accept", "application/json");
-    connection.connect()
-    return connection.inputStream.use { it.reader().use { reader -> reader.readText() } }
-}
-
 
 @JvmOverloads
 fun compileSwift(
@@ -394,7 +300,10 @@ fun compileSwift(
             options + "-o" + output.toString() + sources +
             if (fullBitcode) listOf("-embed-bitcode", "-Xlinker", "-bitcode_verify") else listOf("-embed-bitcode-marker")
 
-    val (stdOut, stdErr, exitCode) = runProcess(executor = localExecutor(project), executable = compiler, args = args)
+    val (stdOut, stdErr, exitCode) = runProcess(
+            executor = localExecutor(project), executable = compiler, args = args,
+            env = mapOf("DYLD_FALLBACK_FRAMEWORK_PATH" to configs.absoluteTargetToolchain + "/ExtraFrameworks")
+    )
 
     println(
         """
@@ -516,3 +425,13 @@ internal val Project.testTargetConfigurables: Configurables
         val testTarget = project.testTarget
         return platformManager.platform(testTarget).configurables
     }
+
+internal val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()!!
+
+internal val Project.ext: ExtraPropertiesExtension
+    get() = extensions.getByName("ext") as ExtraPropertiesExtension
+
+internal val FileCollection.isNotEmpty: Boolean
+    get() = !isEmpty
+
+internal fun Provider<File>.resolve(child: String): Provider<File> = map { it.resolve(child) }

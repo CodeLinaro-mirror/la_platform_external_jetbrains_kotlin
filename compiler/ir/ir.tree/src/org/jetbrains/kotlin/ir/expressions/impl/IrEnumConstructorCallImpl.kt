@@ -22,21 +22,22 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.util.initializeParameterArguments
+import org.jetbrains.kotlin.ir.util.initializeTypeArguments
 
 class IrEnumConstructorCallImpl(
     override val startOffset: Int,
     override val endOffset: Int,
     override var type: IrType,
-    override val symbol: IrConstructorSymbol,
+    override var symbol: IrConstructorSymbol,
     typeArgumentsCount: Int,
     valueArgumentsCount: Int
 ) : IrEnumConstructorCall() {
-    override val origin: IrStatementOrigin?
-        get() = null
+    override var origin: IrStatementOrigin? = null
 
-    override val typeArgumentsByIndex: Array<IrType?> = arrayOfNulls(typeArgumentsCount)
+    override val typeArguments: Array<IrType?> = initializeTypeArguments(typeArgumentsCount)
 
-    override val argumentsByParameterIndex: Array<IrExpression?> = arrayOfNulls(valueArgumentsCount)
+    override val valueArguments: Array<IrExpression?> = initializeParameterArguments(valueArgumentsCount)
 
     override var contextReceiversCount = 0
 

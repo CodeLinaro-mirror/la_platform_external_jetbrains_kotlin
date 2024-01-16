@@ -7,15 +7,18 @@ package org.jetbrains.kotlin.ir.declarations
 
 import org.jetbrains.kotlin.descriptors.InlineClassRepresentation
 import org.jetbrains.kotlin.descriptors.MultiFieldValueClassRepresentation
+import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.name.Name
 import java.io.File
 
 fun <D : IrAttributeContainer> D.copyAttributes(other: IrAttributeContainer?): D = apply {
     if (other != null) {
         attributeOwnerId = other.attributeOwnerId
+        originalBeforeInline = other.originalBeforeInline
     }
 }
 
@@ -35,10 +38,15 @@ fun IrClass.addAll(members: List<IrDeclaration>) {
 
 val IrFile.path: String get() = fileEntry.name
 val IrFile.name: String get() = File(path).name
+val IrFile.nameWithPackage: String get() = packageFqName.child(Name.identifier(name)).asString()
 
 @ObsoleteDescriptorBasedAPI
 fun IrFunction.getIrValueParameter(parameter: ValueParameterDescriptor): IrValueParameter =
-    valueParameters.getOrElse(parameter.index) {
+    getIrValueParameter(parameter, parameter.index)
+
+@ObsoleteDescriptorBasedAPI
+fun IrFunction.getIrValueParameter(parameter: ParameterDescriptor, index: Int): IrValueParameter =
+    valueParameters.getOrElse(index) {
         throw AssertionError("No IrValueParameter for $parameter")
     }.also { found ->
         assert(found.descriptor == parameter) {

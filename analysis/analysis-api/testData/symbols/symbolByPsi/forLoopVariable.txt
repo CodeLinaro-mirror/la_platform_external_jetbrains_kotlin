@@ -1,12 +1,16 @@
 KtLocalVariableSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  contextReceivers: []
   isExtension: false
   isVal: true
   name: loopVariable
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/Int
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Int
   symbolKind: LOCAL
   typeParameters: []
   getContainingModule: KtSourceModule "Sources of main"
@@ -15,8 +19,12 @@ KtLocalVariableSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /usage
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -28,8 +36,11 @@ KtFunctionSymbol:
   modality: FINAL
   name: usage
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/Unit
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Unit
   symbolKind: TOP_LEVEL
   typeParameters: []
   valueParameters: []

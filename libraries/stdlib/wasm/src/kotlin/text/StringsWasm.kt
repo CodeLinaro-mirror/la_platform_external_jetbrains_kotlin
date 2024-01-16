@@ -74,8 +74,8 @@ public actual fun String(chars: CharArray, offset: Int, length: Int): String {
         throw IndexOutOfBoundsException()
 
     val copy = WasmCharArray(length)
-    copy.fill(length) { chars[it + offset] }
-    return String.unsafeFromCharArray(copy)
+    copyWasmArray(chars.storage, copy, offset, 0, length)
+    return copy.createString()
 }
 
 /**
@@ -84,9 +84,11 @@ public actual fun String(chars: CharArray, offset: Int, length: Int): String {
 @SinceKotlin("1.4")
 @WasExperimental(ExperimentalStdlibApi::class)
 public actual fun CharArray.concatToString(): String {
-    val copy = WasmCharArray(this.size)
-    copy.fill(this.size) { this[it] }
-    return String.unsafeFromCharArray(copy)
+    val thisStorage = this.storage
+    val thisLength = thisStorage.len()
+    val copy = WasmCharArray(thisLength)
+    copyWasmArray(this.storage, copy, 0, 0, thisLength)
+    return copy.createString()
 }
 
 /**
@@ -106,8 +108,8 @@ public actual fun CharArray.concatToString(startIndex: Int = 0, endIndex: Int = 
 
     val length = endIndex - startIndex
     val copy = WasmCharArray(length)
-    copy.fill(length) { this[it + startIndex] }
-    return String.unsafeFromCharArray(copy)
+    copyWasmArray(this.storage, copy, startIndex, 0, length)
+    return copy.createString()
 }
 
 /**
@@ -116,7 +118,11 @@ public actual fun CharArray.concatToString(startIndex: Int = 0, endIndex: Int = 
 @SinceKotlin("1.4")
 @WasExperimental(ExperimentalStdlibApi::class)
 public actual fun String.toCharArray(): CharArray {
-    return CharArray(length) { get(it) }
+    val thisChars = this.chars
+    val thisLength = thisChars.len()
+    val newArray = CharArray(thisLength)
+    copyWasmArray(thisChars, newArray.storage, 0, 0, thisLength)
+    return newArray
 }
 
 /**
@@ -133,7 +139,38 @@ public actual fun String.toCharArray(): CharArray {
 @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
 public actual fun String.toCharArray(startIndex: Int = 0, endIndex: Int = this.length): CharArray {
     AbstractList.checkBoundsIndexes(startIndex, endIndex, length)
-    return CharArray(endIndex - startIndex) { get(startIndex + it) }
+    val newLength = endIndex - startIndex
+    val newArray = CharArray(newLength)
+    copyWasmArray(this.chars, newArray.storage, startIndex, 0, newLength)
+    return newArray
+}
+
+/**
+ * Copies characters from this string into the [destination] character array and returns that array.
+ *
+ * @param destination the array to copy to.
+ * @param destinationOffset the position in the array to copy to.
+ * @param startIndex the start offset (inclusive) of the substring to copy.
+ * @param endIndex the end offset (exclusive) of the substring to copy.
+ *
+ * @throws IndexOutOfBoundsException or [IllegalArgumentException] when [startIndex] or [endIndex] is out of range of this string builder indices or when `startIndex > endIndex`.
+ * @throws IndexOutOfBoundsException when the subrange doesn't fit into the [destination] array starting at the specified [destinationOffset],
+ *  or when that index is out of the [destination] array indices range.
+ */
+@ExperimentalStdlibApi
+@SinceKotlin("1.9")
+@Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
+public actual fun String.toCharArray(
+    destination: CharArray,
+    destinationOffset: Int = 0,
+    startIndex: Int = 0,
+    endIndex: Int = length
+): CharArray {
+    AbstractList.checkBoundsIndexes(startIndex, endIndex, length)
+    val rangeSize = endIndex - startIndex
+    AbstractList.checkBoundsIndexes(destinationOffset, destinationOffset + rangeSize, destination.size)
+    copyWasmArray(this.chars, destination.storage, startIndex, destinationOffset, rangeSize)
+    return destination
 }
 
 /**
@@ -290,9 +327,10 @@ public actual fun CharSequence.repeat(n: Int): String {
         0 -> ""
         1 -> this.toString()
         else -> {
+            val sequence = this
             buildString(n * length) {
                 repeat(n) {
-                    append(this@repeat)
+                    append(sequence)
                 }
             }
         }
@@ -489,6 +527,23 @@ actual fun CharSequence.regionMatches(
     otherOffset: Int,
     length: Int,
     ignoreCase: Boolean
+): Boolean = regionMatchesImpl(thisOffset, other, otherOffset, length, ignoreCase)
+
+/**
+ * Returns `true` if the specified range in this string is equal to the specified range in another string.
+ * @param thisOffset the start offset in this string of the substring to compare.
+ * @param other the string against a substring of which the comparison is performed.
+ * @param otherOffset the start offset in the other string of the substring to compare.
+ * @param length the length of the substring to compare.
+ */
+@SinceKotlin("1.9")
+@Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
+public actual fun String.regionMatches(
+    thisOffset: Int,
+    other: String,
+    otherOffset: Int,
+    length: Int,
+    ignoreCase: Boolean = false
 ): Boolean = regionMatchesImpl(thisOffset, other, otherOffset, length, ignoreCase)
 
 private val STRING_CASE_INSENSITIVE_ORDER = Comparator<String> { a, b -> a.compareTo(b, ignoreCase = true) }

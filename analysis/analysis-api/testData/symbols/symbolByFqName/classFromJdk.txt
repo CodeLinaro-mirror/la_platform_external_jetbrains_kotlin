@@ -3,7 +3,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: java/lang/String
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -12,13 +15,30 @@ KtNamedClassOrObjectSymbol:
   name: String
   origin: JAVA
   superTypes: [
-    kotlin/Any
-    java/io/Serializable
-    kotlin/Comparable<ft<kotlin/String, kotlin/String?>>
-    kotlin/CharSequence
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: java/io/Serializable
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: [
+        KtFlexibleType:
+          annotationsList: []
+          type: kotlin/String!
+      ]
+      type: kotlin/Comparable<kotlin/String!>
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/CharSequence
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSdkModule "SDK jdk"
+  annotationApplicableTargets: null
   deprecationStatus: null

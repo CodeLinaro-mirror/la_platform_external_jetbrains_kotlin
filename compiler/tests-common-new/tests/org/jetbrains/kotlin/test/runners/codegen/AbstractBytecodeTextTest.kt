@@ -18,11 +18,13 @@ import org.jetbrains.kotlin.test.builders.configureJvmArtifactsHandlersStep
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_REFLECT
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.FirParser
+import org.jetbrains.kotlin.test.directives.configureFirParser
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2ClassicBackendConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
-import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
+import org.jetbrains.kotlin.test.frontend.fir.Fir2IrJvmResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.model.*
@@ -42,7 +44,7 @@ abstract class AbstractBytecodeTextTestBase<R : ResultingArtifact.FrontendOutput
             +WITH_REFLECT
         }
 
-        commonConfigurationForCodegenTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
+        commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
 
         commonHandlersForCodegenTest()
 
@@ -82,7 +84,7 @@ open class AbstractIrBytecodeTextTest : AbstractBytecodeTextTestBase<ClassicFron
         get() = ::JvmIrBackendFacade
 }
 
-open class AbstractFirBytecodeTextTest : AbstractBytecodeTextTestBase<FirOutputArtifact, IrBackendInput>(
+open class AbstractFirBytecodeTextTestBase(val parser: FirParser) : AbstractBytecodeTextTestBase<FirOutputArtifact, IrBackendInput>(
     targetBackend = TargetBackend.JVM_IR,
     targetFrontend = FrontendKinds.FIR
 ) {
@@ -90,7 +92,7 @@ open class AbstractFirBytecodeTextTest : AbstractBytecodeTextTestBase<FirOutputA
         get() = ::FirFrontendFacade
 
     override val frontendToBackendConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
-        get() = ::Fir2IrResultsConverter
+        get() = ::Fir2IrJvmResultsConverter
 
     override val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.Jvm>>
         get() = ::JvmIrBackendFacade
@@ -101,7 +103,13 @@ open class AbstractFirBytecodeTextTest : AbstractBytecodeTextTestBase<FirOutputA
             defaultDirectives {
                 // See KT-44152
                 -USE_PSI_CLASS_FILES_READING
+                builder.configureFirParser(parser)
             }
         }
     }
 }
+
+open class AbstractFirLightTreeBytecodeTextTest : AbstractFirBytecodeTextTestBase(FirParser.LightTree)
+
+@FirPsiCodegenTest
+open class AbstractFirPsiBytecodeTextTest : AbstractFirBytecodeTextTestBase(FirParser.Psi)

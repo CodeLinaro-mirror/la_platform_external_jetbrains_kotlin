@@ -10,14 +10,32 @@ import java.io.InvalidObjectException
 import java.io.NotSerializableException
 
 internal class MapBuilder<K, V> private constructor(
+    // keys in insert order
     private var keysArray: Array<K>,
-    private var valuesArray: Array<V>?, // allocated only when actually used, always null in pure HashSet
+    // values in insert order, allocated only when actually used, always null in pure HashSet
+    private var valuesArray: Array<V>?,
+    // hash of a key by its index, -1 if a key at that index was removed
     private var presenceArray: IntArray,
+    // (index + 1) of a key by its hash, 0 if there is no key with that hash, -1 if collision chain continues to the hash-1
     private var hashArray: IntArray,
+    // max length of a collision chain
     private var maxProbeDistance: Int,
+    // index of the next key to be inserted
     private var length: Int
 ) : MutableMap<K, V>, Serializable {
     private var hashShift: Int = computeShift(hashSize)
+
+    /**
+     * The number of times this map is structurally modified.
+     *
+     * A modification is considered to be structural if it changes the map size,
+     * or otherwise changes it in a way that iterations in progress may return incorrect results.
+     *
+     * This value can be used by iterators of the [keys], [values] and [entries] views
+     * to provide fail-fast behavoir when a concurrent modification is detected during iteration.
+     * [ConcurrentModificationException] will be thrown in this case.
+     */
+    private var modCount: Int = 0
 
     override var size: Int = 0
         private set
@@ -44,7 +62,8 @@ internal class MapBuilder<K, V> private constructor(
     fun build(): Map<K, V> {
         checkIsMutable()
         isReadOnly = true
-        return this
+        @Suppress("UNCHECKED_CAST")
+        return if (size > 0) this else (Empty as Map<K, V>)
     }
 
     private fun writeReplace(): Any =
@@ -105,6 +124,7 @@ internal class MapBuilder<K, V> private constructor(
         valuesArray?.resetRange(0, length)
         size = 0
         length = 0
+        registerModification()
     }
 
     override val keys: MutableSet<K> get() {
@@ -165,29 +185,43 @@ internal class MapBuilder<K, V> private constructor(
 
     // ---------------------------- private ----------------------------
 
-    private val capacity: Int get() = keysArray.size
+    // Declared internal for testing
+    internal val capacity: Int get() = keysArray.size
     private val hashSize: Int get() = hashArray.size
+
+    private fun registerModification() {
+        modCount += 1
+    }
 
     internal fun checkIsMutable() {
         if (isReadOnly) throw UnsupportedOperationException()
     }
 
     private fun ensureExtraCapacity(n: Int) {
-        ensureCapacity(length + n)
+        if (shouldCompact(extraCapacity = n)) {
+            rehash(hashSize)
+        } else {
+            ensureCapacity(length + n)
+        }
     }
 
-    private fun ensureCapacity(capacity: Int) {
-        if (capacity < 0) throw OutOfMemoryError()    // overflow
-        if (capacity > this.capacity) {
-            var newSize = this.capacity * 3 / 2
-            if (capacity > newSize) newSize = capacity
+    private fun shouldCompact(extraCapacity: Int): Boolean {
+        val spareCapacity = this.capacity - length
+        val gaps = length - size
+        return spareCapacity < extraCapacity                // there is no room for extraCapacity entries
+                && gaps + spareCapacity >= extraCapacity    // removing gaps prevents capacity expansion
+                && gaps >= this.capacity / 4                // at least 25% of current capacity is occupied by gaps
+    }
+
+    private fun ensureCapacity(minCapacity: Int) {
+        if (minCapacity < 0) throw OutOfMemoryError()    // overflow
+        if (minCapacity > this.capacity) {
+            val newSize = AbstractList.newCapacity(this.capacity, minCapacity)
             keysArray = keysArray.copyOfUninitializedElements(newSize)
             valuesArray = valuesArray?.copyOfUninitializedElements(newSize)
             presenceArray = presenceArray.copyOf(newSize)
             val newHashSize = computeHashSize(newSize)
             if (newHashSize > hashSize) rehash(newHashSize)
-        } else if (length + capacity - size > this.capacity) {
-            rehash(hashSize)
         }
     }
 
@@ -220,6 +254,7 @@ internal class MapBuilder<K, V> private constructor(
     }
 
     private fun rehash(newHashSize: Int) {
+        registerModification()
         if (length > size) compact()
         if (newHashSize != hashSize) {
             hashArray = IntArray(newHashSize)
@@ -291,6 +326,7 @@ internal class MapBuilder<K, V> private constructor(
                     presenceArray[putIndex] = hash
                     hashArray[hash] = putIndex + 1
                     size++
+                    registerModification()
                     if (probeDistance > maxProbeDistance) maxProbeDistance = probeDistance
                     return putIndex
                 }
@@ -319,6 +355,7 @@ internal class MapBuilder<K, V> private constructor(
         removeHashAt(presenceArray[index])
         presenceArray[index] = TOMBSTONE
         size--
+        registerModification()
     }
 
     private fun removeHashAt(removedHash: Int) {
@@ -442,11 +479,13 @@ internal class MapBuilder<K, V> private constructor(
     internal fun valuesIterator() = ValuesItr(this)
     internal fun entriesIterator() = EntriesItr(this)
 
-    private companion object {
+    internal companion object {
         private const val MAGIC = -1640531527 // 2654435769L.toInt(), golden ratio
         private const val INITIAL_CAPACITY = 8
         private const val INITIAL_MAX_PROBE_DISTANCE = 2
         private const val TOMBSTONE = -1
+
+        internal val Empty = MapBuilder<Nothing, Nothing>(0).also { it.isReadOnly = true }
 
         private fun computeHashSize(capacity: Int): Int = (capacity.coerceAtLeast(1) * 3).takeHighestOneBit()
 
@@ -458,6 +497,7 @@ internal class MapBuilder<K, V> private constructor(
     ) {
         internal var index = 0
         internal var lastIndex: Int = -1
+        private var expectedModCount: Int = map.modCount
 
         init {
             initNext()
@@ -471,15 +511,23 @@ internal class MapBuilder<K, V> private constructor(
         fun hasNext(): Boolean = index < map.length
 
         fun remove() {
+            checkForComodification()
             check(lastIndex != -1) { "Call next() before removing element from the iterator." }
             map.checkIsMutable()
             map.removeKeyAt(lastIndex)
             lastIndex = -1
+            expectedModCount = map.modCount
+        }
+
+        internal fun checkForComodification() {
+            if (map.modCount != expectedModCount)
+                throw ConcurrentModificationException()
         }
     }
 
     internal class KeysItr<K, V>(map: MapBuilder<K, V>) : Itr<K, V>(map), MutableIterator<K> {
         override fun next(): K {
+            checkForComodification()
             if (index >= map.length) throw NoSuchElementException()
             lastIndex = index++
             val result = map.keysArray[lastIndex]
@@ -491,6 +539,7 @@ internal class MapBuilder<K, V> private constructor(
 
     internal class ValuesItr<K, V>(map: MapBuilder<K, V>) : Itr<K, V>(map), MutableIterator<V> {
         override fun next(): V {
+            checkForComodification()
             if (index >= map.length) throw NoSuchElementException()
             lastIndex = index++
             val result = map.valuesArray!![lastIndex]
@@ -502,6 +551,7 @@ internal class MapBuilder<K, V> private constructor(
     internal class EntriesItr<K, V>(map: MapBuilder<K, V>) : Itr<K, V>(map),
         MutableIterator<MutableMap.MutableEntry<K, V>> {
         override fun next(): EntryRef<K, V> {
+            checkForComodification()
             if (index >= map.length) throw NoSuchElementException()
             lastIndex = index++
             val result = EntryRef(map, lastIndex)
@@ -521,10 +571,10 @@ internal class MapBuilder<K, V> private constructor(
             if (index >= map.length) throw NoSuchElementException()
             lastIndex = index++
             val key = map.keysArray[lastIndex]
-            if (key == map) sb.append("(this Map)") else sb.append(key)
+            if (key === map) sb.append("(this Map)") else sb.append(key)
             sb.append('=')
             val value = map.valuesArray!![lastIndex]
-            if (value == map) sb.append("(this Map)") else sb.append(value)
+            if (value === map) sb.append("(this Map)") else sb.append(value)
             initNext()
         }
     }

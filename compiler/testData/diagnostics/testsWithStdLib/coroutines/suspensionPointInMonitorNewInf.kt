@@ -1,6 +1,6 @@
 // FIR_IDENTICAL
+// RENDER_DIAGNOSTICS_FULL_TEXT
 // !DIAGNOSTICS: -UNUSED_PARAMETER, -USELESS_IS_CHECK
-// !LANGUAGE: +NewInference
 // SKIP_TXT
 
 import kotlin.concurrent.withLock

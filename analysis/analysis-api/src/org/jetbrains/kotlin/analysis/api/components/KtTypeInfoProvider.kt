@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,14 +13,17 @@ import org.jetbrains.kotlin.analysis.api.types.KtNonErrorClassType
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.builtins.functions.FunctionClassKind
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.name.ClassId
 
 public abstract class KtTypeInfoProvider : KtAnalysisSessionComponent() {
     public abstract fun isFunctionalInterfaceType(type: KtType): Boolean
-    public abstract fun getFunctionClassKind(type: KtType): FunctionClassKind?
+    public abstract fun getFunctionClassKind(type: KtType): FunctionTypeKind?
     public abstract fun canBeNull(type: KtType): Boolean
     public abstract fun isDenotable(type: KtType): Boolean
+    public abstract fun isArrayOrPrimitiveArray(type: KtType): Boolean
+    public abstract fun isNestedArray(type: KtType): Boolean
+    public abstract fun fullyExpandedType(type: KtType): KtType
 }
 
 public interface KtTypeInfoProviderMixIn : KtAnalysisSessionMixIn {
@@ -38,22 +41,22 @@ public interface KtTypeInfoProviderMixIn : KtAnalysisSessionMixIn {
         get() = withValidityAssertion { analysisSession.typeInfoProvider.isFunctionalInterfaceType(this) }
 
     /**
-     * Returns [FunctionClassKind] of the given [KtType]
+     * Returns [FunctionTypeKind] of the given [KtType]
      */
-    public val KtType.functionClassKind: FunctionClassKind?
+    public val KtType.functionTypeKind: FunctionTypeKind?
         get() = withValidityAssertion { analysisSession.typeInfoProvider.getFunctionClassKind(this) }
 
     public val KtType.isFunctionType: Boolean
-        get() = withValidityAssertion { functionClassKind == FunctionClassKind.Function }
+        get() = withValidityAssertion { functionTypeKind == FunctionTypeKind.Function }
 
     public val KtType.isKFunctionType: Boolean
-        get() = withValidityAssertion { functionClassKind == FunctionClassKind.KFunction }
+        get() = withValidityAssertion { functionTypeKind == FunctionTypeKind.KFunction }
 
     public val KtType.isSuspendFunctionType: Boolean
-        get() = withValidityAssertion { functionClassKind == FunctionClassKind.SuspendFunction }
+        get() = withValidityAssertion { functionTypeKind == FunctionTypeKind.SuspendFunction }
 
     public val KtType.isKSuspendFunctionType: Boolean
-        get() = withValidityAssertion { functionClassKind == FunctionClassKind.KSuspendFunction }
+        get() = withValidityAssertion { functionTypeKind == FunctionTypeKind.KSuspendFunction }
 
     /**
      * Returns true if a public value of this type can potentially be null. This means this type is not a subtype of [Any]. However, it does not
@@ -99,6 +102,35 @@ public interface KtTypeInfoProviderMixIn : KtAnalysisSessionMixIn {
                 else -> null
             }
         }
+
+    /**
+     * Unwraps type aliases.
+     * Example:
+     * ```
+     * interface Base
+     *
+     * typealias FirstAlias = @Anno1 Base
+     * typealias SecondAlias = @Anno2 FirstAlias
+     *
+     * fun foo(): @Anno3 SecondAlias = TODO()
+     * ```
+     * The return type of `foo` will be `@Anno3 @Anno2 @Anno1 Base` instead of `@Anno3 SecondAlias`
+     */
+    public val KtType.fullyExpandedType: KtType
+        get() = withValidityAssertion {
+            analysisSession.typeInfoProvider.fullyExpandedType(this)
+        }
+
+    /**
+     * Returns whether the given [KtType] is an array or a primitive array type or not.
+     */
+    public fun KtType.isArrayOrPrimitiveArray(): Boolean =
+        withValidityAssertion { analysisSession.typeInfoProvider.isArrayOrPrimitiveArray(this) }
+
+    /**
+     * Returns whether the given [KtType] is an array or a primitive array type and its element is also an array type or not.
+     */
+    public fun KtType.isNestedArray(): Boolean = withValidityAssertion { analysisSession.typeInfoProvider.isNestedArray(this) }
 
     public fun KtType.isClassTypeWithClassId(classId: ClassId): Boolean = withValidityAssertion {
         if (this !is KtNonErrorClassType) return false

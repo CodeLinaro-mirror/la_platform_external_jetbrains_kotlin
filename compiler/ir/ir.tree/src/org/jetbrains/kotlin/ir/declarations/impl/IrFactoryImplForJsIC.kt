@@ -13,14 +13,15 @@ import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.types.Variance
+import java.util.*
 
 class IrFactoryImplForJsIC(override val stageController: StageController) : AbstractIrFactoryImpl(), IdSignatureRetriever {
-    private val declarationToSignature = mutableMapOf<IrDeclaration, IdSignature>()
+    private val declarationToSignature = WeakHashMap<IrDeclaration, IdSignature>()
 
     private fun <T : IrDeclaration> T.register(): T {
         val parentSig = stageController.currentDeclaration?.let { declarationSignature(it) } ?: return this
 
-        stageController.createSignature(parentSig)?.let { declarationToSignature[this] = it}
+        stageController.createSignature(parentSig)?.let { declarationToSignature[this] = it }
 
         return this
     }
@@ -49,15 +50,15 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrClassSymbol,
         name: Name,
-        kind: ClassKind,
         visibility: DescriptorVisibility,
+        symbol: IrClassSymbol,
+        kind: ClassKind,
         modality: Modality,
+        isExternal: Boolean,
         isCompanion: Boolean,
         isInner: Boolean,
         isData: Boolean,
-        isExternal: Boolean,
         isValue: Boolean,
         isExpect: Boolean,
         isFun: Boolean,
@@ -67,15 +68,15 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
-            kind,
             visibility,
+            symbol,
+            kind,
             modality,
+            isExternal,
             isCompanion,
             isInner,
             isData,
-            isExternal,
             isValue,
             isExpect,
             isFun,
@@ -87,28 +88,28 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrConstructorSymbol,
         name: Name,
         visibility: DescriptorVisibility,
-        returnType: IrType,
         isInline: Boolean,
-        isExternal: Boolean,
-        isPrimary: Boolean,
         isExpect: Boolean,
+        returnType: IrType,
+        symbol: IrConstructorSymbol,
+        isPrimary: Boolean,
+        isExternal: Boolean,
         containerSource: DeserializedContainerSource?
     ): IrConstructor {
         return super.createConstructor(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
             visibility,
-            returnType,
             isInline,
-            isExternal,
-            isPrimary,
             isExpect,
+            returnType,
+            symbol,
+            isPrimary,
+            isExternal,
             containerSource,
         ).register()
     }
@@ -117,15 +118,15 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrEnumEntrySymbol,
-        name: Name
+        name: Name,
+        symbol: IrEnumEntrySymbol
     ): IrEnumEntry {
         return super.createEnumEntry(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
+            symbol,
         ).register()
     }
 
@@ -137,99 +138,101 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrFieldSymbol,
         name: Name,
-        type: IrType,
         visibility: DescriptorVisibility,
+        symbol: IrFieldSymbol,
+        type: IrType,
         isFinal: Boolean,
-        isExternal: Boolean,
-        isStatic: Boolean
+        isStatic: Boolean,
+        isExternal: Boolean
     ): IrField {
         return super.createField(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
+            visibility,
+            symbol,
             type,
-            visibility,
             isFinal,
-            isExternal,
             isStatic,
+            isExternal,
         ).register()
     }
 
-    override fun createFunction(
+    override fun createSimpleFunction(
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrSimpleFunctionSymbol,
         name: Name,
         visibility: DescriptorVisibility,
-        modality: Modality,
-        returnType: IrType,
         isInline: Boolean,
-        isExternal: Boolean,
-        isTailrec: Boolean,
-        isSuspend: Boolean,
-        isOperator: Boolean,
-        isInfix: Boolean,
         isExpect: Boolean,
-        isFakeOverride: Boolean,
-        containerSource: DeserializedContainerSource?
+        returnType: IrType,
+        modality: Modality,
+        symbol: IrSimpleFunctionSymbol,
+        isTailrec: Boolean,
+        isSuspend: Boolean,
+        isOperator: Boolean,
+        isInfix: Boolean,
+        isExternal: Boolean,
+        containerSource: DeserializedContainerSource?,
+        isFakeOverride: Boolean
     ): IrSimpleFunction {
-        return super.createFunction(
+        return super.createSimpleFunction(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
             visibility,
-            modality,
-            returnType,
             isInline,
-            isExternal,
+            isExpect,
+            returnType,
+            modality,
+            symbol,
             isTailrec,
             isSuspend,
             isOperator,
             isInfix,
-            isExpect,
-            isFakeOverride,
+            isExternal,
             containerSource,
+            isFakeOverride,
         ).register()
     }
 
-    override fun createFakeOverrideFunction(
+    override fun createFunctionWithLateBinding(
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
         name: Name,
         visibility: DescriptorVisibility,
-        modality: Modality,
-        returnType: IrType,
         isInline: Boolean,
-        isExternal: Boolean,
+        isExpect: Boolean,
+        returnType: IrType,
+        modality: Modality,
         isTailrec: Boolean,
         isSuspend: Boolean,
         isOperator: Boolean,
         isInfix: Boolean,
-        isExpect: Boolean
-    ): IrSimpleFunction {
-        return super.createFakeOverrideFunction(
+        isExternal: Boolean,
+        isFakeOverride: Boolean,
+    ): IrFunctionWithLateBinding {
+        return super.createFunctionWithLateBinding(
             startOffset,
             endOffset,
             origin,
             name,
             visibility,
-            modality,
-            returnType,
             isInline,
-            isExternal,
+            isExpect,
+            returnType,
+            modality,
             isTailrec,
             isSuspend,
             isOperator,
             isInfix,
-            isExpect,
+            isExternal,
+            isFakeOverride,
         ).register()
     }
 
@@ -237,8 +240,8 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrLocalDelegatedPropertySymbol,
         name: Name,
+        symbol: IrLocalDelegatedPropertySymbol,
         type: IrType,
         isVar: Boolean
     ): IrLocalDelegatedProperty {
@@ -246,8 +249,8 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
+            symbol,
             type,
             isVar,
         ).register()
@@ -257,7 +260,42 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
+        name: Name,
+        visibility: DescriptorVisibility,
+        modality: Modality,
         symbol: IrPropertySymbol,
+        isVar: Boolean,
+        isConst: Boolean,
+        isLateinit: Boolean,
+        isDelegated: Boolean,
+        isExternal: Boolean,
+        containerSource: DeserializedContainerSource?,
+        isExpect: Boolean,
+        isFakeOverride: Boolean
+    ): IrProperty {
+        return super.createProperty(
+            startOffset,
+            endOffset,
+            origin,
+            name,
+            visibility,
+            modality,
+            symbol,
+            isVar,
+            isConst,
+            isLateinit,
+            isDelegated,
+            isExternal,
+            containerSource,
+            isExpect,
+            isFakeOverride,
+        ).register()
+    }
+
+    override fun createPropertyWithLateBinding(
+        startOffset: Int,
+        endOffset: Int,
+        origin: IrDeclarationOrigin,
         name: Name,
         visibility: DescriptorVisibility,
         modality: Modality,
@@ -268,13 +306,11 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         isExternal: Boolean,
         isExpect: Boolean,
         isFakeOverride: Boolean,
-        containerSource: DeserializedContainerSource?
-    ): IrProperty {
-        return super.createProperty(
+    ): IrPropertyWithLateBinding {
+        return super.createPropertyWithLateBinding(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
             visibility,
             modality,
@@ -285,59 +321,28 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
             isExternal,
             isExpect,
             isFakeOverride,
-            containerSource,
-        ).register()
-    }
-
-    override fun createFakeOverrideProperty(
-        startOffset: Int,
-        endOffset: Int,
-        origin: IrDeclarationOrigin,
-        name: Name,
-        visibility: DescriptorVisibility,
-        modality: Modality,
-        isVar: Boolean,
-        isConst: Boolean,
-        isLateinit: Boolean,
-        isDelegated: Boolean,
-        isExternal: Boolean,
-        isExpect: Boolean
-    ): IrProperty {
-        return super.createFakeOverrideProperty(
-            startOffset,
-            endOffset,
-            origin,
-            name,
-            visibility,
-            modality,
-            isVar,
-            isConst,
-            isLateinit,
-            isDelegated,
-            isExternal,
-            isExpect,
         ).register()
     }
 
     override fun createTypeAlias(
         startOffset: Int,
         endOffset: Int,
-        symbol: IrTypeAliasSymbol,
+        origin: IrDeclarationOrigin,
         name: Name,
         visibility: DescriptorVisibility,
-        expandedType: IrType,
+        symbol: IrTypeAliasSymbol,
         isActual: Boolean,
-        origin: IrDeclarationOrigin
+        expandedType: IrType
     ): IrTypeAlias {
         return super.createTypeAlias(
             startOffset,
             endOffset,
-            symbol,
+            origin,
             name,
             visibility,
-            expandedType,
+            symbol,
             isActual,
-            origin,
+            expandedType,
         ).register()
     }
 
@@ -345,21 +350,21 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrTypeParameterSymbol,
         name: Name,
+        symbol: IrTypeParameterSymbol,
+        variance: Variance,
         index: Int,
-        isReified: Boolean,
-        variance: Variance
+        isReified: Boolean
     ): IrTypeParameter {
         return super.createTypeParameter(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
+            symbol,
+            variance,
             index,
             isReified,
-            variance,
         ).register()
     }
 
@@ -367,29 +372,29 @@ class IrFactoryImplForJsIC(override val stageController: StageController) : Abst
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        symbol: IrValueParameterSymbol,
         name: Name,
-        index: Int,
         type: IrType,
+        isAssignable: Boolean,
+        symbol: IrValueParameterSymbol,
+        index: Int,
         varargElementType: IrType?,
         isCrossinline: Boolean,
         isNoinline: Boolean,
-        isHidden: Boolean,
-        isAssignable: Boolean
+        isHidden: Boolean
     ): IrValueParameter {
         return super.createValueParameter(
             startOffset,
             endOffset,
             origin,
-            symbol,
             name,
-            index,
             type,
+            isAssignable,
+            symbol,
+            index,
             varargElementType,
             isCrossinline,
             isNoinline,
             isHidden,
-            isAssignable,
         ).register()
     }
 }

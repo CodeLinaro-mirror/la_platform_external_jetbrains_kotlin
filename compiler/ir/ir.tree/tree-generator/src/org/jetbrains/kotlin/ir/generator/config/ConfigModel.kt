@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.ir.generator.config
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import org.jetbrains.kotlin.generators.tree.*
 import org.jetbrains.kotlin.ir.generator.BASE_PACKAGE
+import org.jetbrains.kotlin.ir.generator.model.Element
 import org.jetbrains.kotlin.ir.generator.util.*
 
 class Config(
@@ -24,6 +26,7 @@ class ElementConfig(
     val params = mutableListOf<TypeVariable>()
     val parents = mutableListOf<TypeRef>()
     val fields = mutableListOf<FieldConfig>()
+    val additionalImports = mutableListOf<Import>()
 
     var visitorName: String? = null
     var visitorParent: ElementConfig? = null
@@ -36,10 +39,22 @@ class ElementConfig(
 
     var ownsChildren = true // If false, acceptChildren/transformChildren will NOT be generated.
 
+    var generateIrFactoryMethod = category == Category.Declaration
+    val additionalIrFactoryMethodParameters = mutableListOf<FieldConfig>()
+    val fieldsToSkipInIrFactoryMethod = hashSetOf<String>()
+
+    /**
+     * Set this to `true` if the element should be a leaf semantically, but technically it's not.
+     *
+     * For example, we only generate [IrFactory] methods for leaf elements. If we want to generate a method for this element, but it has
+     * subclasses, it can be done by setting this property to `true`.
+     */
+    var isForcedLeaf = false
+
     var typeKind: TypeKind? = null
 
     var generationCallback: (TypeSpec.Builder.() -> Unit)? = null
-    var suppressPrint = false
+    var kDoc: String? = null
 
     override val element get() = this
     override val args get() = emptyMap<NamedTypeParameterRef, TypeRef>()
@@ -56,6 +71,14 @@ class ElementConfig(
     }
 
     override fun toString() = element.name
+
+    override val packageName: String
+        get() = category.packageName
+
+    override val type: String
+        get() = Element.elementName2typeName(name)
+
+    override fun getTypeWithArguments(notNull: Boolean): String = type
 
     enum class Category(private val packageDir: String, val defaultVisitorParam: String) {
         Expression("expressions", "expression"),
@@ -79,6 +102,21 @@ class ElementConfigRef(
     override fun copy(nullable: Boolean) = ElementConfigRef(element, args, nullable)
 
     override fun toString() = element.name
+
+    override val type: String
+        get() = element.type
+
+    override val packageName: String
+        get() = element.packageName
+
+    override fun getTypeWithArguments(notNull: Boolean): String = type + generics
+}
+
+sealed class UseFieldAsParameterInIrFactoryStrategy {
+
+    data object No : UseFieldAsParameterInIrFactoryStrategy()
+
+    data class Yes(val defaultValue: CodeBlock?) : UseFieldAsParameterInIrFactoryStrategy()
 }
 
 sealed class FieldConfig(
@@ -89,6 +127,23 @@ sealed class FieldConfig(
     var baseGetter: CodeBlock? = null
     var printProperty = true
     var strictCastInTransformChildren = false
+
+    internal var useFieldInIrFactoryStrategy: UseFieldAsParameterInIrFactoryStrategy =
+        if (isChild) UseFieldAsParameterInIrFactoryStrategy.No else UseFieldAsParameterInIrFactoryStrategy.Yes(null)
+
+    fun useFieldInIrFactory(defaultValue: CodeBlock? = null) {
+        useFieldInIrFactoryStrategy = UseFieldAsParameterInIrFactoryStrategy.Yes(defaultValue)
+    }
+
+    fun useFieldInIrFactory(defaultValue: Boolean) {
+        useFieldInIrFactoryStrategy = UseFieldAsParameterInIrFactoryStrategy.Yes(code("%L", defaultValue))
+    }
+
+    fun skipInIrFactory() {
+        useFieldInIrFactoryStrategy = UseFieldAsParameterInIrFactoryStrategy.No
+    }
+
+    var kdoc: String? = null
 
     var generationCallback: (PropertySpec.Builder.() -> Unit)? = null
 
@@ -113,6 +168,7 @@ class ListFieldConfig(
     enum class Mutability {
         Immutable,
         Var,
-        List
+        List,
+        Array
     }
 }

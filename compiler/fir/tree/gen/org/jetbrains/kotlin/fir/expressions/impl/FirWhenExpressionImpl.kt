@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
@@ -15,18 +15,23 @@ import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenBranch
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.references.FirReference
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 
 /*
  * This file was generated automatically
  * DO NOT MODIFY IT MANUALLY
  */
 
+@OptIn(UnresolvedExpressionTypeAccess::class)
 internal class FirWhenExpressionImpl(
     override val source: KtSourceElement?,
-    override var typeRef: FirTypeRef,
-    override val annotations: MutableList<FirAnnotation>,
+    @property:UnresolvedExpressionTypeAccess
+    override var coneTypeOrNull: ConeKotlinType?,
+    override var annotations: MutableOrEmptyList<FirAnnotation>,
     override var calleeReference: FirReference,
     override var subject: FirExpression?,
     override var subjectVariable: FirVariable?,
@@ -35,7 +40,6 @@ internal class FirWhenExpressionImpl(
     override val usedAsExpression: Boolean,
 ) : FirWhenExpression() {
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
-        typeRef.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
         calleeReference.accept(visitor, data)
         val subjectVariable_ = subjectVariable
@@ -81,13 +85,16 @@ internal class FirWhenExpressionImpl(
     }
 
     override fun <D> transformOtherChildren(transformer: FirTransformer<D>, data: D): FirWhenExpressionImpl {
-        typeRef = typeRef.transform(transformer, data)
         transformAnnotations(transformer, data)
         return this
     }
 
-    override fun replaceTypeRef(newTypeRef: FirTypeRef) {
-        typeRef = newTypeRef
+    override fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?) {
+        coneTypeOrNull = newConeTypeOrNull
+    }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        annotations = newAnnotations.toMutableOrEmpty()
     }
 
     override fun replaceCalleeReference(newCalleeReference: FirReference) {

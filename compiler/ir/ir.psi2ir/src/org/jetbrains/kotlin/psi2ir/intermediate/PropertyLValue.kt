@@ -29,7 +29,7 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorContext
 
-abstract class PropertyLValueBase(
+internal abstract class PropertyLValueBase(
     protected val context: GeneratorContext,
     val scope: Scope,
     val startOffset: Int,
@@ -72,7 +72,7 @@ abstract class PropertyLValueBase(
     protected abstract fun withReceiver(dispatchReceiver: VariableLValue?, extensionReceiver: VariableLValue?, contextReceivers: List<VariableLValue>): PropertyLValueBase
 }
 
-class FieldPropertyLValue(
+internal class FieldPropertyLValue(
     context: GeneratorContext,
     scope: Scope,
     startOffset: Int,
@@ -127,7 +127,7 @@ class FieldPropertyLValue(
         )
 }
 
-class AccessorPropertyLValue(
+internal class AccessorPropertyLValue(
     context: GeneratorContext,
     scope: Scope,
     startOffset: Int,
@@ -173,9 +173,15 @@ class AccessorPropertyLValue(
 
     override fun store(irExpression: IrExpression) =
         callReceiver.adjustForCallee(setterDescriptor!!).call { dispatchReceiverValue, extensionReceiverValue, contextReceiverValues ->
+            // We translate getX/setX methods coming from Java into Kotlin properties, even if
+            // the setX call has a non-void return type.
+            val returnType = setterDescriptor.returnType?.let {
+                context.typeTranslator.translateType(it)
+            } ?: context.irBuiltIns.unitType
+
             IrCallImpl(
                 startOffset, endOffset,
-                context.irBuiltIns.unitType,
+                returnType,
                 setter!!, typeArgumentsCount,
                 1 + contextReceiverValues.size,
                 origin,

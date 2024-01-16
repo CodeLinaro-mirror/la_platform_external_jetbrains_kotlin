@@ -3,20 +3,20 @@ package org.jetbrains.kotlin.backend.konan.serialization
 import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
 import org.jetbrains.kotlin.backend.common.serialization.IrModuleSerializer
 import org.jetbrains.kotlin.backend.konan.ir.interop.IrProviderForCEnumAndCStructStubs
-import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
 
 class KonanIrModuleSerializer(
-    messageLogger: IrMessageLogger,
-    irBuiltIns: IrBuiltIns,
-    private val expectDescriptorToSymbol: MutableMap<DeclarationDescriptor, IrSymbol>,
-    val skipExpects: Boolean,
-    compatibilityMode: CompatibilityMode,
-    normalizeAbsolutePaths: Boolean,
-    sourceBaseDirs: Collection<String>
+        messageLogger: IrMessageLogger,
+        irBuiltIns: IrBuiltIns,
+        compatibilityMode: CompatibilityMode,
+        normalizeAbsolutePaths: Boolean,
+        sourceBaseDirs: Collection<String>,
+        private val languageVersionSettings: LanguageVersionSettings,
+        private val bodiesOnlyForInlines: Boolean = false,
+        private val skipPrivateApi: Boolean = false,
 ) : IrModuleSerializer<KonanIrFileSerializer>(messageLogger, compatibilityMode, normalizeAbsolutePaths, sourceBaseDirs) {
 
     private val globalDeclarationTable = KonanGlobalDeclarationTable(irBuiltIns)
@@ -31,5 +31,11 @@ class KonanIrModuleSerializer(
             file.fileEntry.name != IrProviderForCEnumAndCStructStubs.cTypeDefinitionsFileName
 
     override fun createSerializerForFile(file: IrFile): KonanIrFileSerializer =
-            KonanIrFileSerializer(messageLogger, KonanDeclarationTable(globalDeclarationTable), expectDescriptorToSymbol, skipExpects = skipExpects, compatibilityMode = compatibilityMode, normalizeAbsolutePaths = normalizeAbsolutePaths, sourceBaseDirs = sourceBaseDirs)
+            KonanIrFileSerializer(messageLogger, KonanDeclarationTable(globalDeclarationTable),
+                    compatibilityMode = compatibilityMode,
+                    normalizeAbsolutePaths = normalizeAbsolutePaths,
+                    sourceBaseDirs = sourceBaseDirs,
+                    languageVersionSettings = languageVersionSettings,
+                    bodiesOnlyForInlines = bodiesOnlyForInlines,
+                    skipPrivateApi = skipPrivateApi)
 }

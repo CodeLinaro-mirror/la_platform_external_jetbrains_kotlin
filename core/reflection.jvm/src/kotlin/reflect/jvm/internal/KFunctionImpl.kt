@@ -17,12 +17,15 @@
 package kotlin.reflect.jvm.internal
 
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
-import org.jetbrains.kotlin.resolve.jvm.shouldHideConstructorDueToInlineClassTypeValueParameters
+import org.jetbrains.kotlin.resolve.isMultiFieldValueClass
+import org.jetbrains.kotlin.resolve.jvm.shouldHideConstructorDueToValueClassTypeValueParameters
 import java.lang.reflect.Constructor
 import java.lang.reflect.Member
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.jvm.internal.CallableReference
 import kotlin.jvm.internal.FunctionBase
 import kotlin.reflect.KFunction
@@ -50,7 +53,7 @@ internal class KFunctionImpl private constructor(
         descriptor
     )
 
-    override val isBound: Boolean get() = rawBoundReceiver != CallableReference.NO_RECEIVER
+    override val isBound: Boolean get() = rawBoundReceiver !== CallableReference.NO_RECEIVER
 
     override val descriptor: FunctionDescriptor by ReflectProperties.lazySoft(descriptorInitialValue) {
         container.findFunctionDescriptor(name, signature)
@@ -58,14 +61,21 @@ internal class KFunctionImpl private constructor(
 
     override val name: String get() = descriptor.name.asString()
 
-    override val caller: Caller<*> by ReflectProperties.lazy caller@{
+    override val caller: Caller<*> by lazy(PUBLICATION) caller@{
         val member: Member? = when (val jvmSignature = RuntimeTypeMapper.mapSignature(descriptor)) {
             is KotlinConstructor -> {
                 if (isAnnotationConstructor)
                     return@caller AnnotationConstructorCaller(container.jClass, parameters.map { it.name!! }, POSITIONAL_CALL, KOTLIN)
                 container.findConstructorBySignature(jvmSignature.constructorDesc)
             }
-            is KotlinFunction -> container.findMethodBySignature(jvmSignature.methodName, jvmSignature.methodDesc)
+            is KotlinFunction -> {
+                if (descriptor.let { it.containingDeclaration.isMultiFieldValueClass() && it is ConstructorDescriptor && it.isPrimary }) {
+                    return@caller ValueClassAwareCaller.MultiFieldValueClassPrimaryConstructorCaller(
+                        descriptor, container, jvmSignature.methodDesc, descriptor.valueParameters
+                    )
+                }
+                container.findMethodBySignature(jvmSignature.methodName, jvmSignature.methodDesc)
+            }
             is JavaMethod -> jvmSignature.method
             is JavaConstructor -> jvmSignature.constructor
             is FakeJavaAnnotationConstructor -> {
@@ -86,13 +96,16 @@ internal class KFunctionImpl private constructor(
                     createStaticMethodCaller(member)
             }
             else -> throw KotlinReflectionInternalError("Could not compute caller for function: $descriptor (member = $member)")
-        }.createInlineClassAwareCallerIfNeeded(descriptor)
+        }.createValueClassAwareCallerIfNeeded(descriptor)
     }
 
-    override val defaultCaller: Caller<*>? by ReflectProperties.lazy defaultCaller@{
+    override val defaultCaller: Caller<*>? by lazy(PUBLICATION) defaultCaller@{
         val jvmSignature = RuntimeTypeMapper.mapSignature(descriptor)
         val member: Member? = when (jvmSignature) {
             is KotlinFunction -> {
+                if (descriptor.let { it.containingDeclaration.isMultiFieldValueClass() && it is ConstructorDescriptor && it.isPrimary }) {
+                    throw KotlinReflectionInternalError("${descriptor.containingDeclaration} cannot have default arguments")
+                }
                 container.findDefaultMethod(jvmSignature.methodName, jvmSignature.methodDesc, !Modifier.isStatic(caller.member!!.modifiers))
             }
             is KotlinConstructor -> {
@@ -125,7 +138,7 @@ internal class KFunctionImpl private constructor(
                     createStaticMethodCaller(member)
             }
             else -> null
-        }?.createInlineClassAwareCallerIfNeeded(descriptor, isDefault = true)
+        }?.createValueClassAwareCallerIfNeeded(descriptor, isDefault = true)
     }
 
     private val boundReceiver
@@ -143,7 +156,7 @@ internal class KFunctionImpl private constructor(
     private fun createConstructorCaller(
         member: Constructor<*>, descriptor: FunctionDescriptor, isDefault: Boolean
     ): CallerImpl<Constructor<*>> {
-        return if (!isDefault && shouldHideConstructorDueToInlineClassTypeValueParameters(descriptor)) {
+        return if (!isDefault && shouldHideConstructorDueToValueClassTypeValueParameters(descriptor)) {
             if (isBound)
                 CallerImpl.AccessorForHiddenBoundConstructor(member, boundReceiver)
             else

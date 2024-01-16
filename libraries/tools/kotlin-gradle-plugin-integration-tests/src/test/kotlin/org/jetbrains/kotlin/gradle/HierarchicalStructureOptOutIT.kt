@@ -15,6 +15,8 @@ import kotlin.test.assertTrue
 
 @RunWith(Parameterized::class)
 internal class HierarchicalStructureOptInMigrationArtifactContentMppIT : BaseGradleIT() {
+    override val defaultGradleVersion: GradleVersionRequired = GradleVersionRequired.FOR_MPP_SUPPORT
+
     enum class Mode {
         HMPP_BY_DEFAULT, OPT_OUT_HMPP, DISABLE_HMPP_BY_DEFAULT
     }
@@ -38,6 +40,7 @@ internal class HierarchicalStructureOptInMigrationArtifactContentMppIT : BaseGra
             *buildList {
                 add("clean")
                 add("publish")
+                add("-Pkotlin.internal.suppressGradlePluginErrors=PreHMPPFlagsError")
                 when (mode) {
                     OPT_OUT_HMPP, HMPP_BY_DEFAULT -> {}
                     DISABLE_HMPP_BY_DEFAULT -> { add("-Pkotlin.internal.mpp.hierarchicalStructureByDefault=false") }

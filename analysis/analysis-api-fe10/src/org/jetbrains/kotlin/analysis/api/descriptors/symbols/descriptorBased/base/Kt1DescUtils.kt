@@ -1,32 +1,44 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
+
+@file:OptIn(KtAnalysisApiInternals::class)
 
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base
 
 import org.jetbrains.kotlin.analysis.api.*
 import org.jetbrains.kotlin.analysis.api.annotations.*
 import org.jetbrains.kotlin.analysis.api.base.KtConstantValue
-import org.jetbrains.kotlin.analysis.api.components.KtDeclarationRendererOptions
+import org.jetbrains.kotlin.analysis.api.base.KtContextReceiver
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10FileSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10PackageSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.*
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.*
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KtFe10PsiDefaultPropertyGetterSymbol
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KtFe10PsiDefaultPropertySetterSymbol
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KtFe10PsiDefaultSetterParameterSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.KtFe10PsiSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.types.*
-import org.jetbrains.kotlin.analysis.api.descriptors.utils.KtFe10Renderer
+import org.jetbrains.kotlin.analysis.api.impl.base.KtContextReceiverImpl
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
-import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.impl.*
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.load.java.descriptors.*
+import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
+import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor
+import org.jetbrains.kotlin.load.java.descriptors.JavaForKotlinOverridePropertyDescriptor
+import org.jetbrains.kotlin.load.java.descriptors.JavaPropertyDescriptor
 import org.jetbrains.kotlin.load.java.sources.JavaSourceElement
 import org.jetbrains.kotlin.load.kotlin.toSourceElement
 import org.jetbrains.kotlin.name.CallableId
@@ -34,7 +46,8 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.psi.KtClassOrObject
-import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.renderer.DescriptorRenderer
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.inference.CapturedType
 import org.jetbrains.kotlin.resolve.constants.*
@@ -43,6 +56,7 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.annotationClass
 import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
 import org.jetbrains.kotlin.resolve.lazy.descriptors.LazyAnnotationDescriptor
 import org.jetbrains.kotlin.resolve.sam.SamConstructorDescriptor
+import org.jetbrains.kotlin.resolve.scopes.receivers.ImplicitContextReceiver
 import org.jetbrains.kotlin.resolve.source.PsiSourceElement
 import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.synthetic.SyntheticJavaPropertyDescriptor
@@ -122,6 +136,16 @@ internal fun KtSymbol.getDescriptor(): DeclarationDescriptor? {
     return when (this) {
         is KtFe10PsiSymbol<*, *> -> descriptor
         is KtFe10DescSymbol<*> -> descriptor
+        is KtFe10DescSyntheticFieldSymbol -> descriptor
+        is KtFe10PsiDefaultPropertyGetterSymbol -> descriptor
+        is KtFe10PsiDefaultSetterParameterSymbol -> descriptor
+        is KtFe10PsiDefaultPropertySetterSymbol -> null
+        is KtFe10DescDefaultPropertySetterSymbol -> null
+        is KtFe10FileSymbol -> null
+        is KtFe10DescDefaultPropertySetterSymbol.DefaultKtValueParameterSymbol -> descriptor
+        is KtFe10PsiDefaultPropertySetterSymbol.DefaultKtValueParameterSymbol -> descriptor
+        is KtFe10DescDefaultBackingFieldSymbol, is KtFe10PsiDefaultBackingFieldSymbol -> null
+        is KtFe10PsiClassInitializerSymbol -> null
         else -> unexpectedElementError("KtSymbol", this)
     }
 }
@@ -213,7 +237,12 @@ private fun KotlinType.hasReferenceOtherThan(allowedTypeParameterDescriptors: Se
             declarationDescriptor !in allowedTypeParameterDescriptors ||
                     declarationDescriptor.upperBounds.any { it.hasReferenceOtherThan(allowedTypeParameterDescriptors) }
         }
-        else -> arguments.any { it.type.hasReferenceOtherThan(allowedTypeParameterDescriptors) }
+        else -> arguments.any { typeProjection ->
+            // A star projection type (lazily) built by type parameter will be yet another type with a star projection,
+            // resulting in stack overflow if we keep checking allowed type parameter descriptors
+            !typeProjection.isStarProjection &&
+                    typeProjection.type.hasReferenceOtherThan(allowedTypeParameterDescriptors)
+        }
     }
 }
 
@@ -235,7 +264,12 @@ internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KtType {
         is DynamicType -> KtFe10DynamicType(unwrappedType, analysisContext)
         is FlexibleType -> KtFe10FlexibleType(unwrappedType, analysisContext)
         is DefinitelyNotNullType -> KtFe10DefinitelyNotNullType(unwrappedType, analysisContext)
-        is ErrorType -> KtFe10ClassErrorType(unwrappedType, analysisContext)
+        is ErrorType -> {
+            if (unwrappedType.kind.isUnresolved)
+                KtFe10ClassErrorType(unwrappedType, analysisContext)
+            else
+                KtFe10TypeErrorType(unwrappedType, analysisContext)
+        }
         is CapturedType -> KtFe10CapturedType(unwrappedType, analysisContext)
         is NewCapturedType -> KtFe10NewCapturedType(unwrappedType, analysisContext)
         is SimpleType -> {
@@ -263,7 +297,8 @@ internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KtType {
                 is FunctionClassDescriptor -> KtFe10FunctionalType(unwrappedType, typeDeclaration, analysisContext)
                 is ClassDescriptor -> KtFe10UsualClassType(unwrappedType, typeDeclaration, analysisContext)
                 else -> {
-                    val errorType = ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_CLASS_TYPE, typeConstructor, typeDeclaration.toString())
+                    val errorType =
+                        ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_CLASS_TYPE, typeConstructor, typeDeclaration.toString())
                     KtFe10ClassErrorType(errorType, analysisContext)
                 }
             }
@@ -273,9 +308,9 @@ internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KtType {
     }
 }
 
-internal fun TypeProjection.toKtTypeArgument(analysisContext: Fe10AnalysisContext): KtTypeArgument {
+internal fun TypeProjection.toKtTypeProjection(analysisContext: Fe10AnalysisContext): KtTypeProjection {
     return if (isStarProjection) {
-        KtStarProjectionTypeArgument(analysisContext.token)
+        KtStarTypeProjection(analysisContext.token)
     } else {
         KtTypeArgumentWithVariance(type.toKtType(analysisContext), this.projectionKind, analysisContext.token)
     }
@@ -315,7 +350,7 @@ internal fun DeclarationDescriptor.getSymbolOrigin(analysisContext: Fe10Analysis
         return analysisContext.getOrigin(virtualFile)
     } else { // psi == null
         // Implicit lambda parameter
-        if (this is ValueParameterDescriptor && this.name.identifierOrNullIfSpecial == "it") {
+        if (this is ValueParameterDescriptor && this.name == StandardNames.IMPLICIT_LAMBDA_PARAMETER_NAME) {
             return KtSymbolOrigin.SOURCE_MEMBER_GENERATED
         }
     }
@@ -381,9 +416,38 @@ internal fun ConstantValue<*>.toKtConstantValue(): KtConstantValue {
     }
 }
 
-internal fun ConstantValue<*>.toKtAnnotationValue(): KtAnnotationValue {
+internal tailrec fun KotlinBuiltIns.areSameArrayTypeIgnoringProjections(left: KotlinType, right: KotlinType): Boolean {
+    val leftIsArray = KotlinBuiltIns.isArrayOrPrimitiveArray(left)
+    val rightIsArray = KotlinBuiltIns.isArrayOrPrimitiveArray(right)
+
+    return when {
+        leftIsArray && rightIsArray -> areSameArrayTypeIgnoringProjections(getArrayElementType(left), getArrayElementType(right))
+        !leftIsArray && !rightIsArray -> left == right
+        else -> false
+    }
+}
+
+
+internal fun List<ConstantValue<*>>.expandArrayAnnotationValue(
+    containingArrayType: KotlinType,
+    analysisContext: Fe10AnalysisContext,
+): List<KtAnnotationValue> = flatMap { constantValue: ConstantValue<*> ->
+    val constantType = constantValue.getType(analysisContext.resolveSession.moduleDescriptor)
+    if (analysisContext.builtIns.areSameArrayTypeIgnoringProjections(containingArrayType, constantType)) {
+        // If an element in the array has the same type as the containing array, it's a spread component that needs
+        // to be expanded here. (It should have the array element type instead.)
+        (constantValue as ArrayValue).value.expandArrayAnnotationValue(containingArrayType, analysisContext)
+    } else {
+        listOf(constantValue.toKtAnnotationValue(analysisContext))
+    }
+}
+
+internal fun ConstantValue<*>.toKtAnnotationValue(analysisContext: Fe10AnalysisContext): KtAnnotationValue {
     return when (this) {
-        is ArrayValue -> KtArrayAnnotationValue(value.map { it.toKtAnnotationValue() }, sourcePsi = null)
+        is ArrayValue -> {
+            val arrayType = getType(analysisContext.resolveSession.moduleDescriptor)
+            KtArrayAnnotationValue(value.expandArrayAnnotationValue(arrayType, analysisContext), sourcePsi = null)
+        }
         is EnumValue -> KtEnumEntryAnnotationValue(CallableId(enumClassId, enumEntryName), sourcePsi = null)
         is KClassValue -> when (val value = value) {
             is KClassValue.Value.LocalClass -> {
@@ -395,11 +459,12 @@ internal fun ConstantValue<*>.toKtAnnotationValue(): KtAnnotationValue {
 
         is AnnotationValue -> {
             KtAnnotationApplicationValue(
-                KtAnnotationApplication(
+                KtAnnotationApplicationWithArgumentsInfo(
                     value.annotationClass?.classId,
                     psi = null,
                     useSiteTarget = null,
-                    arguments = value.getKtNamedAnnotationArguments(),
+                    arguments = value.getKtNamedAnnotationArguments(analysisContext),
+                    index = null,
                 )
             )
         }
@@ -502,7 +567,7 @@ internal val ClassifierDescriptor.classId: ClassId?
     }
 
 internal val ClassifierDescriptor.maybeLocalClassId: ClassId
-    get() = classId ?: ClassId(containingPackage() ?: FqName.ROOT, FqName.topLevel(this.name), true)
+    get() = classId ?: ClassId(containingPackage() ?: FqName.ROOT, FqName.topLevel(this.name), isLocal = true)
 
 internal fun ClassDescriptor.getSupertypesWithAny(): Collection<KotlinType> {
     val supertypes = typeConstructor.supertypes
@@ -514,25 +579,19 @@ internal fun ClassDescriptor.getSupertypesWithAny(): Collection<KotlinType> {
     return if (hasClassSupertype) supertypes else listOf(builtIns.anyType) + supertypes
 }
 
-internal fun DeclarationDescriptor.render(analysisContext: Fe10AnalysisContext, options: KtDeclarationRendererOptions): String {
-    val renderer = KtFe10Renderer(analysisContext, options)
-    return prettyPrint { renderer.render(this@render, this) }.trim()
-}
 
-internal fun CallableMemberDescriptor.getSymbolPointerSignature(analysisContext: Fe10AnalysisContext): String {
-    return render(analysisContext, KtDeclarationRendererOptions.DEFAULT)
+internal fun CallableMemberDescriptor.getSymbolPointerSignature(): String {
+    return DescriptorRenderer.FQ_NAMES_IN_TYPES.render(this)
 }
 
 internal fun createKtInitializerValue(
-    ktProperty: KtProperty?,
+    initializer: KtExpression?,
     propertyDescriptor: PropertyDescriptor?,
     analysisContext: Fe10AnalysisContext,
 ): KtInitializerValue? {
-    require(ktProperty != null || propertyDescriptor != null)
-    if (ktProperty?.initializer == null && propertyDescriptor?.compileTimeInitializer == null) {
+    if (initializer == null && propertyDescriptor?.compileTimeInitializer == null) {
         return null
     }
-    val initializer = ktProperty?.initializer
 
     val compileTimeInitializer = propertyDescriptor?.compileTimeInitializer
     if (compileTimeInitializer != null) {
@@ -550,16 +609,54 @@ internal fun createKtInitializerValue(
     return KtNonConstantInitializerValue(initializer)
 }
 
-internal fun AnnotationDescriptor.toKtAnnotationApplication(): KtAnnotationApplication {
-    return KtAnnotationApplication(
-        annotationClass?.maybeLocalClassId,
-        (source as? PsiSourceElement)?.psi as? KtCallElement,
-        (this as? LazyAnnotationDescriptor)?.annotationEntry?.useSiteTarget?.getAnnotationUseSiteTarget(),
-        getKtNamedAnnotationArguments(),
-    )
+internal fun AnnotationDescriptor.toKtAnnotationApplication(
+    analysisContext: Fe10AnalysisContext,
+    index: Int,
+): KtAnnotationApplicationWithArgumentsInfo = KtAnnotationApplicationWithArgumentsInfo(
+    classId = classIdForAnnotation,
+    psi = psi,
+    useSiteTarget = useSiteTarget,
+    arguments = getKtNamedAnnotationArguments(analysisContext),
+    index = index,
+)
+
+internal fun AnnotationDescriptor.toKtAnnotationInfo(index: Int): KtAnnotationApplicationInfo = KtAnnotationApplicationInfo(
+    classId = classIdForAnnotation,
+    psi = psi,
+    useSiteTarget = useSiteTarget,
+    isCallWithArguments = allValueArguments.isNotEmpty(),
+    index = index,
+)
+
+private val AnnotationDescriptor.psi: KtCallElement? get() = (source as? PsiSourceElement)?.psi as? KtCallElement
+internal val AnnotationDescriptor.classIdForAnnotation: ClassId? get() = annotationClass?.maybeLocalClassId
+internal val AnnotationDescriptor.useSiteTarget: AnnotationUseSiteTarget?
+    get() = (this as? LazyAnnotationDescriptor)?.annotationEntry?.useSiteTarget?.getAnnotationUseSiteTarget()
+
+internal fun AnnotationDescriptor.getKtNamedAnnotationArguments(analysisContext: Fe10AnalysisContext): List<KtNamedAnnotationValue> =
+    allValueArguments.map { (name, value) ->
+        KtNamedAnnotationValue(name, value.toKtAnnotationValue(analysisContext))
+    }
+
+internal fun CallableDescriptor.createContextReceivers(
+    analysisContext: Fe10AnalysisContext
+): List<KtContextReceiver> {
+    return contextReceiverParameters.map { createContextReceiver(it, analysisContext) }
 }
 
-internal fun AnnotationDescriptor.getKtNamedAnnotationArguments() =
-    allValueArguments.map { (name, value) ->
-        KtNamedAnnotationValue(name, value.toKtAnnotationValue())
-    }
+internal fun ClassDescriptor.createContextReceivers(
+    analysisContext: Fe10AnalysisContext
+): List<KtContextReceiver> {
+    return contextReceivers.map { createContextReceiver(it, analysisContext) }
+}
+
+private fun createContextReceiver(
+    contextReceiver: ReceiverParameterDescriptor,
+    analysisContext: Fe10AnalysisContext
+): KtContextReceiverImpl {
+    return KtContextReceiverImpl(
+        contextReceiver.value.type.toKtType(analysisContext),
+        (contextReceiver.value as ImplicitContextReceiver).customLabelName,
+        analysisContext.token
+    )
+}

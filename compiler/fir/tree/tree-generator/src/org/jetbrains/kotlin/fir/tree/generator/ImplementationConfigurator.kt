@@ -1,13 +1,13 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.tree.generator
 
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeImplementationConfigurator
-import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.Object
-import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind.OpenClass
+import org.jetbrains.kotlin.generators.tree.ImplementationKind.Object
+import org.jetbrains.kotlin.generators.tree.ImplementationKind.OpenClass
 
 object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() {
     fun configureImplementations() {
@@ -26,10 +26,15 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             defaultTrue("isPrimary", withGetter = true)
         }
 
-        impl(typeParameterRef, "FirOuterClassTypeParameterRef") {
+        impl(errorPrimaryConstructor) {
+            publicImplementation()
+            defaultTrue("isPrimary", withGetter = true)
+        }
+
+        impl(outerClassTypeParameterRef) {
             publicImplementation()
         }
-        impl(typeParameterRef, "FirConstructedClassTypeParameterRef")
+        impl(constructedClassTypeParameterRef)
 
         noImpl(declarationStatus)
         noImpl(resolvedDeclarationStatus)
@@ -43,6 +48,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(anonymousObject)
+        impl(danglingModifierList)
         noImpl(anonymousObjectExpression)
 
         impl(typeAlias)
@@ -58,7 +64,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
             default("resolvedParentClassId") {
                 delegate = "relativeParentClassName"
-                delegateCall = "let { ClassId(packageFqName, it, false) }"
+                delegateCall = "let { ClassId(packageFqName, it, isLocal = false) }"
                 withGetter = true
             }
 
@@ -79,10 +85,11 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         fun ImplementationContext.commonAnnotationConfig() {
             defaultEmptyList("annotations")
-            default("typeRef") {
-                value = "annotationTypeRef"
+            default("coneTypeOrNull") {
+                value = "annotationTypeRef.coneTypeOrNull"
                 withGetter = true
             }
+            useTypes(coneTypeOrNullImport)
         }
 
         impl(annotation) {
@@ -96,12 +103,22 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             }
         }
 
-        impl(arrayOfCall)
+        impl(errorAnnotationCall) {
+            commonAnnotationConfig()
+            default("argumentMapping") {
+                needAcceptAndTransform = false
+            }
+            default("annotationResolvePhase") {
+                value = "FirAnnotationResolvePhase.Types"
+            }
+        }
+
+        impl(arrayLiteral)
 
         impl(callableReferenceAccess)
 
         impl(componentCall) {
-            default("calleeReference", "FirSimpleNamedReference(source, Name.identifier(\"component\$componentIndex\"), null)")
+            default("calleeReference", "FirSimpleNamedReference(source, Name.identifier(\"component\$componentIndex\"))")
             useTypes(simpleNamedReferenceType, nameType)
             optInToInternals()
         }
@@ -118,8 +135,77 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             useTypes(explicitThisReferenceType, explicitSuperReferenceType)
         }
 
+        impl(multiDelegatedConstructorCall) {
+            default("source") {
+                value = "delegatedConstructorCalls.last().source"
+                withGetter = true
+            }
+            default("annotations") {
+                value = "delegatedConstructorCalls.last().annotations"
+                withGetter = true
+            }
+            default("argumentList") {
+                value = "delegatedConstructorCalls.last().argumentList"
+                withGetter = true
+            }
+            default("contextReceiverArguments") {
+                value = "delegatedConstructorCalls.last().contextReceiverArguments"
+                withGetter = true
+            }
+            default("constructedTypeRef") {
+                value = "delegatedConstructorCalls.last().constructedTypeRef"
+                withGetter = true
+            }
+            default("dispatchReceiver") {
+                value = "delegatedConstructorCalls.last().dispatchReceiver"
+                withGetter = true
+            }
+            default("calleeReference") {
+                value = "delegatedConstructorCalls.last().calleeReference"
+                withGetter = true
+            }
+            default("isThis") {
+                value = "delegatedConstructorCalls.last().isThis"
+                withGetter = true
+            }
+            default("isSuper") {
+                value = "!isThis"
+                withGetter = true
+            }
+            publicImplementation()
+        }
+
+        impl(delegatedConstructorCall, "FirLazyDelegatedConstructorCall") {
+            val error = """error("FirLazyDelegatedConstructorCall should be calculated before accessing")"""
+            default("source") {
+                value = error
+                withGetter = true
+            }
+            default("annotations") {
+                value = error
+                withGetter = true
+            }
+            default("argumentList") {
+                value = error
+                withGetter = true
+            }
+            default("contextReceiverArguments") {
+                value = error
+                withGetter = true
+            }
+            default("dispatchReceiver") {
+                value = error
+                withGetter = true
+            }
+            default("isSuper") {
+                value = "!isThis"
+                withGetter = true
+            }
+            publicImplementation()
+        }
+
         impl(expression, "FirElseIfTrueCondition") {
-            defaultTypeRefWithSource("FirImplicitBooleanTypeRef")
+            defaultBuiltInType("Boolean")
             useTypes(implicitBooleanTypeRefType)
             publicImplementation()
         }
@@ -131,10 +217,15 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             defaultEmptyList("statements")
             defaultEmptyList("annotations")
             publicImplementation()
+            defaultNull("coneTypeOrNull")
         }
 
-        impl(block, "FirLazyBlock") {
+        impl(lazyBlock) {
             val error = """error("FirLazyBlock should be calculated before accessing")"""
+            default("source") {
+                value = error
+                withGetter = true
+            }
             default("statements") {
                 value = error
                 withGetter = true
@@ -143,16 +234,15 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = error
                 withGetter = true
             }
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 value = error
                 withGetter = true
             }
-            publicImplementation()
         }
 
         impl(errorLoop) {
             default("block", "FirEmptyExpressionBlock()")
-            default("condition", "FirErrorExpressionImpl(source, mutableListOf(), ConeStubDiagnostic(diagnostic), null)")
+            default("condition", "FirErrorExpressionImpl(source, MutableOrEmptyList.empty(), ConeStubDiagnostic(diagnostic), null, null)")
             useTypes(emptyExpressionBlock, coneStubDiagnosticType)
         }
 
@@ -160,9 +250,9 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             publicImplementation()
         }
 
-        impl(expression, "FirLazyExpression") {
+        impl(lazyExpression) {
             val error = """error("FirLazyExpression should be calculated before accessing")"""
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 value = error
                 withGetter = true
             }
@@ -170,7 +260,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = error
                 withGetter = true
             }
-            publicImplementation()
         }
 
         impl(functionCall) {
@@ -188,12 +277,6 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         impl(propertyAccessExpression) {
             publicImplementation()
         }
-
-        noImpl(expressionWithSmartcast)
-        noImpl(expressionWithSmartcastToNothing)
-
-        noImpl(whenSubjectExpressionWithSmartcast)
-        noImpl(whenSubjectExpressionWithSmartcastToNothing)
 
         impl(getClassCall) {
             default("argument") {
@@ -218,13 +301,13 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             defaultFalse("isVar", withGetter = true)
 
             defaultNull(
-                "receiverTypeRef",
+                "receiverParameter",
                 "initializer",
                 "delegate",
                 "getter", "setter",
                 withGetter = true
             )
-            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic, false)")
+            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
             useTypes(errorTypeRefImplType)
         }
 
@@ -235,17 +318,17 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             }
             publicImplementation()
 
-            defaultNull("receiverTypeRef", "delegate", "getter", "setter", withGetter = true)
+            defaultNull("receiverParameter", "delegate", "getter", "setter", withGetter = true)
         }
 
         impl(enumEntry) {
             defaultTrue("isVal", withGetter = true)
             defaultFalse("isVar", withGetter = true)
-            defaultNull("receiverTypeRef", "delegate", "getter", "setter", withGetter = true)
+            defaultNull("receiverParameter", "delegate", "getter", "setter", withGetter = true)
         }
 
         impl(namedArgumentExpression) {
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 delegate = "expression"
             }
         }
@@ -255,7 +338,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = "false"
                 withGetter = true
             }
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 delegate = "expression"
             }
         }
@@ -265,23 +348,27 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = "true"
                 withGetter = true
             }
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 delegate = "expression"
             }
         }
 
         impl(comparisonExpression) {
-            default("typeRef", "FirImplicitBooleanTypeRef(null)")
-            useTypes(implicitBooleanTypeRefType)
+            default("coneTypeOrNull", "StandardClassIds.Boolean.constructClassLikeType()")
+            useTypes(standardClassIdsType, constructClassLikeTypeImport)
         }
 
-        impl(typeOperatorCall)
+        impl(typeOperatorCall) {
+            defaultFalse("argFromStubType")
+        }
 
         impl(assignmentOperatorStatement)
 
+        impl(incrementDecrementExpression)
+
         impl(equalityOperatorCall) {
-            default("typeRef", "FirImplicitBooleanTypeRef(null)")
-            useTypes(implicitBooleanTypeRefType)
+            default("coneTypeOrNull", "StandardClassIds.Boolean.constructClassLikeType()")
+            useTypes(standardClassIdsType, constructClassLikeTypeImport)
         }
 
         impl(resolvedQualifier) {
@@ -292,17 +379,17 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         impl(resolvedReifiedParameterReference)
 
         impl(returnExpression) {
-            defaultTypeRefWithSource("FirImplicitNothingTypeRef")
+            defaultBuiltInType("Nothing")
             useTypes(implicitNothingTypeRefType)
         }
 
         impl(stringConcatenationCall) {
-            defaultTypeRefWithSource("FirImplicitStringTypeRef")
+            defaultBuiltInType("String")
             useTypes(implicitStringTypeRefType)
         }
 
         impl(throwExpression) {
-            defaultTypeRefWithSource("FirImplicitNothingTypeRef")
+            defaultBuiltInType("Nothing")
             useTypes(implicitNothingTypeRefType)
         }
 
@@ -311,26 +398,18 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(expression, "FirUnitExpression") {
-            defaultTypeRefWithSource("FirImplicitUnitTypeRef")
+            defaultBuiltInType("Unit")
             useTypes(implicitUnitTypeRefType)
             publicImplementation()
         }
 
-        impl(variableAssignment) {
-            default("lValue") {
-                value = "calleeReference"
-                customSetter = "calleeReference = value"
-            }
-        }
-
         impl(anonymousFunction) {
-            default("resolvePhase", "FirResolvePhase.DECLARATIONS")
         }
 
         noImpl(anonymousFunctionExpression)
 
         impl(propertyAccessor) {
-            default("receiverTypeRef") {
+            default("receiverParameter") {
                 value = "null"
                 withGetter = true
             }
@@ -347,35 +426,58 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(whenSubjectExpression) {
-            default("typeRef") {
-                value = "whenRef.value.subject!!.typeRef"
+            default("coneTypeOrNull") {
+                value = "whenRef.value.subject?.coneTypeOrNull ?: StandardClassIds.Unit.constructClassLikeType()"
                 withGetter = true
             }
-            useTypes(whenExpression)
+            useTypes(whenExpression, standardClassIdsType, constructClassLikeTypeImport)
+            useTypes(standardClassIdsType, constructClassLikeTypeImport)
+        }
+
+        impl(desugaredAssignmentValueReferenceExpression) {
+            useTypes(expression)
         }
 
         impl(wrappedDelegateExpression) {
-            default("typeRef") {
+            default("coneTypeOrNull") {
                 delegate = "expression"
             }
         }
 
-        impl(resolvedNamedReference) {
-            defaultNull("candidateSymbol", withGetter = true)
+        impl(enumEntryDeserializedAccessExpression) {
+            noSource()
+            default("coneTypeOrNull") {
+                value = "enumClassId.toLookupTag().constructClassType(emptyArray(), false)"
+                useTypes(toLookupTagImport, constructClassTypeImport)
+            }
         }
 
+        impl(smartCastExpression) {
+            default("isStable") {
+                value = "smartcastStability == SmartcastStability.STABLE_VALUE"
+                withGetter = true
+            }
+            default("source") {
+                value = "originalExpression.source?.fakeElement(KtFakeSourceElementKind.SmartCastExpression)"
+            }
+            useTypes(fakeElementImport, fakeSourceElementKindImport)
+        }
+
+        impl(resolvedNamedReference)
+
         impl(resolvedNamedReference, "FirPropertyFromParameterResolvedNamedReference") {
-            defaultNull("candidateSymbol", withGetter = true)
             publicImplementation()
         }
 
-        impl(resolvedCallableReference) {
-            defaultNull("candidateSymbol", withGetter = true)
-        }
+        impl(resolvedErrorReference)
+
+        impl(resolvedCallableReference)
 
         impl(namedReference, "FirSimpleNamedReference") {
-            kind = OpenClass
+            publicImplementation()
         }
+
+        noImpl(namedReferenceWithCandidateBase)
 
         impl(delegateFieldReference) {
             default("name") {
@@ -396,6 +498,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 value = "null"
                 isMutable = true
             }
+            defaultFalse("isImplicit")
         }
 
         impl(thisReference, "FirImplicitThisReference") {
@@ -407,6 +510,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             default("boundSymbol") {
                 isMutable = false
             }
+            defaultTrue("isImplicit")
         }
 
         impl(superReference, "FirExplicitSuperReference")
@@ -421,20 +525,23 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(errorExpression) {
-            default("typeRef", "FirErrorTypeRefImpl(source, null, ConeStubDiagnostic(diagnostic), false)")
-            useTypes(errorTypeRefImplType, coneStubDiagnosticType)
+            default("coneTypeOrNull", "ConeErrorType(ConeStubDiagnostic(diagnostic))")
+            useTypes(coneErrorTypeType, coneStubDiagnosticType)
+        }
+
+        impl(qualifiedErrorAccessExpression) {
+            default("coneTypeOrNull", "ConeErrorType(ConeStubDiagnostic(diagnostic))")
+            useTypes(coneErrorTypeType, coneStubDiagnosticType)
         }
 
         impl(errorFunction) {
-            defaultNull("receiverTypeRef", "body", withGetter = true)
-            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic, false)")
+            defaultNull("receiverParameter", "body", withGetter = true)
+            default("returnTypeRef", "FirErrorTypeRefImpl(null, null, diagnostic)")
             useTypes(errorTypeRefImplType)
         }
 
         impl(functionTypeRef)
-        impl(implicitTypeRef) {
-            defaultEmptyList("annotations")
-        }
+        noImpl(implicitTypeRef)
 
         impl(reference, "FirStubReference") {
             default("source") {
@@ -448,20 +555,22 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             default("name", "Name.special(\"<\${diagnostic.reason}>\")")
         }
 
+        impl(fromMissingDependenciesNamedReference)
+
         impl(breakExpression) {
-            defaultTypeRefWithSource("FirImplicitNothingTypeRef")
+            defaultBuiltInType("Nothing")
             useTypes(implicitNothingTypeRefType)
         }
 
         impl(continueExpression) {
-            defaultTypeRefWithSource("FirImplicitNothingTypeRef")
+            defaultBuiltInType("Nothing")
             useTypes(implicitNothingTypeRefType)
         }
 
         impl(valueParameter) {
             defaultTrue("isVal", withGetter = true)
             defaultFalse("isVar", withGetter = true)
-            defaultNull("getter", "setter", "initializer", "delegate", "receiverTypeRef", withGetter = true)
+            defaultNull("getter", "setter", "initializer", "delegate", "receiverParameter", withGetter = true)
         }
 
         impl(valueParameter, "FirDefaultSetterValueParameter") {
@@ -503,14 +612,18 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         noImpl(userTypeRef)
 
         impl(file) {
-            default("symbol", "FirFileSymbol()")
+            default("annotations") {
+                value = "annotationsContainer?.annotations ?: emptyList()"
+                withGetter = true
+            }
         }
 
         noImpl(argumentList)
         noImpl(annotationArgumentMapping)
 
+        impl(contractElementDeclaration)
+
         val implementationsWithoutStatusAndTypeParameters = listOf(
-            "FirAnonymousFunctionImpl",
             "FirValueParameterImpl",
             "FirDefaultSetterValueParameter",
             "FirErrorPropertyImpl",
@@ -527,7 +640,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         configureFieldInAllImplementations(
             "typeParameters",
-            implementationPredicate = { it.type != "FirAnonymousFunctionImpl" && it.type in implementationsWithoutStatusAndTypeParameters }
+            implementationPredicate = { it.type in implementationsWithoutStatusAndTypeParameters }
         ) {
             defaultEmptyList(it)
             useTypes(resolvedDeclarationStatusImplType)
@@ -558,19 +671,22 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             "FirVarargArgumentsExpressionImpl",
             "FirSafeCallExpressionImpl",
             "FirCheckedSafeCallSubjectImpl",
-            "FirArrayOfCallImpl",
+            "FirArrayLiteralImpl",
             "FirIntegerLiteralOperatorCallImpl",
             "FirContextReceiverImpl",
+            "FirReceiverParameterImpl",
             "FirClassReferenceExpressionImpl",
-            "FirGetClassCallImpl"
+            "FirGetClassCallImpl",
+            "FirSmartCastExpressionImpl",
+            "FirInaccessibleReceiverExpressionImpl"
         )
         configureFieldInAllImplementations(
             field = "typeRef",
             implementationPredicate = { it.type !in implementationWithConfigurableTypeRef },
             fieldPredicate = { it.defaultValueInImplementation == null }
         ) {
-            default(it, "FirImplicitTypeRefImpl(null)")
-            useTypes(implicitTypeRefType)
+            default(it, "FirImplicitTypeRefImplWithoutSource")
+            useTypes(firImplicitTypeWithoutSourceType)
         }
 
         configureFieldInAllImplementations(
@@ -578,8 +694,8 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             implementationPredicate = { it.type in "FirVariableAssignmentImpl" },
             fieldPredicate = { it.defaultValueInImplementation == null }
         ) {
-            default(it, "FirImplicitTypeRefImpl(null)")
-            useTypes(implicitTypeRefType)
+            default(it, "FirImplicitTypeRefImplWithoutSource")
+            useTypes(firImplicitTypeWithoutSourceType)
         }
     }
 
@@ -587,12 +703,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         default("classId") {
             value = """
                 |relativeClassFqName?.let {
-                |    ClassId(packageFqName, it, false)
+                |    ClassId(packageFqName, it, isLocal = false)
                 |}
                 """.trimMargin()
             withGetter = true
         }
     }
 }
-
-

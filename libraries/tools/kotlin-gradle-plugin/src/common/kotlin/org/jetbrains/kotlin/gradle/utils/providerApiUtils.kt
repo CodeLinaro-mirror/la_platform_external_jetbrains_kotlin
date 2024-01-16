@@ -13,7 +13,10 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.provider.SetProperty
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
 import java.io.File
 import kotlin.reflect.KProperty
 
@@ -78,6 +81,21 @@ internal fun <PropType : Any?, T : Property<PropType>> T.chainedFinalizeValueOnR
         finalizeValueOnRead()
     }
 
+internal fun <PropType : Any?, T : ListProperty<PropType>> T.chainedFinalizeValueOnRead(): T =
+    apply {
+        finalizeValueOnRead()
+    }
+
+internal fun <PropType : Any?, T : Property<PropType>> T.chainedFinalizeValue(): T =
+    apply {
+        finalizeValue()
+    }
+
+internal fun <PropType : Any?, T : Property<PropType>> T.chainedDisallowChanges(): T =
+    apply {
+        disallowChanges()
+    }
+
 // Before 5.0 fileProperty is created via ProjectLayout
 // https://docs.gradle.org/current/javadoc/org/gradle/api/model/ObjectFactory.html#fileProperty--
 internal fun Project.newFileProperty(initialize: (() -> File)? = null): RegularFileProperty {
@@ -92,9 +110,9 @@ internal fun Project.newFileProperty(initialize: (() -> File)? = null): RegularF
 
 internal fun Project.filesProvider(
     vararg buildDependencies: Any,
-    provider: () -> Any
+    provider: () -> Any?
 ): ConfigurableFileCollection {
-    return project.files(project.provider(provider)).builtBy(*buildDependencies)
+    return project.files(provider).builtBy(*buildDependencies)
 }
 
 internal fun <T : Task> T.outputFilesProvider(provider: T.() -> Any): ConfigurableFileCollection {
@@ -106,3 +124,41 @@ internal inline fun <reified T> Project.listProperty(noinline itemsProvider: () 
 
 internal inline fun <reified T> Project.setProperty(noinline itemsProvider: () -> Iterable<T>): SetProperty<T> =
     objects.setProperty(T::class.java).apply { set(provider(itemsProvider)) }
+
+/**
+ * Changing Provider will be evaluated every time it accessed.
+ *
+ * And its producing [code] will be serilalised to Configuration Cache as is
+ * So that it still will be evaluated during Task Execution phase.
+ * It is very convenient for Configuration Cache compatibility.
+ *
+ * It is recommended to use Task Output's and map/flatMap them to other Task Inputs but in cases when TaskOutput's is not available
+ * as Gradle's Properties or Providers then this [changing] provider can be used.
+ *
+ * name `changing` and overall concept is borrowed from Gradle internal API [org.gradle.api.internal.provider.Providers.changing]
+ *
+ * @see org.gradle.api.internal.provider.ChangingProvider
+ */
+internal fun <T> ProviderFactory.changing(code: () -> T): Provider<T> {
+    @Suppress("UNCHECKED_CAST")
+    val adhocValueSourceClass = AdhocValueSource::class.java as Class<AdhocValueSource<T>>
+    return of(adhocValueSourceClass) { valueSourceSpec ->
+        valueSourceSpec.parameters {
+            it.producingLambda.set(code)
+        }
+    }
+}
+
+private abstract class AdhocValueSource<T> : ValueSource<T, AdhocValueSource.Parameters> {
+
+    // this interface can't be parameterized with T since it breaks internal Gradle logic
+    // This is why producingLambda is '() -> Any?' but not '() -> T'
+    interface Parameters : ValueSourceParameters {
+        val producingLambda: Property<() -> Any?>
+    }
+
+    override fun obtain(): T {
+        @Suppress("UNCHECKED_CAST")
+        return parameters.producingLambda.get().invoke() as T
+    }
+}

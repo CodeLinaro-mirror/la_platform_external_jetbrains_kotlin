@@ -1,13 +1,17 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased
 
 import org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals
+import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
+import org.jetbrains.kotlin.analysis.api.base.KtContextReceiver
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.calculateHashCode
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.*
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.isEqualTo
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.pointers.KtFe10DescNamedClassOrObjectSymbolSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.pointers.KtFe10NeverRestoringSymbolPointer
 import org.jetbrains.kotlin.analysis.api.impl.base.symbols.toKtClassKind
@@ -46,6 +50,12 @@ internal class KtFe10DescNamedClassOrObjectSymbol(
     override val isExternal: Boolean
         get() = withValidityAssertion { descriptor.isExternal }
 
+    override val isActual: Boolean
+        get() = withValidityAssertion { descriptor.isActual }
+
+    override val isExpect: Boolean
+        get() = withValidityAssertion { descriptor.isExpect }
+
     override val companionObject: KtNamedClassOrObjectSymbol?
         get() {
             withValidityAssertion {
@@ -53,6 +63,9 @@ internal class KtFe10DescNamedClassOrObjectSymbol(
                 return KtFe10DescNamedClassOrObjectSymbol(companionObject, analysisContext)
             }
         }
+
+    override val contextReceivers: List<KtContextReceiver>
+        get() = withValidityAssertion { descriptor.createContextReceivers(analysisContext) }
 
     @OptIn(KtAnalysisApiInternals::class)
     override val classKind: KtClassKind
@@ -77,10 +90,10 @@ internal class KtFe10DescNamedClassOrObjectSymbol(
     override val typeParameters: List<KtTypeParameterSymbol>
         get() = withValidityAssertion { descriptor.declaredTypeParameters.map { KtFe10DescTypeParameterSymbol(it, analysisContext) } }
 
+    context(KtAnalysisSession)
     override fun createPointer(): KtSymbolPointer<KtNamedClassOrObjectSymbol> = withValidityAssertion {
-        val pointerByPsi = KtPsiBasedSymbolPointer.createForSymbolFromSource(this)
-        if (pointerByPsi != null) {
-            return pointerByPsi
+        KtPsiBasedSymbolPointer.createForSymbolFromSource<KtNamedClassOrObjectSymbol>(this)?.let {
+            return it
         }
 
         val classId = descriptor.classId
@@ -90,4 +103,7 @@ internal class KtFe10DescNamedClassOrObjectSymbol(
 
         return KtFe10NeverRestoringSymbolPointer()
     }
+
+    override fun equals(other: Any?): Boolean = isEqualTo(other)
+    override fun hashCode(): Int = calculateHashCode()
 }

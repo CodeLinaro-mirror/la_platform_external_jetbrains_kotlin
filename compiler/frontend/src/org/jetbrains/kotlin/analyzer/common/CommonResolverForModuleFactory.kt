@@ -16,7 +16,6 @@
 
 package org.jetbrains.kotlin.analyzer.common
 
-import com.intellij.openapi.components.ServiceManager
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analyzer.*
 import org.jetbrains.kotlin.config.LanguageFeature
@@ -42,9 +41,11 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.checkers.ExpectedActualDeclarationChecker
 import org.jetbrains.kotlin.resolve.extensions.AnalysisHandlerExtension
+import org.jetbrains.kotlin.resolve.lazy.AbsentDescriptorHandler
 import org.jetbrains.kotlin.resolve.lazy.ResolveSession
 import org.jetbrains.kotlin.resolve.lazy.declarations.DeclarationProviderFactory
 import org.jetbrains.kotlin.resolve.lazy.declarations.DeclarationProviderFactoryService
+import org.jetbrains.kotlin.resolve.scopes.optimization.OptimizingOptions
 import org.jetbrains.kotlin.serialization.deserialization.MetadataPackageFragmentProvider
 import org.jetbrains.kotlin.serialization.deserialization.MetadataPartProvider
 import org.jetbrains.kotlin.storage.StorageManager
@@ -90,7 +91,9 @@ class CommonResolverForModuleFactory(
         moduleContent: ModuleContent<M>,
         resolverForProject: ResolverForProject<M>,
         languageVersionSettings: LanguageVersionSettings,
-        sealedInheritorsProvider: SealedClassInheritorsProvider
+        sealedInheritorsProvider: SealedClassInheritorsProvider,
+        resolveOptimizingOptions: OptimizingOptions?,
+        absentDescriptorHandlerClass: Class<out AbsentDescriptorHandler>?
     ): ResolverForModule {
         val (moduleInfo, syntheticFiles, moduleContentScope) = moduleContent
         val project = moduleContext.project
@@ -103,8 +106,17 @@ class CommonResolverForModuleFactory(
         val metadataPartProvider = platformParameters.metadataPartProviderFactory(moduleContent)
         val trace = CodeAnalyzerInitializer.getInstance(project).createTrace()
         val container = createContainerToResolveCommonCode(
-            moduleContext, trace, declarationProviderFactory, moduleContentScope, targetEnvironment, metadataPartProvider,
-            languageVersionSettings, targetPlatform, CommonPlatformAnalyzerServices, shouldCheckExpectActual
+            moduleContext,
+            trace,
+            declarationProviderFactory,
+            moduleContentScope,
+            targetEnvironment,
+            metadataPartProvider,
+            languageVersionSettings,
+            targetPlatform,
+            CommonPlatformAnalyzerServices,
+            shouldCheckExpectActual,
+            absentDescriptorHandlerClass
         )
 
         val klibMetadataPackageFragmentProvider =
@@ -241,10 +253,19 @@ private fun createContainerToResolveCommonCode(
     languageVersionSettings: LanguageVersionSettings,
     platform: TargetPlatform,
     analyzerServices: PlatformDependentAnalyzerServices,
-    shouldCheckExpectActual: Boolean
+    shouldCheckExpectActual: Boolean,
+    absentDescriptorHandlerClass: Class<out AbsentDescriptorHandler>?
 ): StorageComponentContainer =
     createContainer("ResolveCommonCode", analyzerServices) {
-        configureModule(moduleContext, platform, analyzerServices, bindingTrace, languageVersionSettings)
+        configureModule(
+            moduleContext,
+            platform,
+            analyzerServices,
+            bindingTrace,
+            languageVersionSettings,
+            optimizingOptions = null,
+            absentDescriptorHandlerClass = absentDescriptorHandlerClass
+        )
 
         useInstance(moduleContentScope)
         useInstance(declarationProviderFactory)
@@ -254,8 +275,7 @@ private fun createContainerToResolveCommonCode(
         configureCommonSpecificComponents()
         useInstance(metadataPartProvider)
 
-        val metadataFinderFactory = ServiceManager.getService(
-            moduleContext.project,
+        val metadataFinderFactory = moduleContext.project.getService(
             MetadataFinderFactory::class.java
         )
             ?: error("No MetadataFinderFactory in project")

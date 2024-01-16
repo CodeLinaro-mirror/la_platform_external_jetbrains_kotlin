@@ -9,7 +9,7 @@ import com.intellij.openapi.util.text.StringUtil
 import org.jetbrains.kotlin.builtins.BuiltInsPackageFragment
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
-import org.jetbrains.kotlin.builtins.functions.FunctionClassKind
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.codegen.DescriptorAsmUtil.isStaticMethod
@@ -59,7 +59,6 @@ import org.jetbrains.kotlin.resolve.calls.model.VarargValueArgument
 import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
 import org.jetbrains.kotlin.resolve.descriptorUtil.classId
 import org.jetbrains.kotlin.resolve.descriptorUtil.isPublishedApi
-import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.DEFAULT_CONSTRUCTOR_MARKER
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 import org.jetbrains.kotlin.resolve.jvm.JAVA_LANG_RECORD_FQ_NAME
@@ -76,6 +75,7 @@ import org.jetbrains.kotlin.types.checker.convertVariance
 import org.jetbrains.kotlin.types.expressions.ExpressionTypingUtils.*
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import org.jetbrains.kotlin.utils.addToStdlib.zipWithNulls
 import org.jetbrains.org.objectweb.asm.Opcodes.*
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.Method
@@ -342,8 +342,8 @@ class KotlinTypeMapper @JvmOverloads constructor(
 
         if (classDescriptor is FunctionClassDescriptor) {
             if (classDescriptor.hasBigArity ||
-                classDescriptor.functionKind == FunctionClassKind.KFunction ||
-                classDescriptor.functionKind == FunctionClassKind.KSuspendFunction
+                classDescriptor.functionTypeKind == FunctionTypeKind.KFunction ||
+                classDescriptor.functionTypeKind == FunctionTypeKind.KSuspendFunction
             ) {
                 // kotlin.reflect.KFunction{n}<P1, ..., Pn, R> is mapped to kotlin.reflect.KFunction<R> (for all n), and
                 // kotlin.Function{n}<P1, ..., Pn, R> is mapped to kotlin.jvm.functions.FunctionN<R> (for n > 22).
@@ -574,8 +574,7 @@ class KotlinTypeMapper @JvmOverloads constructor(
             mapDefaultCallback(baseMethodDescriptor, getKindForDefaultImplCall(baseMethodDescriptor)),
             signature, invokeOpcode, thisClass, dispatchReceiverKotlinType, receiverParameterType, extensionReceiverKotlinType,
             calleeType, returnKotlinType,
-            if (jvmTarget >= JvmTarget.JVM_1_8) isInterfaceMember else invokeOpcode == INVOKEINTERFACE,
-            isDefaultMethodInInterface, boxInlineClassBeforeInvoke
+            isInterfaceMember, isDefaultMethodInInterface, boxInlineClassBeforeInvoke
         )
     }
 
@@ -1367,7 +1366,7 @@ class KotlinTypeMapper @JvmOverloads constructor(
             return JvmClassName.byClassId(ownerClassId).internalName
         }
 
-        private val FAKE_CLASS_ID_FOR_BUILTINS = ClassId(FqName("kotlin.jvm.internal"), FqName("Intrinsics.Kotlin"), false)
+        private val FAKE_CLASS_ID_FOR_BUILTINS = ClassId(FqName("kotlin.jvm.internal"), FqName("Intrinsics.Kotlin"), isLocal = false)
 
         private fun getPackageMemberContainingClassesInfo(descriptor: DescriptorWithContainerSource): ContainingClassesInfo? {
             val containingDeclaration = descriptor.containingDeclaration
@@ -1446,10 +1445,10 @@ class KotlinTypeMapper @JvmOverloads constructor(
             SimpleClassicTypeSystemContext.getVarianceForWildcard(parameter, projection, mode)
 
         private fun TypeSystemCommonBackendContext.getVarianceForWildcard(
-            parameter: TypeParameterMarker, projection: TypeArgumentMarker, mode: TypeMappingMode
+            parameter: TypeParameterMarker?, projection: TypeArgumentMarker, mode: TypeMappingMode
         ): Variance {
             val projectionKind = projection.getVariance().convertVariance()
-            val parameterVariance = parameter.getVariance().convertVariance()
+            val parameterVariance = parameter?.getVariance()?.convertVariance() ?: Variance.INVARIANT
 
             if (parameterVariance == Variance.INVARIANT) {
                 return projectionKind
@@ -1465,7 +1464,7 @@ class KotlinTypeMapper @JvmOverloads constructor(
                         return Variance.INVARIANT
                     }
 
-                    if (parameterVariance == Variance.IN_VARIANCE && isMostPreciseContravariantArgument(projection.getType(), parameter)) {
+                    if (parameterVariance == Variance.IN_VARIANCE && isMostPreciseContravariantArgument(projection.getType())) {
                         return Variance.INVARIANT
                     }
                 }
@@ -1484,10 +1483,11 @@ class KotlinTypeMapper @JvmOverloads constructor(
             mode: TypeMappingMode,
             mapType: (KotlinTypeMarker, JvmSignatureWriter, TypeMappingMode) -> Type
         ) {
-            for ((parameter, argument) in parameters.zip(arguments)) {
+            for ((parameter, argument) in parameters.zipWithNulls(arguments)) {
+                if (argument == null) break
                 if (argument.isStarProjection() ||
                     // In<Nothing, Foo> == In<*, Foo> -> In<?, Foo>
-                    argument.getType().isNothing() && parameter.getVariance() == TypeVariance.IN
+                    argument.getType().isNothing() && parameter?.getVariance() == TypeVariance.IN
                 ) {
                     signatureVisitor.writeUnboundedWildcard()
                 } else {
@@ -1496,10 +1496,11 @@ class KotlinTypeMapper @JvmOverloads constructor(
 
                     signatureVisitor.writeTypeArgument(projectionKind)
 
+                    val parameterVariance = parameter?.getVariance()?.convertVariance() ?: Variance.INVARIANT
                     mapType(
                         argument.getType(), signatureVisitor,
                         argumentMode.toGenericArgumentMode(
-                            getEffectiveVariance(parameter.getVariance().convertVariance(), argument.getVariance().convertVariance())
+                            getEffectiveVariance(parameterVariance, argument.getVariance().convertVariance())
                         )
                     )
 

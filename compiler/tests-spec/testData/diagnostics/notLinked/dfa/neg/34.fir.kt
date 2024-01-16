@@ -1,6 +1,14 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION -UNUSED_VARIABLE -UNUSED_VALUE
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (NEGATIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 34
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, typealiases, functions, enumClasses, interfaces, sealedClasses
+ */
 
 /*
  * TESTCASE NUMBER: 1
@@ -106,8 +114,8 @@ fun case_9() {
         x = null
         break
     } while (x!!.length > 1)
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing")!>x<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing")!>x<!>.length
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing?")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing?")!>x<!><!UNSAFE_CALL!>.<!>length
 }
 
 // TESTCASE NUMBER: 10
@@ -117,8 +125,8 @@ fun case_10() {
         x = null
         break
     } while ((x as String).length > 1)
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing")!>x<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing")!>x<!>.length
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing?")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.String? & kotlin.Nothing?")!>x<!><!UNSAFE_CALL!>.<!>length
 }
 
 // TESTCASE NUMBER: 11
@@ -128,8 +136,8 @@ fun case_11() {
         x = null
         break
     } while (x!!)
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Nothing")!>x<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Nothing")!>x<!>.not()
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Nothing?")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Nothing?")!>x<!><!UNSAFE_CALL!>.<!>not()
 }
 
 // TESTCASE NUMBER: 12

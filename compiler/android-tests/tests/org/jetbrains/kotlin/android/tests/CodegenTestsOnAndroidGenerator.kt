@@ -324,6 +324,7 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
                 // TODO: Support jvm assertions
                 if (fullFileText.contains("// ASSERTIONS_MODE: jvm")) continue
                 if (fullFileText.contains("// MODULE: ")) continue
+                if (fullFileText.contains("// IGNORE_BACKEND_K1")) continue
                 val targets = InTextDirectivesUtils.findLinesWithPrefixesRemoved(fullFileText, "// JVM_TARGET:")
 
                 val isAtLeastJvm8Target = !targets.contains(JvmTarget.JVM_1_6.description)
@@ -435,7 +436,6 @@ class CodegenTestsOnAndroidGenerator private constructor(private val pathManager
         const val testClassName = "CodegenTestCaseOnAndroid"
         const val baseTestClassPackage = "org.jetbrains.kotlin.android.tests"
         const val baseTestClassName = "AbstractCodegenTestCaseOnAndroid"
-        const val generatorName = "CodegenTestsOnAndroidGenerator"
 
 
         @JvmOverloads

@@ -47,8 +47,8 @@ import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature;
 import org.jetbrains.kotlin.resolve.source.KotlinSourceElementKt;
 import org.jetbrains.kotlin.storage.LockBasedStorageManager;
 import org.jetbrains.kotlin.storage.NotNullLazyValue;
-import org.jetbrains.kotlin.types.error.ErrorUtils;
 import org.jetbrains.kotlin.types.KotlinType;
+import org.jetbrains.kotlin.types.error.ErrorUtils;
 import org.jetbrains.org.objectweb.asm.Label;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 import org.jetbrains.org.objectweb.asm.Opcodes;
@@ -191,7 +191,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
             v.visitSMAP(getOrCreateSourceMapper(), !state.getLanguageVersionSettings().supportsFeature(LanguageFeature.CorrectSourceMappingSyntax));
         }
 
-        v.done();
+        v.done(state.getConfig().getGenerateSmapCopyToAnnotation());
     }
 
     public void genSimpleMember(@NotNull KtDeclaration declaration) {
@@ -597,14 +597,16 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         KtExpression initializer = property.getInitializer();
 
         ConstantValue<?> initializerValue =
-                initializer != null ? ExpressionCodegen.getCompileTimeConstant(initializer, bindingContext, state.getShouldInlineConstVals()) : null;
+                initializer != null
+                ? ExpressionCodegen.getCompileTimeConstant(initializer, bindingContext, state.getConfig().getShouldInlineConstVals())
+                : null;
         // we must write constant values for fields in light classes,
         // because Java's completion for annotation arguments uses this information
         if (initializerValue == null) return state.getClassBuilderMode().generateBodies;
 
         //TODO: OPTIMIZATION: don't initialize static final fields
-        KotlinType jetType = getPropertyOrDelegateType(property, propertyDescriptor);
-        Type type = typeMapper.mapType(jetType);
+        KotlinType kotlinType = getPropertyOrDelegateType(property, propertyDescriptor);
+        Type type = typeMapper.mapType(kotlinType);
         return !skipDefaultValue(propertyDescriptor, initializerValue.getValue(), type);
     }
 
@@ -692,7 +694,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         iv.dup();
 
         List<Type> superCtorArgTypes = new ArrayList<>();
-        if (state.getGenerateOptimizedCallableReferenceSuperClasses()) {
+        if (state.getConfig().getGenerateOptimizedCallableReferenceSuperClasses()) {
             CallableReferenceUtilKt.generateCallableReferenceDeclarationContainerClass(iv, property, state);
             superCtorArgTypes.add(JAVA_CLASS_TYPE);
         } else {
@@ -706,7 +708,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         superCtorArgTypes.add(JAVA_STRING_TYPE);
         superCtorArgTypes.add(JAVA_STRING_TYPE);
 
-        if (state.getGenerateOptimizedCallableReferenceSuperClasses()) {
+        if (state.getConfig().getGenerateOptimizedCallableReferenceSuperClasses()) {
             iv.aconst(CallableReferenceUtilKt.getCallableReferenceTopLevelFlag(property));
             superCtorArgTypes.add(Type.INT_TYPE);
         }
@@ -754,7 +756,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
     }
 
     protected void initDefaultSourceMappingIfNeeded() {
-        if (state.isInlineDisabled()) return;
+        if (state.getConfig().isInlineDisabled()) return;
 
         CodegenContext parentContext = context.getParentContext();
         while (parentContext != null) {

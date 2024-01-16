@@ -1,3 +1,5 @@
+// FIR_IDENTICAL
+// !LANGUAGE: -ForbidInferringTypeVariablesIntoEmptyIntersection
 open class Base
 class DoesNotImplementBase
 

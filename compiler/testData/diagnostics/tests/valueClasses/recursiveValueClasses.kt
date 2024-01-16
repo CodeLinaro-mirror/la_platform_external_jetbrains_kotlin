@@ -1,6 +1,7 @@
 // FIR_IDENTICAL
 // !SKIP_JAVAC
 // !LANGUAGE: +InlineClasses
+// ALLOW_KOTLIN_PACKAGE
 
 package kotlin.jvm
 
@@ -31,9 +32,9 @@ value class TestRecursionInTypeArguments(val x: List<TestRecursionInTypeArgument
 value class TestRecursionInArray(val x: Array<TestRecursionInArray>)
 
 @JvmInline
-value class TestRecursionInUpperBounds<T : TestRecursionInUpperBounds<T>>(val x: <!VALUE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE!>T<!>)
+value class TestRecursionInUpperBounds<T : TestRecursionInUpperBounds<T>>(val x: T)
 
 @JvmInline
-value class Id<T>(val x: <!VALUE_CLASS_HAS_INAPPLICABLE_PARAMETER_TYPE!>T<!>)
+value class Id<T>(val x: T)
 @JvmInline
 value class TestRecursionThroughId(val x: Id<TestRecursionThroughId>)

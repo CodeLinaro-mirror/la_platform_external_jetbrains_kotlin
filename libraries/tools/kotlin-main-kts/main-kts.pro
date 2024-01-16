@@ -20,7 +20,6 @@
 
 -keep class org.jetbrains.kotlin.mainKts.** { *; }
 -keep class kotlin.script.experimental.** { *; }
--keep class org.jetbrains.kotlin.script.util.impl.PathUtilKt { *; }
 -keep class org.apache.ivy.plugins.** { *; }
 
 -keep class org.eclipse.sisu.** { *; }
@@ -29,15 +28,11 @@
 -keep class com.google.inject.** { *; }
 -keep class org.jetbrains.kotlin.com.google.inject.** { *; }
 
--keep class org.jetbrains.kotlin.script.util.impl.PathUtilKt { *; }
-
 -keep class com.google.common.** { *; }
 -keep class org.jetbrains.kotlin.com.google.common.** { *; }
 
 -keep class org.apache.maven.wagon.providers.** { *; }
 -keep class org.jetbrains.kotlin.org.apache.maven.wagon.providers.** { *; }
-
--keep class org.slf4j.** { *; }
 
 -keepclassmembers class * extends java.lang.Enum {
     <fields>;

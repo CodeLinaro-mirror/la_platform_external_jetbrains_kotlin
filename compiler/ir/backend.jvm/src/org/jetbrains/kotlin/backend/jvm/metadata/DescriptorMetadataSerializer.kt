@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.codegen.binding.CodegenBinding
 import org.jetbrains.kotlin.codegen.createFreeFakeLambdaDescriptor
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializerExtension
+import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.ir.declarations.DescriptorMetadataSource
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
@@ -31,19 +32,26 @@ class DescriptorMetadataSerializer(
     private val serializationBindings: JvmSerializationBindings,
     parent: MetadataSerializer?
 ) : MetadataSerializer {
-    private val serializerExtension = JvmSerializerExtension(serializationBindings, context.state, context.typeMapper)
-    private val serializer: DescriptorSerializer? =
+    private val serializerExtension = JvmSerializerExtension(serializationBindings, context.state, context.defaultTypeMapper)
+    private val serializer: DescriptorSerializer? = run {
+        val languageVersionSettings = context.config.languageVersionSettings
         when (val metadata = irClass.metadata) {
             is DescriptorMetadataSource.Class -> DescriptorSerializer.create(
-                metadata.descriptor, serializerExtension, (parent as? DescriptorMetadataSerializer)?.serializer, context.state.project
+                metadata.descriptor, serializerExtension, (parent as? DescriptorMetadataSerializer)?.serializer,
+                languageVersionSettings, context.state.project,
             )
             is DescriptorMetadataSource.Script -> DescriptorSerializer.create(
-                metadata.descriptor, serializerExtension, (parent as? DescriptorMetadataSerializer)?.serializer, context.state.project
+                metadata.descriptor, serializerExtension, (parent as? DescriptorMetadataSerializer)?.serializer,
+                languageVersionSettings, context.state.project,
             )
-            is DescriptorMetadataSource.File -> DescriptorSerializer.createTopLevel(serializerExtension, context.state.project)
-            is DescriptorMetadataSource.Function -> DescriptorSerializer.createForLambda(serializerExtension)
+            is DescriptorMetadataSource.File -> DescriptorSerializer.createTopLevel(
+                serializerExtension, languageVersionSettings,
+                context.state.project
+            )
+            is DescriptorMetadataSource.Function -> DescriptorSerializer.createForLambda(serializerExtension, languageVersionSettings)
             else -> null
         }
+    }
 
     override fun serialize(metadata: MetadataSource): Pair<MessageLite, JvmStringTable>? {
         val localDelegatedProperties = context.localDelegatedProperties[irClass.attributeOwnerId]
@@ -51,7 +59,7 @@ class DescriptorMetadataSerializer(
             context.state.bindingTrace.record(
                 CodegenBinding.DELEGATED_PROPERTIES_WITH_METADATA,
                 // key for local delegated properties metadata in interfaces depends on jvmDefaultMode
-                if (irClass.isInterface && !context.state.jvmDefaultMode.forAllMethodsWithBody) context.typeMapper.mapClass(
+                if (irClass.isInterface && !context.config.jvmDefaultMode.forAllMethodsWithBody) context.defaultTypeMapper.mapClass(
                     context.cachedDeclarations.getDefaultImplsClass(
                         irClass
                     )
@@ -63,7 +71,7 @@ class DescriptorMetadataSerializer(
             is DescriptorMetadataSource.Class -> serializer!!.classProto(metadata.descriptor).build()
             is DescriptorMetadataSource.Script -> serializer!!.classProto(metadata.descriptor).build()
             is DescriptorMetadataSource.File ->
-                serializer!!.packagePartProto(irClass.getPackageFragment().fqName, metadata.descriptors).apply {
+                serializer!!.packagePartProto(irClass.getPackageFragment().packageFqName, metadata.descriptors).apply {
                     serializerExtension.serializeJvmPackage(this, type)
                 }.build()
             is DescriptorMetadataSource.Function -> {

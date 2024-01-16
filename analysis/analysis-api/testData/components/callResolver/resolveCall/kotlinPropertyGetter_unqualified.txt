@@ -3,9 +3,13 @@ KtSuccessCallInfo:
     partiallyAppliedSymbol = KtPartiallyAppliedSymbol:
       dispatchReceiver = KtImplicitReceiverValue:
         symbol = KtReceiverParameterSymbol:
+          annotationsList: []
           origin: SOURCE
           owningCallableSymbol: KtFunctionSymbol(/foo)
-          type: A
+          type: KtUsualClassType:
+            annotationsList: []
+            ownTypeArguments: []
+            type: A
         type = A
       extensionReceiver = null
       signature = KtVariableLikeSignature:
@@ -15,5 +19,5 @@ KtSuccessCallInfo:
         symbol = val i: kotlin.Int
         callableIdIfNonLocal = /A.i
     simpleAccess = Read:
-
+      
     typeArgumentsMapping = {}

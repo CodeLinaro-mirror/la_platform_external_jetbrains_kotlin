@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -18,13 +18,15 @@ import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.*
+import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
+import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.expressions.FirOperationNameConventions
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.scope
-import org.jetbrains.kotlin.fir.scopes.FakeOverrideTypeCalculator
+import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -33,6 +35,7 @@ import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.create
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
+import org.jetbrains.kotlin.fir.types.toLookupTag
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -59,7 +62,12 @@ class FirDynamicScope @FirDynamicScopeConstructor constructor(
     override fun getClassifierNames(): Set<Name> = emptySet()
 
     private val anyTypeScope by lazy {
-        session.builtinTypes.anyType.type.scope(session, scopeSession, FakeOverrideTypeCalculator.DoNothing)
+        session.builtinTypes.anyType.type.scope(
+            session,
+            scopeSession,
+            CallableCopyTypeCalculator.DoNothing,
+            requiredMembersPhase = null,
+        )
     }
 
     override fun processFunctionsByName(
@@ -124,8 +132,8 @@ class FirDynamicMembersStorage(val session: FirSession) : FirSessionComponent {
 
     private val anyArrayTypeRef = buildResolvedTypeRef {
         type = ConeClassLikeTypeImpl(
-            ConeClassLikeLookupTagImpl(StandardClassIds.Array),
-            arrayOf(session.builtinTypes.nullableAnyType.coneType),
+            StandardClassIds.Array.toLookupTag(),
+            arrayOf(dynamicTypeRef.coneType),
             isNullable = false
         )
     }
@@ -155,6 +163,7 @@ class FirDynamicMembersStorage(val session: FirSession) : FirSessionComponent {
 
         val parameter = buildValueParameter {
             moduleData = session.moduleData
+            containingFunctionSymbol = this@buildSimpleFunction.symbol
             origin = FirDeclarationOrigin.DynamicScope
             returnTypeRef = anyArrayTypeRef
             this.name = Name.identifier("args")

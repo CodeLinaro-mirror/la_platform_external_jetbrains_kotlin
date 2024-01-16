@@ -17,7 +17,6 @@
 package org.jetbrains.kotlin.analyzer
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.ModificationTracker
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
@@ -29,10 +28,11 @@ import org.jetbrains.kotlin.descriptors.PackageFragmentProvider
 import org.jetbrains.kotlin.descriptors.impl.ModuleDependencies
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.TargetPlatformVersion
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.SealedClassInheritorsProvider
+import org.jetbrains.kotlin.resolve.lazy.AbsentDescriptorHandler
+import org.jetbrains.kotlin.resolve.scopes.optimization.OptimizingOptions
 import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.storage.getValue
 
@@ -113,28 +113,79 @@ fun ModuleInfo.flatten(): List<ModuleInfo> = when (this) {
 
 fun ModuleInfo.unwrapPlatform(): ModuleInfo = if (this is CombinedModuleInfo) platformModule else this
 
-interface TrackableModuleInfo : ModuleInfo {
-    fun createModificationTracker(): ModificationTracker
-}
-
 interface LibraryModuleSourceInfoBase : ModuleInfo
 interface NonSourceModuleInfoBase : ModuleInfo
 
-interface LibraryModuleInfo : ModuleInfo {
-    override val platform: TargetPlatform
-
-    fun getLibraryRoots(): Collection<String>
-}
-
 abstract class ResolverForModuleFactory {
-    abstract fun <M : ModuleInfo> createResolverForModule(
+    open fun <M : ModuleInfo> createResolverForModule(
         moduleDescriptor: ModuleDescriptorImpl,
         moduleContext: ModuleContext,
         moduleContent: ModuleContent<M>,
         resolverForProject: ResolverForProject<M>,
         languageVersionSettings: LanguageVersionSettings,
         sealedInheritorsProvider: SealedClassInheritorsProvider,
-    ): ResolverForModule
+        resolveOptimizingOptions: OptimizingOptions?,
+        absentDescriptorHandlerClass: Class<out AbsentDescriptorHandler>?
+    ): ResolverForModule {
+        @Suppress("DEPRECATION")
+        return createResolverForModule(
+            moduleDescriptor,
+            moduleContext,
+            moduleContent,
+            resolverForProject,
+            languageVersionSettings,
+            sealedInheritorsProvider,
+            resolveOptimizingOptions
+        )
+    }
+
+    @Deprecated(
+        "Left only for compatibility, please use full version",
+        ReplaceWith("createResolverForModule(moduleDescriptor, moduleContext, moduleContent, resolverForProject, languageVersionSettings, sealedInheritorsProvider, null, null)")
+    )
+    open fun <M : ModuleInfo> createResolverForModule(
+        moduleDescriptor: ModuleDescriptorImpl,
+        moduleContext: ModuleContext,
+        moduleContent: ModuleContent<M>,
+        resolverForProject: ResolverForProject<M>,
+        languageVersionSettings: LanguageVersionSettings,
+        sealedInheritorsProvider: SealedClassInheritorsProvider,
+        resolveOptimizingOptions: OptimizingOptions?,
+    ): ResolverForModule {
+        @Suppress("DEPRECATION")
+        return createResolverForModule(
+            moduleDescriptor,
+            moduleContext,
+            moduleContent,
+            resolverForProject,
+            languageVersionSettings,
+            sealedInheritorsProvider
+        )
+    }
+
+    @Deprecated(
+        "Left only for compatibility, please use full version",
+        ReplaceWith("createResolverForModule(moduleDescriptor, moduleContext, moduleContent, resolverForProject, languageVersionSettings, sealedInheritorsProvider, null, null)")
+    )
+    open fun <M : ModuleInfo> createResolverForModule(
+        moduleDescriptor: ModuleDescriptorImpl,
+        moduleContext: ModuleContext,
+        moduleContent: ModuleContent<M>,
+        resolverForProject: ResolverForProject<M>,
+        languageVersionSettings: LanguageVersionSettings,
+        sealedInheritorsProvider: SealedClassInheritorsProvider
+    ): ResolverForModule {
+        return createResolverForModule(
+            moduleDescriptor,
+            moduleContext,
+            moduleContent,
+            resolverForProject,
+            languageVersionSettings,
+            sealedInheritorsProvider,
+            resolveOptimizingOptions = null,
+            absentDescriptorHandlerClass = null
+        )
+    }
 }
 
 class LazyModuleDependencies<M : ModuleInfo>(

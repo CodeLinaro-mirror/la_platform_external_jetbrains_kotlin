@@ -11,6 +11,9 @@ import {
 } from "./src/teamcity-format";
 
 const resolve = require('path').resolve;
+const SourceMapConsumer = require('source-map').SourceMapConsumer
+const _ = require('lodash')
+const PathUtils = require('karma/lib/utils/path-utils')
 
 /**
  * From karma
@@ -19,27 +22,26 @@ const resolve = require('path').resolve;
  */
 // This ErrorFormatter is copied from standard karma's,
 //  but without warning in case of failed original location finding
-function createFormatError(config, emitter) {
-    const basePath = config.basePath;
-    const urlRoot = config.urlRoot === '/' ? '' : (config.urlRoot || '');
-    let lastServedFiles = [];
+function createErrorFormatter(config, emitter, SourceMapConsumer) {
+    const basePath = config.basePath
+    const urlRoot = config.urlRoot === '/' ? '' : (config.urlRoot || '')
+    let lastServedFiles = []
 
     emitter.on('file_list_modified', (files) => {
         lastServedFiles = files.served
-    });
+    })
+
     const URL_REGEXP = new RegExp('(?:https?:\\/\\/' +
-                                  config.hostname + '(?:\\:' + config.port + ')?' + ')?\\/?' +
-                                  urlRoot + '\\/?' +
-                                  '(base/|absolute)' + // prefix, including slash for base/ to create relative paths.
-                                  '((?:[A-z]\\:)?[^\\?\\s\\:]*)' + // path
-                                  '(\\?\\w*)?' + // sha
-                                  '(\\:(\\d+))?' + // line
-                                  '(\\:(\\d+))?' + // column
-                                  '', 'g');
+        config.hostname + '(?:\\:' + config.port + ')?' + ')?\\/?' +
+        urlRoot + '\\/?' +
+        '(base/|absolute)' + // prefix, including slash for base/ to create relative paths.
+        '((?:[A-z]\\:)?[^\\?\\s\\:]*)' + // path
+        '(\\?\\w*)?' + // sha
+        '(\\:(\\d+))?' + // line
+        '(\\:(\\d+))?' + // column
+        '', 'g')
 
-    const SourceMapConsumer = require('source-map').SourceMapConsumer;
-
-    const cache = new WeakMap();
+    const cache = new WeakMap()
 
     function getSourceMapConsumer(sourceMap) {
         if (!cache.has(sourceMap)) {
@@ -48,34 +50,58 @@ function createFormatError(config, emitter) {
         return cache.get(sourceMap)
     }
 
-    const PathUtils = require('karma/lib/utils/path-utils.js');
+    return function (input, indentation) {
+        indentation = _.isString(indentation) ? indentation : ''
+        if (_.isError(input)) {
+            input = input.message
+        } else if (_.isEmpty(input)) {
+            input = ''
+        } else if (!_.isString(input)) {
+            input = JSON.stringify(input, null, indentation)
+        }
 
-    return function (input) {
-        let msg = input.replace(URL_REGEXP, function (_, prefix, path, __, ___, line, ____, column) {
-            const normalizedPath = prefix === 'base/' ? `${basePath}/${path}` : path;
-            const file = lastServedFiles.find((file) => file.path === normalizedPath);
+        let msg = input.replace(URL_REGEXP, function (stackTracePath, prefix, path, __, ___, line, ____, column) {
+            const normalizedPath = prefix === 'base/' ? `${basePath}/${path}` : path
+            const file = lastServedFiles.find((file) => file.path === normalizedPath)
 
             if (file && file.sourceMap && line) {
-                line = +line;
-                column = +column;
-                const bias = column ? SourceMapConsumer.GREATEST_LOWER_BOUND : SourceMapConsumer.LEAST_UPPER_BOUND;
+                line = +line
+                column = +column
+
+                // When no column is given and we default to 0, it doesn't make sense to only search for smaller
+                // or equal columns in the sourcemap, let's search for equal or greater columns.
+                const bias = column ? SourceMapConsumer.GREATEST_LOWER_BOUND : SourceMapConsumer.LEAST_UPPER_BOUND
 
                 try {
-                    const original = getSourceMapConsumer(file.sourceMap).originalPositionFor({line, column: (column || 0), bias});
+                    const zeroBasedColumn = Math.max(0, (column || 1) - 1)
+                    const original = getSourceMapConsumer(file.sourceMap).originalPositionFor({line, column: zeroBasedColumn, bias})
 
-                    return `${PathUtils.formatPathMapping(resolve(path, original.source), original.line,
-                                                          original.column)} <- ${PathUtils.formatPathMapping(path, line, column)}`
-                }
-                catch (e) {
+                    // If there is no original position/source for the current stack trace path, then
+                    // we return early with the formatted generated position. This handles the case of
+                    // generated code which does not map to anything, see Case 1 of the source-map spec.
+                    // https://sourcemaps.info/spec.html.
+                    if (original.source === null) {
+                        return PathUtils.formatPathMapping(path, line, column)
+                    }
+
+                    // Source maps often only have a local file name, resolve to turn into a full path if
+                    // the path is not absolute yet.
+                    const oneBasedOriginalColumn = original.column == null ? original.column : original.column + 1
+                    return `${PathUtils.formatPathMapping(resolve(path, original.source), original.line, oneBasedOriginalColumn)} <- ${PathUtils.formatPathMapping(path, line, column)}`
+                } catch (e) {
                     // do nothing
                 }
             }
 
             return PathUtils.formatPathMapping(path, line, column) || prefix
-        });
+        })
 
-        return msg + '\n'
-    };
+        if (indentation) {
+            msg = indentation + msg.replace(/\n/g, '\n' + indentation)
+        }
+
+        return config.formatError ? config.formatError(msg) : msg + '\n'
+    }
 }
 
 /**
@@ -105,7 +131,7 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
     baseReporterDecorator(this)
     const self = this
 
-    const formatError = createFormatError(config, emitter)
+    const formatError = createErrorFormatter(config, emitter, SourceMapConsumer)
 
     const END_KOTLIN_TEST = "'--END_KOTLIN_TEST--"
 
@@ -138,6 +164,7 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
     };
 
     this.onBrowserLog = (browser, log, type) => {
+        this.checkBrowserResult(browser)
         const browserResult = this.browserResults[browser.id];
 
         if (log.startsWith(END_KOTLIN_TEST)) {
@@ -153,6 +180,7 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
     };
 
     this.specSuccess = function (browser, result) {
+        this.checkBrowserResult(browser)
         const log = this.getLog(browser, result)
         const testName = result.description
 
@@ -165,6 +193,7 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
     }
 
     this.specFailure = function (browser, result) {
+        this.checkBrowserResult(browser)
         const log = this.getLog(browser, result)
         const testName = result.description
 
@@ -175,15 +204,16 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
         });
 
         log.push(formatMessage(TEST_FAILED, testName, "FAILED",
-                               result.log
-                                   .map(log => formatError(log))
-                                   .join('\n\n')
+            result.log
+                .map(log => formatError(log))
+                .join('\n\n')
         ));
 
         log.push(formatMessage(TEST_END, testName, result.time))
     }
 
     this.specSkipped = function (browser, result) {
+        this.checkBrowserResult(browser)
         const log = this.getLog(browser, result)
         const testName = result.description
 
@@ -201,6 +231,12 @@ const KarmaKotlinReporter = function (baseReporterDecorator, config, emitter) {
             self.flushLogs(browserResult)
         })
         self.write(formatMessage(BLOCK_CLOSED, 'JavaScript Unit Tests'))
+    }
+
+    this.checkBrowserResult = function (browser) {
+        if (!this.browserResults[browser.id]) {
+            initializeBrowser(browser)
+        }
     }
 
     this.getLog = function (browser, result) {

@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
+import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageSupportForLowerings
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFileSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -27,10 +28,12 @@ interface LoggingContext {
     fun log(message: () -> String)
 }
 
-interface CommonBackendContext : BackendContext, LoggingContext {
-    override val ir: Ir<CommonBackendContext>
-
+interface ErrorReportingContext {
     fun report(element: IrElement?, irFile: IrFile?, message: String, isError: Boolean)
+}
+
+interface CommonBackendContext : BackendContext, LoggingContext, ErrorReportingContext {
+    override val ir: Ir<CommonBackendContext>
 
     val configuration: CompilerConfiguration
     val scriptMode: Boolean
@@ -70,11 +73,19 @@ interface CommonBackendContext : BackendContext, LoggingContext {
     val optimizeNullChecksUsingKotlinNullability: Boolean
         get() = true
 
+    fun remapMultiFieldValueClassStructure(
+        oldFunction: IrFunction, newFunction: IrFunction,
+        parametersMappingOrNull: Map<IrValueParameter, IrValueParameter>?
+    ) = Unit
+
     /**
      * See [InlineClassesUtils].
      */
     val inlineClassesUtils: InlineClassesUtils
         get() = DefaultInlineClassesUtils
+
+    val partialLinkageSupport: PartialLinkageSupportForLowerings
+        get() = PartialLinkageSupportForLowerings.DISABLED
 }
 
 /**

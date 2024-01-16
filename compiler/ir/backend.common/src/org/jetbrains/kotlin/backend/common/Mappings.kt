@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -19,6 +19,8 @@ interface Mapping {
     val capturedFields: Delegate<IrClass, Collection<IrField>>
     val capturedConstructors: Delegate<IrConstructor, IrConstructor>
     val reflectedNameAccessor: Delegate<IrClass, IrSimpleFunction>
+    val suspendFunctionsToFunctionWithContinuations: Delegate<IrSimpleFunction, IrSimpleFunction>
+    val functionWithContinuationsToSuspendFunctions: Delegate<IrSimpleFunction, IrSimpleFunction>
 
     abstract class Delegate<K : IrDeclaration, V> {
         abstract operator fun get(key: K): V?
@@ -42,6 +44,8 @@ interface DelegateFactory {
 }
 
 object DefaultDelegateFactory : DelegateFactory {
+    fun <K : IrDeclaration, V> newDeclarationToValueMapping(): Mapping.Delegate<K, V> = newMappingImpl()
+
     override fun <K : IrDeclaration, V : IrDeclaration> newDeclarationToDeclarationMapping(): Mapping.Delegate<K, V> = newMappingImpl()
 
     override fun <K : IrDeclaration, V : Collection<IrDeclaration>> newDeclarationToDeclarationCollectionMapping(): Mapping.Delegate<K, V> = newMappingImpl()
@@ -75,6 +79,8 @@ open class DefaultMapping(delegateFactory: DelegateFactory = DefaultDelegateFact
     override val capturedFields: Mapping.Delegate<IrClass, Collection<IrField>> = delegateFactory.newDeclarationToDeclarationCollectionMapping()
     override val capturedConstructors: Mapping.Delegate<IrConstructor, IrConstructor> = delegateFactory.newDeclarationToDeclarationMapping()
     override val reflectedNameAccessor: Mapping.Delegate<IrClass, IrSimpleFunction> = delegateFactory.newDeclarationToDeclarationMapping()
+    override val suspendFunctionsToFunctionWithContinuations: Mapping.Delegate<IrSimpleFunction, IrSimpleFunction> = delegateFactory.newDeclarationToDeclarationMapping()
+    override val functionWithContinuationsToSuspendFunctions: Mapping.Delegate<IrSimpleFunction, IrSimpleFunction> = delegateFactory.newDeclarationToDeclarationMapping()
 }
 
 fun <V : Any> KMutableProperty0<V?>.getOrPut(fn: () -> V) = this.get() ?: fn().also {

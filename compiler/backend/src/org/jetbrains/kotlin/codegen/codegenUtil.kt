@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.codegen.coroutines.CONTINUATION_ASM_TYPE
 import org.jetbrains.kotlin.codegen.coroutines.unwrapInitialDescriptorForSuspendFunction
 import org.jetbrains.kotlin.codegen.inline.NUMBERED_FUNCTION_PREFIX
 import org.jetbrains.kotlin.codegen.inline.ReificationArgument
+import org.jetbrains.kotlin.codegen.inline.ReifiedTypeParametersUsages
 import org.jetbrains.kotlin.codegen.intrinsics.TypeIntrinsics
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
@@ -316,7 +317,7 @@ val CallableDescriptor.arity: Int
             (if (extensionReceiverParameter != null) 1 else 0) +
             (if (dispatchReceiverParameter != null) 1 else 0)
 
-fun FqName.topLevelClassInternalName() = JvmClassName.byClassId(ClassId(parent(), shortName())).internalName
+fun FqName.topLevelClassInternalName() = JvmClassName.internalNameByClassId(ClassId(parent(), shortName()))
 fun FqName.topLevelClassAsmType(): Type = Type.getObjectType(topLevelClassInternalName())
 
 fun initializeVariablesForDestructuredLambdaParameters(codegen: ExpressionCodegen, valueParameters: List<ValueParameterDescriptor>, endLabel: Label?) {
@@ -386,6 +387,7 @@ fun TypeSystemCommonBackendContext.extractReificationArgument(initialType: Kotli
     val isNullable = type.isMarkedNullable()
     while (type.isArrayOrNullableArray()) {
         arrayDepth++
+        // TODO: warn that nullability info on argument will be lost?
         val argument = type.getArgument(0)
         if (argument.isStarProjection()) return null
         type = argument.getType()
@@ -395,6 +397,24 @@ fun TypeSystemCommonBackendContext.extractReificationArgument(initialType: Kotli
     if (!typeParameter.isReified()) return null
     return Pair(typeParameter, ReificationArgument(typeParameter.getName().asString(), isNullable, arrayDepth))
 }
+
+fun TypeSystemCommonBackendContext.extractUsedReifiedParameters(type: KotlinTypeMarker): ReifiedTypeParametersUsages =
+    ReifiedTypeParametersUsages().apply {
+        fun KotlinTypeMarker.visit() {
+            val typeParameter = typeConstructor().getTypeParameterClassifier()
+            if (typeParameter == null) {
+                for (argument in getArguments()) {
+                    if (!argument.isStarProjection()) {
+                        argument.getType().visit()
+                    }
+                }
+            } else if (typeParameter.isReified()) {
+                addUsedReifiedParameter(typeParameter.getName().asString())
+            }
+        }
+
+        type.visit()
+    }
 
 fun unwrapInitialSignatureDescriptor(function: FunctionDescriptor): FunctionDescriptor =
     function.initialSignatureDescriptor ?: function
@@ -573,7 +593,7 @@ private fun generateLambdaForRunSuspend(
     )
 
     lambdaBuilder.defineClass(
-        originElement, state.classFileVersion,
+        originElement, state.config.classFileVersion,
         ACC_FINAL or ACC_SUPER or ACC_SYNTHETIC,
         internalName, null,
         AsmTypes.LAMBDA.internalName,
@@ -654,9 +674,9 @@ private fun generateLambdaForRunSuspend(
         visitEnd()
     }
 
-    writeSyntheticClassMetadata(lambdaBuilder, state, false)
+    writeSyntheticClassMetadata(lambdaBuilder, state.config, false)
 
-    lambdaBuilder.done()
+    lambdaBuilder.done(state.config.generateSmapCopyToAnnotation)
     return lambdaBuilder.thisName
 }
 

@@ -19,7 +19,9 @@ import org.jetbrains.kotlin.psi.KtTypeReference
 public abstract class KtTypeProvider : KtAnalysisSessionComponent() {
     public abstract val builtinTypes: KtBuiltinTypes
 
-    public abstract fun approximateToSuperPublicDenotableType(type: KtType): KtType?
+    public abstract fun approximateToSuperPublicDenotableType(type: KtType, approximateLocalTypes: Boolean): KtType?
+
+    public abstract fun approximateToSubPublicDenotableType(type: KtType, approximateLocalTypes: Boolean): KtType?
 
     public abstract fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType
 
@@ -40,6 +42,8 @@ public abstract class KtTypeProvider : KtAnalysisSessionComponent() {
     public abstract fun getAllSuperTypes(type: KtType, shouldApproximate: Boolean): List<KtType>
 
     public abstract fun getDispatchReceiverType(symbol: KtCallableSymbol): KtType?
+
+    public abstract fun getArrayElementType(type: KtType): KtType?
 }
 
 public interface KtTypeProviderMixIn : KtAnalysisSessionMixIn {
@@ -47,16 +51,28 @@ public interface KtTypeProviderMixIn : KtAnalysisSessionMixIn {
         get() = withValidityAssertion { analysisSession.typeProvider.builtinTypes }
 
     /**
-     * Approximates [KtType] with the a supertype which can be rendered in a source code
+     * Approximates [KtType] with a supertype which can be rendered in a source code
      *
      * Return `null` if the type do not need approximation and can be rendered as is
-     * Otherwise, for type `T` return type `S` such `T <: S` and `T` and every it type argument is [org.jetbrains.kotlin.analysis.api.types.KtDenotableType]`
+     * Otherwise, for type `T` return type `S` such `T <: S` and `T` and every type argument is denotable
      */
-    public fun KtType.approximateToSuperPublicDenotable(): KtType? =
-        withValidityAssertion { analysisSession.typeProvider.approximateToSuperPublicDenotableType(this) }
+    public fun KtType.approximateToSuperPublicDenotable(approximateLocalTypes: Boolean): KtType? =
+        withValidityAssertion { analysisSession.typeProvider.approximateToSuperPublicDenotableType(this, approximateLocalTypes) }
 
-    public fun KtType.approximateToSuperPublicDenotableOrSelf(): KtType =
-        withValidityAssertion { approximateToSuperPublicDenotable() ?: this }
+    /**
+     * Approximates [KtType] with a subtype which can be rendered in a source code
+     *
+     * Return `null` if the type do not need approximation and can be rendered as is
+     * Otherwise, for type `T` return type `S` such `S <: T` and `T` and every type argument is denotable
+     */
+    public fun KtType.approximateToSubPublicDenotable(approximateLocalTypes: Boolean): KtType? =
+        withValidityAssertion { analysisSession.typeProvider.approximateToSubPublicDenotableType(this, approximateLocalTypes) }
+
+    public fun KtType.approximateToSubPublicDenotableOrSelf(approximateLocalTypes: Boolean): KtType =
+        withValidityAssertion { approximateToSubPublicDenotable(approximateLocalTypes) ?: this }
+
+    public fun KtType.approximateToSuperPublicDenotableOrSelf(approximateLocalTypes: Boolean): KtType =
+        withValidityAssertion { approximateToSuperPublicDenotable(approximateLocalTypes) ?: this }
 
     public fun KtNamedClassOrObjectSymbol.buildSelfClassType(): KtType =
         withValidityAssertion { analysisSession.typeProvider.buildSelfClassType(this) }
@@ -138,6 +154,12 @@ public interface KtTypeProviderMixIn : KtAnalysisSessionMixIn {
     @Deprecated("Avoid using this function")
     public fun KtCallableSymbol.getDispatchReceiverType(): KtType? =
         withValidityAssertion { analysisSession.typeProvider.getDispatchReceiverType(this) }
+
+    /**
+     * If provided [KtType] is a primitive type array or [Array], returns the type of the array's elements. Otherwise, returns null.
+     */
+    public fun KtType.getArrayElementType(): KtType? =
+        withValidityAssertion { analysisSession.typeProvider.getArrayElementType(this) }
 }
 
 @Suppress("PropertyName")

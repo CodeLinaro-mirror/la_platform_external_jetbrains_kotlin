@@ -14,14 +14,21 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.ir.util.render
 
+/**
+ * The base class for all non-public (wrt linkage) symbols.
+ *
+ * Its [signature] is always `null`.
+ *
+ * TODO: Merge with [IrPublicSymbolBase] ([KT-44721](https://youtrack.jetbrains.com/issue/KT-44721))
+ */
 @OptIn(ObsoleteDescriptorBasedAPI::class)
-abstract class IrSymbolBase<out D : DeclarationDescriptor>(
-    private val _descriptor: D?
+abstract class IrSymbolBase<out Descriptor : DeclarationDescriptor>(
+    private val _descriptor: Descriptor?
 ) : IrSymbol {
     @ObsoleteDescriptorBasedAPI
     @Suppress("UNCHECKED_CAST")
-    override val descriptor: D
-        get() = _descriptor ?: (owner as IrDeclaration).toIrBasedDescriptor() as D
+    override val descriptor: Descriptor
+        get() = _descriptor ?: (owner as IrDeclaration).toIrBasedDescriptor() as Descriptor
 
     @ObsoleteDescriptorBasedAPI
     override val hasDescriptor: Boolean
@@ -34,8 +41,11 @@ abstract class IrSymbolBase<out D : DeclarationDescriptor>(
     }
 }
 
-abstract class IrBindableSymbolBase<out D : DeclarationDescriptor, B : IrSymbolOwner>(descriptor: D?) :
-    IrBindableSymbol<D, B>, IrSymbolBase<D>(descriptor) {
+abstract class IrBindableSymbolBase<out Descriptor, Owner>(
+    descriptor: Descriptor?,
+) : IrSymbolBase<Descriptor>(descriptor), IrBindableSymbol<Descriptor, Owner>
+        where Descriptor : DeclarationDescriptor,
+              Owner : IrSymbolOwner {
 
     init {
         assert(descriptor == null || isOriginalDescriptor(descriptor)) {
@@ -54,15 +64,15 @@ abstract class IrBindableSymbolBase<out D : DeclarationDescriptor, B : IrSymbolO
         descriptor is ValueParameterDescriptor && isOriginalDescriptor(descriptor.containingDeclaration) ||
                 descriptor == descriptor.original
 
-    private var _owner: B? = null
-    override val owner: B
-        get() = _owner ?: throw IllegalStateException("Symbol with ${javaClass.simpleName} is unbound")
+    private var _owner: Owner? = null
+    override val owner: Owner
+        get() = _owner ?: error("${javaClass.simpleName} is unbound. Signature: $signature")
 
-    override fun bind(owner: B) {
+    override fun bind(owner: Owner) {
         if (_owner == null) {
             _owner = owner
         } else {
-            throw IllegalStateException("${javaClass.simpleName} is already bound: ${_owner?.render()}")
+            error("${javaClass.simpleName} is already bound. Signature: $signature. Owner: ${_owner?.render()}")
         }
     }
 

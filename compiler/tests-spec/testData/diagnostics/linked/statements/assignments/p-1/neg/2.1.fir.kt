@@ -1,6 +1,15 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_VARIABLE -ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE -UNUSED_VALUE -UNUSED_PARAMETER -UNUSED_EXPRESSION
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS SPEC TEST (NEGATIVE)
+ *
+ * SPEC VERSION: 0.1-222
+ * MAIN LINK: statements, assignments -> paragraph 1 -> sentence 2
+ * NUMBER: 1
+ * DESCRIPTION: Both left-hand and right-hand sides of an assignment must be expressions
+ */
+
 
 /*
  * TESTCASE NUMBER: 1
@@ -55,5 +64,5 @@ fun case3() {
 fun case4() {
     <!VARIABLE_EXPECTED!>for (x in 1..2) {}<!>  = TODO();
 
-    <!VARIABLE_EXPECTED!>while (false) { }<!> = TODO()
+    <!EXPRESSION_EXPECTED, VARIABLE_EXPECTED!>while (false) { }<!> = TODO()
 }

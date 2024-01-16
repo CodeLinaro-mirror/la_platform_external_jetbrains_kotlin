@@ -29,15 +29,17 @@ import org.jetbrains.kotlin.fir.declarations.utils.isOperator
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirWhileLoop
-import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.references.isError
 import org.jetbrains.kotlin.fir.resolve.calls.UnsafeCall
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguityError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableCandidateError
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableWrongReceiver
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
+import org.jetbrains.kotlin.util.OperatorNameConventions
 
 object FirForLoopChecker : FirBlockChecker() {
     override fun check(expression: FirBlock, context: CheckerContext, reporter: DiagnosticReporter) {
@@ -102,8 +104,9 @@ object FirForLoopChecker : FirBlockChecker() {
         noneApplicableFactory: KtDiagnosticFactory1<Collection<FirBasedSymbol<*>>>? = null,
         unsafeCallFactory: KtDiagnosticFactory0? = null,
     ): Boolean {
-        when (val calleeReference = call.calleeReference) {
-            is FirErrorNamedReference -> {
+        val calleeReference = call.calleeReference
+        when {
+            calleeReference.isError() -> {
                 when (val diagnostic = calleeReference.diagnostic) {
                     is ConeAmbiguityError -> if (diagnostic.applicability.isSuccess) {
                         reporter.reportOn(reportSource, ambiguityFactory, diagnostic.candidates.map { it.symbol }, context)
@@ -112,6 +115,17 @@ object FirForLoopChecker : FirBlockChecker() {
                     }
                     is ConeUnresolvedNameError -> {
                         reporter.reportOn(reportSource, missingFactory, context)
+                    }
+                    is ConeInapplicableWrongReceiver -> when {
+                        noneApplicableFactory != null -> {
+                            reporter.reportOn(reportSource, noneApplicableFactory, diagnostic.candidateSymbols, context)
+                        }
+                        calleeReference.name == OperatorNameConventions.ITERATOR -> {
+                            reporter.reportOn(reportSource, missingFactory, context)
+                        }
+                        else -> {
+                            error("ConeInapplicableWrongReceiver, but no diagnostic reported")
+                        }
                     }
                     is ConeInapplicableCandidateError -> {
                         if (unsafeCallFactory != null || noneApplicableFactory != null) {
@@ -134,7 +148,7 @@ object FirForLoopChecker : FirBlockChecker() {
                 }
                 return true
             }
-            is FirResolvedNamedReference -> {
+            calleeReference is FirResolvedNamedReference -> {
                 val symbol = calleeReference.resolvedSymbol
                 if (symbol is FirNamedFunctionSymbol) {
                     if (!symbol.isOperator) {

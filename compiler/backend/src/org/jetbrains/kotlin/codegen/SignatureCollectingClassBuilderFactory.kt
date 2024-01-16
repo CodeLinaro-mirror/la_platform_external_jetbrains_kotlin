@@ -18,7 +18,6 @@ package org.jetbrains.kotlin.codegen
 
 import com.intellij.psi.PsiElement
 import com.intellij.util.containers.MultiMap
-import org.jetbrains.kotlin.codegen.state.JvmMethodExceptionTypes
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.ConflictingJvmDeclarationsData
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.MemberKind
@@ -63,7 +62,7 @@ abstract class SignatureCollectingClassBuilderFactory(
             return super.newField(origin, access, name, desc, signature, value)
         }
 
-        override fun newMethod(origin: JvmDeclarationOrigin, access: Int, name: String, desc: String, signature: String?, exceptions: JvmMethodExceptionTypes): MethodVisitor {
+        override fun newMethod(origin: JvmDeclarationOrigin, access: Int, name: String, desc: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
             signatures.putValue(RawSignature(name, desc, MemberKind.METHOD), origin)
             if (!shouldGenerate(origin)) {
                 return AbstractClassBuilder.EMPTY_METHOD_VISITOR
@@ -71,18 +70,19 @@ abstract class SignatureCollectingClassBuilderFactory(
             return super.newMethod(origin, access, name, desc, signature, exceptions)
         }
 
-        override fun done() {
+        override fun done(generateSmapCopyToAnnotation: Boolean) {
             for ((signature, elementsAndDescriptors) in signatures.entrySet()) {
                 if (elementsAndDescriptors.size == 1) continue // no clash
                 handleClashingSignatures(ConflictingJvmDeclarationsData(
                         classInternalName,
                         classCreatedFor,
                         signature,
-                        elementsAndDescriptors
+                        elementsAndDescriptors,
+                        elementsAndDescriptors.mapNotNull(JvmDeclarationOrigin::descriptor),
                 ))
             }
             onClassDone(classCreatedFor, classInternalName, signatures)
-            super.done()
+            super.done(generateSmapCopyToAnnotation)
         }
 
     }

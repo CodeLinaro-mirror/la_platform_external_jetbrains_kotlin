@@ -9,11 +9,28 @@ kotlin {
         nodejs()
     }
 }
+val commonMainFullSources by task<Sync> {
+    dependsOn(":prepare:build.version:writeStdlibVersion")
+
+    val sources = listOf(
+        "libraries/stdlib/common/src/",
+        "libraries/stdlib/src/kotlin/",
+        "libraries/stdlib/unsigned/",
+        "core/builtins/src/kotlin/internal/",
+    )
+
+    sources.forEach { path ->
+        from("$rootDir/$path") {
+            into(path.dropLastWhile { it != '/' })
+        }
+    }
+
+    into("$buildDir/commonMainFullSources")
+}
 
 val commonMainSources by task<Sync> {
-    dependsOn(":kotlin-stdlib-js-ir:commonMainSources")
+    dependsOn(commonMainFullSources)
     from {
-        val fullCommonMainSources = tasks.getByPath(":kotlin-stdlib-js-ir:commonMainSources")
         exclude(
             listOf(
                 "libraries/stdlib/unsigned/src/kotlin/UByteArray.kt",
@@ -42,51 +59,54 @@ val commonMainSources by task<Sync> {
                 "libraries/stdlib/common/src/kotlin/collections/**",
                 "libraries/stdlib/common/src/kotlin/ioH.kt",
                 "libraries/stdlib/src/kotlin/collections/**",
+                "libraries/stdlib/src/kotlin/io/**",
                 "libraries/stdlib/src/kotlin/properties/Delegates.kt",
                 "libraries/stdlib/src/kotlin/random/URandom.kt",
                 "libraries/stdlib/src/kotlin/text/**",
                 "libraries/stdlib/src/kotlin/time/**",
                 "libraries/stdlib/src/kotlin/util/KotlinVersion.kt",
-                "libraries/stdlib/src/kotlin/util/Tuples.kt"
+                "libraries/stdlib/src/kotlin/util/Tuples.kt",
+                "libraries/stdlib/src/kotlin/enums/**"
             )
         )
-        fullCommonMainSources.outputs.files.singleFile
+        commonMainFullSources.get().outputs.files.singleFile
     }
 
     into("$buildDir/commonMainSources")
 }
 
 val commonMainCollectionSources by task<Sync> {
-    dependsOn(":kotlin-stdlib-js-ir:commonMainSources")
+    dependsOn(commonMainFullSources)
     from {
-        val fullCommonMainSources = tasks.getByPath(":kotlin-stdlib-js-ir:commonMainSources")
         include("libraries/stdlib/src/kotlin/collections/PrimitiveIterators.kt")
-        fullCommonMainSources.outputs.files.singleFile
+        commonMainFullSources.get().outputs.files.singleFile
     }
 
     into("$buildDir/commonMainCollectionSources")
 }
 
 val jsMainSources by task<Sync> {
-    dependsOn(":kotlin-stdlib-js-ir:jsMainSources")
+    dependsOn(":kotlin-stdlib:prepareJsIrMainSources")
 
     from {
-        val fullJsMainSources = tasks.getByPath(":kotlin-stdlib-js-ir:jsMainSources")
+        val fullJsMainSources = tasks.getByPath(":kotlin-stdlib:prepareJsIrMainSources")
         exclude(
             listOf(
                 "libraries/stdlib/js/src/org.w3c/**",
                 "libraries/stdlib/js/src/kotlin/char.kt",
-                "libraries/stdlib/js/src/kotlin/collections.kt",
+                "libraries/stdlib/js/src/kotlin/collectionJs.kt",
                 "libraries/stdlib/js/src/kotlin/collections/**",
                 "libraries/stdlib/js/src/kotlin/time/**",
                 "libraries/stdlib/js/src/kotlin/console.kt",
                 "libraries/stdlib/js/src/kotlin/coreDeprecated.kt",
                 "libraries/stdlib/js/src/kotlin/date.kt",
-                "libraries/stdlib/js/src/kotlin/grouping.kt",
+                "libraries/stdlib/js/src/kotlin/GroupingJs.kt",
+                "libraries/stdlib/js/src/kotlin/ItemArrayLike.kt",
+                "libraries/stdlib/js/src/kotlin/io/**",
                 "libraries/stdlib/js/src/kotlin/json.kt",
                 "libraries/stdlib/js/src/kotlin/promise.kt",
                 "libraries/stdlib/js/src/kotlin/regexp.kt",
-                "libraries/stdlib/js/src/kotlin/sequence.kt",
+                "libraries/stdlib/js/src/kotlin/sequenceJs.kt",
                 "libraries/stdlib/js/src/kotlin/throwableExtensions.kt",
                 "libraries/stdlib/js/src/kotlin/text/**",
                 "libraries/stdlib/js/src/kotlin/reflect/KTypeHelpers.kt",
@@ -95,7 +115,8 @@ val jsMainSources by task<Sync> {
                 "libraries/stdlib/js/src/kotlin/dom/**",
                 "libraries/stdlib/js/src/kotlin/browser/**",
                 "libraries/stdlib/js/src/kotlinx/dom/**",
-                "libraries/stdlib/js/src/kotlinx/browser/**"
+                "libraries/stdlib/js/src/kotlinx/browser/**",
+                "libraries/stdlib/js/src/kotlin/enums/**"
             )
         )
         fullJsMainSources.outputs.files.singleFile
@@ -120,11 +141,11 @@ val jsMainSources by task<Sync> {
 
 kotlin {
     sourceSets {
-        val commonMain by getting {
+        named("commonMain") {
             kotlin.srcDir(files(commonMainSources.map { it.destinationDir }))
             kotlin.srcDir(files(commonMainCollectionSources.map { it.destinationDir }))
         }
-        val jsMain by getting {
+        named("jsMain") {
             kotlin.srcDir(files(jsMainSources.map { it.destinationDir }))
         }
     }
@@ -138,7 +159,6 @@ tasks.withType<KotlinCompile<*>> {
         "-opt-in=kotlin.RequiresOptIn",
         "-opt-in=kotlin.ExperimentalUnsignedTypes",
         "-opt-in=kotlin.ExperimentalStdlibApi",
-        "-XXLanguage:+RangeUntilOperator",
     )
 }
 

@@ -1,13 +1,17 @@
 KtBackingFieldSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  contextReceivers: []
   isExtension: false
   name: field
   origin: PROPERTY_BACKING_FIELD
   owningProperty: KtKotlinPropertySymbol(/x)
-  receiverType: null
-  returnType: kotlin/Int
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Int
   symbolKind: LOCAL
-  getContainingModule: Could not render due to java.lang.IllegalStateException: Unexpected KtSymbol KtFe10DescSyntheticFieldSymbol
-
+  typeParameters: []
+  getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

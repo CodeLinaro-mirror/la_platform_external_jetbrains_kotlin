@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,23 +7,26 @@ package org.jetbrains.kotlin.fir.analysis.checkers.extended
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
-import org.jetbrains.kotlin.fir.analysis.checkers.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.diagnostics.visibilityModifier
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.context.findClosest
+import org.jetbrains.kotlin.fir.analysis.checkers.findClosestClassOrObject
+import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.syntax.FirDeclarationSyntaxChecker
-import org.jetbrains.kotlin.fir.analysis.diagnostics.*
+import org.jetbrains.kotlin.fir.analysis.checkers.toVisibilityOrNull
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.declarations.utils.isEnumClass
-import org.jetbrains.kotlin.fir.declarations.utils.isOverride
-import org.jetbrains.kotlin.fir.declarations.utils.isSealed
-import org.jetbrains.kotlin.fir.declarations.utils.visibility
-import org.jetbrains.kotlin.fir.scopes.*
+import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
+import org.jetbrains.kotlin.fir.scopes.processOverriddenProperties
+import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
@@ -58,20 +61,18 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
     ) {
         var setterImplicitVisibility: Visibility? = null
 
-        context.withDeclaration(property) {
-            property.setter?.let { setter ->
-                val visibility = setter.implicitVisibility(it)
-                setterImplicitVisibility = visibility
-                checkElementAndReport(setter, visibility, property, it, reporter)
-            }
+        property.setter?.let { setter ->
+            val visibility = setter.implicitVisibility(context)
+            setterImplicitVisibility = visibility
+            checkElementAndReport(setter, visibility, property, context, reporter)
+        }
 
-            property.getter?.let { getter ->
-                checkElementAndReport(getter, property, it, reporter)
-            }
+        property.getter?.let { getter ->
+            checkElementAndReport(getter, property, context, reporter)
+        }
 
-            property.backingField?.let { field ->
-                checkElementAndReport(field, property, it, reporter)
-            }
+        property.backingField?.let { field ->
+            checkElementAndReport(field, property, context, reporter)
         }
 
         if (property.canMakeSetterMoreAccessible(setterImplicitVisibility)) {
@@ -116,20 +117,29 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
             return
         }
 
-        val isAccessorWithSameVisibility = element is FirPropertyAccessor
-                && element.visibility == context.containingPropertyVisibility
-
-        if (element !is FirMemberDeclaration && !isAccessorWithSameVisibility) {
+        if (element !is FirMemberDeclaration) {
             return
         }
 
         val explicitVisibility = element.source?.explicitVisibility
         val isHidden = explicitVisibility.isEffectivelyHiddenBy(containingMemberDeclaration)
-
-        if (explicitVisibility != implicitVisibility && !isHidden) {
+        if (isHidden) {
+            reportElement(element, context, reporter)
             return
         }
 
+        // In explicit API mode, `public` is explicitly required.
+        val explicitApiMode = context.languageVersionSettings.getFlag(AnalysisFlags.explicitApiMode)
+        if (explicitApiMode != ExplicitApiMode.DISABLED && explicitVisibility == Visibilities.Public) {
+            return
+        }
+
+        if (explicitVisibility == implicitVisibility) {
+            reportElement(element, context, reporter)
+        }
+    }
+
+    private fun reportElement(element: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         reporter.reportOn(element.source, FirErrors.REDUNDANT_VISIBILITY_MODIFIER, context)
     }
 
@@ -182,13 +192,10 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
         return when {
             this is FirPropertyAccessor
                     && isSetter
-                    && context.containingDeclarations.size >= 2
-                    && context.containingDeclarations.asReversed()[1] is FirClass
-                    && propertySymbol?.isOverride == true -> findPropertyAccessorVisibility(this, context)
+                    && context.containingDeclarations.last() is FirClass
+                    && propertySymbol.isOverride -> findPropertyAccessorVisibility(this, context)
 
-            this is FirPropertyAccessor -> {
-                context.findClosest<FirProperty>()?.visibility ?: Visibilities.DEFAULT_VISIBILITY
-            }
+            this is FirPropertyAccessor -> propertySymbol.visibility
 
             this is FirConstructor -> {
                 val classSymbol = this.getContainingClassSymbol(context.session)
@@ -234,12 +241,13 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
 
     private fun findPropertyAccessorVisibility(accessor: FirPropertyAccessor, context: CheckerContext): Visibility {
         val containingClass = context.findClosestClassOrObject()?.symbol ?: return Visibilities.Public
-        val propertySymbol = accessor.propertySymbol ?: return Visibilities.Public
+        val propertySymbol = accessor.propertySymbol
 
         val scope = containingClass.unsubstitutedScope(
             context.sessionHolder.session,
             context.sessionHolder.scopeSession,
-            withForcedTypeCalculator = false
+            withForcedTypeCalculator = false,
+            memberRequiredPhase = FirResolvePhase.STATUS,
         )
 
         return findBiggestVisibility { checkVisibility ->
@@ -257,7 +265,8 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
         val scope = containingClass.unsubstitutedScope(
             context.sessionHolder.session,
             context.sessionHolder.scopeSession,
-            withForcedTypeCalculator = false
+            withForcedTypeCalculator = false,
+            memberRequiredPhase = FirResolvePhase.STATUS,
         )
 
         return findBiggestVisibility {
@@ -272,7 +281,8 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
         val scope = currentClassSymbol.unsubstitutedScope(
             context.sessionHolder.session,
             context.sessionHolder.scopeSession,
-            withForcedTypeCalculator = false
+            withForcedTypeCalculator = false,
+            memberRequiredPhase = FirResolvePhase.STATUS,
         )
 
         return findBiggestVisibility {
@@ -280,7 +290,4 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
             scope.processOverriddenFunctions(function.symbol, it)
         }
     }
-
-    private val CheckerContext.containingPropertyVisibility
-        get() = (this.containingDeclarations.last() as? FirProperty)?.visibility
 }

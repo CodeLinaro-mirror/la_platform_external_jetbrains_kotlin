@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.diagnostics
 import com.intellij.lang.ASTNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
+import com.intellij.psi.tree.IElementType
 import com.intellij.psi.tree.TokenSet
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
@@ -64,7 +65,7 @@ object PositioningStrategies {
     val SUPERTYPES_LIST: PositioningStrategy<PsiElement> = object : PositioningStrategy<PsiElement>() {
         override fun mark(element: PsiElement): List<TextRange> {
             val supertypes = ((
-                    element as? KtClass
+                    element as? KtClassOrObject
                     ) ?: return markElement(element)
                     ).superTypeListEntries
             return if (supertypes.isEmpty())
@@ -151,6 +152,20 @@ object PositioningStrategies {
 
                     return markRange(startElement, nameIdentifier)
                 }
+                return markElement(nameIdentifier)
+            }
+            if (element is KtNamedFunction) {
+                return DECLARATION_SIGNATURE.mark(element)
+            }
+            return DEFAULT.mark(element)
+        }
+    }
+
+    @JvmField
+    val DECLARATION_NAME_ONLY: PositioningStrategy<KtNamedDeclaration> = object : DeclarationHeader<KtNamedDeclaration>() {
+        override fun mark(element: KtNamedDeclaration): List<TextRange> {
+            val nameIdentifier = element.nameIdentifier
+            if (nameIdentifier != null) {
                 return markElement(nameIdentifier)
             }
             if (element is KtNamedFunction) {
@@ -248,9 +263,9 @@ object PositioningStrategies {
     val TYPE_PARAMETERS_OR_DECLARATION_SIGNATURE: PositioningStrategy<KtDeclaration> = object : PositioningStrategy<KtDeclaration>() {
         override fun mark(element: KtDeclaration): List<TextRange> {
             if (element is KtTypeParameterListOwner) {
-                val jetTypeParameterList = element.typeParameterList
-                if (jetTypeParameterList != null) {
-                    return markElement(jetTypeParameterList)
+                val ktTypeParameterList = element.typeParameterList
+                if (ktTypeParameterList != null) {
+                    return markElement(ktTypeParameterList)
                 }
             }
             return DECLARATION_SIGNATURE.mark(element)
@@ -258,43 +273,63 @@ object PositioningStrategies {
     }
 
     @JvmField
-    val ABSTRACT_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.ABSTRACT_KEYWORD)
+    val ABSTRACT_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.ABSTRACT_KEYWORD)
 
     @JvmField
-    val OPEN_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.OPEN_KEYWORD)
+    val OPEN_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.OPEN_KEYWORD)
 
     @JvmField
-    val OVERRIDE_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.OVERRIDE_KEYWORD)
+    val OVERRIDE_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.OVERRIDE_KEYWORD)
 
     @JvmField
-    val PRIVATE_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.PRIVATE_KEYWORD)
+    val PRIVATE_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.PRIVATE_KEYWORD)
 
     @JvmField
-    val LATEINIT_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.LATEINIT_KEYWORD)
+    val LATEINIT_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.LATEINIT_KEYWORD)
 
     @JvmField
     val VARIANCE_MODIFIER: PositioningStrategy<KtModifierListOwner> = projectionPosition()
 
     @JvmField
-    val CONST_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.CONST_KEYWORD)
+    val CONST_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.CONST_KEYWORD)
 
     @JvmField
-    val FUN_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.FUN_KEYWORD)
+    val FUN_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.FUN_KEYWORD)
 
     @JvmField
-    val SUSPEND_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.SUSPEND_KEYWORD)
+    val SUSPEND_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.SUSPEND_KEYWORD)
 
     @JvmField
-    val DATA_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.DATA_KEYWORD)
+    val DATA_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.DATA_KEYWORD)
 
     @JvmField
-    val OPERATOR_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.OPERATOR_KEYWORD)
+    val OPERATOR_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.OPERATOR_KEYWORD)
 
     @JvmField
-    val ENUM_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.ENUM_KEYWORD)
+    val ENUM_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.ENUM_KEYWORD)
 
     @JvmField
-    val TAILREC_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.TAILREC_KEYWORD)
+    val TAILREC_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.TAILREC_KEYWORD)
+
+    @JvmField
+    val EXTERNAL_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.EXTERNAL_KEYWORD)
+
+    @JvmField
+    val EXPECT_ACTUAL_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.EXPECT_KEYWORD, KtTokens.ACTUAL_KEYWORD)
 
     @JvmField
     val OBJECT_KEYWORD: PositioningStrategy<KtObjectDeclaration> = object : PositioningStrategy<KtObjectDeclaration>() {
@@ -354,7 +389,7 @@ object PositioningStrategies {
     fun modifierSetPosition(vararg tokens: KtModifierKeywordToken): PositioningStrategy<KtModifierListOwner> {
         return object : PositioningStrategy<KtModifierListOwner>() {
             override fun mark(element: KtModifierListOwner): List<TextRange> {
-                val modifierList = element.modifierList.sure { "No modifier list, but modifier has been found by the analyzer" }
+                val modifierList = element.modifierList ?: return DEFAULT.mark(element)
 
                 for (token in tokens) {
                     val modifier = modifierList.getModifier(token)
@@ -363,7 +398,7 @@ object PositioningStrategies {
                     }
                 }
 
-                throw IllegalStateException("None of the modifiers is found: " + listOf(*tokens))
+                return DEFAULT.mark(element)
             }
         }
     }
@@ -400,6 +435,8 @@ object PositioningStrategies {
     }
 
     private open class ModifierSetBasedPositioningStrategy(private val modifierSet: TokenSet) : PositioningStrategy<KtModifierListOwner>() {
+        constructor(vararg tokens: IElementType) : this(TokenSet.create(*tokens))
+
         protected fun markModifier(element: KtModifierListOwner?): List<TextRange>? =
             modifierSet.types.mapNotNull {
                 element?.modifierList?.getModifier(it as KtModifierKeywordToken)?.textRange
@@ -429,7 +466,7 @@ object PositioningStrategies {
         }
     }
 
-    private class InlineFunPositioningStrategy : ModifierSetBasedPositioningStrategy(TokenSet.create(KtTokens.INLINE_KEYWORD)) {
+    private class InlineFunPositioningStrategy : ModifierSetBasedPositioningStrategy(KtTokens.INLINE_KEYWORD) {
         override fun mark(element: KtModifierListOwner): List<TextRange> {
             if (element is KtProperty) {
                 return markModifier(element.getter) ?: markModifier(element.setter) ?: super.mark(element)
@@ -446,15 +483,15 @@ object PositioningStrategies {
 
     @JvmField
     val INLINE_OR_VALUE_MODIFIER: PositioningStrategy<KtModifierListOwner> =
-        ModifierSetBasedPositioningStrategy(TokenSet.create(KtTokens.INLINE_KEYWORD, KtTokens.VALUE_KEYWORD))
+        ModifierSetBasedPositioningStrategy(KtTokens.INLINE_KEYWORD, KtTokens.VALUE_KEYWORD)
 
     @JvmField
     val INNER_MODIFIER: PositioningStrategy<KtModifierListOwner> =
-        ModifierSetBasedPositioningStrategy(TokenSet.create(KtTokens.INNER_KEYWORD))
+        ModifierSetBasedPositioningStrategy(KtTokens.INNER_KEYWORD)
 
     @JvmField
     val INLINE_PARAMETER_MODIFIER: PositioningStrategy<KtModifierListOwner> =
-        ModifierSetBasedPositioningStrategy(TokenSet.create(KtTokens.NOINLINE_KEYWORD, KtTokens.CROSSINLINE_KEYWORD))
+        ModifierSetBasedPositioningStrategy(KtTokens.NOINLINE_KEYWORD, KtTokens.CROSSINLINE_KEYWORD)
 
     @JvmField
     val INLINE_FUN_MODIFIER: PositioningStrategy<KtModifierListOwner> = InlineFunPositioningStrategy()
@@ -471,6 +508,15 @@ object PositioningStrategies {
         override fun mark(element: KtParameter): List<TextRange> {
             return markNode(element.defaultValue!!.node)
         }
+    }
+
+    @JvmField
+    val PARAMETERS_WITH_DEFAULT_VALUE: PositioningStrategy<KtFunction> = object : PositioningStrategy<KtFunction>() {
+        override fun mark(element: KtFunction): List<TextRange> =
+            element.valueParameters.filter(KtParameter::hasDefaultValue).takeIf(List<*>::isNotEmpty)?.flatMap { markNode(it.node) }
+                ?: element.valueParameterList?.let { markNode(it.node) }
+                ?: element.nameIdentifier?.let { markNode(it.node) }
+                ?: markNode(element.node)
     }
 
     @JvmField
@@ -644,9 +690,36 @@ object PositioningStrategies {
             }
             val qualifiedAccess = when (element) {
                 is KtQualifiedExpression -> element.selectorExpression ?: element
+                is KtClassOrObject -> element.getSuperTypeList() ?: element
                 else -> element
             }
-            return markElement(qualifiedAccess.findDescendantOfType<KtValueArgumentList>()?.rightParenthesis ?: qualifiedAccess)
+            val argumentList = qualifiedAccess as? KtValueArgumentList
+                ?: qualifiedAccess.getChildOfType()
+            return when {
+                argumentList != null -> {
+                    val rightParenthesis = argumentList.rightParenthesis ?: return markElement(qualifiedAccess)
+                    val lastArgument = argumentList.children.findLast { it is KtValueArgument }
+                    if (lastArgument != null) {
+                        markRange(lastArgument, rightParenthesis)
+                    } else {
+                        val leftParenthesis = argumentList.leftParenthesis
+                        markRange(leftParenthesis ?: qualifiedAccess, rightParenthesis)
+                    }
+                }
+
+                qualifiedAccess is KtCallExpression -> markElement(
+                    qualifiedAccess.getChildOfType<KtNameReferenceExpression>() ?: qualifiedAccess
+                )
+
+                else -> markElement(qualifiedAccess)
+            }
+        }
+    }
+
+    @JvmField
+    val VALUE_ARGUMENTS_LIST: PositioningStrategy<KtElement> = object : PositioningStrategy<KtElement>() {
+        override fun mark(element: KtElement): List<TextRange> {
+            return markElement(element.getChildOfType<KtValueArgumentList>() ?: element)
         }
     }
 
@@ -698,14 +771,8 @@ object PositioningStrategies {
     }
 
     @JvmField
-    val COMPANION_OBJECT: PositioningStrategy<KtObjectDeclaration> = object : PositioningStrategy<KtObjectDeclaration>() {
-        override fun mark(element: KtObjectDeclaration): List<TextRange> {
-            if (element.hasModifier(KtTokens.COMPANION_KEYWORD)) {
-                return modifierSetPosition(KtTokens.COMPANION_KEYWORD).mark(element)
-            }
-            return DEFAULT.mark(element)
-        }
-    }
+    val COMPANION_OBJECT: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.COMPANION_KEYWORD)
 
     @JvmField
     val SECONDARY_CONSTRUCTOR_DELEGATION_CALL: PositioningStrategy<PsiElement> =
@@ -823,6 +890,10 @@ object PositioningStrategies {
                     is KtElement -> return mark(selectorExpression)
                 }
             }
+            if (element is KtImportDirective) {
+                element.alias?.nameIdentifier?.let { return mark(it) }
+                element.importedReference?.let { return mark(it) }
+            }
             if (element is KtTypeReference) {
                 element.typeElement?.getReferencedTypeExpression()?.let { return mark(it) }
             }
@@ -847,6 +918,11 @@ object PositioningStrategies {
                 }
             } else if (element is KtLabelReferenceExpression) {
                 return super.mark(element.getReferencedNameElement())
+            } else if (element is KtPackageDirective) {
+                val nameIdentifier = element.nameIdentifier
+                if (nameIdentifier != null) {
+                    return super.mark(nameIdentifier)
+                }
             }
 
             return DEFAULT.mark(element)
@@ -881,11 +957,19 @@ object PositioningStrategies {
     val REFERENCE_BY_QUALIFIED: PositioningStrategy<PsiElement> = FindReferencePositioningStrategy(false)
     val REFERENCED_NAME_BY_QUALIFIED: PositioningStrategy<PsiElement> = FindReferencePositioningStrategy(true)
 
-    val REIFIED_MODIFIER: PositioningStrategy<KtModifierListOwner> = modifierSetPosition(KtTokens.REIFIED_KEYWORD)
+    val REIFIED_MODIFIER: PositioningStrategy<KtModifierListOwner> =
+        ModifierSetBasedPositioningStrategy(KtTokens.REIFIED_KEYWORD)
 
-    val PROPERTY_INITIALIZER: PositioningStrategy<KtProperty> = object : PositioningStrategy<KtProperty>() {
-        override fun mark(element: KtProperty): List<TextRange> {
-            return markElement(element.initializer ?: element)
+    val PROPERTY_INITIALIZER: PositioningStrategy<KtNamedDeclaration> = object : PositioningStrategy<KtNamedDeclaration>() {
+        override fun mark(element: KtNamedDeclaration): List<TextRange> {
+            return markElement(
+                when (element) {
+                    is KtProperty -> element.initializer ?: element
+                    // Type reference is used as a target for loop variable type mismatches
+                    is KtParameter -> element.defaultValue ?: element.typeReference ?: element
+                    else -> element
+                }
+            )
         }
     }
 
@@ -903,18 +987,6 @@ object PositioningStrategies {
     val ANNOTATION_USE_SITE: PositioningStrategy<KtAnnotationEntry> = object : PositioningStrategy<KtAnnotationEntry>() {
         override fun mark(element: KtAnnotationEntry): List<TextRange> {
             return markElement(element.useSiteTarget ?: element)
-        }
-    }
-
-    val ASSIGNMENT_LHS: PositioningStrategy<PsiElement> = object : PositioningStrategy<PsiElement>() {
-        override fun mark(element: PsiElement): List<TextRange> {
-            if (element is KtBinaryExpression && element.operationToken in KtTokens.ALL_ASSIGNMENTS) {
-                element.left.let { left -> left.unwrapParenthesesLabelsAndAnnotations()?.let { return markElement(it) } }
-            }
-            if (element is KtUnaryExpression && element.operationToken in KtTokens.INCREMENT_AND_DECREMENT) {
-                element.baseExpression.let { arg -> arg.unwrapParenthesesLabelsAndAnnotations()?.let { return markElement(it) } }
-            }
-            return super.mark(element)
         }
     }
 
@@ -954,15 +1026,24 @@ object PositioningStrategies {
                 }
             }
         }
+
+        override fun isValid(element: PsiElement): Boolean = true
     }
 
     val NON_FINAL_MODIFIER_OR_NAME: PositioningStrategy<KtModifierListOwner> =
-        ModifierSetBasedPositioningStrategy(TokenSet.create(KtTokens.ABSTRACT_KEYWORD, KtTokens.OPEN_KEYWORD, KtTokens.SEALED_KEYWORD))
+        ModifierSetBasedPositioningStrategy(KtTokens.ABSTRACT_KEYWORD, KtTokens.OPEN_KEYWORD, KtTokens.SEALED_KEYWORD)
 
     val DELEGATED_SUPERTYPE_BY_KEYWORD: PositioningStrategy<KtTypeReference> = object : PositioningStrategy<KtTypeReference>() {
         override fun mark(element: KtTypeReference): List<TextRange> {
             val parent = element.parent as? KtDelegatedSuperTypeEntry ?: return super.mark(element)
             return markElement(parent.byKeywordNode.psi ?: element)
+        }
+    }
+
+    @JvmField
+    val TYPEALIAS_TYPE_REFERENCE = object : PositioningStrategy<KtTypeAlias>() {
+        override fun mark(element: KtTypeAlias): List<TextRange> {
+            return markElement(element.getTypeReference() ?: element)
         }
     }
 

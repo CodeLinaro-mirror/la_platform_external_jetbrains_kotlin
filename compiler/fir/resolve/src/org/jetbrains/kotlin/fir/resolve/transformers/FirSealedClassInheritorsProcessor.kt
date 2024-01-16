@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.getSymbolByLookupTag
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
@@ -29,17 +29,26 @@ import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.fir.withFileAnalysisExceptionWrapping
 import org.jetbrains.kotlin.name.ClassId
 
 class FirSealedClassInheritorsProcessor(
     session: FirSession,
     scopeSession: ScopeSession
-) : FirGlobalResolveProcessor(session, scopeSession) {
+) : FirGlobalResolveProcessor(session, scopeSession, FirResolvePhase.SEALED_CLASS_INHERITORS) {
     override fun process(files: Collection<FirFile>) {
         val sealedClassInheritorsMap = mutableMapOf<FirRegularClass, MutableList<ClassId>>()
         val inheritorsCollector = InheritorsCollector(session)
-        files.forEach { it.accept(inheritorsCollector, sealedClassInheritorsMap) }
-        files.forEach { it.transformSingle(InheritorsTransformer(sealedClassInheritorsMap), null) }
+        files.forEach {
+            withFileAnalysisExceptionWrapping(it) {
+                it.accept(inheritorsCollector, sealedClassInheritorsMap)
+            }
+        }
+        files.forEach {
+            withFileAnalysisExceptionWrapping(it) {
+                it.transformSingle(InheritorsTransformer(sealedClassInheritorsMap), null)
+            }
+        }
     }
 
     class InheritorsCollector(val session: FirSession) : FirDefaultVisitor<Unit, MutableMap<FirRegularClass, MutableList<ClassId>>>() {
@@ -73,7 +82,7 @@ class FirSealedClassInheritorsProcessor(
             return when (classLikeSymbol) {
                 is FirRegularClassSymbol -> classLikeSymbol.fir
                 is FirTypeAliasSymbol -> {
-                    classLikeSymbol.ensureResolved(FirResolvePhase.SUPER_TYPES)
+                    classLikeSymbol.lazyResolveToPhase(FirResolvePhase.SUPER_TYPES)
                     extractClassFromTypeRef(symbolProvider, classLikeSymbol.fir.expandedTypeRef)
                 }
                 else -> null
@@ -87,7 +96,9 @@ class FirSealedClassInheritorsProcessor(
         }
 
         override fun transformFile(file: FirFile, data: Any?): FirFile {
-            return (file.transformChildren(this, data) as FirFile)
+            return withFileAnalysisExceptionWrapping(file) {
+                file.transformChildren(this, data) as FirFile
+            }
         }
 
         override fun transformRegularClass(regularClass: FirRegularClass, data: Any?): FirStatement {

@@ -6,16 +6,17 @@
 package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.ir.util.inlineFunction
+import org.jetbrains.kotlin.ir.util.innerInlinedBlockOrThis
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.builders.irGetObject
+import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrBlockBodyImpl
 import org.jetbrains.kotlin.ir.types.isNullable
 import org.jetbrains.kotlin.ir.types.isNullableNothing
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
@@ -38,7 +39,7 @@ internal class ReturnsInsertionLowering(val context: Context) : FileLoweringPass
                 body as IrBlockBody
                 context.createIrBuilder(declaration.symbol, declaration.endOffset, declaration.endOffset).run {
                     if (declaration is IrConstructor || declaration.returnType == context.irBuiltIns.unitType) {
-                        body.statements += irReturn(irGetObject(symbols.unit))
+                        body.statements += irReturn(irCall(symbols.theUnitInstance, context.irBuiltIns.unitType))
                     } else if (declaration.returnType.isNullable()) {
                         // this is a workaround for KT-42832
                         val typeOperatorCall = body.statements.lastOrNull() as? IrTypeOperatorCall
@@ -53,10 +54,11 @@ internal class ReturnsInsertionLowering(val context: Context) : FileLoweringPass
             override fun visitBlock(expression: IrBlock) {
                 expression.acceptChildrenVoid(this)
                 if (expression !is IrReturnableBlock) return
-                if (expression.inlineFunctionSymbol?.owner?.returnType == context.irBuiltIns.unitType) {
-                    val offset = (expression.statements.lastOrNull() ?: expression).endOffset
+                if (expression.inlineFunction?.returnType == context.irBuiltIns.unitType) {
+                    val container = expression.innerInlinedBlockOrThis.statements
+                    val offset = (container.lastOrNull() ?: expression).endOffset
                     context.createIrBuilder(expression.symbol, offset, offset).run {
-                        expression.statements += irReturn(irGetObject(symbols.unit))
+                        container += irReturn(irCall(symbols.theUnitInstance, context.irBuiltIns.unitType))
                     }
                 }
             }

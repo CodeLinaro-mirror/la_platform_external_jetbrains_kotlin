@@ -14,7 +14,7 @@ enum class LanguageFeature(
     val sinceVersion: LanguageVersion?,
     val sinceApiVersion: ApiVersion = ApiVersion.KOTLIN_1_0,
     val hintUrl: String? = null,
-    val defaultState: State = State.ENABLED,
+    internal val isEnabledWithWarning: Boolean = false,
     val kind: Kind = OTHER // NB: default value OTHER doesn't force pre-releaseness (see KDoc)
 ) {
     // Note: names of these entries are also used in diagnostic tests and in user-visible messages (see presentableText below)
@@ -42,6 +42,11 @@ enum class LanguageFeature(
     TypeInferenceOnGenericsForCallableReferences(KOTLIN_1_1),
     NoDelegationToJavaDefaultInterfaceMembers(KOTLIN_1_1),
     DefaultImportOfPackageKotlinComparisons(KOTLIN_1_1),
+    Coroutines(
+        KOTLIN_1_1, ApiVersion.KOTLIN_1_1,
+        "https://kotlinlang.org/docs/diagnostics/experimental-coroutines",
+        isEnabledWithWarning = true
+    ),
 
     // 1.2
 
@@ -93,6 +98,7 @@ enum class LanguageFeature(
     NewCapturedReceiverFieldNamingConvention(KOTLIN_1_3, kind = BUG_FIX),
     ExtendedMainConvention(KOTLIN_1_3),
     ExperimentalBuilderInference(KOTLIN_1_3),
+    InlineClasses(KOTLIN_1_3, isEnabledWithWarning = true, kind = UNSTABLE_FEATURE),
 
     // 1.4
 
@@ -123,7 +129,6 @@ enum class LanguageFeature(
     ProperFinally(KOTLIN_1_4, kind = BUG_FIX),
     AllowAssigningArrayElementsToVarargsInNamedFormForFunctions(KOTLIN_1_4),
     AllowNullOperatorsForResult(KOTLIN_1_4),
-    AllowResultInReturnType(KOTLIN_1_4, defaultState = State.DISABLED),
     PreferJavaFieldOverload(KOTLIN_1_4),
     AllowContractsForNonOverridableMembers(KOTLIN_1_4),
     AllowReifiedGenericsInContracts(KOTLIN_1_4),
@@ -133,7 +138,7 @@ enum class LanguageFeature(
     FunctionalInterfaceConversion(KOTLIN_1_4, kind = UNSTABLE_FEATURE),
     GenerateJvmOverloadsAsFinal(KOTLIN_1_4),
     MangleClassMembersReturningInlineClasses(KOTLIN_1_4),
-    ImproveReportingDiagnosticsOnProtectedMembersOfBaseClass(KOTLIN_1_4, kind = BUG_FIX, defaultState = State.ENABLED),
+    ImproveReportingDiagnosticsOnProtectedMembersOfBaseClass(KOTLIN_1_4, kind = BUG_FIX),
 
     NewInference(KOTLIN_1_4),
 
@@ -144,9 +149,6 @@ enum class LanguageFeature(
     FunctionReferenceWithDefaultValueAsOtherType(KOTLIN_1_4),
     OverloadResolutionByLambdaReturnType(KOTLIN_1_4),
     ContractsOnCallsWithImplicitReceiver(KOTLIN_1_4),
-    BooleanElvisBoundSmartCasts(KOTLIN_1_3, defaultState = State.DISABLED), // see KT-26357 for details
-    NewDataFlowForTryExpressions(KOTLIN_1_4, defaultState = State.DISABLED),
-    ReferencesToSyntheticJavaProperties(KOTLIN_1_3, defaultState = State.DISABLED),
     // ^----------------------------------------------------------------------^
 
     // 1.5
@@ -157,27 +159,22 @@ enum class LanguageFeature(
     ProhibitVarargAsArrayAfterSamArgument(KOTLIN_1_5, kind = BUG_FIX),
     CorrectSourceMappingSyntax(KOTLIN_1_5, kind = UNSTABLE_FEATURE),
     ProperArrayConventionSetterWithDefaultCalls(KOTLIN_1_5, kind = OTHER),
-    DisableCompatibilityModeForNewInference(KOTLIN_1_5, defaultState = State.DISABLED),
-    AdaptedCallableReferenceAgainstReflectiveType(KOTLIN_1_5, defaultState = State.DISABLED),
+    DisableCompatibilityModeForNewInference(null),
+    AdaptedCallableReferenceAgainstReflectiveType(null),
     InferenceCompatibility(KOTLIN_1_5, kind = BUG_FIX),
     RequiredPrimaryConstructorDelegationCallInEnums(KOTLIN_1_5, kind = BUG_FIX),
     ApproximateAnonymousReturnTypesInPrivateInlineFunctions(KOTLIN_1_5, kind = BUG_FIX),
     ForbidReferencingToUnderscoreNamedParameterOfCatchBlock(KOTLIN_1_5, kind = BUG_FIX),
     UseCorrectExecutionOrderForVarargArguments(KOTLIN_1_5, kind = BUG_FIX),
     JvmRecordSupport(KOTLIN_1_5),
-    AllowNullOperatorsForResultAndResultReturnTypeByDefault(KOTLIN_1_5, defaultState = State.ENABLED),
+    AllowNullOperatorsForResultAndResultReturnTypeByDefault(KOTLIN_1_5),
     AllowSealedInheritorsInDifferentFilesOfSamePackage(KOTLIN_1_5),
     SealedInterfaces(KOTLIN_1_5),
     JvmIrEnabledByDefault(KOTLIN_1_5),
-    JvmInlineValueClasses(KOTLIN_1_5, defaultState = State.ENABLED, kind = OTHER),
-    SuspendFunctionsInFunInterfaces(KOTLIN_1_5, defaultState = State.ENABLED, kind = OTHER),
-    SamWrapperClassesAreSynthetic(KOTLIN_1_5, defaultState = State.ENABLED, kind = BUG_FIX),
+    JvmInlineValueClasses(KOTLIN_1_5, kind = OTHER),
+    SuspendFunctionsInFunInterfaces(KOTLIN_1_5, kind = OTHER),
+    SamWrapperClassesAreSynthetic(KOTLIN_1_5, kind = BUG_FIX),
     StrictOnlyInputTypesChecks(KOTLIN_1_5),
-
-    JsEnableExtensionFunctionInExternals(KOTLIN_1_5, defaultState = State.DISABLED, kind = OTHER),
-
-    // Disabled until the breaking change is approved by the committee, see KT-10884.
-    PackagePrivateFileClassesWithAllPrivateMembers(KOTLIN_1_5, defaultState = State.DISABLED),
 
     // 1.6
 
@@ -185,7 +182,6 @@ enum class LanguageFeature(
     PrivateInFileEffectiveVisibility(KOTLIN_1_6, kind = BUG_FIX),
     ProhibitSelfCallsInNestedObjects(KOTLIN_1_6, kind = BUG_FIX),
     ProperCheckAnnotationsTargetInTypeUsePositions(KOTLIN_1_6, kind = BUG_FIX),
-
     SuspendFunctionAsSupertype(KOTLIN_1_6),
     UnrestrictedBuilderInference(KOTLIN_1_6),
     ClassTypeParameterAnnotations(KOTLIN_1_6),
@@ -243,74 +239,146 @@ enum class LanguageFeature(
     // 1.8
 
     DontLoseDiagnosticsDuringOverloadResolutionByReturnType(KOTLIN_1_8),
-    ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated(KOTLIN_1_8, kind = BUG_FIX), // KT-36770
     ProhibitConfusingSyntaxInWhenBranches(KOTLIN_1_8, kind = BUG_FIX), // KT-48385
     UseConsistentRulesForPrivateConstructorsOfSealedClasses(sinceVersion = KOTLIN_1_8, kind = BUG_FIX), // KT-44866
     ProgressionsChangingResolve(KOTLIN_1_8), // KT-49276
     AbstractClassMemberNotImplementedWithIntermediateAbstractClass(KOTLIN_1_8, kind = BUG_FIX), // KT-45508
-    ForbidSuperDelegationToAbstractFakeOverride(KOTLIN_1_8), // KT-49017
-    ForbidSuperDelegationToAbstractAnyMethod(KOTLIN_1_8), // KT-38078
+    ForbidSuperDelegationToAbstractAnyMethod(KOTLIN_1_8, kind = BUG_FIX), // KT-38078
     ProperEqualityChecksInBuilderInferenceCalls(KOTLIN_1_8, kind = BUG_FIX),
     ProhibitNonExhaustiveIfInRhsOfElvis(KOTLIN_1_8, kind = BUG_FIX), // KT-44705
-    ProhibitAccessToEnumCompanionMembersInEnumConstructorCall(KOTLIN_1_8, kind = BUG_FIX), // KT-49110
     ReportMissingUpperBoundsViolatedErrorOnAbbreviationAtSupertypes(KOTLIN_1_8, kind = BUG_FIX), // KT-29168
-    IgnoreNullabilityForErasedValueParameters(KOTLIN_1_8, kind = BUG_FIX),
-    ForbidUsingExtensionPropertyTypeParameterInDelegate(KOTLIN_1_8, kind = BUG_FIX),
-    ModifierNonBuiltinSuspendFunError(KOTLIN_1_8),
-    SynchronizedSuspendError(KOTLIN_1_8),
-    EnableDfaWarningsInK2(KOTLIN_1_8, kind = OTHER), // KT-50965
+    ForbidUsingExtensionPropertyTypeParameterInDelegate(KOTLIN_1_8, kind = BUG_FIX), // KT-24643
+    SynchronizedSuspendError(KOTLIN_1_8, kind = BUG_FIX), // KT-48516
     ReportNonVarargSpreadOnGenericCalls(KOTLIN_1_8, kind = BUG_FIX), // KT-48162
-    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_8, kind = BUG_FIX),
     RangeUntilOperator(KOTLIN_1_8), // KT-15613
     GenericInlineClassParameter(sinceVersion = KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-32162
-    DataObjects(KOTLIN_1_8), // KT-4107
 
     // 1.9
 
-    DisableCheckingChangedProgressionsResolve(KOTLIN_1_9), // KT-49276
     ProhibitIllegalValueParameterUsageInDefaultArguments(KOTLIN_1_9, kind = BUG_FIX), // KT-25694
     ProhibitConstructorCallOnFunctionalSupertype(KOTLIN_1_9, kind = BUG_FIX), // KT-46344
     ProhibitArrayLiteralsInCompanionOfAnnotation(KOTLIN_1_9, kind = BUG_FIX), // KT-39041
     ProhibitCyclesInAnnotations(KOTLIN_1_9, kind = BUG_FIX), // KT-47932
-    ForbidExtensionFunctionTypeOnNonFunctionTypes(KOTLIN_1_9), // related to KT-43527
+    ForbidExtensionFunctionTypeOnNonFunctionTypes(KOTLIN_1_9, kind = BUG_FIX), // related to KT-43527
     ProhibitEnumDeclaringClass(KOTLIN_1_9, kind = BUG_FIX), // KT-49653
     StopPropagatingDeprecationThroughOverrides(KOTLIN_1_9, kind = BUG_FIX), // KT-47902
     ReportTypeVarianceConflictOnQualifierArguments(KOTLIN_1_9, kind = BUG_FIX), // KT-50947
     ReportErrorsOnRecursiveTypeInsidePlusAssignment(KOTLIN_1_9, kind = BUG_FIX), // KT-48546
-    ForbidInferringTypeVariablesIntoEmptyIntersection(KOTLIN_1_9, kind = BUG_FIX), // KT-51221
     ForbidExtensionCallsOnInlineFunctionalParameters(KOTLIN_1_9, kind = BUG_FIX), // KT-52502
-    ForbidInferringPostponedTypeVariableIntoDeclaredUpperBound(KOTLIN_1_9, kind = BUG_FIX), // KT-47986
     SkipStandaloneScriptsInSourceRoots(KOTLIN_1_9, kind = OTHER), // KT-52525
+    ModifierNonBuiltinSuspendFunError(KOTLIN_1_9, kind = BUG_FIX), // KT-49264
+    EnumEntries(KOTLIN_1_9, sinceApiVersion = ApiVersion.KOTLIN_1_8, kind = UNSTABLE_FEATURE), // KT-48872
+    ForbidSuperDelegationToAbstractFakeOverride(KOTLIN_1_9, kind = BUG_FIX), // KT-49017
+    DataObjects(KOTLIN_1_9), // KT-4107
+    ProhibitAccessToEnumCompanionMembersInEnumConstructorCall(KOTLIN_1_9, kind = BUG_FIX), // KT-49110
+    RefineTypeCheckingOnAssignmentsToJavaFields(KOTLIN_1_9, kind = BUG_FIX), // KT-46727
+    ValueClassesSecondaryConstructorWithBody(sinceVersion = KOTLIN_1_9, kind = UNSTABLE_FEATURE), // KT-55333
+    NativeJsProhibitLateinitIsInitializedIntrinsicWithoutPrivateAccess(KOTLIN_1_9, kind = BUG_FIX), // KT-27002
+    TakeIntoAccountEffectivelyFinalInMustBeInitializedCheck(KOTLIN_1_9, kind = OTHER), // KT-58587
+    ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated(sinceVersion = KOTLIN_1_9), // KT-36770
+    NoSourceCodeInNotNullAssertionExceptions(KOTLIN_1_9, sinceApiVersion = ApiVersion.KOTLIN_1_4, kind = OTHER), // KT-57570
 
-    // Disabled for indefinite time. See KT-48535 and related discussion
-    ApproximateIntegerLiteralTypesInReceiverPosition(sinceVersion = null),
+    // 1.9.20 KMP stabilization. Unfortunately, we don't have 1.9.20 LV. So LV=1.9 is the best we can do.
+    // At least there won't be false positives for 1.8 users
+    MultiplatformRestrictions(KOTLIN_1_9, kind = BUG_FIX), // KT-61668
+
+    // End of 1.* language features --------------------------------------------------
+
+    // 2.0
+
+    EnhanceNullabilityOfPrimitiveArrays(KOTLIN_2_0, kind = BUG_FIX), // KT-54521
+
+    /**
+     * This feature is highly related to ForbidInferringTypeVariablesIntoEmptyIntersection and while they belong to the same LV,
+     * they might be used interchangeably.
+     *
+     * But there might be the case that we may postpone ForbidInferringTypeVariablesIntoEmptyIntersection but leave AllowEmptyIntersectionsInResultTypeResolver in 2.0.
+     * In that case, we would stick to the simple behavior of just inferring empty intersection (without complicated logic of filtering out expected constraints),
+     * but we would report a warning instead of an error (until ForbidInferringTypeVariablesIntoEmptyIntersection is enabled).
+     */
+    AllowEmptyIntersectionsInResultTypeResolver(KOTLIN_2_0, kind = OTHER), // KT-51221
+    ProhibitSmartcastsOnPropertyFromAlienBaseClassInheritedInInvisibleClass(KOTLIN_2_0, kind = BUG_FIX), // KT-57290
+    ForbidInferringPostponedTypeVariableIntoDeclaredUpperBound(KOTLIN_2_0, kind = BUG_FIX), // KT-47986
+    ProhibitUseSiteGetTargetAnnotations(KOTLIN_2_0, kind = BUG_FIX), // KT-15470
+    KeepNullabilityWhenApproximatingLocalType(KOTLIN_2_0, kind = BUG_FIX), // KT-53982
+    ProhibitAccessToInvisibleSetterFromDerivedClass(KOTLIN_2_0, kind = BUG_FIX), // KT-56662
+    ProhibitOpenValDeferredInitialization(KOTLIN_2_0, kind = BUG_FIX), // KT-57553
+    ProhibitMissedMustBeInitializedWhenThereIsNoPrimaryConstructor(KOTLIN_2_0, kind = BUG_FIX), // KT-58472
+    MangleCallsToJavaMethodsWithValueClasses(KOTLIN_2_0, kind = OTHER), // KT-55945
+    ForbidInferringTypeVariablesIntoEmptyIntersection(KOTLIN_2_0, kind = BUG_FIX), // KT-51221
+    ProhibitDefaultDefaultArgumentsInExpectActualizedByFakeOverride(KOTLIN_2_0, kind = BUG_FIX), // KT-62036
+
+    // 2.1
+
+    ReferencesToSyntheticJavaProperties(KOTLIN_2_1), // KT-8575
+    ProhibitImplementingVarByInheritedVal(KOTLIN_2_1, kind = BUG_FIX), // KT-56779
+    PrioritizedEnumEntries(KOTLIN_2_1, kind = UNSTABLE_FEATURE), // KT-58920
+    ProhibitInlineModifierOnPrimaryConstructorParameters(KOTLIN_2_1, kind = BUG_FIX), // KT-59664
+
+    // End of 2.* language features --------------------------------------------------
+
+    // Disabled for indefinite time. See KT-53751
+    IgnoreNullabilityForErasedValueParameters(sinceVersion = null, kind = BUG_FIX),
 
     // Disabled for indefinite time. Disables restrictions of builder inference without annotation
     // Note: In 1.7.0, builder inference without annotation was introduced.
     // However, later we encountered various situations when it works incorrectly, and decided to forbid them.
     // When this feature is disabled, various errors are reported which are related to these incorrect situations.
     // When this feature is enabled, no such errors are reported.
-    NoBuilderInferenceWithoutAnnotationRestriction(sinceVersion = null, kind = OTHER, defaultState = State.DISABLED),
+    NoBuilderInferenceWithoutAnnotationRestriction(sinceVersion = null, kind = OTHER),
+
+    // Disabled for indefinite time. Forces K2 report errors (instead of warnings) for incompatible
+    // equality & identity operators in cases where K1 would report warnings or would not report anything.
+    ReportErrorsForComparisonOperators(sinceVersion = null, kind = BUG_FIX),
+
+    // Disabled for indefinite time.
+    // Disables reporting of new errors (see KT-55055, KT-55056, KT-55079) in DiagnosticReporterByTrackingStrategy.
+    // All these errors are "lost" errors which existed always, but wasn't reported before 1.9.0.
+    // When this feature is disabled, all these "lost" errors are reported properly.
+    // When this feature is enabled, no such errors are reported.
+    NoAdditionalErrorsInK1DiagnosticReporter(sinceVersion = null, kind = OTHER),
+
+    // top-level script inner classes never made any sense, but used for some time to overcome the capturing logic limitations
+    // Now capturing logic works properly, therefore the warning is reported in K2
+    // this feature will eventually switch this warning to an error
+    ProhibitScriptTopLevelInnerClasses(sinceVersion = null, kind = OTHER),
 
     // Experimental features
 
-    Coroutines(
-        KOTLIN_1_1, ApiVersion.KOTLIN_1_1,
-        "https://kotlinlang.org/docs/diagnostics/experimental-coroutines",
-        State.ENABLED_WITH_WARNING
-    ),
-    MultiPlatformProjects(sinceVersion = null, defaultState = State.DISABLED),
-    InlineClasses(KOTLIN_1_3, defaultState = State.ENABLED_WITH_WARNING, kind = UNSTABLE_FEATURE),
-    ProhibitComparisonOfIncompatibleClasses(sinceVersion = null, kind = BUG_FIX, defaultState = State.DISABLED),
-    ExplicitBackingFields(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    FunctionalTypeWithExtensionAsSupertype(sinceVersion = KOTLIN_1_6, defaultState = State.DISABLED),
-    JsAllowInvalidCharsIdentifiersEscaping(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    JsAllowValueClassesInExternals(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    ContextReceivers(sinceVersion = null, defaultState = State.DISABLED),
-    ValueClasses(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    JavaSamConversionEqualsHashCode(sinceVersion = null, defaultState = State.DISABLED, kind = UNSTABLE_FEATURE),
-    UnitConversionsOnArbitraryExpressions(sinceVersion = null, defaultState = State.DISABLED),
+    BreakContinueInInlineLambdas(null), // KT-1436
+    LightweightLambdas(null),
+    JsEnableExtensionFunctionInExternals(null, kind = OTHER),
+    PackagePrivateFileClassesWithAllPrivateMembers(null), // Disabled until the breaking change is approved by the committee, see KT-10884.
+    BooleanElvisBoundSmartCasts(null), // see KT-26357 for details
+    NewDataFlowForTryExpressions(null),
+    AllowResultInReturnType(null),
+    MultiPlatformProjects(sinceVersion = null),
+    ProhibitComparisonOfIncompatibleClasses(sinceVersion = null, kind = BUG_FIX),
+    ProhibitAllMultipleDefaultsInheritedFromSupertypes(sinceVersion = null, kind = BUG_FIX),
+    ExplicitBackingFields(sinceVersion = null, kind = UNSTABLE_FEATURE),
+    FunctionalTypeWithExtensionAsSupertype(sinceVersion = null),
+    JsAllowInvalidCharsIdentifiersEscaping(sinceVersion = null, kind = UNSTABLE_FEATURE),
+    JsAllowValueClassesInExternals(sinceVersion = null, kind = OTHER),
+    ContextReceivers(sinceVersion = null),
+    ValueClasses(sinceVersion = null, kind = UNSTABLE_FEATURE),
+    JavaSamConversionEqualsHashCode(sinceVersion = null, kind = UNSTABLE_FEATURE),
+    UnitConversionsOnArbitraryExpressions(sinceVersion = null),
+    JsAllowImplementingFunctionInterface(sinceVersion = null, kind = OTHER),
+    CustomEqualsInValueClasses(sinceVersion = null, kind = OTHER), // KT-24874
+    InlineLateinit(sinceVersion = null, kind = OTHER), // KT-23814
+    EnableDfaWarningsInK2(sinceVersion = null, kind = OTHER), // KT-50965
+    ContractSyntaxV2(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-56127
+    ImplicitSignedToUnsignedIntegerConversion(sinceVersion = null), // KT-56583
+    IntrinsicConstEvaluation(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-49303
+    DisableCheckingChangedProgressionsResolve(sinceVersion = null, kind = OTHER), // KT-49276
+    ContextSensitiveEnumResolutionInWhen(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-52774
     ;
+
+    init {
+        if (sinceVersion == null && isEnabledWithWarning) {
+            error("$this: '${::isEnabledWithWarning.name}' has no effect if the feature is disabled by default")
+        }
+    }
 
     val presentableName: String
         // E.g. "DestructuringLambdaParameters" -> ["Destructuring", "Lambda", "Parameters"] -> "destructuring lambda parameters"
@@ -321,7 +389,6 @@ enum class LanguageFeature(
     enum class State(override val description: String) : DescriptionAware {
         ENABLED("Enabled"),
         ENABLED_WITH_WARNING("Enabled with warning"),
-        ENABLED_WITH_ERROR("Disabled"), // TODO: consider dropping this and using DISABLED instead
         DISABLED("Disabled");
     }
 
@@ -398,10 +465,16 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
     KOTLIN_1_7(1, 7),
     KOTLIN_1_8(1, 8),
     KOTLIN_1_9(1, 9),
+
+    KOTLIN_2_0(2, 0),
+    KOTLIN_2_1(2, 1),
     ;
 
     override val isStable: Boolean
         get() = this <= LATEST_STABLE
+
+    val usesK2: Boolean
+        get() = this >= KOTLIN_2_0
 
     override val isDeprecated: Boolean
         get() = FIRST_SUPPORTED <= this && this < FIRST_NON_DEPRECATED
@@ -409,8 +482,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
     override val isUnsupported: Boolean
         get() = this < FIRST_SUPPORTED
 
-    override val versionString: String
-        get() = "$major.$minor"
+    override val versionString: String = "$major.$minor"
 
     override fun toString() = versionString
 
@@ -423,21 +495,21 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
             str.split(".", "-").let { if (it.size >= 2) fromVersionString("${it[0]}.${it[1]}") else null }
 
         // Version status
-        //            1.0  1.1  1.2   1.3  1.4           1.5..1.7    1.8 1.9
+        //            1.0..1.3        1.4..1.6           1.7..2.0    2.1
         // Language:  UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
         // API:       UNSUPPORTED --> DEPRECATED ------> STABLE ---> EXPERIMENTAL
 
         @JvmField
-        val FIRST_API_SUPPORTED = KOTLIN_1_3
+        val FIRST_API_SUPPORTED = KOTLIN_1_4
 
         @JvmField
-        val FIRST_SUPPORTED = KOTLIN_1_3
+        val FIRST_SUPPORTED = KOTLIN_1_4
 
         @JvmField
-        val FIRST_NON_DEPRECATED = KOTLIN_1_5
+        val FIRST_NON_DEPRECATED = KOTLIN_1_7
 
         @JvmField
-        val LATEST_STABLE = KOTLIN_1_7
+        val LATEST_STABLE = KOTLIN_2_0
     }
 }
 
@@ -460,7 +532,7 @@ interface LanguageOrApiVersion : DescriptionAware {
 }
 
 fun LanguageVersion.isStableOrReadyForPreview(): Boolean =
-    isStable
+    isStable || this == KOTLIN_1_9 || this == KOTLIN_2_0
 
 fun LanguageVersion.toKotlinVersion() = KotlinVersion(major, minor)
 
@@ -504,7 +576,7 @@ class LanguageVersionSettingsImpl @JvmOverloads constructor(
 
         val since = feature.sinceVersion
         if (since != null && languageVersion >= since && apiVersion >= feature.sinceApiVersion) {
-            return feature.defaultState
+            return if (feature.isEnabledWithWarning) LanguageFeature.State.ENABLED_WITH_WARNING else LanguageFeature.State.ENABLED
         }
 
         return LanguageFeature.State.DISABLED
@@ -512,20 +584,20 @@ class LanguageVersionSettingsImpl @JvmOverloads constructor(
 
     override fun toString() = buildString {
         append("Language = $languageVersion, API = $apiVersion")
-        specificFeatures.forEach { (feature, state) ->
+        specificFeatures.entries.sortedBy { (feature, _) -> feature.ordinal }.forEach { (feature, state) ->
             val char = when (state) {
                 LanguageFeature.State.ENABLED -> '+'
                 LanguageFeature.State.ENABLED_WITH_WARNING -> '~'
-                LanguageFeature.State.ENABLED_WITH_ERROR, LanguageFeature.State.DISABLED -> '-'
+                LanguageFeature.State.DISABLED -> '-'
             }
             append(" $char$feature")
         }
-        analysisFlags.forEach { (flag, value) ->
+        analysisFlags.entries.sortedBy { (flag, _) -> flag.toString() }.forEach { (flag, value) ->
             append(" $flag:$value")
         }
     }
 
-    override fun isPreRelease(): Boolean = !languageVersion.isStable ||
+    override fun isPreRelease(): Boolean = languageVersion.isPreRelease() ||
             specificFeatures.any { (feature, state) ->
                 state == LanguageFeature.State.ENABLED && feature.forcesPreReleaseBinariesIfEnabled()
             }
@@ -534,6 +606,12 @@ class LanguageVersionSettingsImpl @JvmOverloads constructor(
         @JvmField
         val DEFAULT = LanguageVersionSettingsImpl(LanguageVersion.LATEST_STABLE, ApiVersion.LATEST_STABLE)
     }
+}
+
+fun LanguageVersion.isPreRelease(): Boolean {
+    if (!isStable) return true
+
+    return KotlinCompilerVersion.isPreRelease() && this == LanguageVersion.LATEST_STABLE
 }
 
 fun LanguageFeature.forcesPreReleaseBinariesIfEnabled(): Boolean {

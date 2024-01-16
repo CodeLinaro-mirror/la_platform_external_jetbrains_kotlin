@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.types
 
+import org.jetbrains.kotlin.fir.renderer.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.Variance
@@ -26,6 +27,7 @@ fun ConeKotlinType.forEachType(action: (ConeKotlinType) -> Unit) {
             lowerBound.forEachType(action)
             upperBound.forEachType(action)
         }
+
         is ConeDefinitelyNotNullType -> original.forEachType(action)
         is ConeIntersectionType -> intersectedTypes.forEach { it.forEachType(action) }
         else -> typeArguments.forEach { if (it is ConeKotlinTypeProjection) it.type.forEachType(action) }
@@ -107,3 +109,23 @@ fun ConeClassLikeType.replaceArgumentsWithStarProjections(): ConeClassLikeType {
     val newArguments = Array(typeArguments.size) { ConeStarProjection }
     return withArguments(newArguments)
 }
+
+fun ConeKotlinType.renderForDebugging(): String {
+    val builder = StringBuilder()
+    ConeTypeRendererForDebugging(builder).render(this)
+    return builder.toString()
+}
+
+fun ConeKotlinType.renderReadable(): String {
+    val builder = StringBuilder()
+    ConeTypeRendererForReadability(builder) { ConeIdShortRenderer() }.render(this)
+    return builder.toString()
+}
+
+fun ConeKotlinType.renderReadableWithFqNames(): String {
+    val builder = StringBuilder()
+    ConeTypeRendererForReadability(builder) { ConeIdRendererForDiagnostics() }.render(this)
+    return builder.toString()
+}
+
+fun ConeKotlinType.hasError(): Boolean = contains { it is ConeErrorType }

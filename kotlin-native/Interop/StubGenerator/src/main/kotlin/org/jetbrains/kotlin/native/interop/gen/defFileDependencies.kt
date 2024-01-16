@@ -1,6 +1,8 @@
 package org.jetbrains.kotlin.native.interop.gen
 
+import kotlinx.cinterop.usingJvmCInteropCallbacks
 import org.jetbrains.kotlin.konan.util.DefFile
+import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
 import org.jetbrains.kotlin.native.interop.gen.jvm.KotlinPlatform
 import org.jetbrains.kotlin.native.interop.gen.jvm.buildNativeLibrary
 import org.jetbrains.kotlin.native.interop.gen.jvm.prepareTool
@@ -31,17 +33,20 @@ fun defFileDependencies(args: Array<String>, runFromDaemon: Boolean) {
             }
         }
     }
-
-    defFileDependencies(makeDependencyAssigner(targets, defFiles, runFromDaemon))
+    usingNativeMemoryAllocator {
+        usingJvmCInteropCallbacks {
+            defFileDependencies(makeDependencyAssigner(targets, defFiles, runFromDaemon))
+        }
+    }
 }
 
 private fun makeDependencyAssigner(targets: List<String>, defFiles: List<File>, runFromDaemon: Boolean) =
         CompositeDependencyAssigner(targets.map { makeDependencyAssignerForTarget(it, defFiles, runFromDaemon) })
 
 private fun makeDependencyAssignerForTarget(target: String, defFiles: List<File>, runFromDaemon: Boolean): SingleTargetDependencyAssigner {
-    val tool = prepareTool(target, KotlinPlatform.NATIVE, runFromDaemon)
     val cinteropArguments = CInteropArguments()
     cinteropArguments.argParser.parse(arrayOf())
+    val tool = prepareTool(target, KotlinPlatform.NATIVE, runFromDaemon, konanDataDir = cinteropArguments.konanDataDir)
     val libraries = defFiles.parallelStream().map {
         it to buildNativeLibrary(
                 tool,

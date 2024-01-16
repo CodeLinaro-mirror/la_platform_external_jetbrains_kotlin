@@ -51,12 +51,17 @@ fun CompilerConfiguration.setupJvmSpecificArguments(arguments: K2JVMCompilerArgu
         }
     }
 
-    val jvmTargetValue = releaseTargetArg ?: jvmTargetArg
+    val jvmTargetValue = when (releaseTargetArg) {
+        "6" -> "1.6"
+        "8" -> "1.8"
+        null -> jvmTargetArg
+        else -> releaseTargetArg
+    }
     if (jvmTargetValue != null) {
         val jvmTarget = JvmTarget.fromString(jvmTargetValue)
         if (jvmTarget != null) {
             put(JVMConfigurationKeys.JVM_TARGET, jvmTarget)
-            if (jvmTarget == JvmTarget.JVM_1_6 && !isJvmTarget6Allowed()) {
+            if (jvmTarget == JvmTarget.JVM_1_6) {
                 messageCollector.report(
                     ERROR,
                     "JVM target 1.6 is no longer supported. Please migrate to JVM target 1.8 or above"
@@ -72,14 +77,6 @@ fun CompilerConfiguration.setupJvmSpecificArguments(arguments: K2JVMCompilerArgu
 
     val jvmDefaultMode = languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode)
     val jvmTarget = get(JVMConfigurationKeys.JVM_TARGET) ?: JvmTarget.DEFAULT
-    if (jvmTarget.majorVersion < JvmTarget.JVM_1_8.majorVersion) {
-        if (jvmDefaultMode.forAllMethodsWithBody) {
-            messageCollector.report(
-                ERROR,
-                "'-Xjvm-default=${jvmDefaultMode.description}' is only supported since JVM target 1.8. Recompile with '-jvm-target 1.8'"
-            )
-        }
-    }
 
     if (jvmDefaultMode == JvmDefaultMode.ENABLE || jvmDefaultMode == JvmDefaultMode.ENABLE_WITH_DEFAULT_IMPLS) {
         messageCollector.report(
@@ -107,8 +104,8 @@ fun CompilerConfiguration.setupJvmSpecificArguments(arguments: K2JVMCompilerArgu
         }
     }
 
-    handleClosureGenerationSchemeArgument("-Xsam-conversions", arguments.samConversions, JVMConfigurationKeys.SAM_CONVERSIONS, jvmTarget)
-    handleClosureGenerationSchemeArgument("-Xlambdas", arguments.lambdas, JVMConfigurationKeys.LAMBDAS, jvmTarget)
+    handleClosureGenerationSchemeArgument("-Xsam-conversions", arguments.samConversions, JVMConfigurationKeys.SAM_CONVERSIONS)
+    handleClosureGenerationSchemeArgument("-Xlambdas", arguments.lambdas, JVMConfigurationKeys.LAMBDAS)
 
     addAll(JVMConfigurationKeys.ADDITIONAL_JAVA_MODULES, arguments.additionalJavaModules?.asList())
 }
@@ -117,26 +114,18 @@ private fun CompilerConfiguration.handleClosureGenerationSchemeArgument(
     flag: String,
     value: String?,
     key: CompilerConfigurationKey<JvmClosureGenerationScheme>,
-    jvmTarget: JvmTarget
 ) {
-    if (value != null) {
-        val parsedValue = JvmClosureGenerationScheme.fromString(value)
-        if (parsedValue != null) {
-            put(key, parsedValue)
-            if (jvmTarget < parsedValue.minJvmTarget) {
-                messageCollector.report(
-                    WARNING,
-                    "`$flag=$value` requires JVM target at least " +
-                            "${parsedValue.minJvmTarget.description} and is ignored."
-                )
-            }
-        } else {
-            messageCollector.report(
-                ERROR,
-                "Unknown `$flag` argument: ${value}\n." +
-                        "Supported arguments: ${JvmClosureGenerationScheme.values().joinToString { it.description }}"
-            )
-        }
+    if (value == null) return
+
+    val parsedValue = JvmClosureGenerationScheme.fromString(value)
+    if (parsedValue != null) {
+        put(key, parsedValue)
+    } else {
+        messageCollector.report(
+            ERROR,
+            "Unknown `$flag` argument: ${value}\n." +
+                    "Supported arguments: ${JvmClosureGenerationScheme.values().joinToString { it.description }}"
+        )
     }
 }
 
@@ -156,13 +145,19 @@ fun CompilerConfiguration.configureJdkHome(arguments: K2JVMCompilerArguments): B
             messageCollector.report(ERROR, "JDK home directory does not exist: $jdkHome")
             return false
         }
-
         messageCollector.report(LOGGING, "Using JDK home directory $jdkHome")
-
         put(JVMConfigurationKeys.JDK_HOME, jdkHome)
+    } else {
+        configureJdkHomeFromSystemProperty()
     }
 
     return true
+}
+
+fun CompilerConfiguration.configureJdkHomeFromSystemProperty() {
+    val javaHome = File(System.getProperty("java.home"))
+    messageCollector.report(LOGGING, "Using JDK home inferred from java.home: $javaHome")
+    put(JVMConfigurationKeys.JDK_HOME, javaHome)
 }
 
 fun CompilerConfiguration.configureJavaModulesContentRoots(arguments: K2JVMCompilerArguments) {
@@ -178,10 +173,26 @@ fun CompilerConfiguration.configureContentRootsFromClassPath(arguments: K2JVMCom
 }
 
 fun CompilerConfiguration.configureStandardLibs(paths: KotlinPaths?, arguments: K2JVMCompilerArguments) {
+    configureStandardLibs(
+        paths,
+        KotlinPaths::stdlibPath,
+        KotlinPaths::scriptRuntimePath,
+        KotlinPaths::reflectPath,
+        arguments
+    )
+}
+
+fun <PathProvider : Any> CompilerConfiguration.configureStandardLibs(
+    paths: PathProvider?,
+    stdlibPath: (PathProvider) -> File,
+    scriptRuntimePath: (PathProvider) -> File,
+    reflectPath: (PathProvider) -> File,
+    arguments: K2JVMCompilerArguments
+) {
     val jdkRelease = get(JVMConfigurationKeys.JDK_RELEASE)
     val isModularJava = isModularJava() && (jdkRelease == null || jdkRelease >= 9)
 
-    fun addRoot(moduleName: String, libraryName: String, getLibrary: (KotlinPaths) -> File, noLibraryArgument: String) {
+    fun addRoot(moduleName: String, libraryName: String, getLibrary: (PathProvider) -> File, noLibraryArgument: String) {
         addModularRootIfNotNull(
             isModularJava, moduleName,
             getLibraryFromHome(paths, getLibrary, libraryName, messageCollector, noLibraryArgument)
@@ -189,13 +200,13 @@ fun CompilerConfiguration.configureStandardLibs(paths: KotlinPaths?, arguments: 
     }
 
     if (!arguments.noStdlib) {
-        addRoot("kotlin.stdlib", PathUtil.KOTLIN_JAVA_STDLIB_JAR, KotlinPaths::stdlibPath, "'-no-stdlib'")
-        addRoot("kotlin.script.runtime", PathUtil.KOTLIN_JAVA_SCRIPT_RUNTIME_JAR, KotlinPaths::scriptRuntimePath, "'-no-stdlib'")
+        addRoot("kotlin.stdlib", PathUtil.KOTLIN_JAVA_STDLIB_JAR, stdlibPath, "'-no-stdlib'")
+        addRoot("kotlin.script.runtime", PathUtil.KOTLIN_JAVA_SCRIPT_RUNTIME_JAR, scriptRuntimePath, "'-no-stdlib'")
     }
     // "-no-stdlib" implies "-no-reflect": otherwise we would be able to transitively read stdlib classes through kotlin-reflect,
     // which is likely not what user wants since s/he manually provided "-no-stdlib"
     if (!arguments.noReflect && !arguments.noStdlib) {
-        addRoot("kotlin.reflect", PathUtil.KOTLIN_JAVA_REFLECT_JAR, { it.reflectPath }, "'-no-reflect' or '-no-stdlib'")
+        addRoot("kotlin.reflect", PathUtil.KOTLIN_JAVA_REFLECT_JAR, reflectPath, "'-no-reflect' or '-no-stdlib'")
     }
 }
 
@@ -235,28 +246,8 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(JVMConfigurationKeys.PARAMETERS_METADATA, arguments.javaParameters)
 
-    // TODO: ignore previous configuration value when we do not need old backend in scripting by default
-    val useOldBackend = arguments.useOldBackend || (!arguments.useIR && get(JVMConfigurationKeys.IR) == false)
-    val useIR = arguments.useK2 ||
-            if (languageVersionSettings.supportsFeature(LanguageFeature.JvmIrEnabledByDefault)) {
-                !useOldBackend
-            } else {
-                arguments.useIR && !useOldBackend
-            }
-
-    if (arguments.useOldBackend) {
-        messageCollector.report(
-            STRONG_WARNING,
-            "-Xuse-old-backend is deprecated and will be removed in a future release"
-        )
-        if (arguments.useIR) {
-            messageCollector.report(
-                STRONG_WARNING,
-                "Both -Xuse-ir and -Xuse-old-backend are passed. This is an inconsistent configuration. " +
-                        "The compiler will use the ${if (useIR) "JVM IR" else "old JVM"} backend"
-            )
-        }
-    }
+    val useOldBackend = arguments.useOldBackend
+    val useIR = arguments.useK2 || languageVersionSettings.languageVersion.usesK2 || !useOldBackend
 
     messageCollector.report(LOGGING, "Using ${if (useIR) "JVM IR" else "old JVM"} backend")
 
@@ -286,6 +277,7 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
     put(JVMConfigurationKeys.NO_KOTLIN_NOTHING_VALUE_EXCEPTION, arguments.noKotlinNothingValueException)
     put(JVMConfigurationKeys.NO_RESET_JAR_TIMESTAMPS, arguments.noResetJarTimestamps)
     put(JVMConfigurationKeys.NO_UNIFIED_NULL_CHECKS, arguments.noUnifiedNullChecks)
+    put(JVMConfigurationKeys.NO_SOURCE_DEBUG_EXTENSION, arguments.noSourceDebugExtension)
 
     put(JVMConfigurationKeys.SERIALIZE_IR, JvmSerializeIrMode.fromString(arguments.serializeIr))
 
@@ -294,7 +286,10 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(JVMConfigurationKeys.LINK_VIA_SIGNATURES, arguments.linkViaSignatures)
 
-    put(JVMConfigurationKeys.IGNORE_CONST_OPTIMIZATION_ERRORS, arguments.ignoreConstOptimizationErrors)
+    put(JVMConfigurationKeys.ENABLE_DEBUG_MODE, arguments.enableDebugMode)
+    put(JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS, arguments.noNewJavaAnnotationTargets)
+    put(JVMConfigurationKeys.OLD_INNER_CLASSES_LOGIC, arguments.oldInnerClassesLogic)
+    put(JVMConfigurationKeys.ENABLE_IR_INLINER, arguments.enableIrInliner)
 
     val assertionsMode =
         JVMAssertionsMode.fromStringOrNull(arguments.assertionsMode)
@@ -320,7 +315,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE, arguments.allowKotlinPackage)
     put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
-    put(JVMConfigurationKeys.USE_SINGLE_MODULE, arguments.singleModule)
     put(JVMConfigurationKeys.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME, arguments.useOldInlineClassesManglingScheme)
     put(JVMConfigurationKeys.ENABLE_JVM_PREVIEW, arguments.enableJvmPreview)
 
@@ -353,7 +347,6 @@ private fun parseBackendThreads(stringValue: String, messageCollector: MessageCo
 
 fun CompilerConfiguration.configureKlibPaths(arguments: K2JVMCompilerArguments) {
     val libraries = arguments.klibLibraries ?: return
-    assert(arguments.useIR && !arguments.useOldBackend) { "Klib libraries can only be used with IR backend" }
     put(JVMConfigurationKeys.KLIB_PATHS, libraries.split(File.pathSeparator.toRegex()).filterNot(String::isEmpty))
 }
 
@@ -362,6 +355,3 @@ private val CompilerConfiguration.messageCollector: MessageCollector
 
 private fun getJavaVersion(): Int =
     System.getProperty("java.specification.version")?.substringAfter('.')?.toIntOrNull() ?: 6
-
-private fun isJvmTarget6Allowed(): Boolean =
-    K2JVMCompiler::class.java.classLoader.getResource("META-INF/unsafe-allow-jvm6") != null

@@ -11,10 +11,12 @@ import org.jetbrains.kotlin.fir.caches.*
 import org.jetbrains.kotlin.fir.declarations.validate
 import org.jetbrains.kotlin.fir.ownerGenerator
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolNamesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProviderInternals
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.scopes.impl.groupExtensionsByName
+import org.jetbrains.kotlin.fir.scopes.impl.nestedClassifierScope
+import org.jetbrains.kotlin.fir.scopes.processClassifiersByName
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -29,7 +31,7 @@ class FirExtensionDeclarationsSymbolProvider private constructor(
     private val extensions: List<FirDeclarationGenerationExtension>
 ) : FirSymbolProvider(session), FirSessionComponent {
     companion object {
-        fun create(session: FirSession): FirExtensionDeclarationsSymbolProvider? {
+        fun createIfNeeded(session: FirSession): FirExtensionDeclarationsSymbolProvider? {
             val extensions = session.extensionService.declarationGenerators
             if (extensions.isEmpty()) return null
             return FirExtensionDeclarationsSymbolProvider(session, session.firCachesFactory, extensions)
@@ -54,23 +56,41 @@ class FirExtensionDeclarationsSymbolProvider private constructor(
         hasPackage(packageFqName)
     }
 
-    private val extensionsByTopLevelClassId: FirLazyValue<Map<ClassId, List<FirDeclarationGenerationExtension>>, Nothing?> =
+    private val callableNamesInPackageCache: FirLazyValue<Map<FqName, Set<Name>>> =
+        cachesFactory.createLazyValue {
+            computeNamesGroupedByPackage(
+                FirDeclarationGenerationExtension::getTopLevelCallableIds,
+                CallableId::packageName, CallableId::callableName
+            )
+        }
+
+    private val classNamesInPackageCache: FirLazyValue<Map<FqName, Set<String>>> =
+        cachesFactory.createLazyValue {
+            computeNamesGroupedByPackage(
+                FirDeclarationGenerationExtension::getTopLevelClassIds,
+                ClassId::packageFqName
+            ) { it.shortClassName.asString() }
+        }
+
+    private fun <I, N> computeNamesGroupedByPackage(
+        ids: FirDeclarationGenerationExtension.() -> Collection<I>,
+        packageFqName: (I) -> FqName,
+        shortName: (I) -> N,
+    ): Map<FqName, Set<N>> =
+        buildMap<FqName, MutableSet<N>> {
+            for (extension in extensions) {
+                for (id in extension.ids()) {
+                    getOrPut(packageFqName(id)) { mutableSetOf() }.add(shortName(id))
+                }
+            }
+        }
+
+    private val extensionsByTopLevelClassId: FirLazyValue<Map<ClassId, List<FirDeclarationGenerationExtension>>> =
         session.firCachesFactory.createLazyValue {
             extensions.flatGroupBy { it.topLevelClassIdsCache.getValue() }
         }
 
-    private val extensionsByNestedClassifierClassId: FirCache<ClassId, Map<ClassId, List<FirDeclarationGenerationExtension>>, Nothing?> =
-        session.firCachesFactory.createCache cache@{ outerClassId, _ ->
-            val outerClassSymbol = session.symbolProvider.getClassLikeSymbolByClassId(outerClassId) as? FirClassSymbol<*>
-                ?: return@cache emptyMap()
-            session.groupExtensionsByName(
-                outerClassSymbol.fir,
-                nameExtractor = { nestedClassifierNamesCache.getValue(outerClassSymbol) },
-                nameTransformer = { outerClassId.createNestedClassId(it) }
-            )
-        }
-
-    private val extensionsByTopLevelCallableId: FirLazyValue<Map<CallableId, List<FirDeclarationGenerationExtension>>, Nothing?> =
+    private val extensionsByTopLevelCallableId: FirLazyValue<Map<CallableId, List<FirDeclarationGenerationExtension>>> =
         session.firCachesFactory.createLazyValue {
             extensions.flatGroupBy { it.topLevelCallableIdsCache.getValue() }
         }
@@ -78,21 +98,34 @@ class FirExtensionDeclarationsSymbolProvider private constructor(
     // ------------------------------------------ generators ------------------------------------------
 
     private fun generateClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
-        val matchedExtensions = when {
-            classId.isNestedClass -> extensionsByNestedClassifierClassId.getValue(classId.outerClassId!!)[classId]
-            else -> extensionsByTopLevelClassId.getValue()[classId]
-        } ?: return null
-        val generatedClasses = matchedExtensions
-            .mapNotNull { generatorExtension ->
-                generatorExtension.generateClassLikeDeclaration(classId)?.also { symbol ->
-                    symbol.fir.ownerGenerator = generatorExtension
+        return when {
+            classId.isLocal -> null
+            classId.isNestedClass -> {
+                val owner = session.symbolProvider.getClassLikeSymbolByClassId(classId.outerClassId!!) as? FirClassSymbol<*> ?: return null
+                val nestedClassifierScope = session.nestedClassifierScope(owner.fir) ?: return null
+                var result: FirClassLikeSymbol<*>? = null
+                nestedClassifierScope.processClassifiersByName(classId.shortClassName) {
+                    if (it is FirClassLikeSymbol<*>) {
+                        result = it
+                    }
+                }
+                result
+            }
+            else -> {
+                val matchedExtensions = extensionsByTopLevelClassId.getValue()[classId] ?: return null
+                val generatedClasses = matchedExtensions
+                    .mapNotNull { generatorExtension ->
+                        generatorExtension.generateTopLevelClassLikeDeclaration(classId)?.also { symbol ->
+                            symbol.fir.ownerGenerator = generatorExtension
+                        }
+                    }
+                    .onEach { it.fir.validate() }
+                when (generatedClasses.size) {
+                    0 -> null
+                    1 -> generatedClasses.first()
+                    else -> error("Multiple plugins generated classes with same classId $classId\n${generatedClasses.joinToString("\n") { it.fir.render() }}")
                 }
             }
-            .onEach { it.fir.validate() }
-        return when (generatedClasses.size) {
-            0 -> null
-            1 -> generatedClasses.first()
-            else -> error("Multiple plugins generated classes with same classId $classId\n${generatedClasses.joinToString("\n") { it.fir.render() }}")
         }
     }
 
@@ -113,6 +146,19 @@ class FirExtensionDeclarationsSymbolProvider private constructor(
     }
 
     // ------------------------------------------ provider methods ------------------------------------------
+
+    override val symbolNamesProvider: FirSymbolNamesProvider = object : FirSymbolNamesProvider() {
+        override fun getTopLevelClassifierNamesInPackage(packageFqName: FqName): Set<String> =
+            classNamesInPackageCache.getValue()[packageFqName] ?: emptySet()
+
+        override fun getPackageNamesWithTopLevelCallables(): Set<String> =
+            extensions.flatMapTo(mutableSetOf()) { extension ->
+                extension.topLevelCallableIdsCache.getValue().map { it.packageName.asString() }
+            }
+
+        override fun getTopLevelCallableNamesInPackage(packageFqName: FqName): Set<Name> =
+            callableNamesInPackageCache.getValue()[packageFqName].orEmpty()
+    }
 
     override fun getClassLikeSymbolByClassId(classId: ClassId): FirClassLikeSymbol<*>? {
         return classCache.getValue(classId)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,14 +13,15 @@ import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
 
 /**
  * A non-leaf IR tree element.
- * @sample org.jetbrains.kotlin.ir.generator.IrTree.fieldAccessExpression
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.fieldAccessExpression]
  */
 abstract class IrFieldAccessExpression : IrDeclarationReference() {
-    abstract override val symbol: IrFieldSymbol
+    abstract override var symbol: IrFieldSymbol
 
-    abstract val superQualifierSymbol: IrClassSymbol?
+    abstract var superQualifierSymbol: IrClassSymbol?
 
     var receiver: IrExpression? = null
 
-    abstract val origin: IrStatementOrigin?
+    abstract var origin: IrStatementOrigin?
 }

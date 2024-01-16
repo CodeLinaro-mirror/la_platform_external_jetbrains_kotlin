@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -24,7 +24,8 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
 /**
  * A leaf IR tree element.
- * @sample org.jetbrains.kotlin.ir.generator.IrTree.class
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.class]
  */
 abstract class IrClass : IrDeclarationBase(), IrPossiblyExternalDeclaration,
         IrDeclarationWithVisibility, IrTypeParametersContainer, IrDeclarationContainer,
@@ -34,21 +35,21 @@ abstract class IrClass : IrDeclarationBase(), IrPossiblyExternalDeclaration,
 
     abstract override val symbol: IrClassSymbol
 
-    abstract val kind: ClassKind
+    abstract var kind: ClassKind
 
     abstract var modality: Modality
 
-    abstract val isCompanion: Boolean
+    abstract var isCompanion: Boolean
 
-    abstract val isInner: Boolean
+    abstract var isInner: Boolean
 
-    abstract val isData: Boolean
+    abstract var isData: Boolean
 
-    abstract val isValue: Boolean
+    abstract var isValue: Boolean
 
-    abstract val isExpect: Boolean
+    abstract var isExpect: Boolean
 
-    abstract val isFun: Boolean
+    abstract var isFun: Boolean
 
     abstract val source: SourceElement
 
@@ -58,6 +59,14 @@ abstract class IrClass : IrDeclarationBase(), IrPossiblyExternalDeclaration,
 
     abstract var valueClassRepresentation: ValueClassRepresentation<IrSimpleType>?
 
+    /**
+     * If this is a sealed class or interface, this list contains symbols of all its immediate
+     * subclasses.
+     * Otherwise, this is an empty list.
+     *
+     * NOTE: If this [IrClass] was deserialized from a klib, this list will always be empty!
+     * See [KT-54028](https://youtrack.jetbrains.com/issue/KT-54028).
+     */
     abstract var sealedSubclasses: List<IrClassSymbol>
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =

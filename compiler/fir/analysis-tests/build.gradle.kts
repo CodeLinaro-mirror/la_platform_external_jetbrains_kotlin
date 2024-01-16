@@ -21,14 +21,15 @@ dependencies {
     testApi(project(":compiler:fir:checkers"))
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
     testApi(project(":compiler:fir:checkers:checkers.js"))
+    testApi(project(":compiler:fir:checkers:checkers.native"))
     testApi(project(":compiler:fir:fir-serialization"))
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:frontend"))
 
-    testApiJUnit5()
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
 
-    testCompileOnly(project(":kotlin-reflect-api"))
-    testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":compiler:fir:fir2ir:jvm-backend"))
 
@@ -36,7 +37,10 @@ dependencies {
 
     testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
     testRuntimeOnly(commonDependency("one.util:streamex"))
-    testRuntimeOnly(commonDependency("net.java.dev.jna:jna"))
+    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.jna:jna"))
+    testRuntimeOnly(commonDependency("org.codehaus.woodstox:stax2-api"))
+    testRuntimeOnly(commonDependency("com.fasterxml:aalto-xml"))
+    testRuntimeOnly("com.jetbrains.intellij.platform:util-xml-dom:$intellijVersion") { isTransitive = false }
     testRuntimeOnly(toolsJar())
 }
 
@@ -57,10 +61,37 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 }
 
-projectTest(jUnitMode = JUnitMode.JUnit5) {
+fun Test.configureTest(configureJUnit: JUnitPlatformOptions.() -> Unit = {}) {
     dependsOn(":dist")
     workingDir = rootDir
-    useJUnitPlatform()
+    useJUnitPlatform {
+        configureJUnit()
+    }
+    useJsIrBoxTests(version = version, buildDir = "$buildDir/")
+}
+
+
+projectTest(
+    jUnitMode = JUnitMode.JUnit5,
+    defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_1_8, JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)
+) {
+    configureTest {
+        excludeTags("Jdk21Test")
+    }
+}
+
+// Separate configuration is only necessary while JDK 21 is not released, so cannot be obtained via toolchain.
+// See KT-58765 for tracking
+projectTest(
+    "jdk21Tests",
+    jUnitMode = JUnitMode.JUnit5,
+    defineJDKEnvVariables = listOf(
+        JdkMajorVersion.JDK_21_0
+    )
+) {
+    configureTest {
+        includeTags("Jdk21Test")
+    }
 }
 
 testsJar()

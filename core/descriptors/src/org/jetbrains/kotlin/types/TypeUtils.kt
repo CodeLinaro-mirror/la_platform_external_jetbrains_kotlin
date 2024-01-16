@@ -28,7 +28,6 @@ import org.jetbrains.kotlin.types.checker.*
 import org.jetbrains.kotlin.types.error.ErrorType
 import org.jetbrains.kotlin.types.model.TypeArgumentMarker
 import org.jetbrains.kotlin.types.model.TypeVariableTypeConstructorMarker
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.types.error.ErrorUtils
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
@@ -100,6 +99,15 @@ fun KotlinType?.isArrayOfNothing(): Boolean {
 
     val typeArg = arguments.firstOrNull()?.type
     return typeArg != null && KotlinBuiltIns.isNothingOrNullableNothing(typeArg)
+}
+
+fun KotlinType.isGenericArrayOfTypeParameter(): Boolean {
+    if (!KotlinBuiltIns.isArray(this)) return false
+    val argument0 = arguments[0]
+    if (argument0.isStarProjection) return false
+    val argument0type = argument0.type
+    return argument0type.isTypeParameter() ||
+            argument0type.isGenericArrayOfTypeParameter()
 }
 
 
@@ -337,7 +345,7 @@ fun SimpleType.unCapture(): UnwrappedType {
 }
 
 fun unCaptureProjection(projection: TypeProjection): TypeProjection {
-    val unCapturedProjection = projection.type.constructor.safeAs<NewCapturedTypeConstructor>()?.projection ?: projection
+    val unCapturedProjection = (projection.type.constructor as? NewCapturedTypeConstructor)?.projection ?: projection
     if (unCapturedProjection.isStarProjection || unCapturedProjection.type is ErrorType) return unCapturedProjection
 
     val newArguments = unCapturedProjection.type.arguments.map(::unCaptureProjection)

@@ -13,19 +13,21 @@ import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyAccessorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
-import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
-import org.jetbrains.kotlin.descriptors.PropertyAccessorDescriptor
-import org.jetbrains.kotlin.descriptors.PropertyDescriptor
+import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
+import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.resolve.AnnotationChecker
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
 import org.jetbrains.kotlin.resolve.deprecation.SimpleDeprecationInfo
+import org.jetbrains.kotlin.resolve.jvm.annotations.hasJvmFieldAnnotation
 import org.jetbrains.kotlin.resolve.lazy.ForceResolveUtil
 import org.jetbrains.kotlin.synthetic.SyntheticJavaPropertyDescriptor
 
@@ -42,6 +44,25 @@ internal class KtFe10SymbolInfoProvider(
     }
 
     override fun getDeprecation(symbol: KtSymbol, annotationUseSiteTarget: AnnotationUseSiteTarget?): DeprecationInfo? {
+        when (annotationUseSiteTarget) {
+            AnnotationUseSiteTarget.PROPERTY_GETTER -> {
+                if (symbol is KtPropertySymbol) {
+                    return getDeprecation(symbol.getter ?: symbol)
+                }
+            }
+            AnnotationUseSiteTarget.PROPERTY_SETTER -> {
+                if (symbol is KtPropertySymbol) {
+                    return getDeprecation(symbol.setter ?: symbol)
+                }
+            }
+            AnnotationUseSiteTarget.SETTER_PARAMETER -> {
+                if (symbol is KtPropertySymbol) {
+                    return getDeprecation(symbol.setter?.parameter ?: symbol)
+                }
+            }
+            else -> {
+            }
+        }
         return getDeprecation(symbol) // TODO
     }
 
@@ -101,6 +122,8 @@ internal class KtFe10SymbolInfoProvider(
         }
 
         if (descriptor != null) {
+            if (descriptor.hasJvmFieldAnnotation()) return descriptor.name
+
             val getter = descriptor.getter ?: return SpecialNames.NO_NAME_PROVIDED
             return Name.identifier(DescriptorUtils.getJvmName(getter) ?: JvmAbi.getterName(descriptor.name.asString()))
         }
@@ -120,11 +143,20 @@ internal class KtFe10SymbolInfoProvider(
                 return null
             }
 
+            if (descriptor.hasJvmFieldAnnotation()) return descriptor.name
+
             val setter = descriptor.setter ?: return SpecialNames.NO_NAME_PROVIDED
             return Name.identifier(DescriptorUtils.getJvmName(setter) ?: JvmAbi.setterName(descriptor.name.asString()))
         }
 
         val ktPropertyName = (symbol.psi as? KtProperty)?.takeIf { it.isVar }?.name ?: return SpecialNames.NO_NAME_PROVIDED
         return Name.identifier(JvmAbi.setterName(ktPropertyName))
+    }
+
+    override fun getAnnotationApplicableTargets(symbol: KtClassOrObjectSymbol): Set<KotlinTarget>? {
+        val descriptor = getSymbolDescriptor(symbol) as? ClassDescriptor ?: return null
+        if (descriptor.kind != ClassKind.ANNOTATION_CLASS) return null
+
+        return AnnotationChecker.applicableTargetSet(descriptor)
     }
 }

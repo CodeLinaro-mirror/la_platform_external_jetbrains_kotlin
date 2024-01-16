@@ -1,4 +1,4 @@
-// !LANGUAGE: +NewInference
+// FIR_IDENTICAL
 // !DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_VARIABLE
 
 interface Receiver

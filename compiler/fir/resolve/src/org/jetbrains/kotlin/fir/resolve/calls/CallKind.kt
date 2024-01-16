@@ -20,6 +20,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckDslScopeViolation,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
+        ProcessDynamicExtensionAnnotation,
         LowerPriorityIfDynamic,
         ConstraintSystemForks,
         CheckIncompatibleTypeVariableUpperBounds,
@@ -54,6 +55,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         EagerResolveOfCallableReferences,
         CheckLowPriorityInOverloadResolution,
         PostponedVariablesInitializerResolutionStage,
+        ProcessDynamicExtensionAnnotation,
         LowerPriorityIfDynamic,
         ConstraintSystemForks,
         CheckIncompatibleTypeVariableUpperBounds,
@@ -90,6 +92,8 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckCallableReferenceExpectedType,
         CheckLowPriorityInOverloadResolution,
         CheckIncompatibleTypeVariableUpperBounds,
+        ProcessDynamicExtensionAnnotation,
+        LowerPriorityIfDynamic,
     )
 
     object SyntheticIdForCallableReferencesResolution : CallKind(

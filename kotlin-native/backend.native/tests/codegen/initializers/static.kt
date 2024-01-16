@@ -2,7 +2,7 @@
  * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
-@file:OptIn(kotlin.ExperimentalStdlibApi::class)
+@file:OptIn(kotlin.ExperimentalStdlibApi::class, kotlin.experimental.ExperimentalNativeApi::class)
 
 package codegen.initializers.static
 
@@ -54,7 +54,7 @@ fun f() = 5
         assertEquals(20, varargGetter(2, 2, 3, 4))
         assertEquals(20, varargGetter(2, 2, 3, 4))
         if (Platform.osFamily != OsFamily.WASM) {
-            assertFailsWith<ArrayIndexOutOfBoundsException> { varargGetter(3, 2, 3, 4) }
+            assertFailsWith<IndexOutOfBoundsException> { varargGetter(3, 2, 3, 4) }
         }
     }
 }

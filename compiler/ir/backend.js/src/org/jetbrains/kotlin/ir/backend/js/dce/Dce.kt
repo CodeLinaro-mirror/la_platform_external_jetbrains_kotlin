@@ -17,11 +17,13 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
+import org.jetbrains.kotlin.utils.addIfNotNull
 
 fun eliminateDeadDeclarations(
     modules: Iterable<IrModuleFragment>,
     context: JsIrBackendContext,
     removeUnusedAssociatedObjects: Boolean = true,
+    dceDumpNameCache: DceDumpNameCache,
 ) {
     val allRoots = buildRoots(modules, context)
 
@@ -29,8 +31,8 @@ fun eliminateDeadDeclarations(
         context.configuration.getBoolean(JSConfigurationKeys.PRINT_REACHABILITY_INFO) ||
                 java.lang.Boolean.getBoolean("kotlin.js.ir.dce.print.reachability.info")
 
-    val usefulDeclarations = JsUsefulDeclarationProcessor(context, printReachabilityInfo, removeUnusedAssociatedObjects)
-        .collectDeclarations(allRoots)
+    val usefulDeclarationProcessor = JsUsefulDeclarationProcessor(context, printReachabilityInfo, removeUnusedAssociatedObjects)
+    val usefulDeclarations = usefulDeclarationProcessor.collectDeclarations(allRoots, dceDumpNameCache)
 
     val uselessDeclarationsProcessor =
         UselessDeclarationsRemover(removeUnusedAssociatedObjects, usefulDeclarations, context, context.dceRuntimeDiagnostic)
@@ -38,7 +40,7 @@ fun eliminateDeadDeclarations(
     modules.forEach { module ->
         module.files.forEach {
             it.acceptVoid(uselessDeclarationsProcessor)
-            context.polyfills.saveOnlyIntersectionOfNextDeclarationsFor(it, usefulDeclarations)
+            context.polyfills.saveOnlyIntersectionOfNextDeclarationsFor(it, usefulDeclarationProcessor.usefulPolyfilledDeclarations)
         }
     }
 }
@@ -56,6 +58,7 @@ private fun IrDeclaration.addRootsTo(
             getter?.addRootsTo(nestedVisitor, context)
             setter?.addRootsTo(nestedVisitor, context)
         }
+
         isEffectivelyExternal() -> {
             val correspondingProperty = when (this) {
                 is IrField -> correspondingPropertySymbol?.owner
@@ -67,17 +70,21 @@ private fun IrDeclaration.addRootsTo(
                 acceptVoid(nestedVisitor)
             }
         }
+
         isExported(context) -> {
             acceptVoid(nestedVisitor)
         }
+
         this is IrField -> {
             // TODO: simplify
             if ((initializer != null && !isKotlinPackage() || correspondingPropertySymbol?.owner?.isExported(context) == true) && !isConstant()) {
                 acceptVoid(nestedVisitor)
             }
         }
+
         this is IrSimpleFunction -> {
-            if (correspondingPropertySymbol?.owner?.isExported(context) == true) {
+            val correspondingProperty = correspondingPropertySymbol?.owner ?: return
+            if (correspondingProperty.isExported(context)) {
                 acceptVoid(nestedVisitor)
             }
         }
@@ -107,14 +114,11 @@ private fun buildRoots(modules: Iterable<IrModuleFragment>, context: JsIrBackend
         dceRuntimeDiagnostic.unreachableDeclarationMethod(context).owner.acceptVoid(declarationsCollector)
     }
 
-    // TODO: Generate calls to main as IR->IR lowering and reference coroutineEmptyContinuation directly
-    JsMainFunctionDetector(context).getMainFunctionOrNull(modules.last())?.let { mainFunction ->
-        add(mainFunction)
-        if (mainFunction.isLoweredSuspendFunction(context)) {
-            context.coroutineEmptyContinuation.owner.acceptVoid(declarationsCollector)
-        }
-    }
+    JsMainFunctionDetector(context).getMainFunctionOrNull(modules.last())
+        ?.let { context.mapping.mainFunctionToItsWrapper[it] }
+        ?.let { add(it) }
 
+    addIfNotNull(context.intrinsics.void.owner.backingField)
     addAll(context.testFunsPerFile.values)
     addAll(context.additionalExportedDeclarations)
 }

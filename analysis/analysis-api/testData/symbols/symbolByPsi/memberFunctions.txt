@@ -1,8 +1,12 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /A.x
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -14,21 +18,31 @@ KtFunctionSymbol:
   modality: FINAL
   name: x
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/Int
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Int
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
   visibility: Public
-  getDispatchReceiver(): A
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: A
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /A.y
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -40,13 +54,19 @@ KtFunctionSymbol:
   modality: FINAL
   name: y
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/Unit
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Unit
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
   visibility: Public
-  getDispatchReceiver(): A
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: A
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -55,7 +75,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: A
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -64,10 +87,14 @@ KtNamedClassOrObjectSymbol:
   name: A
   origin: SOURCE
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: []
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: null
   deprecationStatus: null

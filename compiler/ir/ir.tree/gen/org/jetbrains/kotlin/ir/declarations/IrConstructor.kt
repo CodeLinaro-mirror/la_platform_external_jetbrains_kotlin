@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,7 +15,8 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
 /**
  * A leaf IR tree element.
- * @sample org.jetbrains.kotlin.ir.generator.IrTree.constructor
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.constructor]
  */
 abstract class IrConstructor : IrFunction() {
     @ObsoleteDescriptorBasedAPI
@@ -23,7 +24,7 @@ abstract class IrConstructor : IrFunction() {
 
     abstract override val symbol: IrConstructorSymbol
 
-    abstract val isPrimary: Boolean
+    abstract var isPrimary: Boolean
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitConstructor(this, data)

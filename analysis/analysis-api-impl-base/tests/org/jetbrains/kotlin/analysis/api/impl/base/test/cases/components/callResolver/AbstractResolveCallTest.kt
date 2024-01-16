@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.callResolver
 
-import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.calls.KtCallInfo
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.stringRepresentation
@@ -20,7 +19,7 @@ import org.jetbrains.kotlin.test.services.assertions
 abstract class AbstractResolveCallTest : AbstractAnalysisApiBasedSingleModuleTest() {
     override fun doTestByFileStructure(ktFiles: List<KtFile>, module: TestModule, testServices: TestServices) {
         val ktFile = ktFiles.first()
-        val expression = testServices.expressionMarkerProvider.getSelectedElement(ktFile)
+        val expression = testServices.expressionMarkerProvider.getSelectedElementOfType<KtElement>(ktFile)
 
         val actual = executeOnPooledThreadInReadAction {
             analyseForTest(expression) {
@@ -30,7 +29,7 @@ abstract class AbstractResolveCallTest : AbstractAnalysisApiBasedSingleModuleTes
         testServices.assertions.assertEqualsToTestDataFileSibling(actual)
     }
 
-    private fun KtAnalysisSession.resolveCall(element: PsiElement): KtCallInfo? = when (element) {
+    private fun KtAnalysisSession.resolveCall(element: KtElement): KtCallInfo? = when (element) {
         is KtValueArgument -> element.getArgumentExpression()?.resolveCall()
         is KtDeclarationModifierList -> {
             val annotationEntry = element.annotationEntries.singleOrNull()
@@ -42,9 +41,7 @@ abstract class AbstractResolveCallTest : AbstractAnalysisApiBasedSingleModuleTes
                 ?: error("Only single annotation entry is supported for now")
             annotationEntry.resolveCall()
         }
-        is KtCallElement -> element.resolveCall()
-        is KtElement -> element.resolveCall()
-        else -> error("Selected element type (${element::class.simpleName}) is not supported for resolveCall()")
+        else -> element.resolveCall()
     }
 
 }

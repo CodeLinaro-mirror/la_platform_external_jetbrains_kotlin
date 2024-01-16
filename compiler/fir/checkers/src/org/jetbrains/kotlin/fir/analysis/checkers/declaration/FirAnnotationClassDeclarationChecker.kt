@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import org.jetbrains.kotlin.KtNodeTypes.FUN
 import org.jetbrains.kotlin.KtNodeTypes.VALUE_PARAMETER
 import org.jetbrains.kotlin.descriptors.ClassKind.ANNOTATION_CLASS
 import org.jetbrains.kotlin.descriptors.ClassKind.ENUM_CLASS
@@ -19,15 +18,16 @@ import org.jetbrains.kotlin.fir.analysis.checkers.*
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.*
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.CYCLE_IN_ANNOTATION_PARAMETER
+import org.jetbrains.kotlin.fir.declarations.getRetention
+import org.jetbrains.kotlin.fir.declarations.getRetentionAnnotation
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.name.StandardClassIds.primitiveArrayTypeByElementType
 import org.jetbrains.kotlin.name.StandardClassIds.unsignedArrayTypeByElementType
@@ -45,10 +45,11 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
             checkAnnotationClassMember(member, context, reporter)
         }
 
-        if (declaration.getRetention() != AnnotationRetention.SOURCE &&
-            KotlinTarget.EXPRESSION in declaration.getAllowedAnnotationTargets()
+        val session = context.session
+        if (declaration.getRetention(session) != AnnotationRetention.SOURCE &&
+            KotlinTarget.EXPRESSION in declaration.getAllowedAnnotationTargets(session)
         ) {
-            val target = declaration.getRetentionAnnotation() ?: declaration.getTargetAnnotation() ?: declaration
+            val target = declaration.getRetentionAnnotation(session) ?: declaration.getTargetAnnotation(session) ?: declaration
             reporter.reportOn(target.source, FirErrors.RESTRICTED_RETENTION_FOR_EXPRESSION_ANNOTATION, context)
         }
 
@@ -72,11 +73,12 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
 
                     val typeRef = parameter.returnTypeRef
                     val coneType = typeRef.coneTypeSafe<ConeLookupTagBasedType>()
+                        ?.fullyExpandedType(context.session) as? ConeLookupTagBasedType
                     val classId = coneType?.classId
 
                     if (coneType != null) when {
-                        classId == ClassId.fromString("<error>") -> {
-                            // TODO: replace with UNRESOLVED_REFERENCE check
+                        coneType is ConeErrorType -> {
+                            // DO NOTHING: error types already have diagnostics which are reported elsewhere.
                         }
                         coneType.isNullable -> {
                             reporter.reportOn(typeRef.source, FirErrors.NULLABLE_TYPE_OF_ANNOTATION_MEMBER, context)
@@ -85,7 +87,7 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
                             // DO NOTHING: primitives are allowed as annotation class parameter
                         }
                         coneType.isUnsignedTypeOrNullableUnsignedType -> {
-                            // TODO: replace with EXPERIMENTAL_UNSIGNED_LITERALS check
+                            // DO NOTHING: unsigned types are allowed as annotation class parameter.
                         }
                         classId == StandardClassIds.KClass -> {
                             // DO NOTHING: KClass is allowed
@@ -100,7 +102,7 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
                             // DO NOTHING: arrays of unsigned types are allowed
                         }
                         classId == StandardClassIds.Array -> {
-                            if (!isAllowedArray(typeRef, context.session))
+                            if (!isAllowedArray(coneType, context.session))
                                 reporter.reportOn(typeRef.source, FirErrors.INVALID_TYPE_OF_ANNOTATION_MEMBER, context)
                         }
                         isAllowedClassKind(coneType, context.session) -> {
@@ -118,9 +120,8 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
             member is FirProperty && member.source?.elementType == VALUE_PARAMETER -> {
                 // DO NOTHING to avoid reporting constructor properties
             }
-            member is FirSimpleFunction && member.source?.elementType != FUN -> {
+            member is FirSimpleFunction && member.isSynthetic -> {
                 // DO NOTHING to avoid reporting synthetic functions
-                // TODO: replace with origin check
             }
             else -> {
                 reporter.reportOn(member.source, FirErrors.ANNOTATION_CLASS_MEMBER, context)
@@ -136,13 +137,12 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
         return typeRefClassKind == ANNOTATION_CLASS || typeRefClassKind == ENUM_CLASS
     }
 
-    private fun isAllowedArray(typeRef: FirTypeRef, session: FirSession): Boolean {
-        val typeArguments = typeRef.coneType.typeArguments
+    private fun isAllowedArray(type: ConeKotlinType, session: FirSession): Boolean {
+        val typeArguments = type.typeArguments
 
         if (typeArguments.size != 1) return false
 
-        val arrayType = (typeArguments[0] as? ConeKotlinTypeProjection)
-            ?.type
+        val arrayType = (typeArguments[0] as? ConeKotlinTypeProjection)?.type?.fullyExpandedType(session)
             ?: return false
 
         if (arrayType.isNullable) return false
@@ -168,7 +168,7 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
     }
 
     private fun checkCyclesInParameters(annotation: FirRegularClassSymbol, context: CheckerContext, reporter: DiagnosticReporter) {
-        val primaryConstructor = annotation.primaryConstructorSymbol() ?: return
+        val primaryConstructor = annotation.primaryConstructorSymbol(context.session) ?: return
         val checker = CycleChecker(annotation, context.session)
         for (valueParameter in primaryConstructor.valueParameterSymbols) {
             if (checker.parameterHasCycle(annotation, valueParameter)) {
@@ -182,7 +182,7 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
         private val annotationsWithCycle = mutableSetOf(targetAnnotation)
 
         fun annotationHasCycle(annotation: FirRegularClassSymbol): Boolean {
-            val primaryConstructor = annotation.primaryConstructorSymbol() ?: return false
+            val primaryConstructor = annotation.primaryConstructorSymbol(session) ?: return false
             for (valueParameter in primaryConstructor.valueParameterSymbols) {
                 if (parameterHasCycle(annotation, valueParameter)) return true
             }
@@ -222,15 +222,5 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
             }
             return annotationHasCycle(referencedAnnotation)
         }
-    }
-
-
-    private fun FirRegularClassSymbol.primaryConstructorSymbol(): FirConstructorSymbol? {
-        for (declarationSymbol in this.declarationSymbols) {
-            if (declarationSymbol is FirConstructorSymbol && declarationSymbol.isPrimary) {
-                return declarationSymbol
-            }
-        }
-        return null
     }
 }

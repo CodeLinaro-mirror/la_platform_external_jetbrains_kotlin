@@ -1,8 +1,7 @@
-// IGNORE_BACKEND_FIR: JVM_IR
+// IGNORE_BACKEND_K2: JVM_IR, JS_IR, NATIVE, WASM
 // FIR status: expect/actual in the same module (ACTUAL_WITHOUT_EXPECT)
 // !LANGUAGE: +MultiPlatformProjects
 // !OPT_IN: kotlin.ExperimentalMultiplatform
-// IGNORE_BACKEND: NATIVE
 // WITH_STDLIB
 // MODULE: library
 // FILE: expected.kt
@@ -13,7 +12,10 @@ package a
 expect annotation class A(val x: Int)
 
 @OptionalExpectation
-expect annotation class B(val s: String)
+expect annotation class B(val s: String) {
+    @OptionalExpectation
+    annotation class C(val a: Boolean)
+}
 
 // FILE: actual.kt
 
@@ -33,6 +35,7 @@ import a.B
 
 @A(42)
 @B("OK")
+@B.C(true)
 fun box(): String {
     return "OK"
 }

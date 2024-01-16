@@ -3,7 +3,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: kotlin/Lazy
   classKind: INTERFACE
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -12,7 +15,10 @@ KtNamedClassOrObjectSymbol:
   name: Lazy
   origin: LIBRARY
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: [
@@ -20,4 +26,5 @@ KtNamedClassOrObjectSymbol:
   ]
   visibility: Public
   getContainingModule: KtLibraryModule "Library kotlin-stdlib"
+  annotationApplicableTargets: null
   deprecationStatus: null

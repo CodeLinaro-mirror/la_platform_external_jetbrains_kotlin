@@ -6,13 +6,25 @@
 package org.jetbrains.kotlin.backend.konan.descriptors
 
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.konan.DeserializedKlibModuleOrigin
-import org.jetbrains.kotlin.descriptors.konan.klibModuleOrigin
-import org.jetbrains.kotlin.descriptors.konan.kotlinLibrary
+import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.utils.sourceElement
+import org.jetbrains.kotlin.fir.lazy.AbstractFir2IrLazyDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.descriptors.IrBasedDeclarationDescriptor
 import org.jetbrains.kotlin.konan.library.KLIB_INTEROP_IR_PROVIDER_IDENTIFIER
 import org.jetbrains.kotlin.library.BaseKotlinLibrary
+import org.jetbrains.kotlin.library.irProviderName
+import org.jetbrains.kotlin.library.metadata.DeserializedKlibModuleOrigin
+import org.jetbrains.kotlin.library.metadata.KlibDeserializedContainerSource
+import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
+import org.jetbrains.kotlin.library.metadata.klibModuleOrigin
+import org.jetbrains.kotlin.library.metadata.kotlinLibrary
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.serialization.deserialization.descriptors.*
+import org.jetbrains.kotlin.resolve.descriptorUtil.module
 
 fun DeclarationDescriptor.deepPrint() {
     this.accept(DeepPrintVisitor(PrintVisitor()), 0)
@@ -23,43 +35,48 @@ internal val String.synthesizedName get() = Name.identifier(this.synthesizedStri
 internal val String.synthesizedString get() = "\$$this"
 
 
-internal val DeclarationDescriptor.propertyIfAccessor
-    get() = if (this is PropertyAccessorDescriptor)
-                this.correspondingProperty
-                else this
-
 internal val CallableMemberDescriptor.propertyIfAccessor
     get() = if (this is PropertyAccessorDescriptor)
                 this.correspondingProperty
                 else this
 
-internal val FunctionDescriptor.deserializedPropertyIfAccessor: DeserializedCallableMemberDescriptor
-    get() {
-        val member = this.propertyIfAccessor
-        if (member is DeserializedCallableMemberDescriptor) 
-            return member
-        else 
-            error("Unexpected deserializable callable descriptor")
-    }
-
-internal val CallableMemberDescriptor.isDeserializableCallable
-    get () = (this.propertyIfAccessor is DeserializedCallableMemberDescriptor)
-
-fun DeclarationDescriptor.findTopLevelDescriptor(): DeclarationDescriptor {
-    return if (this.containingDeclaration is org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor) this.propertyIfAccessor
-    else this.containingDeclaration!!.findTopLevelDescriptor()
+private fun IrDeclaration.findTopLevelDeclaration(): IrDeclaration = when (val parent = this.parent) {
+    is IrDeclaration -> parent.findTopLevelDeclaration()
+    else -> this
 }
 
+private fun IrDeclaration.propertyIfAccessor(): IrDeclaration =
+        (this as? IrSimpleFunction)?.correspondingPropertySymbol?.owner ?: this
+
 val ModuleDescriptor.isForwardDeclarationModule: Boolean
-    get() {
-        // TODO: use KlibResolvedModuleDescriptorsFactoryImpl.FORWARD_DECLARATIONS_MODULE_NAME instead of
-        //  manually created Name instance
-        return name == Name.special("<forward declarations>")
+    get() = name == FORWARD_DECLARATIONS_MODULE_NAME
+
+fun BaseKotlinLibrary.isInteropLibrary() = irProviderName == KLIB_INTEROP_IR_PROVIDER_IDENTIFIER
+
+fun DeclarationDescriptor.isFromInteropLibrary(): Boolean =
+        this.isFromFirDeserializedInteropLibrary() || this.module.isFromInteropLibrary()
+
+private fun DeclarationDescriptor.isFromFirDeserializedInteropLibrary(): Boolean {
+    val declaration = (this as? IrBasedDeclarationDescriptor<*>)?.owner ?: return false
+
+    // We need to find top-level non-accessor declaration, because
+    //  - fir2ir lazy IR creates non-AbstractFir2IrLazyDeclaration declarations sometimes, e.g. for enum entries;
+    //  - K2 metadata deserializer doesn't set containerSource for property accessors.
+    val topLevelDeclaration = declaration.findTopLevelDeclaration().propertyIfAccessor()
+
+    val firDeclaration = (topLevelDeclaration as? AbstractFir2IrLazyDeclaration<*>)?.fir as? FirMemberDeclaration ?: return false
+    val containerSource = when (firDeclaration) {
+        is FirCallableDeclaration -> firDeclaration.containerSource
+        is FirClassLikeDeclaration -> firDeclaration.sourceElement
     }
 
-fun BaseKotlinLibrary.isInteropLibrary() =
-        manifestProperties["ir_provider"] == KLIB_INTEROP_IR_PROVIDER_IDENTIFIER
+    return containerSource is KlibDeserializedContainerSource && containerSource.isFromNativeInteropLibrary
+}
 
 fun ModuleDescriptor.isFromInteropLibrary() =
-        if (klibModuleOrigin !is DeserializedKlibModuleOrigin) false
-        else kotlinLibrary.isInteropLibrary()
+        when (this) {
+            is ModuleDescriptorImpl ->
+                if (klibModuleOrigin !is DeserializedKlibModuleOrigin) false
+                else kotlinLibrary.isInteropLibrary()
+            else -> false // cinterop libraries are deserialized by Fir2Ir as ModuleDescriptorImpl, not FirModuleDescriptor
+        }

@@ -82,8 +82,35 @@ object OperatorNameConventions {
     val BINARY_OPERATION_NAMES = setOf(TIMES, PLUS, MINUS, DIV, MOD, REM, RANGE_TO, RANGE_UNTIL)
 
     @JvmField
+    val BITWISE_OPERATION_NAMES = setOf(AND, OR, XOR, INV, SHL, SHR, USHR)
+
+    @JvmField
+    val ALL_BINARY_OPERATION_NAMES = BINARY_OPERATION_NAMES + BITWISE_OPERATION_NAMES + setOf(EQUALS, CONTAINS, COMPARE_TO)
+
+    @JvmField
     val ASSIGNMENT_OPERATIONS = setOf(TIMES_ASSIGN, DIV_ASSIGN, MOD_ASSIGN, REM_ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN)
 
     @JvmField
     val DELEGATED_PROPERTY_OPERATORS = setOf(GET_VALUE, SET_VALUE, PROVIDE_DELEGATE)
+
+    @JvmField
+    val MOD_OPERATORS_REPLACEMENT = mapOf(MOD to REM, MOD_ASSIGN to REM_ASSIGN)
+
+    @JvmField
+    val STATEMENT_LIKE_OPERATORS = setOf(SET) + ASSIGNMENT_OPERATIONS
+
+    val TOKENS_BY_OPERATOR_NAME = mapOf(
+        INC to "++",
+        DEC to "--",
+        UNARY_PLUS to "+",
+        UNARY_MINUS to "-",
+        NOT to "!",
+        TIMES to "*",
+        PLUS to "+",
+        MINUS to "-",
+        DIV to "/",
+        REM to "%",
+        RANGE_TO to "..",
+        RANGE_UNTIL to "..<",
+    )
 }

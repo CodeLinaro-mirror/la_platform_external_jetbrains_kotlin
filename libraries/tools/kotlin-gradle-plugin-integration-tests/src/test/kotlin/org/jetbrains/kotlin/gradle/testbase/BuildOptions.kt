@@ -7,16 +7,22 @@ package org.jetbrains.kotlin.gradle.testbase
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
+import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM
 import org.jetbrains.kotlin.gradle.BaseGradleIT
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.dsl.NativeCacheKind
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.junit.jupiter.api.condition.OS
+import java.nio.file.Path
 import java.util.*
+import kotlin.io.path.absolutePathString
 
 data class BuildOptions(
     val logLevel: LogLevel = LogLevel.INFO,
+    val stacktraceMode: String? = StacktraceOption.FULL_STACKTRACE_LONG_OPTION,
     val kotlinVersion: String = TestVersions.Kotlin.CURRENT,
     val warningMode: WarningMode = WarningMode.Fail,
     val configurationCache: Boolean = false,
@@ -34,26 +40,63 @@ data class BuildOptions(
     val androidVersion: String? = null,
     val jsOptions: JsOptions? = null,
     val buildReport: List<BuildReportType> = emptyList(),
-    val useFir: Boolean = false,
     val usePreciseJavaTracking: Boolean? = null,
+    val languageVersion: String? = null,
+    val languageApiVersion: String? = null,
+    val freeArgs: List<String> = emptyList(),
+    val statisticsForceValidation: Boolean = true,
+    val usePreciseOutputsBackup: Boolean? = null,
+    val keepIncrementalCompilationCachesInMemory: Boolean? = null,
+    val useDaemonFallbackStrategy: Boolean = false,
+    val useParsableDiagnosticsFormatting: Boolean = true,
+    val showDiagnosticsStacktrace: Boolean? = false, // false by default to not clutter the testdata + stacktraces change often
+    val nativeOptions: NativeOptions = NativeOptions(),
+    val compilerExecutionStrategy: KotlinCompilerExecutionStrategy? = null,
+    val runViaBuildToolsApi: Boolean? = null,
+    val konanDataDir: Path? = konanDir, // null can be used only if you are using custom 'kotlin.native.home' or 'org.jetbrains.kotlin.native.home' property instead of konanDir
 ) {
+    val isK2ByDefault
+        get() = KotlinVersion.DEFAULT >= KotlinVersion.KOTLIN_2_0
+
+    fun copyEnsuringK1(): BuildOptions =
+        copy(languageVersion = if (isK2ByDefault) "1.9" else null)
+
+    fun copyEnsuringK2(): BuildOptions =
+        copy(languageVersion = if (isK2ByDefault) null else "2.0")
+
+    val safeAndroidVersion: String
+        get() = androidVersion ?: error("AGP version is expected to be set")
+
     data class KaptOptions(
         val verbose: Boolean = false,
-        val useWorkers: Boolean = false,
         val incrementalKapt: Boolean = false,
         val includeCompileClasspath: Boolean = false,
-        val classLoadersCacheSize: Int? = null
+        val classLoadersCacheSize: Int? = null,
     )
 
     data class JsOptions(
-        val useIrBackend: Boolean? = null,
-        val jsCompilerType: KotlinJsCompilerType? = null,
         val incrementalJs: Boolean? = null,
         val incrementalJsKlib: Boolean? = null,
+        val incrementalJsIr: Boolean? = null
+    )
+
+    data class NativeOptions(
+        val cacheKind: NativeCacheKind? = NativeCacheKind.NONE,
+        val cocoapodsGenerateWrapper: Boolean? = null,
+        val cocoapodsPlatform: String? = null,
+        val cocoapodsConfiguration: String? = null,
+        val cocoapodsArchs: String? = null,
+        val distributionType: String? = null,
+        val distributionDownloadFromMaven: Boolean? = null,
+        val reinstall: Boolean? = null,
+        val restrictedDistribution: Boolean? = null,
+        val useXcodeMessageStyle: Boolean? = null,
+        val version: String? = null,
+        val cacheOrchestration: String? = null,
     )
 
     fun toArguments(
-        gradleVersion: GradleVersion
+        gradleVersion: GradleVersion,
     ): List<String> {
         val arguments = mutableListOf<String>()
         when (logLevel) {
@@ -99,9 +142,10 @@ data class BuildOptions(
 
         arguments.add(if (buildCacheEnabled) "--build-cache" else "--no-build-cache")
 
+        addNativeOptionsToArguments(arguments)
+
         if (kaptOptions != null) {
             arguments.add("-Pkapt.verbose=${kaptOptions.verbose}")
-            arguments.add("-Pkapt.use.worker.api=${kaptOptions.useWorkers}")
             arguments.add("-Pkapt.incremental.apt=${kaptOptions.incrementalKapt}")
             arguments.add("-Pkapt.include.compile.classpath=${kaptOptions.includeCompileClasspath}")
             kaptOptions.classLoadersCacheSize?.let { cacheSize ->
@@ -112,8 +156,7 @@ data class BuildOptions(
         if (jsOptions != null) {
             jsOptions.incrementalJs?.let { arguments.add("-Pkotlin.incremental.js=$it") }
             jsOptions.incrementalJsKlib?.let { arguments.add("-Pkotlin.incremental.js.klib=$it") }
-            jsOptions.useIrBackend?.let { arguments.add("-Pkotlin.js.useIrBackend=$it") }
-            jsOptions.jsCompilerType?.let { arguments.add("-Pkotlin.js.compiler=$it") }
+            jsOptions.incrementalJsIr?.let { arguments.add("-Pkotlin.incremental.js.ir=$it") }
         }
 
         if (androidVersion != null) {
@@ -125,13 +168,118 @@ data class BuildOptions(
             arguments.add("-Pkotlin.build.report.output=${buildReport.joinToString()}")
         }
 
-        if (useFir) {
-            arguments.add("-Pkotlin.useFir=true")
-        }
-
         if (usePreciseJavaTracking != null) {
             arguments.add("-Pkotlin.incremental.usePreciseJavaTracking=$usePreciseJavaTracking")
         }
+
+        if (statisticsForceValidation) {
+            arguments.add("-Pkotlin_performance_profile_force_validation=true")
+        }
+
+        if (usePreciseOutputsBackup != null) {
+            arguments.add("-Pkotlin.compiler.preciseCompilationResultsBackup=$usePreciseOutputsBackup")
+        }
+        if (languageApiVersion != null) {
+            arguments.add("-Pkotlin.test.apiVersion=$languageApiVersion")
+        }
+        if (languageVersion != null) {
+            arguments.add("-Pkotlin.test.languageVersion=$languageVersion")
+        }
+
+        if (keepIncrementalCompilationCachesInMemory != null) {
+            arguments.add("-Pkotlin.compiler.keepIncrementalCompilationCachesInMemory=$keepIncrementalCompilationCachesInMemory")
+        }
+
+        arguments.add("-Pkotlin.daemon.useFallbackStrategy=$useDaemonFallbackStrategy")
+
+        if (useParsableDiagnosticsFormatting) {
+            arguments.add("-Pkotlin.internal.diagnostics.useParsableFormatting=$useParsableDiagnosticsFormatting")
+        }
+
+        if (compilerExecutionStrategy != null) {
+            arguments.add("-Pkotlin.compiler.execution.strategy=${compilerExecutionStrategy.propertyValue}")
+        }
+
+        if (runViaBuildToolsApi != null) {
+            arguments.add("-Pkotlin.compiler.runViaBuildToolsApi=$runViaBuildToolsApi")
+        }
+
+        if (showDiagnosticsStacktrace != null) {
+            arguments.add("-Pkotlin.internal.diagnostics.showStacktrace=$showDiagnosticsStacktrace")
+        }
+
+        if (stacktraceMode != null) {
+            arguments.add("--$stacktraceMode")
+        }
+
+        konanDataDir?.let {
+            arguments.add("-Pkonan.data.dir=${konanDataDir.toAbsolutePath().normalize()}")
+        }
+
+        arguments.addAll(freeArgs)
+
         return arguments.toList()
     }
+
+    private fun addNativeOptionsToArguments(
+        arguments: MutableList<String>,
+    ) {
+
+        nativeOptions.cacheKind?.let {
+            arguments.add("-Pkotlin.native.cacheKind=${nativeOptions.cacheKind.name.lowercase()}")
+        }
+
+        nativeOptions.cocoapodsGenerateWrapper?.let {
+            arguments.add("-Pkotlin.native.cocoapods.generate.wrapper=${it}")
+        }
+        nativeOptions.cocoapodsPlatform?.let {
+            arguments.add("-Pkotlin.native.cocoapods.platform=${it}")
+        }
+        nativeOptions.cocoapodsArchs?.let {
+            arguments.add("-Pkotlin.native.cocoapods.archs=${it}")
+        }
+        nativeOptions.cocoapodsConfiguration?.let {
+            arguments.add("-Pkotlin.native.cocoapods.configuration=${it}")
+        }
+
+        nativeOptions.distributionDownloadFromMaven?.let {
+            arguments.add("-Pkotlin.native.distribution.downloadFromMaven=${it}")
+        }
+        nativeOptions.distributionType?.let {
+            arguments.add("-Pkotlin.native.distribution.type=${it}")
+        }
+        nativeOptions.reinstall?.let {
+            arguments.add("-Pkotlin.native.reinstall=${it}")
+        }
+        nativeOptions.restrictedDistribution?.let {
+            arguments.add("-Pkotlin.native.restrictedDistribution=${it}")
+        }
+        nativeOptions.useXcodeMessageStyle?.let {
+            arguments.add("-Pkotlin.native.useXcodeMessageStyle=${it}")
+        }
+        nativeOptions.version?.let {
+            arguments.add("-Pkotlin.native.version=${it}")
+        }
+        nativeOptions.cacheOrchestration?.let {
+            arguments.add("-Pkotlin.native.cacheOrchestration=${it}")
+        }
+
+    }
+}
+
+fun BuildOptions.suppressDeprecationWarningsOn(
+    @Suppress("UNUSED_PARAMETER") reason: String, // just to require specifying a reason for suppressing
+    predicate: (BuildOptions) -> Boolean,
+) = if (predicate(this)) {
+    copy(warningMode = WarningMode.Summary)
+} else {
+    this
+}
+
+fun BuildOptions.suppressDeprecationWarningsSinceGradleVersion(
+    gradleVersion: String,
+    currentGradleVersion: GradleVersion,
+    reason: String,
+) = suppressDeprecationWarningsOn(reason) {
+    currentGradleVersion >= GradleVersion.version(gradleVersion)
 }

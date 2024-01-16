@@ -6,9 +6,10 @@ package org.jetbrains.kotlin.backend.konan.llvm.coverage
 
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.*
-import org.jetbrains.kotlin.backend.konan.Context
+import org.jetbrains.kotlin.backend.konan.llvm.LlvmCallable
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -19,22 +20,24 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.module
 /**
  * "Umbrella" class of all the of the code coverage related logic.
  */
-internal class CoverageManager(val context: Context) {
+internal class CoverageManager(val generationState: NativeGenerationState) {
+    private val context = generationState.context
+    private val config = generationState.config
 
     private val shouldCoverSources: Boolean =
-            context.config.shouldCoverSources
+            config.shouldCoverSources
 
     private val librariesToCover: Set<String> =
-            context.config.resolve.coveredLibraries.map { it.libraryName }.toSet()
+            config.resolve.coveredLibraries.map { it.libraryName }.toSet()
 
     private val llvmProfileFilenameGlobal = "__llvm_profile_filename"
 
     private val defaultOutputFilePath: String by lazy {
-        "${context.config.outputFile}.profraw"
+        "${generationState.outputFile}.profraw"
     }
 
     private val outputFileName: String =
-            context.config.configuration.get(KonanConfigKeys.PROFRAW_PATH)
+            config.configuration.get(KonanConfigKeys.PROFRAW_PATH)
                     ?.let { File(it).absolutePath }
                     ?: defaultOutputFilePath
 
@@ -43,13 +46,13 @@ internal class CoverageManager(val context: Context) {
 
     init {
         if (enabled && !checkRestrictions()) {
-            context.reportCompilationError("Coverage is not supported for ${context.config.target}.")
+            generationState.reportCompilationError("Coverage is not supported for ${config.target}.")
         }
     }
 
     private fun checkRestrictions(): Boolean  {
-        val isKindAllowed = context.config.produce.involvesBitcodeGeneration
-        val target = context.config.target
+        val isKindAllowed = config.produce.involvesBitcodeGeneration
+        val target = config.target
         val isTargetAllowed = target.supportsCodeCoverage()
         return isKindAllowed && isTargetAllowed
     }
@@ -60,13 +63,17 @@ internal class CoverageManager(val context: Context) {
             filesRegionsInfo.flatMap { it.functions }.firstOrNull { it.function == irFunction }
 
     private val coveredModules: Set<ModuleDescriptor> by lazy {
-        val coveredUserCode = if (shouldCoverSources) setOf(context.moduleDescriptor) else emptySet()
+        val coveredSources = if (shouldCoverSources) {
+            context.sourcesModules
+        } else {
+            emptySet()
+        }
         val coveredLibs = context.irModules.filter { it.key in librariesToCover }.values
                 .map { it.descriptor }.toSet()
-        val coveredIncludedLibs = if (shouldCoverSources) context.getIncludedLibraryDescriptors().toSet() else emptySet()
-        coveredLibs + coveredUserCode + coveredIncludedLibs
+        coveredLibs + coveredSources
     }
 
+    @OptIn(ObsoleteDescriptorBasedAPI::class)
     private fun fileCoverageFilter(file: IrFile) =
             file.packageFragmentDescriptor.module in coveredModules
 
@@ -83,9 +90,9 @@ internal class CoverageManager(val context: Context) {
     /**
      * @return [LLVMCoverageInstrumentation] instance if [irFunction] should be covered.
      */
-    fun tryGetInstrumentation(irFunction: IrFunction?, callSitePlacer: (function: LLVMValueRef, args: List<LLVMValueRef>) -> Unit) =
+    fun tryGetInstrumentation(irFunction: IrFunction?, callSitePlacer: (function: LlvmCallable, args: List<LLVMValueRef>) -> Unit) =
             if (enabled && irFunction != null) {
-                getFunctionRegions(irFunction)?.let { LLVMCoverageInstrumentation(context, it, callSitePlacer) }
+                getFunctionRegions(irFunction)?.let { LLVMCoverageInstrumentation(generationState, it, callSitePlacer) }
             } else {
                 null
             }
@@ -95,7 +102,7 @@ internal class CoverageManager(val context: Context) {
      */
     fun writeRegionInfo() {
         if (enabled) {
-            LLVMCoverageWriter(context, filesRegionsInfo).write()
+            LLVMCoverageWriter(generationState, filesRegionsInfo).write()
         }
     }
 
@@ -121,11 +128,11 @@ internal class CoverageManager(val context: Context) {
         }
 }
 
-internal fun runCoveragePass(context: Context) {
-    if (!context.coverage.enabled) return
+internal fun runCoveragePass(generationState: NativeGenerationState) {
+    if (!generationState.coverage.enabled) return
     val passManager = LLVMCreatePassManager()!!
-    LLVMKotlinAddTargetLibraryInfoWrapperPass(passManager, context.llvm.targetTriple)
-    context.coverage.addLateLlvmPasses(passManager)
-    LLVMRunPassManager(passManager, context.llvmModule)
+    LLVMKotlinAddTargetLibraryInfoWrapperPass(passManager, generationState.llvm.targetTriple)
+    generationState.coverage.addLateLlvmPasses(passManager)
+    LLVMRunPassManager(passManager, generationState.llvm.module)
     LLVMDisposePassManager(passManager)
 }

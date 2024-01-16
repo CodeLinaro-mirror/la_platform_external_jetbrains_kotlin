@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
@@ -17,6 +17,8 @@ import org.jetbrains.kotlin.fir.references.impl.FirExplicitSuperReference
 import org.jetbrains.kotlin.fir.references.impl.FirExplicitThisReference
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
 
 /*
  * This file was generated automatically
@@ -25,11 +27,11 @@ import org.jetbrains.kotlin.fir.visitors.*
 
 internal class FirDelegatedConstructorCallImpl(
     override val source: KtSourceElement?,
-    override val annotations: MutableList<FirAnnotation>,
+    override var annotations: MutableOrEmptyList<FirAnnotation>,
     override var argumentList: FirArgumentList,
-    override val contextReceiverArguments: MutableList<FirExpression>,
+    override var contextReceiverArguments: MutableOrEmptyList<FirExpression>,
     override var constructedTypeRef: FirTypeRef,
-    override var dispatchReceiver: FirExpression,
+    override var dispatchReceiver: FirExpression?,
     override var calleeReference: FirReference,
     override val isThis: Boolean,
 ) : FirDelegatedConstructorCall() {
@@ -58,7 +60,7 @@ internal class FirDelegatedConstructorCallImpl(
     }
 
     override fun <D> transformDispatchReceiver(transformer: FirTransformer<D>, data: D): FirDelegatedConstructorCallImpl {
-        dispatchReceiver = dispatchReceiver.transform(transformer, data)
+        dispatchReceiver = dispatchReceiver?.transform(transformer, data)
         return this
     }
 
@@ -67,17 +69,24 @@ internal class FirDelegatedConstructorCallImpl(
         return this
     }
 
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        annotations = newAnnotations.toMutableOrEmpty()
+    }
+
     override fun replaceArgumentList(newArgumentList: FirArgumentList) {
         argumentList = newArgumentList
     }
 
     override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>) {
-        contextReceiverArguments.clear()
-        contextReceiverArguments.addAll(newContextReceiverArguments)
+        contextReceiverArguments = newContextReceiverArguments.toMutableOrEmpty()
     }
 
     override fun replaceConstructedTypeRef(newConstructedTypeRef: FirTypeRef) {
         constructedTypeRef = newConstructedTypeRef
+    }
+
+    override fun replaceDispatchReceiver(newDispatchReceiver: FirExpression?) {
+        dispatchReceiver = newDispatchReceiver
     }
 
     override fun replaceCalleeReference(newCalleeReference: FirReference) {

@@ -2,6 +2,7 @@
 // FIR_IDENTICAL
 // WITH_STDLIB
 // SKIP_KT_DUMP
+
 // FILE: kt44993.kt
 fun f(r: KotlinBox<JavaBox>): String =
     r?.data?.element!!

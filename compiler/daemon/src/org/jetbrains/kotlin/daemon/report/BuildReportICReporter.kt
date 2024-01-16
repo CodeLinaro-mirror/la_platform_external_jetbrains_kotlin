@@ -19,7 +19,7 @@ import java.io.File
 @VisibleForTesting
 class BuildReportICReporter(
     private val compilationResults: CompilationResults,
-    rootDir: File,
+    rootDir: File?,
     private val isVerbose: Boolean = false
 ) : ICReporterBase(rootDir), RemoteICReporter {
     private val icLogLines = arrayListOf<String>()
@@ -37,7 +37,7 @@ class BuildReportICReporter(
         icLogLines.add("Compile iteration:")
         for (file in sourceFiles) {
             val reason = recompilationReason[file]?.let { " <- $it" } ?: ""
-            icLogLines.add("  ${file.relativeOrCanonical()}$reason")
+            icLogLines.add("  ${file.relativeOrAbsolute()}$reason")
         }
         recompilationReason.clear()
     }

@@ -6,10 +6,16 @@
 package org.jetbrains.kotlin.fir.diagnostics
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeTypeVariableType
 import org.jetbrains.kotlin.name.Name
 
 class ConeSimpleDiagnostic(override val reason: String, val kind: DiagnosticKind = DiagnosticKind.Other) : ConeDiagnostic
+
+class ConeSyntaxDiagnostic(override val reason: String) : ConeDiagnostic
 
 class ConeNotAnnotationContainer(val text: String) : ConeDiagnostic {
     override val reason: String get() = "Strange annotated expression: $text"
@@ -20,6 +26,25 @@ abstract class ConeDiagnosticWithSource(val source: KtSourceElement) : ConeDiagn
 class ConeUnderscoreIsReserved(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
     override val reason: String get() = "Names _, __, ___, ..., are reserved in Kotlin"
 }
+
+class ConeCannotInferTypeParameterType(
+    val typeParameter: FirTypeParameterSymbol,
+    override val reason: String = "Cannot infer type for parameter ${typeParameter.name}"
+) : ConeDiagnostic
+
+class ConeCannotInferValueParameterType(
+    val valueParameter: FirValueParameterSymbol,
+    override val reason: String = "Cannot infer type for parameter ${valueParameter.name}"
+) : ConeDiagnostic
+
+class ConeCannotInferReceiverParameterType(
+    override val reason: String = "Cannot infer type for receiver parameter"
+) : ConeDiagnostic
+
+class ConeTypeVariableTypeIsNotInferred(
+    val typeVariableType: ConeTypeVariableType,
+    override val reason: String = "Type for ${typeVariableType.lookupTag.debugName} is not inferred"
+) : ConeDiagnostic
 
 class ConeUnderscoreUsageWithoutBackticks(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
     override val reason: String get() = "Names _, __, ___, ... can be used only in back-ticks (`_`, `__`, `___`, ...)"
@@ -35,8 +60,34 @@ class ConeRecursiveTypeParameterDuringErasureError(val typeParameterName: Name) 
         get() = "self-recursive type parameter $typeParameterName"
 }
 
+object ConeDestructuringDeclarationsOnTopLevel : ConeDiagnostic {
+    override val reason: String
+        get() = "Destructuring declarations are only allowed for local variables/values"
+}
+
+object ConeDanglingModifierOnTopLevel : ConeDiagnostic {
+    override val reason: String
+        get() = "Top level declaration expected"
+}
+
+class ConeAmbiguousFunctionTypeKinds(val kinds: List<FunctionTypeKind>) : ConeDiagnostic {
+    override val reason: String
+        get() = "There are multiple function kinds for functional type ref"
+}
+
+object ConeUnsupportedClassLiteralsWithEmptyLhs : ConeDiagnostic {
+    override val reason: String get() = "No receiver in class literal"
+}
+
+object ConeNoConstructorError : ConeDiagnostic {
+    override val reason: String get() = "This type does not have a constructor"
+}
+
+object ConeMissingConstructorKeyword : ConeDiagnostic {
+    override val reason: String get() = "Use the 'constructor' keyword after the modifiers of the primary constructor."
+}
+
 enum class DiagnosticKind {
-    Syntax,
     ExpressionExpected,
     NotLoopLabel,
     JumpOutsideLoop,
@@ -56,11 +107,12 @@ enum class DiagnosticKind {
     Java,
     SuperNotAllowed,
     ValueParameterWithNoTypeAnnotation,
-    CannotInferParameterType,
+    CannotInferParameterType, // TODO: replace this with ConeCannotInferValueParameterType and ConeCannotInferTypeParameterType
     IllegalProjectionUsage,
     MissingStdlibClass,
     NotASupertype,
     SuperNotAvailable,
+    AnnotationNotAllowed,
 
     LoopInSupertype,
     RecursiveTypealiasExpansion,
@@ -75,6 +127,7 @@ enum class DiagnosticKind {
     IntLiteralOutOfRange,
     FloatLiteralOutOfRange,
     WrongLongSuffix,
+    UnsignedNumbersAreNotPresent,
 
     IsEnumEntry,
     EnumEntryAsType,

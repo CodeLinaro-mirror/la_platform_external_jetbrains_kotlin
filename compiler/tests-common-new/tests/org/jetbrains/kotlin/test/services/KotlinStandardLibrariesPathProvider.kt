@@ -5,7 +5,11 @@
 
 package org.jetbrains.kotlin.test.services
 
+import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.jvm.configureStandardLibs
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 import java.lang.ref.SoftReference
 import java.net.URL
@@ -63,6 +67,26 @@ abstract class KotlinStandardLibrariesPathProvider : TestService {
      */
     abstract fun jvmAnnotationsForTests(): File
 
+    /**
+     * compiler/testData/mockJDK/jre/lib/annotations.jar
+     */
+    abstract fun getAnnotationsJar(): File
+
+    /**
+     * kotlin-stdlib-js.jar
+     */
+    abstract fun fullJsStdlib(): File
+
+    /**
+     * Jar with minimal version of kotlin stdlib JS (may be same as fullJsStdlib)
+     */
+    abstract fun defaultJsStdlib(): File
+
+    /**
+     * kotlin-test-js.jar
+     */
+    abstract fun kotlinTestJsKLib(): File
+
     fun getRuntimeJarClassLoader(): ClassLoader = synchronized(this) {
         var loader = runtimeJarClassLoader.get()
         if (loader == null) {
@@ -98,17 +122,33 @@ object StandardLibrariesPathProviderForKotlinProject : KotlinStandardLibrariesPa
     override fun kotlinTestJarForTests(): File = ForTestCompileRuntime.kotlinTestJarForTests()
     override fun scriptRuntimeJarForTests(): File = ForTestCompileRuntime.scriptRuntimeJarForTests()
     override fun jvmAnnotationsForTests(): File = ForTestCompileRuntime.jvmAnnotationsForTests()
+    override fun getAnnotationsJar(): File = KtTestUtil.getAnnotationsJar()
+
+    override fun fullJsStdlib(): File = extractFromPropertyFirst("kotlin.js.full.stdlib.path") { "kotlin-stdlib-js.jar".dist() }
+    override fun defaultJsStdlib(): File = extractFromPropertyFirst("kotlin.js.reduced.stdlib.path") { "kotlin-stdlib-js.jar".dist() }
+    override fun kotlinTestJsKLib(): File = extractFromPropertyFirst("kotlin.js.kotlin.test.path") { "kotlin-test-js.jar".dist() }
+
+    private inline fun extractFromPropertyFirst(prop: String, onMissingProperty: () -> String): File {
+        val path = System.getProperty(prop, null) ?: onMissingProperty()
+        return File(path)
+    }
+
+    private fun String.dist(): String {
+        return "dist/kotlinc/lib/$this"
+    }
 }
 
 object EnvironmentBasedStandardLibrariesPathProvider : KotlinStandardLibrariesPathProvider() {
     const val KOTLIN_STDLIB_PROP = "org.jetbrains.kotlin.test.kotlin-stdlib"
+    const val KOTLIN_STDLIB_JS_PROP = "org.jetbrains.kotlin.test.kotlin-stdlib-js"
     const val KOTLIN_STDLIB_JDK8_PROP = "org.jetbrains.kotlin.test.kotlin-stdlib-jdk8"
     const val KOTLIN_REFLECT_PROP = "org.jetbrains.kotlin.test.kotlin-reflect"
     const val KOTLIN_TEST_PROP = "org.jetbrains.kotlin.test.kotlin-test"
+    const val KOTLIN_TEST_JS_PROP = "org.jetbrains.kotlin.test.kotlin-test-js"
     const val KOTLIN_SCRIPT_RUNTIME_PROP = "org.jetbrains.kotlin.test.kotlin-script-runtime"
     const val KOTLIN_ANNOTATIONS_JVM_PROP = "org.jetbrains.kotlin.test.kotlin-annotations-jvm"
 
-    private fun getFile(propertyName: String): File {
+    fun getFile(propertyName: String): File {
         return System.getProperty(propertyName)
             ?.let(::File)
             ?.takeIf { it.exists() }
@@ -122,6 +162,23 @@ object EnvironmentBasedStandardLibrariesPathProvider : KotlinStandardLibrariesPa
     override fun kotlinTestJarForTests(): File = getFile(KOTLIN_TEST_PROP)
     override fun scriptRuntimeJarForTests(): File = getFile(KOTLIN_SCRIPT_RUNTIME_PROP)
     override fun jvmAnnotationsForTests(): File = getFile(KOTLIN_ANNOTATIONS_JVM_PROP)
+    override fun getAnnotationsJar(): File = getFile(KOTLIN_ANNOTATIONS_JVM_PROP)
+    override fun fullJsStdlib(): File = getFile(KOTLIN_STDLIB_JS_PROP)
+    override fun defaultJsStdlib(): File = getFile(KOTLIN_STDLIB_JS_PROP)
+    override fun kotlinTestJsKLib(): File = getFile(KOTLIN_TEST_JS_PROP)
 }
 
 val TestServices.standardLibrariesPathProvider: KotlinStandardLibrariesPathProvider by TestServices.testServiceAccessor()
+
+fun CompilerConfiguration.configureStandardLibs(
+    pathProvider: KotlinStandardLibrariesPathProvider,
+    arguments: K2JVMCompilerArguments
+) {
+    configureStandardLibs(
+        pathProvider,
+        KotlinStandardLibrariesPathProvider::runtimeJarForTests,
+        KotlinStandardLibrariesPathProvider::scriptRuntimeJarForTests,
+        KotlinStandardLibrariesPathProvider::reflectJarForTests,
+        arguments
+    )
+}

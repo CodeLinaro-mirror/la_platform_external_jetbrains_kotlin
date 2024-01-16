@@ -11,12 +11,13 @@ import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.PsiManager
+import org.jetbrains.kotlin.KtPsiSourceFile
 import org.jetbrains.kotlin.analyzer.AnalysisResult
+import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageSupportForLinker
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
 import org.jetbrains.kotlin.backend.common.serialization.CompatibilityMode
-import org.jetbrains.kotlin.backend.common.serialization.KlibIrVersion
-import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataVersion
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
 import org.jetbrains.kotlin.build.report.DoNothingBuildReporter
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
@@ -25,7 +26,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
-import org.jetbrains.kotlin.descriptors.konan.kotlinLibrary
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.incremental.ChangedFiles
 import org.jetbrains.kotlin.incremental.IncrementalJsCompilerRunner
 import org.jetbrains.kotlin.incremental.multiproject.EmptyModulesApiHistory
@@ -36,7 +37,9 @@ import org.jetbrains.kotlin.ir.backend.js.*
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrModuleSerializer
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
+import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.collectExportedNames
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.TranslationMode
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
@@ -49,6 +52,8 @@ import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.library.*
 import org.jetbrains.kotlin.library.impl.BuiltInsPlatform
 import org.jetbrains.kotlin.library.impl.KotlinLibraryOnlyIrWriter
+import org.jetbrains.kotlin.library.metadata.KlibMetadataVersion
+import org.jetbrains.kotlin.library.metadata.kotlinLibrary
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
@@ -250,9 +255,8 @@ class GenerateIrRuntime {
         val compilerVersion = KotlinCompilerVersion.getVersion()
         val abiVersion = KotlinAbiVersion.CURRENT
         val metadataVersion = KlibMetadataVersion.INSTANCE.toString()
-        val irVersion = KlibIrVersion.INSTANCE.toString()
 
-        val versions = KotlinLibraryVersioning(libraryVersion, compilerVersion, abiVersion, metadataVersion, irVersion)
+        val versions = KotlinLibraryVersioning(libraryVersion, compilerVersion, abiVersion, metadataVersion)
         val file = createTempFile(directory = workingDir.toPath()).toFile()
         val writer = KotlinLibraryOnlyIrWriter(file.absolutePath, "", versions, BuiltInsPlatform.JS, emptyList(), false)
         val files = fullRuntimeSourceSet
@@ -272,9 +276,8 @@ class GenerateIrRuntime {
         val compilerVersion = KotlinCompilerVersion.getVersion()
         val abiVersion = KotlinAbiVersion.CURRENT
         val metadataVersion = KlibMetadataVersion.INSTANCE.toString()
-        val irVersion = KlibIrVersion.INSTANCE.toString()
 
-        val versions = KotlinLibraryVersioning(libraryVersion, compilerVersion, abiVersion, metadataVersion, irVersion)
+        val versions = KotlinLibraryVersioning(libraryVersion, compilerVersion, abiVersion, metadataVersion)
         val file = createTempFile(directory = workingDir.toPath()).toFile()
         val writer = KotlinLibraryOnlyIrWriter(file.absolutePath, "", versions, BuiltInsPlatform.JS, emptyList(), true)
         val files = fullRuntimeSourceSet
@@ -298,7 +301,7 @@ class GenerateIrRuntime {
 
         val args = K2JSCompilerArguments().apply {
             libraries = ""
-            outputFile = klibDirectory.path
+            outputDir = klibDirectory.path
             sourceMap = false
             irProduceKlibDir = true
             irOnly = true
@@ -324,7 +327,7 @@ class GenerateIrRuntime {
                 buildHistoryFile = buildHistoryFile,
                 modulesApiHistory = EmptyModulesApiHistory
             )
-            compiler.compile(allFiles, args, MessageCollector.NONE, providedChangedFiles = null)
+            compiler.compile(allFiles, args, MessageCollector.NONE, changedFiles = null)
         }
 
         val cleanBuildTime = System.nanoTime() - cleanBuildStart
@@ -462,22 +465,24 @@ class GenerateIrRuntime {
     }
 
     private fun doPsi2Ir(files: List<KtFile>, analysisResult: AnalysisResult): IrModuleFragment {
-        val psi2Ir = Psi2IrTranslator(languageVersionSettings, Psi2IrConfiguration())
+        val messageLogger = IrMessageLogger.None
+        val psi2Ir = Psi2IrTranslator(languageVersionSettings, Psi2IrConfiguration(), messageLogger::checkNoUnboundSymbols)
         val symbolTable = SymbolTable(IdSignatureDescriptor(JsManglerDesc), IrFactoryImpl)
         val psi2IrContext = psi2Ir.createGeneratorContext(analysisResult.moduleDescriptor, analysisResult.bindingContext, symbolTable)
 
         val irLinker = JsIrLinker(
             psi2IrContext.moduleDescriptor,
-            IrMessageLogger.None,
+            messageLogger,
             psi2IrContext.irBuiltIns,
             psi2IrContext.symbolTable,
+            PartialLinkageSupportForLinker.DISABLED,
             null
         )
 
         val irProviders = listOf(irLinker)
 
-        val psi2IrTranslator = Psi2IrTranslator(languageVersionSettings, psi2IrContext.configuration)
-        return psi2IrTranslator.generateModuleFragment(psi2IrContext, files, irProviders, emptyList(), null)
+        val psi2IrTranslator = Psi2IrTranslator(languageVersionSettings, psi2IrContext.configuration, messageLogger::checkNoUnboundSymbols)
+        return psi2IrTranslator.generateModuleFragment(psi2IrContext, files, irProviders, emptyList())
     }
 
     @OptIn(ExperimentalPathApi::class)
@@ -487,24 +492,26 @@ class GenerateIrRuntime {
         files: List<KtFile>,
         perFile: Boolean = false
     ): String {
+        val diagnosticReporter = DiagnosticReporterFactory.createPendingReporter()
         val tmpKlibDir = createTempDirectory().also { it.toFile().deleteOnExit() }.toString()
+        val metadataSerializer = KlibMetadataIncrementalSerializer(configuration, project, false)
         serializeModuleIntoKlib(
             moduleName,
-            project,
             configuration,
             IrMessageLogger.None,
-            bindingContext,
-            files,
+            diagnosticReporter,
+            files.map(::KtPsiSourceFile),
             tmpKlibDir,
             emptyList(),
             moduleFragment,
-            mutableMapOf(),
             emptyList(),
             true,
             perFile,
             abiVersion = KotlinAbiVersion.CURRENT,
             jsOutputName = null
-        )
+        ) { file ->
+            metadataSerializer.serializeScope(file, bindingContext, moduleFragment.descriptor)
+        }
 
         return tmpKlibDir
     }
@@ -525,11 +532,10 @@ class GenerateIrRuntime {
         val serializedIr = JsIrModuleSerializer(
             IrMessageLogger.None,
             module.irBuiltins,
-            mutableMapOf(),
             CompatibilityMode.CURRENT,
-            skipExpects = true,
             normalizeAbsolutePaths = false,
-            emptyList()
+            emptyList(),
+            configuration.languageVersionSettings,
         ).serializedIrModule(module)
         return serializedIr
     }
@@ -546,7 +552,7 @@ class GenerateIrRuntime {
         val typeTranslator = TypeTranslatorImpl(symbolTable, languageVersionSettings, moduleDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
 
-        val jsLinker = JsIrLinker(moduleDescriptor, IrMessageLogger.None, irBuiltIns, symbolTable, null)
+        val jsLinker = JsIrLinker(moduleDescriptor, IrMessageLogger.None, irBuiltIns, symbolTable, PartialLinkageSupportForLinker.DISABLED, null)
 
         val moduleFragment = jsLinker.deserializeFullModule(moduleDescriptor, moduleDescriptor.kotlinLibrary)
         jsLinker.init(null, emptyList())
@@ -554,7 +560,8 @@ class GenerateIrRuntime {
         ExternalDependenciesGenerator(symbolTable, listOf(jsLinker))
             .generateUnboundSymbolsAsDependencies()
 
-        jsLinker.postProcess()
+        jsLinker.postProcess(inOrAfterLinkageStep = true)
+        jsLinker.clear()
 
         moduleFragment.patchDeclarationParents()
 
@@ -571,7 +578,7 @@ class GenerateIrRuntime {
         val typeTranslator = TypeTranslatorImpl(symbolTable, languageVersionSettings, moduleDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
 
-        val jsLinker = JsIrLinker(moduleDescriptor, IrMessageLogger.None, irBuiltIns, symbolTable, null)
+        val jsLinker = JsIrLinker(moduleDescriptor, IrMessageLogger.None, irBuiltIns, symbolTable, PartialLinkageSupportForLinker.DISABLED, null)
 
         val moduleFragment = jsLinker.deserializeFullModule(moduleDescriptor, moduleDescriptor.kotlinLibrary)
         // Create stubs
@@ -580,7 +587,8 @@ class GenerateIrRuntime {
         ExternalDependenciesGenerator(symbolTable, listOf(jsLinker))
             .generateUnboundSymbolsAsDependencies()
 
-        jsLinker.postProcess()
+        jsLinker.postProcess(inOrAfterLinkageStep = true)
+        jsLinker.clear()
 
         moduleFragment.patchDeclarationParents()
 
@@ -591,15 +599,23 @@ class GenerateIrRuntime {
     private fun doBackEnd(
         module: IrModuleFragment, symbolTable: SymbolTable, irBuiltIns: IrBuiltIns, jsLinker: JsIrLinker
     ): CompilerResult {
-        val context = JsIrBackendContext(module.descriptor, irBuiltIns, symbolTable, module, emptySet(), configuration)
+        val context = JsIrBackendContext(
+            module.descriptor,
+            irBuiltIns,
+            symbolTable,
+            additionalExportedDeclarationNames = emptySet(),
+            keep = emptySet(),
+            configuration,
+            null
+        )
 
         ExternalDependenciesGenerator(symbolTable, listOf(jsLinker)).generateUnboundSymbolsAsDependencies()
 
         jsPhases.invokeToplevel(phaseConfig, context, listOf(module))
 
-        val transformer = IrModuleToJsTransformer(context, null)
+        val transformer = IrModuleToJsTransformer(context, shouldReferMainFunction = false)
 
-        return transformer.generateModule(listOf(module))
+        return transformer.generateModule(listOf(module), setOf(TranslationMode.PER_MODULE_DEV), false)
     }
 
     fun compile(files: List<KtFile>): String {

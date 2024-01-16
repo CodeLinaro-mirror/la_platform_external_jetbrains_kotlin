@@ -16,33 +16,32 @@
 
 package org.jetbrains.kotlin.incremental.storage
 
+import org.jetbrains.kotlin.incremental.IncrementalCompilationContext
 import java.io.File
 
-class LookupMap(storage: File, storeFullFqNames: Boolean) :
-    BasicMap<LookupSymbolKey, Collection<Int>>(storage, LookupSymbolKeyDescriptor(storeFullFqNames), IntCollectionExternalizer) {
+class LookupMap(
+    storage: File,
+    icContext: IncrementalCompilationContext,
+) :
+    AppendableAbstractBasicMap<LookupSymbolKey, Int, Collection<Int>>(
+        storage,
+        LookupSymbolKeyDescriptor(icContext.storeFullFqNamesInLookupCache),
+        IntExternalizer,
+        icContext,
+    ) {
 
     override fun dumpKey(key: LookupSymbolKey): String = key.toString()
 
     override fun dumpValue(value: Collection<Int>): String = value.toString()
 
     fun add(name: String, scope: String, fileId: Int) {
-        storage.append(LookupSymbolKey(name, scope), listOf(fileId))
+        storage.append(LookupSymbolKey(name, scope), fileId)
     }
 
-    fun append(lookup: LookupSymbolKey, fileIds: Collection<Int>) {
-        storage.append(lookup, fileIds)
-    }
-
-    operator fun get(key: LookupSymbolKey): Collection<Int>? = storage[key]
+    override fun get(key: LookupSymbolKey): Collection<Int>? = storage[key]?.toSet()
 
     operator fun set(key: LookupSymbolKey, fileIds: Set<Int>) {
         storage[key] = fileIds
     }
 
-    fun remove(key: LookupSymbolKey) {
-        storage.remove(key)
-    }
-
-    val keys: Collection<LookupSymbolKey>
-        get() = storage.keys
 }

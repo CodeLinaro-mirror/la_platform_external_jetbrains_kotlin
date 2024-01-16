@@ -16,12 +16,16 @@ public final class KlibMetadataProtoBuf {
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.constructorKdoc);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.constructorUniqId);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.functionAnnotation);
+    registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.functionExtensionReceiverAnnotation);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.functionFile);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.functionKdoc);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.functionUniqId);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyAnnotation);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyGetterAnnotation);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertySetterAnnotation);
+    registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyBackingFieldAnnotation);
+    registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyDelegatedFieldAnnotation);
+    registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyExtensionReceiverAnnotation);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.compileTimeValue);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyFile);
     registry.add(org.jetbrains.kotlin.library.metadata.KlibMetadataProtoBuf.propertyKdoc);
@@ -61,7 +65,7 @@ public final class KlibMetadataProtoBuf {
      * <code>optional int32 flags = 2;</code>
      *
      * <pre>
-     *0x1 = preRelease
+     *Possible values are listed in KlibMetadataHeaderFlags class.
      * </pre>
      */
     boolean hasFlags();
@@ -69,7 +73,7 @@ public final class KlibMetadataProtoBuf {
      * <code>optional int32 flags = 2;</code>
      *
      * <pre>
-     *0x1 = preRelease
+     *Possible values are listed in KlibMetadataHeaderFlags class.
      * </pre>
      */
     int getFlags();
@@ -385,7 +389,7 @@ public final class KlibMetadataProtoBuf {
      * <code>optional int32 flags = 2;</code>
      *
      * <pre>
-     *0x1 = preRelease
+     *Possible values are listed in KlibMetadataHeaderFlags class.
      * </pre>
      */
     public boolean hasFlags() {
@@ -395,7 +399,7 @@ public final class KlibMetadataProtoBuf {
      * <code>optional int32 flags = 2;</code>
      *
      * <pre>
-     *0x1 = preRelease
+     *Possible values are listed in KlibMetadataHeaderFlags class.
      * </pre>
      */
     public int getFlags() {
@@ -1060,7 +1064,7 @@ public final class KlibMetadataProtoBuf {
        * <code>optional int32 flags = 2;</code>
        *
        * <pre>
-       *0x1 = preRelease
+       *Possible values are listed in KlibMetadataHeaderFlags class.
        * </pre>
        */
       public boolean hasFlags() {
@@ -1070,7 +1074,7 @@ public final class KlibMetadataProtoBuf {
        * <code>optional int32 flags = 2;</code>
        *
        * <pre>
-       *0x1 = preRelease
+       *Possible values are listed in KlibMetadataHeaderFlags class.
        * </pre>
        */
       public int getFlags() {
@@ -1080,7 +1084,7 @@ public final class KlibMetadataProtoBuf {
        * <code>optional int32 flags = 2;</code>
        *
        * <pre>
-       *0x1 = preRelease
+       *Possible values are listed in KlibMetadataHeaderFlags class.
        * </pre>
        */
       public Builder setFlags(int value) {
@@ -1093,7 +1097,7 @@ public final class KlibMetadataProtoBuf {
        * <code>optional int32 flags = 2;</code>
        *
        * <pre>
-       *0x1 = preRelease
+       *Possible values are listed in KlibMetadataHeaderFlags class.
        * </pre>
        */
       public Builder clearFlags() {
@@ -2661,6 +2665,22 @@ public final class KlibMetadataProtoBuf {
         org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
         false,
         org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);
+  public static final int FUNCTION_EXTENSION_RECEIVER_ANNOTATION_FIELD_NUMBER = 171;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Function { ... }</code>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessageLite.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.ProtoBuf.Function,
+      java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>> functionExtensionReceiverAnnotation = org.jetbrains.kotlin.protobuf.GeneratedMessageLite
+          .newRepeatedGeneratedExtension(
+        org.jetbrains.kotlin.metadata.ProtoBuf.Function.getDefaultInstance(),
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.getDefaultInstance(),
+        null,
+        171,
+        org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
+        false,
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);
   public static final int FUNCTION_FILE_FIELD_NUMBER = 172;
   /**
    * <code>extend .org.jetbrains.kotlin.metadata.Function { ... }</code>
@@ -2754,6 +2774,54 @@ public final class KlibMetadataProtoBuf {
         org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.getDefaultInstance(),
         null,
         178,
+        org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
+        false,
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);
+  public static final int PROPERTY_BACKING_FIELD_ANNOTATION_FIELD_NUMBER = 181;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Property { ... }</code>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessageLite.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.ProtoBuf.Property,
+      java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>> propertyBackingFieldAnnotation = org.jetbrains.kotlin.protobuf.GeneratedMessageLite
+          .newRepeatedGeneratedExtension(
+        org.jetbrains.kotlin.metadata.ProtoBuf.Property.getDefaultInstance(),
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.getDefaultInstance(),
+        null,
+        181,
+        org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
+        false,
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);
+  public static final int PROPERTY_DELEGATED_FIELD_ANNOTATION_FIELD_NUMBER = 182;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Property { ... }</code>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessageLite.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.ProtoBuf.Property,
+      java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>> propertyDelegatedFieldAnnotation = org.jetbrains.kotlin.protobuf.GeneratedMessageLite
+          .newRepeatedGeneratedExtension(
+        org.jetbrains.kotlin.metadata.ProtoBuf.Property.getDefaultInstance(),
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.getDefaultInstance(),
+        null,
+        182,
+        org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
+        false,
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);
+  public static final int PROPERTY_EXTENSION_RECEIVER_ANNOTATION_FIELD_NUMBER = 183;
+  /**
+   * <code>extend .org.jetbrains.kotlin.metadata.Property { ... }</code>
+   */
+  public static final
+    org.jetbrains.kotlin.protobuf.GeneratedMessageLite.GeneratedExtension<
+      org.jetbrains.kotlin.metadata.ProtoBuf.Property,
+      java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>> propertyExtensionReceiverAnnotation = org.jetbrains.kotlin.protobuf.GeneratedMessageLite
+          .newRepeatedGeneratedExtension(
+        org.jetbrains.kotlin.metadata.ProtoBuf.Property.getDefaultInstance(),
+        org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.getDefaultInstance(),
+        null,
+        183,
         org.jetbrains.kotlin.protobuf.WireFormat.FieldType.MESSAGE,
         false,
         org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.class);

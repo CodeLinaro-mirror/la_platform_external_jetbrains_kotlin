@@ -7,7 +7,8 @@ package org.jetbrains.kotlin.fir.tree.generator.model
 
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 import org.jetbrains.kotlin.fir.tree.generator.context.type
-import org.jetbrains.kotlin.fir.tree.generator.printer.typeWithArguments
+import org.jetbrains.kotlin.generators.tree.typeWithArguments
+import org.jetbrains.kotlin.generators.tree.Importable
 
 // ----------- Simple field -----------
 
@@ -62,12 +63,12 @@ fun field(element: Element, nullable: Boolean = false, withReplace: Boolean = fa
 
 // ----------- Field list -----------
 
-fun fieldList(name: String, type: Importable, withReplace: Boolean = false): Field {
-    return FieldList(name, type, withReplace)
+fun fieldList(name: String, type: Importable, withReplace: Boolean = false, useMutableOrEmpty: Boolean = false): Field {
+    return FieldList(name, type, withReplace, useMutableOrEmpty)
 }
 
-fun fieldList(element: AbstractElement, withReplace: Boolean = false): Field {
-    return FieldList(element.name.replaceFirstChar(Char::lowercaseChar) + "s", element, withReplace)
+fun fieldList(element: AbstractElement, withReplace: Boolean = false, useMutableOrEmpty: Boolean = false): Field {
+    return FieldList(element.name.replaceFirstChar(Char::lowercaseChar) + "s", element, withReplace, useMutableOrEmpty)
 }
 
 // ----------- Field set -----------
@@ -95,5 +96,3 @@ fun Field.withTransform(needTransformInOtherChildren: Boolean = false): Field = 
 fun Field.withReplace(): Field = copy().apply {
     withReplace = true
 }
-
-fun FieldSet.withTransform(): FieldSet = this.map { it.withTransform() }

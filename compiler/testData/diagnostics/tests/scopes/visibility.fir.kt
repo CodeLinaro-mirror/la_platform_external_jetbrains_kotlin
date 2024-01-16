@@ -54,7 +54,7 @@ open class C : T {
 }
 
 fun test4(c: C) {
-    c.<!INVISIBLE_REFERENCE, INVISIBLE_REFERENCE!>i<!>++
+    c.<!INVISIBLE_REFERENCE, INVISIBLE_SETTER!>i<!>++
 }
 
 class D : C() {

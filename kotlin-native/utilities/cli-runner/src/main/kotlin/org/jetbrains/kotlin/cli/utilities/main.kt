@@ -7,7 +7,8 @@ package org.jetbrains.kotlin.cli.utilities
 import org.jetbrains.kotlin.native.interop.gen.defFileDependencies
 import org.jetbrains.kotlin.cli.bc.main as konancMain
 import org.jetbrains.kotlin.cli.klib.main as klibMain
-import org.jetbrains.kotlin.cli.bc.mainNoExitWithGradleRenderer as konancMainForGradle
+import org.jetbrains.kotlin.cli.bc.mainNoExitWithGradleRenderer as konancMainWithGradleRenderer
+import org.jetbrains.kotlin.cli.bc.mainNoExitWithXcodeRenderer as konancMainWithXcodeRenderer
 import org.jetbrains.kotlin.backend.konan.env.setEnv
 import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
 
@@ -17,32 +18,13 @@ private fun mainImpl(args: Array<String>, runFromDaemon: Boolean, konancMain: (A
     when (utilityName) {
         "konanc" ->
             konancMain(utilityArgs)
-        "kotlinc" -> {
-            println("""
-                NOTE: you are running "kotlinc" CLI tool from Kotlin/Native distribution,
-                it runs Kotlin/Native compiler that produces native binaries from Kotlin code.
-                If your intention was to compile Kotlin code to JVM bytecode instead, then you
-                need to use "kotlinc" from the main Kotlin distribution (e.g. it can be
-                downloaded as kotlin-compiler-X.Y.ZZ.zip archive from
-                https://github.com/JetBrains/kotlin/releases/latest, or installed using various
-                package managers).
 
-                WARNING: if your intention was to run Kotlin/Native compiler, then please use
-                "kotlinc-native" CLI tool instead of "kotlinc". "kotlinc" tool will be removed
-                from Kotlin/Native distribution, so it will stop clashing with "kotlinc" from
-                the main Kotlin distribution.
-
-            """.trimIndent())
-
-            konancMain(utilityArgs)
-        }
         "cinterop" -> {
             val konancArgs = invokeInterop("native", utilityArgs, runFromDaemon)
             konancArgs?.let { konancMain(it) }
         }
         "jsinterop" -> {
-            val konancArgs = invokeInterop("wasm", utilityArgs, runFromDaemon)
-            konancArgs?.let { konancMain(it) }
+            error("wasm target in Kotlin/Native is removed. See https://kotl.in/native-targets-tiers")
         }
         "klib" ->
             klibMain(utilityArgs)
@@ -65,7 +47,13 @@ private fun setupClangEnv() {
     setEnv("LIBCLANG_DISABLE_CRASH_RECOVERY", "1")
 }
 
-fun daemonMain(args: Array<String>) = usingNativeMemoryAllocator {
-    setupClangEnv() // For in-process invocation have to setup proper environment manually.
-    mainImpl(args, true, ::konancMainForGradle)
+fun daemonMain(args: Array<String>) = inProcessMain(args, ::konancMainWithGradleRenderer)
+
+fun daemonMainWithXcodeRenderer(args: Array<String>) = inProcessMain(args, ::konancMainWithXcodeRenderer)
+
+private fun inProcessMain(args: Array<String>, konancMain: (Array<String>) -> Unit) {
+    usingNativeMemoryAllocator {
+        setupClangEnv() // For in-process invocation have to setup proper environment manually.
+        mainImpl(args, true, konancMain)
+    }
 }

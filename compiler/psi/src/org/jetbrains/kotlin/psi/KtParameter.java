@@ -20,6 +20,7 @@ import com.intellij.lang.ASTNode;
 import com.intellij.navigation.ItemPresentation;
 import com.intellij.navigation.ItemPresentationProviders;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiErrorElement;
 import com.intellij.psi.search.LocalSearchScope;
 import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.tree.TokenSet;
@@ -84,7 +85,16 @@ public class KtParameter extends KtNamedDeclarationStub<KotlinParameterStub> imp
     @Nullable
     public KtExpression getDefaultValue() {
         KotlinParameterStub stub = getStub();
-        if (stub != null && !stub.hasDefaultValue()) return null;
+        if (stub != null) {
+            if (!stub.hasDefaultValue()) {
+                return null;
+            }
+
+            if (getContainingKtFile().isCompiled()) {
+                //don't load ast
+                return null;
+            }
+        }
 
         PsiElement equalsToken = getEqualsToken();
         return equalsToken != null ? PsiTreeUtil.getNextSiblingOfType(equalsToken, KtExpression.class) : null;
@@ -112,6 +122,7 @@ public class KtParameter extends KtNamedDeclarationStub<KotlinParameterStub> imp
         return getValOrVarKeyword() != null;
     }
 
+    @Override
     @Nullable
     public PsiElement getValOrVarKeyword() {
         KotlinParameterStub stub = getStub();

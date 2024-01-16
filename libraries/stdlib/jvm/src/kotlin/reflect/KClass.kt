@@ -13,6 +13,7 @@ package kotlin.reflect
  *
  * @param T the type of the class.
  */
+@AllowDifferentMembersInActual // KClass for JVM adds a lot of new members compared to the expect declaration
 public actual interface KClass<T : Any> : KDeclarationContainer, KAnnotatedElement, KClassifier {
     /**
      * The simple name of the class as it was declared in the source code,
@@ -104,9 +105,10 @@ public actual interface KClass<T : Any> : KDeclarationContainer, KAnnotatedEleme
     public val isSealed: Boolean
 
     /**
-     * `true` if this class is a data class.
-     * See the [Kotlin language documentation](https://kotlinlang.org/docs/reference/data-classes.html)
-     * for more information.
+     * `true` if this class or object has the `data` keyword.
+     * For more information, see [data class](https://kotlinlang.org/docs/reference/data-classes.html) and
+     * [data object](https://kotlinlang.org/docs/object-declarations.html#data-objects)
+     * in the Kotlin language documentation.
      */
     @SinceKotlin("1.1")
     public val isData: Boolean
@@ -150,7 +152,7 @@ public actual interface KClass<T : Any> : KDeclarationContainer, KAnnotatedEleme
      * For example, on JVM, [KClass] instances for a primitive type (`int`) and the corresponding wrapper type (`java.lang.Integer`)
      * are considered equal, because they have the same fully qualified name "kotlin.Int".
      */
-    override fun equals(other: Any?): Boolean
+    actual override fun equals(other: Any?): Boolean // KT-24971
 
-    override fun hashCode(): Int
+    actual override fun hashCode(): Int // KT-24971
 }

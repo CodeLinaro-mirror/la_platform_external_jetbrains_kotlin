@@ -1,8 +1,7 @@
-// IGNORE_BACKEND: WASM
-// IGNORE_BACKEND: JS_IR
+// IGNORE_BACKEND: WASM, JS_IR, JS_IR_ES6
 // WASM_MUTE_REASON: EXPECT_DEFAULT_PARAMETERS
-// IGNORE_BACKEND_FIR: JVM_IR
-// FIR status: default argument mapping in MPP isn't designed yet
+// IGNORE_BACKEND_K2: JVM, JVM_IR, NATIVE
+// FIR status: outdated code (expect and actual in the same module)
 // !LANGUAGE: +MultiPlatformProjects
 
 // KT-41901

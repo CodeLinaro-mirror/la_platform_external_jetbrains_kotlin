@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.services
 
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.services.PackagePartProviderFactory
+import org.jetbrains.kotlin.analysis.providers.PackagePartProviderFactory
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.serialization.deserialization.ClassData
@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.test.services.moduleStructure
 internal class PackagePartProviderTestImpl(
     private val testServices: TestServices,
 ) : PackagePartProviderFactory() {
-    override fun createPackagePartProviderForLibrary(scope: GlobalSearchScope): PackagePartProvider {
+    override fun createPackagePartProvider(scope: GlobalSearchScope): PackagePartProvider {
         val providers = testServices.moduleStructure.modules.map { module ->
             testServices.compilerConfigurationProvider.getPackagePartProviderFactory(module)(scope)
         }
@@ -25,6 +25,9 @@ internal class PackagePartProviderTestImpl(
             override fun findPackageParts(packageFqName: String): List<String> {
                 return providers.flatMapTo(mutableSetOf()) { it.findPackageParts(packageFqName) }.toList()
             }
+
+            override fun computePackageSetWithNonClassDeclarations(): Set<String> =
+                providers.flatMapTo(mutableSetOf()) { it.computePackageSetWithNonClassDeclarations() }
 
             override fun getAnnotationsOnBinaryModule(moduleName: String): List<ClassId> {
                 return providers.flatMapTo(mutableSetOf()) { it.getAnnotationsOnBinaryModule(moduleName) }.toList()
@@ -34,6 +37,7 @@ internal class PackagePartProviderTestImpl(
                 return providers.flatMapTo(mutableSetOf()) { it.getAllOptionalAnnotationClasses() }.toList()
             }
 
+            override fun mayHaveOptionalAnnotationClasses(): Boolean = providers.any { it.mayHaveOptionalAnnotationClasses() }
         }
     }
 }

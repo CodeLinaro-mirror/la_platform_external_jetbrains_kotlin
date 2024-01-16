@@ -6,6 +6,7 @@
 package kotlin.js
 
 import kotlin.annotation.AnnotationTarget.*
+import kotlin.reflect.KClass
 
 /**
  * Gives a declaration (a function, a property or a class) specific name in JavaScript.
@@ -13,6 +14,33 @@ import kotlin.annotation.AnnotationTarget.*
 @Target(CLASS, FUNCTION, PROPERTY, CONSTRUCTOR, PROPERTY_GETTER, PROPERTY_SETTER)
 @OptionalExpectation
 public expect annotation class JsName(val name: String)
+
+/**
+ * Marks experimental [JsFileName] annotation.
+ *
+ * Note that behavior of these annotations will likely be changed in the future.
+ *
+ * Usages of such annotations will be reported as warnings unless an explicit opt-in with
+ * the [OptIn] annotation, e.g. `@OptIn(ExperimentalJsFileName::class)`,
+ * or with the `-opt-in=kotlin.js.ExperimentalJsFileName` compiler option is given.
+ */
+@RequiresOptIn(level = RequiresOptIn.Level.WARNING)
+@MustBeDocumented
+@Retention(AnnotationRetention.BINARY)
+@SinceKotlin("1.9")
+public annotation class ExperimentalJsFileName
+
+/**
+ * Specifies the name of the compiled file produced from the annotated source file instead of the default one.
+ *
+ * This annotation can be applied only to files and only when the compilation granularity is `PER_FILE`.
+ */
+@Target(FILE)
+@OptionalExpectation
+@ExperimentalJsFileName
+@Retention(AnnotationRetention.SOURCE)
+@SinceKotlin("1.9")
+public expect annotation class JsFileName(val name: String)
 
 /**
  * Marks experimental JS export annotations.
@@ -63,4 +91,43 @@ public annotation class ExperimentalJsExport
 @Target(CLASS, PROPERTY, FUNCTION, FILE)
 @SinceKotlin("1.4")
 @OptionalExpectation
-public expect annotation class JsExport()
+public expect annotation class JsExport() {
+    /*
+    * The annotation prevents exporting the annotated member of an exported class.
+    * This annotation is experimental, meaning that the restrictions mentioned above are subject to change.
+    */
+    @ExperimentalJsExport
+    @Retention(AnnotationRetention.BINARY)
+    @Target(CLASS, PROPERTY, FUNCTION, CONSTRUCTOR)
+    @SinceKotlin("1.8")
+    @OptionalExpectation
+    public annotation class Ignore()
+}
+
+
+/**
+ * This annotation marks the experimental Kotlin/JS reflection API that allows to create an instance of provided [KClass]
+ * The API can be removed completely in any further release.
+ *
+ * Any usage of a declaration annotated with `@ExperimentalJsReflectionCreateInstance` should be accepted either by
+ * annotating that usage with the [OptIn] annotation, e.g. `@OptIn(ExperimentalJsReflectionCreateInstance::class)`,
+ * or by using the compiler argument `-opt-in=kotlin.js.ExperimentalJsReflectionCreateInstance`.
+ */
+@RequiresOptIn(level = RequiresOptIn.Level.WARNING)
+@Retention(AnnotationRetention.BINARY)
+@Target(
+    AnnotationTarget.CLASS,
+    AnnotationTarget.ANNOTATION_CLASS,
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.LOCAL_VARIABLE,
+    AnnotationTarget.VALUE_PARAMETER,
+    AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.PROPERTY_GETTER,
+    AnnotationTarget.PROPERTY_SETTER,
+    AnnotationTarget.TYPEALIAS
+)
+@MustBeDocumented
+@SinceKotlin("1.9")
+public annotation class ExperimentalJsReflectionCreateInstance

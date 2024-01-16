@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,7 +16,8 @@ import org.jetbrains.kotlin.name.FqName
 
 /**
  * A non-leaf IR tree element.
- * @sample org.jetbrains.kotlin.ir.generator.IrTree.packageFragment
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.packageFragment]
  */
 abstract class IrPackageFragment : IrElementBase(), IrDeclarationContainer, IrSymbolOwner {
     abstract override val symbol: IrPackageFragmentSymbol
@@ -24,5 +25,16 @@ abstract class IrPackageFragment : IrElementBase(), IrDeclarationContainer, IrSy
     @ObsoleteDescriptorBasedAPI
     abstract val packageFragmentDescriptor: PackageFragmentDescriptor
 
-    abstract val fqName: FqName
+    abstract var packageFqName: FqName
+
+    @Deprecated(
+        message = "Please use `packageFqName` instead",
+        replaceWith = ReplaceWith("packageFqName"),
+        level = DeprecationLevel.ERROR,
+    )
+    var fqName: FqName
+        get() = packageFqName
+        set(value) {
+            packageFqName = value
+        }
 }

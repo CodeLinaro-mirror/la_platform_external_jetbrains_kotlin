@@ -7,16 +7,24 @@ package org.jetbrains.kotlin.gradle.targets.js.yarn
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.utils.markResolvable
 import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNpmResolutionManager
+import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask.Companion.RESTORE_YARN_LOCK_NAME
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask.Companion.STORE_YARN_LOCK_NAME
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask.Companion.UPGRADE_YARN_LOCK
 import org.jetbrains.kotlin.gradle.tasks.CleanDataTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
+import org.jetbrains.kotlin.gradle.utils.onlyIfCompat
 
 open class YarnPlugin : Plugin<Project> {
     override fun apply(project: Project): Unit = project.run {
@@ -27,25 +35,37 @@ open class YarnPlugin : Plugin<Project> {
         }
 
         val yarnRootExtension = this.extensions.create(YarnRootExtension.YARN, YarnRootExtension::class.java, this)
-        val nodeJs = NodeJsRootPlugin.apply(this)
+        NodeJsRootPlugin.apply(project)
+        val nodeJs = this.kotlinNodeJsExtension
+        val nodeJsTaskProviders = this.kotlinNodeJsExtension
+
+        yarnRootExtension.platform.value(nodeJs.platform)
+            .disallowChanges()
 
         val setupTask = registerTask<YarnSetupTask>(YarnSetupTask.NAME) {
-            it.dependsOn(nodeJs.nodeJsSetupTaskProvider)
+            it.dependsOn(nodeJsTaskProviders.nodeJsSetupTaskProvider)
 
             it.configuration = provider {
                 this.project.configurations.detachedConfiguration(this.project.dependencies.create(it.ivyDependency))
+                    .markResolvable()
                     .also { conf -> conf.isTransitive = false }
             }
         }
 
-        val rootClean = project.rootProject.tasks.named(BasePlugin.CLEAN_TASK_NAME)
+        val kotlinNpmResolutionManager = project.kotlinNpmResolutionManager
 
         val rootPackageJson = tasks.register(RootPackageJsonTask.NAME, RootPackageJsonTask::class.java) { task ->
-            task.dependsOn(nodeJs.npmCachesSetupTaskProvider)
+            task.dependsOn(nodeJsTaskProviders.npmCachesSetupTaskProvider)
             task.group = NodeJsRootPlugin.TASKS_GROUP_NAME
             task.description = "Create root package.json"
 
-            task.mustRunAfter(rootClean)
+            task.npmResolutionManager.value(kotlinNpmResolutionManager)
+                .disallowChanges()
+
+            task.onlyIfCompat("Prepare NPM project only in configuring state") {
+                it as RootPackageJsonTask
+                it.npmResolutionManager.get().isConfiguringState()
+            }
         }
 
         configureRequiresNpmDependencies(project, rootPackageJson)
@@ -62,21 +82,32 @@ open class YarnPlugin : Plugin<Project> {
             it.description = "Clean unused local yarn version"
         }
 
-        val packageJsonUmbrella = nodeJs
+        val packageJsonUmbrella = nodeJsTaskProviders
             .packageJsonUmbrellaTaskProvider
 
         yarnRootExtension.rootPackageJsonTaskProvider.configure {
             it.dependsOn(packageJsonUmbrella)
         }
 
-        val storeYarnLock = tasks.register("kotlinStoreYarnLock", YarnLockCopyTask::class.java) {
-            it.dependsOn(kotlinNpmInstall)
-            it.inputFile.set(nodeJs.rootPackageDir.resolve("yarn.lock"))
-            it.outputDirectory.set(yarnRootExtension.lockFileDirectory)
-            it.fileName.set(yarnRootExtension.lockFileName)
+        tasks.register(STORE_YARN_LOCK_NAME, YarnLockStoreTask::class.java) { task ->
+            task.dependsOn(kotlinNpmInstall)
+            task.inputFile.set(nodeJs.rootPackageDir.resolve("yarn.lock"))
+            task.outputDirectory.set(yarnRootExtension.lockFileDirectory)
+            task.fileName.set(yarnRootExtension.lockFileName)
+
+            task.yarnLockMismatchReport = provider { yarnRootExtension.requireConfigured().yarnLockMismatchReport }
+            task.reportNewYarnLock = provider { yarnRootExtension.requireConfigured().reportNewYarnLock }
+            task.yarnLockAutoReplace = provider { yarnRootExtension.requireConfigured().yarnLockAutoReplace }
         }
 
-        val restoreYarnLock = tasks.register("kotlinRestoreYarnLock", YarnLockCopyTask::class.java) {
+        tasks.register(UPGRADE_YARN_LOCK, YarnLockCopyTask::class.java) { task ->
+            task.dependsOn(kotlinNpmInstall)
+            task.inputFile.set(nodeJs.rootPackageDir.resolve("yarn.lock"))
+            task.outputDirectory.set(yarnRootExtension.lockFileDirectory)
+            task.fileName.set(yarnRootExtension.lockFileName)
+        }
+
+        val restoreYarnLock = tasks.register(RESTORE_YARN_LOCK_NAME, YarnLockCopyTask::class.java) {
             val lockFile = yarnRootExtension.lockFileDirectory.resolve(yarnRootExtension.lockFileName)
             it.inputFile.set(yarnRootExtension.lockFileDirectory.resolve(yarnRootExtension.lockFileName))
             it.outputDirectory.set(nodeJs.rootPackageDir)
@@ -88,7 +119,6 @@ open class YarnPlugin : Plugin<Project> {
 
         kotlinNpmInstall.configure {
             it.dependsOn(restoreYarnLock)
-            it.finalizedBy(storeYarnLock)
         }
     }
 

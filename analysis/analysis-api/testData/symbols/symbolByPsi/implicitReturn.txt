@@ -1,8 +1,12 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /foo
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -14,8 +18,11 @@ KtFunctionSymbol:
   modality: FINAL
   name: foo
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/Int
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Int
   symbolKind: TOP_LEVEL
   typeParameters: []
   valueParameters: []

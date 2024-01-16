@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.types.model
 
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.resolve.checkers.EmptyIntersectionTypeChecker
 import org.jetbrains.kotlin.resolve.checkers.EmptyIntersectionTypeInfo
 import org.jetbrains.kotlin.types.*
@@ -22,7 +23,6 @@ interface DefinitelyNotNullTypeMarker : SimpleTypeMarker
 
 interface FlexibleTypeMarker : KotlinTypeMarker
 interface DynamicTypeMarker : FlexibleTypeMarker
-interface RawTypeMarker : FlexibleTypeMarker
 interface StubTypeMarker : SimpleTypeMarker
 
 interface TypeArgumentListMarker
@@ -164,7 +164,7 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     fun KotlinTypeMarker.isUnit(): Boolean
 
-    fun KotlinTypeMarker.isBuiltinFunctionalTypeOrSubtype(): Boolean
+    fun KotlinTypeMarker.isBuiltinFunctionTypeOrSubtype(): Boolean
 
     fun createCapturedType(
         constructorProjection: TypeArgumentMarker,
@@ -227,12 +227,6 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     fun CapturedTypeMarker.typeParameter(): TypeParameterMarker?
     fun CapturedTypeMarker.withNotNullProjection(): KotlinTypeMarker
 
-    fun typeSubstitutorByTypeConstructor(map: Map<TypeConstructorMarker, KotlinTypeMarker>): TypeSubstitutorMarker
-    fun createEmptySubstitutor(): TypeSubstitutorMarker
-
-    fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker
-
-
     fun TypeVariableMarker.defaultType(): SimpleTypeMarker
 
     fun createTypeWithAlternativeForIntersectionResult(
@@ -247,21 +241,25 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     fun KotlinTypeMarker.isSignedOrUnsignedNumberType(): Boolean
 
+    // ------------- functional type utils -------------
+
     fun KotlinTypeMarker.isFunctionOrKFunctionWithAnySuspendability(): Boolean
 
-    fun KotlinTypeMarker.isSuspendFunctionTypeOrSubtype(): Boolean
+    fun KotlinTypeMarker.functionTypeKind(): FunctionTypeKind?
 
     fun KotlinTypeMarker.isExtensionFunctionType(): Boolean
 
-    fun KotlinTypeMarker.extractArgumentsForFunctionalTypeOrSubtype(): List<KotlinTypeMarker>
+    fun KotlinTypeMarker.extractArgumentsForFunctionTypeOrSubtype(): List<KotlinTypeMarker>
 
-    fun KotlinTypeMarker.getFunctionalTypeFromSupertypes(): KotlinTypeMarker
+    fun KotlinTypeMarker.getFunctionTypeFromSupertypes(): KotlinTypeMarker
+
+    fun getNonReflectFunctionTypeConstructor(parametersNumber: Int, kind: FunctionTypeKind): TypeConstructorMarker
+
+    fun getReflectFunctionTypeConstructor(parametersNumber: Int, kind: FunctionTypeKind): TypeConstructorMarker
+
+    // -------------------------------------------------
 
     fun StubTypeMarker.getOriginalTypeVariable(): TypeVariableTypeConstructorMarker
-
-    fun getFunctionTypeConstructor(parametersNumber: Int, isSuspend: Boolean): TypeConstructorMarker
-
-    fun getKFunctionTypeConstructor(parametersNumber: Int, isSuspend: Boolean): TypeConstructorMarker
 
     private fun <T> KotlinTypeMarker.extractTypeOf(to: MutableSet<T>, getIfApplicable: (TypeConstructorMarker) -> T?) {
         for (i in 0 until argumentsCount()) {
@@ -307,6 +305,11 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
      */
     fun useRefinedBoundsForTypeVariableInFlexiblePosition(): Boolean
 
+    /**
+     * It's only relevant for K2 (and is not expected to be implemented properly in other contexts)
+     */
+    fun KotlinTypeMarker.convertToNonRaw(): KotlinTypeMarker
+
     fun createCapturedStarProjectionForSelfType(
         typeVariable: TypeVariableTypeConstructorMarker,
         typesForRecursiveTypeParameters: List<KotlinTypeMarker>,
@@ -332,6 +335,8 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     private fun computeEffectiveVariance(parameter: TypeParameterMarker, argument: TypeArgumentMarker): TypeVariance? =
         AbstractTypeChecker.effectiveVariance(parameter.getVariance(), argument.getVariance())
+
+    val isK2: Boolean
 }
 
 
@@ -349,7 +354,8 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
     fun KotlinTypeMarker.isUninferredParameter(): Boolean
     fun FlexibleTypeMarker.asDynamicType(): DynamicTypeMarker?
 
-    fun FlexibleTypeMarker.asRawType(): RawTypeMarker?
+    fun KotlinTypeMarker.isRawType(): Boolean
+
     fun FlexibleTypeMarker.upperBound(): SimpleTypeMarker
 
     fun FlexibleTypeMarker.lowerBound(): SimpleTypeMarker
@@ -540,6 +546,14 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
     fun substitutionSupertypePolicy(type: SimpleTypeMarker): TypeCheckerState.SupertypesPolicy
 
     fun KotlinTypeMarker.isTypeVariableType(): Boolean
+
+    fun typeSubstitutorByTypeConstructor(map: Map<TypeConstructorMarker, KotlinTypeMarker>): TypeSubstitutorMarker
+    fun createEmptySubstitutor(): TypeSubstitutorMarker
+
+    /**
+     * @returns substituted type or [type] if there were no substitution
+     */
+    fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker
 }
 
 enum class CaptureStatus {

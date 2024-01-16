@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.lower.irCatch
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
+import org.jetbrains.kotlin.backend.jvm.ir.findEnumValuesFunction
 import org.jetbrains.kotlin.backend.jvm.ir.isInPublicInlineScope
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -23,11 +24,11 @@ import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 internal val enumWhenPhase = makeIrFilePhase(
     ::MappedEnumWhenLowering,
@@ -114,7 +115,7 @@ private class MappedEnumWhenLowering(override val context: JvmBackendContext) : 
             val mapping = state!!.getMappingForClass(subject.type.getClass()!!)
 
             mapping.isPublicAbi = mapping.isPublicAbi ||
-                    (builder.scope.scopeOwnerSymbol.owner.safeAs<IrDeclaration>()?.isInPublicInlineScope ?: false)
+                    (builder.scope.scopeOwnerSymbol.owner as? IrDeclaration)?.isInPublicInlineScope == true
 
             dispatchReceiver = builder.irGetField(null, mapping.field)
             putValueArgument(0, super.mapRuntimeEnumEntry(builder, subject))
@@ -127,14 +128,7 @@ private class MappedEnumWhenLowering(override val context: JvmBackendContext) : 
         super.visitClassNew(declaration)
 
         for ((enum, mapping) in mappingState.mappings) {
-            val enumValues = enum.functions.single {
-                it.name.toString() == "values"
-                        && it.dispatchReceiverParameter == null
-                        && it.extensionReceiverParameter == null
-                        && it.valueParameters.isEmpty()
-                        && it.returnType.isBoxedArray
-                        && it.returnType.getArrayElementType(context.irBuiltIns).classOrNull == enum.symbol
-            }
+            val enumValues = enum.findEnumValuesFunction(context)
             val builder = context.createIrBuilder(mapping.field.symbol)
             mapping.field.initializer = builder.irExprBody(builder.irBlock {
                 val enumSize = irCall(refArraySize).apply { dispatchReceiver = irCall(enumValues) }

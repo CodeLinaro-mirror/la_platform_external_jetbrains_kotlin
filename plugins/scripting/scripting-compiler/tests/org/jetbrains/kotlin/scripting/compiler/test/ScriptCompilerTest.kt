@@ -7,7 +7,10 @@ package org.jetbrains.kotlin.scripting.compiler.test
 
 import junit.framework.TestCase
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.kotlin.scripting.compiler.plugin.expectTestToFailOnK2
+import org.jetbrains.kotlin.scripting.compiler.plugin.getBaseCompilerArgumentsFromProperty
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.ScriptJvmCompilerIsolated
+import org.jetbrains.kotlin.utils.tryConstructClassFromStringArgs
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 import kotlin.reflect.full.createInstance
@@ -32,6 +35,40 @@ class ScriptCompilerTest : TestCase() {
         assertTrue(res.reports.none { it.message.contains("nonsense") })
     }
 
+    fun testSimpleVarAccess() {
+        val res = compileToClass(
+            """
+                val x = 2
+                val y = x
+            """.trimIndent().toScriptSource()
+        )
+
+        val kclass = res.valueOrThrow()
+        val scriptInstance = kclass.createInstance()
+        assertNotNull(scriptInstance)
+    }
+
+    fun testLambdaWithProperty() {
+        val versionProperties = java.util.Properties()
+        "".reader().use { propInput ->
+            versionProperties.load(propInput)
+        }
+        val res = compileToClass(
+            """
+                val versionProperties = java.util.Properties()
+                "".reader().use { propInput ->
+                    val x = 1
+                    x.toString()
+                    versionProperties.load(propInput)
+                }
+            """.trimIndent().toScriptSource()
+        )
+
+        val kclass = res.valueOrThrow()
+        val scriptInstance = kclass.createInstance()
+        assertNotNull(scriptInstance)
+    }
+
     fun testTypeAliases() {
         val res = compileToClass(
             """
@@ -49,7 +86,8 @@ class ScriptCompilerTest : TestCase() {
         assertEquals("Clazz", nestedClasses[0].simpleName)
     }
 
-    fun testDestructingDeclarations() {
+    // Fails on K2, see KT-60501
+    fun testDestructingDeclarations() = expectTestToFailOnK2 {
         val res = compileToClass(
             """
                 val c = 3
@@ -78,7 +116,12 @@ class ScriptCompilerTest : TestCase() {
         script: SourceCode,
         cfgBody: ScriptCompilationConfiguration.Builder.() -> Unit
     ): ResultWithDiagnostics<CompiledScript> {
-        val compilationConfiguration = ScriptCompilationConfiguration(cfgBody)
+        val compilationConfiguration = ScriptCompilationConfiguration {
+            cfgBody()
+            getBaseCompilerArgumentsFromProperty()?.let {
+                compilerOptions.append(it)
+            }
+        }
         val compiler = ScriptJvmCompilerIsolated(defaultJvmScriptingHostConfiguration)
         return compiler.compile(script, compilationConfiguration)
     }

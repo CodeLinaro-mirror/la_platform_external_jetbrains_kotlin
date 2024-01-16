@@ -3,13 +3,13 @@ plugins {
     id("jps-compatible")
 }
 
-project.configureJvmToolchain(JdkMajorVersion.JDK_1_6)
+project.configureJvmToolchain(JdkMajorVersion.JDK_1_8)
 
 dependencies {
     api(project(":kotlin-script-runtime"))
     api(kotlinStdlib())
     api(project(":kotlin-scripting-common"))
-    testApi(commonDependency("junit"))
+    testImplementation(libs.junit4)
 }
 
 sourceSets {

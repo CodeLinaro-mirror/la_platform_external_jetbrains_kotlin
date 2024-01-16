@@ -5,9 +5,12 @@
 
 package org.jetbrains.kotlin.fir.tree.generator.context
 
+import org.jetbrains.kotlin.fir.tree.generator.constructClassLikeTypeImport
 import org.jetbrains.kotlin.fir.tree.generator.model.*
-import org.jetbrains.kotlin.fir.tree.generator.noReceiverExpressionType
 import org.jetbrains.kotlin.fir.tree.generator.printer.call
+import org.jetbrains.kotlin.fir.tree.generator.standardClassIdsType
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
+import org.jetbrains.kotlin.generators.tree.Importable
 
 abstract class AbstractFirTreeImplementationConfigurator {
     private val elementsWithImpl = mutableSetOf<Element>()
@@ -87,8 +90,6 @@ abstract class AbstractFirTreeImplementationConfigurator {
 
         val parents = ParentsHolder()
 
-        fun Implementation.withArg(argument: Importable): ImplementationWithArg = ImplementationWithArg(this, argument)
-
         fun optInToInternals() {
             implementation.requiresOptIn = true
         }
@@ -109,10 +110,7 @@ abstract class AbstractFirTreeImplementationConfigurator {
         }
 
         fun defaultNoReceivers() {
-            defaultNull("explicitReceiver")
-            default("dispatchReceiver", "FirNoReceiverExpression")
-            default("extensionReceiver", "FirNoReceiverExpression")
-            useTypes(noReceiverExpressionType)
+            defaultNull("explicitReceiver", "dispatchReceiver", "extensionReceiver")
         }
 
         fun default(field: String, value: String) {
@@ -121,10 +119,12 @@ abstract class AbstractFirTreeImplementationConfigurator {
             }
         }
 
-        fun defaultTypeRefWithSource(typeRefClass: String) {
-            default("typeRef", "$typeRefClass(source?.fakeElement(KtFakeSourceElementKind.ImplicitTypeRef))")
-            implementation.arbitraryImportables += ArbitraryImportable("org.jetbrains.kotlin", "KtFakeSourceElementKind")
-            implementation.arbitraryImportables += ArbitraryImportable("org.jetbrains.kotlin", "fakeElement")
+        fun defaultBuiltInType(type: String) {
+            default("coneTypeOrNull") {
+                value = "StandardClassIds.$type.constructClassLikeType()"
+                isMutable = false
+            }
+            useTypes(standardClassIdsType, constructClassLikeTypeImport)
         }
 
         fun defaultTrue(field: String, withGetter: Boolean = false) {
@@ -181,7 +181,7 @@ abstract class AbstractFirTreeImplementationConfigurator {
             }
         }
 
-        var kind: Implementation.Kind?
+        var kind: ImplementationKind?
             get() = implementation.kind
             set(value) {
                 implementation.kind = value
@@ -217,11 +217,17 @@ abstract class AbstractFirTreeImplementationConfigurator {
 
             var needAcceptAndTransform: Boolean = true
 
+            var notNull: Boolean = false
+
             fun applyConfiguration() {
                 field.withGetter = withGetter
                 field.customSetter = customSetter
                 isMutable?.let { field.isMutable = it }
                 field.needAcceptAndTransform = needAcceptAndTransform
+
+                if (notNull) {
+                    field.notNull = true
+                }
                 when {
                     value != null -> field.defaultValueInImplementation = value
                     delegate != null -> {

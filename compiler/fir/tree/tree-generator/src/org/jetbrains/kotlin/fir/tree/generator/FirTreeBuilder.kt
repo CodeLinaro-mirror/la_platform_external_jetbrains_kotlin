@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -26,10 +26,13 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
 
     val statement by element(Expression, annotationContainer)
     val expression by element(Expression, statement)
+    val lazyExpression by element(Expression, expression)
 
     val contextReceiver by element(Declaration)
 
-    val declaration by sealedElement(Declaration, annotationContainer)
+    val elementWithResolveState by element(Other)
+    val fileAnnotationsContainer by element(Other, elementWithResolveState, annotationContainer)
+    val declaration by sealedElement(Declaration, elementWithResolveState, annotationContainer)
     val typeParameterRefsOwner by sealedElement(Declaration)
     val typeParametersOwner by sealedElement(Declaration, typeParameterRefsOwner)
     val memberDeclaration by sealedElement(Declaration, declaration, typeParameterRefsOwner)
@@ -37,16 +40,21 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val callableDeclaration by sealedElement(Declaration, memberDeclaration)
     val typeParameterRef by element(Declaration)
     val typeParameter by element(Declaration, typeParameterRef, declaration)
+    val constructedClassTypeParameterRef by element(Declaration, typeParameterRef)
+    val outerClassTypeParameterRef by element(Declaration, typeParameterRef)
 
     val variable by sealedElement(Declaration, callableDeclaration, statement)
     val valueParameter by element(Declaration, variable, controlFlowGraphOwner)
+    val receiverParameter by element(Declaration, annotationContainer)
     val property by element(Declaration, variable, typeParametersOwner, controlFlowGraphOwner)
     val field by element(Declaration, variable, controlFlowGraphOwner)
     val enumEntry by element(Declaration, variable)
 
+    val functionTypeParameter by element(Other, baseFirElement)
+
     val classLikeDeclaration by sealedElement(Declaration, memberDeclaration, statement)
-    val klass by sealedElement("Class", Declaration, classLikeDeclaration, statement, typeParameterRefsOwner)
-    val regularClass by element(Declaration, klass, controlFlowGraphOwner)
+    val klass by sealedElement("Class", Declaration, classLikeDeclaration, statement, typeParameterRefsOwner, controlFlowGraphOwner)
+    val regularClass by element(Declaration, klass)
     val typeAlias by element(Declaration, classLikeDeclaration, typeParametersOwner)
 
     val function by sealedElement(Declaration, callableDeclaration, targetElement, controlFlowGraphOwner, statement)
@@ -55,14 +63,16 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val simpleFunction by element(Declaration, function, contractDescriptionOwner, typeParametersOwner)
     val propertyAccessor by element(Declaration, function, contractDescriptionOwner, typeParametersOwner)
     val backingField by element(Declaration, variable, typeParametersOwner, statement)
-    val constructor by element(Declaration, function, typeParameterRefsOwner)
-    val file by element(Declaration, declaration)
+    val constructor by element(Declaration, function, typeParameterRefsOwner, contractDescriptionOwner)
+    val file by element(Declaration, declaration, controlFlowGraphOwner)
+    val script by element(Declaration, declaration)
+    val codeFragment by element(Declaration, declaration)
     val packageDirective by element(Other)
 
-    val anonymousFunction by element(Declaration, function, typeParametersOwner)
+    val anonymousFunction by element(Declaration, function, typeParametersOwner, contractDescriptionOwner)
     val anonymousFunctionExpression by element(Expression, expression)
 
-    val anonymousObject by element(Declaration, klass, controlFlowGraphOwner)
+    val anonymousObject by element(Declaration, klass)
     val anonymousObjectExpression by element(Expression, expression)
 
     val diagnosticHolder by element(Diagnostics)
@@ -77,6 +87,8 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val whileLoop by element(Expression, loop)
 
     val block by element(Expression, expression)
+    val lazyBlock by element(Expression, block)
+
     val binaryLogicExpression by element(Expression, expression)
     val jump by sealedElement(Expression, expression)
     val loopJump by element(Expression, jump)
@@ -94,36 +106,40 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val annotation by element(Expression, expression)
     val annotationCall by element(Expression, annotation, call, resolvable)
     val annotationArgumentMapping by element(Expression)
+    val errorAnnotationCall by element(Expression, annotationCall, diagnosticHolder)
     val comparisonExpression by element(Expression, expression)
     val typeOperatorCall by element(Expression, expression, call)
     val assignmentOperatorStatement by element(Expression, statement)
+    val incrementDecrementExpression by element(Expression, expression)
     val equalityOperatorCall by element(Expression, expression, call)
     val whenExpression by element(Expression, expression, resolvable)
     val whenBranch by element(Expression)
     val contextReceiverArgumentListOwner by element(Expression)
-    val qualifiedAccess by element(Expression, resolvable, statement, contextReceiverArgumentListOwner)
     val checkNotNullCall by element(Expression, expression, call, resolvable)
     val elvisExpression by element(Expression, expression, resolvable)
 
-    val arrayOfCall by element(Expression, expression, call)
+    val arrayLiteral by element(Expression, expression, call)
     val augmentedArraySetCall by element(Expression, statement)
     val classReferenceExpression by element(Expression, expression)
     val errorExpression by element(Expression, expression, diagnosticHolder)
     val errorFunction by element(Declaration, function, diagnosticHolder)
     val errorProperty by element(Declaration, variable, diagnosticHolder)
-    val qualifiedAccessExpression by element(Expression, expression, qualifiedAccess)
+    val errorPrimaryConstructor by element(Declaration, constructor, diagnosticHolder)
+    val danglingModifierList by element(Declaration, declaration, diagnosticHolder)
+    val qualifiedAccessExpression by element(Expression, expression, resolvable, contextReceiverArgumentListOwner)
+    val qualifiedErrorAccessExpression by element(Expression, expression, diagnosticHolder)
     val propertyAccessExpression by element(Expression, qualifiedAccessExpression)
     val functionCall by element(Expression, qualifiedAccessExpression, call)
     val integerLiteralOperatorCall by element(Expression, functionCall)
     val implicitInvokeCall by element(Expression, functionCall)
     val delegatedConstructorCall by element(Expression, resolvable, call, contextReceiverArgumentListOwner)
+    val multiDelegatedConstructorCall by element(Expression, delegatedConstructorCall)
     val componentCall by element(Expression, functionCall)
     val callableReferenceAccess by element(Expression, qualifiedAccessExpression)
     val thisReceiverExpression by element(Expression, qualifiedAccessExpression)
-    val wrappedExpressionWithSmartcast by element(Expression)
-    val wrappedExpressionWithSmartcastToNothing by element(Expression, wrappedExpressionWithSmartcast)
-    val expressionWithSmartcast by element(Expression, qualifiedAccessExpression, wrappedExpressionWithSmartcast)
-    val expressionWithSmartcastToNothing by element(Expression, expressionWithSmartcast, wrappedExpressionWithSmartcastToNothing)
+    val inaccessibleReceiverExpression by element(Expression, expression, resolvable)
+
+    val smartCastExpression by element(Expression, expression)
     val safeCallExpression by element(Expression, expression)
     val checkedSafeCallSubject by element(Expression, expression)
     val getClassCall by element(Expression, expression, call)
@@ -140,20 +156,24 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val returnExpression by element(Expression, jump)
     val stringConcatenationCall by element(Expression, call, expression)
     val throwExpression by element(Expression, expression)
-    val variableAssignment by element(Expression, qualifiedAccess)
+    val variableAssignment by element(Expression, statement)
     val whenSubjectExpression by element(Expression, expression)
-    val whenSubjectExpressionWithSmartcast by element(Expression, whenSubjectExpression, wrappedExpressionWithSmartcast)
-    val whenSubjectExpressionWithSmartcastToNothing by element(Expression, whenSubjectExpression, wrappedExpressionWithSmartcastToNothing)
+    val desugaredAssignmentValueReferenceExpression by element(Expression, expression)
 
     val wrappedDelegateExpression by element(Expression, wrappedExpression)
 
+    val enumEntryDeserializedAccessExpression by element(Expression, expression)
+
     val namedReference by element(Reference, reference)
+    val namedReferenceWithCandidateBase by element(Reference, namedReference)
     val errorNamedReference by element(Reference, namedReference, diagnosticHolder)
+    val fromMissingDependenciesNamedReference by element(Reference, namedReference)
     val superReference by element(Reference, reference)
     val thisReference by element(Reference, reference)
     val controlFlowGraphReference by element(Reference, reference)
 
     val resolvedNamedReference by element(Reference, namedReference)
+    val resolvedErrorReference by element(Reference, resolvedNamedReference, diagnosticHolder)
     val delegateFieldReference by element(Reference, resolvedNamedReference)
     val backingFieldReference by element(Reference, resolvedNamedReference)
 
@@ -168,7 +188,8 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val intersectionTypeRef by element(TypeRef, typeRefWithNullability)
     val implicitTypeRef by element(TypeRef, typeRef)
 
-    val effectDeclaration by element(Contracts)
+    val contractElementDeclaration by element(Contracts)
+    val effectDeclaration by element(Contracts, contractElementDeclaration)
 
     val contractDescription by element(Contracts)
     val legacyRawContractDescription by element(Contracts, contractDescription)

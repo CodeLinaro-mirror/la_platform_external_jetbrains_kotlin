@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.fir.checkers.generator.printImports
 import org.jetbrains.kotlin.fir.tree.generator.printer.printCopyright
 import org.jetbrains.kotlin.fir.tree.generator.printer.printGeneratedMessage
 import org.jetbrains.kotlin.fir.tree.generator.util.writeToFileUsingSmartPrinterIfFileContentChanged
-import org.jetbrains.kotlin.util.SmartPrinter
+import org.jetbrains.kotlin.utils.SmartPrinter
 import java.io.File
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
@@ -74,7 +74,6 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
         println()
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun SmartPrinter.printPositioningStrategyAndLanguageFeature(diagnostic: DiagnosticData) {
         val argumentsList = buildList {
             if (diagnostic is DeprecationDiagnosticData) {
@@ -88,7 +87,6 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
     }
 
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun DiagnosticData.getAllTypeArguments(): List<KType> = buildList {
         add(psiType)
         parameters.mapTo(this) { it.type }
@@ -131,7 +129,6 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
         println()
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun collectImports(
         diagnosticList: DiagnosticList,
         packageName: String,

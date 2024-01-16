@@ -5,6 +5,7 @@
 
 package test.collections
 
+import test.*
 import test.collections.behaviors.iteratorBehavior
 import test.collections.behaviors.listIteratorBehavior
 import test.collections.behaviors.listIteratorProperties
@@ -610,45 +611,6 @@ class ArrayDequeTest {
 
     @Suppress("INVISIBLE_MEMBER")
     @Test
-    fun newCapacity() {
-        // oldCapacity < minCapacity < newCapacity
-        repeat(100) {
-            val oldCapacity = Random.nextInt(1 shl 30)
-            val newCapacity = oldCapacity + (oldCapacity shr 1)
-            val minCapacity = Random.nextInt(oldCapacity + 1 until newCapacity)
-
-            assertEquals(newCapacity, ArrayDeque.newCapacity(oldCapacity, minCapacity))
-        }
-
-        // oldCapacity < newCapacity < minCapacity
-        repeat(100) {
-            val oldCapacity = Random.nextInt(1 shl 30)
-            val newCapacity = oldCapacity + (oldCapacity shr 1)
-            val minCapacity = Random.nextInt(newCapacity..Int.MAX_VALUE)
-
-            assertEquals(minCapacity, ArrayDeque.newCapacity(oldCapacity, minCapacity))
-        }
-
-        // newCapacity overflow, oldCapacity < minCapacity <= maxArraySize
-        val maxArraySize = Int.MAX_VALUE - 8
-        repeat(100) {
-            val oldCapacity = Random.nextInt((1 shl 30) + (1 shl 29) until maxArraySize)
-            val minCapacity = Random.nextInt(oldCapacity..maxArraySize)
-
-            assertEquals(maxArraySize, ArrayDeque.newCapacity(oldCapacity, minCapacity))
-        }
-
-        // newCapacity overflow, minCapacity > maxArraySize
-        repeat(100) {
-            val oldCapacity = Random.nextInt((1 shl 30) + (1 shl 29)..maxArraySize)
-            val minCapacity = Random.nextInt(maxArraySize + 1..Int.MAX_VALUE)
-
-            assertEquals(Int.MAX_VALUE, ArrayDeque.newCapacity(oldCapacity, minCapacity))
-        }
-    }
-
-    @Suppress("INVISIBLE_MEMBER")
-    @Test
     fun toArray() {
         val deque = ArrayDeque<Int>()
 
@@ -661,12 +623,20 @@ class ArrayDequeTest {
 
             val dest = Array(expected.size + 2) { it + 100 }
 
-            @Suppress("UNCHECKED_CAST")
-            val nullTerminatedExpected = (expected as Array<Any?>) + null + (expected.size + 101)
+            val expectedDest = buildList {
+                addAll(expected)
+                if (TestPlatform.current == TestPlatform.Jvm) {
+                    add(null)
+                } else {
+                    add(expected.size + 100)
+                }
+                add(expected.size + 101)
+            }.toTypedArray()
+
             val actual = deque.testToArray(dest)
             assertTrue(
-                nullTerminatedExpected contentEquals actual,
-                message = "Expected: ${nullTerminatedExpected.contentToString()}, Actual: ${actual.contentToString()}"
+                expectedDest contentEquals actual,
+                message = "Expected: ${expectedDest.contentToString()}, Actual: ${actual.contentToString()}"
             )
         }
 

@@ -15,35 +15,35 @@ data class Tag<out RenderingT : Any?> {
   }
 
   fun copy(action: Function1<RenderingT, Unit> = <this>.#action): Tag<RenderingT> {
-    return Tag<Any>(action = action)
-  }
-
-  override fun equals(other: Any?): Boolean {
-    when {
-      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
-    }
-    when {
-      other !is Tag<RenderingT> -> return false
-    }
-    val tmp0_other_with_cast: Tag<RenderingT> = other as Tag<RenderingT>
-    when {
-      EQEQ(arg0 = <this>.#action, arg1 = tmp0_other_with_cast.#action).not() -> return false
-    }
-    return true
-  }
-
-  override fun hashCode(): Int {
-    return <this>.#action.hashCode()
+    return Tag<RenderingT>(action = action)
   }
 
   override fun toString(): String {
     return "Tag(" + "action=" + <this>.#action + ")"
   }
 
+  override fun hashCode(): Int {
+    return <this>.#action.hashCode()
+  }
+
+  override operator fun equals(other: Any?): Boolean {
+    when {
+      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
+    }
+    when {
+      other !is Tag<RenderingT> -> return false
+    }
+    val tmp_0: Tag<RenderingT> = other as Tag<RenderingT>
+    when {
+      EQEQ(arg0 = <this>.#action, arg1 = tmp_0.#action).not() -> return false
+    }
+    return true
+  }
+
 }
 
 fun getTag(): Tag<*> {
-  return throw Exception()
+  throw Exception()
 }
 
 fun doAction() {

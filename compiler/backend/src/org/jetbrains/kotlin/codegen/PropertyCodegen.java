@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -34,9 +34,9 @@ import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKt;
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodGenericSignature;
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature;
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedPropertyDescriptor;
+import org.jetbrains.kotlin.types.KotlinType;
 import org.jetbrains.kotlin.types.error.ErrorTypeKind;
 import org.jetbrains.kotlin.types.error.ErrorUtils;
-import org.jetbrains.kotlin.types.KotlinType;
 import org.jetbrains.org.objectweb.asm.FieldVisitor;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 import org.jetbrains.org.objectweb.asm.Opcodes;
@@ -55,7 +55,7 @@ import static org.jetbrains.kotlin.codegen.JvmCodegenUtil.isJvmInterface;
 import static org.jetbrains.kotlin.codegen.binding.CodegenBinding.*;
 import static org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings.*;
 import static org.jetbrains.kotlin.diagnostics.Errors.EXPECTED_FUNCTION_SOURCE_WITH_DEFAULT_ARGUMENTS_NOT_FOUND;
-import static org.jetbrains.kotlin.fileClasses.JvmFileClassUtilKt.isTopLevelInJvmMultifileClass;
+import static org.jetbrains.kotlin.fileClasses.JvmFileClassUtilsKt.isTopLevelInJvmMultifileClass;
 import static org.jetbrains.kotlin.resolve.DescriptorUtils.isCompanionObject;
 import static org.jetbrains.kotlin.resolve.DescriptorUtils.isInterface;
 import static org.jetbrains.kotlin.resolve.jvm.AsmTypes.K_PROPERTY_TYPE;
@@ -299,7 +299,7 @@ public class PropertyCodegen {
         KtExpression defaultValue = loadAnnotationArgumentDefaultValue(parameter, descriptor, expectedAnnotationConstructor);
         if (defaultValue != null) {
             ConstantValue<?> constant = ExpressionCodegen.getCompileTimeConstant(
-                    defaultValue, bindingContext, true, state.getShouldInlineConstVals());
+                    defaultValue, bindingContext, true, state.getConfig().getShouldInlineConstVals());
             assert !state.getClassBuilderMode().generateBodies || constant != null
                     : "Default value for annotation parameter should be compile time value: " + defaultValue.getText();
             if (constant != null) {
@@ -560,9 +560,9 @@ public class PropertyCodegen {
             PropertyDescriptor propertyDescriptor = propertyAccessorDescriptor.getCorrespondingProperty();
             StackValue property = codegen.intermediateValueForProperty(propertyDescriptor, true, null, StackValue.LOCAL_0);
 
-            PsiElement jetProperty = DescriptorToSourceUtils.descriptorToDeclaration(propertyDescriptor);
-            if (jetProperty instanceof KtProperty || jetProperty instanceof KtParameter) {
-                codegen.markLineNumber((KtElement) jetProperty, false);
+            PsiElement ktProperty = DescriptorToSourceUtils.descriptorToDeclaration(propertyDescriptor);
+            if (ktProperty instanceof KtProperty || ktProperty instanceof KtParameter) {
+                codegen.markLineNumber((KtElement) ktProperty, false);
             }
 
             if (propertyAccessorDescriptor instanceof PropertyGetterDescriptor) {

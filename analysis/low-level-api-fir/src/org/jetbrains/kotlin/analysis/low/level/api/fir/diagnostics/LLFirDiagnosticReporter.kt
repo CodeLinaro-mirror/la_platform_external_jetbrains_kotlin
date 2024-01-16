@@ -6,24 +6,60 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics
 
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.AbstractKtSourceElement
+import org.jetbrains.kotlin.KtFakeSourceElement
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.addValueFor
 import org.jetbrains.kotlin.diagnostics.*
 
 internal class LLFirDiagnosticReporter : DiagnosticReporter() {
-    val diagnostics = mutableMapOf<PsiElement, MutableList<KtPsiDiagnostic>>()
+    private val pendingDiagnostics = mutableMapOf<PsiElement, MutableList<KtPsiDiagnostic>>()
+    val committedDiagnostics = mutableMapOf<PsiElement, MutableList<KtPsiDiagnostic>>()
 
     override fun report(diagnostic: KtDiagnostic?, context: DiagnosticContext) {
         if (diagnostic == null) return
         if (context.isDiagnosticSuppressed(diagnostic)) return
+
+        // Implicit imports for scripts are currently implemented via FIR-tree mutation (they do not exist in default importing scopes).
+        // So as a temporary solution we filter out related diagnostics here.
+        if (diagnostic.isAboutImplicitImport()) return
 
         val psiDiagnostic = when (diagnostic) {
             is KtPsiDiagnostic -> diagnostic
             is KtLightDiagnostic -> diagnostic.toPsiDiagnostic()
             else -> error("Unknown diagnostic type ${diagnostic::class.simpleName}")
         }
-        diagnostics.addValueFor(psiDiagnostic.psiElement, psiDiagnostic)
+        pendingDiagnostics.addValueFor(psiDiagnostic.psiElement, psiDiagnostic)
+    }
+
+    override fun checkAndCommitReportsOn(element: AbstractKtSourceElement, context: DiagnosticContext?) {
+        val commitEverything = context == null
+        for ((diagnosticElement, pendingList) in pendingDiagnostics) {
+            val committedList = committedDiagnostics.getOrPut(diagnosticElement) { mutableListOf() }
+            val iterator = pendingList.iterator()
+            while (iterator.hasNext()) {
+                val diagnostic = iterator.next()
+                when {
+                    context?.isDiagnosticSuppressed(diagnostic as KtDiagnostic) == true -> {
+                        if (diagnostic.element == element ||
+                            diagnostic.element.startOffset >= element.startOffset && diagnostic.element.endOffset <= element.endOffset
+                        ) {
+                            iterator.remove()
+                        }
+                    }
+                    diagnostic.element == element || commitEverything -> {
+                        iterator.remove()
+                        committedList += diagnostic
+                    }
+                }
+            }
+        }
     }
 }
+
+private fun KtDiagnostic.isAboutImplicitImport() =
+    (element is KtFakeSourceElement && (element as KtFakeSourceElement).kind == KtFakeSourceElementKind.ImplicitImport)
+
 
 private fun KtLightDiagnostic.toPsiDiagnostic(): KtPsiDiagnostic {
     val psiSourceElement = element.unwrapToKtPsiSourceElement()

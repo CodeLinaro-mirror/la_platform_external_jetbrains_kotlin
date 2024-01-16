@@ -76,7 +76,7 @@ class KotlinModelBuilder(private val kotlinPluginVersion: String, private val an
         private fun Project.pathOrName() = if (path == ":") name else path
 
         private fun AbstractKotlinCompile<*>.createSourceSet(project: Project, projectType: KotlinProject.ProjectType): SourceSet? {
-            val javaSourceSet = project.gradle
+            val javaSourceSet = project
                 .variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
                 .getInstance(project)
                 .sourceSetsIfAvailable
@@ -92,7 +92,7 @@ class KotlinModelBuilder(private val kotlinPluginVersion: String, private val an
                     javaSourceSet.resources.srcDirs,
                     destinationDirectory.get().asFile,
                     javaSourceSet.output.resourcesDir!!,
-                    createCompilerArguments()
+                    buildCompilerArguments()
                 )
             } else null
         }
@@ -118,11 +118,12 @@ class KotlinModelBuilder(private val kotlinPluginVersion: String, private val an
                 resources,
                 destinationDirectory.get().asFile,
                 compilation.output.resourcesDir,
-                createCompilerArguments()
+                buildCompilerArguments()
             )
         }
 
-        private fun AbstractKotlinCompile<*>.createCompilerArguments(): CompilerArguments {
+        @Suppress("DEPRECATION_ERROR")
+        private fun AbstractKotlinCompile<*>.buildCompilerArguments(): CompilerArguments {
             return CompilerArgumentsImpl(
                 serializedCompilerArguments,
                 defaultSerializedCompilerArguments,

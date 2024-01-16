@@ -1,5 +1,7 @@
 package org.jetbrains.kotlin.gradle.targets.js.binaryen
 
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
+
 /**
  * Provides platform and architecture names that is used to download Binaryen.
  */
@@ -12,7 +14,7 @@ internal object BinaryenPlatform {
     const val DARWIN = "macos"
 
     val name: String = run {
-        val name = property("os.name").toLowerCase()
+        val name = property("os.name").toLowerCaseAsciiOnly()
         when {
             name.contains("windows") -> WIN
             name.contains("mac") -> DARWIN
@@ -22,9 +24,20 @@ internal object BinaryenPlatform {
         }
     }
 
-    const val X64 = "64"
-    const val X86 = "86"
+    const val ARM64 = "arm64"
+    const val X64 = "x86_64"
+    const val X86 = "x86_86"
 
     val architecture: String
-        get() = if (property("os.arch").contains("64")) X64 else X86
+        get() {
+            val arch = property("os.arch")
+            return when {
+                arch == "aarch64" -> ARM64
+                arch.contains("64") -> X64
+                else -> X86
+            }
+        }
+
+    val platform: String
+        get() = "$architecture-$name"
 }

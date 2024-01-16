@@ -1,11 +1,14 @@
-// Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+/*
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
 package org.jetbrains.kotlin.arguments
 
 import org.jetbrains.kotlin.cli.common.arguments.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.junit.Assert.*
 import kotlin.reflect.KProperty
-
 
 class CompilerArgumentsContentProspectorTest {
 
@@ -99,7 +102,7 @@ class CompilerArgumentsContentProspectorTest {
             CommonCompilerArguments::useFirExtendedCheckers,
             CommonCompilerArguments::disableUltraLightClasses,
             CommonCompilerArguments::useMixedNamedArguments,
-            CommonCompilerArguments::expectActualLinker,
+            CommonCompilerArguments::metadataKlib,
             CommonCompilerArguments::extendedCompilerChecks,
             CommonCompilerArguments::disableDefaultScriptingPlugin,
             CommonCompilerArguments::inferenceCompatibility,
@@ -127,7 +130,6 @@ class CompilerArgumentsContentProspectorTest {
             CommonCompilerArguments::phasesToDumpBefore,
             CommonCompilerArguments::phasesToDumpAfter,
             CommonCompilerArguments::phasesToDump,
-            CommonCompilerArguments::namesExcludedFromDumping,
             CommonCompilerArguments::phasesToValidateBefore,
             CommonCompilerArguments::phasesToValidateAfter,
             CommonCompilerArguments::phasesToValidate,
@@ -139,8 +141,6 @@ class CompilerArgumentsContentProspectorTest {
             K2JVMCompilerArguments::noStdlib,
             K2JVMCompilerArguments::noReflect,
             K2JVMCompilerArguments::javaParameters,
-            K2JVMCompilerArguments::useIR,
-            K2JVMCompilerArguments::useOldBackend,
             K2JVMCompilerArguments::allowUnstableDependencies,
             K2JVMCompilerArguments::doNotClearBindingContext,
             K2JVMCompilerArguments::noCallAssertions,
@@ -150,7 +150,6 @@ class CompilerArgumentsContentProspectorTest {
             K2JVMCompilerArguments::inheritMultifileParts,
             K2JVMCompilerArguments::useTypeTable,
             K2JVMCompilerArguments::useOldClassFilesReading,
-            K2JVMCompilerArguments::singleModule,
             K2JVMCompilerArguments::suppressMissingBuiltinsError,
             K2JVMCompilerArguments::useJavac,
             K2JVMCompilerArguments::compileJava,
@@ -167,6 +166,7 @@ class CompilerArgumentsContentProspectorTest {
             K2JVMCompilerArguments::noUnifiedNullChecks,
             K2JVMCompilerArguments::useOldInlineClassesManglingScheme,
             K2JVMCompilerArguments::enableJvmPreview,
+            K2JVMCompilerArguments::valueClasses,
         )
 
         private val k2JVMCompilerArgumentsStringProperties = commonCompilerArgumentsStringProperties + listOf(
@@ -229,10 +229,10 @@ class CompilerArgumentsContentProspectorTest {
             K2JSCompilerArguments::irOnly,
             K2JSCompilerArguments::irPerModule,
             K2JSCompilerArguments::generateDts,
+            K2JSCompilerArguments::useEsClasses,
             K2JSCompilerArguments::typedArrays,
             K2JSCompilerArguments::friendModulesDisabled,
             K2JSCompilerArguments::metadataOnly,
-            K2JSCompilerArguments::enableJsScripting,
             K2JSCompilerArguments::fakeOverrideValidator,
             K2JSCompilerArguments::wasm
         )
@@ -252,7 +252,6 @@ class CompilerArgumentsContentProspectorTest {
             K2JSCompilerArguments::friendModules,
             K2JSCompilerArguments::errorTolerancePolicy,
             K2JSCompilerArguments::irDceRuntimeDiagnostic,
-            K2JSCompilerArguments::repositries,
         )
         private val k2JSCompilerArgumentsArrayProperties = commonCompilerArgumentsArrayProperties
 

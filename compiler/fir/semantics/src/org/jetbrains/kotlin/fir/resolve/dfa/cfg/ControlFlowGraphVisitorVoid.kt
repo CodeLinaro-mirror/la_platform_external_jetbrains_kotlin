@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.fir.resolve.dfa.cfg
 abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothing?>() {
     abstract fun visitNode(node: CFGNode<*>)
 
-    // ----------------------------------- Simple function ----------------------------------- 
+    // ----------------------------------- Simple function -----------------------------------
 
     open fun visitFunctionEnterNode(node: FunctionEnterNode) {
         visitNode(node)
@@ -18,9 +18,13 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitNode(node)
     }
 
+    open fun visitLocalFunctionDeclarationNode(node: LocalFunctionDeclarationNode) {
+        visitNode(node)
+    }
+
     // ----------------------------------- Anonymous function -----------------------------------
 
-    open fun visitPostponedLambdaEnterNode(node: PostponedLambdaEnterNode) {
+    open fun visitSplitPostponedLambdasNode(node: SplitPostponedLambdasNode) {
         visitNode(node)
     }
 
@@ -28,17 +32,11 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitNode(node)
     }
 
-    open fun visitUnionFunctionCallArgumentsNode(node: UnionFunctionCallArgumentsNode) {
-        visitNode(node)
-    }
-
     open fun visitMergePostponedLambdaExitsNode(node: MergePostponedLambdaExitsNode) {
         visitNode(node)
     }
 
-    // ----------------------------------- Anonymous object -----------------------------------
-
-    open fun visitAnonymousObjectExitNode(node: AnonymousObjectExitNode) {
+    open fun visitAnonymousFunctionExpressionNode(node: AnonymousFunctionExpressionNode) {
         visitNode(node)
     }
 
@@ -49,6 +47,10 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
     }
 
     open fun visitPropertyInitializerExitNode(node: PropertyInitializerExitNode) {
+        visitNode(node)
+    }
+
+    open fun visitDelegateExpressionExitNode(node: DelegateExpressionExitNode) {
         visitNode(node)
     }
 
@@ -159,14 +161,6 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitNode(node)
     }
 
-    open fun visitFinallyProxyEnterNode(node: FinallyProxyEnterNode) {
-        visitNode(node)
-    }
-
-    open fun visitFinallyProxyExitNode(node: FinallyProxyExitNode) {
-        visitNode(node)
-    }
-
     open fun visitTryExpressionExitNode(node: TryExpressionExitNode) {
         visitNode(node)
     }
@@ -273,29 +267,11 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitNode(node)
     }
 
-    open fun visitEnterContractNode(node: EnterContractNode) {
-        visitNode(node)
-    }
-
-    open fun visitExitContractNode(node: ExitContractNode) {
-        visitNode(node)
-    }
-
     open fun visitEnterSafeCallNode(node: EnterSafeCallNode) {
         visitNode(node)
     }
 
     open fun visitExitSafeCallNode(node: ExitSafeCallNode) {
-        visitNode(node)
-    }
-
-    // ----------------------------------- Other -----------------------------------
-
-    open fun visitAnnotationEnterNode(node: AnnotationEnterNode) {
-        visitNode(node)
-    }
-
-    open fun visitAnnotationExitNode(node: AnnotationExitNode) {
         visitNode(node)
     }
 
@@ -315,28 +291,26 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitFunctionExitNode(node)
     }
 
+    final override fun visitLocalFunctionDeclarationNode(node: LocalFunctionDeclarationNode, data: Nothing?) {
+        visitLocalFunctionDeclarationNode(node)
+    }
+
     // ----------------------------------- Anonymous function -----------------------------------
 
-    final override fun visitPostponedLambdaEnterNode(node: PostponedLambdaEnterNode, data: Nothing?) {
-        visitPostponedLambdaEnterNode(node)
+    final override fun visitSplitPostponedLambdasNode(node: SplitPostponedLambdasNode, data: Nothing?) {
+        visitSplitPostponedLambdasNode(node)
     }
 
     final override fun visitPostponedLambdaExitNode(node: PostponedLambdaExitNode, data: Nothing?) {
         visitPostponedLambdaExitNode(node)
     }
 
-    final override fun visitUnionFunctionCallArgumentsNode(node: UnionFunctionCallArgumentsNode, data: Nothing?) {
-        visitUnionFunctionCallArgumentsNode(node)
-    }
-
     final override fun visitMergePostponedLambdaExitsNode(node: MergePostponedLambdaExitsNode, data: Nothing?) {
         visitMergePostponedLambdaExitsNode(node)
     }
 
-    // ----------------------------------- Anonymous object -----------------------------------
-
-    final override fun visitAnonymousObjectExitNode(node: AnonymousObjectExitNode, data: Nothing?) {
-        visitAnonymousObjectExitNode(node)
+    final override fun visitAnonymousFunctionExpressionNode(node: AnonymousFunctionExpressionNode, data: Nothing?) {
+        visitAnonymousFunctionExpressionNode(node)
     }
 
     // ----------------------------------- Property -----------------------------------
@@ -347,6 +321,10 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
 
     final override fun visitPropertyInitializerExitNode(node: PropertyInitializerExitNode, data: Nothing?) {
         visitPropertyInitializerExitNode(node)
+    }
+
+    final override fun visitDelegateExpressionExitNode(node: DelegateExpressionExitNode, data: Nothing?) {
+        visitDelegateExpressionExitNode(node)
     }
 
     // ----------------------------------- Init -----------------------------------
@@ -456,14 +434,6 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitFinallyBlockExitNode(node)
     }
 
-    final override fun visitFinallyProxyEnterNode(node: FinallyProxyEnterNode, data: Nothing?) {
-        visitFinallyProxyEnterNode(node)
-    }
-
-    final override fun visitFinallyProxyExitNode(node: FinallyProxyExitNode, data: Nothing?) {
-        visitFinallyProxyExitNode(node)
-    }
-
     final override fun visitTryExpressionExitNode(node: TryExpressionExitNode, data: Nothing?) {
         visitTryExpressionExitNode(node)
     }
@@ -570,29 +540,11 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitVariableAssignmentNode(node)
     }
 
-    final override fun visitEnterContractNode(node: EnterContractNode, data: Nothing?) {
-        visitEnterContractNode(node)
-    }
-
-    final override fun visitExitContractNode(node: ExitContractNode, data: Nothing?) {
-        visitExitContractNode(node)
-    }
-
     final override fun visitEnterSafeCallNode(node: EnterSafeCallNode, data: Nothing?) {
         visitEnterSafeCallNode(node)
     }
 
     final override fun visitExitSafeCallNode(node: ExitSafeCallNode, data: Nothing?) {
         visitExitSafeCallNode(node)
-    }
-
-    // ----------------------------------- Other -----------------------------------
-
-    final override fun visitAnnotationEnterNode(node: AnnotationEnterNode, data: Nothing?) {
-        visitAnnotationEnterNode(node)
-    }
-
-    final override fun visitAnnotationExitNode(node: AnnotationExitNode, data: Nothing?) {
-        visitAnnotationExitNode(node)
     }
 }

@@ -38,10 +38,7 @@ import org.jetbrains.kotlin.cli.jvm.config.ClassicFrontendSpecificJvmConfigurati
 import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.codegen.CompilationException
 import org.jetbrains.kotlin.config.*
-import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
-import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.InlineConstTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.incremental.components.*
 import org.jetbrains.kotlin.load.java.JavaClassesTracker
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
@@ -101,6 +98,10 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
                 )
             projectEnvironment.registerExtensionsFromPlugins(configuration)
 
+            if (arguments.useOldBackend) {
+                messageCollector.report(WARNING, "-Xuse-old-backend is no longer supported. Please migrate to the new JVM IR backend")
+            }
+
             if (arguments.script || arguments.expression != null) {
                 val scriptingEvaluator = ScriptEvaluationExtension.getInstances(projectEnvironment.project).find { it.isAccepted(arguments) }
                 if (scriptingEvaluator == null) {
@@ -118,6 +119,12 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
             }
         }
 
+        if (arguments.useOldBackend) {
+            val severity = if (isUseOldBackendAllowed()) WARNING else ERROR
+            messageCollector.report(severity, "-Xuse-old-backend is no longer supported. Please migrate to the new JVM IR backend")
+            if (severity == ERROR) return COMPILATION_ERROR
+        }
+
         messageCollector.report(LOGGING, "Configuring the compilation environment")
         try {
             val buildFile = arguments.buildFile?.let { File(it) }
@@ -132,12 +139,23 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
             val targetDescription = chunk.map { input -> input.getModuleName() + "-" + input.getModuleType() }.let { names ->
                 names.singleOrNull() ?: names.joinToString()
             }
-            if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR) && arguments.useFirLT /* TODO: consider storing in the configuration instead of using args here directly */) {
+            // K2 works with multi-module chunks only in PSI mode (KT-61745)
+            if (chunk.size == 1 &&
+                configuration.getBoolean(CommonConfigurationKeys.USE_FIR) &&
+                configuration.getBoolean(CommonConfigurationKeys.USE_LIGHT_TREE)
+            ) {
+                if (messageCollector.hasErrors()) return COMPILATION_ERROR
                 val projectEnvironment =
                     createProjectEnvironment(configuration, rootDisposable, EnvironmentConfigFiles.JVM_CONFIG_FILES, messageCollector)
+                if (messageCollector.hasErrors()) return COMPILATION_ERROR
+
+                if (!FirKotlinToJvmBytecodeCompiler.checkNotSupportedPlugins(configuration, messageCollector)) {
+                    return COMPILATION_ERROR
+                }
 
                 compileModulesUsingFrontendIrAndLightTree(
-                    projectEnvironment, configuration, messageCollector, buildFile, chunk, targetDescription
+                    projectEnvironment, configuration, messageCollector, buildFile, chunk.single(), targetDescription,
+                    checkSourceFiles = !arguments.allowNoSourceFiles && !arguments.version
                 )
             } else {
                 val environment = createCoreEnvironment(
@@ -212,6 +230,8 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
 
                 putIfNotNull(CommonConfigurationKeys.ENUM_WHEN_TRACKER, services[EnumWhenTracker::class.java])
 
+                putIfNotNull(CommonConfigurationKeys.IMPORT_TRACKER, services[ImportTracker::class.java])
+
                 putIfNotNull(
                     JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS,
                     services[IncrementalCompilationComponents::class.java]
@@ -251,6 +271,9 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
         val argument = arguments.profileCompilerCommand ?: return defaultPerformanceManager
         return ProfilingCompilerPerformanceManager.create(argument)
     }
+
+    private fun isUseOldBackendAllowed(): Boolean =
+        K2JVMCompiler::class.java.classLoader.getResource("META-INF/unsafe-allow-use-old-backend") != null
 }
 
 fun CompilerConfiguration.configureModuleChunk(

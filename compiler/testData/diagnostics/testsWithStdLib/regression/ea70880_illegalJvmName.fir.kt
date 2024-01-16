@@ -1,4 +1,4 @@
-@JvmName(<!NO_VALUE_FOR_PARAMETER!>)<!>
+@JvmName<!NO_VALUE_FOR_PARAMETER!>()<!>
 fun foo() {}
 
 @JvmName(<!ARGUMENT_TYPE_MISMATCH!>42<!>)

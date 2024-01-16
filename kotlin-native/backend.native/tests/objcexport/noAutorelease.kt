@@ -6,6 +6,7 @@ import kotlin.native.internal.NativePtr
 import kotlin.native.ref.WeakReference
 import kotlin.test.*
 
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 class KotlinLivenessTracker {
     val weakRefs = mutableListOf<WeakReference<Any>>()
 
@@ -19,7 +20,8 @@ class KotlinLivenessTracker {
     fun objectsAreDead() = weakRefs.all { it.value === null }
 }
 
-fun gc() = kotlin.native.internal.GC.collect()
+@OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+fun gc() = kotlin.native.runtime.GC.collect()
 
 class KotlinObject
 

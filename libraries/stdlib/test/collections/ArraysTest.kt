@@ -3,14 +3,14 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("SIGNED_CONSTANT_CONVERTED_TO_UNSIGNED")
-
 package test.collections
 
+import test.TestPlatform
 import test.assertStaticTypeIs
 import test.assertTypeEquals
 import test.collections.behaviors.*
 import test.comparisons.STRING_CASE_INSENSITIVE_ORDER
+import test.testExceptOn
 import test.text.isAsciiLetter
 import kotlin.test.*
 import kotlin.random.Random
@@ -67,6 +67,18 @@ class ArraysTest {
         assertEquals("4", arr2[arr2.lastIndex])
     }
 
+    @Test fun arrayInit() {
+        val arr = Array(2) { it.toString() }
+
+        assertEquals(2, arr.size)
+        assertEquals(0.toString(), arr[0])
+        assertEquals(1.toString(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { Array(-1) { it.toString() } }
+        }
+    }
+
     @Test fun byteArray() {
         val arr = ByteArray(2)
 
@@ -74,6 +86,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(expected, arr[0])
         assertEquals(expected, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { ByteArray(-1) }
+        }
     }
 
     @Test fun byteArrayInit() {
@@ -82,6 +98,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toByte(), arr[0])
         assertEquals(1.toByte(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { ByteArray(-1) { it.toByte() } }
+        }
     }
 
     @Test fun shortArray() {
@@ -91,6 +111,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(expected, arr[0])
         assertEquals(expected, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { ShortArray(-1) }
+        }
     }
 
     @Test fun shortArrayInit() {
@@ -99,6 +123,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toShort(), arr[0])
         assertEquals(1.toShort(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { ShortArray(-1) { it.toShort() } }
+        }
     }
 
     @Test fun intArray() {
@@ -107,6 +135,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(0, arr[0])
         assertEquals(0, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { IntArray(-1) }
+        }
     }
 
     @Test fun intArrayInit() {
@@ -115,6 +147,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toInt(), arr[0])
         assertEquals(1.toInt(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { IntArray(-1) { it.toInt() } }
+        }
     }
 
     @Test fun longArray() {
@@ -124,6 +160,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(expected, arr[0])
         assertEquals(expected, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { LongArray(-1) }
+        }
     }
 
     @Test fun longArrayInit() {
@@ -132,6 +172,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toLong(), arr[0])
         assertEquals(1.toLong(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { LongArray(-1) { it.toLong() } }
+        }
     }
 
     @Test fun floatArray() {
@@ -141,6 +185,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(expected, arr[0])
         assertEquals(expected, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { FloatArray(-1) }
+        }
     }
 
     @Test fun floatArrayInit() {
@@ -149,6 +197,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toFloat(), arr[0])
         assertEquals(1.toFloat(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { FloatArray(-1) { it.toFloat() } }
+        }
     }
 
     @Test fun doubleArray() {
@@ -157,6 +209,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(0.0, arr[0])
         assertEquals(0.0, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { DoubleArray(-1) }
+        }
     }
 
     @Test fun doubleArrayInit() {
@@ -165,6 +221,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(0.toDouble(), arr[0])
         assertEquals(1.toDouble(), arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { DoubleArray(-1) { it.toDouble() } }
+        }
     }
 
     @Test fun charArray() {
@@ -174,6 +234,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(expected, arr[0])
         assertEquals(expected, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { CharArray(-1) }
+        }
     }
 
     @Test fun charArrayInit() {
@@ -182,6 +246,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals('a', arr[0])
         assertEquals('b', arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { CharArray(-1) { 'a' + it } }
+        }
     }
 
     @Test fun booleanArray() {
@@ -189,6 +257,10 @@ class ArraysTest {
         assertEquals(arr.size, 2)
         assertEquals(false, arr[0])
         assertEquals(false, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { BooleanArray(-1) }
+        }
     }
 
     @Test fun booleanArrayInit() {
@@ -197,6 +269,10 @@ class ArraysTest {
         assertEquals(2, arr.size)
         assertEquals(true, arr[0])
         assertEquals(false, arr[1])
+
+        testExceptOn(TestPlatform.Js) {
+            assertFailsWith<RuntimeException> { BooleanArray(-1) { it % 2 == 0 } }
+        }
     }
 
     @Test fun contentEquals() {
@@ -987,20 +1063,20 @@ class ArraysTest {
 
         doTest(
             UIntArray::copyInto, { e, a, msg -> assertTrue(e contentEquals a, msg) }, UIntArray::contentToString,
-            uintArrayOf(1, 2, 3), uintArrayOf(4, 5, 6),
-            uintArrayOf(5, 6, 3), uintArrayOf(6, 3, 3), uintArrayOf(6, 6, 3)
+            uintArrayOf(1u, 2u, 3u), uintArrayOf(4u, 5u, 6u),
+            uintArrayOf(5u, 6u, 3u), uintArrayOf(6u, 3u, 3u), uintArrayOf(6u, 6u, 3u)
         )
 
         doTest(
             ULongArray::copyInto, { e, a, msg -> assertTrue(e contentEquals a, msg) }, ULongArray::contentToString,
-            ulongArrayOf(1, 2, 3), ulongArrayOf(4, 5, 6),
-            ulongArrayOf(5, 6, 3), ulongArrayOf(6, 3, 3), ulongArrayOf(6, 6, 3)
+            ulongArrayOf(1u, 2u, 3u), ulongArrayOf(4u, 5u, 6u),
+            ulongArrayOf(5u, 6u, 3u), ulongArrayOf(6u, 3u, 3u), ulongArrayOf(6u, 6u, 3u)
         )
 
         doTest(
             UByteArray::copyInto, { e, a, msg -> assertTrue(e contentEquals a, msg) }, UByteArray::contentToString,
-            ubyteArrayOf(1, 2, 3), ubyteArrayOf(4, 5, 6),
-            ubyteArrayOf(5, 6, 3), ubyteArrayOf(6, 3, 3), ubyteArrayOf(6, 6, 3)
+            ubyteArrayOf(1u, 2u, 3u), ubyteArrayOf(4u, 5u, 6u),
+            ubyteArrayOf(5u, 6u, 3u), ubyteArrayOf(6u, 3u, 3u), ubyteArrayOf(6u, 6u, 3u)
         )
     }
 
@@ -2189,7 +2265,7 @@ class ArraysTest {
         testShuffle(numbers.map(Int::toUByte).toUByteArray(), { shuffle() }, { toList() })
         testShuffle(numbers.map(Int::toUShort).toUShortArray(), { shuffle() }, { toList() })
 
-        testShuffle(arrayOf(1, "x", null, Any(), 'a', 2u, 5.0), { shuffle() }, { toList() })
+        testShuffle(arrayOf(1, "x", null, Any(), 'a', 2u, 5.0, 3L, true, 0), { shuffle() }, { toList() })
     }
 
     private inline fun <T> testShuffleR(array: T, shuffle: T.(Random) -> Unit, toList: T.() -> List<*>) {

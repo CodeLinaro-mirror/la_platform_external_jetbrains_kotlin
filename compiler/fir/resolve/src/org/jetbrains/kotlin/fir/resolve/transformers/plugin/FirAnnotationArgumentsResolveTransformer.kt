@@ -1,52 +1,84 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.resolve.transformers.plugin
 
+import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
+import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
+import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
+import org.jetbrains.kotlin.fir.references.toResolvedBaseSymbol
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveContext
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirBodyResolveTransformer
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirDeclarationsResolveTransformer
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguouslyResolvedAnnotationArgument
+import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
+import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculatorForFullBodyResolve
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
+import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.StandardClassIds
 
 open class FirAnnotationArgumentsResolveTransformer(
     session: FirSession,
     scopeSession: ScopeSession,
     resolvePhase: FirResolvePhase,
-    outerBodyResolveContext: BodyResolveContext? = null
-) : FirBodyResolveTransformer(
+    outerBodyResolveContext: BodyResolveContext? = null,
+    returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorForFullBodyResolve.Default,
+    firResolveContextCollector: FirResolveContextCollector? = null,
+) : FirAbstractBodyResolveTransformerDispatcher(
     session,
     resolvePhase,
     implicitTypeOnly = false,
     scopeSession,
-    outerBodyResolveContext = outerBodyResolveContext
+    outerBodyResolveContext = outerBodyResolveContext,
+    returnTypeCalculator = returnTypeCalculator,
+    firResolveContextCollector = firResolveContextCollector,
 ) {
-    override val expressionsTransformer: FirExpressionsResolveTransformer = FirExpressionsResolveTransformerForSpecificAnnotations(this)
+    final override val expressionsTransformer: FirExpressionsResolveTransformer =
+        FirExpressionsResolveTransformerForSpecificAnnotations(this)
 
-    override val declarationsTransformer: FirDeclarationsResolveTransformer = FirDeclarationsResolveTransformerForArgumentAnnotations(this)
+    final override val declarationsTransformer: FirDeclarationsResolveTransformer =
+        FirDeclarationsResolveTransformerForArgumentAnnotations(this)
 }
 
 private class FirDeclarationsResolveTransformerForArgumentAnnotations(
-    transformer: FirBodyResolveTransformer
+    transformer: FirAbstractBodyResolveTransformerDispatcher
 ) : FirDeclarationsResolveTransformer(transformer) {
-    override fun transformRegularClass(regularClass: FirRegularClass, data: ResolutionMode): FirStatement {
+    override fun withFile(file: FirFile, action: () -> FirFile): FirFile {
+        return context.withFile(file, components) {
+            action()
+        }
+    }
+
+    override fun transformRegularClass(regularClass: FirRegularClass, data: ResolutionMode): FirRegularClass {
         regularClass.transformAnnotations(this, data)
-        context.withContainingClass(regularClass) {
+        withRegularClass(regularClass) {
+            regularClass
+                .transformTypeParameters(transformer, data)
+                .transformSuperTypeRefs(transformer, data)
+                .transformDeclarations(transformer, data)
+        }
+
+        return regularClass
+    }
+
+    override fun withRegularClass(regularClass: FirRegularClass, action: () -> FirRegularClass): FirRegularClass {
+        return context.withContainingClass(regularClass) {
             context.withRegularClass(regularClass, components) {
-                regularClass
-                    .transformTypeParameters(transformer, data)
-                    .transformSuperTypeRefs(transformer, data)
-                    .transformDeclarations(transformer, data)
+                action()
             }
         }
-        return regularClass
     }
 
     override fun transformAnonymousInitializer(
@@ -62,22 +94,28 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
     ): FirSimpleFunction {
         simpleFunction
             .transformReturnTypeRef(transformer, data)
-            .transformReceiverTypeRef(transformer, data)
+            .transformReceiverParameter(transformer, data)
             .transformValueParameters(transformer, data)
             .transformAnnotations(transformer, data)
+            .transformTypeParameters(transformer, data)
         return simpleFunction
     }
 
     override fun transformConstructor(constructor: FirConstructor, data: ResolutionMode): FirConstructor {
         constructor
             .transformReturnTypeRef(transformer, data)
-            .transformReceiverTypeRef(transformer, data)
+            .transformReceiverParameter(transformer, data)
             .transformValueParameters(transformer, data)
             .transformAnnotations(transformer, data)
         return constructor
     }
 
-    override fun transformValueParameter(valueParameter: FirValueParameter, data: ResolutionMode): FirStatement {
+    override fun transformErrorPrimaryConstructor(
+        errorPrimaryConstructor: FirErrorPrimaryConstructor,
+        data: ResolutionMode,
+    ): FirErrorPrimaryConstructor = transformConstructor(errorPrimaryConstructor, data) as FirErrorPrimaryConstructor
+
+    override fun transformValueParameter(valueParameter: FirValueParameter, data: ResolutionMode): FirValueParameter {
         valueParameter
             .transformAnnotations(transformer, data)
             .transformReturnTypeRef(transformer, data)
@@ -87,12 +125,19 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
     override fun transformProperty(property: FirProperty, data: ResolutionMode): FirProperty {
         property
             .transformAnnotations(transformer, data)
-            .transformReceiverTypeRef(transformer, data)
+            .transformReceiverParameter(transformer, data)
             .transformReturnTypeRef(transformer, data)
             .transformGetter(transformer, data)
             .transformSetter(transformer, data)
             .transformTypeParameters(transformer, data)
+            .transformBackingField(transformer, data)
+
         return property
+    }
+
+    override fun transformBackingField(backingField: FirBackingField, data: ResolutionMode): FirBackingField {
+        backingField.transformAnnotations(transformer, data)
+        return backingField
     }
 
     override fun transformPropertyAccessor(
@@ -102,7 +147,7 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
         propertyAccessor
             .transformValueParameters(transformer, data)
             .transformReturnTypeRef(transformer, data)
-            .transformReceiverTypeRef(transformer, data)
+            .transformReceiverParameter(transformer, data)
             .transformReturnTypeRef(transformer, data)
             .transformAnnotations(transformer, data)
         return propertyAccessor
@@ -116,11 +161,15 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
         context.forEnumEntry {
             enumEntry
                 .transformAnnotations(transformer, data)
-                .transformReceiverTypeRef(transformer, data)
+                .transformReceiverParameter(transformer, data)
                 .transformReturnTypeRef(transformer, data)
                 .transformTypeParameters(transformer, data)
         }
         return enumEntry
+    }
+
+    override fun transformReceiverParameter(receiverParameter: FirReceiverParameter, data: ResolutionMode): FirReceiverParameter {
+        return receiverParameter.transformAnnotations(transformer, data).transformTypeRef(transformer, data)
     }
 
     override fun transformField(field: FirField, data: ResolutionMode): FirField {
@@ -129,23 +178,31 @@ private class FirDeclarationsResolveTransformerForArgumentAnnotations(
 
     override fun transformTypeAlias(typeAlias: FirTypeAlias, data: ResolutionMode): FirTypeAlias {
         typeAlias.transformAnnotations(transformer, data)
+        typeAlias.expandedTypeRef.transformSingle(transformer, data)
         return typeAlias
+    }
+
+    override fun transformScript(script: FirScript, data: ResolutionMode): FirScript {
+        return script
     }
 }
 
-private class FirExpressionsResolveTransformerForSpecificAnnotations(
-    transformer: FirBodyResolveTransformer
-) : FirExpressionsResolveTransformer(transformer) {
+abstract class AbstractFirExpressionsResolveTransformerForAnnotations(transformer: FirAbstractBodyResolveTransformerDispatcher) :
+    FirExpressionsResolveTransformer(transformer) {
 
     override fun transformAnnotation(annotation: FirAnnotation, data: ResolutionMode): FirStatement {
-        dataFlowAnalyzer.enterAnnotation(annotation)
+        dataFlowAnalyzer.enterAnnotation()
         annotation.transformChildren(transformer, ResolutionMode.ContextDependent)
-        dataFlowAnalyzer.exitAnnotation(annotation)
+        dataFlowAnalyzer.exitAnnotation()
         return annotation
     }
 
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: ResolutionMode): FirStatement {
         return transformAnnotation(annotationCall, data)
+    }
+
+    override fun transformErrorAnnotationCall(errorAnnotationCall: FirErrorAnnotationCall, data: ResolutionMode): FirStatement {
+        return transformAnnotation(errorAnnotationCall, data)
     }
 
     override fun transformExpression(expression: FirExpression, data: ResolutionMode): FirStatement {
@@ -156,12 +213,11 @@ private class FirExpressionsResolveTransformerForSpecificAnnotations(
         return calleeReference !is FirErrorNamedReference
     }
 
-    override fun resolveQualifiedAccessAndSelectCandidate(
+    abstract override fun resolveQualifiedAccessAndSelectCandidate(
         qualifiedAccessExpression: FirQualifiedAccessExpression,
         isUsedAsReceiver: Boolean,
-    ): FirStatement {
-        return callResolver.resolveOnlyEnumOrQualifierAccessAndSelectCandidate(qualifiedAccessExpression, isUsedAsReceiver)
-    }
+        callSite: FirElement,
+    ): FirStatement
 
     override fun transformFunctionCall(functionCall: FirFunctionCall, data: ResolutionMode): FirStatement {
         return functionCall
@@ -234,12 +290,120 @@ private class FirExpressionsResolveTransformerForSpecificAnnotations(
         return augmentedArraySetCall
     }
 
-    override fun transformArrayOfCall(arrayOfCall: FirArrayOfCall, data: ResolutionMode): FirStatement {
-        arrayOfCall.transformChildren(transformer, data)
-        return arrayOfCall
+    override fun transformArrayLiteral(arrayLiteral: FirArrayLiteral, data: ResolutionMode): FirStatement {
+        arrayLiteral.transformChildren(transformer, data)
+        return arrayLiteral
+    }
+
+    override fun transformAnonymousObjectExpression(
+        anonymousObjectExpression: FirAnonymousObjectExpression,
+        data: ResolutionMode,
+    ): FirStatement {
+        return anonymousObjectExpression
+    }
+
+    override fun transformAnonymousFunctionExpression(
+        anonymousFunctionExpression: FirAnonymousFunctionExpression,
+        data: ResolutionMode,
+    ): FirStatement {
+        return anonymousFunctionExpression
     }
 
     override fun shouldComputeTypeOfGetClassCallWithNotQualifierInLhs(getClassCall: FirGetClassCall): Boolean {
         return false
     }
+}
+
+/**
+ *  Set of enum class IDs that are resolved in COMPILER_REQUIRED_ANNOTATIONS phase that need to be rechecked here.
+ */
+private val classIdsToCheck: Set<ClassId> = setOf(StandardClassIds.DeprecationLevel, StandardClassIds.AnnotationTarget)
+
+private class FirExpressionsResolveTransformerForSpecificAnnotations(transformer: FirAbstractBodyResolveTransformerDispatcher) :
+    AbstractFirExpressionsResolveTransformerForAnnotations(transformer) {
+
+    override fun transformQualifiedAccessExpression(
+        qualifiedAccessExpression: FirQualifiedAccessExpression,
+        data: ResolutionMode
+    ): FirStatement {
+        if (qualifiedAccessExpression is FirPropertyAccessExpression) {
+            val calleeReference = qualifiedAccessExpression.calleeReference
+            if (calleeReference is FirResolvedNamedReference) {
+                val resolvedSymbol = calleeReference.resolvedSymbol
+                if (resolvedSymbol is FirEnumEntrySymbol && resolvedSymbol.containingClassLookupTag()?.classId in classIdsToCheck) {
+                    return resolveSpecialPropertyAccess(qualifiedAccessExpression, calleeReference, resolvedSymbol, data)
+                }
+            }
+        }
+
+        return super.transformQualifiedAccessExpression(qualifiedAccessExpression, data)
+    }
+
+    private fun resolveSpecialPropertyAccess(
+        originalAccess: FirPropertyAccessExpression,
+        originalCalleeReference: FirResolvedNamedReference,
+        originalResolvedSymbol: FirEnumEntrySymbol,
+        data: ResolutionMode,
+    ): FirStatement {
+        val accessCopyForResolution = buildPropertyAccessExpression {
+            source = originalAccess.source
+            typeArguments.addAll(originalAccess.typeArguments)
+
+            val originalResolvedQualifier = originalAccess.explicitReceiver
+            if (originalResolvedQualifier is FirResolvedQualifier) {
+                val fqName = originalResolvedQualifier.classId
+                    ?.let { if (originalResolvedQualifier.isFullyQualified) it.asSingleFqName() else it.relativeClassName }
+                    ?: originalResolvedQualifier.packageFqName
+                explicitReceiver = generatePropertyAccessExpression(fqName, originalResolvedQualifier.source)
+            }
+
+            calleeReference = buildSimpleNamedReference {
+                source = originalCalleeReference.source
+                name = originalCalleeReference.name
+            }
+        }
+
+        val resolved = super.transformQualifiedAccessExpression(accessCopyForResolution, data)
+
+        if (resolved is FirQualifiedAccessExpression) {
+            // The initial resolution must have been to an enum entry. Report ambiguity if symbolFromArgumentsPhase is different to
+            // original symbol including null (meaning we would resolve to something other than an enum entry).
+            val symbolFromArgumentsPhase = resolved.calleeReference.toResolvedBaseSymbol()
+            if (originalResolvedSymbol != symbolFromArgumentsPhase) {
+                resolved.replaceCalleeReference(buildErrorNamedReference {
+                    source = resolved.calleeReference.source
+                    diagnostic = ConeAmbiguouslyResolvedAnnotationArgument(originalResolvedSymbol, symbolFromArgumentsPhase)
+                })
+            }
+        }
+
+        return resolved
+    }
+
+    private fun generatePropertyAccessExpression(fqName: FqName, accessSource: KtSourceElement?): FirPropertyAccessExpression {
+        var result: FirPropertyAccessExpression? = null
+
+        val pathSegments = fqName.pathSegments()
+        for ((index, pathSegment) in pathSegments.withIndex()) {
+            result = buildPropertyAccessExpression {
+                calleeReference = buildSimpleNamedReference { name = pathSegment }
+                explicitReceiver = result
+
+                if (index == pathSegments.lastIndex) {
+                    source = accessSource
+                }
+            }
+        }
+
+        return result ?: error("Got an empty ClassId")
+    }
+
+    override fun resolveQualifiedAccessAndSelectCandidate(
+        qualifiedAccessExpression: FirQualifiedAccessExpression,
+        isUsedAsReceiver: Boolean,
+        callSite: FirElement,
+    ): FirStatement {
+        return callResolver.resolveOnlyEnumOrQualifierAccessAndSelectCandidate(qualifiedAccessExpression, isUsedAsReceiver)
+    }
+
 }

@@ -16,13 +16,23 @@
 
 package org.jetbrains.kotlin.cli.common.arguments
 
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.config.AnalysisFlag
+import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.LanguageVersion
+
 class K2MetadataCompilerArguments : CommonCompilerArguments() {
     companion object {
         @JvmStatic private val serialVersionUID = 0L
     }
 
     @Argument(value = "-d", valueDescription = "<directory|jar>", description = "Destination for generated .kotlin_metadata files")
-    var destination: String? by NullableStringFreezableVar(null)
+    var destination: String? = null
+        set(value) {
+            checkFrozen()
+            field = if (value.isNullOrEmpty()) null else value
+        }
 
     @Argument(
             value = "-classpath",
@@ -30,28 +40,59 @@ class K2MetadataCompilerArguments : CommonCompilerArguments() {
             valueDescription = "<path>",
             description = "Paths where to find library .kotlin_metadata files"
     )
-    var classpath: String? by NullableStringFreezableVar(null)
+    var classpath: String? = null
+        set(value) {
+            checkFrozen()
+            field = if (value.isNullOrEmpty()) null else value
+        }
 
     @Argument(value = "-module-name", valueDescription = "<name>", description = "Name of the generated .kotlin_module file")
-    var moduleName: String? by NullableStringFreezableVar(null)
+    var moduleName: String? = null
+        set(value) {
+            checkFrozen()
+            field = if (value.isNullOrEmpty()) null else value
+        }
 
     @Argument(
         value = "-Xjps",
         description = "Enable in JPS"
     )
-    var enabledInJps: Boolean by FreezableVar(false)
+    var enabledInJps = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
 
     @Argument(
         value = "-Xfriend-paths",
         valueDescription = "<path>",
         description = "Paths to output directories for friend modules (whose internals should be visible)"
     )
-    var friendPaths: Array<String>? by FreezableVar(null)
+    var friendPaths: Array<String>? = null
+        set(value) {
+            checkFrozen()
+            field = value
+        }
 
     @Argument(
         value = "-Xrefines-paths",
         valueDescription = "<path>",
         description = "Paths to output directories for refined modules (whose expects this module can actualize)"
     )
-    var refinesPaths: Array<String>? by FreezableVar(null)
+    var refinesPaths: Array<String>? = null
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    override fun copyOf(): Freezable = copyK2MetadataCompilerArguments(this, K2MetadataCompilerArguments())
+
+    override fun configureAnalysisFlags(collector: MessageCollector, languageVersion: LanguageVersion): MutableMap<AnalysisFlag<*>, Any> =
+        super.configureAnalysisFlags(collector, languageVersion).also {
+            it[AnalysisFlags.metadataCompilation] = true
+        }
+
+    override fun configureExtraLanguageFeatures(map: HashMap<LanguageFeature, LanguageFeature.State>) {
+        map[LanguageFeature.MultiPlatformProjects] = LanguageFeature.State.ENABLED
+    }
 }

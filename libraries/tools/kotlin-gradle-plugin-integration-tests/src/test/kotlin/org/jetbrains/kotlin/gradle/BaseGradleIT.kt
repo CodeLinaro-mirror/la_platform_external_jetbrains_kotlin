@@ -8,30 +8,32 @@ package org.jetbrains.kotlin.gradle
 import com.intellij.testFramework.TestDataFile
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
+import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.tooling.GradleConnector
 import org.gradle.util.GradleVersion
-import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM
 import org.jetbrains.kotlin.gradle.model.ModelContainer
 import org.jetbrains.kotlin.gradle.model.ModelFetcherBuildAction
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.*
-import org.jetbrains.kotlin.gradle.util.modify
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.konan.target.presetName
 import org.jetbrains.kotlin.test.RunnerWithMuteInDatabase
 import org.junit.After
 import org.junit.AfterClass
+import org.junit.Assume
 import org.junit.Before
 import org.junit.runner.RunWith
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.*
 import java.util.regex.Pattern
 import javax.xml.parsers.DocumentBuilderFactory
-import kotlin.collections.HashSet
+import kotlin.io.path.absolutePathString
 import kotlin.io.path.isDirectory
 import kotlin.test.*
 
@@ -42,23 +44,12 @@ abstract class BaseGradleIT {
 
     protected var workingDir = File(".")
 
-    internal open fun defaultBuildOptions(): BuildOptions = BuildOptions(
-        withDaemon = true,
-        enableKpmModelMapping = isKpmModelMappingEnabled
-    )
+    internal open fun defaultBuildOptions(): BuildOptions = BuildOptions(withDaemon = true)
 
     open val defaultGradleVersion: GradleVersionRequired
         get() = GradleVersionRequired.None
 
     val isTeamCityRun = System.getenv("TEAMCITY_VERSION") != null
-
-    /**
-     * `var` makes it configurable per test
-     * `open` makes it configurable per test suite
-     */
-    protected open var isKpmModelMappingEnabled = System
-        .getProperty("kotlin.gradle.kpm.enableModelMapping")
-        .toBoolean()
 
     @Before
     open fun setUp() {
@@ -243,16 +234,17 @@ abstract class BaseGradleIT {
                 "Could not stop some daemons ${(DaemonRegistry.activeDaemons).joinToString()}"
             }
         }
+
+        fun hostHaveUnsupportedTarget() = Assume.assumeFalse(HostManager.hostIsMac)
     }
 
     // the second parameter is for using with ToolingAPI, that do not like --daemon/--no-daemon  options at all
-    data class BuildOptions constructor(
+    data class BuildOptions(
         val withDaemon: Boolean = false,
         val daemonOptionSupported: Boolean = true,
         val incremental: Boolean? = null,
         val incrementalJs: Boolean? = null,
         val incrementalJsKlib: Boolean? = null,
-        val jsIrBackend: Boolean? = null,
         val androidHome: File? = null,
         val javaHome: File? = null,
         val gradleUserHome: File? = null,
@@ -267,19 +259,26 @@ abstract class BaseGradleIT {
         val withBuildCache: Boolean = false,
         val kaptOptions: KaptOptions? = null,
         val parallelTasksInProject: Boolean = false,
-        val jsCompilerType: KotlinJsCompilerType? = null,
         val configurationCache: Boolean = false,
         val configurationCacheProblems: ConfigurationCacheProblems = ConfigurationCacheProblems.FAIL,
         val warningMode: WarningMode = WarningMode.Fail,
-        val useFir: Boolean = false,
+        val languageVersion: String? = null,
+        val languageApiVersion: String? = null,
         val customEnvironmentVariables: Map<String, String> = mapOf(),
         val dryRun: Boolean = false,
         val abiSnapshot: Boolean = false,
         val hierarchicalMPPStructureSupport: Boolean? = null,
-        val enableCompatibilityMetadataVariant: Boolean? = null,
         val withReports: List<BuildReportType> = emptyList(),
         val enableKpmModelMapping: Boolean? = null,
-    )
+        val useDaemonFallbackStrategy: Boolean? = null,
+        val useParsableDiagnosticsFormatting: Boolean = true,
+        val showDiagnosticsStacktrace: Boolean? = false, // false by default to not clutter the testdata + stacktraces change often
+        val stacktraceMode: String? = StacktraceOption.FULL_STACKTRACE_LONG_OPTION,
+        val konanDataDir: Path = konanDir,
+    ) {
+        val safeAndroidGradlePluginVersion: AGPVersion
+            get() = androidGradlePluginVersion ?: error("AGP version is expected to be set")
+    }
 
     enum class ConfigurationCacheProblems {
         FAIL, WARN
@@ -287,7 +286,6 @@ abstract class BaseGradleIT {
 
     data class KaptOptions(
         val verbose: Boolean,
-        val useWorkers: Boolean,
         val incrementalKapt: Boolean = false,
         val includeCompileClasspath: Boolean = true,
         val classLoadersCacheSize: Int? = null
@@ -306,7 +304,7 @@ abstract class BaseGradleIT {
         open val resourcesRoot = File(resourcesRootFile, "testProject/$resourceDirName")
         val projectDir = File(workingDir.canonicalFile, projectName)
 
-        open fun setupWorkingDir(enableCacheRedirector: Boolean = true, applyAndroidTestFixes: Boolean = true) {
+        open fun setupWorkingDir(enableCacheRedirector: Boolean = true, applyAndroidTestFixes: Boolean = true, applyLanguageVersion: Boolean = true) {
             if (!projectDir.isDirectory || projectDir.listFiles().isEmpty()) {
                 copyRecursively(this.resourcesRoot, workingDir)
                 if (addHeapDumpOptions) {
@@ -317,6 +315,7 @@ abstract class BaseGradleIT {
                     addPluginManagementToSettings()
                     if (enableCacheRedirector) enableCacheRedirector()
                     if (applyAndroidTestFixes) applyAndroidTestFixes()
+                    if (applyLanguageVersion) applyKotlinCompilerArgsPlugin()
                 }
             }
         }
@@ -423,16 +422,39 @@ abstract class BaseGradleIT {
         var result: ProcessRunResult? = null
         try {
             result = runProcess(cmd, projectDir, env, buildOptions)
-            CompiledProject(this, result.output, result.exitCode).check()
+            val compiledProject = CompiledProject(this, result.output, result.exitCode)
+            compiledProject.check()
+            compiledProject.additionalAssertions(buildOptions)
         } catch (t: Throwable) {
-            println("<=== Test build: ${this.projectName} $cmd ===>")
+            println("<=== Test build: $projectName $cmd ===>")
 
             // to prevent duplication of output
             if (!options.forceOutputToStdout && result != null) {
-                println(result.output)
+                result.output
+                    .split("\n")
+                    .map { "    |test output $projectName|$it" }
+                    .forEach(::println)
             }
+
             throw t
         }
+    }
+
+    private fun CompiledProject.additionalAssertions(options: BuildOptions) {
+        if (options.warningMode != WarningMode.Fail) {
+            assertDeprecationWarningsArePresent(options.warningMode)
+        }
+    }
+
+    private fun CompiledProject.assertDeprecationWarningsArePresent(warningMode: WarningMode) {
+        assertContains(
+            "[GradleWarningsDetectorPlugin] The plugin is being applied",
+            errorMessage = NO_GRADLE_WARNINGS_DETECTOR_PLUGIN_ERROR_MESSAGE
+        )
+        assertContains(
+            "[GradleWarningsDetectorPlugin] Some deprecation warnings were found during this build.",
+            errorMessage = getWarningModeChangeAdvice(warningMode)
+        )
     }
 
     fun <T> Project.getModels(modelType: Class<T>): ModelContainer<T> {
@@ -478,9 +500,9 @@ abstract class BaseGradleIT {
         return this
     }
 
-    fun CompiledProject.assertContains(vararg expected: String, ignoreCase: Boolean = false): CompiledProject {
+    fun CompiledProject.assertContains(vararg expected: String, ignoreCase: Boolean = false, errorMessage: String? = null): CompiledProject {
         for (str in expected) {
-            assertTrue(output.contains(str.normalize(), ignoreCase), "Output should contain '$str'")
+            assertTrue(output.contains(str.normalize(), ignoreCase), errorMessage ?: "Output should contain '$str'")
         }
         return this
     }
@@ -550,6 +572,12 @@ abstract class BaseGradleIT {
 
     fun CompiledProject.assertFileExists(path: String = ""): CompiledProject {
         assertTrue(fileInWorkingDir(path).exists(), "The file [$path] does not exist.")
+        return this
+    }
+
+    fun CompiledProject.assertDirectoryExists(path: String): CompiledProject {
+        assertFileExists(path)
+        assertTrue(fileInWorkingDir(path).isDirectory, "$path is not a directory")
         return this
     }
 
@@ -689,11 +717,6 @@ abstract class BaseGradleIT {
         }
     }
 
-    fun CompiledProject.assertTasksRegisteredAndNotRealized(vararg tasks: String) {
-        assertTasksRegistered(*tasks)
-        assertTasksNotRealized(*tasks)
-    }
-
     fun CompiledProject.assertTasksSkipped(vararg tasks: String) {
         for (task in tasks) {
             assertContains("Skipping task '$task'")
@@ -703,33 +726,6 @@ abstract class BaseGradleIT {
     fun CompiledProject.assertTasksSkippedByPrefix(taskPrefixes: Iterable<String>) {
         for (prefix in taskPrefixes) {
             assertContainsRegex("Skipping task '$prefix\\w*'".toRegex())
-        }
-    }
-
-    fun CompiledProject.getOutputForTask(taskName: String): String {
-        @Language("RegExp")
-        val taskOutputRegex = """
-(?:
-\[LIFECYCLE] \[class org\.gradle(?:\.internal\.buildevents)?\.TaskExecutionLogger] :$taskName|
-\[org\.gradle\.execution\.(?:plan|taskgraph)\.Default(?:Task)?PlanExecutor] :$taskName.*?started
-)
-([\s\S]+?)
-(?:
-Finished executing task ':$taskName'|
-\[org\.gradle\.execution\.(?:plan|taskgraph)\.Default(?:Task)?PlanExecutor] :$taskName.*?completed
-)
-""".trimIndent().replace("\n", "").toRegex()
-
-        return taskOutputRegex.find(output)?.run { groupValues[1] } ?: error("Cannot find output for task $taskName")
-    }
-
-    fun CompiledProject.assertCompiledKotlinSources(
-        sources: Iterable<String>,
-        weakTesting: Boolean = false,
-        tasks: List<String>
-    ) {
-        for (task in tasks) {
-            assertCompiledKotlinSources(sources, weakTesting, getOutputForTask(task), suffix = " in task ${task}")
         }
     }
 
@@ -825,6 +821,14 @@ Finished executing task ':$taskName'|
     fun CompiledProject.assertTestResults(
         @TestDataFile assertionFileName: String,
         vararg testReportNames: String
+    ) = assertTestResults(
+        resourcesRootFile.resolve(assertionFileName),
+        *testReportNames
+    )
+
+    fun CompiledProject.assertTestResults(
+        assertionXmlFile: File,
+        vararg testReportNames: String
     ) {
         val projectDir = project.projectDir
         val testReportDirs = testReportNames.map { projectDir.resolve("build/test-results/$it").toPath() }
@@ -839,14 +843,75 @@ Finished executing task ':$taskName'|
             val excl = "Invalid connection: com.apple.coresymbolicationd"
             s.lines().filter { it != excl }.joinToString("\n")
         }
-        val expectedTestResults = prettyPrintXml(resourcesRootFile.resolve(assertionFileName).readText())
+        val expectedTestResults = prettyPrintXml(assertionXmlFile.readText())
 
         assertEquals(expectedTestResults, actualTestResults)
     }
 
+    /**
+     * Filter output for specific task with given [taskPath]
+     *
+     * Requires using [LogLevel.DEBUG].
+     */
+    fun CompiledProject.getOutputForTask(taskPath: String): String = getOutputForTask(taskPath, output)
+
+    fun CompiledProject.withNativeCommandLineArguments(
+        vararg taskPaths: String,
+        toolName: NativeToolKind = NativeToolKind.KONANC,
+        check: (List<String>) -> Unit,
+    ) = taskPaths.forEach { taskPath -> check(extractNativeCompilerCommandLineArguments(getOutputForTask(taskPath), toolName)) }
+
+    internal fun transformNativeTestProject(
+        projectName: String,
+        wrapperVersion: GradleVersionRequired = defaultGradleVersion,
+        directoryPrefix: String? = null,
+    ): BaseGradleIT.Project {
+        val project = Project(projectName, wrapperVersion, directoryPrefix = directoryPrefix)
+        project.setupWorkingDir()
+        project.configureSingleNativeTarget()
+        project.gradleProperties().apply {
+            configureJvmMemory()
+            disableKotlinNativeCaches()
+        }
+        return project
+    }
+
+    internal fun transformNativeTestProjectWithPluginDsl(
+        projectName: String,
+        wrapperVersion: GradleVersionRequired = defaultGradleVersion,
+        directoryPrefix: String? = null,
+    ): BaseGradleIT.Project {
+        val project = transformProjectWithPluginsDsl(projectName, wrapperVersion, directoryPrefix = directoryPrefix)
+        project.configureSingleNativeTarget()
+        project.gradleProperties().apply {
+            configureJvmMemory()
+            disableKotlinNativeCaches()
+        }
+        return project
+    }
+
+    internal fun File.configureJvmMemory() {
+        appendText("\norg.gradle.jvmargs=-Xmx1g\n")
+    }
+
+    internal fun File.disableKotlinNativeCaches() {
+        appendText("\nkotlin.native.cacheKind=none\n")
+    }
+
+    private val SINGLE_NATIVE_TARGET_PLACEHOLDER = "<SingleNativeTarget>"
+
+    private fun Project.configureSingleNativeTarget(preset: String = HostManager.host.presetName) {
+        projectDir.walk()
+            .filter { it.isFile && (it.name == "build.gradle.kts" || it.name == "build.gradle") }
+            .forEach { file ->
+                file.modify {
+                    it.replace(SINGLE_NATIVE_TARGET_PLACEHOLDER, preset)
+                }
+            }
+    }
+
     private fun Project.createGradleTailParameters(options: BuildOptions, params: Array<out String> = arrayOf()): List<String> =
         params.toMutableList().apply {
-            add("--stacktrace")
             when (minLogLevel) {
                 // Do not allow to configure Gradle project with `ERROR` log level (error logs visible on all log levels)
                 LogLevel.ERROR -> error("Log level ERROR is not supported by Gradle command-line")
@@ -868,7 +933,6 @@ Finished executing task ':$taskName'|
             }
             options.incrementalJs?.let { add("-Pkotlin.incremental.js=$it") }
             options.incrementalJsKlib?.let { add("-Pkotlin.incremental.js.klib=$it") }
-            options.jsIrBackend?.let { add("-Pkotlin.js.useIrBackend=$it") }
             options.usePreciseJavaTracking?.let { add("-Pkotlin.incremental.usePreciseJavaTracking=$it") }
             options.useClasspathSnapshot?.let { add("-P${COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM.property}=$it") }
             options.androidGradlePluginVersion?.let { add("-Pandroid_tools_version=$it") }
@@ -891,7 +955,6 @@ Finished executing task ':$taskName'|
 
             options.kaptOptions?.also { kaptOptions ->
                 add("-Pkapt.verbose=${kaptOptions.verbose}")
-                add("-Pkapt.use.worker.api=${kaptOptions.useWorkers}")
                 add("-Pkapt.incremental.apt=${kaptOptions.incrementalKapt}")
                 add("-Pkapt.include.compile.classpath=${kaptOptions.includeCompileClasspath}")
                 kaptOptions.classLoadersCacheSize?.also { cacheSize ->
@@ -900,14 +963,6 @@ Finished executing task ':$taskName'|
             }
 
             if (options.parallelTasksInProject) add("--parallel") else add("--no-parallel")
-
-            options.jsCompilerType?.let {
-                add("-Pkotlin.js.compiler=$it")
-            }
-
-            if (options.useFir) {
-                add("-Pkotlin.useFir=true")
-            }
 
             if (options.dryRun) {
                 add("--dry-run")
@@ -920,33 +975,46 @@ Finished executing task ':$taskName'|
                 add("-Pkotlin.mpp.hierarchicalStructureSupport=${options.hierarchicalMPPStructureSupport}")
             }
 
-            if (options.enableCompatibilityMetadataVariant != null) {
-                add("-Pkotlin.mpp.enableCompatibilityMetadataVariant=${options.enableCompatibilityMetadataVariant}")
-            }
-
             if (options.withReports.isNotEmpty()) {
                 add("-Pkotlin.build.report.output=${options.withReports.joinToString { it.name }}")
             }
 
-            if (options.enableKpmModelMapping != null) {
-                add("-Pkotlin.kpm.experimentalModelMapping=${options.enableKpmModelMapping}")
-            }
+            options.useDaemonFallbackStrategy?.let { add("-Pkotlin.daemon.useFallbackStrategy=$it") }
 
             add("-Dorg.gradle.unsafe.configuration-cache=${options.configurationCache}")
             add("-Dorg.gradle.unsafe.configuration-cache-problems=${options.configurationCacheProblems.name.lowercase(Locale.getDefault())}")
+
+            if (options.useParsableDiagnosticsFormatting) {
+                add("-Pkotlin.internal.diagnostics.useParsableFormatting=true")
+            }
+
+            if (options.showDiagnosticsStacktrace != null) {
+                add("-Pkotlin.internal.diagnostics.showStacktrace=${options.showDiagnosticsStacktrace}")
+            }
+
+            if (options.stacktraceMode != null) {
+                add("--${options.stacktraceMode}")
+            }
+
+            // temporary suppression for the usage of deprecated pre-HMPP properties.
+            // Should be removed together with the flags support in 2.0
+            if (options.hierarchicalMPPStructureSupport != null) {
+                add("-Pkotlin.internal.suppressGradlePluginErrors=PreHMPPFlagsError")
+            }
+
+            add("-Pkonan.data.dir=${options.konanDataDir.absolutePathString().normalize()}")
 
             // Workaround: override a console type set in the user machine gradle.properties (since Gradle 4.3):
             add("--console=plain")
             //The feature of failing the build on deprecation warnings is introduced in gradle 5.6
             val supportFailingBuildOnWarning =
                 GradleVersion.version(chooseWrapperVersionOrFinishTest()) >= GradleVersion.version("5.6")
-            // Agp uses Gradle internal API constructor DefaultDomainObjectSet(Class<T>) until Agp 3.6.0 which is deprecated by Gradle,
-            // so we don't run with --warning-mode=fail when Agp 3.6 or less is used.
-            val notUsingAgpWithWarnings =
-                options.androidGradlePluginVersion == null || options.androidGradlePluginVersion > AGPVersion.v3_6_0
-            if (supportFailingBuildOnWarning && notUsingAgpWithWarnings && options.warningMode == WarningMode.Fail) {
+            if (supportFailingBuildOnWarning && options.warningMode == WarningMode.Fail) {
                 add("--warning-mode=${WarningMode.Fail.name.lowercase(Locale.getDefault())}")
             }
+            options.languageVersion?.also { add("-Pkotlin.test.languageVersion=$it") }
+            options.languageApiVersion?.also { add("-Pkotlin.test.apiVersion=$it") }
+
             addAll(options.freeCommandLineArgs)
         }
 
@@ -955,6 +1023,7 @@ Finished executing task ':$taskName'|
             options.androidHome?.let { sdkDir ->
                 sdkDir.parentFile.mkdirs()
                 put("ANDROID_HOME", sdkDir.canonicalPath)
+                put("ANDROID_SDK_ROOT", sdkDir.canonicalPath)
             }
 
             options.javaHome?.let {
@@ -992,6 +1061,24 @@ Finished executing task ':$taskName'|
 fun BaseGradleIT.BuildOptions.withFreeCommandLineArgument(argument: String) = copy(
     freeCommandLineArgs = freeCommandLineArgs + argument
 )
+
+fun BaseGradleIT.BuildOptions.suppressDeprecationWarningsOn(
+    @Suppress("UNUSED_PARAMETER") reason: String, // just to require specifying a reason for suppressing
+    predicate: (BaseGradleIT.BuildOptions) -> Boolean
+) =
+    if (predicate(this)) {
+        copy(warningMode = WarningMode.Summary)
+    } else {
+        this
+    }
+
+fun BaseGradleIT.BuildOptions.suppressDeprecationWarningsSinceGradleVersion(
+    gradleVersion: String,
+    currentGradleVersion: String,
+    reason: String
+) = suppressDeprecationWarningsOn(reason) {
+    GradleVersion.version(currentGradleVersion) >= GradleVersion.version(gradleVersion)
+}
 
 private const val MAVEN_LOCAL_URL_PLACEHOLDER = "<mavenLocalUrl>"
 internal const val PLUGIN_MARKER_VERSION_PLACEHOLDER = "<pluginMarkerVersion>"

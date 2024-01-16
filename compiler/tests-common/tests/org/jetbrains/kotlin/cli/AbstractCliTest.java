@@ -70,6 +70,8 @@ public abstract class AbstractCliTest extends TestCaseWithTmpdir {
             int next = args.subList(index, args.size()).indexOf("---");
             if (next == -1) {
                 next = args.size();
+            } else {
+                next = index + next;
             }
             Pair<String, ExitCode> pair = CompilerTestUtil.executeCompiler(compiler, args.subList(index, next));
             output.append(pair.getFirst());
@@ -84,17 +86,27 @@ public abstract class AbstractCliTest extends TestCaseWithTmpdir {
     }
 
     @NotNull
-    public static String getNormalizedCompilerOutput(@NotNull String pureOutput, @Nullable ExitCode exitCode, @NotNull String testDataDir) {
+    public static String getNormalizedCompilerOutput(
+            @NotNull String pureOutput,
+            @Nullable ExitCode exitCode,
+            @NotNull String testDataDir,
+            @NotNull String tmpdir
+    ) {
         String testDataAbsoluteDir = new File(testDataDir).getAbsolutePath();
+        String tmpDirAbsoluteDir = new File(tmpdir).getAbsolutePath();
         String normalizedOutputWithoutExitCode = StringUtil.convertLineSeparators(pureOutput)
                 .replace(testDataAbsoluteDir, TESTDATA_DIR)
                 .replace(FileUtil.toSystemIndependentName(testDataAbsoluteDir), TESTDATA_DIR)
                 .replace(PathUtil.getKotlinPathsForDistDirectory().getHomePath().getAbsolutePath(), "$PROJECT_DIR$")
                 .replace(PathUtil.getKotlinPathsForDistDirectory().getHomePath().getParentFile().getAbsolutePath(), "$DIST_DIR$")
-                .replace("expected version is " + JvmMetadataVersion.INSTANCE, "expected version is $ABI_VERSION$")
-                .replace("expected version is " + JsMetadataVersion.INSTANCE, "expected version is $ABI_VERSION$")
-                .replace("\\", "/")
+                .replace(org.jetbrains.kotlin.konan.file.File.Companion.getUserDir().getAbsolutePath(), "$USER_DIR$")
+                .replace(tmpDirAbsoluteDir, "$TMP_DIR$")
+                .replaceAll("info: executable production duration: \\d+ms", "info: executable production duration: [time]")
                 .replace(KotlinCompilerVersion.VERSION, "$VERSION$")
+                .replace(" " + JvmMetadataVersion.INSTANCE, " $ABI_VERSION$")
+                .replace(" " + JsMetadataVersion.INSTANCE, " $ABI_VERSION$")
+                .replace(" " + JvmMetadataVersion.INSTANCE_NEXT, " $ABI_VERSION_NEXT$")
+                .replace("\\", "/")
                 .replace("\n" + Usage.BAT_DELIMITER_CHARACTERS_NOTE + "\n", "")
                 .replaceAll("log4j:WARN.*\n", "");
 
@@ -112,7 +124,10 @@ public abstract class AbstractCliTest extends TestCaseWithTmpdir {
 
         Pair<String, ExitCode> outputAndExitCode = executeCompilerGrabOutput(compiler, readArgs(fileName, tmpdir.getPath()));
         String actual = getNormalizedCompilerOutput(
-                outputAndExitCode.getFirst(), outputAndExitCode.getSecond(), new File(fileName).getParent()
+                outputAndExitCode.getFirst(),
+                outputAndExitCode.getSecond(),
+                new File(fileName).getParent(),
+                tmpdir.getAbsolutePath()
         );
 
         File outFile = new File(fileName.replaceFirst("\\.args$", ".out"));
@@ -273,11 +288,18 @@ public abstract class AbstractCliTest extends TestCaseWithTmpdir {
                         new File(ThirdPartyAnnotationPathsKt.FOREIGN_ANNOTATIONS_SOURCES_PATH).getPath()
                 )
                 .replace(
+                        "$JSR_305_DECLARATIONS$",
+                        new File(ThirdPartyAnnotationPathsKt.JSR_305_SOURCES_PATH).getPath()
+                )
+                .replace(
                         "$FOREIGN_JAVA8_ANNOTATIONS_DIR$",
                         new File(ThirdPartyAnnotationPathsKt.FOREIGN_JDK8_ANNOTATIONS_SOURCES_PATH).getPath()
                 ).replace(
                         "$JDK_17$",
                         KtTestUtil.getJdk17Home().getPath()
+                ).replace(
+                        "$STDLIB_JS$",
+                        PathUtil.getKotlinPathsForCompiler().getJsStdLibJarPath().getAbsolutePath()
                 );
     }
 

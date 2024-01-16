@@ -6,19 +6,16 @@
 package org.jetbrains.kotlin.test.services.configuration
 
 import com.intellij.ide.highlighter.JavaFileType
-import com.intellij.openapi.util.SystemInfo
 import com.intellij.psi.PsiJavaModule.MODULE_INFO_FILE
+import com.intellij.util.lang.JavaVersion
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.jvm.jvmPhases
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.jvm.addModularRootIfNotNull
 import org.jetbrains.kotlin.cli.jvm.config.*
-import org.jetbrains.kotlin.cli.jvm.configureStandardLibs
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.test.ConfigurationKind
 import org.jetbrains.kotlin.test.MockLibraryUtil
@@ -32,6 +29,7 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ALL_JAVA_AS_BINARY
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ASSERTIONS_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.COMPILE_JAVA_USING
+import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENABLE_DEBUG_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.INCLUDE_JAVA_AS_BINARY
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JVM_TARGET
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.LAMBDAS
@@ -43,11 +41,15 @@ import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.DISABLE_CALL_ASSERTIONS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.DISABLE_PARAM_ASSERTIONS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.EMIT_JVM_TYPE_ANNOTATIONS
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ENABLE_JVM_IR_INLINER
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ENABLE_JVM_PREVIEW
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.JDK_RELEASE
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_NEW_JAVA_ANNOTATION_TARGETS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_OPTIMIZED_CALLABLE_REFERENCES
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_UNIFIED_NULL_CHECKS
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OLD_INNER_CLASSES_LOGIC
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.PARAMETERS_METADATA
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.JDK_RELEASE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.USE_TYPE_TABLE
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
@@ -60,9 +62,7 @@ import org.jetbrains.kotlin.test.services.jvm.CompiledClassesManager
 import org.jetbrains.kotlin.test.services.jvm.compiledClassesManager
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.test.util.joinToArrayString
-import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
-import kotlin.io.path.ExperimentalPathApi
 
 class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
     companion object {
@@ -121,12 +121,11 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             if (configurationKind.withReflection) {
                 files.add(provider.reflectJarForTests())
             }
-            files.add(KtTestUtil.getAnnotationsJar())
+            files.add(provider.getAnnotationsJar())
 
             if (JvmEnvironmentConfigurationDirectives.STDLIB_JDK8 in directives) {
                 files.add(provider.runtimeJarForTestsWithJdk8())
             }
-            files.add(KtTestUtil.getAnnotationsJar())
             return files
         }
 
@@ -136,7 +135,8 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             TestJdkKind.FULL_JDK_6 -> File(System.getenv("JDK_16") ?: error("Environment variable JDK_16 is not set"))
             TestJdkKind.FULL_JDK_11 -> KtTestUtil.getJdk11Home()
             TestJdkKind.FULL_JDK_17 -> KtTestUtil.getJdk17Home()
-            TestJdkKind.FULL_JDK -> if (SystemInfo.IS_AT_LEAST_JAVA9) File(System.getProperty("java.home")) else null
+            TestJdkKind.FULL_JDK_21 -> KtTestUtil.getJdk21Home()
+            TestJdkKind.FULL_JDK -> if (JavaVersion.current() >= JavaVersion.compose(9)) File(System.getProperty("java.home")) else null
             TestJdkKind.ANDROID_API -> null
         }
 
@@ -147,6 +147,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             TestJdkKind.FULL_JDK_6 -> null
             TestJdkKind.FULL_JDK_11 -> null
             TestJdkKind.FULL_JDK_17 -> null
+            TestJdkKind.FULL_JDK_21 -> null
             TestJdkKind.FULL_JDK -> null
         }
     }
@@ -174,9 +175,13 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         register(SERIALIZE_IR, JVMConfigurationKeys.SERIALIZE_IR)
         register(JDK_RELEASE, JVMConfigurationKeys.JDK_RELEASE)
         register(USE_TYPE_TABLE, JVMConfigurationKeys.USE_TYPE_TABLE)
+        register(ENABLE_DEBUG_MODE, JVMConfigurationKeys.ENABLE_DEBUG_MODE)
+        register(NO_NEW_JAVA_ANNOTATION_TARGETS, JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS)
+        register(OLD_INNER_CLASSES_LOGIC, JVMConfigurationKeys.OLD_INNER_CLASSES_LOGIC)
+        register(LINK_VIA_SIGNATURES, JVMConfigurationKeys.LINK_VIA_SIGNATURES)
+        register(ENABLE_JVM_IR_INLINER, JVMConfigurationKeys.ENABLE_IR_INLINER)
     }
 
-    @OptIn(ExperimentalPathApi::class, ExperimentalStdlibApi::class)
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
         if (module.targetPlatform !in JvmPlatforms.allJvmPlatforms) return
         configureDefaultJvmTarget(configuration)
@@ -194,6 +199,7 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
             TestJdkKind.FULL_JDK_6 -> {}
             TestJdkKind.FULL_JDK_11 -> {}
             TestJdkKind.FULL_JDK_17 -> {}
+            TestJdkKind.FULL_JDK_21 -> {}
             TestJdkKind.FULL_JDK -> {}
         }
 
@@ -209,12 +215,16 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
         val useJava11ToCompileIncludedJavaFiles = javaVersionToCompile == TestJavacVersion.JAVAC_11
 
         if (configurationKind.withRuntime) {
-            configuration.configureStandardLibs(PathUtil.kotlinPathsForDistDirectory, K2JVMCompilerArguments().also { it.noReflect = true })
+            configuration.configureStandardLibs(
+                testServices.standardLibrariesPathProvider,
+                K2JVMCompilerArguments().also { it.noReflect = true }
+            )
         }
         configuration.addJvmClasspathRoots(getLibraryFilesExceptRealRuntime(testServices, configurationKind, module.directives))
 
         val isIr = module.targetBackend?.isIR == true
         configuration.put(JVMConfigurationKeys.IR, isIr)
+        configuration.putIfAbsent(CommonConfigurationKeys.EVALUATED_CONST_TRACKER, EvaluatedConstTracker.create())
 
         val javaSourceFiles = module.javaFiles.filter { INCLUDE_JAVA_AS_BINARY !in it.directives }
 
@@ -243,6 +253,12 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
                 }
                 configuration.addJavaSourceRoot(testServices.sourceFileProvider.javaSourceDirectory)
             }
+
+            // We add that as a part of the classpath only when Java files are being analyzed as sources, so the relevant annotations
+            // are being resolved classes are being resolved properly.
+            configuration.addJvmClasspathRoots(
+                testServices.additionalClassPathForJavaCompilationOrAnalysis?.classPath?.map(::File).orEmpty()
+            )
         }
 
         if (javaBinaryFiles.isNotEmpty()) {
@@ -260,7 +276,9 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
                     compileJavaFilesLibraryToJar(
                         testServices.sourceFileProvider.javaBinaryDirectory.path,
                         JAVA_BINARIES_JAR_NAME,
-                        extraClasspath = configuration.jvmClasspathRoots.map { it.absolutePath },
+                        extraClasspath =
+                        configuration.jvmClasspathRoots.map { it.absolutePath } +
+                                testServices.additionalClassPathForJavaCompilationOrAnalysis?.classPath.orEmpty(),
                         assertions = JUnit5Assertions,
                         useJava11 = useJava11ToCompileIncludedJavaFiles
                     )
@@ -420,3 +438,12 @@ class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfig
 
 
 }
+
+// This should be used as a classpath entries when Java classes are being compiled/analyzed to become a binary/source dependencies of kt-files
+// But in case the Java files are compiled it should not belong to the classpath of the module where test kt-files belong.
+// Currently, it's used for jsr305.jar, for which it's necessary to make sure that once some library uses the annotation from that jar,
+// we still don't need the jar itself when using the library to read the annotations.
+// (as they have been written to the class-files as fully-qualified names)
+class AdditionalClassPathForJavaCompilationOrAnalysis(val classPath: List<String>) : TestService
+
+val TestServices.additionalClassPathForJavaCompilationOrAnalysis by TestServices.nullableTestServiceAccessor<AdditionalClassPathForJavaCompilationOrAnalysis>()

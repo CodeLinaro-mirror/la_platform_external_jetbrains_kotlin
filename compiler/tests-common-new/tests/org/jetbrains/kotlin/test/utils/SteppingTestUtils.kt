@@ -9,16 +9,49 @@ import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.model.FrontendKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEqualsToFile
+import org.jetbrains.kotlin.test.services.impl.valueOfOrNull
 import java.io.File
 
 data class SteppingTestLoggedData(val line: Int, val isSynthetic: Boolean, val expectation: String)
 
+sealed interface LocalValue
+
+class LocalPrimitive(val value: String, val valueType: String) : LocalValue {
+    override fun toString(): String {
+        return "$value:$valueType"
+    }
+}
+
+class LocalReference(val id: String, val referenceType: String) : LocalValue {
+    override fun toString(): String {
+        return referenceType
+    }
+}
+
+object LocalNullValue : LocalValue {
+    override fun toString(): String {
+        return "null"
+    }
+}
+
+class LocalVariableRecord(
+    val variable: String,
+    val variableType: String?,
+    val value: LocalValue
+) {
+    override fun toString(): String = buildString {
+        append(variable)
+        if (variableType != null) {
+            append(":")
+            append(variableType)
+        }
+        append("=")
+        append(value)
+    }
+}
+
 private const val EXPECTATIONS_MARKER = "// EXPECTATIONS"
 private const val FORCE_STEP_INTO_MARKER = "// FORCE_STEP_INTO"
-private const val JVM_EXPECTATIONS_MARKER = "$EXPECTATIONS_MARKER JVM"
-private const val JVM_IR_EXPECTATIONS_MARKER = "$EXPECTATIONS_MARKER JVM_IR"
-private const val CLASSIC_FRONTEND_EXPECTATIONS_MARKER = "$EXPECTATIONS_MARKER CLASSIC_FRONTEND"
-private const val FIR_EXPECTATIONS_MARKER = "$EXPECTATIONS_MARKER FIR"
 
 fun checkSteppingTestResult(
     frontendKind: FrontendKind<*>,
@@ -30,7 +63,7 @@ fun checkSteppingTestResult(
     val lines = wholeFile.readLines()
     val forceStepInto = lines.any { it.startsWith(FORCE_STEP_INTO_MARKER) }
 
-    val actualLineNumbers = compressSequencesWithoutLinenumber(loggedItems)
+    val actualLineNumbers = compressSequencesWithoutLineNumber(loggedItems)
         .filter {
             // Ignore synthetic code with no line number information unless force step into behavior is requested.
             forceStepInto || !it.isSynthetic
@@ -38,14 +71,19 @@ fun checkSteppingTestResult(
         .map { "// ${it.expectation}" }
     val actualLineNumbersIterator = actualLineNumbers.iterator()
 
-    val lineIterator = lines.iterator()
+    val lineIterator = lines.listIterator()
     for (line in lineIterator) {
+        if (line.startsWith(EXPECTATIONS_MARKER)) {
+            // Rewind the iterator to the first '// EXPECTATIONS' line
+            if (lineIterator.hasPrevious()) lineIterator.previous()
+            break
+        }
         actual.add(line)
-        if (line.startsWith(EXPECTATIONS_MARKER) || line.startsWith(FORCE_STEP_INTO_MARKER)) break
+        if (line.startsWith(FORCE_STEP_INTO_MARKER)) break
     }
 
-    var currentBackend = TargetBackend.ANY
-    var currentFrontend = frontendKind
+    var currentBackends = setOf(TargetBackend.ANY)
+    var currentFrontends = setOf(frontendKind)
     for (line in lineIterator) {
         if (line.isEmpty()) {
             actual.add(line)
@@ -53,26 +91,19 @@ fun checkSteppingTestResult(
         }
         if (line.startsWith(EXPECTATIONS_MARKER)) {
             actual.add(line)
-            currentBackend = when (line) {
-                EXPECTATIONS_MARKER -> TargetBackend.ANY
-                JVM_EXPECTATIONS_MARKER -> TargetBackend.JVM
-                JVM_IR_EXPECTATIONS_MARKER -> TargetBackend.JVM_IR
-                CLASSIC_FRONTEND_EXPECTATIONS_MARKER -> currentBackend
-                FIR_EXPECTATIONS_MARKER -> currentBackend
-                else -> error("Expected JVM backend: $line")
-            }
-            currentFrontend = when (line) {
-                EXPECTATIONS_MARKER -> frontendKind
-                JVM_EXPECTATIONS_MARKER -> currentFrontend
-                JVM_IR_EXPECTATIONS_MARKER -> currentFrontend
-                CLASSIC_FRONTEND_EXPECTATIONS_MARKER -> FrontendKinds.ClassicFrontend
-                FIR_EXPECTATIONS_MARKER -> FrontendKinds.FIR
-                else -> error("Expected JVM backend: $line")
-            }
+            val backendsAndFrontends = line.removePrefix(EXPECTATIONS_MARKER).splitToSequence(Regex("\\s+")).filter { it.isNotEmpty() }
+            currentBackends = backendsAndFrontends
+                .mapNotNullTo(mutableSetOf()) { valueOfOrNull<TargetBackend>(it) }
+                .takeIf { it.isNotEmpty() }
+                ?: setOf(TargetBackend.ANY)
+            currentFrontends = backendsAndFrontends
+                .mapNotNullTo(mutableSetOf(), FrontendKinds::fromString)
+                .takeIf { it.isNotEmpty() }
+                ?: setOf(frontendKind)
             continue
         }
-        if ((currentBackend == TargetBackend.ANY || currentBackend == targetBackend) &&
-            currentFrontend == frontendKind
+        if ((currentBackends.contains(TargetBackend.ANY) || currentBackends.contains(targetBackend)) &&
+            currentFrontends.contains(frontendKind)
         ) {
             if (actualLineNumbersIterator.hasNext()) {
                 actual.add(actualLineNumbersIterator.next())
@@ -83,6 +114,9 @@ fun checkSteppingTestResult(
     }
 
     actualLineNumbersIterator.forEach { actual.add(it) }
+    if (actual.last().isNotBlank()) {
+        actual.add("")
+    }
 
     assertEqualsToFile(wholeFile, actual.joinToString("\n"))
 }
@@ -93,7 +127,7 @@ fun checkSteppingTestResult(
  * print as byte offsets. This avoids overspecifying code generation
  * strategy in debug tests.
  */
-private fun compressSequencesWithoutLinenumber(loggedItems: List<SteppingTestLoggedData>): List<SteppingTestLoggedData> {
+private fun compressSequencesWithoutLineNumber(loggedItems: List<SteppingTestLoggedData>): List<SteppingTestLoggedData> {
     if (loggedItems.isEmpty()) return listOf()
 
     val logIterator = loggedItems.iterator()
@@ -110,7 +144,22 @@ private fun compressSequencesWithoutLinenumber(loggedItems: List<SteppingTestLog
     return result
 }
 
-fun formatAsSteppingTestExpectation(sourceName: String, lineNumber: Int, functionName: String, isSynthetic: Boolean): String {
-    val synthetic = if (isSynthetic) " (synthetic)" else ""
-    return "$sourceName:$lineNumber $functionName$synthetic"
-}
+fun formatAsSteppingTestExpectation(
+    sourceName: String,
+    lineNumber: Int,
+    functionName: String,
+    isSynthetic: Boolean,
+    visibleVars: List<LocalVariableRecord>? = null
+) = buildString {
+    append(sourceName)
+    append(':')
+    append(lineNumber)
+    append(' ')
+    append(functionName)
+    if (isSynthetic)
+        append(" (synthetic)")
+    if (visibleVars != null) {
+        append(": ")
+        visibleVars.joinTo(this)
+    }
+}.trim()

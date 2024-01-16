@@ -96,7 +96,6 @@ public class AnnotationResolverImpl extends AnnotationResolver {
             if (descriptor == null) {
                 LazyAnnotationDescriptor lazyAnnotationDescriptor =
                         new LazyAnnotationDescriptor(new LazyAnnotationsContextImpl(this, storageManager, trace, scope), entryElement);
-                lazyAnnotationDescriptor.recordToTrace();
                 descriptor = lazyAnnotationDescriptor;
             }
             if (shouldResolveArguments) {
@@ -176,11 +175,11 @@ public class AnnotationResolverImpl extends AnnotationResolver {
     }
 
     public static void reportUnsupportedAnnotationForTypeParameter(
-            @NotNull KtTypeParameter jetTypeParameter,
+            @NotNull KtTypeParameter ktTypeParameter,
             @NotNull BindingTrace trace,
             @NotNull LanguageVersionSettings languageVersionSettings
     ) {
-        KtModifierList modifierList = jetTypeParameter.getModifierList();
+        KtModifierList modifierList = ktTypeParameter.getModifierList();
         if (modifierList == null) return;
 
         for (KtAnnotationEntry annotationEntry : modifierList.getAnnotationEntries()) {

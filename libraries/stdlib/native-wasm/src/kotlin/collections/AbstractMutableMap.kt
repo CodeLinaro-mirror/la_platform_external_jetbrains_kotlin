@@ -8,6 +8,7 @@ package kotlin.collections
  * @param K the type of map keys. The map is invariant in its key type.
  * @param V the type of map values. The map is invariant in its value type.
  */
+@AllowDifferentMembersInActual // New 'AbstractMap` supertype is added compared to the expect declaration
 @SinceKotlin("1.1")
 public actual abstract class AbstractMutableMap<K, V> protected actual constructor() : AbstractMap<K, V>(), MutableMap<K, V> {
     /**
@@ -16,28 +17,6 @@ public actual abstract class AbstractMutableMap<K, V> protected actual construct
      * @return the previous value associated with the key, or `null` if the key was not present in the map.
      */
     actual abstract override fun put(key: K, value: V): V?
-
-
-    /**
-     * A mutable [Map.Entry] shared by several [Map] implementations.
-     */
-    internal open class SimpleEntry<K, V>(override val key: K, value: V) : MutableMap.MutableEntry<K, V> {
-        constructor(entry: Map.Entry<K, V>) : this(entry.key, entry.value)
-
-        private var _value = value
-
-        override val value: V get() = _value
-
-        override fun setValue(newValue: V): V {
-            val oldValue = this._value
-            this._value = newValue
-            return oldValue
-        }
-
-        override fun hashCode(): Int = entryHashCode(this)
-        override fun toString(): String = entryToString(this)
-        override fun equals(other: Any?): Boolean = entryEquals(this, other)
-    }
 
 
     actual override fun putAll(from: Map<out K, V>) {
@@ -119,15 +98,6 @@ public actual abstract class AbstractMutableMap<K, V> protected actual construct
                     }
 
                     override val size: Int get() = this@AbstractMutableMap.size
-
-                    // TODO: should we implement them this way? Currently it's unspecified in JVM
-                    override fun equals(other: Any?): Boolean {
-                        if (this === other) return true
-                        if (other !is Collection<*>) return false
-                        return AbstractList.orderedEquals(this, other)
-                    }
-
-                    override fun hashCode(): Int = AbstractList.orderedHashCode(this)
                 }
             }
             return _values!!

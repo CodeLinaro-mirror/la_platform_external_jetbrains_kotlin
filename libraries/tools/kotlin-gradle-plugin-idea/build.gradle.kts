@@ -1,20 +1,31 @@
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import plugins.KotlinBuildPublishingPlugin.Companion.ADHOC_COMPONENT_NAME
 
 plugins {
     kotlin("jvm")
     `java-test-fixtures`
     `maven-publish`
+    id("org.jetbrains.kotlinx.binary-compatibility-validator")
+}
+
+@Suppress("DEPRECATION")
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    compilerOptions {
+        apiVersion.value(KotlinVersion.KOTLIN_1_5).finalizeValueOnRead()
+        languageVersion.value(KotlinVersion.KOTLIN_1_5).finalizeValueOnRead()
+        freeCompilerArgs.add("-Xsuppress-version-warnings")
+    }
 }
 
 kotlin.sourceSets.configureEach {
-    languageSettings.apiVersion = "1.4"
-    languageSettings.languageVersion = "1.4"
-    languageSettings.optIn("org.jetbrains.kotlin.gradle.kpm.idea.InternalKotlinGradlePluginApi")
+    languageSettings.optIn("org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi")
 }
 
 dependencies {
     api(project(":kotlin-tooling-core"))
-    implementation(kotlinStdlib())
+    api(project(":kotlin-gradle-plugin-annotations"))
+    compileOnly(kotlinStdlib())
     testImplementation(gradleApi())
     testImplementation(gradleKotlinDsl())
     testImplementation(project(":kotlin-gradle-plugin"))
@@ -59,6 +70,16 @@ publish(moduleMetadata = true) {
 
 javadocJar()
 sourcesJar()
+
+apiValidation {
+    nonPublicMarkers += "org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi"
+}
+
+tasks {
+    apiBuild {
+        inputJar.value(jar.flatMap { it.archiveFile })
+    }
+}
 
 //region Setup: Backwards compatibility tests
 

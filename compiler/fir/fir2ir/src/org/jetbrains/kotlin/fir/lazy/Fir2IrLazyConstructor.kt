@@ -15,13 +15,14 @@ import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.isExternal
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
-import org.jetbrains.kotlin.fir.symbols.Fir2IrConstructorSymbol
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.lazy.lazyVar
 import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.util.isAnnotationClass
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
@@ -34,7 +35,7 @@ class Fir2IrLazyConstructor(
     override val endOffset: Int,
     override var origin: IrDeclarationOrigin,
     override val fir: FirConstructor,
-    override val symbol: Fir2IrConstructorSymbol,
+    override val symbol: IrConstructorSymbol,
 ) : IrConstructor(), AbstractFir2IrLazyDeclaration<FirConstructor>, Fir2IrTypeParametersContainer,
     Fir2IrComponents by components {
     init {
@@ -46,35 +47,34 @@ class Fir2IrLazyConstructor(
     override lateinit var typeParameters: List<IrTypeParameter>
     override lateinit var parent: IrDeclarationParent
 
-    override val isPrimary: Boolean
+    override var isPrimary: Boolean
         get() = fir.isPrimary
+        set(_) = mutationNotSupported()
 
     @ObsoleteDescriptorBasedAPI
     override val descriptor: ClassConstructorDescriptor
         get() = symbol.descriptor
 
-    override val isInline: Boolean
+    override var isInline: Boolean
         get() = fir.isInline
+        set(_) = mutationNotSupported()
 
-    override val isExternal: Boolean
+    override var isExternal: Boolean
         get() = fir.isExternal
+        set(_) = mutationNotSupported()
 
-    override val isExpect: Boolean
+    override var isExpect: Boolean
         get() = fir.isExpect
+        set(_) = mutationNotSupported()
 
     override var body: IrBody? = null
 
     override var name: Name
         get() = SpecialNames.INIT
-        set(_) {
-            throw UnsupportedOperationException()
-        }
+        set(_) = mutationNotSupported()
 
-    @Suppress("SetterBackingFieldAssignment")
     override var visibility: DescriptorVisibility = components.visibilityConverter.convertToDescriptorVisibility(fir.visibility)
-        set(_) {
-            error("Mutating Fir2Ir lazy elements is not possible")
-        }
+        set(_) = mutationNotSupported()
 
     override var returnType: IrType by lazyVar(lock) {
         fir.returnTypeRef.toIrType(typeConverter)
@@ -84,12 +84,12 @@ class Fir2IrLazyConstructor(
         val containingClass = parent as? IrClass
         val outerClass = containingClass?.parentClassOrNull
         if (containingClass?.isInner == true && outerClass != null) {
-            declarationStorage.enterScope(this)
+            declarationStorage.enterScope(this.symbol)
             declareThisReceiverParameter(
                 thisType = outerClass.thisReceiver!!.type,
                 thisOrigin = origin
             ).apply {
-                declarationStorage.leaveScope(this@Fir2IrLazyConstructor)
+                declarationStorage.leaveScope(this@Fir2IrLazyConstructor.symbol)
             }
         } else null
     }
@@ -99,25 +99,26 @@ class Fir2IrLazyConstructor(
     override var contextReceiverParametersCount: Int = fir.contextReceivers.size
 
     override var valueParameters: List<IrValueParameter> by lazyVar(lock) {
-        declarationStorage.enterScope(this)
+        declarationStorage.enterScope(this.symbol)
 
         buildList {
-            declarationStorage.addContextReceiverParametersTo(
+            callablesGenerator.addContextReceiverParametersTo(
                 fir.contextReceivers,
                 this@Fir2IrLazyConstructor,
-                this@buildList,
+                this@buildList
             )
 
             fir.valueParameters.mapIndexedTo(this) { index, valueParameter ->
-                declarationStorage.createIrParameter(
-                    valueParameter, index,
-                    useStubForDefaultValueStub = (parent as? IrClass)?.name != Name.identifier("Enum")
+                callablesGenerator.createIrParameter(
+                    valueParameter, index + contextReceiverParametersCount,
+                    useStubForDefaultValueStub = (parent as? IrClass)?.name != Name.identifier("Enum"),
+                    forcedDefaultValueConversion = (parent as? IrClass)?.isAnnotationClass == true
                 ).apply {
                     this.parent = this@Fir2IrLazyConstructor
                 }
             }
         }.apply {
-            declarationStorage.leaveScope(this@Fir2IrLazyConstructor)
+            declarationStorage.leaveScope(this@Fir2IrLazyConstructor.symbol)
         }
     }
 

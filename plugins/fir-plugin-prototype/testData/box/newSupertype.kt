@@ -1,3 +1,4 @@
+
 package foo
 
 import org.jetbrains.kotlin.fir.plugin.MyInterfaceSupertype

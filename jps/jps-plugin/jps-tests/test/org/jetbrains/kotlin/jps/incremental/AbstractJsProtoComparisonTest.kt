@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.jps.incremental
 
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants
 import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
@@ -50,6 +51,8 @@ abstract class AbstractJsProtoComparisonTest : AbstractProtoComparisonTest<Proto
             metaInfo = true
             main = K2JsArgumentConstants.NO_CALL
             freeArgs = ktFiles
+            forceDeprecatedLegacyCompilerUsage = true
+            languageVersion = "1.9"
         }
 
         val env = createTestingCompilerEnvironment(messageCollector, outputItemsCollector, services)

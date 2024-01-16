@@ -16,7 +16,6 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.process.ExecSpec
 import org.jetbrains.kotlin.konan.exec.Command
 import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.LinkerOutputKind
 import java.io.ByteArrayOutputStream
@@ -42,7 +41,7 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
     /**
      * Test output directory. Used to store processed sources and binary artifacts.
      */
-    @get:OutputDirectory
+    @get:Internal
     abstract val outputDirectory: String
 
     /**
@@ -54,12 +53,13 @@ abstract class KonanTest : DefaultTask(), KonanTestExecutable {
     /**
      * Test executable arguments.
      */
-    @Input
+    @get:Input
     var arguments = mutableListOf<String>()
 
     /**
      * Test executable.
      */
+    @get:Input
     abstract override val executable: String
 
     /**
@@ -143,64 +143,6 @@ fun <T : KonanTestExecutable> Project.createTest(name: String, type: Class<T>, c
                 }
             }
         }
-
-/**
- * Task to run tests compiled with TestRunner.
- * Runs tests with GTEST output and parses it to create statistics info
- */
-open class KonanGTest : KonanTest() {
-    override val outputDirectory = "${project.testOutputStdlib}/$name"
-
-    // Use GTEST logger to parse test results later
-    override var testLogger = Logger.GTEST
-
-    @get:Internal
-    override val executable: String
-        get() = "$outputDirectory/${project.testTarget.name}/$name.${project.testTarget.family.exeSuffix}"
-
-    @Internal
-    var statistics = Statistics()
-
-    @TaskAction
-    override fun run() {
-        doBeforeRun?.execute(this)
-        if (project.compileOnlyTests) {
-            return
-        }
-        runProcess(
-                executor = { project.executor.execute(it) },
-                executable = executable,
-                args = arguments
-        ).run {
-            parse(stdOut)
-            println("""
-                |stdout:
-                |$stdOut
-                |stderr:
-                |$stdErr
-                |exit code: $exitCode
-                """.trimMargin())
-            check(exitCode == 0) { "Test $executable exited with $exitCode" }
-        }
-    }
-
-    private fun parse(output: String) = statistics.apply {
-        Pattern.compile("\\[  PASSED  ] ([0-9]*) tests\\.").matcher(output)
-                .apply { if (find()) pass(group(1).toInt()) }
-
-        Pattern.compile("\\[  FAILED  ] ([0-9]*) tests.*").matcher(output)
-                .apply { if (find()) fail(group(1).toInt()) }
-
-        Pattern.compile("\\[  SKIPPED ] ([0-9]*) test.*").matcher(output)
-                .apply { if (find()) skip(group(1).toInt()) }
-        if (total == 0) {
-            // No test were run. Try to find if we've tried to run something
-            error(Pattern.compile("\\[={10}] Running ([0-9]*) tests from ([0-9]*) test cases\\..*")
-                    .matcher(output)
-                    .run { if (find()) group(1).toInt() else 1 })
-        }
-    }
-}
 
 /**
  * Task to run tests built into a single predefined binary named `localTest`.
@@ -334,6 +276,9 @@ open class KonanLocalTest : KonanTest() {
             exitCode + other.exitCode)
 
     private fun ProcessOutput.check() {
+        val timeoutMessage = if (exitCode == -1) {
+            "WARNING: probably a timeout\n"
+        } else ""
         val exitCodeMismatch = !expectedExitStatusChecker(exitCode)
         if (exitCodeMismatch) {
             val message = if (expectedExitStatus != null)
@@ -342,7 +287,7 @@ open class KonanLocalTest : KonanTest() {
                 "Actual exit status doesn't match with exit status checker: $exitCode"
             check(expectedFail) {
                 """
-                    |Test failed. $message
+                    |${timeoutMessage}Test failed. $message
                     |stdout:
                     |$stdOut
                     |stderr:
@@ -358,7 +303,7 @@ open class KonanLocalTest : KonanTest() {
             val message = goldenData?.let { goldenData -> "Expected output: $goldenData, actual output: $output" }
                     ?: "Actual output doesn't match with output checker: $output"
 
-            check(expectedFail) { "Test failed. $message" }
+            check(expectedFail) { "${timeoutMessage}Test failed. $message" }
             println("Expected failure. $message")
         }
 
@@ -406,7 +351,7 @@ open class KonanStandaloneTest : KonanLocalTest() {
             if (enableKonanAssertions)
                 result += "-ea"
             if (verifyIr)
-                result += "-Xverify-ir"
+                result += "-Xverify-ir=error"
             return result
         }
 
@@ -447,6 +392,9 @@ open class KonanDriverTest : KonanStandaloneTest() {
             addAll(getSources().get())
             addAll(flags)
             addAll(project.globalTestArgs)
+
+            add("-Xpartial-linkage=enable")
+            add("-Xpartial-linkage-loglevel=error")
         }
 
         // run konanc compiler locally
@@ -471,6 +419,10 @@ open class KonanInteropTest : KonanStandaloneTest() {
      */
     @Input
     lateinit var interop: String
+
+    @Input
+    @Optional
+    var interop2: String? = null
 
     @Input
     @Optional

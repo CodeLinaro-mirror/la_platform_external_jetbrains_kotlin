@@ -20,7 +20,7 @@ abstract class FirLookupTrackerComponent : FirSessionComponent {
 
 fun FirLookupTrackerComponent.recordCallLookup(callInfo: AbstractCallInfo, inType: ConeKotlinType) {
     if (inType.classId?.isLocal == true) return
-    val scopes = SmartList(inType.render().replace('/', '.'))
+    val scopes = SmartList(inType.renderForDebugging().replace('/', '.'))
     if (inType.classId?.shortClassName?.asString() == "Companion") {
         scopes.add(inType.classId!!.outerClassId!!.asString().replace('/', '.'))
     }
@@ -37,25 +37,25 @@ fun FirLookupTrackerComponent.recordTypeLookup(typeRef: FirTypeRef, inScopes: Li
 
 fun FirLookupTrackerComponent.recordTypeResolveAsLookup(typeRef: FirTypeRef, source: KtSourceElement?, fileSource: KtSourceElement?) {
     if (typeRef !is FirResolvedTypeRef) return // TODO: check if this is the correct behavior
-    if (source == null && fileSource == null) return // TODO: investigate all cases
+    recordTypeResolveAsLookup(typeRef.type, source, fileSource)
+}
 
-    fun recordIfValid(type: ConeKotlinType) {
-        if (type is ConeErrorType) return // TODO: investigate whether some cases should be recorded, e.g. unresolved
-        type.classId?.let {
-            if (!it.isLocal) {
-                if (it.shortClassName.asString() != "Companion") {
-                    recordLookup(it.shortClassName, it.packageFqName.asString(), source, fileSource)
-                } else {
-                    recordLookup(it.outerClassId!!.shortClassName, it.outerClassId!!.packageFqName.asString(), source, fileSource)
-                }
+fun FirLookupTrackerComponent.recordTypeResolveAsLookup(type: ConeKotlinType?, source: KtSourceElement?, fileSource: KtSourceElement?) {
+    if (type == null) return
+    if (source == null && fileSource == null) return // TODO: investigate all cases
+    if (type is ConeErrorType) return // TODO: investigate whether some cases should be recorded, e.g. unresolved
+    type.classId?.let {
+        if (!it.isLocal) {
+            if (it.shortClassName.asString() != "Companion") {
+                recordLookup(it.shortClassName, it.packageFqName.asString(), source, fileSource)
+            } else {
+                recordLookup(it.outerClassId!!.shortClassName, it.outerClassId!!.packageFqName.asString(), source, fileSource)
             }
         }
-        type.typeArguments.forEach {
-            if (it is ConeKotlinType) recordIfValid(it)
-        }
     }
-
-    recordIfValid(typeRef.type)
+    type.typeArguments.forEach {
+        if (it is ConeKotlinType) recordTypeResolveAsLookup(it, source, fileSource)
+    }
 }
 
 

@@ -1,5 +1,5 @@
 plugins {
-    kotlin("multiplatform").version("<pluginMarkerVersion>")
+    kotlin("multiplatform")
     `maven-publish`
 }
 
@@ -16,6 +16,7 @@ kotlin {
     jvm() 
     js()
     linuxX64()
+    wasmJs()
 
     sourceSets {
         val commonMain by getting {

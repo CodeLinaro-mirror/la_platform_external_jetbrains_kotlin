@@ -5,24 +5,29 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.ir
 
+import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Task
 import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.language.base.plugins.LifecycleBasePlugin
-import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.plugin.AbstractKotlinTargetConfigurator
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
 import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlatformTestRun
+import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
+import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
 import org.jetbrains.kotlin.gradle.targets.js.dsl.Distribution
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalDistributionDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetDsl
-import org.jetbrains.kotlin.gradle.targets.js.npm.NpmResolverPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
+import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.testing.internal.configureConventions
 import org.jetbrains.kotlin.gradle.testing.internal.kotlinTestRegistry
@@ -31,7 +36,7 @@ import org.jetbrains.kotlin.gradle.utils.newFileProperty
 
 abstract class KotlinJsIrSubTarget(
     val target: KotlinJsIrTarget,
-    private val disambiguationClassifier: String
+    private val disambiguationClassifier: String,
 ) : KotlinJsSubTargetDsl {
     val project get() = target.project
 
@@ -43,21 +48,17 @@ abstract class KotlinJsIrSubTarget(
     protected val taskGroupName = "Kotlin $disambiguationClassifier"
 
     @ExperimentalDistributionDsl
-    override fun distribution(body: Distribution.() -> Unit) {
+    override fun distribution(body: Action<Distribution>) {
         target.binaries
             .all {
-                it.distribution.body()
+                body.execute(it.distribution)
             }
     }
 
     internal fun configure() {
-        NpmResolverPlugin.apply(project)
-
         target.compilations.all {
             val npmProject = it.npmProject
-            it.kotlinOptions {
-                freeCompilerArgs += "$PER_MODULE_OUTPUT_NAME=${npmProject.name}"
-            }
+            it.compilerOptions.options.freeCompilerArgs.add("$PER_MODULE_OUTPUT_NAME=${npmProject.name}")
         }
 
         configureTests()
@@ -79,7 +80,7 @@ abstract class KotlinJsIrSubTarget(
         produceLibrary
     }
 
-    override fun testTask(body: KotlinJsTest.() -> Unit) {
+    override fun testTask(body: Action<KotlinJsTest>) {
         testRuns.getByName(KotlinTargetWithTests.DEFAULT_TEST_RUN_NAME).executionTask.configure(body)
     }
 
@@ -121,13 +122,31 @@ abstract class KotlinJsIrSubTarget(
                 KotlinJsBinaryMode.DEVELOPMENT
             ).single()
 
-            testJs.inputFileProperty.set(
-                project.layout.file(
-                    binary.linkSyncTask.map {
-                        it.destinationDir
-                            .resolve(binary.linkTask.get().outputFileProperty.get().name)
+            val inputFileProperty = if (target.wasmTargetType != KotlinWasmTargetType.WASI) {
+                testJs.dependsOn(binary.linkSyncTask)
+                binary.linkSyncTask.flatMap { linkSyncTask ->
+                    binary.linkTask.flatMap { linkTask ->
+                        linkTask.outputFileProperty.map { file ->
+                            linkSyncTask.destinationDirectory.get().resolve(file.name)
+                        }
                     }
-                )
+                }
+            } else {
+                if (project.locateTask<BinaryenExec>((binary as ExecutableWasm).optimizeTaskName) != null) {
+                    testJs.dependsOn(binary.optimizeTask)
+                    binary.optimizeTask.flatMap { optimizeTask ->
+                        optimizeTask.outputFileProperty.asFile
+                    }
+                } else {
+                    testJs.dependsOn(binary.linkTask)
+                    binary.linkTask.flatMap { linkTask ->
+                        linkTask.outputFileProperty
+                    }
+                }
+            }
+
+            testJs.inputFileProperty.fileProvider(
+                inputFileProperty
             )
 
             configureTestDependencies(testJs)
@@ -236,7 +255,7 @@ abstract class KotlinJsIrSubTarget(
     internal inline fun <reified T : Task> registerSubTargetTask(
         name: String,
         args: List<Any> = emptyList(),
-        noinline body: (T) -> (Unit)
+        noinline body: (T) -> (Unit),
     ): TaskProvider<T> =
         project.registerTask(name, args) {
             it.group = taskGroupName

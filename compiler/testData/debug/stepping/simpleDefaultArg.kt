@@ -1,3 +1,4 @@
+// IGNORE_BACKEND: WASM
 // FILE: test.kt
 
 fun ifoo(ok: String = "OK"): String {
@@ -9,9 +10,12 @@ fun box(): String {
 }
 
 // FORCE_STEP_INTO
-// EXPECTATIONS
-// test.kt:8 box
-// test.kt:3 ifoo$default (synthetic)
-// test.kt:4 ifoo
-// test.kt:3 ifoo$default (synthetic)
-// test.kt:8 box
+// EXPECTATIONS JVM JVM_IR
+// test.kt:9 box
+// test.kt:4 ifoo$default (synthetic)
+// test.kt:5 ifoo
+// test.kt:4 ifoo$default (synthetic)
+// test.kt:9 box
+
+// EXPECTATIONS JS_IR
+// test.kt:9 box

@@ -6,18 +6,18 @@
 package org.jetbrains.kotlin.gradle.targets.js.ir
 
 import org.gradle.api.Project
+import org.jetbrains.kotlin.gradle.DeprecatedTargetPresetApi
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinCompilationFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinOnlyTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinOnlyTargetPreset
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.PublicationRegistrationMode
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.hasKpmModel
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.mapTargetCompilationsToKpmVariants
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.gradle.utils.runProjectConfigurationHealthCheckWhenEvaluated
 import org.jetbrains.kotlin.statistics.metrics.StringMetrics
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeAsciiOnly
 
+@DeprecatedTargetPresetApi
 open class KotlinJsIrTargetPreset(
     project: Project
 ) : KotlinOnlyTargetPreset<KotlinJsIrTarget, KotlinJsIrCompilation>(
@@ -35,21 +35,6 @@ open class KotlinJsIrTargetPreset(
             this.isMpp = this@KotlinJsIrTargetPreset.isMpp
             if (!mixedMode) {
                 project.runProjectConfigurationHealthCheckWhenEvaluated {
-                    if (!isBrowserConfigured && !isNodejsConfigured) {
-                        project.logger.warn(
-                            """
-                                Please choose a JavaScript environment to build distributions and run tests.
-                                Not choosing any of them will be an error in the future releases.
-                                kotlin {
-                                    js {
-                                        // To build distributions for and run tests on browser or Node.js use one or both of:
-                                        browser()
-                                        nodejs()
-                                    }
-                                }
-                            """.trimIndent()
-                        )
-                    }
                     val buildStatsService = KotlinBuildStatsService.getInstance()
                     when {
                         isBrowserConfigured && isNodejsConfigured -> buildStatsService?.report(StringMetrics.JS_TARGET_MODE, "both")
@@ -66,21 +51,13 @@ open class KotlinJsIrTargetPreset(
     override fun createKotlinTargetConfigurator(): AbstractKotlinTargetConfigurator<KotlinJsIrTarget> =
         KotlinJsIrTargetConfigurator()
 
-    override fun createTarget(name: String): KotlinJsIrTarget {
-        val result = super.createTarget(name)
-        if (project.hasKpmModel) {
-            mapTargetCompilationsToKpmVariants(result, PublicationRegistrationMode.IMMEDIATE)
-        }
-        return result
-    }
-
     override fun getName(): String = JS_PRESET_NAME
 
     //TODO[Ilya Goncharov] remove public morozov
     public override fun createCompilationFactory(
         forTarget: KotlinJsIrTarget
     ): KotlinCompilationFactory<KotlinJsIrCompilation> =
-        KotlinJsIrCompilationFactory(project, forTarget)
+        KotlinJsIrCompilationFactory(forTarget)
 
     companion object {
         val JS_PRESET_NAME = lowerCamelCaseName(
@@ -90,6 +67,7 @@ open class KotlinJsIrTargetPreset(
     }
 }
 
+@DeprecatedTargetPresetApi
 class KotlinJsIrSingleTargetPreset(
     project: Project
 ) : KotlinJsIrTargetPreset(
@@ -103,7 +81,7 @@ class KotlinJsIrSingleTargetPreset(
         return if (mixedMode!!) {
             super.provideTargetDisambiguationClassifier(target)
                 ?.removePrefix(target.name.removeJsCompilerSuffix(KotlinJsCompilerType.IR))
-                ?.decapitalize()
+                ?.decapitalizeAsciiOnly()
         } else {
             null
         }

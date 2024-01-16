@@ -2,8 +2,7 @@ description = 'Kotlin Test TestNG'
 
 apply plugin: 'kotlin-platform-jvm'
 
-JvmToolchain.configureJvmToolchain(project, JdkMajorVersion.JDK_1_7)
-JvmToolchain.updateJvmTarget(project, "1.6")
+JvmToolchain.configureJvmToolchain(project, JdkMajorVersion.JDK_1_8)
 
 def includeJava9 = BuildPropertiesExtKt.getIncludeJava9(project.kotlinBuildProperties)
 
@@ -23,19 +22,19 @@ dependencies {
 }
 
 jar {
-    manifestAttributes(manifest, project, 'Test', true)
+    LibrariesCommon.manifestAttributes(project, manifest, 'Test', true)
     if (includeJava9) {
         from sourceSets.java9.output
     }
 }
 
-configureSourcesJar()
-configureJavadocJar()
+RepoArtifacts.sourcesJar(project)
+RepoArtifacts.javadocJar(project)
 
 compileKotlin {
     kotlinOptions.freeCompilerArgs = [
         "-Xallow-kotlin-package",
-        "-Xsuppress-deprecated-jvm-target-warning",
+        "-Xexpect-actual-classes",
     ]
     kotlinOptions.moduleName = project.name
 }
@@ -43,11 +42,10 @@ compileKotlin {
 compileTestKotlin {
     kotlinOptions.freeCompilerArgs = [
         "-Xallow-kotlin-package",
-        "-Xsuppress-deprecated-jvm-target-warning",
     ]
 }
 
-configureFrontendIr(project)
+LibrariesCommon.configureFrontendIr(project)
 
 if (includeJava9) {
     LibrariesCommon.configureJava9Compilation(project, 'kotlin.test.testng')

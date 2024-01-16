@@ -6,10 +6,10 @@ plugins {
 }
 
 dependencies {
-    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.common"))
-    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.k1"))
-    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.k2"))
-    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.cli"))
+    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.common")) { isTransitive = false }
+    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.k1")) { isTransitive = false }
+    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.k2")) { isTransitive = false }
+    embedded(project(":kotlin-sam-with-receiver-compiler-plugin.cli")) { isTransitive = false }
 
     testApi(project(":compiler:backend"))
     testApi(project(":compiler:cli"))
@@ -17,23 +17,26 @@ dependencies {
     testCompileOnly(project(":kotlin-compiler"))
     testImplementation(project(":kotlin-scripting-jvm-host-unshaded"))
 
-    testApiJUnit5(vintageEngine = true)
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(projectTests(":compiler:test-infrastructure-utils"))
 
     testImplementation(projectTests(":compiler:tests-common"))
-    testImplementation(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
 
-    testCompileOnly(project(":kotlin-reflect-api"))
-    testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":compiler:fir:fir-serialization"))
 
 
     testApi(intellijCore())
 }
+
+optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" { none() }

@@ -1,3 +1,4 @@
+// IGNORE_BACKEND: WASM
 // FILE: test.kt
 
 class A {
@@ -18,18 +19,26 @@ fun box() {
 // three to be hit both on entry to the constructor and on exit after storing the
 // value of prop.
 
-// EXPECTATIONS
-// test.kt:12 box
-// test.kt:3 <init>
-// test.kt:4 <init>
-// EXPECTATIONS JVM_IR
-// test.kt:3 <init>
-// EXPECTATIONS
-// test.kt:12 box
+// EXPECTATIONS JVM JVM_IR
 // test.kt:13 box
-// test.kt:4 getProp
+// test.kt:4 <init>
+// test.kt:5 <init>
+// EXPECTATIONS JVM_IR
+// test.kt:4 <init>
+// EXPECTATIONS JVM JVM_IR
 // test.kt:13 box
 // test.kt:14 box
-// test.kt:7 foo
-// test.kt:8 foo
+// test.kt:5 getProp
+// test.kt:14 box
 // test.kt:15 box
+// test.kt:8 foo
+// test.kt:9 foo
+// test.kt:16 box
+
+// EXPECTATIONS JS_IR
+// test.kt:13 box
+// test.kt:5 <init>
+// test.kt:4 <init>
+// test.kt:15 box
+// test.kt:9 foo
+// test.kt:16 box

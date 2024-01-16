@@ -1,21 +1,28 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.serialization
 
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
+import org.jetbrains.kotlin.builtins.functions.isBuiltin
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.descriptors.Visibility
+import org.jetbrains.kotlin.config.LanguageVersion
+import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.constant.EnumValue
+import org.jetbrains.kotlin.constant.IntValue
+import org.jetbrains.kotlin.constant.StringValue
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.comparators.FirCallableDeclarationComparator
+import org.jetbrains.kotlin.fir.declarations.comparators.FirMemberDeclarationComparator
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
+import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertySetter
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.deserialization.projection
 import org.jetbrains.kotlin.fir.expressions.*
@@ -25,22 +32,21 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.typeAttributeExtensions
-import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.scopes.FakeOverrideTypeCalculator
-import org.jetbrains.kotlin.fir.scopes.processAllFunctions
-import org.jetbrains.kotlin.fir.scopes.processAllProperties
-import org.jetbrains.kotlin.fir.serialization.constant.EnumValue
-import org.jetbrains.kotlin.fir.serialization.constant.IntValue
-import org.jetbrains.kotlin.fir.serialization.constant.StringValue
+import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.scopes.*
+import org.jetbrains.kotlin.fir.scopes.impl.nestedClassifierScope
+import org.jetbrains.kotlin.fir.serialization.constant.hasConstantValue
 import org.jetbrains.kotlin.fir.serialization.constant.toConstantValue
-import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitNullableAnyTypeRef
 import org.jetbrains.kotlin.metadata.ProtoBuf
+import org.jetbrains.kotlin.metadata.ProtoBuf.MemberKind
 import org.jetbrains.kotlin.metadata.deserialization.Flags
 import org.jetbrains.kotlin.metadata.deserialization.VersionRequirement
 import org.jetbrains.kotlin.metadata.deserialization.isKotlin1Dot4OrLater
@@ -53,6 +59,9 @@ import org.jetbrains.kotlin.serialization.deserialization.ProtoEnumFlags
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
+import org.jetbrains.kotlin.utils.addIfNotNull
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.mapToIndex
 
 class FirElementSerializer private constructor(
     private val session: FirSession,
@@ -60,26 +69,57 @@ class FirElementSerializer private constructor(
     private val containingDeclaration: FirDeclaration?,
     private val typeParameters: Interner<FirTypeParameter>,
     private val extension: FirSerializerExtension,
-    private val typeTable: MutableTypeTable,
+    val typeTable: MutableTypeTable,
     private val versionRequirementTable: MutableVersionRequirementTable?,
     private val serializeTypeTableToFunction: Boolean,
     private val typeApproximator: AbstractTypeApproximator,
+    private val languageVersionSettings: LanguageVersionSettings,
+    private val produceHeaderKlib: Boolean,
 ) {
     private val contractSerializer = FirContractSerializer()
+    private val providedDeclarationsService = session.providedDeclarationsForMetadataService
 
-    fun packagePartProto(packageFqName: FqName, file: FirFile): ProtoBuf.Package.Builder {
+    private var metDefinitelyNotNullType: Boolean = false
+
+    fun packagePartProto(
+        packageFqName: FqName,
+        files: List<FirFile>,
+        actualizedExpectDeclarations: Set<FirDeclaration>?
+    ): ProtoBuf.Package.Builder {
         val builder = ProtoBuf.Package.newBuilder()
 
-        for (declaration in file.declarations) {
-            when (declaration) {
-                is FirProperty -> propertyProto(declaration)?.let { builder.addProperty(it) }
-                is FirSimpleFunction -> functionProto(declaration)?.let { builder.addFunction(it) }
-                is FirTypeAlias -> typeAliasProto(declaration)?.let { builder.addTypeAlias(it) }
-                else -> {}
+        fun addDeclaration(declaration: FirDeclaration, onUnsupportedDeclaration: (FirDeclaration) -> Unit) {
+            if (declaration is FirMemberDeclaration) {
+                if (!declaration.isNotExpectOrShouldBeSerialized(actualizedExpectDeclarations)) return
+                if (!declaration.isNotPrivateOrShouldBeSerialized(produceHeaderKlib)) return
+                when (declaration) {
+                    is FirProperty -> propertyProto(declaration)?.let { builder.addProperty(it) }
+                    is FirSimpleFunction -> functionProto(declaration)?.let { builder.addFunction(it) }
+                    is FirTypeAlias -> typeAliasProto(declaration)?.let { builder.addTypeAlias(it) }
+                    else -> onUnsupportedDeclaration(declaration)
+                }
+            } else {
+                onUnsupportedDeclaration(declaration)
             }
         }
 
+        for (file in files) {
+            extension.processFile(file) {
+                for (declaration in file.declarations) {
+                    addDeclaration(declaration) {}
+                }
+            }
+        }
+
+        // TODO: figure out how to extract all file dependent processing from `serializePackage`
         extension.serializePackage(packageFqName, builder)
+        // Next block will process declarations from plugins.
+        // Such declarations don't belong to any file, so there is no need to call `extension.processFile`.
+        for (declaration in providedDeclarationsService.getProvidedTopLevelDeclarations(packageFqName, scopeSession)) {
+            addDeclaration(declaration) {
+                error("Unsupported top-level declaration type: ${it.render()}")
+            }
+        }
 
         typeTable.serialize()?.let { builder.typeTable = it }
         versionRequirementTable?.serialize()?.let { builder.versionRequirementTable = it }
@@ -87,13 +127,15 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    fun classProto(klass: FirClass): ProtoBuf.Class.Builder {
+    fun classProto(klass: FirClass): ProtoBuf.Class.Builder = whileAnalysing(session, klass) {
         val builder = ProtoBuf.Class.newBuilder()
 
         val regularClass = klass as? FirRegularClass
         val modality = regularClass?.modality ?: Modality.FINAL
+
+        val hasEnumEntries = klass.classKind == ClassKind.ENUM_CLASS && languageVersionSettings.supportsFeature(LanguageFeature.EnumEntries)
         val flags = Flags.getClassFlags(
-            klass.nonSourceAnnotations(session).isNotEmpty(),
+            klass.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(klass),
             ProtoEnumFlags.visibility(regularClass?.let { normalizeVisibility(it) } ?: Visibilities.Local),
             ProtoEnumFlags.modality(modality),
             ProtoEnumFlags.classKind(klass.classKind, regularClass?.isCompanion == true),
@@ -102,7 +144,8 @@ class FirElementSerializer private constructor(
             regularClass?.isExternal == true,
             regularClass?.isExpect == true,
             regularClass?.isInline == true,
-            regularClass?.isFun == true
+            regularClass?.isFun == true,
+            hasEnumEntries,
         )
         if (flags != builder.flags) {
             builder.flags = flags
@@ -115,7 +158,8 @@ class FirElementSerializer private constructor(
             builder.addTypeParameter(typeParameterProto(typeParameter))
         }
 
-        val classId = klass.symbol.classId
+        val classSymbol = klass.symbol
+        val classId = classSymbol.classId
         if (classId != StandardClassIds.Any && classId != StandardClassIds.Nothing) {
             // Special classes (Any, Nothing) have no supertypes
             for (superTypeRef in klass.superTypeRefs) {
@@ -127,19 +171,42 @@ class FirElementSerializer private constructor(
             }
         }
 
+
+        /*
+         * Order of constructors:
+         *   - declared constructors in declaration order
+         *   - generated constructors in sorted order
+         *   - provided constructors in sorted order
+         */
         if (regularClass != null && regularClass.classKind != ClassKind.ENUM_ENTRY) {
-            for (constructor in regularClass.declarations.filterIsInstance<FirConstructor>()) {
+            for (constructor in regularClass.constructors()) {
+                if (!constructor.isNotPrivateOrShouldBeSerialized(produceHeaderKlib)) continue
+                builder.addConstructor(constructorProto(constructor))
+            }
+
+            val providedConstructors = providedDeclarationsService
+                .getProvidedConstructors(classSymbol, scopeSession)
+                .sortedWith(FirCallableDeclarationComparator)
+            for (constructor in providedConstructors) {
                 builder.addConstructor(constructorProto(constructor))
             }
         }
 
-        val callableMembers =
-            extension.customClassMembersProducer?.getCallableMembers(klass)
-                ?: klass.declarations()
-                    .sortedWith(FirCallableDeclarationComparator)
+        val providedCallables = providedDeclarationsService
+            .getProvidedCallables(classSymbol, scopeSession)
+            .sortedWith(FirCallableDeclarationComparator)
+
+        /*
+         * Order of callables:
+         *   - declared callable in declaration order
+         *   - generated callable in sorted order
+         *   - provided callable in sorted order
+         */
+        val callableMembers = (klass.memberDeclarations() + providedCallables)
 
         for (declaration in callableMembers) {
             if (declaration !is FirEnumEntry && declaration.isStatic) continue // ??? Miss values() & valueOf()
+            if (!declaration.isNotPrivateOrShouldBeSerialized(produceHeaderKlib)) continue
             when (declaration) {
                 is FirProperty -> propertyProto(declaration)?.let { builder.addProperty(it) }
                 is FirSimpleFunction -> functionProto(declaration)?.let { builder.addFunction(it) }
@@ -148,15 +215,11 @@ class FirElementSerializer private constructor(
             }
         }
 
-        val nestedClassifiers = klass.declarations.filterIsInstance<FirClassLikeDeclaration>()
+        val nestedClassifiers = computeNestedClassifiersForClass(classSymbol)
         for (nestedClassifier in nestedClassifiers) {
-            if (nestedClassifier is FirTypeAlias) {
-                typeAliasProto(nestedClassifier)?.let { builder.addTypeAlias(it) }
-            } else if (nestedClassifier is FirRegularClass) {
-                if (!extension.shouldSerializeNestedClass(nestedClassifier)) {
-                    continue
-                }
-
+            if (nestedClassifier is FirTypeAliasSymbol) {
+                typeAliasProto(nestedClassifier.fir)?.let { builder.addTypeAlias(it) }
+            } else if (nestedClassifier is FirRegularClassSymbol) {
                 builder.addNestedClassName(getSimpleNameIndex(nestedClassifier.name))
             }
         }
@@ -173,20 +236,32 @@ class FirElementSerializer private constructor(
             builder.companionObjectName = getSimpleNameIndex(companionObject.name)
         }
 
-        val representation = (klass as? FirRegularClass)?.inlineClassRepresentation
-        if (representation != null) {
-            builder.inlineClassUnderlyingPropertyName = getSimpleNameIndex(representation.underlyingPropertyName)
+        when (val representation = (klass as? FirRegularClass)?.valueClassRepresentation) {
+            is InlineClassRepresentation -> {
+                builder.inlineClassUnderlyingPropertyName = getSimpleNameIndex(representation.underlyingPropertyName)
 
-            val property = callableMembers.single {
-                it is FirProperty && it.receiverTypeRef == null && it.name == representation.underlyingPropertyName
-            }
-            if (!property.visibility.isPublicAPI) {
-                if (useTypeTable()) {
-                    builder.inlineClassUnderlyingTypeId = typeId(representation.underlyingType)
-                } else {
-                    builder.setInlineClassUnderlyingType(typeProto(representation.underlyingType))
+                val property = callableMembers.single {
+                    it is FirProperty && it.receiverParameter == null && it.name == representation.underlyingPropertyName
+                }
+
+                if (!property.visibility.isPublicAPI) {
+                    if (useTypeTable()) {
+                        builder.inlineClassUnderlyingTypeId = typeId(representation.underlyingType)
+                    } else {
+                        builder.setInlineClassUnderlyingType(typeProto(representation.underlyingType))
+                    }
                 }
             }
+            is MultiFieldValueClassRepresentation -> {
+                val namesToTypes = representation.underlyingPropertyNamesToTypes
+                builder.addAllMultiFieldValueClassUnderlyingName(namesToTypes.map { (name, _) -> getSimpleNameIndex(name) })
+                if (useTypeTable()) {
+                    builder.addAllMultiFieldValueClassUnderlyingTypeId(namesToTypes.map { (_, kotlinType) -> typeId(kotlinType) })
+                } else {
+                    builder.addAllMultiFieldValueClassUnderlyingType(namesToTypes.map { (_, kotlinType) -> typeProto(kotlinType).build() })
+                }
+            }
+            null -> {}
         }
 
         if (klass is FirRegularClass) {
@@ -206,7 +281,11 @@ class FirElementSerializer private constructor(
 
         extension.serializeClass(klass, builder, versionRequirementTable, this)
 
-        writeVersionRequirementForInlineClasses(klass, builder, versionRequirementTable)
+        if (metDefinitelyNotNullType) {
+            builder.addVersionRequirement(
+                writeLanguageVersionRequirement(LanguageFeature.DefinitelyNonNullableTypes, versionRequirementTable)
+            )
+        }
 
         typeTable.serialize()?.let { builder.typeTable = it }
         versionRequirementTable.serialize()?.let { builder.versionRequirementTable = it }
@@ -214,43 +293,87 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
-    private fun FirClass.declarations(): List<FirCallableDeclaration> = buildList {
-        val memberScope =
-            defaultType().scope(session, scopeSession, FakeOverrideTypeCalculator.DoNothing)
-                ?: error("Null scope for $this")
+    /*
+     * Order of nested classifiers:
+     *   - declared classifiers in declaration order
+     *   - generated classifiers in sorted order
+     *   - provided classifiers in sorted order
+     */
+    fun computeNestedClassifiersForClass(classSymbol: FirClassSymbol<*>): List<FirClassifierSymbol<*>> {
+        val scope = session.nestedClassifierScope(classSymbol.fir) ?: return emptyList()
+        return buildList {
+            val indexByDeclaration = classSymbol.fir.declarations.filterIsInstance<FirClassLikeDeclaration>().mapToIndex()
+            val (declared, nonDeclared) = scope.getClassifierNames()
+                .mapNotNull { scope.getSingleClassifier(it)?.fir as FirClassLikeDeclaration? }
+                .partition { it in indexByDeclaration }
+            declared.sortedBy { indexByDeclaration.getValue(it) }.mapTo(this) { it.symbol }
+            nonDeclared.sortedWith(FirMemberDeclarationComparator).mapTo(this) { it.symbol }
 
-        fun addDeclarationIfNeeded(symbol: FirCallableSymbol<*>) {
-            val declaration = symbol.fir
-            if (declaration.isSubstitutionOrIntersectionOverride) return
-
-            // non-intersection or substitution fake override
-            if (!declaration.isStatic && declaration.dispatchReceiverClassOrNull() != this@declarations.symbol.toLookupTag()) return
-
-            add(declaration)
-        }
-
-        memberScope.processAllFunctions(::addDeclarationIfNeeded)
-        memberScope.processAllProperties(::addDeclarationIfNeeded)
-
-        for (declaration in declarations) {
-            if (declaration is FirCallableDeclaration && declaration.isStatic) {
-                add(declaration)
-            }
+            providedDeclarationsService.getProvidedNestedClassifiers(classSymbol, scopeSession)
+                .map { it.fir }
+                .sortedWith(FirMemberDeclarationComparator)
+                .mapTo(this) { it.symbol }
         }
     }
 
-    private fun FirPropertyAccessor.nonSourceAnnotations(session: FirSession, property: FirProperty): List<FirAnnotation> =
-        (this as FirAnnotationContainer).nonSourceAnnotations(session) + property.nonSourceAnnotations(session).filter {
-            val useSiteTarget = it.useSiteTarget
-            useSiteTarget == AnnotationUseSiteTarget.PROPERTY_GETTER && isGetter ||
-                    useSiteTarget == AnnotationUseSiteTarget.PROPERTY_SETTER && isSetter ||
-                    useSiteTarget == AnnotationUseSiteTarget.SETTER_PARAMETER && isSetter
+    private fun FirClass.memberDeclarations(): List<FirCallableDeclaration> {
+        return collectDeclarations<FirCallableDeclaration, FirCallableSymbol<*>> { memberScope, addDeclarationIfNeeded ->
+            memberScope.processAllFunctions { addDeclarationIfNeeded(it) }
+            memberScope.processAllProperties { addDeclarationIfNeeded(it) }
         }
+    }
 
-    fun propertyProto(property: FirProperty): ProtoBuf.Property.Builder? {
-        if (!extension.shouldSerializeProperty(property)) return null
+    private fun FirClass.constructors(): List<FirConstructor> {
+        return collectDeclarations { memberScope, addDeclarationIfNeeded ->
+            memberScope.processDeclaredConstructors { addDeclarationIfNeeded(it) }
+        }
+    }
 
+    private inline fun <reified T : FirCallableDeclaration, S : FirCallableSymbol<*>> FirClass.collectDeclarations(
+        processScope: (FirTypeScope, ((S) -> Unit)) -> Unit
+    ): List<T> {
+        val foundInScope = buildList {
+            val memberScope = unsubstitutedScope(session, scopeSession, withForcedTypeCalculator = false, memberRequiredPhase = null)
+            processScope(memberScope) l@{
+                val declaration = it.fir as T
+                val dispatchReceiverLookupTag = declaration.dispatchReceiverClassLookupTagOrNull()
+                // Special case for data/value class equals/hashCode/toString, see KT-57510
+                val isOverrideOfAnyFunctionInDataOrValueClass = this@collectDeclarations is FirRegularClass &&
+                        (this@collectDeclarations.isData || this@collectDeclarations.isInline) &&
+                        dispatchReceiverLookupTag?.classId == StandardClassIds.Any && !declaration.isFinal
+                if (declaration.isSubstitutionOrIntersectionOverride) {
+                    if (!isOverrideOfAnyFunctionInDataOrValueClass) {
+                        return@l
+                    }
+                } else if (!(declaration.isStatic || declaration is FirConstructor)) {
+                    // non-intersection or substitution fake override
+                    if (dispatchReceiverLookupTag != this@collectDeclarations.symbol.toLookupTag()) {
+                        if (!isOverrideOfAnyFunctionInDataOrValueClass) {
+                            return@l
+                        }
+                    }
+                }
+
+                add(declaration)
+            }
+
+            for (declaration in declarations) {
+                if (declaration is T && declaration.isStatic) {
+                    add(declaration)
+                }
+            }
+        }
+        val indexByDeclaration = declarations.filterIsInstance<T>().mapToIndex()
+        val (declared, nonDeclared) = foundInScope
+            .sortedBy { indexByDeclaration[it] ?: Int.MAX_VALUE }
+            .partition { it in indexByDeclaration }
+        return declared + nonDeclared.sortedWith(FirCallableDeclarationComparator)
+    }
+
+    private fun FirPropertyAccessor.nonSourceAnnotations(session: FirSession): List<FirAnnotation> =
+        (this as FirAnnotationContainer).nonSourceAnnotations(session)
+
+    fun propertyProto(property: FirProperty): ProtoBuf.Property.Builder? = whileAnalysing(session, property) {
         val builder = ProtoBuf.Property.newBuilder()
 
         val local = createChildSerializer(property)
@@ -259,7 +382,9 @@ class FirElementSerializer private constructor(
         var hasSetter = false
 
         val hasAnnotations = property.nonSourceAnnotations(session).isNotEmpty()
-        // TODO: hasAnnotations(descriptor) || hasAnnotations(descriptor.backingField) || hasAnnotations(descriptor.delegateField)
+                || property.backingField?.nonSourceAnnotations(session)?.isNotEmpty() == true
+                || extension.hasAdditionalAnnotations(property)
+                || property.backingField?.let { extension.hasAdditionalAnnotations(it) } == true
 
         val modality = property.modality!!
         val defaultAccessorFlags = Flags.getAccessorFlags(
@@ -269,7 +394,14 @@ class FirElementSerializer private constructor(
             false, false, false
         )
 
-        val getter = property.getter
+        val getter = property.getter ?: with(property) {
+            if (origin == FirDeclarationOrigin.Delegated) {
+                // since we generate the default accessor on fir2ir anyway (Fir2IrDeclarationStorage.createIrProperty), we have to
+                // serialize it accordingly at least for delegates to fix issues like #KT-57373
+                // TODO: rewrite accordingly after fixing #KT-58233
+                FirDefaultPropertyGetter(source = null, moduleData, origin, returnTypeRef, visibility, symbol)
+            } else null
+        }
         if (getter != null) {
             hasGetter = true
             val accessorFlags = getAccessorFlags(getter, property)
@@ -278,7 +410,14 @@ class FirElementSerializer private constructor(
             }
         }
 
-        val setter = property.setter
+        val setter = property.setter ?: with(property) {
+            if (origin == FirDeclarationOrigin.Delegated && isVar) {
+                // since we generate the default accessor on fir2ir anyway (Fir2IrDeclarationStorage.createIrProperty), we have to
+                // serialize it accordingly at least for delegates to fix issues like #KT-57373
+                // TODO: rewrite accordingly after fixing #KT-58233
+                FirDefaultPropertySetter(source = null, moduleData, origin, returnTypeRef, visibility, symbol)
+            } else null
+        }
         if (setter != null) {
             hasSetter = true
             val accessorFlags = getAccessorFlags(setter, property)
@@ -286,22 +425,23 @@ class FirElementSerializer private constructor(
                 builder.setterFlags = accessorFlags
             }
 
-            val nonSourceAnnotations = setter.nonSourceAnnotations(session, property)
+            val nonSourceAnnotations = setter.nonSourceAnnotations(session)
             if (Flags.IS_NOT_DEFAULT.get(accessorFlags)) {
                 val setterLocal = local.createChildSerializer(setter)
-                for (valueParameterDescriptor in setter.valueParameters) {
+                for ((index, valueParameterDescriptor) in setter.valueParameters.withIndex()) {
                     val annotations = nonSourceAnnotations.filter { it.useSiteTarget == AnnotationUseSiteTarget.SETTER_PARAMETER }
-                    builder.setSetterValueParameter(setterLocal.valueParameterProto(valueParameterDescriptor, annotations))
+                    builder.setSetterValueParameter(setterLocal.valueParameterProto(valueParameterDescriptor, index, setter, annotations))
                 }
             }
         }
 
+        val hasConstant = (!property.isVar && property.initializer.hasConstantValue(session)) || property.isConst
         val flags = Flags.getPropertyFlags(
             hasAnnotations,
             ProtoEnumFlags.visibility(normalizeVisibility(property)),
             ProtoEnumFlags.modality(modality),
             ProtoBuf.MemberKind.DECLARATION,
-            property.isVar, hasGetter, hasSetter, property.isConst, property.isConst, property.isLateInit,
+            property.isVar, hasGetter, hasSetter, hasConstant, property.isConst, property.isLateInit,
             property.isExternal, property.delegateFieldSymbol != null, property.isExpect
         )
         if (flags != builder.flags) {
@@ -329,8 +469,9 @@ class FirElementSerializer private constructor(
             }
         }
 
-        val receiverTypeRef = property.receiverTypeRef
-        if (receiverTypeRef != null) {
+        val receiverParameter = property.receiverParameter
+        if (receiverParameter != null) {
+            val receiverTypeRef = receiverParameter.typeRef
             if (useTypeTable()) {
                 builder.receiverTypeId = local.typeId(receiverTypeRef)
             } else {
@@ -341,12 +482,8 @@ class FirElementSerializer private constructor(
         versionRequirementTable?.run {
             builder.addAllVersionRequirement(serializeVersionRequirements(property))
 
-            if (property.isSuspendOrHasSuspendTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirementDependingOnCoroutinesVersion())
-            }
-
-            if (property.hasInlineClassTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.InlineClasses))
+            if (local.metDefinitelyNotNullType) {
+                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.DefinitelyNonNullableTypes))
             }
         }
 
@@ -355,28 +492,27 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    fun functionProto(function: FirFunction): ProtoBuf.Function.Builder? {
-        if (!extension.shouldSerializeFunction(function)) return null
-
+    fun functionProto(function: FirFunction): ProtoBuf.Function.Builder? = whileAnalysing(session, function) {
         val builder = ProtoBuf.Function.newBuilder()
         val simpleFunction = function as? FirSimpleFunction
 
         val local = createChildSerializer(function)
 
         val flags = Flags.getFunctionFlags(
-            function.nonSourceAnnotations(session).isNotEmpty(),
+            function.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(function),
             ProtoEnumFlags.visibility(simpleFunction?.let { normalizeVisibility(it) } ?: Visibilities.Local),
             ProtoEnumFlags.modality(simpleFunction?.modality ?: Modality.FINAL),
-            ProtoBuf.MemberKind.DECLARATION,
+            function.memberKind(),
             simpleFunction?.isOperator == true,
             simpleFunction?.isInfix == true,
             simpleFunction?.isInline == true,
             simpleFunction?.isTailRec == true,
             simpleFunction?.isExternal == true,
-            simpleFunction?.isSuspend == true,
+            function.isSuspend,
             simpleFunction?.isExpect == true,
-            true // TODO: supply 'hasStableParameterNames' flag for metadata
+            shouldSetStableParameterNames(function),
         )
+
         if (flags != builder.flags) {
             builder.flags = flags
         }
@@ -386,7 +522,7 @@ class FirElementSerializer private constructor(
                 function.name
             }
             is FirAnonymousFunction -> {
-                if (function.isLambda) SpecialNames.ANONYMOUS else Name.special("<no name provided>")
+                if (function.isLambda) SpecialNames.ANONYMOUS else SpecialNames.NO_NAME_PROVIDED
             }
             else -> throw AssertionError("Unsupported function: ${function.render()}")
         }
@@ -412,8 +548,9 @@ class FirElementSerializer private constructor(
             }
         }
 
-        val receiverTypeRef = function.receiverTypeRef
-        if (receiverTypeRef != null) {
+        val receiverParameter = function.receiverParameter
+        if (receiverParameter != null) {
+            val receiverTypeRef = receiverParameter.typeRef
             if (useTypeTable()) {
                 builder.receiverTypeId = local.typeId(receiverTypeRef)
             } else {
@@ -421,8 +558,8 @@ class FirElementSerializer private constructor(
             }
         }
 
-        for (valueParameter in function.valueParameters) {
-            builder.addValueParameter(local.valueParameterProto(valueParameter))
+        for ((index, valueParameter) in function.valueParameters.withIndex()) {
+            builder.addValueParameter(local.valueParameterProto(valueParameter, index, function))
         }
 
         contractSerializer.serializeContractOfFunctionIfAny(function, builder, this)
@@ -436,26 +573,39 @@ class FirElementSerializer private constructor(
         versionRequirementTable?.run {
             builder.addAllVersionRequirement(serializeVersionRequirements(function))
 
-            if (function.isSuspendOrHasSuspendTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirementDependingOnCoroutinesVersion())
-            }
-
-            if (function.hasInlineClassTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.InlineClasses))
+            if (local.metDefinitelyNotNullType) {
+                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.DefinitelyNonNullableTypes))
             }
         }
 
         return builder
     }
 
-    private fun typeAliasProto(typeAlias: FirTypeAlias): ProtoBuf.TypeAlias.Builder? {
-        if (!extension.shouldSerializeTypeAlias(typeAlias)) return null
+    private fun FirFunction.memberKind(): MemberKind {
+        return when (origin) {
+            FirDeclarationOrigin.Delegated -> MemberKind.DELEGATION
+            is FirDeclarationOrigin.Synthetic -> MemberKind.SYNTHESIZED
+            else -> MemberKind.DECLARATION
+        }
+    }
 
+    private fun shouldSetStableParameterNames(function: FirFunction?): Boolean {
+        return when {
+            function?.hasStableParameterNames == true -> true
+            // for backward compatibility with K1, remove this line to fix KT-4758
+            function?.origin == FirDeclarationOrigin.Delegated -> true
+            else -> false
+        }
+    }
+
+    private fun typeAliasProto(typeAlias: FirTypeAlias): ProtoBuf.TypeAlias.Builder? = whileAnalysing<ProtoBuf.TypeAlias.Builder?>(
+        session, typeAlias
+    ) {
         val builder = ProtoBuf.TypeAlias.newBuilder()
         val local = createChildSerializer(typeAlias)
 
         val flags = Flags.getTypeAliasFlags(
-            typeAlias.nonSourceAnnotations(session).isNotEmpty(),
+            typeAlias.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(typeAlias),
             ProtoEnumFlags.visibility(normalizeVisibility(typeAlias))
         )
         if (flags != builder.flags) {
@@ -484,10 +634,11 @@ class FirElementSerializer private constructor(
 
         versionRequirementTable?.run {
             builder.addAllVersionRequirement(serializeVersionRequirements(typeAlias))
-        }
-
-        for (annotation in typeAlias.nonSourceAnnotations(session)) {
-            builder.addAnnotation(extension.annotationSerializer.serializeAnnotation(annotation))
+            if (local.metDefinitelyNotNullType) {
+                builder.addVersionRequirement(
+                    writeLanguageVersionRequirement(LanguageFeature.DefinitelyNonNullableTypes, versionRequirementTable)
+                )
+            }
         }
 
         extension.serializeTypeAlias(typeAlias, builder)
@@ -495,41 +646,37 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    private fun enumEntryProto(enumEntry: FirEnumEntry): ProtoBuf.EnumEntry.Builder {
+    private fun enumEntryProto(enumEntry: FirEnumEntry): ProtoBuf.EnumEntry.Builder = whileAnalysing(session, enumEntry) {
         val builder = ProtoBuf.EnumEntry.newBuilder()
         builder.name = getSimpleNameIndex(enumEntry.name)
         extension.serializeEnumEntry(enumEntry, builder)
         return builder
     }
 
-    private fun constructorProto(constructor: FirConstructor): ProtoBuf.Constructor.Builder {
+    private fun constructorProto(constructor: FirConstructor): ProtoBuf.Constructor.Builder = whileAnalysing(session, constructor) {
         val builder = ProtoBuf.Constructor.newBuilder()
 
         val local = createChildSerializer(constructor)
 
         val flags = Flags.getConstructorFlags(
-            constructor.nonSourceAnnotations(session).isNotEmpty(),
+            constructor.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(constructor),
             ProtoEnumFlags.visibility(normalizeVisibility(constructor)),
             !constructor.isPrimary,
-            true // TODO: supply 'hasStableParameterNames' flag for metadata
+            shouldSetStableParameterNames(constructor)
         )
         if (flags != builder.flags) {
             builder.flags = flags
         }
 
-        for (valueParameter in constructor.valueParameters) {
-            builder.addValueParameter(local.valueParameterProto(valueParameter))
+        for ((index, valueParameter) in constructor.valueParameters.withIndex()) {
+            builder.addValueParameter(local.valueParameterProto(valueParameter, index, constructor))
         }
 
         versionRequirementTable?.run {
             builder.addAllVersionRequirement(serializeVersionRequirements(constructor))
 
-            if (constructor.isSuspendOrHasSuspendTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirementDependingOnCoroutinesVersion())
-            }
-
-            if (constructor.hasInlineClassTypesInSignature()) {
-                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.InlineClasses))
+            if (local.metDefinitelyNotNullType) {
+                builder.addVersionRequirement(writeVersionRequirement(LanguageFeature.DefinitelyNonNullableTypes))
             }
         }
 
@@ -540,14 +687,18 @@ class FirElementSerializer private constructor(
 
     private fun valueParameterProto(
         parameter: FirValueParameter,
+        index: Int,
+        function: FirFunction,
         additionalAnnotations: List<FirAnnotation> = emptyList()
-    ): ProtoBuf.ValueParameter.Builder {
+    ): ProtoBuf.ValueParameter.Builder = whileAnalysing(session, parameter) {
         val builder = ProtoBuf.ValueParameter.newBuilder()
 
-        val declaresDefaultValue = parameter.defaultValue != null // TODO: || parameter.isActualParameterWithAnyExpectedDefault
+        val declaresDefaultValue = function.itOrExpectHasDefaultParameterValue(index)
 
         val flags = Flags.getValueParameterFlags(
-            additionalAnnotations.isNotEmpty() || parameter.nonSourceAnnotations(session).isNotEmpty(),
+            additionalAnnotations.isNotEmpty()
+                    || parameter.nonSourceAnnotations(session).isNotEmpty()
+                    || extension.hasAdditionalAnnotations(parameter),
             declaresDefaultValue,
             parameter.isCrossinline,
             parameter.isNoinline
@@ -578,36 +729,37 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    private fun typeParameterProto(typeParameter: FirTypeParameter): ProtoBuf.TypeParameter.Builder {
-        val builder = ProtoBuf.TypeParameter.newBuilder()
+    private fun typeParameterProto(typeParameter: FirTypeParameter): ProtoBuf.TypeParameter.Builder =
+        whileAnalysing(session, typeParameter) {
+            val builder = ProtoBuf.TypeParameter.newBuilder()
 
-        builder.id = getTypeParameterId(typeParameter)
+            builder.id = getTypeParameterId(typeParameter)
 
-        builder.name = getSimpleNameIndex(typeParameter.name)
+            builder.name = getSimpleNameIndex(typeParameter.name)
 
-        if (typeParameter.isReified != builder.reified) {
-            builder.reified = typeParameter.isReified
-        }
-
-        val variance = ProtoEnumFlags.variance(typeParameter.variance)
-        if (variance != builder.variance) {
-            builder.variance = variance
-        }
-        extension.serializeTypeParameter(typeParameter, builder)
-
-        val upperBounds = typeParameter.bounds
-        if (upperBounds.size == 1 && upperBounds.single() is FirImplicitNullableAnyTypeRef) return builder
-
-        for (upperBound in upperBounds) {
-            if (useTypeTable()) {
-                builder.addUpperBoundId(typeId(upperBound))
-            } else {
-                builder.addUpperBound(typeProto(upperBound))
+            if (typeParameter.isReified != builder.reified) {
+                builder.reified = typeParameter.isReified
             }
-        }
 
-        return builder
-    }
+            val variance = ProtoEnumFlags.variance(typeParameter.variance)
+            if (variance != builder.variance) {
+                builder.variance = variance
+            }
+            extension.serializeTypeParameter(typeParameter, builder)
+
+            val upperBounds = typeParameter.bounds
+            if (upperBounds.size == 1 && upperBounds.single() is FirImplicitNullableAnyTypeRef) return builder
+
+            for (upperBound in upperBounds) {
+                if (useTypeTable()) {
+                    builder.addUpperBoundId(typeId(upperBound))
+                } else {
+                    builder.addUpperBound(typeProto(upperBound))
+                }
+            }
+
+            return builder
+        }
 
     fun typeId(typeRef: FirTypeRef): Int {
         if (typeRef !is FirResolvedTypeRef) {
@@ -628,7 +780,28 @@ class FirElementSerializer private constructor(
         correspondingTypeRef: FirTypeRef? = null,
         isDefinitelyNotNullType: Boolean = false,
     ): ProtoBuf.Type.Builder {
+        val typeProto = typeOrTypealiasProto(type, toSuper, correspondingTypeRef, isDefinitelyNotNullType)
+        val expanded = if (type is ConeClassLikeType) type.fullyExpandedType(session) else type
+        if (expanded === type) {
+            return typeProto
+        }
+        val expandedProto = typeOrTypealiasProto(expanded, toSuper, correspondingTypeRef, isDefinitelyNotNullType)
+        if (useTypeTable()) {
+            expandedProto.abbreviatedTypeId = typeTable[typeProto]
+        } else {
+            expandedProto.setAbbreviatedType(typeProto)
+        }
+        return expandedProto
+    }
+
+    private fun typeOrTypealiasProto(
+        type: ConeKotlinType,
+        toSuper: Boolean,
+        correspondingTypeRef: FirTypeRef?,
+        isDefinitelyNotNullType: Boolean,
+    ): ProtoBuf.Type.Builder {
         val builder = ProtoBuf.Type.newBuilder()
+        val typeAnnotations = mutableListOf<FirAnnotation>()
         when (type) {
             is ConeDefinitelyNotNullType -> return typeProto(type.original, toSuper, correspondingTypeRef, isDefinitelyNotNullType = true)
             is ConeErrorType -> {
@@ -647,7 +820,8 @@ class FirElementSerializer private constructor(
                 return lowerBound
             }
             is ConeClassLikeType -> {
-                if (type.isSuspendFunctionType(session)) {
+                val functionTypeKind = type.functionTypeKind(session)
+                if (functionTypeKind == FunctionTypeKind.SuspendFunction) {
                     val runtimeFunctionType = type.suspendFunctionTypeToFunctionTypeWithContinuation(
                         session, StandardClassIds.Continuation
                     )
@@ -655,14 +829,25 @@ class FirElementSerializer private constructor(
                     functionType.flags = Flags.getTypeFlags(true, false)
                     return functionType
                 }
+                if (functionTypeKind?.isBuiltin == false) {
+                    val legacySerializationUntil =
+                        LanguageVersion.fromVersionString(functionTypeKind.serializeAsFunctionWithAnnotationUntil)
+                    if (legacySerializationUntil != null && languageVersionSettings.languageVersion < legacySerializationUntil) {
+                        return typeProto(type.customFunctionTypeToSimpleFunctionType(session))
+                    }
+                }
                 fillFromPossiblyInnerType(builder, type)
                 if (type.hasContextReceivers) {
-                    serializeAnnotationFromAttribute(
-                        correspondingTypeRef?.annotations, CompilerConeAttributes.ContextFunctionTypeParams.ANNOTATION_CLASS_ID, builder,
-                        argumentMapping = buildAnnotationArgumentMapping {
-                            this.mapping[StandardNames.CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME] =
-                                buildConstExpression(source = null, ConstantValueKind.Int, type.contextReceiversNumberForFunctionType)
-                        }
+                    typeAnnotations.addIfNotNull(
+                        createAnnotationFromAttribute(
+                            correspondingTypeRef?.annotations, CompilerConeAttributes.ContextFunctionTypeParams.ANNOTATION_CLASS_ID,
+                            argumentMapping = buildAnnotationArgumentMapping {
+                                this.mapping[StandardNames.CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME] =
+                                    buildConstExpression(
+                                        source = null, ConstantValueKind.Int, type.contextReceiversNumberForFunctionType, setType = false
+                                    )
+                            }
+                        )
                     )
                 }
             }
@@ -675,25 +860,26 @@ class FirElementSerializer private constructor(
                 }
 
                 if (isDefinitelyNotNullType) {
+                    metDefinitelyNotNullType = true
                     builder.flags = Flags.getTypeFlags(false, isDefinitelyNotNullType)
                 }
             }
             is ConeIntersectionType -> {
                 val approximatedType = if (toSuper) {
-                    typeApproximator.approximateToSuperType(type, TypeApproximatorConfiguration.PublicDeclaration)
+                    typeApproximator.approximateToSuperType(type, TypeApproximatorConfiguration.PublicDeclaration.SaveAnonymousTypes)
                 } else {
-                    typeApproximator.approximateToSubType(type, TypeApproximatorConfiguration.PublicDeclaration)
+                    typeApproximator.approximateToSubType(type, TypeApproximatorConfiguration.PublicDeclaration.SaveAnonymousTypes)
                 }
                 assert(approximatedType != type && approximatedType is ConeKotlinType) {
-                    "Approximation failed: ${type.render()}"
+                    "Approximation failed: ${type.renderForDebugging()}"
                 }
                 return typeProto(approximatedType as ConeKotlinType)
             }
             is ConeIntegerLiteralType -> {
-                throw IllegalStateException("Integer literal types should not persist up to the serializer: ${type.render()}")
+                throw IllegalStateException("Integer literal types should not persist up to the serializer: ${type.renderForDebugging()}")
             }
             is ConeCapturedType -> {
-                throw IllegalStateException("Captured types should not persist up to the serializer: ${type.render()}")
+                throw IllegalStateException("Captured types should not persist up to the serializer: ${type.renderForDebugging()}")
             }
             else -> {
                 throw AssertionError("Should not be here: ${type::class.java}")
@@ -707,22 +893,20 @@ class FirElementSerializer private constructor(
         val extensionAttributes = mutableListOf<ConeAttribute<*>>()
         for (attribute in type.attributes) {
             when {
-                attribute is CustomAnnotationTypeAttribute ->
-                    for (annotation in attribute.annotations) {
-                        extension.serializeTypeAnnotation(annotation, builder)
-                    }
+                attribute is CustomAnnotationTypeAttribute -> typeAnnotations.addAll(attribute.annotations.nonSourceAnnotations(session))
                 attribute.key in CompilerConeAttributes.classIdByCompilerAttributeKey ->
-                    serializeCompilerDefinedTypeAttribute(builder, attribute)
+                    typeAnnotations.add(createAnnotationForCompilerDefinedTypeAttribute(attribute))
                 else -> extensionAttributes += attribute
             }
         }
 
         for (attributeExtension in session.extensionService.typeAttributeExtensions) {
             for (attribute in extensionAttributes) {
-                val annotation = attributeExtension.convertAttributeToAnnotation(attribute) ?: continue
-                extension.serializeTypeAnnotation(annotation, builder)
+                typeAnnotations.addIfNotNull(attributeExtension.convertAttributeToAnnotation(attribute))
             }
         }
+
+        extension.serializeTypeAnnotations(typeAnnotations, builder)
 
         // TODO: abbreviated type
 //        val abbreviation = type.getAbbreviatedType()?.abbreviation
@@ -737,71 +921,82 @@ class FirElementSerializer private constructor(
         return builder
     }
 
-    private fun serializeCompilerDefinedTypeAttribute(
-        builder: ProtoBuf.Type.Builder,
-        attribute: ConeAttribute<*>
-    ) {
-        val annotation = buildAnnotation {
+    private fun createAnnotationForCompilerDefinedTypeAttribute(attribute: ConeAttribute<*>): FirAnnotation {
+        return buildAnnotation {
             annotationTypeRef = buildResolvedTypeRef {
                 this.type = ConeClassLikeTypeImpl(
-                    ConeClassLikeLookupTagImpl(CompilerConeAttributes.classIdByCompilerAttributeKey.getValue(attribute.key)),
+                    CompilerConeAttributes.classIdByCompilerAttributeKey.getValue(attribute.key).toLookupTag(),
                     emptyArray(),
                     isNullable = false
                 )
             }
             argumentMapping = FirEmptyAnnotationArgumentMapping
         }
-        extension.serializeTypeAnnotation(annotation, builder)
     }
 
-    private fun serializeAnnotationFromAttribute(
+    private fun createAnnotationFromAttribute(
         existingAnnotations: List<FirAnnotation>?,
         classId: ClassId,
-        builder: ProtoBuf.Type.Builder,
         argumentMapping: FirAnnotationArgumentMapping = FirEmptyAnnotationArgumentMapping,
+    ): FirAnnotation? {
+        return runIf(existingAnnotations?.any { it.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()?.classId == classId } != true) {
+            buildAnnotation {
+                annotationTypeRef = buildResolvedTypeRef {
+                    this.type = classId.constructClassLikeType(
+                        emptyArray(), isNullable = false
+                    )
+                }
+                this.argumentMapping = argumentMapping
+            }
+        }
+    }
+
+    private fun fillFromPossiblyInnerType(
+        builder: ProtoBuf.Type.Builder,
+        symbol: FirClassLikeSymbol<*>,
+        typeArguments: Array<out ConeTypeProjection>,
+        typeArgumentIndex: Int
     ) {
-        if (existingAnnotations?.any { it.annotationTypeRef.coneTypeSafe<ConeClassLikeType>()?.classId == classId } != true) {
-            extension.serializeTypeAnnotation(
-                buildAnnotation {
-                    annotationTypeRef = buildResolvedTypeRef {
-                        this.type = classId.constructClassLikeType(
-                            emptyArray(), isNullable = false
-                        )
-                    }
-                    this.argumentMapping = argumentMapping
-                }, builder
-            )
+        var argumentIndex = typeArgumentIndex
+        val classifier = symbol.fir
+        val classifierId = getClassifierId(classifier)
+        if (classifier is FirTypeAlias) {
+            builder.typeAliasName = classifierId
+        } else {
+            builder.className = classifierId
+        }
+        for (i in 0 until classifier.typeParameters.size) {
+            // Next type parameter is not for this type but for an outer type.
+            if (classifier.typeParameters[i] !is FirTypeParameter) break
+            // No explicit type argument provided. For example: `Map.Entry<K, V>` when we get to `Map`
+            // it has type parameters, but no explicit type arguments are provided for it.
+            if (argumentIndex >= typeArguments.size) return
+            builder.addArgument(typeArgument(typeArguments[argumentIndex++]))
+        }
+
+        if (!symbol.isInner) return
+        val outerClassId = symbol.classId.outerClassId
+        if (outerClassId == null || outerClassId.isLocal) return
+        val outerSymbol = outerClassId.toLookupTag().toSymbol(session)
+        if (outerSymbol != null) {
+            val outerBuilder = ProtoBuf.Type.newBuilder()
+            fillFromPossiblyInnerType(outerBuilder, outerSymbol, typeArguments, argumentIndex)
+            if (useTypeTable()) {
+                builder.outerTypeId = typeTable[outerBuilder]
+            } else {
+                builder.setOuterType(outerBuilder)
+            }
         }
     }
 
     private fun fillFromPossiblyInnerType(builder: ProtoBuf.Type.Builder, type: ConeClassLikeType) {
         val classifierSymbol = type.lookupTag.toSymbol(session)
         if (classifierSymbol != null) {
-            val classifier = classifierSymbol.fir
-            val classifierId = getClassifierId(classifier)
-            if (classifier is FirTypeAlias) {
-                builder.typeAliasName = classifierId
-            } else {
-                builder.className = classifierId
-            }
+            fillFromPossiblyInnerType(builder, classifierSymbol, type.typeArguments, 0)
         } else {
             builder.className = getClassifierId(type.lookupTag.classId)
+            type.typeArguments.forEach { builder.addArgument(typeArgument(it)) }
         }
-
-        for (projection in type.typeArguments) {
-            builder.addArgument(typeArgument(projection))
-        }
-
-        // TODO: outer type
-//        if (type.outerType != null) {
-//            val outerBuilder = ProtoBuf.Type.newBuilder()
-//            fillFromPossiblyInnerType(outerBuilder, type.outerType!!)
-//            if (useTypeTable()) {
-//                builder.outerTypeId = typeTable[outerBuilder]
-//            } else {
-//                builder.setOuterType(outerBuilder)
-//            }
-//        }
     }
 
     private fun typeArgument(typeProjection: ConeTypeProjection): ProtoBuf.Type.Argument.Builder {
@@ -829,16 +1024,18 @@ class FirElementSerializer private constructor(
     private fun getAccessorFlags(accessor: FirPropertyAccessor, property: FirProperty): Int {
         // [FirDefaultPropertyAccessor]---a property accessor without body---can still hold other information, such as annotations,
         // user-contributed visibility, and modifiers, such as `external` or `inline`.
-        val nonSourceAnnotations = accessor.nonSourceAnnotations(session, property)
-        val isDefault = accessor is FirDefaultPropertyAccessor &&
-                nonSourceAnnotations.isEmpty() &&
-                accessor.visibility == property.visibility &&
-                !accessor.isExternal &&
-                !accessor.isInline
+        val hasAnnotations = accessor.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(accessor)
+        val isDefault = property.isLocal ||
+                (accessor is FirDefaultPropertyAccessor &&
+                        !hasAnnotations &&
+                        accessor.visibility == property.visibility &&
+                        !accessor.isExternal &&
+                        !accessor.isInline)
         return Flags.getAccessorFlags(
-            nonSourceAnnotations.isNotEmpty(),
+            hasAnnotations,
             ProtoEnumFlags.visibility(normalizeVisibility(accessor)),
-            ProtoEnumFlags.modality(accessor.modality!!),
+            // non-default accessor modality is always final, so we check property.modality instead
+            ProtoEnumFlags.modality(property.modality!!),
             !isDefault,
             accessor.isExternal,
             accessor.isInline
@@ -849,7 +1046,7 @@ class FirElementSerializer private constructor(
         FirElementSerializer(
             session, scopeSession, declaration, Interner(typeParameters), extension,
             typeTable, versionRequirementTable, serializeTypeTableToFunction = false,
-            typeApproximator
+            typeApproximator, languageVersionSettings, produceHeaderKlib
         )
 
     val stringTable: FirElementAwareStringTable
@@ -857,35 +1054,13 @@ class FirElementSerializer private constructor(
 
     private fun useTypeTable(): Boolean = extension.shouldUseTypeTable()
 
-    private fun FirDeclaration.hasInlineClassTypesInSignature(): Boolean {
-        // TODO
-        return false
-    }
-
-    private fun FirCallableDeclaration.isSuspendOrHasSuspendTypesInSignature(): Boolean {
-        // TODO (types in signature)
-        return this.isSuspend
-    }
-
-    private fun writeVersionRequirementForInlineClasses(
-        klass: FirClass,
-        builder: ProtoBuf.Class.Builder,
-        versionRequirementTable: MutableVersionRequirementTable
-    ) {
-        if (klass !is FirRegularClass || !klass.isInline && !klass.hasInlineClassTypesInSignature()) return
-
-        builder.addVersionRequirement(
-            writeLanguageVersionRequirement(LanguageFeature.InlineClasses, versionRequirementTable)
-        )
-    }
-
     private fun MutableVersionRequirementTable.serializeVersionRequirements(container: FirAnnotationContainer): List<Int> =
         serializeVersionRequirements(container.annotations)
 
     private fun MutableVersionRequirementTable.serializeVersionRequirements(annotations: List<FirAnnotation>): List<Int> =
         annotations
             .filter {
-                it.toAnnotationClassId()?.asSingleFqName() == RequireKotlinConstants.FQ_NAME
+                it.toAnnotationClassId(session)?.asSingleFqName() == RequireKotlinConstants.FQ_NAME
             }
             .mapNotNull(::serializeVersionRequirementFromRequireKotlin)
             .map(::get)
@@ -894,13 +1069,10 @@ class FirElementSerializer private constructor(
         return writeLanguageVersionRequirement(languageFeature, this)
     }
 
-    private fun MutableVersionRequirementTable.writeVersionRequirementDependingOnCoroutinesVersion(): Int =
-        writeVersionRequirement(LanguageFeature.ReleaseCoroutines)
-
     private fun serializeVersionRequirementFromRequireKotlin(annotation: FirAnnotation): ProtoBuf.VersionRequirement.Builder? {
         val argumentMapping = annotation.argumentMapping.mapping
 
-        val versionString = (argumentMapping[RequireKotlinConstants.VERSION]?.toConstantValue(session) as? StringValue)?.value ?: return null
+        val versionString = argumentMapping[RequireKotlinConstants.VERSION]?.toConstantValue<StringValue>(session)?.value ?: return null
         val matchResult = RequireKotlinConstants.VERSION_REGEX.matchEntire(versionString) ?: return null
 
         val major = matchResult.groupValues.getOrNull(1)?.toIntOrNull() ?: return null
@@ -913,12 +1085,12 @@ class FirElementSerializer private constructor(
             writeVersionFull = { proto.versionFull = it }
         )
 
-        val message = (argumentMapping[RequireKotlinConstants.MESSAGE]?.toConstantValue(session) as? StringValue)?.value
+        val message = argumentMapping[RequireKotlinConstants.MESSAGE]?.toConstantValue<StringValue>(session)?.value
         if (message != null) {
             proto.message = stringTable.getStringIndex(message)
         }
 
-        when ((argumentMapping[RequireKotlinConstants.LEVEL]?.toConstantValue(session) as? EnumValue)?.enumEntryName?.asString()) {
+        when (argumentMapping[RequireKotlinConstants.LEVEL]?.toConstantValue<EnumValue>(session)?.enumEntryName?.asString()) {
             DeprecationLevel.ERROR.name -> {
                 // ERROR is the default level
             }
@@ -926,7 +1098,7 @@ class FirElementSerializer private constructor(
             DeprecationLevel.HIDDEN.name -> proto.level = ProtoBuf.VersionRequirement.Level.HIDDEN
         }
 
-        when ((argumentMapping[RequireKotlinConstants.VERSION_KIND]?.toConstantValue(session) as? EnumValue)?.enumEntryName?.asString()) {
+        when (argumentMapping[RequireKotlinConstants.VERSION_KIND]?.toConstantValue<EnumValue>(session)?.enumEntryName?.asString()) {
             ProtoBuf.VersionRequirement.VersionKind.LANGUAGE_VERSION.name -> {
                 // LANGUAGE_VERSION is the default kind
             }
@@ -936,7 +1108,7 @@ class FirElementSerializer private constructor(
                 proto.versionKind = ProtoBuf.VersionRequirement.VersionKind.API_VERSION
         }
 
-        val errorCode = (argumentMapping[RequireKotlinConstants.ERROR_CODE]?.toConstantValue(session) as? IntValue)?.value
+        val errorCode = argumentMapping[RequireKotlinConstants.ERROR_CODE]?.toConstantValue<IntValue>(session)?.value
         if (errorCode != null && errorCode != -1) {
             proto.errorCode = errorCode
         }
@@ -979,12 +1151,16 @@ class FirElementSerializer private constructor(
             scopeSession: ScopeSession,
             extension: FirSerializerExtension,
             typeApproximator: AbstractTypeApproximator,
+            languageVersionSettings: LanguageVersionSettings,
+            produceHeaderKlib: Boolean = false,
         ): FirElementSerializer =
             FirElementSerializer(
                 session, scopeSession, null,
                 Interner(), extension, MutableTypeTable(), MutableVersionRequirementTable(),
                 serializeTypeTableToFunction = false,
-                typeApproximator
+                typeApproximator,
+                languageVersionSettings,
+                produceHeaderKlib,
             )
 
         @JvmStatic
@@ -993,12 +1169,15 @@ class FirElementSerializer private constructor(
             scopeSession: ScopeSession,
             extension: FirSerializerExtension,
             typeApproximator: AbstractTypeApproximator,
+            languageVersionSettings: LanguageVersionSettings,
         ): FirElementSerializer =
             FirElementSerializer(
                 session, scopeSession, null,
                 Interner(), extension, MutableTypeTable(),
                 versionRequirementTable = null, serializeTypeTableToFunction = true,
-                typeApproximator
+                typeApproximator,
+                languageVersionSettings,
+                produceHeaderKlib = false,
             )
 
         @JvmStatic
@@ -1009,13 +1188,18 @@ class FirElementSerializer private constructor(
             extension: FirSerializerExtension,
             parentSerializer: FirElementSerializer?,
             typeApproximator: AbstractTypeApproximator,
+            languageVersionSettings: LanguageVersionSettings,
+            produceHeaderKlib: Boolean = false,
         ): FirElementSerializer {
             val parentClassId = klass.symbol.classId.outerClassId
             val parent = if (parentClassId != null && !parentClassId.isLocal) {
                 val parentClass = session.symbolProvider.getClassLikeSymbolByClassId(parentClassId)!!.fir as FirRegularClass
-                parentSerializer ?: create(session, scopeSession, parentClass, extension, null, typeApproximator)
+                parentSerializer ?: create(
+                    session, scopeSession, parentClass, extension, null, typeApproximator,
+                    languageVersionSettings, produceHeaderKlib
+                )
             } else {
-                createTopLevel(session, scopeSession, extension, typeApproximator)
+                createTopLevel(session, scopeSession, extension, typeApproximator, languageVersionSettings, produceHeaderKlib)
             }
 
             // Calculate type parameter ids for the outer class beforehand, as it would've had happened if we were always
@@ -1034,7 +1218,9 @@ class FirElementSerializer private constructor(
                     MutableVersionRequirementTable()
                 },
                 serializeTypeTableToFunction = false,
-                typeApproximator
+                typeApproximator,
+                languageVersionSettings,
+                produceHeaderKlib,
             )
             for (typeParameter in klass.typeParameters) {
                 if (typeParameter !is FirTypeParameter) continue
@@ -1043,7 +1229,7 @@ class FirElementSerializer private constructor(
             return serializer
         }
 
-        fun writeLanguageVersionRequirement(
+        private fun writeLanguageVersionRequirement(
             languageFeature: LanguageFeature,
             versionRequirementTable: MutableVersionRequirementTable
         ): Int {
@@ -1055,7 +1241,7 @@ class FirElementSerializer private constructor(
             )
         }
 
-        fun writeVersionRequirement(
+        private fun writeVersionRequirement(
             major: Int,
             minor: Int,
             patch: Int,

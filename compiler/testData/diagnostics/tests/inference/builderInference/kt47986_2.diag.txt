@@ -10,3 +10,4 @@ fun <K> buildFoo(builderAction: Foo<K>.() -> Unit): Foo<K> = Foo()
 /kt47986_2.kt:12:13: warning: variable 'y' is never used
         val y = id(::bar)
             ^
+

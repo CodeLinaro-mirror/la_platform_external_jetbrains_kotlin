@@ -6,13 +6,24 @@
 package org.jetbrains.kotlin.gradle.utils
 
 import org.gradle.api.Project
-import java.util.WeakHashMap
+import java.util.*
 
+/**
+ * Base implementation of an actions executor that executes them once.
+ */
 internal abstract class SingleAction {
     private val performedActions = WeakHashMap<Project, MutableSet<String>>()
 
+    /**
+     * Calculates a part of a key that is used to determine whether an action from [run] was already executed
+     */
     protected abstract fun selectKey(project: Project): Project
 
+    /**
+     * Runs an [action] once per key value which is being calculated as a combination of a [selectKey] value and an [actionId]
+     *
+     * Warning: if KGP is loaded multiple times by different classloaders, actions with the same [actionId] may be executed more than once
+     */
     fun run(project: Project, actionId: String, action: () -> Unit) {
         val performedActions = performedActions.computeIfAbsent(selectKey(project)) { mutableSetOf() }
         if (performedActions.add(actionId)) {
@@ -21,23 +32,20 @@ internal abstract class SingleAction {
     }
 }
 
+/**
+ * Object that allows to run actions once per build
+ *
+ * Warning: if KGP is loaded multiple times by different classloaders, actions with the same id may be executed more than once
+ */
 internal object SingleActionPerBuild : SingleAction() {
     override fun selectKey(project: Project): Project = project.rootProject
 }
 
+/**
+ * Object that allows to run actions once per project
+ *
+ * Warning: if KGP is loaded multiple times by different classloaders, actions with the same id may be executed more than once
+ */
 internal object SingleActionPerProject : SingleAction() {
     override fun selectKey(project: Project) = project
-}
-
-internal object SingleWarningPerBuild {
-    private const val ACTION_ID_SHOW_WARNING = "show-warning:"
-
-    fun show(project: Project, warningText: String) = SingleActionPerBuild.run(project, ACTION_ID_SHOW_WARNING + warningText) {
-        project.logger.warn(warningText)
-    }
-
-    fun deprecation(project: Project, context: String, target: String, replacement: String?) {
-        val replacementMessage = replacement?.let { " Please, use '$replacement' instead." } ?: ""
-        show(project, "Warning: $context '$target' is deprecated and will be removed in next major releases.$replacementMessage\n")
-    }
 }

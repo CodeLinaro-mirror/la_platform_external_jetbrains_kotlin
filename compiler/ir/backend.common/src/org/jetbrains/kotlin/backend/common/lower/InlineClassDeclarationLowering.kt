@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
 import org.jetbrains.kotlin.backend.common.getOrPut
+import org.jetbrains.kotlin.backend.common.ir.isPure
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
@@ -105,7 +106,15 @@ class InlineClassLowering(val context: CommonBackendContext) {
                                     }
                                     expression.transformChildrenVoid()
                                     if (isMemberFieldSet) {
-                                        return expression.value
+                                        return builder.irBlock {
+                                            if (!expression.value.isPure(true)) {
+                                                // Preserving side effects
+                                                +expression.value
+                                                // Adding empty block to provide Unit value.
+                                                // This is useful when original IrSetField is the last statement in a Unit-returning block.
+                                                +builder.irBlock {}
+                                            }
+                                        }
                                     }
                                     return expression
                                 }
@@ -123,6 +132,13 @@ class InlineClassLowering(val context: CommonBackendContext) {
                                         return unboxedInlineClassValue()
                                     if (expression.symbol == origParameterSymbol)
                                         return builder.irGet(initFunction.valueParameters.single())
+                                    return expression
+                                }
+
+                                override fun visitSetValue(expression: IrSetValue): IrExpression {
+                                    expression.transformChildrenVoid()
+                                    if (expression.symbol == origParameterSymbol)
+                                        return builder.irSet(initFunction.valueParameters.single(), expression.value)
                                     return expression
                                 }
                             })
@@ -367,6 +383,7 @@ class InlineClassLowering(val context: CommonBackendContext) {
             function.parent,
             function.toInlineClassImplementationName(),
             function,
-            typeParametersFromContext = extractTypeParameters(function.parentAsClass)
+            typeParametersFromContext = extractTypeParameters(function.parentAsClass),
+            remapMultiFieldValueClassStructure = context::remapMultiFieldValueClassStructure
         )
 }

@@ -7,21 +7,15 @@ package kotlin.text
 
 import kotlin.text.regex.*
 
-@PublishedApi
-internal interface FlagEnum {
-    val value: Int
-    val mask: Int
-}
-
-private fun Iterable<FlagEnum>.toInt(): Int = this.fold(0, { value, option -> value or option.value })
+private fun Iterable<RegexOption>.toInt(): Int = this.fold(0, { value, option -> value or option.value })
 
 private fun fromInt(value: Int): Set<RegexOption> =
-        RegexOption.values().filterTo(mutableSetOf<RegexOption>()) { value and it.mask == it.value  }
+        RegexOption.entries.filterTo(mutableSetOf<RegexOption>()) { value and it.mask == it.value  }
 
 /**
  * Provides enumeration values to use to set regular expression options.
  */
-public actual enum class RegexOption(override val value: Int, override val mask: Int = value) : FlagEnum {
+public actual enum class RegexOption(internal val value: Int, internal val mask: Int = value) {
     // common
 
     /** Enables case-insensitive matching. Case comparison is Unicode-aware. */
@@ -61,8 +55,6 @@ public actual enum class RegexOption(override val value: Int, override val mask:
  *
  * @param value The value of captured group.
  * @param range The range of indices in the input string where group was captured.
- *
- * The [range] property is available on JVM only.
  */
 public actual data class MatchGroup(actual val value: String, val range: IntRange)
 
@@ -76,7 +68,7 @@ public actual data class MatchGroup(actual val value: String, val range: IntRang
  * for example, when it's not supported by the current platform.
  */
 @SinceKotlin("1.7")
-public operator fun MatchGroupCollection.get(name: String): MatchGroup? {
+public actual operator fun MatchGroupCollection.get(name: String): MatchGroup? {
     val namedGroups = this as? MatchNamedGroupCollection
         ?: throw UnsupportedOperationException("Retrieving groups by name is not supported on this platform.")
 
@@ -87,7 +79,10 @@ public operator fun MatchGroupCollection.get(name: String): MatchGroup? {
 /**
  * Represents a compiled regular expression.
  * Provides functions to match strings in text with a pattern, replace the found occurrences and split text around matches.
+ *
+ * Note that in the future, the behavior of regular expression matching and replacement functions can be altered to match JVM implementation behavior where differences exist.
  */
+@Suppress("NO_ACTUAL_CLASS_MEMBER_FOR_EXPECTED_CLASS") // Counterpart for @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
 public actual class Regex internal constructor(internal val nativePattern: Pattern) {
 
     internal enum class Mode {
@@ -98,10 +93,10 @@ public actual class Regex internal constructor(internal val nativePattern: Patte
     actual constructor(pattern: String): this(Pattern(pattern))
 
     /** Creates a regular expression from the specified [pattern] string and the specified single [option].  */
-    actual constructor(pattern: String, option: RegexOption): this(Pattern(pattern, ensureUnicodeCase(option.value)))
+    actual constructor(pattern: String, option: RegexOption): this(Pattern(pattern, option.value))
 
     /** Creates a regular expression from the specified [pattern] string and the specified set of [options].  */
-    actual constructor(pattern: String, options: Set<RegexOption>): this(Pattern(pattern, ensureUnicodeCase(options.toInt())))
+    actual constructor(pattern: String, options: Set<RegexOption>): this(Pattern(pattern, options.toInt()))
 
 
     /** The pattern string of this regular expression. */
@@ -144,9 +139,6 @@ public actual class Regex internal constructor(internal val nativePattern: Patte
 
             return result.toString()
         }
-
-        // TODO: Remove
-        private fun ensureUnicodeCase(flags: Int) = flags
     }
 
     private fun doMatch(input: CharSequence, mode: Mode): MatchResult? {

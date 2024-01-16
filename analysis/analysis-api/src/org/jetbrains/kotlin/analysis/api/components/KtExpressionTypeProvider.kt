@@ -35,7 +35,11 @@ public interface KtExpressionTypeProviderMixIn : KtAnalysisSessionMixIn {
         withValidityAssertion { analysisSession.expressionTypeProvider.getKtExpressionType(this) }
 
     /**
-     * Returns the return type of the given [KtDeclaration] as [KtType]
+     * Returns the return type of the given [KtDeclaration] as [KtType].
+     *
+     * IMPORTANT: For `vararg foo: T` parameter returns full `Array<out T>` type (unlike
+     * [KtValueParameterSymbol.returnType][org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol.returnType],
+     * which returns `T`).
      */
     public fun KtDeclaration.getReturnKtType(): KtType =
         withValidityAssertion { analysisSession.expressionTypeProvider.getReturnTypeForKtDeclaration(this) }
@@ -55,7 +59,7 @@ public interface KtExpressionTypeProviderMixIn : KtAnalysisSessionMixIn {
 
     /**
      * Returns the expected [KtType] of this [PsiElement] if it is an expression. The returned value should not be a
-     * [org.jetbrains.kotlin.analysis.api.types.KtClassErrorType].
+     * [org.jetbrains.kotlin.analysis.api.types.KtErrorType].
      */
     public fun PsiElement.getExpectedType(): KtType? =
         withValidityAssertion { analysisSession.expressionTypeProvider.getExpectedType(this) }

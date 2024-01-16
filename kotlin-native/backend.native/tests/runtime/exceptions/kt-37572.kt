@@ -1,17 +1,30 @@
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class)
+
 import kotlin.text.Regex
 import kotlin.test.*
 
-var inlinesCount = 0
+var expectedInlinesCount = 0
+var expectedExceptionContrFrames = 0
 
-fun main() {
+fun main(args: Array<String>) {
+    val sourceInfoType = args.first()
+    val (e, i) = when (sourceInfoType) {
+        "libbacktrace" -> Pair(0, 2)
+        "coresymbolication" -> Pair(2, 0)
+        else -> throw AssertionError("Unknown source info type " + sourceInfoType)
+    }
+    expectedExceptionContrFrames = e
+    expectedInlinesCount = i
+
+    var actualInlinesCount = 0
     try {
         foo()
     } catch (tw:Throwable) {
         val stackTrace = tw.getStackTrace();
-        inlinesCount = stackTrace.count { it.contains("[inlined]")}
-        stackTrace.take(6).forEach(::checkFrame)
+        actualInlinesCount = stackTrace.count { it.contains("[inlined]")}
+        stackTrace.take(expectedExceptionContrFrames + 4).forEach(::checkFrame)
     }
-    println(inlinesCount)
+    assertEquals(expectedInlinesCount, actualInlinesCount)
 }
 
 fun foo() {
@@ -32,16 +45,15 @@ internal val regex = Regex("^(\\d+)\\ +.*/(.*):(\\d+):.*$")
 
 internal fun checkFrame(value:String) {
     val goldValues = arrayOf<Pair<String, Int>?>(
-            null,
-            null,
-            "kt-37572.kt" to 29,
-            "kt-37572.kt" to 20,
-            *(if (inlinesCount != 0) arrayOf(
-                    "kt-37572.kt" to 25,
-                    "kt-37572.kt" to 18,
+            *arrayOfNulls(expectedExceptionContrFrames),
+            "kt-37572.kt" to 42,
+            "kt-37572.kt" to 33,
+            *(if (expectedInlinesCount != 0) arrayOf(
+                    "kt-37572.kt" to 38,
+                    "kt-37572.kt" to 31,
             ) else emptyArray()),
-            "kt-37572.kt" to 8,
-            "kt-37572.kt" to 6)
+            "kt-37572.kt" to 21,
+            "kt-37572.kt" to 9)
 
     val (pos, file, line) = regex.find(value)!!.destructured
     goldValues[pos.toInt()]?.let {

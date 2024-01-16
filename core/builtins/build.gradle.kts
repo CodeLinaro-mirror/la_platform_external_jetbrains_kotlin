@@ -37,14 +37,14 @@ val runtimeElementsJvm by configurations.creating {
 val prepareRangeSources by tasks.registering(Sync::class) {
     from(kotlinRangesCommon) {
         exclude("Ranges.kt")
-        filter { line -> line.takeUnless { "@OptIn" in it } }
     }
     from(kotlinCollectionsCommon) {
         include("PrimitiveIterators.kt")
     }
     from(kotlinAnnotationsCommon) {
         include("ExperimentalStdlibApi.kt")
-        filter { line -> line.takeUnless { "@RequiresOptIn" in it } }
+        include("OptIn.kt")
+        include("WasExperimental.kt")
     }
 
     into(rangesCherryPicked)

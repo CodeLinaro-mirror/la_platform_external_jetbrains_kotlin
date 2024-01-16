@@ -6,15 +6,14 @@
 package org.jetbrains.kotlin.analysis.api.descriptors.components
 
 import com.intellij.openapi.diagnostic.Logger
-import org.jetbrains.kotlin.analysis.api.components.KtImplicitReceiver
-import org.jetbrains.kotlin.analysis.api.components.KtScopeContext
-import org.jetbrains.kotlin.analysis.api.components.KtScopeProvider
+import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.scopes.KtFe10FileScope
 import org.jetbrains.kotlin.analysis.api.descriptors.scopes.KtFe10PackageScope
 import org.jetbrains.kotlin.analysis.api.descriptors.scopes.KtFe10ScopeLexical
 import org.jetbrains.kotlin.analysis.api.descriptors.scopes.KtFe10ScopeMember
+import org.jetbrains.kotlin.analysis.api.descriptors.scopes.KtFe10ScopeNonStaticMember
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10FileSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KtFe10PackageSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.base.KtFe10Symbol
@@ -27,7 +26,6 @@ import org.jetbrains.kotlin.analysis.api.descriptors.types.base.KtFe10Type
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KtCompositeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KtEmptyScope
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.scopes.KtScope
 import org.jetbrains.kotlin.analysis.api.scopes.KtTypeScope
 import org.jetbrains.kotlin.analysis.api.symbols.KtFileSymbol
@@ -63,21 +61,44 @@ internal class KtFe10ScopeProvider(
         val descriptor = getDescriptor<ClassDescriptor>(classSymbol)
             ?: return getEmptyScope()
 
-        return KtFe10ScopeMember(descriptor.unsubstitutedMemberScope, analysisContext)
+        return KtFe10ScopeMember(descriptor.unsubstitutedMemberScope, descriptor.constructors, analysisContext)
+    }
+
+    override fun getStaticMemberScope(symbol: KtSymbolWithMembers): KtScope {
+        val descriptor = getDescriptor<ClassDescriptor>(symbol) ?: return getEmptyScope()
+        return KtFe10ScopeMember(descriptor.staticScope, emptyList(), analysisContext)
     }
 
     override fun getDeclaredMemberScope(classSymbol: KtSymbolWithMembers): KtScope {
         val descriptor = getDescriptor<ClassDescriptor>(classSymbol)
             ?: return getEmptyScope()
 
-        return KtFe10ScopeMember(DeclaredMemberScope(descriptor), analysisContext)
+        return KtFe10ScopeNonStaticMember(DeclaredMemberScope(descriptor), descriptor.constructors, analysisContext)
     }
 
-    override fun getDelegatedMemberScope(classSymbol: KtSymbolWithMembers): KtScope  {
+    override fun getStaticDeclaredMemberScope(classSymbol: KtSymbolWithMembers): KtScope {
         val descriptor = getDescriptor<ClassDescriptor>(classSymbol)
             ?: return getEmptyScope()
 
-        return KtFe10ScopeMember(DeclaredMemberScope(descriptor, forDelegatedMembersOnly = true), analysisContext)
+        return KtFe10ScopeMember(
+            DeclaredMemberScope(descriptor.staticScope, descriptor, forDelegatedMembersOnly = false),
+            emptyList(),
+            analysisContext,
+        )
+    }
+
+    override fun getCombinedDeclaredMemberScope(classSymbol: KtSymbolWithMembers): KtScope {
+        val descriptor = getDescriptor<ClassDescriptor>(classSymbol)
+            ?: return getEmptyScope()
+
+        return KtFe10ScopeMember(DeclaredMemberScope(descriptor), descriptor.constructors, analysisContext)
+    }
+
+    override fun getDelegatedMemberScope(classSymbol: KtSymbolWithMembers): KtScope {
+        val descriptor = getDescriptor<ClassDescriptor>(classSymbol)
+            ?: return getEmptyScope()
+
+        return KtFe10ScopeMember(DeclaredMemberScope(descriptor, forDelegatedMembersOnly = true), emptyList(), analysisContext)
     }
 
     private class DeclaredMemberScope(
@@ -90,13 +111,13 @@ internal class KtFe10ScopeProvider(
 
         override fun getContributedVariables(name: Name, location: LookupLocation): Collection<PropertyDescriptor> {
             return allMemberScope.getContributedVariables(name, location).filter {
-                it.containingDeclaration == owner && it.isDelegatedIfRequired()
+                it.isDeclaredInOwner() && it.isDelegatedIfRequired()
             }.mapToDelegatedIfRequired()
         }
 
         override fun getContributedFunctions(name: Name, location: LookupLocation): Collection<SimpleFunctionDescriptor> {
             return allMemberScope.getContributedFunctions(name, location).filter {
-                it.containingDeclaration == owner && it.isDelegatedIfRequired()
+                it.isDeclaredInOwner() && it.isDelegatedIfRequired()
             }.mapToDelegatedIfRequired()
         }
 
@@ -125,7 +146,7 @@ internal class KtFe10ScopeProvider(
 
         override fun getContributedClassifier(name: Name, location: LookupLocation): ClassifierDescriptor? {
             if (forDelegatedMembersOnly) return null
-            return allMemberScope.getContributedClassifier(name, location)?.takeIf { it.containingDeclaration == owner }
+            return allMemberScope.getContributedClassifier(name, location)?.takeIf { it.isDeclaredInOwner() }
         }
 
         override fun getContributedDescriptors(
@@ -133,7 +154,7 @@ internal class KtFe10ScopeProvider(
             nameFilter: (Name) -> Boolean
         ): Collection<DeclarationDescriptor> {
             return allMemberScope.getContributedDescriptors(kindFilter, nameFilter).filter {
-                it.containingDeclaration == owner && it.isDelegatedIfRequired()
+                it.isDeclaredInOwner() && it.isDelegatedIfRequired()
             }.mapToDelegatedIfRequired()
         }
 
@@ -153,11 +174,11 @@ internal class KtFe10ScopeProvider(
             }
         }
 
-    }
 
-    override fun getStaticMemberScope(symbol: KtSymbolWithMembers): KtScope {
-        val descriptor = getDescriptor<ClassDescriptor>(symbol) ?: return getEmptyScope()
-        return KtFe10ScopeMember(descriptor.staticScope, analysisContext)
+        private fun DeclarationDescriptor.isDeclaredInOwner() = when (this) {
+            is CallableDescriptor -> dispatchReceiverParameter?.containingDeclaration == owner
+            else -> containingDeclaration == owner
+        }
     }
 
     override fun getEmptyScope(): KtScope {
@@ -178,10 +199,15 @@ internal class KtFe10ScopeProvider(
     }
 
     override fun getCompositeScope(subScopes: List<KtScope>): KtScope {
-        return KtCompositeScope(subScopes, token)
+        return KtCompositeScope.create(subScopes, token)
     }
 
     override fun getTypeScope(type: KtType): KtTypeScope {
+        require(type is KtFe10Type)
+        TODO()
+    }
+
+    override fun getSyntheticJavaPropertiesScope(type: KtType): KtTypeScope {
         require(type is KtFe10Type)
         TODO()
     }
@@ -190,15 +216,23 @@ internal class KtFe10ScopeProvider(
         val elementToAnalyze = positionInFakeFile.containingNonLocalDeclaration() ?: originalFile
         val bindingContext = analysisContext.analyze(elementToAnalyze)
 
+        val scopeKind = KtScopeKind.LocalScope(0) // TODO
         val lexicalScope = positionInFakeFile.getResolutionScope(bindingContext)
         if (lexicalScope != null) {
-            val compositeScope = KtCompositeScope(listOf(KtFe10ScopeLexical(lexicalScope, analysisContext)), token)
-            return KtScopeContext(compositeScope, collectImplicitReceivers(lexicalScope), token)
+            val compositeScope = KtCompositeScope.create(listOf(KtFe10ScopeLexical(lexicalScope, analysisContext)), token)
+            return KtScopeContext(listOf(KtScopeWithKind(compositeScope, scopeKind, token)), collectImplicitReceivers(lexicalScope), token)
         }
 
         val fileScope = analysisContext.resolveSession.fileScopeProvider.getFileResolutionScope(originalFile)
-        val compositeScope = KtCompositeScope(listOf(KtFe10ScopeLexical(fileScope, analysisContext)), token)
-        return KtScopeContext(compositeScope, collectImplicitReceivers(fileScope), token)
+        val compositeScope = KtCompositeScope.create(listOf(KtFe10ScopeLexical(fileScope, analysisContext)), token)
+        return KtScopeContext(listOf(KtScopeWithKind(compositeScope, scopeKind, token)), collectImplicitReceivers(fileScope), token)
+    }
+
+    override fun getImportingScopeContext(file: KtFile): KtScopeContext {
+        val importingScopes = getScopeContextForPosition(originalFile = file, positionInFakeFile = file)
+            .scopes
+            .filter { it.kind is KtScopeKind.ImportingScope }
+        return KtScopeContext(importingScopes, _implicitReceivers = emptyList(), token)
     }
 
     private inline fun <reified T : DeclarationDescriptor> getDescriptor(symbol: KtSymbol): T? {
@@ -215,7 +249,7 @@ internal class KtFe10ScopeProvider(
     private fun collectImplicitReceivers(scope: LexicalScope): MutableList<KtImplicitReceiver> {
         val result = mutableListOf<KtImplicitReceiver>()
 
-        for (implicitReceiver in scope.getImplicitReceiversHierarchy()) {
+        for ((index, implicitReceiver) in scope.getImplicitReceiversHierarchy().withIndex()) {
             val type = implicitReceiver.type.toKtType(analysisContext)
             val ownerDescriptor = implicitReceiver.containingDeclaration
             val owner = ownerDescriptor.toKtSymbol(analysisContext)
@@ -225,7 +259,7 @@ internal class KtFe10ScopeProvider(
                 continue
             }
 
-            result += KtImplicitReceiver(token, type, owner)
+            result += KtImplicitReceiver(token, type, owner, index)
         }
 
         return result

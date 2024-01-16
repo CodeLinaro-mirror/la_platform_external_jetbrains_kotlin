@@ -173,7 +173,7 @@ public class ClosureCodegen extends MemberCodegen<KtElement> {
 
         v.defineClass(
                 element,
-                state.getClassFileVersion(),
+                state.getConfig().getClassFileVersion(),
                 ACC_FINAL | ACC_SUPER | visibilityFlag | getSyntheticAccessFlagForLambdaClass(classDescriptor),
                 asmType.getInternalName(),
                 sw.makeJavaGenericSignature(),
@@ -284,7 +284,10 @@ public class ClosureCodegen extends MemberCodegen<KtElement> {
         v.getSerializationBindings().put(METHOD_FOR_FUNCTION, freeLambdaDescriptor, method);
 
         DescriptorSerializer serializer =
-                DescriptorSerializer.createForLambda(new JvmSerializerExtension(v.getSerializationBindings(), state));
+                DescriptorSerializer.createForLambda(
+                        new JvmSerializerExtension(v.getSerializationBindings(), state),
+                        state.getLanguageVersionSettings()
+                );
 
         ProtoBuf.Function.Builder builder = serializer.functionProto(freeLambdaDescriptor);
         if (builder == null) return;
@@ -292,7 +295,7 @@ public class ClosureCodegen extends MemberCodegen<KtElement> {
 
         boolean publicAbi = InlineUtil.isInPublicInlineScope(frontendFunDescriptor);
 
-        WriteAnnotationUtilKt.writeKotlinMetadata(v, state, KotlinClassHeader.Kind.SYNTHETIC_CLASS, publicAbi, 0, av -> {
+        WriteAnnotationUtilKt.writeKotlinMetadata(v, state.getConfig(), KotlinClassHeader.Kind.SYNTHETIC_CLASS, publicAbi, 0, av -> {
             writeAnnotationData(av, serializer, functionProto);
             return Unit.INSTANCE;
         });

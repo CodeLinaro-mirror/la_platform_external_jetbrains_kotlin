@@ -1,19 +1,19 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.contracts.builder
 
 import kotlin.contracts.*
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
+import org.jetbrains.kotlin.fir.contracts.FirContractElementDeclaration
 import org.jetbrains.kotlin.fir.contracts.FirEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.FirResolvedContractDescription
 import org.jetbrains.kotlin.fir.contracts.impl.FirResolvedContractDescriptionImpl
-import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.visitors.*
 
 /*
@@ -25,7 +25,7 @@ import org.jetbrains.kotlin.fir.visitors.*
 class FirResolvedContractDescriptionBuilder {
     var source: KtSourceElement? = null
     val effects: MutableList<FirEffectDeclaration> = mutableListOf()
-    val unresolvedEffects: MutableList<FirStatement> = mutableListOf()
+    val unresolvedEffects: MutableList<FirContractElementDeclaration> = mutableListOf()
 
     fun build(): FirResolvedContractDescription {
         return FirResolvedContractDescriptionImpl(

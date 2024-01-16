@@ -1,27 +1,29 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased
 
+import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.KtInitializerValue
+import org.jetbrains.kotlin.analysis.api.base.KtContextReceiver
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.calculateHashCode
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.*
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.isEqualTo
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.pointers.KtFe10NeverRestoringSymbolPointer
-import org.jetbrains.kotlin.analysis.api.symbols.KtKotlinPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertyGetterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySetterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtTypeParameterSymbol
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtPsiBasedSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
+import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.impl.PropertyDescriptorImpl
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorUtils
@@ -50,13 +52,19 @@ internal class KtFe10DescKotlinPropertySymbol(
         get() = withValidityAssertion { descriptor.isExtension }
 
     override val isFromPrimaryConstructor: Boolean
-        get() = withValidityAssertion { descriptor.containingDeclaration is ConstructorDescriptor }
+        get() = withValidityAssertion { psi is KtParameter }
 
     override val isStatic: Boolean
         get() = withValidityAssertion { DescriptorUtils.isEnumEntry(descriptor) }
 
     override val isOverride: Boolean
         get() = withValidityAssertion { descriptor.isExplicitOverride }
+
+    override val isActual: Boolean
+        get() = withValidityAssertion { descriptor.isActual }
+
+    override val isExpect: Boolean
+        get() = withValidityAssertion { descriptor.isExpect }
 
     override val hasGetter: Boolean
         get() = withValidityAssertion { true }
@@ -68,7 +76,15 @@ internal class KtFe10DescKotlinPropertySymbol(
         get() = withValidityAssertion { descriptor.callableIdIfNotLocal }
 
     override val initializer: KtInitializerValue?
-        get() = withValidityAssertion { createKtInitializerValue(source as? KtProperty, descriptor, analysisContext) }
+        get() = withValidityAssertion {
+            val initializer = when (val psi = psi) {
+                is KtProperty -> psi.initializer
+                is KtParameter -> psi
+                else -> null
+            }
+
+            createKtInitializerValue(initializer, descriptor, analysisContext)
+        }
 
     override val getter: KtPropertyGetterSymbol
         get() = withValidityAssertion {
@@ -86,11 +102,20 @@ internal class KtFe10DescKotlinPropertySymbol(
             return KtFe10DescPropertySetterSymbol(setter, analysisContext)
         }
 
+    override val backingFieldSymbol: KtBackingFieldSymbol?
+        get() = withValidityAssertion {
+            if (descriptor.containingDeclaration is FunctionDescriptor) null
+            else KtFe10DescDefaultBackingFieldSymbol(descriptor.backingField, this, analysisContext)
+        }
+
     override val returnType: KtType
         get() = withValidityAssertion { descriptor.type.toKtType(analysisContext) }
 
-    override val receiverType: KtType?
-        get() = withValidityAssertion { descriptor.extensionReceiverParameter?.type?.toKtType(analysisContext) }
+    override val receiverParameter: KtReceiverParameterSymbol?
+        get() = withValidityAssertion { descriptor.extensionReceiverParameter?.toKtReceiverParameterSymbol(analysisContext) }
+
+    override val contextReceivers: List<KtContextReceiver>
+        get() = withValidityAssertion { descriptor.createContextReceivers(analysisContext) }
 
     override val typeParameters: List<KtTypeParameterSymbol>
         get() = withValidityAssertion { descriptor.typeParameters.map { it.toKtTypeParameter(analysisContext) } }
@@ -104,7 +129,11 @@ internal class KtFe10DescKotlinPropertySymbol(
     override val isDelegatedProperty: Boolean
         get() = withValidityAssertion { descriptor.isDelegated }
 
+    context(KtAnalysisSession)
     override fun createPointer(): KtSymbolPointer<KtKotlinPropertySymbol> = withValidityAssertion {
-        return KtPsiBasedSymbolPointer.createForSymbolFromSource(this) ?: KtFe10NeverRestoringSymbolPointer()
+        KtPsiBasedSymbolPointer.createForSymbolFromSource<KtKotlinPropertySymbol>(this) ?: KtFe10NeverRestoringSymbolPointer()
     }
+
+    override fun equals(other: Any?): Boolean = isEqualTo(other)
+    override fun hashCode(): Int = calculateHashCode()
 }

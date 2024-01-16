@@ -1,0 +1,2 @@
+public final [ResolvedTo(BODY_RESOLVE)] val b: R|A.B|
+    public [ResolvedTo(BODY_RESOLVE)] get(): R|A.B|

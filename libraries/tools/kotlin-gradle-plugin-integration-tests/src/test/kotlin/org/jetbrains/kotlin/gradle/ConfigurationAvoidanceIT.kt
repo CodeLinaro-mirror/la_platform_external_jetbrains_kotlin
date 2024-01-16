@@ -25,16 +25,68 @@ class ConfigurationAvoidanceIT : KGPBaseTest() {
         }
     }
 
-    @JvmGradlePluginTests // TODO: move it into Android tests tag
-    @DisplayName("Android unrelated tasks are not configured")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
+    @JvmGradlePluginTests
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_7_3]
+    )
+    @DisplayName("KGP/Jvm does not eagerly configure any tasks")
     @GradleTest
-    fun testAndroidUnrelatedTaskNotConfigured(gradleVersion: GradleVersion) {
+    fun testJvmConfigurationAvoidance(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            buildGradle.appendText(
+                """
+                |
+                |tasks.configureEach {
+                |    if (name != "help" && name != "clean") {
+                |        throw new GradleException("Configuration avoidance failure for ${'$'}name!")
+                |    }
+                |}
+                """.trimMargin()
+            )
+
+            build("--dry-run")
+        }
+    }
+
+    @OtherGradlePluginTests
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_7_3]
+    )
+    @DisplayName("KGP/Kapt does not eagerly configure any tasks")
+    @GradleTest
+    fun testKaptConfigurationAvoidance(gradleVersion: GradleVersion) {
+        project("kapt2/simple", gradleVersion) {
+            buildGradle.appendText(
+                """
+                |
+                |tasks.configureEach {
+                |    if (name != "help" && name != "clean") {
+                |        throw new GradleException("Configuration avoidance failure for ${'$'}name!")
+                |    }
+                |}
+                """.trimMargin()
+            )
+
+            build("--dry-run")
+        }
+    }
+
+    @AndroidGradlePluginTests
+    @DisplayName("Android unrelated tasks are not configured")
+    @GradleAndroidTest
+    fun testAndroidUnrelatedTaskNotConfigured(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        providedJdk: JdkVersions.ProvidedJdk
+    ) {
         project(
             "AndroidProject",
-            gradleVersion
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildJdk = providedJdk.location
         ) {
 
+            gradleProperties.appendText("android.defaults.buildfeatures.aidl=true")
             listOf("Android", "Test").forEach { subproject ->
                 subProject(subproject)
                     .buildGradle
@@ -69,12 +121,7 @@ class ConfigurationAvoidanceIT : KGPBaseTest() {
                     """.trimIndent()
                 )
 
-            build(
-                "help",
-                buildOptions = defaultBuildOptions.copy(
-                    androidVersion = TestVersions.AGP.AGP_42.version
-                )
-            )
+            build("help")
         }
     }
 
@@ -128,15 +175,7 @@ class ConfigurationAvoidanceIT : KGPBaseTest() {
     @DisplayName("JS early configuration resolution")
     @GradleTest
     fun testEarlyConfigurationsResolutionKotlinJs(gradleVersion: GradleVersion) {
-        testEarlyConfigurationsResolution(
-            "kotlin-js-browser-project",
-            gradleVersion,
-            kts = true,
-            buildOptions = defaultBuildOptions.copy(
-                // bug in Gradle: https://github.com/gradle/gradle/issues/15796
-                warningMode = if (gradleVersion < GradleVersion.version("7.0")) WarningMode.Summary else defaultBuildOptions.warningMode
-            )
-        )
+        testEarlyConfigurationsResolution("kotlin-js-browser-project", gradleVersion, kts = true)
     }
 
     private fun testEarlyConfigurationsResolution(

@@ -21,8 +21,10 @@ import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.DFS
+import org.jetbrains.kotlin.utils.memoryOptimizedMap
 
 val kotlinPackageFqn = FqName.fromSegments(listOf("kotlin"))
+val kotlinEnumsPackageFqn = kotlinPackageFqn.child(Name.identifier("enums"))
 private val kotlinReflectionPackageFqn = kotlinPackageFqn.child(Name.identifier("reflect"))
 private val kotlinCoroutinesPackageFqn = kotlinPackageFqn.child(Name.identifier("coroutines"))
 
@@ -40,12 +42,12 @@ fun IrClassifierSymbol.isKSuspendFunction(): Boolean = this.isClassWithNamePrefi
 
 private fun IrClassifierSymbol.isClassWithName(name: String, packageFqName: FqName): Boolean {
     val declaration = owner as IrDeclarationWithName
-    return name == declaration.name.asString() && (declaration.parent as? IrPackageFragment)?.fqName == packageFqName
+    return name == declaration.name.asString() && (declaration.parent as? IrPackageFragment)?.packageFqName == packageFqName
 }
 
 private fun IrClassifierSymbol.isClassWithNamePrefix(prefix: String, packageFqName: FqName): Boolean {
     val declaration = owner as IrDeclarationWithName
-    return declaration.name.asString().startsWith(prefix) && (declaration.parent as? IrPackageFragment)?.fqName == packageFqName
+    return declaration.name.asString().startsWith(prefix) && (declaration.parent as? IrPackageFragment)?.packageFqName == packageFqName
 }
 
 fun IrType.superTypes(): List<IrType> = classifierOrNull?.superTypes() ?: emptyList()
@@ -56,6 +58,8 @@ fun IrType.isSuspendFunctionTypeOrSubtype(): Boolean = DFS.ifAny(listOf(this), I
 fun IrType.isTypeParameter() = classifierOrNull is IrTypeParameterSymbol
 
 fun IrType.isInterface() = classOrNull?.owner?.kind == ClassKind.INTERFACE
+
+fun IrType.isExternalObject() = classOrNull?.owner.let { it?.kind == ClassKind.OBJECT && it.isExternal }
 
 fun IrType.isAnnotation() = classOrNull?.owner?.kind == ClassKind.ANNOTATION_CLASS
 
@@ -74,7 +78,7 @@ private inline fun IrType.isTypeFromKotlinPackage(namePredicate: (Name) -> Boole
         val classClassifier = classifier as? IrClassSymbol ?: return false
         if (!namePredicate(classClassifier.owner.name)) return false
         val parent = classClassifier.owner.parent as? IrPackageFragment ?: return false
-        return parent.fqName == kotlinPackageFqn
+        return parent.packageFqName == kotlinPackageFqn
     } else return false
 }
 
@@ -90,7 +94,7 @@ fun IrType.substitute(params: List<IrTypeParameter>, arguments: List<IrType>): I
 fun IrType.substitute(substitutionMap: Map<IrTypeParameterSymbol, IrType>): IrType {
     if (this !is IrSimpleType || substitutionMap.isEmpty()) return this
 
-    val newAnnotations = annotations.map { it.deepCopyWithSymbols() }
+    val newAnnotations = annotations.memoryOptimizedMap { it.deepCopyWithSymbols() }
 
     substitutionMap[classifier]?.let { substitutedType ->
         // Add nullability and annotations from original type
@@ -99,11 +103,10 @@ fun IrType.substitute(substitutionMap: Map<IrTypeParameterSymbol, IrType>): IrTy
             .addAnnotations(newAnnotations)
     }
 
-    val newArguments = arguments.map {
-        if (it is IrTypeProjection) {
-            makeTypeProjection(it.type.substitute(substitutionMap), it.variance)
-        } else {
-            it
+    val newArguments = arguments.memoryOptimizedMap {
+        when (it) {
+            is IrTypeProjection -> makeTypeProjection(it.type.substitute(substitutionMap), it.variance)
+            is IrStarProjection -> it
         }
     }
 
@@ -126,7 +129,7 @@ private fun getImmediateSupertypes(irType: IrSimpleType): List<IrSimpleType> {
         }
     return originalSupertypes
         .filter { it.classOrNull != null }
-        .map { superType ->
+        .memoryOptimizedMap { superType ->
             superType.substitute(irClass.typeParameters, arguments) as IrSimpleType
         }
 }

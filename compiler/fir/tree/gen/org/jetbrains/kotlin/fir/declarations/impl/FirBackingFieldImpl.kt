@@ -1,24 +1,27 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.declarations.DeprecationsPerUseSite
+import org.jetbrains.kotlin.fir.declarations.DeprecationsProvider
 import org.jetbrains.kotlin.fir.declarations.FirBackingField
 import org.jetbrains.kotlin.fir.declarations.FirContextReceiver
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationAttributes
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.FirReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.declarations.FirResolveState
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.declarations.asResolveState
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
@@ -28,25 +31,28 @@ import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.declarations.ResolveStateAccess
 
 /*
  * This file was generated automatically
  * DO NOT MODIFY IT MANUALLY
  */
 
+@OptIn(ResolveStateAccess::class)
 open class FirBackingFieldImpl @FirImplementationDetail constructor(
     override val source: KtSourceElement?,
+    resolvePhase: FirResolvePhase,
     override val moduleData: FirModuleData,
-    @Volatile
-    override var resolvePhase: FirResolvePhase,
     override val origin: FirDeclarationOrigin,
     override val attributes: FirDeclarationAttributes,
     override var returnTypeRef: FirTypeRef,
-    override var receiverTypeRef: FirTypeRef?,
-    override var deprecation: DeprecationsPerUseSite?,
+    override var receiverParameter: FirReceiverParameter?,
+    override var deprecationsProvider: DeprecationsProvider,
     override val containerSource: DeserializedContainerSource?,
     override val dispatchReceiverType: ConeSimpleKotlinType?,
-    override val contextReceivers: MutableList<FirContextReceiver>,
+    override var contextReceivers: MutableOrEmptyList<FirContextReceiver>,
     override val name: Name,
     override var delegate: FirExpression?,
     override val isVar: Boolean,
@@ -57,17 +63,18 @@ open class FirBackingFieldImpl @FirImplementationDetail constructor(
     override val symbol: FirBackingFieldSymbol,
     override val propertySymbol: FirPropertySymbol,
     override var initializer: FirExpression?,
-    override val annotations: MutableList<FirAnnotation>,
+    override var annotations: MutableOrEmptyList<FirAnnotation>,
     override val typeParameters: MutableList<FirTypeParameter>,
     override var status: FirDeclarationStatus,
 ) : FirBackingField() {
     init {
         symbol.bind(this)
+        resolveState = resolvePhase.asResolveState()
     }
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         returnTypeRef.accept(visitor, data)
-        receiverTypeRef?.accept(visitor, data)
+        receiverParameter?.accept(visitor, data)
         contextReceivers.forEach { it.accept(visitor, data) }
         delegate?.accept(visitor, data)
         getter?.accept(visitor, data)
@@ -81,7 +88,7 @@ open class FirBackingFieldImpl @FirImplementationDetail constructor(
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirBackingFieldImpl {
         transformReturnTypeRef(transformer, data)
-        transformReceiverTypeRef(transformer, data)
+        transformReceiverParameter(transformer, data)
         transformDelegate(transformer, data)
         transformGetter(transformer, data)
         transformSetter(transformer, data)
@@ -98,8 +105,8 @@ open class FirBackingFieldImpl @FirImplementationDetail constructor(
         return this
     }
 
-    override fun <D> transformReceiverTypeRef(transformer: FirTransformer<D>, data: D): FirBackingFieldImpl {
-        receiverTypeRef = receiverTypeRef?.transform(transformer, data)
+    override fun <D> transformReceiverParameter(transformer: FirTransformer<D>, data: D): FirBackingFieldImpl {
+        receiverParameter = receiverParameter?.transform(transformer, data)
         return this
     }
 
@@ -149,25 +156,24 @@ open class FirBackingFieldImpl @FirImplementationDetail constructor(
         return this
     }
 
-    override fun replaceResolvePhase(newResolvePhase: FirResolvePhase) {
-        resolvePhase = newResolvePhase
-    }
-
     override fun replaceReturnTypeRef(newReturnTypeRef: FirTypeRef) {
         returnTypeRef = newReturnTypeRef
     }
 
-    override fun replaceReceiverTypeRef(newReceiverTypeRef: FirTypeRef?) {
-        receiverTypeRef = newReceiverTypeRef
+    override fun replaceReceiverParameter(newReceiverParameter: FirReceiverParameter?) {
+        receiverParameter = newReceiverParameter
     }
 
-    override fun replaceDeprecation(newDeprecation: DeprecationsPerUseSite?) {
-        deprecation = newDeprecation
+    override fun replaceDeprecationsProvider(newDeprecationsProvider: DeprecationsProvider) {
+        deprecationsProvider = newDeprecationsProvider
     }
 
     override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {
-        contextReceivers.clear()
-        contextReceivers.addAll(newContextReceivers)
+        contextReceivers = newContextReceivers.toMutableOrEmpty()
+    }
+
+    override fun replaceDelegate(newDelegate: FirExpression?) {
+        delegate = newDelegate
     }
 
     override fun replaceGetter(newGetter: FirPropertyAccessor?) {
@@ -180,5 +186,13 @@ open class FirBackingFieldImpl @FirImplementationDetail constructor(
 
     override fun replaceInitializer(newInitializer: FirExpression?) {
         initializer = newInitializer
+    }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        annotations = newAnnotations.toMutableOrEmpty()
+    }
+
+    override fun replaceStatus(newStatus: FirDeclarationStatus) {
+        status = newStatus
     }
 }

@@ -6,23 +6,28 @@
 package org.jetbrains.kotlin.resolve
 
 import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.serialization.deserialization.DeserializationConfiguration
 
-class CompilerDeserializationConfiguration(languageVersionSettings: LanguageVersionSettings) : DeserializationConfiguration {
-    override val skipMetadataVersionCheck = languageVersionSettings.getFlag(AnalysisFlags.skipMetadataVersionCheck)
+open class CompilerDeserializationConfiguration(
+    protected val languageVersionSettings: LanguageVersionSettings
+) : DeserializationConfiguration {
 
-    override val skipPrereleaseCheck = languageVersionSettings.getFlag(AnalysisFlags.skipPrereleaseCheck)
+    final override val skipMetadataVersionCheck = languageVersionSettings.getFlag(AnalysisFlags.skipMetadataVersionCheck)
 
-    override val reportErrorsOnPreReleaseDependencies =
-        !skipPrereleaseCheck && !languageVersionSettings.isPreRelease()
+    final override val skipPrereleaseCheck = languageVersionSettings.getFlag(AnalysisFlags.skipPrereleaseCheck)
 
-    override val allowUnstableDependencies = languageVersionSettings.getFlag(AnalysisFlags.allowUnstableDependencies)
+    final override val reportErrorsOnPreReleaseDependencies =
+        !skipPrereleaseCheck && !languageVersionSettings.isPreRelease() && !KotlinCompilerVersion.isPreRelease()
 
-    override val typeAliasesAllowed = languageVersionSettings.supportsFeature(LanguageFeature.TypeAliases)
+    final override val allowUnstableDependencies = languageVersionSettings.getFlag(AnalysisFlags.allowUnstableDependencies)
 
-    override val isJvmPackageNameSupported = languageVersionSettings.supportsFeature(LanguageFeature.JvmPackageName)
+    final override val typeAliasesAllowed = languageVersionSettings.supportsFeature(LanguageFeature.TypeAliases)
 
-    override val readDeserializedContracts: Boolean = languageVersionSettings.supportsFeature(LanguageFeature.ReadDeserializedContracts)
+    final override val isJvmPackageNameSupported = languageVersionSettings.supportsFeature(LanguageFeature.JvmPackageName)
+
+    final override val readDeserializedContracts: Boolean =
+        languageVersionSettings.supportsFeature(LanguageFeature.ReadDeserializedContracts)
 }

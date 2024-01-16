@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
 import org.jetbrains.kotlin.backend.jvm.ir.irArray
 import org.jetbrains.kotlin.backend.jvm.ir.javaClassReference
 import org.jetbrains.kotlin.codegen.ImplementationBodyCodegen
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
@@ -31,12 +32,13 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrSetValueImpl
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.name.SpecialNames
 
 internal val enumClassPhase = makeIrFilePhase(
     ::EnumClassLowering,
@@ -45,18 +47,57 @@ internal val enumClassPhase = makeIrFilePhase(
 )
 
 private const val VALUES_HELPER_FUNCTION_NAME = "\$values"
+private const val ENTRIES_FIELD_NAME = "\$ENTRIES"
 
-private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringPass {
+private class EnumClassLowering(private val context: JvmBackendContext) : ClassLoweringPass {
+
+    /*
+     * Example of codegen for
+     * `enum class MyEnum { A }`
+     *
+     * ```
+     * enum MyEnum extends Enum<MyEnum> {
+     *     private static final synthetic MyEnum[] $VALUES
+     *     private static final synthetic EnumEntries<MyEnum> $ENTRIES;
+     *
+     *     <clinit> {
+     *         A = new MyEnum("A", 0);
+     *         $VALUES = $values();
+     *         $ENTRIES = new EnumEntries($VALUES);
+     *     }
+     *
+     *     public static MyEnum[] values() {
+     *         return $VALUES.clone();
+     *     }
+     *
+     *     // Should be a read-only property from Kotlin's standpoint
+     *     public static EnumEntries<MyEnum> getEntries() {
+     *         return $ENTRIES;
+     *     }
+     *
+     *     private synthetic static MyEnum[] $values() {
+     *         return new MyEnum[] { A };
+     *     }
+     *
+     *     private synthetic static MyEnum[] $entries() {
+     *         return $VALUES
+     *     }
+     * }
+     * ```
+     */
+
     override fun lower(irClass: IrClass) {
         if (!irClass.isEnumClass) return
-        EnumClassTransformer(irClass).run()
+        // Also protected by API version check as it relies on EnumEntries in standard library
+        EnumClassTransformer(irClass, context.config.languageVersionSettings.supportsFeature(LanguageFeature.EnumEntries)).run()
     }
 
-    private inner class EnumClassTransformer(val irClass: IrClass) {
+    private inner class EnumClassTransformer(private val irClass: IrClass, private val supportsEnumEntries: Boolean) {
         private val loweredEnumConstructors = hashMapOf<IrConstructorSymbol, IrConstructor>()
         private val loweredEnumConstructorParameters = hashMapOf<IrValueParameterSymbol, IrValueParameter>()
         private val enumEntryOrdinals = TObjectIntHashMap<IrEnumEntry>()
         private val declarationToEnumEntry = mutableMapOf<IrDeclaration, IrEnumEntry>()
+        private val enumArrayType = context.irBuiltIns.arrayClass.typeWith(irClass.defaultType) // Enum[]
 
         fun run() {
             // Lower IrEnumEntry into IrField and IrClass members
@@ -75,22 +116,41 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
             // Construct the synthetic $VALUES field, which contains an array of all enum entries by calling $values()
             val valuesField = buildValuesField(valuesHelperFunction)
 
+            val entriesField = when {
+                !irClass.hasGetEntriesFunction -> {
+                    null
+                }
+                !supportsEnumEntries -> {
+                    error("The frontend must have checked if the feature is supported while emitting the IR")
+                }
+                else -> {
+                    // Add synthetic $ENTRIES field and bind its initializer to `EnumEntries($VALUES)`.
+                    buildEntriesField(valuesField)
+                }
+            }
+
             // Add synthetic parameters to enum constructors and implement the values and valueOf functions
-            irClass.transformChildrenVoid(EnumClassDeclarationsTransformer(valuesField))
+            irClass.transformChildrenVoid(EnumClassDeclarationsTransformer(valuesField, entriesField))
 
             // Add synthetic arguments to enum constructor calls and remap enum constructor parameters
             irClass.transformChildrenVoid(EnumClassCallTransformer())
         }
 
+        private val IrClass.hasGetEntriesFunction: Boolean
+            get() = declarations.any { it.isGetEntriesFunction }
+
+        private val IrDeclaration.isGetEntriesFunction: Boolean
+            get() = this is IrFunction && name == SpecialNames.ENUM_GET_ENTRIES && origin == IrDeclarationOrigin.ENUM_CLASS_SPECIAL_MEMBER
+
         private fun buildEnumEntryField(enumEntry: IrEnumEntry): IrField =
             context.cachedDeclarations.getFieldForEnumEntry(enumEntry).apply {
-                initializer = IrExpressionBodyImpl(enumEntry.initializerExpression!!.expression.patchDeclarationParents(this))
-                annotations += enumEntry.annotations
+                initializer = enumEntry.initializerExpression?.let { IrExpressionBodyImpl(it.expression.patchDeclarationParents(this)) }
+                annotations = annotations + enumEntry.annotations
             }
 
         private fun buildValuesHelperFunction(): IrFunction = irClass.addFunction {
             name = Name.identifier(VALUES_HELPER_FUNCTION_NAME)
-            returnType = context.irBuiltIns.arrayClass.typeWith(irClass.defaultType)
+            returnType = enumArrayType
             visibility = DescriptorVisibilities.PRIVATE
             origin = IrDeclarationOrigin.SYNTHETIC_HELPER_FOR_ENUM_VALUES
         }.apply {
@@ -105,7 +165,7 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
 
         private fun buildValuesField(valuesHelperFunction: IrFunction): IrField = irClass.addField {
             name = Name.identifier(ImplementationBodyCodegen.ENUM_VALUES_FIELD_NAME)
-            type = context.irBuiltIns.arrayClass.typeWith(irClass.defaultType)
+            type = enumArrayType
             visibility = DescriptorVisibilities.PRIVATE
             origin = IrDeclarationOrigin.FIELD_FOR_ENUM_VALUES
             isFinal = true
@@ -118,7 +178,27 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
             }
         }
 
-        private inner class EnumClassDeclarationsTransformer(val valuesField: IrField) : IrElementTransformerVoid() {
+        private fun buildEntriesField(valuesField: IrField): IrField = irClass.addField {
+            name = Name.identifier(ENTRIES_FIELD_NAME)
+            type = context.ir.symbols.enumEntries.defaultType
+            visibility = DescriptorVisibilities.PRIVATE
+            origin = IrDeclarationOrigin.FIELD_FOR_ENUM_ENTRIES
+            isFinal = true
+            isStatic = true
+        }.apply {
+            initializer = context.createJvmIrBuilder(symbol).run {
+                irExprBody(
+                    irCall(this@EnumClassLowering.context.ir.symbols.createEnumEntries).apply {
+                        putValueArgument(0, irGetField(null, valuesField))
+                    }
+                )
+            }
+        }
+
+        private inner class EnumClassDeclarationsTransformer(
+            private val valuesField: IrField, private val entriesField: IrField?
+        ) : IrElementTransformerVoid() {
+
             override fun visitClass(declaration: IrClass): IrStatement =
                 if (declaration.isEnumEntry) super.visitClass(declaration) else declaration
 
@@ -148,8 +228,7 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                 }
 
             override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
-                val body = declaration.body?.safeAs<IrSyntheticBody>()
-                    ?: return declaration
+                val body = declaration.body as? IrSyntheticBody ?: return declaration
 
                 declaration.body = context.createJvmIrBuilder(declaration.symbol).run {
                     irExprBody(
@@ -165,6 +244,12 @@ private class EnumClassLowering(val context: JvmBackendContext) : ClassLoweringP
                                     putValueArgument(0, javaClassReference(irClass.defaultType))
                                     putValueArgument(1, irGet(declaration.valueParameters[0]))
                                 }
+
+                            IrSyntheticBodyKind.ENUM_ENTRIES -> {
+                                // We're ensuring on FE level that this declaration exists only
+                                // when the corresponding flag is set up (-> entriesField is never null)
+                                irGetField(null, entriesField!!)
+                            }
                         }
                     )
                 }

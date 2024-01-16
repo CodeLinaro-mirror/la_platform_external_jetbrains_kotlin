@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.analysis.api.fir.generator.HLDiagnosticParameter
 import org.jetbrains.kotlin.analysis.api.fir.generator.printTypeWithShortNames
 import org.jetbrains.kotlin.fir.checkers.generator.collectClassNamesTo
 import org.jetbrains.kotlin.fir.checkers.generator.inBracketsWithIndent
-import org.jetbrains.kotlin.util.SmartPrinter
-import org.jetbrains.kotlin.util.withIndent
+import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.withIndent
 
 object KtDiagnosticClassImplementationRenderer : AbstractDiagnosticsDataClassRenderer() {
     override fun SmartPrinter.render(diagnosticList: HLDiagnosticList, packageName: String) {
@@ -32,17 +32,17 @@ object KtDiagnosticClassImplementationRenderer : AbstractDiagnosticsDataClassRen
         withIndent {
             printParameters(diagnostic, diagnosticList)
         }
-        print(") : KtFirDiagnostic.${diagnostic.className}(), KtAbstractFirDiagnostic<")
+        print(") : KtAbstractFirDiagnostic<")
         printTypeWithShortNames(diagnostic.original.psiType)
-        println(">")
+        println(">(firDiagnostic, token), KtFirDiagnostic.${diagnostic.className}")
     }
 
     private fun SmartPrinter.printParameters(diagnostic: HLDiagnostic, diagnosticList: HLDiagnosticList) {
         for (parameter in diagnostic.parameters) {
             printParameter(parameter, diagnosticList)
         }
-        println("override val firDiagnostic: KtPsiDiagnostic,")
-        println("override val token: KtLifetimeToken,")
+        println("firDiagnostic: KtPsiDiagnostic,")
+        println("token: KtLifetimeToken,")
     }
 
     private fun SmartPrinter.printParameter(parameter: HLDiagnosticParameter, diagnosticList: HLDiagnosticList) {
@@ -53,7 +53,6 @@ object KtDiagnosticClassImplementationRenderer : AbstractDiagnosticsDataClassRen
         println(",")
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     override fun collectImportsForDiagnosticParameter(diagnosticParameter: HLDiagnosticParameter): Collection<String> = buildSet {
         diagnosticParameter.type.collectClassNamesTo(this)
     }

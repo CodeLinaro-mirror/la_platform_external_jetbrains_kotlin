@@ -22,6 +22,6 @@ object Local {
     fun baz(x: Int, y: Int = 0): Int = 0
 
     fun test() {
-        bar(::baz)
+        bar(::<!UNRESOLVED_REFERENCE!>baz<!>)
     }
 }

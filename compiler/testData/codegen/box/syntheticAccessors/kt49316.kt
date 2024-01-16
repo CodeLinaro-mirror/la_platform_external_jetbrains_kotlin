@@ -1,4 +1,8 @@
-// IGNORE_BACKEND: JS
+// The test isn't passing when using K/N per-file caches and in order to fix it,
+// some hacks are required, which isn't worth it considering that test contains invalid code (reassign of val property).
+// IGNORE_BACKEND: NATIVE
+// IGNORE_BACKEND_K2: ANY
+// FIR_STATUS: KT-35565
 //  java.lang.AssertionError
 //    at org.jetbrains.kotlin.js.translate.context.TranslationContext.getDispatchReceiver(TranslationContext.java:590)
 //    at org.jetbrains.kotlin.js.translate.utils.TranslationUtils.backingFieldReference(TranslationUtils.java:237)

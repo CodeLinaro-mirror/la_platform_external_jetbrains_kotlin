@@ -15,12 +15,14 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.tree.generator.context.generatedType
 import org.jetbrains.kotlin.fir.tree.generator.context.type
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.SmartcastStability
 import org.jetbrains.kotlin.types.Variance
 
@@ -42,33 +44,36 @@ val smartcastStabilityType = type(SmartcastStability::class)
 val fqNameType = type(FqName::class)
 val classIdType = type(ClassId::class)
 val annotationUseSiteTargetType = type(AnnotationUseSiteTarget::class)
-val operationKindType = type("fir.expressions", "LogicOperationKind")
+val operationKindType = type("contracts.description", "LogicOperationKind")
 val coneKotlinTypeType = type(ConeKotlinType::class)
+val coneErrorTypeType = type(ConeErrorType::class)
 val coneSimpleKotlinTypeType = type(ConeSimpleKotlinType::class)
+val coneClassLikeTypeType = type(ConeClassLikeType::class)
+val standardClassIdsType = type(StandardClassIds::class)
 
 val whenRefType = generatedType("", "FirExpressionRef<FirWhenExpression>")
-val safeCallOriginalReceiverReferenceType = generatedType("", "FirExpressionRef<FirExpression>")
+val referenceToSimpleExpressionType = generatedType("", "FirExpressionRef<FirExpression>")
 val safeCallCheckedSubjectReferenceType = generatedType("", "FirExpressionRef<FirCheckedSafeCallSubject>")
 
 val firModuleDataType = type("fir", "FirModuleData")
-val noReceiverExpressionType = generatedType("expressions.impl", "FirNoReceiverExpression", firType = true)
-val implicitTypeRefType = generatedType("types.impl", "FirImplicitTypeRefImpl", firType = true)
+val firImplicitTypeWithoutSourceType = generatedType("types.impl", "FirImplicitTypeRefImplWithoutSource")
 val firQualifierPartType = type("fir.types", "FirQualifierPart")
 val simpleNamedReferenceType = generatedType("references.impl", "FirSimpleNamedReference")
-val explicitThisReferenceType = generatedType("references.impl", "FirExplicitThisReference", firType = true)
-val explicitSuperReferenceType = generatedType("references.impl", "FirExplicitSuperReference", firType = true)
-val implicitBooleanTypeRefType = generatedType("types.impl", "FirImplicitBooleanTypeRef", firType = true)
-val implicitNothingTypeRefType = generatedType("types.impl", "FirImplicitNothingTypeRef", firType = true)
-val implicitStringTypeRefType = generatedType("types.impl", "FirImplicitStringTypeRef", firType = true)
-val implicitUnitTypeRefType = generatedType("types.impl", "FirImplicitUnitTypeRef", firType = true)
+val explicitThisReferenceType = generatedType("references.impl", "FirExplicitThisReference")
+val explicitSuperReferenceType = generatedType("references.impl", "FirExplicitSuperReference")
+val implicitBooleanTypeRefType = generatedType("types.impl", "FirImplicitBooleanTypeRef")
+val implicitNothingTypeRefType = generatedType("types.impl", "FirImplicitNothingTypeRef")
+val implicitStringTypeRefType = generatedType("types.impl", "FirImplicitStringTypeRef")
+val implicitUnitTypeRefType = generatedType("types.impl", "FirImplicitUnitTypeRef")
 val resolvePhaseType = type("fir.declarations", "FirResolvePhase")
+val resolveStateType = type("fir.declarations", "FirResolveState")
 val propertyBodyResolveStateType = type("fir.declarations", "FirPropertyBodyResolveState")
-val stubReferenceType = generatedType("references.impl", "FirStubReference", firType = true)
+val stubReferenceType = generatedType("references.impl", "FirStubReference")
 
 val firBasedSymbolType = type("fir.symbols", "FirBasedSymbol")
+val functionSymbolType = type("fir.symbols.impl", "FirFunctionSymbol")
 val backingFieldSymbolType = type("fir.symbols.impl", "FirBackingFieldSymbol")
 val delegateFieldSymbolType = type("fir.symbols.impl", "FirDelegateFieldSymbol")
-val classSymbolType = type("fir.symbols.impl", "FirClassSymbol")
 val classLikeSymbolType = type("fir.symbols.impl", "FirClassLikeSymbol<*>")
 val regularClassSymbolType = type("fir.symbols.impl", "FirRegularClassSymbol")
 val typeParameterSymbolType = type("fir.symbols.impl", "FirTypeParameterSymbol")
@@ -76,12 +81,12 @@ val emptyArgumentListType = type("fir.expressions", "FirEmptyArgumentList")
 val firScopeProviderType = type("fir.scopes", "FirScopeProvider")
 
 val pureAbstractElementType = generatedType("FirPureAbstractElement")
+val coneContractElementType = type("fir.contracts.description", "ConeContractDescriptionElement")
 val coneEffectDeclarationType = type("fir.contracts.description", "ConeEffectDeclaration")
 val emptyContractDescriptionType = generatedType("contracts.impl", "FirEmptyContractDescription")
 val coneDiagnosticType = generatedType("diagnostics", "ConeDiagnostic")
 val coneStubDiagnosticType = generatedType("diagnostics", "ConeStubDiagnostic")
 
-val dslBuilderAnnotationType = generatedType("builder", "FirBuilderDsl")
 val firImplementationDetailType = generatedType("FirImplementationDetail")
 val declarationOriginType = generatedType("declarations", "FirDeclarationOrigin")
 val declarationAttributesType = generatedType("declarations", "FirDeclarationAttributes")
@@ -94,9 +99,11 @@ val functionCallOrigin = type("fir.expressions", "FirFunctionCallOrigin")
 
 val resolvedDeclarationStatusImplType = type("fir.declarations.impl", "FirResolvedDeclarationStatusImpl")
 
-val deprecationsPerUseSiteType = type("fir.declarations", "DeprecationsPerUseSite")
+val deprecationsProviderType = type("fir.declarations", "DeprecationsProvider")
+val unresolvedDeprecationsProviderType = type("fir.declarations", "UnresolvedDeprecationProvider")
 val emptyAnnotationArgumentMappingType = type("fir.expressions.impl", "FirEmptyAnnotationArgumentMapping")
 
 val firPropertySymbolType = type("fir.symbols.impl", "FirPropertySymbol")
-val errorTypeRefImplType = type("fir.types.impl", "FirErrorTypeRefImpl", firType = true)
+val errorTypeRefImplType = type("fir.types.impl", "FirErrorTypeRefImpl")
 
+val annotationResolvePhaseType = generatedType("expressions", "FirAnnotationResolvePhase")

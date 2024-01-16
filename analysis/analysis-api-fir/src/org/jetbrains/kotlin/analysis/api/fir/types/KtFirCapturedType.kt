@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.types
 
+import org.jetbrains.kotlin.analysis.api.KtTypeProjection
 import org.jetbrains.kotlin.analysis.api.annotations.KtAnnotationsList
 import org.jetbrains.kotlin.analysis.api.fir.KtSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.annotations.KtFirAnnotationListForType
@@ -14,20 +15,23 @@ import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.types.KtCapturedType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.fir.types.ConeCapturedType
-import org.jetbrains.kotlin.fir.types.render
+import org.jetbrains.kotlin.fir.types.renderForDebugging
 
 internal class KtFirCapturedType(
     override val coneType: ConeCapturedType,
-    override val token: KtLifetimeToken,
     private val builder: KtSymbolByFirBuilder,
 ) : KtCapturedType(), KtFirType {
+    override val token: KtLifetimeToken get() = builder.token
     override val nullability: KtTypeNullability get() = withValidityAssertion { coneType.nullability.asKtNullability() }
+
+    override val projection: KtTypeProjection
+        get() = withValidityAssertion { builder.typeBuilder.buildTypeProjection(coneType.constructor.projection) }
 
     override val annotationsList: KtAnnotationsList by cached {
         KtFirAnnotationListForType.create(coneType, builder.rootSession, token)
     }
 
-    override fun asStringForDebugging(): String = withValidityAssertion { coneType.render() }
+    override fun asStringForDebugging(): String = withValidityAssertion { coneType.renderForDebugging() }
 
 
     override fun equals(other: Any?) = typeEquals(other)

@@ -17,10 +17,13 @@ import org.jetbrains.kotlin.analysis.test.framework.TestWithDisposable
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.ktModuleProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.ExpressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.ExpressionMarkersSourceFilePreprocessor
-import org.jetbrains.kotlin.analysis.test.framework.services.SubstitutionParser
+import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
+import org.jetbrains.kotlin.analysis.test.framework.services.libraries.CompilerExecutor
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.FrontendKind
 import org.jetbrains.kotlin.analysis.test.framework.utils.SkipTestException
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.TestConfiguration
@@ -34,8 +37,10 @@ import org.jetbrains.kotlin.test.model.ResultingArtifact
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerTest
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.impl.TemporaryDirectoryManagerImpl
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInfo
+import java.io.IOException
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.exists
@@ -49,17 +54,25 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     protected lateinit var testDataPath: Path
         private set
 
-    private lateinit var testServices: TestServices
+    private var _testServices: TestServices? = null
+
+    private var testServices: TestServices
+        get() = _testServices ?: error("`_testServices` has not been initialized")
+        set(value) {
+            _testServices = value
+        }
 
     protected open fun configureTest(builder: TestConfigurationBuilder) {
         configurator.configureTest(builder, disposable)
     }
 
-    protected abstract fun doTestByFileStructure(moduleStructure: TestModuleStructure, testServices: TestServices)
+    protected abstract fun doTestByModuleStructure(moduleStructure: TestModuleStructure, testServices: TestServices)
 
-    protected fun AssertionsService.assertEqualsToTestDataFileSibling(actual: String, extension: String = ".txt") {
-        val testPrefix = configurator.testPrefix
-
+    protected fun AssertionsService.assertEqualsToTestDataFileSibling(
+        actual: String,
+        extension: String = ".txt",
+        testPrefix: String? = configurator.testPrefix,
+    ) {
         val expectedFile = getTestDataFileSiblingPath(extension, testPrefix = testPrefix)
         assertEqualsToFile(expectedFile, actual)
 
@@ -104,9 +117,12 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
 
         useDirectives(*AbstractKotlinCompilerTest.defaultDirectiveContainers.toTypedArray())
         useDirectives(JvmEnvironmentConfigurationDirectives)
+        useDirectives(CompilerExecutor.Directives)
+
 
         useSourcePreprocessor(::ExpressionMarkersSourceFilePreprocessor)
         useAdditionalService { ExpressionMarkerProvider() }
+        useDirectives(ExpressionMarkerProvider.Directives)
 
         registerAnalysisApiBaseTestServices(disposable, configurator)
         configureTest(this)
@@ -131,7 +147,22 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
             return
         }
 
-        doTestByFileStructure(moduleStructure, testServices)
+        if (configurator.frontendKind == FrontendKind.Fe10 && isFe10DisabledForTheTest() ||
+            configurator.frontendKind == FrontendKind.Fir && isFirDisabledForTheTest()
+        ) {
+            return
+        }
+
+        doTestByModuleStructure(moduleStructure, testServices)
+    }
+
+    @AfterEach
+    fun cleanupTemporaryDirectories() {
+        try {
+            _testServices?.temporaryDirectoryManager?.cleanupTemporaryDirectories()
+        } catch (e: IOException) {
+            println("Failed to clean temporary directories: ${e.message}\n${e.stackTrace}")
+        }
     }
 
     private fun createTestConfiguration(): TestConfiguration {
@@ -160,17 +191,38 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     private fun isDependentModeDisabledForTheTest(): Boolean =
         AnalysisApiTestDirectives.DISABLE_DEPENDED_MODE in testServices.moduleStructure.allDirectives
 
-    protected fun <R> analyseForTest(contextElement: KtElement, action: KtAnalysisSession.() -> R): R {
+    private fun isFe10DisabledForTheTest(): Boolean =
+        AnalysisApiTestDirectives.IGNORE_FE10 in testServices.moduleStructure.allDirectives
+
+    private fun isFirDisabledForTheTest(): Boolean =
+        AnalysisApiTestDirectives.IGNORE_FIR in testServices.moduleStructure.allDirectives
+
+    protected fun <R> analyseForTest(contextElement: KtElement, action: KtAnalysisSession.(KtElement) -> R): R {
         return if (configurator.analyseInDependentSession) {
             val originalContainingFile = contextElement.containingKtFile
             val fileCopy = originalContainingFile.copy() as KtFile
+            val sameElementInCopy = PsiTreeUtil.findSameElementInCopy(contextElement, fileCopy)
             analyzeInDependedAnalysisSession(
                 originalContainingFile,
-                PsiTreeUtil.findSameElementInCopy(contextElement, fileCopy),
-                action = action
+                sameElementInCopy,
+                action = { action(sameElementInCopy) }
             )
         } else {
-            analyze(contextElement, action = action)
+            analyze(contextElement, action = { action(contextElement) })
+        }
+    }
+
+    /**
+     * Invoke the analysis in the context of given [file]
+     *
+     * To perform the test for in-air analysis, it will look for the declaration marked with the caret `<caret_onAirContext>`
+     */
+    protected fun <R> analyseForTest(file: KtFile, action: KtAnalysisSession.(KtElement) -> R): R {
+        return if (configurator.analyseInDependentSession) {
+            val declaration = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtDeclaration>(file, ON_AIR_CONTEXT_CARET_TAG)
+            analyseForTest(declaration, action)
+        } else {
+            analyze(file, action = { action(file) })
         }
     }
 
@@ -181,5 +233,9 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
             methodName = testInfo.testMethod.orElseGet(null)?.name ?: "_testUndefined_",
             tags = testInfo.tags
         )
+    }
+
+    companion object {
+        private const val ON_AIR_CONTEXT_CARET_TAG = "onAirContext"
     }
 }

@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.gradle.plugin.konan
 
+import kotlinBuildProperties
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.plugin.konan.KonanPlugin.ProjectProperty.KONAN_HOME
 import org.jetbrains.kotlin.konan.target.HostManager
@@ -39,6 +40,7 @@ internal fun KonanToolRunner.run(vararg args: String) = run(args.toList())
 
 private const val runFromDaemonPropertyName = "kotlin.native.tool.runFromDaemon"
 
+@Suppress("DEPRECATION") // calling KotlinToolRunner(project) constructor is deprecated
 internal abstract class KonanCliRunner(
         protected val toolName: String,
         project: Project,
@@ -50,7 +52,7 @@ internal abstract class KonanCliRunner(
     final override val mainClass get() = "org.jetbrains.kotlin.cli.utilities.MainKt"
     final override val daemonEntryPoint get() = "daemonMain"
 
-    final override val mustRunViaExec get() = false.also { System.setProperty(runFromDaemonPropertyName, "true") }
+    override val mustRunViaExec get() = false.also { System.setProperty(runFromDaemonPropertyName, "true") }
 
     final override val execSystemPropertiesBlacklist: Set<String>
         get() = super.execSystemPropertiesBlacklist + runFromDaemonPropertyName
@@ -89,8 +91,7 @@ internal abstract class KonanCliRunner(
 
     // A separate map for each build for automatic cleaning the daemon after the build have finished.
     @Suppress("UNCHECKED_CAST")
-    final override val isolatedClassLoaders get() =
-        project.project(":kotlin-native").ext["toolClassLoadersMap"] as ConcurrentHashMap<Any, URLClassLoader>
+    final override val isolatedClassLoaders = project.project(":kotlin-native").ext["toolClassLoadersMap"] as ConcurrentHashMap<Any, URLClassLoader>
 
     override fun transformArgs(args: List<String>) = listOf(toolName) + args
 
@@ -136,12 +137,21 @@ internal class CliToolConfig(konanHome: String, target: String) : AbstractToolCo
 
 /** Kotlin/Native C-interop tool runner */
 internal class KonanCliInteropRunner(
-        project: Project,
+        private val project: Project,
         additionalJvmArgs: List<String> = emptyList(),
         konanHome: String = project.konanHome
 ) : KonanCliRunner("cinterop", project, additionalJvmArgs, konanHome) {
+    private val projectDir = project.projectDir.toString()
+
+    override val mustRunViaExec: Boolean
+        get() = if (project.kotlinBuildProperties.getBoolean("kotlin.native.allowRunningCinteropInProcess")) {
+            super.mustRunViaExec
+        } else {
+            true
+        }
+
     override fun transformArgs(args: List<String>): List<String> {
-        return super.transformArgs(args) + listOf("-Xproject-dir", project.projectDir.toString())
+        return super.transformArgs(args) + listOf("-Xproject-dir", projectDir)
     }
 
     override val execEnvironment by lazy {

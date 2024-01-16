@@ -5,13 +5,23 @@
 
 package org.jetbrains.kotlin.ir.generator.model
 
+import org.jetbrains.kotlin.generators.tree.*
 import org.jetbrains.kotlin.ir.generator.config.*
 import org.jetbrains.kotlin.ir.generator.elementBaseType
-import org.jetbrains.kotlin.ir.generator.util.*
+import org.jetbrains.kotlin.utils.addToStdlib.UnsafeCastFunction
 import org.jetbrains.kotlin.utils.addToStdlib.castAll
 import org.jetbrains.kotlin.utils.addToStdlib.partitionIsInstance
 
-private object InferredOverriddenType : TypeRef
+private object InferredOverriddenType : TypeRef {
+    override val type: String
+        get() = error("not supported")
+    override val packageName: String?
+        get() = null
+
+    override fun getTypeWithArguments(notNull: Boolean): String {
+        error("not supported")
+    }
+}
 
 data class Model(val elements: List<Element>, val rootElement: Element)
 
@@ -19,49 +29,16 @@ fun config2model(config: Config): Model {
     val ec2el = mutableMapOf<ElementConfig, Element>()
 
     val elements = config.elements.map { ec ->
-        val fields = ec.fields.mapTo(mutableListOf()) { fc ->
-            val field = when (fc) {
-                is SimpleFieldConfig -> SingleField(
-                    fc,
-                    fc.name,
-                    fc.type ?: InferredOverriddenType,
-                    fc.nullable,
-                    fc.mutable,
-                    fc.isChild,
-                    fc.baseDefaultValue,
-                    fc.baseGetter
-                )
-                is ListFieldConfig -> {
-                    val listType = if (fc.mutability == ListFieldConfig.Mutability.List) type(
-                        "kotlin.collections",
-                        "MutableList"
-                    ) else type("kotlin.collections", "List")
-                    ListField(
-                        fc,
-                        fc.name,
-                        fc.elementType ?: InferredOverriddenType,
-                        listType,
-                        fc.nullable,
-                        fc.mutability == ListFieldConfig.Mutability.Var,
-                        fc.isChild,
-                        fc.mutability != ListFieldConfig.Mutability.Immutable,
-                        fc.baseDefaultValue,
-                        fc.baseGetter
-                    )
-                }
-            }
-            field
+        Element(
+            config = ec,
+            name = ec.name,
+            packageName = ec.category.packageName,
+            params = ec.params,
+            fields = ec.fields.mapTo(mutableListOf(), ::transformFieldConfig),
+            additionalFactoryMethodParameters = ec.additionalIrFactoryMethodParameters.mapTo(mutableListOf(), ::transformFieldConfig)
+        ).also {
+            ec2el[ec.element] = it
         }
-
-        val element = Element(
-            ec,
-            ec.name,
-            ec.category.packageName,
-            ec.params,
-            fields
-        )
-        ec2el[ec.element] = element
-        element
     }
 
     val rootElement = replaceElementRefs(config, ec2el)
@@ -75,6 +52,45 @@ fun config2model(config: Config): Model {
     return Model(elements, rootElement)
 }
 
+private fun transformFieldConfig(fc: FieldConfig): Field = when (fc) {
+    is SimpleFieldConfig -> SingleField(
+        fc,
+        fc.name,
+        fc.type ?: InferredOverriddenType,
+        fc.nullable,
+        fc.mutable,
+        fc.isChild,
+        fc.baseDefaultValue,
+        fc.baseGetter,
+    )
+    is ListFieldConfig -> {
+        val listType = when (fc.mutability) {
+            ListFieldConfig.Mutability.List -> type(
+                "kotlin.collections",
+                "MutableList",
+            )
+            ListFieldConfig.Mutability.Array -> type(
+                "kotlin.",
+                "Array",
+            )
+            else -> type("kotlin.collections", "List")
+        }
+        ListField(
+            fc,
+            fc.name,
+            fc.elementType ?: InferredOverriddenType,
+            listType,
+            fc.nullable,
+            fc.mutability == ListFieldConfig.Mutability.Var,
+            fc.isChild,
+            fc.mutability != ListFieldConfig.Mutability.Immutable,
+            fc.baseDefaultValue,
+            fc.baseGetter,
+        )
+    }
+}
+
+@OptIn(UnsafeCastFunction::class)
 private fun replaceElementRefs(config: Config, mapping: Map<ElementConfig, Element>): Element {
     val visited = mutableMapOf<TypeRef, TypeRef>()
 
@@ -132,7 +148,9 @@ private fun markLeaves(elements: List<Element>) {
 
     for (el in elements) {
         for (parent in el.elementParents) {
-            leaves.remove(parent.element)
+            if (!parent.element.isLeaf) {
+                leaves.remove(parent.element)
+            }
         }
     }
 

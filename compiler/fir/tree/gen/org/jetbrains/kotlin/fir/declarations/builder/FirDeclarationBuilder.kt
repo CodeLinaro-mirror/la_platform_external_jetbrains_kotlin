@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.declarations.builder
 
@@ -25,9 +25,9 @@ import org.jetbrains.kotlin.fir.visitors.*
 @FirBuilderDsl
 interface FirDeclarationBuilder {
     abstract var source: KtSourceElement?
+    abstract var resolvePhase: FirResolvePhase
     abstract val annotations: MutableList<FirAnnotation>
     abstract var moduleData: FirModuleData
-    abstract var resolvePhase: FirResolvePhase
     abstract var origin: FirDeclarationOrigin
     abstract var attributes: FirDeclarationAttributes
     fun build(): FirDeclaration

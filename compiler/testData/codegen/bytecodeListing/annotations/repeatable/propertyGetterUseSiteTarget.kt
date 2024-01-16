@@ -18,6 +18,10 @@ val ef: Int
     @A("e") @A("f") get() = 0
 
 @get:A("g")
-val ghi: Int
-    // "i" is not detected because of KT-48141.
-    @A("h") @get:A("i") get() = 0
+val gh: Int
+    @A("h") get() = 0
+
+@set:A("i")
+var ij: Int
+    get() = 0
+    @A("j") set(value) {}

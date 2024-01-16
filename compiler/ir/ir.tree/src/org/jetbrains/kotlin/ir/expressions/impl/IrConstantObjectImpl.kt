@@ -37,12 +37,13 @@ class IrConstantPrimitiveImpl(
 class IrConstantObjectImpl constructor(
     override val startOffset: Int,
     override val endOffset: Int,
-    override val constructor: IrConstructorSymbol,
-    initArguments: List<IrConstantValue>,
-    override val typeArguments: List<IrType>,
+    override var constructor: IrConstructorSymbol,
+    initValueArguments: List<IrConstantValue>,
+    initTypeArguments: List<IrType>,
     override var type: IrType = constructor.owner.constructedClassType,
 ) : IrConstantObject() {
-    override val valueArguments = SmartList(initArguments)
+    override val valueArguments = SmartList(initValueArguments)
+    override val typeArguments = SmartList(initTypeArguments)
 
     override fun contentEquals(other: IrConstantValue): Boolean =
         other is IrConstantObject &&

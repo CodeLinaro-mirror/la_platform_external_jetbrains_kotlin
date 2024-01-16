@@ -19,6 +19,7 @@ package org.jetbrains.kotlin.codegen;
 import kotlin.text.StringsKt;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.backend.common.CodegenUtil;
+import org.jetbrains.kotlin.backend.common.SamType;
 import org.jetbrains.kotlin.codegen.context.ClassContext;
 import org.jetbrains.kotlin.codegen.context.CodegenContext;
 import org.jetbrains.kotlin.codegen.state.GenerationState;
@@ -38,7 +39,6 @@ import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKt;
 import org.jetbrains.kotlin.resolve.scopes.MemberScope;
 import org.jetbrains.kotlin.storage.LockBasedStorageManager;
 import org.jetbrains.kotlin.types.KotlinType;
-import org.jetbrains.kotlin.backend.common.SamType;
 import org.jetbrains.kotlin.util.OperatorNameConventions;
 import org.jetbrains.org.objectweb.asm.Label;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
@@ -129,7 +129,7 @@ public class SamWrapperCodegen {
                                    : new String[] {samAsmType.getInternalName()};
         cv.defineClass(
                 file,
-                state.getClassFileVersion(),
+                state.getConfig().getClassFileVersion(),
                 classFlags,
                 asmType.getInternalName(),
                 null,
@@ -138,7 +138,7 @@ public class SamWrapperCodegen {
         );
         cv.visitSource(file.getName(), null);
 
-        WriteAnnotationUtilKt.writeSyntheticClassMetadata(cv, state, isInsideInline);
+        WriteAnnotationUtilKt.writeSyntheticClassMetadata(cv, state.getConfig(), isInsideInline);
 
         generateInnerClassInformation(file, asmType, cv);
 
@@ -166,7 +166,7 @@ public class SamWrapperCodegen {
             generateDelegatesToDefaultImpl(asmType, classDescriptor, samType.getClassDescriptor(), functionCodegen, state);
         }
 
-        cv.done();
+        cv.done(state.getConfig().getGenerateSmapCopyToAnnotation());
 
         return asmType;
     }

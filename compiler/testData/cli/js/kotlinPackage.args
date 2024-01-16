@@ -1,4 +1,5 @@
 $TESTDATA_DIR$/../kotlinPackage.kt
 -no-stdlib
+-Xforce-deprecated-legacy-compiler-usage
 -output
 $TEMP_DIR$/out.js

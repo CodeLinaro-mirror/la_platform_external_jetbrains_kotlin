@@ -3,15 +3,15 @@
  * that can be found in the LICENSE file.
  */
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.bitcode.CompileToBitcode
 import org.jetbrains.kotlin.bitcode.CompileToBitcodeExtension
+import org.jetbrains.kotlin.cpp.CppUsage
 import org.jetbrains.kotlin.gradle.plugin.konan.tasks.KonanCacheTask
 import org.jetbrains.kotlin.konan.properties.loadProperties
 import org.jetbrains.kotlin.konan.properties.saveProperties
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS
-import org.jetbrains.kotlin.konan.target.Architecture as TargetArchitecture
 import org.jetbrains.kotlin.konan.file.File as KFile
+import org.jetbrains.kotlin.konan.target.Architecture as TargetArchitecture
 
 // These properties are used by the 'konan' plugin, thus we set them before applying it.
 val distDir: File by project
@@ -25,7 +25,7 @@ plugins {
 }
 
 if (HostManager.host == KonanTarget.MACOS_ARM64) {
-    project.configureJvmToolchain(JdkMajorVersion.JDK_17)
+    project.configureJvmToolchain(JdkMajorVersion.JDK_17_0)
 }
 
 googletest {
@@ -33,186 +33,413 @@ googletest {
     refresh = project.hasProperty("refresh-gtest")
 }
 
-fun CompileToBitcode.includeRuntime() {
-    headersDirs += files("src/main/cpp")
-}
-
 val hostName: String by project
 val targetList: List<String> by project
 
 bitcode {
-    module("main") {
-        includeRuntime()
-
-        outputName = "runtime.bc"
-    }
-
-    module("mimalloc") {
-        val srcRoot = file("src/mimalloc")
-        language = CompileToBitcode.Language.C
-        includeFiles = listOf("**/*.c")
-        excludeFiles += listOf("**/alloc-override*.c", "**/page-queue.c", "**/static.c", "**/bitmap.inc.c")
-        srcDirs = files("$srcRoot/c")
-        compilerArgs.addAll(listOf("-DKONAN_MI_MALLOC=1", "-Wno-unknown-pragmas", "-ftls-model=initial-exec",
-                "-Wno-unused-function", "-Wno-error=atomic-alignment",
-                "-Wno-unused-parameter" /* for windows 32*/))
-        extraSanitizerArgs[SanitizerKind.THREAD] = listOf("-DMI_TSAN=1")
-        headersDirs = files("$srcRoot/c/include")
-
-        onlyIf { targetSupportsMimallocAllocator(target) }
-    }
-
-    module("libbacktrace") {
-        val srcRoot = file("src/libbacktrace")
-        val targetInfo = HostManager().targetByName(target)
-        language = CompileToBitcode.Language.C
-        val useMachO = targetInfo.family.isAppleFamily
-        val useElf = targetInfo.family in listOf(Family.LINUX, Family.ANDROID)
-        includeFiles = listOfNotNull(
-                "atomic.c",
-                "backtrace.c",
-                "dwarf.c",
-                "elf.c".takeIf { useElf },
-                "fileline.c",
-                "macho.c".takeIf { useMachO },
-                "mmap.c",
-                "mmapio.c",
-                "posix.c",
-                "print.c",
-                "simple.c",
-                "sort.c",
-                "state.c"
-        )
-        srcDirs = files("$srcRoot/c")
-        val elfSize = when (targetInfo.architecture) {
-            TargetArchitecture.X64, TargetArchitecture.ARM64 -> 64
-            TargetArchitecture.X86, TargetArchitecture.ARM32,
-            TargetArchitecture.MIPS32, TargetArchitecture.MIPSEL32,
-            TargetArchitecture.WASM32 -> 32
+    allTargets {
+        module("main") {
+            sourceSets {
+                main {
+                    // TODO: Split out out `base` module and merge it together with `main` into `runtime.bc`
+                    if (sanitizer == null) {
+                        outputFile.set(layout.buildDirectory.file("bitcode/main/$target/runtime.bc"))
+                    }
+                }
+                testFixtures {}
+                test {}
+            }
         }
-        compilerArgs.addAll(listOfNotNull(
-                "-funwind-tables",
-                "-W", "-Wall", "-Wwrite-strings", "-Wstrict-prototypes", "-Wmissing-prototypes",
-                "-Wold-style-definition", "-Wmissing-format-attribute", "-Wcast-qual", "-O2",
-                "-DBACKTRACE_ELF_SIZE=$elfSize".takeIf { useElf }, "-Wno-atomic-alignment"
-        ))
-        headersDirs = files("$srcRoot/c/include")
 
-        onlyIf { targetSupportsLibBacktrace(target) }
+        module("mimalloc") {
+            sourceSets {
+                main {
+                    inputFiles.from(srcRoot.dir("c"))
+                    inputFiles.include("**/*.c")
+                    inputFiles.exclude("**/alloc-override*.c", "**/page-queue.c", "**/static.c", "**/bitmap.inc.c")
+                    headersDirs.setFrom(srcRoot.dir("c/include"))
+                }
+            }
+
+            compiler.set("clang")
+            compilerArgs.set(listOfNotNull(
+                    "-std=gnu11",
+                    if (sanitizer == SanitizerKind.THREAD) { "-O1" } else { "-O3" },
+                    "-DKONAN_MI_MALLOC=1",
+                    "-Wno-unknown-pragmas",
+                    "-ftls-model=initial-exec",
+                    "-Wno-unused-function",
+                    "-Wno-error=atomic-alignment",
+                    "-Wno-unused-parameter", /* for windows 32 */
+                    "-DMI_TSAN=1".takeIf { sanitizer == SanitizerKind.THREAD },
+            ))
+
+            onlyIf { target.supportsMimallocAllocator() }
+        }
+
+        module("libbacktrace") {
+            val elfSize = when (target.architecture) {
+                TargetArchitecture.X64, TargetArchitecture.ARM64 -> 64
+                TargetArchitecture.X86, TargetArchitecture.ARM32,
+                TargetArchitecture.MIPS32, TargetArchitecture.MIPSEL32,
+                TargetArchitecture.WASM32 -> 32
+            }
+            val useMachO = target.family.isAppleFamily
+            val useElf = target.family in listOf(Family.LINUX, Family.ANDROID)
+
+            sourceSets {
+                main {
+                    inputFiles.from(srcRoot.dir("c"))
+                    inputFiles.include(listOfNotNull(
+                            "atomic.c",
+                            "backtrace.c",
+                            "dwarf.c",
+                            "elf.c".takeIf { useElf },
+                            "fileline.c",
+                            "macho.c".takeIf { useMachO },
+                            "mmap.c",
+                            "mmapio.c",
+                            "posix.c",
+                            "print.c",
+                            "simple.c",
+                            "sort.c",
+                            "state.c"
+                    ))
+                    headersDirs.setFrom(srcRoot.dir("c/include"))
+                }
+            }
+
+            compiler.set("clang")
+            compilerArgs.set(listOfNotNull(
+                    "-std=gnu11",
+                    "-funwind-tables",
+                    "-W",
+                    "-Wall",
+                    "-Wwrite-strings",
+                    "-Wstrict-prototypes",
+                    "-Wmissing-prototypes",
+                    "-Wold-style-definition",
+                    "-Wmissing-format-attribute",
+                    "-Wcast-qual",
+                    "-O2",
+                    "-DBACKTRACE_ELF_SIZE=$elfSize".takeIf { useElf },
+                    "-Wno-atomic-alignment"
+            ))
+
+            onlyIf { target.supportsLibBacktrace() }
+        }
+
+        module("compiler_interface") {
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("launcher") {
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("debug") {
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("common_alloc") {
+            srcRoot.set(layout.projectDirectory.dir("src/alloc/common"))
+            headersDirs.from(files("src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("std_alloc") {
+            srcRoot.set(layout.projectDirectory.dir("src/alloc/std"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/alloc/legacy/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("custom_alloc") {
+            srcRoot.set(layout.projectDirectory.dir("src/alloc/custom"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+                testFixtures {}
+            }
+
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
+        module("mimalloc_alloc") {
+            srcRoot.set(layout.projectDirectory.dir("src/alloc/mimalloc"))
+            headersDirs.from(files("src/mimalloc/c/include", "src/alloc/common/cpp", "src/alloc/legacy/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+
+            compilerArgs.add("-DKONAN_MI_MALLOC=1")
+        }
+
+        module("legacy_alloc") {
+            srcRoot.set(layout.projectDirectory.dir("src/alloc/legacy"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+                testFixtures {}
+            }
+        }
+
+        module("exceptionsSupport") {
+            srcRoot.set(layout.projectDirectory.dir("src/exceptions_support"))
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("source_info_core_symbolication") {
+            srcRoot.set(layout.projectDirectory.dir("src/source_info/core_symbolication"))
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+
+            onlyIf { target.supportsCoreSymbolication() }
+        }
+
+        module("source_info_libbacktrace") {
+            srcRoot.set(layout.projectDirectory.dir("src/source_info/libbacktrace"))
+            headersDirs.from(files("src/main/cpp", "src/libbacktrace/c/include"))
+            sourceSets {
+                main {}
+            }
+
+            onlyIf { target.supportsLibBacktrace() }
+        }
+
+        module("profileRuntime") {
+            srcRoot.set(layout.projectDirectory.dir("src/profile_runtime"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("objc") {
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("test_support") {
+            headersDirs.from(files("src/main/cpp"))
+            sourceSets {
+                testFixtures {
+                    inputFiles.include("**/*.cpp", "**/*.mm")
+                }
+            }
+        }
+
+        module("mm") {
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                testFixtures {}
+                test {}
+            }
+        }
+
+        module("common_gc") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/common"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        module("noop_gc") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/noop"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/legacy/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("noop_gc_custom") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/noop"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/custom/cpp"))
+            sourceSets {
+                main {}
+            }
+
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
+        module("same_thread_ms_gc") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/stms"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/legacy/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        module("same_thread_ms_gc_custom") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/stms"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/custom/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
+        module("concurrent_ms_gc") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/cms"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/legacy/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        module("concurrent_ms_gc_custom") {
+            srcRoot.set(layout.projectDirectory.dir("src/gc/cms"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp", "src/alloc/custom/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+
+            compilerArgs.add("-DCUSTOM_ALLOCATOR")
+        }
+
+        module("common_gcScheduler") {
+            srcRoot.set(layout.projectDirectory.dir("src/gcScheduler/common"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        module("manual_gcScheduler") {
+            srcRoot.set(layout.projectDirectory.dir("src/gcScheduler/manual"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+            }
+        }
+
+        module("adaptive_gcScheduler") {
+            srcRoot.set(layout.projectDirectory.dir("src/gcScheduler/adaptive"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        module("aggressive_gcScheduler") {
+            srcRoot.set(layout.projectDirectory.dir("src/gcScheduler/aggressive"))
+            headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/main/cpp"))
+            sourceSets {
+                main {}
+                test {}
+            }
+        }
+
+        testsGroup("custom_alloc_runtime_tests") {
+            testedModules.addAll("custom_alloc")
+            testSupportModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "concurrent_ms_gc_custom", "objc")
+        }
+
+        testsGroup("experimentalMM_mimalloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "same_thread_ms_gc", "mimalloc", "mimalloc_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_std_alloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "same_thread_ms_gc", "std_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_custom_alloc_runtime_tests") {
+            testedModules.addAll("mm", "same_thread_ms_gc_custom")
+            testSupportModules.addAll("main", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "custom_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_cms_mimalloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "concurrent_ms_gc", "mimalloc", "mimalloc_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_cms_std_alloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "concurrent_ms_gc", "std_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_cms_custom_alloc_runtime_tests") {
+            testedModules.addAll("mm", "concurrent_ms_gc_custom")
+            testSupportModules.addAll("main", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "custom_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_noop_mimalloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "noop_gc", "mimalloc", "mimalloc_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_noop_std_alloc_runtime_tests") {
+            testedModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "noop_gc", "std_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("experimentalMM_noop_custom_alloc_runtime_tests") {
+            testedModules.addAll("mm", "noop_gc_custom")
+            testSupportModules.addAll("main", "common_alloc", "common_gc", "common_gcScheduler", "manual_gcScheduler", "custom_alloc", "objc")
+        }
+
+        testsGroup("aggressive_gcScheduler_runtime_tests") {
+            testedModules.addAll("aggressive_gcScheduler")
+            testSupportModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "noop_gc", "std_alloc", "legacy_alloc", "objc")
+        }
+
+        testsGroup("adaptive_gcScheduler_runtime_tests") {
+            testedModules.addAll("adaptive_gcScheduler")
+            testSupportModules.addAll("main", "mm", "common_alloc", "common_gc", "common_gcScheduler", "noop_gc", "std_alloc", "legacy_alloc", "objc")
+        }
     }
+}
 
-
-    module("launcher") {
-        includeRuntime()
+val runtimeBitcode by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    attributes {
+        attribute(CppUsage.USAGE_ATTRIBUTE, objects.named(CppUsage.LLVM_BITCODE))
     }
+}
 
-    module("debug") {
-        includeRuntime()
-    }
+dependencies {
+    runtimeBitcode(project(":kotlin-native:runtime"))
+}
 
-    module("std_alloc") {
-        includeRuntime()
-    }
-
-    module("opt_alloc") {
-        includeRuntime()
-    }
-
-    module("exceptionsSupport", file("src/exceptions_support")) {
-        includeRuntime()
-    }
-
-    module("source_info_core_symbolication", file("src/source_info/core_symbolication")) {
-        includeRuntime()
-        onlyIf { targetSupportsCoreSymbolication(target) }
-    }
-    module("source_info_libbacktrace", file("src/source_info/libbacktrace")) {
-        includeRuntime()
-        headersDirs += files("src/libbacktrace/c/include")
-        onlyIf { targetSupportsLibBacktrace(target) }
-    }
-
-    module("strict") {
-        includeRuntime()
-    }
-
-    module("relaxed") {
-        includeRuntime()
-    }
-
-    module("profileRuntime", file("src/profile_runtime"))
-
-    module("objc") {
-        includeRuntime()
-    }
-
-    module("test_support", outputGroup = "test") {
-        includeRuntime()
-        dependsOn("downloadGoogleTest")
-        headersDirs += googletest.headersDirs
-    }
-
-    module("legacy_memory_manager", file("src/legacymm")) {
-        includeRuntime()
-    }
-
-    module("experimental_memory_manager", file("src/mm")) {
-        headersDirs += files("src/gc/common/cpp")
-        includeRuntime()
-    }
-
-    module("common_gc", file("src/gc/common")) {
-        headersDirs += files("src/mm/cpp")
-        includeRuntime()
-    }
-
-    module("noop_gc", file("src/gc/noop")) {
-        headersDirs += files("src/gc/noop/cpp", "src/gc/common/cpp", "src/mm/cpp")
-        includeRuntime()
-    }
-
-    module("same_thread_ms_gc", file("src/gc/stms")) {
-        headersDirs += files("src/gc/stms/cpp", "src/gc/common/cpp", "src/mm/cpp")
-        includeRuntime()
-    }
-
-    module("concurrent_ms_gc", file("src/gc/cms")) {
-        headersDirs += files("src/gc/cms/cpp", "src/gc/common/cpp", "src/mm/cpp")
-        includeRuntime()
-
-        onlyIf { targetSupportsThreads(target) }
-    }
-
-    testsGroup("std_alloc_runtime_tests") {
-        testedModules.addAll("main", "legacy_memory_manager", "strict", "std_alloc", "objc")
-    }
-
-    testsGroup("mimalloc_runtime_tests") {
-        testedModules.addAll("main", "legacy_memory_manager", "strict", "mimalloc", "opt_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_mimalloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "same_thread_ms_gc", "mimalloc", "opt_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_std_alloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "same_thread_ms_gc", "std_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_cms_mimalloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "concurrent_ms_gc", "mimalloc", "opt_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_cms_std_alloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "concurrent_ms_gc", "std_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_noop_mimalloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "noop_gc", "mimalloc", "opt_alloc", "objc")
-    }
-
-    testsGroup("experimentalMM_noop_std_alloc_runtime_tests") {
-        testedModules.addAll("main", "experimental_memory_manager", "common_gc", "noop_gc", "std_alloc", "objc")
+targetList.forEach { targetName ->
+    // TODO: replace with a more convenient user-facing task that can build for a specific target.
+    //       like compileToBitcode with optional argument --target.
+    tasks.register("${targetName}Runtime") {
+        description = "Build all main runtime modules for $targetName"
+        group = CompileToBitcodeExtension.BUILD_TASK_GROUP
+        val dependencies = runtimeBitcode.incoming.artifactView {
+            attributes {
+                attribute(TargetWithSanitizer.TARGET_ATTRIBUTE, project.platformManager.targetByName(targetName).withSanitizer())
+            }
+        }.files
+        dependsOn(dependencies)
     }
 }
 
@@ -228,7 +455,7 @@ val hostRuntimeTests by tasks.registering {
     dependsOn("${hostName}RuntimeTests")
 }
 
-val assemble by tasks.getting {
+tasks.named("assemble") {
     dependsOn(targetList.map { "${it}Runtime" })
 }
 
@@ -236,36 +463,9 @@ val hostAssemble by tasks.registering {
     dependsOn("${hostName}Runtime")
 }
 
-val clean by tasks.getting {
+tasks.named("clean") {
     doFirst {
         delete(buildDir)
-    }
-}
-
-val generateJsMath by tasks.registering {
-    dependsOn(":distCompiler")
-    doLast {
-        val distDir: File by project
-        val jsinteropScript = if (PlatformInfo.isWindows()) "jsinterop.bat" else "jsinterop"
-        val jsinterop = "$distDir/bin/$jsinteropScript"
-        val targetDir = "$buildDir/generated"
-
-        project.exec {
-            commandLine(
-                    jsinterop,
-                    "-pkg", "kotlinx.interop.wasm.math",
-                    "-o", "$targetDir/math",
-                    "-target", "wasm32"
-            )
-        }
-
-        val generated = file("$targetDir/math-build/natives/js_stubs.js")
-        val mathJs = file("src/main/js/math.js")
-        mathJs.writeText(
-            "// NOTE: THIS FILE IS AUTO-GENERATED!\n" +
-            "// Run ':runtime:generateJsMath' to re-generate it.\n\n"
-        )
-        mathJs.appendText(generated.readText())
     }
 }
 
@@ -308,12 +508,14 @@ konanArtifacts {
         extraOpts(project.globalBuildArgs)
         extraOpts(
                 "-Werror",
+                "-Xexpect-actual-classes",
                 "-module-name", "stdlib",
                 "-opt-in=kotlin.RequiresOptIn",
                 "-opt-in=kotlin.contracts.ExperimentalContracts",
                 "-opt-in=kotlin.ExperimentalMultiplatform",
                 "-opt-in=kotlin.native.internal.InternalForKotlinNative",
-                "-XXLanguage:+RangeUntilOperator",
+                "-language-version",
+                "1.9",
         )
 
         commonStdlibSrcDirs.forEach { commonSrcDir(it) }
@@ -326,6 +528,7 @@ konanArtifacts {
     stdlibBuildTask = project.findKonanBuildTask("stdlib", project.platformManager.hostPlatform.target).apply {
         configure {
             dependsOn(":kotlin-native:distCompiler")
+            dependsOn(":prepare:build.version:writeStdlibVersion")
         }
     }
 }
@@ -339,8 +542,13 @@ targetList.forEach { targetName ->
         destinationDir = project.buildDir.resolve("${targetName}Stdlib")
 
         from(project.buildDir.resolve("stdlib/${hostName}/stdlib"))
-        from(project.buildDir.resolve("bitcode/main/$targetName")) {
-            include("runtime.bc")
+        val runtimeFiles = runtimeBitcode.incoming.artifactView {
+            attributes {
+                attribute(TargetWithSanitizer.TARGET_ATTRIBUTE, project.platformManager.targetByName(targetName).withSanitizer())
+            }
+        }.files
+        from(runtimeFiles) {
+            include("runtime.bc", "compiler_interface.bc")
             into("default/targets/$targetName/native")
         }
 

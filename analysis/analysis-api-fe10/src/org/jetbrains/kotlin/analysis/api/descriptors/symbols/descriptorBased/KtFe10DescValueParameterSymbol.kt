@@ -1,19 +1,23 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased
 
+import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.calculateHashCode
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.KtFe10DescSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtType
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.isEqualTo
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.pointers.KtFe10NeverRestoringSymbolPointer
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtPsiBasedSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor
 import org.jetbrains.kotlin.name.Name
@@ -42,10 +46,16 @@ internal class KtFe10DescValueParameterSymbol(
     override val isVararg: Boolean
         get() = withValidityAssertion { descriptor.isVararg }
 
+    override val isCrossinline: Boolean
+        get() = withValidityAssertion { descriptor.isCrossinline }
+
+    override val isNoinline: Boolean
+        get() = withValidityAssertion { descriptor.isNoinline }
+
     override val isImplicitLambdaParameter: Boolean
         get() = withValidityAssertion {
             descriptor.containingDeclaration is AnonymousFunctionDescriptor &&
-                    descriptor.name.identifierOrNullIfSpecial == "it" &&
+                    descriptor.name == StandardNames.IMPLICIT_LAMBDA_PARAMETER_NAME &&
                     // Implicit lambda parameter doesn't have a source PSI.
                     descriptor.source.getPsi() == null &&
                     // But, that could be the case for a declaration from Library. Double-check the slice in the binding context
@@ -59,7 +69,12 @@ internal class KtFe10DescValueParameterSymbol(
             return (descriptor.varargElementType ?: descriptor.type).toKtType(analysisContext)
         }
 
+    context(KtAnalysisSession)
     override fun createPointer(): KtSymbolPointer<KtValueParameterSymbol> = withValidityAssertion {
-        return KtPsiBasedSymbolPointer.createForSymbolFromSource(this) ?: KtFe10NeverRestoringSymbolPointer()
+        KtPsiBasedSymbolPointer.createForSymbolFromSource<KtValueParameterSymbol>(this) ?: KtFe10NeverRestoringSymbolPointer()
     }
+
+    override fun equals(other: Any?): Boolean = isEqualTo(other)
+    override fun hashCode(): Int = calculateHashCode()
+
 }

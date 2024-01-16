@@ -12,14 +12,18 @@ dependencies {
     implementation(project(":compiler:util"))
     implementation(project(":compiler:config"))
 
-    compileOnly(project("tree-generator")) // Provided, so that IDEA can recognize references to this module in KDoc.
+    if (kotlinBuildProperties.isInIdeaSync) {
+        compileOnly(project("tree-generator")) // Provided, so that IDEA can recognize references to this module in KDoc.
+    }
     compileOnly(intellijCore())
 }
+
+optInToIrSymbolInternals()
 
 sourceSets {
     "main" {
         projectDefault()
-        this.java.srcDir("gen")
+        generatedDir()
     }
     "test" {}
 }
@@ -46,7 +50,7 @@ val generateTree by tasks.registering(NoDebugJavaExec::class) {
     args(generationRoot)
     workingDir = rootDir
     classpath = generatorClasspath
-    main = "org.jetbrains.kotlin.ir.generator.MainKt"
+    mainClass.set("org.jetbrains.kotlin.ir.generator.MainKt")
     systemProperties["line.separator"] = "\n"
 }
 

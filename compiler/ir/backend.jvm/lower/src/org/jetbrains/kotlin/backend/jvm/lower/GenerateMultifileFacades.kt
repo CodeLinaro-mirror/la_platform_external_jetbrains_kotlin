@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.MultifileFacadeFileEntry
 import org.jetbrains.kotlin.backend.jvm.ir.fileParent
-import org.jetbrains.kotlin.backend.jvm.ir.getKtFile
 import org.jetbrains.kotlin.backend.jvm.isMultifileBridge
 import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -30,18 +29,18 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildProperty
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
-import org.jetbrains.kotlin.name.JvmNames.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
+import org.jetbrains.kotlin.name.JvmStandardClassIds
+import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.inline.INLINE_ONLY_ANNOTATION_FQ_NAME
-import org.jetbrains.kotlin.resolve.jvm.diagnostics.ErrorsJvm
+import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmBackendErrors
 
 internal val generateMultifileFacadesPhase = makeCustomPhase<JvmBackendContext, IrModuleFragment>(
     name = "GenerateMultifileFacades",
@@ -52,7 +51,7 @@ internal val generateMultifileFacadesPhase = makeCustomPhase<JvmBackendContext, 
 
         // In -Xmultifile-parts-inherit mode, instead of generating "bridge" methods in the facade which call into parts,
         // we construct an inheritance chain such that all part members are present as fake overrides in the facade.
-        val shouldGeneratePartHierarchy = context.state.languageVersionSettings.getFlag(JvmAnalysisFlags.inheritMultifileParts)
+        val shouldGeneratePartHierarchy = context.config.languageVersionSettings.getFlag(JvmAnalysisFlags.inheritMultifileParts)
         input.files.addAll(
             generateMultifileFacades(input, context, shouldGeneratePartHierarchy, functionDelegates)
         )
@@ -119,11 +118,12 @@ private fun generateMultifileFacades(
                 annotations = annotations + partClasses.first().getAnnotation(JVM_SYNTHETIC_ANNOTATION_FQ_NAME)!!.deepCopyWithSymbols()
             } else if (nonJvmSyntheticParts.size < partClasses.size) {
                 for (part in nonJvmSyntheticParts) {
-                    val partFile = part.fileParent.getKtFile() ?: error("Not a KtFile: ${part.render()} ${part.fileParent}")
+                    val partFile = part.fileParent
                     // If at least one of parts is annotated with @JvmSynthetic, then all other parts should also be annotated.
-                    // We report this error on the package directive for each non-@JvmSynthetic part.
-                    context.state.diagnostics.report(
-                        ErrorsJvm.NOT_ALL_MULTIFILE_CLASS_PARTS_ARE_JVM_SYNTHETIC.on(partFile.packageDirective ?: partFile)
+                    // We report this error on the `@JvmMultifileClass` annotation of each non-@JvmSynthetic part.
+                    val annotation = partFile.annotations.singleOrNull { it.isAnnotationWithEqualFqName(JvmStandardClassIds.JVM_MULTIFILE_CLASS) }
+                    context.ktDiagnosticReporter.at(annotation ?: partFile, partFile).report(
+                        JvmBackendErrors.NOT_ALL_MULTIFILE_CLASS_PARTS_ARE_JVM_SYNTHETIC
                     )
                 }
             }
@@ -290,29 +290,24 @@ private class CorrespondingPropertyCache(private val context: JvmBackendContext,
 
 private class UpdateFunctionCallSites(
     private val functionDelegates: MutableMap<IrSimpleFunction, IrSimpleFunction>
-) : FileLoweringPass, IrElementTransformer<IrFunction?> {
+) : FileLoweringPass, IrElementVisitor<Unit, IrFunction?> {
     override fun lower(irFile: IrFile) {
-        irFile.transformChildren(this, null)
+        irFile.acceptChildren(this, null)
     }
 
-    override fun visitFunction(declaration: IrFunction, data: IrFunction?): IrStatement =
+    override fun visitElement(element: IrElement, data: IrFunction?) {
+        element.acceptChildren(this, data)
+    }
+
+    override fun visitFunction(declaration: IrFunction, data: IrFunction?): Unit =
         super.visitFunction(declaration, declaration)
 
-    override fun visitCall(expression: IrCall, data: IrFunction?): IrElement {
-        if (data != null && data.isMultifileBridge())
-            return super.visitCall(expression, data)
+    override fun visitCall(expression: IrCall, data: IrFunction?) {
+        expression.acceptChildren(this, data)
 
-        val newFunction = functionDelegates[expression.symbol.owner]
-            ?: return super.visitCall(expression, data)
-
-        return expression.run {
-            // TODO: deduplicate this with ReplaceKFunctionInvokeWithFunctionInvoke
-            IrCallImpl.fromSymbolOwner(startOffset, endOffset, type, newFunction.symbol).apply {
-                copyTypeArgumentsFrom(expression)
-                extensionReceiver = expression.extensionReceiver?.transform(this@UpdateFunctionCallSites, null)
-                for (i in 0 until valueArgumentsCount) {
-                    putValueArgument(i, expression.getValueArgument(i)?.transform(this@UpdateFunctionCallSites, null))
-                }
+        if (data == null || !data.isMultifileBridge()) {
+            functionDelegates[expression.symbol.owner]?.let {
+                expression.symbol = it.symbol
             }
         }
     }

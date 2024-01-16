@@ -9,16 +9,20 @@ import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.tasks.TaskProvider
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.AbstractKotlinTargetConfigurator.Companion.runTaskNameSuffix
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation.Companion.MAIN_COMPILATION_NAME
 import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType.LEGACY
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.targets.js.dsl.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.PRIMARY_SINGLE_COMPONENT_NAME
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBrowserDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsNodeDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetContainerDsl
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsBinaryContainer
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
+import org.jetbrains.kotlin.gradle.targets.js.npm.NpmResolverPlugin
 import org.jetbrains.kotlin.gradle.targets.js.subtargets.KotlinBrowserJs
 import org.jetbrains.kotlin.gradle.targets.js.subtargets.KotlinNodeJs
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
@@ -27,7 +31,10 @@ import org.jetbrains.kotlin.gradle.testing.internal.KotlinTestReport
 import org.jetbrains.kotlin.gradle.testing.testTaskName
 import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
+import org.jetbrains.kotlin.gradle.utils.newInstance
 import org.jetbrains.kotlin.gradle.utils.setProperty
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
+import org.jetbrains.kotlin.utils.addIfNotNull
 import javax.inject.Inject
 
 abstract class KotlinJsTarget
@@ -71,19 +78,25 @@ constructor(
             super.kotlinComponents
         else {
             val mainCompilation = compilations.getByName(MAIN_COMPILATION_NAME)
-            val usageContexts = createUsageContexts(mainCompilation) +
-                    irTarget!!.createUsageContexts(irTarget!!.compilations.getByName(MAIN_COMPILATION_NAME))
+            val usageContexts = createUsageContexts(mainCompilation).toMutableSet()
+
+            usageContexts += irTarget!!.createUsageContexts(irTarget!!.compilations.getByName(MAIN_COMPILATION_NAME))
 
             val componentName =
                 if (project.kotlinExtension is KotlinMultiplatformExtension)
                     irTarget?.let { targetName.removeJsCompilerSuffix(LEGACY) } ?: targetName
                 else PRIMARY_SINGLE_COMPONENT_NAME
 
-            val result = createKotlinVariant(componentName, mainCompilation, usageContexts)
-
-            result.sourcesArtifacts = setOf(
-                sourcesJarArtifact(mainCompilation, componentName, dashSeparatedName(targetName.toLowerCase()))
+            usageContexts.addIfNotNull(
+                createSourcesJarAndUsageContextIfPublishable(
+                    mainCompilation,
+                    componentName,
+                    dashSeparatedName(targetName.toLowerCaseAsciiOnly()),
+                    mavenScope = KotlinUsageContext.MavenScope.RUNTIME
+                )
             )
+
+            val result = createKotlinVariant(componentName, mainCompilation, usageContexts)
 
             setOf(result)
         }
@@ -97,7 +110,7 @@ constructor(
         return usageContexts +
                 DefaultKotlinUsageContext(
                     compilation = compilations.getByName(MAIN_COMPILATION_NAME),
-                    usage = project.usageByName("java-api-jars"),
+                    mavenScope = KotlinUsageContext.MavenScope.COMPILE,
                     dependencyConfigurationName = commonFakeApiElementsConfigurationName,
                     overrideConfigurationArtifacts = project.setProperty { emptyList() }
                 )
@@ -139,8 +152,13 @@ constructor(
 
     private val propertiesProvider = PropertiesProvider(project)
 
+    private val commonLazy by lazy {
+        NpmResolverPlugin.apply(project)
+    }
+
     //Browser
     private val browserLazyDelegate = lazy {
+        commonLazy
         project.objects.newInstance(KotlinBrowserJs::class.java, this).also {
             it.configure()
 
@@ -169,6 +187,7 @@ constructor(
 
     //node.js
     private val nodejsLazyDelegate = lazy {
+        commonLazy
         project.objects.newInstance(KotlinNodeJs::class.java, this).also {
             it.configure()
 
@@ -222,4 +241,16 @@ constructor(
         }
         irTarget?.useCommonJs()
     }
+
+    override fun useEsModules() {
+        error("ES modules are not supported in legacy JS compiler. Please, use IR one instead.")
+    }
+
+    override fun generateTypeScriptDefinitions() {
+        project.logger.warn("Legacy compiler does not support generation of TypeScript Definitions")
+    }
+
+    override val compilerOptions: KotlinJsCompilerOptions =
+        project.objects
+            .newInstance<KotlinJsCompilerOptionsDefault>()
 }

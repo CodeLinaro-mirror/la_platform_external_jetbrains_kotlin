@@ -22,9 +22,11 @@ val proguardLibraryJars by configurations.creating {
     }
 }
 
-val relocatedJarContents by configurations.creating
-        
 val embedded by configurations
+
+val relocatedJarContents by configurations.creating {
+    extendsFrom(embedded)
+}
 
 dependencies {
     compileOnly(project(":compiler:cli-common"))
@@ -32,12 +34,14 @@ dependencies {
     compileOnly(project(":kotlin-scripting-dependencies-maven"))
     runtimeOnly(project(":kotlin-scripting-compiler-embeddable"))
     runtimeOnly(kotlinStdlib())
-    runtimeOnly(project(":kotlin-reflect"))
+    runtimeOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     embedded(project(":kotlin-scripting-common")) { isTransitive = false }
     embedded(project(":kotlin-scripting-jvm")) { isTransitive = false }
     embedded(project(":kotlin-scripting-jvm-host-unshaded")) { isTransitive = false }
-    embedded(project(":kotlin-scripting-dependencies-maven-all"))
-    embedded("org.slf4j:slf4j-nop:1.7.30")
+    embedded(project(":kotlin-scripting-dependencies")) { isTransitive = false }
+    embedded(project(":kotlin-scripting-dependencies-maven-all")) { isTransitive = false }
+    embedded("org.slf4j:slf4j-api:1.7.36")
+    embedded("org.slf4j:slf4j-simple:1.7.36")
     embedded(commonDependency("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm")) {
         isTransitive = false
         attributes {
@@ -46,10 +50,9 @@ dependencies {
     }
 
     proguardLibraryJars(kotlinStdlib())
-    proguardLibraryJars(project(":kotlin-reflect"))
+    proguardLibraryJars(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     proguardLibraryJars(project(":kotlin-compiler"))
 
-    relocatedJarContents(embedded)
     relocatedJarContents(mainSourceSet.output)
 }
 
@@ -96,17 +99,17 @@ val proguard by task<CacheableProguardTask> {
                     "jre/lib/rt.jar",
                     "../Classes/classes.jar",
                     jdkHome = it.metadata.installationPath.asFile
-                )
+                )!!
             },
             javaLauncher.map {
                 firstFromJavaHomeThatExists(
                     "jre/lib/jsse.jar",
                     "../Classes/jsse.jar",
                     jdkHome = it.metadata.installationPath.asFile
-                )
+                )!!
             },
             javaLauncher.map {
-                Jvm.forHome(it.metadata.installationPath.asFile).toolsJar
+                Jvm.forHome(it.metadata.installationPath.asFile).toolsJar!!
             }
         )
     )

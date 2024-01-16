@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -33,10 +33,6 @@ private const val COROUTINES_METADATA_METHOD_NAME_JVM_NAME = "m"
 private const val COROUTINES_METADATA_CLASS_NAME_JVM_NAME = "c"
 private const val COROUTINES_METADATA_VERSION_JVM_NAME = "v"
 
-const val SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME = "\$completion"
-const val SUSPEND_CALL_RESULT_NAME = "\$result"
-const val ILLEGAL_STATE_ERROR_MESSAGE = "call to 'resume' before 'invoke' with coroutine"
-
 class CoroutineTransformerMethodVisitor(
     delegate: MethodVisitor,
     access: Int,
@@ -61,7 +57,8 @@ class CoroutineTransformerMethodVisitor(
     // JVM_IR backend generates $completion, while old backend does not
     private val putContinuationParameterToLvt: Boolean = true,
     // Parameters of suspend lambda are put to the same fields as spilled variables
-    private val initialVarsCountByType: Map<Type, Int> = emptyMap()
+    private val initialVarsCountByType: Map<Type, Int> = emptyMap(),
+    private val shouldOptimiseUnusedVariables: Boolean = true
 ) : TransformationMethodVisitor(delegate, access, name, desc, signature, exceptions) {
 
     private val classBuilderForCoroutineState: ClassBuilder by lazy(obtainClassBuilderForCoroutineState)
@@ -79,6 +76,9 @@ class CoroutineTransformerMethodVisitor(
             if (isForNamedFunction) getLastParameterIndex(methodNode.desc, methodNode.access) else 0
         )
 
+        // If there are in-place argument and call markers around suspend call, they end up in separate
+        // states of state-machine, leading to AnalyzerError.
+        InplaceArgumentsMethodTransformer().transform(containingClassInternalName, methodNode)
         FixStackMethodTransformer().transform(containingClassInternalName, methodNode)
         val suspensionPoints = collectSuspensionPoints(methodNode)
         RedundantLocalsEliminationMethodTransformer(suspensionPoints)
@@ -206,7 +206,9 @@ class CoroutineTransformerMethodVisitor(
         dropUnboxInlineClassMarkers(methodNode, suspensionPoints)
         methodNode.removeEmptyCatchBlocks()
 
-        updateLvtAccordingToLiveness(methodNode, isForNamedFunction, stateLabels)
+        if (shouldOptimiseUnusedVariables) {
+            updateLvtAccordingToLiveness(methodNode, isForNamedFunction, stateLabels)
+        }
 
         writeDebugMetadata(methodNode, suspensionPointLineNumbers, spilledToVariableMapping)
     }
@@ -667,7 +669,7 @@ class CoroutineTransformerMethodVisitor(
             for (slot in 0 until localsCount) {
                 if (slot == continuationIndex || slot == dataIndex) continue
                 val value = frame.getLocal(slot)
-                if (value.type == null || !livenessFrame.isAlive(slot)) continue
+                if (value.type == null || (shouldOptimiseUnusedVariables && !livenessFrame.isAlive(slot))) continue
 
                 if (value == StrictBasicValue.NULL_VALUE) {
                     referencesToSpill += slot to null
@@ -875,12 +877,16 @@ class CoroutineTransformerMethodVisitor(
             for ((slot, referenceToSpill) in referencesToSpillBySuspensionPointIndex[suspensionPointIndex]) {
                 generateSpillAndUnspill(suspension, slot, referenceToSpill)
             }
-            val (currentSpilledCount, predSpilledCount) = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
-            if (predSpilledCount > currentSpilledCount) {
-                for (fieldIndex in currentSpilledCount until predSpilledCount) {
-                    cleanUpField(suspension, fieldIndex)
+
+            if (shouldOptimiseUnusedVariables) {
+                val (currentSpilledCount, predSpilledCount) = referencesToCleanBySuspensionPointIndex[suspensionPointIndex]
+                if (predSpilledCount > currentSpilledCount) {
+                    for (fieldIndex in currentSpilledCount until predSpilledCount) {
+                        cleanUpField(suspension, fieldIndex)
+                    }
                 }
             }
+
             for ((slot, primitiveToSpill) in primitivesToSpillBySuspensionPointIndex[suspensionPointIndex]) {
                 generateSpillAndUnspill(suspension, slot, primitiveToSpill)
             }
@@ -1279,8 +1285,14 @@ private fun updateLvtAccordingToLiveness(method: MethodNode, isForNamedFunction:
     for (variableIndex in start until method.maxLocals) {
         if (oldLvt.none { it.index == variableIndex }) continue
         var startLabel: LabelNode? = null
+        var nextSuspensionPointIndex = 0
         for (insnIndex in 0 until (method.instructions.size() - 1)) {
             val insn = method.instructions[insnIndex]
+            if (insn is LabelNode && nextSuspensionPointIndex < suspensionPoints.size &&
+                suspensionPoints[nextSuspensionPointIndex] == insn
+            ) {
+                nextSuspensionPointIndex++
+            }
             if (!isAlive(insnIndex, variableIndex) && isAlive(insnIndex + 1, variableIndex)) {
                 startLabel = insn as? LabelNode ?: insn.findNextOrNull { it is LabelNode } as? LabelNode
             }
@@ -1299,13 +1311,14 @@ private fun updateLvtAccordingToLiveness(method: MethodNode, isForNamedFunction:
                 // If we can extend the previous range to where the local variable dies, we do not need a
                 // new entry, we know we cannot extend it to the lvt.endOffset, if we could we would have
                 // done so when we added it below.
-                val extended = latest?.extendRecordIfPossible(method, suspensionPoints, lvtRecord.end, liveness) ?: false
+                val extended =
+                    latest?.extendRecordIfPossible(method, suspensionPoints, lvtRecord.end, liveness, nextSuspensionPointIndex) ?: false
                 if (!extended) {
                     val new = LocalVariableNode(lvtRecord.name, lvtRecord.desc, lvtRecord.signature, startLabel, endLabel, lvtRecord.index)
                     oldLvtNodeToLatestNewLvtNode[lvtRecord] = new
                     method.localVariables.add(new)
                     // See if we can extend it all the way to the old end.
-                    new.extendRecordIfPossible(method, suspensionPoints, lvtRecord.end, liveness)
+                    new.extendRecordIfPossible(method, suspensionPoints, lvtRecord.end, liveness, nextSuspensionPointIndex)
                 }
             }
         }
@@ -1386,9 +1399,11 @@ private fun LocalVariableNode.extendRecordIfPossible(
     method: MethodNode,
     suspensionPoints: List<LabelNode>,
     endLabel: LabelNode,
-    liveness: List<VariableLivenessFrame>
+    liveness: List<VariableLivenessFrame>,
+    nextSuspensionPointIndex: Int
 ): Boolean {
-    val nextSuspensionPointLabel = suspensionPoints.find { it in InsnSequence(end, endLabel) } ?: endLabel
+    val nextSuspensionPointLabel =
+        suspensionPoints.drop(nextSuspensionPointIndex).find { it in InsnSequence(end, endLabel) } ?: endLabel
 
     var current: AbstractInsnNode? = end
     var index = method.instructions.indexOf(current)

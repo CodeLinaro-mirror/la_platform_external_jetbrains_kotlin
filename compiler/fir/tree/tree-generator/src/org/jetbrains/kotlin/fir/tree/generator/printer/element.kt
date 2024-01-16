@@ -1,18 +1,20 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.tree.generator.printer
 
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
-import org.jetbrains.kotlin.fir.tree.generator.model.*
-import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind
+import org.jetbrains.kotlin.fir.tree.generator.model.Element
+import org.jetbrains.kotlin.fir.tree.generator.model.Field
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
+import org.jetbrains.kotlin.generators.tree.Importable
 import org.jetbrains.kotlin.fir.tree.generator.pureAbstractElementType
 import org.jetbrains.kotlin.fir.tree.generator.util.get
-import org.jetbrains.kotlin.util.SmartPrinter
-import org.jetbrains.kotlin.util.withIndent
-
+import org.jetbrains.kotlin.generators.tree.typeWithArguments
+import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.withIndent
 import java.io.File
 
 fun Element.generateCode(generationPath: File): GeneratedFile {
@@ -36,7 +38,7 @@ fun Element.generateCode(generationPath: File): GeneratedFile {
 
 fun SmartPrinter.printElement(element: Element) {
     with(element) {
-        val isInterface = kind == Kind.Interface || kind == Kind.SealedInterface
+        val isInterface = kind == ImplementationKind.Interface || kind == ImplementationKind.SealedInterface
         fun abstract() {
             if (!isInterface) {
                 print("abstract ")
@@ -53,7 +55,7 @@ fun SmartPrinter.printElement(element: Element) {
         if (typeArguments.isNotEmpty()) {
             print(typeArguments.joinToString(", ", "<", ">") { it.toString() })
         }
-        val needPureAbstractElement = !isInterface && !allParents.any { it.kind == Kind.AbstractClass || it.kind == Kind.SealedClass }
+        val needPureAbstractElement = !isInterface && !allParents.any { it.kind == ImplementationKind.AbstractClass || it.kind == ImplementationKind.SealedClass }
 
         if (parents.isNotEmpty() || needPureAbstractElement) {
             print(" : ")
@@ -74,11 +76,15 @@ fun SmartPrinter.printElement(element: Element) {
             )
         }
         print(multipleUpperBoundsList())
-        println("{")
+        println(" {")
         withIndent {
-            allFields.forEach {
-                abstract()
-                printField(it, isImplementation = false, override = it.fromParent, end = "")
+            allFields.forEach { field ->
+                if (field.isFinal && field.fromParent || field.isParameter) return@forEach
+                printField(field, isImplementation = false, override = field.fromParent) {
+                    if (!field.isFinal) {
+                        abstract()
+                    }
+                }
             }
             if (allFields.isNotEmpty()) {
                 println()
@@ -90,7 +96,7 @@ fun SmartPrinter.printElement(element: Element) {
             println()
             println("@Suppress(\"UNCHECKED_CAST\")")
             override()
-            println("fun <E: FirElement, D> transform(transformer: FirTransformer<D>, data: D): E = ")
+            println("fun <E : FirElement, D> transform(transformer: FirTransformer<D>, data: D): E =")
             withIndent {
                 println("transformer.transform$name(this, data) as E")
             }
@@ -106,7 +112,8 @@ fun SmartPrinter.printElement(element: Element) {
             }
 
             allFields.filter { it.withReplace }.forEach {
-                val override = overridenFields[it, it] && !(it.name == "source" && fullQualifiedName.endsWith("FirQualifiedAccess"))
+                val override = overridenFields[it, it] &&
+                        !(it.name == "source" && fullQualifiedName.endsWith("FirQualifiedAccessExpression"))
                 it.replaceDeclaration(override, forceNullable = it.useNullableForReplace)
                 for (overridenType in it.overridenTypes) {
                     it.replaceDeclaration(true, overridenType)
@@ -117,7 +124,7 @@ fun SmartPrinter.printElement(element: Element) {
                 if (!field.needsSeparateTransform) continue
                 println()
                 abstract()
-                if (field.fromParent) {
+                if (field.fromParent && field.parentHasSeparateTransform) {
                     print("override ")
                 }
                 println(field.transformFunctionDeclaration(typeWithArguments))

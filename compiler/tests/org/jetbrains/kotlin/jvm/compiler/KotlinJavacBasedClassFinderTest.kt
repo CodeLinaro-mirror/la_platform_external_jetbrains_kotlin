@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.javac.JavacWrapper
 import org.jetbrains.kotlin.javac.components.JavacBasedClassFinder
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinder
 import org.jetbrains.kotlin.load.kotlin.findKotlinClass
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.lazy.JvmResolveUtil
@@ -62,11 +63,11 @@ class KotlinJavacBasedClassFinderTest : KotlinTestWithEnvironmentManagement() {
         val classFinder = createClassFinder(project)
 
         val className = "test.A.B.C"
-        val classId = ClassId(FqName("test"), FqName("A.B.C"), false)
+        val classId = ClassId(FqName("test"), FqName("A.B.C"), isLocal = false)
         val found = classFinder.findClass(classId)
         assertNotNull(found, "Class not found for $className")
 
-        val binaryClass = VirtualFileFinder.SERVICE.getInstance(project).findKotlinClass(found)
+        val binaryClass = VirtualFileFinder.SERVICE.getInstance(project).findKotlinClass(found, JvmMetadataVersion.INSTANCE)
         assertNotNull(binaryClass, "No binary class for $className")
 
         assertEquals("test/A.B.C", binaryClass.classId.toString())
@@ -88,7 +89,7 @@ class KotlinJavacBasedClassFinderTest : KotlinTestWithEnvironmentManagement() {
         javaSearchScopeField.set(this, GlobalSearchScope.allScope(project))
     }
 
-    private fun createEnvironment(tmpdir: File?, files: List<File> = emptyList()): KotlinCoreEnvironment {
+    private fun createEnvironment(tmpdir: File, files: List<File> = emptyList()): KotlinCoreEnvironment {
         return KotlinCoreEnvironment.createForTests(
             testRootDisposable,
             KotlinTestUtils.newConfiguration(ConfigurationKind.ALL, TestJdkKind.MOCK_JDK, tmpdir),

@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KClass
 
-abstract class ConeAttribute<T : ConeAttribute<T>> : AnnotationMarker {
+abstract class ConeAttribute<out T : ConeAttribute<T>> : AnnotationMarker {
     abstract fun union(other: @UnsafeVariance T?): T?
     abstract fun intersect(other: @UnsafeVariance T?): T?
 
@@ -30,6 +30,7 @@ abstract class ConeAttribute<T : ConeAttribute<T>> : AnnotationMarker {
     abstract fun isSubtypeOf(other: @UnsafeVariance T?): Boolean
 
     abstract override fun toString(): String
+    open fun renderForReadability(): String = toString()
 
     abstract val key: KClass<out T>
 }
@@ -92,14 +93,14 @@ class ConeAttributes private constructor(attributes: List<ConeAttribute<*>>) : A
         return arrayMap[index] != null
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     operator fun plus(attribute: ConeAttribute<*>): ConeAttributes {
         if (attribute in this) return this
         if (isEmpty()) return predefinedAttributes[attribute] ?: ConeAttributes(attribute)
         val newAttributes = buildList {
-            addAll(this)
+            addAll(arrayMap)
             add(attribute)
         }
+
         return ConeAttributes(newAttributes)
     }
 
@@ -108,6 +109,15 @@ class ConeAttributes private constructor(attributes: List<ConeAttribute<*>>) : A
         val attributes = arrayMap.filter { it != attribute }
         if (attributes.size == arrayMap.size) return this
         return create(attributes)
+    }
+
+    fun replace(oldAttribute: ConeAttribute<*>, newAttribute: ConeAttribute<*>): ConeAttributes {
+        return create(buildList {
+            arrayMap.mapNotNullTo(this) { attr ->
+                attr.takeUnless { it == oldAttribute }
+            }
+            add(newAttribute)
+        })
     }
 
     private inline fun perform(other: ConeAttributes, op: ConeAttribute<*>.(ConeAttribute<*>?) -> ConeAttribute<*>?): ConeAttributes {

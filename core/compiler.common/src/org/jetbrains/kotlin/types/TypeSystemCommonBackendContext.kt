@@ -40,7 +40,6 @@ interface TypeSystemCommonBackendContext : TypeSystemContext {
 
     fun KotlinTypeMarker.makeNullable(): KotlinTypeMarker =
         asSimpleType()?.withNullability(true) ?: this
-
     fun TypeConstructorMarker.getPrimitiveType(): PrimitiveType?
     fun TypeConstructorMarker.getPrimitiveArrayType(): PrimitiveType?
 
@@ -62,8 +61,6 @@ interface TypeSystemCommonBackendContextForTypeMapping : TypeSystemCommonBackend
     fun SimpleTypeMarker.isSuspendFunction(): Boolean
     fun SimpleTypeMarker.isKClass(): Boolean
 
-    fun KotlinTypeMarker.isRawType(): Boolean
-
     fun TypeConstructorMarker.typeWithArguments(arguments: List<KotlinTypeMarker>): SimpleTypeMarker
     fun TypeConstructorMarker.typeWithArguments(vararg arguments: KotlinTypeMarker): SimpleTypeMarker {
         return typeWithArguments(arguments.toList())
@@ -78,4 +75,6 @@ interface TypeSystemCommonBackendContextForTypeMapping : TypeSystemCommonBackend
 
     fun continuationTypeConstructor(): TypeConstructorMarker
     fun functionNTypeConstructor(n: Int): TypeConstructorMarker
+
+    fun KotlinTypeMarker.getNameForErrorType(): String?
 }

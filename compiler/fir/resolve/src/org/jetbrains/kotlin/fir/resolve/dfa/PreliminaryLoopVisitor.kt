@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirNamedReference
+import org.jetbrains.kotlin.fir.expressions.explicitReceiver
 import org.jetbrains.kotlin.fir.util.SetMultimap
 import org.jetbrains.kotlin.fir.util.setMultimapOf
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
@@ -26,9 +27,9 @@ class PreliminaryLoopVisitor {
         return reassignedVariablesPerElement[statement]
     }
 
-    fun exitCapturingStatement(statement: FirStatement) {
+    fun exitCapturingStatement(statement: FirStatement): Set<Name> {
         assert(statement is FirLoop || statement is FirClass || statement is FirFunction)
-        reassignedVariablesPerElement.removeKey(statement)
+        return reassignedVariablesPerElement.removeKey(statement)
     }
 
     fun resetState() {
@@ -44,7 +45,11 @@ class PreliminaryLoopVisitor {
         override fun visitVariableAssignment(variableAssignment: FirVariableAssignment, data: FirStatement?) {
             if (variableAssignment.source?.kind == KtFakeSourceElementKind.DesugaredIncrementOrDecrement) return
 
-            val reference = variableAssignment.lValue as? FirNamedReference
+            // Only care about local variable assignments, which never have explicit receivers. If this is a `var`
+            // property assignment, the smart cast will be unstable anyway.
+            if (variableAssignment.explicitReceiver != null) return
+
+            val reference = variableAssignment.calleeReference as? FirNamedReference
             if (reference != null) {
                 requireNotNull(data)
                 reassignedVariablesPerElement.put(data, reference.name)

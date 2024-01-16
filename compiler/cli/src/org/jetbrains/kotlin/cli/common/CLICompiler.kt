@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.cli.common
 
 import com.intellij.openapi.Disposable
@@ -24,15 +26,14 @@ import org.jetbrains.kotlin.cli.common.ExitCode.*
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.jetbrains.kotlin.cli.common.messages.*
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.INFO
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.LOGGING
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
-import org.jetbrains.kotlin.cli.jvm.plugins.processCompilerPluginsOptions
+import org.jetbrains.kotlin.cli.plugins.extractPluginClasspathAndOptions
+import org.jetbrains.kotlin.cli.plugins.processCompilerPluginsOptions
 import org.jetbrains.kotlin.compiler.plugin.CommandLineProcessor
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.progress.CompilationCanceledException
@@ -46,13 +47,17 @@ import java.io.PrintStream
 
 abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
     companion object {
-        const val SCRIPT_PLUGIN_REGISTRAR_NAME = "org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar"
+        const val SCRIPT_PLUGIN_REGISTRAR_NAME =
+            "org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar"
         const val SCRIPT_PLUGIN_COMMANDLINE_PROCESSOR_NAME = "org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCommandLineProcessor"
+        const val SCRIPT_PLUGIN_K2_REGISTRAR_NAME =
+            "org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingK2CompilerPluginRegistrar"
     }
 
     abstract val defaultPerformanceManager: CommonCompilerPerformanceManager
 
-    protected open fun createPerformanceManager(arguments: A, services: Services): CommonCompilerPerformanceManager = defaultPerformanceManager
+    protected open fun createPerformanceManager(arguments: A, services: Services): CommonCompilerPerformanceManager =
+        defaultPerformanceManager
 
     // Used in CompilerRunnerUtil#invokeExecMethod, in Eclipse plugin (KotlinCLICompiler) and in kotlin-gradle-plugin (GradleCompilerRunner)
     fun execAndOutputXml(errStream: PrintStream, services: Services, vararg args: String): ExitCode {
@@ -75,7 +80,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
         configuration.put(CLIConfigurationKeys.ORIGINAL_MESSAGE_COLLECTOR_KEY, messageCollector)
 
         val collector = GroupingMessageCollector(messageCollector, arguments.allWarningsAsErrors).also {
-            configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, it)
+            configuration.put(MESSAGE_COLLECTOR_KEY, it)
         }
 
         configuration.put(IrMessageLogger.IR_MESSAGE_LOGGER, IrMessageCollector(collector))
@@ -86,7 +91,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
             setupPlatformSpecificArgumentsAndServices(configuration, arguments, services)
             val paths = computeKotlinPaths(collector, arguments)
             if (collector.hasErrors()) {
-                return ExitCode.COMPILATION_ERROR
+                return COMPILATION_ERROR
             }
 
             val canceledStatus = services[CompilationCanceledStatus::class.java]
@@ -113,12 +118,12 @@ abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
                 return if (collector.hasErrors()) COMPILATION_ERROR else code
             } catch (e: CompilationCanceledException) {
                 collector.reportCompilationCancelled(e)
-                return ExitCode.OK
+                return OK
             } catch (e: RuntimeException) {
                 val cause = e.cause
                 if (cause is CompilationCanceledException) {
                     collector.reportCompilationCancelled(cause)
-                    return ExitCode.OK
+                    return OK
                 } else {
                     throw e
                 }
@@ -168,52 +173,68 @@ abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
     protected fun loadPlugins(paths: KotlinPaths?, arguments: A, configuration: CompilerConfiguration): ExitCode {
         val pluginClasspaths = arguments.pluginClasspaths.orEmpty().toMutableList()
         val pluginOptions = arguments.pluginOptions.orEmpty().toMutableList()
+        val pluginConfigurations = arguments.pluginConfigurations.orEmpty().toMutableList()
         val messageCollector = configuration.getNotNull(MESSAGE_COLLECTOR_KEY)
 
-        for (classpath in pluginClasspaths) {
-            if (!File(classpath).exists()) {
-                messageCollector.report(ERROR, "Plugin classpath entry points to a non-existent location: $classpath")
-            }
-        }
+        val useK2 = configuration.get(CommonConfigurationKeys.USE_FIR) == true
+
+        val scriptingPluginClasspath = mutableListOf<String>()
+        val scriptingPluginOptions = mutableListOf<String>()
 
         if (!arguments.disableDefaultScriptingPlugin) {
-            pluginOptions.addPlatformOptions(arguments)
-            val explicitOrLoadedScriptingPlugin =
-                pluginClasspaths.any { File(it).name.startsWith(PathUtil.KOTLIN_SCRIPTING_COMPILER_PLUGIN_NAME) } ||
-                        tryLoadScriptingPluginFromCurrentClassLoader(configuration, pluginOptions)
+            scriptingPluginOptions.addPlatformOptions(arguments)
+            val explicitScriptingPlugin =
+                extractPluginClasspathAndOptions(pluginConfigurations).any { (_, classpath, _) ->
+                    classpath.any { File(it).name.startsWith(PathUtil.KOTLIN_SCRIPTING_COMPILER_PLUGIN_NAME) }
+                } || pluginClasspaths.any { File(it).name.startsWith(PathUtil.KOTLIN_SCRIPTING_COMPILER_PLUGIN_NAME) }
+            val explicitOrLoadedScriptingPlugin = explicitScriptingPlugin ||
+                    tryLoadScriptingPluginFromCurrentClassLoader(configuration, pluginOptions, useK2)
             if (!explicitOrLoadedScriptingPlugin) {
                 val kotlinPaths = paths ?: PathUtil.kotlinPathsForCompiler
                 val libPath = kotlinPaths.libPath.takeIf { it.exists() && it.isDirectory } ?: File(".")
                 val (jars, missingJars) =
                     PathUtil.KOTLIN_SCRIPTING_PLUGIN_CLASSPATH_JARS.map { File(libPath, it) }.partition { it.exists() }
                 if (missingJars.isEmpty()) {
-                    pluginClasspaths.addAll(0, jars.map { it.canonicalPath })
+                    scriptingPluginClasspath.addAll(0, jars.map { it.canonicalPath })
                 } else {
                     messageCollector.report(
-                        CompilerMessageSeverity.LOGGING,
+                        LOGGING,
                         "Scripting plugin will not be loaded: not all required jars are present in the classpath (missing files: $missingJars)"
                     )
                 }
             }
         } else {
-            pluginOptions.add("plugin:kotlin.scripting:disable=true")
+            scriptingPluginOptions.add("plugin:kotlin.scripting:disable=true")
         }
-        return PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, configuration)
+
+        pluginClasspaths.addAll(scriptingPluginClasspath)
+        pluginOptions.addAll(scriptingPluginOptions)
+
+        if (!checkPluginsArguments(messageCollector, useK2, pluginClasspaths, pluginOptions, pluginConfigurations)) {
+            return INTERNAL_ERROR
+        }
+
+        return PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, configuration)
     }
 
-    private fun tryLoadScriptingPluginFromCurrentClassLoader(configuration: CompilerConfiguration, pluginOptions: List<String>): Boolean =
+    private fun tryLoadScriptingPluginFromCurrentClassLoader(
+        configuration: CompilerConfiguration,
+        pluginOptions: List<String>,
+        useK2: Boolean
+    ): Boolean =
         try {
             val pluginRegistrarClass = PluginCliParser::class.java.classLoader.loadClass(SCRIPT_PLUGIN_REGISTRAR_NAME)
-            val pluginRegistrar = pluginRegistrarClass.getDeclaredConstructor().newInstance() as? ComponentRegistrar
-            if (pluginRegistrar != null) {
-                val cmdlineProcessorClass =
-                    if (pluginOptions.isEmpty()) null
-                    else PluginCliParser::class.java.classLoader.loadClass(SCRIPT_PLUGIN_COMMANDLINE_PROCESSOR_NAME)!!
-                val cmdlineProcessor = cmdlineProcessorClass?.getDeclaredConstructor()?.newInstance() as? CommandLineProcessor
-                configuration.add(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS, pluginRegistrar)
-                if (cmdlineProcessor != null) {
-                    processCompilerPluginsOptions(configuration, pluginOptions, listOf(cmdlineProcessor))
+            val pluginRegistrar = (pluginRegistrarClass.getDeclaredConstructor().newInstance() as? ComponentRegistrar)?.also {
+                configuration.add(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS, it)
+            }
+            val pluginK2Registrar = if (useK2) {
+                val pluginK2RegistrarClass = PluginCliParser::class.java.classLoader.loadClass(SCRIPT_PLUGIN_K2_REGISTRAR_NAME)
+                (pluginK2RegistrarClass.getDeclaredConstructor().newInstance() as? CompilerPluginRegistrar)?.also {
+                    configuration.add(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS, it)
                 }
+            } else null
+            if (pluginRegistrar != null || pluginK2Registrar != null) {
+                processScriptPluginCliOptions(pluginOptions, configuration)
                 true
             } else false
         } catch (e: Throwable) {
@@ -221,5 +242,61 @@ abstract class CLICompiler<A : CommonCompilerArguments> : CLITool<A>() {
             messageCollector.report(LOGGING, "Exception on loading scripting plugin: $e")
             false
         }
+
+    private fun processScriptPluginCliOptions(pluginOptions: List<String>, configuration: CompilerConfiguration) {
+        val cmdlineProcessorClass =
+            if (pluginOptions.isEmpty()) null
+            else PluginCliParser::class.java.classLoader.loadClass(SCRIPT_PLUGIN_COMMANDLINE_PROCESSOR_NAME)!!
+        val cmdlineProcessor = cmdlineProcessorClass?.getDeclaredConstructor()?.newInstance() as? CommandLineProcessor
+        if (cmdlineProcessor != null) {
+            processCompilerPluginsOptions(configuration, pluginOptions, listOf(cmdlineProcessor))
+        }
+    }
+}
+
+fun checkPluginsArguments(
+    messageCollector: MessageCollector,
+    useK2: Boolean,
+    pluginClasspaths: List<String>,
+    pluginOptions: List<String>,
+    pluginConfigurations: List<String>
+): Boolean {
+    var hasErrors = false
+
+    for (classpath in pluginClasspaths) {
+        if (!File(classpath).exists()) {
+            messageCollector.report(ERROR, "Plugin classpath entry points to a non-existent location: $classpath")
+        }
+    }
+
+    if (pluginConfigurations.isNotEmpty()) {
+        messageCollector.report(WARNING, "Argument -Xcompiler-plugin is experimental")
+        if (!useK2) {
+            hasErrors = true
+            messageCollector.report(
+                ERROR,
+                "-Xcompiler-plugin argument is allowed only for language version 2.0. Please use -Xplugin argument for language version 1.9 and below"
+            )
+        }
+        if (pluginClasspaths.isNotEmpty() || pluginOptions.isNotEmpty()) {
+            hasErrors = true
+            val message = buildString {
+                appendLine("Mixing legacy and modern plugin arguments is prohibited. Please use only one syntax")
+                appendLine("Legacy arguments:")
+                if (pluginClasspaths.isNotEmpty()) {
+                    appendLine("  -Xplugin=${pluginClasspaths.joinToString(",")}")
+                }
+                pluginOptions.forEach {
+                    appendLine("  -P $it")
+                }
+                appendLine("Modern arguments:")
+                pluginConfigurations.forEach {
+                    appendLine("  -Xcompiler-plugin=$it")
+                }
+            }
+            messageCollector.report(ERROR, message)
+        }
+    }
+    return !hasErrors
 }
 

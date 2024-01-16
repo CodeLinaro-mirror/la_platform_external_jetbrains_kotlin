@@ -4,6 +4,7 @@
  */
 
 @file:Suppress("UNUSED")
+@file:OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
 
 package stdlib
 
@@ -63,7 +64,7 @@ data class TripleVars<T>(var first: T, var second: T, var third: T) {
     }
 }
 
-fun gc() = kotlin.native.internal.GC.collect()
+fun gc() = kotlin.native.runtime.GC.collect()
 
 // Note: this method checks only some of the operations (namely the ones modified recently,
 // and thus required additional tests).
@@ -71,7 +72,6 @@ fun gc() = kotlin.native.internal.GC.collect()
 @Throws(Throwable::class)
 @Suppress("INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
 fun testSet(set: Set<String>) {
-    set as kotlin.native.internal.KonanSet<String> // Smart cast to access getElement below.
     val setAny: Set<Any?> = set
 
     assertTrue(set.contains("a"))
@@ -79,9 +79,9 @@ fun testSet(set: Set<String>) {
     assertFalse(set.contains("h"))
     assertFalse(setAny.contains(1))
 
-
-    assertEquals("a", set.getElement("a"))
-    assertNull(set.getElement("aa"))
+    val konanSet = set as kotlin.native.internal.KonanSet<String>
+    assertEquals("a", konanSet.getElement("a"))
+    assertNull(konanSet.getElement("aa"))
     assertNull((setAny as kotlin.native.internal.KonanSet<Any?>).getElement(1))
 }
 

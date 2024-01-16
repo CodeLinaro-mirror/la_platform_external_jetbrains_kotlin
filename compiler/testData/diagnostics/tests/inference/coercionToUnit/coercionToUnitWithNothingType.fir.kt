@@ -41,13 +41,13 @@ fun test(i: Inv<Nothing>, iUnit: Inv<Unit>) {
         run(A.flexible(iUnit)) { 42 }
     }
     launch {
-        @Suppress("UNSUPPORTED")
+        @Suppress(<!ERROR_SUPPRESSION!>"UNSUPPORTED"<!>)
         run<dynamic> { "" }
     }
 
     if (iUnit is String) {
         launch {
-            run(A.<!INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION!>flexible<!>(iUnit)) { 42 }
+            run(A.<!INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION_ERROR!>flexible<!>(iUnit)) { 42 }
         }
     }
 }

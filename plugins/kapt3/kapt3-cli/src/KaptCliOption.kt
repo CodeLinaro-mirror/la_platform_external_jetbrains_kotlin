@@ -187,6 +187,13 @@ enum class KaptCliOption(
         cliToolOption = CliToolOption("-Kapt-dump-processor-stats", VALUE)
     ),
 
+    DUMP_FILE_READ_HISTORY(
+        "dumpFileReadHistory",
+        "<path>",
+        "Dump list of files read by processors to the specified file",
+        cliToolOption = CliToolOption("-Kapt-dump-file-read-history", VALUE)
+    ),
+
     STRICT_MODE_OPTION(
         "strict",
         "true | false",
@@ -212,6 +219,13 @@ enum class KaptCliOption(
         "true | false",
         "Use JVM IR backend",
         cliToolOption = CliToolOption("-Kapt-use-jvm-ir", FLAG)
+    ),
+
+    USE_K2(
+        "useK2",
+        "true | false",
+        "Use K2",
+        cliToolOption = CliToolOption("-Kapt-use-k2", FLAG)
     ),
 
     DETECT_MEMORY_LEAKS_OPTION("detectMemoryLeaks", "true | false", "Detect memory leaks in annotation processors"),

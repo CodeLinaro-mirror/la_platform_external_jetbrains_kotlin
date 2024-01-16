@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.fir.tree.generator.context
 
 import org.jetbrains.kotlin.fir.tree.generator.model.*
-import org.jetbrains.kotlin.fir.tree.generator.noReceiverExpressionType
-import org.jetbrains.kotlin.fir.tree.generator.util.DummyDelegate
+import org.jetbrains.kotlin.utils.DummyDelegate
+import org.jetbrains.kotlin.generators.tree.Importable
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
@@ -27,9 +27,7 @@ abstract class AbstractBuilderConfigurator<T : AbstractFirTreeBuilder>(val firTr
             if (!notNullExplicitReceiver) {
                 defaultNull("explicitReceiver")
             }
-            default("dispatchReceiver", "FirNoReceiverExpression")
-            default("extensionReceiver", "FirNoReceiverExpression")
-            useTypes(noReceiverExpressionType)
+            defaultNull("dispatchReceiver", "extensionReceiver")
         }
 
         fun default(field: String, value: String) {
@@ -69,9 +67,11 @@ abstract class AbstractBuilderConfigurator<T : AbstractFirTreeBuilder>(val firTr
 
         inner class DefaultValueContext(private val field: FieldWithDefault) {
             var value: String? = null
+            var notNull: Boolean? = null
 
             fun applyConfiguration() {
                 if (value != null) field.defaultValueInBuilder = value
+                if (notNull != null) field.notNull = notNull!!
             }
         }
     }
@@ -88,16 +88,6 @@ abstract class AbstractBuilderConfigurator<T : AbstractFirTreeBuilder>(val firTr
                 builder.materializedElement = element
                 return ExceptConfigurator()
             }
-
-            inner class Helper(val fieldName: String) {
-                infix fun from(element: Element) {
-                    val field = element[fieldName] ?: throw IllegalArgumentException("Element $element doesn't have field $fieldName")
-                    builder.fields += FieldWithDefault(field)
-                }
-            }
-
-            // fields has <field> from <element>
-            infix fun has(name: String): Helper = Helper(name)
         }
 
         inner class ExceptConfigurator {
@@ -112,12 +102,6 @@ abstract class AbstractBuilderConfigurator<T : AbstractFirTreeBuilder>(val firTr
 
         val fields = Fields()
         val parents: MutableList<IntermediateBuilder> get() = builder.parents
-
-        var materializedElement: Element
-            get() = throw IllegalArgumentException()
-            set(value) {
-                builder.materializedElement = value
-            }
 
     }
 

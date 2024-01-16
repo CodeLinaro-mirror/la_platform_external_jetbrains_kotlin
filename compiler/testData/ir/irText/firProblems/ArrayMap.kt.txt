@@ -9,7 +9,9 @@ sealed class ArrayMap<T : Any> : Iterable<T> {
     abstract get
 
   abstract operator fun set(index: Int, value: T)
+
   abstract operator fun get(index: Int): T?
+
   abstract fun copy(): ArrayMap<T>
 
 }
@@ -195,11 +197,11 @@ internal class ArrayMapImpl<T : Any> : ArrayMap<T> {
     when {
       EQEQ(arg0 = <this>.<get-data>().get(index = index), arg1 = null) -> { // BLOCK
         { // BLOCK
-          val tmp0_this: ArrayMapImpl<T> = <this>
+          val tmp_0: ArrayMapImpl<T> = <this>
           { // BLOCK
-            val tmp1: Int = tmp0_this.<get-size>()
-            tmp0_this.<set-size>(<set-?> = tmp1.inc())
-            tmp1
+            val tmp_1: Int = tmp_0.<get-size>()
+            tmp_0.<set-size>(<set-?> = tmp_1.inc())
+            tmp_1
           }
         }
       } /*~> Unit */
@@ -233,11 +235,11 @@ internal class ArrayMapImpl<T : Any> : ArrayMap<T> {
           { // BLOCK
             do// COMPOSITE {
             { // BLOCK
-              val tmp0_this: <no name provided><T> = <this>
+              val tmp_2: <no name provided><T> = <this>
               { // BLOCK
-                val tmp1: Int = tmp0_this.<get-index>()
-                tmp0_this.<set-index>(<set-?> = tmp1.inc())
-                tmp1
+                val tmp_3: Int = tmp_2.<get-index>()
+                tmp_2.<set-index>(<set-?> = tmp_3.inc())
+                tmp_3
               }
             } /*~> Unit */
             // }            while (when {
@@ -265,11 +267,11 @@ internal class ArrayMapImpl<T : Any> : ArrayMap<T> {
     when {
       EQEQ(arg0 = <this>.<get-data>().get(index = index), arg1 = null).not() -> { // BLOCK
         { // BLOCK
-          val tmp0_this: ArrayMapImpl<T> = <this>
+          val tmp_4: ArrayMapImpl<T> = <this>
           { // BLOCK
-            val tmp1: Int = tmp0_this.<get-size>()
-            tmp0_this.<set-size>(<set-?> = tmp1.dec())
-            tmp1
+            val tmp_5: Int = tmp_4.<get-size>()
+            tmp_4.<set-size>(<set-?> = tmp_5.dec())
+            tmp_5
           }
         }
       } /*~> Unit */
@@ -303,26 +305,26 @@ internal class ArrayMapImpl<T : Any> : ArrayMap<T> {
       override get
 
     operator fun component1(): Int {
-      return <this>.<get-key>()
+      return <this>.#key
     }
 
     operator fun component2(): T {
-      return <this>.<get-value>()
+      return <this>.#value
     }
 
-    fun copy(key: Int = <this>.<get-key>(), value: T = <this>.<get-value>()): Entry<T> {
+    fun copy(key: Int = <this>.#key, value: T = <this>.#value): Entry<T> {
       return Entry<T>(key = key, value = value)
     }
 
     override fun toString(): String {
-      return "Entry(" + "key=" + <this>.<get-key>() + ", " + "value=" + <this>.<get-value>() + ")"
+      return "Entry(" + "key=" + <this>.#key + ", " + "value=" + <this>.#value + ")"
     }
 
     override fun hashCode(): Int {
-      var result: Int = <this>.<get-key>().hashCode()
+      var result: Int = <this>.#key.hashCode()
       result = result.times(other = 31).plus(other = when {
-        EQEQ(arg0 = <this>.<get-value>(), arg1 = null) -> 0
-        else -> <this>.<get-value>().hashCode()
+        EQEQ(arg0 = <this>.#value, arg1 = null) -> 0
+        else -> <this>.#value.hashCode()
       })
       return result
     }
@@ -334,12 +336,12 @@ internal class ArrayMapImpl<T : Any> : ArrayMap<T> {
       when {
         other !is Entry<T> -> return false
       }
-      val tmp0_other_with_cast: Entry<T> = other as Entry<T>
+      val tmp_6: Entry<T> = other as Entry<T>
       when {
-        EQEQ(arg0 = <this>.<get-key>(), arg1 = tmp0_other_with_cast.<get-key>()).not() -> return false
+        EQEQ(arg0 = <this>.#key, arg1 = tmp_6.#key).not() -> return false
       }
       when {
-        EQEQ(arg0 = <this>.<get-value>(), arg1 = tmp0_other_with_cast.<get-value>()).not() -> return false
+        EQEQ(arg0 = <this>.#value, arg1 = tmp_6.#value).not() -> return false
       }
       return true
     }

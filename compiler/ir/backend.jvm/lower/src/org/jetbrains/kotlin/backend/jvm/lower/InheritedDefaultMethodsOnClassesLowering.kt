@@ -19,19 +19,18 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.deserialization.PLATFORM_DEPENDENT_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.builders.irBlockBody
-import org.jetbrains.kotlin.ir.builders.irCall
-import org.jetbrains.kotlin.ir.builders.irGet
-import org.jetbrains.kotlin.ir.builders.irReturn
+import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrTypeOperator
 import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
+import org.jetbrains.kotlin.ir.expressions.putArgument
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.*
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
 internal val inheritedDefaultMethodsOnClassesPhase = makeIrFilePhase(
     ::InheritedDefaultMethodsOnClassesLowering,
@@ -59,7 +58,7 @@ private class InheritedDefaultMethodsOnClassesLowering(val context: JvmBackendCo
             }
         }
 
-        val implementation = declaration.findInterfaceImplementation(context.state.jvmDefaultMode)
+        val implementation = declaration.findInterfaceImplementation(context.config.jvmDefaultMode)
             ?: return declaration
         return generateDelegationToDefaultImpl(implementation, declaration)
     }
@@ -91,27 +90,29 @@ private class InheritedDefaultMethodsOnClassesLowering(val context: JvmBackendCo
         val superClassType = superMethod.parentAsClass.defaultType
         val defaultImplFun = context.cachedDeclarations.getDefaultImplsFunction(superMethod)
         val classStartOffset = classOverride.parentAsClass.startOffset
+        val backendContext = context
         context.createIrBuilder(irFunction.symbol, classStartOffset, classStartOffset).apply {
-            irFunction.body = irBlockBody {
-                +irReturn(
-                    irCall(defaultImplFun.symbol, irFunction.returnType).apply {
-                        superMethod.parentAsClass.typeParameters.forEachIndexed { index, _ ->
-                            putTypeArgument(index, createPlaceholderAnyNType(context.irBuiltIns))
+            irFunction.body = irExprBody(irBlock {
+                val parameter2arguments = backendContext.multiFieldValueClassReplacements
+                    .mapFunctionMfvcStructures(this, defaultImplFun, irFunction) { sourceParameter, _ ->
+                        irGet(sourceParameter).let {
+                            if (sourceParameter != irFunction.dispatchReceiverParameter) it
+                            else it.reinterpretAsDispatchReceiverOfType(superClassType)
                         }
-                        passTypeArgumentsFrom(irFunction, offset = superMethod.parentAsClass.typeParameters.size)
-
-                        var offset = 0
-                        irFunction.dispatchReceiverParameter?.let {
-                            putValueArgument(
-                                offset++,
-                                irGet(it).reinterpretAsDispatchReceiverOfType(superClassType)
-                            )
-                        }
-                        irFunction.extensionReceiverParameter?.let { putValueArgument(offset++, irGet(it)) }
-                        irFunction.valueParameters.mapIndexed { i, parameter -> putValueArgument(i + offset, irGet(parameter)) }
                     }
-                )
-            }
+                +irCall(defaultImplFun.symbol, irFunction.returnType).apply {
+                    for (index in superMethod.parentAsClass.typeParameters.indices) {
+                        putTypeArgument(index, createPlaceholderAnyNType(context.irBuiltIns))
+                    }
+                    passTypeArgumentsFrom(irFunction, offset = superMethod.parentAsClass.typeParameters.size)
+
+                    for ((parameter, argument) in parameter2arguments) {
+                        if (argument != null) {
+                            putArgument(parameter, argument)
+                        }
+                    }
+                }
+            })
         }
 
         return irFunction
@@ -124,25 +125,24 @@ internal val replaceDefaultImplsOverriddenSymbolsPhase = makeIrFilePhase(
     description = "Replace overridden symbols for methods inherited from interfaces to classes"
 )
 
-private class ReplaceDefaultImplsOverriddenSymbols(private val context: JvmBackendContext) : FileLoweringPass, IrElementVisitorVoid {
-    override fun lower(irFile: IrFile) {
-        irFile.acceptVoid(this)
-    }
-
-    override fun visitElement(element: IrElement) {
-        element.acceptChildrenVoid(this)
+private class ReplaceDefaultImplsOverriddenSymbols(private val context: JvmBackendContext) : ClassLoweringPass {
+    override fun lower(irClass: IrClass) {
+        for (declaration in irClass.declarations) {
+            if (declaration is IrSimpleFunction) {
+                visitSimpleFunction(declaration)
+            }
+        }
     }
 
     // Functions introduced by InheritedDefaultMethodsOnClassesLowering may be inherited lower in the hierarchy.
     // Here we use the same logic as the delegation itself (`getTargetForRedirection`) to determine
     // if the overridden symbol has been, or will be, replaced and patch it accordingly.
-    override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+    fun visitSimpleFunction(declaration: IrSimpleFunction) {
         declaration.overriddenSymbols = declaration.overriddenSymbols.map { symbol ->
-            if (symbol.owner.findInterfaceImplementation(context.state.jvmDefaultMode) != null)
+            if (symbol.owner.findInterfaceImplementation(context.config.jvmDefaultMode) != null)
                 context.cachedDeclarations.getDefaultImplsRedirection(symbol.owner).symbol
             else symbol
         }
-        super.visitSimpleFunction(declaration)
     }
 }
 
@@ -165,7 +165,7 @@ private class InterfaceSuperCallsLowering(val context: JvmBackendContext) : IrEl
         }
 
         val superCallee = expression.symbol.owner
-        if (superCallee.isDefinitelyNotDefaultImplsMethod(context.state.jvmDefaultMode)) return super.visitCall(expression)
+        if (superCallee.isDefinitelyNotDefaultImplsMethod(context.config.jvmDefaultMode)) return super.visitCall(expression)
 
         val redirectTarget = context.cachedDeclarations.getDefaultImplsFunction(superCallee)
         val newCall = createDelegatingCallWithPlaceholderTypeArguments(expression, redirectTarget, context.irBuiltIns)
@@ -215,7 +215,7 @@ private class InterfaceDefaultCallsLowering(val context: JvmBackendContext) : Ir
 
         if (!callee.hasInterfaceParent() ||
             callee.origin != IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER ||
-            callee.isSimpleFunctionCompiledToJvmDefault(context.state.jvmDefaultMode)
+            callee.isSimpleFunctionCompiledToJvmDefault(context.config.jvmDefaultMode)
         ) {
             return super.visitCall(expression)
         }
@@ -246,7 +246,7 @@ internal fun IrSimpleFunction.isDefinitelyNotDefaultImplsMethod(
 
 private fun IrSimpleFunction.isCloneableClone(): Boolean =
     name.asString() == "clone" &&
-            parent.safeAs<IrClass>()?.fqNameWhenAvailable?.asString() == "kotlin.Cloneable" &&
+            (parent as? IrClass)?.fqNameWhenAvailable?.asString() == "kotlin.Cloneable" &&
             valueParameters.isEmpty()
 
 internal val interfaceObjectCallsPhase = makeIrFilePhase(
@@ -255,20 +255,27 @@ internal val interfaceObjectCallsPhase = makeIrFilePhase(
     description = "Resolve calls to Object methods on interface types to virtual methods"
 )
 
-private class InterfaceObjectCallsLowering(val context: JvmBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
-    override fun lower(irFile: IrFile) = irFile.transformChildrenVoid(this)
+private class InterfaceObjectCallsLowering(val context: JvmBackendContext) : IrElementVisitorVoid, FileLoweringPass {
+    override fun lower(irFile: IrFile) = irFile.acceptChildren(this, null)
 
-    override fun visitCall(expression: IrCall): IrExpression {
-        if (expression.superQualifierSymbol != null && !expression.isSuperToAny())
-            return super.visitCall(expression)
+    override fun visitElement(element: IrElement) {
+        element.acceptChildren(this, null)
+    }
+
+    override fun visitCall(expression: IrCall) {
+        expression.acceptChildren(this, null)
+
+        if (expression.superQualifierSymbol != null && !expression.isSuperToAny()) return
+
         val callee = expression.symbol.owner
-        if (!callee.hasInterfaceParent() && expression.dispatchReceiver?.run { type.erasedUpperBound.isJvmInterface } != true)
-            return super.visitCall(expression)
-        val resolved = callee.resolveFakeOverride()
-        if (resolved?.isMethodOfAny() != true)
-            return super.visitCall(expression)
-        val newSuperQualifierSymbol = context.irBuiltIns.anyClass.takeIf { expression.superQualifierSymbol != null }
-        return super.visitCall(irCall(expression, resolved, newSuperQualifierSymbol = newSuperQualifierSymbol))
+        if (!callee.isMethodOfAny()) return
+        if (!callee.hasInterfaceParent() && expression.dispatchReceiver?.run { type.erasedUpperBound.isJvmInterface } != true) return
+
+        val resolved = callee.resolveFakeOverride() ?: return
+        expression.symbol = resolved.symbol
+        if (expression.superQualifierSymbol != null) {
+            expression.superQualifierSymbol = context.irBuiltIns.anyClass
+        }
     }
 }
 
@@ -285,6 +292,14 @@ internal fun IrSimpleFunction.findInterfaceImplementation(jvmDefaultMode: JvmDef
 
     val implementation = resolveFakeOverride(toSkip = ::isDefaultImplsBridge) ?: return null
 
+    if (!implementation.hasInterfaceParent()
+        || DescriptorVisibilities.isPrivate(implementation.visibility)
+        || implementation.isDefinitelyNotDefaultImplsMethod(jvmDefaultMode, implementation)
+        || implementation.isMethodOfAny()
+    ) {
+        return null
+    }
+
     // Only generate interface delegation for functions immediately inherited from an interface.
     // (Otherwise, delegation will be present in the parent class)
     if (overriddenSymbols.any {
@@ -292,14 +307,6 @@ internal fun IrSimpleFunction.findInterfaceImplementation(jvmDefaultMode: JvmDef
                     it.owner.modality != Modality.ABSTRACT &&
                     it.owner.resolveFakeOverride(toSkip = ::isDefaultImplsBridge) == implementation
         }) {
-        return null
-    }
-
-    if (!implementation.hasInterfaceParent()
-        || DescriptorVisibilities.isPrivate(implementation.visibility)
-        || implementation.isDefinitelyNotDefaultImplsMethod(jvmDefaultMode)
-        || implementation.isMethodOfAny()
-    ) {
         return null
     }
 

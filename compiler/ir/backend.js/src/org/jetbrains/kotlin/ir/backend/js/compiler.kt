@@ -5,39 +5,28 @@
 
 package org.jetbrains.kotlin.ir.backend.js
 
+import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.backend.js.codegen.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.lower.collectNativeImplementations
 import org.jetbrains.kotlin.ir.backend.js.lower.generateJsTests
 import org.jetbrains.kotlin.ir.backend.js.lower.moveBodilessDeclarationsToSeparatePlace
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.CompilationOutputs
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.TranslationMode
-import org.jetbrains.kotlin.ir.backend.js.utils.NameTables
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
 import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.ir.util.noUnboundLeft
-import org.jetbrains.kotlin.js.backend.ast.JsProgram
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
 import org.jetbrains.kotlin.name.FqName
-import java.io.File
 
 class CompilerResult(
     val outputs: Map<TranslationMode, CompilationOutputs>,
-    val tsDefinitions: String? = null
-)
-
-class CompilationOutputs(
-    val jsCode: String,
-    val jsProgram: JsProgram? = null,
-    val sourceMap: String? = null,
-    val dependencies: Iterable<Pair<String, CompilationOutputs>> = emptyList()
 )
 
 class LoweredIr(
@@ -48,19 +37,18 @@ class LoweredIr(
 )
 
 fun compile(
+    mainCallArguments: List<String>?,
     depsDescriptors: ModulesStructure,
     phaseConfig: PhaseConfig,
     irFactory: IrFactory,
     exportedDeclarations: Set<FqName> = emptySet(),
+    keep: Set<String> = emptySet(),
     dceRuntimeDiagnostic: RuntimeDiagnostic? = null,
-    es6mode: Boolean = false,
     verifySignatures: Boolean = true,
-    baseClassIntoMetadata: Boolean = false,
     safeExternalBoolean: Boolean = false,
     safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
     filesToLower: Set<String>? = null,
     granularity: JsGenerationGranularity = JsGenerationGranularity.WHOLE_PROGRAM,
-    icCompatibleIr2Js: Boolean = false,
 ): LoweredIr {
 
     val (moduleFragment: IrModuleFragment, dependencyModules, irBuiltIns, symbolTable, deserializer, moduleToName) =
@@ -69,6 +57,7 @@ fun compile(
     return compileIr(
         moduleFragment,
         depsDescriptors.mainModule,
+        mainCallArguments,
         depsDescriptors.compilerConfiguration,
         dependencyModules,
         moduleToName,
@@ -77,72 +66,69 @@ fun compile(
         deserializer,
         phaseConfig,
         exportedDeclarations,
+        keep,
         dceRuntimeDiagnostic,
-        es6mode,
-        baseClassIntoMetadata,
         safeExternalBoolean,
         safeExternalBooleanDiagnostic,
         granularity,
-        icCompatibleIr2Js,
     )
 }
 
 fun compileIr(
     moduleFragment: IrModuleFragment,
     mainModule: MainModule,
+    mainCallArguments: List<String>?,
     configuration: CompilerConfiguration,
     dependencyModules: List<IrModuleFragment>,
     moduleToName: Map<IrModuleFragment, String>,
     irBuiltIns: IrBuiltIns,
     symbolTable: SymbolTable,
-    deserializer: JsIrLinker,
+    irLinker: JsIrLinker,
     phaseConfig: PhaseConfig,
     exportedDeclarations: Set<FqName>,
+    keep: Set<String>,
     dceRuntimeDiagnostic: RuntimeDiagnostic?,
-    es6mode: Boolean,
-    baseClassIntoMetadata: Boolean,
     safeExternalBoolean: Boolean,
     safeExternalBooleanDiagnostic: RuntimeDiagnostic?,
     granularity: JsGenerationGranularity,
-    icCompatibleIr2Js: Boolean,
 ): LoweredIr {
     val moduleDescriptor = moduleFragment.descriptor
     val irFactory = symbolTable.irFactory
+    val shouldGeneratePolyfills = configuration.getBoolean(JSConfigurationKeys.GENERATE_POLYFILLS)
 
     val allModules = when (mainModule) {
         is MainModule.SourceFiles -> dependencyModules + listOf(moduleFragment)
         is MainModule.Klib -> dependencyModules
     }
 
-    val allowUnboundSymbols = configuration[JSConfigurationKeys.PARTIAL_LINKAGE] ?: false
-
     val context = JsIrBackendContext(
         moduleDescriptor,
         irBuiltIns,
         symbolTable,
-        allModules.first(),
         exportedDeclarations,
+        keep,
         configuration,
-        es6mode = es6mode,
         dceRuntimeDiagnostic = dceRuntimeDiagnostic,
-        baseClassIntoMetadata = baseClassIntoMetadata,
         safeExternalBoolean = safeExternalBoolean,
         safeExternalBooleanDiagnostic = safeExternalBooleanDiagnostic,
         granularity = granularity,
-        icCompatibleIr2Js = if (icCompatibleIr2Js) IcCompatibleIr2Js.COMPATIBLE else IcCompatibleIr2Js.DISABLED
+        incrementalCacheEnabled = false,
+        mainCallArguments = mainCallArguments
     )
 
     // Load declarations referenced during `context` initialization
-    val irProviders = listOf(deserializer)
+    val irProviders = listOf(irLinker)
     ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
 
-    deserializer.postProcess()
-    if (!allowUnboundSymbols) {
-        symbolTable.noUnboundLeft("Unbound symbols at the end of linker")
-    }
+    irLinker.postProcess(inOrAfterLinkageStep = true)
+    irLinker.checkNoUnboundSymbols(symbolTable, "at the end of IR linkage process")
+    irLinker.clear()
 
     allModules.forEach { module ->
-        collectNativeImplementations(context, module)
+        if (shouldGeneratePolyfills) {
+            collectNativeImplementations(context, module)
+        }
+
         moveBodilessDeclarationsToSeparatePlace(context, module)
     }
 
@@ -154,25 +140,4 @@ fun compileIr(
     } ?: jsPhases.invokeToplevel(phaseConfig, context, allModules)
 
     return LoweredIr(context, moduleFragment, allModules, moduleToName)
-}
-
-fun generateJsCode(
-    context: JsIrBackendContext,
-    moduleFragment: IrModuleFragment,
-    nameTables: NameTables
-): String {
-    collectNativeImplementations(context, moduleFragment)
-    moveBodilessDeclarationsToSeparatePlace(context, moduleFragment)
-    jsPhases.invokeToplevel(PhaseConfig(jsPhases), context, listOf(moduleFragment))
-
-    val transformer = IrModuleToJsTransformer(context, null, true, nameTables)
-    return transformer.generateModule(listOf(moduleFragment)).outputs[TranslationMode.FULL]!!.jsCode
-}
-
-fun CompilationOutputs.writeSourceMapIfPresent(outputJsFile: File) {
-    sourceMap?.let {
-        val mapFile = outputJsFile.resolveSibling("${outputJsFile.name}.map")
-        outputJsFile.appendText("\n//# sourceMappingURL=${mapFile.name}\n")
-        mapFile.writeText(it)
-    }
 }

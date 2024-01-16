@@ -8,8 +8,9 @@ package org.jetbrains.kotlin.gradle.plugin
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.file.SourceDirectorySet
+import org.jetbrains.kotlin.tooling.core.HasMutableExtras
 
-interface KotlinSourceSet : Named, HasKotlinDependencies {
+interface KotlinSourceSet : Named, HasProject, HasMutableExtras, HasKotlinDependencies {
     val kotlin: SourceDirectorySet
 
     fun kotlin(configure: SourceDirectorySet.() -> Unit): SourceDirectorySet
@@ -25,19 +26,17 @@ interface KotlinSourceSet : Named, HasKotlinDependencies {
     fun dependsOn(other: KotlinSourceSet)
     val dependsOn: Set<KotlinSourceSet>
 
+    @Deprecated(message = "KT-55312")
     val apiMetadataConfigurationName: String
-    val implementationMetadataConfigurationName: String
-    val compileOnlyMetadataConfigurationName: String
-    val runtimeOnlyMetadataConfigurationName: String
 
-    override val relatedConfigurationNames: List<String>
-        get() = super.relatedConfigurationNames +
-                listOf(
-                    apiMetadataConfigurationName,
-                    implementationMetadataConfigurationName,
-                    compileOnlyMetadataConfigurationName,
-                    runtimeOnlyMetadataConfigurationName
-                )
+    @Deprecated(message = "KT-55312")
+    val implementationMetadataConfigurationName: String
+
+    @Deprecated(message = "KT-55312")
+    val compileOnlyMetadataConfigurationName: String
+
+    @Deprecated(message = "KT-55230: RuntimeOnly scope is not supported for metadata dependency transformation")
+    val runtimeOnlyMetadataConfigurationName: String
 
     companion object {
         const val COMMON_MAIN_SOURCE_SET_NAME = "commonMain"
@@ -45,9 +44,5 @@ interface KotlinSourceSet : Named, HasKotlinDependencies {
     }
 
     val customSourceFilesExtensions: Iterable<String> // lazy iterable expected
-
-    val requiresVisibilityOf: Set<KotlinSourceSet>
-    fun requiresVisibilityOf(other: KotlinSourceSet)
-
     fun addCustomSourceFilesExtensions(extensions: List<String>) {}
 }

@@ -14,7 +14,10 @@ import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
-import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
+import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
@@ -107,16 +110,14 @@ abstract class AbstractValueUsageLowering(val context: JsCommonBackendContext) :
         return this.useAsArgument(expression.target.valueParameters[parameter.index])
     }
 
-
-    override fun IrExpression.useAsVarargElement(expression: IrVararg): IrExpression {
-        return this.useAs(
+    override fun useAsVarargElement(element: IrExpression, expression: IrVararg): IrExpression =
+        element.useAs(
             // Do not box primitive inline classes
-            if (icUtils.isTypeInlined(type) && !icUtils.isTypeInlined(expression.type) && !expression.type.isPrimitiveArray())
+            if (icUtils.isTypeInlined(element.type) && !icUtils.isTypeInlined(expression.type) && !expression.type.isPrimitiveArray())
                 irBuiltIns.anyNType
             else
-                expression.varargElementType
+                if (!expression.type.isPrimitiveArray()) irBuiltIns.anyNType else expression.varargElementType
         )
-    }
 }
 
 class AutoboxingTransformer(context: JsCommonBackendContext) : AbstractValueUsageLowering(context) {
@@ -148,7 +149,6 @@ class AutoboxingTransformer(context: JsCommonBackendContext) : AbstractValueUsag
         is IrSimpleFunctionSymbol -> useReturnableExpressionAsType(returnTarget.owner.returnType)
         is IrConstructorSymbol -> useReturnableExpressionAsType(irBuiltIns.unitType)
         is IrReturnableBlockSymbol -> useReturnableExpressionAsType(returnTarget.owner.type)
-        else -> error(returnTarget)
     }
 
     override fun IrExpression.useExpressionAsType(actualType: IrType, expectedType: IrType): IrExpression {
@@ -164,6 +164,8 @@ class AutoboxingTransformer(context: JsCommonBackendContext) : AbstractValueUsag
                 return JsIrBuilder.buildComposite(actualType, listOf(this, unitValue))
             }
         }
+
+        if (expectedType.isUnit()) return this
 
         val actualInlinedClass = icUtils.getInlinedClass(actualType)
         val expectedInlinedClass = icUtils.getInlinedClass(expectedType)
@@ -227,22 +229,12 @@ class AutoboxingTransformer(context: JsCommonBackendContext) : AbstractValueUsag
     }
 
     override fun visitCall(expression: IrCall): IrExpression {
-        if (expression.symbol == irBuiltIns.eqeqeqSymbol && expression.allArgumentsHaveType(irBuiltIns.charType)) {
-            return expression.apply { transformChildrenVoid() }
+        return if (expression.origin == IrStatementOrigin.SYNTHETIC_NOT_AUTOBOXED_CHECK) {
+            expression.apply { transformChildrenVoid() }
         } else {
-            return super.visitCall(expression)
+            super.visitCall(expression)
         }
     }
-
-    private fun IrCall.allArgumentsHaveType(type: IrType): Boolean {
-        for (i in 0 until valueArgumentsCount) {
-            if (getValueArgument(i)?.type != type) {
-                return false
-            }
-        }
-        return true
-    }
-
 }
 
 private tailrec fun IrExpression.isGetUnit(irBuiltIns: IrBuiltIns): Boolean =
@@ -252,6 +244,9 @@ private tailrec fun IrExpression.isGetUnit(irBuiltIns: IrBuiltIns): Boolean =
                 is IrExpression -> lastStmt.isGetUnit(irBuiltIns)
                 else -> false
             }
+
+        is IrConstructorCall ->
+            this.type == irBuiltIns.unitType
 
         is IrGetObjectValue ->
             this.symbol == irBuiltIns.unitClass

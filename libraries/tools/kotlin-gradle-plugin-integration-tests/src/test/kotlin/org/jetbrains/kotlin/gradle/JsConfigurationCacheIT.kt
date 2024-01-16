@@ -5,24 +5,14 @@
 
 package org.jetbrains.kotlin.gradle
 
-import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
-import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
-import javax.inject.Inject
 
-abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) : KGPBaseTest() {
-    private val defaultJsOptions = BuildOptions.JsOptions(
-        useIrBackend = irBackend,
-        jsCompilerType = if (irBackend) KotlinJsCompilerType.IR else KotlinJsCompilerType.LEGACY,
-    )
-
-    final override val defaultBuildOptions =
+@JsGradlePluginTests
+class JsIrConfigurationCacheIT : KGPBaseTest() {
+    override val defaultBuildOptions =
         super.defaultBuildOptions.copy(
-            jsOptions = defaultJsOptions,
-            warningMode = WarningMode.Summary,
             configurationCache = true,
             configurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL
         )
@@ -43,8 +33,6 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
     @GradleTest
     fun testBrowserDistribution(gradleVersion: GradleVersion) {
         project("kotlin-js-browser-project", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
-
             assertSimpleConfigurationCacheScenarioWorks(
                 ":app:build",
                 buildOptions = defaultBuildOptions,
@@ -52,10 +40,31 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
                     ":app:packageJson",
                     ":app:publicPackageJson",
                     ":app:compileKotlinJs",
-                    if (irBackend) ":app:compileProductionExecutableKotlinJs" else ":app:processDceKotlinJs",
+                    ":app:compileProductionExecutableKotlinJs",
                     ":app:browserProductionWebpack",
                 )
             )
+        }
+    }
+
+    @DisplayName("configuration cache is reused when idea.version system property is changed in browser project")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_0)
+    @GradleTest
+    fun testBrowserDistributionOnIdeaPropertyChange(gradleVersion: GradleVersion) {
+        project("kotlin-js-browser-project", gradleVersion) {
+            build(":app:build") {
+                assertConfigurationCacheStored()
+            }
+            // check IdeaPropertiesEvaluator for the logic
+            build(":app:build", "-Didea.version=2020.1") {
+                assertConfigurationCacheReused()
+                assertTasksUpToDate(
+                    ":app:packageJson",
+                    ":app:publicPackageJson",
+                    ":app:compileProductionExecutableKotlinJs",
+                    ":app:browserProductionWebpack",
+                )
+            }
         }
     }
 
@@ -70,11 +79,33 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
                     ":packageJson",
                     ":publicPackageJson",
                     ":rootPackageJson",
-                    ":kotlinNpmInstall",
                     ":compileKotlinJs",
                     ":nodeTest",
-                ) + if (irBackend) listOf(":compileProductionExecutableKotlinJs") else emptyList()
+                ) + listOf(":compileProductionExecutableKotlinJs")
             )
+        }
+    }
+
+    @DisplayName("configuration cache is reused when idea.version system property is changed in node project")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_0)
+    @GradleTest
+    fun testNodeJsOnIdeaPropertyChange(gradleVersion: GradleVersion) {
+        project("kotlin-js-nodejs-project", gradleVersion) {
+            build(":build") {
+                assertConfigurationCacheStored()
+            }
+            // check IdeaPropertiesEvaluator for the logic
+            build(":build", "-Didea.version=2020.1") {
+                assertConfigurationCacheReused()
+                val upToDateTasks = listOf(
+                    ":packageJson",
+                    ":publicPackageJson",
+                    ":rootPackageJson",
+                    ":compileKotlinJs",
+                    ":nodeTest",
+                ) + listOf(":compileProductionExecutableKotlinJs")
+                assertTasksUpToDate(*upToDateTasks.toTypedArray())
+            }
         }
     }
 
@@ -83,16 +114,33 @@ abstract class AbstractJsConfigurationCacheIT(protected val irBackend: Boolean) 
     fun testTestDependencies(gradleVersion: GradleVersion) {
         project("kotlin-js-project-with-test-dependencies", gradleVersion) {
             assertSimpleConfigurationCacheScenarioWorks(
-                "assemble",
+                "assemble", "kotlinStoreYarnLock",
                 buildOptions = defaultBuildOptions,
-                executedTaskNames = listOf(":kotlinNpmInstall")
+                executedTaskNames = listOf(":rootPackageJson")
             )
         }
     }
+
+    @DisplayName("Node.js run correctly works with configuration cache")
+    @GradleTest
+    fun testNodeJsRun(gradleVersion: GradleVersion) {
+        project("kotlin-js-nodejs-project", gradleVersion) {
+            build("nodeRun", buildOptions = buildOptions) {
+                assertTasksExecuted(":nodeRun")
+                assertOutputContains(
+                    "Calculating task graph as no configuration cache is available for tasks: nodeRun"
+                )
+
+                assertConfigurationCacheStored()
+            }
+
+            build("clean", buildOptions = buildOptions)
+
+            // Then run a build where tasks states are deserialized to check that they work correctly in this mode
+            build("nodeRun", buildOptions = buildOptions) {
+                assertTasksExecuted(":nodeRun")
+                assertConfigurationCacheReused()
+            }
+        }
+    }
 }
-
-@JsGradlePluginTests
-class JsConfigurationCacheIT : AbstractJsConfigurationCacheIT(irBackend = false)
-
-@JsGradlePluginTests
-class JsIrConfigurationCacheIT : AbstractJsConfigurationCacheIT(irBackend = true)

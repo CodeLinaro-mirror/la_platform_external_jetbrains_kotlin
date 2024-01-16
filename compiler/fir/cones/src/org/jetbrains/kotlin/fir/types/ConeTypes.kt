@@ -6,8 +6,10 @@
 package org.jetbrains.kotlin.fir.types
 
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
+import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
+import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.utils.addToStdlib.foldMap
@@ -28,7 +30,7 @@ sealed class ConeKotlinType : ConeKotlinTypeProjection(), KotlinTypeMarker, Type
     abstract val attributes: ConeAttributes
 
     final override fun toString(): String {
-        return render()
+        return renderForDebugging()
     }
 
     abstract override fun equals(other: Any?): Boolean
@@ -42,16 +44,16 @@ class ConeClassLikeErrorLookupTag(override val classId: ClassId) : ConeClassLike
 class ConeErrorType(
     val diagnostic: ConeDiagnostic,
     val isUninferredParameter: Boolean = false,
+    override val typeArguments: Array<out ConeTypeProjection> = EMPTY_ARRAY,
     override val attributes: ConeAttributes = ConeAttributes.Empty
 ) : ConeClassLikeType() {
     override val lookupTag: ConeClassLikeLookupTag
         get() = ConeClassLikeErrorLookupTag(ClassId.fromString("<error>"))
 
-    override val typeArguments: Array<out ConeTypeProjection>
-        get() = EMPTY_ARRAY
-
     override val nullability: ConeNullability
-        get() = ConeNullability.UNKNOWN
+        get() = if (diagnostic is ConeDiagnosticWithNullability) {
+            if (diagnostic.isNullable) ConeNullability.NULLABLE else ConeNullability.NOT_NULL
+        } else ConeNullability.UNKNOWN
 
     override fun equals(other: Any?) = this === other
     override fun hashCode(): Int = System.identityHashCode(this)
@@ -142,7 +144,7 @@ data class ConeCapturedType(
     )
 
     override val typeArguments: Array<out ConeTypeProjection>
-        get() = emptyArray()
+        get() = EMPTY_ARRAY
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -151,8 +153,7 @@ data class ConeCapturedType(
         other as ConeCapturedType
 
         if (lowerType != other.lowerType) return false
-        if (constructor.projection != other.constructor.projection) return false
-        if (constructor.typeParameterMarker != other.constructor.typeParameterMarker) return false
+        if (constructor != other.constructor) return false
         if (captureStatus != other.captureStatus) return false
         if (nullability != other.nullability) return false
 
@@ -160,10 +161,9 @@ data class ConeCapturedType(
     }
 
     override fun hashCode(): Int {
-        var result = 0
+        var result = 7
         result = 31 * result + (lowerType?.hashCode() ?: 0)
-        result = 31 * result + constructor.projection.hashCode()
-        result = 31 * result + constructor.typeParameterMarker.hashCode()
+        result = 31 * result + constructor.hashCode()
         result = 31 * result + captureStatus.hashCode()
         result = 31 * result + nullability.hashCode()
         return result
@@ -184,23 +184,43 @@ data class ConeDefinitelyNotNullType(val original: ConeSimpleKotlinType) : ConeS
     companion object
 }
 
-class ConeRawType(
+class ConeRawType private constructor(
     lowerBound: ConeSimpleKotlinType,
     upperBound: ConeSimpleKotlinType
-) : ConeFlexibleType(lowerBound, upperBound), RawTypeMarker
+) : ConeFlexibleType(lowerBound, upperBound) {
+    companion object {
+        fun create(
+            lowerBound: ConeSimpleKotlinType,
+            upperBound: ConeSimpleKotlinType,
+        ): ConeRawType {
+            require(lowerBound is ConeClassLikeType && upperBound is ConeClassLikeType) {
+                "Raw bounds are expected to be class-like types, but $lowerBound and $upperBound were found"
+            }
 
-/*
- * Contract of the intersection type: it is flat. It means that
- *   intersection type can not contains another intersection types
- *   inside it. To keep this contract construct new intersection types
- *   only via ConeTypeIntersector
+            val lowerBoundToUse = if (!lowerBound.attributes.contains(CompilerConeAttributes.RawType)) {
+                ConeClassLikeTypeImpl(
+                    lowerBound.lookupTag, lowerBound.typeArguments, lowerBound.isNullable,
+                    lowerBound.attributes + CompilerConeAttributes.RawType
+                )
+            } else {
+                lowerBound
+            }
+
+            return ConeRawType(lowerBoundToUse, upperBound)
+        }
+    }
+}
+
+/**
+ * Contract of the intersection type: it is flat. It means that an intersection type can not contain another intersection type inside it.
+ * To comply with this contract, construct new intersection types only via [org.jetbrains.kotlin.fir.types.ConeTypeIntersector].
  */
 class ConeIntersectionType(
     val intersectedTypes: Collection<ConeKotlinType>,
     val alternativeType: ConeKotlinType? = null,
 ) : ConeSimpleKotlinType(), IntersectionTypeConstructorMarker {
     override val typeArguments: Array<out ConeTypeProjection>
-        get() = emptyArray()
+        get() = EMPTY_ARRAY
 
     override val nullability: ConeNullability
         get() = ConeNullability.NOT_NULL

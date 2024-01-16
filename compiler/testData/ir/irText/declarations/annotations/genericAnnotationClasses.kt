@@ -1,3 +1,6 @@
+// MUTE_SIGNATURE_COMPARISON_K2: ANY
+// ^ KT-60136
+
 package ann
 
 annotation class Test1<T>(val x: Int)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,12 +15,11 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
 /**
  * A non-leaf IR tree element.
- * @sample org.jetbrains.kotlin.ir.generator.IrTree.containerExpression
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.containerExpression]
  */
 abstract class IrContainerExpression : IrExpression(), IrStatementContainer {
-    abstract val origin: IrStatementOrigin?
-
-    abstract val isTransparentScope: Boolean
+    abstract var origin: IrStatementOrigin?
 
     override val statements: MutableList<IrStatement> = ArrayList(2)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,33 +7,31 @@ package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
+import org.jetbrains.kotlin.builtins.functions.isBasicFunctionOrKFunction
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.isSuspend
-import org.jetbrains.kotlin.fir.expressions.FirAnnotation
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
-import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildNamedArgumentExpression
-import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
-import org.jetbrains.kotlin.fir.resolve.DoubleColonLHS
-import org.jetbrains.kotlin.fir.resolve.createFunctionalType
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnsupportedCallableReferenceTarget
 import org.jetbrains.kotlin.fir.resolve.inference.extractInputOutputTypesFromCallableReferenceExpectedType
-import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeArgumentConstraintPosition
+import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.unwrapFakeOverrides
-import org.jetbrains.kotlin.fir.visibilityChecker
+import org.jetbrains.kotlin.fir.utils.exceptions.withConeTypeEntry
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.resolve.calls.components.SuspendConversionStrategy
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemOperation
-import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystemConstraintPosition
+import org.jetbrains.kotlin.resolve.calls.inference.runTransaction
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.types.expressions.CoercionStrategy
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 
 internal object CheckCallableReferenceExpectedType : CheckerStage() {
@@ -47,13 +45,15 @@ internal object CheckCallableReferenceExpectedType : CheckerStage() {
             else -> null
         }
 
-        val fir: FirCallableDeclaration = candidate.symbol.fir
+        val fir: FirCallableDeclaration = candidate.symbol.fir as FirCallableDeclaration
 
         val (rawResultingType, callableReferenceAdaptation) = buildReflectionType(fir, resultingReceiverType, candidate, context)
         val resultingType = candidate.substitutor.substituteOrSelf(rawResultingType)
 
         if (callableReferenceAdaptation.needCompatibilityResolveForCallableReference()) {
-            sink.reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
+            if (!context.session.languageVersionSettings.supportsFeature(LanguageFeature.DisableCompatibilityModeForNewInference)) {
+                sink.reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
+            }
         }
 
         candidate.resultingTypeForCallableReference = resultingType
@@ -61,22 +61,14 @@ internal object CheckCallableReferenceExpectedType : CheckerStage() {
         candidate.outerConstraintBuilderEffect = fun ConstraintSystemOperation.() {
             addOtherSystem(candidate.system.currentStorage())
 
-            val position = SimpleConstraintSystemConstraintPosition //TODO
+            // Callable references are either arguments to a call or are wrapped in a synthetic call for resolution.
+            val position = ConeArgumentConstraintPosition(callInfo.callSite)
 
             if (expectedType != null && !resultingType.contains {
                     it is ConeTypeVariableType && it.lookupTag !in outerCsBuilder.currentStorage().allTypeVariables
                 }
             ) {
                 addSubtypeConstraint(resultingType, expectedType, position)
-            }
-
-            val declarationReceiverType: ConeKotlinType? =
-                fir.receiverTypeRef?.coneType
-                    ?.let(candidate.substitutor::substituteOrSelf)
-
-            if (resultingReceiverType != null && declarationReceiverType != null) {
-                val capturedReceiver = context.session.typeContext.captureFromExpression(resultingReceiverType) ?: resultingReceiverType
-                addSubtypeConstraint(capturedReceiver, declarationReceiverType, position)
             }
         }
 
@@ -115,7 +107,7 @@ private fun buildReflectionType(
                 )
 
             val parameters = mutableListOf<ConeKotlinType>()
-            if (fir.receiverTypeRef == null && receiverType != null) {
+            if (fir.receiverParameter == null && receiverType != null) {
                 parameters += receiverType
             }
 
@@ -130,14 +122,17 @@ private fun buildReflectionType(
                 fir.valueParameters.mapTo(parameters) { it.returnTypeRef.coneType }
             }
 
-            val isSuspend = (fir as? FirSimpleFunction)?.isSuspend == true ||
-                    callableReferenceAdaptation?.suspendConversionStrategy == SuspendConversionStrategy.SUSPEND_CONVERSION
-            return createFunctionalType(
+
+            val baseFunctionTypeKind = callableReferenceAdaptation?.suspendConversionStrategy?.kind
+                ?: fir.specialFunctionTypeKind(context.session)
+                ?: FunctionTypeKind.Function
+
+            return createFunctionType(
+                if (callableReferenceAdaptation == null) baseFunctionTypeKind.reflectKind() else baseFunctionTypeKind.nonReflectKind(),
                 parameters,
-                receiverType = receiverType.takeIf { fir.receiverTypeRef != null },
+                receiverType = receiverType.takeIf { fir.receiverParameter != null },
                 rawReturnType = returnType,
-                isKFunctionType = true,
-                isSuspend = isSuspend
+                contextReceivers = fir.contextReceivers.map { it.typeRef.coneType }
             ) to callableReferenceAdaptation
         }
         is FirVariable -> createKPropertyType(fir, receiverType, returnTypeRef, candidate) to null
@@ -150,14 +145,14 @@ internal class CallableReferenceAdaptation(
     val coercionStrategy: CoercionStrategy,
     val defaults: Int,
     val mappedArguments: CallableReferenceMappedArguments,
-    val suspendConversionStrategy: SuspendConversionStrategy
+    val suspendConversionStrategy: CallableReferenceConversionStrategy
 )
 
 private fun CallableReferenceAdaptation?.needCompatibilityResolveForCallableReference(): Boolean {
     // KT-13934: check containing declaration for companion object
     if (this == null) return false
     return defaults != 0 ||
-            suspendConversionStrategy != SuspendConversionStrategy.NO_CONVERSION ||
+            suspendConversionStrategy != CallableReferenceConversionStrategy.NoConversion ||
             coercionStrategy != CoercionStrategy.NO_COERCION ||
             mappedArguments.values.any { it is ResolvedCallArgument.VarargArgument }
 }
@@ -178,8 +173,14 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
     if (expectedArgumentsCount < 0) return null
 
     val fakeArguments = createFakeArgumentsForReference(function, expectedArgumentsCount, inputTypes, unboundReceiverCount)
-    // TODO: Use correct originScope
-    val argumentMapping = mapArguments(fakeArguments, function, originScope = null)
+    val originScope = function.dispatchReceiverType?.scope(
+        useSiteSession = session,
+        scopeSession = scopeSession,
+        callableCopyTypeCalculator = CallableCopyTypeCalculator.DoNothing,
+        requiredMembersPhase = FirResolvePhase.STATUS,
+    )
+
+    val argumentMapping = mapArguments(fakeArguments, function, originScope = originScope, callSiteIsOperatorCall = false)
     if (argumentMapping.diagnostics.any { !it.applicability.isSuccess }) return null
 
     /**
@@ -236,26 +237,44 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
         mappedArguments[valueParameter] = ResolvedCallArgument.VarargArgument(varargElements)
     }
 
+    var isThereVararg = mappedVarargElements.isNotEmpty()
     for (valueParameter in function.valueParameters) {
         if (valueParameter.isVararg && valueParameter !in mappedArguments) {
             mappedArguments[valueParameter] = ResolvedCallArgument.VarargArgument(emptyList())
+            isThereVararg = true
         }
     }
 
-    val coercionStrategy = if (returnExpectedType.isUnitOrFlexibleUnit && !function.returnTypeRef.isUnit)
-        CoercionStrategy.COERCION_TO_UNIT
-    else
-        CoercionStrategy.NO_COERCION
+    val returnTypeRef = function.returnTypeRef
+    val coercionStrategy =
+        if (returnExpectedType.isUnitOrFlexibleUnit &&
+            returnTypeRef.coneTypeSafe<ConeKotlinType>()?.fullyExpandedType(session)?.isUnit != true
+        )
+            CoercionStrategy.COERCION_TO_UNIT
+        else
+            CoercionStrategy.NO_COERCION
 
     val adaptedArguments = if (expectedType.isBaseTypeForNumberedReferenceTypes)
         emptyMap()
     else
         mappedArguments
 
-    val suspendConversionStrategy = if ((function as? FirSimpleFunction)?.isSuspend != true && expectedType.isSuspendFunctionType(session))
-        SuspendConversionStrategy.SUSPEND_CONVERSION
-    else
-        SuspendConversionStrategy.NO_CONVERSION
+    val expectedTypeFunctionKind = expectedType.functionTypeKind(session)?.takeUnless { it.isBasicFunctionOrKFunction }
+    val functionKind = function.specialFunctionTypeKind(session)
+
+    val conversionStrategy = if (expectedTypeFunctionKind != null && functionKind == null) {
+        CallableReferenceConversionStrategy.CustomConversion(expectedTypeFunctionKind)
+    } else {
+        CallableReferenceConversionStrategy.NoConversion
+    }
+
+    if (defaults == 0 && !isThereVararg &&
+        coercionStrategy == CoercionStrategy.NO_COERCION && conversionStrategy == CallableReferenceConversionStrategy.NoConversion
+    ) {
+        // Do not create adaptation for trivial (id) conversion as it makes resulting type FunctionN instead of KFunctionN
+        // It happens because adapted references do not support reflection (see KT-40406)
+        return null
+    }
 
     @Suppress("UNCHECKED_CAST")
     return CallableReferenceAdaptation(
@@ -263,8 +282,21 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
         coercionStrategy,
         defaults,
         adaptedArguments,
-        suspendConversionStrategy
+        conversionStrategy
     )
+}
+
+
+
+sealed class CallableReferenceConversionStrategy {
+    abstract val kind: FunctionTypeKind?
+
+    object NoConversion : CallableReferenceConversionStrategy() {
+        override val kind: FunctionTypeKind?
+            get() = null
+    }
+
+    class CustomConversion(override val kind: FunctionTypeKind) : CallableReferenceConversionStrategy()
 }
 
 private fun varargParameterTypeByExpectedParameter(
@@ -273,7 +305,11 @@ private fun varargParameterTypeByExpectedParameter(
     varargMappingState: VarargMappingState,
 ): Pair<ConeKotlinType?, VarargMappingState> {
     val elementType = substitutedParameter.returnTypeRef.coneType.arrayElementType()
-        ?: error("Vararg parameter $substitutedParameter does not have vararg type")
+        ?: errorWithAttachment("Vararg parameter ${substitutedParameter::class.java} does not have vararg type") {
+            withConeTypeEntry("expectedParameterType", expectedParameterType)
+            withFirEntry("substitutedParameter", substitutedParameter)
+            withEntry("varargMappingState", varargMappingState.toString())
+        }
 
     return when (varargMappingState) {
         VarargMappingState.UNMAPPED -> {
@@ -365,31 +401,36 @@ private fun createFakeArgumentsForReference(
 }
 
 class FirFakeArgumentForCallableReference(
-    val index: Int
+    val index: Int,
 ) : FirExpression() {
     override val source: KtSourceElement?
         get() = null
 
-    override val typeRef: FirTypeRef
-        get() = error("should not be called")
+    @UnresolvedExpressionTypeAccess
+    override val coneTypeOrNull: ConeKotlinType
+        get() = shouldNotBeCalled()
 
     override val annotations: List<FirAnnotation>
-        get() = error("should not be called")
+        get() = shouldNotBeCalled()
 
-    override fun replaceTypeRef(newTypeRef: FirTypeRef) {
-        error("should not be called")
+    override fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?) {
+        shouldNotBeCalled()
+    }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        shouldNotBeCalled()
     }
 
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirNamedArgumentExpression {
-        error("should not be called")
+        shouldNotBeCalled()
     }
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
-        error("should not be called")
+        shouldNotBeCalled()
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirElement {
-        error("should not be called")
+        shouldNotBeCalled()
     }
 }
 
@@ -414,7 +455,7 @@ private fun createKPropertyType(
 private fun FirVariable.canBeMutableReference(candidate: Candidate): Boolean {
     if (!isVar) return false
     if (this is FirField) return true
-    val original = this.unwrapFakeOverrides()
+    val original = this.unwrapFakeOverridesOrDelegated()
     return original.source?.kind == KtFakeSourceElementKind.PropertyFromParameter ||
             (original.setter is FirMemberDeclaration &&
                     candidate.callInfo.session.visibilityChecker.isVisible(original.setter!!, candidate))

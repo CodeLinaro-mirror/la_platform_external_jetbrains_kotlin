@@ -5,18 +5,26 @@
 
 package org.jetbrains.kotlin.backend.konan.descriptors
 
+import llvm.LLVMABIAlignmentOfType
+import llvm.LLVMABISizeOfType
+import llvm.LLVMPreferredAlignmentOfType
 import llvm.LLVMStoreSizeOfType
+import org.jetbrains.kotlin.backend.common.lower.coroutines.getOrCreateFunctionWithContinuationStub
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.ir.*
+import org.jetbrains.kotlin.backend.konan.llvm.CodegenLlvmHelpers
 import org.jetbrains.kotlin.backend.konan.llvm.computeFunctionName
-import org.jetbrains.kotlin.backend.konan.llvm.getLLVMType
+import org.jetbrains.kotlin.backend.konan.llvm.toLLVMType
 import org.jetbrains.kotlin.backend.konan.llvm.localHash
 import org.jetbrains.kotlin.backend.konan.lower.bridgeTarget
+import org.jetbrains.kotlin.backend.konan.serialization.KonanIrLinker
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConst
+import org.jetbrains.kotlin.ir.objcinterop.*
+import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
@@ -57,7 +65,7 @@ internal class OverriddenFunctionInfo(
             } else {
                 function
             }
-            context.specialDeclarationsFactory.getBridge(OverriddenFunctionInfo(bridgeOwner, overriddenFunction))
+            context.bridgesSupport.getBridge(OverriddenFunctionInfo(bridgeOwner, overriddenFunction))
         }
         return if (implementation.modality == Modality.ABSTRACT) null else implementation
     }
@@ -257,13 +265,32 @@ internal class GlobalHierarchyAnalysis(val context: Context, val irModule: IrMod
     }
 }
 
-internal fun IrField.toFieldInfo(): ClassLayoutBuilder.FieldInfo {
-    val isConst = correspondingPropertySymbol?.owner?.isConst ?: false
-    require(!isConst || initializer?.expression is IrConst<*>) { "A const val field ${render()} must have constant initializer" }
-    return ClassLayoutBuilder.FieldInfo(name.asString(), type, isConst, this)
+internal fun IrField.requiredAlignment(llvm: CodegenLlvmHelpers): Int {
+    val llvmType = type.toLLVMType(llvm)
+    val abiAlignment = if (llvmType == llvm.vector128Type) {
+        8 // over-aligned objects are not supported now, and this worked somehow, so let's keep it as it for now
+    } else {
+        LLVMABIAlignmentOfType(llvm.runtime.targetData, llvmType)
+    }
+    return if (hasAnnotation(KonanFqNames.volatile)) {
+        val size = LLVMABISizeOfType(llvm.runtime.targetData, llvmType).toInt()
+        val alignment = maxOf(size, abiAlignment)
+        require(alignment % size == 0) { "Bad alignment of field ${render()}: abiAlignment = ${abiAlignment}, size = ${size}"}
+        require(alignment % abiAlignment == 0) { "Bad alignment of field ${render()}: abiAlignment = ${abiAlignment}, size = ${size}"}
+        alignment
+    } else {
+        abiAlignment
+    }
 }
 
+
 internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
+    private fun IrField.toFieldInfo(llvm: CodegenLlvmHelpers): FieldInfo {
+        val isConst = correspondingPropertySymbol?.owner?.isConst ?: false
+        require(!isConst || initializer?.expression is IrConst<*>) { "A const val field ${render()} must have constant initializer" }
+        return FieldInfo(name.asString(), type, isConst, symbol, requiredAlignment(llvm))
+    }
+
     val vtableEntries: List<OverriddenFunctionInfo> by lazy {
         require(!irClass.isInterface)
 
@@ -279,7 +306,7 @@ internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
             context.getLayoutBuilder(superClass).vtableEntries
         }
 
-        val methods = irClass.overridableOrOverridingMethods
+        val methods = overridableOrOverridingMethods
         val newVtableSlots = mutableListOf<OverriddenFunctionInfo>()
         val overridenVtableSlots = mutableMapOf<IrSimpleFunction, OverriddenFunctionInfo>()
 
@@ -344,18 +371,19 @@ internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
     fun vtableIndex(function: IrSimpleFunction): Int {
         val bridgeDirections = function.target.bridgeDirectionsTo(function)
         val index = vtableEntries.indexOfFirst { it.function == function && it.bridgeDirections == bridgeDirections }
-        if (index < 0) throw Error(function.render() + " $function " + " (${function.symbol.descriptor}) not in vtable of " + irClass.render())
+        require(index >= 0) { "${function.render()} is not found in vtable of ${irClass.render()}" }
         return index
     }
 
     fun overridingOf(function: IrSimpleFunction) =
-            irClass.overridableOrOverridingMethods.firstOrNull { function in it.allOverriddenFunctions }?.let {
+            overridableOrOverridingMethods.firstOrNull { function in it.allOverriddenFunctions }?.let {
                 OverriddenFunctionInfo(it, function).getImplementation(context)
             }
 
     val interfaceVTableEntries: List<IrSimpleFunction> by lazy {
         require(irClass.isInterface)
         irClass.simpleFunctions()
+                .map { it.getLoweredVersion() }
                 .filter { f ->
                     f.isOverridable && f.bridgeTarget == null
                             && (f.isReal || f.overriddenSymbols.any { f.needBridgeTo(it.owner) })
@@ -397,37 +425,50 @@ internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
         return context.getLayoutBuilder(superFunction.parentAsClass).itablePlace(superFunction)
     }
 
-    class FieldInfo(val name: String, val type: IrType, val isConst: Boolean, val irField: IrField?) {
-        var index = -1
+    class FieldInfo(val name: String, val type: IrType, val isConst: Boolean, val irFieldSymbol: IrFieldSymbol, val alignment: Int) {
+        val irField: IrField?
+            get() = if (irFieldSymbol.isBound) irFieldSymbol.owner else null
+        init {
+            require(alignment.countOneBits() == 1) { "Alignment should be power of 2" }
+        }
     }
 
     /**
      * All fields of the class instance.
      * The order respects the class hierarchy, i.e. a class [fields] contains superclass [fields] as a prefix.
      */
-    val fields: List<FieldInfo> by lazy {
-        val superClass = irClass.getSuperClassNotAny()
-        val superFields = if (superClass != null) context.getLayoutBuilder(superClass).fields else emptyList()
+    fun getFields(llvm: CodegenLlvmHelpers): List<FieldInfo> = getFieldsInternal(llvm).map { fieldInfo ->
+        val mappedField = fieldInfo.irField?.let { context.mapping.lateInitFieldToNullableField[it] ?: it }
+        if (mappedField == fieldInfo.irField)
+            fieldInfo
+        else
+            mappedField!!.toFieldInfo(llvm)
+    }
 
-        val declaredFields = getDeclaredFields()
+    private var fields: List<FieldInfo>? = null
+
+    private fun getFieldsInternal(llvm: CodegenLlvmHelpers): List<FieldInfo> {
+        fields?.let { return it }
+
+        val superClass = irClass.getSuperClassNotAny()
+        val superFields = if (superClass != null) context.getLayoutBuilder(superClass).getFieldsInternal(llvm) else emptyList()
+
+        val declaredFields = getDeclaredFields(llvm)
         val sortedDeclaredFields = if (irClass.hasAnnotation(KonanFqNames.noReorderFields))
             declaredFields
         else
             declaredFields.sortedByDescending {
-                with(context.llvm) { LLVMStoreSizeOfType(runtime.targetData, getLLVMType(it.type)) }
+                with(llvm) { LLVMStoreSizeOfType(runtime.targetData, it.type.toLLVMType(this)) }
             }
 
-        val superFieldsCount = 1 /* First field is ObjHeader */ + superFields.size
-        sortedDeclaredFields.forEachIndexed { index, field -> field.index = superFieldsCount + index }
-
-        superFields + sortedDeclaredFields
+        return (superFields + sortedDeclaredFields).also { fields = it }
     }
 
     val associatedObjects by lazy {
         val result = mutableMapOf<IrClass, IrClass>()
 
         irClass.annotations.forEach {
-            val irFile = irClass.getContainingFile()
+            val irFile = irClass.fileOrNull
 
             val annotationClass = (it.symbol.owner as? IrConstructor)?.constructedClass
                     ?: error(irFile, it, "unexpected annotation")
@@ -464,19 +505,14 @@ internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
     /**
      * Fields declared in the class.
      */
-    fun getDeclaredFields(): List<FieldInfo> {
+    fun getDeclaredFields(llvm: CodegenLlvmHelpers): List<FieldInfo> {
         val outerThisField = if (irClass.isInner)
-            context.specialDeclarationsFactory.getOuterThisField(irClass)
+            context.innerClassesSupport.getOuterThisField(irClass)
         else null
-        if (context.config.lazyIrForCaches && !context.llvmModuleSpecification.containsDeclaration(irClass)) {
-            val packageFragment = irClass.getPackageFragment()
-            val moduleDescriptor = packageFragment.packageFragmentDescriptor.containingDeclaration
-            if (moduleDescriptor.isFromInteropLibrary())
-                return emptyList()
-            val moduleDeserializer = context.irLinker.cachedLibraryModuleDeserializers[moduleDescriptor]
-                    ?: error("No module deserializer for ${irClass.render()}")
-            return moduleDeserializer.deserializeClassFields(irClass, outerThisField)
-        }
+
+        val moduleDeserializer = context.irLinker.getCachedDeclarationModuleDeserializer(irClass)
+        if (moduleDeserializer != null)
+            return moduleDeserializer.deserializeClassFields(irClass, outerThisField?.toFieldInfo(llvm))
 
         val declarations = irClass.declarations.toMutableList()
         outerThisField?.let {
@@ -485,15 +521,24 @@ internal class ClassLayoutBuilder(val irClass: IrClass, val context: Context) {
         }
         return declarations.mapNotNull {
             when (it) {
-                is IrField -> it.takeIf { it.isReal }?.toFieldInfo()
-                is IrProperty -> it.takeIf { it.isReal }?.backingField?.toFieldInfo()
+                is IrField -> it.takeIf { it.isReal && !it.isStatic }?.toFieldInfo(llvm)
+                is IrProperty -> it.takeIf { it.isReal }?.backingField?.takeIf { !it.isStatic }?.toFieldInfo(llvm)
                 else -> null
             }
         }
     }
 
-    private val IrClass.overridableOrOverridingMethods: List<IrSimpleFunction>
-        get() = this.simpleFunctions().filter { it.isOverridableOrOverrides && it.bridgeTarget == null }
+    /**
+     * Normally, function should be already replaced. But if the function come from LazyIr, it can be not replaced.
+     */
+    fun IrSimpleFunction.getLoweredVersion() = when {
+        isSuspend -> this.getOrCreateFunctionWithContinuationStub(context)
+        else -> this
+    }
+    private val overridableOrOverridingMethods: List<IrSimpleFunction>
+        get() = irClass.simpleFunctions()
+                .map {it.getLoweredVersion() }
+                .filter { it.isOverridableOrOverrides && it.bridgeTarget == null }
 
     private val IrFunction.uniqueName get() = computeFunctionName()
 }

@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.js.backend.ast.JsFunction
 
 class FunctionPostProcessor(val root: JsFunction) {
     val optimizations = listOf(
-        //{ TemporaryAssignmentElimination(root.body).apply() },
         { RedundantLabelRemoval(root.body).apply() },
         { EmptyStatementElimination(root.body).apply() },
         { WhileConditionFolding(root.body).apply() },
@@ -31,7 +30,9 @@ class FunctionPostProcessor(val root: JsFunction) {
         { DeadCodeElimination(root.body).apply() },
         { RedundantVariableDeclarationElimination(root.body).apply() },
         { RedundantStatementElimination(root).apply() },
-        { CoroutineStateElimination(root.body).apply() }
+        { CoroutineStateElimination(root.body).apply() },
+        { BoxingUnboxingElimination(root.body).apply() },
+        { MoveTemporaryVariableDeclarationToAssignment(root.body).apply() }
     )
     // TODO: reduce to A || B, A && B if possible
 

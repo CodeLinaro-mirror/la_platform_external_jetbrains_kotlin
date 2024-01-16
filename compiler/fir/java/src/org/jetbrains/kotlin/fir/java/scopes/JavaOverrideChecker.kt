@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,9 +21,11 @@ import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.FirAbstractOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptorRepresentation
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 class JavaOverrideChecker internal constructor(
     private val session: FirSession,
@@ -148,7 +150,16 @@ class JavaOverrideChecker internal constructor(
 
     private fun Collection<FirTypeParameterRef>.buildErasure() = associate {
         val symbol = it.symbol
-        val firstBound = symbol.fir.bounds.first() // Note that in Java type parameter typed arguments always erased to first bound
+        val firstBound = symbol.fir.bounds.firstOrNull() // Note that in Java type parameter typed arguments always erased to first bound
+        if (firstBound == null) {
+            errorWithAttachment("Bound element is not found") {
+                withFirEntry("typeParameterRef", it)
+                val firTypeParameter = it.symbol.fir
+                withFirEntry("typeParameter", firTypeParameter)
+                withFirEntry("containingDeclaration", firTypeParameter.containingDeclarationSymbol.fir)
+            }
+        }
+
         symbol to firstBound.toConeKotlinTypeProbablyFlexible(session, javaTypeParameterStack)
     }
 
@@ -166,7 +177,7 @@ class JavaOverrideChecker internal constructor(
 
     private fun FirCallableDeclaration.isTypeParameterDependent(): Boolean =
         typeParameters.isNotEmpty() || returnTypeRef.isTypeParameterDependent() ||
-                receiverTypeRef.isTypeParameterDependent() ||
+                receiverParameter?.typeRef.isTypeParameterDependent() ||
                 this is FirSimpleFunction && valueParameters.any { it.returnTypeRef.isTypeParameterDependent() }
 
     private fun FirTypeRef.extractTypeParametersTo(result: MutableCollection<FirTypeParameterRef>) {
@@ -195,7 +206,7 @@ class JavaOverrideChecker internal constructor(
     private fun FirCallableDeclaration.extractTypeParametersTo(result: MutableCollection<FirTypeParameterRef>) {
         result += typeParameters
         returnTypeRef.extractTypeParametersTo(result)
-        receiverTypeRef?.extractTypeParametersTo(result)
+        receiverParameter?.typeRef?.extractTypeParametersTo(result)
         if (this is FirSimpleFunction) {
             this.valueParameters.forEach { it.returnTypeRef.extractTypeParametersTo(result) }
         }
@@ -205,8 +216,8 @@ class JavaOverrideChecker internal constructor(
         overrideCandidate: FirCallableDeclaration,
         baseDeclaration: FirCallableDeclaration
     ): ConeSubstitutor {
-        overrideCandidate.ensureResolved(FirResolvePhase.TYPES)
-        baseDeclaration.ensureResolved(FirResolvePhase.TYPES)
+        overrideCandidate.lazyResolveToPhase(FirResolvePhase.TYPES)
+        baseDeclaration.lazyResolveToPhase(FirResolvePhase.TYPES)
 
         if (!overrideCandidate.isTypeParameterDependent() && !baseDeclaration.isTypeParameterDependent()) {
             return ConeSubstitutor.Empty
@@ -220,11 +231,11 @@ class JavaOverrideChecker internal constructor(
     override fun isOverriddenFunction(overrideCandidate: FirSimpleFunction, baseDeclaration: FirSimpleFunction): Boolean {
         if (overrideCandidate.isStatic != baseDeclaration.isStatic) return false
 
-        overrideCandidate.ensureResolved(FirResolvePhase.TYPES)
-        baseDeclaration.ensureResolved(FirResolvePhase.TYPES)
+        overrideCandidate.lazyResolveToPhase(FirResolvePhase.TYPES)
+        baseDeclaration.lazyResolveToPhase(FirResolvePhase.TYPES)
 
         // NB: overrideCandidate is from Java and has no receiver
-        val receiverTypeRef = baseDeclaration.receiverTypeRef
+        val receiverTypeRef = baseDeclaration.receiverParameter?.typeRef
         val baseParameterTypes = listOfNotNull(receiverTypeRef) + baseDeclaration.valueParameters.map { it.returnTypeRef }
 
         if (overrideCandidate.valueParameters.size != baseParameterTypes.size) return false
@@ -244,10 +255,10 @@ class JavaOverrideChecker internal constructor(
     override fun isOverriddenProperty(overrideCandidate: FirCallableDeclaration, baseDeclaration: FirProperty): Boolean {
         if (baseDeclaration.modality == Modality.FINAL) return false
 
-        overrideCandidate.ensureResolved(FirResolvePhase.TYPES)
-        baseDeclaration.ensureResolved(FirResolvePhase.TYPES)
+        overrideCandidate.lazyResolveToPhase(FirResolvePhase.TYPES)
+        baseDeclaration.lazyResolveToPhase(FirResolvePhase.TYPES)
 
-        val receiverTypeRef = baseDeclaration.receiverTypeRef
+        val receiverTypeRef = baseDeclaration.receiverParameter?.typeRef
         return when (overrideCandidate) {
             is FirSimpleFunction -> {
                 if (receiverTypeRef == null) {
@@ -259,7 +270,7 @@ class JavaOverrideChecker internal constructor(
                 }
             }
             is FirProperty -> {
-                val overrideReceiverTypeRef = overrideCandidate.receiverTypeRef
+                val overrideReceiverTypeRef = overrideCandidate.receiverParameter?.typeRef
                 return when {
                     receiverTypeRef == null -> overrideReceiverTypeRef == null
                     overrideReceiverTypeRef == null -> false

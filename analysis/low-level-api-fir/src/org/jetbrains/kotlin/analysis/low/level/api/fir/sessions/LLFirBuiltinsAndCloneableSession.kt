@@ -5,12 +5,11 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.sessions
 
-import com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.fir.BuiltinTypes
 import org.jetbrains.kotlin.fir.PrivateSessionConstructor
 
-@OptIn(PrivateSessionConstructor::class)
 class LLFirBuiltinsAndCloneableSession @PrivateSessionConstructor constructor(
-    project: Project,
+    ktModule: KtModule,
     builtinTypes: BuiltinTypes,
-) : LLFirLibraryLikeSession(project, builtinTypes)
+) : LLFirLibraryLikeSession(ktModule, builtinTypes)

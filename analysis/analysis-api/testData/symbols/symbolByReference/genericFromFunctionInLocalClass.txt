@@ -1,8 +1,12 @@
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: null
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -14,12 +18,17 @@ KtFunctionSymbol:
   modality: FINAL
   name: withOuter
   origin: SOURCE
-  receiverType: null
-  returnType: Outer?
+  receiverParameter: null
+  returnType: KtTypeParameterType:
+    annotationsList: []
+    type: Outer?
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
   visibility: Public
-  getDispatchReceiver(): test/Base<Outer>
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: <local>/Base<Outer>
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

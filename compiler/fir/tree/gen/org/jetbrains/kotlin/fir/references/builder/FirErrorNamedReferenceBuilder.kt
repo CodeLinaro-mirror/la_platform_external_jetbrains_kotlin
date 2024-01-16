@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.references.builder
 
@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.impl.FirErrorNamedReferenceImpl
-import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.visitors.*
 import org.jetbrains.kotlin.name.Name
 
@@ -25,13 +24,11 @@ import org.jetbrains.kotlin.name.Name
 @FirBuilderDsl
 class FirErrorNamedReferenceBuilder {
     var source: KtSourceElement? = null
-    var candidateSymbol: FirBasedSymbol<*>? = null
     lateinit var diagnostic: ConeDiagnostic
 
     fun build(): FirErrorNamedReference {
         return FirErrorNamedReferenceImpl(
             source,
-            candidateSymbol,
             diagnostic,
         )
     }

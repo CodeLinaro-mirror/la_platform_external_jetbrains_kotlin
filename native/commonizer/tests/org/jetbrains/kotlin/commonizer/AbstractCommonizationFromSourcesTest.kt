@@ -10,8 +10,6 @@ import org.jetbrains.kotlin.analyzer.ModuleInfo
 import org.jetbrains.kotlin.analyzer.common.CommonDependenciesContainer
 import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
 import org.jetbrains.kotlin.analyzer.common.CommonResolverForModuleFactory
-import org.jetbrains.kotlin.backend.common.serialization.metadata.impl.ClassifierAliasingPackageFragmentDescriptor
-import org.jetbrains.kotlin.backend.common.serialization.metadata.impl.ExportedForwardDeclarationsPackageFragmentDescriptor
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
@@ -392,7 +390,6 @@ private object PatchingTestDescriptorVisitor : DeclarationDescriptorVisitorEmpty
         fun recurse(packageFqName: FqName) {
             val ownPackageMemberScopes = packageFragmentProvider.packageFragments(packageFqName)
                 .asSequence()
-                .filter { it !is ExportedForwardDeclarationsPackageFragmentDescriptor && it !is ClassifierAliasingPackageFragmentDescriptor }
                 .map { it.getMemberScope() }
                 .filter { it != MemberScope.Empty }
                 .toList()

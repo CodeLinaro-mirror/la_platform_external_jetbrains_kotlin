@@ -8,21 +8,11 @@
 
 #include <cstdarg>
 #include <initializer_list>
-#if __has_include(<string_view>)
+#include <memory>
 #include <string_view>
-#elif __has_include(<experimental/string_view>)
-// TODO: Remove when wasm32 is gone.
-#include <xlocale.h>
-#include <experimental/string_view>
-namespace std {
-using string_view = std::experimental::string_view;
-}
-#else
-#error "No <string_view>"
-#endif
 
+#include "Clock.hpp"
 #include "CompilerConstants.hpp"
-#include "std_support/Memory.hpp"
 #include "std_support/Span.hpp"
 
 namespace kotlin {
@@ -45,7 +35,7 @@ public:
     virtual bool Enabled(Level level, std_support::span<const char* const> tags) const noexcept = 0;
 };
 
-std_support::unique_ptr<LogFilter> CreateLogFilter(std::string_view tagsFilter) noexcept;
+std::unique_ptr<LogFilter> CreateLogFilter(std::string_view tagsFilter) noexcept;
 
 class Logger {
 public:
@@ -54,12 +44,14 @@ public:
     virtual void Log(Level level, std_support::span<const char* const> tags, std::string_view message) const noexcept = 0;
 };
 
-std_support::unique_ptr<Logger> CreateStderrLogger() noexcept;
+std::unique_ptr<Logger> CreateStderrLogger() noexcept;
 
 std_support::span<char> FormatLogEntry(
         std_support::span<char> buffer,
         Level level,
         std_support::span<const char* const> tags,
+        int threadId,
+        kotlin::nanoseconds timestamp,
         const char* format,
         std::va_list args) noexcept;
 
@@ -68,6 +60,8 @@ void Log(
         const Logger& logger,
         Level level,
         std_support::span<const char* const> tags,
+        int threadId,
+        kotlin::nanoseconds timestamp,
         const char* format,
         std::va_list args) noexcept;
 
@@ -83,6 +77,8 @@ void VLog(Level level, std::initializer_list<const char*> tags, const char* form
 
 inline constexpr const char* kTagGC = "gc";
 inline constexpr const char* kTagMM = "mm";
+inline constexpr const char* kTagTLS = "tls";
+inline constexpr const char* kTagPause = "pause";
 
 } // namespace kotlin
 

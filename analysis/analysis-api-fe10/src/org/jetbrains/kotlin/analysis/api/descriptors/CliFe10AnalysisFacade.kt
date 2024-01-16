@@ -9,6 +9,9 @@ import com.intellij.openapi.extensions.AreaInstance
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.project.structure.KtSourceModule
+import org.jetbrains.kotlin.analysis.project.structure.ProjectStructureProvider
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.container.ComponentProvider
 import org.jetbrains.kotlin.container.get
@@ -30,48 +33,57 @@ import org.jetbrains.kotlin.resolve.extensions.AnalysisHandlerExtension
 import org.jetbrains.kotlin.resolve.lazy.ResolveSession
 import org.jetbrains.kotlin.types.checker.KotlinTypeRefiner
 import org.jetbrains.kotlin.util.CancellationChecker
-import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 
-class CliFe10AnalysisFacade(project: Project) : Fe10AnalysisFacade {
-    private val handler by lazy { KtFe10AnalysisHandlerExtension.getInstance(project) }
-
+class CliFe10AnalysisFacade : Fe10AnalysisFacade {
     override fun getResolveSession(element: KtElement): ResolveSession {
-        return handler.resolveSession ?: error("Resolution is not performed")
+        return getHandler(element).resolveSession ?: error("Resolution is not performed")
     }
 
     override fun getDeprecationResolver(element: KtElement): DeprecationResolver {
-        return handler.deprecationResolver ?: error("Resolution is not performed")
+        return getHandler(element).deprecationResolver ?: error("Resolution is not performed")
     }
 
     override fun getCallResolver(element: KtElement): CallResolver {
-        return handler.callResolver ?: error("Resolution is not performed")
+        return getHandler(element).callResolver ?: error("Resolution is not performed")
     }
 
     override fun getKotlinToResolvedCallTransformer(element: KtElement): KotlinToResolvedCallTransformer {
-        return handler.kotlinToResolvedCallTransformer ?: error("Resolution is not performed")
+        return getHandler(element).kotlinToResolvedCallTransformer ?: error("Resolution is not performed")
     }
 
     override fun getOverloadingConflictResolver(element: KtElement): OverloadingConflictResolver<ResolvedCall<*>> {
-        return handler.overloadingConflictResolver ?: error("Resolution is not performed")
+        return getHandler(element).overloadingConflictResolver ?: error("Resolution is not performed")
     }
 
     override fun getKotlinTypeRefiner(element: KtElement): KotlinTypeRefiner {
-        return handler.kotlinTypeRefiner ?: error("Resolution is not performed")
+        return getHandler(element).kotlinTypeRefiner ?: error("Resolution is not performed")
     }
 
-    override fun analyze(element: KtElement, mode: Fe10AnalysisFacade.AnalysisMode): BindingContext {
+    override fun analyze(elements: List<KtElement>, mode: Fe10AnalysisFacade.AnalysisMode): BindingContext {
+        val element = elements.firstOrNull() ?: return BindingContext.EMPTY
         return getResolveSession(element).bindingContext
     }
 
     override fun getOrigin(file: VirtualFile): KtSymbolOrigin {
         return KtSymbolOrigin.SOURCE
     }
+
+    private fun getHandler(useSiteElement: KtElement): KtFe10AnalysisHandlerExtension {
+        val project = useSiteElement.project
+        val ktModule = ProjectStructureProvider.getModule(project, useSiteElement, contextualModule = null)
+        return KtFe10AnalysisHandlerExtension.getInstance(project, ktModule)
+    }
 }
 
-class KtFe10AnalysisHandlerExtension : AnalysisHandlerExtension {
+class KtFe10AnalysisHandlerExtension(
+    private val useSiteModule: KtSourceModule? = null
+) : AnalysisHandlerExtension {
     internal companion object {
-        fun getInstance(area: AreaInstance): KtFe10AnalysisHandlerExtension {
-            return AnalysisHandlerExtension.extensionPointName.getExtensions(area).firstIsInstanceOrNull()
+        fun getInstance(area: AreaInstance, module: KtModule): KtFe10AnalysisHandlerExtension {
+            val extensions = AnalysisHandlerExtension.extensionPointName.getExtensions(area)
+                .filterIsInstance<KtFe10AnalysisHandlerExtension>()
+            return extensions.firstOrNull { it.useSiteModule == module }
+                ?: extensions.singleOrNull { it.useSiteModule == null }
                 ?: error(KtFe10AnalysisHandlerExtension::class.java.name + " should be registered")
         }
     }
@@ -102,6 +114,17 @@ class KtFe10AnalysisHandlerExtension : AnalysisHandlerExtension {
         bindingTrace: BindingTrace,
         componentProvider: ComponentProvider
     ): AnalysisResult? {
+        // Single-module [KtFe10AnalysisHandlerExtension] can be registered without specific use-site module.
+        // Simple null-check below will skip the bail-out.
+        if (useSiteModule != null &&
+            module.name.asString().removeSurrounding("<", ">") != useSiteModule.moduleName
+        ) {
+            // there is no way to properly map KtModule to ModuleDescriptor,
+            // Multi-module [KtFe10AnalysisHandlerExtension]s are used only for tests,
+            // so just by name comparison should work as all module names are different
+            return null
+        }
+
         resolveSession = componentProvider.get()
         deprecationResolver = componentProvider.get()
         callResolver = componentProvider.get()

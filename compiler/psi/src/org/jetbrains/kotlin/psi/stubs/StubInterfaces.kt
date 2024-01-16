@@ -87,6 +87,12 @@ interface KotlinFunctionStub : KotlinCallableStubBase<KtNamedFunction> {
     fun mayHaveContract(): Boolean
 }
 
+interface KotlinConstructorStub<T : KtConstructor<T>> :
+    KotlinCallableStubBase<T> {
+    fun hasBody(): Boolean
+    fun isDelegatedCallToThis(): Boolean
+}
+
 interface KotlinImportAliasStub : StubElement<KtImportAlias> {
     fun getName(): String?
 }
@@ -121,7 +127,9 @@ interface KotlinPropertyAccessorStub : StubElement<KtPropertyAccessor> {
     fun hasBlockBody(): Boolean
 }
 
-interface KotlinBackingFieldStub : StubElement<KtBackingField>
+interface KotlinBackingFieldStub : StubElement<KtBackingField> {
+    fun hasInitializer(): Boolean
+}
 
 interface KotlinPropertyStub : KotlinCallableStubBase<KtProperty> {
     fun isVar(): Boolean
@@ -154,6 +162,9 @@ interface KotlinConstantExpressionStub : StubElement<KtConstantExpression> {
     fun value(): String
 }
 
+interface KotlinClassLiteralExpressionStub : StubElement<KtClassLiteralExpression>
+interface KotlinCollectionLiteralExpressionStub : StubElement<KtCollectionLiteralExpression>
+
 interface KotlinTypeProjectionStub : StubElement<KtTypeProjection> {
     fun getProjectionKind(): KtProjectionKind
 }
@@ -162,4 +173,8 @@ interface KotlinUserTypeStub : StubElement<KtUserType>
 
 interface KotlinScriptStub : KotlinStubWithFqName<KtScript> {
     override fun getFqName(): FqName
+}
+
+interface KotlinContextReceiverStub : StubElement<KtContextReceiver> {
+    fun getLabel(): String?
 }

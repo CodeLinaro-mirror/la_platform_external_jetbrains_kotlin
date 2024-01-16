@@ -1,6 +1,5 @@
 package org.jetbrains.kotlin.library
 
-import org.jetbrains.kotlin.konan.CompilerVersion
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.library.impl.createKotlinLibraryComponents
 import org.jetbrains.kotlin.library.impl.isPre_1_4_Library
@@ -163,17 +162,12 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
     }
 
     override fun resolve(unresolved: LenientUnresolvedLibrary, isDefaultLink: Boolean): L? {
-        return resolveOrNull(unresolved, isDefaultLink).also { resolvedLibrary ->
-            if (resolvedLibrary == null) {
-                logger.warning("Could not find \"${unresolved.path}\" in ${searchRoots.map { it.absolutePath }}")
-            }
-        }
+        return resolveOrNull(unresolved, isDefaultLink)
     }
 
     override fun resolve(unresolved: RequiredUnresolvedLibrary, isDefaultLink: Boolean): L {
         return resolveOrNull(unresolved, isDefaultLink)
             ?: logger.fatal("Could not find \"${unresolved.path}\" in ${searchRoots.map { it.absolutePath }}")
-
     }
 
     override fun libraryMatch(candidate: L, unresolved: UnresolvedLibrary): Boolean = true
@@ -223,12 +217,6 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
     }
 }
 
-fun CompilerVersion.compatible(other: CompilerVersion) =
-    this.major == other.major
-            && this.minor == other.minor
-            && this.maintenance == other.maintenance
-
-
 // This is a library resolver aware of attributes shared between platforms,
 // such as abi version.
 // JS and Native resolvers are inherited from this one.
@@ -249,6 +237,9 @@ abstract class KotlinLibraryProperResolverWithAttributes<L : KotlinLibrary>(
         val candidateAbiVersion = candidate.versions.abiVersion
         val candidateLibraryVersion = candidate.versions.libraryVersion
 
+        // Rejecting a library at this stage has disadvantages - the diagnostics are not-understandable.
+        // Please, don't add checks for other versions here. For example, check for the metadata version should be
+        // implemented in KlibDeserializedContainerSource.incompatibility
         if (candidateAbiVersion?.isCompatible() != true) {
             logger.warning("skipping $candidatePath. Incompatible abi version. The current default is '${KotlinAbiVersion.CURRENT}', found '${candidateAbiVersion}'. The library produced by ${candidateCompilerVersion} compiler")
             return false
@@ -262,7 +253,7 @@ abstract class KotlinLibraryProperResolverWithAttributes<L : KotlinLibrary>(
             return false
         }
 
-        candidate.manifestProperties["ir_provider"]?.let {
+        candidate.irProviderName?.let {
             if (it !in knownIrProviders) {
                 logger.warning("skipping $candidatePath. The library requires unknown IR provider $it.")
                 return false

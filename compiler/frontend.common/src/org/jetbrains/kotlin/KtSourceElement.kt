@@ -14,16 +14,30 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.tree.IElementType
 import com.intellij.util.diff.FlyweightCapableTreeStructure
+import org.jetbrains.kotlin.utils.getElementTextWithContext
 
-sealed class KtSourceElementKind
+sealed class KtSourceElementKind {
+    abstract val shouldSkipErrorTypeReporting: Boolean
+}
 
-object KtRealSourceElementKind : KtSourceElementKind()
+object KtRealSourceElementKind : KtSourceElementKind() {
+    override val shouldSkipErrorTypeReporting: Boolean
+        get() = false
+}
 
-sealed class KtFakeSourceElementKind : KtSourceElementKind() {
+/**
+ * When an element has a kind of KtFakeSourceElementKind it means that relevant FIR element was created synthetically.
+ * And while this definition might look a bit vaguely because, e.g. RawFirBuilder might create a lot of "synthetic" things
+ * and not all of them we want to treat as "fake" (like when's created from if's), there is a criteria that ultimately means
+ * that one need to use KtFakeSourceElementKind, and it's the situation when several FIR elements might share the same source element.
+ *
+ * And vice versa, KtRealSourceElementKind means that there's a single FIR node in the resulting tree that has the same source element.
+ */
+sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeReporting: Boolean = false) : KtSourceElementKind() {
     // for some fir expression implicit return typeRef is generated
     // some of them are: break, continue, return, throw, string concat,
     // destruction parameters, function literals, explicitly boolean expressions
-    object ImplicitTypeRef : KtFakeSourceElementKind()
+    object ImplicitTypeRef : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
 
     // for each class special class self type ref is created
     // and have a fake source referencing it
@@ -35,7 +49,7 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
 
     // for properties without accessors default getter & setter are generated
     // they have a fake source which refers to property
-    object DefaultAccessor : KtFakeSourceElementKind()
+    object DefaultAccessor : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
 
     // for delegated properties, getter & setter calls to the delegate
     // they have a fake source which refers to the call that creates the delegate
@@ -44,6 +58,10 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // for kt classes without implicit primary constructor one is generated
     // with a fake source which refers to containing class
     object ImplicitConstructor : KtFakeSourceElementKind()
+
+    // for constructor type parameters, because they refer to the same source
+    // as the class type parameters themselves
+    object ConstructorTypeParameter : KtFakeSourceElementKind()
 
     // for constructors which do not have delegated constructor call the fake one is generated
     // with a fake sources which refers to the original constructor
@@ -57,13 +75,30 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // with a fake sources which refers to the target expression
     object GeneratedLambdaLabel : KtFakeSourceElementKind()
 
+    // for error element which is created for dangling modifier lists
+    object DanglingModifierList : KtFakeSourceElementKind()
+
     // for lambdas & functions with expression bodies the return statement is added
     // with a fake sources which refers to the return target
-    object ImplicitReturn : KtFakeSourceElementKind()
+    sealed class ImplicitReturn : KtFakeSourceElementKind() {
+        object FromExpressionBody : ImplicitReturn()
 
-    // return expression in procedures -> return Unit
-    // with a fake sources which refers to the return statement
-    object ImplicitUnit : KtFakeSourceElementKind()
+        object FromLastStatement : ImplicitReturn()
+    }
+
+    sealed class ImplicitUnit : KtFakeSourceElementKind() {
+        // this source is used for implicit returns from empty lambdas {}
+        // fake source refers to the lambda expression
+        object LambdaCoercion : ImplicitUnit()
+
+        // this source is used for 'return' without given value converted to 'return Unit'
+        // fake source refers to the return statement
+        object Return : ImplicitUnit()
+
+        // this source is used for 'a[i] = b' or 'a[i] += b' converted to { a[i] = b; Unit }
+        // fake source refers to the assignment statement
+        object IndexedAssignmentCoercion : ImplicitUnit()
+    }
 
     // delegates are wrapped into FirWrappedDelegateExpression
     // with a fake sources which refers to delegated expression
@@ -100,15 +135,21 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
 
     // for primary constructor parameter the corresponding class property is generated
     // with a fake sources which refers to this the corresponding parameter
-    object PropertyFromParameter : KtFakeSourceElementKind()
+    object PropertyFromParameter : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
 
     // if (true) 1 --> if(true) { 1 }
     // with a fake sources for the block which refers to the wrapped expression
     object SingleExpressionBlock : KtFakeSourceElementKind()
 
+    // Contract statements are wrapped in a special block to be reused between a contract FIR and a function body.
+    object ContractBlock : KtFakeSourceElementKind()
+
     // x++ -> x = x.inc()
     // x = x++ -> x = { val <unary> = x; x = <unary>.inc(); <unary> }
     object DesugaredIncrementOrDecrement : KtFakeSourceElementKind()
+
+    // In ++a[1], a.get(1) will be called twice. This kind is used for the second call reference.
+    object DesugaredPrefixSecondGetReference : KtFakeSourceElementKind()
 
     // ++x --> `inc` calleeReference
     object DesugaredPrefixNameReference : KtFakeSourceElementKind()
@@ -122,7 +163,7 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // for data classes fir generates componentN() & copy() functions
     // for componentN() functions the source will refer to the corresponding param and will be marked as a fake one
     // for copy() functions the source will refer class to the param and will be marked as a fake one
-    object DataClassGeneratedMembers : KtFakeSourceElementKind()
+    object DataClassGeneratedMembers : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
 
     // (vararg x: Int) --> (x: Array<out Int>) where array type ref has a fake source kind
     object ArrayTypeFromVarargParameter : KtFakeSourceElementKind()
@@ -131,9 +172,13 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // where componentN calls will have the fake source elements refer to the corresponding KtDestructuringDeclarationEntry
     object DesugaredComponentFunctionCall : KtFakeSourceElementKind()
 
-    // when smart casts applied to the expression, its wrapped into FirExpressionWithSmartcast
+    // when smart casts applied to the expression, it is wrapped into FirSmartCastExpression
     // which type reference will have a fake source refer to a original source element of it
-    object SmartCastedTypeRef : KtFakeSourceElementKind()
+    object SmartCastedTypeRef : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
+
+    // when smart casts applied to the expression, it is wrapped into FirSmartCastExpression
+    // this kind used for such FirSmartCastExpressions itself
+    object SmartCastExpression : KtFakeSourceElementKind()
 
     // for safe call expressions like a?.foo() the FirSafeCallExpression is generated
     // and it have a fake source
@@ -155,14 +200,14 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // list[0] -> list.get(0) where name reference will have a fake source element
     object ArrayAccessNameReference : KtFakeSourceElementKind()
 
+    // a[b]++
+    // b -> val <index0> = b where b will have fake property
+    object ArrayIndexExpressionReference : KtFakeSourceElementKind()
+
+
     // super.foo() --> super<Supertype>.foo()
     // where `Supertype` has a fake source
     object SuperCallImplicitType : KtFakeSourceElementKind()
-
-    // Consider `super<Supertype>.foo()`. The source PSI `Supertype` is referenced by both the qualified access expression
-    // `super<Supertype>` and the calleeExpression `super<Supertype>`. To avoid having two FIR elements sharing the same source, this fake
-    // source is assigned to the qualified access expression.
-    object SuperCallExplicitType : KtFakeSourceElementKind()
 
     // fun foo(vararg args: Int) {}
     // fun bar(1, 2, 3) --> [resolved] fun bar(VarargArgument(1, 2, 3))
@@ -175,6 +220,10 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // where `it` parameter declaration has fake source
     object ItLambdaParameter : KtFakeSourceElementKind()
 
+    // { (a, b) -> foo() } -> { x -> val (a, b) = x; { foo() } }
+    // where the inner block { foo() } has fake source
+    object LambdaDestructuringBlock : KtFakeSourceElementKind()
+
     // for java annotations implicit constructor is generated
     // with a fake source which refers to containing class
     object ImplicitJavaAnnotationConstructor : KtFakeSourceElementKind()
@@ -182,6 +231,22 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // for java annotations constructor implicit parameters are generated
     // with a fake source which refers to declared annotation methods
     object ImplicitAnnotationAnnotationConstructorParameter : KtFakeSourceElementKind()
+
+    // for java records implicit constructor is generated
+    // with a fake source which refers to containing class
+    object ImplicitJavaRecordConstructor : KtFakeSourceElementKind()
+
+    // for java record constructor implicit parameters are generated
+    // with a fake source which refers to declared record components
+    object ImplicitRecordConstructorParameter : KtFakeSourceElementKind()
+
+    // for java records implicit component functions are generated
+    // with a fake source which refers to corresponding component
+    object JavaRecordComponentFunction : KtFakeSourceElementKind()
+
+    // for java records implicit component fields are generated
+    // with a fake source which refers to corresponding component
+    object JavaRecordComponentField : KtFakeSourceElementKind()
 
     // for the implicit field storing the delegated object for class delegation
     // with a fake source that refers to the KtExpression that creates the delegate
@@ -198,6 +263,28 @@ sealed class KtFakeSourceElementKind : KtSourceElementKind() {
     // for implicit conversion from int to long with `.toLong` function
     // e.g. val x: Long = 1 + 1 becomes val x: Long = (1 + 1).toLong()
     object IntToLongConversion : KtFakeSourceElementKind()
+
+    // for extension receiver type the corresponding receiver parameter is generated
+    // with a fake sources which refers to this the type
+    object ReceiverFromType : KtFakeSourceElementKind()
+
+    // for all implicit receivers (now used for qualifiers only)
+    object ImplicitReceiver : KtFakeSourceElementKind()
+
+    // for when on the LHS of an assignment an error expression appears
+    object AssignmentLValueError : KtFakeSourceElementKind()
+
+    // for return type of value parameters in lambdas
+    object ImplicitReturnTypeOfLambdaValueParameter : KtFakeSourceElementKind()
+
+    // Synthetic calls for if/when/try/etc.
+    object SyntheticCall : KtFakeSourceElementKind()
+
+    // When property doesn't have an initializer and explicit return type, but its getter's return type is specified
+    object PropertyTypeFromGetterReturnType : KtFakeSourceElementKind()
+
+    // Scripts get implicit imports from their configurations
+    object ImplicitImport : KtFakeSourceElementKind()
 }
 
 sealed class AbstractKtSourceElement {
@@ -232,6 +319,8 @@ sealed class KtSourceElement : AbstractKtSourceElement() {
     abstract val lighterASTNode: LighterASTNode
     abstract val treeStructure: FlyweightCapableTreeStructure<LighterASTNode>
 
+    abstract fun getElementTextInContextForDebug(): String
+
     /** Implementation must compute the hashcode from the source element. */
     abstract override fun hashCode(): Int
 
@@ -251,9 +340,17 @@ sealed class KtPsiSourceElement(val psi: PsiElement) : KtSourceElement() {
     override val endOffset: Int
         get() = psi.textRange.endOffset
 
-    override val lighterASTNode by lazy { TreeBackedLighterAST.wrap(psi.node) }
+    override val lighterASTNode: LighterASTNode by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        TreeBackedLighterAST.wrap(psi.node)
+    }
 
-    override val treeStructure: FlyweightCapableTreeStructure<LighterASTNode> by lazy { WrappedTreeStructure(psi.containingFile) }
+    override val treeStructure: FlyweightCapableTreeStructure<LighterASTNode> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        WrappedTreeStructure(psi.containingFile)
+    }
+
+    override fun getElementTextInContextForDebug(): String {
+        return getElementTextWithContext(psi)
+    }
 
     internal class WrappedTreeStructure(file: PsiFile) : FlyweightCapableTreeStructure<LighterASTNode> {
         private val lighterAST = TreeBackedLighterAST(file.node)
@@ -341,7 +438,10 @@ class KtRealPsiSourceElement(psi: PsiElement) : KtPsiSourceElement(psi) {
     override val kind: KtSourceElementKind get() = KtRealSourceElementKind
 }
 
-class KtFakeSourceElement(psi: PsiElement, override val kind: KtFakeSourceElementKind) : KtPsiSourceElement(psi) {
+open class KtFakeSourceElement(
+    psi: PsiElement,
+    override val kind: KtFakeSourceElementKind,
+) : KtPsiSourceElement(psi) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -361,11 +461,49 @@ class KtFakeSourceElement(psi: PsiElement, override val kind: KtFakeSourceElemen
     }
 }
 
-fun KtSourceElement.fakeElement(newKind: KtFakeSourceElementKind): KtSourceElement {
+private class KtFakeSourceElementWithOffsets(
+    psi: PsiElement,
+    kind: KtFakeSourceElementKind,
+    override val startOffset: Int,
+    override val endOffset: Int,
+) : KtFakeSourceElement(psi, kind) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is KtFakeSourceElementWithOffsets) return false
+        if (!super.equals(other)) return false
+
+        if (kind != other.kind) return false
+        if (startOffset != other.startOffset) return false
+        return endOffset == other.endOffset
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + kind.hashCode()
+        result = 31 * result + startOffset
+        result = 31 * result + endOffset
+        return result
+    }
+}
+
+fun KtSourceElement.fakeElement(
+    newKind: KtFakeSourceElementKind,
+    startOffset: Int = -1,
+    endOffset: Int = -1,
+): KtSourceElement {
     if (kind == newKind) return this
     return when (this) {
-        is KtLightSourceElement -> KtLightSourceElement(lighterASTNode, startOffset, endOffset, treeStructure, newKind)
-        is KtPsiSourceElement -> KtFakeSourceElement(psi, newKind)
+        is KtLightSourceElement -> KtLightSourceElement(
+            lighterASTNode,
+            if (startOffset != -1) startOffset else this.startOffset,
+            if (endOffset != -1) endOffset else this.endOffset,
+            treeStructure,
+            newKind
+        )
+        is KtPsiSourceElement -> when {
+            startOffset != -1 && endOffset != -1 -> KtFakeSourceElementWithOffsets(psi, newKind, startOffset, endOffset)
+            else -> KtFakeSourceElement(psi, newKind)
+        }
     }
 }
 
@@ -397,6 +535,10 @@ class KtLightSourceElement(
         if (treeStructure !is KtPsiSourceElement.WrappedTreeStructure) return null
         val node = treeStructure.unwrap(lighterASTNode)
         return node.psi?.toKtPsiSourceElement(kind)
+    }
+
+    override fun getElementTextInContextForDebug(): String {
+        return treeStructure.toString(lighterASTNode).toString()
     }
 
     override fun equals(other: Any?): Boolean {
@@ -446,4 +588,3 @@ inline fun LighterASTNode.toKtLightSourceElement(
     startOffset: Int = this.startOffset,
     endOffset: Int = this.endOffset
 ): KtLightSourceElement = KtLightSourceElement(this, startOffset, endOffset, tree, kind)
-

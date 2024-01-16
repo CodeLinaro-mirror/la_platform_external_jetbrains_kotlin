@@ -1,7 +1,8 @@
 // WITH_STDLIB
 // WITH_COROUTINES
 // CHECK_BYTECODE_LISTING
-// CHECK_NEW_COUNT: function=suspendHere count=0
+// FIR_IDENTICAL
+// CHECK_NEW_COUNT: function=suspendHere count=0 TARGET_BACKENDS=JS
 // FIXME: Coroutine inlining
 // CHECK_NEW_COUNT: function=complexSuspend count=0 TARGET_BACKENDS=JS
 import helpers.*

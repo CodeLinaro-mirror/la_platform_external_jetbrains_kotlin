@@ -1,6 +1,5 @@
 // SKIP_TXT
 // !DIAGNOSTICS: -UNUSED_VARIABLE
-// !LANGUAGE: +NewInference
 
 interface OutBase<out E>
 interface OutDerived<out F> : OutBase<F>
@@ -20,7 +19,7 @@ fun <X> InvBase<X>.myLastInv(): X = TODO()
 
 fun <T> fooInv(x: InvBase<T>) {
     if (x is InvDerived<*>) {
-        val l: T = <!INITIALIZER_TYPE_MISMATCH, TYPE_MISMATCH!>x.myLastInv()<!> // required T, found Cap(*). Only in NI
+        val l: T = x.myLastInv() // required T, found Cap(*). Only in NI
     }
 }
 

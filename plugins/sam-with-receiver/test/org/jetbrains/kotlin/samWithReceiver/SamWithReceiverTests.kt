@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.samWithReceiver
 
-import com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar.ExtensionStorage
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.extensions.StorageComponentContainerContributor
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
@@ -13,9 +13,10 @@ import org.jetbrains.kotlin.samWithReceiver.k2.FirSamWithReceiverExtensionRegist
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.runners.AbstractDiagnosticTest
-import org.jetbrains.kotlin.test.runners.AbstractFirDiagnosticTest
-import org.jetbrains.kotlin.test.runners.codegen.AbstractFirBlackBoxCodegenTest
+import org.jetbrains.kotlin.test.runners.AbstractFirPsiDiagnosticTest
+import org.jetbrains.kotlin.test.runners.codegen.AbstractFirLightTreeBlackBoxCodegenTest
 import org.jetbrains.kotlin.test.runners.codegen.AbstractIrBlackBoxCodegenTest
+import org.jetbrains.kotlin.test.runners.configurationForClassicAndFirTestsAlongside
 import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.TestServices
 
@@ -24,14 +25,19 @@ import org.jetbrains.kotlin.test.services.TestServices
 abstract class AbstractSamWithReceiverTest : AbstractDiagnosticTest() {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        builder.configurePlugin()
+        with(builder) {
+            configurePlugin()
+        }
     }
 }
 
-abstract class AbstractFirSamWithReceiverTest : AbstractFirDiagnosticTest() {
+abstract class AbstractFirPsiSamWithReceiverDiagnosticTest : AbstractFirPsiDiagnosticTest() {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        builder.configurePlugin()
+        with(builder) {
+            configurePlugin()
+            configurationForClassicAndFirTestsAlongside()
+        }
     }
 }
 
@@ -44,7 +50,7 @@ open class AbstractIrBlackBoxCodegenTestForSamWithReceiver : AbstractIrBlackBoxC
     }
 }
 
-open class AbstractFirBlackBoxCodegenTestForSamWithReceiver : AbstractFirBlackBoxCodegenTest() {
+open class AbstractFirLightTreeBlackBoxCodegenTestForSamWithReceiver : AbstractFirLightTreeBlackBoxCodegenTest() {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.configurePlugin()
@@ -60,12 +66,11 @@ class SamWithReceiverEnvironmentConfigurator(testServices: TestServices) : Envir
         private val TEST_ANNOTATIONS = listOf("SamWithReceiver")
     }
 
-    override fun registerCompilerExtensions(project: Project, module: TestModule, configuration: CompilerConfiguration) {
-        StorageComponentContainerContributor.registerExtension(
-            project,
-            CliSamWithReceiverComponentContributor(TEST_ANNOTATIONS)
-        )
-
-        FirExtensionRegistrarAdapter.registerExtension(project, FirSamWithReceiverExtensionRegistrar(TEST_ANNOTATIONS))
+    override fun ExtensionStorage.registerCompilerExtensions(
+        module: TestModule,
+        configuration: CompilerConfiguration
+    ) {
+        StorageComponentContainerContributor.registerExtension(CliSamWithReceiverComponentContributor(TEST_ANNOTATIONS))
+        FirExtensionRegistrarAdapter.registerExtension(FirSamWithReceiverExtensionRegistrar(TEST_ANNOTATIONS))
     }
 }

@@ -40,7 +40,7 @@ public actual data class MatchGroup(actual val value: String)
  * for example, when it's not supported by the current platform.
  */
 @SinceKotlin("1.7")
-public operator fun MatchGroupCollection.get(name: String): MatchGroup? {
+public actual operator fun MatchGroupCollection.get(name: String): MatchGroup? {
     val namedGroups = this as? MatchNamedGroupCollection
         ?: throw UnsupportedOperationException("Retrieving groups by name is not supported on this platform.")
 
@@ -61,6 +61,7 @@ public operator fun MatchGroupCollection.get(name: String): MatchGroup? {
  *
  * @constructor Creates a regular expression from the specified [pattern] string and the specified set of [options].
  */
+@Suppress("NO_ACTUAL_CLASS_MEMBER_FOR_EXPECTED_CLASS") // Counterpart for @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
 public actual class Regex actual constructor(pattern: String, options: Set<RegexOption>) {
 
     /** Creates a regular expression from the specified [pattern] string and the specified single [option].  */

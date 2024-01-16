@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.analysis.api.fir.generator.HLDiagnosticConverter
 import org.jetbrains.kotlin.analysis.api.fir.generator.HLDiagnosticList
 import org.jetbrains.kotlin.analysis.api.fir.generator.HLDiagnosticParameter
 import org.jetbrains.kotlin.analysis.api.fir.generator.simpleName
-import org.jetbrains.kotlin.util.SmartPrinter
+import org.jetbrains.kotlin.utils.SmartPrinter
 import java.io.File
 import kotlin.reflect.KType
 
@@ -40,7 +40,6 @@ abstract class AbstractDiagnosticsDataClassRenderer : DiagnosticListRenderer() {
         printGeneratedMessage()
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     protected fun collectImports(diagnosticList: HLDiagnosticList): Collection<String> = buildSet {
         addAll(defaultImports)
         for (diagnostic in diagnosticList.diagnostics) {

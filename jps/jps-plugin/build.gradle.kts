@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+
 plugins {
     kotlin("jvm")
     id("jps-compatible")
@@ -18,13 +21,20 @@ dependencies {
     compileOnly(project(":jps:jps-platform-api-signatures"))
     testImplementation(projectTests(":generators:test-generator"))
 
+    @Suppress("UNCHECKED_CAST")
     rootProject.extra["kotlinJpsPluginEmbeddedDependencies"]
         .let { it as List<String> }
         .forEach { implementation(project(it)) }
 
+    @Suppress("UNCHECKED_CAST")
     rootProject.extra["kotlinJpsPluginMavenDependencies"]
         .let { it as List<String> }
         .forEach { implementation(project(it)) }
+
+    @Suppress("UNCHECKED_CAST")
+    rootProject.extra["kotlinJpsPluginMavenDependenciesNonTransitiveLibs"]
+        .let { it as List<String> }
+        .forEach { implementation(it) { isTransitive = false } }
 
     implementation(project(":jps:jps-common"))
     compileOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
@@ -44,6 +54,9 @@ dependencies {
     testRuntimeOnly("com.jetbrains.intellij.platform:code-style:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.jetbrains.intellij.platform:ide-impl:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.jetbrains.intellij.platform:ide:$intellijVersion") { isTransitive = false }
+    testRuntimeOnly("com.jetbrains.intellij.platform:ide-core:$intellijVersion") { isTransitive = false }
+    testRuntimeOnly("com.jetbrains.intellij.platform:ide-core-impl:$intellijVersion") { isTransitive = false }
+    testRuntimeOnly("com.jetbrains.intellij.platform:execution:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.jetbrains.intellij.platform:util-ui:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.jetbrains.intellij.platform:concurrency:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.jetbrains.intellij.platform:editor:$intellijVersion") { isTransitive = false }
@@ -53,7 +66,6 @@ dependencies {
     testRuntimeOnly("com.jetbrains.intellij.platform:util-ex:$intellijVersion") { isTransitive = false }
     testRuntimeOnly("com.google.code.gson:gson:2.8.9")
 
-    testCompileOnly(project(":kotlin-reflect-api"))
     testImplementation(projectTests(":compiler:incremental-compilation-impl"))
     testCompileOnly(jpsBuild())
     testImplementation(devKitJps()) {
@@ -99,8 +111,13 @@ projectTest(parallel = true) {
     // do not replace with compile/runtime dependency,
     // because it forces Intellij reindexing after each compiler change
     dependsOn(":kotlin-compiler:dist")
-    dependsOn(":kotlin-stdlib-js-ir:packFullRuntimeKLib")
+    dependsOn(":kotlin-stdlib:jsJarForTests")
     workingDir = rootDir
 }
 
 testsJar {}
+
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    compilerOptions.apiVersion.value(KotlinVersion.KOTLIN_1_8).finalizeValueOnRead()
+    compilerOptions.languageVersion.value(KotlinVersion.KOTLIN_1_8).finalizeValueOnRead()
+}

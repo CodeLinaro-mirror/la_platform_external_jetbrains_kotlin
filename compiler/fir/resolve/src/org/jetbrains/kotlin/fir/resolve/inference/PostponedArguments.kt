@@ -5,15 +5,17 @@
 
 package org.jetbrains.kotlin.fir.resolve.inference
 
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousFunctionExpression
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.resolve.calls.ArgumentTypeMismatch
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.CheckerSink
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
-import org.jetbrains.kotlin.fir.resolve.createFunctionalType
+import org.jetbrains.kotlin.fir.resolve.createFunctionType
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeArgumentConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeExplicitTypeParameterConstraintPosition
 import org.jetbrains.kotlin.fir.types.*
@@ -21,19 +23,17 @@ import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.addSubtypeConstraintIfCompatible
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintKind
 import org.jetbrains.kotlin.types.model.typeConstructor
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 fun Candidate.preprocessLambdaArgument(
     csBuilder: ConstraintSystemBuilder,
     argument: FirAnonymousFunctionExpression,
     expectedType: ConeKotlinType?,
-    expectedTypeRef: FirTypeRef?,
     context: ResolutionContext,
     sink: CheckerSink?,
     duringCompletion: Boolean = false,
     returnTypeVariable: ConeTypeVariableForLambdaReturnType? = null
 ): PostponedResolvedAtom {
-    if (expectedType != null && expectedTypeRef != null && !duringCompletion && csBuilder.isTypeVariable(expectedType)) {
+    if (expectedType != null && !duringCompletion && csBuilder.isTypeVariable(expectedType)) {
         val expectedTypeVariableWithConstraints = csBuilder.currentStorage().notFixedTypeVariables[expectedType.typeConstructor(context.typeContext)]
 
         if (expectedTypeVariableWithConstraints != null) {
@@ -42,7 +42,9 @@ fun Candidate.preprocessLambdaArgument(
             }?.type as ConeKotlinType?
 
             if (explicitTypeArgument == null || explicitTypeArgument.typeArguments.isNotEmpty()) {
-                return LambdaWithTypeVariableAsExpectedTypeAtom(argument, expectedType, expectedTypeRef, this)
+                return LambdaWithTypeVariableAsExpectedTypeAtom(argument, expectedType, this).also {
+                    this.postponedAtoms += it
+                }
             }
         }
     }
@@ -50,9 +52,8 @@ fun Candidate.preprocessLambdaArgument(
     val anonymousFunction = argument.anonymousFunction
 
     val resolvedArgument =
-        extractLambdaInfoFromFunctionalType(
+        extractLambdaInfoFromFunctionType(
             expectedType,
-            expectedTypeRef,
             anonymousFunction,
             returnTypeVariable,
             context.bodyResolveComponents,
@@ -62,11 +63,14 @@ fun Candidate.preprocessLambdaArgument(
 
     if (expectedType != null) {
         val parameters = resolvedArgument.parameters
-        val lambdaType = createFunctionalType(
-            if (resolvedArgument.coerceFirstParameterToExtensionReceiver) parameters.drop(1) else parameters,
+        val functionTypeKind = context.session.functionTypeService.extractSingleSpecialKindForFunction(anonymousFunction.symbol)
+            ?: resolvedArgument.expectedFunctionTypeKind?.nonReflectKind()
+            ?: FunctionTypeKind.Function
+        val lambdaType = createFunctionType(
+            functionTypeKind,
+            parameters,
             resolvedArgument.receiver,
             resolvedArgument.returnType,
-            isSuspend = resolvedArgument.isSuspend,
             contextReceivers = resolvedArgument.contextReceivers,
         )
 
@@ -106,27 +110,27 @@ private fun extractLambdaInfo(
     session: FirSession,
     candidate: Candidate?
 ): ResolvedLambdaAtom {
-    val isSuspend = expectedType?.isSuspendFunctionType(session) ?: false
-
-    val isFunctionSupertype =
-        expectedType != null && expectedType.lowerBoundIfFlexible()
-            .isBuiltinFunctionalType(session)//isNotNullOrNullableFunctionSupertype(expectedType)
-
+    require(expectedType?.lowerBoundIfFlexible()?.functionTypeKind(session) == null) {
+        "Currently, we only extract lambda info from its shape when expected type is not function, but $expectedType"
+    }
     val typeVariable = ConeTypeVariableForLambdaReturnType(argument, "_L")
 
     val receiverType = argument.receiverType
     val returnType =
         argument.returnType
-            ?: expectedType?.typeArguments?.singleOrNull()?.safeAs<ConeKotlinTypeProjection>()?.type?.takeIf { isFunctionSupertype }
             ?: typeVariable.defaultType
 
-    val nothingType = session.builtinTypes.nothingType.type
+    val defaultType = when (candidate?.symbol?.origin) {
+        FirDeclarationOrigin.DynamicScope -> ConeDynamicType.create(session)
+        else -> session.builtinTypes.nothingType.type
+    }
+
     val parameters = argument.valueParameters.map {
-        it.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: nothingType
+        it.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: defaultType
     }
 
     val contextReceivers = argument.contextReceivers.map {
-        it.typeRef.coneTypeSafe<ConeKotlinType>() ?: nothingType
+        it.typeRef.coneTypeSafe<ConeKotlinType>() ?: defaultType
     }
 
     val newTypeVariableUsed = returnType == typeVariable.defaultType
@@ -135,13 +139,14 @@ private fun extractLambdaInfo(
     return ResolvedLambdaAtom(
         argument,
         expectedType,
-        isSuspend,
+        expectedFunctionTypeKind = argument.typeRef.coneTypeSafe<ConeKotlinType>()?.lowerBoundIfFlexible()?.functionTypeKind(session),
         receiverType,
         contextReceivers,
         parameters,
         returnType,
         typeVariable.takeIf { newTypeVariableUsed },
-        candidate,
         coerceFirstParameterToExtensionReceiver = false
-    )
+    ).also {
+        candidate?.postponedAtoms?.add(it)
+    }
 }

@@ -1,4 +1,4 @@
-// !LANGUAGE: +NewInference
+// FIR_IDENTICAL
 // !DIAGNOSTICS: -UNUSED_VARIABLE
 
 fun foo() {

@@ -70,7 +70,7 @@ fun main() {
     select(id1 { <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>it<!>.inv() }, id1 { x: Number -> TODO() }, id1(id2 { x: Int -> x }))
     select(id1 { <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>it<!>.inv() }, id1 { x: Number -> TODO() }, id1(id2(::takeInt)))
     select(id1 { x: Inv<out Number> -> TODO() }, id1 { <!DEBUG_INFO_EXPRESSION_TYPE("Inv<kotlin.Int>")!>it<!>.x.inv() }, id1 { x: Inv<Int> -> TODO() })
-    <!INFERRED_TYPE_VARIABLE_INTO_EMPTY_INTERSECTION!>select<!>(id1 { <!DEBUG_INFO_EXPRESSION_TYPE("Inv<kotlin.Number> & Inv<kotlin.Int>")!>it<!> }, id1 { x: Inv<Number> -> TODO() }, id1 { x: Inv<Int> -> TODO() })
+    select(id1 { <!DEBUG_INFO_EXPRESSION_TYPE("Inv<kotlin.Number> & Inv<kotlin.Int>")!>it<!> }, id1 { x: Inv<Number> -> TODO() }, id1 { x: Inv<Int> -> TODO() })
     select(id(id2 { <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>it<!>.inv() }), id(id { x: Int -> x }))
 
     // Disambiguating callable references by other callable references without overloads
@@ -119,8 +119,8 @@ fun main() {
      * K <: (A) -> Unit -> TypeVariable(_RP1) >: A
      * K >: (C) -> TypeVariable(_R) -> TypeVariable(_RP1) <: C
      */
-    val x12 = selectC(id { <!DEBUG_INFO_EXPRESSION_TYPE("C")!>it<!> }, id { x: B -> }<!NO_VALUE_FOR_PARAMETER!>)<!>
-    val x13 = selectA(id { <!DEBUG_INFO_EXPRESSION_TYPE("A")!>it<!> }, id { x: C -> }<!NO_VALUE_FOR_PARAMETER!>)<!>
+    val x12 = selectC(id { <!DEBUG_INFO_EXPRESSION_TYPE("C")!>it<!> }, <!NO_VALUE_FOR_PARAMETER!>id { x: B -> })<!>
+    val x13 = selectA(id { <!DEBUG_INFO_EXPRESSION_TYPE("A")!>it<!> }, <!NO_VALUE_FOR_PARAMETER!>id { x: C -> })<!>
     val x14 = selectC(id { <!DEBUG_INFO_EXPRESSION_TYPE("C")!>it<!> }, id { x: A -> }, { x -> x })
     val x15 = selectC(id { <!DEBUG_INFO_EXPRESSION_TYPE("C")!>it<!> }, { x: A -> }, id { x -> x })
     /*
@@ -153,7 +153,7 @@ fun main() {
     // Convert to extension lambda is impossible because the lambda parameter types aren't specified explicitly
     select(id(fun String.(x: String) {}), id(fun(x: String, y: String) { }), <!ARGUMENT_TYPE_MISMATCH!>{ x, <!CANNOT_INFER_PARAMETER_TYPE!>y<!> -> x }<!>)
     select(id(id(fun(x: String, y: String) { }), <!TOO_MANY_ARGUMENTS!>fun String.(x: String) {}<!>), { x, y -> x })
-    val x26: Int.(String) -> Int = fun (x: String) = 10 // it must be error, see KT-38439
+    val x26: Int.(String) -> Int = <!INITIALIZER_TYPE_MISMATCH!>fun (x: String) = 10<!> // it must be error, see KT-38439
     // Receiver must be specified in anonymous function declaration
     val x27: Int.(String) -> Int = id(<!ARGUMENT_TYPE_MISMATCH, ARGUMENT_TYPE_MISMATCH!>fun (x: String) = 10<!>)
     select(id<Int.(String) -> Unit> {}, { x: Int, y: String -> x })

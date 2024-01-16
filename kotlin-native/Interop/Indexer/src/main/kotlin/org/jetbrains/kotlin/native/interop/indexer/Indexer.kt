@@ -64,10 +64,12 @@ private class ObjCClassImpl(
     override val methods = mutableListOf<ObjCMethod>()
     override val properties = mutableListOf<ObjCProperty>()
     override var baseClass: ObjCClass? = null
+    override val includedCategories = mutableListOf<ObjCCategory>()
 }
 
 private class ObjCCategoryImpl(
-        name: String, clazz: ObjCClass
+        name: String, clazz: ObjCClass,
+        override val location: Location
 ) : ObjCCategory(name, clazz), ObjCContainerImpl {
     override val protocols = mutableListOf<ObjCProtocol>()
     override val methods = mutableListOf<ObjCMethod>()
@@ -84,7 +86,7 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
         object Protocol : DeclarationID()
     }
 
-    private inner class TypeDeclarationRegistry<D : TypeDeclaration> {
+    private inner class LocatableDeclarationRegistry<D : LocatableDeclaration> {
         private val all = mutableMapOf<DeclarationID, D>()
 
         val included = mutableListOf<D>()
@@ -119,22 +121,23 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
     }
 
     override val structs: List<StructDecl> get() = structRegistry.included
-    private val structRegistry = TypeDeclarationRegistry<StructDeclImpl>()
+    private val structRegistry = LocatableDeclarationRegistry<StructDeclImpl>()
 
     override val enums: List<EnumDef> get() = enumRegistry.included
-    private val enumRegistry = TypeDeclarationRegistry<EnumDefImpl>()
+    private val enumRegistry = LocatableDeclarationRegistry<EnumDefImpl>()
 
     override val objCClasses: List<ObjCClass> get() = objCClassRegistry.included
-    private val objCClassRegistry = TypeDeclarationRegistry<ObjCClassImpl>()
+    private val objCClassRegistry = LocatableDeclarationRegistry<ObjCClassImpl>()
 
     override val objCProtocols: List<ObjCProtocol> get() = objCProtocolRegistry.included
-    private val objCProtocolRegistry = TypeDeclarationRegistry<ObjCProtocolImpl>()
+    private val objCProtocolRegistry = LocatableDeclarationRegistry<ObjCProtocolImpl>()
 
-    override val objCCategories: Collection<ObjCCategory> get() = objCCategoryById.values
-    private val objCCategoryById = mutableMapOf<DeclarationID, ObjCCategoryImpl>()
+    override val objCCategories: Collection<ObjCCategory> get() = objCCategoryById.included
+    private val objCCategoryById = LocatableDeclarationRegistry<ObjCCategoryImpl>()
 
     override val typedefs get() = typedefRegistry.included
-    private val typedefRegistry = TypeDeclarationRegistry<TypedefDef>()
+    private val typedefRegistry = LocatableDeclarationRegistry<TypedefDef>()
+
 
     private val functionById = mutableMapOf<DeclarationID, FunctionDecl?>()
 
@@ -151,7 +154,7 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
 
     override lateinit var includedHeaders: List<HeaderId>
 
-    private fun log(message: String) {
+    internal fun log(message: String) {
         if (verbose) {
             println(message)
         }
@@ -318,18 +321,13 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
             if (clang_isCursorDefinition(definitionCursor) != 0) {
                 return getEnumDefAt(definitionCursor)
             } else {
-                TODO("support enum forward declarations: " +
-                        clang_getTypeSpelling(clang_getCursorType(cursor)).convertAndDispose())
+                // FIXME("enum declaration without constants might be not a typedef, but a forward declaration instead")
+                return enumRegistry.getOrPut(cursor) { createEnumDefImpl(cursor) }
             }
         }
 
         return enumRegistry.getOrPut(cursor) {
-            val cursorType = clang_getCursorType(cursor)
-            val typeSpelling = clang_getTypeSpelling(cursorType).convertAndDispose()
-
-            val baseType = convertType(clang_getEnumDeclIntegerType(cursor))
-
-            val enumDef = EnumDefImpl(typeSpelling, baseType, getLocation(cursor))
+            val enumDef = createEnumDefImpl(cursor)
 
             visitChildren(cursor) { childCursor, _ ->
                 if (clang_getCursorKind(childCursor) == CXCursorKind.CXCursor_EnumConstantDecl) {
@@ -345,6 +343,13 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
 
             enumDef
         }
+    }
+
+    private fun createEnumDefImpl(cursor: CValue<CXCursor>): EnumDefImpl {
+        val cursorType = clang_getCursorType(cursor)
+        val typeSpelling = clang_getTypeSpelling(cursorType).convertAndDispose()
+        val baseType = convertType(clang_getEnumDeclIntegerType(cursor))
+        return EnumDefImpl(typeSpelling, baseType, getLocation(cursor))
     }
 
     private fun getObjCCategoryClassCursor(cursor: CValue<CXCursor>): CValue<CXCursor> {
@@ -390,10 +395,48 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
         return objCClassRegistry.getOrPut(cursor, {
             ObjCClassImpl(name, getLocation(cursor), isForwardDeclaration = false,
                     binaryName = getObjCBinaryName(cursor).takeIf { it != name })
-        }) {
-            addChildrenToObjCContainer(cursor, it)
+        }) { objcClass ->
+            addChildrenToObjCContainer(cursor, objcClass)
+            if (name in this.library.objCClassesIncludingCategories) {
+                // We don't include methods from categories to class during indexing
+                // because indexing does not care about how class is represented in Kotlin.
+                // Instead, it should be done during StubIR construction.
+                objcClass.includedCategories += collectClassCategories(cursor, name).mapNotNull { getObjCCategoryAt(it) }
+            }
         }
+    }
 
+    /**
+     * Find all categories for a class that is pointed by [classCursor] in the same file.
+     * NB: Current implementation is rather slow as it walks the whole translation unit.
+     */
+    private fun collectClassCategories(classCursor: CValue<CXCursor>, className: String): List<CValue<CXCursor>> {
+        assert(classCursor.kind == CXCursorKind.CXCursor_ObjCInterfaceDecl) { classCursor.kind }
+        val classFile = getContainingFile(classCursor)
+        val result = mutableListOf<CValue<CXCursor>>()
+        // Accessing the whole translation unit (TU) is overkill, but it is the simplest solution which is doable
+        // since we use this function for a narrow set of cases.
+        // Possible improvements:
+        // 1. Find/create a function that returns a file scope. `clang_findReferencesInFile` does not seem to work because for categories
+        // it returns `CXCursor_ObjCClassRef` (@interface >CLASS_REFERENCE<(CategoryName)) and there is no easy way to access category from
+        // there.
+        // 2. Extract categories collection into a separate TU pass and create Class -> [Category] mapping. This way we can avoid visiting
+        // TU for every class.
+        val translationUnit = clang_getCursorLexicalParent(classCursor)
+        visitChildren(translationUnit) { childCursor, _ ->
+            if (childCursor.kind == CXCursorKind.CXCursor_ObjCCategoryDecl) {
+                val categoryClassCursor = getObjCCategoryClassCursor(childCursor)
+                val categoryClassName = clang_getCursorDisplayName(categoryClassCursor).convertAndDispose()
+                if (className == categoryClassName) {
+                    val categoryFile = getContainingFile(childCursor)
+                    if (clang_File_isEqual(categoryFile, classFile) != 0) {
+                        result += childCursor
+                    }
+                }
+            }
+            CXChildVisitResult.CXChildVisit_Continue
+        }
+        return result
     }
 
     private fun getObjCProtocolAt(cursor: CValue<CXCursor>): ObjCProtocolImpl {
@@ -433,11 +476,10 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
         if (!isAvailable(classCursor)) return null
 
         val name = clang_getCursorDisplayName(cursor).convertAndDispose()
-        val declarationId = getDeclarationId(cursor)
 
-        return objCCategoryById.getOrPut(declarationId) {
+        return objCCategoryById.getOrPut(cursor) {
             val clazz = getObjCClassAt(classCursor)
-            val category = ObjCCategoryImpl(name, clazz)
+            val category = ObjCCategoryImpl(name, clazz, getLocation(cursor))
             addChildrenToObjCContainer(cursor, category)
             category
         }
@@ -1108,14 +1150,15 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
         }
 
         return ObjCMethod(
-                selector, encoding, parameters, returnType,
-                isVariadic = clang_Cursor_isVariadic(cursor) != 0,
-                isClass = isClass,
-                nsConsumesSelf = clang_Cursor_isObjCConsumingSelfMethod(cursor) != 0,
-                nsReturnsRetained = clang_Cursor_isObjCReturningRetainedMethod(cursor) != 0,
-                isOptional = (clang_Cursor_isObjCOptional(cursor) != 0),
-                isInit = (clang_Cursor_isObjCInitMethod(cursor) != 0),
-                isExplicitlyDesignatedInitializer = hasAttribute(cursor, OBJC_DESGINATED_INITIALIZER)
+            selector, encoding, parameters, returnType,
+            isVariadic = clang_Cursor_isVariadic(cursor) != 0,
+            isClass = isClass,
+            nsConsumesSelf = clang_Cursor_isObjCConsumingSelfMethod(cursor) != 0,
+            nsReturnsRetained = clang_Cursor_isObjCReturningRetainedMethod(cursor) != 0,
+            isOptional = (clang_Cursor_isObjCOptional(cursor) != 0),
+            isInit = (clang_Cursor_isObjCInitMethod(cursor) != 0),
+            isExplicitlyDesignatedInitializer = hasAttribute(cursor, OBJC_DESIGNATED_INITIALIZER),
+            isDirect = hasAttribute(cursor, OBJC_DIRECT),
         )
     }
 
@@ -1159,7 +1202,8 @@ public open class NativeIndexImpl(val library: NativeLibrary, val verbose: Boole
     }
 
     private val NS_CONSUMED = "ns_consumed"
-    private val OBJC_DESGINATED_INITIALIZER = "objc_designated_initializer"
+    private val OBJC_DESIGNATED_INITIALIZER = "objc_designated_initializer"
+    private val OBJC_DIRECT = "objc_direct"
 
     private fun hasAttribute(cursor: CValue<CXCursor>, name: String): Boolean {
         var result = false
@@ -1187,67 +1231,85 @@ fun buildNativeIndexImpl(index: NativeIndexImpl): IndexerResult {
 }
 
 private fun indexDeclarations(nativeIndex: NativeIndexImpl): CompilationWithPCH {
-    withIndex { index ->
+    // Below, declarations from PCH should be excluded to restrict `visitChildren` to visit local declarations only
+    withIndex(excludeDeclarationsFromPCH = true) { index ->
+        val errors = mutableListOf<Diagnostic>()
         val translationUnit = nativeIndex.library.copyWithArgsForPCH().parse(
                 index,
-                options = CXTranslationUnit_DetailedPreprocessingRecord or CXTranslationUnit_ForSerialization
+                options = CXTranslationUnit_DetailedPreprocessingRecord or CXTranslationUnit_ForSerialization,
+                diagnosticHandler = { if (it.isError()) errors.add(it) }
         )
         try {
+            if (errors.isNotEmpty()) {
+                error(errors.take(10).joinToString("\n") { it.format })
+            }
             translationUnit.ensureNoCompileErrors()
 
             val compilation = nativeIndex.library.withPrecompiledHeader(translationUnit)
 
-            val headers = getFilteredHeaders(nativeIndex, index, translationUnit)
+            UnitsHolder(index).use { unitsHolder ->
+                val (headers, ownTranslationUnits) = getHeadersAndUnits(nativeIndex.library, index, translationUnit, unitsHolder)
+                val ownHeaders = headers.ownHeaders
+                val headersCanonicalPaths = ownHeaders.map { it?.canonicalPath }.toSet()
 
-            nativeIndex.includedHeaders = headers.map {
-                nativeIndex.getHeaderId(it)
-            }
+                val unitsToProcess = (ownTranslationUnits + setOf(translationUnit)).toList()
 
-            indexTranslationUnit(index, translationUnit, 0, object : Indexer {
-                override fun indexDeclaration(info: CXIdxDeclInfo) {
-                    val file = memScoped {
-                        val fileVar = alloc<CXFileVar>()
-                        clang_indexLoc_getFileLocation(info.loc.readValue(), null, fileVar.ptr, null, null, null)
-                        fileVar.value
-                    }
-
-                    if (file in headers) {
-                        nativeIndex.indexDeclaration(info)
-                    }
+                nativeIndex.includedHeaders = ownHeaders.map {
+                    nativeIndex.getHeaderId(it)
                 }
-            })
 
-            if (nativeIndex.library.language == Language.CPP) {
-                visitChildren(clang_getTranslationUnitCursor(translationUnit)) { cursor, _ ->
-                    if (getContainingFile(cursor) in headers) {
-                        nativeIndex.indexCxxDeclaration(cursor)
-                    }
-                    CXChildVisitResult.CXChildVisit_Continue
-                }
-            }
+                unitsToProcess.forEach {
+                    indexTranslationUnit(index, it, 0, object : Indexer {
+                        override fun indexDeclaration(info: CXIdxDeclInfo) {
+                            val file = memScoped {
+                                val fileVar = alloc<CXFileVar>()
+                                clang_indexLoc_getFileLocation(info.loc.readValue(), null, fileVar.ptr, null, null, null)
+                                fileVar.value
+                            }
 
-            visitChildren(clang_getTranslationUnitCursor(translationUnit)) { cursor, _ ->
-                val file = getContainingFile(cursor)
-                if (file in headers && nativeIndex.library.includesDeclaration(cursor)) {
-                    when (cursor.kind) {
-                        CXCursorKind.CXCursor_ObjCInterfaceDecl -> nativeIndex.indexObjCClass(cursor)
-                        CXCursorKind.CXCursor_ObjCProtocolDecl -> nativeIndex.indexObjCProtocol(cursor)
-                        CXCursorKind.CXCursor_ObjCCategoryDecl -> {
-                            // This fixes https://youtrack.jetbrains.com/issue/KT-49455, which effectively seems to be a bug in libclang:
-                            // the libclang indexer doesn't properly index categories with
-                            // `__attribute__((external_source_symbol(language="Swift",...)))`.
-                            // As a workaround, additionally enumerate all the categories explicitly.
-                            nativeIndex.indexObjCCategory(cursor)
+                            if (file?.canonicalPath in headersCanonicalPaths) {
+                                nativeIndex.indexDeclaration(info)
+                            }
                         }
-                        else -> {}
+                    })
+                }
+
+                if (nativeIndex.library.language == Language.CPP) {
+                    unitsToProcess.forEach {
+                        visitChildren(clang_getTranslationUnitCursor(it)) { cursor, _ ->
+                            if (getContainingFile(cursor) in ownHeaders) {
+                                nativeIndex.indexCxxDeclaration(cursor)
+                            }
+                            CXChildVisitResult.CXChildVisit_Continue
+                        }
                     }
                 }
-                CXChildVisitResult.CXChildVisit_Continue
+
+                unitsToProcess.forEach {
+                    visitChildren(clang_getTranslationUnitCursor(it)) { cursor, _ ->
+                        val file = getContainingFile(cursor)
+                        if (file in ownHeaders && nativeIndex.library.includesDeclaration(cursor)) {
+                            when (cursor.kind) {
+                                CXCursorKind.CXCursor_ObjCInterfaceDecl -> nativeIndex.indexObjCClass(cursor)
+                                CXCursorKind.CXCursor_ObjCProtocolDecl -> nativeIndex.indexObjCProtocol(cursor)
+                                CXCursorKind.CXCursor_ObjCCategoryDecl -> {
+                                    // This fixes https://youtrack.jetbrains.com/issue/KT-49455, which effectively seems to be a bug in libclang:
+                                    // the libclang indexer doesn't properly index categories with
+                                    // `__attribute__((external_source_symbol(language="Swift",...)))`.
+                                    // As a workaround, additionally enumerate all the categories explicitly.
+                                    nativeIndex.indexObjCCategory(cursor)
+                                }
+
+                                else -> {}
+                            }
+                        }
+                        CXChildVisitResult.CXChildVisit_Continue
+                    }
+                }
+
+                findMacros(nativeIndex, compilation, unitsToProcess, ownHeaders)
+                return compilation
             }
-
-            findMacros(nativeIndex, compilation, translationUnit, headers)
-
-            return compilation
         } finally {
             clang_disposeTranslationUnit(translationUnit)
         }
