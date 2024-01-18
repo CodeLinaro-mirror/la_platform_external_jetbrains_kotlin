@@ -23,8 +23,8 @@ internal val DEFAULT_GROOVY_SETTINGS_FILE =
             id "org.jetbrains.kotlin.kapt" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.android" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.js" version "${'$'}kotlin_version"
+            id "org.jetbrains.kotlin.native.cocoapods" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.multiplatform" version "${'$'}kotlin_version"
-            id "org.jetbrains.kotlin.multiplatform.pm20" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.allopen" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.spring" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.jpa" version "${'$'}kotlin_version"
@@ -32,9 +32,12 @@ internal val DEFAULT_GROOVY_SETTINGS_FILE =
             id "org.jetbrains.kotlin.plugin.lombok" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.sam.with.receiver" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.serialization" version "${'$'}kotlin_version"
+            id "org.jetbrains.kotlin.plugin.assignment" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.test.fixes.android" version "${'$'}test_fixes_version"
             id "org.jetbrains.kotlin.gradle-subplugin-example" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.atomicfu" version "${'$'}kotlin_version"
+            id "org.jetbrains.kotlin.test.gradle-warnings-detector" version "${'$'}test_fixes_version"
+            id "org.jetbrains.kotlin.test.kotlin-compiler-args-properties" version "${'$'}test_fixes_version"
         }
         
         resolutionStrategy {
@@ -54,6 +57,10 @@ internal val DEFAULT_GROOVY_SETTINGS_FILE =
                 }
             }
         }
+    }
+
+    plugins {
+        id("org.jetbrains.kotlin.test.gradle-warnings-detector")
     }
     """.trimIndent()
 
@@ -76,8 +83,8 @@ internal val DEFAULT_KOTLIN_SETTINGS_FILE =
             id("org.jetbrains.kotlin.kapt") version kotlin_version
             id("org.jetbrains.kotlin.android") version kotlin_version
             id("org.jetbrains.kotlin.js") version kotlin_version
+            id("org.jetbrains.kotlin.native.cocoapods") version kotlin_version
             id("org.jetbrains.kotlin.multiplatform") version kotlin_version
-            id("org.jetbrains.kotlin.multiplatform.pm20") version kotlin_version
             id("org.jetbrains.kotlin.plugin.allopen") version kotlin_version
             id("org.jetbrains.kotlin.plugin.spring") version kotlin_version
             id("org.jetbrains.kotlin.plugin.jpa") version kotlin_version
@@ -85,9 +92,12 @@ internal val DEFAULT_KOTLIN_SETTINGS_FILE =
             id("org.jetbrains.kotlin.plugin.lombok") version kotlin_version
             id("org.jetbrains.kotlin.plugin.sam.with.receiver") version kotlin_version
             id("org.jetbrains.kotlin.plugin.serialization") version kotlin_version
+            id("org.jetbrains.kotlin.plugin.assignment") version kotlin_version
             id("org.jetbrains.kotlin.test.fixes.android") version test_fixes_version
             id("org.jetbrains.kotlin.gradle-subplugin-example") version kotlin_version
             id("org.jetbrains.kotlin.plugin.atomicfu") version kotlin_version
+            id("org.jetbrains.kotlin.test.gradle-warnings-detector") version test_fixes_version
+            id("org.jetbrains.kotlin.test.kotlin-compiler-args-properties") version test_fixes_version
         }
         
         resolutionStrategy {
@@ -101,9 +111,15 @@ internal val DEFAULT_KOTLIN_SETTINGS_FILE =
                     "com.android.asset-pack-bundle",
                     "com.android.lint",
                     "com.android.instantapp",
-                    "com.android.feature" -> useModule("com.android.tools.build:gradle:${'$'}android_tools_version")
+                    "com.android.feature",
+                    "com.android.kotlin.multiplatform.library"
+                       -> useModule("com.android.tools.build:gradle:${'$'}android_tools_version")
                 }
             }
         }
+    }
+
+    plugins {
+        id("org.jetbrains.kotlin.test.gradle-warnings-detector")
     }
     """.trimIndent()

@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.types.impl.buildSimpleType
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.utils.memoryOptimizedMap
 
 internal class DeepCopyIrTreeWithSymbolsForInliner(
     val typeArguments: Map<IrTypeParameterSymbol, IrType?>?,
@@ -53,7 +54,7 @@ internal class DeepCopyIrTreeWithSymbolsForInliner(
             arguments: List<IrTypeArgument>,
             erasedParameters: MutableSet<IrTypeParameterSymbol>?
         ) =
-            arguments.map { argument ->
+            arguments.memoryOptimizedMap { argument ->
                 (argument as? IrTypeProjection)?.let { proj ->
                     remapTypeAndOptionallyErase(proj.type, erasedParameters)?.let { newType ->
                         makeTypeProjection(newType, proj.variance)
@@ -111,7 +112,7 @@ internal class DeepCopyIrTreeWithSymbolsForInliner(
                 kotlinType = null
                 this.classifier = symbolRemapper.getReferencedClassifier(classifier)
                 arguments = remapTypeArguments(type.arguments, erasedParameters)
-                annotations = type.annotations.map { it.transform(copier, null) as IrConstructorCall }
+                annotations = type.annotations.memoryOptimizedMap { it.transform(copier, null) as IrConstructorCall }
             }
         }
     }

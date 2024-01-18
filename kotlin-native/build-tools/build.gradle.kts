@@ -3,74 +3,46 @@
  * that can be found in the license/LICENSE.txt file.
  */
 
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
-plugins {
-    kotlin
-    groovy
-    `kotlin-dsl`
-    id("gradle-plugin-dependency-configuration")
-}
-
 buildscript {
     val rootBuildDirectory by extra(project.file("../.."))
-
-    repositories {
-        project.bootstrapKotlinRepo?.let {
-            maven(url = it)
-        }
-    }
-
     apply(from = rootBuildDirectory.resolve("kotlin-native/gradle/loadRootProperties.gradle"))
+
     dependencies {
-        classpath(commonDependency("com.google.code.gson:gson"))
-        classpath("org.jetbrains.kotlin:kotlin-sam-with-receiver:${project.bootstrapKotlinVersion}")
+        classpath("com.google.code.gson:gson:2.8.9")
     }
 }
-apply {
-    plugin("kotlin-sam-with-receiver")
-}
-
-val rootProperties = Properties().apply {
-    project(":kotlin-native").projectDir.resolve("gradle.properties").reader().use(::load)
-}
-
-val kotlinVersion = project.bootstrapKotlinVersion
-val konanVersion: String by rootProperties
-val slackApiVersion: String by rootProperties
-val ktorVersion: String by rootProperties
-val shadowVersion: String by rootProperties
-val metadataVersion: String by rootProperties
-
-group = "org.jetbrains.kotlin"
-version = konanVersion
 
 repositories {
-    maven("https://cache-redirector.jetbrains.com/maven-central")
+    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies")
     mavenCentral()
     gradlePluginPortal()
+}
+
+plugins {
+    groovy
+    kotlin("jvm")
+    `kotlin-dsl`
 }
 
 dependencies {
     api(gradleApi())
 
-    api(kotlinStdlib())
-    commonApi(project(":kotlin-gradle-plugin"))
-    commonApi(project(":kotlin-gradle-plugin-api"))
-    commonApi(project(":kotlin-gradle-plugin-model"))
-    implementation(project(":kotlin-reflect"))
+    api("org.jetbrains.kotlin:kotlin-stdlib:${project.bootstrapKotlinVersion}")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:${project.bootstrapKotlinVersion}") { isTransitive = false }
     implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
+    implementation("org.jetbrains.kotlin:kotlin-native-utils:${project.bootstrapKotlinVersion}")
 
-    implementation("com.ullink.slack:simpleslackapi:$slackApiVersion") {
-        exclude(group = "com.google.code.gson", module = "gson") // Workaround for Gradle dependency resolution error
-    }
+    // To build Konan Gradle plugin
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
+
     val versionProperties = Properties()
-    project.rootProject.projectDir.resolve("gradle/versions.properties").inputStream().use { propInput ->
+    project.rootProject.projectDir.resolve("../../gradle/versions.properties").inputStream().use { propInput ->
         versionProperties.load(propInput)
     }
-    implementation(commonDependency("com.google.code.gson:gson"))
+    implementation("com.google.code.gson:gson:2.8.9")
     configurations.all {
         resolutionStrategy.eachDependency {
             if (requested.group == "com.google.code.gson" && requested.name == "gson") {
@@ -80,31 +52,33 @@ dependencies {
         }
     }
 
-    implementation("io.ktor:ktor-client-auth:$ktorVersion")
-    implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
+    val metadataVersion = "0.0.1-dev-10"
+    implementation("org.jetbrains.kotlinx:kotlinx-metadata-klib:$metadataVersion")
 
-    api(project(":native:kotlin-native-utils"))
-    api(project(":kotlin-native-shared"))
-    api(project(":kotlinx-metadata-klib"))
-    api(project(":kotlin-util-klib"))
-    implementation("gradle.plugin.com.github.johnrengelman:shadow:${rootProject.extra["versions.shadow"]}")
+    implementation("org.jetbrains.kotlin:kotlin-util-klib:${project.bootstrapKotlinVersion}")
+    implementation(project(":kotlin-native-executors"))
 }
 
-sourceSets["main"].withConvention(KotlinSourceSet::class) {
-    kotlin.srcDir("$projectDir/../tools/benchmarks/shared/src/main/kotlin/report")
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
 }
 
 val compileKotlin: KotlinCompile by tasks
 val compileGroovy: GroovyCompile by tasks
 
 compileKotlin.apply {
-    kotlinOptions {
-        jvmTarget = "1.8"
-        freeCompilerArgs += listOf(
+    compilerOptions {
+        optIn.add("kotlin.ExperimentalStdlibApi")
+        freeCompilerArgs.addAll(
+            listOf(
                 "-Xskip-prerelease-check",
                 "-Xsuppress-version-warnings",
-                "-opt-in=kotlin.ExperimentalStdlibApi")
+                "-Xallow-unstable-dependencies"
+            )
+        )
     }
 }
 
@@ -112,4 +86,42 @@ compileKotlin.apply {
 compileGroovy.apply {
     classpath += project.files(compileKotlin.destinationDirectory)
     dependsOn(compileKotlin)
+}
+
+kotlin {
+    sourceSets {
+        main {
+            kotlin.srcDir("src/main/kotlin")
+            kotlin.srcDir("../../kotlin-native/tools/kotlin-native-gradle-plugin/src/main/kotlin")
+        }
+    }
+}
+
+gradlePlugin {
+    plugins {
+        create("compileToBitcode") {
+            id = "compile-to-bitcode"
+            implementationClass = "org.jetbrains.kotlin.bitcode.CompileToBitcodePlugin"
+        }
+        create("runtimeTesting") {
+            id = "runtime-testing"
+            implementationClass = "org.jetbrains.kotlin.testing.native.RuntimeTestingPlugin"
+        }
+        create("compilationDatabase") {
+            id = "compilation-database"
+            implementationClass = "org.jetbrains.kotlin.cpp.CompilationDatabasePlugin"
+        }
+        create("konanPlugin") {
+            id = "konan"
+            implementationClass = "org.jetbrains.kotlin.gradle.plugin.konan.KonanPlugin"
+        }
+        create("native-interop-plugin") {
+            id = "native-interop-plugin"
+            implementationClass = "org.jetbrains.kotlin.NativeInteropPlugin"
+        }
+        create("native") {
+            id = "native"
+            implementationClass = "org.jetbrains.kotlin.tools.NativePlugin"
+        }
+    }
 }

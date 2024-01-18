@@ -329,13 +329,15 @@ class StubIrBuilder(private val context: StubIrContext) {
 
     fun build(): StubIrBuilderResult {
         nativeIndex.objCProtocols.filter { !it.isForwardDeclaration }.forEach { generateStubsForObjCProtocol(it) }
-        nativeIndex.objCClasses.filter { !it.isForwardDeclaration && !it.isNSStringSubclass()} .forEach { generateStubsForObjCClass(it) }
-        nativeIndex.objCCategories.filter { !it.clazz.isNSStringSubclass() }.forEach { generateStubsForObjCCategory(it) }
+        nativeIndex.objCClasses.filter { !it.isForwardDeclaration && it.shouldBeIncludedIntoKotlinAPI() }
+                .forEach { generateStubsForObjCClass(it) }
+        nativeIndex.objCCategories.filter { it.clazz.shouldBeIncludedIntoKotlinAPI() }.forEach { generateStubsForObjCCategory(it) }
         nativeIndex.structs.forEach { generateStubsForStruct(it) }
         nativeIndex.enums.forEach { generateStubsForEnum(it) }
         nativeIndex.functions.filter { it.name !in excludedFunctions }.forEach { generateStubsForFunction(it) }
         nativeIndex.typedefs.forEach { generateStubsForTypedef(it) }
-        nativeIndex.globals.filter { it.name !in excludedFunctions }.forEach { generateStubsForGlobal(it) }
+        // globals are sorted, so its numbering is stable and thus testable with golden data
+        nativeIndex.globals.filter { it.name !in excludedFunctions }.sortedBy { it.name }.forEach { generateStubsForGlobal(it) }
         nativeIndex.macroConstants.filter { it.name !in excludedMacros }.forEach { generateStubsForMacroConstant(it) }
         nativeIndex.wrappedMacros.filter { it.name !in excludedMacros }.forEach { generateStubsForWrappedMacro(it) }
 
@@ -348,12 +350,59 @@ class StubIrBuilder(private val context: StubIrContext) {
                 typealiases.toList(),
                 containers.toList()
         )
+
+        stubs.addExperimentalAnnotations()
+
         return StubIrBuilderResult(
                 stubs,
                 buildingContext.declarationMapper,
                 buildingContext.bridgeComponentsBuilder.build(),
                 buildingContext.wrapperComponentsBuilder.build()
         )
+    }
+
+    private fun StubContainer.addExperimentalAnnotations() {
+        fun MutableList<AnnotationStub>.addExperimentalIfNecessary() {
+            if (!configuration.disableExperimentalAnnotation)
+                this.add(AnnotationStub.ExperimentalForeignApi)
+        }
+
+        this.accept(object : StubIrVisitor<Unit, Unit> {
+            override fun visitSimpleStubContainer(simpleStubContainer: SimpleStubContainer, data: Unit) {
+                simpleStubContainer.children.forEach { it.accept(this, data) }
+                simpleStubContainer.simpleContainers.forEach { visitSimpleStubContainer(it, data) }
+            }
+
+            override fun visitClass(element: ClassStub, data: Unit) {
+                val annotations = when (element) {
+                    is ClassStub.Companion -> return // Nested, see below.
+                    is ClassStub.Enum -> element.annotations
+                    is ClassStub.Simple -> element.annotations
+                }
+                annotations.addExperimentalIfNecessary()
+                // Not visiting nested declarations intentionally -- they inherit opt-in requirement from the enclosing
+                // class.
+            }
+
+            override fun visitTypealias(element: TypealiasStub, data: Unit) {
+                element.annotations.addExperimentalIfNecessary()
+            }
+
+            override fun visitFunction(element: FunctionStub, data: Unit) {
+                element.annotations.addExperimentalIfNecessary()
+            }
+
+            override fun visitProperty(element: PropertyStub, data: Unit) {
+                element.annotations.addExperimentalIfNecessary()
+            }
+
+            // Not visiting nested declarations intentionally -- they inherit opt-in requirement from the enclosing
+            // class.
+            override fun visitConstructor(constructorStub: ConstructorStub, data: Unit) {}
+
+            // Property accessors inherit opt-in requirements from the property.
+            override fun visitPropertyAccessor(propertyAccessor: PropertyAccessor, data: Unit) {}
+        }, Unit)
     }
 
     private fun generateStubsForWrappedMacro(macro: WrappedMacroDef) {
@@ -382,7 +431,11 @@ class StubIrBuilder(private val context: StubIrContext) {
 
     private fun generateStubsForFunction(func: FunctionDecl) {
         try {
-            addStubs(FunctionStubBuilder(buildingContext, func, skipOverloads = true).build())
+            addStubs(FunctionStubBuilder(
+                    buildingContext,
+                    func,
+                    skipOverloads = func.name !in context.configuration.allowedOverloadsForCFunctions
+            ).build())
         } catch (e: Throwable) {
             context.log("Warning: cannot generate stubs for function ${func.name}")
         }

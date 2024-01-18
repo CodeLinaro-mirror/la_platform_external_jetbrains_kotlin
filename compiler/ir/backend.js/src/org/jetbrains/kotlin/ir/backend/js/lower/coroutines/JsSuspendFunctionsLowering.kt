@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.backend.common.descriptors.synthesizedName
 import org.jetbrains.kotlin.backend.common.lower.FinallyBlocksLowering
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
 import org.jetbrains.kotlin.backend.common.lower.ReturnableBlockTransformer
+import org.jetbrains.kotlin.backend.common.lower.coroutines.loweredSuspendFunctionReturnType
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.builders.*
@@ -84,7 +86,7 @@ class JsSuspendFunctionsLowering(ctx: JsCommonBackendContext) : AbstractSuspendF
 
         val unit = context.irBuiltIns.unitType
 
-        val switch = IrWhenImpl(body.startOffset, body.endOffset, unit, JsStatementOrigins.COROUTINE_SWITCH)
+        val switch = IrWhenImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, unit, JsStatementOrigins.COROUTINE_SWITCH)
         val stateVar = JsIrBuilder.buildVar(context.irBuiltIns.intType, stateMachineFunction)
         val switchBlock = IrBlockImpl(switch.startOffset, switch.endOffset, switch.type).apply {
             statements += stateVar
@@ -177,7 +179,7 @@ class JsSuspendFunctionsLowering(ctx: JsCommonBackendContext) : AbstractSuspendF
 
         val liveLocals = computeLivenessAtSuspensionPoints(functionBody).values.flatten().toSet()
 
-        val localToPropertyMap = mutableMapOf<IrValueSymbol, IrFieldSymbol>()
+        val localToPropertyMap = hashMapOf<IrValueSymbol, IrFieldSymbol>()
         var localCounter = 0
         // TODO: optimize by using the same property for different locals.
         liveLocals.forEach {

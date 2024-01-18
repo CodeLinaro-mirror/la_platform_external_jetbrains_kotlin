@@ -5,34 +5,32 @@
 
 package org.jetbrains.kotlin.analysis.providers.impl
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.ModificationTracker
 import com.intellij.openapi.util.SimpleModificationTracker
-import org.jetbrains.annotations.TestOnly
-import org.jetbrains.kotlin.analysis.project.structure.KtSourceModule
 import org.jetbrains.kotlin.analysis.providers.KotlinModificationTrackerFactory
 
 public class KotlinStaticModificationTrackerFactory : KotlinModificationTrackerFactory() {
     private val projectWide = SimpleModificationTracker()
-    private val library = SimpleModificationTracker()
-    private val forModule = mutableMapOf<KtSourceModule, SimpleModificationTracker>()
+    private val librariesWide = SimpleModificationTracker()
 
     override fun createProjectWideOutOfBlockModificationTracker(): ModificationTracker {
         return projectWide
     }
 
-
-    override fun createModuleWithoutDependenciesOutOfBlockModificationTracker(module: KtSourceModule): ModificationTracker {
-        return forModule.getOrPut(module) { SimpleModificationTracker() }
+    override fun createLibrariesWideModificationTracker(): ModificationTracker {
+        return librariesWide
     }
 
-    override fun createLibrariesModificationTracker(): ModificationTracker {
-        return library
-    }
-
-    @TestOnly
-    override fun incrementModificationsCount() {
+    internal fun incrementModificationsCount(includeBinaryTrackers: Boolean) {
         projectWide.incModificationCount()
-        library.incModificationCount()
-        forModule.values.forEach { it.incModificationCount() }
+        if (includeBinaryTrackers) {
+            librariesWide.incModificationCount()
+        }
+    }
+
+    public companion object {
+        public fun getInstance(project: Project): KotlinStaticModificationTrackerFactory =
+            KotlinModificationTrackerFactory.getInstance(project) as KotlinStaticModificationTrackerFactory
     }
 }

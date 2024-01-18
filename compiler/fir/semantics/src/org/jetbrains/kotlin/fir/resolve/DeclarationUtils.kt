@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,24 +8,22 @@ package org.jetbrains.kotlin.fir.resolve
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.containingClassForLocalAttr
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.resolve.dfa.RealVariable
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.LookupTagInternals
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.util.OperatorNameConventions
 
 fun FirClassLikeDeclaration.getContainingDeclaration(session: FirSession): FirClassLikeDeclaration? {
     if (isLocal) {
-        @OptIn(LookupTagInternals::class)
         return (this as? FirRegularClass)?.containingClassForLocalAttr?.toFirRegularClass(session)
     } else {
         val classId = symbol.classId
         val parentId = classId.relativeClassName.parent()
         if (!parentId.isRoot) {
-            val containingDeclarationId = ClassId(classId.packageFqName, parentId, false)
+            val containingDeclarationId = ClassId(classId.packageFqName, parentId, isLocal = false)
             return session.symbolProvider.getClassLikeSymbolByClassId(containingDeclarationId)?.fir
         }
     }
@@ -81,16 +79,38 @@ fun FirTypeRef.firClassLike(session: FirSession): FirClassLikeDeclaration? {
 fun List<FirQualifierPart>.toTypeProjections(): Array<ConeTypeProjection> =
     asReversed().flatMap { it.typeArgumentList.typeArguments.map { typeArgument -> typeArgument.toConeTypeProjection() } }.toTypedArray()
 
-private object TypeAliasConstructorKey : FirDeclarationDataKey()
+interface FirCodeFragmentContext {
+    val towerDataContext: FirTowerDataContext
+    val smartCasts: Map<RealVariable, Set<ConeKotlinType>>
+}
 
-var FirConstructor.originalConstructorIfTypeAlias: FirConstructor? by FirDeclarationDataRegistry.data(TypeAliasConstructorKey)
+private object CodeFragmentContextDataKey : FirDeclarationDataKey()
 
-val FirConstructorSymbol.isTypeAliasedConstructor: Boolean
-    get() = fir.originalConstructorIfTypeAlias != null
+var FirCodeFragment.codeFragmentContext: FirCodeFragmentContext? by FirDeclarationDataRegistry.data(CodeFragmentContextDataKey)
 
-fun FirSimpleFunction.isEquals(): Boolean {
-    if (name != OperatorNameConventions.EQUALS) return false
-    if (valueParameters.size != 1) return false
-    val parameter = valueParameters.first()
-    return parameter.returnTypeRef.isNullableAny
+/**
+ * If `classLikeType` is an inner class,
+ * then this function returns a type representing
+ * only the "outer" part of `classLikeType`:
+ * the part with the outer classes and their
+ * type arguments. Returns `null` otherwise.
+ */
+inline fun outerType(
+    classLikeType: ConeClassLikeType,
+    session: FirSession,
+    outerClass: (FirClassLikeSymbol<*>) -> FirClassLikeSymbol<*>?,
+): ConeClassLikeType? {
+    val fullyExpandedType = classLikeType.fullyExpandedType(session)
+
+    val symbol = fullyExpandedType.lookupTag.toSymbol(session) ?: return null
+
+    if (symbol is FirRegularClassSymbol && !symbol.fir.isInner) return null
+
+    val containingSymbol = outerClass(symbol) ?: return null
+    val currentTypeArgumentsNumber = (symbol as? FirRegularClassSymbol)?.fir?.typeParameters?.count { it is FirTypeParameter } ?: 0
+
+    return containingSymbol.constructType(
+        fullyExpandedType.typeArguments.drop(currentTypeArgumentsNumber).toTypedArray(),
+        isNullable = false
+    )
 }

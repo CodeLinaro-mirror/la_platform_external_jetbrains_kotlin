@@ -4,25 +4,21 @@
 @file:BenchmarkProject(
     name = "duckduckgo",
     gitUrl = "https://github.com/duckduckgo/Android.git",
-    gitCommitSha = "648b0aae2dd54c4da4176eb91b3a05ea44118fa5"
+    gitCommitSha = "db1dce8f09935a2bef27cd790f5581aafdcbb0a6",
+    stableKotlinVersion = "1.9.10",
 )
 
 import java.io.File
 
-val stableReleasePatch = {
-    "duckduckgo-kotlin-1.7.10.patch" to File("benchmarkScripts/files/duckduckgo-kotlin-1.7.10.patch")
-        .readText()
-        .byteInputStream()
-}
-
-val currentReleasePatch = {
-    "duckduckgo-kotlin-current.patch" to File("benchmarkScripts/files/duckduckgo-kotlin-current.patch")
+val repoPatch = {
+    "duckduckgo-kotlin-repo.patch" to File("benchmarkScripts/files/duckduckgo-kotlin-repo.patch")
         .readText()
         .run { replace("<kotlin_version>", currentKotlinVersion) }
         .byteInputStream()
 }
 
-runAllBenchmarks(
+runBenchmarks(
+    repoPatch,
     suite {
         scenario {
             title = "Clean build"
@@ -37,15 +33,23 @@ runAllBenchmarks(
             useGradleArgs("--no-build-cache")
 
             runTasks(":app:assemblePlayDebug")
-            applyAbiChangeTo("common/src/main/java/com/duckduckgo/app/global/VpnViewModelFactory.kt")
+            applyAbiChangeTo("common/common-utils/src/main/java/com/duckduckgo/app/global/VpnViewModelFactory.kt")
         }
 
         scenario {
-            title = "Incremetal build with ABI change in Kapt component"
+            title = "Incremental build with ABI change in Kapt component"
             useGradleArgs("--no-build-cache")
 
             runTasks(":app:assemblePlayDebug")
-            applyAbiChangeTo("vpn/src/main/java/com/duckduckgo/mobile/android/vpn/di/VpnModule.kt")
+            applyAbiChangeTo("app-tracking-protection/vpn-impl/src/main/java/com/duckduckgo/mobile/android/vpn/di/VpnModule.kt")
+        }
+
+        scenario {
+            title = "Incremental build with non ABI change in Kapt component"
+            useGradleArgs("--no-build-cache")
+
+            runTasks(":app:assemblePlayDebug")
+            applyNonAbiChangeTo("app-tracking-protection/vpn-impl/src/main/java/com/duckduckgo/mobile/android/vpn/di/VpnModule.kt")
         }
 
         scenario {
@@ -54,11 +58,26 @@ runAllBenchmarks(
 
             runTasks(":app:assemblePlayDebug")
 
-            applyAndroidResourceValueChange("common-ui/src/main/res/values/strings.xml")
+            applyAndroidResourceValueChange("common/common-utils/src/main/res/values/strings-common.xml")
         }
-    },
-    mapOf(
-        "1.7.10" to stableReleasePatch,
-        "1.7.20" to currentReleasePatch
-    )
+
+        scenario {
+            title = "Dry run configuration time"
+            useGradleArgs("-m")
+
+            runTasks(":app:assemblePlayDebug")
+        }
+
+        scenario {
+            title = "No-op configuration time"
+
+            runTasks("help")
+        }
+
+        scenario {
+            title = "UP-TO-DATE configuration time"
+
+            runTasks(":app:assemblePlayDebug")
+        }
+    }
 )

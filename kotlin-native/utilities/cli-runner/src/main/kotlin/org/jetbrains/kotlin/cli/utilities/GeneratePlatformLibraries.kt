@@ -16,9 +16,7 @@ import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.util.KonanHomeProvider
 import org.jetbrains.kotlin.konan.util.PlatformLibsInfo
 import org.jetbrains.kotlin.konan.util.visibleName
-import org.jetbrains.kotlin.native.interop.gen.jvm.GenerationMode
 import org.jetbrains.kotlin.native.interop.gen.jvm.parseKeyValuePairs
-import org.jetbrains.kotlin.native.interop.tool.CommonInteropArguments.Companion.DEFAULT_MODE
 import org.jetbrains.kotlin.native.interop.tool.SHORT_MODULE_NAME
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -66,7 +64,7 @@ private enum class CacheKind(val outputKind: CompilerOutputKind) {
     STATIC_CACHE(CompilerOutputKind.STATIC_CACHE)
 }
 
-private class CInteropOptions(val mode: GenerationMode, val additionalArguments: List<String>)
+private class CInteropOptions(val additionalArguments: List<String>)
 
 // TODO: Use Distribution's paths after compiler update.
 fun generatePlatformLibraries(args: Array<String>) = usingNativeMemoryAllocator {
@@ -101,13 +99,6 @@ fun generatePlatformLibraries(args: Array<String>) = usingNativeMemoryAllocator 
     val cacheDirectoryPath by argParser.option(
             ArgType.String, "cache-directory", "c", "Cache output directory")
 
-    val mode by argParser.option(
-            ArgType.Choice<GenerationMode>(),
-            fullName = "mode",
-            shortName = "m",
-            description = "The way interop library is generated."
-    ).default(DEFAULT_MODE)
-
     val verbose by argParser.option(
             ArgType.Boolean,
             "verbose", "v",
@@ -128,13 +119,18 @@ fun generatePlatformLibraries(args: Array<String>) = usingNativeMemoryAllocator 
             description = "Override konan.properties.values"
     ).multiple().delimiter(";")
 
+    val konanDataDir by argParser.option(ArgType.String,
+            fullName = "Xkonan-data-dir",
+            description = "Path to konan and dependencies root folder")
+
     argParser.parse(args)
 
     val distribution = Distribution(
             KonanHomeProvider.determineKonanHome(),
             onlyDefaultProfiles = false,
             runtimeFileOverride = null,
-            propertyOverrides = parseKeyValuePairs(overrideKonanProperties)
+            propertyOverrides = parseKeyValuePairs(overrideKonanProperties),
+            konanDataDir = konanDataDir
     )
 
     val platformManager = PlatformManager(distribution)
@@ -167,11 +163,15 @@ fun generatePlatformLibraries(args: Array<String>) = usingNativeMemoryAllocator 
     }
 
     val cinteropOptions = CInteropOptions(
-            mode,
             additionalArguments = buildList {
                 if (overrideKonanProperties.isNotEmpty()) {
                     add("-Xoverride-konan-properties")
                     add(overrideKonanProperties.joinToString(";"))
+                }
+
+                konanDataDir?.let {
+                    add("-Xkonan-data-dir")
+                    add(it)
                 }
             }
     )
@@ -270,7 +270,7 @@ private fun generateLibrary(
                 "-compiler-option", "-fmodules-cache-path=${tmpDirectory.child("clangModulesCache").absolutePath}",
                 "-repo", outputDirectory.absolutePath,
                 "-no-default-libs", "-no-endorsed-libs", "-Xpurge-user-libs", "-nopack",
-                "-mode", cinteropOptions.mode.modeName,
+                "-Xdisable-experimental-annotation",
                 *cinteropOptions.additionalArguments.toTypedArray(),
                 "-$SHORT_MODULE_NAME", def.shortLibraryName,
                 *def.depends.flatMap { listOf("-l", "$outputDirectory/${it.libraryName}") }.toTypedArray()
@@ -299,7 +299,7 @@ private fun getLibraryCacheDir(
 ): File {
     val cacheBaseName = CachedLibraries.getCachedLibraryName(libraryName)
     val cacheOutputKind = CompilerOutputKind.valueOf(cacheKind.uppercase())
-    return OutputFiles(cacheDirectory.child(cacheBaseName).absolutePath, target, cacheOutputKind).mainFile.File()
+    return OutputFiles(cacheDirectory.child(cacheBaseName).absolutePath, target, cacheOutputKind).mainFile
 }
 
 private fun buildCache(

@@ -5,106 +5,51 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.scopes
 
-import com.intellij.openapi.project.Project
-import com.intellij.psi.JavaPsiFacade
-import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.api.fir.KtSymbolByFirBuilder
+import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.scopes.KtScope
 import org.jetbrains.kotlin.analysis.api.scopes.KtScopeNameFilter
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPackageSymbol
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.providers.createDeclarationProvider
-import org.jetbrains.kotlin.analysis.providers.createPackageProvider
-import org.jetbrains.kotlin.fir.extensions.FirExtensionService
-import org.jetbrains.kotlin.fir.extensions.declarationGenerators
-import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.scopes.impl.FirPackageMemberScope
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.platform.TargetPlatform
-import org.jetbrains.kotlin.platform.jvm.isJvm
 
 internal class KtFirPackageScope(
     private val fqName: FqName,
-    private val project: Project,
-    private val builder: KtSymbolByFirBuilder,
-    override val token: KtLifetimeToken,
-    private val searchScope: GlobalSearchScope,
-    private val targetPlatform: TargetPlatform,
+    private val analysisSession: KtFirAnalysisSession,
 ) : KtScope {
-    private val declarationsProvider = project.createDeclarationProvider(searchScope)
-    private val packageProvider = project.createPackageProvider(searchScope)
+    override val token: KtLifetimeToken get() = analysisSession.token
 
     private val firScope: FirPackageMemberScope by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        FirPackageMemberScope(fqName, builder.rootSession)
+        FirPackageMemberScope(fqName, analysisSession.useSiteSession)
     }
 
-    private val firExtensionService: FirExtensionService
-        get() = firScope.session.extensionService
-
     override fun getPossibleCallableNames(): Set<Name> = withValidityAssertion {
-        hashSetOf<Name>().apply {
-            addAll(declarationsProvider.getFunctionsNamesInPackage(fqName))
-            addAll(declarationsProvider.getPropertyNamesInPackage(fqName))
-
-            addAll(collectGeneratedTopLevelCallables())
-        }
+        DeclarationsInPackageProvider.getTopLevelCallableNamesInPackageProvider(fqName, analysisSession)
     }
 
     override fun getPossibleClassifierNames(): Set<Name> = withValidityAssertion {
-        hashSetOf<Name>().apply {
-            addAll(declarationsProvider.getClassNamesInPackage(fqName))
-            addAll(declarationsProvider.getTypeAliasNamesInPackage(fqName))
-
-            JavaPsiFacade.getInstance(project)
-                .findPackage(fqName.asString())
-                ?.getClasses(searchScope)
-                ?.mapNotNullTo(this) { it.name?.let(Name::identifier) }
-
-            addAll(collectGeneratedTopLevelClassifiers())
-        }
-    }
-
-    private fun collectGeneratedTopLevelCallables(): Set<Name> {
-        val generators = firExtensionService.declarationGenerators
-
-        val generatedTopLevelDeclarations = generators
-            .asSequence()
-            .flatMap {
-                // FIXME this function should be called only once during plugin's lifetime, so this usage is not really correct (1)
-                it.getTopLevelCallableIds()
-            }
-            .filter { it.packageName == fqName }
-            .map { it.callableName }
-
-        return generatedTopLevelDeclarations.toSet()
-    }
-
-    private fun collectGeneratedTopLevelClassifiers(): Set<Name> {
-        val declarationGenerators = firExtensionService.declarationGenerators
-
-        val generatedTopLevelClassifiers = declarationGenerators
-            .asSequence()
-            .flatMap {
-                // FIXME this function should be called only once during plugin's lifetime, so this usage is not really correct (2)
-                it.getTopLevelClassIds()
-            }
-            .filter { it.packageFqName == fqName }
-            .map { it.shortClassName }
-
-        return generatedTopLevelClassifiers.toSet()
+        DeclarationsInPackageProvider.getTopLevelClassifierNamesInPackageProvider(fqName, analysisSession)
     }
 
     override fun getCallableSymbols(nameFilter: KtScopeNameFilter): Sequence<KtCallableSymbol> = withValidityAssertion {
-        firScope.getCallableSymbols(getPossibleCallableNames().filter(nameFilter), builder)
+        firScope.getCallableSymbols(getPossibleCallableNames().filter(nameFilter), analysisSession.firSymbolBuilder)
+    }
+
+    override fun getCallableSymbols(names: Collection<Name>): Sequence<KtCallableSymbol> = withValidityAssertion {
+        firScope.getCallableSymbols(names, analysisSession.firSymbolBuilder)
     }
 
     override fun getClassifierSymbols(nameFilter: KtScopeNameFilter): Sequence<KtClassifierSymbol> = withValidityAssertion {
-        firScope.getClassifierSymbols(getPossibleClassifierNames().filter(nameFilter), builder)
+        firScope.getClassifierSymbols(getPossibleClassifierNames().filter(nameFilter), analysisSession.firSymbolBuilder)
+    }
+
+    override fun getClassifierSymbols(names: Collection<Name>): Sequence<KtClassifierSymbol> = withValidityAssertion {
+        firScope.getClassifierSymbols(names, analysisSession.firSymbolBuilder)
     }
 
     override fun getConstructors(): Sequence<KtConstructorSymbol> = withValidityAssertion {
@@ -113,21 +58,8 @@ internal class KtFirPackageScope(
 
     override fun getPackageSymbols(nameFilter: KtScopeNameFilter): Sequence<KtPackageSymbol> = withValidityAssertion {
         sequence {
-            if (targetPlatform.isJvm()) {
-                val javaPackage = JavaPsiFacade.getInstance(project).findPackage(fqName.asString())
-                if (javaPackage != null) {
-                    for (psiPackage in javaPackage.getSubPackages(searchScope)) {
-                        val fqName = FqName(psiPackage.qualifiedName)
-                        if (nameFilter(fqName.shortName())) {
-                            yield(builder.createPackageSymbol(fqName))
-                        }
-                    }
-                }
-            }
-            packageProvider.getKotlinSubPackageFqNames(fqName).forEach {
-                if (nameFilter(it)) {
-                    yield(builder.createPackageSymbol(fqName.child(it)))
-                }
+            analysisSession.useSitePackageProvider.getSubPackageFqNames(fqName, analysisSession.targetPlatform, nameFilter).forEach {
+                yield(analysisSession.firSymbolBuilder.createPackageSymbol(fqName.child(it)))
             }
         }
     }

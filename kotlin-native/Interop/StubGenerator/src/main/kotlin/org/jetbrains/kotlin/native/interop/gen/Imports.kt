@@ -21,6 +21,8 @@ import org.jetbrains.kotlin.native.interop.indexer.*
 
 interface Imports {
     fun getPackage(location: Location): String?
+
+    fun isImported(headerId: HeaderId): Boolean
 }
 
 
@@ -35,16 +37,23 @@ class ImportsImpl(internal val headerIdToPackage: Map<HeaderId, PackageInfo>) : 
         return packageInfo.name
     }
 
+    override fun isImported(headerId: HeaderId) =
+            headerId in headerIdToPackage
+
     private val accessedLibraries = mutableSetOf<KonanLibrary>()
 
     val requiredLibraries: Set<KonanLibrary>
         get() = accessedLibraries.toSet()
 }
 
-class HeaderInclusionPolicyImpl(private val nameGlobs: List<String>) : HeaderInclusionPolicy {
+class HeaderInclusionPolicyImpl(
+        private val nameGlobs: List<String>,
+        private val excludeGlobs: List<String>,
+) : HeaderInclusionPolicy {
 
     override fun excludeUnused(headerName: String?): Boolean {
-        if (nameGlobs.isEmpty()) {
+        // If we don't have any filters then we should keep the header.
+        if (nameGlobs.isEmpty() && excludeGlobs.isEmpty()) {
             return false
         }
 
@@ -53,16 +62,17 @@ class HeaderInclusionPolicyImpl(private val nameGlobs: List<String>) : HeaderInc
             return true
         }
 
-        return nameGlobs.all { !headerName.matchesToGlob(it) }
+        // Exclude globs have higher priority then include ones.
+        return excludeGlobs.any { headerName.matchesToGlob(it) } || nameGlobs.all { !headerName.matchesToGlob(it) }
     }
 }
 
 class HeaderExclusionPolicyImpl(
-        private val importsImpl: ImportsImpl
+        private val imports: Imports
 ) : HeaderExclusionPolicy {
 
     override fun excludeAll(headerId: HeaderId): Boolean {
-        return headerId in importsImpl.headerIdToPackage
+        return imports.isImported(headerId)
     }
 
 }

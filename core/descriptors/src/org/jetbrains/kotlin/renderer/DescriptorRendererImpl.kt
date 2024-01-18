@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -184,7 +184,7 @@ internal class DescriptorRendererImpl(
     }
 
     override fun renderFlexibleType(lowerRendered: String, upperRendered: String, builtIns: KotlinBuiltIns): String {
-        if (differsOnlyInNullability(lowerRendered, upperRendered)) {
+        if (typeStringsDifferOnlyInNullability(lowerRendered, upperRendered)) {
             if (upperRendered.startsWith("(")) {
                 // the case of complex type, e.g. (() -> Unit)?
                 return "($lowerRendered)!"
@@ -195,7 +195,7 @@ internal class DescriptorRendererImpl(
         val kotlinCollectionsPrefix = classifierNamePolicy.renderClassifier(builtIns.collection, this).substringBefore("Collection")
         val mutablePrefix = "Mutable"
         // java.util.List<Foo> -> (Mutable)List<Foo!>!
-        val simpleCollection = replacePrefixes(
+        val simpleCollection = replacePrefixesInTypeRepresentations(
             lowerRendered,
             kotlinCollectionsPrefix + mutablePrefix,
             upperRendered,
@@ -204,7 +204,7 @@ internal class DescriptorRendererImpl(
         )
         if (simpleCollection != null) return simpleCollection
         // java.util.Map.Entry<Foo, Bar> -> (Mutable)Map.(Mutable)Entry<Foo!, Bar!>!
-        val mutableEntry = replacePrefixes(
+        val mutableEntry = replacePrefixesInTypeRepresentations(
             lowerRendered,
             kotlinCollectionsPrefix + "MutableMap.MutableEntry",
             upperRendered,
@@ -215,7 +215,7 @@ internal class DescriptorRendererImpl(
 
         val kotlinPrefix = classifierNamePolicy.renderClassifier(builtIns.array, this).substringBefore("Array")
         // Foo[] -> Array<(out) Foo!>!
-        val array = replacePrefixes(
+        val array = replacePrefixesInTypeRepresentations(
             lowerRendered,
             kotlinPrefix + escape("Array<"),
             upperRendered,
@@ -227,12 +227,13 @@ internal class DescriptorRendererImpl(
         return "($lowerRendered..$upperRendered)"
     }
 
-    override fun renderTypeArguments(typeArguments: List<TypeProjection>): String = if (typeArguments.isEmpty()) ""
-    else buildString {
-        append(lt())
-        this.appendTypeProjections(typeArguments)
-        append(gt())
-    }
+    override fun renderTypeArguments(typeArguments: List<TypeProjection>): String =
+        if (typeArguments.isEmpty()) ""
+        else buildString {
+            append(lt())
+            this.appendTypeProjections(typeArguments)
+            append(gt())
+        }
 
     private fun StringBuilder.renderDefaultType(type: KotlinType) {
         this.renderAnnotations(type)
@@ -242,15 +243,16 @@ internal class DescriptorRendererImpl(
         when {
             type.isError -> {
                 if (isUnresolvedType(type) && presentableUnresolvedTypes) {
-                    append(type.debugMessage)
+                    append(renderError(ErrorUtils.unresolvedTypeAsItIs(type)))
                 } else {
                     if (type is ErrorType && !informativeErrorType) {
                         append(type.debugMessage)
                     } else {
                         append(type.constructor.toString()) // Debug name of an error type is more informative
                     }
+
+                    append(renderTypeArguments(type.arguments))
                 }
-                append(renderTypeArguments(type.arguments))
             }
             type is StubTypeForBuilderInference ->
                 append(type.originalTypeVariable.toString())
@@ -362,7 +364,8 @@ internal class DescriptorRendererImpl(
 
         if (receiverType != null) {
             val surroundReceiver = shouldRenderAsPrettyFunctionType(receiverType) && !receiverType.isMarkedNullable ||
-                    receiverType.hasModifiersOrAnnotations()
+                    receiverType.hasModifiersOrAnnotations() ||
+                    receiverType is DefinitelyNotNullType
             if (surroundReceiver) {
                 append("(")
             }
@@ -488,9 +491,10 @@ internal class DescriptorRendererImpl(
         return (defaultList + argumentList).sorted()
     }
 
-    private fun renderConstant(value: ConstantValue<*>): String {
+    private fun renderConstant(value: ConstantValue<*>): String? {
+        options.propertyConstantRenderer?.let { return it.invoke(value) }
         return when (value) {
-            is ArrayValue -> value.value.joinToString(", ", "{", "}") { renderConstant(it) }
+            is ArrayValue -> value.value.mapNotNull { renderConstant(it) }.joinToString(", ", "{", "}")
             is AnnotationValue -> renderAnnotation(value.value).removePrefix("@")
             is KClassValue -> when (val classValue = value.value) {
                 is KClassValue.Value.LocalClass -> "${classValue.type}::class"
@@ -741,7 +745,7 @@ internal class DescriptorRendererImpl(
 
     private fun KotlinType.renderForReceiver(): String {
         var result = renderType(this)
-        if (shouldRenderAsPrettyFunctionType(this) && !TypeUtils.isNullableType(this)) {
+        if ((shouldRenderAsPrettyFunctionType(this) && !TypeUtils.isNullableType(this)) || this is DefinitelyNotNullType) {
             result = "($result)"
         }
         return result
@@ -983,7 +987,8 @@ internal class DescriptorRendererImpl(
     private fun renderInitializer(variable: VariableDescriptor, builder: StringBuilder) {
         if (includePropertyConstant) {
             variable.compileTimeInitializer?.let { constant ->
-                builder.append(" = ").append(escape(renderConstant(constant)))
+                val renderedConstant = renderConstant(constant)
+                if (renderedConstant != null) builder.append(" = ").append(escape(renderedConstant))
             }
         }
     }
@@ -1196,30 +1201,6 @@ internal class DescriptorRendererImpl(
             builder.append(' ')
         }
     }
-
-    private fun replacePrefixes(
-        lowerRendered: String,
-        lowerPrefix: String,
-        upperRendered: String,
-        upperPrefix: String,
-        foldedPrefix: String
-    ): String? {
-        if (lowerRendered.startsWith(lowerPrefix) && upperRendered.startsWith(upperPrefix)) {
-            val lowerWithoutPrefix = lowerRendered.substring(lowerPrefix.length)
-            val upperWithoutPrefix = upperRendered.substring(upperPrefix.length)
-            val flexibleCollectionName = foldedPrefix + lowerWithoutPrefix
-
-            if (lowerWithoutPrefix == upperWithoutPrefix) return flexibleCollectionName
-
-            if (differsOnlyInNullability(lowerWithoutPrefix, upperWithoutPrefix)) {
-                return "$flexibleCollectionName!"
-            }
-        }
-        return null
-    }
-
-    private fun differsOnlyInNullability(lower: String, upper: String) =
-        lower == upper.replace("?", "") || upper.endsWith("?") && ("$lower?") == upper || "($lower)?" == upper
 
     private fun overridesSomething(callable: CallableMemberDescriptor) = !callable.overriddenDescriptors.isEmpty()
 }

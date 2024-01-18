@@ -49,9 +49,7 @@ public expect open class IndexOutOfBoundsException : RuntimeException {
 public expect open class ConcurrentModificationException : RuntimeException {
     constructor()
     constructor(message: String?)
-    @Deprecated("The constructor is not supported on all platforms and will be removed from kotlin-stdlib-common soon.", level = DeprecationLevel.ERROR)
     constructor(message: String?, cause: Throwable?)
-    @Deprecated("The constructor is not supported on all platforms and will be removed from kotlin-stdlib-common soon.", level = DeprecationLevel.ERROR)
     constructor(cause: Throwable?)
 }
 
@@ -80,6 +78,9 @@ public expect open class ClassCastException : RuntimeException {
 public expect open class AssertionError : Error {
     constructor()
     constructor(message: Any?)
+
+    @SinceKotlin("1.9")
+    constructor(message: String?, cause: Throwable?)
 }
 
 public expect open class NoSuchElementException : RuntimeException {

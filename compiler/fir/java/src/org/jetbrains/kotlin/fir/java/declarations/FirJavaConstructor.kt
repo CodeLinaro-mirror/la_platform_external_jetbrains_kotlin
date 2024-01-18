@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,6 +10,8 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
+import org.jetbrains.kotlin.fir.contracts.FirContractDescription
+import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirConstructorBuilder
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -38,15 +40,18 @@ class FirJavaConstructor @FirImplementationDetail constructor(
     override val typeParameters: MutableList<FirTypeParameterRef>,
     annotationBuilder: () -> List<FirAnnotation>,
     override var status: FirDeclarationStatus,
-    @Volatile
-    override var resolvePhase: FirResolvePhase,
+    resolvePhase: FirResolvePhase,
     override val dispatchReceiverType: ConeSimpleKotlinType?,
 ) : FirConstructor() {
-    override val receiverTypeRef: FirTypeRef? get() = null
-    override var deprecation: DeprecationsPerUseSite? = null
+    override val receiverParameter: FirReceiverParameter? get() = null
+    override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
+    override val contractDescription: FirContractDescription get() = FirEmptyContractDescription
 
     init {
         symbol.bind(this)
+
+        @OptIn(ResolveStateAccess::class)
+        this.resolveState = resolvePhase.asResolveState()
     }
 
     override val delegatedConstructor: FirDelegatedConstructorCall?
@@ -74,10 +79,6 @@ class FirJavaConstructor @FirImplementationDetail constructor(
         return this
     }
 
-    override fun replaceResolvePhase(newResolvePhase: FirResolvePhase) {
-        resolvePhase = newResolvePhase
-    }
-
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         returnTypeRef.accept(visitor, data)
         controlFlowGraphReference?.accept(visitor, data)
@@ -96,13 +97,21 @@ class FirJavaConstructor @FirImplementationDetail constructor(
         return this
     }
 
-    override fun <D> transformReceiverTypeRef(transformer: FirTransformer<D>, data: D): FirJavaConstructor {
+    override fun <D> transformReceiverParameter(transformer: FirTransformer<D>, data: D): FirJavaConstructor {
+        return this
+    }
+
+    override fun <D> transformContractDescription(transformer: FirTransformer<D>, data: D): FirConstructor {
         return this
     }
 
     override fun <D> transformStatus(transformer: FirTransformer<D>, data: D): FirJavaConstructor {
         status = status.transformSingle(transformer, data)
         return this
+    }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        throw AssertionError("Mutating annotations for FirJava* is not supported")
     }
 
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirJavaConstructor {
@@ -133,9 +142,14 @@ class FirJavaConstructor @FirImplementationDetail constructor(
         valueParameters += newValueParameters
     }
 
-    override fun replaceReceiverTypeRef(newReceiverTypeRef: FirTypeRef?) {}
-    override fun replaceDeprecation(newDeprecation: DeprecationsPerUseSite?) {
-        deprecation = newDeprecation
+    override fun replaceDelegatedConstructor(newDelegatedConstructor: FirDelegatedConstructorCall?) {
+        error("Delegated constructor cannot be replaced for FirJavaConstructor")
+    }
+
+    override fun replaceReceiverParameter(newReceiverParameter: FirReceiverParameter?) {}
+
+    override fun replaceDeprecationsProvider(newDeprecationsProvider: DeprecationsProvider) {
+        deprecationsProvider = newDeprecationsProvider
     }
 
     override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {
@@ -143,9 +157,16 @@ class FirJavaConstructor @FirImplementationDetail constructor(
     }
 
     override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?) {}
+    override fun replaceContractDescription(newContractDescription: FirContractDescription) {
+        error("Contract description cannot be replaced for FirJavaConstructor")
+    }
 
     override fun replaceBody(newBody: FirBlock?) {
         error("Body cannot be replaced for FirJavaConstructor")
+    }
+
+    override fun replaceStatus(newStatus: FirDeclarationStatus) {
+        status = newStatus
     }
 }
 
@@ -196,8 +217,8 @@ class FirJavaConstructorBuilder : FirConstructorBuilder() {
             throw IllegalStateException()
         }
 
-    @Deprecated("Modification of 'receiverTypeRef' has no impact for FirJavaConstructorBuilder", level = DeprecationLevel.HIDDEN)
-    override var receiverTypeRef: FirTypeRef?
+    @Deprecated("Modification of 'receiverParameter' has no impact for FirJavaConstructorBuilder", level = DeprecationLevel.HIDDEN)
+    override var receiverParameter: FirReceiverParameter?
         get() = throw IllegalStateException()
         set(@Suppress("UNUSED_PARAMETER") value) {
             throw IllegalStateException()

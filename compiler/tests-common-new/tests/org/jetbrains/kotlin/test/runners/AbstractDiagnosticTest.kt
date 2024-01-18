@@ -21,6 +21,8 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.EXPLICIT_API_MODE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OPT_IN
+import org.jetbrains.kotlin.test.directives.MultiplatformDiagnosticsDirectives
+import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFailingTestSuppressor
 import org.jetbrains.kotlin.test.frontend.classic.handlers.*
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
@@ -82,7 +84,10 @@ abstract class AbstractDiagnosticTest : AbstractKotlinCompilerTest() {
             )
         }
 
-        useAfterAnalysisCheckers(::FirTestDataConsistencyHandler)
+        useAfterAnalysisCheckers(
+            ::FirTestDataConsistencyHandler,
+            ::ClassicFrontendFailingTestSuppressor
+        )
 
         forTestsMatching("compiler/testData/diagnostics/testsWithStdLib/*") {
             defaultDirectives {
@@ -123,13 +128,13 @@ abstract class AbstractDiagnosticTest : AbstractKotlinCompilerTest() {
             }
         }
 
-        // ----------------------- constant evaluation tests -----------------------
-        forTestsMatching("compiler/testData/diagnostics/tests/constantEvaluator/*") {
+        forTestsMatching("compiler/testData/diagnostics/tests/multiplatform/hmpp/multiplatformCompositeAnalysis/*") {
             defaultDirectives {
-                LANGUAGE with "-ApproximateIntegerLiteralTypesInReceiverPosition"
+                +MultiplatformDiagnosticsDirectives.ENABLE_MULTIPLATFORM_COMPOSITE_ANALYSIS_MODE
             }
         }
 
+        // ----------------------- constant evaluation tests -----------------------
         forTestsMatching("compiler/testData/diagnostics/tests/constantEvaluator/constant/*") {
             defaultDirectives {
                 CHECK_COMPILE_TIME_VALUES with ConstantValuesHandler.Mode.Constant

@@ -1,7 +1,5 @@
 // !LANGUAGE: +ContextReceivers
-// TARGET_BACKEND: JVM_IR
 // WITH_STDLIB
-
 interface Semigroup<T> {
     infix fun T.combine(other: T): T
 }

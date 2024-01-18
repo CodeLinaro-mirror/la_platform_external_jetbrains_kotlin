@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 import javax.inject.Inject
 
 plugins {
@@ -16,7 +17,7 @@ abstract class CustomWebpackRule
 @javax.inject.Inject
 constructor(name: String) : org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackRule(name) {
     init {
-        test = "none"
+        test.set("none")
     }
     override fun loaders() = listOf<org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackRule.Loader>()
 }
@@ -25,12 +26,11 @@ kotlin {
     target {
         browser {
             webpackTask {
-                cssSupport.enabled = true
                 cssSupport {
-                    enabled = true
+                    enabled.set(true)
                 }
                 scssSupport {
-                    enabled = true
+                    enabled.set(true)
                 }
                 rules {
                     rule<CustomWebpackRule>("custom")
@@ -47,9 +47,34 @@ kotlin {
         binaries.executable()
 
         compilations.named("main") {
+            val nameOfModule = this@named.name
             packageJson {
-                customField("customField", mapOf("one" to 1, "two" to 2))
+                customField("customField1", mapOf("one" to 1, "two" to 2))
+                customField("customField2", null)
+                customField("customField3" to null)
+                customField("customField4", mapOf("foo" to null))
+                customField("customField5", "@as/${nameOfModule}")
             }
         }
+    }
+}
+
+rootProject.plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin> {
+    val kotlinNodeJs = rootProject.extensions.getByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>()
+
+    tasks.register<Exec>("runWebpackResult") {
+        val webpackTask = tasks.named<org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack>("browserProductionWebpack")
+        dependsOn(webpackTask)
+
+        executable(kotlinNodeJs.requireConfigured().nodeExecutable)
+
+        workingDir(webpackTask.flatMap { it.outputDirectory.asFile })
+        args("./${project.name}.js")
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink>().configureEach {
+    kotlinOptions {
+        moduleKind = "es"
     }
 }

@@ -5,14 +5,14 @@
 
 package org.jetbrains.kotlin.fir.pipeline
 
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.KtDiagnostic
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.collectors.FirDiagnosticsCollector
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.transformers.FirTotalResolveProcessor
+import org.jetbrains.kotlin.fir.withFileAnalysisExceptionWrapping
 
 fun FirSession.runResolution(firFiles: List<FirFile>): Pair<ScopeSession, List<FirFile>> {
     val resolveProcessor = FirTotalResolveProcessor(this)
@@ -20,22 +20,20 @@ fun FirSession.runResolution(firFiles: List<FirFile>): Pair<ScopeSession, List<F
     return resolveProcessor.scopeSession to firFiles
 }
 
-@OptIn(ExperimentalStdlibApi::class)
-fun FirSession.runCheckers(scopeSession: ScopeSession, firFiles: List<FirFile>): Map<FirFile, List<KtDiagnostic>> {
+fun FirSession.runCheckers(
+    scopeSession: ScopeSession,
+    firFiles: List<FirFile>,
+    reporter: BaseDiagnosticsCollector
+): Map<FirFile, List<KtDiagnostic>> {
     val collector = FirDiagnosticsCollector.create(this, scopeSession)
-    return buildMap {
-        for (file in firFiles) {
-            val reporter = DiagnosticReporterFactory.createReporter()
+    collector.collectDiagnosticsInSettings(reporter)
+    for (file in firFiles) {
+        withFileAnalysisExceptionWrapping(file) {
             collector.collectDiagnostics(file, reporter)
-            put(file, reporter.diagnostics)
         }
     }
-}
-
-@OptIn(ExperimentalStdlibApi::class)
-fun FirSession.runCheckers(scopeSession: ScopeSession, firFiles: List<FirFile>, reporter: DiagnosticReporter) {
-    val collector = FirDiagnosticsCollector.create(this, scopeSession)
-    for (file in firFiles) {
-        collector.collectDiagnostics(file, reporter)
+    return firFiles.associateWith {
+        val path = it.sourceFile?.path ?: return@associateWith emptyList()
+        reporter.diagnosticsByFilePath[path] ?: emptyList()
     }
 }

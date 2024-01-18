@@ -5,7 +5,6 @@ import org.gradle.kotlin.dsl.support.serviceOf
 
 description = "Shaded Maven dependencies resolver"
 
-val JDK_18: String by rootProject.extra
 val jarBaseName = property("archivesBaseName") as String
 
 val embedded by configurations
@@ -19,21 +18,35 @@ plugins {
     id("jps-compatible")
 }
 
-dependencies {
-    embedded(project(":kotlin-scripting-dependencies-maven")) { isTransitive = false }
-    embedded(project(":kotlin-scripting-dependencies")) { isTransitive = false }
+val proguardLibraryJars by configurations.creating {
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+    }
+}
 
-    embedded("org.apache.maven.resolver:maven-resolver-connector-basic:1.8.0")
-    embedded("org.apache.maven.resolver:maven-resolver-transport-file:1.8.0")
-    embedded("org.apache.maven.resolver:maven-resolver-transport-wagon:1.8.0")
-    embedded("org.apache.maven.resolver:maven-resolver-impl:1.8.0")
-    embedded("org.apache.maven:maven-core:3.8.5")
-    embedded("org.apache.maven.wagon:wagon-http:3.5.1")
+dependencies {
+    api(project(":kotlin-scripting-dependencies"))
+    proguardLibraryJars(project(":kotlin-scripting-dependencies"))
+
+    embedded(project(":kotlin-scripting-dependencies-maven")) { isTransitive = false }
+
+    embedded("org.apache.maven.resolver:maven-resolver-connector-basic:1.9.2")
+    embedded("org.apache.maven.resolver:maven-resolver-transport-file:1.9.2")
+    embedded("org.apache.maven.resolver:maven-resolver-transport-wagon:1.9.2")
+    embedded("org.apache.maven.resolver:maven-resolver-impl:1.9.2")
+    embedded("org.apache.maven:maven-core:3.8.7")
+    embedded("org.apache.maven.wagon:wagon-http:3.5.3")
+    embedded("commons-io:commons-io:2.11.0")
+
+    testImplementation(libs.junit4)
+    testRuntimeOnly("org.slf4j:slf4j-nop:1.7.36")
+    testImplementation(project(":kotlin-scripting-dependencies-maven-all"))
 }
 
 sourceSets {
     "main" {}
-    "test" {}
+    "test" { projectDefault() }
 }
 
 publish()
@@ -114,6 +127,7 @@ val proguard by task<CacheableProguardTask> {
 
     javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_1_8))
 
+    libraryjars(mapOf("filter" to "!META-INF/versions/**"), proguardLibraryJars)
     libraryjars(
         files(
             javaLauncher.map {
@@ -121,17 +135,17 @@ val proguard by task<CacheableProguardTask> {
                     "jre/lib/rt.jar",
                     "../Classes/classes.jar",
                     jdkHome = it.metadata.installationPath.asFile
-                )
+                )!!
             },
             javaLauncher.map {
                 firstFromJavaHomeThatExists(
                     "jre/lib/jsse.jar",
                     "../Classes/jsse.jar",
                     jdkHome = it.metadata.installationPath.asFile
-                )
+                )!!
             },
             javaLauncher.map {
-                Jvm.forHome(it.metadata.installationPath.asFile).toolsJar
+                Jvm.forHome(it.metadata.installationPath.asFile).toolsJar!!
             }
         )
     )

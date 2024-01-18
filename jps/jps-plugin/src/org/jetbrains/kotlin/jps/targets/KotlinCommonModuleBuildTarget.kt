@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.compilerRunner.JpsCompilerEnvironment
 import org.jetbrains.kotlin.compilerRunner.JpsKotlinCompilerRunner
+import org.jetbrains.kotlin.incremental.storage.RelativeFileToPathConverter
 import org.jetbrains.kotlin.jps.build.KotlinCompileContext
 import org.jetbrains.kotlin.jps.build.KotlinDirtySourceFilesHolder
 import org.jetbrains.kotlin.jps.build.ModuleBuildTarget
@@ -26,19 +27,19 @@ private const val COMMON_BUILD_META_INFO_FILE_NAME = "common-build-meta-info.txt
 class KotlinCommonModuleBuildTarget(kotlinContext: KotlinCompileContext, jpsModuleBuildTarget: ModuleBuildTarget) :
     KotlinModuleBuildTarget<CommonBuildMetaInfo>(kotlinContext, jpsModuleBuildTarget) {
 
-    override fun isEnabled(chunkCompilerArguments: CommonCompilerArguments): Boolean {
+    override fun isEnabled(chunkCompilerArguments: Lazy<CommonCompilerArguments>): Boolean {
         val k2MetadataArguments = module.k2MetadataCompilerArguments
-        return k2MetadataArguments.enabledInJps || (chunkCompilerArguments as? K2MetadataCompilerArguments)?.enabledInJps == true
+        return k2MetadataArguments.enabledInJps || (chunkCompilerArguments.value as? K2MetadataCompilerArguments)?.enabledInJps == true
     }
 
     override val isIncrementalCompilationEnabled: Boolean
         get() = false
 
-    override val buildMetaInfoFactory
-        get() = CommonBuildMetaInfo
-
-    override val buildMetaInfoFileName
+    override val compilerArgumentsFileName
         get() = COMMON_BUILD_META_INFO_FILE_NAME
+
+    override val buildMetaInfo: CommonBuildMetaInfo
+        get() = CommonBuildMetaInfo(kotlinContext.fileToPathConverter as? RelativeFileToPathConverter)
 
     override val globalLookupCacheId: String
         get() = "metadata-compiler"

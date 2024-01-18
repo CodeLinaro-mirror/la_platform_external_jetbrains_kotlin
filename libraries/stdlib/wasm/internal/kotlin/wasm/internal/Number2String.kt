@@ -64,7 +64,7 @@ internal fun itoa32(inputValue: Int, radix: Int): String {
     if (sign == 1)
         buf.set(0, CharCodes.MINUS.code.toChar())
 
-    return String.unsafeFromCharArray(buf)
+    return buf.createString()
 }
 
 private fun utoaDecSimple(buffer: WasmCharArray, numInput: Int, offsetInput: Int) {
@@ -144,7 +144,7 @@ internal fun itoa64(inputValue: Long, radix: Int): String {
     if (sign == 1)
         buf.set(0, CharCodes.MINUS.code.toChar())
 
-    return String.unsafeFromCharArray(buf)
+    return buf.createString()
 }
 
 // Count number of decimals for u64 values
@@ -178,7 +178,7 @@ internal fun dtoa(value: Double): String {
     val size = dtoaCore(buf, value)
     val ret = WasmCharArray(size)
     buf.copyInto(ret, 0, 0, size)
-    return String.unsafeFromCharArray(ret)
+    return ret.createString()
 }
 
 private fun dtoaCore(buffer: WasmCharArray, valueInp: Double): Int {
@@ -261,7 +261,6 @@ private fun grisu2(value: Double, buffer: WasmCharArray, sign: Int): Int {
     var exp_pow = _exp_pow
 
     var w_frc = umul64f(frc, frc_pow)
-    var w_exp = umul64e(exp, exp_pow)
 
     var wp_frc = umul64f(_frc_plus, frc_pow) - 1
     var wp_exp = umul64e(_exp, exp_pow)
@@ -269,7 +268,7 @@ private fun grisu2(value: Double, buffer: WasmCharArray, sign: Int): Int {
     var wm_frc = umul64f(_frc_minus, frc_pow) + 1
     var delta = wp_frc - wm_frc
 
-    return genDigits(buffer, w_frc, w_exp, wp_frc, wp_exp, delta, sign);
+    return genDigits(buffer, w_frc, wp_frc, wp_exp, delta, sign);
 }
 
 private fun umul64f(u: Long, v: Long): Long {
@@ -321,7 +320,7 @@ private fun getCachedPower(minExp: Int) {
     _exp_pow = EXP_POWERS[index].toInt()
 }
 
-private fun genDigits(buffer: WasmCharArray, w_frc: Long, w_exp: Int, mp_frc: Long, mp_exp: Int, deltaInp: Long, sign: Int): Int {
+private fun genDigits(buffer: WasmCharArray, w_frc: Long, mp_frc: Long, mp_exp: Int, deltaInp: Long, sign: Int): Int {
     var delta = deltaInp
     val one_exp = -mp_exp
     val one_frc = 1L shl one_exp

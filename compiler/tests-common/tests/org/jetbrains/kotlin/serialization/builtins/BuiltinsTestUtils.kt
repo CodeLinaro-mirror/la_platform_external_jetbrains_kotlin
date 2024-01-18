@@ -17,11 +17,12 @@ import java.util.regex.Pattern
 
 object BuiltinsTestUtils {
     fun compileBuiltinsModule(environment: KotlinCoreEnvironment): ModuleDescriptor {
-        val files = KotlinTestUtils.loadToJetFiles(
+        val files = KotlinTestUtils.loadToKtFiles(
             environment, ContainerUtil.concat<File>(
                 allFilesUnder("core/builtins/native"),
                 allFilesUnder("core/builtins/src"),
                 allFilesUnder("core/builtins/build/src/ranges"),
+                allFilesUnder("core/builtins/build/src/reflect"),
             )
         )
         return createResolveSessionForFiles(environment.project, files, false).moduleDescriptor

@@ -5,117 +5,175 @@
 
 package org.jetbrains.kotlin.fir.analysis.cfa
 
-import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.contracts.description.canBeRevisited
 import org.jetbrains.kotlin.contracts.description.isDefinitelyVisited
-import org.jetbrains.kotlin.fir.analysis.cfa.util.PathAwarePropertyInitializationInfo
-import org.jetbrains.kotlin.fir.analysis.cfa.util.PropertyInitializationInfo
-import org.jetbrains.kotlin.fir.analysis.cfa.util.TraverseDirection
-import org.jetbrains.kotlin.fir.analysis.cfa.util.traverse
-import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.contracts.description.isInPlace
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.declarations.utils.isLateInit
-import org.jetbrains.kotlin.fir.declarations.utils.referredPropertySymbol
-import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccess
-import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
+import org.jetbrains.kotlin.fir.analysis.cfa.util.PropertyInitializationInfoData
+import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.hasDiagnosticKind
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
+import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.isCatchParameter
+import org.jetbrains.kotlin.fir.references.toResolvedPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph.Kind
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirSyntheticPropertySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.fir.types.resolvedType
 
-@OptIn(SymbolInternals::class)
 object FirPropertyInitializationAnalyzer : AbstractFirPropertyInitializationChecker() {
-    override fun analyze(
-        graph: ControlFlowGraph,
-        reporter: DiagnosticReporter,
-        data: Map<CFGNode<*>, PathAwarePropertyInitializationInfo>,
-        properties: Set<FirPropertySymbol>,
-        capturedWrites: Set<FirVariableAssignment>,
-        context: CheckerContext
-    ) {
-        val localData = data.filter {
-            val symbolFir = (it.key.fir as? FirVariableSymbol<*>)?.fir
-            symbolFir == null || symbolFir.initializer == null && symbolFir.delegate == null
-        }
+    override fun analyze(data: PropertyInitializationInfoData, reporter: DiagnosticReporter, context: CheckerContext) {
+        data.checkPropertyAccesses(isForInitialization = false, context, reporter)
+    }
+}
 
-        val localProperties = properties.filterTo(mutableSetOf()) { it.fir.initializer == null && it.fir.delegate == null }
-
-        val reporterVisitor = PropertyReporter(localData, localProperties, capturedWrites, reporter, context)
-        graph.traverse(TraverseDirection.Forward, reporterVisitor)
+val FirDeclaration.evaluatedInPlace: Boolean
+    get() = when (this) {
+        is FirAnonymousFunction -> invocationKind.isInPlace
+        is FirAnonymousObject -> classKind != ClassKind.ENUM_ENTRY
+        is FirConstructor -> true // child of class initialization graph
+        is FirFunction, is FirClass -> false
+        else -> true // property initializer, etc.
     }
 
-    private class PropertyReporter(
-        val data: Map<CFGNode<*>, PathAwarePropertyInitializationInfo>,
-        val localProperties: Set<FirPropertySymbol>,
-        val capturedWrites: Set<FirVariableAssignment>,
-        val reporter: DiagnosticReporter,
-        val context: CheckerContext
-    ) : ControlFlowGraphVisitorVoid() {
-        override fun visitNode(node: CFGNode<*>) {}
+/**
+ * [isForInitialization] means that caller is interested in member property in the scope
+ * of file or class initialization section. In this case the fact that property has
+ * initializer does not mean that it's safe to access this property in any place:
+ *
+ * ```
+ * class A {
+ *     val b = a // a is not initialized here
+ *     val a = 10
+ *     val c = a // but initialized here
+ * }
+ * ```
+ */
+@OptIn(SymbolInternals::class)
+fun FirPropertySymbol.requiresInitialization(isForInitialization: Boolean): Boolean {
+    val hasImplicitBackingField = !hasExplicitBackingField && hasBackingField
+    return when {
+        this is FirSyntheticPropertySymbol -> false
+        isForInitialization -> hasDelegate || hasImplicitBackingField
+        else -> !hasInitializer && hasImplicitBackingField && fir.isCatchParameter != true
+    }
+}
 
-        private fun getPropertySymbol(node: CFGNode<*>): FirPropertySymbol? {
-            return (node.fir as? FirQualifiedAccess)?.referredPropertySymbol
-        }
+fun PropertyInitializationInfoData.checkPropertyAccesses(
+    isForInitialization: Boolean,
+    context: CheckerContext,
+    reporter: DiagnosticReporter
+) {
+    // If a property has an initializer (or does not need one), then any reads are OK while any writes are OK
+    // if it's a `var` and bad if it's a `val`. `FirReassignmentAndInvisibleSetterChecker` does this without a CFG.
+    val filtered = properties.filterTo(mutableSetOf()) { it.requiresInitialization(isForInitialization) }
+    if (filtered.isEmpty()) return
 
-        override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
-            val symbol = getPropertySymbol(node) ?: return
-            val pathAwareInfo = data.getValue(node)
-            for (label in pathAwareInfo.keys) {
-                if (investigateVariableAssignment(pathAwareInfo[label]!!, symbol, node)) {
-                    // To avoid duplicate reports, stop investigating remaining paths if the property is re-initialized at any path.
-                    break
+    checkPropertyAccesses(
+        graph, filtered, context, reporter, scope = null,
+        isForInitialization,
+        doNotReportUninitializedVariable = false,
+        doNotReportConstantUninitialized = true,
+        scopes = mutableMapOf(),
+    )
+}
+
+@OptIn(SymbolInternals::class)
+private fun PropertyInitializationInfoData.checkPropertyAccesses(
+    graph: ControlFlowGraph,
+    properties: Set<FirPropertySymbol>,
+    context: CheckerContext,
+    reporter: DiagnosticReporter,
+    scope: FirDeclaration?,
+    isForInitialization: Boolean,
+    doNotReportUninitializedVariable: Boolean,
+    doNotReportConstantUninitialized: Boolean,
+    scopes: MutableMap<FirPropertySymbol, FirDeclaration?>,
+) {
+    fun FirQualifiedAccessExpression.hasCorrectReceiver() =
+        (dispatchReceiver?.unwrapSmartcastExpression() as? FirThisReceiverExpression)?.calleeReference?.boundSymbol == receiver
+
+    for (node in graph.nodes) {
+        when {
+            // TODO, KT-59669: `node.isUnion` - f({ x = 1 }, { x = 2 }) - which to report?
+            //  Also this is currently indistinguishable from x = 1; f({}, {}).
+
+            node is VariableDeclarationNode -> {
+                val symbol = node.fir.symbol
+                if (scope != null && receiver == null && node.fir.isVal && symbol in properties) {
+                    // It's OK to initialize this variable from a nested called-in-place function, but not from
+                    // a non-called-in-place function or a non-anonymous-object class initializer.
+                    scopes[symbol] = scope
                 }
             }
-        }
 
-        private fun investigateVariableAssignment(
-            info: PropertyInitializationInfo,
-            symbol: FirPropertySymbol,
-            node: VariableAssignmentNode
-        ): Boolean {
-            if (symbol.fir.isVal && node.fir in capturedWrites) {
-                if (symbol.fir.isLocal) {
-                    reporter.reportOn(node.fir.lValue.source, FirErrors.CAPTURED_VAL_INITIALIZATION, symbol, context)
-                } else {
-                    reporter.reportOn(node.fir.lValue.source, FirErrors.CAPTURED_MEMBER_VAL_INITIALIZATION, symbol, context)
-                }
-                return true
-            }
-            val kind = info[symbol] ?: EventOccurrencesRange.ZERO
-            if (symbol.fir.isVal && (symbol is FirSyntheticPropertySymbol || kind.canBeRevisited())) {
-                reporter.reportOn(node.fir.lValue.source, FirErrors.VAL_REASSIGNMENT, symbol, context)
-                return true
-            }
-            return false
-        }
+            node is VariableAssignmentNode -> {
+                val symbol = node.fir.calleeReference?.toResolvedPropertySymbol() ?: continue
+                if (!symbol.fir.isVal || node.fir.unwrapLValue()?.hasCorrectReceiver() != true || symbol !in properties) continue
 
-        override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
-            val symbol = getPropertySymbol(node) ?: return
-            if (symbol !in localProperties) return
-            if (symbol.fir.isLateInit) return
-            val pathAwareInfo = data.getValue(node)
-            for (info in pathAwareInfo.values) {
-                if (investigateVariableAccess(info, symbol, node)) {
-                    // To avoid duplicate reports, stop investigating remaining paths if the property is not initialized at any path.
-                    break
+                if (getValue(node).values.any { it[symbol]?.canBeRevisited() == true }) {
+                    reporter.reportOn(node.fir.lValue.source, FirErrors.VAL_REASSIGNMENT, symbol, context)
+                } else if (scope != scopes[symbol]) {
+                    val error = if (receiver != null)
+                        FirErrors.CAPTURED_MEMBER_VAL_INITIALIZATION
+                    else
+                        FirErrors.CAPTURED_VAL_INITIALIZATION
+                    reporter.reportOn(node.fir.lValue.source, error, symbol, context)
                 }
             }
-        }
 
-        private fun investigateVariableAccess(
-            info: PropertyInitializationInfo,
-            symbol: FirPropertySymbol,
-            node: QualifiedAccessNode
-        ): Boolean {
-            val kind = info[symbol] ?: EventOccurrencesRange.ZERO
-            if (symbol !is FirSyntheticPropertySymbol && !kind.isDefinitelyVisited()) {
-                reporter.reportOn(node.fir.source, FirErrors.UNINITIALIZED_VARIABLE, symbol, context)
-                return true
+            node is QualifiedAccessNode -> {
+                if (doNotReportUninitializedVariable) continue
+                if (node.fir.resolvedType.hasDiagnosticKind(DiagnosticKind.RecursionInImplicitTypes)) continue
+                val symbol = node.fir.calleeReference.toResolvedPropertySymbol() ?: continue
+                if (doNotReportConstantUninitialized && symbol.isConst) continue
+                if (!symbol.isLateInit && !symbol.isExternal && node.fir.hasCorrectReceiver() && symbol in properties &&
+                    getValue(node).values.any { it[symbol]?.isDefinitelyVisited() != true }
+                ) {
+                    reporter.reportOn(node.fir.source, FirErrors.UNINITIALIZED_VARIABLE, symbol, context)
+                }
             }
-            return false
+
+            // In the class case, subgraphs of the exit node are member functions, which are considered to not
+            // be part of initialization, so any val is considered to be initialized there and the CFG is not
+            // needed. The errors on reassignments will be emitted by `FirReassignmentAndInvisibleSetterChecker`.
+            node is CFGNodeWithSubgraphs<*> && (receiver == null || node !== graph.exitNode) -> {
+                for (subGraph in node.subGraphs) {
+                    /*
+                     * For class initialization graph we allow to read properties in non-in-place lambdas
+                     *   even if they may be not initialized at this point, because if lambda is not in-place,
+                     *   then it most likely will be called after object will be initialized
+                     */
+                    val doNotReportForSubGraph = isForInitialization && subGraph.kind.doNotReportUninitializedVariableForInitialization
+
+                    // Must report uninitialized variable if we start initializing a constant property. This
+                    // allows "regular" properties to reference constant properties out-of-order, but all other
+                    // property references must be in-order.
+                    val isSubGraphConstProperty = (subGraph.declaration as? FirProperty)?.isConst == true
+
+                    val newScope = subGraph.declaration?.takeIf { !it.evaluatedInPlace } ?: scope
+                    checkPropertyAccesses(
+                        subGraph, properties, context, reporter, newScope,
+                        isForInitialization,
+                        doNotReportUninitializedVariable = doNotReportUninitializedVariable || doNotReportForSubGraph,
+                        doNotReportConstantUninitialized = doNotReportConstantUninitialized && !isSubGraphConstProperty,
+                        scopes
+                    )
+                }
+            }
         }
     }
 }
+
+private val Kind.doNotReportUninitializedVariableForInitialization: Boolean
+    get() = when (this) {
+        Kind.Function, Kind.AnonymousFunction, Kind.LocalFunction -> true
+        else -> false
+    }

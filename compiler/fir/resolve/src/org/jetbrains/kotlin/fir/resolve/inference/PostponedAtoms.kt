@@ -5,12 +5,13 @@
 
 package org.jetbrains.kotlin.fir.resolve.inference
 
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousFunctionExpression
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
-import org.jetbrains.kotlin.fir.expressions.FirStatement
+import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.resolve.DoubleColonLHS
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
@@ -39,20 +40,14 @@ sealed class PostponedResolvedAtom : PostponedResolvedAtomMarker {
 class ResolvedLambdaAtom(
     override val atom: FirAnonymousFunction,
     expectedType: ConeKotlinType?,
-    val isSuspend: Boolean,
+    val expectedFunctionTypeKind: FunctionTypeKind?,
     val receiver: ConeKotlinType?,
     val contextReceivers: List<ConeKotlinType>,
     val parameters: List<ConeKotlinType>,
     var returnType: ConeKotlinType,
     typeVariableForLambdaReturnType: ConeTypeVariableForLambdaReturnType?,
-    candidateOfOuterCall: Candidate?,
     val coerceFirstParameterToExtensionReceiver: Boolean
 ) : PostponedResolvedAtom() {
-    init {
-        candidateOfOuterCall?.let {
-            it.postponedAtoms += this
-        }
-    }
 
     var typeVariableForLambdaReturnType = typeVariableForLambdaReturnType
         private set
@@ -60,7 +55,7 @@ class ResolvedLambdaAtom(
     override var expectedType = expectedType
         private set
 
-    lateinit var returnStatements: Collection<FirStatement>
+    lateinit var returnStatements: Collection<FirExpression>
 
     override val inputTypes: Collection<ConeKotlinType>
         get() {
@@ -87,12 +82,8 @@ class ResolvedLambdaAtom(
 class LambdaWithTypeVariableAsExpectedTypeAtom(
     override val atom: FirAnonymousFunctionExpression,
     private val initialExpectedTypeType: ConeKotlinType,
-    val expectedTypeRef: FirTypeRef,
     val candidateOfOuterCall: Candidate,
 ) : PostponedResolvedAtom(), LambdaWithTypeVariableAsExpectedTypeMarker {
-    init {
-        candidateOfOuterCall.postponedAtoms += this
-    }
 
     override var parameterTypesFromDeclaration: List<ConeKotlinType?>? = null
         private set
@@ -177,7 +168,7 @@ internal fun extractInputOutputTypesFromCallableReferenceExpectedType(
     if (expectedType == null) return null
 
     return when {
-        expectedType.isBuiltinFunctionalType(session) ->
+        expectedType.isSomeFunctionType(session) ->
             InputOutputTypes(expectedType.valueParameterTypesIncludingReceiver(session), expectedType.returnType(session))
 
 //        ReflectionTypes.isBaseTypeForNumberedReferenceTypes(expectedType) ->

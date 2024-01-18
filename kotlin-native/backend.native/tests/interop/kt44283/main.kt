@@ -1,18 +1,20 @@
+@file:OptIn(kotlin.native.runtime.NativeRuntimeApi::class)
+
 import kotlinx.cinterop.*
 import kt44283.*
-import kotlin.native.concurrent.AtomicInt
+import kotlin.concurrent.AtomicInt
 import kotlin.test.*
 
 val callbackCounter = AtomicInt(0)
 
 fun main() {
     val func = staticCFunction<CValue<TestStruct>, Unit> {
-        kotlin.native.internal.GC.collect() // Helps to ensure that "runtime" is already initialized.
+        kotlin.native.runtime.GC.collect() // Helps to ensure that "runtime" is already initialized.
 
         memScoped {
             println("Hello, Kotlin/Native! ${it.ptr.pointed.d}")
         }
-        callbackCounter.increment()
+        callbackCounter.incrementAndGet()
     }
 
     assertEquals(0, callbackCounter.value)

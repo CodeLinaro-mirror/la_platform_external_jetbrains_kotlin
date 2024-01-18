@@ -32,8 +32,10 @@ import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.isCommon
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.renderer.AnnotationArgumentsRenderingPolicy
 import org.jetbrains.kotlin.renderer.DescriptorRenderer
 import org.jetbrains.kotlin.renderer.DescriptorRenderer.Companion.DEBUG_TEXT
+import org.jetbrains.kotlin.renderer.DescriptorRendererModifier
 import org.jetbrains.kotlin.renderer.PropertyAccessorRenderingPolicy
 import org.jetbrains.kotlin.resolve.*
 import org.jetbrains.kotlin.resolve.calls.inference.*
@@ -50,8 +52,6 @@ import org.jetbrains.kotlin.types.checker.KotlinTypeChecker
 import org.jetbrains.kotlin.utils.IDEAPlatforms
 import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
-import java.io.PrintWriter
-import java.io.StringWriter
 
 object Renderers {
 
@@ -68,6 +68,9 @@ object Renderers {
         }
         element.toString()
     }
+
+    @JvmField
+    val NOT_RENDERED = Renderer<Any?> { _ -> "" }
 
     @JvmField
     val NAME = Renderer<Named> { it.name.asString() }
@@ -710,12 +713,27 @@ object Renderers {
     val SHORT_NAMES_IN_TYPES = DescriptorRenderer.SHORT_NAMES_IN_TYPES.asRenderer()
     @JvmField
     val COMPACT_WITH_MODIFIERS = DescriptorRenderer.COMPACT_WITH_MODIFIERS.asRenderer()
+
     @JvmField
     val DEPRECATION_RENDERER = DescriptorRenderer.ONLY_NAMES_WITH_SHORT_TYPES.withOptions {
         withoutTypeParameters = false
         receiverAfterName = false
         propertyAccessorRenderingPolicy = PropertyAccessorRenderingPolicy.PRETTY
     }.asRenderer()
+
+    @JvmField
+    val DESCRIPTORS_ON_NEWLINE_WITH_INDENT = object : DiagnosticParameterRenderer<Collection<DeclarationDescriptor>> {
+        private val mode = MultiplatformDiagnosticRenderingMode()
+
+        override fun render(obj: Collection<DeclarationDescriptor>, renderingContext: RenderingContext): String {
+            return buildString {
+                for (descriptor in obj) {
+                    mode.newLine(this)
+                    mode.renderDescriptor(this, descriptor, renderingContext, "")
+                }
+            }
+        }
+    }
 
     fun renderExpressionType(type: KotlinType?, dataFlowTypes: Set<KotlinType>?): String {
         if (type == null)

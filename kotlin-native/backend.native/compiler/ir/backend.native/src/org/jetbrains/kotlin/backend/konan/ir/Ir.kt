@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the LICENSE file.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.konan.ir
@@ -9,63 +9,114 @@ import org.jetbrains.kotlin.backend.common.COROUTINE_SUSPENDED_NAME
 import org.jetbrains.kotlin.backend.common.ir.Ir
 import org.jetbrains.kotlin.backend.common.ir.Symbols
 import org.jetbrains.kotlin.backend.konan.*
-import org.jetbrains.kotlin.backend.konan.llvm.findMainEntryPoint
+import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.backend.konan.lower.TestProcessor
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.defaultType
-import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.psi2ir.descriptors.IrBuiltInsOverDescriptors
-import kotlin.properties.Delegates
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.types.TypeUtils
 
 object KonanNameConventions {
     val setWithoutBoundCheck = Name.special("<setWithoutBoundCheck>")
     val getWithoutBoundCheck = Name.special("<getWithoutBoundCheck>")
 }
 
-// This is what Context collects about IR.
-internal class KonanIr(context: Context, irModule: IrModuleFragment): Ir<Context>(context, irModule) {
-    override var symbols: KonanSymbols by Delegates.notNull()
+internal interface SymbolLookupUtils {
+    fun findMemberFunction(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol?
+    fun findMemberProperty(clazz: IrClassSymbol, name: Name): IrPropertySymbol?
+    fun findMemberPropertyGetter(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol?
+    fun findPrimaryConstructor(clazz: IrClassSymbol): IrConstructorSymbol?
+    fun findNoParametersConstructor(clazz: IrClassSymbol): IrConstructorSymbol?
+    fun findNestedClass(clazz: IrClassSymbol, name: Name): IrClassSymbol?
+    fun findGetter(property: IrPropertySymbol): IrSimpleFunctionSymbol?
+
+    fun getName(clazz: IrClassSymbol): Name
+    fun isExtensionReceiverClass(property: IrPropertySymbol, expected: IrClassSymbol?): Boolean
+    fun isExtensionReceiverClass(function: IrFunctionSymbol, expected: IrClassSymbol?): Boolean
+    fun isExtensionReceiverNullable(function: IrFunctionSymbol): Boolean?
+    fun getValueParametersCount(function: IrFunctionSymbol): Int
+    fun getTypeParametersCount(function: IrFunctionSymbol): Int
+    fun isTypeParameterUpperBoundClass(property: IrPropertySymbol, index: Int, expected: IrClassSymbol): Boolean
+    fun isValueParameterClass(function: IrFunctionSymbol, index: Int, expected: IrClassSymbol?): Boolean
+    fun isReturnClass(function: IrFunctionSymbol, expected: IrClassSymbol): Boolean
+    fun isValueParameterTypeArgumentClass(function: IrFunctionSymbol, index: Int, argumentIndex: Int, expected: IrClassSymbol?): Boolean
+    fun isValueParameterNullable(function: IrFunctionSymbol, index: Int): Boolean?
+    fun isExpect(function: IrFunctionSymbol): Boolean
+    fun isSuspend(functionSymbol: IrFunctionSymbol): Boolean
+    fun getVisibility(function: IrFunctionSymbol): DescriptorVisibility
+    fun getValueParameterPrimitiveBinaryType(function: IrFunctionSymbol, index: Int): PrimitiveBinaryType?
 }
 
+// This is what Context collects about IR.
+internal class KonanIr(context: Context, override val symbols: KonanSymbols): Ir<Context>(context)
+
 internal class KonanSymbols(
-        context: Context,
+        context: PhaseContext,
+        val lookup: SymbolLookupUtils,
         irBuiltIns: IrBuiltIns,
-        private val symbolTable: SymbolTable,
-        lazySymbolTable: ReferenceSymbolTable
-): Symbols<Context>(context, irBuiltIns, symbolTable) {
+        symbolTable: ReferenceSymbolTable,
+): Symbols(irBuiltIns, symbolTable) {
+    val entryPoint = run {
+        val config = context.config.configuration
+        if (config.get(KonanConfigKeys.PRODUCE) != CompilerOutputKind.PROGRAM) return@run null
 
-    val entryPoint = findMainEntryPoint(context)?.let { symbolTable.referenceSimpleFunction(it) }
+        val entryPoint = FqName(config.get(KonanConfigKeys.ENTRY) ?: when (config.get(KonanConfigKeys.GENERATE_TEST_RUNNER)) {
+            TestRunnerKind.MAIN_THREAD -> "kotlin.native.internal.test.main"
+            TestRunnerKind.WORKER -> "kotlin.native.internal.test.worker"
+            TestRunnerKind.MAIN_THREAD_NO_EXIT -> "kotlin.native.internal.test.mainNoExit"
+            else -> "main"
+        })
 
-    override val externalSymbolTable = lazySymbolTable
+        val entryName = entryPoint.shortName()
+        val packageName = entryPoint.parent()
+
+        fun IrSimpleFunctionSymbol.isArrayStringMain() =
+                lookup.getValueParametersCount(this) == 1 &&
+                        lookup.isValueParameterClass(this, 0, array) &&
+                        lookup.isValueParameterTypeArgumentClass(this, 0, 0, string)
+
+        fun IrSimpleFunctionSymbol.isNoArgsMain() = lookup.getValueParametersCount(this) == 0
+
+        val candidates = irBuiltIns.findFunctions(entryName, packageName)
+                .filter {
+                    lookup.isReturnClass(it, unit) &&
+                            lookup.getTypeParametersCount(it) == 0 &&
+                            lookup.getVisibility(it).isPublicAPI
+                }
+
+        val main = candidates.singleOrNull { it.isArrayStringMain() } ?: candidates.singleOrNull { it.isNoArgsMain() }
+        if (main == null) context.reportCompilationError("Could not find '$entryName' in '$packageName' package.")
+        if (lookup.isSuspend(main)) context.reportCompilationError("Entry point can not be a suspend function.")
+        main
+    }
 
     val nothing get() = irBuiltIns.nothingClass
     val throwable get() = irBuiltIns.throwableClass
     val enum get() = irBuiltIns.enumClass
-    val nativePtr = symbolTable.referenceClass(context.nativePtr)
-    val nativePointed = symbolTable.referenceClass(context.interopBuiltIns.nativePointed)
+    private val nativePtr = internalClass(NATIVE_PTR_NAME)
+    val nativePointed = interopClass(InteropFqNames.nativePointedName)
     val nativePtrType = nativePtr.typeWith(arguments = emptyList())
-    val nonNullNativePtr = symbolTable.referenceClass(context.nonNullNativePtr)
-    val nonNullNativePtrType = nonNullNativePtr.typeWith(arguments = emptyList())
 
-    val immutableBlobOf = symbolTable.referenceSimpleFunction(context.immutableBlobOf)
+    val immutableBlobOf = nativeFunction(IMMUTABLE_BLOB_OF)
 
     val signedIntegerClasses = setOf(byte, short, int, long)
     val unsignedIntegerClasses = setOf(uByte!!, uShort!!, uInt!!, uLong!!)
 
     val allIntegerClasses = signedIntegerClasses + unsignedIntegerClasses
 
-    val unsignedToSignedOfSameBitWidth = unsignedIntegerClasses.associate {
-        it to when (it) {
+    val unsignedToSignedOfSameBitWidth = unsignedIntegerClasses.associateWith {
+        when (it) {
             uByte -> byte
             uShort -> short
             uInt -> int
@@ -76,11 +127,11 @@ internal class KonanSymbols(
 
     val integerConversions = allIntegerClasses.flatMap { fromClass ->
         allIntegerClasses.map { toClass ->
-            val name = Name.identifier("to${toClass.descriptor.name.asString().replaceFirstChar(Char::uppercaseChar)}")
+            val name = Name.identifier("to${lookup.getName(toClass).asString().replaceFirstChar(Char::uppercaseChar)}")
             val symbol = if (fromClass in signedIntegerClasses && toClass in unsignedIntegerClasses) {
                 irBuiltIns.getNonBuiltInFunctionsByExtensionReceiver(name, "kotlin")[fromClass]!!
             } else {
-                irBuiltIns.findBuiltInClassMemberFunctions(fromClass, name).single()
+                lookup.findMemberFunction(fromClass, name)!!
             }
 
             (fromClass to toClass) to symbol
@@ -90,39 +141,53 @@ internal class KonanSymbols(
     val symbolName = topLevelClass(RuntimeNames.symbolNameAnnotation)
     val filterExceptions = topLevelClass(RuntimeNames.filterExceptions)
     val exportForCppRuntime = topLevelClass(RuntimeNames.exportForCppRuntime)
+    val typedIntrinsic = topLevelClass(RuntimeNames.typedIntrinsicAnnotation)
 
-    val objCMethodImp = symbolTable.referenceClass(context.interopBuiltIns.objCMethodImp)
+    val objCMethodImp = interopClass(InteropFqNames.objCMethodImpName)
 
     val processUnhandledException = irBuiltIns.findFunctions(Name.identifier("processUnhandledException"), "kotlin", "native").single()
     val terminateWithUnhandledException = irBuiltIns.findFunctions(Name.identifier("terminateWithUnhandledException"), "kotlin", "native").single()
 
-    val interopNativePointedGetRawPointer =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.nativePointedGetRawPointer)
+    val interopNativePointedGetRawPointer = interopFunctions(InteropFqNames.nativePointedGetRawPointerFunName).single {
+        lookup.isExtensionReceiverClass(it, nativePointed)
+    }
 
-    val interopCPointer = symbolTable.referenceClass(context.interopBuiltIns.cPointer)
-    val interopCstr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cstr.getter!!)
-    val interopWcstr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.wcstr.getter!!)
-    val interopMemScope = symbolTable.referenceClass(context.interopBuiltIns.memScope)
-    val interopCValue = symbolTable.referenceClass(context.interopBuiltIns.cValue)
-    val interopCValues = symbolTable.referenceClass(context.interopBuiltIns.cValues)
-    val interopCValuesRef = symbolTable.referenceClass(context.interopBuiltIns.cValuesRef)
-    val interopCValueWrite = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cValueWrite)
-    val interopCValueRead = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cValueRead)
-    val interopAllocType = symbolTable.referenceSimpleFunction(context.interopBuiltIns.allocType)
+    val interopCPointer = interopClass(InteropFqNames.cPointerName)
+    val interopCPointed = interopClass(InteropFqNames.cPointedName)
+    val interopCstr = findTopLevelPropertyGetter(InteropFqNames.packageName, Name.identifier(InteropFqNames.cstrPropertyName), string)
+    val interopWcstr = findTopLevelPropertyGetter(InteropFqNames.packageName, Name.identifier(InteropFqNames.wcstrPropertyName), string)
+    val interopMemScope = interopClass(InteropFqNames.memScopeName)
+    val interopCValue = interopClass(InteropFqNames.cValueName)
+    val interopCValuesRef = interopClass(InteropFqNames.cValuesRefName)
+    val interopCValueWrite = interopFunctions(InteropFqNames.cValueWriteFunName).single {
+        lookup.isExtensionReceiverClass(it, interopCValue)
+    }
+    val interopCValueRead = interopFunctions(InteropFqNames.cValueReadFunName).single {
+        lookup.getValueParametersCount(it) == 1
+    }
+    val interopAllocType = interopFunctions(InteropFqNames.allocTypeFunName).single {
+        lookup.getTypeParametersCount(it) == 0
+    }
 
-    val interopTypeOf = symbolTable.referenceSimpleFunction(context.interopBuiltIns.typeOf)
+    val interopTypeOf = interopFunction(InteropFqNames.typeOfFunName)
 
-    val interopCPointerGetRawValue = symbolTable.referenceSimpleFunction(context.interopBuiltIns.cPointerGetRawValue)
+    val interopCPointerGetRawValue = interopFunctions(InteropFqNames.cPointerGetRawValueFunName).single {
+        lookup.isExtensionReceiverClass(it, interopCPointer)
+    }
 
-    val interopAllocObjCObject = symbolTable.referenceSimpleFunction(context.interopBuiltIns.allocObjCObject)
+    val interopAllocObjCObject = interopFunction(InteropFqNames.allocObjCObjectFunName)
 
-    val interopForeignObjCObject = interopClass("ForeignObjCObject")
+    val interopForeignObjCObject = interopClass(InteropFqNames.foreignObjCObjectName)
 
     // These are possible supertypes of forward declarations - we need to reference them explicitly to force their deserialization.
     // TODO: Do it lazily.
-    val interopCOpaque = symbolTable.referenceClass(context.interopBuiltIns.cOpaque)
-    val interopObjCObject = symbolTable.referenceClass(context.interopBuiltIns.objCObject)
-    val interopObjCObjectBase = symbolTable.referenceClass(context.interopBuiltIns.objCObjectBase)
+    val interopCOpaque = interopClass(InteropFqNames.cOpaqueName)
+    val interopObjCObject = interopClass(InteropFqNames.objCObjectName)
+    val interopObjCObjectBase = interopClass(InteropFqNames.objCObjectBaseName)
+    val interopObjCObjectBaseMeta = interopClass(InteropFqNames.objCObjectBaseMetaName)
+    val interopObjCClass = interopClass(InteropFqNames.objCClassName)
+    val interopObjCClassOf = interopClass(InteropFqNames.objCClassOfName)
+    val interopObjCProtocol = interopClass(InteropFqNames.objCProtocolName)
 
     val interopObjCRelease = interopFunction("objc_release")
 
@@ -140,54 +205,44 @@ internal class KonanSymbols(
     val interopGetMessenger = interopFunction("getMessenger")
     val interopGetMessengerStret = interopFunction("getMessengerStret")
 
-    val interopGetObjCClass = symbolTable.referenceSimpleFunction(context.interopBuiltIns.getObjCClass)
+    val interopGetObjCClass = interopFunction(InteropFqNames.getObjCClassFunName)
+    val interopObjCObjectSuperInitCheck = interopFunction(InteropFqNames.objCObjectSuperInitCheckFunName)
+    val interopObjCObjectInitBy = interopFunction(InteropFqNames.objCObjectInitByFunName)
+    val interopObjCObjectRawValueGetter = interopFunction(InteropFqNames.objCObjectRawPtrFunName)
 
-    val interopObjCObjectSuperInitCheck =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.objCObjectSuperInitCheck)
+    val interopNativePointedRawPtrGetter = lookup.findMemberPropertyGetter(interopClass(InteropFqNames.nativePointedName), Name.identifier(InteropFqNames.nativePointedRawPtrPropertyName))!!
 
-    val interopObjCObjectInitBy = symbolTable.referenceSimpleFunction(context.interopBuiltIns.objCObjectInitBy)
+    val interopCPointerRawValue: IrPropertySymbol = lookup.findMemberProperty(interopClass(InteropFqNames.cPointerName), Name.identifier(InteropFqNames.cPointerRawValuePropertyName))!!
 
-    val interopObjCObjectRawValueGetter =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.objCObjectRawPtr)
-
-    val interopNativePointedRawPtrGetter =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.nativePointedRawPtrGetter)
-
-    val interopCPointerRawValue =
-            symbolTable.referenceProperty(context.interopBuiltIns.cPointerRawValue)
-
-    val interopInterpretObjCPointer =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.interpretObjCPointer)
-
-    val interopInterpretObjCPointerOrNull =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.interpretObjCPointerOrNull)
-
-    val interopInterpretNullablePointed =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.interpretNullablePointed)
-
-    val interopInterpretCPointer =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.interpretCPointer)
-
-    val interopCreateNSStringFromKString =
-            symbolTable.referenceSimpleFunction(context.interopBuiltIns.CreateNSStringFromKString)
+    val interopInterpretObjCPointer = interopFunction(InteropFqNames.interpretObjCPointerFunName)
+    val interopInterpretObjCPointerOrNull = interopFunction(InteropFqNames.interpretObjCPointerOrNullFunName)
+    val interopInterpretNullablePointed = interopFunction(InteropFqNames.interpretNullablePointedFunName)
+    val interopInterpretCPointer = interopFunction(InteropFqNames.interpretCPointerFunName)
 
     val createForeignException = interopFunction("CreateForeignException")
 
-    val interopObjCGetSelector = interopFunction("objCGetSelector")
-
     val interopCEnumVar = interopClass("CEnumVar")
 
-    val nativeMemUtils = symbolTable.referenceClass(context.interopBuiltIns.nativeMemUtils)
+    val nativeMemUtils = interopClass(InteropFqNames.nativeMemUtilsName)
+    val nativeHeap = interopClass(InteropFqNames.nativeHeapName)
 
-    val nativeHeap = symbolTable.referenceClass(context.interopBuiltIns.nativeHeap)
+    val cStuctVar = interopClass(InteropFqNames.cStructVarName)
+    val cStructVarConstructorSymbol = lookup.findPrimaryConstructor(cStuctVar)!!
+    val managedTypeConstructor = lookup.findPrimaryConstructor(interopClass(InteropFqNames.managedTypeName))!!
+    val structVarPrimaryConstructor = lookup.findPrimaryConstructor(lookup.findNestedClass(cStuctVar, Name.identifier(InteropFqNames.TypeName))!!)!!
 
-    val interopGetPtr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.interopGetPtr)
+    val interopGetPtr = findTopLevelPropertyGetter(InteropFqNames.packageName, Name.identifier("ptr")) {
+        lookup.isTypeParameterUpperBoundClass(it, 0, interopCPointed)
+    }
 
-    val interopManagedGetPtr = symbolTable.referenceSimpleFunction(context.interopBuiltIns.interopManagedGetPtr)
+    val interopManagedType = interopClass(InteropFqNames.managedTypeName)
 
-    val interopManagedType = symbolTable.referenceClass(context.interopBuiltIns.managedType)
-    val interopCPlusPlusClass = symbolTable.referenceClass(context.interopBuiltIns.cPlusPlusClass)
-    val interopSkiaRefCnt = symbolTable.referenceClass(context.interopBuiltIns.skiaRefCnt)
+    val interopManagedGetPtr = findTopLevelPropertyGetter(InteropFqNames.packageName, Name.identifier("ptr")) {
+        lookup.isTypeParameterUpperBoundClass(it, 0, cStuctVar) && lookup.isExtensionReceiverClass(it, interopManagedType)
+    }
+
+    val interopCPlusPlusClass = interopClass(InteropFqNames.cPlusPlusClassName)
+    val interopSkiaRefCnt = interopClass(InteropFqNames.skiaRefCntName)
 
     val readBits = interopFunction("readBits")
     val writeBits = interopFunction("writeBits")
@@ -198,7 +253,7 @@ internal class KonanSymbols(
     val objCExportGetCoroutineSuspended = internalFunction("getCoroutineSuspended")
     val objCExportInterceptedContinuation = internalFunction("interceptedContinuation")
 
-    val getNativeNullPtr = symbolTable.referenceSimpleFunction(context.getNativeNullPtr)
+    val getNativeNullPtr = internalFunction("getNativeNullPtr")
 
     val boxCachePredicates = BoxCache.values().associateWith {
         internalFunction("in${it.name.lowercase().replaceFirstChar(Char::uppercaseChar)}BoxCache")
@@ -213,17 +268,21 @@ internal class KonanSymbols(
     val executeImpl =
             irBuiltIns.findFunctions(Name.identifier("executeImpl"),"kotlin", "native", "concurrent").single()
 
-    val createCleaner = internalFunction("createCleaner")
+    val createCleaner =
+            irBuiltIns.findFunctions(Name.identifier("createCleaner"),"kotlin", "native", "ref").single()
 
+    // TODO: this is strange. It should be a map from IrClassSymbol
     val areEqualByValue = internalFunctions("areEqualByValue").associateBy {
-        it.descriptor.valueParameters[0].type.computePrimitiveBinaryTypeOrNull()!!
+        lookup.getValueParameterPrimitiveBinaryType(it, 0)!!
     }
 
     val reinterpret = internalFunction("reinterpret")
 
+    val theUnitInstance = internalFunction("theUnitInstance")
+
     val ieee754Equals = internalFunctions("ieee754Equals")
 
-    val equals = irBuiltIns.findBuiltInClassMemberFunctions(any, Name.identifier("equals")).single()
+    val equals = lookup.findMemberFunction(any, Name.identifier("equals"))!!
 
     val throwArithmeticException = internalFunction("ThrowArithmeticException")
 
@@ -253,74 +312,63 @@ internal class KonanSymbols(
 
     override val defaultConstructorMarker = internalClass("DefaultConstructorMarker")
 
-    private fun arrayToExtensionSymbolMap(name: String, filter: (FunctionDescriptor) -> Boolean = { true }) =
+    private fun arrayToExtensionSymbolMap(name: String, filter: (IrFunctionSymbol) -> Boolean = { true }) =
             arrays.associateWith { classSymbol ->
                 irBuiltIns.findFunctions(Name.identifier(name), "kotlin", "collections")
                         .singleOrNull { function ->
-                            function.descriptor.let {
-                                it.extensionReceiverParameter?.type?.constructor?.declarationDescriptor == classSymbol.descriptor
-                                        && !it.isExpect
-                                        && filter(it)
-                            }
-                        } ?: error(classSymbol.toString())
+                            lookup.isExtensionReceiverClass(function, classSymbol) && !lookup.isExpect(function) && filter(function)
+                        } ?: error("No function $name for $classSymbol")
             }
 
     val arrayContentToString = arrayToExtensionSymbolMap("contentToString") {
-        it.extensionReceiverParameter?.type?.isMarkedNullable == false
+        lookup.isExtensionReceiverNullable(it) == true
     }
     val arrayContentHashCode = arrayToExtensionSymbolMap("contentHashCode") {
-        it.extensionReceiverParameter?.type?.isMarkedNullable == false
+        lookup.isExtensionReceiverNullable(it) == true
     }
     val arrayContentEquals = arrayToExtensionSymbolMap("contentEquals") {
-        it.extensionReceiverParameter?.type?.isMarkedNullable == false
+        lookup.isExtensionReceiverNullable(it) == true
     }
 
     override val arraysContentEquals by lazy { arrayContentEquals.mapKeys { it.key.defaultType } }
 
     val copyInto = arrayToExtensionSymbolMap("copyInto")
-    val copyOf = arrayToExtensionSymbolMap("copyOf") { it.valueParameters.isEmpty() }
+    val copyOf = arrayToExtensionSymbolMap("copyOf") { lookup.getValueParametersCount(it) == 0 }
 
-    val arrayGet = arrays.associateWith { irBuiltIns.findBuiltInClassMemberFunctions(it, Name.identifier("get")).single() }
+    val arrayGet = arrays.associateWith { lookup.findMemberFunction(it, Name.identifier("get"))!! }
 
-    val arraySet = arrays.associateWith { irBuiltIns.findBuiltInClassMemberFunctions(it, Name.identifier("set")).single() }
+    val arraySet = arrays.associateWith { lookup.findMemberFunction(it, Name.identifier("set"))!! }
 
-    val arraySize = arrays.associateWith { it.descriptor.unsubstitutedMemberScope
-                    .getContributedVariables(Name.identifier("size"), NoLookupLocation.FROM_BACKEND)
-                    .single().let { symbolTable.referenceSimpleFunction(it.getter!!) } }
-
+    val arraySize = arrays.associateWith { lookup.findMemberPropertyGetter(it, Name.identifier("size"))!! }
 
     val valuesForEnum = internalFunction("valuesForEnum")
 
     val valueOfForEnum = internalFunction("valueOfForEnum")
 
+    val createEnumEntries = irBuiltIns.findFunctions(Name.identifier("enumEntries"), "kotlin", "enums")
+            .single { lookup.getValueParametersCount(it) == 1 && lookup.isValueParameterClass(it, 0, array) }
+
+    val enumEntriesInterface = irBuiltIns.findClass(Name.identifier("EnumEntries"), "kotlin", "enums")!!
+
     val createUninitializedInstance = internalFunction("createUninitializedInstance")
 
     val initInstance = internalFunction("initInstance")
 
-    val freeze = irBuiltIns.findFunctions(Name.identifier("freeze"), "kotlin", "native", "concurrent").single()
+    val isSubtype = internalFunction("isSubtype")
 
     val println = irBuiltIns.findFunctions(Name.identifier("println"), "kotlin", "io")
-            .single { it.descriptor.valueParameters.singleOrNull()?.type == (irBuiltIns as IrBuiltInsOverDescriptors).builtIns.stringType }
+            .single { lookup.getValueParametersCount(it) == 1 && lookup.isValueParameterClass(it, 0, string) }
 
     override val getContinuation = internalFunction("getContinuation")
 
-    override val returnIfSuspended = internalFunction("returnIfSuspended")
+    override val continuationClass = irBuiltIns.findClass(Name.identifier("Continuation"), StandardNames.COROUTINES_PACKAGE_FQ_NAME)!!
 
-    val coroutineLaunchpad = internalFunction("coroutineLaunchpad")
+    override val returnIfSuspended = internalFunction("returnIfSuspended")
 
     override val suspendCoroutineUninterceptedOrReturn = internalFunction("suspendCoroutineUninterceptedOrReturn")
 
-    private val coroutinesIntrinsicsPackage =
-            context.builtIns.builtInsModule.getPackage(StandardNames.COROUTINES_INTRINSICS_PACKAGE_FQ_NAME).memberScope
-
-    private val coroutinesPackage =
-            context.builtIns.builtInsModule.getPackage(StandardNames.COROUTINES_PACKAGE_FQ_NAME).memberScope
-
-    override val coroutineContextGetter = symbolTable.referenceSimpleFunction(
-            coroutinesPackage
-                    .getContributedVariables(Name.identifier("coroutineContext"), NoLookupLocation.FROM_BACKEND)
-                    .single()
-                    .getter!!)
+    override val coroutineContextGetter =
+            findTopLevelPropertyGetter(StandardNames.COROUTINES_PACKAGE_FQ_NAME, Name.identifier("coroutineContext"), null)
 
     override val coroutineGetContext = internalFunction("getCoroutineContext")
 
@@ -332,23 +380,17 @@ internal class KonanSymbols(
 
     val continuationImpl = internalCoroutinesClass("ContinuationImpl")
 
-    val invokeSuspendFunction =
-            irBuiltIns.findBuiltInClassMemberFunctions(baseContinuationImpl, Name.identifier("invokeSuspend")).single()
+    val invokeSuspendFunction = lookup.findMemberFunction(baseContinuationImpl, Name.identifier("invokeSuspend"))!!
 
-    override val coroutineSuspendedGetter = symbolTable.referenceSimpleFunction(
-            coroutinesIntrinsicsPackage
-                    .getContributedVariables(COROUTINE_SUSPENDED_NAME, NoLookupLocation.FROM_BACKEND)
-                    .filterNot { it.isExpect }.single().getter!!
-    )
+    override val coroutineSuspendedGetter =
+            findTopLevelPropertyGetter(StandardNames.COROUTINES_INTRINSICS_PACKAGE_FQ_NAME, COROUTINE_SUSPENDED_NAME, null)
 
     val cancellationException = topLevelClass(KonanFqNames.cancellationException)
 
     val kotlinResult = irBuiltIns.findClass(Name.identifier("Result"))!!
 
     val kotlinResultGetOrThrow = irBuiltIns.findFunctions(Name.identifier("getOrThrow"))
-            .single {
-                it.descriptor.extensionReceiverParameter?.type?.constructor?.declarationDescriptor == kotlinResult.descriptor
-            }
+            .single { lookup.isExtensionReceiverClass(it, kotlinResult) }
 
     override val functionAdapter = internalClass("FunctionAdapter")
 
@@ -357,6 +399,7 @@ internal class KonanSymbols(
     private fun reflectionClass(name: String) = irBuiltIns.findClass(Name.identifier(name), StandardNames.KOTLIN_REFLECT_FQ_NAME)!!
 
     val kFunctionImpl = internalClass("KFunctionImpl")
+    val kFunctionDescription = internalClass("KFunctionDescription")
     val kSuspendFunctionImpl = internalClass("KSuspendFunctionImpl")
 
     val kMutableProperty0 = reflectionClass("KMutableProperty0")
@@ -376,17 +419,14 @@ internal class KonanSymbols(
     val kType = reflectionClass("KType")
     val getObjectTypeInfo = internalFunction("getObjectTypeInfo")
     val kClassImpl = internalClass("KClassImpl")
-    val kClassImplConstructor by lazy { kClassImpl.constructors.single { it.descriptor.isPrimary } }
-    val kClassImplIntrinsicConstructor by lazy { kClassImpl.constructors.single { it.descriptor.valueParameters.isEmpty() } }
+    val kClassImplConstructor = lookup.findPrimaryConstructor(kClassImpl)!!
+    val kClassImplIntrinsicConstructor = lookup.findNoParametersConstructor(kClassImpl)!!
     val kClassUnsupportedImpl = internalClass("KClassUnsupportedImpl")
     val kTypeParameterImpl = internalClass("KTypeParameterImpl")
     val kTypeImpl = internalClass("KTypeImpl")
-    val kTypeImplIntrinsicConstructor by lazy { kTypeImpl.constructors.single { it.descriptor.valueParameters.isEmpty() } }
+    val kTypeImplIntrinsicConstructor = lookup.findNoParametersConstructor(kTypeImpl)!!
     val kTypeImplForTypeParametersWithRecursiveBounds = internalClass("KTypeImplForTypeParametersWithRecursiveBounds")
     val kTypeProjectionList = internalClass("KTypeProjectionList")
-
-
-    val arrayAsList = internalClass("ArrayAsList")
 
     val threadLocal = topLevelClass(KonanFqNames.threadLocal)
 
@@ -394,7 +434,19 @@ internal class KonanSymbols(
 
     val eagerInitialization = topLevelClass(KonanFqNames.eagerInitialization)
 
+    val enumVarConstructorSymbol = lookup.findPrimaryConstructor(interopClass(InteropFqNames.cEnumVarName))!!
+    val primitiveVarPrimaryConstructor = lookup.findPrimaryConstructor(lookup.findNestedClass(interopClass(InteropFqNames.cPrimitiveVarName), Name.identifier(InteropFqNames.TypeName))!!)!!
+
     private fun topLevelClass(fqName: FqName): IrClassSymbol = irBuiltIns.findClass(fqName.shortName(), fqName.parent())!!
+
+    private fun findTopLevelPropertyGetter(packageName: FqName, name: Name, extensionReceiverClass: IrClassSymbol?) =
+            findTopLevelPropertyGetter(packageName, name) { lookup.isExtensionReceiverClass(it, extensionReceiverClass) }
+
+    private fun findTopLevelPropertyGetter(packageName: FqName, name: Name, predicate: (IrPropertySymbol) -> Boolean) =
+            lookup.findGetter(irBuiltIns.findProperties(name, packageName).single(predicate))!!
+
+    private fun nativeFunction(name: String) =
+            irBuiltIns.findFunctions(Name.identifier(name), KonanFqNames.packageName).single()
 
     private fun internalFunction(name: String) =
             irBuiltIns.findFunctions(Name.identifier(name), RuntimeNames.kotlinNativeInternalPackageName).single()
@@ -411,8 +463,10 @@ internal class KonanSymbols(
     private fun getKonanTestClass(className: String) =
             irBuiltIns.findClass(Name.identifier(className), "kotlin", "native", "internal", "test")!!
 
-    private fun interopFunction(name: String) =
-            irBuiltIns.findFunctions(Name.identifier(name), InteropFqNames.packageName).single()
+    private fun interopFunctions(name: String) =
+            irBuiltIns.findFunctions(Name.identifier(name), InteropFqNames.packageName)
+
+    private fun interopFunction(name: String) = interopFunctions(name).single()
 
     private fun interopClass(name: String) =
             irBuiltIns.findClass(Name.identifier(name), InteropFqNames.packageName)!!
@@ -432,15 +486,170 @@ internal class KonanSymbols(
 
     override val setWithoutBoundCheckName: Name? = KonanNameConventions.setWithoutBoundCheck
 
-    private val testFunctionKindCache = TestProcessor.FunctionKind.values().associate {
-        val symbol = if (it.runtimeKindString.isEmpty())
-            null
-        else
-            symbolTable.referenceEnumEntry(testFunctionKind.descriptor.unsubstitutedMemberScope.getContributedClassifier(
-                    Name.identifier(it.runtimeKindString), NoLookupLocation.FROM_BACKEND
-            ) as ClassDescriptor)
-        it to symbol
+    private val testFunctionKindCache by lazy {
+        TestProcessor.FunctionKind.values().associateWith { kind ->
+            if (kind.runtimeKindString.isEmpty())
+                null
+            else
+                testFunctionKind.owner.declarations
+                        .filterIsInstance<IrEnumEntry>()
+                        .single { it.name == Name.identifier(kind.runtimeKindString) }
+                        .symbol
+        }
     }
 
     fun getTestFunctionKind(kind: TestProcessor.FunctionKind) = testFunctionKindCache[kind]!!
+}
+
+@OptIn(ObsoleteDescriptorBasedAPI::class)
+internal class SymbolOverDescriptorsLookupUtils(val symbolTable: SymbolTable) : SymbolLookupUtils {
+    override fun findMemberFunction(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+            // inspired by: irBuiltIns.findBuiltInClassMemberFunctions(this, name).singleOrNull()
+            clazz.descriptor.unsubstitutedMemberScope.getContributedFunctions(name, NoLookupLocation.FROM_BACKEND)
+                    .singleOrNull()
+                    ?.let { symbolTable.descriptorExtension.referenceSimpleFunction(it) }
+
+    override fun findMemberProperty(clazz: IrClassSymbol, name: Name): IrPropertySymbol? =
+            clazz.descriptor.unsubstitutedMemberScope.getContributedVariables(name, NoLookupLocation.FROM_BACKEND)
+                    .singleOrNull()
+                    ?.let { symbolTable.descriptorExtension.referenceProperty(it) }
+
+    override fun findMemberPropertyGetter(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+            clazz.descriptor.unsubstitutedMemberScope.getContributedVariables(name, NoLookupLocation.FROM_BACKEND)
+                    .singleOrNull()
+                    ?.getter
+                    ?.let { symbolTable.descriptorExtension.referenceSimpleFunction(it) }
+
+    override fun getName(clazz: IrClassSymbol) = clazz.descriptor.name
+    override fun isExtensionReceiverClass(property: IrPropertySymbol, expected: IrClassSymbol?): Boolean {
+        return property.descriptor.extensionReceiverParameter?.type?.let { TypeUtils.getClassDescriptor(it) } == expected?.descriptor
+    }
+
+    override fun isExtensionReceiverClass(function: IrFunctionSymbol, expected: IrClassSymbol?): Boolean {
+        return function.descriptor.extensionReceiverParameter?.type?.let { TypeUtils.getClassDescriptor(it) } == expected?.descriptor
+    }
+
+    override fun findGetter(property: IrPropertySymbol): IrSimpleFunctionSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(property.descriptor.getter!!)
+
+    override fun isExtensionReceiverNullable(function: IrFunctionSymbol): Boolean? {
+        return function.descriptor.extensionReceiverParameter?.type?.isMarkedNullable
+    }
+
+    override fun getValueParametersCount(function: IrFunctionSymbol): Int = function.descriptor.valueParameters.size
+
+    override fun getTypeParametersCount(function: IrFunctionSymbol): Int = function.descriptor.typeParameters.size
+
+    private fun match(type: KotlinType?, symbol: IrClassSymbol?) =
+            if (type == null)
+                symbol == null
+            else
+                TypeUtils.getClassDescriptor(type) == symbol?.descriptor
+
+    override fun isTypeParameterUpperBoundClass(property: IrPropertySymbol, index: Int, expected: IrClassSymbol): Boolean {
+        return property.descriptor.typeParameters.getOrNull(index)?.upperBounds?.any { match(it, expected) } ?: false
+    }
+
+    override fun isValueParameterClass(function: IrFunctionSymbol, index: Int, expected: IrClassSymbol?): Boolean {
+        return match(function.descriptor.valueParameters.getOrNull(index)?.type, expected)
+    }
+
+    override fun isReturnClass(function: IrFunctionSymbol, expected: IrClassSymbol): Boolean {
+        return match(function.descriptor.returnType, expected)
+    }
+
+    override fun isValueParameterTypeArgumentClass(function: IrFunctionSymbol, index: Int, argumentIndex: Int, expected: IrClassSymbol?): Boolean {
+        return match(function.descriptor.valueParameters.getOrNull(index)?.type?.arguments?.getOrNull(argumentIndex)?.type, expected)
+    }
+
+    override fun isValueParameterNullable(function: IrFunctionSymbol, index: Int): Boolean? {
+        return function.descriptor.valueParameters.getOrNull(index)?.type?.isMarkedNullable
+    }
+
+    override fun isExpect(function: IrFunctionSymbol): Boolean = function.descriptor.isExpect
+
+    override fun isSuspend(functionSymbol: IrFunctionSymbol): Boolean = functionSymbol.descriptor.isSuspend
+    override fun getVisibility(function: IrFunctionSymbol): DescriptorVisibility = function.descriptor.visibility
+
+    override fun findPrimaryConstructor(clazz: IrClassSymbol) = clazz.descriptor.unsubstitutedPrimaryConstructor?.let { symbolTable.descriptorExtension.referenceConstructor(it) }
+    override fun findNoParametersConstructor(clazz: IrClassSymbol) = clazz.descriptor.constructors.singleOrNull { it.valueParameters.size == 0 }?.let { symbolTable.descriptorExtension.referenceConstructor(it) }
+
+    override fun findNestedClass(clazz: IrClassSymbol, name: Name): IrClassSymbol? {
+        val classDescriptor = clazz.descriptor.defaultType.memberScope.getContributedClassifier(name, NoLookupLocation.FROM_BUILTINS) as? ClassDescriptor
+        return classDescriptor?.let {
+            symbolTable.descriptorExtension.referenceClass(it)
+        }
+    }
+
+    override fun getValueParameterPrimitiveBinaryType(function: IrFunctionSymbol, index: Int): PrimitiveBinaryType? {
+        return function.descriptor.valueParameters[0].type.computePrimitiveBinaryTypeOrNull()
+    }
+}
+
+internal class SymbolOverIrLookupUtils() : SymbolLookupUtils {
+    override fun findMemberFunction(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+            clazz.owner.findDeclaration<IrSimpleFunction> { it.name == name }?.symbol
+
+    override fun findMemberProperty(clazz: IrClassSymbol, name: Name): IrPropertySymbol? =
+            clazz.owner.findDeclaration<IrProperty> { it.name == name }?.symbol
+
+    override fun findMemberPropertyGetter(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+            clazz.owner.findDeclaration<IrProperty> { it.name == name }?.getter?.symbol
+
+    override fun findPrimaryConstructor(clazz: IrClassSymbol): IrConstructorSymbol? = clazz.owner.primaryConstructor?.symbol
+    override fun findNoParametersConstructor(clazz: IrClassSymbol): IrConstructorSymbol? = clazz.owner.constructors.singleOrNull { it.valueParameters.isEmpty() }?.symbol
+
+    override fun findNestedClass(clazz: IrClassSymbol, name: Name): IrClassSymbol? {
+        return clazz.owner.declarations.filterIsInstance<IrClass>().singleOrNull { it.name == name }?.symbol
+    }
+
+    override fun getName(clazz: IrClassSymbol): Name = clazz.owner.name
+
+    override fun isExtensionReceiverClass(property: IrPropertySymbol, expected: IrClassSymbol?): Boolean {
+        return property.owner.getter?.extensionReceiverParameter?.type?.classOrNull == expected
+    }
+
+    override fun isExtensionReceiverClass(function: IrFunctionSymbol, expected: IrClassSymbol?): Boolean {
+        return function.owner.extensionReceiverParameter?.type?.classOrNull == expected
+    }
+
+    override fun findGetter(property: IrPropertySymbol): IrSimpleFunctionSymbol? = property.owner.getter?.symbol
+
+    override fun isExtensionReceiverNullable(function: IrFunctionSymbol): Boolean? {
+        return function.owner.extensionReceiverParameter?.type?.isMarkedNullable()
+    }
+
+    override fun getValueParametersCount(function: IrFunctionSymbol): Int = function.owner.valueParameters.size
+
+    override fun getTypeParametersCount(function: IrFunctionSymbol): Int = function.owner.typeParameters.size
+
+    override fun isTypeParameterUpperBoundClass(property: IrPropertySymbol, index: Int, expected: IrClassSymbol): Boolean {
+        return property.owner.getter?.typeParameters?.getOrNull(index)?.superTypes?.any { it.classOrNull == expected } ?: false
+    }
+
+    override fun isValueParameterClass(function: IrFunctionSymbol, index: Int, expected: IrClassSymbol?): Boolean {
+        return function.owner.valueParameters.getOrNull(index)?.type?.classOrNull == expected
+    }
+
+    override fun isReturnClass(function: IrFunctionSymbol, expected: IrClassSymbol): Boolean {
+        return function.owner.returnType.classOrNull == expected
+    }
+
+    override fun isValueParameterTypeArgumentClass(function: IrFunctionSymbol, index: Int, argumentIndex: Int, expected: IrClassSymbol?): Boolean {
+        val type = function.owner.valueParameters.getOrNull(index)?.type as? IrSimpleType ?: return false
+        val argumentType = type.arguments.getOrNull(argumentIndex) as? IrSimpleType ?: return false
+        return argumentType.classOrNull == expected
+    }
+
+    override fun isValueParameterNullable(function: IrFunctionSymbol, index: Int): Boolean? {
+        return function.owner.valueParameters.getOrNull(index)?.type?.isMarkedNullable()
+    }
+
+    override fun isExpect(function: IrFunctionSymbol): Boolean = function.owner.isExpect
+
+    override fun isSuspend(functionSymbol: IrFunctionSymbol): Boolean = functionSymbol.owner.isSuspend
+    override fun getVisibility(function: IrFunctionSymbol): DescriptorVisibility = function.owner.visibility
+
+    override fun getValueParameterPrimitiveBinaryType(function: IrFunctionSymbol, index: Int): PrimitiveBinaryType? {
+        return function.owner.valueParameters[0].type.computePrimitiveBinaryTypeOrNull()
+    }
 }

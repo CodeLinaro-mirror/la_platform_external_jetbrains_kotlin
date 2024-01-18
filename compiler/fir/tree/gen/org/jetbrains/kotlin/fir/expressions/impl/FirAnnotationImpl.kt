@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
@@ -11,9 +11,14 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationArgumentMapping
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.coneTypeOrNull
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 
 /*
  * This file was generated automatically
@@ -22,12 +27,13 @@ import org.jetbrains.kotlin.fir.visitors.*
 
 internal class FirAnnotationImpl(
     override val source: KtSourceElement?,
-    override val useSiteTarget: AnnotationUseSiteTarget?,
+    override var useSiteTarget: AnnotationUseSiteTarget?,
     override var annotationTypeRef: FirTypeRef,
     override var argumentMapping: FirAnnotationArgumentMapping,
-    override val typeArguments: MutableList<FirTypeProjection>,
+    override var typeArguments: MutableOrEmptyList<FirTypeProjection>,
 ) : FirAnnotation() {
-    override val typeRef: FirTypeRef get() = annotationTypeRef
+    @OptIn(UnresolvedExpressionTypeAccess::class)
+    override val coneTypeOrNull: ConeKotlinType? get() = annotationTypeRef.coneTypeOrNull
     override val annotations: List<FirAnnotation> get() = emptyList()
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
@@ -57,14 +63,23 @@ internal class FirAnnotationImpl(
         return this
     }
 
-    override fun replaceTypeRef(newTypeRef: FirTypeRef) {}
+    override fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?) {}
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {}
+
+    override fun replaceUseSiteTarget(newUseSiteTarget: AnnotationUseSiteTarget?) {
+        useSiteTarget = newUseSiteTarget
+    }
+
+    override fun replaceAnnotationTypeRef(newAnnotationTypeRef: FirTypeRef) {
+        annotationTypeRef = newAnnotationTypeRef
+    }
 
     override fun replaceArgumentMapping(newArgumentMapping: FirAnnotationArgumentMapping) {
         argumentMapping = newArgumentMapping
     }
 
     override fun replaceTypeArguments(newTypeArguments: List<FirTypeProjection>) {
-        typeArguments.clear()
-        typeArguments.addAll(newTypeArguments)
+        typeArguments = newTypeArguments.toMutableOrEmpty()
     }
 }

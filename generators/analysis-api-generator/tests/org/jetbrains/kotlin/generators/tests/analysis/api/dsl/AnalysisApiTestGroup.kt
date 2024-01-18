@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.generators.tests.analysis.api.dsl
 
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiMode
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfiguratorFactoryData
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.defaultExtension
 import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.TestGroupSuite
 import org.jetbrains.kotlin.generators.getDefaultSuiteTestClassName
@@ -30,7 +31,6 @@ internal class AnalysisApiTestGroup(
         generator.suite.init()
     }
 
-
     fun test(
         testClass: KClass<*>,
         filter: TestFilter = { true },
@@ -51,6 +51,20 @@ internal class AnalysisApiTestGroup(
                 }
         }
     }
+}
+
+internal fun TestGroup.TestClass.model(
+    data: AnalysisApiTestConfiguratorFactoryData,
+    relativeRootPath: String,
+    excludeDirsRecursively: List<String> = listOf(),
+    excludedPattern: String? = null,
+) {
+    model(
+        relativeRootPath = relativeRootPath,
+        extension = data.defaultExtension(),
+        excludeDirsRecursively = excludeDirsRecursively,
+        excludedPattern = excludedPattern,
+    )
 }
 
 private fun TestGroup.analysisApiTestClass(
@@ -93,14 +107,14 @@ private fun getTestNameSuffix(data: AnalysisApiTestConfiguratorFactoryData): Str
 private fun getPackageName(data: AnalysisApiTestConfiguratorFactoryData, testClass: KClass<*>): String {
     val basePrefix = buildString {
         append("org.jetbrains.kotlin.analysis.api.")
-        if (data.analysisApiMode ==AnalysisApiMode.Standalone) {
+        if (data.analysisApiMode == AnalysisApiMode.Standalone) {
             append("standalone.")
         }
         append(data.frontend.suffix.lowercase())
         append(".test.cases.generated")
     }
-    val packagePrefix = testClass.java.name
-        .substringAfter("org.jetbrains.kotlin.analysis.api.impl.base.test.")
+    val packagePrefix = "cases." + testClass.java.name
+        .substringAfter("test.cases.")
         .substringBeforeLast('.', "")
 
     return if (packagePrefix.isEmpty()) "$basePrefix." else "$basePrefix.$packagePrefix."

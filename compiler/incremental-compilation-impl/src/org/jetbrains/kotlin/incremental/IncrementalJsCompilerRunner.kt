@@ -23,6 +23,8 @@ import org.jetbrains.kotlin.build.report.ICReporter
 import org.jetbrains.kotlin.build.report.info
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
 import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
+import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
+import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
@@ -83,49 +85,53 @@ inline fun <R> withJsIC(args: CommonCompilerArguments, enabled: Boolean = true, 
 
 class IncrementalJsCompilerRunner(
     workingDir: File,
-    reporter: BuildReporter,
-    buildHistoryFile: File,
+    reporter: BuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+    buildHistoryFile: File?,
     private val modulesApiHistory: ModulesApiHistory,
     private val scopeExpansion: CompileScopeExpansionMode = CompileScopeExpansionMode.NEVER,
-    withAbiSnapshot: Boolean = false
+    withAbiSnapshot: Boolean = false,
+    preciseCompilationResultsBackup: Boolean = false,
+    keepIncrementalCompilationCachesInMemory: Boolean = false,
 ) : IncrementalCompilerRunner<K2JSCompilerArguments, IncrementalJsCachesManager>(
     workingDir,
     "caches-js",
     reporter,
     buildHistoryFile = buildHistoryFile,
-    withAbiSnapshot = withAbiSnapshot
+    outputDirs = null,
+    withAbiSnapshot = withAbiSnapshot,
+    preciseCompilationResultsBackup = preciseCompilationResultsBackup,
+    keepIncrementalCompilationCachesInMemory = keepIncrementalCompilationCachesInMemory,
 ) {
+    override val shouldTrackChangesInLookupCache
+        get() = false
 
-    override fun createCacheManager(args: K2JSCompilerArguments, projectDir: File?): IncrementalJsCachesManager {
-        val serializerProtocol = if (!args.isIrBackendEnabled()) JsSerializerProtocol else KlibMetadataSerializerProtocol
-        return IncrementalJsCachesManager(
-            cacheDirectory,
-            projectDir,
-            reporter,
-            serializerProtocol,
-            storeFullFqNamesInLookupCache = withAbiSnapshot
-            )
-    }
+    override val shouldStoreFullFqNamesInLookupCache
+        get() = withAbiSnapshot
+
+    override fun createCacheManager(icContext: IncrementalCompilationContext, args: K2JSCompilerArguments) =
+        IncrementalJsCachesManager(icContext, if (!args.isIrBackendEnabled()) JsSerializerProtocol else KlibMetadataSerializerProtocol, cacheDirectory)
 
     override fun destinationDir(args: K2JSCompilerArguments): File {
-        val outputFile = File(args.outputFile!!)
         return if (args.isIrBackendEnabled())
-            outputFile
+            File(args.outputDir!!)
         else
-            outputFile.parentFile
+            File(args.outputFile!!).parentFile
     }
 
-    override fun calculateSourcesToCompileImpl(
+    override fun calculateSourcesToCompile(
         caches: IncrementalJsCachesManager,
         changedFiles: ChangedFiles.Known,
         args: K2JSCompilerArguments,
         messageCollector: MessageCollector,
         classpathAbiSnapshots: Map<String, AbiSnapshot> //Ignore for now
     ): CompilationMode {
+        if (buildHistoryFile == null) {
+            error("The build is configured to use the build-history based IC approach, but doesn't specify the buildHistoryFile")
+        }
         if (!withAbiSnapshot && !buildHistoryFile.isFile) {
             return CompilationMode.Rebuild(BuildAttribute.NO_BUILD_HISTORY)
         }
-        val lastBuildInfo = BuildInfo.read(lastBuildInfoFile)
+        val lastBuildInfo = BuildInfo.read(lastBuildInfoFile, messageCollector) ?: return CompilationMode.Rebuild(BuildAttribute.INVALID_LAST_BUILD_INFO)
 
         val dirtyFiles = DirtyFilesContainer(caches, reporter, kotlinSourceFilesExtensions)
         initDirtyFiles(dirtyFiles, changedFiles)
@@ -153,6 +159,10 @@ class IncrementalJsCompilerRunner(
         dirtyFiles.addByDirtySymbols(removedClassesChanges.dirtyLookupSymbols)
         dirtyFiles.addByDirtyClasses(removedClassesChanges.dirtyClassesFqNames)
         dirtyFiles.addByDirtyClasses(removedClassesChanges.dirtyClassesFqNamesForceRecompile)
+
+        if (dirtyFiles.isEmpty() && changedFiles.removed.isNotEmpty()) {
+            return CompilationMode.Rebuild(BuildAttribute.DEP_CHANGE_REMOVED_ENTRY)
+        }
         return CompilationMode.Incremental(dirtyFiles)
     }
 
@@ -245,7 +255,8 @@ class IncrementalJsCompilerRunner(
             val changesCollector = ChangesCollector()
             // todo: split compare and update (or cache comparing)
             caches.platformCache.compare(translatedFiles, changesCollector)
-            val (dirtyLookupSymbols, dirtyClassFqNames) = changesCollector.getDirtyData(listOf(caches.platformCache), reporter)
+            val (dirtyLookupSymbols, dirtyClassFqNames) =
+                changesCollector.getChangedAndImpactedSymbols(listOf(caches.platformCache), reporter)
             // todo unify with main cycle
             newDirtySources.addAll(mapLookupSymbolsToFiles(caches.lookupCache, dirtyLookupSymbols, reporter, excludes = sourcesToCompile))
             newDirtySources.addAll(

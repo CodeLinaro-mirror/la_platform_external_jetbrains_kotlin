@@ -48,6 +48,20 @@ interface ConstraintStorage {
     val builtFunctionalTypesForPostponedArgumentsByExpectedTypeVariables: Map<TypeConstructorMarker, KotlinTypeMarker>
     val constraintsFromAllForkPoints: List<Pair<IncorporationConstraintPosition, ForkPointData>>
 
+    /**
+     *  In case some candidate's CS is built in the context of some outer CS, first [outerSystemVariablesPrefixSize] in the list
+     *  of [allTypeVariables] belong to the outer CS.
+     *
+     *  That information is very limitedly used in a couple of cases when we need to separate those kinds of variables
+     *   - When completing `provideDelegate` calls, we assume outer variables as proper types
+     *   (see fixInnerVariablesForProvideDelegateIfNeeded).
+     *   - When checking consistency of collected variables for the inner candidate
+     *   (see checkNotFixedTypeVariablesCountConsistency).
+     *
+     *  Also, see docs/fir/delegated_property_inference.md
+     */
+    val outerSystemVariablesPrefixSize: Int
+
     object Empty : ConstraintStorage {
         override val allTypeVariables: Map<TypeConstructorMarker, TypeVariableMarker> get() = emptyMap()
         override val notFixedTypeVariables: Map<TypeConstructorMarker, VariableWithConstraints> get() = emptyMap()
@@ -61,6 +75,8 @@ interface ConstraintStorage {
         override val builtFunctionalTypesForPostponedArgumentsByTopLevelTypeVariables: Map<Pair<TypeConstructorMarker, List<Pair<TypeConstructorMarker, Int>>>, KotlinTypeMarker> = emptyMap()
         override val builtFunctionalTypesForPostponedArgumentsByExpectedTypeVariables: Map<TypeConstructorMarker, KotlinTypeMarker> = emptyMap()
         override val constraintsFromAllForkPoints: List<Pair<IncorporationConstraintPosition, ForkPointData>> = emptyList()
+
+        override val outerSystemVariablesPrefixSize: Int get() = 0
     }
 }
 
@@ -86,6 +102,10 @@ class Constraint(
     val position: IncorporationConstraintPosition,
     val typeHashCode: Int = type.hashCode(),
     val derivedFrom: Set<TypeVariableMarker>,
+    // This value is true for constraints of the form `Nothing? <: Tv`
+    // that have been created during incorporation phase of the constraint of the form `Kv? <: Tv` (where `Kv` another type variable).
+    // The main idea behind that parameter is that we don't consider such constraints as proper (signifying that variable is ready for completion).
+    // And also, there is additional logic in K1 that doesn't allow to fix variable into `Nothing?` if we had only that kind of lower constraints
     val isNullabilityConstraint: Boolean,
     val inputTypePositionBeforeIncorporation: OnlyInputTypeConstraintPosition? = null
 ) {

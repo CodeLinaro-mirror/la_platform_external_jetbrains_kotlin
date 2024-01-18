@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
-import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -42,7 +41,7 @@ fun createQualifierReceiver(
     }
 }
 
-abstract class QualifierReceiver(final override val explicitReceiver: FirExpression) : AbstractExplicitReceiver<FirResolvedQualifier>() {
+abstract class QualifierReceiver(val explicitReceiver: FirResolvedQualifier) {
     abstract fun classifierScope(): FirScope?
     abstract fun callableScope(): FirScope?
 }

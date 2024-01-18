@@ -1,15 +1,16 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.test.frontend.fir.handlers
 
-import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.scopes.*
@@ -18,6 +19,7 @@ import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.fir.symbols.lazyDeclarationResolver
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -29,8 +31,8 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
-import org.jetbrains.kotlin.util.SmartPrinter
-import org.jetbrains.kotlin.util.withIndent
+import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.withIndent
 
 @OptIn(SymbolInternals::class)
 class FirScopeDumpHandler(testServices: TestServices) : FirAnalysisHandler(testServices) {
@@ -40,12 +42,15 @@ class FirScopeDumpHandler(testServices: TestServices) : FirAnalysisHandler(testS
         get() = listOf(FirDiagnosticsDirectives)
 
     override fun processModule(module: TestModule, info: FirOutputArtifact) {
-        val fqNamesWithNames = module.directives[FirDiagnosticsDirectives.SCOPE_DUMP]
-        if (fqNamesWithNames.isEmpty()) return
-        val printer = SmartPrinter(dumper.builderForModule(module), indent = "  ")
-        for (fqNameWithNames in fqNamesWithNames) {
-            val (fqName, names) = extractFqNameAndMemberNames(fqNameWithNames)
-            printer.processClass(fqName, names, info.session, info.firAnalyzerFacade.scopeSession, module)
+        for (part in info.partsForDependsOnModules) {
+            val currentModule = part.module
+            val fqNamesWithNames = currentModule.directives[FirDiagnosticsDirectives.SCOPE_DUMP]
+            if (fqNamesWithNames.isEmpty()) return
+            val printer = SmartPrinter(dumper.builderForModule(currentModule), indent = "  ")
+            for (fqNameWithNames in fqNamesWithNames) {
+                val (fqName, names) = extractFqNameAndMemberNames(fqNameWithNames)
+                printer.processClass(fqName, names, part.session, part.firAnalyzerFacade.scopeSession, currentModule)
+            }
         }
     }
 
@@ -79,12 +84,14 @@ class FirScopeDumpHandler(testServices: TestServices) : FirAnalysisHandler(testS
         val firClass = symbol.fir as? FirRegularClass ?: assertions.fail { "$fqName is not a class but ${symbol.fir.render()}" }
         println("$fqName: ")
 
-        val scope = firClass.unsubstitutedScope(session, scopeSession, withForcedTypeCalculator = true)
-        val names = namesFromDirective.takeIf { it.isNotEmpty() }?.map { Name.identifier(it) } ?: scope.getCallableNames()
-        withIndent {
-            for (name in names) {
-                processFunctions(name, scope)
-                processProperties(name, scope)
+        session.lazyDeclarationResolver.disableLazyResolveContractChecksInside {
+            val scope = firClass.unsubstitutedScope(session, scopeSession, withForcedTypeCalculator = true, memberRequiredPhase = null)
+            val names = namesFromDirective.takeIf { it.isNotEmpty() }?.map { Name.identifier(it) } ?: scope.getCallableNames()
+            withIndent {
+                for (name in names) {
+                    processFunctions(name, scope)
+                    processProperties(name, scope)
+                }
             }
         }
         println()
@@ -135,8 +142,10 @@ class FirScopeDumpHandler(testServices: TestServices) : FirAnalysisHandler(testS
     }
 
     private fun SmartPrinter.printInfo(declaration: FirCallableDeclaration, scope: FirTypeScope, counter: SymbolCounter) {
-        print("[${declaration.origin}]: ")
-        print(declaration.render(FirRenderer.RenderMode.NoBodies).trim())
+        val origin = declaration.origin.takeUnless { it == FirDeclarationOrigin.BuiltIns } ?: FirDeclarationOrigin.Library
+        print("[$origin]: ")
+        val renderedDeclaration = FirRenderer.noAnnotationBodiesAccessorAndArguments().renderElementAsString(declaration).trim()
+        print(renderedDeclaration)
         print(" from $scope")
         println(" [id: ${counter.getIndex(declaration.symbol)}]")
     }

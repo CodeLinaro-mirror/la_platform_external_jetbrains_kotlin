@@ -39,10 +39,13 @@ import org.jetbrains.kotlin.types.getEffectiveVariance
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeParameterMarker
 
-// TODO: probably class upper bound should be used
-@Suppress("UNUSED_PARAMETER")
-fun TypeSystemCommonBackendContext.isMostPreciseContravariantArgument(type: KotlinTypeMarker, parameter: TypeParameterMarker): Boolean =
+fun TypeSystemCommonBackendContext.isMostPreciseContravariantArgument(type: KotlinTypeMarker): Boolean =
     type.typeConstructor().isAnyConstructor()
+
+@Suppress("UNUSED_PARAMETER")
+@Deprecated("This method is needed for binary compatibility. See KT-56033", level = DeprecationLevel.HIDDEN)
+fun TypeSystemCommonBackendContext.isMostPreciseContravariantArgument(type: KotlinTypeMarker, parameter: TypeParameterMarker): Boolean =
+    isMostPreciseCovariantArgument(type)
 
 fun TypeSystemCommonBackendContext.isMostPreciseCovariantArgument(type: KotlinTypeMarker): Boolean =
     !canHaveSubtypesIgnoringNullability(type)
@@ -62,7 +65,7 @@ private fun TypeSystemCommonBackendContext.canHaveSubtypesIgnoringNullability(ko
 
         val effectiveVariance = getEffectiveVariance(parameter.getVariance().convertVariance(), projectionKind)
         if (effectiveVariance == Variance.OUT_VARIANCE && !isMostPreciseCovariantArgument(type)) return true
-        if (effectiveVariance == Variance.IN_VARIANCE && !isMostPreciseContravariantArgument(type, parameter)) return true
+        if (effectiveVariance == Variance.IN_VARIANCE && !isMostPreciseContravariantArgument(type)) return true
     }
 
     return false

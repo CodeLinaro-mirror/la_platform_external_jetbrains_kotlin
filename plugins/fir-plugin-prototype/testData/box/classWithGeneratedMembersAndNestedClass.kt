@@ -1,3 +1,4 @@
+
 import org.jetbrains.kotlin.fir.plugin.NestedClassAndMaterializeMember
 
 @NestedClassAndMaterializeMember

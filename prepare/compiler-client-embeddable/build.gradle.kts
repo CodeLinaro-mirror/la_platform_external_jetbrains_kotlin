@@ -16,14 +16,12 @@ val testCompilationClasspath by configurations.creating
 dependencies {
     embedded(project(":compiler:cli-common")) { isTransitive = false }
     embedded(project(":daemon-common")) { isTransitive = false }
-    embedded(project(":daemon-common-new")) { isTransitive = false }
     embedded(project(":kotlin-daemon-client")) { isTransitive = false }
     
     testApi(project(":compiler:cli-common"))
     testApi(project(":daemon-common"))
-    testApi(project(":daemon-common-new"))
     testApi(project(":kotlin-daemon-client"))
-    testApi(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
     testApi(project(":kotlin-test:kotlin-test-jvm"))
     testApi(project(":kotlin-test:kotlin-test-junit"))
     testCompilerClasspath(project(":kotlin-compiler"))

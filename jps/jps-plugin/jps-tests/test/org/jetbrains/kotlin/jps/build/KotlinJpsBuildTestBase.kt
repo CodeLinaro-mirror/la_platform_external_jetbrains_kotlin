@@ -11,6 +11,7 @@ import com.intellij.util.ThrowableRunnable
 import org.jetbrains.jps.model.java.JpsJavaExtensionService
 import org.jetbrains.jps.model.module.JpsModule
 import org.jetbrains.jps.util.JpsPathUtil
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.config.CompilerSettings
 import org.jetbrains.kotlin.config.KotlinFacetSettings
@@ -89,7 +90,9 @@ abstract class KotlinJpsBuildTestBase : AbstractKotlinJpsBuildTestCase() {
     protected fun setupKotlinJSFacet() {
         myProject.modules.forEach {
             val facet = KotlinFacetSettings()
-            facet.compilerArguments = K2JSCompilerArguments()
+            facet.compilerArguments = K2JSCompilerArguments().apply {
+                forceDeprecatedLegacyCompilerUsage = true
+            }
             facet.targetPlatform = JsPlatforms.defaultJsPlatform
 
             it.container.setChild(

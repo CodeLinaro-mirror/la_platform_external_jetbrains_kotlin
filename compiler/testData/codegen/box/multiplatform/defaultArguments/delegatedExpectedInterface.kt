@@ -1,6 +1,6 @@
 // !LANGUAGE: +MultiPlatformProjects
-// IGNORE_BACKEND_FIR: JVM_IR
-// FIR status: default argument mapping in MPP isn't designed yet
+// IGNORE_BACKEND_K2: ANY
+// FIR status: outdated code (expect and actual in the same module)
 // FILE: lib.kt
 
 expect interface I {

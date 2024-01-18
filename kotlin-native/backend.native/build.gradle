@@ -1,11 +1,14 @@
-import org.jetbrains.kotlin.CopyCommonSources
-import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.*
-import org.jetbrains.gradle.plugins.tools.*
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * Copyright 2010-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
+
+import org.jetbrains.kotlin.cpp.CppConsumerPlugin
+import org.jetbrains.kotlin.cpp.CppUsage
+import org.jetbrains.kotlin.cpp.DependencyHandlerExKt
+import org.jetbrains.kotlin.tools.NativePluginKt
+
+
 buildscript {
     apply from: "../../kotlin-native/gradle/kotlinGradlePlugin.gradle"
     apply plugin: 'project-report'
@@ -13,18 +16,16 @@ buildscript {
 
 apply plugin: 'java'
 apply plugin: 'kotlin'
-apply plugin: org.jetbrains.kotlin.NativeInteropPlugin
+apply plugin: "native-interop-plugin"
 apply plugin: "maven-publish"
+apply plugin: CppConsumerPlugin
 
 sourceSets {
     compiler {
         kotlin {
             srcDir 'compiler/ir/backend.native/src/'
-            srcDir(VersionGeneratorKt.kotlinNativeVersionSrc(project))
         }
         resources.srcDir 'compiler/ir/backend.native/resources/'
-        /* PATH to META-INF */
-        resources.srcDir VersionGeneratorKt.kotlinNativeVersionResourceFile(project).parentFile.parent
     }
     cli_bc {
         kotlin.srcDir 'cli.bc/src'
@@ -33,12 +34,41 @@ sourceSets {
 
 compileCompilerKotlin {
     kotlinOptions.jvmTarget = "1.8"
-    kotlinOptions.allWarningsAsErrors=true
-    kotlinOptions.freeCompilerArgs += ['-opt-in=kotlin.RequiresOptIn', '-opt-in=org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI', '-Xskip-prerelease-check']
+    kotlinOptions.freeCompilerArgs += [
+            '-opt-in=kotlin.RequiresOptIn',
+            "-opt-in=kotlinx.cinterop.BetaInteropApi",
+            "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+            '-Xskip-prerelease-check']
 }
+
+TasksKt.optInToIrSymbolInternals(project)
 
 compileCli_bcKotlin {
     kotlinOptions.freeCompilerArgs += ['-Xskip-prerelease-check']
+}
+
+configurations {
+    commonFilesBitcode {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CppUsage.LLVM_BITCODE))
+        }
+    }
+    commonEnvBitcode {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CppUsage.LLVM_BITCODE))
+        }
+    }
+}
+
+dependencies {
+    use(DependencyHandlerExKt) {
+        commonFilesBitcode module(project(":kotlin-native:common"), "files")
+        commonEnvBitcode module(project(":kotlin-native:common"), "env")
+    }
 }
 
 kotlinNativeInterop {
@@ -64,8 +94,9 @@ kotlinNativeInterop {
 
     files {
         linker 'clang++'
-        linkOutputs ":kotlin-native:common:${hostName}Files"
+        link configurations.commonFilesBitcode
 
+        // TODO: These should come from some sort of commonFilesApi configuration
         headers fileTree('../common/src/files/headers') {
             include '**/*.h'
             include '**/*.hpp'
@@ -77,8 +108,9 @@ kotlinNativeInterop {
 
     env {
         linker 'clang++'
-        linkOutputs ":kotlin-native:common:${hostName}Env"
+        link configurations.commonEnvBitcode
 
+        // TODO: These should come from some sort of commonEnvApi configuration
         headers fileTree('../common/src/env/headers') {
             include '**/*.h'
             include '**/*.hpp'
@@ -90,6 +122,11 @@ kotlinNativeInterop {
 
 
 configurations {
+    compilerApi {
+        extendsFrom kotlinNativeInterop['llvm'].configuration
+        extendsFrom kotlinNativeInterop['files'].configuration
+        extendsFrom kotlinNativeInterop['env'].configuration
+    }
     kotlin_compiler_jar
     kotlin_stdlib_jar
     kotlin_reflect_jar
@@ -104,37 +141,44 @@ configurations {
 }
 
 dependencies {
-    trove4j_jar "org.jetbrains.intellij.deps:trove4j:1.0.20181211@jar"
-    kotlin_compiler_jar project(kotlinCompilerModule)
+    kotlin_compiler_jar kotlinCompilerModule
     kotlin_stdlib_jar kotlinStdLibModule
-    kotlin_reflect_jar kotlinReflectModule
+    use(RepoDependencies) {
+        trove4j_jar commonDependency("org.jetbrains.intellij.deps:trove4j")
+        kotlin_reflect_jar commonDependency("org.jetbrains.kotlin:kotlin-reflect")
+        compilerApi(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil")) { setTransitive(false) }
+        compilerApi(commonDependency("org.jetbrains.intellij.deps:log4j")) { setTransitive(false) }
+        compilerApi(commonDependency("org.jetbrains.intellij.deps:jdom"))
+        compilerApi(commonDependency("com.fasterxml:aalto-xml")) { setTransitive(false) }
+        compilerApi(commonDependency("org.codehaus.woodstox:stax2-api")) { setTransitive(false) }
+    }
     kotlin_script_runtime_jar project(":kotlin-script-runtime")
 
     compilerApi project(":kotlin-native:utilities:basic-utils")
 
-    compilerApi project(kotlinCompilerModule)
+    compilerImplementation project(":kotlin-compiler")
     compilerApi project(":native:kotlin-native-utils")
     compilerApi project(":core:descriptors")
+    compilerApi project(":core:compiler.common.native")
     compilerApi project(":compiler:ir.tree")
     compilerApi project(":compiler:ir.backend.common")
+    compilerApi project(":compiler:ir.objcinterop")
     compilerApi project(":compiler:util")
     compilerApi project(":native:frontend.native")
     compilerApi project(":compiler:cli-common")
+    compilerApi project(":compiler:cli-base")
     compilerApi project(":compiler:cli")
     compilerApi project(":kotlin-util-klib")
     compilerApi project(":kotlin-util-klib-metadata")
     compilerApi project(":compiler:ir.serialization.common")
+    compilerApi project(":compiler:ir.serialization.native")
+    compilerApi project(":compiler:fir:fir-serialization")
+    compilerApi project(":compiler:fir:native")
     compilerApi project(":compiler:ir.psi2ir")
-    compilerApi project(":kotlin-native-shared")
     use(IntellijDependenciesKt) {
         compilerApi(intellijCore())
         compileOnly(jpsModel())
     }
-
-    compilerApi kotlinNativeInterop['llvm'].configuration
-    compilerApi kotlinNativeInterop['files'].configuration
-    compilerApi kotlinNativeInterop['env'].configuration
-
 
     cli_bcApi sourceSets.compiler.output
 
@@ -144,20 +188,20 @@ dependencies {
 
 classes.dependsOn 'compilerClasses', 'cli_bcClasses'
 
-jar {
+tasks.named("jar") {
     from sourceSets.cli_bc.output,
             sourceSets.compiler.output,
             sourceSets.filesInteropStubs.output,
             sourceSets.envInteropStubs.output,
             sourceSets.llvmInteropStubs.output
 
-    dependsOn ':kotlin-native:runtime:hostRuntime', 'external_jars'
+    dependsOn 'external_jars'
 }
 
 def externalJars = ['compiler', 'stdlib', 'reflect', 'script_runtime']
 
-task trove4jCopy(type: Copy) {
-    from configurations.getByName("trove4j_jar") {
+tasks.register("trove4jCopy", Copy) {
+    from configurations.named("trove4j_jar") {
         include "trove4j*.jar"
         rename "trove4j(.*).jar", "trove4j.jar"
 
@@ -167,9 +211,9 @@ task trove4jCopy(type: Copy) {
 
 externalJars.each { arg ->
     def jar = arg.replace('_', '-') // :(
-    task("${arg}Copy", type: Copy) {
+    tasks.register("${arg}Copy", Copy) {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        from configurations.getByName("kotlin_${arg}_jar") {
+        from configurations.named("kotlin_${arg}_jar") {
             include "kotlin-${jar}*.jar"
             rename "kotlin-${jar}(.*).jar", "kotlin-${jar}.jar"
 
@@ -178,14 +222,14 @@ externalJars.each { arg ->
     }
 }
 
-task external_jars(type: Copy) {
+tasks.register("external_jars", Copy) {
     dependsOn externalJars.collect { "${it}Copy" }
     dependsOn trove4jCopy
 }
 
-task debugCompiler(type: JavaExec) {
+tasks.register("debugCompiler", JavaExec) {
     dependsOn ':dist'
-    main = 'org.jetbrains.kotlin.cli.bc.K2NativeKt'
+    mainClass = 'org.jetbrains.kotlin.cli.bc.K2NativeKt'
     classpath = project.fileTree("${distDir.canonicalPath}/konan/lib/") {
         include '*.jar'
     }
@@ -203,9 +247,14 @@ publishing {
         maven(MavenPublication) {
             groupId = 'org.jetbrains.kotlin'
             artifactId = 'backend.native'
-            version = konanVersionFull
+            version = kotlinVersion
 
             from components.java
         }
     }
+}
+
+RepoArtifacts.sourcesJar(project) {
+    it.from(sourceSets["cli_bc"].allSource)
+    it.from(sourceSets["compiler"].allSource)
 }

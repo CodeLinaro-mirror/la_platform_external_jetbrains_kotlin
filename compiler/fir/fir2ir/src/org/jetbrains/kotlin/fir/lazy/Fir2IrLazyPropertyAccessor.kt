@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.lazy
 
 import org.jetbrains.kotlin.fir.backend.*
+import org.jetbrains.kotlin.fir.backend.generators.generateOverriddenAccessorSymbols
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
@@ -44,16 +45,15 @@ class Fir2IrLazyPropertyAccessor(
         get() = firAccessor ?: firParentProperty
 
     // TODO: investigate why some deserialized properties are inline
-    override val isInline: Boolean
+    override var isInline: Boolean
         get() = firAccessor?.isInline == true
+        set(_) = mutationNotSupported()
 
     override var annotations: List<IrConstructorCall> by createLazyAnnotations()
 
     override var name: Name
         get() = Name.special("<${if (isSetter) "set" else "get"}-${firParentProperty.name}>")
-        set(_) {
-            throw UnsupportedOperationException()
-        }
+        set(_) = mutationNotSupported()
 
     override var returnType: IrType by lazyVar(lock) {
         if (isSetter) irBuiltIns.unitType else firParentProperty.returnTypeRef.toIrType(typeConverter, conversionTypeContext)
@@ -61,15 +61,14 @@ class Fir2IrLazyPropertyAccessor(
 
     override var dispatchReceiverParameter: IrValueParameter? by lazyVar(lock) {
         val containingClass = (parent as? IrClass)?.takeUnless { it.isFacadeClass }
-        if (containingClass != null && shouldHaveDispatchReceiver(containingClass, firParentProperty)
-        ) {
+        if (containingClass != null && shouldHaveDispatchReceiver(containingClass)) {
             createThisReceiverParameter(thisType = containingClass.thisReceiver?.type ?: error("No this receiver for containing class"))
         } else null
     }
 
     override var extensionReceiverParameter: IrValueParameter? by lazyVar(lock) {
-        firParentProperty.receiverTypeRef?.let {
-            createThisReceiverParameter(it.toIrType(typeConverter, conversionTypeContext))
+        firParentProperty.receiverParameter?.let {
+            createThisReceiverParameter(it.typeRef.toIrType(typeConverter, conversionTypeContext), it)
         }
     }
 
@@ -78,30 +77,33 @@ class Fir2IrLazyPropertyAccessor(
     override var valueParameters: List<IrValueParameter> by lazyVar(lock) {
         if (!isSetter && contextReceiverParametersCount == 0) emptyList()
         else {
-            declarationStorage.enterScope(this)
+            declarationStorage.enterScope(this.symbol)
 
             buildList {
-                declarationStorage.addContextReceiverParametersTo(
+                callablesGenerator.addContextReceiverParametersTo(
                     fir.contextReceiversForFunctionOrContainingProperty(),
                     this@Fir2IrLazyPropertyAccessor,
-                    this@buildList,
+                    this@buildList
                 )
 
                 if (isSetter) {
                     val valueParameter = firAccessor?.valueParameters?.firstOrNull()
                     add(
-                        declarationStorage.createDefaultSetterParameter(
+                        callablesGenerator.createDefaultSetterParameter(
                             startOffset, endOffset,
                             (valueParameter?.returnTypeRef ?: firParentProperty.returnTypeRef).toIrType(
                                 typeConverter, conversionTypeContext
                             ),
                             parent = this@Fir2IrLazyPropertyAccessor,
-                            name = valueParameter?.name
+                            firValueParameter = valueParameter,
+                            name = valueParameter?.name,
+                            isCrossinline = valueParameter?.isCrossinline == true,
+                            isNoinline = valueParameter?.isNoinline == true
                         )
                     )
                 }
             }.apply {
-                declarationStorage.leaveScope(this@Fir2IrLazyPropertyAccessor)
+                declarationStorage.leaveScope(this@Fir2IrLazyPropertyAccessor.symbol)
             }
         }
     }
@@ -112,11 +114,12 @@ class Fir2IrLazyPropertyAccessor(
     }
 
     override val initialSignatureFunction: IrFunction? by lazy {
-        (fir as? FirSyntheticPropertyAccessor)?.delegate?.let { declarationStorage.getIrFunctionSymbol(it.symbol).owner }
+        val originalFirFunction = (fir as? FirSyntheticPropertyAccessor)?.delegate ?: return@lazy null
+        declarationStorage.getOrCreateIrFunction(originalFirFunction, parent)
     }
 
     override val containerSource: DeserializedContainerSource?
         get() = firParentProperty.containerSource
 
-    private val conversionTypeContext = if (isSetter) ConversionTypeContext.DEFAULT.inSetter() else ConversionTypeContext.DEFAULT
+    private val conversionTypeContext = if (isSetter) ConversionTypeOrigin.SETTER else ConversionTypeOrigin.DEFAULT
 }

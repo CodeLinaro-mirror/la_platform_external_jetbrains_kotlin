@@ -1,10 +1,11 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.backend
 
+import org.jetbrains.kotlin.backend.common.extensions.FirIncompatiblePluginAPI
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.BuiltinSymbolsBase
 import org.jetbrains.kotlin.config.LanguageVersionSettings
@@ -15,8 +16,9 @@ import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.scopes.*
-import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
@@ -31,23 +33,27 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
-class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginContext {
+class Fir2IrPluginContext(
+    private val components: Fir2IrComponents,
+    @property:ObsoleteDescriptorBasedAPI override val moduleDescriptor: ModuleDescriptor
+) : IrPluginContext {
     companion object {
         private const val ERROR_MESSAGE = "This API is not supported for K2"
     }
 
     @ObsoleteDescriptorBasedAPI
-    override val moduleDescriptor: ModuleDescriptor
-        get() = error(ERROR_MESSAGE)
-
-    @ObsoleteDescriptorBasedAPI
+    @FirIncompatiblePluginAPI
     override val bindingContext: BindingContext
         get() = error(ERROR_MESSAGE)
 
     @ObsoleteDescriptorBasedAPI
+    @FirIncompatiblePluginAPI
     override val typeTranslator: TypeTranslator
         get() = error(ERROR_MESSAGE)
+
+    override val afterK2: Boolean = true
 
     override val languageVersionSettings: LanguageVersionSettings
         get() = components.session.languageVersionSettings
@@ -66,8 +72,12 @@ class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginCo
     private val symbolProvider: FirSymbolProvider
         get() = components.session.symbolProvider
 
+    override val annotationsRegistrar: Fir2IrAnnotationsFromPluginRegistrar
+        get() = components.annotationsFromPluginRegistrar
+
     override fun referenceClass(classId: ClassId): IrClassSymbol? {
-        return referenceClassLikeSymbol(classId, symbolProvider::getClassLikeSymbolByClassId, symbolTable::referenceClass)
+        val firSymbol = symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*> ?: return null
+        return components.classifierStorage.getOrCreateIrClass(firSymbol).symbol
     }
 
     override fun referenceTypeAlias(classId: ClassId): IrTypeAliasSymbol? {
@@ -76,7 +86,7 @@ class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginCo
 
     private inline fun <R> referenceClassLikeSymbol(
         id: ClassId,
-        firSymbolExtractor: (ClassId) -> FirBasedSymbol<*>?,
+        firSymbolExtractor: (ClassId) -> FirClassLikeSymbol<*>?,
         irSymbolExtractor: (IdSignature) -> R
     ): R? {
         val firSymbol = firSymbolExtractor(id) ?: return null
@@ -88,7 +98,7 @@ class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginCo
         return referenceCallableSymbols(
             classId,
             getCallablesFromScope = { getDeclaredConstructors() },
-            getCallablesFromProvider = { error("should not be called") },
+            getCallablesFromProvider = { shouldNotBeCalled() },
             Fir2IrDeclarationStorage::getIrConstructorSymbol
         )
     }
@@ -121,9 +131,10 @@ class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginCo
             val expandedClass = symbolProvider.getClassLikeSymbolByClassId(classId)
                 ?.fullyExpandedClass(components.session)
                 ?: return emptyList()
-            expandedClass
-                .unsubstitutedScope(components.session, components.scopeSession, withForcedTypeCalculator = true)
-                .getCallablesFromScope()
+
+            with(components) {
+                expandedClass.unsubstitutedScope().getCallablesFromScope()
+            }
         } else {
             symbolProvider.getCallablesFromProvider()
         }
@@ -135,22 +146,28 @@ class Fir2IrPluginContext(private val components: Fir2IrComponents) : IrPluginCo
         error(ERROR_MESSAGE)
     }
 
+
+    @FirIncompatiblePluginAPI
     override fun referenceClass(fqName: FqName): IrClassSymbol? {
         error(ERROR_MESSAGE)
     }
 
+    @FirIncompatiblePluginAPI
     override fun referenceTypeAlias(fqName: FqName): IrTypeAliasSymbol? {
         error(ERROR_MESSAGE)
     }
 
+    @FirIncompatiblePluginAPI
     override fun referenceConstructors(classFqn: FqName): Collection<IrConstructorSymbol> {
         error(ERROR_MESSAGE)
     }
 
+    @FirIncompatiblePluginAPI
     override fun referenceFunctions(fqName: FqName): Collection<IrSimpleFunctionSymbol> {
         error(ERROR_MESSAGE)
     }
 
+    @FirIncompatiblePluginAPI
     override fun referenceProperties(fqName: FqName): Collection<IrPropertySymbol> {
         error(ERROR_MESSAGE)
     }

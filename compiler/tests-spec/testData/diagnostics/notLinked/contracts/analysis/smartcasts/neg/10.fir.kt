@@ -1,5 +1,15 @@
 // !OPT_IN: kotlin.contracts.ExperimentalContracts
 
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (NEGATIVE)
+ *
+ * SECTIONS: contracts, analysis, smartcasts
+ * NUMBER: 10
+ * DESCRIPTION: Check smartcasts using double negation (returnsFalse/invert type checking/not operator).
+ * ISSUES: KT-26176
+ * HELPERS: contractFunctions
+ */
+
 // FILE: contracts.kt
 
 package contracts
@@ -156,29 +166,29 @@ fun <T> T?.case_22_3(): Boolean? {
 
 // TESTCASE NUMBER: 23
 fun <T : Number?> T.case_23_1(): Boolean {
-    contract { returns(false) implies (this@case_23_1 !is Int || this@case_23_1 == null) }
+    contract { returns(false) implies (this@case_23_1 !is Int || <!SENSELESS_COMPARISON!>this@case_23_1 == null<!>) }
     return !(this@case_23_1 !is Int || <!SENSELESS_COMPARISON!>this@case_23_1 == null<!>)
 }
 fun <T : Number?> T.case_23_2(): Boolean? {
-    contract { returnsNotNull() implies (this@case_23_2 !is Int || this@case_23_2 == null) }
+    contract { returnsNotNull() implies (this@case_23_2 !is Int || <!SENSELESS_COMPARISON!>this@case_23_2 == null<!>) }
     return if (this@case_23_2 !is Int || <!SENSELESS_COMPARISON!>this@case_23_2 == null<!>) true else null
 }
 fun <T : Number?> T.case_23_3(): Boolean? {
-    contract { returns(null) implies (this@case_23_3 !is Int || this@case_23_3 == null) }
+    contract { returns(null) implies (this@case_23_3 !is Int || <!SENSELESS_COMPARISON!>this@case_23_3 == null<!>) }
     return if (this@case_23_3 !is Int || <!SENSELESS_COMPARISON!>this@case_23_3 == null<!>) null else true
 }
 
 // TESTCASE NUMBER: 24
 inline fun <reified T : Any?> T?.case_24_1(): Boolean {
-    contract { returns(false) implies (this@case_24_1 !is Number || this@case_24_1 !is Int || this@case_24_1 == null) }
+    contract { returns(false) implies (this@case_24_1 !is Number || this@case_24_1 !is Int || <!SENSELESS_COMPARISON!>this@case_24_1 == null<!>) }
     return !(this@case_24_1 !is Number || this@case_24_1 !is Int || <!SENSELESS_COMPARISON!>this@case_24_1 == null<!>)
 }
 inline fun <reified T : Any?> T?.case_24_2(): Boolean? {
-    contract { returnsNotNull() implies (this@case_24_2 !is Number || this@case_24_2 !is Int || this@case_24_2 == null) }
+    contract { returnsNotNull() implies (this@case_24_2 !is Number || this@case_24_2 !is Int || <!SENSELESS_COMPARISON!>this@case_24_2 == null<!>) }
     return if (this@case_24_2 !is Number || this@case_24_2 !is Int || <!SENSELESS_COMPARISON!>this@case_24_2 == null<!>) true else null
 }
 inline fun <reified T : Any?> T?.case_24_3(): Boolean? {
-    contract { returns(null) implies (this@case_24_3 !is Number || this@case_24_3 !is Int || this@case_24_3 == null) }
+    contract { returns(null) implies (this@case_24_3 !is Number || this@case_24_3 !is Int || <!SENSELESS_COMPARISON!>this@case_24_3 == null<!>) }
     return if (this@case_24_3 !is Number || this@case_24_3 !is Int || <!SENSELESS_COMPARISON!>this@case_24_3 == null<!>) null else true
 }
 
@@ -345,22 +355,22 @@ class case_14_class {
         if (!funWithReturnsTrueAndInvertCondition(value_1 is Float? && value_1 != null && value_2 != null && o.prop_1 != null)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (funWithReturnsFalse(value_1 !is Float? || value_1 == null || value_2 == null || o.prop_1 == null || this.prop_1 == null)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (funWithReturnsNotNull(value_1 !is Float? || value_1 == null || value_2 == null || o.prop_1 == null || this.prop_1 == null) == null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (funWithReturnsNull(value_1 !is Float? || value_1 == null || value_2 == null || o.prop_1 == null || this.prop_1 == null) != null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
     }
 }
@@ -414,26 +424,26 @@ class case_17_class {
         if (contracts.case_17_1(value_1, value_2, o.prop_1, this.prop_1)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (contracts.case_17_2(value_1, value_2, o.prop_1, this.prop_1)) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (contracts.case_17_3(value_1, value_2, o.prop_1, this.prop_1) == null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
         if (contracts.case_17_4(value_1, value_2, o.prop_1, this.prop_1) != null) {
             println(value_1.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>dec<!>())
             println(value_2?.toByte())
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
-            <!OVERLOAD_RESOLUTION_AMBIGUITY!>println<!>(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(o.prop_1<!UNSAFE_CALL!>.<!>plus(3))
+            println(this.prop_1<!UNSAFE_CALL!>.<!>plus(3))
         }
     }
 }

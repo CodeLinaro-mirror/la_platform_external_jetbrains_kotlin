@@ -11,25 +11,20 @@ import com.intellij.psi.search.ProjectScope
 import org.jetbrains.kotlin.analysis.api.components.KtSymbolContainingDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.KtFe10DescSymbol
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KtFe10DescDefaultBackingFieldSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getDescriptor
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.KtFe10PsiSymbol
+import org.jetbrains.kotlin.analysis.api.getModule
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KtBackingFieldSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPackageSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithKind
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
-import org.jetbrains.kotlin.analysis.project.structure.KtLibraryModule
-import org.jetbrains.kotlin.analysis.project.structure.KtLibrarySourceModule
-import org.jetbrains.kotlin.analysis.project.structure.KtModule
-import org.jetbrains.kotlin.analysis.project.structure.getKtModule
-import org.jetbrains.kotlin.cfg.getElementParentDeclaration
-import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.analysis.project.structure.*
 import org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
 import org.jetbrains.kotlin.platform.TargetPlatform
+import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
 import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.resolve.descriptorUtil.platform
 import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatformAnalyzerServices
@@ -43,67 +38,55 @@ internal class KtFe10SymbolContainingDeclarationProvider(
     override val token: KtLifetimeToken
         get() = analysisSession.token
 
-    override fun getContainingDeclaration(symbol: KtSymbol): KtSymbolWithKind? {
+    override fun getContainingDeclaration(symbol: KtSymbol): KtDeclarationSymbol? {
         if (symbol is KtSymbolWithKind && symbol.symbolKind == KtSymbolKind.TOP_LEVEL) {
             return null
         }
 
         return when (symbol) {
-            is KtPackageSymbol -> null
             is KtBackingFieldSymbol -> symbol.owningProperty
-            is KtFe10DescSymbol<*> -> symbol.descriptor.containingDeclaration?.toKtSymbol(analysisContext) as? KtSymbolWithKind
-            is KtFe10PsiSymbol<*, *> -> {
-                val parentDeclaration = symbol.psi.getElementParentDeclaration()
-                if (parentDeclaration != null) {
-                    return with(analysisSession) {
-                        parentDeclaration.getSymbol() as? KtSymbolWithKind
-                    }
-                }
-
-                return null
-            }
-
-            else -> null
+            else -> symbol.getDescriptor()?.containingDeclaration?.toKtSymbol(analysisContext) as? KtDeclarationSymbol
         }
     }
 
     // TODO this is a dummy and incorrect implementation just to satisfy some tests
     override fun getContainingModule(symbol: KtSymbol): KtModule {
-        // Implicit lambda parameter doesn't have a source PSI.
-        if ((symbol as? KtValueParameterSymbol)?.isImplicitLambdaParameter == true) {
-            // Retrieve the module from its containing lambda instead.
-            getContainingDeclaration(symbol)?.let { parentLambdaSymbol ->
-                return getContainingModule(parentLambdaSymbol)
-            }
+        val descriptor = symbol.getDescriptor()
+
+        val symbolPsi = descriptor?.let(DescriptorToSourceUtils::getContainingFile) ?: symbol.psi
+        if (symbolPsi != null) {
+            return analysisSession.getModule(symbolPsi)
         }
-        return symbol.psi?.getKtModule(analysisSession.analysisContext.resolveSession.project)
-            ?: symbol.getDescriptor()?.getFakeContainingKtModule()
-            ?: TODO(symbol.toString())
+
+        if (descriptor is DescriptorWithContainerSource) {
+            return getFakeContainingKtModule(descriptor)
+        }
+
+        if (symbol is KtBackingFieldSymbol) {
+            return getContainingModule(symbol.owningProperty)
+        }
+
+        TODO(symbol::class.java.name)
     }
 
-    private fun DeclarationDescriptor.getFakeContainingKtModule(): KtModule {
-        return when (this) {
-            is DescriptorWithContainerSource -> {
-                val libraryPath = Paths.get((containerSource as JvmPackagePartSource).knownJvmBinaryClass?.containingLibrary!!)
-                object : KtLibraryModule {
-                    override val libraryName: String = libraryPath.fileName.toString().substringBeforeLast(".")
-                    override val librarySources: KtLibrarySourceModule? = null
-                    override fun getBinaryRoots(): Collection<Path> = listOf(libraryPath)
-                    override val directRegularDependencies: List<KtModule> = emptyList()
-                    override val directRefinementDependencies: List<KtModule> = emptyList()
-                    override val directFriendDependencies: List<KtModule> = emptyList()
-                    override val contentScope: GlobalSearchScope = ProjectScope.getLibrariesScope(project)
-                    override val platform: TargetPlatform
-                        get() = this@getFakeContainingKtModule.platform!!
-                    override val analyzerServices: PlatformDependentAnalyzerServices
-                        get() = JvmPlatformAnalyzerServices
-                    override val project: Project
-                        get() = analysisSession.analysisContext.resolveSession.project
+    private fun getFakeContainingKtModule(descriptor: DescriptorWithContainerSource): KtModule {
+        val libraryPath = Paths.get((descriptor.containerSource as JvmPackagePartSource).knownJvmBinaryClass?.containingLibrary!!)
+        return object : KtLibraryModule {
+            override val libraryName: String = libraryPath.fileName.toString().substringBeforeLast(".")
+            override val librarySources: KtLibrarySourceModule? = null
+            override fun getBinaryRoots(): Collection<Path> = listOf(libraryPath)
+            override val directRegularDependencies: List<KtModule> = emptyList()
+            override val directDependsOnDependencies: List<KtModule> = emptyList()
+            override val transitiveDependsOnDependencies: List<KtModule> = emptyList()
+            override val directFriendDependencies: List<KtModule> = emptyList()
+            override val contentScope: GlobalSearchScope = ProjectScope.getLibrariesScope(project)
+            override val platform: TargetPlatform
+                get() = descriptor.platform!!
+            override val analyzerServices: PlatformDependentAnalyzerServices
+                get() = JvmPlatformAnalyzerServices
+            override val project: Project
+                get() = analysisSession.analysisContext.resolveSession.project
 
-                }
-            }
-
-            else -> TODO(this.toString())
         }
     }
 }

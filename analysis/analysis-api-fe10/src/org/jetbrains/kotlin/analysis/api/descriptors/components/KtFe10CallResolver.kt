@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.analysis.api.calls.*
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisFacade.AnalysisMode
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
+import org.jetbrains.kotlin.analysis.api.descriptors.signatures.KtFe10FunctionLikeSignature
+import org.jetbrains.kotlin.analysis.api.descriptors.signatures.KtFe10VariableLikeSignature
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KtFe10DescValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KtFe10ReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.KtFe10DescSymbol
@@ -26,12 +28,8 @@ import org.jetbrains.kotlin.analysis.api.signatures.KtFunctionLikeSignature
 import org.jetbrains.kotlin.analysis.api.signatures.KtVariableLikeSignature
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
-import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.diagnostics.DiagnosticWithParameters1
-import org.jetbrains.kotlin.diagnostics.DiagnosticWithParameters2
-import org.jetbrains.kotlin.diagnostics.Errors
-import org.jetbrains.kotlin.diagnostics.Severity
+import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getPossiblyQualifiedCallExpression
@@ -61,10 +59,6 @@ import org.jetbrains.kotlin.resolve.scopes.receivers.ReceiverValue
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.TypeUtils
 import org.jetbrains.kotlin.types.UnwrappedType
-import org.jetbrains.kotlin.types.asSimpleType
-import org.jetbrains.kotlin.types.checker.SimpleClassicTypeSystemContext.contains
-import org.jetbrains.kotlin.types.checker.SimpleClassicTypeSystemContext.isTypeVariable
-import org.jetbrains.kotlin.types.checker.SimpleClassicTypeSystemContext.typeConstructor
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.types.typeUtil.contains
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -98,7 +92,8 @@ internal class KtFe10CallResolver(
             Errors.REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_ANNOTATION,
             *Errors.TYPE_MISMATCH_ERRORS.toTypedArray(),
         )
-        private val resolutionFailureErrors = setOf(
+
+        private val resolutionFailureErrors: Set<DiagnosticFactoryWithPsiElement<*, *>> = setOf(
             Errors.INVISIBLE_MEMBER,
             Errors.NO_VALUE_FOR_PARAMETER,
             Errors.MISSING_RECEIVER,
@@ -122,6 +117,12 @@ internal class KtFe10CallResolver(
             Errors.PARENTHESIZED_COMPANION_LHS_DEPRECATION,
             Errors.RESOLUTION_TO_PRIVATE_CONSTRUCTOR_OF_SEALED_CLASS,
             Errors.UNRESOLVED_REFERENCE,
+            *Errors.TYPECHECKER_HAS_RUN_INTO_RECURSIVE_PROBLEM.factories,
+            *Errors.TYPECHECKER_HAS_RUN_INTO_RECURSIVE_PROBLEM_IN_AUGMENTED_ASSIGNMENT.factories,
+        )
+
+        private val syntaxErrors = setOf(
+            Errors.ASSIGNMENT_IN_EXPRESSION_CONTEXT,
         )
 
         val diagnosticWithResolvedCallsAtPosition1 = setOf(
@@ -139,13 +140,16 @@ internal class KtFe10CallResolver(
             Errors.DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE,
             Errors.DELEGATE_PD_METHOD_NONE_APPLICABLE,
         )
+
+        private val DiagnosticFactoryForDeprecation<*, *, *>.factories: Array<DiagnosticFactoryWithPsiElement<*, *>>
+            get() = arrayOf(warningFactory, errorFactory)
     }
 
     override val token: KtLifetimeToken
         get() = analysisSession.token
 
     override fun resolveCall(psi: KtElement): KtCallInfo? = with(analysisContext.analyze(psi, AnalysisMode.PARTIAL_WITH_DIAGNOSTICS)) {
-        if (psi.isNotResolvable()) return null
+        if (!canBeResolvedAsCall(psi)) return null
 
         val parentBinaryExpression = psi.parentOfType<KtBinaryExpression>()
         val lhs = KtPsiUtil.deparenthesize(parentBinaryExpression?.left)
@@ -177,7 +181,7 @@ internal class KtFe10CallResolver(
 
     override fun collectCallCandidates(psi: KtElement): List<KtCallCandidateInfo> =
         with(analysisContext.analyze(psi, AnalysisMode.PARTIAL_WITH_DIAGNOSTICS)) {
-            if (psi.isNotResolvable()) return emptyList()
+            if (!canBeResolvedAsCall(psi)) return emptyList()
 
             val resolvedKtCallInfo = resolveCall(psi)
             val bestCandidateDescriptors =
@@ -448,9 +452,14 @@ internal class KtFe10CallResolver(
                     if (callElement.isCallToThis) KtDelegatedConstructorCall.Kind.THIS_CALL else KtDelegatedConstructorCall.Kind.SUPER_CALL,
                     argumentMapping
                 )
+                is KtSuperTypeCallEntry -> return KtDelegatedConstructorCall(
+                    partiallyAppliedConstructorSymbol,
+                    KtDelegatedConstructorCall.Kind.SUPER_CALL,
+                    argumentMapping
+                )
             }
         }
-        @Suppress("UNCHECKED_CAST")
+
         return KtSimpleFunctionCall(
             partiallyAppliedSymbol,
             argumentMapping,
@@ -537,12 +546,7 @@ internal class KtFe10CallResolver(
     private fun createSignature(symbol: KtSymbol, resultingDescriptor: CallableDescriptor): KtCallableSignature<*>? {
         val returnType = if (resultingDescriptor is ValueParameterDescriptor && resultingDescriptor.isVararg) {
             val arrayType = resultingDescriptor.returnType ?: return null
-            val primitiveArrayElementType = KotlinBuiltIns.getPrimitiveArrayElementType(arrayType)
-            if (primitiveArrayElementType == null) {
-                arrayType.arguments.singleOrNull()?.type
-            } else {
-                analysisContext.builtIns.getPrimitiveKotlinType(primitiveArrayElementType)
-            }
+            analysisContext.builtIns.getArrayElementType(arrayType)
         } else {
             resultingDescriptor.returnType
         }
@@ -555,8 +559,8 @@ internal class KtFe10CallResolver(
             resultingDescriptor.extensionReceiverParameter?.returnType?.toKtType(analysisContext)
         }
         return when (symbol) {
-            is KtVariableLikeSymbol -> KtVariableLikeSignature(symbol, ktReturnType, receiverType)
-            is KtFunctionLikeSymbol -> KtFunctionLikeSignature(
+            is KtVariableLikeSymbol -> KtFe10VariableLikeSignature(symbol, ktReturnType, receiverType)
+            is KtFunctionLikeSymbol -> KtFe10FunctionLikeSignature(
                 symbol,
                 ktReturnType,
                 receiverType,
@@ -635,6 +639,7 @@ internal class KtFe10CallResolver(
         diagnostics: Diagnostics = context.diagnostics
     ) = diagnostics.firstOrNull { diagnostic ->
         if (diagnostic.severity != Severity.ERROR) return@firstOrNull false
+        if (diagnostic.factory in syntaxErrors) return@firstOrNull true
         val isResolutionError = diagnostic.factory in resolutionFailureErrors
         val isCallArgError = diagnostic.factory in callArgErrors
         val reportedPsi = diagnostic.psiElement

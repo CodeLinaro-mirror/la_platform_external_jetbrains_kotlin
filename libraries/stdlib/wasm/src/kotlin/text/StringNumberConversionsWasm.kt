@@ -6,14 +6,7 @@
 package kotlin.text
 
 import kotlin.math.abs
-
-/**
- * Returns `true` if the content of this string is equal to the word "true", ignoring case, and `false` otherwise.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-@kotlin.internal.InlineOnly
-actual fun String.toBoolean(): Boolean = this.toBoolean()
+import kotlin.wasm.internal.wasm_f32_demote_f64
 
 /**
  * Returns `true` if the contents of this string is equal to the word "true", ignoring case, and `false` otherwise.
@@ -84,13 +77,13 @@ public actual fun String.toDouble(): Double = kotlin.text.parseDouble(this)
  * Parses the string as a [Float] number and returns the result.
  * @throws NumberFormatException if the string is not a valid representation of a number.
  */
-public actual fun String.toFloat(): Float = toDouble() as Float
+public actual fun String.toFloat(): Float = wasm_f32_demote_f64(toDouble())
 
 /**
  * Parses the string as a [Float] number and returns the result
  * or `null` if the string is not a valid representation of a number.
  */
-public actual fun String.toFloatOrNull(): Float? = toDoubleOrNull() as Float?
+public actual fun String.toFloatOrNull(): Float? = toDoubleOrNull()?.let { wasm_f32_demote_f64(it) }
 
 /**
  * Parses the string as a [Double] number and returns the result

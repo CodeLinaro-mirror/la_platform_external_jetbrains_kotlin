@@ -7,7 +7,6 @@
 
 package org.jetbrains.kotlin.gradle.tasks.configuration
 
-import com.intellij.openapi.util.SystemInfo
 import com.intellij.util.lang.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.attributes.Attribute
@@ -17,7 +16,6 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.dsl.topLevelExtension
 import org.jetbrains.kotlin.gradle.internal.*
-import org.jetbrains.kotlin.gradle.internal.Kapt3GradleSubplugin.Companion.KAPT_SUBPLUGIN_ID
 import org.jetbrains.kotlin.gradle.internal.Kapt3GradleSubplugin.Companion.classLoadersCacheSize
 import org.jetbrains.kotlin.gradle.internal.Kapt3GradleSubplugin.Companion.disableClassloaderCacheForProcessors
 import org.jetbrains.kotlin.gradle.internal.Kapt3GradleSubplugin.Companion.isIncludeCompileClasspath
@@ -26,13 +24,10 @@ import org.jetbrains.kotlin.gradle.internal.kapt.incremental.CLASS_STRUCTURE_ART
 import org.jetbrains.kotlin.gradle.internal.kapt.incremental.StructureTransformAction
 import org.jetbrains.kotlin.gradle.internal.kapt.incremental.StructureTransformLegacyAction
 import org.jetbrains.kotlin.gradle.plugin.*
-import org.jetbrains.kotlin.gradle.tasks.CompilerPluginOptions
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.toCompilerPluginOptions
-import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
 import org.jetbrains.kotlin.gradle.utils.listProperty
+import org.jetbrains.kotlin.gradle.utils.markResolvable
 import java.io.File
-import java.util.concurrent.Callable
 
 internal open class KaptConfig<TASK : KaptTask>(
     project: Project,
@@ -52,7 +47,7 @@ internal open class KaptConfig<TASK : KaptTask>(
                 task.includeCompileClasspath.set(ext.includeCompileClasspath ?: project.isIncludeCompileClasspath())
                 task.classpathStructure.from(kaptClasspathSnapshot)
 
-                task.localStateDirectories.from(Callable { task.incAptCache.orNull })
+                task.localStateDirectories.from({ task.incAptCache.orNull })
                 task.onlyIf {
                     it as KaptTask
                     it.includeCompileClasspath.get() || !it.kaptClasspath.isEmpty
@@ -61,18 +56,26 @@ internal open class KaptConfig<TASK : KaptTask>(
         }
     }
 
-    internal constructor(kotlinCompileTask: KotlinCompile, ext: KaptExtension) : this(kotlinCompileTask.project, ext) {
+    internal constructor(
+        project: Project,
+        kaptGenerateStubsTask: TaskProvider<KaptGenerateStubsTask>,
+        ext: KaptExtension
+    ) : this(project, ext) {
         configureTask { task ->
-            task.classpath.from(kotlinCompileTask.libraries)
-            task.compiledSources.from(
-                kotlinCompileTask.destinationDirectory,
-                Callable { kotlinCompileTask.javaOutputDir.takeIf { it.isPresent } })
+            task.classpath.from(
+                kaptGenerateStubsTask.map { it.libraries }
+            )
+            task.compiledSources
+                .from(
+                    kaptGenerateStubsTask.flatMap { it.kotlinCompileDestinationDirectory },
+                    { kaptGenerateStubsTask.get().javaOutputDir.takeIf { it.isPresent } }
+                )
                 .disallowChanges()
-            task.sourceSetName.value(kotlinCompileTask.sourceSetName).disallowChanges()
+            task.sourceSetName.value(kaptGenerateStubsTask.flatMap { it.sourceSetName }).disallowChanges()
 
 
             val kaptSources = objectFactory.fileCollection()
-                .from(kotlinCompileTask.javaSources, task.stubsDir)
+                .from(kaptGenerateStubsTask.map { it.javaSources }, task.stubsDir)
                 .asFileTree
                 .matching { it.include("**/*.java") }
                 .filter {
@@ -88,7 +91,7 @@ internal open class KaptConfig<TASK : KaptTask>(
         return if (project.isIncrementalKapt()) {
             maybeRegisterTransform(project)
 
-            val classStructureConfiguration = project.configurations.detachedConfiguration()
+            val classStructureConfiguration = project.configurations.detachedConfiguration().markResolvable()
 
             // Wrap the `kotlinCompile.classpath` into a file collection, so that, if the classpath is represented by a configuration,
             // the configuration is not extended (via extendsFrom, which normally happens when one configuration is _added_ into another)
@@ -128,14 +131,7 @@ internal open class KaptConfig<TASK : KaptTask>(
                 if ("-source" in result || "--source" in result || "--release" in result) return@also
 
                 if (defaultJavaSourceCompatibility.isPresent) {
-                    val atLeast12Java =
-                        if (isConfigurationCacheAvailable(project.gradle)) {
-                            val currentJavaVersion =
-                                JavaVersion.parse(project.providers.systemProperty("java.version").forUseAtConfigurationTime().get())
-                            currentJavaVersion.feature >= 12
-                        } else {
-                            SystemInfo.isJavaVersionAtLeast(12, 0, 0)
-                        }
+                    val atLeast12Java = JavaVersion.current().compareTo(JavaVersion.compose(12, 0, 0, 0, false)) >= 0
                     val sourceOptionKey = if (atLeast12Java) {
                         "--source"
                     } else {
@@ -150,8 +146,8 @@ internal open class KaptConfig<TASK : KaptTask>(
 
 //Have to avoid using FileUtil because it is required system property reading that is not allowed for configuration cache
 private fun isAncestor(dir: File, file: File): Boolean {
-    val path = file.canonicalPath
-    val prefix = dir.canonicalPath
+    val path = file.normalize().absolutePath
+    val prefix = dir.normalize().absolutePath
     val pathLength = path.length
     val prefixLength = prefix.length
     val caseSensitive = true
@@ -185,21 +181,28 @@ internal class KaptWithoutKotlincConfig : KaptConfig<KaptWithoutKotlincTask> {
             )
             task.kaptJars.from(project.configurations.getByName(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME))
             task.mapDiagnosticLocations = ext.mapDiagnosticLocations
-            task.annotationProcessorFqNames.set(providers.provider { ext.processors.split(',').filter { it.isNotEmpty() } })
+            task.annotationProcessorFqNames.set(providers.provider {
+                @Suppress("DEPRECATION")
+                ext.processors.split(',').filter { it.isNotEmpty() }
+            })
             task.disableClassloaderCacheForProcessors = project.disableClassloaderCacheForProcessors()
             task.classLoadersCacheSize = project.classLoadersCacheSize()
             task.javacOptions.set(getJavaOptions(task.defaultJavaSourceCompatibility))
         }
     }
 
-    constructor(kotlinCompileTask: KotlinCompile, ext: KaptExtension) : super(kotlinCompileTask, ext) {
+    constructor(
+        project: Project,
+        kaptGenerateStubsTask: TaskProvider<KaptGenerateStubsTask>,
+        ext: KaptExtension
+    ) : super(project, kaptGenerateStubsTask, ext) {
         project.configurations.findByName(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME)
             ?: project.configurations.create(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME).apply {
                 dependencies.addAllLater(project.listProperty {
                     val kaptDependency = "org.jetbrains.kotlin:kotlin-annotation-processing-gradle:${project.getKotlinPluginVersion()}"
                     listOf(
                         project.dependencies.create(kaptDependency),
-                        project.kotlinDependency(
+                        project.dependencies.kotlinDependency(
                             "kotlin-stdlib",
                             project.topLevelExtension.coreLibrariesVersion
                         )
@@ -222,36 +225,6 @@ internal class KaptWithoutKotlincConfig : KaptConfig<KaptWithoutKotlincTask> {
             val kotlinSourceDir = objectFactory.fileCollection().from(task.kotlinSourcesDestinationDir)
             val nonAndroidDslOptions = getNonAndroidDslApOptions(ext, project, kotlinSourceDir, null, null)
             task.kaptPluginOptions.add(nonAndroidDslOptions.toCompilerPluginOptions())
-        }
-    }
-}
-
-internal class KaptWithKotlincConfig(kotlinCompileTask: KotlinCompile, ext: KaptExtension) :
-    KaptConfig<KaptWithKotlincTask>(kotlinCompileTask, ext) {
-
-    init {
-        configureTask { task ->
-            if (project.isIncrementalKapt()) {
-                val incAptCacheOption = task.incAptCache.locationOnly.map { incAptCacheDir ->
-                    CompilerPluginOptions().also {
-                        it.addPluginArgument(
-                            KAPT_SUBPLUGIN_ID, SubpluginOption("incrementalCache", lazy { incAptCacheDir.asFile.absolutePath })
-                        )
-                    }
-                }
-                task.kaptPluginOptions.add(incAptCacheOption)
-            }
-
-            task.compilerClasspath.from(providers.provider { kotlinCompileTask.defaultCompilerClasspath })
-            task.pluginClasspath.from(kotlinCompileTask.pluginClasspath)
-            task.additionalPluginOptionsAsInputs.value(kotlinCompileTask.pluginOptions).disallowChanges()
-            task.compileKotlinArgumentsContributor.set(providers.provider { kotlinCompileTask.compilerArgumentsContributor })
-            task.javaPackagePrefix.set(providers.provider { kotlinCompileTask.javaPackagePrefix })
-            task.reportingSettings.set(providers.provider { kotlinCompileTask.reportingSettings() })
-            propertiesProvider.kotlinDaemonJvmArgs?.let {
-                task.kotlinDaemonJvmArguments.value(it.split("\\s+".toRegex())).disallowChanges()
-            }
-            task.compilerExecutionStrategy.value(propertiesProvider.kotlinCompilerExecutionStrategy).disallowChanges()
         }
     }
 }

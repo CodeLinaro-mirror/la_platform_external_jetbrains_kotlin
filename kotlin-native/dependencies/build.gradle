@@ -5,21 +5,15 @@
 import groovy.transform.stc.ClosureParams
 import groovy.transform.stc.FromString
 import org.jetbrains.kotlin.konan.target.*
-import static org.jetbrains.kotlin.konan.target.KonanTarget.*
-import org.jetbrains.kotlin.konan.util.Named
 import org.jetbrains.kotlin.konan.properties.KonanPropertiesLoader
 import org.jetbrains.kotlin.konan.util.ArchiveType
 import org.jetbrains.kotlin.konan.util.DependencyProcessor
-
-import static org.jetbrains.kotlin.konan.util.VisibleNamedKt.getVisibleName
 
 buildscript {
     apply from: "$rootDir/kotlin-native/gradle/kotlinGradlePlugin.gradle"
 
     repositories {
-        maven {
-            url = 'https://cache-redirector.jetbrains.com/jcenter'
-        }
+        mavenCentral()
     }
 }
 
@@ -81,10 +75,10 @@ enum DependencyKind {
 
 def platformManager = rootProject.project(":kotlin-native").ext.platformManager
 
-platformManager.enabled.each { target ->
+EnabledTargetsKt.enabledTargets(platformManager).each { target ->
     def loader = platformManager.loader(target)
 
-    task "${target}Dependencies"(type: NativeDep) {
+    tasks.register("${target}Dependencies", NativeDep) {
         konanPropertiesLoader = loader
     }
 
@@ -109,13 +103,13 @@ platformManager.enabled.each { target ->
     }
 }
 
-task update {
+tasks.register("update") {
     dependsOn tasks.withType(NativeDep)
     mustRunAfter(tasks.withType(NativeDep))
 }
 rootProject.project(":kotlin-native").ext.nativeDependencies = tasks.withType(NativeDep)
 
-task rmDotKonan(type: Delete) {
+tasks.register("rmDotKonan", Delete) {
     def dir = System.getenv("KONAN_DATA_DIR") ?: "${System.getProperty("user.home")}/.konan"
     delete dir
 }

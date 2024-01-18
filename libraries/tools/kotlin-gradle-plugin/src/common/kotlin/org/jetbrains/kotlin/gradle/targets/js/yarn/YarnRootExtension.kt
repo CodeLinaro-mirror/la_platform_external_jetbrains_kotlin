@@ -6,21 +6,16 @@
 package org.jetbrains.kotlin.gradle.targets.js.yarn
 
 import org.gradle.api.Action
-import org.gradle.api.Incubating
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlatform
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
-import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.implementing
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.Platform
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
 import org.jetbrains.kotlin.gradle.tasks.internal.CleanableStore
 import java.io.File
 
 open class YarnRootExtension(
-    @Transient
     val project: Project
 ) : ConfigurationPhaseAware<YarnEnv>() {
     init {
@@ -44,6 +39,12 @@ open class YarnRootExtension(
 
     var ignoreScripts by Property(true)
 
+    var yarnLockMismatchReport: YarnLockMismatchReport by Property(YarnLockMismatchReport.FAIL)
+
+    var reportNewYarnLock: Boolean by Property(false)
+
+    var yarnLockAutoReplace: Boolean by Property(false)
+
     val yarnSetupTaskProvider: TaskProvider<YarnSetupTask>
         get() = project.tasks
             .withType(YarnSetupTask::class.java)
@@ -54,7 +55,9 @@ open class YarnRootExtension(
             .withType(RootPackageJsonTask::class.java)
             .named(RootPackageJsonTask.NAME)
 
-    var resolutions: MutableList<YarnResolution> = mutableListOf()
+    internal val platform: org.gradle.api.provider.Property<Platform> = project.objects.property(Platform::class.java)
+
+    var resolutions: MutableList<YarnResolution> by Property(mutableListOf())
 
     fun resolution(path: String, configure: Action<YarnResolution>) {
         resolutions.add(
@@ -69,25 +72,10 @@ open class YarnRootExtension(
         })
     }
 
-    @Incubating
-    fun disableGranularWorkspaces() {
-        val packageJsonUmbrella = NodeJsRootPlugin.apply(project)
-            .packageJsonUmbrellaTaskProvider
-
-        rootPackageJsonTaskProvider.configure {
-            it.dependsOn(packageJsonUmbrella)
-        }
-
-        project.allprojects
-            .forEach {
-                it.tasks.implementing(RequiresNpmDependencies::class).all {}
-            }
-    }
-
     override fun finalizeConfiguration(): YarnEnv {
         val cleanableStore = CleanableStore[installationDir.path]
 
-        val isWindows = NodeJsPlatform.name == NodeJsPlatform.WIN
+        val isWindows = platform.get().isWindows()
 
         val home = cleanableStore["yarn-v$version"].use()
 
@@ -107,18 +95,11 @@ open class YarnRootExtension(
             standalone = !download,
             ivyDependency = "com.yarnpkg:yarn:$version@tar.gz",
             ignoreScripts = ignoreScripts,
+            yarnLockMismatchReport = yarnLockMismatchReport,
+            reportNewYarnLock = reportNewYarnLock,
+            yarnLockAutoReplace = yarnLockAutoReplace,
+            yarnResolutions = resolutions
         )
-    }
-
-    internal fun executeSetup() {
-        NodeJsRootPlugin.apply(project).executeSetup()
-
-        if (!download) return
-
-        val yarnSetupTask = yarnSetupTaskProvider.get()
-        yarnSetupTask.actions.forEach {
-            it.execute(yarnSetupTask)
-        }
     }
 
     companion object {

@@ -13,7 +13,9 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.disambiguateName
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
 import java.io.Serializable
 
@@ -35,8 +37,10 @@ open class NpmProject(@Transient val compilation: KotlinJsCompilation) : Seriali
         buildNpmProjectName()
     }
 
-    @Transient
-    val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    @delegate:Transient
+    val nodeJs by lazy {
+        project.rootProject.kotlinNodeJsExtension
+    }
 
     val dir: File by lazy {
         nodeJs.projectPackagesDir.resolve(name)
@@ -70,17 +74,12 @@ open class NpmProject(@Transient val compilation: KotlinJsCompilation) : Seriali
     val main: String
         get() = "$DIST_FOLDER${File.separator}$name$extension"
 
-    val externalsDirRoot by lazy {
-        project.buildDir.resolve("externals").resolve(name)
-    }
-
-    val externalsDir: File
-        get() = externalsDirRoot.resolve("src")
-
     val publicPackageJsonTaskName: String
         get() = compilation.disambiguateName(PublicPackageJsonTask.NAME)
 
-    internal val modules = NpmProjectModules(dir)
+    internal val modules by lazy {
+        NpmProjectModules(dir)
+    }
 
     private val nodeExecutable by lazy {
         nodeJs.requireConfigured().nodeExecutable
@@ -133,21 +132,20 @@ open class NpmProject(@Transient val compilation: KotlinJsCompilation) : Seriali
         val rootProjectName = project.rootProject.name
 
         val localName = if (project != project.rootProject) {
-            project.name
-        } else null
+            (rootProjectName + project.path).replace(":", "-")
+        } else rootProjectName
 
-        val targetName = if (target.name.isNotEmpty() && target.name.toLowerCase() != "js") {
+        val targetName = if (target.name.isNotEmpty() && target.name.toLowerCaseAsciiOnly() != "js") {
             target.name
                 .replace(DECAMELIZE_REGEX) {
                     it.groupValues
                         .drop(1)
                         .joinToString(prefix = "-", separator = "-")
                 }
-                .toLowerCase()
+                .toLowerCaseAsciiOnly()
         } else null
 
         return sequenceOf(
-            rootProjectName,
             localName,
             targetName,
             compilationName

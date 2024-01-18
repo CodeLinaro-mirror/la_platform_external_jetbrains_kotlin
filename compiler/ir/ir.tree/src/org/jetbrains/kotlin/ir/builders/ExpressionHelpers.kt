@@ -12,11 +12,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.util.isImmutable
-import org.jetbrains.kotlin.ir.util.parentAsClass
-import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.ir.util.render
-import org.jetbrains.kotlin.utils.addToStdlib.assertedCast
+import org.jetbrains.kotlin.ir.util.*
 
 val IrBuilderWithScope.parent get() = scope.getLocalDeclarationParent()
 
@@ -53,11 +49,13 @@ fun <T : IrElement> IrStatementsBuilder<T>.irTemporary(
     nameHint: String? = null,
     irType: IrType = value?.type!!, // either value or irType should be supplied at callsite
     isMutable: Boolean = false,
+    origin: IrDeclarationOrigin = IrDeclarationOrigin.IR_TEMPORARY_VARIABLE,
 ): IrVariable {
     val temporary = scope.createTemporaryVariableDeclaration(
         irType, nameHint, isMutable,
         startOffset = startOffset,
-        endOffset = endOffset
+        endOffset = endOffset,
+        origin = origin,
     )
     value?.let { temporary.initializer = it }
     +temporary
@@ -74,9 +72,8 @@ fun IrBuilderWithScope.irReturn(value: IrExpression) =
     IrReturnImpl(
         startOffset, endOffset,
         context.irBuiltIns.nothingType,
-        scope.scopeOwnerSymbol.assertedCast<IrReturnTargetSymbol> {
-            "Function scope expected: ${scope.scopeOwnerSymbol.owner.render()}"
-        },
+        scope.scopeOwnerSymbol as? IrReturnTargetSymbol
+            ?: throw AssertionError("Function scope expected: ${scope.scopeOwnerSymbol.owner.render()}"),
         value
     )
 
@@ -149,8 +146,8 @@ fun IrBuilderWithScope.irSet(variable: IrValueSymbol, value: IrExpression, origi
 fun IrBuilderWithScope.irSet(variable: IrValueDeclaration, value: IrExpression, origin: IrStatementOrigin = IrStatementOrigin.EQ) =
     irSet(variable.symbol, value, origin)
 
-fun IrBuilderWithScope.irGetField(receiver: IrExpression?, field: IrField) =
-    IrGetFieldImpl(startOffset, endOffset, field.symbol, field.type, receiver)
+fun IrBuilderWithScope.irGetField(receiver: IrExpression?, field: IrField, type: IrType = field.type) =
+    IrGetFieldImpl(startOffset, endOffset, field.symbol, type, receiver)
 
 fun IrBuilderWithScope.irSetField(receiver: IrExpression?, field: IrField, value: IrExpression, origin: IrStatementOrigin? = null) =
     IrSetFieldImpl(startOffset, endOffset, field.symbol, receiver, value, context.irBuiltIns.unitType, origin = origin)
@@ -160,6 +157,17 @@ fun IrBuilderWithScope.irGetObjectValue(type: IrType, classSymbol: IrClassSymbol
 
 fun IrBuilderWithScope.irEqeqeq(arg1: IrExpression, arg2: IrExpression) =
     context.eqeqeq(startOffset, endOffset, arg1, arg2)
+
+fun IrBuilderWithScope.irEqeqeqWithoutBox(arg1: IrExpression, arg2: IrExpression) =
+    primitiveOp2(
+        startOffset,
+        endOffset,
+        context.irBuiltIns.eqeqeqSymbol,
+        context.irBuiltIns.booleanType,
+        IrStatementOrigin.SYNTHETIC_NOT_AUTOBOXED_CHECK,
+        arg1,
+        arg2
+    )
 
 fun IrBuilderWithScope.irNull() =
     irNull(context.irBuiltIns.nothingNType)
@@ -261,7 +269,6 @@ fun IrBuilderWithScope.irCall(callee: IrFunctionSymbol, type: IrType): IrFunctio
     when (callee) {
         is IrConstructorSymbol -> irCall(callee, type)
         is IrSimpleFunctionSymbol -> irCall(callee, type)
-        else -> throw AssertionError("Unexpected callee: $callee")
     }
 
 fun IrBuilderWithScope.irCall(callee: IrSimpleFunctionSymbol): IrCall =
@@ -283,6 +290,15 @@ fun IrBuilderWithScope.irCall(callee: IrFunction, origin: IrStatementOrigin? = n
         callee.typeParameters.size, callee.valueParameters.size,
         origin, superQualifierSymbol
     )
+
+fun IrBuilderWithScope.irCallWithSubstitutedType(callee: IrFunction, typeArguments: List<IrType>): IrMemberAccessExpression<*> {
+    val argsMap = callee.typeParameters.map { it.symbol }.zip(typeArguments).toMap()
+    return irCall(callee.symbol, callee.returnType.substitute(argsMap), typeArguments)
+}
+
+fun IrBuilderWithScope.irCallWithSubstitutedType(callee: IrFunctionSymbol, typeArguments: List<IrType>): IrMemberAccessExpression<*> {
+    return irCallWithSubstitutedType(callee.owner, typeArguments)
+}
 
 fun IrBuilderWithScope.irDelegatingConstructorCall(callee: IrConstructor): IrDelegatingConstructorCall =
     IrDelegatingConstructorCallImpl(
@@ -329,6 +345,12 @@ fun IrBuilderWithScope.irReinterpretCast(argument: IrExpression, type: IrType) =
 fun IrBuilderWithScope.irSamConversion(argument: IrExpression, type: IrType) =
     typeOperator(type, argument, IrTypeOperator.SAM_CONVERSION, type)
 
+fun IrBuilderWithScope.irByte(value: Byte) =
+    IrConstImpl.byte(startOffset, endOffset, context.irBuiltIns.byteType, value)
+
+fun IrBuilderWithScope.irShort(value: Short) =
+    IrConstImpl.short(startOffset, endOffset, context.irBuiltIns.shortType, value)
+
 fun IrBuilderWithScope.irInt(value: Int, type: IrType = context.irBuiltIns.intType) =
     IrConstImpl.int(startOffset, endOffset, type, value)
 
@@ -347,8 +369,18 @@ fun IrBuilderWithScope.irConcat() =
 fun IrBuilderWithScope.irVararg(elementType: IrType, values: List<IrExpression>) =
     IrVarargImpl(startOffset, endOffset, context.irBuiltIns.arrayClass.typeWith(elementType), elementType, values)
 
-fun IrBuilderWithScope.irRawFunctionReferefence(type: IrType, symbol: IrFunctionSymbol) =
+fun IrBuilderWithScope.irRawFunctionReference(type: IrType, symbol: IrFunctionSymbol) =
     IrRawFunctionReferenceImpl(startOffset, endOffset, type, symbol)
+
+fun IrBuilderWithScope.irFunctionReference(type: IrType, symbol: IrFunctionSymbol) =
+    IrFunctionReferenceImpl(
+        startOffset,
+        endOffset,
+        type,
+        symbol,
+        symbol.owner.typeParameters.size,
+        symbol.owner.valueParameters.size
+    )
 
 fun IrBuilderWithScope.irTry(type: IrType, tryResult: IrExpression, catches: List<IrCatch>, finallyExpression: IrExpression?) =
     IrTryImpl(startOffset, endOffset, type, tryResult, catches, finallyExpression)

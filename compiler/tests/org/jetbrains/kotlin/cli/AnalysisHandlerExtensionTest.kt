@@ -3,12 +3,15 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.cli
 
 import com.intellij.mock.MockProject
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.cli.common.CLITool
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
@@ -65,9 +68,17 @@ class AnalysisHandlerExtensionTest : TestCaseWithTmpdir() {
         val plugin = writePlugin(klass)
         val args = listOf("-Xplugin=$plugin", mainKt.absolutePath)
         val outputPath = if (compiler is K2JSCompiler)
-            listOf("-output", tmpdir.resolve("out.js").absolutePath)
+            listOf(
+                "-Xforce-deprecated-legacy-compiler-usage",
+                "-language-version", "1.9",
+                "-output", tmpdir.resolve("out.js").absolutePath
+            )
         else
-            listOf("-d", tmpdir.resolve("out").absolutePath)
+            listOf(
+                "-language-version", "1.9",
+                "-d", tmpdir.resolve("out").absolutePath
+            )
+
         val (output, exitCode) = CompilerTestUtil.executeCompiler(compiler, args + outputPath + extras)
         assertEquals(expectedExitCode, exitCode, output)
     }

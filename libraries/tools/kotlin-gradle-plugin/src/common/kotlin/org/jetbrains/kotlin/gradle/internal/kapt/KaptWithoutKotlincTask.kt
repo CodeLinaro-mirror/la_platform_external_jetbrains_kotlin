@@ -12,6 +12,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.ProviderFactory
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
@@ -25,8 +26,8 @@ import org.jetbrains.kotlin.gradle.internal.kapt.classloaders.rootOrSelf
 import org.jetbrains.kotlin.gradle.internal.kapt.incremental.KaptIncrementalChanges
 import org.jetbrains.kotlin.gradle.tasks.Kapt
 import org.jetbrains.kotlin.gradle.tasks.toSingleCompilerPluginOptions
-import org.jetbrains.kotlin.gradle.utils.isGradleVersionAtLeast
 import org.jetbrains.kotlin.gradle.utils.listPropertyWithConvention
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.jetbrains.kotlin.utils.PathUtil
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -35,6 +36,7 @@ import java.net.URL
 import java.net.URLClassLoader
 import javax.inject.Inject
 
+@CacheableTask
 abstract class KaptWithoutKotlincTask @Inject constructor(
     objectFactory: ObjectFactory,
     private val providerFactory: ProviderFactory,
@@ -94,7 +96,7 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
         if (addJdkClassesToClasspath.get()) {
             compileClasspath.addAll(
                 0,
-                PathUtil.getJdkClassesRoots(defaultKotlinJavaToolchain.get().providedJvm.get().javaHome)
+                PathUtil.getJdkClassesRoots(defaultKotlinJavaToolchain.get().buildJvm.get().javaHome)
             )
         }
 
@@ -153,12 +155,12 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
 
     private fun getWorkerIsolationMode(): IsolationMode {
         val toolchainProvider = defaultKotlinJavaToolchain.get()
-        val gradleJvm = toolchainProvider.currentJvm.get()
+        val gradleJvm = toolchainProvider.gradleJvm.get()
         // Ensuring Gradle build JDK is set to kotlin toolchain by also comparing javaExecutable paths,
         // as user may set JDK with same major Java version, but from different vendor
         val isRunningOnGradleJvm = gradleJvm.javaVersion == toolchainProvider.javaVersion.get() &&
                 gradleJvm.javaExecutable.absolutePath == toolchainProvider.javaExecutable.get().asFile.absolutePath
-        val isolationModeStr = getValue("kapt.workers.isolation")?.toLowerCase()
+        val isolationModeStr = getValue("kapt.workers.isolation")?.toLowerCaseAsciiOnly()
         return when {
             (isolationModeStr == null || isolationModeStr == "none") && isRunningOnGradleJvm -> IsolationMode.NONE
             else -> {
@@ -187,7 +189,7 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
                     .javaExecutable
                     .asFile.get()
                     .absolutePath
-                logger.info("Kapt worker classpath: ${it.classpath}")
+                logger.info("Kapt worker classpath: ${kaptClasspath.toList()}")
             }
             IsolationMode.NONE -> {
                 warnAdditionalJvmArgsAreNotUsed(isolationMode)
@@ -213,12 +215,7 @@ abstract class KaptWithoutKotlincTask @Inject constructor(
         }
     }
 
-    internal fun getValue(propertyName: String): String? =
-        if (isGradleVersionAtLeast(6, 5)) {
-            providerFactory.gradleProperty(propertyName).forUseAtConfigurationTime().orNull
-        } else {
-            project.findProperty(propertyName) as String?
-        }
+    private fun getValue(propertyName: String): String? = providerFactory.gradleProperty(propertyName).orNull
 
     internal interface KaptWorkParameters : WorkParameters {
         val workerOptions: Property<KaptOptionsForWorker>
@@ -283,7 +280,12 @@ private class KaptExecution @Inject constructor(
     private companion object {
         private const val JAVAC_CONTEXT_CLASS = "com.sun.tools.javac.util.Context"
 
-        private fun kaptClass(classLoader: ClassLoader) = Class.forName("org.jetbrains.kotlin.kapt3.base.Kapt", true, classLoader)
+        private fun ClassLoader.kaptClass(simpleName: String): Class<*> =
+            try {
+                Class.forName("org.jetbrains.kotlin.kapt3.base.$simpleName", true, this)
+            } catch (_: ClassNotFoundException) { // in case we have an old plugin version on the classpath
+                Class.forName("org.jetbrains.kotlin.base.kapt3.$simpleName", true, this)
+            }
 
         private var classLoadersCache: ClassLoadersCache? = null
 
@@ -312,7 +314,7 @@ private class KaptExecution @Inject constructor(
             classLoadersCache = ClassLoadersCache(classloadersCacheSize, kaptClassLoader)
         }
 
-        val kaptMethod = kaptClass(kaptClassLoader).declaredMethods.single { it.name == "kapt" }
+        val kaptMethod = kaptClassLoader.kaptClass("Kapt").declaredMethods.single { it.name == "kapt" }
         kaptMethod.invoke(null, createKaptOptions(kaptClassLoader))
     }
 
@@ -324,13 +326,13 @@ private class KaptExecution @Inject constructor(
         }
     }
 
-    private fun createKaptOptions(classLoader: ClassLoader) = with(optionsForWorker) {
-        val flags = kaptClass(classLoader).declaredMethods.single { it.name == "kaptFlags" }.invoke(null, flags)
+    private fun createKaptOptions(classLoader: ClassLoader): Any = with(optionsForWorker) {
+        val flags = classLoader.kaptClass("Kapt").declaredMethods.single { it.name == "kaptFlags" }.invoke(null, flags)
 
-        val mode = Class.forName("org.jetbrains.kotlin.base.kapt3.AptMode", true, classLoader)
+        val mode = classLoader.kaptClass("AptMode")
             .enumConstants.single { (it as Enum<*>).name == "APT_ONLY" }
 
-        val detectMemoryLeaksMode = Class.forName("org.jetbrains.kotlin.base.kapt3.DetectMemoryLeaksMode", true, classLoader)
+        val detectMemoryLeaksMode = classLoader.kaptClass("DetectMemoryLeaksMode")
             .enumConstants.single { (it as Enum<*>).name == "NONE" }
 
         //in case cache was enabled and then disabled
@@ -342,7 +344,7 @@ private class KaptExecution @Inject constructor(
                 null
             }
 
-        Class.forName("org.jetbrains.kotlin.base.kapt3.KaptOptions", true, classLoader).constructors.single().newInstance(
+        classLoader.kaptClass("KaptOptions").constructors.single().newInstance(
             projectBaseDir,
             compileClasspath,
             javaSourceRoots,
@@ -369,7 +371,8 @@ private class KaptExecution @Inject constructor(
 
             processingClassLoader,
             disableClassloaderCacheForProcessors,
-            /*processorsPerfReportFile=*/null
+            /*processorsPerfReportFile=*/null,
+            /*fileReadHistoryReportFile*/null,
         )
     }
 

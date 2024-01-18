@@ -23,11 +23,13 @@
 @file:Suppress("DEPRECATION") // Char.toInt()
 package kotlin.text.regex
 
+import kotlin.experimental.ExperimentalNativeApi
 import kotlin.collections.associate
-import kotlin.native.concurrent.AtomicReference
+import kotlin.concurrent.AtomicReference
 import kotlin.native.concurrent.freeze
 import kotlin.native.BitSet
 import kotlin.native.FreezingIsDeprecated
+import kotlin.native.ObsoleteNativeApi
 
 /**
  * Unicode category (i.e. Ll, Lu).
@@ -49,7 +51,7 @@ internal class UnicodeCategoryScope(category: Int) : UnicodeCategory(category) {
  * This class represents character classes, i.e. sets of character either predefined or user defined.
  * Note: this class represent a token, not node, so being constructed by lexer.
  */
-@OptIn(FreezingIsDeprecated::class)
+@OptIn(FreezingIsDeprecated::class, ObsoleteNativeApi::class)
 internal abstract class AbstractCharClass : SpecialToken() {
     /**
      * Show if the class has alternative meaning:
@@ -58,9 +60,12 @@ internal abstract class AbstractCharClass : SpecialToken() {
     internal var alt: Boolean = false
     internal var altSurrogates: Boolean = false
 
+    /**
+     * For each unpaired surrogate char indicates whether it is contained in this char class.
+     */
     internal val lowHighSurrogates = BitSet(SURROGATE_CARDINALITY) // Bit set for surrogates?
 
-    /*
+    /**
      * Indicates if this class may contain supplementary Unicode codepoints.
      * If this flag is specified it doesn't mean that this class contains supplementary characters but may contain.
      */
@@ -92,6 +97,20 @@ internal abstract class AbstractCharClass : SpecialToken() {
 
 
     private val surrogates_ = AtomicReference<AbstractCharClass?>(null)
+    /**
+     * Returns a char class that contains only unpaired surrogate chars from this char class.
+     *
+     * Consider the following char class: `[a\uD801\uDC00\uD800]`.
+     * This function returns a char class that contains only `\uD800`: `[\uD800]`.
+     * [classWithoutSurrogates] returns a char class that does not contain `\uD800`: `[a\uD801\uDC00]`.
+     *
+     * The returned char class is used to create [SurrogateRangeSet] node
+     * that matches any unpaired surrogate from this char class. [SurrogateRangeSet]
+     * doesn't match a surrogate that is paired with the char before or after it.
+     * The result of [classWithoutSurrogates] is used to create [SupplementaryRangeSet]
+     * or [RangeSet] depending on [mayContainSupplCodepoints].
+     * The two nodes are then combined in [CompositeRangeSet] node to fully represent this char class.
+     */
     fun classWithSurrogates(): AbstractCharClass {
         surrogates_.value?.let {
             return it
@@ -108,12 +127,19 @@ internal abstract class AbstractCharClass : SpecialToken() {
                 }
             }
         }
-        result.setNegative(this.altSurrogates)
+        result.alt = this.alt
+        result.altSurrogates = this.altSurrogates
+        result.mayContainSupplCodepoints = this.mayContainSupplCodepoints
         surrogates_.compareAndSet(null, result.freeze())
         return surrogates_.value!!
     }
 
 
+    /**
+     * Returns a char class that contains all chars from this char class excluding the unpaired surrogate chars.
+     *
+     * See [classWithSurrogates] for details.
+     */
     // We cannot cache this class as we've done with surrogates above because
     // here is a circular reference between it and AbstractCharClass.
     fun classWithoutSurrogates(): AbstractCharClass {
@@ -129,8 +155,9 @@ internal abstract class AbstractCharClass : SpecialToken() {
                 return this@AbstractCharClass.contains(ch) && !containslHS
             }
         }
-        result.setNegative(isNegative())
-        result.mayContainSupplCodepoints = mayContainSupplCodepoints
+        result.alt = this.alt
+        result.altSurrogates = this.altSurrogates
+        result.mayContainSupplCodepoints = this.mayContainSupplCodepoints
         return result
     }
 
@@ -145,9 +172,10 @@ internal abstract class AbstractCharClass : SpecialToken() {
         if (alt xor value) {
             alt = !alt
             altSurrogates = !altSurrogates
-        }
-        if (!mayContainSupplCodepoints) {
-            mayContainSupplCodepoints = true
+
+            if (!mayContainSupplCodepoints) {
+                mayContainSupplCodepoints = true
+            }
         }
         return this
     }
@@ -346,6 +374,8 @@ internal abstract class AbstractCharClass : SpecialToken() {
         init {
             initValues()
         }
+
+        @OptIn(ExperimentalNativeApi::class)
         override fun computeValue(): AbstractCharClass =
                 object: AbstractCharClass() {
                     override fun contains(ch: Int): Boolean = alt xor (ch in start..end)
@@ -605,10 +635,10 @@ internal abstract class AbstractCharClass : SpecialToken() {
             PF("Pf", { CachedCategory(CharCategory.FINAL_QUOTE_PUNCTUATION.value, false)  })
         }
 
-        private val classCache = Array<AtomicReference<CachedCharClass?>>(CharClasses.values().size, {
+        private val classCache = Array<AtomicReference<CachedCharClass?>>(CharClasses.entries.size, {
             AtomicReference<CachedCharClass?>(null)
         })
-        private val classCacheMap = CharClasses.values().associate { it -> it.regexName to it }
+        private val classCacheMap = CharClasses.entries.associate { it -> it.regexName to it }
 
         fun intersects(ch1: Int, ch2: Int): Boolean = ch1 == ch2
         fun intersects(cc: AbstractCharClass, ch: Int): Boolean = cc.contains(ch)
@@ -623,7 +653,7 @@ internal abstract class AbstractCharClass : SpecialToken() {
         fun getPredefinedClass(name: String, negative: Boolean): AbstractCharClass {
             val charClass = classCacheMap[name] ?: throw PatternSyntaxException("No such character class")
             val cachedClass = classCache[charClass.ordinal].value ?: run {
-                classCache[charClass.ordinal].compareAndSwap(null, charClass.factory().freeze())
+                classCache[charClass.ordinal].compareAndExchange(null, charClass.factory().freeze())
                 classCache[charClass.ordinal].value!!
             }
             return cachedClass.getValue(negative)

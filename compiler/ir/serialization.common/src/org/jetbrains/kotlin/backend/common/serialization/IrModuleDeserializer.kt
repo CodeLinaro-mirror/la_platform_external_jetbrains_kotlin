@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.library.IrLibrary
 import org.jetbrains.kotlin.library.KotlinAbiVersion
+import org.jetbrains.kotlin.library.KotlinLibraryProperResolverWithAttributes
 
 fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
     return when (this) {
@@ -31,7 +32,9 @@ fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
 class CompatibilityMode(val abiVersion: KotlinAbiVersion) {
 
     init {
-        assert(abiVersion.isCompatible())
+        require(abiVersion.isCompatible()) {
+            "Incompatible KLIB should have been discarded in ${KotlinLibraryProperResolverWithAttributes<Nothing>::libraryMatch.name}"
+        }
     }
 
     val oldSignatures: Boolean
@@ -44,11 +47,7 @@ class CompatibilityMode(val abiVersion: KotlinAbiVersion) {
 
     companion object {
         val LAST_PRIVATE_SIG_ABI_VERSION = KotlinAbiVersion(1, 5, 0)
-
-        val WITH_PRIVATE_SIG = CompatibilityMode(LAST_PRIVATE_SIG_ABI_VERSION)
-        val WITH_COMMON_SIG = CompatibilityMode(KotlinAbiVersion.CURRENT)
-
-        val CURRENT = WITH_COMMON_SIG
+        val CURRENT = CompatibilityMode(KotlinAbiVersion.CURRENT)
     }
 }
 
@@ -58,7 +57,8 @@ enum class IrModuleDeserializerKind {
 
 abstract class IrModuleDeserializer(private val _moduleDescriptor: ModuleDescriptor?, val libraryAbiVersion: KotlinAbiVersion) {
     abstract operator fun contains(idSig: IdSignature): Boolean
-    abstract fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol
+    abstract fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol?
+    abstract fun deserializedSymbolNotFound(idSig: IdSignature): Nothing
 
     val moduleDescriptor: ModuleDescriptor get() = _moduleDescriptor ?: error("No ModuleDescriptor provided")
 
@@ -72,7 +72,7 @@ abstract class IrModuleDeserializer(private val _moduleDescriptor: ModuleDescrip
         val signature = symbol.signature
         require(signature != null) { "Symbol is not public API: ${symbol.descriptor}" }
         assert(symbol.hasDescriptor)
-        deserializeIrSymbol(signature, symbol.kind())
+        deserializeIrSymbolOrFail(signature, symbol.kind())
     }
 
     open val klib: IrLibrary get() = error("Unsupported operation")
@@ -104,6 +104,9 @@ abstract class IrModuleDeserializer(private val _moduleDescriptor: ModuleDescrip
     open fun signatureDeserializerForFile(fileName: String): IdSignatureDeserializer = error("Unsupported")
 }
 
+fun IrModuleDeserializer.deserializeIrSymbolOrFail(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol =
+    tryDeserializeIrSymbol(idSig, symbolKind) ?: deserializedSymbolNotFound(idSig)
+
 // Used to resolve built in symbols like `kotlin.ir.internal.*` or `kotlin.FunctionN`
 class IrModuleDeserializerWithBuiltIns(
     private val builtIns: IrBuiltIns,
@@ -115,17 +118,9 @@ class IrModuleDeserializerWithBuiltIns(
 //        assert(builtIns.builtIns.builtInsModule === delegate.moduleDescriptor)
     }
 
-    private val irBuiltInsMap = builtIns.knownBuiltins.map {
+    private val irBuiltInsMap = builtIns.knownBuiltins.associate {
         val symbol = (it as IrSymbolOwner).symbol
         symbol.signature to symbol
-    }.toMap()
-
-    private fun checkIsFunctionInterface(idSig: IdSignature): Boolean {
-        val publicSig = idSig.asPublic()
-        return publicSig != null &&
-                publicSig.packageFqName in functionalPackages &&
-                publicSig.declarationFqName.isNotEmpty() &&
-                functionPattern.matcher(publicSig.firstNameSegment).find()
     }
 
     override operator fun contains(idSig: IdSignature): Boolean {
@@ -199,15 +194,16 @@ class IrModuleDeserializerWithBuiltIns(
         }
     }
 
-    override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
+    override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol? {
         irBuiltInsMap[idSig]?.let { return it }
 
         val topLevel = idSig.topLevelSignature()
-
         if (checkIsFunctionInterface(topLevel)) return resolveFunctionalInterface(idSig, symbolKind)
 
-        return delegate.deserializeIrSymbol(idSig, symbolKind)
+        return delegate.tryDeserializeIrSymbol(idSig, symbolKind)
     }
+
+    override fun deserializedSymbolNotFound(idSig: IdSignature): Nothing = delegate.deserializedSymbolNotFound(idSig)
 
     override fun declareIrSymbol(symbol: IrSymbol) {
         val signature = symbol.signature
@@ -253,11 +249,13 @@ open class CurrentModuleDeserializer(
 ) : IrModuleDeserializer(moduleFragment.descriptor, KotlinAbiVersion.CURRENT) {
     override fun contains(idSig: IdSignature): Boolean = false // TODO:
 
-    override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
+    override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): Nothing =
         error("Unreachable execution: there could not be back-links (sig: $idSig)")
-    }
 
-    override fun declareIrSymbol(symbol: IrSymbol) {}
+    override fun deserializedSymbolNotFound(idSig: IdSignature): Nothing =
+        error("Unreachable execution: there could not be back-links (sig: $idSig)")
+
+    override fun declareIrSymbol(symbol: IrSymbol) = Unit
 
     override val kind get() = IrModuleDeserializerKind.CURRENT
 }

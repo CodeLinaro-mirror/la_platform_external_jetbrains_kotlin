@@ -156,8 +156,8 @@ __attribute__((swift_name("ResultHolder")))
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 @property int32_t completed __attribute__((swift_name("completed")));
-@property T _Nullable result __attribute__((swift_name("result")));
 @property KtKotlinThrowable * _Nullable exception __attribute__((swift_name("exception")));
+@property T _Nullable result __attribute__((swift_name("result")));
 @end
 
 __attribute__((swift_name("SuspendBridge")))
@@ -177,6 +177,32 @@ __attribute__((swift_name("SuspendBridge")))
 - (void)intAsAnyValue:(id _Nullable)value completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("intAsAny(value:completionHandler:)")));
 
 /**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingValue:(id _Nullable)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothing(value:completionHandler:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsAnyValue:(id _Nullable)value completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsAny(value:completionHandler:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsIntValue:(id _Nullable)value completionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsInt(value:completionHandler:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsUnitValue:(id _Nullable)value completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsUnit(value:completionHandler:)")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void)nullableUnitValue:(id _Nullable)value completionHandler:(void (^)(KtKotlinUnit * _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nullableUnit(value:completionHandler:)")));
+
+/**
  * @note This method converts instances of CancellationException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
@@ -187,32 +213,6 @@ __attribute__((swift_name("SuspendBridge")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)unitAsAnyValue:(id _Nullable)value completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("unitAsAny(value:completionHandler:)")));
-
-/**
- * @note This method converts instances of CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (void)nullableUnitValue:(id _Nullable)value completionHandler:(void (^)(KtKotlinUnit * _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nullableUnit(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingValue:(id _Nullable)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothing(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsIntValue:(id _Nullable)value completionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsInt(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsAnyValue:(id _Nullable)value completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsAny(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsUnitValue:(id _Nullable)value completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsUnit(value:completionHandler:)")));
 @end
 
 __attribute__((swift_name("AbstractSuspendBridge")))
@@ -227,6 +227,27 @@ __attribute__((swift_name("AbstractSuspendBridge")))
 - (void)intAsAnyValue:(KtInt *)value completionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("intAsAny(value:completionHandler:)")));
 
 /**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsAnyValue:(KtInt *)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsAny(value:completionHandler:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsIntValue:(KtInt *)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsInt(value:completionHandler:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
+- (void)nothingAsUnitValue:(KtInt *)value completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsUnit(value:completionHandler:)")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void)nullableUnitValue:(KtInt *)value completionHandler:(void (^)(KtKotlinUnit * _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nullableUnit(value:completionHandler:)")));
+
+/**
  * @note This method converts instances of CancellationException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
@@ -237,27 +258,6 @@ __attribute__((swift_name("AbstractSuspendBridge")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)unitAsAnyValue:(KtInt *)value completionHandler:(void (^)(KtKotlinUnit * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("unitAsAny(value:completionHandler:)")));
-
-/**
- * @note This method converts instances of CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (void)nullableUnitValue:(KtInt *)value completionHandler:(void (^)(KtKotlinUnit * _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("nullableUnit(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsIntValue:(KtInt *)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsInt(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsAnyValue:(KtInt *)value completionHandler:(void (^)(KtKotlinNothing * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsAny(value:completionHandler:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-- (void)nothingAsUnitValue:(KtInt *)value completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("nothingAsUnit(value:completionHandler:)")));
 @end
 
 __attribute__((swift_name("ThrowCancellationException")))
@@ -302,7 +302,7 @@ __attribute__((swift_name("suspendFunctionChild1")))
  * @note This method converts instances of CancellationException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (void)invokeP1:(NSString *)s completionHandler:(void (^)(NSString * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("invoke(p1:completionHandler:)")));
+- (void)invokeP1:(NSString *)p1 completionHandler:(void (^)(NSString * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("invoke(p1:completionHandler:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -310,46 +310,9 @@ __attribute__((swift_name("CoroutinesKt")))
 @interface KtCoroutinesKt : KtBase
 
 /**
- * @note This method converts instances of CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
+ * @note This method converts all Kotlin exceptions to errors.
 */
-+ (void)suspendFunWithCompletionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFun(completionHandler:)")));
-
-/**
- * @note This method converts instances of CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (void)unitSuspendFunWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFun(completionHandler:)")));
-
-/**
- * @note This method converts instances of CoroutineException, CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (void)suspendFunResult:(id _Nullable)result doSuspend:(BOOL)doSuspend doThrow:(BOOL)doThrow completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFun(result:doSuspend:doThrow:completionHandler:)")));
-
-/**
- * @note This method converts instances of CoroutineException, CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (void)unitSuspendFunDoSuspend:(BOOL)doSuspend doThrow:(BOOL)doThrow completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFun(doSuspend:doThrow:completionHandler:)")));
-
-/**
- * @note This method converts instances of CoroutineException, CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (void)suspendFunAsyncResult:(id _Nullable)result continuationHolder:(KtContinuationHolder<id> *)continuationHolder completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFunAsync(result:continuationHolder:completionHandler:)")));
-
-/**
- * @note This method converts instances of CoroutineException, CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (void)unitSuspendFunAsyncContinuationHolder:(KtContinuationHolder<KtKotlinUnit *> *)continuationHolder completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFunAsync(continuationHolder:completionHandler:)")));
-
-/**
- * @note This method converts instances of CoroutineException, CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (BOOL)throwExceptionException:(KtKotlinThrowable *)exception error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("throwException(exception:)")));
++ (BOOL)callSuspendBridgeBridge:(KtAbstractSuspendBridge *)bridge resultHolder:(KtResultHolder<KtKotlinUnit *> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("callSuspendBridge(bridge:resultHolder:)")));
 + (void)callSuspendFunSuspendFun:(id<KtSuspendFun>)suspendFun doYield:(BOOL)doYield doThrow:(BOOL)doThrow resultHolder:(KtResultHolder<KtInt *> *)resultHolder __attribute__((swift_name("callSuspendFun(suspendFun:doYield:doThrow:resultHolder:)")));
 
 /**
@@ -361,42 +324,121 @@ __attribute__((swift_name("CoroutinesKt")))
 /**
  * @note This method converts all Kotlin exceptions to errors.
 */
-+ (BOOL)callSuspendBridgeBridge:(KtAbstractSuspendBridge *)bridge resultHolder:(KtResultHolder<KtKotlinUnit *> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("callSuspendBridge(bridge:resultHolder:)")));
++ (BOOL)createCoroutineUninterceptedAndResumeFn:(id<KtKotlinSuspendFunction0>)fn resultHolder:(KtResultHolder<id> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("createCoroutineUninterceptedAndResume(fn:resultHolder:)")));
 
 /**
- * @note This method converts instances of CancellationException to errors.
- * Other uncaught Kotlin exceptions are fatal.
+ * @note This method converts all Kotlin exceptions to errors.
 */
-+ (void)throwCancellationExceptionWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("throwCancellationException(completionHandler:)")));
-+ (id<KtKotlinSuspendFunction0>)getSuspendLambda0 __attribute__((swift_name("getSuspendLambda0()")));
++ (BOOL)createCoroutineUninterceptedAndResumeFn:(id<KtKotlinSuspendFunction1>)fn receiver:(id _Nullable)receiver resultHolder:(KtResultHolder<id> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("createCoroutineUninterceptedAndResume(fn:receiver:resultHolder:)")));
++ (void)gc __attribute__((swift_name("gc()")));
++ (id<KtKotlinKSuspendFunction0>)getKSuspendCallableReference0 __attribute__((swift_name("getKSuspendCallableReference0()")));
++ (id<KtKotlinKSuspendFunction1>)getKSuspendCallableReference1 __attribute__((swift_name("getKSuspendCallableReference1()")));
 + (id<KtKotlinSuspendFunction0>)getSuspendCallableReference0 __attribute__((swift_name("getSuspendCallableReference0()")));
-+ (KtsuspendFunctionChild0 *)getSuspendChild0 __attribute__((swift_name("getSuspendChild0()")));
-+ (id<KtKotlinSuspendFunction1>)getSuspendLambda1 __attribute__((swift_name("getSuspendLambda1()")));
 + (id<KtKotlinSuspendFunction1>)getSuspendCallableReference1 __attribute__((swift_name("getSuspendCallableReference1()")));
++ (KtsuspendFunctionChild0 *)getSuspendChild0 __attribute__((swift_name("getSuspendChild0()")));
 + (KtsuspendFunctionChild1 *)getSuspendChild1 __attribute__((swift_name("getSuspendChild1()")));
++ (id<KtKotlinSuspendFunction0>)getSuspendLambda0 __attribute__((swift_name("getSuspendLambda0()")));
++ (id<KtKotlinSuspendFunction1>)getSuspendLambda1 __attribute__((swift_name("getSuspendLambda1()")));
 
 /**
  * @note This method converts instances of CancellationException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
 + (void)invoke1Block:(id<KtKotlinSuspendFunction1>)block argument:(id _Nullable)argument completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("invoke1(block:argument:completionHandler:)")));
-+ (id<KtKotlinKSuspendFunction0>)getKSuspendCallableReference0 __attribute__((swift_name("getKSuspendCallableReference0()")));
-+ (id<KtKotlinKSuspendFunction1>)getKSuspendCallableReference1 __attribute__((swift_name("getKSuspendCallableReference1()")));
-+ (void)gc __attribute__((swift_name("gc()")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (id _Nullable)startCoroutineUninterceptedOrReturnFn:(id<KtKotlinSuspendFunction0>)fn resultHolder:(KtResultHolder<id> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("startCoroutineUninterceptedOrReturn(fn:resultHolder:)"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (id _Nullable)startCoroutineUninterceptedOrReturnFn:(id<KtKotlinSuspendFunction1>)fn receiver:(id _Nullable)receiver resultHolder:(KtResultHolder<id> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("startCoroutineUninterceptedOrReturn(fn:receiver:resultHolder:)"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (id _Nullable)startCoroutineUninterceptedOrReturnFn:(id<KtKotlinSuspendFunction2>)fn receiver:(id _Nullable)receiver param:(id _Nullable)param resultHolder:(KtResultHolder<id> *)resultHolder error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("startCoroutineUninterceptedOrReturn(fn:receiver:param:resultHolder:)"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)suspendFunWithCompletionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFun(completionHandler:)")));
+
+/**
+ * @note This method converts instances of CoroutineException, CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)suspendFunResult:(id _Nullable)result doSuspend:(BOOL)doSuspend doThrow:(BOOL)doThrow completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFun(result:doSuspend:doThrow:completionHandler:)")));
+
+/**
+ * @note This method converts instances of CoroutineException, CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)suspendFunAsyncResult:(id _Nullable)result continuationHolder:(KtContinuationHolder<id> *)continuationHolder completionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("suspendFunAsync(result:continuationHolder:completionHandler:)")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)throwCancellationExceptionWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("throwCancellationException(completionHandler:)")));
+
+/**
+ * @note This method converts instances of CoroutineException, CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (BOOL)throwExceptionException:(KtKotlinThrowable *)exception error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("throwException(exception:)")));
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)unitSuspendFunWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFun(completionHandler:)")));
+
+/**
+ * @note This method converts instances of CoroutineException, CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)unitSuspendFunDoSuspend:(BOOL)doSuspend doThrow:(BOOL)doThrow completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFun(doSuspend:doThrow:completionHandler:)")));
+
+/**
+ * @note This method converts instances of CoroutineException, CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
++ (void)unitSuspendFunAsyncContinuationHolder:(KtContinuationHolder<KtKotlinUnit *> *)continuationHolder completionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("unitSuspendFunAsync(continuationHolder:completionHandler:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
-__attribute__((swift_name("DataClassWithComponentMethods")))
-@interface KtDataClassWithComponentMethods : KtBase
+__attribute__((swift_name("DataClassWithExplicitComponentMethod")))
+@interface KtDataClassWithExplicitComponentMethod : KtBase
 - (instancetype)initWithX:(int32_t)x y:(int32_t)y __attribute__((swift_name("init(x:y:)"))) __attribute__((objc_designated_initializer));
+- (int32_t)component1Arg:(int32_t)arg __attribute__((swift_name("component1(arg:)")));
+- (KtDataClassWithExplicitComponentMethod *)doCopyX:(int32_t)x y:(int32_t)y __attribute__((swift_name("doCopy(x:y:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (int32_t)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (int32_t)component2 __attribute__((swift_name("component2()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtDataClassWithComponentMethods *)doCopyX:(int32_t)x y:(int32_t)y __attribute__((swift_name("doCopy(x:y:)")));
 @property (readonly) int32_t x __attribute__((swift_name("x")));
 @property (readonly) int32_t y __attribute__((swift_name("y")));
+@end
+
+__attribute__((swift_name("ComponentInterface")))
+@protocol KtComponentInterface
+@required
+- (int32_t)component1 __attribute__((swift_name("component1()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("DataClassWithInheritedComponentMethod")))
+@interface KtDataClassWithInheritedComponentMethod : KtBase <KtComponentInterface>
+- (instancetype)initWithX:(int32_t)x __attribute__((swift_name("init(x:)"))) __attribute__((objc_designated_initializer));
+- (int32_t)component1 __attribute__((swift_name("component1()")));
+- (KtDataClassWithInheritedComponentMethod *)doCopyX:(int32_t)x __attribute__((swift_name("doCopy(x:)")));
+- (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
+- (NSUInteger)hash __attribute__((swift_name("hash()")));
+- (NSString *)description __attribute__((swift_name("description()")));
+@property (readonly) int32_t x __attribute__((swift_name("x")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -406,6 +448,19 @@ __attribute__((swift_name("RegularClassWithComponentMethods")))
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (int32_t)component1 __attribute__((swift_name("component1()")));
 - (int32_t)component3 __attribute__((swift_name("component3()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("DataClassWithStrangeNames")))
+@interface KtDataClassWithStrangeNames : KtBase
+- (instancetype)initWithComponent124:(int32_t)component124 componentABC:(int32_t)componentABC __attribute__((swift_name("init(component124:componentABC:)"))) __attribute__((objc_designated_initializer));
+- (int32_t)component16 __attribute__((swift_name("component16()")));
+- (KtDataClassWithStrangeNames *)doCopyComponent124:(int32_t)component124 componentABC:(int32_t)componentABC __attribute__((swift_name("doCopy(component124:componentABC:)")));
+- (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
+- (NSUInteger)hash __attribute__((swift_name("hash()")));
+- (NSString *)description __attribute__((swift_name("description()")));
+@property (readonly) int32_t component124 __attribute__((swift_name("component124")));
+@property (readonly) int32_t componentABC __attribute__((swift_name("componentABC")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -424,8 +479,10 @@ __attribute__((swift_name("DeallocRetainBase")))
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("DeallocRetainKt")))
 @interface KtDeallocRetainKt : KtBase
-+ (void)garbageCollect __attribute__((swift_name("garbageCollect()")));
++ (void)assertNullValue:(id _Nullable)value __attribute__((swift_name("assertNull(value:)")));
 + (KtKotlinWeakReference<id> *)createWeakReferenceValue:(id)value __attribute__((swift_name("createWeakReference(value:)")));
++ (void)garbageCollect __attribute__((swift_name("garbageCollect()")));
++ (BOOL)isExperimentalMM __attribute__((swift_name("isExperimentalMM()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -439,6 +496,7 @@ __attribute__((swift_name("EnumLeftRightUpDown")))
 @property (class, readonly) KtEnumLeftRightUpDown *up __attribute__((swift_name("up")));
 @property (class, readonly) KtEnumLeftRightUpDown *down __attribute__((swift_name("down")));
 + (KtKotlinArray<KtEnumLeftRightUpDown *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtEnumLeftRightUpDown *> *entries __attribute__((swift_name("entries")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -451,7 +509,9 @@ __attribute__((swift_name("EnumOneTwoThreeValues")))
 @property (class, readonly) KtEnumOneTwoThreeValues *two __attribute__((swift_name("two")));
 @property (class, readonly) KtEnumOneTwoThreeValues *three __attribute__((swift_name("three")));
 @property (class, readonly) KtEnumOneTwoThreeValues *values __attribute__((swift_name("values")));
+@property (class, readonly) KtEnumOneTwoThreeValues *entries __attribute__((swift_name("entries")));
 + (KtKotlinArray<KtEnumOneTwoThreeValues *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtEnumOneTwoThreeValues *> *entries __attribute__((swift_name("entries")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -462,7 +522,10 @@ __attribute__((swift_name("EnumValuesValues_")))
 - (instancetype)initWithName:(NSString *)name ordinal:(int32_t)ordinal __attribute__((swift_name("init(name:ordinal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @property (class, readonly) KtEnumValuesValues_ *values __attribute__((swift_name("values")));
 @property (class, readonly) KtEnumValuesValues_ *values __attribute__((swift_name("values")));
+@property (class, readonly) KtEnumValuesValues_ *entries __attribute__((swift_name("entries")));
+@property (class, readonly) KtEnumValuesValues_ *entries __attribute__((swift_name("entries")));
 + (KtKotlinArray<KtEnumValuesValues_ *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtEnumValuesValues_ *> *entries __attribute__((swift_name("entries")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -472,6 +535,13 @@ __attribute__((swift_name("EmptyEnum")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 - (instancetype)initWithName:(NSString *)name ordinal:(int32_t)ordinal __attribute__((swift_name("init(name:ordinal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 + (KtKotlinArray<KtEmptyEnum *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtEmptyEnum *> *entries __attribute__((swift_name("entries")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("EnumValuesKt")))
+@interface KtEnumValuesKt : KtBase
++ (KtNoEnumEntriesEnum *)dceAvoidance __attribute__((swift_name("dceAvoidance()")));
 @end
 
 __attribute__((swift_name("FunInterface")))
@@ -483,8 +553,8 @@ __attribute__((swift_name("FunInterface")))
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("FunInterfacesKt")))
 @interface KtFunInterfacesKt : KtBase
-+ (id<KtFunInterface>)getObject __attribute__((swift_name("getObject()")));
 + (id<KtFunInterface>)getLambda __attribute__((swift_name("getLambda()")));
++ (id<KtFunInterface>)getObject __attribute__((swift_name("getObject()")));
 @end
 
 __attribute__((swift_name("FHolder")))
@@ -525,21 +595,21 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("FunctionalTypesKt")))
 @interface KtFunctionalTypesKt : KtBase
 + (void)callDynType2List:(NSArray<id _Nullable (^)(id _Nullable, id _Nullable)> *)list param:(id _Nullable)param __attribute__((swift_name("callDynType2(list:param:)")));
-+ (void)callStaticType2Fct:(id _Nullable (^)(id _Nullable, id _Nullable))fct param:(id _Nullable)param __attribute__((swift_name("callStaticType2(fct:param:)")));
 + (void)callDynType32List:(NSArray<id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable)> *)list param:(id _Nullable)param __attribute__((swift_name("callDynType32(list:param:)")));
-+ (void)callStaticType32Fct:(id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))fct param:(id _Nullable)param __attribute__((swift_name("callStaticType32(fct:param:)")));
 + (void)callDynType33List:(NSArray<id<KtKotlinFunction33>> *)list param:(id _Nullable)param __attribute__((swift_name("callDynType33(list:param:)")));
++ (void)callStaticType2Fct:(id _Nullable (^)(id _Nullable, id _Nullable))fct param:(id _Nullable)param __attribute__((swift_name("callStaticType2(fct:param:)")));
++ (void)callStaticType32Fct:(id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))fct param:(id _Nullable)param __attribute__((swift_name("callStaticType32(fct:param:)")));
 + (void)callStaticType33Fct:(id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))fct param:(id _Nullable)param __attribute__((swift_name("callStaticType33(fct:param:)")));
-+ (KtF2Holder *)getDynTypeLambda2 __attribute__((swift_name("getDynTypeLambda2()")));
-+ (id _Nullable (^)(id _Nullable, id _Nullable))getStaticLambda2 __attribute__((swift_name("getStaticLambda2()")));
-+ (KtF2Holder *)getDynTypeRef2 __attribute__((swift_name("getDynTypeRef2()")));
-+ (id _Nullable (^)(id _Nullable, id _Nullable))getStaticRef2 __attribute__((swift_name("getStaticRef2()")));
 + (KtF32Holder *)getDynType32 __attribute__((swift_name("getDynType32()")));
-+ (id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))getStaticType32 __attribute__((swift_name("getStaticType32()")));
-+ (KtF33Holder *)getDynTypeRef33 __attribute__((swift_name("getDynTypeRef33()")));
-+ (id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))getStaticTypeRef33 __attribute__((swift_name("getStaticTypeRef33()")));
++ (KtF2Holder *)getDynTypeLambda2 __attribute__((swift_name("getDynTypeLambda2()")));
 + (KtF33Holder *)getDynTypeLambda33 __attribute__((swift_name("getDynTypeLambda33()")));
++ (KtF2Holder *)getDynTypeRef2 __attribute__((swift_name("getDynTypeRef2()")));
++ (KtF33Holder *)getDynTypeRef33 __attribute__((swift_name("getDynTypeRef33()")));
++ (id _Nullable (^)(id _Nullable, id _Nullable))getStaticLambda2 __attribute__((swift_name("getStaticLambda2()")));
++ (id _Nullable (^)(id _Nullable, id _Nullable))getStaticRef2 __attribute__((swift_name("getStaticRef2()")));
++ (id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))getStaticType32 __attribute__((swift_name("getStaticType32()")));
 + (id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))getStaticTypeLambda33 __attribute__((swift_name("getStaticTypeLambda33()")));
++ (id _Nullable (^)(id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable, id _Nullable))getStaticTypeRef33 __attribute__((swift_name("getStaticTypeRef33()")));
 @end
 
 __attribute__((swift_name("GH4002ArgumentBase")))
@@ -615,6 +685,142 @@ __attribute__((swift_name("TestGH3992.B")))
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 @end
 
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ClassNotAvailableInSwift")))
+@interface KtClassNotAvailableInSwift : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ParentClass")))
+@interface KtParentClass : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ParentClass.NestedClass")))
+@interface KtParentClassNestedClass : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ParentClass.NestedClassDeeplyNestedClass")))
+@interface KtParentClassNestedClassDeeplyNestedClass : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ParentClass.InnerClass")))
+@interface KtParentClassInnerClass : NSObject
+@end
+
+__attribute__((swift_name("InterfaceNotAvailableInSwift")))
+@protocol KtInterfaceNotAvailableInSwift
+@required
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("UnavailableEnum")))
+@interface KtUnavailableEnum : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("UnavailableObject")))
+@interface KtUnavailableObject : NSObject
+@end
+
+__attribute__((swift_name("SealedClass")))
+@interface KtSealedClass : KtBase
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SealedClass.A")))
+@interface KtSealedClassA : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SealedClass.B")))
+@interface KtSealedClassB : KtSealedClass
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SealedClass.C")))
+@interface KtSealedClassC : NSObject
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("WrapperOverUnavailable")))
+@interface KtWrapperOverUnavailable<T> : KtBase
+- (instancetype)initWithArg:(T)arg __attribute__((swift_name("init(arg:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) T arg __attribute__((swift_name("arg")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("HiddenfromobjcKt")))
+@interface KtHiddenfromobjcKt : KtBase
++ (NSString *)consumeUnavailableParam:(id)param __attribute__((swift_name("consumeUnavailable(param:)")));
++ (KtSealedClass *)createSealedClass __attribute__((swift_name("createSealedClass()")));
++ (id)createUnavailableEnum __attribute__((swift_name("createUnavailableEnum()")));
++ (id)createUnavailableInterface __attribute__((swift_name("createUnavailableInterface()")));
++ (id)doSomethingMeaningless:(NSString *)receiver another:(id)another __attribute__((swift_name("doSomethingMeaningless(_:another:)")));
++ (id)getUnavailableObject __attribute__((swift_name("getUnavailableObject()")));
++ (id)produceUnavailable __attribute__((swift_name("produceUnavailable()")));
++ (id _Nullable)useOfNullableUnavailableClassParam:(id _Nullable)param __attribute__((swift_name("useOfNullableUnavailableClass(param:)")));
++ (NSString *)useOfNullableUnavailableEnumParam:(id _Nullable)param __attribute__((swift_name("useOfNullableUnavailableEnum(param:)")));
++ (NSString * _Nullable)useOfNullableUnavailableInterfaceParam:(id _Nullable)param __attribute__((swift_name("useOfNullableUnavailableInterface(param:)")));
++ (NSString * _Nullable)useOfNullableUnavailableObjectParam:(id _Nullable)param __attribute__((swift_name("useOfNullableUnavailableObject(param:)")));
++ (id)useOfUnavailableClassParam:(id)param __attribute__((swift_name("useOfUnavailableClass(param:)")));
++ (NSString *)useOfUnavailableEnumParam:(id)param __attribute__((swift_name("useOfUnavailableEnum(param:)")));
++ (NSString *)useOfUnavailableObjectParam:(id)param __attribute__((swift_name("useOfUnavailableObject(param:)")));
++ (NSString *)useSealedClassParam:(KtSealedClass *)param __attribute__((swift_name("useSealedClass(param:)")));
++ (NSString *)useUnavailableA:(id)a __attribute__((swift_name("useUnavailable(a:)")));
+@end
+
+__attribute__((swift_name("InterfaceNameManglingI1")))
+@protocol KtInterfaceNameManglingI1
+@required
+- (int32_t)clashingMethod __attribute__((swift_name("clashingMethod()")));
+- (int32_t)interfaceClashingMethodWithObjCNameInBoth __attribute__((swift_name("interfaceClashingMethodWithObjCNameInBoth()")));
+- (int32_t)interfaceClashingMethodWithObjCNameInI1 __attribute__((swift_name("interfaceClashingMethodWithObjCNameInI1()")));
+- (int32_t)interfaceClashingMethodWithObjCNameInI2 __attribute__((swift_name("interfaceClashingMethodWithObjCNameInI2()")));
+@property (readonly) int32_t clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((swift_name("InterfaceNameManglingI2")))
+@protocol KtInterfaceNameManglingI2
+@required
+- (id)clashingMethod __attribute__((swift_name("clashingMethod()")));
+- (id)interfaceClashingMethodWithObjCNameInBoth __attribute__((swift_name("interfaceClashingMethodWithObjCNameInBoth()")));
+- (id)interfaceClashingMethodWithObjCNameInI2 __attribute__((swift_name("interfaceClashingMethodWithObjCNameInI2()")));
+- (id)interfaceClashingMethodWithObjCNameInI1 __attribute__((swift_name("interfaceClashingMethodWithObjCNameInI1()")));
+@property (readonly) id clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("InterfaceNameManglingC1")))
+@interface KtInterfaceNameManglingC1 : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)clashingMethod __attribute__((swift_name("clashingMethod()")));
+@property (readonly) NSString *clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("InterfaceNameManglingC2")))
+@interface KtInterfaceNameManglingC2 : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)clashingMethod __attribute__((swift_name("clashingMethod()")));
+@property (readonly) int32_t clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("InterfaceMethodNameManglingKt")))
+@interface KtInterfaceMethodNameManglingKt : KtBase
++ (id<KtInterfaceNameManglingI1>)i1 __attribute__((swift_name("i1()")));
++ (id<KtInterfaceNameManglingI2>)i2 __attribute__((swift_name("i2()")));
++ (KtInterfaceNameManglingC1 *)o1 __attribute__((swift_name("o1()")));
++ (KtInterfaceNameManglingC2 *)o2 __attribute__((swift_name("o2()")));
+@end
+
 
 /**
  * Summary class [KDocExport].
@@ -625,11 +831,14 @@ __attribute__((swift_name("TestGH3992.B")))
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KDocExport")))
 @interface KtKDocExport : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 
 /** Non-primary ctor KDoc: */
 - (instancetype)initWithName:(NSString *)name __attribute__((swift_name("init(name:)"))) __attribute__((objc_designated_initializer));
-- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
-+ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+
+/** @property xyzzy KDoc for foo? */
+@property (readonly) NSString *foo __attribute__((swift_name("foo")));
 
 /**
  * @param xyzzy is documented.
@@ -637,9 +846,6 @@ __attribute__((swift_name("KDocExport")))
  * This is multi-line KDoc. See a blank line above.
  */
 @property (readonly) NSString *xyzzy __attribute__((swift_name("xyzzy")));
-
-/** @property xyzzy KDoc for foo? */
-@property (readonly) NSString *foo __attribute__((swift_name("foo")));
 
 /** @property foo KDoc for yxxyz? */
 @property int32_t yxxyz __attribute__((swift_name("yxxyz")));
@@ -868,8 +1074,8 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("Kt43599Kt")))
 @interface KtKt43599Kt : KtBase
 + (void)setTopLevelLateinitPropertyValue:(NSString *)value __attribute__((swift_name("setTopLevelLateinitProperty(value:)")));
-@property (class, readonly) NSString *topLevelProperty __attribute__((swift_name("topLevelProperty")));
 @property (class, readonly) NSString *topLevelLateinitProperty __attribute__((swift_name("topLevelLateinitProperty")));
+@property (class, readonly) NSString *topLevelProperty __attribute__((swift_name("topLevelProperty")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -879,10 +1085,10 @@ __attribute__((swift_name("KT43780TestObject")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 + (instancetype)kT43780TestObject __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) KtKT43780TestObject *shared __attribute__((swift_name("shared")));
+@property (readonly) NSString *Shared __attribute__((swift_name("Shared")));
+@property (readonly) NSString *shared __attribute__((swift_name("shared")));
 @property (readonly) int32_t x __attribute__((swift_name("x")));
 @property (readonly) int32_t y __attribute__((swift_name("y")));
-@property (readonly) NSString *shared __attribute__((swift_name("shared")));
-@property (readonly) NSString *Shared __attribute__((swift_name("Shared")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -941,6 +1147,7 @@ __attribute__((swift_name("KT43780Enum")))
 @property (class, readonly) KtKT43780Enum *otherEntry __attribute__((swift_name("otherEntry")));
 @property (class, readonly) KtKT43780Enum *companion __attribute__((swift_name("companion")));
 + (KtKotlinArray<KtKT43780Enum *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtKT43780Enum *> *entries __attribute__((swift_name("entries")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1020,7 +1227,11 @@ __attribute__((swift_name("Bar")))
  * @note This method has protected visibility in Kotlin source and is intended only for use by subclasses.
 */
 - (void)bazNodocParam:(int32_t)nodocParam fooParam:(int32_t)fooParam completionHandler:(void (^)(KtInt * _Nullable, NSError * _Nullable))completionHandler __attribute__((swift_name("baz(nodocParam:fooParam:completionHandler:)"))) __attribute__((deprecated("warning")));
-- (void)notKDoc __attribute__((swift_name("notKDoc()")));
+
+/**
+ * @note This property has protected visibility in Kotlin source and is intended only for use by subclasses.
+*/
+@property (readonly) NSString *farewell __attribute__((swift_name("farewell")));
 
 /** My property
  ***
@@ -1044,44 +1255,136 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("Kt54119Kt")))
 @interface KtKt54119Kt : KtBase
 + (BOOL)callContainsSet:(NSSet<id> *)set __attribute__((swift_name("callContains(set:)")));
-+ (id _Nullable)callGetElementSet:(NSSet<id> *)set __attribute__((swift_name("callGetElement(set:)")));
++ (BOOL)callContainsEntryMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callContainsEntry(map:)")));
 + (BOOL)callContainsKeyMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callContainsKey(map:)")));
 + (BOOL)callContainsValueMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callContainsValue(map:)")));
 + (id _Nullable)callGetMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callGet(map:)")));
++ (id _Nullable)callGetElementSet:(NSSet<id> *)set __attribute__((swift_name("callGetElement(set:)")));
 + (int32_t)callGetOrThrowConcurrentModificationMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callGetOrThrowConcurrentModification(map:)")));
-+ (BOOL)callContainsEntryMap:(NSDictionary<id, id> *)map __attribute__((swift_name("callContainsEntry(map:)")));
+@end
+
+@interface KtKotlinSequenceScope (Kt55736Kt)
+
+/**
+ * @note This method converts instances of CancellationException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void)fillWithCompletionHandler:(void (^)(NSError * _Nullable))completionHandler __attribute__((swift_name("fill(completionHandler:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Kt55736Kt")))
+@interface KtKt55736Kt : KtBase
++ (NSArray<KtInt *> *)callbackBlock:(id<KtKotlinSuspendFunction1>)block __attribute__((swift_name("callback(block:)")));
++ (id<KtKotlinKSuspendFunction1>)getFillFunction __attribute__((swift_name("getFillFunction()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Kt56521")))
+@interface KtKt56521 : KtBase
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
++ (instancetype)kt56521 __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) KtKt56521 *shared __attribute__((swift_name("shared")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Kt56521Kt")))
+@interface KtKt56521Kt : KtBase
++ (KtKt56521 *)getKt56521 __attribute__((swift_name("getKt56521()")));
+@property (class) int32_t initialized __attribute__((swift_name("initialized")));
+@end
+
+__attribute__((swift_name("IKt57373")))
+@protocol KtIKt57373
+@required
+@property (readonly) int32_t bar __attribute__((swift_name("bar")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("DKt57373")))
+@interface KtDKt57373 : KtBase <KtIKt57373>
+- (instancetype)initWithFoo:(id<KtIKt57373>)foo __attribute__((swift_name("init(foo:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) int32_t bar __attribute__((swift_name("bar")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("CKt57373")))
+@interface KtCKt57373 : KtBase <KtIKt57373>
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property (readonly) int32_t bar __attribute__((swift_name("bar")));
+@end
+
+__attribute__((swift_name("Ckt57791")))
+@interface KtCkt57791 : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)baz __attribute__((swift_name("baz()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Okt57791")))
+@interface KtOkt57791 : KtCkt57791
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
++ (instancetype)new __attribute__((unavailable));
++ (instancetype)okt57791 __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) KtOkt57791 *shared __attribute__((swift_name("shared")));
+- (int32_t)baz __attribute__((swift_name("baz()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Ckt57791Final")))
+@interface KtCkt57791Final : KtCkt57791
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)baz __attribute__((swift_name("baz()")));
+@end
+
+__attribute__((swift_name("Foo")))
+@protocol KtFoo
+@required
+- (KtCkt57791Final *)getCkt57791 __attribute__((swift_name("getCkt57791()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("Kt57791Kt")))
+@interface KtKt57791Kt : KtBase
++ (BOOL)foobarF:(BOOL)f foo:(id<KtFoo>)foo __attribute__((swift_name("foobar(f:foo:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("LibraryKt")))
 @interface KtLibraryKt : KtBase
 + (NSString *)readDataFromLibraryClassInput:(KtA *)input __attribute__((swift_name("readDataFromLibraryClass(input:)")));
-+ (NSString *)readDataFromLibraryInterfaceInput:(id<KtI>)input __attribute__((swift_name("readDataFromLibraryInterface(input:)")));
 + (NSString *)readDataFromLibraryEnumInput:(KtE *)input __attribute__((swift_name("readDataFromLibraryEnum(input:)")));
++ (NSString *)readDataFromLibraryInterfaceInput:(id<KtI>)input __attribute__((swift_name("readDataFromLibraryInterface(input:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("ArraysConstructor")))
 @interface KtArraysConstructor : KtBase
 - (instancetype)initWithInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("init(int1:int2:)"))) __attribute__((objc_designated_initializer));
-- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 - (NSString *)log __attribute__((swift_name("log()")));
+- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("ArraysDefault")))
 @interface KtArraysDefault : KtBase
 - (instancetype)initWithInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("init(int1:int2:)"))) __attribute__((objc_designated_initializer));
-- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 - (NSString *)log __attribute__((swift_name("log()")));
+- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("ArraysInitBlock")))
 @interface KtArraysInitBlock : KtBase
 - (instancetype)initWithInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("init(int1:int2:)"))) __attribute__((objc_designated_initializer));
-- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 - (NSString *)log __attribute__((swift_name("log()")));
+- (void)setInt1:(int32_t)int1 int2:(int32_t)int2 __attribute__((swift_name("set(int1:int2:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1105,12 +1408,7 @@ __attribute__((swift_name("KotlinObject")))
 __attribute__((swift_name("NoAutoreleaseSendHelper")))
 @protocol KtNoAutoreleaseSendHelper
 @required
-- (void)sendKotlinObjectKotlinObject:(KtKotlinObject *)kotlinObject __attribute__((swift_name("sendKotlinObject(kotlinObject:)")));
 - (void (^)(KtKotlinObject *))blockReceivingKotlinObject __attribute__((swift_name("blockReceivingKotlinObject()")));
-- (void)sendSwiftObjectSwiftObject:(id)swiftObject __attribute__((swift_name("sendSwiftObject(swiftObject:)")));
-- (void)sendListList:(NSArray<id> *)list __attribute__((swift_name("sendList(list:)")));
-- (void)sendStringString:(NSString *)string __attribute__((swift_name("sendString(string:)")));
-- (void)sendNumberNumber:(id)number __attribute__((swift_name("sendNumber(number:)")));
 - (void)sendBlockBlock:(KtKotlinObject *(^)(void))block __attribute__((swift_name("sendBlock(block:)")));
 
 /**
@@ -1118,29 +1416,29 @@ __attribute__((swift_name("NoAutoreleaseSendHelper")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)sendCompletionWithCompletionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("sendCompletion(completionHandler:)")));
+- (void)sendKotlinObjectKotlinObject:(KtKotlinObject *)kotlinObject __attribute__((swift_name("sendKotlinObject(kotlinObject:)")));
+- (void)sendListList:(NSArray<id> *)list __attribute__((swift_name("sendList(list:)")));
+- (void)sendNumberNumber:(id)number __attribute__((swift_name("sendNumber(number:)")));
+- (void)sendStringString:(NSString *)string __attribute__((swift_name("sendString(string:)")));
+- (void)sendSwiftObjectSwiftObject:(id)swiftObject __attribute__((swift_name("sendSwiftObject(swiftObject:)")));
 @end
 
 __attribute__((swift_name("NoAutoreleaseReceiveHelper")))
 @protocol KtNoAutoreleaseReceiveHelper
 @required
-- (KtKotlinObject *)receiveKotlinObject __attribute__((swift_name("receiveKotlinObject()")));
-- (id)receiveSwiftObject __attribute__((swift_name("receiveSwiftObject()")));
-- (NSArray<id> *)receiveList __attribute__((swift_name("receiveList()")));
-- (NSString *)receiveString __attribute__((swift_name("receiveString()")));
-- (id)receiveNumber __attribute__((swift_name("receiveNumber()")));
 - (KtKotlinObject *(^)(void))receiveBlock __attribute__((swift_name("receiveBlock()")));
+- (KtKotlinObject *)receiveKotlinObject __attribute__((swift_name("receiveKotlinObject()")));
+- (NSArray<id> *)receiveList __attribute__((swift_name("receiveList()")));
+- (id)receiveNumber __attribute__((swift_name("receiveNumber()")));
+- (NSString *)receiveString __attribute__((swift_name("receiveString()")));
+- (id)receiveSwiftObject __attribute__((swift_name("receiveSwiftObject()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("NoAutoreleaseKotlinSendHelper")))
 @interface KtNoAutoreleaseKotlinSendHelper : KtBase <KtNoAutoreleaseSendHelper>
 - (instancetype)initWithKotlinLivenessTracker:(KtKotlinLivenessTracker *)kotlinLivenessTracker __attribute__((swift_name("init(kotlinLivenessTracker:)"))) __attribute__((objc_designated_initializer));
-- (void)sendKotlinObjectKotlinObject:(KtKotlinObject *)kotlinObject __attribute__((swift_name("sendKotlinObject(kotlinObject:)")));
 - (void (^)(KtKotlinObject *))blockReceivingKotlinObject __attribute__((swift_name("blockReceivingKotlinObject()")));
-- (void)sendSwiftObjectSwiftObject:(id)swiftObject __attribute__((swift_name("sendSwiftObject(swiftObject:)")));
-- (void)sendListList:(NSArray<id> *)list __attribute__((swift_name("sendList(list:)")));
-- (void)sendStringString:(NSString *)string __attribute__((swift_name("sendString(string:)")));
-- (void)sendNumberNumber:(id)number __attribute__((swift_name("sendNumber(number:)")));
 - (void)sendBlockBlock:(KtKotlinObject *(^)(void))block __attribute__((swift_name("sendBlock(block:)")));
 
 /**
@@ -1148,6 +1446,11 @@ __attribute__((swift_name("NoAutoreleaseKotlinSendHelper")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (void)sendCompletionWithCompletionHandler:(void (^)(id _Nullable_result, NSError * _Nullable))completionHandler __attribute__((swift_name("sendCompletion(completionHandler:)")));
+- (void)sendKotlinObjectKotlinObject:(KtKotlinObject *)kotlinObject __attribute__((swift_name("sendKotlinObject(kotlinObject:)")));
+- (void)sendListList:(NSArray<id> *)list __attribute__((swift_name("sendList(list:)")));
+- (void)sendNumberNumber:(id)number __attribute__((swift_name("sendNumber(number:)")));
+- (void)sendStringString:(NSString *)string __attribute__((swift_name("sendString(string:)")));
+- (void)sendSwiftObjectSwiftObject:(id)swiftObject __attribute__((swift_name("sendSwiftObject(swiftObject:)")));
 @property (readonly) KtKotlinLivenessTracker *kotlinLivenessTracker __attribute__((swift_name("kotlinLivenessTracker")));
 @end
 
@@ -1155,14 +1458,14 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("NoAutoreleaseKotlinReceiveHelper")))
 @interface KtNoAutoreleaseKotlinReceiveHelper : KtBase <KtNoAutoreleaseReceiveHelper>
 - (instancetype)initWithKotlinLivenessTracker:(KtKotlinLivenessTracker *)kotlinLivenessTracker __attribute__((swift_name("init(kotlinLivenessTracker:)"))) __attribute__((objc_designated_initializer));
-- (KtKotlinObject *)receiveKotlinObject __attribute__((swift_name("receiveKotlinObject()")));
-- (id)receiveSwiftObject __attribute__((swift_name("receiveSwiftObject()")));
-- (NSArray<id> *)receiveList __attribute__((swift_name("receiveList()")));
-- (NSString *)receiveString __attribute__((swift_name("receiveString()")));
-- (id)receiveNumber __attribute__((swift_name("receiveNumber()")));
 - (KtKotlinObject *(^)(void))receiveBlock __attribute__((swift_name("receiveBlock()")));
-@property id swiftObject __attribute__((swift_name("swiftObject")));
+- (KtKotlinObject *)receiveKotlinObject __attribute__((swift_name("receiveKotlinObject()")));
+- (NSArray<id> *)receiveList __attribute__((swift_name("receiveList()")));
+- (id)receiveNumber __attribute__((swift_name("receiveNumber()")));
+- (NSString *)receiveString __attribute__((swift_name("receiveString()")));
+- (id)receiveSwiftObject __attribute__((swift_name("receiveSwiftObject()")));
 @property (readonly) KtKotlinLivenessTracker *kotlinLivenessTracker __attribute__((swift_name("kotlinLivenessTracker")));
+@property id swiftObject __attribute__((swift_name("swiftObject")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1183,31 +1486,166 @@ __attribute__((swift_name("NoAutoreleaseEnum")))
 - (instancetype)initWithName:(NSString *)name ordinal:(int32_t)ordinal __attribute__((swift_name("init(name:ordinal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @property (class, readonly) KtNoAutoreleaseEnum *entry __attribute__((swift_name("entry")));
 + (KtKotlinArray<KtNoAutoreleaseEnum *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtNoAutoreleaseEnum *> *entries __attribute__((swift_name("entries")));
 @property (readonly) int32_t x __attribute__((swift_name("x")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("NoAutoreleaseKt")))
 @interface KtNoAutoreleaseKt : KtBase
-+ (void)gc __attribute__((swift_name("gc()")));
-+ (void)callSendKotlinObjectHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendKotlinObject(helper:tracker:)")));
-+ (void)sendKotlinObjectToBlockHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("sendKotlinObjectToBlock(helper:tracker:)")));
-+ (void)callSendSwiftObjectHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker swiftObject:(id)swiftObject __attribute__((swift_name("callSendSwiftObject(helper:tracker:swiftObject:)")));
-+ (void)callSendListHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendList(helper:tracker:)")));
-+ (void)callSendStringHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendString(helper:tracker:)")));
-+ (void)callSendNumberHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendNumber(helper:tracker:)")));
-+ (void)callSendBlockHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendBlock(helper:tracker:)")));
-+ (void)callSendCompletionHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendCompletion(helper:tracker:)")));
-+ (void)callReceiveKotlinObjectHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveKotlinObject(helper:tracker:)")));
-+ (void)callReceiveSwiftObjectHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveSwiftObject(helper:tracker:)")));
-+ (void)callReceiveListHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveList(helper:tracker:)")));
-+ (void)callReceiveStringHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveString(helper:tracker:)")));
-+ (void)callReceiveNumberHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveNumber(helper:tracker:)")));
 + (void)callReceiveBlockHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveBlock(helper:tracker:)")));
 + (void)callReceiveBlockAndCallHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveBlockAndCall(helper:tracker:)")));
-+ (void * _Nullable)objc_autoreleasePoolPush __attribute__((swift_name("objc_autoreleasePoolPush()")));
++ (void)callReceiveKotlinObjectHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveKotlinObject(helper:tracker:)")));
++ (void)callReceiveListHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveList(helper:tracker:)")));
++ (void)callReceiveNumberHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveNumber(helper:tracker:)")));
++ (void)callReceiveStringHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveString(helper:tracker:)")));
++ (void)callReceiveSwiftObjectHelper:(id<KtNoAutoreleaseReceiveHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callReceiveSwiftObject(helper:tracker:)")));
++ (void)callSendBlockHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendBlock(helper:tracker:)")));
++ (void)callSendCompletionHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendCompletion(helper:tracker:)")));
++ (void)callSendKotlinObjectHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendKotlinObject(helper:tracker:)")));
++ (void)callSendListHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendList(helper:tracker:)")));
++ (void)callSendNumberHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendNumber(helper:tracker:)")));
++ (void)callSendStringHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("callSendString(helper:tracker:)")));
++ (void)callSendSwiftObjectHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker swiftObject:(id)swiftObject __attribute__((swift_name("callSendSwiftObject(helper:tracker:swiftObject:)")));
++ (void)gc __attribute__((swift_name("gc()")));
 + (void)objc_autoreleasePoolPopHandle:(void * _Nullable)handle __attribute__((swift_name("objc_autoreleasePoolPop(handle:)")));
++ (void * _Nullable)objc_autoreleasePoolPush __attribute__((swift_name("objc_autoreleasePoolPush()")));
++ (void)sendKotlinObjectToBlockHelper:(id<KtNoAutoreleaseSendHelper>)helper tracker:(KtKotlinLivenessTracker *)tracker __attribute__((swift_name("sendKotlinObjectToBlock(helper:tracker:)")));
 + (void)useIntArrayArray:(KtKotlinIntArray *)array __attribute__((swift_name("useIntArray(array:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameC1A")))
+@interface KtObjCNameC1A : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)foo __attribute__((swift_name("foo()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameAKt")))
+@interface KtObjCNameAKt : KtBase
++ (NSString *)registerForConnectionEventsWithOptions:(NSString *)withOptions __attribute__((swift_name("registerForConnectionEvents(options:)")));
++ (NSString *)scanForPeripheralsWithServices:(int32_t)withServices options:(NSString *)options __attribute__((swift_name("scanForPeripherals(withServices:options:)")));
++ (BOOL)supportsFeatures:(BOOL)features __attribute__((swift_name("supports(_:)")));
++ (NSString *)withUserId:(NSString *)userId __attribute__((swift_name("with(userId:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameC1B")))
+@interface KtObjCNameC1B : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)foo __attribute__((swift_name("foo()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("MySwiftArray")))
+@interface KtMyObjCArray : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)indexOfObject:(int32_t)object __attribute__((swift_name("index(of:)")));
+@property (readonly) int32_t count __attribute__((swift_name("count")));
+@end
+
+__attribute__((swift_name("ObjCNameI1")))
+@protocol KtObjCNameI1
+@required
+- (int32_t)someOtherFunctionReceiver:(int32_t)receiver otherParam:(int32_t)otherParam __attribute__((swift_name("someOtherFunction(receiver:otherParam:)")));
+@property (readonly) int32_t someOtherValue __attribute__((swift_name("someOtherValue")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftNameC2")))
+@interface KtObjCNameC2 : KtBase <KtObjCNameI1>
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)someOtherFunctionReceiver:(int32_t)receiver otherParam:(int32_t)otherParam __attribute__((swift_name("someOtherFunction(receiver:otherParam:)")));
+@property int32_t someOtherValue __attribute__((swift_name("someOtherValue")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftNameC2.SwiftNestedClass")))
+@interface KtObjCNameC2ObjCNestedClass : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property int32_t nestedValue __attribute__((swift_name("nestedValue")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftExactNestedClass")))
+@interface ObjCExactNestedClass : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property int32_t nestedValue __attribute__((swift_name("nestedValue")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftNameC3")))
+@interface ObjCNameC3 : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftNameC3.SwiftNestedClass")))
+@interface ObjCNameC3ObjCNestedClass : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+@property int32_t nestedValue __attribute__((swift_name("nestedValue")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameC4")))
+@interface KtObjCNameC4 : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (int32_t)fooObjCReceiver:(int32_t)receiver objCParam:(int32_t)objCParam __attribute__((swift_name("foo(objCReceiver:objCParam:)")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameSwiftObject")))
+@interface KtObjCNameObjCObject : KtBase
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
++ (instancetype)objCNameObjCObject __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) KtObjCNameObjCObject *shared __attribute__((swift_name("shared")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameSwiftEnum")))
+@interface KtObjCNameObjCEnum : KtKotlinEnum<KtObjCNameObjCEnum *>
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
+- (instancetype)initWithName:(NSString *)name ordinal:(int32_t)ordinal __attribute__((swift_name("init(name:ordinal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+@property (class, readonly) KtObjCNameObjCEnum *objcOne __attribute__((swift_name("swiftOne")));
+@property (class, readonly) KtObjCNameObjCEnum *objcTwo __attribute__((swift_name("companion")));
+@property (class, readonly) KtObjCNameObjCEnum *objcThree __attribute__((swift_name("swiftThree")));
++ (KtKotlinArray<KtObjCNameObjCEnum *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtObjCNameObjCEnum *> *entries __attribute__((swift_name("entries")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameSwiftEnum.Companion")))
+@interface KtObjCNameObjCEnumCompanion : KtBase
++ (instancetype)alloc __attribute__((unavailable));
++ (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
++ (instancetype)companion __attribute__((swift_name("init()")));
+@property (class, readonly, getter=shared) KtObjCNameObjCEnumCompanion *shared __attribute__((swift_name("shared")));
+- (int32_t)foo __attribute__((swift_name("foo()")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCAvoidPreprocessorName")))
+@interface KtObjCAvoidPreprocessorName : KtBase
+- (instancetype)initWithTime:(int32_t)time __attribute__((swift_name("init(time:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) int32_t time __attribute__((swift_name("time")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("ObjCNameBKt")))
+@interface KtObjCNameBKt : KtBase
++ (int32_t)getSomeValueOf:(id<KtObjCNameI1>)receiver __attribute__((swift_name("getSomeValue(of:)")));
 @end
 
 __attribute__((swift_name("OverrideKotlinMethods2")))
@@ -1290,6 +1728,54 @@ __attribute__((swift_name("OverrideMethodsOfAnyKt")))
 + (BOOL)testObj:(id)obj other:(id)other swift:(BOOL)swift error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("test(obj:other:swift:)")));
 @end
 
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("RecList")))
+@interface KtRecList<T> : KtBase
+- (instancetype)initWithValue:(NSArray<id> *)value __attribute__((swift_name("init(value:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) NSArray<id> *value __attribute__((swift_name("value")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("RecFunc")))
+@interface KtRecFunc<T> : KtBase
+- (instancetype)initWithValue:(id (^)(void))value __attribute__((swift_name("init(value:)"))) __attribute__((objc_designated_initializer));
+@property (readonly) id (^value)(void) __attribute__((swift_name("value")));
+@end
+
+__attribute__((swift_name("RefinedClassA")))
+@interface KtRefinedClassA : KtBase
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)fooRefined __attribute__((swift_private));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("RefinedClassB")))
+@interface KtRefinedClassB : KtRefinedClassA
+- (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
++ (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (NSString *)fooRefined __attribute__((swift_private));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("RefinedKt")))
+@interface KtRefinedKt : KtBase
++ (NSString *)fooRefined __attribute__((swift_private));
+
+/**
+ * @note annotations
+ *   refined.MyShouldRefineInSwift
+*/
++ (NSString *)myFooRefined __attribute__((swift_private));
+@property (class, readonly) NSString *barRefined __attribute__((swift_private));
+
+/**
+ * @note annotations
+ *   refined.MyShouldRefineInSwift
+*/
+@property (class, readonly) NSString *myBarRefined __attribute__((swift_private));
+@end
+
 __attribute__((swift_name("Person")))
 @interface KtPerson : KtBase
 @end
@@ -1298,11 +1784,10 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("Person.User")))
 @interface KtPersonUser : KtPerson
 - (instancetype)initWithId:(int32_t)id __attribute__((swift_name("init(id:)"))) __attribute__((objc_designated_initializer));
+- (KtPersonUser *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (int32_t)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtPersonUser *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 @property (readonly) int32_t id __attribute__((swift_name("id")));
 @end
 
@@ -1318,11 +1803,10 @@ __attribute__((swift_name("Person.WorkerEmployee")))
 - (instancetype)initWithId:(int32_t)id __attribute__((swift_name("init(id:)"))) __attribute__((objc_designated_initializer));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 + (instancetype)new __attribute__((unavailable));
+- (KtPersonWorkerEmployee *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (int32_t)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtPersonWorkerEmployee *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 @property (readonly) int32_t id __attribute__((swift_name("id")));
 @end
 
@@ -1332,12 +1816,38 @@ __attribute__((swift_name("Person.WorkerContractor")))
 - (instancetype)initWithId:(int32_t)id __attribute__((swift_name("init(id:)"))) __attribute__((objc_designated_initializer));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 + (instancetype)new __attribute__((unavailable));
+- (KtPersonWorkerContractor *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (int32_t)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtPersonWorkerContractor *)doCopyId:(int32_t)id __attribute__((swift_name("doCopy(id:)")));
 @property (readonly) int32_t id __attribute__((swift_name("id")));
+@end
+
+__attribute__((swift_name("SwiftNameManglingI1")))
+@protocol KtSwiftNameManglingI1
+@required
+- (int32_t)clashingMethod __attribute__((swift_name("clashingMethod()")));
+- (int32_t)clashingMethodWithObjCNameInBoth __attribute__((swift_name("swiftClashingMethodWithObjCNameInBoth()")));
+- (int32_t)clashingMethodWithObjCNameInI1 __attribute__((swift_name("swiftClashingMethodWithObjCNameInI1()")));
+- (int32_t)swiftClashingMethodWithObjCNameInI2 __attribute__((swift_name("swiftClashingMethodWithObjCNameInI2()")));
+@property (readonly) int32_t clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((swift_name("SwiftNameManglingI2")))
+@protocol KtSwiftNameManglingI2
+@required
+- (id)clashingMethod __attribute__((swift_name("clashingMethod()")));
+- (id)clashingMethodWithObjCNameInBoth __attribute__((swift_name("swiftClashingMethodWithObjCNameInBoth()")));
+- (id)clashingMethodWithObjCNameInI2 __attribute__((swift_name("swiftClashingMethodWithObjCNameInI2()")));
+- (id)swiftClashingMethodWithObjCNameInI1 __attribute__((swift_name("swiftClashingMethodWithObjCNameInI1()")));
+@property (readonly) id clashingProperty __attribute__((swift_name("clashingProperty")));
+@end
+
+__attribute__((objc_subclassing_restricted))
+__attribute__((swift_name("SwiftNameManglingKt")))
+@interface KtSwiftNameManglingKt : KtBase
++ (id<KtSwiftNameManglingI1>)i1 __attribute__((swift_name("i1()")));
++ (id<KtSwiftNameManglingI2>)i2 __attribute__((swift_name("i2()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1445,8 +1955,8 @@ __attribute__((swift_name("MultiExtClass")))
 @interface KtMultiExtClass : KtOpenClassI
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (id)piFun __attribute__((swift_name("piFun()")));
 - (NSString *)iFun __attribute__((swift_name("iFun()")));
+- (id)piFun __attribute__((swift_name("piFun()")));
 @end
 
 __attribute__((swift_name("ConstrClass")))
@@ -1454,9 +1964,9 @@ __attribute__((swift_name("ConstrClass")))
 - (instancetype)initWithI:(int32_t)i s:(NSString *)s a:(id)a __attribute__((swift_name("init(i:s:a:)"))) __attribute__((objc_designated_initializer));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 + (instancetype)new __attribute__((unavailable));
+@property (readonly) id a __attribute__((swift_name("a")));
 @property (readonly) int32_t i __attribute__((swift_name("i")));
 @property (readonly) NSString *s __attribute__((swift_name("s")));
-@property (readonly) id a __attribute__((swift_name("a")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1478,6 +1988,7 @@ __attribute__((swift_name("Enumeration")))
 @property (class, readonly) KtEnumeration *year __attribute__((swift_name("year")));
 @property (class, readonly) KtEnumeration *temperature __attribute__((swift_name("temperature")));
 + (KtKotlinArray<KtEnumeration *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtEnumeration *> *entries __attribute__((swift_name("entries")));
 @property (readonly) int32_t enumValue __attribute__((swift_name("enumValue")));
 @end
 
@@ -1485,13 +1996,10 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TripleVals")))
 @interface KtTripleVals<T> : KtBase
 - (instancetype)initWithFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("init(first:second:third:)"))) __attribute__((objc_designated_initializer));
+- (KtTripleVals<T> *)doCopyFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("doCopy(first:second:third:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (T _Nullable)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (T _Nullable)component2 __attribute__((swift_name("component2()"))) __attribute__((deprecated("use corresponding property instead")));
-- (T _Nullable)component3 __attribute__((swift_name("component3()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtTripleVals<T> *)doCopyFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("doCopy(first:second:third:)")));
 @property (readonly) T _Nullable first __attribute__((swift_name("first")));
 @property (readonly) T _Nullable second __attribute__((swift_name("second")));
 @property (readonly) T _Nullable third __attribute__((swift_name("third")));
@@ -1501,13 +2009,10 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TripleVars")))
 @interface KtTripleVars<T> : KtBase
 - (instancetype)initWithFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("init(first:second:third:)"))) __attribute__((objc_designated_initializer));
-- (NSString *)description __attribute__((swift_name("description()")));
+- (KtTripleVars<T> *)doCopyFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("doCopy(first:second:third:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
-- (T _Nullable)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (T _Nullable)component2 __attribute__((swift_name("component2()"))) __attribute__((deprecated("use corresponding property instead")));
-- (T _Nullable)component3 __attribute__((swift_name("component3()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtTripleVars<T> *)doCopyFirst:(T _Nullable)first second:(T _Nullable)second third:(T _Nullable)third __attribute__((swift_name("doCopy(first:second:third:)")));
+- (NSString *)description __attribute__((swift_name("description()")));
 @property T _Nullable first __attribute__((swift_name("first")));
 @property T _Nullable second __attribute__((swift_name("second")));
 @property T _Nullable third __attribute__((swift_name("third")));
@@ -1527,8 +2032,8 @@ __attribute__((swift_name("WithCompanionAndObject.Companion")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) KtWithCompanionAndObjectCompanion *shared __attribute__((swift_name("shared")));
-@property (readonly) NSString *str __attribute__((swift_name("str")));
 @property id<KtI> _Nullable named __attribute__((swift_name("named")));
+@property (readonly) NSString *str __attribute__((swift_name("str")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1549,8 +2054,8 @@ __attribute__((swift_name("MyException")))
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (instancetype)initWithMessage:(NSString * _Nullable)message __attribute__((swift_name("init(message:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
-- (instancetype)initWithMessage:(NSString * _Nullable)message cause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(message:cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithCause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithMessage:(NSString * _Nullable)message cause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(message:cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1559,25 +2064,13 @@ __attribute__((swift_name("MyError")))
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (instancetype)initWithMessage:(NSString * _Nullable)message __attribute__((swift_name("init(message:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
-- (instancetype)initWithMessage:(NSString * _Nullable)message cause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(message:cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithCause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithMessage:(NSString * _Nullable)message cause:(KtKotlinThrowable * _Nullable)cause __attribute__((swift_name("init(message:cause:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((swift_name("SwiftOverridableMethodsWithThrows")))
 @protocol KtSwiftOverridableMethodsWithThrows
 @required
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
 
 /**
  * @note This method converts instances of MyException to errors.
@@ -1590,17 +2083,23 @@ __attribute__((swift_name("SwiftOverridableMethodsWithThrows")))
  * Other uncaught Kotlin exceptions are fatal.
 */
 - (KtInt *(^ _Nullable)(void))blockAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("block()")));
-@end
-
-__attribute__((swift_name("MethodsWithThrows")))
-@protocol KtMethodsWithThrows <KtSwiftOverridableMethodsWithThrows>
-@required
 
 /**
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
+- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
+@end
+
+__attribute__((swift_name("MethodsWithThrows")))
+@protocol KtMethodsWithThrows <KtSwiftOverridableMethodsWithThrows>
+@required
 
 /**
  * @note This method converts instances of MyException to errors.
@@ -1618,13 +2117,7 @@ __attribute__((swift_name("MethodsWithThrows")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
+- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
 
 /**
  * @note This method converts instances of MyException to errors.
@@ -1642,7 +2135,19 @@ __attribute__((swift_name("MethodsWithThrows")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
+- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
 @end
 
 __attribute__((swift_name("MethodsWithThrowsUnitCaller")))
@@ -1669,24 +2174,6 @@ __attribute__((swift_name("Throwing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
 - (id _Nullable)anyAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("any()")));
 
 /**
@@ -1711,13 +2198,7 @@ __attribute__((swift_name("Throwing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
+- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
 
 /**
  * @note This method converts instances of MyException to errors.
@@ -1735,7 +2216,31 @@ __attribute__((swift_name("Throwing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
+- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1752,24 +2257,6 @@ __attribute__((swift_name("NotThrowing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
 - (id _Nullable)anyAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("any()")));
 
 /**
@@ -1794,13 +2281,7 @@ __attribute__((swift_name("NotThrowing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
-
-/**
- * @note This method converts instances of MyException to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
+- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
 
 /**
  * @note This method converts instances of MyException to errors.
@@ -1818,7 +2299,31 @@ __attribute__((swift_name("NotThrowing")))
  * @note This method converts instances of MyException to errors.
  * Other uncaught Kotlin exceptions are fatal.
 */
-- (double)doubleAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("double()"))) __attribute__((swift_error(nonnull_error)));
+- (BOOL)nothingAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothing()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (KtKotlinNothing * _Nullable)nothingNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("nothingN()"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointer()")));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (void * _Nullable)pointerNAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("pointerN()"))) __attribute__((swift_error(nonnull_error)));
+
+/**
+ * @note This method converts instances of MyException to errors.
+ * Other uncaught Kotlin exceptions are fatal.
+*/
+- (BOOL)unitAndReturnError:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("unit()")));
 @end
 
 __attribute__((swift_name("ThrowsWithBridgeBase")))
@@ -1912,15 +2417,12 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("CKeywords")))
 @interface KtCKeywords : KtBase
 - (instancetype)initWithFloat:(float)float_ enum:(int32_t)enum_ goto:(BOOL)goto_ __attribute__((swift_name("init(float:enum:goto:)"))) __attribute__((objc_designated_initializer));
+- (KtCKeywords *)doCopyFloat:(float)float_ enum:(int32_t)enum_ goto:(BOOL)goto_ __attribute__((swift_name("doCopy(float:enum:goto:)")));
 - (BOOL)isEqual:(id _Nullable)other __attribute__((swift_name("isEqual(_:)")));
 - (NSUInteger)hash __attribute__((swift_name("hash()")));
 - (NSString *)description __attribute__((swift_name("description()")));
-- (float)component1 __attribute__((swift_name("component1()"))) __attribute__((deprecated("use corresponding property instead")));
-- (int32_t)component2 __attribute__((swift_name("component2()"))) __attribute__((deprecated("use corresponding property instead")));
-- (BOOL)component3 __attribute__((swift_name("component3()"))) __attribute__((deprecated("use corresponding property instead")));
-- (KtCKeywords *)doCopyFloat:(float)float_ enum:(int32_t)enum_ goto:(BOOL)goto_ __attribute__((swift_name("doCopy(float:enum:goto:)")));
-@property (readonly, getter=float) float float_ __attribute__((swift_name("float_")));
 @property (readonly, getter=enum) int32_t enum_ __attribute__((swift_name("enum_")));
+@property (readonly, getter=float) float float_ __attribute__((swift_name("float_")));
 @property (getter=goto, setter=setGoto:) BOOL goto_ __attribute__((swift_name("goto_")));
 @end
 
@@ -1976,16 +2478,16 @@ __attribute__((swift_name("TransformIntToString")))
 @interface KtTransformIntToString : KtBase <KtTransform, KtTransformIntString>
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (NSString *)mapValue:(KtInt *)intValue __attribute__((swift_name("map(value:)")));
-- (NSString *)mapIntValue:(int32_t)intValue __attribute__((swift_name("map(intValue:)")));
+- (NSString *)mapValue:(KtInt *)value __attribute__((swift_name("map(value:)")));
+- (NSString *)mapIntValue:(int32_t)value __attribute__((swift_name("map(intValue:)")));
 @end
 
 __attribute__((swift_name("TransformIntToDecimalString")))
 @interface KtTransformIntToDecimalString : KtTransformIntToString
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (NSString *)mapValue:(KtInt *)intValue __attribute__((swift_name("map(value:)")));
-- (NSString *)mapIntValue:(int32_t)intValue __attribute__((swift_name("map(intValue:)")));
+- (NSString *)mapValue:(KtInt *)value __attribute__((swift_name("map(value:)")));
+- (NSString *)mapIntValue:(int32_t)value __attribute__((swift_name("map(intValue:)")));
 @end
 
 __attribute__((swift_name("TransformIntToLong")))
@@ -2055,8 +2557,8 @@ __attribute__((swift_name("GH2959I")))
 __attribute__((swift_name("IntBlocks")))
 @protocol KtIntBlocks
 @required
-- (id _Nullable)getPlusOneBlock __attribute__((swift_name("getPlusOneBlock()")));
 - (int32_t)callBlockArgument:(int32_t)argument block:(id _Nullable)block __attribute__((swift_name("callBlock(argument:block:)")));
+- (id _Nullable)getPlusOneBlock __attribute__((swift_name("getPlusOneBlock()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2066,8 +2568,8 @@ __attribute__((swift_name("IntBlocksImpl")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 + (instancetype)intBlocksImpl __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) KtIntBlocksImpl *shared __attribute__((swift_name("shared")));
-- (KtInt *(^)(KtInt *))getPlusOneBlock __attribute__((swift_name("getPlusOneBlock()")));
 - (int32_t)callBlockArgument:(int32_t)argument block:(KtInt *(^)(KtInt *))block __attribute__((swift_name("callBlock(argument:block:)")));
+- (KtInt *(^)(KtInt *))getPlusOneBlock __attribute__((swift_name("getPlusOneBlock()")));
 @end
 
 __attribute__((swift_name("UnitBlockCoercion")))
@@ -2099,8 +2601,8 @@ __attribute__((swift_name("TestKClass")))
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
 - (id<KtKotlinKClass> _Nullable)getKotlinClassClazz:(Class)clazz __attribute__((swift_name("getKotlinClass(clazz:)")));
 - (id<KtKotlinKClass> _Nullable)getKotlinClassProtocol:(Protocol *)protocol __attribute__((swift_name("getKotlinClass(protocol:)")));
-- (BOOL)isTestKClassKClass:(id<KtKotlinKClass>)kClass __attribute__((swift_name("isTestKClass(kClass:)")));
 - (BOOL)isIKClass:(id<KtKotlinKClass>)kClass __attribute__((swift_name("isI(kClass:)")));
+- (BOOL)isTestKClassKClass:(id<KtKotlinKClass>)kClass __attribute__((swift_name("isTestKClass(kClass:)")));
 @end
 
 __attribute__((swift_name("TestKClassI")))
@@ -2181,6 +2683,7 @@ __attribute__((swift_name("TestInvalidIdentifiers.E")))
 @property (class, readonly) KtTestInvalidIdentifiersE *__ __attribute__((swift_name("__")));
 @property (class, readonly) KtTestInvalidIdentifiersE *__ __attribute__((swift_name("__")));
 + (KtKotlinArray<KtTestInvalidIdentifiersE *> *)values __attribute__((swift_name("values()")));
+@property (class, readonly) NSArray<KtTestInvalidIdentifiersE *> *entries __attribute__((swift_name("entries")));
 @property (readonly) int32_t value __attribute__((swift_name("value")));
 @end
 
@@ -2196,46 +2699,46 @@ __attribute__((swift_name("TestInvalidIdentifiers.CompanionS")))
 
 __attribute__((swift_name("TestDeprecation")))
 @interface KtTestDeprecation : KtBase
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
-- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
-- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
+- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
+- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
 - (int32_t)callEffectivelyHiddenObj:(id)obj __attribute__((swift_name("callEffectivelyHidden(obj:)")));
-- (id)getHidden __attribute__((swift_name("getHidden()")));
-- (KtTestDeprecationError *)getError __attribute__((swift_name("getError()")));
 - (void)error __attribute__((swift_name("error()"))) __attribute__((unavailable("error")));
-- (void)openError __attribute__((swift_name("openError()"))) __attribute__((unavailable("error")));
+- (KtTestDeprecationError *)getError __attribute__((swift_name("getError()")));
+- (id)getHidden __attribute__((swift_name("getHidden()")));
 - (KtTestDeprecationWarning *)getWarning __attribute__((swift_name("getWarning()")));
-- (void)warning __attribute__((swift_name("warning()"))) __attribute__((deprecated("warning")));
-- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((deprecated("warning")));
 - (void)normal __attribute__((swift_name("normal()")));
+- (void)openError __attribute__((swift_name("openError()"))) __attribute__((unavailable("error")));
 - (int32_t)openNormal __attribute__((swift_name("openNormal()")));
-- (void)testHiddenNested:(id)hiddenNested __attribute__((swift_name("test(hiddenNested:)")));
-- (void)testHiddenNestedNested:(id)hiddenNestedNested __attribute__((swift_name("test(hiddenNestedNested:)")));
-- (void)testHiddenNestedInner:(id)hiddenNestedInner __attribute__((swift_name("test(hiddenNestedInner:)")));
-- (void)testHiddenInner:(id)hiddenInner __attribute__((swift_name("test(hiddenInner:)")));
-- (void)testHiddenInnerInner:(id)hiddenInnerInner __attribute__((swift_name("test(hiddenInnerInner:)")));
-- (void)testTopLevelHidden:(id)topLevelHidden __attribute__((swift_name("test(topLevelHidden:)")));
-- (void)testTopLevelHiddenNested:(id)topLevelHiddenNested __attribute__((swift_name("test(topLevelHiddenNested:)")));
-- (void)testTopLevelHiddenNestedNested:(id)topLevelHiddenNestedNested __attribute__((swift_name("test(topLevelHiddenNestedNested:)")));
-- (void)testTopLevelHiddenNestedInner:(id)topLevelHiddenNestedInner __attribute__((swift_name("test(topLevelHiddenNestedInner:)")));
-- (void)testTopLevelHiddenInner:(id)topLevelHiddenInner __attribute__((swift_name("test(topLevelHiddenInner:)")));
-- (void)testTopLevelHiddenInnerInner:(id)topLevelHiddenInnerInner __attribute__((swift_name("test(topLevelHiddenInnerInner:)")));
+- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((deprecated("warning")));
 - (void)testExtendingHiddenNested:(id)extendingHiddenNested __attribute__((swift_name("test(extendingHiddenNested:)")));
 - (void)testExtendingNestedInHidden:(id)extendingNestedInHidden __attribute__((swift_name("test(extendingNestedInHidden:)")));
+- (void)testHiddenInner:(id)hiddenInner __attribute__((swift_name("test(hiddenInner:)")));
+- (void)testHiddenInnerInner:(id)hiddenInnerInner __attribute__((swift_name("test(hiddenInnerInner:)")));
+- (void)testHiddenNested:(id)hiddenNested __attribute__((swift_name("test(hiddenNested:)")));
+- (void)testHiddenNestedInner:(id)hiddenNestedInner __attribute__((swift_name("test(hiddenNestedInner:)")));
+- (void)testHiddenNestedNested:(id)hiddenNestedNested __attribute__((swift_name("test(hiddenNestedNested:)")));
+- (void)testTopLevelHidden:(id)topLevelHidden __attribute__((swift_name("test(topLevelHidden:)")));
+- (void)testTopLevelHiddenInner:(id)topLevelHiddenInner __attribute__((swift_name("test(topLevelHiddenInner:)")));
+- (void)testTopLevelHiddenInnerInner:(id)topLevelHiddenInnerInner __attribute__((swift_name("test(topLevelHiddenInnerInner:)")));
+- (void)testTopLevelHiddenNested:(id)topLevelHiddenNested __attribute__((swift_name("test(topLevelHiddenNested:)")));
+- (void)testTopLevelHiddenNestedInner:(id)topLevelHiddenNestedInner __attribute__((swift_name("test(topLevelHiddenNestedInner:)")));
+- (void)testTopLevelHiddenNestedNested:(id)topLevelHiddenNestedNested __attribute__((swift_name("test(topLevelHiddenNestedNested:)")));
+- (void)warning __attribute__((swift_name("warning()"))) __attribute__((deprecated("warning")));
 @property (readonly) id _Nullable errorVal __attribute__((swift_name("errorVal"))) __attribute__((unavailable("error")));
 @property id _Nullable errorVar __attribute__((swift_name("errorVar"))) __attribute__((unavailable("error")));
-@property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((unavailable("error")));
-@property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((unavailable("error")));
-@property (readonly) id _Nullable warningVal __attribute__((swift_name("warningVal"))) __attribute__((deprecated("warning")));
-@property id _Nullable warningVar __attribute__((swift_name("warningVar"))) __attribute__((deprecated("warning")));
-@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((deprecated("warning")));
-@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((deprecated("warning")));
 @property (readonly) id _Nullable normalVal __attribute__((swift_name("normalVal")));
 @property id _Nullable normalVar __attribute__((swift_name("normalVar")));
+@property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((unavailable("error")));
+@property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((unavailable("error")));
 @property (readonly) id _Nullable openNormalVal __attribute__((swift_name("openNormalVal")));
 @property id _Nullable openNormalVar __attribute__((swift_name("openNormalVar")));
+@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((deprecated("warning")));
+@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((deprecated("warning")));
+@property (readonly) id _Nullable warningVal __attribute__((swift_name("warningVal"))) __attribute__((deprecated("warning")));
+@property id _Nullable warningVar __attribute__((swift_name("warningVar"))) __attribute__((deprecated("warning")));
 @end
 
 __attribute__((swift_name("TestDeprecation.OpenHidden")))
@@ -2302,9 +2805,9 @@ __attribute__((swift_name("TestDeprecation.OpenError")))
 @interface KtTestDeprecationOpenError : KtTestDeprecation
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2331,18 +2834,18 @@ __attribute__((swift_name("TestDeprecation.Error")))
 @interface KtTestDeprecationError : KtTestDeprecation
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((swift_name("TestDeprecation.OpenWarning")))
 @interface KtTestDeprecationOpenWarning : KtTestDeprecation
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2369,9 +2872,9 @@ __attribute__((swift_name("TestDeprecation.Warning")))
 @interface KtTestDeprecationWarning : KtTestDeprecation
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2379,84 +2882,87 @@ __attribute__((swift_name("TestDeprecation.HiddenOverride")))
 @interface KtTestDeprecationHiddenOverride : KtTestDeprecation
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable));
 - (void)openError __attribute__((swift_name("openError()"))) __attribute__((unavailable("hidden")));
-- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((unavailable("hidden")));
 - (int32_t)openNormal __attribute__((swift_name("openNormal()"))) __attribute__((unavailable("hidden")));
+- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((unavailable("hidden")));
 @property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((unavailable("hidden")));
 @property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((unavailable("hidden")));
-@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((unavailable("hidden")));
-@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((unavailable("hidden")));
 @property (readonly) id _Nullable openNormalVal __attribute__((swift_name("openNormalVal"))) __attribute__((unavailable("hidden")));
 @property id _Nullable openNormalVar __attribute__((swift_name("openNormalVar"))) __attribute__((unavailable("hidden")));
+@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((unavailable("hidden")));
+@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((unavailable("hidden")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TestDeprecation.ErrorOverride")))
 @interface KtTestDeprecationErrorOverride : KtTestDeprecation
-- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
-- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
-- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (void)openHidden __attribute__((swift_name("openHidden()"))) __attribute__((unavailable("error")));
+- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
+- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
+- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((unavailable("error")));
 - (void)openError __attribute__((swift_name("openError()"))) __attribute__((unavailable("error")));
-- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((unavailable("error")));
+- (void)openHidden __attribute__((swift_name("openHidden()"))) __attribute__((unavailable("error")));
 - (int32_t)openNormal __attribute__((swift_name("openNormal()"))) __attribute__((unavailable("error")));
-@property (readonly) id _Nullable openHiddenVal __attribute__((swift_name("openHiddenVal"))) __attribute__((unavailable("error")));
-@property id _Nullable openHiddenVar __attribute__((swift_name("openHiddenVar"))) __attribute__((unavailable("error")));
+- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((unavailable("error")));
 @property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((unavailable("error")));
 @property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((unavailable("error")));
-@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((unavailable("error")));
-@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((unavailable("error")));
+@property (readonly) id _Nullable openHiddenVal __attribute__((swift_name("openHiddenVal"))) __attribute__((unavailable("error")));
+@property id _Nullable openHiddenVar __attribute__((swift_name("openHiddenVar"))) __attribute__((unavailable("error")));
 @property (readonly) id _Nullable openNormalVal __attribute__((swift_name("openNormalVal"))) __attribute__((unavailable("error")));
 @property id _Nullable openNormalVar __attribute__((swift_name("openNormalVar"))) __attribute__((unavailable("error")));
+@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((unavailable("error")));
+@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((unavailable("error")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TestDeprecation.WarningOverride")))
 @interface KtTestDeprecationWarningOverride : KtTestDeprecation
-- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
-- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
-- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (void)openHidden __attribute__((swift_name("openHidden()"))) __attribute__((deprecated("warning")));
+- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
+- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
+- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer)) __attribute__((deprecated("warning")));
 - (void)openError __attribute__((swift_name("openError()"))) __attribute__((deprecated("warning")));
-- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((deprecated("warning")));
+- (void)openHidden __attribute__((swift_name("openHidden()"))) __attribute__((deprecated("warning")));
 - (int32_t)openNormal __attribute__((swift_name("openNormal()"))) __attribute__((deprecated("warning")));
-@property (readonly) id _Nullable openHiddenVal __attribute__((swift_name("openHiddenVal"))) __attribute__((deprecated("warning")));
-@property id _Nullable openHiddenVar __attribute__((swift_name("openHiddenVar"))) __attribute__((deprecated("warning")));
+- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((deprecated("warning")));
 @property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((deprecated("warning")));
 @property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((deprecated("warning")));
-@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((deprecated("warning")));
-@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((deprecated("warning")));
+@property (readonly) id _Nullable openHiddenVal __attribute__((swift_name("openHiddenVal"))) __attribute__((deprecated("warning")));
+@property id _Nullable openHiddenVar __attribute__((swift_name("openHiddenVar"))) __attribute__((deprecated("warning")));
 @property (readonly) id _Nullable openNormalVal __attribute__((swift_name("openNormalVal"))) __attribute__((deprecated("warning")));
 @property id _Nullable openNormalVar __attribute__((swift_name("openNormalVar"))) __attribute__((deprecated("warning")));
+@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((deprecated("warning")));
+@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((deprecated("warning")));
 @end
 
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TestDeprecation.NormalOverride")))
 @interface KtTestDeprecationNormalOverride : KtTestDeprecation
-- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer));
-- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer));
-- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer));
-- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer));
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (void)openError __attribute__((swift_name("openError()"))) __attribute__((unavailable("Overrides deprecated member in 'conversions.TestDeprecation'. error")));
-- (void)openWarning __attribute__((swift_name("openWarning()"))) __attribute__((deprecated("Overrides deprecated member in 'conversions.TestDeprecation'. warning")));
+- (instancetype)initWithHidden:(int8_t)hidden __attribute__((swift_name("init(hidden:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithWarning:(int32_t)warning __attribute__((swift_name("init(warning:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithNormal:(int64_t)normal __attribute__((swift_name("init(normal:)"))) __attribute__((objc_designated_initializer));
+- (instancetype)initWithError:(int16_t)error __attribute__((swift_name("init(error:)"))) __attribute__((objc_designated_initializer));
+- (void)openError __attribute__((swift_name("openError()")));
+- (void)openHidden __attribute__((swift_name("openHidden()")));
 - (int32_t)openNormal __attribute__((swift_name("openNormal()")));
-@property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal"))) __attribute__((unavailable("Overrides deprecated member in 'conversions.TestDeprecation'. error")));
-@property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar"))) __attribute__((unavailable("Overrides deprecated member in 'conversions.TestDeprecation'. error")));
-@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal"))) __attribute__((deprecated("Overrides deprecated member in 'conversions.TestDeprecation'. warning")));
-@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar"))) __attribute__((deprecated("Overrides deprecated member in 'conversions.TestDeprecation'. warning")));
+- (void)openWarning __attribute__((swift_name("openWarning()")));
+@property (readonly) id _Nullable openErrorVal __attribute__((swift_name("openErrorVal")));
+@property id _Nullable openErrorVar __attribute__((swift_name("openErrorVar")));
+@property (readonly) id _Nullable openHiddenVal __attribute__((swift_name("openHiddenVal")));
+@property id _Nullable openHiddenVar __attribute__((swift_name("openHiddenVar")));
 @property (readonly) id _Nullable openNormalVal __attribute__((swift_name("openNormalVal")));
 @property id _Nullable openNormalVar __attribute__((swift_name("openNormalVar")));
+@property (readonly) id _Nullable openWarningVal __attribute__((swift_name("openWarningVal")));
+@property id _Nullable openWarningVar __attribute__((swift_name("openWarningVar")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2493,9 +2999,9 @@ __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("TestWeakRefs")))
 @interface KtTestWeakRefs : KtBase
 - (instancetype)initWithFrozen:(BOOL)frozen __attribute__((swift_name("init(frozen:)"))) __attribute__((objc_designated_initializer));
-- (id)getObj __attribute__((swift_name("getObj()")));
 - (void)clearObj __attribute__((swift_name("clearObj()")));
 - (NSArray<id> *)createCycle __attribute__((swift_name("createCycle()")));
+- (id)getObj __attribute__((swift_name("getObj()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2503,12 +3009,12 @@ __attribute__((swift_name("SharedRefs")))
 @interface KtSharedRefs : KtBase
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (KtSharedRefsMutableData *)createRegularObject __attribute__((swift_name("createRegularObject()")));
-- (void (^)(void))createLambda __attribute__((swift_name("createLambda()")));
 - (NSMutableArray<id> *)createCollection __attribute__((swift_name("createCollection()")));
-- (KtSharedRefsMutableData *)createFrozenRegularObject __attribute__((swift_name("createFrozenRegularObject()")));
-- (void (^)(void))createFrozenLambda __attribute__((swift_name("createFrozenLambda()")));
 - (NSMutableArray<id> *)createFrozenCollection __attribute__((swift_name("createFrozenCollection()")));
+- (void (^)(void))createFrozenLambda __attribute__((swift_name("createFrozenLambda()")));
+- (KtSharedRefsMutableData *)createFrozenRegularObject __attribute__((swift_name("createFrozenRegularObject()")));
+- (void (^)(void))createLambda __attribute__((swift_name("createLambda()")));
+- (KtSharedRefsMutableData *)createRegularObject __attribute__((swift_name("createRegularObject()")));
 - (BOOL)hasAliveObjects __attribute__((swift_name("hasAliveObjects()")));
 @end
 
@@ -2562,8 +3068,8 @@ __attribute__((swift_name("AbstractInterfaceBase")))
 @interface KtAbstractInterfaceBase : KtBase <KtIAbstractInterface>
 - (instancetype)init __attribute__((swift_name("init()"))) __attribute__((objc_designated_initializer));
 + (instancetype)new __attribute__((availability(swift, unavailable, message="use object initializers instead")));
-- (int32_t)foo __attribute__((swift_name("foo()")));
 - (int32_t)bar __attribute__((swift_name("bar()")));
+- (int32_t)foo __attribute__((swift_name("foo()")));
 @end
 
 __attribute__((swift_name("AbstractInterfaceBase2")))
@@ -2670,77 +3176,29 @@ __attribute__((swift_name("Bar_FakeOverrideInInterface")))
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("ValuesKt")))
 @interface KtValuesKt : KtBase
-+ (KtBoolean * _Nullable)boxBooleanValue:(BOOL)booleanValue __attribute__((swift_name("box(booleanValue:)")));
-+ (KtByte * _Nullable)boxByteValue:(int8_t)byteValue __attribute__((swift_name("box(byteValue:)")));
-+ (KtShort * _Nullable)boxShortValue:(int16_t)shortValue __attribute__((swift_name("box(shortValue:)")));
-+ (KtInt * _Nullable)boxIntValue:(int32_t)intValue __attribute__((swift_name("box(intValue:)")));
-+ (KtLong * _Nullable)boxLongValue:(int64_t)longValue __attribute__((swift_name("box(longValue:)")));
-+ (KtUByte * _Nullable)boxUByteValue:(uint8_t)uByteValue __attribute__((swift_name("box(uByteValue:)")));
-+ (KtUShort * _Nullable)boxUShortValue:(uint16_t)uShortValue __attribute__((swift_name("box(uShortValue:)")));
-+ (KtUInt * _Nullable)boxUIntValue:(uint32_t)uIntValue __attribute__((swift_name("box(uIntValue:)")));
-+ (KtULong * _Nullable)boxULongValue:(uint64_t)uLongValue __attribute__((swift_name("box(uLongValue:)")));
-+ (KtFloat * _Nullable)boxFloatValue:(float)floatValue __attribute__((swift_name("box(floatValue:)")));
-+ (KtDouble * _Nullable)boxDoubleValue:(double)doubleValue __attribute__((swift_name("box(doubleValue:)")));
-+ (void)ensureEqualBooleansActual:(KtBoolean * _Nullable)actual expected:(BOOL)expected __attribute__((swift_name("ensureEqualBooleans(actual:expected:)")));
-+ (void)ensureEqualBytesActual:(KtByte * _Nullable)actual expected:(int8_t)expected __attribute__((swift_name("ensureEqualBytes(actual:expected:)")));
-+ (void)ensureEqualShortsActual:(KtShort * _Nullable)actual expected:(int16_t)expected __attribute__((swift_name("ensureEqualShorts(actual:expected:)")));
-+ (void)ensureEqualIntsActual:(KtInt * _Nullable)actual expected:(int32_t)expected __attribute__((swift_name("ensureEqualInts(actual:expected:)")));
-+ (void)ensureEqualLongsActual:(KtLong * _Nullable)actual expected:(int64_t)expected __attribute__((swift_name("ensureEqualLongs(actual:expected:)")));
-+ (void)ensureEqualUBytesActual:(KtUByte * _Nullable)actual expected:(uint8_t)expected __attribute__((swift_name("ensureEqualUBytes(actual:expected:)")));
-+ (void)ensureEqualUShortsActual:(KtUShort * _Nullable)actual expected:(uint16_t)expected __attribute__((swift_name("ensureEqualUShorts(actual:expected:)")));
-+ (void)ensureEqualUIntsActual:(KtUInt * _Nullable)actual expected:(uint32_t)expected __attribute__((swift_name("ensureEqualUInts(actual:expected:)")));
-+ (void)ensureEqualULongsActual:(KtULong * _Nullable)actual expected:(uint64_t)expected __attribute__((swift_name("ensureEqualULongs(actual:expected:)")));
-+ (void)ensureEqualFloatsActual:(KtFloat * _Nullable)actual expected:(float)expected __attribute__((swift_name("ensureEqualFloats(actual:expected:)")));
-+ (void)ensureEqualDoublesActual:(KtDouble * _Nullable)actual expected:(double)expected __attribute__((swift_name("ensureEqualDoubles(actual:expected:)")));
-+ (void)emptyFun __attribute__((swift_name("emptyFun()")));
-+ (NSString *)strFun __attribute__((swift_name("strFun()")));
 + (id)argsFunI:(int32_t)i l:(int64_t)l d:(double)d s:(NSString *)s __attribute__((swift_name("argsFun(i:l:d:s:)")));
-+ (NSString *)funArgumentFoo:(NSString *(^)(void))foo __attribute__((swift_name("funArgument(foo:)")));
-+ (id _Nullable)genericFooT:(id _Nullable)t foo:(id _Nullable (^)(id _Nullable))foo __attribute__((swift_name("genericFoo(t:foo:)")));
-+ (id)fooGenericNumberR:(id)r foo:(id (^)(id))foo __attribute__((swift_name("fooGenericNumber(r:foo:)")));
-+ (NSArray<id> *)varargToListArgs:(KtKotlinArray<id> *)args __attribute__((swift_name("varargToList(args:)")));
-+ (NSString *)subExt:(NSString *)receiver i:(int32_t)i __attribute__((swift_name("subExt(_:i:)")));
-+ (NSString *)toString:(id _Nullable)receiver __attribute__((swift_name("toString(_:)")));
-+ (void)print:(id _Nullable)receiver __attribute__((swift_name("print(_:)")));
-+ (id _Nullable)boxChar:(unichar)receiver __attribute__((swift_name("boxChar(_:)")));
-+ (BOOL)isA:(id _Nullable)receiver __attribute__((swift_name("isA(_:)")));
-+ (NSString *)iFunExt:(id<KtI>)receiver __attribute__((swift_name("iFunExt(_:)")));
-+ (KtEnumeration *)passEnum __attribute__((swift_name("passEnum()")));
-+ (void)receiveEnumE:(int32_t)e __attribute__((swift_name("receiveEnum(e:)")));
-+ (KtEnumeration *)getValue:(int32_t)value __attribute__((swift_name("get(value:)")));
-+ (KtWithCompanionAndObjectCompanion *)getCompanionObject __attribute__((swift_name("getCompanionObject()")));
-+ (KtWithCompanionAndObjectNamed *)getNamedObject __attribute__((swift_name("getNamedObject()")));
-+ (KtOpenClassI *)getNamedObjectInterface __attribute__((swift_name("getNamedObjectInterface()")));
++ (void (^)(void))asUnitBlockBlock:(id _Nullable (^)(void))block __attribute__((swift_name("asUnitBlock(block:)")));
 + (id)boxIc1:(int32_t)ic1 __attribute__((swift_name("box(ic1:)")));
 + (id)boxIc2:(id)ic2 __attribute__((swift_name("box(ic2:)")));
 + (id)boxIc3:(id _Nullable)ic3 __attribute__((swift_name("box(ic3:)")));
-+ (NSString *)concatenateInlineClassValuesIc1:(int32_t)ic1 ic1N:(id _Nullable)ic1N ic2:(id)ic2 ic2N:(id _Nullable)ic2N ic3:(id _Nullable)ic3 ic3N:(id _Nullable)ic3N __attribute__((swift_name("concatenateInlineClassValues(ic1:ic1N:ic2:ic2N:ic3:ic3N:)")));
-+ (int32_t)getValue1:(int32_t)receiver __attribute__((swift_name("getValue1(_:)")));
-+ (KtInt * _Nullable)getValueOrNull1:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull1(_:)")));
-+ (NSString *)getValue2:(id)receiver __attribute__((swift_name("getValue2(_:)")));
-+ (NSString * _Nullable)getValueOrNull2:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull2(_:)")));
-+ (KtTripleVals<id> * _Nullable)getValue3:(id _Nullable)receiver __attribute__((swift_name("getValue3(_:)")));
-+ (KtTripleVals<id> * _Nullable)getValueOrNull3:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull3(_:)")));
-+ (BOOL)isFrozenObj:(id)obj __attribute__((swift_name("isFrozen(obj:)")));
-+ (BOOL)isFreezingEnabled __attribute__((swift_name("isFreezingEnabled()")));
-+ (id)kotlinLambdaBlock:(id (^)(id))block __attribute__((swift_name("kotlinLambda(block:)")));
-+ (int64_t)multiplyInt:(int32_t)int_ long:(int64_t)long_ __attribute__((swift_name("multiply(int:long:)")));
-
-/**
- * @note This method converts instances of MyException, MyError to errors.
- * Other uncaught Kotlin exceptions are fatal.
-*/
-+ (BOOL)throwExceptionError:(BOOL)error error:(NSError * _Nullable * _Nullable)error_ __attribute__((swift_name("throwException(error:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-+ (KtKotlinObjCErrorException * _Nullable)testSwiftThrowingMethods:(id<KtSwiftOverridableMethodsWithThrows>)methods error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftThrowing(methods:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-+ (BOOL)testSwiftNotThrowingMethods:(id<KtSwiftOverridableMethodsWithThrows>)methods error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftNotThrowing(methods:)")));
++ (KtBoolean * _Nullable)boxBooleanValue:(BOOL)booleanValue __attribute__((swift_name("box(booleanValue:)")));
++ (KtByte * _Nullable)boxByteValue:(int8_t)byteValue __attribute__((swift_name("box(byteValue:)")));
++ (KtDouble * _Nullable)boxDoubleValue:(double)doubleValue __attribute__((swift_name("box(doubleValue:)")));
++ (KtFloat * _Nullable)boxFloatValue:(float)floatValue __attribute__((swift_name("box(floatValue:)")));
++ (KtInt * _Nullable)boxIntValue:(int32_t)intValue __attribute__((swift_name("box(intValue:)")));
++ (KtLong * _Nullable)boxLongValue:(int64_t)longValue __attribute__((swift_name("box(longValue:)")));
++ (KtShort * _Nullable)boxShortValue:(int16_t)shortValue __attribute__((swift_name("box(shortValue:)")));
++ (KtUByte * _Nullable)boxUByteValue:(uint8_t)uByteValue __attribute__((swift_name("box(uByteValue:)")));
++ (KtUInt * _Nullable)boxUIntValue:(uint32_t)uIntValue __attribute__((swift_name("box(uIntValue:)")));
++ (KtULong * _Nullable)boxULongValue:(uint64_t)uLongValue __attribute__((swift_name("box(uLongValue:)")));
++ (KtUShort * _Nullable)boxUShortValue:(uint16_t)uShortValue __attribute__((swift_name("box(uShortValue:)")));
++ (id _Nullable)boxChar:(unichar)receiver __attribute__((swift_name("boxChar(_:)")));
++ (KtInt * _Nullable)callBase1:(id<KtBase1>)base1 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base1:value:)")));
++ (int32_t)callBase23:(KtBase23 *)base23 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base23:value:)")));
++ (KtInt * _Nullable)callBase2:(id<KtBase2>)base2 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base2:value:)")));
++ (KtInt * _Nullable)callExtendedBase1:(id<KtExtendedBase1>)extendedBase1 value:(KtInt * _Nullable)value __attribute__((swift_name("call(extendedBase1:value:)")));
++ (int32_t)callBase3:(id)base3 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base3:value:)")));
++ (void)callFoo_FakeOverrideInInterfaceObj:(id<KtBar_FakeOverrideInInterface>)obj __attribute__((swift_name("callFoo_FakeOverrideInInterface(obj:)")));
 
 /**
  * @note This method converts instances of MyError to errors.
@@ -2752,6 +3210,101 @@ __attribute__((swift_name("ValuesKt")))
  * @note This method converts all Kotlin exceptions to errors.
 */
 + (BOOL)callUnitCallerCaller:(id<KtMethodsWithThrowsUnitCaller>)caller methods:(id<KtMethodsWithThrows>)methods error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("callUnitCaller(caller:methods:)")));
++ (NSString *)concatenateInlineClassValuesIc1:(int32_t)ic1 ic1N:(id _Nullable)ic1N ic2:(id)ic2 ic2N:(id _Nullable)ic2N ic3:(id _Nullable)ic3 ic3N:(id _Nullable)ic3N __attribute__((swift_name("concatenateInlineClassValues(ic1:ic1N:ic2:ic2N:ic3:ic3N:)")));
++ (id<KtTransform>)createTransformDecimalStringToInt __attribute__((swift_name("createTransformDecimalStringToInt()")));
++ (void)emptyFun __attribute__((swift_name("emptyFun()")));
++ (void)ensureEqualBooleansActual:(KtBoolean * _Nullable)actual expected:(BOOL)expected __attribute__((swift_name("ensureEqualBooleans(actual:expected:)")));
++ (void)ensureEqualBytesActual:(KtByte * _Nullable)actual expected:(int8_t)expected __attribute__((swift_name("ensureEqualBytes(actual:expected:)")));
++ (void)ensureEqualDoublesActual:(KtDouble * _Nullable)actual expected:(double)expected __attribute__((swift_name("ensureEqualDoubles(actual:expected:)")));
++ (void)ensureEqualFloatsActual:(KtFloat * _Nullable)actual expected:(float)expected __attribute__((swift_name("ensureEqualFloats(actual:expected:)")));
++ (void)ensureEqualIntsActual:(KtInt * _Nullable)actual expected:(int32_t)expected __attribute__((swift_name("ensureEqualInts(actual:expected:)")));
++ (void)ensureEqualLongsActual:(KtLong * _Nullable)actual expected:(int64_t)expected __attribute__((swift_name("ensureEqualLongs(actual:expected:)")));
++ (void)ensureEqualShortsActual:(KtShort * _Nullable)actual expected:(int16_t)expected __attribute__((swift_name("ensureEqualShorts(actual:expected:)")));
++ (void)ensureEqualUBytesActual:(KtUByte * _Nullable)actual expected:(uint8_t)expected __attribute__((swift_name("ensureEqualUBytes(actual:expected:)")));
++ (void)ensureEqualUIntsActual:(KtUInt * _Nullable)actual expected:(uint32_t)expected __attribute__((swift_name("ensureEqualUInts(actual:expected:)")));
++ (void)ensureEqualULongsActual:(KtULong * _Nullable)actual expected:(uint64_t)expected __attribute__((swift_name("ensureEqualULongs(actual:expected:)")));
++ (void)ensureEqualUShortsActual:(KtUShort * _Nullable)actual expected:(uint16_t)expected __attribute__((swift_name("ensureEqualUShorts(actual:expected:)")));
++ (void)error __attribute__((swift_name("error()"))) __attribute__((unavailable("error")));
++ (void)fooA:(KtKotlinAtomicReference<id> *)a __attribute__((swift_name("foo(a:)")));
++ (id)fooGenericNumberR:(id)r foo:(id (^)(id))foo __attribute__((swift_name("fooGenericNumber(r:foo:)")));
++ (NSString *)funArgumentFoo:(NSString *(^)(void))foo __attribute__((swift_name("funArgument(foo:)")));
++ (void)gc __attribute__((swift_name("gc()")));
++ (id _Nullable)genericFooT:(id _Nullable)t foo:(id _Nullable (^)(id _Nullable))foo __attribute__((swift_name("genericFoo(t:foo:)")));
++ (KtEnumeration *)getValue:(int32_t)value __attribute__((swift_name("get(value:)")));
++ (KtWithCompanionAndObjectCompanion *)getCompanionObject __attribute__((swift_name("getCompanionObject()")));
++ (KtWithCompanionAndObjectNamed *)getNamedObject __attribute__((swift_name("getNamedObject()")));
++ (KtOpenClassI *)getNamedObjectInterface __attribute__((swift_name("getNamedObjectInterface()")));
++ (void (^ _Nullable)(void))getNullBlock __attribute__((swift_name("getNullBlock()")));
++ (int32_t)getValue1:(int32_t)receiver __attribute__((swift_name("getValue1(_:)")));
++ (NSString *)getValue2:(id)receiver __attribute__((swift_name("getValue2(_:)")));
++ (KtTripleVals<id> * _Nullable)getValue3:(id _Nullable)receiver __attribute__((swift_name("getValue3(_:)")));
++ (KtInt * _Nullable)getValueOrNull1:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull1(_:)")));
++ (NSString * _Nullable)getValueOrNull2:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull2(_:)")));
++ (KtTripleVals<id> * _Nullable)getValueOrNull3:(id _Nullable)receiver __attribute__((swift_name("getValueOrNull3(_:)")));
++ (NSString *)iFunExt:(id<KtI>)receiver __attribute__((swift_name("iFunExt(_:)")));
++ (BOOL)isA:(id _Nullable)receiver __attribute__((swift_name("isA(_:)")));
++ (BOOL)isBlockNullBlock:(void (^ _Nullable)(void))block __attribute__((swift_name("isBlockNull(block:)")));
++ (BOOL)isFreezingEnabled __attribute__((swift_name("isFreezingEnabled()")));
++ (BOOL)isFrozenObj:(id)obj __attribute__((swift_name("isFrozen(obj:)")));
++ (BOOL)isFunctionObj:(id _Nullable)obj __attribute__((swift_name("isFunction(obj:)")));
++ (BOOL)isFunction0Obj:(id _Nullable)obj __attribute__((swift_name("isFunction0(obj:)")));
++ (id)kotlinLambdaBlock:(id (^)(id))block __attribute__((swift_name("kotlinLambda(block:)")));
++ (NSDictionary<KtBoolean *, NSString *> *)mapBoolean2String __attribute__((swift_name("mapBoolean2String()")));
++ (NSDictionary<KtByte *, KtShort *> *)mapByte2Short __attribute__((swift_name("mapByte2Short()")));
++ (NSDictionary<KtDouble *, NSString *> *)mapDouble2String __attribute__((swift_name("mapDouble2String()")));
++ (NSDictionary<KtFloat *, KtFloat *> *)mapFloat2Float __attribute__((swift_name("mapFloat2Float()")));
++ (NSDictionary<KtInt *, KtLong *> *)mapInt2Long __attribute__((swift_name("mapInt2Long()")));
++ (NSDictionary<KtLong *, KtLong *> *)mapLong2Long __attribute__((swift_name("mapLong2Long()")));
++ (NSDictionary<KtShort *, KtByte *> *)mapShort2Byte __attribute__((swift_name("mapShort2Byte()")));
++ (NSDictionary<KtUByte *, KtBoolean *> *)mapUByte2Boolean __attribute__((swift_name("mapUByte2Boolean()")));
++ (NSDictionary<KtUInt *, KtLong *> *)mapUInt2Long __attribute__((swift_name("mapUInt2Long()")));
++ (NSDictionary<KtULong *, KtLong *> *)mapULong2Long __attribute__((swift_name("mapULong2Long()")));
++ (NSDictionary<KtUShort *, KtByte *> *)mapUShort2Byte __attribute__((swift_name("mapUShort2Byte()")));
++ (int64_t)multiplyInt:(int32_t)int_ long:(int64_t)long_ __attribute__((swift_name("multiply(int:long:)")));
++ (KtMutableDictionary<KtBoolean *, NSString *> *)mutBoolean2String __attribute__((swift_name("mutBoolean2String()")));
++ (KtMutableDictionary<KtByte *, KtShort *> *)mutByte2Short __attribute__((swift_name("mutByte2Short()")));
++ (KtMutableDictionary<KtDouble *, NSString *> *)mutDouble2String __attribute__((swift_name("mutDouble2String()")));
++ (KtMutableDictionary<KtFloat *, KtFloat *> *)mutFloat2Float __attribute__((swift_name("mutFloat2Float()")));
++ (KtMutableDictionary<KtInt *, KtLong *> *)mutInt2Long __attribute__((swift_name("mutInt2Long()")));
++ (KtMutableDictionary<KtLong *, KtLong *> *)mutLong2Long __attribute__((swift_name("mutLong2Long()")));
++ (KtMutableDictionary<KtShort *, KtByte *> *)mutShort2Byte __attribute__((swift_name("mutShort2Byte()")));
++ (KtMutableDictionary<KtUByte *, KtBoolean *> *)mutUByte2Boolean __attribute__((swift_name("mutUByte2Boolean()")));
++ (KtMutableDictionary<KtUInt *, KtLong *> *)mutUInt2Long __attribute__((swift_name("mutUInt2Long()")));
++ (KtMutableDictionary<KtULong *, KtLong *> *)mutULong2Long __attribute__((swift_name("mutULong2Long()")));
++ (KtMutableDictionary<KtUShort *, KtByte *> *)mutUShort2Byte __attribute__((swift_name("mutUShort2Byte()")));
++ (KtEnumeration *)passEnum __attribute__((swift_name("passEnum()")));
++ (void)print:(id _Nullable)receiver __attribute__((swift_name("print(_:)")));
++ (void)receiveEnumE:(int32_t)e __attribute__((swift_name("receiveEnum(e:)")));
++ (void)runNothingBlockBlock:(void (^)(void))block __attribute__((swift_name("runNothingBlock(block:)")));
++ (BOOL)runUnitBlockBlock:(void (^)(void))block __attribute__((swift_name("runUnitBlock(block:)")));
++ (id)same:(id)receiver __attribute__((swift_name("same(_:)")));
++ (NSString *)strFun __attribute__((swift_name("strFun()")));
++ (NSString *)subExt:(NSString *)receiver i:(int32_t)i __attribute__((swift_name("subExt(_:i:)")));
++ (int32_t)testAbstractInterfaceCallX:(id<KtIAbstractInterface>)x __attribute__((swift_name("testAbstractInterfaceCall(x:)")));
++ (int32_t)testAbstractInterfaceCall2X:(id<KtIAbstractInterface2>)x __attribute__((swift_name("testAbstractInterfaceCall2(x:)")));
++ (BOOL)testClassTypeCheckX:(id)x __attribute__((swift_name("testClassTypeCheck(x:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (BOOL)testGH3825Gh3825:(id<KtGH3825>)gh3825 error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testGH3825(gh3825:)")));
++ (BOOL)testInterfaceTypeCheckX:(id)x __attribute__((swift_name("testInterfaceTypeCheck(x:)")));
++ (void)testRememberNewObjectTest:(id<KtTestRememberNewObject>)test __attribute__((swift_name("testRememberNewObject(test:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (BOOL)testSwiftNotThrowingMethods:(id<KtSwiftOverridableMethodsWithThrows>)methods error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftNotThrowing(methods:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (BOOL)testSwiftNotThrowingTest:(id<KtThrowsWithBridgeBase>)test error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftNotThrowing(test:)")));
+
+/**
+ * @note This method converts all Kotlin exceptions to errors.
+*/
++ (KtKotlinObjCErrorException * _Nullable)testSwiftThrowingMethods:(id<KtSwiftOverridableMethodsWithThrows>)methods error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftThrowing(methods:)")));
 
 /**
  * @note This method converts all Kotlin exceptions to errors.
@@ -2759,95 +3312,46 @@ __attribute__((swift_name("ValuesKt")))
 + (BOOL)testSwiftThrowingTest:(id<KtThrowsWithBridgeBase>)test flag:(BOOL)flag error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftThrowing(test:flag:)")));
 
 /**
- * @note This method converts all Kotlin exceptions to errors.
+ * @note This method converts instances of MyException, MyError to errors.
+ * Other uncaught Kotlin exceptions are fatal.
 */
-+ (BOOL)testSwiftNotThrowingTest:(id<KtThrowsWithBridgeBase>)test error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testSwiftNotThrowing(test:)")));
-+ (id)same:(id)receiver __attribute__((swift_name("same(_:)")));
-+ (KtInt * _Nullable)callBase1:(id<KtBase1>)base1 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base1:value:)")));
-+ (KtInt * _Nullable)callExtendedBase1:(id<KtExtendedBase1>)extendedBase1 value:(KtInt * _Nullable)value __attribute__((swift_name("call(extendedBase1:value:)")));
-+ (KtInt * _Nullable)callBase2:(id<KtBase2>)base2 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base2:value:)")));
-+ (int32_t)callBase3:(id)base3 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base3:value:)")));
-+ (int32_t)callBase23:(KtBase23 *)base23 value:(KtInt * _Nullable)value __attribute__((swift_name("call(base23:value:)")));
-+ (id<KtTransform>)createTransformDecimalStringToInt __attribute__((swift_name("createTransformDecimalStringToInt()")));
-+ (BOOL)runUnitBlockBlock:(void (^)(void))block __attribute__((swift_name("runUnitBlock(block:)")));
-+ (void (^)(void))asUnitBlockBlock:(id _Nullable (^)(void))block __attribute__((swift_name("asUnitBlock(block:)")));
-+ (void)runNothingBlockBlock:(void (^)(void))block __attribute__((swift_name("runNothingBlock(block:)")));
-+ (void (^ _Nullable)(void))getNullBlock __attribute__((swift_name("getNullBlock()")));
-+ (BOOL)isBlockNullBlock:(void (^ _Nullable)(void))block __attribute__((swift_name("isBlockNull(block:)")));
-+ (BOOL)isFunctionObj:(id _Nullable)obj __attribute__((swift_name("isFunction(obj:)")));
-+ (BOOL)isFunction0Obj:(id _Nullable)obj __attribute__((swift_name("isFunction0(obj:)")));
-+ (void)takeForwardDeclaredClassObj:(ForwardDeclaredClass *)obj __attribute__((swift_name("takeForwardDeclaredClass(obj:)")));
-+ (void)takeForwardDeclaredProtocolObj:(id<ForwardDeclared>)obj __attribute__((swift_name("takeForwardDeclaredProtocol(obj:)")));
-+ (void)error __attribute__((swift_name("error()"))) __attribute__((unavailable("error")));
++ (BOOL)throwExceptionError:(BOOL)error error:(NSError * _Nullable * _Nullable)error_ __attribute__((swift_name("throwException(error:)")));
++ (NSString *)toString:(id _Nullable)receiver __attribute__((swift_name("toString(_:)")));
++ (NSArray<id> *)varargToListArgs:(KtKotlinArray<id> *)args __attribute__((swift_name("varargToList(args:)")));
 + (void)warning __attribute__((swift_name("warning()"))) __attribute__((deprecated("warning")));
-+ (void)gc __attribute__((swift_name("gc()")));
-+ (void)testRememberNewObjectTest:(id<KtTestRememberNewObject>)test __attribute__((swift_name("testRememberNewObject(test:)")));
-+ (BOOL)testClassTypeCheckX:(id)x __attribute__((swift_name("testClassTypeCheck(x:)")));
-+ (BOOL)testInterfaceTypeCheckX:(id)x __attribute__((swift_name("testInterfaceTypeCheck(x:)")));
-+ (int32_t)testAbstractInterfaceCallX:(id<KtIAbstractInterface>)x __attribute__((swift_name("testAbstractInterfaceCall(x:)")));
-+ (int32_t)testAbstractInterfaceCall2X:(id<KtIAbstractInterface2>)x __attribute__((swift_name("testAbstractInterfaceCall2(x:)")));
-+ (void)fooA:(KtKotlinAtomicReference<id> *)a __attribute__((swift_name("foo(a:)")));
-
-/**
- * @note This method converts all Kotlin exceptions to errors.
-*/
-+ (BOOL)testGH3825Gh3825:(id<KtGH3825>)gh3825 error:(NSError * _Nullable * _Nullable)error __attribute__((swift_name("testGH3825(gh3825:)")));
-+ (NSDictionary<KtBoolean *, NSString *> *)mapBoolean2String __attribute__((swift_name("mapBoolean2String()")));
-+ (NSDictionary<KtByte *, KtShort *> *)mapByte2Short __attribute__((swift_name("mapByte2Short()")));
-+ (NSDictionary<KtShort *, KtByte *> *)mapShort2Byte __attribute__((swift_name("mapShort2Byte()")));
-+ (NSDictionary<KtInt *, KtLong *> *)mapInt2Long __attribute__((swift_name("mapInt2Long()")));
-+ (NSDictionary<KtLong *, KtLong *> *)mapLong2Long __attribute__((swift_name("mapLong2Long()")));
-+ (NSDictionary<KtUByte *, KtBoolean *> *)mapUByte2Boolean __attribute__((swift_name("mapUByte2Boolean()")));
-+ (NSDictionary<KtUShort *, KtByte *> *)mapUShort2Byte __attribute__((swift_name("mapUShort2Byte()")));
-+ (NSDictionary<KtUInt *, KtLong *> *)mapUInt2Long __attribute__((swift_name("mapUInt2Long()")));
-+ (NSDictionary<KtULong *, KtLong *> *)mapULong2Long __attribute__((swift_name("mapULong2Long()")));
-+ (NSDictionary<KtFloat *, KtFloat *> *)mapFloat2Float __attribute__((swift_name("mapFloat2Float()")));
-+ (NSDictionary<KtDouble *, NSString *> *)mapDouble2String __attribute__((swift_name("mapDouble2String()")));
-+ (KtMutableDictionary<KtBoolean *, NSString *> *)mutBoolean2String __attribute__((swift_name("mutBoolean2String()")));
-+ (KtMutableDictionary<KtByte *, KtShort *> *)mutByte2Short __attribute__((swift_name("mutByte2Short()")));
-+ (KtMutableDictionary<KtShort *, KtByte *> *)mutShort2Byte __attribute__((swift_name("mutShort2Byte()")));
-+ (KtMutableDictionary<KtInt *, KtLong *> *)mutInt2Long __attribute__((swift_name("mutInt2Long()")));
-+ (KtMutableDictionary<KtLong *, KtLong *> *)mutLong2Long __attribute__((swift_name("mutLong2Long()")));
-+ (KtMutableDictionary<KtUByte *, KtBoolean *> *)mutUByte2Boolean __attribute__((swift_name("mutUByte2Boolean()")));
-+ (KtMutableDictionary<KtUShort *, KtByte *> *)mutUShort2Byte __attribute__((swift_name("mutUShort2Byte()")));
-+ (KtMutableDictionary<KtUInt *, KtLong *> *)mutUInt2Long __attribute__((swift_name("mutUInt2Long()")));
-+ (KtMutableDictionary<KtULong *, KtLong *> *)mutULong2Long __attribute__((swift_name("mutULong2Long()")));
-+ (KtMutableDictionary<KtFloat *, KtFloat *> *)mutFloat2Float __attribute__((swift_name("mutFloat2Float()")));
-+ (KtMutableDictionary<KtDouble *, NSString *> *)mutDouble2String __attribute__((swift_name("mutDouble2String()")));
-+ (void)callFoo_FakeOverrideInInterfaceObj:(id<KtBar_FakeOverrideInInterface>)obj __attribute__((swift_name("callFoo_FakeOverrideInInterface(obj:)")));
-@property (class, readonly) double dbl __attribute__((swift_name("dbl")));
-@property (class, readonly) float flt __attribute__((swift_name("flt")));
-@property (class, readonly) int32_t integer __attribute__((swift_name("integer")));
-@property (class, readonly) int64_t longInt __attribute__((swift_name("longInt")));
-@property (class) int32_t intVar __attribute__((swift_name("intVar")));
-@property (class) NSString *str __attribute__((swift_name("str")));
-@property (class) id strAsAny __attribute__((swift_name("strAsAny")));
-@property (class) id minDoubleVal __attribute__((swift_name("minDoubleVal")));
-@property (class) id maxDoubleVal __attribute__((swift_name("maxDoubleVal")));
-@property (class, readonly) double nanDoubleVal __attribute__((swift_name("nanDoubleVal")));
-@property (class, readonly) float nanFloatVal __attribute__((swift_name("nanFloatVal")));
-@property (class, readonly) double infDoubleVal __attribute__((swift_name("infDoubleVal")));
-@property (class, readonly) float infFloatVal __attribute__((swift_name("infFloatVal")));
-@property (class, readonly) BOOL boolVal __attribute__((swift_name("boolVal")));
-@property (class, readonly) id boolAnyVal __attribute__((swift_name("boolAnyVal")));
-@property (class, readonly) NSArray<id> *numbersList __attribute__((swift_name("numbersList")));
+@property (class, readonly) int32_t PROPERTY_NAME_MUST_NOT_BE_ALTERED_BY_SWIFT __attribute__((swift_name("PROPERTY_NAME_MUST_NOT_BE_ALTERED_BY_SWIFT")));
 @property (class, readonly) NSArray<id> *anyList __attribute__((swift_name("anyList")));
-@property (class) id lateinitIntVar __attribute__((swift_name("lateinitIntVar")));
-@property (class, readonly) NSString *lazyVal __attribute__((swift_name("lazyVal")));
+@property (class) id anyValue __attribute__((swift_name("anyValue")));
+@property (class, readonly) id boolAnyVal __attribute__((swift_name("boolAnyVal")));
+@property (class, readonly) BOOL boolVal __attribute__((swift_name("boolVal")));
+@property (class, readonly) double dbl __attribute__((swift_name("dbl")));
 @property (class) KtKotlinArray<NSString *> *delegatedGlobalArray __attribute__((swift_name("delegatedGlobalArray")));
 @property (class, readonly) NSArray<NSString *> *delegatedList __attribute__((swift_name("delegatedList")));
-@property (class, readonly) id _Nullable nullVal __attribute__((swift_name("nullVal")));
-@property (class) NSString * _Nullable nullVar __attribute__((swift_name("nullVar")));
-@property (class) id anyValue __attribute__((swift_name("anyValue")));
-@property (class, readonly) KtInt *(^sumLambda)(KtInt *, KtInt *) __attribute__((swift_name("sumLambda")));
-@property (class, readonly) int32_t PROPERTY_NAME_MUST_NOT_BE_ALTERED_BY_SWIFT __attribute__((swift_name("PROPERTY_NAME_MUST_NOT_BE_ALTERED_BY_SWIFT")));
 @property (class, readonly) id _Nullable errorVal __attribute__((swift_name("errorVal"))) __attribute__((unavailable("error")));
 @property (class) id _Nullable errorVar __attribute__((swift_name("errorVar"))) __attribute__((unavailable("error")));
-@property (class, readonly) id _Nullable warningVal __attribute__((swift_name("warningVal"))) __attribute__((deprecated("warning")));
-@property (class) id _Nullable warningVar __attribute__((swift_name("warningVar"))) __attribute__((deprecated("warning")));
+@property (class, readonly) float flt __attribute__((swift_name("flt")));
 @property (class) int32_t gh3525BaseInitCount __attribute__((swift_name("gh3525BaseInitCount")));
 @property (class) int32_t gh3525InitCount __attribute__((swift_name("gh3525InitCount")));
+@property (class, readonly) double infDoubleVal __attribute__((swift_name("infDoubleVal")));
+@property (class, readonly) float infFloatVal __attribute__((swift_name("infFloatVal")));
+@property (class) int32_t intVar __attribute__((swift_name("intVar")));
+@property (class, readonly) int32_t integer __attribute__((swift_name("integer")));
 @property (class, readonly) BOOL isExperimentalMM __attribute__((swift_name("isExperimentalMM")));
+@property (class) id lateinitIntVar __attribute__((swift_name("lateinitIntVar")));
+@property (class, readonly) NSString *lazyVal __attribute__((swift_name("lazyVal")));
+@property (class, readonly) int64_t longInt __attribute__((swift_name("longInt")));
+@property (class) id maxDoubleVal __attribute__((swift_name("maxDoubleVal")));
+@property (class) id minDoubleVal __attribute__((swift_name("minDoubleVal")));
+@property (class, readonly) double nanDoubleVal __attribute__((swift_name("nanDoubleVal")));
+@property (class, readonly) float nanFloatVal __attribute__((swift_name("nanFloatVal")));
+@property (class, readonly) id _Nullable nullVal __attribute__((swift_name("nullVal")));
+@property (class) NSString * _Nullable nullVar __attribute__((swift_name("nullVar")));
+@property (class, readonly) NSArray<id> *numbersList __attribute__((swift_name("numbersList")));
+@property (class) NSString *str __attribute__((swift_name("str")));
+@property (class) id strAsAny __attribute__((swift_name("strAsAny")));
+@property (class, readonly) KtInt *(^sumLambda)(KtInt *, KtInt *) __attribute__((swift_name("sumLambda")));
+@property (class, readonly) id _Nullable warningVal __attribute__((swift_name("warningVal"))) __attribute__((deprecated("warning")));
+@property (class) id _Nullable warningVar __attribute__((swift_name("warningVar"))) __attribute__((deprecated("warning")));
 @end
 
 __attribute__((swift_name("InvariantSuper")))

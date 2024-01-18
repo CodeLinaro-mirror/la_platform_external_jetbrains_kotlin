@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.fir.checkers.generator.collectClassNamesTo
 import org.jetbrains.kotlin.fir.checkers.generator.inBracketsWithIndent
 import org.jetbrains.kotlin.analysis.api.fir.generator.*
 import org.jetbrains.kotlin.analysis.api.fir.generator.printTypeWithShortNames
-import org.jetbrains.kotlin.util.SmartPrinter
+import org.jetbrains.kotlin.utils.SmartPrinter
 
 object KtDiagnosticClassRenderer : AbstractDiagnosticsDataClassRenderer() {
     override fun SmartPrinter.render(diagnosticList: HLDiagnosticList, packageName: String) {
@@ -18,7 +18,7 @@ object KtDiagnosticClassRenderer : AbstractDiagnosticsDataClassRenderer() {
     }
 
     private fun SmartPrinter.printDiagnosticClasses(diagnosticList: HLDiagnosticList) {
-        inBracketsWithIndent("sealed class KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI>") {
+        inBracketsWithIndent("sealed interface KtFirDiagnostic<PSI : PsiElement> : KtDiagnosticWithPsi<PSI>") {
             for (diagnostic in diagnosticList.diagnostics) {
                 printDiagnosticClass(diagnostic, diagnosticList)
                 println()
@@ -27,9 +27,9 @@ object KtDiagnosticClassRenderer : AbstractDiagnosticsDataClassRenderer() {
     }
 
     private fun SmartPrinter.printDiagnosticClass(diagnostic: HLDiagnostic, diagnosticList: HLDiagnosticList) {
-        print("abstract class ${diagnostic.className} : KtFirDiagnostic<")
+        print("interface ${diagnostic.className} : KtFirDiagnostic<")
         printTypeWithShortNames(diagnostic.original.psiType)
-        print(">()")
+        print(">")
         inBracketsWithIndent {
             println("override val diagnosticClass get() = ${diagnostic.className}::class")
             printDiagnosticParameters(diagnostic, diagnosticList)
@@ -38,7 +38,7 @@ object KtDiagnosticClassRenderer : AbstractDiagnosticsDataClassRenderer() {
 
     private fun SmartPrinter.printDiagnosticParameters(diagnostic: HLDiagnostic, diagnosticList: HLDiagnosticList) {
         diagnostic.parameters.forEach { parameter ->
-            print("abstract val ${parameter.name}: ")
+            print("val ${parameter.name}: ")
             printTypeWithShortNames(parameter.type) { type ->
                 diagnosticList.containsClashingBySimpleNameType(type)
             }
@@ -46,7 +46,6 @@ object KtDiagnosticClassRenderer : AbstractDiagnosticsDataClassRenderer() {
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     override fun collectImportsForDiagnosticParameter(diagnosticParameter: HLDiagnosticParameter): Collection<String> = buildSet {
         diagnosticParameter.type.collectClassNamesTo(this)
     }

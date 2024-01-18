@@ -3,12 +3,12 @@ plugins {
     id("jps-compatible")
 }
 
-project.updateJvmTarget("1.6")
+project.updateJvmTarget("1.8")
 
 dependencies {
     api(kotlinStdlib())
-    compileOnly(project(":kotlin-reflect-api"))
-    testApi(commonDependency("junit"))
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
+    testImplementation(libs.junit4)
 }
 
 sourceSets {

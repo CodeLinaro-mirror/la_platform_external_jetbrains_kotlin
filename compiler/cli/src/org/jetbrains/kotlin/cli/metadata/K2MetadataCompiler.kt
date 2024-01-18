@@ -58,18 +58,19 @@ class K2MetadataCompiler : CLICompiler<K2MetadataCompilerArguments>() {
         paths: KotlinPaths?
     ): ExitCode {
         val collector = configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
-        if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
-            collector.report(ERROR, "K2 does not support compilation to metadata right now")
-            return ExitCode.COMPILATION_ERROR
-        }
         val performanceManager = configuration.getNotNull(CLIConfigurationKeys.PERF_MANAGER)
 
         val pluginLoadResult = loadPlugins(paths, arguments, configuration)
         if (pluginLoadResult != ExitCode.OK) return pluginLoadResult
 
         val commonSources = arguments.commonSources?.toSet() ?: emptySet()
+        val hmppCliModuleStructure = configuration.get(CommonConfigurationKeys.HMPP_MODULE_STRUCTURE)
+        if (hmppCliModuleStructure != null) {
+            collector.report(ERROR, "HMPP module structure should not be passed during metadata compilation. Please remove `-Xfragments` and related flags")
+            return ExitCode.COMPILATION_ERROR
+        }
         for (arg in arguments.freeArgs) {
-            configuration.addKotlinSourceRoot(arg, isCommon = arg in commonSources)
+            configuration.addKotlinSourceRoot(arg, isCommon = arg in commonSources, hmppModuleName = null)
         }
         if (arguments.classpath != null) {
             configuration.addJvmClasspathRoots(arguments.classpath!!.split(File.pathSeparatorChar).map(::File))
@@ -100,7 +101,7 @@ class K2MetadataCompiler : CLICompiler<K2MetadataCompilerArguments>() {
         val environment =
             KotlinCoreEnvironment.createForProduction(rootDisposable, configuration, EnvironmentConfigFiles.METADATA_CONFIG_FILES)
 
-        val mode = if(arguments.expectActualLinker) "KLib" else "metadata"
+        val mode = if (arguments.metadataKlib) "KLib" else "metadata"
 
         val sourceFiles = environment.getSourceFiles()
         performanceManager.notifyCompilerInitialized(sourceFiles.size, environment.countLinesOfCode(sourceFiles), "$mode mode for $moduleName module")
@@ -113,16 +114,16 @@ class K2MetadataCompiler : CLICompiler<K2MetadataCompilerArguments>() {
             return ExitCode.COMPILATION_ERROR
         }
 
-        checkKotlinPackageUsage(environment.configuration, environment.getSourceFiles())
+        checkKotlinPackageUsageForPsi(environment.configuration, environment.getSourceFiles())
 
         try {
-            val metadataVersion =
-                configuration.get(CommonConfigurationKeys.METADATA_VERSION) as? BuiltInsBinaryVersion ?: BuiltInsBinaryVersion.INSTANCE
-            if (arguments.expectActualLinker) {
-                K2MetadataKlibSerializer(metadataVersion).serialize(environment)
-            } else {
-                MetadataSerializer(metadataVersion, true).serialize(environment)
+            val useFir = configuration.getBoolean(CommonConfigurationKeys.USE_FIR)
+            val metadataSerializer = when {
+                useFir -> FirMetadataSerializer(configuration, environment)
+                arguments.metadataKlib -> K2MetadataKlibSerializer(configuration, environment)
+                else -> MetadataSerializer(configuration, environment, dependOnOldBuiltIns = true)
             }
+            metadataSerializer.analyzeAndSerialize()
         } catch (e: CompilationException) {
             collector.report(EXCEPTION, OutputMessageUtil.renderException(e), MessageUtil.psiElementToMessageLocation(e.element))
             return ExitCode.INTERNAL_ERROR

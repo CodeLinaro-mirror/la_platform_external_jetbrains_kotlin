@@ -46,11 +46,11 @@ fun bar() {
         _ checkType { _<String>() }
     }
 
-    foo { (`_`, `_`) ->
+    foo { (<!REDECLARATION!>`_`<!>, <!REDECLARATION!>`_`<!>) ->
         _ checkType { _<String>() }
     }
 
-    foo { (_: String, b) ->
+    foo { (<!COMPONENT_FUNCTION_RETURN_TYPE_MISMATCH!>_: String<!>, b) ->
         <!UNRESOLVED_REFERENCE!>_<!>.hashCode()
         b checkType { _<String>() }
     }

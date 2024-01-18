@@ -39,6 +39,10 @@ class AnnotationAndConstantLoaderImpl(
         return annotations.map { proto -> deserializer.deserializeAnnotation(proto, container.nameResolver) }
     }
 
+    override fun loadAnnotation(proto: ProtoBuf.Annotation, nameResolver: NameResolver): AnnotationDescriptor {
+        return deserializer.deserializeAnnotation(proto, nameResolver)
+    }
+
     override fun loadCallableAnnotations(
         container: ProtoContainer,
         proto: MessageLite,
@@ -60,11 +64,19 @@ class AnnotationAndConstantLoaderImpl(
         }
     }
 
-    override fun loadPropertyBackingFieldAnnotations(container: ProtoContainer, proto: ProtoBuf.Property): List<AnnotationDescriptor> =
-        emptyList()
+    override fun loadPropertyBackingFieldAnnotations(container: ProtoContainer, proto: ProtoBuf.Property): List<AnnotationDescriptor> {
+        val annotations = protocol.propertyBackingFieldAnnotation?.let { proto.getExtension(it) }.orEmpty()
+        return annotations.map { annotationProto ->
+            deserializer.deserializeAnnotation(annotationProto, container.nameResolver)
+        }
+    }
 
-    override fun loadPropertyDelegateFieldAnnotations(container: ProtoContainer, proto: ProtoBuf.Property): List<AnnotationDescriptor> =
-        emptyList()
+    override fun loadPropertyDelegateFieldAnnotations(container: ProtoContainer, proto: ProtoBuf.Property): List<AnnotationDescriptor> {
+        val annotations = protocol.propertyDelegatedFieldAnnotation?.let {proto.getExtension(it) }.orEmpty()
+        return annotations.map { annotationProto ->
+            deserializer.deserializeAnnotation(annotationProto, container.nameResolver)
+        }
+    }
 
     override fun loadEnumEntryAnnotations(container: ProtoContainer, proto: ProtoBuf.EnumEntry): List<AnnotationDescriptor> {
         val annotations = proto.getExtension(protocol.enumEntryAnnotation).orEmpty()
@@ -90,7 +102,21 @@ class AnnotationAndConstantLoaderImpl(
         container: ProtoContainer,
         proto: MessageLite,
         kind: AnnotatedCallableKind
-    ): List<AnnotationDescriptor> = emptyList()
+    ): List<AnnotationDescriptor> {
+        val annotations = when (proto) {
+            is ProtoBuf.Function -> protocol.functionExtensionReceiverAnnotation?.let { proto.getExtension(it) }
+            is ProtoBuf.Property -> when (kind) {
+                AnnotatedCallableKind.PROPERTY, AnnotatedCallableKind.PROPERTY_GETTER, AnnotatedCallableKind.PROPERTY_SETTER -> {
+                    protocol.propertyExtensionReceiverAnnotation?.let { proto.getExtension(it) }
+                }
+                else -> error("Unsupported callable kind with property proto for receiver annotations: $kind")
+            }
+            else -> error("Unknown message: $proto")
+        }.orEmpty()
+        return annotations.map { annotationProto ->
+            deserializer.deserializeAnnotation(annotationProto, container.nameResolver)
+        }
+    }
 
     override fun loadTypeAnnotations(proto: ProtoBuf.Type, nameResolver: NameResolver): List<AnnotationDescriptor> {
         return proto.getExtension(protocol.typeAnnotation).orEmpty().map { deserializer.deserializeAnnotation(it, nameResolver) }

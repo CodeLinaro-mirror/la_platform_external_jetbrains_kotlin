@@ -1,5 +1,6 @@
+// FIR_IDENTICAL
+// !LANGUAGE: -ForbidInferringTypeVariablesIntoEmptyIntersection
 // RENDER_DIAGNOSTICS_FULL_TEXT
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_PARAMETER
 
 class In<in T>

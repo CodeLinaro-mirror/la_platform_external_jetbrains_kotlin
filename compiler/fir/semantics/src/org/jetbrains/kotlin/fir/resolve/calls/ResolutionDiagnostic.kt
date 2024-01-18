@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpressionWithSmartcast
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
+import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -33,7 +33,8 @@ class InferredEmptyIntersectionDiagnostic(
     val incompatibleTypes: Collection<ConeKotlinType>,
     val causingTypes: Collection<ConeKotlinType>,
     val typeVariable: ConeTypeVariable,
-    val kind: EmptyIntersectionTypeKind
+    val kind: EmptyIntersectionTypeKind,
+    val isError: Boolean
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
 class TooManyArguments(
@@ -42,15 +43,14 @@ class TooManyArguments(
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
 class NamedArgumentNotAllowed(
-    override val argument: FirExpression,
+    val argument: FirExpression,
     val function: FirFunction,
     val forbiddenNamedArgumentsTarget: ForbiddenNamedArgumentsTarget
-) : InapplicableArgumentDiagnostic()
+) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
 class ArgumentPassedTwice(
     override val argument: FirExpression,
-    val valueParameter: FirValueParameter,
-    val firstOccurrence: ResolvedCallArgument
+    val valueParameter: FirValueParameter
 ) : InapplicableArgumentDiagnostic()
 
 class VarargArgumentOutsideParentheses(
@@ -71,25 +71,29 @@ class NameNotFound(
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
 class NameForAmbiguousParameter(
-    val argument: FirNamedArgumentExpression,
-    val matchedParameter: FirValueParameter,
-    val anotherParameter: FirValueParameter
+    val argument: FirNamedArgumentExpression
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
 object InapplicableCandidate : ResolutionDiagnostic(INAPPLICABLE)
 
+object UnsuccessfulCallableReferenceAtom : ResolutionDiagnostic(INAPPLICABLE)
+
+object ErrorTypeInArguments : ResolutionDiagnostic(INAPPLICABLE)
+
 object HiddenCandidate : ResolutionDiagnostic(HIDDEN)
 
-object VisibilityError : ResolutionDiagnostic(VISIBILITY_ERROR)
+object VisibilityError : ResolutionDiagnostic(K2_VISIBILITY_ERROR)
 
 object ResolvedWithLowPriority : ResolutionDiagnostic(RESOLVED_LOW_PRIORITY)
+
+object ResolvedWithSynthetic : ResolutionDiagnostic(K2_SYNTHETIC_RESOLVED)
 
 class InapplicableWrongReceiver(
     val expectedType: ConeKotlinType? = null,
     val actualType: ConeKotlinType? = null,
 ) : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
 
-object NoCompanionObject : ResolutionDiagnostic(NO_COMPANION_OBJECT)
+object NoCompanionObject : ResolutionDiagnostic(K2_NO_COMPANION_OBJECT)
 
 class UnsafeCall(val actualType: ConeKotlinType) : ResolutionDiagnostic(UNSAFE_CALL)
 
@@ -99,7 +103,7 @@ object LowerPriorityForDynamic : ResolutionDiagnostic(RESOLVED_LOW_PRIORITY)
 
 object CandidateChosenUsingOverloadResolutionByLambdaAnnotation : ResolutionDiagnostic(RESOLVED)
 
-class UnstableSmartCast(val argument: FirExpressionWithSmartcast, val targetType: ConeKotlinType, val isCastToNotNull: Boolean) :
+class UnstableSmartCast(val argument: FirSmartCastExpression, val targetType: ConeKotlinType, val isCastToNotNull: Boolean) :
     ResolutionDiagnostic(UNSTABLE_SMARTCAST)
 
 class ArgumentTypeMismatch(
@@ -110,22 +114,22 @@ class ArgumentTypeMismatch(
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
 class NullForNotNullType(
-    val argument: FirExpression
+    val argument: FirExpression, val expectedType: ConeKotlinType
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
 class ManyLambdaExpressionArguments(
     val argument: FirExpression
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
-class InfixCallOfNonInfixFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(INAPPLICABLE_MODIFIER)
-class OperatorCallOfNonOperatorFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(INAPPLICABLE_MODIFIER)
+class InfixCallOfNonInfixFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(CONVENTION_ERROR)
+class OperatorCallOfNonOperatorFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(CONVENTION_ERROR)
 
 class InferenceError(val constraintError: ConstraintSystemError) : ResolutionDiagnostic(constraintError.applicability)
-class Unsupported(val message: String, val source: KtSourceElement? = null) : ResolutionDiagnostic(UNSUPPORTED)
+class Unsupported(val message: String, val source: KtSourceElement?) : ResolutionDiagnostic(K2_UNSUPPORTED)
 
-object PropertyAsOperator : ResolutionDiagnostic(PROPERTY_AS_OPERATOR)
+object PropertyAsOperator : ResolutionDiagnostic(K2_PROPERTY_AS_OPERATOR)
 
-class DslScopeViolation(val calleeSymbol: FirBasedSymbol<*>) : ResolutionDiagnostic(DSL_SCOPE_VIOLATION)
+class DslScopeViolation(val calleeSymbol: FirBasedSymbol<*>) : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
 
 class MultipleContextReceiversApplicableForExtensionReceivers : ResolutionDiagnostic(INAPPLICABLE)
 
@@ -133,6 +137,10 @@ class NoApplicableValueForContextReceiver(
     val expectedContextReceiverType: ConeKotlinType
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
+object UnsupportedContextualDeclarationCall : ResolutionDiagnostic(INAPPLICABLE)
+
 class AmbiguousValuesForContextReceiverParameter(
     val expectedContextReceiverType: ConeKotlinType,
 ) : ResolutionDiagnostic(INAPPLICABLE)
+
+object ResolutionResultOverridesOtherToPreserveCompatibility : ResolutionDiagnostic(RESOLVED)

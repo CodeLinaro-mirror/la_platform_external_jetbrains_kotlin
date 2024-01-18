@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,20 +8,22 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
-import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.correspondingProperty
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
+import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
+import org.jetbrains.kotlin.fir.declarations.utils.fromPrimaryConstructor
+import org.jetbrains.kotlin.fir.declarations.utils.isFromSealedClass
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 // TODO: check why coneTypeSafe is necessary at some points inside
 object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
@@ -111,67 +113,85 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
             functionVisibility = EffectiveVisibility.PrivateInClass
         }
 
-        if (functionVisibility == EffectiveVisibility.Local) return
-        if (declaration !is FirConstructor && declaration !is FirPropertyAccessor) {
-            declaration.returnTypeRef.coneType
-                .findVisibilityExposure(context, functionVisibility)?.let { (restricting, restrictingVisibility) ->
-                    reporter.reportOn(
-                        declaration.source,
-                        FirErrors.EXPOSED_FUNCTION_RETURN_TYPE,
-                        functionVisibility,
-                        restricting,
-                        restrictingVisibility,
-                        context
-                    )
-                }
-        }
+        val isNonLocal = functionVisibility != EffectiveVisibility.Local
+
         if (declaration !is FirPropertyAccessor) {
-            declaration.valueParameters.forEachIndexed { i, valueParameter ->
-                if (i < declaration.valueParameters.size) {
-                    val (restricting, restrictingVisibility) = valueParameter.returnTypeRef.coneType
-                        .findVisibilityExposure(context, functionVisibility) ?: return@forEachIndexed
-                    reporter.reportOn(
-                        valueParameter.source,
-                        FirErrors.EXPOSED_PARAMETER_TYPE,
-                        functionVisibility,
-                        restricting,
-                        restrictingVisibility,
-                        context
-                    )
+            if (isNonLocal && declaration !is FirConstructor) {
+                declaration.returnTypeRef.coneType
+                    .findVisibilityExposure(context, functionVisibility)?.let { (restricting, restrictingVisibility) ->
+                        reporter.reportOn(
+                            declaration.source,
+                            FirErrors.EXPOSED_FUNCTION_RETURN_TYPE,
+                            functionVisibility,
+                            restricting,
+                            restrictingVisibility,
+                            context
+                        )
+                    }
+            }
+
+            for (valueParameter in declaration.valueParameters) {
+                var exposureFound = false
+
+                if (isNonLocal) {
+                    valueParameter.returnTypeRef.coneType
+                        .findVisibilityExposure(context, functionVisibility)?.let { (restricting, restrictingVisibility) ->
+                            reporter.reportOn(
+                                valueParameter.source,
+                                FirErrors.EXPOSED_PARAMETER_TYPE,
+                                functionVisibility,
+                                restricting,
+                                restrictingVisibility,
+                                context
+                            )
+                            exposureFound = true
+                        }
                 }
+
+                if (exposureFound) continue
+
+                val property = valueParameter.correspondingProperty ?: continue
+                if (property.isLocal) continue
+                val propertyVisibility = property.effectiveVisibility
+
+                if (propertyVisibility == EffectiveVisibility.Local) continue
+                property.returnTypeRef.coneType
+                    .findVisibilityExposure(context, propertyVisibility)?.let { (restricting, restrictingVisibility) ->
+                        reporter.reportOn(
+                            valueParameter.source,
+                            FirErrors.EXPOSED_PROPERTY_TYPE_IN_CONSTRUCTOR,
+                            propertyVisibility,
+                            restricting,
+                            restrictingVisibility,
+                            context
+                        )
+                    }
             }
         }
-        checkMemberReceiver(declaration.receiverTypeRef, declaration as? FirCallableDeclaration, reporter, context)
+
+        if (isNonLocal) {
+            checkMemberReceiver(declaration.receiverParameter?.typeRef, declaration as? FirCallableDeclaration, reporter, context)
+        }
     }
 
     private fun checkProperty(declaration: FirProperty, reporter: DiagnosticReporter, context: CheckerContext) {
+        if (declaration.fromPrimaryConstructor == true) return
         if (declaration.isLocal) return
         val propertyVisibility = declaration.effectiveVisibility
 
         if (propertyVisibility == EffectiveVisibility.Local) return
         declaration.returnTypeRef.coneType
             .findVisibilityExposure(context, propertyVisibility)?.let { (restricting, restrictingVisibility) ->
-                if (declaration.fromPrimaryConstructor == true) {
-                    reporter.reportOn(
-                        declaration.source,
-                        FirErrors.EXPOSED_PROPERTY_TYPE_IN_CONSTRUCTOR,
-                        propertyVisibility,
-                        restricting,
-                        restrictingVisibility,
-                        context
-                    )
-                } else {
-                    reporter.reportOn(
-                        declaration.source,
-                        FirErrors.EXPOSED_PROPERTY_TYPE,
-                        propertyVisibility,
-                        restricting,
-                        restrictingVisibility,
-                        context
-                    )
-                }
+                reporter.reportOn(
+                    declaration.source,
+                    FirErrors.EXPOSED_PROPERTY_TYPE,
+                    propertyVisibility,
+                    restricting,
+                    restrictingVisibility,
+                    context
+                )
             }
-        checkMemberReceiver(declaration.receiverTypeRef, declaration, reporter, context)
+        checkMemberReceiver(declaration.receiverParameter?.typeRef, declaration, reporter, context)
     }
 
     private fun checkMemberReceiver(
@@ -220,7 +240,7 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
         }
 
         for (it in type.typeArguments) {
-            it.safeAs<ConeClassLikeType>()?.findVisibilityExposure(context, base)?.let {
+            (it as? ConeClassLikeType)?.findVisibilityExposure(context, base)?.let {
                 return it
             }
         }

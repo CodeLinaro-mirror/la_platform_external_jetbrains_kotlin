@@ -13,7 +13,9 @@ import org.jetbrains.kotlin.backend.konan.descriptors.isInterface
 import org.jetbrains.kotlin.builtins.*
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
+import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.resolve.DataClassResolver
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
@@ -73,10 +75,49 @@ internal fun ObjCExportMapper.getClassIfCategory(extensionReceiverType: KotlinTy
 
 private fun isSealedClassConstructor(descriptor: ConstructorDescriptor) = descriptor.constructedClass.isSealed()
 
+/**
+ * Check that given [method] is a synthetic .componentN() method of a data class.
+ */
+private fun isComponentNMethod(method: CallableMemberDescriptor): Boolean {
+    if ((method as? FunctionDescriptor)?.isOperator != true) return false
+    val parent = method.containingDeclaration
+    if (parent is ClassDescriptor && parent.isData && DataClassResolver.isComponentLike(method.name)) {
+        // componentN method of data class.
+        return true
+    }
+    return false
+}
+
 // Note: partially duplicated in ObjCExportLazyImpl.translateTopLevels.
-internal fun ObjCExportMapper.shouldBeExposed(descriptor: CallableMemberDescriptor): Boolean =
-        descriptor.isEffectivelyPublicApi && !descriptor.isExpect &&
-                !isHiddenByDeprecation(descriptor) && !(descriptor is ConstructorDescriptor && isSealedClassConstructor(descriptor))
+internal fun ObjCExportMapper.shouldBeExposed(descriptor: CallableMemberDescriptor): Boolean = when {
+    !descriptor.isEffectivelyPublicApi -> false
+    descriptor.isExpect -> false
+    isHiddenByDeprecation(descriptor) -> false
+    descriptor is ConstructorDescriptor && isSealedClassConstructor(descriptor) -> false
+    // KT-42641. Don't expose componentN methods of data classes
+    // because they are useless in Objective-C/Swift.
+    isComponentNMethod(descriptor) && descriptor.overriddenDescriptors.isEmpty() -> false
+    descriptor.isHiddenFromObjC() -> false
+    else -> true
+}
+
+private fun CallableMemberDescriptor.isHiddenFromObjC(): Boolean = when {
+    // Note: the front-end checker requires all overridden descriptors to be either refined or not refined.
+    overriddenDescriptors.isNotEmpty() -> overriddenDescriptors.first().isHiddenFromObjC()
+    else -> annotations.any { annotation ->
+        annotation.annotationClass?.annotations?.any { it.fqName == KonanFqNames.hidesFromObjC } == true
+    }
+}
+
+/**
+ * Check if the given class or its enclosing declaration is marked as @HiddenFromObjC.
+ */
+internal fun ClassDescriptor.isHiddenFromObjC(): Boolean = when {
+    (this.containingDeclaration as? ClassDescriptor)?.isHiddenFromObjC() == true -> true
+    else -> annotations.any { annotation ->
+        annotation.annotationClass?.annotations?.any { it.fqName == KonanFqNames.hidesFromObjC } == true
+    }
+}
 
 internal fun ObjCExportMapper.shouldBeExposed(descriptor: ClassDescriptor): Boolean =
         shouldBeVisible(descriptor) && !isSpecialMapped(descriptor) && !descriptor.defaultType.isObjCObjectType()
@@ -145,12 +186,28 @@ internal fun ObjCExportMapper.shouldBeVisible(descriptor: ClassDescriptor): Bool
         descriptor.isEffectivelyPublicApi && when (descriptor.kind) {
         ClassKind.CLASS, ClassKind.INTERFACE, ClassKind.ENUM_CLASS, ClassKind.OBJECT -> true
         ClassKind.ENUM_ENTRY, ClassKind.ANNOTATION_CLASS -> false
-    } && !descriptor.isExpect && !descriptor.isInlined() && !isHiddenByDeprecation(descriptor)
+    } && !descriptor.isExpect && !descriptor.isInlined() && !isHiddenByDeprecation(descriptor) && !descriptor.isHiddenFromObjC()
 
 private fun ObjCExportMapper.isBase(descriptor: CallableMemberDescriptor): Boolean =
         descriptor.overriddenDescriptors.all { !shouldBeExposed(it) }
         // e.g. it is not `override`, or overrides only unexposed methods.
 
+/**
+ * Check that given [descriptor] is a so-called "base method", i.e. method
+ * that doesn't override anything in a generated Objective-C interface.
+ * Note that it does not mean that it has no "override" keyword.
+ * Consider example:
+ * ```kotlin
+ * private interface I {
+ *     fun f()
+ * }
+ *
+ * class C : I {
+ *     override fun f() {}
+ * }
+ * ```
+ * Interface `I` is not exposed to the generated header, so C#f is considered to be a base method even though it has an "override" keyword.
+ */
 internal fun ObjCExportMapper.isBaseMethod(descriptor: FunctionDescriptor) =
         this.isBase(descriptor)
 
@@ -191,6 +248,15 @@ internal fun ClassDescriptor.getEnumValuesFunctionDescriptor(): SimpleFunctionDe
             StandardNames.ENUM_VALUES,
             NoLookupLocation.FROM_BACKEND
     ).singleOrNull { it.extensionReceiverParameter == null && it.valueParameters.size == 0 }
+}
+
+internal fun ClassDescriptor.getEnumEntriesPropertyDescriptor(): PropertyDescriptor? {
+    require(this.kind == ClassKind.ENUM_CLASS)
+
+    return this.staticScope.getContributedVariables(
+            StandardNames.ENUM_ENTRIES,
+            NoLookupLocation.FROM_BACKEND
+    ).singleOrNull { it.extensionReceiverParameter == null }
 }
 
 internal fun ObjCExportMapper.doesThrow(method: FunctionDescriptor): Boolean = method.allOverriddenDescriptors.any {

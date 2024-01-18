@@ -62,6 +62,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.jetbrains.kotlin.cli.jvm.JvmArgumentsKt.configureJdkHomeFromSystemProperty;
+
 /**
  * Allows to execute kotlin script files during the build process.
  * You can specify script file or inline script to be executed.
@@ -169,9 +171,12 @@ public class ExecuteKotlinScriptMojo extends AbstractMojo {
             CompilerConfiguration configuration = new CompilerConfiguration();
 
             configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector);
+            configuration.put(CommonConfigurationKeys.ALLOW_ANY_SCRIPTS_IN_SOURCE_ROOTS, true);
 
             configuration.add(ComponentRegistrar.Companion.getPLUGIN_COMPONENT_REGISTRARS(),
                               new ScriptingCompilerConfigurationComponentRegistrar());
+
+            configureJdkHomeFromSystemProperty(configuration);
 
             List<File> deps = new ArrayList<>();
 
@@ -186,7 +191,7 @@ public class ExecuteKotlinScriptMojo extends AbstractMojo {
                 }
             }
 
-            configuration.add(CLIConfigurationKeys.CONTENT_ROOTS, new KotlinSourceRoot(scriptFile.getAbsolutePath(), false));
+            configuration.add(CLIConfigurationKeys.CONTENT_ROOTS, new KotlinSourceRoot(scriptFile.getAbsolutePath(), false, null));
             configuration.put(CommonConfigurationKeys.MODULE_NAME, JvmProtoBufUtil.DEFAULT_MODULE_NAME);
 
             ConfigurationKt.configureScriptDefinitions(

@@ -9,5 +9,11 @@ import org.jetbrains.kotlin.cli.common.arguments.Freezable
 
 class JpsPluginSettings : Freezable() {
     @Suppress("unused") // Used in Kotlin plugin
-    var version: String by FreezableVar("") // KTIJ-20555 Fix default value?
+    var version: String = "" // KTIJ-20555 Fix default value?
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    override fun copyOf(): Freezable = copyJpsPluginSettings(this, JpsPluginSettings())
 }

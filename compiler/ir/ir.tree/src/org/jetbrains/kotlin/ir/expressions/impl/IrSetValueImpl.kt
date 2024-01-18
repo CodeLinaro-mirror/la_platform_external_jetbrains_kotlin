@@ -26,9 +26,9 @@ class IrSetValueImpl(
     override val startOffset: Int,
     override val endOffset: Int,
     override var type: IrType,
-    override val symbol: IrValueSymbol,
+    override var symbol: IrValueSymbol,
     override var value: IrExpression,
-    override val origin: IrStatementOrigin?
+    override var origin: IrStatementOrigin?
 ) : IrSetValue() {
     init {
         if (symbol.isBound) {

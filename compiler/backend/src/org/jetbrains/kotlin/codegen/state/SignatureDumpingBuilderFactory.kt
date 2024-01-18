@@ -83,7 +83,7 @@ class SignatureDumpingBuilderFactory(
             super.defineClass(origin, version, access, name, signature, superName, interfaces)
         }
 
-        override fun newMethod(origin: JvmDeclarationOrigin, access: Int, name: String, desc: String, signature: String?, exceptions: JvmMethodExceptionTypes): MethodVisitor {
+        override fun newMethod(origin: JvmDeclarationOrigin, access: Int, name: String, desc: String, signature: String?, exceptions: Array<out String>?): MethodVisitor {
             signatures += RawSignature(name, desc, MemberKind.METHOD) to origin.descriptor?.let {
                 if (it is CallableDescriptor) it.unwrapInitialDescriptorForSuspendFunction() else it
             }
@@ -95,7 +95,7 @@ class SignatureDumpingBuilderFactory(
             return super.newField(origin, access, name, desc, signature, value)
         }
 
-        override fun done() {
+        override fun done(generateSmapCopyToAnnotation: Boolean) {
             if (firstClassWritten) outputStream.append(",\n") else firstClassWritten = true
             outputStream.append("\t{\n")
             origin.descriptor?.let {
@@ -122,7 +122,7 @@ class SignatureDumpingBuilderFactory(
             }}
             outputStream.append("\n\t\t]\n\t}")
 
-            super.done()
+            super.done(generateSmapCopyToAnnotation)
         }
     }
 }

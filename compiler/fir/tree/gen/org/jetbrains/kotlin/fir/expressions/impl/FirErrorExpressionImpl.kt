@@ -1,21 +1,25 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeStubDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.impl.FirErrorTypeRefImpl
+import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 
 /*
  * This file was generated automatically
@@ -24,22 +28,24 @@ import org.jetbrains.kotlin.fir.visitors.*
 
 internal class FirErrorExpressionImpl(
     override val source: KtSourceElement?,
-    override val annotations: MutableList<FirAnnotation>,
+    override var annotations: MutableOrEmptyList<FirAnnotation>,
     override val diagnostic: ConeDiagnostic,
     override var expression: FirExpression?,
+    override var nonExpressionElement: FirElement?,
 ) : FirErrorExpression() {
-    override var typeRef: FirTypeRef = FirErrorTypeRefImpl(source, null, ConeStubDiagnostic(diagnostic), false)
+    @OptIn(UnresolvedExpressionTypeAccess::class)
+    override var coneTypeOrNull: ConeKotlinType? = ConeErrorType(ConeStubDiagnostic(diagnostic))
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
-        typeRef.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
         expression?.accept(visitor, data)
+        nonExpressionElement?.accept(visitor, data)
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirErrorExpressionImpl {
-        typeRef = typeRef.transform(transformer, data)
         transformAnnotations(transformer, data)
         expression = expression?.transform(transformer, data)
+        nonExpressionElement = nonExpressionElement?.transform(transformer, data)
         return this
     }
 
@@ -48,7 +54,11 @@ internal class FirErrorExpressionImpl(
         return this
     }
 
-    override fun replaceTypeRef(newTypeRef: FirTypeRef) {
-        typeRef = newTypeRef
+    override fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?) {
+        coneTypeOrNull = newConeTypeOrNull
+    }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        annotations = newAnnotations.toMutableOrEmpty()
     }
 }

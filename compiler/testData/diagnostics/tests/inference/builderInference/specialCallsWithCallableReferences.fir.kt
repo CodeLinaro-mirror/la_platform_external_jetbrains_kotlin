@@ -80,7 +80,7 @@ fun poll05(): Flow<String> {
 
 fun poll06(): Flow<String> {
     return flow {
-        val inv = <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(foo7(), ::Foo7)
+        val inv = select(foo7(), ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!>)
         inv
     }
 }
@@ -136,7 +136,7 @@ fun poll16(flag: Boolean): Flow<String> {
 
 fun poll17(flag: Boolean): Flow<String> {
     return flow {
-        val inv = if (flag) { foo7() } else { ::Foo7 }
+        val inv = if (flag) { foo7() } else { ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> }
         inv
     }
 }
@@ -185,7 +185,7 @@ fun poll25(flag: Boolean): Flow<String> {
 
 fun poll26(flag: Boolean): Flow<String> {
     return flow {
-        val inv = when (flag) { true -> ::Foo7 false -> foo7() else -> ::Foo7 }
+        val inv = when (flag) { true -> ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> false -> foo7() else -> ::Foo7 }
         inv
     }
 }
@@ -234,7 +234,7 @@ fun poll35(flag: Boolean): Flow<String> {
 
 fun poll36(flag: Boolean): Flow<String> {
     return flow {
-        val inv = when (flag) { true -> ::Foo7 false -> foo7() }
+        val inv = when (flag) { true -> ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> false -> foo7() }
         inv
     }
 }
@@ -283,7 +283,7 @@ fun poll45(): Flow<String> {
 
 fun poll46(): Flow<String> {
     return flow {
-        val inv = try { foo7() } finally { ::Foo7 }
+        val inv = try { foo7() } finally { ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> }
         inv
     }
 }
@@ -332,7 +332,7 @@ fun poll55(): Flow<String> {
 
 fun poll56(): Flow<String> {
     return flow {
-        val inv = try { ::Foo7 } catch (e: Exception) { foo7() } finally { foo7() }
+        val inv = try { ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> } catch (e: Exception) { foo7() } finally { foo7() }
         inv
     }
 }
@@ -381,7 +381,7 @@ fun poll65(): Flow<String> {
 
 fun poll66(): Flow<String> {
     return flow {
-        val inv = ::Foo7
+        val inv = ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!>
         inv
     }
 }
@@ -430,7 +430,7 @@ fun poll75(): Flow<String> {
 
 fun poll76(): Flow<String> {
     return flow {
-        val inv = ::Foo7<!NOT_NULL_ASSERTION_ON_CALLABLE_REFERENCE!>!!<!>
+        val inv = <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!><!NOT_NULL_ASSERTION_ON_CALLABLE_REFERENCE!>!!<!><!>
         inv
     }
 }
@@ -444,7 +444,7 @@ fun poll8(): Flow<String> {
 
 fun poll81(): Flow<String> {
     return flow {
-        val inv = ::bar2 in setOf(::foo2)
+        val inv = ::bar2 <!TYPE_INFERENCE_ONLY_INPUT_TYPES_ERROR!>in<!> setOf(::foo2)
         <!UNRESOLVED_REFERENCE!>inv<!>()
     }
 }
@@ -458,7 +458,7 @@ fun poll82(): Flow<String> {
 
 fun poll83(): Flow<String> {
     return flow {
-        val inv = ::bar4 in setOf(::foo4)
+        val inv = ::bar4 <!TYPE_INFERENCE_ONLY_INPUT_TYPES_ERROR!>in<!> setOf(::foo4)
         inv
     }
 }
@@ -479,21 +479,21 @@ fun poll85(): Flow<String> {
 
 fun poll86(): Flow<String> {
     return flow {
-        val inv = ::Foo7 <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>in<!> <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>setOf<!>(::Foo7)
+        val inv = ::Foo7 in <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>setOf<!>(::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!>)
         inv
     }
 }
 
 fun poll87(): Flow<String> {
     return flow {
-        val inv = ::Foo7 <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>in<!> setOf(foo7())
+        val inv = ::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!> <!TYPE_INFERENCE_ONLY_INPUT_TYPES_ERROR!>in<!> setOf(foo7())
         inv
     }
 }
 
 fun poll88(): Flow<String> {
     return flow {
-        val inv = foo7() in <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>setOf<!>(::Foo7)
+        val inv = foo7() in <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>setOf<!>(::<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>Foo7<!>)
         inv
     }
 }

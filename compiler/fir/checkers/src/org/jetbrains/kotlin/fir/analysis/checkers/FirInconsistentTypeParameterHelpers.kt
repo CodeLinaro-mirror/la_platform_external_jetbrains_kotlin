@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.analysis.diagnostics.withSuppressedDiagnostics
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -70,11 +69,9 @@ private fun buildDeepSubstitutionMultimap(
             for (index in 0 until count) {
                 val typeArgument = typeArguments[index]
 
-                val substitutedArgument = ConeSubstitutorByMap(substitution, session).substituteArgument(
-                    typeArgument,
-                    classSymbol.toLookupTag(),
-                    index
-                ) ?: typeArgument
+                val substitutedArgument = ConeSubstitutorByMap(substitution, session)
+                    .substituteArgument(typeArgument, index)
+                    ?: typeArgument
                 val substitutedType = substitutedArgument.type ?: continue
 
                 val typeParameterSymbol = typeParameterSymbols[index]
@@ -104,10 +101,8 @@ private fun buildDeepSubstitutionMultimap(
                 return
 
             val superClassSymbol = fullyExpandedType.toRegularClassSymbol(session)
-            withSuppressedDiagnostics(superTypeRef, context) {
-                if (!fullyExpandedType.isEnum && superClassSymbol != null) {
-                    fillInDeepSubstitutor(fullyExpandedType.typeArguments, superClassSymbol, it)
-                }
+            if (!fullyExpandedType.isEnum && superClassSymbol != null) {
+                fillInDeepSubstitutor(fullyExpandedType.typeArguments, superClassSymbol, context)
             }
         }
     }

@@ -23,6 +23,10 @@ import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.report.RemoteBuildReporter
 import org.jetbrains.kotlin.build.report.info
+import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
+import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
+import org.jetbrains.kotlin.build.report.metrics.endMeasureGc
+import org.jetbrains.kotlin.build.report.metrics.startMeasureGc
 import org.jetbrains.kotlin.cli.common.CLICompiler
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.ExitCode
@@ -32,34 +36,34 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.repl.ReplCheckResult
 import org.jetbrains.kotlin.cli.common.repl.ReplCodeLine
 import org.jetbrains.kotlin.cli.common.repl.ReplCompileResult
-import org.jetbrains.kotlin.cli.common.repl.ReplEvalResult
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.cli.metadata.K2MetadataCompiler
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
+import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.daemon.common.*
 import org.jetbrains.kotlin.daemon.report.CompileServicesFacadeMessageCollector
 import org.jetbrains.kotlin.daemon.report.DaemonMessageReporter
-import org.jetbrains.kotlin.daemon.report.DaemonMessageReporterPrintStreamAdapter
 import org.jetbrains.kotlin.daemon.report.getBuildReporter
 import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
+import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer
+import org.jetbrains.kotlin.incremental.multiproject.EmptyModulesApiHistory
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistoryAndroid
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistoryJs
 import org.jetbrains.kotlin.incremental.multiproject.ModulesApiHistoryJvm
 import org.jetbrains.kotlin.incremental.parsing.classesFqNames
+import org.jetbrains.kotlin.incremental.storage.FileLocations
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
-import java.io.BufferedOutputStream
 import java.io.File
-import java.io.PrintStream
 import java.rmi.NoSuchObjectException
 import java.rmi.registry.Registry
 import java.rmi.server.UnicastRemoteObject
@@ -294,7 +298,7 @@ abstract class CompileServiceImplBase(
         createMessageCollector: (ServicesFacadeT, CompilationOptions) -> MessageCollector,
         createReporter: (ServicesFacadeT, CompilationOptions) -> DaemonMessageReporter,
         createServices: (JpsServicesFacadeT, EventManager, Profiler) -> Services,
-        getICReporter: (ServicesFacadeT, CompilationResultsT?, IncrementalCompilationOptions) -> RemoteBuildReporter
+        getICReporter: (ServicesFacadeT, CompilationResultsT?, IncrementalCompilationOptions) -> RemoteBuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>
     ) = kotlin.run {
         val messageCollector = createMessageCollector(servicesFacade, compilationOptions)
         val daemonReporter = createReporter(servicesFacade, compilationOptions)
@@ -319,7 +323,7 @@ abstract class CompileServiceImplBase(
             CompilerMode.JPS_COMPILER -> {
                 @Suppress("UNCHECKED_CAST")
                 servicesFacade as JpsServicesFacadeT
-                withIC(k2PlatformArgs, enabled = servicesFacade.hasIncrementalCaches()) {
+                withIncrementalCompilation(k2PlatformArgs, enabled = servicesFacade.hasIncrementalCaches()) {
                     doCompile(sessionId, daemonReporter, tracer = null) { eventManger, profiler ->
                         val services = createServices(servicesFacade, eventManger, profiler)
                         compiler.exec(messageCollector, services, k2PlatformArgs)
@@ -346,7 +350,7 @@ abstract class CompileServiceImplBase(
                 val gradleIncrementalServicesFacade = servicesFacade
 
                 when (targetPlatform) {
-                    CompileService.TargetPlatform.JVM -> withIC(k2PlatformArgs) {
+                    CompileService.TargetPlatform.JVM -> withIncrementalCompilation(k2PlatformArgs) {
                         doCompile(sessionId, daemonReporter, tracer = null) { _, _ ->
                             execIncrementalCompiler(
                                 k2PlatformArgs as K2JVMCompilerArguments,
@@ -507,7 +511,7 @@ abstract class CompileServiceImplBase(
                     body()
                 } catch (e: Throwable) {
                     log.log(Level.SEVERE, "Exception", e)
-                    CompileService.CallResult.Error(e.message ?: "unknown")
+                    CompileService.CallResult.Error(e)
                 }
             }
         }
@@ -532,8 +536,9 @@ abstract class CompileServiceImplBase(
         args: K2JSCompilerArguments,
         incrementalCompilationOptions: IncrementalCompilationOptions,
         compilerMessageCollector: MessageCollector,
-        reporter: RemoteBuildReporter
+        reporter: RemoteBuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>
     ): ExitCode {
+        reporter.startMeasureGc()
         val allKotlinFiles = arrayListOf<File>()
         val freeArgsWithoutKotlinFiles = arrayListOf<String>()
         args.freeArgs.forEach {
@@ -552,19 +557,28 @@ abstract class CompileServiceImplBase(
         }
 
         val workingDir = incrementalCompilationOptions.workingDir
-        val modulesApiHistory = ModulesApiHistoryJs(incrementalCompilationOptions.modulesInfo)
+        val modulesApiHistory = incrementalCompilationOptions.multiModuleICSettings?.run {
+            val modulesInfo = incrementalCompilationOptions.modulesInfo
+                ?: error("The build is configured to use the history-file based IC approach, but doesn't provide the modulesInfo")
+            val rootProjectDir = incrementalCompilationOptions.rootProjectDir
+                ?: error("rootProjectDir is expected to be non null when the history-file based IC approach is used")
+            ModulesApiHistoryJs(rootProjectDir, modulesInfo)
+        } ?: EmptyModulesApiHistory
 
         val compiler = IncrementalJsCompilerRunner(
             workingDir = workingDir,
             reporter = reporter,
-            buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings.buildHistoryFile,
+            buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings?.buildHistoryFile,
             scopeExpansion = if (args.isIrBackendEnabled()) CompileScopeExpansionMode.ALWAYS else CompileScopeExpansionMode.NEVER,
             modulesApiHistory = modulesApiHistory,
-            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot
+            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot,
+            preciseCompilationResultsBackup = incrementalCompilationOptions.preciseCompilationResultsBackup,
+            keepIncrementalCompilationCachesInMemory = incrementalCompilationOptions.keepIncrementalCompilationCachesInMemory,
         )
         return try {
             compiler.compile(allKotlinFiles, args, compilerMessageCollector, changedFiles)
         } finally {
+            reporter.endMeasureGc()
             reporter.flush()
         }
     }
@@ -573,8 +587,9 @@ abstract class CompileServiceImplBase(
         k2jvmArgs: K2JVMCompilerArguments,
         incrementalCompilationOptions: IncrementalCompilationOptions,
         compilerMessageCollector: MessageCollector,
-        reporter: RemoteBuildReporter
+        reporter: RemoteBuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>
     ): ExitCode {
+        reporter.startMeasureGc()
         val allKotlinExtensions = (DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS +
                 (incrementalCompilationOptions.kotlinScriptExtensions ?: emptyArray())).distinct()
         val dotExtensions = allKotlinExtensions.map { ".$it" }
@@ -598,32 +613,55 @@ abstract class CompileServiceImplBase(
 
         val workingDir = incrementalCompilationOptions.workingDir
 
-        val modulesApiHistory = incrementalCompilationOptions.run {
-            reporter.info { "Use module detection: ${multiModuleICSettings.useModuleDetection}" }
+        val rootProjectDir = incrementalCompilationOptions.rootProjectDir
+        val buildDir = incrementalCompilationOptions.buildDir
 
-            if (!multiModuleICSettings.useModuleDetection) {
-                ModulesApiHistoryJvm(modulesInfo)
-            } else {
-                ModulesApiHistoryAndroid(modulesInfo)
-            }
+        val modulesApiHistory = if (incrementalCompilationOptions.classpathChanges is ClasspathChanges.ClasspathSnapshotEnabled) {
+            EmptyModulesApiHistory
+        } else {
+            incrementalCompilationOptions.multiModuleICSettings?.run {
+                reporter.info { "Use module detection: $useModuleDetection" }
+                val modulesInfo = incrementalCompilationOptions.modulesInfo
+                    ?: error("The build is configured to use the history-file based IC approach, but doesn't provide the modulesInfo")
+                check(rootProjectDir != null) {
+                    "rootProjectDir is expected to be non null when the history-file based IC approach is used"
+                }
+
+                if (!useModuleDetection) {
+                    ModulesApiHistoryJvm(rootProjectDir, modulesInfo)
+                } else {
+                    ModulesApiHistoryAndroid(rootProjectDir, modulesInfo)
+                }
+            } ?: EmptyModulesApiHistory
         }
 
-        val projectRoot = incrementalCompilationOptions.modulesInfo.projectRoot
+        val useK2 = k2jvmArgs.useK2 || LanguageVersion.fromVersionString(k2jvmArgs.languageVersion)?.usesK2 == true
+        // TODO: This should be reverted after implementing of fir-based java tracker (KT-57147).
+        //  See org.jetbrains.kotlin.incremental.CompilerRunnerUtilsKt.makeJvmIncrementally
+        val usePreciseJavaTracking = if (useK2) false else incrementalCompilationOptions.usePreciseJavaTracking
 
         val compiler = IncrementalJvmCompilerRunner(
             workingDir,
             reporter,
-            buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings.buildHistoryFile,
-            outputFiles = incrementalCompilationOptions.outputFiles,
-            usePreciseJavaTracking = incrementalCompilationOptions.usePreciseJavaTracking,
+            buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings?.buildHistoryFile,
+            outputDirs = incrementalCompilationOptions.outputFiles,
+            usePreciseJavaTracking = usePreciseJavaTracking,
             modulesApiHistory = modulesApiHistory,
             kotlinSourceFilesExtensions = allKotlinExtensions,
             classpathChanges = incrementalCompilationOptions.classpathChanges,
-            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot
+            withAbiSnapshot = incrementalCompilationOptions.withAbiSnapshot,
+            preciseCompilationResultsBackup = incrementalCompilationOptions.preciseCompilationResultsBackup,
+            keepIncrementalCompilationCachesInMemory = incrementalCompilationOptions.keepIncrementalCompilationCachesInMemory,
         )
         return try {
-            compiler.compile(allKotlinFiles, k2jvmArgs, compilerMessageCollector, changedFiles, projectRoot)
+            compiler.compile(
+                allKotlinFiles, k2jvmArgs, compilerMessageCollector, changedFiles,
+                fileLocations = if (rootProjectDir != null && buildDir != null) {
+                    FileLocations(rootProjectDir, buildDir)
+                } else null
+            )
         } finally {
+            reporter.endMeasureGc()
             reporter.flush()
         }
     }
@@ -717,8 +755,8 @@ class CompileServiceImpl(
                 (compilerId.compilerClasspath.all { expectedCompilerId.compilerClasspath.contains(it) }) &&
                 !classpathWatcher.isChanged
 
-    override fun getUsedMemory(): CompileService.CallResult<Long> =
-        ifAlive { CompileService.CallResult.Good(usedMemory(withGC = true)) }
+    override fun getUsedMemory(withGC: Boolean): CompileService.CallResult<Long> =
+        ifAlive { CompileService.CallResult.Good(usedMemory(withGC = withGC)) }
 
     override fun shutdown(): CompileService.CallResult<Nothing> = ifAliveExclusive(minAliveness = Aliveness.LastSession) {
         shutdownWithDelay()
@@ -735,58 +773,6 @@ class CompileServiceImpl(
         }
         CompileService.CallResult.Good(res)
     }
-
-    @Suppress("OverridingDeprecatedMember", "DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun remoteCompile(
-        sessionId: Int,
-        targetPlatform: CompileService.TargetPlatform,
-        args: Array<out String>,
-        servicesFacade: CompilerCallbackServicesFacade,
-        compilerOutputStream: RemoteOutputStream,
-        outputFormat: CompileService.OutputFormat,
-        serviceOutputStream: RemoteOutputStream,
-        operationsTracer: RemoteOperationsTracer?
-    ): CompileService.CallResult<Int> =
-        doCompile(sessionId, args, compilerOutputStream, serviceOutputStream, operationsTracer) { printStream, eventManager, profiler ->
-            when (outputFormat) {
-                CompileService.OutputFormat.PLAIN -> compiler[targetPlatform].exec(printStream, *args)
-                CompileService.OutputFormat.XML -> compiler[targetPlatform].execAndOutputXml(
-                    printStream,
-                    createCompileServices(
-                        servicesFacade,
-                        eventManager,
-                        profiler
-                    ),
-                    *args
-                )
-            }
-        }
-
-    @Suppress("OverridingDeprecatedMember", "DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun remoteIncrementalCompile(
-        sessionId: Int,
-        targetPlatform: CompileService.TargetPlatform,
-        args: Array<out String>,
-        servicesFacade: CompilerCallbackServicesFacade,
-        compilerOutputStream: RemoteOutputStream,
-        compilerOutputFormat: CompileService.OutputFormat,
-        serviceOutputStream: RemoteOutputStream,
-        operationsTracer: RemoteOperationsTracer?
-    ): CompileService.CallResult<Int> =
-        doCompile(sessionId, args, compilerOutputStream, serviceOutputStream, operationsTracer) { printStream, eventManager, profiler ->
-            when (compilerOutputFormat) {
-                CompileService.OutputFormat.PLAIN -> throw NotImplementedError("Only XML output is supported in remote incremental compilation")
-                CompileService.OutputFormat.XML -> compiler[targetPlatform].execAndOutputXml(
-                    printStream,
-                    createCompileServices(
-                        servicesFacade,
-                        eventManager,
-                        profiler
-                    ),
-                    *args
-                )
-            }
-        }
 
     override fun classesFqNamesByFiles(
         sessionId: Int, sourceFiles: Set<File>
@@ -819,53 +805,8 @@ class CompileServiceImpl(
     }
 
 
-    @Deprecated("The usages should be replaced with other `leaseReplSession` method", ReplaceWith("leaseReplSession"))
-    override fun leaseReplSession(
-        aliveFlagPath: String?,
-        targetPlatform: CompileService.TargetPlatform,
-        @Suppress("DEPRECATION") servicesFacade: CompilerCallbackServicesFacade,
-        templateClasspath: List<File>,
-        templateClassName: String,
-        scriptArgs: Array<out Any?>?,
-        scriptArgsTypes: Array<out Class<out Any>>?,
-        compilerMessagesOutputStream: RemoteOutputStream,
-        evalOutputStream: RemoteOutputStream?,
-        evalErrorStream: RemoteOutputStream?,
-        evalInputStream: RemoteInputStream?,
-        operationsTracer: RemoteOperationsTracer?
-    ): CompileService.CallResult<Int> = ifAlive(minAliveness = Aliveness.Alive) {
-        if (targetPlatform != CompileService.TargetPlatform.JVM)
-            CompileService.CallResult.Error("Sorry, only JVM target platform is supported now")
-        else {
-            val disposable = Disposer.newDisposable()
-            val compilerMessagesStream = PrintStream(
-                BufferedOutputStream(
-                    RemoteOutputStreamClient(compilerMessagesOutputStream, DummyProfiler()),
-                    REMOTE_STREAM_BUFFER_SIZE
-                )
-            )
-            val messageCollector = KeepFirstErrorMessageCollector(compilerMessagesStream)
-            val repl = KotlinJvmReplService(
-                disposable, port, compilerId, templateClasspath, templateClassName,
-                messageCollector, operationsTracer
-            )
-            val sessionId = state.sessions.leaseSession(ClientOrSessionProxy(aliveFlagPath, repl, disposable))
-
-            CompileService.CallResult.Good(sessionId)
-        }
-    }
-
     // TODO: add more checks (e.g. is it a repl session)
     override fun releaseReplSession(sessionId: Int): CompileService.CallResult<Nothing> = releaseCompileSession(sessionId)
-
-    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
-    override fun remoteReplLineCheck(sessionId: Int, codeLine: ReplCodeLine): CompileService.CallResult<ReplCheckResult> =
-        ifAlive(minAliveness = Aliveness.Alive) {
-            withValidRepl(sessionId) {
-                @Suppress("DEPRECATION")
-                CompileService.CallResult.Good(check(codeLine))
-            }
-        }
 
     private fun createCompileServices(
         @Suppress("DEPRECATION") facade: CompilerCallbackServicesFacade,
@@ -903,29 +844,6 @@ class CompileServiceImpl(
 
         return builder.build()
     }
-
-    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
-    override fun remoteReplLineCompile(
-        sessionId: Int,
-        codeLine: ReplCodeLine,
-        history: List<ReplCodeLine>?
-    ): CompileService.CallResult<ReplCompileResult> =
-        ifAlive(minAliveness = Aliveness.Alive) {
-            withValidRepl(sessionId) {
-                @Suppress("DEPRECATION")
-                CompileService.CallResult.Good(compile(codeLine, history))
-            }
-        }
-
-    @Suppress("OverridingDeprecatedMember", "OVERRIDE_DEPRECATION")
-    override fun remoteReplLineEval(
-        sessionId: Int,
-        codeLine: ReplCodeLine,
-        history: List<ReplCodeLine>?
-    ): CompileService.CallResult<ReplEvalResult> =
-        ifAlive(minAliveness = Aliveness.Alive) {
-            CompileService.CallResult.Error("Eval on daemon is not supported")
-        }
 
     override fun leaseReplSession(
         aliveFlagPath: String?,
@@ -1063,7 +981,7 @@ class CompileServiceImpl(
                             }
                             daemon.scheduleShutdown(true)
                         } catch (e: Throwable) {
-                            log.info("Cannot connect to a daemon, assuming dying ('${runFile.canonicalPath}'): ${e.message}")
+                            log.info("Cannot connect to a daemon, assuming dying ('${runFile.normalize().absolutePath}'): ${e.message}")
                         }
                     }
                 }
@@ -1171,50 +1089,6 @@ class CompileServiceImpl(
         return true
     }
 
-    // todo: remove after remoteIncrementalCompile is removed
-    private fun doCompile(
-        sessionId: Int,
-        args: Array<out String>,
-        compilerMessagesStreamProxy: RemoteOutputStream,
-        serviceOutputStreamProxy: RemoteOutputStream,
-        operationsTracer: RemoteOperationsTracer?,
-        body: (PrintStream, EventManager, Profiler) -> ExitCode
-    ): CompileService.CallResult<Int> =
-        ifAlive {
-            withValidClientOrSessionProxy(sessionId) {
-                operationsTracer?.before("compile")
-                val rpcProfiler = if (daemonOptions.reportPerf) WallAndThreadTotalProfiler() else DummyProfiler()
-                val eventManger = EventManagerImpl()
-                val compilerMessagesStream = PrintStream(
-                    BufferedOutputStream(
-                        RemoteOutputStreamClient(compilerMessagesStreamProxy, rpcProfiler),
-                        REMOTE_STREAM_BUFFER_SIZE
-                    )
-                )
-                val serviceOutputStream = PrintStream(
-                    BufferedOutputStream(
-                        RemoteOutputStreamClient(serviceOutputStreamProxy, rpcProfiler),
-                        REMOTE_STREAM_BUFFER_SIZE
-                    )
-                )
-                try {
-                    val compileServiceReporter = DaemonMessageReporterPrintStreamAdapter(serviceOutputStream)
-                    if (args.none())
-                        throw IllegalArgumentException("Error: empty arguments list.")
-                    log.info("Starting compilation with args: " + args.joinToString(" "))
-                    val exitCode = checkedCompile(compileServiceReporter, rpcProfiler) {
-                        body(compilerMessagesStream, eventManger, rpcProfiler).code
-                    }
-                    CompileService.CallResult.Good(exitCode)
-                } finally {
-                    serviceOutputStream.flush()
-                    compilerMessagesStream.flush()
-                    eventManger.fireCompilationFinished()
-                    operationsTracer?.after("compile")
-                }
-            }
-        }
-
     init {
         // assuming logicaly synchronized
         try {
@@ -1235,7 +1109,11 @@ class CompileServiceImpl(
 
     override fun clearJarCache() {
         ZipHandler.clearFileAccessorCache()
-        (KotlinCoreEnvironment.applicationEnvironment?.jarFileSystem as? CoreJarFileSystem)?.clearHandlersCache()
+        KotlinCoreEnvironment.applicationEnvironment?.apply {
+            (jarFileSystem as? CoreJarFileSystem)?.clearHandlersCache()
+            (jrtFileSystem as? CoreJrtFileSystem)?.clearRoots()
+            idleCleanup()
+        }
     }
 
     private inline fun <R> ifAlive(

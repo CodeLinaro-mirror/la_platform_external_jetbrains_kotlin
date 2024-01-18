@@ -5,7 +5,19 @@ final class foo/Kotlin$foo5$lambda$1 : kotlin/jvm/internal/Lambda, kotlin/jvm/fu
     void <init>(foo.Kotlin $receiver)
 
     public final java.lang.String invoke()
-      @Lorg/jetbrains/annotations/NotNull;([]) // invisible
+      @Lfoo/TypeAnn;([name="2"]) : METHOD_RETURN, null
+      @Lfoo/TypeAnnBinary;([]) : METHOD_RETURN, null // invisible
+
+    public java.lang.Object invoke()
+}
+
+Lkotlin/jvm/internal/Lambda;Lkotlin/jvm/functions/Function0<Ljava/lang/String;>;
+final class foo/Kotlin$foo6$indyLambda$1 : kotlin/jvm/internal/Lambda, kotlin/jvm/functions/Function0 {
+    final foo.Kotlin this$0
+
+    void <init>(foo.Kotlin $receiver)
+
+    public final java.lang.String invoke()
       @Lfoo/TypeAnn;([name="2"]) : METHOD_RETURN, null
       @Lfoo/TypeAnnBinary;([]) : METHOD_RETURN, null // invisible
 
@@ -30,11 +42,9 @@ public final class foo/Kotlin : java/lang/Object {
       @Lfoo/TypeAnn;([name="2"]) : METHOD_RETURN, null
       @Lfoo/TypeAnnBinary;([]) : METHOD_RETURN, null // invisible
 
-    private final static java.lang.String foo4$lambda$0(foo.Kotlin this$0)
-      @Lfoo/TypeAnn;([name="2"]) : METHOD_RETURN, null
-      @Lfoo/TypeAnnBinary;([]) : METHOD_RETURN, null // invisible
-
     public final void foo5()
+
+    public final void foo6()
 }
 
 public abstract interface foo/TypeAnn : java/lang/Object, java/lang/annotation/Annotation {

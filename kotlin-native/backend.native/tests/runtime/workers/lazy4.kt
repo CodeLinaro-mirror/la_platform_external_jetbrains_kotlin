@@ -3,11 +3,12 @@
  * that can be found in the LICENSE file.
  */
 
-@file:OptIn(FreezingIsDeprecated::class)
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class, FreezingIsDeprecated::class, ObsoleteWorkersApi::class)
 package runtime.workers.lazy4
 
 import kotlin.test.*
-
+import kotlin.concurrent.AtomicInt
+import kotlin.concurrent.*
 import kotlin.native.concurrent.*
 
 const val WORKERS_COUNT = 20
@@ -24,7 +25,7 @@ fun concurrentLazyAccess(freeze: Boolean, mode: LazyThreadSafetyMode) {
     val initializerCallCount = AtomicInt(0)
 
     val c = C(argumentMode) {
-        initializerCallCount.increment()
+        initializerCallCount.incrementAndGet()
         IntHolder(42)
     }
     if (freeze) {
@@ -36,7 +37,7 @@ fun concurrentLazyAccess(freeze: Boolean, mode: LazyThreadSafetyMode) {
     val canStart = AtomicInt(0)
     val futures = Array(workers.size) { i ->
         workers[i].execute(TransferMode.SAFE, { Triple(inited, canStart, c) }) { (inited, canStart, c) ->
-            inited.increment()
+            inited.incrementAndGet()
             while (canStart.value != 1) {}
             c.data
         }

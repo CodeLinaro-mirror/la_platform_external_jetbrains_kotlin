@@ -6,28 +6,35 @@
 package org.jetbrains.kotlin.analysis.api.fir.symbols
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
+import org.jetbrains.kotlin.analysis.api.fir.KtSymbolByFirBuilder
+import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.fir.containingClassForLocalAttr
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticPropertyAccessor
-import org.jetbrains.kotlin.fir.originalIfFakeOverride
-import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectData
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectOrStaticData
 import org.jetbrains.kotlin.fir.scopes.impl.originalForWrappedIntegerOperator
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 
 internal interface KtFirSymbol<out S : FirBasedSymbol<*>> : KtSymbol, KtLifetimeOwner {
     val firSymbol: S
+    val analysisSession: KtFirAnalysisSession
+    val builder: KtSymbolByFirBuilder get() = analysisSession.firSymbolBuilder
 
-    val firResolveSession: LLFirResolveSession
-
+    override val token: KtLifetimeToken get() = analysisSession.token
     override val origin: KtSymbolOrigin get() = withValidityAssertion { firSymbol.fir.ktSymbolOrigin() }
 }
 
@@ -42,13 +49,14 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KtSymbolOrigin = when (ori
     FirDeclarationOrigin.Source -> {
         when (source?.kind) {
             KtFakeSourceElementKind.ImplicitConstructor,
-            KtFakeSourceElementKind.DataClassGeneratedMembers,
+            KtFakeSourceElementKind.DataClassGeneratedMembers, /* Valid for copy() / componentX(), should we change it? */
             KtFakeSourceElementKind.EnumGeneratedDeclaration,
             KtFakeSourceElementKind.ItLambdaParameter -> KtSymbolOrigin.SOURCE_MEMBER_GENERATED
 
             else -> KtSymbolOrigin.SOURCE
         }
     }
+
     FirDeclarationOrigin.Precompiled -> KtSymbolOrigin.SOURCE
     FirDeclarationOrigin.Library, FirDeclarationOrigin.BuiltIns -> KtSymbolOrigin.LIBRARY
     is FirDeclarationOrigin.Java -> KtSymbolOrigin.JAVA
@@ -56,30 +64,52 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KtSymbolOrigin = when (ori
     FirDeclarationOrigin.Enhancement -> KtSymbolOrigin.JAVA
     FirDeclarationOrigin.IntersectionOverride -> KtSymbolOrigin.INTERSECTION_OVERRIDE
     FirDeclarationOrigin.Delegated -> KtSymbolOrigin.DELEGATED
-    FirDeclarationOrigin.Synthetic -> {
-        when (this) {
-            is FirSyntheticProperty,
-            is FirSyntheticPropertyAccessor -> KtSymbolOrigin.JAVA_SYNTHETIC_PROPERTY
-            else -> throw InvalidFirDeclarationOriginForSymbol(this)
+    is FirDeclarationOrigin.Synthetic -> {
+        when {
+            source?.kind == KtFakeSourceElementKind.DataClassGeneratedMembers -> KtSymbolOrigin.SOURCE_MEMBER_GENERATED
+            this is FirValueParameter && this.containingFunctionSymbol.origin is FirDeclarationOrigin.Synthetic -> KtSymbolOrigin.SOURCE_MEMBER_GENERATED
+            this is FirSyntheticProperty || this is FirSyntheticPropertyAccessor -> KtSymbolOrigin.JAVA_SYNTHETIC_PROPERTY
+
+            else -> errorWithAttachment("Invalid FirDeclarationOrigin ${origin::class.simpleName}") {
+                withFirEntry("firToGetOrigin", this@ktSymbolOrigin)
+            }
         }
     }
-    FirDeclarationOrigin.ImportedFromObject -> {
-        val importedFromObjectData = (this as FirCallableDeclaration).importedFromObjectData
-            ?: error("Declaration has ImportedFromObject origin, but no importedFromObjectData present")
+
+    FirDeclarationOrigin.ImportedFromObjectOrStatic -> {
+        val importedFromObjectData = (this as FirCallableDeclaration).importedFromObjectOrStaticData
+            ?: errorWithAttachment("Declaration has ImportedFromObject origin, but no importedFromObjectData present") {
+                withFirEntry("firToGetOrigin", this@ktSymbolOrigin)
+            }
 
         importedFromObjectData.original.ktSymbolOrigin()
     }
+
     FirDeclarationOrigin.WrappedIntegerOperator -> {
         val original = (this as FirSimpleFunction).originalForWrappedIntegerOperator?.fir
-            ?: error("Declaration has WrappedIntegerOperator origin, but no originalForWrappedIntegerOperator present")
+            ?: errorWithFirSpecificEntries(
+                "Declaration has WrappedIntegerOperator origin, but no originalForWrappedIntegerOperator present",
+                fir = this
+            )
 
         original.ktSymbolOrigin()
     }
+
     is FirDeclarationOrigin.Plugin -> KtSymbolOrigin.PLUGIN
     FirDeclarationOrigin.RenamedForOverride -> KtSymbolOrigin.JAVA
-    FirDeclarationOrigin.SubstitutionOverride -> KtSymbolOrigin.SUBSTITUTION_OVERRIDE
-    FirDeclarationOrigin.DynamicScope -> throw InvalidFirDeclarationOriginForSymbol(this)
+    is FirDeclarationOrigin.SubstitutionOverride -> KtSymbolOrigin.SUBSTITUTION_OVERRIDE
+    FirDeclarationOrigin.DynamicScope -> errorWithAttachment("Invalid FirDeclarationOrigin ${origin::class.simpleName}") {
+        withFirEntry("firToGetOrigin", this@ktSymbolOrigin)
+    }
+    is FirDeclarationOrigin.ScriptCustomization -> KtSymbolOrigin.PLUGIN
 }
 
-class InvalidFirDeclarationOriginForSymbol(declaration: FirDeclaration) :
-    IllegalStateException("Invalid FirDeclarationOrigin ${declaration.origin::class.simpleName} for ${declaration.render()}")
+internal fun KtClassLikeSymbol.getSymbolKind(): KtSymbolKind {
+    val firSymbol = firSymbol
+    return when {
+        firSymbol.classId.isNestedClass -> KtSymbolKind.CLASS_MEMBER
+        firSymbol.isLocal -> KtSymbolKind.LOCAL
+        else -> KtSymbolKind.TOP_LEVEL
+    }
+}
+

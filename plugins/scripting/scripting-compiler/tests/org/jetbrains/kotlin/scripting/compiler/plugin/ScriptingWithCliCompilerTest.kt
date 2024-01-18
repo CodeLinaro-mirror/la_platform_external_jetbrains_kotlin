@@ -71,28 +71,20 @@ class ScriptingWithCliCompilerTest {
         runWithK2JVMCompiler(
             arrayOf(
                 "-cp", getMainKtsClassPath().joinToString(File.pathSeparator),
-                "-expression",
-                "\\@file:CompilerOptions(\"-Xunknown1\")"
+                "-expression=@file:CompilerOptions(\"-Xunknown1\")"
             ),
             expectedExitCode = 1,
             expectedSomeErrPatterns = listOf(
-                "unresolved reference: CompilerOptions"
-            )
+                "unresolved reference\\W*CompilerOptions"
+            ),
         )
-        // it seems not possible to make a one-liner with the annotation, and
-        // annotation is the easiest available distinguishing factor for the .main.kts script
-        // so, considering "expecting an element" error as a success here
         runWithK2JVMCompiler(
             arrayOf(
                 "-cp", getMainKtsClassPath().joinToString(File.pathSeparator),
                 "-Xdefault-script-extension=.main.kts",
-                "-expression",
-                "\\@file:CompilerOptions(\"-Xunknown1\")"
+                "-expression=@file:CompilerOptions(\"-Xunknown1\")"
             ),
-            expectedExitCode = 1,
-            expectedSomeErrPatterns = listOf(
-                "expecting an element"
-            )
+            expectedExitCode = 0,
         )
     }
 
@@ -146,7 +138,7 @@ class ScriptingWithCliCompilerTest {
                 "-expression",
                 "listOf(1,2)"
             ),
-            listOf("\\[1, 2\\]")
+            listOf("\\[1, 2\\]"),
         )
     }
 
@@ -191,7 +183,7 @@ class ScriptingWithCliCompilerTest {
     @Test
     fun testCompileScriptWithRegularKotlin() {
 
-        fun compileVariant(vararg flags: String): Pair<List<String>, ExitCode> {
+        fun compileVariant(vararg flags: String, withScriptInstance: Boolean = true): Pair<List<String>, ExitCode> {
             return withTempDir { tmpdir ->
                 val (_, err, exitCode) = captureOutErrRet {
                     CLITool.doMainNoExit(
@@ -200,7 +192,10 @@ class ScriptingWithCliCompilerTest {
                             "-d", tmpdir.path,
                             "-cp", getMainKtsClassPath().joinToString(File.pathSeparator),
                             *flags,
-                            "$TEST_DATA_DIR/compiler/mixedCompilation/simpleScriptInstance.kt",
+                            if (withScriptInstance)
+                                "$TEST_DATA_DIR/compiler/mixedCompilation/simpleScriptInstance.kt"
+                            else
+                                "$TEST_DATA_DIR/compiler/mixedCompilation/nonScript.kt",
                             "$TEST_DATA_DIR/compiler/mixedCompilation/simpleScript.main.kts"
                         )
                     )
@@ -232,6 +227,11 @@ class ScriptingWithCliCompilerTest {
             Assert.assertEquals(ExitCode.COMPILATION_ERROR, exitCode)
         }
 
+        compileVariant("-language-version", "1.9", withScriptInstance = false).let { (errLines, exitCode) ->
+            Assert.assertTrue(errLines.none { it.startsWith(scriptInSourceRootWarning) })
+            Assert.assertEquals(ExitCode.OK, exitCode)
+        }
+
         compileVariant("-language-version", "1.9", "-Xallow-any-scripts-in-source-roots").let { (errLines, exitCode) ->
             Assert.assertTrue(errLines.none {
                 it.endsWith(unresolvedScriptError) || it.startsWith(scriptInSourceRootWarning)
@@ -250,7 +250,10 @@ class ScriptingWithCliCompilerTest {
                         K2JVMCompiler(),
                         arrayOf(
                             "-P", "plugin:kotlin.scripting:disable-script-definitions-autoloading=true",
-                            "-cp", getMainKtsClassPath().joinToString(File.pathSeparator), "-d", tmpdir.path, "-verbose", fileArg)
+                            "-cp", getMainKtsClassPath().joinToString(File.pathSeparator), "-d", tmpdir.path,
+                            "-Xuse-fir-lt=false",
+                            "-Xallow-any-scripts-in-source-roots", "-verbose", fileArg
+                        )
                     )
                 }
                 Assert.assertEquals(0, ret.code)

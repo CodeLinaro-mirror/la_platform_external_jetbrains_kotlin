@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -27,19 +27,6 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
-import org.jetbrains.kotlin.util.OperatorNameConventions.ASSIGNMENT_OPERATIONS
-import org.jetbrains.kotlin.util.OperatorNameConventions.BINARY_OPERATION_NAMES
-import org.jetbrains.kotlin.util.OperatorNameConventions.COMPARE_TO
-import org.jetbrains.kotlin.util.OperatorNameConventions.CONTAINS
-import org.jetbrains.kotlin.util.OperatorNameConventions.DELEGATED_PROPERTY_OPERATORS
-import org.jetbrains.kotlin.util.OperatorNameConventions.EQUALS
-import org.jetbrains.kotlin.util.OperatorNameConventions.GET
-import org.jetbrains.kotlin.util.OperatorNameConventions.HAS_NEXT
-import org.jetbrains.kotlin.util.OperatorNameConventions.INVOKE
-import org.jetbrains.kotlin.util.OperatorNameConventions.ITERATOR
-import org.jetbrains.kotlin.util.OperatorNameConventions.NEXT
-import org.jetbrains.kotlin.util.OperatorNameConventions.SET
-import org.jetbrains.kotlin.util.OperatorNameConventions.UNARY_OPERATION_NAMES
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -49,8 +36,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override val source: KtSourceElement?,
     override val moduleData: FirModuleData,
     override val origin: FirDeclarationOrigin.Java,
-    @Volatile
-    override var resolvePhase: FirResolvePhase,
+    resolvePhase: FirResolvePhase,
     override val attributes: FirDeclarationAttributes,
     override var returnTypeRef: FirTypeRef,
     override val typeParameters: MutableList<FirTypeParameter>,
@@ -63,9 +49,12 @@ class FirJavaMethod @FirImplementationDetail constructor(
 ) : FirSimpleFunction() {
     init {
         symbol.bind(this)
+
+        @OptIn(ResolveStateAccess::class)
+        this.resolveState = resolvePhase.asResolveState()
     }
 
-    override val receiverTypeRef: FirTypeRef?
+    override val receiverParameter: FirReceiverParameter?
         get() = null
 
     override val body: FirBlock?
@@ -85,11 +74,11 @@ class FirJavaMethod @FirImplementationDetail constructor(
         get() = emptyList()
 
     //not used actually, because get 'enhanced' into regular FirSimpleFunction
-    override var deprecation: DeprecationsPerUseSite? = null
+    override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         returnTypeRef.accept(visitor, data)
-        receiverTypeRef?.accept(visitor, data)
+        receiverParameter?.accept(visitor, data)
         controlFlowGraphReference?.accept(visitor, data)
         valueParameters.forEach { it.accept(visitor, data) }
         body?.accept(visitor, data)
@@ -101,7 +90,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
         transformReturnTypeRef(transformer, data)
-        transformReceiverTypeRef(transformer, data)
+        transformReceiverParameter(transformer, data)
         controlFlowGraphReference = controlFlowGraphReference?.transformSingle(transformer, data)
         transformValueParameters(transformer, data)
         transformBody(transformer, data)
@@ -117,7 +106,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
         return this
     }
 
-    override fun <D> transformReceiverTypeRef(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
+    override fun <D> transformReceiverParameter(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
         return this
     }
 
@@ -139,6 +128,10 @@ class FirJavaMethod @FirImplementationDetail constructor(
         return this
     }
 
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
+        throw AssertionError("Mutating annotations for FirJava* is not supported")
+    }
+
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
         return this
     }
@@ -148,19 +141,14 @@ class FirJavaMethod @FirImplementationDetail constructor(
         return this
     }
 
-    override fun replaceResolvePhase(newResolvePhase: FirResolvePhase) {
-        resolvePhase = newResolvePhase
-    }
-
     override fun replaceReturnTypeRef(newReturnTypeRef: FirTypeRef) {
         returnTypeRef = newReturnTypeRef
     }
 
-    override fun replaceReceiverTypeRef(newReceiverTypeRef: FirTypeRef?) {
-    }
+    override fun replaceReceiverParameter(newReceiverParameter: FirReceiverParameter?) {}
 
-    override fun replaceDeprecation(newDeprecation: DeprecationsPerUseSite?) {
-        deprecation = newDeprecation
+    override fun replaceDeprecationsProvider(newDeprecationsProvider: DeprecationsProvider) {
+        deprecationsProvider = newDeprecationsProvider
     }
 
     override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?) {
@@ -181,11 +169,11 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {
         error("Body cannot be replaced for FirJavaMethod")
     }
-}
 
-val ALL_JAVA_OPERATION_NAMES =
-    UNARY_OPERATION_NAMES + BINARY_OPERATION_NAMES + ASSIGNMENT_OPERATIONS + DELEGATED_PROPERTY_OPERATORS +
-            EQUALS + COMPARE_TO + CONTAINS + INVOKE + ITERATOR + GET + SET + NEXT + HAS_NEXT
+    override fun replaceStatus(newStatus: FirDeclarationStatus) {
+        status = newStatus
+    }
+}
 
 @FirBuilderDsl
 class FirJavaMethodBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, FirAnnotationContainerBuilder {
@@ -207,7 +195,7 @@ class FirJavaMethodBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, 
     lateinit var annotationBuilder: () -> List<FirAnnotation>
 
     @Deprecated("Modification of 'deprecation' has no impact for FirJavaFunctionBuilder", level = DeprecationLevel.HIDDEN)
-    override var deprecation: DeprecationsPerUseSite?
+    override var deprecationsProvider: DeprecationsProvider
         get() = throw IllegalStateException()
         set(_) {
             throw IllegalStateException()

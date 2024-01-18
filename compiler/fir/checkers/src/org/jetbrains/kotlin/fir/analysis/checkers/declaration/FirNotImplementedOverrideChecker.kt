@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.analysis.checkers.*
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.ABSTRACT_MEMBER_NOT_IMPLEMENTED
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE
@@ -19,10 +18,13 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.INVISIBLE_ABSTRAC
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.MANY_IMPL_MEMBER_NOT_IMPLEMENTED
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.OVERRIDING_FINAL_MEMBER_BY_DELEGATION
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.containingClass
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.VAR_IMPLEMENTED_BY_INHERITED_VAL
+import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.FirClass
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.delegatedWrapperData
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.MemberWithBaseScope
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenMembersWithBaseScope
@@ -39,7 +41,6 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
         if (sourceKind is KtFakeSourceElementKind && sourceKind != KtFakeSourceElementKind.EnumInitializer) return
         val modality = declaration.modality()
         val canHaveAbstractDeclarations = modality == Modality.ABSTRACT || modality == Modality.SEALED
-        if (declaration is FirRegularClass && declaration.isExpect) return
         val classKind = declaration.classKind
         if (classKind == ClassKind.ANNOTATION_CLASS || classKind == ClassKind.ENUM_CLASS) return
         val classSymbol = declaration.symbol
@@ -52,6 +53,7 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
         val delegationOverrideOfFinal = mutableListOf<Pair<FirCallableSymbol<*>, FirCallableSymbol<*>>>()
         val delegationOverrideOfOpen = mutableListOf<Pair<FirCallableSymbol<*>, FirCallableSymbol<*>>>()
         val invisibleSymbols = mutableListOf<FirCallableSymbol<*>>()
+        val varsImplementedByInheritedVal = mutableListOf<FirIntersectionCallableSymbol>()
 
         fun collectSymbol(symbol: FirCallableSymbol<*>) {
             val delegatedWrapperData = symbol.delegatedWrapperData
@@ -70,7 +72,12 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
                 val delegatedTo = delegatedWrapperData.wrapped.unwrapFakeOverrides().symbol
 
                 if (symbol.multipleDelegatesWithTheSameSignature == true) {
-                    manyImplementationsDelegationSymbols.add(symbol)
+                    if (directOverriddenMembersWithBaseScope.isNotEmpty() &&
+                        // We should report here if either 2+ members or single member with non-enhancement origin
+                        directOverriddenMembersWithBaseScope.singleOrNull()?.member?.origin != FirDeclarationOrigin.Enhancement
+                    ) {
+                        manyImplementationsDelegationSymbols.add(symbol)
+                    }
                 }
 
                 val firstFinal = filteredOverriddenMembers.firstOrNull { it.isFinal }
@@ -92,6 +99,7 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
                     symbol.isVisibleInClass(classSymbol) -> notImplementedSymbols.add(symbol)
                     else -> invisibleSymbols.add(symbol)
                 }
+                ImplementationStatus.VAR_IMPLEMENTED_BY_VAL -> varsImplementedByInheritedVal.add(symbol as FirIntersectionCallableSymbol)
                 else -> {
                     // nothing to do
                 }
@@ -103,8 +111,20 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
             classScope.processPropertiesByName(name, ::collectSymbol)
         }
 
+        varsImplementedByInheritedVal.firstOrNull()?.let { symbol ->
+            val implementationVal = symbol.intersections.first { it is FirPropertySymbol && it.isVal && !it.isAbstract }
+            reporter.reportOn(
+                source,
+                VAR_IMPLEMENTED_BY_INHERITED_VAL,
+                classSymbol,
+                symbol as FirCallableSymbol<*>,
+                implementationVal,
+                context,
+            )
+        }
         if (!canHaveAbstractDeclarations && notImplementedSymbols.isNotEmpty()) {
-            val notImplemented = notImplementedSymbols.first().unwrapFakeOverrides()
+            val notImplemented = (notImplementedSymbols.firstOrNull { !it.isFromInterfaceOrEnum(context) } ?: notImplementedSymbols.first())
+                .unwrapFakeOverrides()
             if (notImplemented.isFromInterfaceOrEnum(context)) {
                 reporter.reportOn(source, ABSTRACT_MEMBER_NOT_IMPLEMENTED, classSymbol, notImplemented, context)
             } else {
@@ -142,20 +162,23 @@ object FirNotImplementedOverrideChecker : FirClassChecker() {
 
         if (manyImplementationsDelegationSymbols.isEmpty() && notImplementedIntersectionSymbols.isNotEmpty()) {
             val notImplementedIntersectionSymbol = notImplementedIntersectionSymbols.first()
-            val intersections = (notImplementedIntersectionSymbol as FirIntersectionCallableSymbol).intersections
-            if (intersections.any {
-                    (it.containingClass()?.toSymbol(context.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
+            val (abstractIntersections, implIntersections) =
+                (notImplementedIntersectionSymbol as FirIntersectionCallableSymbol).intersections.partition {
+                    it.modality == Modality.ABSTRACT
+                }
+            if (implIntersections.any {
+                    (it.containingClassLookupTag()?.toSymbol(context.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
                 }
             ) {
                 reporter.reportOn(source, MANY_IMPL_MEMBER_NOT_IMPLEMENTED, classSymbol, notImplementedIntersectionSymbol, context)
             } else {
-                reporter.reportOn(
-                    source,
-                    FirErrors.MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED,
-                    classSymbol,
-                    notImplementedIntersectionSymbol,
-                    context
-                )
+                if (canHaveAbstractDeclarations && abstractIntersections.any {
+                        (it.containingClassLookupTag()?.toSymbol(context.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
+                    }
+                ) {
+                    return
+                }
+                reporter.reportOn(source, MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED, classSymbol, notImplementedIntersectionSymbol, context)
             }
         }
     }

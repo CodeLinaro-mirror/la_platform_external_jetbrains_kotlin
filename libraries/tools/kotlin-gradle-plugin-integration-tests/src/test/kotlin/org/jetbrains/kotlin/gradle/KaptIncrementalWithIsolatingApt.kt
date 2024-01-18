@@ -24,13 +24,12 @@ import kotlin.io.path.*
 import kotlin.test.assertEquals
 
 @DisplayName("Kapt incremental tests with isolating apt")
-class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
+open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
 
     override val defaultBuildOptions = super.defaultBuildOptions.copy(
         incremental = true,
         kaptOptions = super.defaultBuildOptions.kaptOptions!!.copy(
             verbose = true,
-            useWorkers = true,
             incrementalKapt = true,
             includeCompileClasspath = false
         )
@@ -166,9 +165,12 @@ class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
     }
 
     @DisplayName("KT-33617: sources in compile classpath jars")
-    @JdkVersions(versions = [JavaVersion.VERSION_1_9])
+    @JdkVersions(versions = [JavaVersion.VERSION_11])
     @GradleWithJdkTest
-    fun testSourcesInCompileClasspathJars(gradleVersion: GradleVersion, jdk: JdkVersions.ProvidedJdk) {
+    fun testSourcesInCompileClasspathJars(
+        gradleVersion: GradleVersion,
+        jdk: JdkVersions.ProvidedJdk
+    ) {
         kaptProject(gradleVersion, buildJdk = jdk.location) {
             // create jar with .class and .java file for the same type
             ZipOutputStream(projectPath.resolve("lib-with-sources.jar").outputStream()).use {
@@ -286,14 +288,26 @@ class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
     }
 
     @DisplayName("KT-34340: origins in classpath")
-    @GradleTest
+    @GradleAndroidTest
     @DisabledOnOs(OS.WINDOWS, disabledReason = "https://youtrack.jetbrains.com/issue/KTI-405")
-    fun testIsolatingWithOriginsInClasspath(gradleVersion: GradleVersion) {
+    fun testIsolatingWithOriginsInClasspath(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        providedJdk: JdkVersions.ProvidedJdk
+    ) {
         project(
             "kaptIncrementalWithParceler",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildJdk = providedJdk.location
         ) {
+            // Remove the once minimal supported AGP version will be 8.1.0: https://issuetracker.google.com/issues/260059413
+            gradleProperties.appendText(
+                """
+                |kotlin.jvm.target.validation.mode=warning
+                """.trimMargin()
+            )
+
             build("clean", ":mylibrary:assembleDebug")
 
             subProject("baseLibrary")
@@ -421,6 +435,11 @@ class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
             }
         }
     }
+}
+
+@DisplayName("Kapt incremental tests with isolating apt with precise compilation outputs backup")
+class KaptIncrementalWithIsolatingAptAndPreciseBackup : KaptIncrementalWithIsolatingApt() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
 }
 
 private const val patternApt = "Processing java sources with annotation processors:"

@@ -13,9 +13,12 @@ enum class TestEnum1 : Enum<TestEnum1> {
 
   fun valueOf(value: String): TestEnum1 /* Synthetic body for ENUM_VALUEOF */
 
+  val entries: EnumEntries<TestEnum1>
+    get(): EnumEntries<TestEnum1> /* Synthetic body for ENUM_ENTRIES */
+
 }
 
-open enum class TestEnum2 : Enum<TestEnum2> {
+enum class TestEnum2 : Enum<TestEnum2> {
   private constructor(x: Int) /* primary */ {
     super/*Enum*/<TestEnum2>()
     /* <init>() */
@@ -35,6 +38,9 @@ open enum class TestEnum2 : Enum<TestEnum2> {
   fun values(): Array<TestEnum2> /* Synthetic body for ENUM_VALUES */
 
   fun valueOf(value: String): TestEnum2 /* Synthetic body for ENUM_VALUEOF */
+
+  val entries: EnumEntries<TestEnum2>
+    get(): EnumEntries<TestEnum2> /* Synthetic body for ENUM_ENTRIES */
 
 }
 
@@ -60,9 +66,13 @@ abstract enum class TestEnum3 : Enum<TestEnum3> {
   }
 
   abstract fun foo()
+
   fun values(): Array<TestEnum3> /* Synthetic body for ENUM_VALUES */
 
   fun valueOf(value: String): TestEnum3 /* Synthetic body for ENUM_VALUEOF */
+
+  val entries: EnumEntries<TestEnum3>
+    get(): EnumEntries<TestEnum3> /* Synthetic body for ENUM_ENTRIES */
 
 }
 
@@ -113,13 +123,17 @@ abstract enum class TestEnum4 : Enum<TestEnum4> {
   }
 
   abstract fun foo()
+
   fun values(): Array<TestEnum4> /* Synthetic body for ENUM_VALUES */
 
   fun valueOf(value: String): TestEnum4 /* Synthetic body for ENUM_VALUEOF */
 
+  val entries: EnumEntries<TestEnum4>
+    get(): EnumEntries<TestEnum4> /* Synthetic body for ENUM_ENTRIES */
+
 }
 
-open enum class TestEnum5 : Enum<TestEnum5> {
+enum class TestEnum5 : Enum<TestEnum5> {
   private constructor(x: Int = 0) /* primary */ {
     super/*Enum*/<TestEnum5>()
     /* <init>() */
@@ -140,13 +154,16 @@ open enum class TestEnum5 : Enum<TestEnum5> {
 
   fun valueOf(value: String): TestEnum5 /* Synthetic body for ENUM_VALUEOF */
 
+  val entries: EnumEntries<TestEnum5>
+    get(): EnumEntries<TestEnum5> /* Synthetic body for ENUM_ENTRIES */
+
 }
 
 fun f(): Int {
   return 1
 }
 
-open enum class TestEnum6 : Enum<TestEnum6> {
+enum class TestEnum6 : Enum<TestEnum6> {
   private constructor(x: Int, y: Int) /* primary */ {
     super/*Enum*/<TestEnum6>()
     /* <init>() */
@@ -162,13 +179,17 @@ open enum class TestEnum6 : Enum<TestEnum6> {
     get
 
   TEST = { // BLOCK
-    val tmp0_y: Int = f()
-    val tmp1_x: Int = f()
-    TestEnum6(x = tmp1_x, y = tmp0_y)
+    val tmp_0: Int = f()
+    val tmp_1: Int = f()
+    TestEnum6(x = tmp_1, y = tmp_0)
   }
 
   fun values(): Array<TestEnum6> /* Synthetic body for ENUM_VALUES */
 
   fun valueOf(value: String): TestEnum6 /* Synthetic body for ENUM_VALUEOF */
 
+  val entries: EnumEntries<TestEnum6>
+    get(): EnumEntries<TestEnum6> /* Synthetic body for ENUM_ENTRIES */
+
 }
+

@@ -1,4 +1,5 @@
 // TARGET_BACKEND: JVM
+
 // FILE: Foo.java
 
 import java.util.Set;

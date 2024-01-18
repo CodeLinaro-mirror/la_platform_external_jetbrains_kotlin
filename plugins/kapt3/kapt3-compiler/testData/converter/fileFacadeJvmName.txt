@@ -1,9 +1,20 @@
 package a.b.c;
 
-import java.lang.System;
-
-@kotlin.jvm.JvmName(name = "FacadeName")
+/**
+ * package {
+ *
+ *   // signature: foo()V
+ *   public final fun foo(): kotlin/Unit
+ *
+ *   // field: bar:I
+ *   public final const val bar: kotlin/Int (* = ... *)
+ *     public final get
+ *
+ *   // module name: main
+ * }
+ */
 @kotlin.Metadata()
+@kotlin.jvm.JvmName(name = "FacadeName")
 public final class FacadeName {
 
     public FacadeName() {

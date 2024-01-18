@@ -48,10 +48,13 @@ public class ExampleCommandLineProcessor : CommandLineProcessor {
     }
 }
 
+@Suppress("DEPRECATION")
 public class ExampleComponentRegistrar : ComponentRegistrar {
     public override fun registerProjectComponents(project: MockProject, configuration: CompilerConfiguration) {
         val exampleValue = configuration.get(ExampleConfigurationKeys.EXAMPLE_KEY)
         val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, MessageCollector.NONE)
         messageCollector.report(CompilerMessageSeverity.INFO, "Project component registration: $exampleValue")
     }
+
+    override val supportsK2: Boolean = true
 }

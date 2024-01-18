@@ -31,7 +31,9 @@ class InteropConfiguration(
         val nonStrictEnums: Set<String>,
         val noStringConversion: Set<String>,
         val exportForwardDeclarations: List<String>,
+        val allowedOverloadsForCFunctions: Set<String>,
         val disableDesignatedInitializerChecks: Boolean,
+        val disableExperimentalAnnotation: Boolean,
         val target: KonanTarget
 )
 

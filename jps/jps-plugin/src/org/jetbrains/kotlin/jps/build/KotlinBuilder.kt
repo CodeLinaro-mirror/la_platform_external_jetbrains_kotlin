@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.build.GeneratedJvmClass
 import org.jetbrains.kotlin.build.report.ICReporter.ReportSeverity
 import org.jetbrains.kotlin.build.report.ICReporterBase
 import org.jetbrains.kotlin.build.report.debug
+import org.jetbrains.kotlin.build.report.metrics.JpsBuildTime
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
@@ -34,26 +35,22 @@ import org.jetbrains.kotlin.config.KotlinModuleKind
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.daemon.common.isDaemonEnabled
 import org.jetbrains.kotlin.incremental.*
-import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
-import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.InlineConstTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.incremental.components.*
 import org.jetbrains.kotlin.jps.KotlinJpsBundle
 import org.jetbrains.kotlin.jps.incremental.JpsIncrementalCache
 import org.jetbrains.kotlin.jps.incremental.JpsLookupStorageManager
 import org.jetbrains.kotlin.jps.model.kotlinKind
+import org.jetbrains.kotlin.jps.statistic.JpsStatisticsReportService
 import org.jetbrains.kotlin.jps.targets.KotlinJvmModuleBuildTarget
 import org.jetbrains.kotlin.jps.targets.KotlinModuleBuildTarget
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.preloading.ClassCondition
 import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.KotlinPathsFromHomeDir
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
-import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
 import kotlin.system.measureTimeMillis
 
 class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
@@ -69,6 +66,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             System.getProperty("kotlin.jps.classesToLoadByParent")?.split(',')?.map { it.trim() } ?: emptyList()
         private val classPrefixesToLoadByParentFromRegistry =
             System.getProperty("kotlin.jps.classPrefixesToLoadByParent")?.split(',')?.map { it.trim() } ?: emptyList()
+        private val reportService = JpsStatisticsReportService()
 
         val classesToLoadByParent: ClassCondition
             get() = ClassCondition { className ->
@@ -102,6 +100,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
     override fun buildStarted(context: CompileContext) {
         logSettings(context)
+        reportService.buildStarted(context)
     }
 
     private fun logSettings(context: CompileContext) {
@@ -162,6 +161,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
     override fun buildFinished(context: CompileContext) {
         ensureKotlinContextDisposed(context)
+        reportService.buildFinish(context)
     }
 
     private fun ensureKotlinContextDisposed(context: CompileContext) {
@@ -242,6 +242,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             ExpectActualTracker.DoNothing,
             InlineConstTracker.DoNothing,
             EnumWhenTracker.DoNothing,
+            ImportTracker.DoNothing,
             chunk,
             messageCollector
         ) ?: return
@@ -294,6 +295,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         dirtyFilesHolder: DirtyFilesHolder<JavaSourceRootDescriptor, ModuleBuildTarget>,
         outputConsumer: OutputConsumer
     ): ExitCode {
+        reportService.moduleBuildStarted(chunk)
         if (chunk.isDummy(context))
             return NOTHING_DONE
 
@@ -318,16 +320,18 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         val fsOperations = FSOperationsHelper(context, chunk, kotlinDirtyFilesHolder, LOG)
 
         try {
-            val proposedExitCode =
-                doBuild(chunk, kotlinTarget, context, kotlinDirtyFilesHolder, messageCollector, outputConsumer, fsOperations)
+            return reportService.reportMetrics(chunk, JpsBuildTime.JPS_ITERATION) {
+                val proposedExitCode =
+                    doBuild(chunk, kotlinTarget, context, kotlinDirtyFilesHolder, messageCollector, outputConsumer, fsOperations)
 
-            val actualExitCode = if (proposedExitCode == OK && fsOperations.hasMarkedDirty) ADDITIONAL_PASS_REQUIRED else proposedExitCode
+                val actualExitCode =
+                    if (proposedExitCode == OK && fsOperations.hasMarkedDirty) ADDITIONAL_PASS_REQUIRED else proposedExitCode
 
-            LOG.debug("Build result: $actualExitCode")
+                LOG.debug("Build result: $actualExitCode")
 
-            context.testingContext?.buildLogger?.buildFinished(actualExitCode)
-
-            return actualExitCode
+                context.testingContext?.buildLogger?.buildFinished(actualExitCode)
+                actualExitCode
+            }
         } catch (e: StopBuildException) {
             LOG.info("Caught exception: $e")
             throw e
@@ -338,6 +342,8 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             LOG.info("Caught exception: $e")
             MessageCollectorUtil.reportException(messageCollector, e)
             return ABORT
+        } finally {
+            reportService.moduleBuildFinished(chunk, context)
         }
     }
 
@@ -412,18 +418,21 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
         val project = projectDescriptor.project
         val lookupTracker = getLookupTracker(project, representativeTarget)
-        val exceptActualTracer = ExpectActualTrackerImpl()
+        val exceptActualTracker = ExpectActualTrackerImpl()
         val incrementalCaches = kotlinChunk.loadCaches()
         val inlineConstTracker = InlineConstTrackerImpl()
         val enumWhenTracker = EnumWhenTrackerImpl()
+        val importTracker = ImportTrackerImpl()
+
         val environment = createCompileEnvironment(
             context,
             representativeTarget,
             incrementalCaches,
             lookupTracker,
-            exceptActualTracer,
+            exceptActualTracker,
             inlineConstTracker,
             enumWhenTracker,
+            importTracker,
             chunk,
             messageCollector
         ) ?: return ABORT
@@ -617,6 +626,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         exceptActualTracer: ExpectActualTracker,
         inlineConstTracker: InlineConstTracker,
         enumWhenTracker: EnumWhenTracker,
+        importTracker: ImportTracker,
         chunk: ModuleChunk,
         messageCollector: MessageCollectorAdapter
     ): JpsCompilerEnvironment? {
@@ -627,7 +637,8 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
                 lookupTracker,
                 exceptActualTracer,
                 inlineConstTracker,
-                enumWhenTracker
+                enumWhenTracker,
+                importTracker
             )
             build()
         }
@@ -690,7 +701,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
         return outputItemCollector.outputs
             .sortedBy { it.outputFile }
-            .groupBy(SimpleOutputItem::target, SimpleOutputItem::toGeneratedFile)
+            .groupBy(SimpleOutputItem::target) { it.toGeneratedFile(JvmMetadataVersion.INSTANCE) }
     }
 
     private fun updateLookupStorage(
@@ -775,7 +786,7 @@ private fun ChangesCollector.getDirtyFiles(
     lookupStorageManager: JpsLookupStorageManager
 ): FilesToRecompile {
     val reporter = JpsICReporter()
-    val (dirtyLookupSymbols, dirtyClassFqNames, forceRecompile) = getDirtyData(caches, reporter)
+    val (dirtyLookupSymbols, dirtyClassFqNames, forceRecompile) = getChangedAndImpactedSymbols(caches, reporter)
     val dirtyFilesFromLookups = lookupStorageManager.withLookupStorage {
         mapLookupSymbolsToFiles(it, dirtyLookupSymbols, reporter)
     }

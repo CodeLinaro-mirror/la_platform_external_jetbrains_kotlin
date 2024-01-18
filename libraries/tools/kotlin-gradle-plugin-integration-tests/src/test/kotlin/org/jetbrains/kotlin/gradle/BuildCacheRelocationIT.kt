@@ -17,12 +17,12 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
-import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
-import kotlin.io.path.createDirectory
+import java.io.File
+import kotlin.io.path.*
 
 @DisplayName("Build cache relocation")
 class BuildCacheRelocationIT : KGPBaseTest() {
@@ -66,24 +66,27 @@ class BuildCacheRelocationIT : KGPBaseTest() {
             secondProject,
             listOf(":classes", ":testClasses"),
             listOf(":kaptKotlin", ":kaptGenerateStubsKotlin", ":compileKotlin", ":compileTestKotlin", ":compileJava")
-        )
+        ) {
+            assertNoBuildWarnings(expectedK2KaptWarnings)
+        }
     }
 
     @JsGradlePluginTests
     @DisplayName("works with JS/DCE project")
     @GradleTest
     fun testRelocationKotlinJs(gradleVersion: GradleVersion) {
-        val (firstProject, secondProject) = prepareTestProjects(
-            "kotlin-js-dce",
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(warningMode = WarningMode.Summary) // Jar tasks produces deprecation warnings
-        )
+        val (firstProject, secondProject) = prepareTestProjects("kotlin-js-dce", gradleVersion)
 
         checkBuildCacheRelocation(
             firstProject,
             secondProject,
             listOf("assemble"),
-            listOf(":libraryProject:compileKotlinJs", ":mainProject:compileKotlinJs", ":mainProject:processDceKotlinJs")
+            listOf(
+                ":libraryProject:compileKotlinJs",
+                ":mainProject:compileKotlinJs",
+                ":mainProject:compileProductionExecutableKotlinJs",
+                ":mainProject:browserProductionWebpack"
+            )
         )
     }
 
@@ -91,13 +94,7 @@ class BuildCacheRelocationIT : KGPBaseTest() {
     @DisplayName("works with Multiplatform")
     @GradleTest
     fun testRelocationMultiplatform(gradleVersion: GradleVersion) {
-        val (firstProject, secondProject) = prepareTestProjects(
-            "new-mpp-lib-with-tests",
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(
-                warningMode = WarningMode.Summary // Remove it once project will be updated
-            )
-        )
+        val (firstProject, secondProject) = prepareTestProjects("new-mpp-lib-with-tests", gradleVersion)
 
         checkBuildCacheRelocation(
             firstProject,
@@ -105,23 +102,27 @@ class BuildCacheRelocationIT : KGPBaseTest() {
             listOf("build"),
             listOf(
                 ":compileCommonMainKotlinMetadata",
-                ":compileKotlinJvmWithJava",
-                ":compileTestKotlinJvmWithJava",
+                ":compileKotlinJvmWithoutJava",
+                ":compileTestKotlinJvmWithoutJava",
                 ":compileKotlinJs",
                 ":compileTestKotlinJs"
             )
         )
     }
 
-    @JvmGradlePluginTests
+    @AndroidGradlePluginTests
     @DisplayName("works with Android project")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
-    @GradleTest
-    fun testRelocationAndroidProject(gradleVersion: GradleVersion) {
+    @GradleAndroidTest
+    fun testRelocationAndroidProject(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        jdkProvider: JdkVersions.ProvidedJdk
+    ) {
         val (firstProject, secondProject) = prepareTestProjects(
             "AndroidProject",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
+            defaultBuildOptions.copy(androidVersion = agpVersion),
+            jdkProvider.location
         )
 
         checkBuildCacheRelocation(
@@ -138,15 +139,19 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         )
     }
 
-    @JvmGradlePluginTests
+    @AndroidGradlePluginTests
     @DisplayName("Test relocation for Android with dagger project")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_7)
-    @GradleTest
-    fun testRelocationAndroidDagger(gradleVersion: GradleVersion) {
+    @GradleAndroidTest
+    fun testRelocationAndroidDagger(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        jdkProvider: JdkVersions.ProvidedJdk
+    ) {
         val (firstProject, secondProject) = prepareTestProjects(
             "kapt2/android-dagger",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
+            defaultBuildOptions.copy(androidVersion = agpVersion),
+            jdkProvider.location
         ) {
             it.subProject("app").buildGradle.append("\nkapt.useBuildCache = true")
         }
@@ -163,15 +168,19 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         )
     }
 
-    @JvmGradlePluginTests
+    @AndroidGradlePluginTests
     @DisplayName("KT-48617: Kapt ignores empty directories from Android variant")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
-    @GradleTest
-    fun kaptIgnoreEmptyAndroidVariant(gradleVersion: GradleVersion) {
+    @GradleAndroidTest
+    fun kaptIgnoreEmptyAndroidVariant(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        jdkProvider: JdkVersions.ProvidedJdk
+    ) {
         val (firstProject, secondProject) = prepareTestProjects(
             "kapt2/android-dagger",
             gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
+            defaultBuildOptions.copy(androidVersion = agpVersion),
+            jdkProvider.location
         ) {
             it.subProject("app").buildGradle.append("\nkapt.useBuildCache = true")
         }
@@ -191,48 +200,13 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         )
     }
 
-    @JvmGradlePluginTests
-    @DisplayName("KT-48849: Kotlin compile should ignore empty layout resource directories added by kotlin android extensions")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
-    @GradleTest
-    fun compileIgnoreEmptyAndroidResLayoutDirs(gradleVersion: GradleVersion) {
-        val (firstProject, secondProject) = prepareTestProjects(
-            "AndroidExtensionsProject",
-            gradleVersion,
-            defaultBuildOptions.copy(androidVersion = TestVersions.AGP.AGP_42.version)
-        ) {
-            it.subProject("app").buildGradle.append(
-                """
-                |
-                |androidExtensions {
-                |    experimental = true
-                |}
-                """.trimMargin()
-            )
-        }
-
-        firstProject
-            .subProject("app")
-            .projectPath
-            .resolve("src/main/res/layout-ar")
-            .createDirectory()
-
-        checkBuildCacheRelocation(
-            firstProject,
-            secondProject,
-            listOf("assembleDebug"),
-            listOf(":app:compileDebugKotlin")
-        )
-    }
-
-    @OtherGradlePluginTests // TODO: change to native tag
+    @NativeGradlePluginTests
     @DisplayName("with native project")
     @GradleTest
     fun testRelocationNative(gradleVersion: GradleVersion) {
         val (firstProject, secondProject) = prepareTestProjects(
             "native-build-cache",
-            gradleVersion,
-            defaultBuildOptions.copy(parallel = false) // disabled to be able to consume published library before app compilation
+            gradleVersion
         ) {
             val localRepoUri = it.projectPath.resolve("repo").toUri()
             it.subProject("build-cache-app").buildGradleKts.append(
@@ -250,9 +224,17 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         checkBuildCacheRelocation(
             firstProject,
             secondProject,
-            listOf(":build-cache-lib:publish", ":build-cache-app:assemble"),
+            listOf(":build-cache-lib:publish"),
             listOf(
                 ":build-cache-lib:compileKotlinHost",
+            )
+        )
+
+        checkBuildCacheRelocation(
+            firstProject,
+            secondProject,
+            listOf(":build-cache-app:assemble"),
+            listOf(
                 ":build-cache-app:compileKotlinHost",
                 ":build-cache-app:lib-module:compileKotlinHost",
                 ":build-cache-app:linkDebugStaticHost",
@@ -291,14 +273,15 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         projectName: String,
         gradleVersion: GradleVersion,
         buildOptions: BuildOptions = defaultBuildOptions,
+        buildJdk: File? = null,
         additionalConfiguration: (TestProject) -> Unit = {}
     ): Pair<TestProject, TestProject> {
-        val firstProject = project(projectName, gradleVersion, buildOptions) {
+        val firstProject = project(projectName, gradleVersion, buildOptions, buildJdk = buildJdk) {
             enableLocalBuildCache(localBuildCacheDir)
             additionalConfiguration(this)
         }
 
-        val secondProject = project(projectName, gradleVersion, buildOptions) {
+        val secondProject = project(projectName, gradleVersion, buildOptions, buildJdk = buildJdk) {
             enableLocalBuildCache(localBuildCacheDir)
             additionalConfiguration(this)
         }
@@ -310,69 +293,19 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         firstProject: TestProject,
         secondProject: TestProject,
         tasksToExecute: List<String>,
-        cacheableTasks: List<String>
+        cacheableTasks: List<String>,
+        additionalAssertions: BuildResult.() -> Unit = {},
     ) {
         firstProject.build(*tasksToExecute.toTypedArray()) {
             assertTasksPackedToCache(*cacheableTasks.toTypedArray())
+            additionalAssertions()
         }
+
+        firstProject.build("clean")
 
         secondProject.build(*tasksToExecute.toTypedArray()) {
             assertTasksFromCache(*cacheableTasks.toTypedArray())
-        }
-    }
-
-    @JvmGradlePluginTests
-    @DisplayName("Kotlin incremental compilation should work correctly")
-    @GradleTest
-    fun testKotlinIncrementalCompilation(gradleVersion: GradleVersion) {
-        checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion) {
-            assertNonIncrementalCompilation()
-        }
-    }
-
-    @JvmGradlePluginTests
-    @DisplayName("Kotlin incremental compilation with `kotlin.incremental.useClasspathSnapshot` feature should work correctly")
-    @GradleTest
-    fun testKotlinIncrementalCompilation_withGradleClasspathSnapshot(gradleVersion: GradleVersion) {
-        checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion, defaultBuildOptions.copy(useGradleClasspathSnapshot = true)) {
-            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt").toPaths())
-        }
-    }
-
-    @DisplayName("Kotlin incremental compilation with `kotlin.incremental.classpath.snapshot.enabled` feature should work correctly")
-    @GradleTest
-    fun testKotlinIncrementalCompilation_withICClasspathSnapshot(gradleVersion: GradleVersion) {
-        checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion, defaultBuildOptions.copy(useICClasspathSnapshot = true)) {
-            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt").toPaths())
-            assertOutputContains("Incremental compilation with ABI snapshot enabled")
-        }
-    }
-
-    private fun checkKotlinIncrementalCompilationAfterCacheHit(
-        gradleVersion: GradleVersion,
-        buildOptions: BuildOptions = defaultBuildOptions,
-        assertions: BuildResult.() -> Unit
-    ) {
-        val (firstProject, secondProject) = prepareTestProjects("buildCacheSimple", gradleVersion, buildOptions)
-
-        // First build, should be stored into the build cache:
-        firstProject.build("assemble") {
-            assertTasksPackedToCache(":compileKotlin")
-        }
-
-        // A cache hit: a clean build without any changes to the project
-        secondProject.build("clean", "assemble") {
-            assertTasksFromCache(":compileKotlin")
-        }
-
-        // Check whether compilation after a cache hit is incremental (KT-34862)
-        val fooKtSourceFile = secondProject.kotlinSourcesDir().resolve("foo.kt")
-        fooKtSourceFile.modify { it.replace("Int = 1", "String = \"abc\"") }
-        secondProject.build("assemble", buildOptions = buildOptions.copy(logLevel = LogLevel.DEBUG), assertions = assertions)
-        // Revert the change to the return type of foo(), and check if we get a cache hit
-        fooKtSourceFile.modify { it.replace("String = \"abc\"", "Int = 1") }
-        secondProject.build("clean", "assemble") {
-            assertTasksFromCache(":compileKotlin")
+            additionalAssertions()
         }
     }
 
@@ -383,7 +316,6 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         val options = defaultBuildOptions.copy(
             kaptOptions = BuildOptions.KaptOptions(
                 verbose = true,
-                useWorkers = false,
                 incrementalKapt = true,
                 includeCompileClasspath = false
             )
@@ -414,6 +346,74 @@ class BuildCacheRelocationIT : KGPBaseTest() {
         }
         secondProject.build("clean", "build", buildOptions = options) {
             assertTasksFromCache(":app:kaptGenerateStubsKotlin", ":app:kaptKotlin")
+        }
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("Kotlin incremental compilation should work correctly after cache hint")
+    @GradleTest
+    fun testKotlinIncrementalCompilationAfterCacheHit(gradleVersion: GradleVersion) {
+        checkKotlinIncrementalCompilationAfterCacheHit(gradleVersion)
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("test custom source set and build directory located outside project directory") // Regression test for KT-61852 and KT-58547
+    @GradleTest
+    fun testCustomSourceSetAndBuildDirectory(gradleVersion: GradleVersion) {
+        val projects = mutableListOf<TestProject>()
+
+        checkKotlinIncrementalCompilationAfterCacheHit(
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(useDaemonFallbackStrategy = false)
+        ) { project ->
+            project.projectPath.toFile().resolve("../SOURCE_SET_OUTSIDE_PROJECT/src/main/kotlin").let {
+                it.mkdirs()
+                it.resolve("SomeClass.kt").createNewFile()
+            }
+            project.buildGradle.append("sourceSets { main.java.srcDirs += \"../SOURCE_SET_OUTSIDE_PROJECT/src/main/kotlin\" }")
+            project.buildGradle.append("buildDir = \"../BUILD_DIR_OUTSIDE_PROJECT\"")
+
+            projects.add(project)
+        }
+
+        // Also check that output files do not contain non-relocatable paths
+        val projectPath = projects.first().projectPath
+        val outputFilesContainingNonRelocatablePaths =
+            projectPath.resolve("../BUILD_DIR_OUTSIDE_PROJECT/kotlin/compileKotlin").walk().filter {
+                // Use readText() even for binary files as we don't have a better way for now
+                it.isRegularFile() && it.readText().let { text ->
+                    text.contains(projectPath.parent.name) || text.contains("BUILD_DIR_OUTSIDE_PROJECT")
+                }
+            }.toList()
+        assert(outputFilesContainingNonRelocatablePaths.isEmpty()) {
+            "The following output files contain non-relocatable paths:\n" + outputFilesContainingNonRelocatablePaths.joinToString("\n")
+        }
+    }
+
+    private fun checkKotlinIncrementalCompilationAfterCacheHit(
+        gradleVersion: GradleVersion,
+        buildOptions: BuildOptions = defaultBuildOptions,
+        configureProject: (TestProject) -> Unit = {},
+    ) {
+        val (firstProject, secondProject) =
+            prepareTestProjects("buildCacheSimple", gradleVersion, buildOptions, buildJdk = null, configureProject)
+
+        // Build the first project -- It should be a cache miss
+        firstProject.build(":compileKotlin") {
+            assertTasksPackedToCache(":compileKotlin")
+        }
+
+        // Build the second project -- It should be a cache hit
+        secondProject.build(":compileKotlin") {
+            assertTasksFromCache(":compileKotlin")
+        }
+
+        // Make a change to the second project and build again -- Compilation should be incremental
+        secondProject.kotlinSourcesDir().resolve("foo.kt").modify {
+            it.replace("Int = 1", "String = \"abc\"")
+        }
+        secondProject.build("assemble", buildOptions = buildOptions.copy(logLevel = LogLevel.DEBUG)) {
+            assertIncrementalCompilation(listOf("src/main/kotlin/foo.kt", "src/main/kotlin/fooUsage.kt").toPaths())
         }
     }
 }

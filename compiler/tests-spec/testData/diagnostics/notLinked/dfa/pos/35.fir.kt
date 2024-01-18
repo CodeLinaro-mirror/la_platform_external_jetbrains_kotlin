@@ -1,6 +1,14 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 35
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, typealiases, enumClasses, interfaces, sealedClasses
+ */
 
 /*
  * TESTCASE NUMBER: 1
@@ -49,7 +57,7 @@ fun case_4(x: Any?) {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Any")!>x<!>.equals(10)
     }
 
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Nothing?")!>x<!>
 }
 
 // TESTCASE NUMBER: 5
@@ -71,7 +79,7 @@ fun case_6(x: Any?) {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Any")!>x<!>.equals(10)
     } while (false)
 
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Any")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>x<!>
 }
 
 // TESTCASE NUMBER: 7

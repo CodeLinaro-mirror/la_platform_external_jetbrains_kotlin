@@ -1,12 +1,16 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.tree.generator
 
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractBuilderConfigurator
-import org.jetbrains.kotlin.fir.tree.generator.model.*
+import org.jetbrains.kotlin.fir.tree.generator.model.Element
+import org.jetbrains.kotlin.fir.tree.generator.model.Field
+import org.jetbrains.kotlin.fir.tree.generator.model.Implementation
+import org.jetbrains.kotlin.fir.tree.generator.model.LeafBuilder
+import org.jetbrains.kotlin.fir.tree.generator.printer.invisibleField
 import org.jetbrains.kotlin.fir.tree.generator.util.traverseParents
 
 object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTreeBuilder) {
@@ -34,7 +38,11 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         val classBuilder by builder {
             parents += declarationBuilder
             parents += annotationContainerBuilder
-            fields from klass without listOf("symbol", "resolvePhase")
+            fields from klass without listOf("symbol", "resolvePhase", "resolveState", "controlFlowGraphReference")
+        }
+
+        builder(file) {
+            defaultNull("annotationsContainer")
         }
 
         builder(regularClass) {
@@ -45,8 +53,8 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             withCopy()
         }
 
-        val qualifiedAccessBuilder by builder {
-            fields from qualifiedAccess without "calleeReference"
+        val qualifiedAccessExpressionBuilder by builder {
+            fields from qualifiedAccessExpression without "calleeReference"
         }
 
         val callBuilder by builder {
@@ -60,7 +68,14 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         val functionBuilder by builder {
             parents += declarationBuilder
             parents += annotationContainerBuilder
-            fields from function without listOf("symbol", "resolvePhase", "controlFlowGraphReference", "receiverTypeRef", "typeParameters")
+            fields from function without listOf(
+                "symbol",
+                "resolvePhase",
+                "resolveState",
+                "controlFlowGraphReference",
+                "receiverParameter",
+                "typeParameters",
+            )
         }
 
         val loopJumpBuilder by builder {
@@ -73,7 +88,7 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         }
 
         val abstractFunctionCallBuilder by builder {
-            parents += qualifiedAccessBuilder
+            parents += qualifiedAccessExpressionBuilder
             parents += callBuilder
             fields from functionCall
         }
@@ -83,7 +98,17 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
                 parents += abstractConstructorBuilder
                 defaultNull("delegatedConstructor")
                 defaultNull("body")
+                default("contractDescription", "FirEmptyContractDescription")
+                useTypes(emptyContractDescriptionType)
             }
+        }
+
+        builder(errorPrimaryConstructor) {
+            parents += abstractConstructorBuilder
+            defaultNull("delegatedConstructor")
+            defaultNull("body")
+            default("contractDescription", "FirEmptyContractDescription")
+            useTypes(emptyContractDescriptionType)
         }
 
         builder(constructor, "FirConstructorImpl") {
@@ -93,12 +118,6 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
 
         builder(typeParameter) {
             withCopy()
-        }
-
-        builder(field) {
-            parents += declarationBuilder
-            default("resolvePhase", "FirResolvePhase.DECLARATIONS")
-            openBuilder()
         }
 
         builder(anonymousObject) {
@@ -112,17 +131,35 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             withCopy()
         }
 
+        builder(receiverParameter) {
+            withCopy()
+        }
+
+        builder(annotation) {
+            withCopy()
+        }
+
         builder(annotationCall) {
             parents += callBuilder
             default("argumentList") {
                 value = "FirEmptyArgumentList"
             }
             default("argumentMapping", "FirEmptyAnnotationArgumentMapping")
-            default("annotationTypeRef", "FirImplicitTypeRefImpl(null)")
-            useTypes(emptyArgumentListType, emptyAnnotationArgumentMappingType, implicitTypeRefType)
+            default("annotationTypeRef", "FirImplicitTypeRefImplWithoutSource")
+            default("annotationResolvePhase", "FirAnnotationResolvePhase.Unresolved")
+            useTypes(emptyArgumentListType, emptyAnnotationArgumentMappingType, firImplicitTypeWithoutSourceType)
+            withCopy()
         }
 
-        builder(arrayOfCall) {
+        builder(errorAnnotationCall) {
+            parents += callBuilder
+            default("argumentList", "FirEmptyArgumentList")
+            default("argumentMapping", "FirEmptyAnnotationArgumentMapping")
+            default("annotationTypeRef", "FirImplicitTypeRefImplWithoutSource")
+            useTypes(emptyArgumentListType, emptyAnnotationArgumentMappingType, firImplicitTypeWithoutSourceType)
+        }
+
+        builder(arrayLiteral) {
             parents += callBuilder
         }
 
@@ -132,12 +169,12 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         }
 
         builder(propertyAccessExpression) {
-            parents += qualifiedAccessBuilder
+            parents += qualifiedAccessExpressionBuilder
             defaultNoReceivers()
         }
 
         builder(callableReferenceAccess) {
-            parents += qualifiedAccessBuilder
+            parents += qualifiedAccessExpressionBuilder
             defaultNull("explicitReceiver")
             defaultNoReceivers()
             defaultFalse("hasQuestionMarkAtLHS")
@@ -170,13 +207,12 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             defaultNull("label")
         }
 
-        builder(delegatedConstructorCall) {
+        builder(delegatedConstructorCall, type = "FirDelegatedConstructorCallImpl") {
             parents += callBuilder
             default("argumentList") {
                 value = "FirEmptyArgumentList"
             }
-            default("dispatchReceiver", "FirNoReceiverExpression")
-            useTypes(noReceiverExpressionType)
+            defaultNull("dispatchReceiver")
             useTypes(emptyArgumentListType)
         }
 
@@ -203,12 +239,24 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             parents += callBuilder
         }
 
-        builder(property) {
+        val variableBuilder by builder {
+            fields from variable without listOf("symbol", "typeParameters", "isVal")
             parents += declarationBuilder
+        }
+
+        builder(property) {
+            parents += variableBuilder
             parents += typeParametersOwnerBuilder
             defaultNull("getter", "setter", "containerSource", "delegateFieldSymbol")
             default("resolvePhase", "FirResolvePhase.RAW_FIR")
             default("bodyResolveState", "FirPropertyBodyResolveState.NOTHING_RESOLVED")
+            withCopy()
+        }
+
+        builder(field) {
+            parents += variableBuilder
+            default("resolvePhase", "FirResolvePhase.DECLARATIONS")
+            openBuilder()
             withCopy()
         }
 
@@ -225,8 +273,9 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         }
 
         builder(thisReceiverExpression) {
-            parents += qualifiedAccessBuilder
+            parents += qualifiedAccessExpressionBuilder
             default("isImplicit", "false")
+            withCopy()
         }
 
         builder(thisReference, "FirExplicitThisReference") {
@@ -237,16 +286,15 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             default("contextReceiverNumber", "-1")
         }
 
-        builder(variableAssignment) {
-            parents += qualifiedAccessBuilder
-            defaultNoReceivers()
-        }
-
         builder(anonymousFunction) {
             parents += functionBuilder
             defaultNull("invocationKind", "label", "body", "controlFlowGraphReference")
             default("inlineStatus", "InlineStatus.Unknown")
+            default("contractDescription", "FirEmptyContractDescription")
+            default("status", "FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS")
+            default("typeRef", "FirImplicitTypeRefImplWithoutSource")
             withCopy()
+            useTypes(emptyContractDescriptionType, resolvedDeclarationStatusImport, firImplicitTypeWithoutSourceType)
         }
 
         builder(propertyAccessor) {
@@ -265,15 +313,10 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
 
         builder(resolvedTypeRef) {
             defaultNull("delegatedTypeRef")
-            default("isFromStubType", "false")
             withCopy()
         }
 
         builder(functionTypeRef) {
-            withCopy()
-        }
-
-        builder(implicitTypeRef) {
             withCopy()
         }
 
@@ -295,7 +338,7 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         }
 
         builder(valueParameter, type = "FirDefaultSetterValueParameter") {
-            defaultNull("defaultValue", "initializer", "delegate", "receiverTypeRef", "getter", "setter")
+            defaultNull("defaultValue", "initializer", "delegate", "receiverParameter", "getter", "setter")
             defaultFalse("isCrossinline", "isNoinline", "isVararg", "isVar")
             defaultTrue("isVal")
         }
@@ -308,6 +351,9 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             useTypes(emptyContractDescriptionType)
             openBuilder()
             withCopy()
+        }
+
+        builder(smartCastExpression) {
         }
 
         builder(tryExpression) {
@@ -334,14 +380,22 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             fields from resolvedQualifier
         }
 
+        builder(script) {
+            withCopy()
+        }
+
+        builder(codeFragment) {
+            withCopy()
+        }
+
         builder(resolvedQualifier) {
             parents += abstractResolvedQualifierBuilder
-            defaultFalse("isNullableLHSForCallableReference")
+            defaultFalse("isNullableLHSForCallableReference", "isFullyQualified", "canBeValue")
         }
 
         builder(errorResolvedQualifier) {
             parents += abstractResolvedQualifierBuilder
-            defaultFalse("isNullableLHSForCallableReference")
+            defaultFalse("isNullableLHSForCallableReference", "isFullyQualified", "canBeValue")
         }
 
 //        builder(safeCallExpression) {
@@ -356,44 +410,11 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
 //            useTypes(whenExpressionType)
 //        }
 
-        val elementsWithDefaultTypeRef = listOf(
-            thisReceiverExpression,
-            callableReferenceAccess,
-            propertyAccessExpression,
-            functionCall,
-            anonymousFunction,
-            whenExpression,
-            tryExpression,
-            checkNotNullCall,
-            resolvedQualifier,
-            resolvedReifiedParameterReference,
-            expression to "FirExpressionStub",
-            varargArgumentsExpression,
-            checkedSafeCallSubject,
-            safeCallExpression,
-            arrayOfCall,
-            classReferenceExpression,
-            getClassCall
-        )
-        elementsWithDefaultTypeRef.forEach {
-            val (element, name) = when (it) {
-                is Pair<*, *> -> it.first as Element to it.second as String
-                is Element -> it to null
-                else -> throw IllegalArgumentException()
-            }
-            builder(element, name) {
-                default("typeRef", "FirImplicitTypeRefImpl(null)")
-                useTypes(implicitTypeRefType)
-            }
-        }
-
         noBuilder(constExpression)
 
         // -----------------------------------------------------------------------
 
-        findImplementationsWithElementInParents(annotationContainer) {
-            it.type !in setOf("FirImplicitTypeRefImpl")
-        }.forEach {
+        findImplementationsWithElementInParents(annotationContainer).forEach {
             it.builder?.parents?.add(annotationContainerBuilder)
         }
 
@@ -409,6 +430,14 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
         }
 
         configureFieldInAllLeafBuilders(
+            field = "resolveState",
+            fieldPredicate = { it.invisibleField },
+            builderPredicate = { it.wantsCopy },
+        ) {
+            useTypes(resolvePhaseExtensionImport)
+        }
+
+        configureFieldInAllLeafBuilders(
             field = "containerSource"
         ) {
             defaultNull(it)
@@ -419,6 +448,13 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             fieldPredicate = { it.type == declarationAttributesType.type }
         ) {
             default(it, "${declarationAttributesType.type}()")
+        }
+
+        configureFieldInAllLeafBuilders(
+            field = "deprecationsProvider"
+        ) {
+            default(it, "UnresolvedDeprecationProvider")
+            useTypes(unresolvedDeprecationsProviderType)
         }
     }
 
@@ -451,20 +487,6 @@ object BuilderConfigurator : AbstractBuilderConfigurator<FirTreeBuilder>(FirTree
             if (!builder.allFields.any { it.name == field }) continue
             if (fieldPredicate != null && !fieldPredicate(builder[field])) continue
             LeafBuilderConfigurationContext(builder).init(field)
-        }
-    }
-
-    private fun configureFieldInAllIntermediateBuilders(
-        field: String,
-        builderPredicate: ((IntermediateBuilder) -> Boolean)? = null,
-        fieldPredicate: ((Field) -> Boolean)? = null,
-        init: IntermediateBuilderConfigurationContext.(field: String) -> Unit
-    ) {
-        for (builder in FirTreeBuilder.intermediateBuilders) {
-            if (builderPredicate != null && !builderPredicate(builder)) continue
-            if (!builder.allFields.any { it.name == field }) continue
-            if (fieldPredicate != null && !fieldPredicate(builder[field])) continue
-            IntermediateBuilderConfigurationContext(builder).init(field)
         }
     }
 

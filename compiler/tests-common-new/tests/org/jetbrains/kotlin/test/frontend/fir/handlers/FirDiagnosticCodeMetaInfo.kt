@@ -62,7 +62,6 @@ class FirDiagnosticCodeMetaRenderConfiguration(
 
         val diagnostic = codeMetaInfo.diagnostic
 
-        @Suppress("UNCHECKED_CAST")
         val renderer = RootDiagnosticRendererFactory(diagnostic)
         if (renderer is AbstractKtDiagnosticWithParametersRenderer) {
             renderer.renderParameters(diagnostic).mapTo(params, Any?::toString)
@@ -72,8 +71,13 @@ class FirDiagnosticCodeMetaRenderConfiguration(
             params.add("severity='${diagnostic.severity}'")
 
         params.add(getAdditionalParams(codeMetaInfo))
+        val nonEmptyParams = params.filter { it.isNotEmpty() }
 
-        return "(\"${params.filter { it.isNotEmpty() }.joinToString("; ")}\")"
+        return if (nonEmptyParams.isNotEmpty()) {
+            "(\"${params.filter { it.isNotEmpty() }.joinToString("; ")}\")"
+        } else {
+            ""
+        }
     }
 
     fun getTag(codeMetaInfo: FirDiagnosticCodeMetaInfo): String {

@@ -44,7 +44,13 @@ interface ObjCExportLazy {
         fun isIncluded(moduleInfo: ModuleInfo): Boolean
         fun getCompilerModuleName(moduleInfo: ModuleInfo): String
         val objcGenerics: Boolean
+
+        val disableSwiftMemberNameMangling: Boolean
+            get() = false
+
         val unitSuspendFunctionExport: UnitSuspendFunctionObjCExport
+        val ignoreInterfaceMethodCollisions: Boolean
+            get() = false
     }
 
     fun generateBase(): List<ObjCTopLevel<*>>
@@ -176,7 +182,11 @@ internal class ObjCExportLazyImpl(
             if ((it is KtFunction || it is KtProperty) && it.isPublic && !it.hasExpectModifier()) {
                 val classDescriptor = getClassIfExtension(it)
                 if (classDescriptor != null) {
-                    extensions.getOrPut(classDescriptor, { mutableListOf() }) += it
+                    // If a class is hidden from Objective-C API then it is meaningless
+                    // to export its extensions.
+                    if (!classDescriptor.isHiddenFromObjC()) {
+                        extensions.getOrPut(classDescriptor, { mutableListOf() }) += it
+                    }
                 } else {
                     topLevel += it
                 }
@@ -447,6 +457,9 @@ internal fun createNamerConfiguration(configuration: ObjCExportLazy.Configuratio
         }
 
         override val objcGenerics = configuration.objcGenerics
+        override val disableSwiftMemberNameMangling = configuration.disableSwiftMemberNameMangling
+
+        override val ignoreInterfaceMethodCollisions: Boolean = configuration.ignoreInterfaceMethodCollisions
     }
 }
 

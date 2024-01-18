@@ -1,7 +1,6 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
-import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -11,6 +10,7 @@ import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
+import kotlin.io.path.deleteRecursively
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 
@@ -28,7 +28,6 @@ open class KaptIncrementalIT : KGPBaseTest() {
 
     override val defaultBuildOptions = super.defaultBuildOptions.copy(
         incremental = true,
-        warningMode = WarningMode.Fail,
         kaptOptions = BuildOptions.KaptOptions(incrementalKapt = true)
     )
 
@@ -285,8 +284,8 @@ open class KaptIncrementalIT : KGPBaseTest() {
                 val useBKt = javaSourcesDir().resolve("bar/useB.kt")
                 assertCompiledKotlinSources(
                     listOf(projectPath.relativize(bKt), projectPath.relativize(useBKt)),
-                    getOutputForTask("kaptGenerateStubs"),
-                    errorMessageSuffix = " in task 'kaptGenerateStubs'"
+                    getOutputForTask(":kaptGenerateStubsKotlin"),
+                    errorMessageSuffix = " in task 'kaptGenerateStubsKotlin'"
                 )
 
                 // java removal is detected
@@ -346,13 +345,13 @@ open class KaptIncrementalIT : KGPBaseTest() {
     ) {
         assertCompiledKotlinSources(
             sources,
-            buildResult.getOutputForTask("kaptGenerateStubsKotlin"),
+            buildResult.getOutputForTask(":kaptGenerateStubsKotlin"),
             errorMessageSuffix = " in task 'kaptGenerateStubsKotlin"
         )
 
         assertCompiledKotlinSources(
             sources,
-            buildResult.getOutputForTask("compileKotlin"),
+            buildResult.getOutputForTask(":compileKotlin"),
             errorMessageSuffix = " in task 'compileKotlin'"
         )
     }
@@ -389,4 +388,9 @@ open class KaptIncrementalIT : KGPBaseTest() {
             }
 
     val TestProject.kaptGeneratedToPath get() = projectPath.resolve("build/generated/source/kapt")
+}
+
+@DisplayName("Kapt incremental compilation with precise compilation outputs backup")
+class KaptIncrementalWithPreciseBackupIT : KaptIncrementalIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
 }

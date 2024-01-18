@@ -51,8 +51,7 @@ import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import kotlin.collections.contains
 import kotlin.collections.set
 
-
-class OperatorExpressionGenerator(statementGenerator: StatementGenerator) : StatementGeneratorExtension(statementGenerator) {
+internal class OperatorExpressionGenerator(statementGenerator: StatementGenerator) : StatementGeneratorExtension(statementGenerator) {
 
     private fun createErrorExpression(ktExpression: KtExpression, text: String) =
         IrErrorExpressionImpl(
@@ -132,7 +131,7 @@ class OperatorExpressionGenerator(statementGenerator: StatementGenerator) : Stat
 
         return when (val irOperator = getInfixOperator(ktOperator)) {
             null -> throw AssertionError("Unexpected infix operator: $ktOperator")
-            IrStatementOrigin.EQ -> AssignmentGenerator(statementGenerator).generateAssignment(expression)
+            IrStatementOrigin.EQ -> AssignmentGenerator(statementGenerator).generateAssignment(expression, irOperator)
             in AUGMENTED_ASSIGNMENTS -> AssignmentGenerator(statementGenerator).generateAugmentedAssignment(expression, irOperator)
             IrStatementOrigin.ELVIS -> generateElvis(expression)
             in OPERATORS_DESUGARED_TO_CALLS -> generateBinaryOperatorAsCall(expression, irOperator)
@@ -417,7 +416,7 @@ class OperatorExpressionGenerator(statementGenerator: StatementGenerator) : Stat
         functionDescriptor: FunctionDescriptor,
         receiver: IrExpression
     ): IrExpression {
-        val originalSymbol = context.symbolTable.referenceSimpleFunction(functionDescriptor.original)
+        val originalSymbol = context.symbolTable.descriptorExtension.referenceSimpleFunction(functionDescriptor.original)
         return IrCallImpl.fromSymbolDescriptor(
             startOffset,
             endOffset,

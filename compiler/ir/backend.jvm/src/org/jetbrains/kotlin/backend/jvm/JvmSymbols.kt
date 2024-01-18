@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.codegen.coroutines.INVOKE_SUSPEND_METHOD_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_CALL_RESULT_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME
 import org.jetbrains.kotlin.codegen.coroutines.SUSPEND_FUNCTION_CREATE_METHOD_NAME
-import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.InlineClassRepresentation
@@ -43,9 +42,9 @@ import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.Variance
 
 class JvmSymbols(
-    context: JvmBackendContext,
+    private val context: JvmBackendContext,
     symbolTable: SymbolTable
-) : Symbols<JvmBackendContext>(context, context.irBuiltIns, symbolTable) {
+) : Symbols(context.irBuiltIns, symbolTable) {
     private val storageManager = LockBasedStorageManager(this::class.java.simpleName)
     private val irFactory = context.irFactory
 
@@ -55,6 +54,7 @@ class JvmSymbols(
     private val kotlinJvmPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm"))
     private val kotlinJvmInternalPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm.internal"))
     private val kotlinJvmFunctionsPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm.functions"))
+    private val kotlinEnumsPackage: IrPackageFragment = createPackage(FqName("kotlin.enums"))
     private val kotlinReflectPackage: IrPackageFragment = createPackage(FqName("kotlin.reflect"))
     private val javaLangPackage: IrPackageFragment = createPackage(FqName("java.lang"))
     private val javaLangInvokePackage: IrPackageFragment = createPackage(FqName("java.lang.invoke"))
@@ -74,7 +74,7 @@ class JvmSymbols(
     // (they are expected to be provided at run-time by the corresponding bootstrap method).
     val kotlinJvmInternalInvokeDynamicPackage: IrPackageFragment = createPackage(FqName("kotlin.jvm.internal.invokeDynamic"))
 
-    private val generateOptimizedCallableReferenceSuperClasses = context.state.generateOptimizedCallableReferenceSuperClasses
+    private val generateOptimizedCallableReferenceSuperClasses = context.config.generateOptimizedCallableReferenceSuperClasses
 
     private fun createPackage(fqName: FqName): IrPackageFragment =
         IrExternalPackageFragmentImpl.createEmptyExternalPackageFragment(context.state.module, fqName)
@@ -96,6 +96,7 @@ class JvmSymbols(
                 "kotlin" -> kotlinPackage
                 "kotlin.coroutines" -> kotlinCoroutinesPackage
                 "kotlin.coroutines.jvm.internal" -> kotlinCoroutinesJvmInternalPackage
+                "kotlin.enums" -> kotlinEnumsPackage
                 "kotlin.jvm.internal" -> kotlinJvmInternalPackage
                 "kotlin.jvm.functions" -> kotlinJvmFunctionsPackage
                 "kotlin.jvm" -> kotlinJvmPackage
@@ -149,6 +150,9 @@ class JvmSymbols(
             addValueParameter("message", irBuiltIns.stringType)
         }
         klass.addFunction("throwNpe", irBuiltIns.unitType, isStatic = true)
+        klass.addFunction("singleArgumentInlineFunction", irBuiltIns.unitType, isStatic = true, isInline = true).apply {
+            addValueParameter("arg", irBuiltIns.functionClass.defaultType)
+        }
 
         klass.declarations.add(irFactory.buildClass {
             name = Name.identifier("Kotlin")
@@ -157,6 +161,11 @@ class JvmSymbols(
             createImplicitParameterDeclarationWithWrappedDescriptor()
         })
     }
+
+    // This function is used only with ir inliner. It is needed to ensure that all local declarations inside lambda will be generated,
+    // because after inline these lambdas can be dropped.
+    val singleArgumentInlineFunction: IrSimpleFunctionSymbol =
+        intrinsicsClass.functions.single { it.owner.name.asString() == "singleArgumentInlineFunction" }
 
     val checkExpressionValueIsNotNull: IrSimpleFunctionSymbol =
         intrinsicsClass.functions.single { it.owner.name.asString() == "checkExpressionValueIsNotNull" }
@@ -214,6 +223,20 @@ class JvmSymbols(
         }
     }
 
+    val enumEntries: IrClassSymbol = createClass(FqName("kotlin.enums.EnumEntries"), ClassKind.INTERFACE) { klass ->
+        // Actually it is E : Enum<E>, but doesn't seem to have any effect yet
+        klass.addTypeParameter("E", irBuiltIns.anyNType)
+    }
+
+    private val enumEntriesKt: IrClassSymbol = createClass(FqName("kotlin.enums.EnumEntriesKt")) { klass ->
+        klass.addFunction("enumEntries", enumEntries.defaultType, isStatic = true).apply {
+            val e = addTypeParameter("E", irBuiltIns.enumClass.defaultType)
+            addValueParameter("entries", irBuiltIns.arrayClass.typeWith(e.defaultType))
+        }
+    }
+
+    val createEnumEntries: IrSimpleFunctionSymbol = enumEntriesKt.functions.single { it.owner.name.asString() == "enumEntries" }
+
     override val defaultConstructorMarker: IrClassSymbol =
         createClass(FqName("kotlin.jvm.internal.DefaultConstructorMarker"))
 
@@ -269,7 +292,7 @@ class JvmSymbols(
 
     val noSuchFieldErrorType = javaLangNoSuchFieldError.defaultType
 
-    val continuationClass: IrClassSymbol =
+    override val continuationClass: IrClassSymbol =
         createClass(StandardNames.CONTINUATION_INTERFACE_FQ_NAME, ClassKind.INTERFACE) { klass ->
             klass.addTypeParameter("T", irBuiltIns.anyNType, Variance.IN_VARIANCE)
         }
@@ -356,7 +379,6 @@ class JvmSymbols(
             generateCallableReferenceMethods(klass)
         }
 
-    val functionReferenceReceiverField: IrFieldSymbol = functionReference.fieldByName("receiver")
     val functionReferenceGetSignature: IrSimpleFunctionSymbol = functionReference.functionByName("getSignature")
     val functionReferenceGetName: IrSimpleFunctionSymbol = functionReference.functionByName("getName")
     val functionReferenceGetOwner: IrSimpleFunctionSymbol = functionReference.functionByName("getOwner")
@@ -915,14 +937,14 @@ class JvmSymbols(
             throw AssertionError("Array type expected: ${arrayType.render()}")
     }
 
-    private val javaLangInteger: IrClassSymbol = createJavaPrimitiveClass(FqName("java.lang.Integer"), irBuiltIns.intType)
+    private val javaLangInteger: IrClassSymbol = createJavaPrimitiveClassWithUnsignedUtils(FqName("java.lang.Integer"), irBuiltIns.intType)
 
     val compareUnsignedInt: IrSimpleFunctionSymbol = javaLangInteger.functionByName("compareUnsigned")
     val divideUnsignedInt: IrSimpleFunctionSymbol = javaLangInteger.functionByName("divideUnsigned")
     val remainderUnsignedInt: IrSimpleFunctionSymbol = javaLangInteger.functionByName("remainderUnsigned")
     val toUnsignedStringInt: IrSimpleFunctionSymbol = javaLangInteger.functionByName("toUnsignedString")
 
-    private val javaLangLong: IrClassSymbol = createJavaPrimitiveClass(FqName("java.lang.Long"), irBuiltIns.longType)
+    private val javaLangLong: IrClassSymbol = createJavaPrimitiveClassWithUnsignedUtils(FqName("java.lang.Long"), irBuiltIns.longType)
 
     val compareUnsignedLong: IrSimpleFunctionSymbol = javaLangLong.functionByName("compareUnsigned")
     val divideUnsignedLong: IrSimpleFunctionSymbol = javaLangLong.functionByName("divideUnsigned")
@@ -943,7 +965,7 @@ class JvmSymbols(
             returnType = irBuiltIns.intType
         }.symbol
 
-    private fun createJavaPrimitiveClass(fqName: FqName, type: IrType): IrClassSymbol = createClass(fqName) { klass ->
+    private fun createJavaPrimitiveClassWithUnsignedUtils(fqName: FqName, type: IrType): IrClassSymbol = createClass(fqName) { klass ->
         klass.addFunction("compareUnsigned", irBuiltIns.intType, isStatic = true).apply {
             addValueParameter("x", type)
             addValueParameter("y", type)
@@ -1104,7 +1126,7 @@ class JvmSymbols(
             KotlinRetention.RUNTIME to rpRuntime
         )
 
-        private val jvm6TargetMap = mutableMapOf(
+        val jvmTargetMap = mutableMapOf(
             KotlinTarget.CLASS to buildEnumEntry(elementTypeEnum, "TYPE"),
             KotlinTarget.ANNOTATION_CLASS to buildEnumEntry(elementTypeEnum, "ANNOTATION_TYPE"),
             KotlinTarget.CONSTRUCTOR to buildEnumEntry(elementTypeEnum, "CONSTRUCTOR"),
@@ -1113,16 +1135,12 @@ class JvmSymbols(
             KotlinTarget.PROPERTY_GETTER to etMethod,
             KotlinTarget.PROPERTY_SETTER to etMethod,
             KotlinTarget.FIELD to buildEnumEntry(elementTypeEnum, "FIELD"),
+            KotlinTarget.BACKING_FIELD to buildEnumEntry(elementTypeEnum, "FIELD"),
             KotlinTarget.VALUE_PARAMETER to buildEnumEntry(elementTypeEnum, "PARAMETER")
         )
 
-        private val jvm8TargetMap = jvm6TargetMap + mutableMapOf(
-            KotlinTarget.TYPE_PARAMETER to buildEnumEntry(elementTypeEnum, "TYPE_PARAMETER"),
-            KotlinTarget.TYPE to buildEnumEntry(elementTypeEnum, "TYPE_USE")
-        )
-
-        fun getAnnotationTargetMap(target: JvmTarget): Map<KotlinTarget, IrEnumEntry> =
-            if (target == JvmTarget.JVM_1_6) jvm6TargetMap else jvm8TargetMap
+        val typeParameterTarget = buildEnumEntry(elementTypeEnum, "TYPE_PARAMETER")
+        val typeUseTarget = buildEnumEntry(elementTypeEnum, "TYPE_USE")
     }
 
     companion object {

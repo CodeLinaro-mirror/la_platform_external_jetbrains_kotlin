@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,7 +22,6 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.stubs.KotlinClassOrObjectStub
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import java.util.*
 
 // NOTE: in this file we collect only Kotlin-specific methods working with PSI and not modifying it
@@ -549,7 +548,7 @@ fun isDoubleColonReceiver(expression: KtExpression) =
 fun KtFunctionLiteral.getOrCreateParameterList(): KtParameterList {
     valueParameterList?.let { return it }
 
-    val psiFactory = KtPsiFactory(this)
+    val psiFactory = KtPsiFactory(project)
 
     val anchor = lBrace
     val newParameterList = addAfter(psiFactory.createLambdaParameterList("x"), anchor) as KtParameterList
@@ -590,7 +589,7 @@ fun KtFunctionLiteral.findLabelAndCall(): Pair<Name?, KtCallExpression?> {
 fun KtCallExpression.getOrCreateValueArgumentList(): KtValueArgumentList {
     valueArgumentList?.let { return it }
     return addAfter(
-        KtPsiFactory(this).createCallArguments("()"),
+        KtPsiFactory(project).createCallArguments("()"),
         typeArgumentList ?: calleeExpression,
     ) as KtValueArgumentList
 }
@@ -599,7 +598,7 @@ fun KtCallExpression.addTypeArgument(typeArgument: KtTypeProjection) {
     if (typeArgumentList != null) {
         typeArgumentList?.addArgument(typeArgument)
     } else {
-        addAfter(KtPsiFactory(this).createTypeArguments("<${typeArgument.text}>"), calleeExpression)
+        addAfter(KtPsiFactory(project).createTypeArguments("<${typeArgument.text}>"), calleeExpression)
     }
 }
 
@@ -652,9 +651,7 @@ fun KtNamedDeclaration.safeNameForLazyResolve(): Name {
     return nameAsName.safeNameForLazyResolve()
 }
 
-fun Name?.safeNameForLazyResolve(): Name {
-    return SpecialNames.safeIdentifier(this)
-}
+fun Name?.safeNameForLazyResolve(): Name = this?.takeUnless(Name::isSpecial) ?: SpecialNames.NO_NAME_PROVIDED
 
 fun KtNamedDeclaration.safeFqNameForLazyResolve(): FqName? {
     //NOTE: should only create special names for package level declarations, so we can safely rely on real fq name for parent
@@ -674,7 +671,7 @@ fun isTopLevelInFileOrScript(element: PsiElement): Boolean {
 fun KtFile.getFileOrScriptDeclarations() = if (isScript()) script!!.declarations else declarations
 
 fun KtExpression.getBinaryWithTypeParent(): KtBinaryExpressionWithTypeRHS? {
-    val callExpression = parent.safeAs<KtCallExpression>() ?: return null
+    val callExpression = parent as? KtCallExpression ?: return null
     val possibleQualifiedExpression = callExpression.parent
 
     val targetExpression = if (possibleQualifiedExpression is KtQualifiedExpression) {

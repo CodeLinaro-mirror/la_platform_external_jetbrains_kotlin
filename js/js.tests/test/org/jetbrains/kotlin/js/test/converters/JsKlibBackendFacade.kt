@@ -5,13 +5,12 @@
 
 package org.jetbrains.kotlin.js.test.converters
 
+import org.jetbrains.kotlin.backend.common.CommonKLibResolver
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.ir.util.IrMessageLogger
-import org.jetbrains.kotlin.js.config.ErrorTolerancePolicy
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.ir.util.irMessageLogger
 import org.jetbrains.kotlin.js.test.utils.JsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.library.KotlinAbiVersion
@@ -33,7 +32,7 @@ class JsKlibBackendFacade(
     override val additionalServices: List<ServiceRegistrationData>
         get() = listOf(service(::JsIrIncrementalDataProvider))
 
-    constructor(testServices: TestServices): this(testServices, firstTimeCompilation = true)
+    constructor(testServices: TestServices) : this(testServices, firstTimeCompilation = true)
 
     override fun shouldRunAnalysis(module: TestModule): Boolean {
         return module.backendKind == inputKind
@@ -48,35 +47,30 @@ class JsKlibBackendFacade(
         val outputFile = JsEnvironmentConfigurator.getJsKlibArtifactPath(testServices, module.name)
 
         if (firstTimeCompilation) {
-            val project = testServices.compilerConfigurationProvider.getProject(module)
-            val errorPolicy = configuration.get(JSConfigurationKeys.ERROR_TOLERANCE_POLICY) ?: ErrorTolerancePolicy.DEFAULT
-            val hasErrors = TopDownAnalyzerFacadeForJSIR.checkForErrors(inputArtifact.sourceFiles, inputArtifact.bindingContext, errorPolicy)
-
             serializeModuleIntoKlib(
                 configuration[CommonConfigurationKeys.MODULE_NAME]!!,
-                project,
                 configuration,
-                configuration.get(IrMessageLogger.IR_MESSAGE_LOGGER) ?: IrMessageLogger.None,
-                inputArtifact.bindingContext,
+                configuration.irMessageLogger,
+                inputArtifact.diagnosticReporter,
                 inputArtifact.sourceFiles,
                 klibPath = outputFile,
                 JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices).keys.toList(),
                 inputArtifact.irModuleFragment,
-                inputArtifact.expectDescriptorToSymbol,
                 cleanFiles = inputArtifact.icData,
                 nopack = true,
                 perFile = false,
-                containsErrorCode = hasErrors,
+                containsErrorCode = inputArtifact.hasErrors,
                 abiVersion = KotlinAbiVersion.CURRENT, // TODO get from test file data
                 jsOutputName = null
-            )
+            ) {
+                inputArtifact.serializeSingleFile(it, inputArtifact.irActualizerResult)
+            }
         }
 
         val dependencies = JsEnvironmentConfigurator.getAllRecursiveDependenciesFor(module, testServices).toList()
-        val lib = jsResolveLibraries(
-            dependencies.map { testServices.jsLibraryProvider.getPathByDescriptor(it) } + listOf(outputFile),
-            configuration[JSConfigurationKeys.REPOSITORIES] ?: emptyList(),
-            configuration[IrMessageLogger.IR_MESSAGE_LOGGER].toResolverLogger()
+        val lib = CommonKLibResolver.resolve(
+            dependencies.map { testServices.libraryProvider.getPathByDescriptor(it) } + listOf(outputFile),
+            configuration.resolverLogger
         ).getFullResolvedList().last().library
 
         val moduleDescriptor = JsFactories.DefaultDeserializedDescriptorFactory.createDescriptorOptionalBuiltIns(
@@ -93,8 +87,8 @@ class JsKlibBackendFacade(
         if (JsEnvironmentConfigurator.incrementalEnabled(testServices)) {
             testServices.jsIrIncrementalDataProvider.recordIncrementalData(module, lib)
         }
-        testServices.jsLibraryProvider.setDescriptorAndLibraryByName(outputFile, moduleDescriptor, lib)
+        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile, moduleDescriptor, lib)
 
-        return BinaryArtifacts.KLib(File(outputFile))
+        return BinaryArtifacts.KLib(File(outputFile), inputArtifact.diagnosticReporter)
     }
 }

@@ -4,12 +4,12 @@
  */
 package org.jetbrains.kotlin.cli.utilities
 
-import org.jetbrains.kotlin.cli.bc.SHORT_MODULE_NAME_ARG
+import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.konan.util.KonanHomeProvider
 import org.jetbrains.kotlin.native.interop.gen.jvm.InternalInteropOptions
-import org.jetbrains.kotlin.native.interop.gen.jvm.interop
+import org.jetbrains.kotlin.native.interop.gen.jvm.Interop
 import org.jetbrains.kotlin.native.interop.tool.*
 
 // TODO: this function should eventually be eliminated from 'utilities'. 
@@ -20,7 +20,10 @@ import org.jetbrains.kotlin.native.interop.tool.*
  * Otherwise returns array of compiler args.
  */
 fun invokeInterop(flavor: String, args: Array<String>, runFromDaemon: Boolean): Array<String>? {
-    val arguments = if (flavor == "native") CInteropArguments() else JSInteropArguments()
+    check(flavor == "native") {
+        "wasm target in Kotlin/Native is removed. See https://kotl.in/native-targets-tiers"
+    }
+    val arguments = CInteropArguments()
     arguments.argParser.parse(args)
     val outputFileName = arguments.output
     val noDefaultLibs = arguments.nodefaultlibs || arguments.nodefaultlibsDeprecated
@@ -38,22 +41,20 @@ fun invokeInterop(flavor: String, args: Array<String>, runFromDaemon: Boolean): 
     val cstubsName ="cstubs"
     val libraries = arguments.library
     val repos = arguments.repo
-    val targetRequest = if (arguments is CInteropArguments) arguments.target
-        else (arguments as JSInteropArguments).target.toString()
-    val target = PlatformManager(KonanHomeProvider.determineKonanHome()).targetManager(targetRequest).target
+    val targetRequest = arguments.target
+    val target = PlatformManager(
+            KonanHomeProvider.determineKonanHome(),
+            konanDataDir = arguments.konanDataDir).targetManager(targetRequest).target
 
-    val cinteropArgsToCompiler = interop(flavor, args,
+    val cinteropArgsToCompiler = Interop().interop("native", args,
             InternalInteropOptions(generatedDir.absolutePath,
                     nativesDir.absolutePath,manifest.path,
-                    cstubsName.takeIf { flavor == "native" }
+                    cstubsName
             ),
             runFromDaemon
     ) ?: return null // There is no need in compiler invocation if we're generating only metadata.
 
     val nativeStubs =
-        if (flavor == "wasm")
-            arrayOf("-include-binary", File(nativesDir, "js_stubs.js").path)
-        else
             arrayOf("-native-library", File(nativesDir, "$cstubsName.bc").path)
 
     return arrayOf(
@@ -73,7 +74,8 @@ fun invokeInterop(flavor: String, args: Array<String>, runFromDaemon: Boolean): 
         (if (purgeUserLibs) arrayOf("-$PURGE_USER_LIBS") else emptyArray()) +
         (if (nopack) arrayOf("-$NOPACK") else emptyArray()) +
         moduleName?.let { arrayOf("-module-name", it) }.orEmpty() +
-        shortModuleName?.let { arrayOf("$SHORT_MODULE_NAME_ARG=$it") }.orEmpty() +
+        shortModuleName?.let { arrayOf("${K2NativeCompilerArguments.SHORT_MODULE_NAME_ARG}=$it") }.orEmpty() +
+        "-library-version=${arguments.libraryVersion}" +
         arguments.kotlincOption
 }
 

@@ -7,15 +7,20 @@ package org.jetbrains.kotlin.gradle.testing.internal
 
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.AbstractTestTask
 import org.gradle.language.base.plugins.LifecycleBasePlugin
+import org.jetbrains.kotlin.gradle.logging.kotlinInfo
+import org.jetbrains.kotlin.gradle.plugin.internal.KotlinTestReportCompatibilityHelper
+import org.jetbrains.kotlin.gradle.plugin.variantImplementationFactory
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
+import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.tasks.locateTask
-import org.jetbrains.kotlin.gradle.utils.getSystemProperty
-import org.jetbrains.kotlin.gradle.utils.isConfigurationCacheAvailable
+import org.jetbrains.kotlin.gradle.utils.readSystemPropertyAtConfigurationTime
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 
 /**
  * Internal service for creating aggregated test tasks and registering all test tasks.
@@ -36,9 +41,20 @@ class KotlinTestsRegistry(val project: Project, val allTestsTaskName: String = "
     ) {
         project.tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME).dependsOn(taskHolder)
         project.cleanAllTestTask.configure { it.dependsOn(cleanTaskName(taskHolder.name)) }
+        val testReportService = TestReportService.registerIfAbsent(project)
         aggregate.configure {
             it.dependsOn(taskHolder.name)
             it.registerTestTask(taskHolder.get())
+        }
+        taskHolder.configure { task ->
+            task.usesService(testReportService)
+            task.outputs.upToDateWhen {
+                val hasFailedPreviously = testReportService.get().hasTestTaskFailedPreviously(it.path)
+                if (hasFailedPreviously) {
+                    task.logger.kotlinInfo("Marking $it as not up-to-date because the task has failed previously")
+                }
+                !hasFailedPreviously
+            }
         }
 
         taskHolder.configure { task ->
@@ -66,18 +82,25 @@ class KotlinTestsRegistry(val project: Project, val allTestsTaskName: String = "
         if (existed != null) return existed
 
         val reportName = name
-
+        val testReportService = TestReportService.registerIfAbsent(project)
         val aggregate: TaskProvider<KotlinTestReport> = project.registerTask(name) { aggregate ->
             aggregate.description = description
             aggregate.group = JavaBasePlugin.VERIFICATION_GROUP
 
-            aggregate.destinationDir = project.testReportsDir.resolve(reportName)
+            val compatibilityHelper = project
+                .variantImplementationFactory<KotlinTestReportCompatibilityHelper.KotlinTestReportCompatibilityHelperVariantFactory>()
+                .getInstance(project.objects)
 
-            val isIdeaActive = project.getSystemProperty("idea.active") != null
+            compatibilityHelper.setDestinationDirectory(aggregate, project.testReportsDir.resolve(reportName))
+
+            val isIdeaActive = project.readSystemPropertyAtConfigurationTime("idea.active").isPresent
 
             if (isIdeaActive) {
                 aggregate.extensions.extraProperties.set("idea.internal.test", true)
             }
+            aggregate.htmlReportFile.value(compatibilityHelper.getDestinationDirectory(aggregate).file("index.html")).disallowChanges()
+            aggregate.testReportServiceProvider.value(testReportService).finalizeValueOnRead()
+            aggregate.testReportCompatibilityHelper.value(compatibilityHelper).finalizeValueOnRead()
 
             project.gradle.taskGraph.whenReady { graph ->
                 aggregate.maybeOverrideReporting(graph)
@@ -96,16 +119,18 @@ class KotlinTestsRegistry(val project: Project, val allTestsTaskName: String = "
 
     private fun cleanTaskName(taskName: String): String {
         check(taskName.isNotEmpty())
-        return "clean" + taskName.capitalize()
+        return "clean" + taskName.capitalizeAsciiOnly()
     }
 
     private val Project.cleanAllTestTask: TaskProvider<*>
         get() {
             val taskName = cleanTaskName(allTestsTask.name)
-            return project.locateTask<Task>(taskName)
-                ?: project.registerTask<Task>(taskName).also { cleanAllTest ->
-                    tasks.named(LifecycleBasePlugin.CLEAN_TASK_NAME).dependsOn(cleanAllTest)
-                }
+            return project.locateOrRegisterTask<Task>(taskName) { cleanAllTest ->
+                cleanAllTest.group = BasePlugin.BUILD_GROUP
+                cleanAllTest.description = "Deletes all the test results."
+            }.also { cleanAllTest ->
+                tasks.named(LifecycleBasePlugin.CLEAN_TASK_NAME).dependsOn(cleanAllTest)
+            }
         }
 
     companion object {

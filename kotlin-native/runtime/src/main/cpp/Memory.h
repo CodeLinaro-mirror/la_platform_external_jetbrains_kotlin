@@ -19,14 +19,16 @@
 
 #include <utility>
 
+#include "Alignment.hpp"
 #include "KAssert.h"
 #include "Common.h"
 #include "TypeInfo.h"
+#include "TypeLayout.hpp"
 #include "Atomic.h"
 #include "PointerBits.h"
 #include "Utils.hpp"
 
-#if KONAN_ARM32 && (KONAN_IOS || KONAN_WATCHOS)
+#if KONAN_NEED_SMALL_BINARY
   // Currently, codegen places a lot of unnecessary calls to MM functions.
   // By forcing NO_INLINE on these functions we keep binaries from growing too big.
   #define CODEGEN_INLINE_POLICY NO_INLINE
@@ -59,35 +61,50 @@ struct ObjHeader {
       }
   }
 
+  TypeInfo* typeInfoOrMetaRelaxed() const { return atomicGetRelaxed(&typeInfoOrMeta_);}
+  TypeInfo* typeInfoOrMetaAcquire() const { return atomicGetAcquire(&typeInfoOrMeta_);}
+
+  /**
+   * Formally, this code data races with installing ExtraObject. Even though, we are okey, with reading
+   * both typeInfo and meta-object pointer, llvm memory model doesn't guarantee, that if we are able to
+   * see metaObject, written by other thread, we would be able to see metaObject->typeInfo.
+   *
+   * To make this correct with llvm memory model we need to use [LLVMAtomicOrdering.LLVMAtomicOrderingAcquire] here.
+   * Unfortunately, this is dramatically harmful for performance on arm architecture. So, we are using
+   * [LLVMAtomicOrdering.LLVMAtomicOrderingMonotonic] for both this read and following load of metaObject->typeInfo.
+   * At this point, we have no data race, but llvm memory model allows uninitialized value to be read from metaObject->typeInfo.
+   *
+   * Hardware guaranties on many supported platforms doesn't allow this to happen.
+   */
   const TypeInfo* type_info() const {
-    return clearPointerBits(typeInfoOrMeta_, OBJECT_TAG_MASK)->typeInfo_;
+      return atomicGetRelaxed(&clearPointerBits(typeInfoOrMetaRelaxed(), OBJECT_TAG_MASK)->typeInfo_);
   }
 
   bool has_meta_object() const {
-      return AsMetaObject(typeInfoOrMeta_) != nullptr;
+      return meta_object_or_null() != nullptr;
   }
 
   MetaObjHeader* meta_object() {
-      if (auto* metaObject = AsMetaObject(typeInfoOrMeta_)) {
+      if (auto* metaObject = AsMetaObject(typeInfoOrMetaAcquire())) {
           return metaObject;
       }
       return createMetaObject(this);
   }
 
-  MetaObjHeader* meta_object_or_null() const noexcept { return AsMetaObject(typeInfoOrMeta_); }
+  MetaObjHeader* meta_object_or_null() const noexcept { return AsMetaObject(typeInfoOrMetaAcquire()); }
 
   ALWAYS_INLINE ObjHeader* GetWeakCounter();
   ALWAYS_INLINE ObjHeader* GetOrSetWeakCounter(ObjHeader* counter);
 
 
 #ifdef KONAN_OBJC_INTEROP
-  ALWAYS_INLINE void* GetAssociatedObject();
-  ALWAYS_INLINE void** GetAssociatedObjectLocation();
+  ALWAYS_INLINE void* GetAssociatedObject() const;
   ALWAYS_INLINE void SetAssociatedObject(void* obj);
+  ALWAYS_INLINE void* CasAssociatedObject(void* expectedObj, void* obj);
 #endif
 
   inline bool local() const {
-    unsigned bits = getPointerBits(typeInfoOrMeta_, OBJECT_TAG_MASK);
+    unsigned bits = getPointerBits(typeInfoOrMetaRelaxed(), OBJECT_TAG_MASK);
     return (bits & (OBJECT_TAG_PERMANENT_CONTAINER | OBJECT_TAG_NONTRIVIAL_CONTAINER)) ==
         (OBJECT_TAG_PERMANENT_CONTAINER | OBJECT_TAG_NONTRIVIAL_CONTAINER);
   }
@@ -98,14 +115,15 @@ struct ObjHeader {
   const ArrayHeader* array() const { return reinterpret_cast<const ArrayHeader*>(this); }
 
   inline bool permanent() const {
-    return hasPointerBits(typeInfoOrMeta_, OBJECT_TAG_PERMANENT_CONTAINER);
+    return hasPointerBits(typeInfoOrMetaRelaxed(), OBJECT_TAG_PERMANENT_CONTAINER);
   }
 
-  inline bool heap() const { return getPointerBits(typeInfoOrMeta_, OBJECT_TAG_MASK) == 0; }
+  inline bool heap() const { return getPointerBits(typeInfoOrMetaRelaxed(), OBJECT_TAG_MASK) == 0; }
 
   static MetaObjHeader* createMetaObject(ObjHeader* object);
   static void destroyMetaObject(ObjHeader* object);
 };
+static_assert(alignof(ObjHeader) <= kotlin::kObjectAlignment);
 
 // Header of value type array objects. Keep layout in sync with that of object header.
 struct ArrayHeader {
@@ -121,6 +139,59 @@ struct ArrayHeader {
   // Elements count. Element size is stored in instanceSize_ field of TypeInfo, negated.
   uint32_t count_;
 };
+static_assert(alignof(ArrayHeader) <= kotlin::kObjectAlignment);
+
+namespace kotlin {
+
+struct ObjectBody;
+struct ArrayBody;
+
+template <>
+struct type_layout::descriptor<ObjectBody> {
+    class type {
+    public:
+        using value_type = ObjectBody;
+
+        explicit type(const TypeInfo* typeInfo) noexcept : size_(typeInfo->instanceSize_ - sizeof(ObjHeader)) {}
+
+        static constexpr size_t alignment() noexcept { return kObjectAlignment; }
+        uint64_t size() const noexcept { return size_; }
+
+        value_type* construct(uint8_t* ptr) noexcept {
+            RuntimeAssert(isZeroed(std_support::span<uint8_t>(ptr, size_)), "ObjectBodyDescriptor::construct@%p memory is not zeroed", ptr);
+            return reinterpret_cast<value_type*>(ptr);
+        }
+
+    private:
+        uint64_t size_;
+    };
+};
+
+template <>
+struct type_layout::descriptor<ArrayBody> {
+    class type {
+    public:
+        using value_type = ArrayBody;
+
+        explicit type(const TypeInfo* typeInfo, uint32_t count) noexcept :
+            // -(int32_t min) * uint32_t max cannot overflow uint64_t. And are capped
+            // at about half of uint64_t max.
+            size_(static_cast<uint64_t>(-typeInfo->instanceSize_) * count) {}
+
+        static constexpr size_t alignment() noexcept { return kObjectAlignment; }
+        uint64_t size() const noexcept { return size_; }
+
+        value_type* construct(uint8_t* ptr) noexcept {
+            RuntimeAssert(isZeroed(std_support::span<uint8_t>(ptr, size_)), "ArrayBodyDescriptor::construct@%p memory is not zeroed", ptr);
+            return reinterpret_cast<ArrayBody*>(ptr);
+        }
+
+    private:
+        uint64_t size_;
+    };
+};
+
+} // namespace kotlin
 
 ALWAYS_INLINE bool isPermanentOrFrozen(const ObjHeader* obj);
 ALWAYS_INLINE bool isShareable(const ObjHeader* obj);
@@ -130,9 +201,16 @@ ALWAYS_INLINE inline bool isNullOrMarker(const ObjHeader* obj) noexcept {
     return reinterpret_cast<uintptr_t>(obj) <= 1;
 }
 
-class ForeignRefManager;
 struct FrameOverlay;
+
+// Legacy MM only:
+class ForeignRefManager;
 typedef ForeignRefManager* ForeignRefContext;
+
+namespace kotlin::mm {
+// New MM only:
+struct RawSpecialRef;
+} // namespace kotlin::mm
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,9 +254,6 @@ OBJ_GETTER(AllocInstance, const TypeInfo* type_info) RUNTIME_NOTHROW;
 
 OBJ_GETTER(AllocArrayInstance, const TypeInfo* type_info, int32_t elements);
 
-OBJ_GETTER(InitThreadLocalSingleton, ObjHeader** location, const TypeInfo* typeInfo, void (*ctor)(ObjHeader*));
-
-OBJ_GETTER(InitSingleton, ObjHeader** location, const TypeInfo* typeInfo, void (*ctor)(ObjHeader*));
 
 // `initialValue` may be `nullptr`, which signifies that the appropriate initial value was already
 // set by static initialization.
@@ -231,6 +306,12 @@ void ZeroStackRef(ObjHeader** location) RUNTIME_NOTHROW;
 void UpdateStackRef(ObjHeader** location, const ObjHeader* object) RUNTIME_NOTHROW;
 // Updates heap/static data location.
 void UpdateHeapRef(ObjHeader** location, const ObjHeader* object) RUNTIME_NOTHROW;
+// Updates volatile heap/static data location.
+void UpdateVolatileHeapRef(ObjHeader** location, const ObjHeader* object) RUNTIME_NOTHROW;
+OBJ_GETTER(CompareAndSwapVolatileHeapRef, ObjHeader** location, ObjHeader* expectedValue, ObjHeader* newValue) RUNTIME_NOTHROW;
+bool CompareAndSetVolatileHeapRef(ObjHeader** location, ObjHeader* expectedValue, ObjHeader* newValue) RUNTIME_NOTHROW;
+OBJ_GETTER(GetAndSetVolatileHeapRef, ObjHeader** location, ObjHeader* newValue) RUNTIME_NOTHROW;
+
 // Updates heap/static data in one array.
 void UpdateHeapRefsInsideOneArray(const ArrayHeader* array, int fromIndex, int toIndex, int count) RUNTIME_NOTHROW;
 // Updates location if it is null, atomically.
@@ -315,24 +396,6 @@ bool Kotlin_Any_isShareable(ObjHeader* thiz);
 void Kotlin_Any_share(ObjHeader* thiz);
 void PerformFullGC(MemoryState* memory) RUNTIME_NOTHROW;
 
-// Only for legacy
-bool TryAddHeapRef(const ObjHeader* object);
-void ReleaseHeapRefNoCollect(const ObjHeader* object) RUNTIME_NOTHROW;
-
-// Only for experimental
-OBJ_GETTER(TryRef, ObjHeader* object) RUNTIME_NOTHROW;
-
-ForeignRefContext InitLocalForeignRef(ObjHeader* object);
-
-ForeignRefContext InitForeignRef(ObjHeader* object);
-void DeinitForeignRef(ObjHeader* object, ForeignRefContext context);
-
-bool IsForeignRefAccessible(ObjHeader* object, ForeignRefContext context);
-
-// Should be used when reference is read from a possibly shared variable,
-// and there's nothing else keeping the object alive.
-void AdoptReferenceFromSharedVariable(ObjHeader* object);
-
 void CheckGlobalsAccessible();
 
 // Sets state of the current thread to NATIVE (used by the new MM).
@@ -344,12 +407,13 @@ CODEGEN_INLINE_POLICY RUNTIME_NOTHROW void Kotlin_mm_switchThreadStateRunnable()
 CODEGEN_INLINE_POLICY void Kotlin_mm_safePointFunctionPrologue() RUNTIME_NOTHROW;
 CODEGEN_INLINE_POLICY void Kotlin_mm_safePointWhileLoopBody() RUNTIME_NOTHROW;
 
+RUNTIME_NOTHROW void DisposeRegularWeakReferenceImpl(ObjHeader* counter);
+
 #ifdef __cplusplus
 }
 #endif
 
 struct FrameOverlay {
-  void* arena;
   FrameOverlay* previous;
   // As they go in pair, sizeof(FrameOverlay) % sizeof(void*) == 0 is always held.
   int32_t parameters;
@@ -391,11 +455,9 @@ class ObjHolder {
 
 class ExceptionObjHolder {
 public:
-#if !KONAN_NO_EXCEPTIONS
     static void Throw(ObjHeader* exception) RUNTIME_NORETURN;
 
     ObjHeader* GetExceptionObject() noexcept;
-#endif
 
     // Exceptions are not on a hot path, so having virtual dispatch is fine.
     virtual ~ExceptionObjHolder() = default;
@@ -540,6 +602,16 @@ extern const bool kSupportsMultipleMutators;
 void StartFinalizerThreadIfNeeded() noexcept;
 bool FinalizersThreadIsRunning() noexcept;
 
+void OnMemoryAllocation(size_t totalAllocatedBytes) noexcept;
+
+void initObjectPool() noexcept;
+void compactObjectPoolInCurrentThread() noexcept;
+
 } // namespace kotlin
+
+RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processObjectInMark(void* state, ObjHeader* object);
+RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processArrayInMark(void* state, ObjHeader* object);
+RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processFieldInMark(void* state, ObjHeader* field);
+RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processEmptyObjectInMark(void* state, ObjHeader* object);
 
 #endif // RUNTIME_MEMORY_H

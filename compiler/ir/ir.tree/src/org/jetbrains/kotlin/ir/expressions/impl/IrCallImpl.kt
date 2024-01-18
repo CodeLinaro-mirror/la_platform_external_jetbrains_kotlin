@@ -25,22 +25,24 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.util.initializeParameterArguments
+import org.jetbrains.kotlin.ir.util.initializeTypeArguments
 import org.jetbrains.kotlin.ir.util.render
 
 class IrCallImpl(
     override val startOffset: Int,
     override val endOffset: Int,
     override var type: IrType,
-    override val symbol: IrSimpleFunctionSymbol,
+    override var symbol: IrSimpleFunctionSymbol,
     typeArgumentsCount: Int,
     valueArgumentsCount: Int,
-    override val origin: IrStatementOrigin? = null,
-    override val superQualifierSymbol: IrClassSymbol? = null
+    override var origin: IrStatementOrigin? = null,
+    override var superQualifierSymbol: IrClassSymbol? = null
 ) : IrCall() {
 
-    override val typeArgumentsByIndex: Array<IrType?> = arrayOfNulls(typeArgumentsCount)
+    override val typeArguments: Array<IrType?> = initializeTypeArguments(typeArgumentsCount)
 
-    override val argumentsByParameterIndex: Array<IrExpression?> = arrayOfNulls(valueArgumentsCount)
+    override val valueArguments: Array<IrExpression?> = initializeParameterArguments(valueArgumentsCount)
 
     override var contextReceiversCount = 0
 

@@ -52,26 +52,27 @@ data class DataClass : Derived, Delegate {
     return DataClass(delegate = delegate)
   }
 
-  override fun equals(other: Any?): Boolean {
-    when {
-      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
-    }
-    when {
-      other !is DataClass -> return false
-    }
-    val tmp0_other_with_cast: DataClass = other as DataClass
-    when {
-      EQEQ(arg0 = <this>.#delegate, arg1 = tmp0_other_with_cast.#delegate).not() -> return false
-    }
-    return true
+  override fun toString(): String {
+    return "DataClass(" + "delegate=" + <this>.#delegate + ")"
   }
 
   override fun hashCode(): Int {
     return <this>.#delegate.hashCode()
   }
 
-  override fun toString(): String {
-    return "DataClass(" + "delegate=" + <this>.#delegate + ")"
+  override operator fun equals(other: Any?): Boolean {
+    when {
+      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
+    }
+    when {
+      other !is DataClass -> return false
+    }
+    val tmp_0: DataClass = other as DataClass
+    when {
+      EQEQ(arg0 = <this>.#delegate, arg1 = tmp_0.#delegate).not() -> return false
+    }
+    return true
   }
 
 }
+

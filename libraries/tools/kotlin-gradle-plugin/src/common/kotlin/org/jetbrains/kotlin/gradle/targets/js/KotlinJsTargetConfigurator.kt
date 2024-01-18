@@ -9,10 +9,10 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.Task
 import org.gradle.api.attributes.Usage
 import org.gradle.language.base.plugins.LifecycleBasePlugin
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
+import org.jetbrains.kotlin.gradle.plugin.mpp.addSourceSet
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
 import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.gradle.testing.testTaskName
 import java.util.concurrent.Callable
 
 open class KotlinJsTargetConfigurator :
-    KotlinOnlyTargetConfigurator<KotlinJsCompilation, KotlinJsTarget>(true, true),
+    KotlinOnlyTargetConfigurator<KotlinJsCompilation, KotlinJsTarget>(true),
     KotlinTargetWithTestsConfigurator<KotlinJsReportAggregatingTestRun, KotlinJsTarget> {
 
     override val testRunClass: Class<KotlinJsReportAggregatingTestRun> get() = KotlinJsReportAggregatingTestRun::class.java
@@ -55,22 +55,21 @@ open class KotlinJsTargetConfigurator :
 
     override fun buildCompilationProcessor(compilation: KotlinJsCompilation): KotlinSourceSetProcessor<*> {
         val tasksProvider = KotlinTasksProvider()
-        return Kotlin2JsSourceSetProcessor(tasksProvider, compilation)
+        return Kotlin2JsSourceSetProcessor(tasksProvider, KotlinCompilationInfo(compilation))
     }
 
     override fun configureCompilationDefaults(target: KotlinJsTarget) {
         val project = target.project
 
         target.compilations.all { compilation ->
-            defineConfigurationsForCompilation(compilation)
+            @Suppress("DEPRECATION")
+            compilation.addSourceSet(compilation.defaultSourceSet)
 
-            if (createDefaultSourceSets) {
-                project.kotlinExtension.sourceSets.maybeCreate(compilation.defaultSourceSetName).also { sourceSet ->
-                    compilation.source(sourceSet) // also adds dependencies, requires the configurations for target and source set to exist at this point
-                }
-            }
-
-            configureResourceProcessing(compilation, project.files(Callable { compilation.allKotlinSourceSets.map { it.resources } }))
+            configureResourceProcessing(
+                compilation,
+                compilation.processResourcesTaskName,
+                project.files(Callable { compilation.allKotlinSourceSets.map { it.resources } })
+            )
 
             createLifecycleTaskInternal(compilation)
         }

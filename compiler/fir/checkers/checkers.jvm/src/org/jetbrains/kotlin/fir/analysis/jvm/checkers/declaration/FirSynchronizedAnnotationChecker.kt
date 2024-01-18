@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.analysis.jvm.checkers.declaration
 
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.analysis.checkers.classKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
@@ -21,25 +20,26 @@ import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.declarations.utils.isSuspend
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.isSuspendFunctionType
-import org.jetbrains.kotlin.name.JvmNames.SYNCHRONIZED_ANNOTATION_CLASS_ID
+import org.jetbrains.kotlin.fir.types.isSuspendOrKSuspendFunctionType
+import org.jetbrains.kotlin.name.JvmStandardClassIds.SYNCHRONIZED_ANNOTATION_CLASS_ID
 
 object FirSynchronizedAnnotationChecker : FirFunctionChecker() {
     override fun check(declaration: FirFunction, context: CheckerContext, reporter: DiagnosticReporter) {
-        val annotation = declaration.getAnnotationByClassId(SYNCHRONIZED_ANNOTATION_CLASS_ID) ?: return
+        val session = context.session
+        val annotation = declaration.getAnnotationByClassId(SYNCHRONIZED_ANNOTATION_CLASS_ID, session) ?: return
 
         if (declaration.isInline) {
             reporter.reportOn(annotation.source, FirJvmErrors.SYNCHRONIZED_ON_INLINE, context)
             return
         }
         if (declaration.isSuspend ||
-            (declaration as? FirAnonymousFunction)?.typeRef?.coneType?.isSuspendFunctionType(context.session) == true
+            (declaration as? FirAnonymousFunction)?.typeRef?.coneType?.isSuspendOrKSuspendFunctionType(session) == true
         ) {
             reporter.reportOn(annotation.source, FirJvmErrors.SYNCHRONIZED_ON_SUSPEND, context)
             return
         }
 
-        val containingClass = declaration.getContainingClassSymbol(context.session) ?: return
+        val containingClass = declaration.getContainingClassSymbol(session) ?: return
         if (containingClass.classKind == ClassKind.INTERFACE) {
             reporter.reportOn(annotation.source, FirJvmErrors.SYNCHRONIZED_IN_INTERFACE, context)
         } else if (declaration.isAbstract) {

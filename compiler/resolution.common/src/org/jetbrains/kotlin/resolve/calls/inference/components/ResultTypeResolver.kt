@@ -63,21 +63,45 @@ class ResultTypeResolver(
         return c.getDefaultType(direction, variableWithConstraints.constraints, variableWithConstraints.typeVariable)
     }
 
-    private fun findResultTypeOrNull(
+    fun findResultTypeOrNull(
         c: Context,
         variableWithConstraints: VariableWithConstraints,
         direction: ResolveDirection
     ): KotlinTypeMarker? {
-        findResultIfThereIsEqualsConstraint(c, variableWithConstraints)?.let { return it }
+        val resultTypeFromEqualConstraint = findResultIfThereIsEqualsConstraint(c, variableWithConstraints)
+        if (resultTypeFromEqualConstraint != null) {
+            with(c) {
+                if (!isK2 || !resultTypeFromEqualConstraint.contains { type ->
+                        type.typeConstructor().isIntegerLiteralConstantTypeConstructor()
+                    }
+                ) {
+                    // In K2, we don't return here ILT-based types immediately
+                    return resultTypeFromEqualConstraint
+                }
+            }
+        }
 
         val subType = c.findSubType(variableWithConstraints)
         // Super type should be the most flexible, sub type should be the least one
         val superType = c.findSuperType(variableWithConstraints).makeFlexibleIfNecessary(c, variableWithConstraints.constraints)
 
-        return if (direction == ResolveDirection.TO_SUBTYPE || direction == ResolveDirection.UNKNOWN) {
+        val resultTypeFromDirection = if (direction == ResolveDirection.TO_SUBTYPE || direction == ResolveDirection.UNKNOWN) {
             c.resultType(subType, superType, variableWithConstraints)
         } else {
             c.resultType(superType, subType, variableWithConstraints)
+        }
+        // In the general case, we can have here two types, one from EQUAL constraint which must be ILT-based,
+        // and the second one from UPPER/LOWER constraints (subType/superType based)
+        // The logic of choice here is:
+        // - if one type is null, we return another one
+        // - we return type from UPPER/LOWER constraints if it's more precise (in fact, only Int/Short/Byte/Long is allowed here)
+        // - otherwise we return ILT-based type
+        return when {
+            resultTypeFromEqualConstraint == null -> resultTypeFromDirection
+            resultTypeFromDirection == null -> resultTypeFromEqualConstraint
+            with(c) { !resultTypeFromDirection.typeConstructor().isNothingConstructor() } &&
+                    AbstractTypeChecker.isSubtypeOf(c, resultTypeFromDirection, resultTypeFromEqualConstraint) -> resultTypeFromDirection
+            else -> resultTypeFromEqualConstraint
         }
     }
 
@@ -139,22 +163,46 @@ class ResultTypeResolver(
     }
 
     private fun KotlinTypeMarker.toPublicType(): KotlinTypeMarker =
-        typeApproximator.approximateToSuperType(this, TypeApproximatorConfiguration.PublicDeclaration) ?: this
+        typeApproximator.approximateToSuperType(this, TypeApproximatorConfiguration.PublicDeclaration.SaveAnonymousTypes) ?: this
 
     private fun Context.isSuitableType(resultType: KotlinTypeMarker, variableWithConstraints: VariableWithConstraints): Boolean {
         val filteredConstraints = variableWithConstraints.constraints.filter { isProperTypeForFixation(it.type) }
         for (constraint in filteredConstraints) {
             if (!checkConstraint(this, constraint.type, constraint.kind, resultType)) return false
         }
-        if (!trivialConstraintTypeInferenceOracle.isSuitableResultedType(resultType)) {
-            if (resultType.isNullableType() && checkSingleLowerNullabilityConstraint(filteredConstraints)) return false
-            if (isReified(variableWithConstraints.typeVariable)) return false
-        }
 
-        return true
+        // if resultType is not Nothing
+        if (trivialConstraintTypeInferenceOracle.isSuitableResultedType(resultType)) return true
+
+        // Nothing and Nothing? is not allowed for reified parameters
+        if (isReified(variableWithConstraints.typeVariable)) return false
+
+        // It's ok to fix result to non-nullable Nothing and parameter is not reified
+        if (!resultType.isNullableType()) return true
+
+        return isNullableNothingMayBeConsideredAsSuitableResultType(filteredConstraints)
     }
 
-    private fun checkSingleLowerNullabilityConstraint(constraints: List<Constraint>): Boolean {
+    private fun Context.isNullableNothingMayBeConsideredAsSuitableResultType(constraints: List<Constraint>): Boolean = when {
+        isK2 ->
+            // There might be an assertion for green code that if `allUpperConstraintsAreFromBounds(constraints) == true` then
+            // the single `Nothing?` lower bound constraint has Constraint::isNullabilityConstraint is set to false
+            // because otherwise we would not start fixing the variable since it has no proper constraints.
+            allUpperConstraintsAreFromBounds(constraints)
+        else -> !isThereSingleLowerNullabilityConstraint(constraints)
+    }
+
+    private fun allUpperConstraintsAreFromBounds(constraints: List<Constraint>): Boolean =
+        constraints.all {
+            // Actually, at least for green code that should be an assertion that lower constraints (!isUpper) has `Nothing?` type
+            // Because otherwise if we had `Nothing? <: T` and `SomethingElse <: T` than it would end with `SomethingElse? <: T`
+            !it.kind.isUpper() || isFromTypeParameterUpperBound(it)
+        }
+
+    private fun isFromTypeParameterUpperBound(constraint: Constraint): Boolean =
+        constraint.position.isFromDeclaredUpperBound || constraint.position.from is DeclaredUpperBoundConstraintPosition<*>
+
+    private fun isThereSingleLowerNullabilityConstraint(constraints: List<Constraint>): Boolean {
         return constraints.singleOrNull { it.kind.isLower() }?.isNullabilityConstraint ?: false
     }
 
@@ -241,12 +289,9 @@ class ResultTypeResolver(
     }
 
     private fun Context.computeUpperType(upperConstraints: List<Constraint>): KotlinTypeMarker {
-        val isInferringIntoEmptyIntersectionEnabled =
-            languageVersionSettings.supportsFeature(LanguageFeature.ForbidInferringTypeVariablesIntoEmptyIntersection)
-
-        // TODO: Remove this after stopping support of disabling `ForbidInferringTypeVariablesIntoEmptyIntersection`
-        // If `ForbidInferringTypeVariablesIntoEmptyIntersection` is enabled, we do the corresponding checks during resolution and completion
-        return if (!isInferringIntoEmptyIntersectionEnabled) {
+        return if (languageVersionSettings.supportsFeature(LanguageFeature.AllowEmptyIntersectionsInResultTypeResolver)) {
+            intersectTypes(upperConstraints.map { it.type })
+        } else {
             val intersectionUpperType = intersectTypes(upperConstraints.map { it.type })
             val resultIsActuallyIntersection = intersectionUpperType.typeConstructor().isIntersection()
 
@@ -271,8 +316,6 @@ class ResultTypeResolver(
                 if (filteredUpperConstraints.isNotEmpty()) intersectTypes(filteredUpperConstraints) else intersectionUpperType
             } else intersectionUpperType
             upperType
-        } else {
-            intersectTypes(upperConstraints.map { it.type })
         }
     }
 

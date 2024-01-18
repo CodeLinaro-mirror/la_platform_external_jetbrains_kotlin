@@ -5,23 +5,28 @@
 
 package org.jetbrains.kotlin.fir.plugin
 
-import com.intellij.mock.MockProject
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
+import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.fir.plugin.generators.*
 import org.jetbrains.kotlin.fir.plugin.types.FirNumberSignAttributeExtension
-import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
-import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.fir.plugin.types.ComposableLikeFunctionTypeKindExtension
 import org.jetbrains.kotlin.ir.plugin.GeneratedDeclarationsIrBodyFiller
 
 class FirPluginPrototypeExtensionRegistrar : FirExtensionRegistrar() {
     override fun ExtensionRegistrarContext.configurePlugin() {
         +::AllOpenStatusTransformer
+        +::AllOpenMatcherBasedStatusTransformer
+        +::AllOpenPredicateMatcher
         +::AllPublicVisibilityTransformer
         +::SomeAdditionalSupertypeGenerator
+        +::SupertypeWithArgumentGenerator
         +::PluginAdditionalCheckers
         +::FirNumberSignAttributeExtension
         +::AlgebraReceiverInjector
+        +::ComposableLikeFunctionTypeKindExtension
 
         // Declaration generators
         +::TopLevelDeclarationsGenerator
@@ -29,12 +34,17 @@ class FirPluginPrototypeExtensionRegistrar : FirExtensionRegistrar() {
         +::AdditionalMembersGenerator
         +::CompanionGenerator
         +::MembersOfSerializerGenerator
+
+        +::AllPropertiesConstructorMetadataProvider
     }
 }
 
-class FirPluginPrototypeComponentRegistrar : ComponentRegistrar {
-    override fun registerProjectComponents(project: MockProject, configuration: CompilerConfiguration) {
-        FirExtensionRegistrar.registerExtension(project, FirPluginPrototypeExtensionRegistrar())
-        IrGenerationExtension.registerExtension(project, GeneratedDeclarationsIrBodyFiller())
+class FirPluginPrototypeComponentRegistrar : CompilerPluginRegistrar() {
+    override val supportsK2: Boolean
+        get() = true
+
+    override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
+        FirExtensionRegistrarAdapter.registerExtension(FirPluginPrototypeExtensionRegistrar())
+        IrGenerationExtension.registerExtension(GeneratedDeclarationsIrBodyFiller())
     }
 }

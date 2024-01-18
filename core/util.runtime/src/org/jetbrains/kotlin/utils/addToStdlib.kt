@@ -81,19 +81,46 @@ inline fun <T, reified R> Iterable<T>.partitionIsInstance(): Pair<List<R>, List<
     return Pair(first, second)
 }
 
-inline fun <reified T> Iterable<*>.castAll(): Iterable<T> {
+@Suppress("INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
+@UnsafeCastFunction
+inline fun <reified T> List<*>.castAll(): List<@kotlin.internal.NoInfer T> {
     for (element in this) element as T
     @Suppress("UNCHECKED_CAST")
-    return this as Iterable<T>
+    return this as List<T>
+}
+
+@Suppress("INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
+@UnsafeCastFunction
+inline fun <reified T> Collection<*>.castAll(): Collection<@kotlin.internal.NoInfer T> {
+    for (element in this) element as T
+    @Suppress("UNCHECKED_CAST")
+    return this as Collection<T>
 }
 
 fun <T> sequenceOfLazyValues(vararg elements: () -> T): Sequence<T> = elements.asSequence().map { it() }
 
 fun <T1, T2> Pair<T1, T2>.swap(): Pair<T2, T1> = Pair(second, first)
 
+@RequiresOptIn(
+    message ="""
+        Usage of this function is unsafe because it does not have native compiler support
+         This means that compiler won't report UNCHECKED_CAST, CAST_NEVER_SUCCEED or similar
+         diagnostics in case of error cast (which can happen immediately or after some
+         refactoring of class hierarchy)
+        Consider using regular `as` and `as?`
+    """,
+    level = RequiresOptIn.Level.ERROR
+)
+annotation class UnsafeCastFunction
+
 @Suppress("INVISIBLE_REFERENCE", "INVISIBLE_MEMBER")
+@UnsafeCastFunction
 inline fun <reified T : Any> Any?.safeAs(): @kotlin.internal.NoInfer T? = this as? T
+
+@UnsafeCastFunction
 inline fun <reified T : Any> Any?.cast(): T = this as T
+
+@UnsafeCastFunction
 inline fun <reified T : Any> Any?.assertedCast(message: () -> String): T = this as? T ?: throw AssertionError(message())
 
 fun <T : Any> constant(calculator: () -> T): T {
@@ -199,6 +226,8 @@ inline fun <T, R> Iterable<T>.same(extractor: (T) -> R): Boolean {
 inline fun <R> runIf(condition: Boolean, block: () -> R): R? = if (condition) block() else null
 inline fun <R> runUnless(condition: Boolean, block: () -> R): R? = if (condition) null else block()
 
+inline fun <A : B, B> A.butIf(condition: Boolean, block: (A) -> B): B = if (condition) block(this) else this
+
 inline fun <T, R> Collection<T>.foldMap(transform: (T) -> R, operation: (R, R) -> R): R {
     val iterator = iterator()
     var result = transform(iterator.next())
@@ -238,7 +267,7 @@ fun <K, V> Map<K, V>.compactIfPossible(): Map<K, V> =
         else -> this
     }
 
-inline fun <T> T.applyIf(`if`: Boolean, body: T.() -> T): T =
+inline fun <T, R : T> R.applyIf(`if`: Boolean, body: R.() -> T): T =
     if (`if`) body() else this
 
 
@@ -275,7 +304,48 @@ inline fun <T, U, K, V> List<T>.flatGroupBy(
     return result
 }
 
+inline fun <T, K> List<T>.flatAssociateBy(selector: (T) -> Collection<K>): Map<K, T> {
+    return buildMap {
+        for (value in this@flatAssociateBy) {
+            for (key in selector(value)) {
+                put(key, value)
+            }
+        }
+    }
+}
+
 fun <E> MutableList<E>.popLast(): E = removeAt(lastIndex)
 
 fun <K : Enum<K>, V> enumMapOf(vararg pairs: Pair<K, V>): EnumMap<K, V> = EnumMap(mapOf(*pairs))
 fun <T : Enum<T>> enumSetOf(element: T, vararg elements: T): EnumSet<T> = EnumSet.of(element, *elements)
+
+fun shouldNotBeCalled(message: String = "should not be called"): Nothing {
+    error(message)
+}
+
+private inline fun <T, R> Iterable<T>.zipWithDefault(other: Iterable<R>, leftDefault: () -> T, rightDefault: () -> R): List<Pair<T, R>> {
+    val leftIterator = this.iterator()
+    val rightIterator = other.iterator()
+    return buildList {
+        while (leftIterator.hasNext() && rightIterator.hasNext()) {
+            add(leftIterator.next() to rightIterator.next())
+        }
+        while (leftIterator.hasNext()) {
+            add(leftIterator.next() to rightDefault())
+        }
+        while (rightIterator.hasNext()) {
+            add(leftDefault() to rightIterator.next())
+        }
+    }
+}
+
+fun <T, R> Iterable<T>.zipWithNulls(other: Iterable<R>): List<Pair<T?, R?>> {
+    return zipWithDefault(other, { null }, { null })
+}
+
+/**
+ * Use this function to indicate that some when branch is semantically unreachable
+ */
+fun unreachableBranch(argument: Any?): Nothing {
+    error("This argument should've been processed by previous when branches but it wasn't: $argument")
+}

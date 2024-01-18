@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.jps.build
 
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtilRt
@@ -24,7 +23,6 @@ import org.jetbrains.jps.builders.BuildResult
 import org.jetbrains.jps.builders.CompileScopeTestBuilder
 import org.jetbrains.jps.builders.impl.BuildDataPathsImpl
 import org.jetbrains.jps.builders.impl.logging.ProjectBuilderLoggerBase
-import org.jetbrains.jps.builders.java.dependencyView.Callbacks
 import org.jetbrains.jps.builders.logging.BuildLoggingManager
 import org.jetbrains.jps.cmdline.ProjectDescriptor
 import org.jetbrains.jps.incremental.*
@@ -40,6 +38,7 @@ import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.incremental.LookupSymbol
 import org.jetbrains.kotlin.incremental.testingUtils.*
+import org.jetbrains.kotlin.incremental.utils.TestLookupTracker
 import org.jetbrains.kotlin.jps.build.dependeciestxt.ModulesTxt
 import org.jetbrains.kotlin.jps.build.dependeciestxt.ModulesTxtBuilder
 import org.jetbrains.kotlin.jps.build.fixtures.EnableICFixture
@@ -54,7 +53,7 @@ import org.jetbrains.kotlin.jps.targets.KotlinModuleBuildTarget
 import org.jetbrains.kotlin.platform.idePlatformKind
 import org.jetbrains.kotlin.platform.impl.isJavaScript
 import org.jetbrains.kotlin.platform.impl.isJvm
-import org.jetbrains.kotlin.platform.orDefault
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.utils.Printer
 import java.io.ByteArrayInputStream
@@ -62,7 +61,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.reflect.jvm.javaField
 
 abstract class AbstractIncrementalJpsTest(
@@ -246,7 +244,7 @@ abstract class AbstractIncrementalJpsTest(
         return build(null, CompileScopeTestBuilder.rebuild().allModules())
     }
 
-    private fun updateCommandLineArguments(arguments: CommonCompilerArguments) {
+    protected open fun updateCommandLineArguments(arguments: CommonCompilerArguments) {
         parseCommandLineArguments(additionalCommandLineArguments, arguments)
     }
 
@@ -338,11 +336,22 @@ abstract class AbstractIncrementalJpsTest(
 
         buildLogFile?.let {
             val logs = createBuildLog(otherMakeResults)
-            UsefulTestCase.assertSameLinesWithFile(buildLogFile.absolutePath, logs)
+            val expected = excludeCompilerErrorMessagesFromLog(File(buildLogFile.absolutePath).readText())
+            val actual = excludeCompilerErrorMessagesFromLog(logs)
+
+            UsefulTestCase.assertEquals(expected.trimEnd(), actual.trimEnd())
 
             val lastMakeResult = otherMakeResults.last()
             clearCachesRebuildAndCheckOutput(lastMakeResult)
         }
+    }
+
+    private fun excludeCompilerErrorMessagesFromLog(log: String): String {
+        return if (!log.contains("COMPILATION FAILED")) log
+        else log.split("COMPILATION FAILED").mapIndexed { index, s ->
+            if (index == 0) return@mapIndexed s
+            return@mapIndexed if(s.indexOf("=") > 0) s.substring(s.indexOf("=")) else ""
+        }.joinToString("COMPILATION FAILED\n\n")
     }
 
     protected data class MakeResult(
@@ -448,6 +457,9 @@ abstract class AbstractIncrementalJpsTest(
             val kotlinFacetSettings = module.kotlinFacetSettings
             if (kotlinFacetSettings != null) {
                 val compilerArguments = kotlinFacetSettings.compilerArguments
+                if(compilerArguments != null) {
+                    updateCommandLineArguments(compilerArguments)
+                }
                 if (compilerArguments is K2MetadataCompilerArguments) {
                     val out = getAbsolutePath("${module.name}/out")
                     File(out).mkdirs()
@@ -484,7 +496,8 @@ abstract class AbstractIncrementalJpsTest(
 
     private fun configureRequiredLibraries() {
         myProject.modules.forEach { module ->
-            val platformKind = module.kotlinFacet?.settings?.targetPlatform?.idePlatformKind.orDefault()
+            val platformKind = module.kotlinFacet?.settings?.targetPlatform?.idePlatformKind
+                ?: JvmPlatforms.defaultJvmPlatform.idePlatformKind
 
             when {
                 platformKind.isJvm -> {
@@ -533,7 +546,10 @@ abstract class AbstractIncrementalJpsTest(
         }
 
         override fun chunkBuildStarted(context: CompileContext, chunk: ModuleChunk) {
-            logDirtyFiles(markedDirtyBeforeRound, "ChunkBuildStarted") // files can be marked as dirty during build start (KotlinCompileContext initialization)
+            logDirtyFiles(
+                markedDirtyBeforeRound,
+                "ChunkBuildStarted"
+            ) // files can be marked as dirty during build start (KotlinCompileContext initialization)
 
             if (!chunk.isDummy(context) && context.projectDescriptor.project.modules.size > 1) {
                 logLine("Building ${chunk.modules.sortedBy { it.name }.joinToString { it.name }}")

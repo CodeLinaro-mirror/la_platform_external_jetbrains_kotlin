@@ -5,24 +5,25 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeInfoProvider
 
-import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiSingleFileTest
+import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.utils.executeOnPooledThreadInReadAction
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
+import org.jetbrains.kotlin.types.Variance
 
 abstract class AbstractFunctionClassKindTest  : AbstractAnalysisApiSingleFileTest() {
 
     override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
-        val expressionAtCaret = testServices.expressionMarkerProvider.getElementOfTypAtCaret(ktFile) as KtExpression
+        val expressionAtCaret = testServices.expressionMarkerProvider.getElementOfTypeAtCaret(ktFile) as KtExpression
 
         val (type, functionClassKind) = executeOnPooledThreadInReadAction {
             analyseForTest(expressionAtCaret) {
                 val functionType = expressionAtCaret.getExpectedType()
-                functionType?.render() to functionType?.functionClassKind
+                functionType?.render(position = Variance.INVARIANT) to functionType?.functionTypeKind
             }
         }
         val actual = buildString {

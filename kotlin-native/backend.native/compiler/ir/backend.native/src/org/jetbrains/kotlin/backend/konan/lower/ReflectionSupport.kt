@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.konan.KonanBackendContext
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
-import org.jetbrains.kotlin.backend.konan.isObjCClass
+import org.jetbrains.kotlin.ir.objcinterop.isObjCClass
 import org.jetbrains.kotlin.backend.konan.llvm.computeFullName
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
 import org.jetbrains.kotlin.ir.IrElement
@@ -15,6 +15,8 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
+import org.jetbrains.kotlin.ir.symbols.IrScriptSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
@@ -65,7 +67,7 @@ internal class KTypeGenerator(
                     // Leave upper bounds of non-reified type parameters as is, even if they are reified themselves.
                     irKTypeParameter(classifier.owner, leaveReifiedForLater = false, seenTypeParameters = seenTypeParameters)
                 }
-                else -> TODO("Unexpected classifier: $classifier")
+                is IrScriptSymbol -> classifier.unexpectedSymbolKind<IrClassifierSymbol>()
             }
 
             return irKTypeImpl(
@@ -108,7 +110,7 @@ internal class KTypeGenerator(
         val result = irConstantObject(symbols.kTypeParameterImpl.owner, mapOf(
                 "name" to irConstantString(typeParameter.name.asString()),
                 "containerFqName" to irConstantString(typeParameter.parentUniqueName),
-                "upperBounds" to irKTypeList(typeParameter.superTypes, leaveReifiedForLater, seenTypeParameters),
+                "upperBoundsArray" to irKTypeArray(typeParameter.superTypes, leaveReifiedForLater, seenTypeParameters),
                 "varianceId" to irConstantInt(mapVariance(typeParameter.variance)),
                 "isReified" to irConstantBoolean(typeParameter.isReified),
         ))
@@ -122,18 +124,15 @@ internal class KTypeGenerator(
             else -> parent.fqNameForIrSerialization.asString()
         }
 
-    private fun IrBuilderWithScope.irKTypeList(
+    private fun IrBuilderWithScope.irKTypeArray(
             types: List<IrType>,
             leaveReifiedForLater: Boolean,
             seenTypeParameters: MutableSet<IrTypeParameter>
     ): IrConstantValue {
         val itemType = symbols.kType.defaultType
-        val elements = irConstantArray(symbols.array.typeWith(itemType),
+        return irConstantArray(symbols.array.typeWith(itemType),
                 types.map { irKType(it, leaveReifiedForLater, seenTypeParameters) }
         )
-        return irConstantObject(symbols.arrayAsList.owner, mapOf(
-                "array" to elements
-        ))
     }
 
     // this constants are copypasted from KVarianceMapper.Companion in KTypeImpl.kt
@@ -154,7 +153,6 @@ internal class KTypeGenerator(
                     when (argument) {
                         is IrStarProjection -> irConstantInt(-1)
                         is IrTypeProjection -> irConstantInt(mapVariance(argument.variance))
-                        else -> error("Unexpected IrTypeArgument: $argument (${argument::class})")
                     }
                 })
         val type = irConstantArray(
@@ -163,7 +161,6 @@ internal class KTypeGenerator(
                     when (argument) {
                         is IrStarProjection -> irConstantPrimitive(irNull())
                         is IrTypeProjection -> irKType(argument.type, leaveReifiedForLater, seenTypeParameters)
-                        else -> error("Unexpected IrTypeArgument: $argument (${argument::class})")
                     }
                 })
         return irConstantObject(

@@ -81,11 +81,6 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
         applicability = DirectiveApplicability.Global
     )
 
-    val EXPECT_ACTUAL_LINKER by directive(
-        description = "",
-        applicability = DirectiveApplicability.Global
-    )
-
     val SPLIT_PER_MODULE by directive(
         description = "",
         applicability = DirectiveApplicability.Global
@@ -114,6 +109,11 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
 
     val GENERATE_INLINE_ANONYMOUS_FUNCTIONS by directive(
         description = "translate lambdas into in-line anonymous functions",
+        applicability = DirectiveApplicability.Global
+    )
+
+    val GENERATE_STRICT_IMPLICIT_EXPORT by directive(
+        description = "enable strict implicitly exported entities types inside d.ts files",
         applicability = DirectiveApplicability.Global
     )
 
@@ -205,6 +205,11 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
         applicability = DirectiveApplicability.Global
     )
 
+    val ONLY_IR_DCE by directive(
+        description = "Disable non DCE build",
+        applicability = DirectiveApplicability.Global
+    )
+
     val RUN_IC by directive(
         description = "",
         applicability = DirectiveApplicability.Global
@@ -220,22 +225,22 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
         applicability = DirectiveApplicability.Global
     )
 
+    val ES6_MODE by directive(
+        description = "Enables the Kotlin/JS compilation with ES-classes",
+        applicability = DirectiveApplicability.Global
+    )
+
     val ES_MODULES by directive(
-        description = "",
+        description = "Specify that the compiled js-sources will use ESM module system",
         applicability = DirectiveApplicability.Global
     )
 
     val ENTRY_ES_MODULE by directive(
-        description = "",
+        description = "Specify the entry point that imports other ESM modules",
         applicability = DirectiveApplicability.File
     )
 
     val PER_MODULE by directive(
-        description = "",
-        applicability = DirectiveApplicability.Global
-    )
-
-    val RUN_NEW_IR_2_JS by directive(
         description = "",
         applicability = DirectiveApplicability.Global
     )
@@ -245,5 +250,10 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
             Don't added helper files to prevent linking issues.
         """.trimIndent(),
         applicability = DirectiveApplicability.Global,
+    )
+
+    val KEEP by stringDirective(
+        description = "Keep declarations",
+        applicability = DirectiveApplicability.Global
     )
 }

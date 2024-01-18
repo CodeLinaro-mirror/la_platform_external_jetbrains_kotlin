@@ -15,26 +15,11 @@ package kotlin.collections
 @kotlin.internal.InlineOnly
 public actual inline fun <T> Collection<T>.toTypedArray(): Array<T> = copyToArray(this)
 
+@Suppress("UNCHECKED_CAST")
 @PublishedApi
 internal fun <T> copyToArray(collection: Collection<T>): Array<T> =
     if (collection is AbstractCollection<T>)
         //TODO: Find more proper way to call abstract collection's toArray
         @Suppress("INVISIBLE_MEMBER") collection.toArray() as Array<T>
     else
-        copyToArrayImpl(collection) as Array<T>
-
-@Suppress("UNCHECKED_CAST")
-internal actual fun <T> copyToArrayImpl(collection: Collection<*>, array: Array<T>): Array<T> {
-    if (array.size < collection.size)
-        return copyToArrayImpl(collection) as Array<T>
-
-    val iterator = collection.iterator()
-    var index = 0
-    while (iterator.hasNext()) {
-        array[index++] = iterator.next() as T
-    }
-    if (index < array.size) {
-        (array as Array<T?>).fill(null, index)
-    }
-    return array
-}
+        collectionToArray(collection) as Array<T>

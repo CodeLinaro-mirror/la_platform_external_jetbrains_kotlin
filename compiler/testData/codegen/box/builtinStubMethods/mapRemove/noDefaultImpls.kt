@@ -1,5 +1,6 @@
-// !JVM_DEFAULT_MODE: enable
+// !JVM_DEFAULT_MODE: all
 // SKIP_JDK6
+// IGNORE_CODEGEN_WITH_IR_FAKE_OVERRIDE_GENERATION: KT-61370
 // TARGET_BACKEND: JVM
 // JVM_TARGET: 1.8
 // WITH_STDLIB
@@ -14,7 +15,6 @@ class B : A<String, String>, java.util.AbstractMap<String, String>() {
 }
 
 interface C<K, V> : MutableMap<K, V> {
-    @JvmDefault
     override fun remove(key: K, value: V) = true
 }
 

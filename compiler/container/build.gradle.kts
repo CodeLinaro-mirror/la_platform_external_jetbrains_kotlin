@@ -12,11 +12,12 @@ dependencies {
     testCompileOnly("org.jetbrains:annotations:13.0")
     testApi(project(":kotlin-test:kotlin-test-jvm"))
     testApi(project(":kotlin-test:kotlin-test-junit"))
-    testApi(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
     testCompileOnly(intellijCore())
 
     testRuntimeOnly(intellijCore())
     testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
+    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
 }
 
 sourceSets {
@@ -27,6 +28,5 @@ sourceSets {
 testsJar {}
 
 projectTest(parallel = true) {
-    dependsOn(":dist")
     workingDir = rootDir
 }

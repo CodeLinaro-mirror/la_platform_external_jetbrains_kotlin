@@ -70,22 +70,12 @@ class FileDeserializationState(
     val symbolDeserializer =
         IrSymbolDeserializer(
             linker.symbolTable, fileReader, file.symbol,
-            fileProto.actualList,
             ::addIdSignature,
             linker::handleExpectActualMapping,
             symbolProcessor = linker.symbolProcessor,
-        ) { idSig, symbolKind ->
-
-            val topLevelSig = idSig.topLevelSignature()
-            val actualModuleDeserializer = moduleDeserializer.findModuleDeserializerForTopLevelId(topLevelSig)
-                ?: run {
-                    // The symbol might be gone in newer version of dependency KLIB. Then the KLIB that was compiled against
-                    // the older version of dependency KLIB will still have a reference to non-existing symbol. And the linker will have to
-                    // handle such situation appropriately. See KT-41378.
-                    linker.handleSignatureIdNotFoundInModuleWithDependencies(idSig, moduleDeserializer)
-                }
-
-            actualModuleDeserializer.deserializeIrSymbol(idSig, symbolKind)
+            internationService = linker.internationService
+        ) { idSignature, symbolKind ->
+            linker.deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(idSignature, symbolKind, moduleDeserializer)
         }
 
     val declarationDeserializer = IrDeclarationDeserializer(
@@ -100,7 +90,9 @@ class FileDeserializationState(
         symbolDeserializer,
         linker.fakeOverrideBuilder.platformSpecificClassFilter,
         linker.fakeOverrideBuilder,
-        compatibilityMode = moduleDeserializer.compatibilityMode
+        compatibilityMode = moduleDeserializer.compatibilityMode,
+        linker.partialLinkageSupport.isEnabled,
+        internationService = linker.internationService
     )
 
     val fileDeserializer = IrFileDeserializer(file, fileReader, fileProto, symbolDeserializer, declarationDeserializer)
@@ -193,7 +185,7 @@ class IrKlibBytesSource(private val klib: IrLibrary, private val fileIndex: Int)
     override fun debugInfo(index: Int): ByteArray? = klib.debugInfo(index, fileIndex)
 }
 
-internal fun IrLibraryFile.deserializeFqName(fqn: List<Int>): String =
+fun IrLibraryFile.deserializeFqName(fqn: List<Int>): String =
     fqn.joinToString(".", transform = ::string)
 
 fun IrLibraryFile.createFile(module: IrModuleFragment, fileProto: ProtoFile): IrFile {

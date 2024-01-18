@@ -1,34 +1,37 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.fir
 
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollectorVisitor
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.renderWithType
-import org.jetbrains.kotlin.fir.resolve.SessionHolder
 import org.jetbrains.kotlin.analysis.low.level.api.fir.ContextByDesignationCollector
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDeclarationDesignationWithFile
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignationWithFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDesignation
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.containingClassId
+import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.FirElementWithResolveState
+import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContextForProvider
+import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollectorVisitor
+import org.jetbrains.kotlin.fir.containingClass
+import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.resolve.SessionHolder
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
 
 private class ContextCollectingDiagnosticCollectorVisitor private constructor(
     sessionHolder: SessionHolder,
-    designation: FirDeclarationDesignationWithFile,
+    designation: FirDesignationWithFile,
 ) : AbstractDiagnosticCollectorVisitor(
     PersistentCheckerContextFactory.createEmptyPersistenceCheckerContext(sessionHolder)
 ) {
-    private val contextCollector = object : ContextByDesignationCollector<CheckerContext>(designation) {
-        override fun getCurrentContext(): CheckerContext = context
+    private val contextCollector = object : ContextByDesignationCollector<CheckerContextForProvider>(designation) {
+        override fun getCurrentContext(): CheckerContextForProvider = context
 
-        override fun goToNestedDeclaration(declaration: FirDeclaration) {
-            declaration.accept(this@ContextCollectingDiagnosticCollectorVisitor, null)
+        override fun goToNestedDeclaration(target: FirElementWithResolveState) {
+            target.accept(this@ContextCollectingDiagnosticCollectorVisitor, null)
         }
     }
 
@@ -43,7 +46,7 @@ private class ContextCollectingDiagnosticCollectorVisitor private constructor(
     override fun checkElement(element: FirElement) {}
 
     companion object {
-        fun collect(sessionHolder: SessionHolder, designation: FirDeclarationDesignationWithFile): CheckerContext {
+        fun collect(sessionHolder: SessionHolder, designation: FirDesignationWithFile): CheckerContextForProvider {
             val visitor = ContextCollectingDiagnosticCollectorVisitor(sessionHolder, designation)
             designation.firFile.accept(visitor, null)
             return visitor.contextCollector.getCollectedContext()
@@ -56,16 +59,30 @@ internal object PersistenceContextCollector {
         sessionHolder: SessionHolder,
         firFile: FirFile,
         declaration: FirDeclaration,
-    ): CheckerContext {
+    ): CheckerContextForProvider {
         val isLocal = when (declaration) {
             is FirClassLikeDeclaration -> declaration.symbol.classId.isLocal
             is FirCallableDeclaration -> declaration.symbol.callableId.isLocal
-            else -> error("Unsupported declaration ${declaration.renderWithType()}")
+            is FirDanglingModifierList -> declaration.containingClass()?.classId?.isLocal == true
+            is FirAnonymousInitializer -> declaration.containingClassId().isLocal
+            is FirScript, is FirCodeFragment -> false
+            else -> errorWithAttachment("Unsupported declaration ${declaration::class}") {
+                withFirEntry("declaration", declaration)
+            }
         }
-        require(!isLocal) {
-            "Cannot collect context for local declaration ${declaration.renderWithType()}"
+
+        requireWithAttachment(
+            !isLocal,
+            { "Cannot collect context for local declaration ${declaration::class}" }
+        ) {
+            withFirEntry("declaration", declaration)
         }
+
         val designation = declaration.collectDesignation(firFile)
+        designation.path.forEach { firClass ->
+            firClass.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
+        }
+
         return ContextCollectingDiagnosticCollectorVisitor.collect(sessionHolder, designation)
     }
 }

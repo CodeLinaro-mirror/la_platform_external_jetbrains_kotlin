@@ -1,39 +1,275 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.gradle.native
 
-import org.jetbrains.kotlin.gradle.BaseGradleIT
-import org.jetbrains.kotlin.gradle.GradleVersionRequired
-import org.jetbrains.kotlin.gradle.util.AGPVersion
-import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.junit.Assume
-import org.junit.BeforeClass
-import kotlin.test.Test
+import org.gradle.api.JavaVersion
+import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.util.replaceText
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.condition.OS
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.appendText
 
-class AppleFrameworkIT : BaseGradleIT() {
-    companion object {
-        @BeforeClass
-        @JvmStatic
-        fun assumeItsMac() {
-            Assume.assumeTrue(HostManager.hostIsMac)
+@OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
+@DisplayName("Tests for K/N with Apple Framework")
+@GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
+@NativeGradlePluginTests
+class AppleFrameworkIT : KGPBaseTest() {
+
+    @DisplayName("Assembling AppleFrameworkForXcode tasks for IosArm64")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldAssembleAppleFrameworkForXcodeForIosArm64(
+        gradleVersion: GradleVersion,
+    ) {
+
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+            buildOptions = defaultBuildOptions,
+            environmentVariables = EnvironmentalVariables(
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use"
+            ),
+        ) {
+
+            build("assembleDebugAppleFrameworkForXcodeIosArm64") {
+                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework.dSYM")
+            }
+
+            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64") {
+                assertTasksExecuted(":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/lib.framework")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/lib.framework.dSYM")
+            }
         }
     }
 
-    override val defaultGradleVersion = GradleVersionRequired.FOR_MPP_SUPPORT
-    override fun defaultBuildOptions() = super.defaultBuildOptions().copy(
-        androidHome = KtTestUtil.findAndroidSdk(),
-        androidGradlePluginVersion = AGPVersion.v3_6_0
-    )
+    @DisplayName("Assembling fat AppleFrameworkForXcode tasks for Arm64 and X64 simulators")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldAssembleAppleFrameworkForXcodeForArm64AndX64Simulators(
+        gradleVersion: GradleVersion,
+    ) {
 
-    @Test
-    fun `assemble AppleFrameworkForXcode tasks for IosArm64`() {
-        with(Project("sharedAppleFramework")) {
-            val options: BuildOptions = defaultBuildOptions().copy(
-                customEnvironmentVariables = mapOf(
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+            buildOptions = defaultBuildOptions
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "Release",
+                "SDK_NAME" to "iphonesimulator",
+                "ARCHS" to "arm64 x86_64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use"
+            )
+            build("assembleReleaseAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+                assertTasksExecuted(":shared:linkReleaseFrameworkIosSimulatorArm64")
+                assertTasksExecuted(":shared:linkReleaseFrameworkIosX64")
+                assertTasksExecuted(":shared:assembleReleaseAppleFrameworkForXcode")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/Release/iphonesimulator/sdk.framework")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/Release/iphonesimulator/sdk.framework.dSYM")
+            }
+        }
+    }
+
+    @DisplayName("MacOS framework has symlinks")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldCheckThatMacOSFrameworkHasSymlinks(
+        gradleVersion: GradleVersion,
+        @TempDir testBuildDir: Path,
+    ) {
+
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "macosx",
+                "ARCHS" to "x86_64",
+                "EXPANDED_CODE_SIGN_IDENTITY" to "-",
+                "TARGET_BUILD_DIR" to testBuildDir.toString(),
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+            )
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeMacosX64")
+                assertSymlinkInProjectExists("shared/build/xcode-frameworks/debug/macosx/sdk.framework/Headers")
+                assertSymlinkExists(testBuildDir.resolve("build/xcode-derived/sdk.framework/Headers"))
+            }
+        }
+    }
+
+    @DisplayName("embedAndSign executes normally when signing is disabled")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun testEmbedAnsSignExecutionWithoutSigning(
+        gradleVersion: GradleVersion,
+    ) {
+
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+            )
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+                assertDirectoryInProjectExists("build/xcode-derived/sdk.framework")
+            }
+        }
+    }
+
+    @DisplayName("embedAndSign task does not copy dSYM to Xcode frameworks folder")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun testEmbedAnsSignDoesNotCopyDsym(
+        gradleVersion: GradleVersion,
+    ) {
+
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "EXPANDED_CODE_SIGN_IDENTITY" to "-",
+                "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+            )
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+                assertDirectoryInProjectExists("build/xcode-derived/sdk.framework")
+                assertDirectoryInProjectDoesNotExist("build/xcode-derived/sdk.framework.DSYM")
+            }
+        }
+    }
+
+    @DisplayName("embedAndSignAppleFrameworkForXcode fail")
+    @GradleTest
+    fun shouldFailWithExecutingEmbedAndSignAppleFrameworkForXcode(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject("sharedAppleFramework", gradleVersion) {
+            buildAndFail(":shared:embedAndSignAppleFrameworkForXcode") {
+                assertOutputContains("Please run the embedAndSignAppleFrameworkForXcode task from Xcode")
+            }
+        }
+    }
+
+    @DisplayName("Registered tasks with Xcode environment for Debug IosArm64 configuration")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldCheckAllRegisteredTasksWithXcodeEnvironmentForDebugIosArm64(
+        gradleVersion: GradleVersion,
+        @TempDir testBuildDir: Path,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "Debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "EXPANDED_CODE_SIGN_IDENTITY" to "-",
+                "TARGET_BUILD_DIR" to testBuildDir.toString(),
+                "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir"
+            )
+            buildAndAssertAllTasks(
+                registeredTasks = listOf(
+                    "shared:assembleDebugAppleFrameworkForXcodeIosArm64",
+                    "shared:embedAndSignAppleFrameworkForXcode",
+                    "shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64",
+                    "shared:embedAndSignCustomAppleFrameworkForXcode",
+                    "shared:assembleDebugAppleFrameworkForXcodeIosX64",
+                    "shared:assembleReleaseAppleFrameworkForXcodeIosX64",
+                    "shared:assembleReleaseAppleFrameworkForXcodeIosArm64",
+                    "shared:assembleCustomDebugAppleFrameworkForXcodeIosX64",
+                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
+                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
+                ),
+                environmentVariables = EnvironmentalVariables(environmentVariables)
+            )
+        }
+    }
+
+    @DisplayName("embedAndSignAppleFrameworkForXcode was registered without required Xcode environments")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldCheckEmbedAndSignAppleFrameworkForXcodeDoesNotRequireXcodeEnv(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
+                    "CONFIGURATION" to "Debug",
+                    "SDK_NAME" to "iphoneos",
+                    "ARCHS" to "arm64"
+                )
+            )
+            buildAndAssertAllTasks(
+                registeredTasks = listOf(
+                    "shared:embedAndSignAppleFrameworkForXcode",
+                    "shared:embedAndSignCustomAppleFrameworkForXcode"
+                ),
+                notRegisteredTasks = listOf(
+                    "shared:assembleReleaseAppleFrameworkForXcodeIosX64",
+                    "shared:assembleDebugAppleFrameworkForXcodeIosX64",
+                    "shared:assembleReleaseAppleFrameworkForXcodeIosArm64",
+                    "shared:assembleDebugAppleFrameworkForXcodeIosArm64",
+                    "shared:assembleCustomDebugAppleFrameworkForXcodeIosX64",
+                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
+                    "shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64",
+                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
+                ),
+                environmentVariables = environmentVariables
+            )
+            buildAndFail(
+                ":shared:embedAndSignCustomAppleFrameworkForXcode",
+                environmentVariables = environmentVariables
+            ) {
+                assertTasksFailed(":shared:embedAndSignCustomAppleFrameworkForXcode")
+                assertOutputContains("Please run the embedAndSignCustomAppleFrameworkForXcode task from Xcode")
+            }
+        }
+    }
+
+    @DisplayName("Static framework for Arm64 is built but is not embedded")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldCheckThatStaticFrameworkForArm64IsBuildAndNotEmbedded(
+        gradleVersion: GradleVersion,
+    ) {
+
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+            buildOptions = defaultBuildOptions
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
                     "CONFIGURATION" to "debug",
                     "SDK_NAME" to "iphoneos123",
                     "ARCHS" to "arm64",
@@ -41,142 +277,231 @@ class AppleFrameworkIT : BaseGradleIT() {
                     "FRAMEWORKS_FOLDER_PATH" to "no use"
                 )
             )
-            build("assembleDebugAppleFrameworkForXcodeIosArm64", options = options) {
-                assertSuccessful()
-                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
-                assertFileExists("/shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework")
-                assertFileExists("/shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework.dSYM")
+
+            subProject("shared").buildGradleKts.modify {
+                it.replace(
+                    "baseName = \"sdk\"",
+                    "baseName = \"sdk\"\nisStatic = true"
+                )
             }
 
-            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64", options = options) {
-                assertSuccessful()
-                assertTasksExecuted(":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64")
-                assertFileExists("/shared/build/xcode-frameworks/debug/iphoneos123/lib.framework")
-                assertFileExists("/shared/build/xcode-frameworks/debug/iphoneos123/lib.framework.dSYM")
+            build("embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
+                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
+                assertTasksSkipped(":shared:embedAndSignAppleFrameworkForXcode")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework")
+                assertFileInProjectNotExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework.dSYM")
             }
         }
     }
 
-    @Test
-    fun `assemble fat AppleFrameworkForXcode tasks for Arm64 and X64 simulators`() {
-        with(Project("sharedAppleFramework")) {
-            val options: BuildOptions = defaultBuildOptions().copy(
-                customEnvironmentVariables = mapOf(
-                    "CONFIGURATION" to "Release",
-                    "SDK_NAME" to "iphonesimulator",
-                    "ARCHS" to "arm64 x86_64",
+    @DisplayName("Configuration errors reported to Xcode when embedAndSign task requested")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldReportConfErrorsToXcodeWhenRequestedByEmbedAndSign(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
+                    "CONFIGURATION" to "debug",
+                    "SDK_NAME" to "iphoneos123",
+                    "ARCHS" to "arm64",
                     "TARGET_BUILD_DIR" to "no use",
                     "FRAMEWORKS_FOLDER_PATH" to "no use"
                 )
             )
-            build("assembleReleaseAppleFrameworkForXcode", options = options) {
-                assertSuccessful()
-                assertTasksExecuted(":shared:linkReleaseFrameworkIosSimulatorArm64")
-                assertTasksExecuted(":shared:linkReleaseFrameworkIosX64")
-                assertTasksExecuted(":shared:assembleReleaseAppleFrameworkForXcode")
-                assertFileExists("/shared/build/xcode-frameworks/Release/iphonesimulator/sdk.framework")
-                assertFileExists("/shared/build/xcode-frameworks/Release/iphonesimulator/sdk.framework.dSYM")
+
+            subProject("shared").buildGradleKts.appendText(
+                """
+                kotlin {
+                    sourceSets["commonMain"].dependencies {
+                        implementation("com.example.unknown:dependency:0.0.1")
+                    }       
+                }
+                """.trimIndent()
+            )
+
+            buildAndFail(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
+                assertOutputContains("error: Could not find com.example.unknown:dependency:0.0.1.")
             }
         }
     }
 
-    @Test
-    fun `check that macOS framework has symlinks`() {
-        with(Project("sharedAppleFramework")) {
-            val options: BuildOptions = defaultBuildOptions().copy(
-                customEnvironmentVariables = mapOf(
+    @DisplayName("Compilation errors reported to Xcode when embedAndSign task requested")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldReportCompilationErrorsToXcodeWhenRequestedByEmbedAndSign(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
                     "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "macosx",
-                    "ARCHS" to "x86_64",
-                    "EXPANDED_CODE_SIGN_IDENTITY" to "-",
-                    "TARGET_BUILD_DIR" to workingDir.absolutePath,
-                    "FRAMEWORKS_FOLDER_PATH" to "${projectName}/build/xcode-derived"
-                )
-            )
-            build(":shared:embedAndSignAppleFrameworkForXcode", options = options) {
-                assertSuccessful()
-                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeMacosX64")
-                // Verify symlinks in gradle build folder
-                assertFileExists("/shared/build/xcode-frameworks/debug/macosx/sdk.framework/Headers")
-                assertFileIsSymlink("/shared/build/xcode-frameworks/debug/macosx/sdk.framework/Headers")
-                // Verify symlinks in xcode derived folder
-                assertFileExists("/build/xcode-derived/sdk.framework/Headers")
-                assertFileIsSymlink("/build/xcode-derived/sdk.framework/Headers")
-            }
-        }
-    }
-
-    @Test
-    fun `check embedAndSignAppleFrameworkForXcode fail`() {
-        with(Project("sharedAppleFramework")) {
-            build(":shared:embedAndSignAppleFrameworkForXcode") {
-                assertTasksFailed(":shared:embedAndSignAppleFrameworkForXcode")
-                assertContains("Please run the embedAndSignAppleFrameworkForXcode task from Xcode")
-            }
-        }
-    }
-
-    @Test
-    fun `check all registered tasks with Xcode environment for Debug IosArm64 configuration`() {
-        with(Project("sharedAppleFramework")) {
-            val options: BuildOptions = defaultBuildOptions().copy(
-                customEnvironmentVariables = mapOf(
-                    "CONFIGURATION" to "Debug",
-                    "SDK_NAME" to "iphoneos",
+                    "SDK_NAME" to "iphoneos123",
                     "ARCHS" to "arm64",
-                    "EXPANDED_CODE_SIGN_IDENTITY" to "-",
-                    "TARGET_BUILD_DIR" to "testBuildDir",
-                    "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir"
+                    "TARGET_BUILD_DIR" to "no use",
+                    "FRAMEWORKS_FOLDER_PATH" to "no use"
                 )
             )
-            build("tasks", options = options) {
-                assertSuccessful()
-                assertTasksRegistered(
-                    ":shared:assembleDebugAppleFrameworkForXcodeIosArm64",
-                    ":shared:embedAndSignAppleFrameworkForXcode",
-                    ":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64",
-                    ":shared:embedAndSignCustomAppleFrameworkForXcode",
-                    ":shared:assembleDebugAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleReleaseAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleReleaseAppleFrameworkForXcodeIosArm64",
-                    ":shared:assembleCustomDebugAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
-                )
+
+            projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
+                .appendText("this can't be compiled")
+
+            buildAndFail(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
+                assertOutputContains("/sharedAppleFramework/shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt:7:2: error: Syntax error: Expecting a top level declaration")
+                assertOutputContains("error: Compilation finished with errors")
             }
         }
     }
 
-    @Test
-    fun `check embedAndSignAppleFrameworkForXcode was registered without required Xcode environments`() {
-        with(Project("sharedAppleFramework")) {
-            val options: BuildOptions = defaultBuildOptions().copy(
-                customEnvironmentVariables = mapOf(
-                    "CONFIGURATION" to "Debug",
-                    "SDK_NAME" to "iphoneos",
-                    "ARCHS" to "arm64"
+    @DisplayName("Compilation errors printed with Gradle-style when any other task requested")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldPrintCompilationErrorsWithGradleStyle(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
+                    "CONFIGURATION" to "debug",
+                    "SDK_NAME" to "iphoneos123",
+                    "ARCHS" to "arm64",
+                    "TARGET_BUILD_DIR" to "no use",
+                    "FRAMEWORKS_FOLDER_PATH" to "no use"
                 )
             )
-            build("tasks", options = options) {
-                assertSuccessful()
-                assertTasksRegistered(
-                    ":shared:embedAndSignAppleFrameworkForXcode",
-                    ":shared:embedAndSignCustomAppleFrameworkForXcode"
-                )
-                assertTasksNotRegistered(
-                    ":shared:assembleReleaseAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleDebugAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleReleaseAppleFrameworkForXcodeIosArm64",
-                    ":shared:assembleDebugAppleFrameworkForXcodeIosArm64",
-                    ":shared:assembleCustomDebugAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
-                    ":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64",
-                    ":shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
-                )
+
+            projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
+                .appendText("this can't be compiled")
+
+            buildAndFail(":shared:assembleDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
+                assertOutputContains("e: file:///")
+                assertOutputDoesNotContain("error: Compilation finished with errors")
             }
-            build(":shared:embedAndSignCustomAppleFrameworkForXcode", options = options) {
-                assertTasksFailed(":shared:embedAndSignCustomAppleFrameworkForXcode")
-                assertContains("Please run the embedAndSignCustomAppleFrameworkForXcode task from Xcode")
+        }
+    }
+
+    @DisplayName("Compilation errors printed with Xcode-style with explicit option")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldPrintCompilationErrorsWithXcodeStyle(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
+                    "CONFIGURATION" to "debug",
+                    "SDK_NAME" to "iphoneos123",
+                    "ARCHS" to "arm64",
+                    "TARGET_BUILD_DIR" to "no use",
+                    "FRAMEWORKS_FOLDER_PATH" to "no use"
+                )
+            )
+
+            projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
+                .appendText("this can't be compiled")
+
+            buildAndFail(
+                ":shared:assembleDebugAppleFrameworkForXcodeIosArm64",
+                "-Pkotlin.native.useXcodeMessageStyle=true",
+                environmentVariables = environmentVariables
+            ) {
+                assertOutputContains("/sharedAppleFramework/shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt:7:2: error: Syntax error: Expecting a top level declaration")
+                assertOutputContains("error: Compilation finished with errors")
+            }
+        }
+    }
+
+    @DisplayName("Compilation errors reported to Xcode when embedAndSign task requested and compiler runs in a separate process")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldReportErrorsToXcodeWhenEmbedAndSignRequestedAndDisableCompilerDaemon(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = EnvironmentalVariables(
+                mapOf(
+                    "CONFIGURATION" to "debug",
+                    "SDK_NAME" to "iphoneos123",
+                    "ARCHS" to "arm64",
+                    "TARGET_BUILD_DIR" to "no use",
+                    "FRAMEWORKS_FOLDER_PATH" to "no use"
+                )
+            )
+
+            projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
+                .appendText("this can't be compiled")
+
+            buildAndFail(
+                ":shared:embedAndSignAppleFrameworkForXcode",
+                "-Pkotlin.native.disableCompilerDaemon=true",
+                environmentVariables = environmentVariables
+            ) {
+                assertOutputContains("/sharedAppleFramework/shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt:7:2: error: Syntax error: Expecting a top level declaration")
+            }
+        }
+    }
+
+    @DisplayName("Frameworks can be consumed from other gradle project")
+    @GradleTest
+    fun shouldCheckFrameworksCanBeConsumedFromOtherGradleProjects(gradleVersion: GradleVersion) {
+        nativeProject("consumableAppleFrameworks", gradleVersion) {
+            build(":consumer:help") {
+                assertOutputContains("RESOLUTION_SUCCESS")
+                assertOutputDoesNotContain("RESOLUTION_FAILURE")
+            }
+        }
+    }
+
+    @DisplayName("Smoke test with apple gradle plugin")
+    @GradleWithJdkTest
+    @JdkVersions(versions = [JavaVersion.VERSION_11])
+    fun smokeTestWithAppleGradlePlugin(
+        gradleVersion: GradleVersion,
+        providedJdk: JdkVersions.ProvidedJdk,
+    ) {
+
+        nativeProject(
+            "appleGradlePluginConsumesAppleFrameworks",
+            gradleVersion,
+            buildJdk = providedJdk.location
+        ) {
+            fun dependencyInsight(configuration: String) = arrayOf(
+                ":iosApp:dependencyInsight", "--configuration", configuration, "--dependency", "iosLib"
+            )
+
+            subProject("iosApp").buildGradleKts.replaceText("<applePluginTestVersion>", "\"${TestVersions.AppleGradlePlugin.V222_0_21}\"")
+
+            build(*dependencyInsight("iosAppIosX64DebugImplementation")) {
+                assertOutputContainsNativeFrameworkVariant("mainDynamicDebugFrameworkIos", gradleVersion)
+            }
+
+            build(*dependencyInsight("iosAppIosX64ReleaseImplementation")) {
+                assertOutputContainsNativeFrameworkVariant("mainDynamicReleaseFrameworkIos", gradleVersion)
+            }
+
+            // NB: '0' is required at the end since dependency is added with custom attribute, and it creates new configuration
+            build(*dependencyInsight("iosAppIosX64DebugImplementation0"), "-PmultipleFrameworks") {
+                assertOutputContainsNativeFrameworkVariant("mainStaticDebugFrameworkIos", gradleVersion)
+            }
+
+            build(*dependencyInsight("iosAppIosX64ReleaseImplementation0"), "-PmultipleFrameworks") {
+                assertOutputDoesNotContain("mainStaticReleaseFrameworkIos")
             }
         }
     }

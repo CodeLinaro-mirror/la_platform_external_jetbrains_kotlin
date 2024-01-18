@@ -15,13 +15,14 @@ import org.jetbrains.kotlin.analysis.api.types.KtIntersectionType
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
 import org.jetbrains.kotlin.fir.types.ConeIntersectionType
-import org.jetbrains.kotlin.fir.types.render
+import org.jetbrains.kotlin.fir.types.renderForDebugging
 
 internal class KtFirIntersectionType(
     override val coneType: ConeIntersectionType,
-    override val token: KtLifetimeToken,
     private val builder: KtSymbolByFirBuilder,
 ) : KtIntersectionType(), KtFirType {
+    override val token: KtLifetimeToken get() = builder.token
+
     override val conjuncts: List<KtType> by cached {
         coneType.intersectedTypes.map { conjunct -> builder.typeBuilder.buildKtType(conjunct) }
     }
@@ -30,7 +31,7 @@ internal class KtFirIntersectionType(
     }
     override val nullability: KtTypeNullability get() = withValidityAssertion { coneType.nullability.asKtNullability() }
 
-    override fun asStringForDebugging(): String = withValidityAssertion { coneType.render() }
+    override fun asStringForDebugging(): String = withValidityAssertion { coneType.renderForDebugging() }
     override fun equals(other: Any?) = typeEquals(other)
     override fun hashCode() = typeHashcode()
 }

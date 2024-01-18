@@ -10,19 +10,18 @@ dependencies {
     testImplementation(projectTests(":compiler:tests-common-new"))
 
     testApi(commonDependency("com.google.code.gson:gson"))
-    testApi(commonDependency("org.codehaus.groovy:groovy"))
-    testApi(commonDependency("org.codehaus.groovy:groovy-xml"))
+    testApi(commonDependency("org.jetbrains.intellij.deps:jdom"))
 
     api("org.jsoup:jsoup:1.14.2")
 
-    if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
-        testRuntimeOnly(files("${rootProject.projectDir}/dist/kotlinc/lib/kotlin-reflect.jar"))
-    }
-
-    testRuntimeOnly(project(":kotlin-reflect"))
     testRuntimeOnly(project(":core:descriptors.runtime"))
 
-    testApiJUnit5(vintageEngine = true)
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.junit.jupiter.params)
+    runtimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.junit4)
 }
 
 sourceSets {

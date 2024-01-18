@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.extensions
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolNamesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProviderInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
@@ -24,15 +25,25 @@ import org.jetbrains.kotlin.name.Name
  * This is also legal, because plugins can not generate annotation classes which can influence other plugins or this plugin itself
  */
 class FirSwitchableExtensionDeclarationsSymbolProvider private constructor(
-    private val delegate: FirSymbolProvider
+    private val delegate: FirExtensionDeclarationsSymbolProvider
 ) : FirSymbolProvider(delegate.session) {
     companion object {
-        fun create(session: FirSession): FirSwitchableExtensionDeclarationsSymbolProvider? {
-            return FirExtensionDeclarationsSymbolProvider.create(session)?.let { FirSwitchableExtensionDeclarationsSymbolProvider(it) }
-        }
+        fun createIfNeeded(session: FirSession): FirSwitchableExtensionDeclarationsSymbolProvider? =
+            FirExtensionDeclarationsSymbolProvider.createIfNeeded(session)?.let { FirSwitchableExtensionDeclarationsSymbolProvider(it) }
     }
 
     private var disabled: Boolean = false
+
+    override val symbolNamesProvider: FirSymbolNamesProvider = object : FirSymbolNamesProvider() {
+        override fun getPackageNamesWithTopLevelCallables(): Set<String>? =
+            if (disabled) null else delegate.symbolNamesProvider.getPackageNamesWithTopLevelCallables()
+
+        override fun getTopLevelClassifierNamesInPackage(packageFqName: FqName): Set<String>? =
+            if (disabled) null else delegate.symbolNamesProvider.getTopLevelClassifierNamesInPackage(packageFqName)
+
+        override fun getTopLevelCallableNamesInPackage(packageFqName: FqName): Set<Name>? =
+            if (disabled) null else delegate.symbolNamesProvider.getTopLevelCallableNamesInPackage(packageFqName)
+    }
 
     override fun getClassLikeSymbolByClassId(classId: ClassId): FirClassLikeSymbol<*>? {
         if (disabled) return null

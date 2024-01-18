@@ -34,6 +34,7 @@ interface IrDeclarationOrigin {
     object ERROR_CLASS : IrDeclarationOriginImpl("ERROR_CLASS")
 
     object SCRIPT_CLASS : IrDeclarationOriginImpl("SCRIPT_CLASS")
+    object SCRIPT_THIS_RECEIVER : IrDeclarationOriginImpl("SCRIPT_THIS_RECEIVER")
     object SCRIPT_STATEMENT : IrDeclarationOriginImpl("SCRIPT_STATEMENT")
     object SCRIPT_EARLIER_SCRIPTS : IrDeclarationOriginImpl("SCRIPT_EARLIER_SCRIPTS")
     object SCRIPT_CALL_PARAMETER : IrDeclarationOriginImpl("SCRIPT_CALL_PARAMETER")
@@ -51,6 +52,8 @@ interface IrDeclarationOrigin {
     object INSTANCE_RECEIVER : IrDeclarationOriginImpl("INSTANCE_RECEIVER")
     object PRIMARY_CONSTRUCTOR_PARAMETER : IrDeclarationOriginImpl("PRIMARY_CONSTRUCTOR_PARAMETER")
     object IR_TEMPORARY_VARIABLE : IrDeclarationOriginImpl("IR_TEMPORARY_VARIABLE")
+    object IR_TEMPORARY_VARIABLE_FOR_INLINED_PARAMETER : IrDeclarationOriginImpl("IR_TEMPORARY_VARIABLE_FOR_INLINED_PARAMETER")
+    object IR_TEMPORARY_VARIABLE_FOR_INLINED_EXTENSION_RECEIVER : IrDeclarationOriginImpl("IR_TEMPORARY_VARIABLE_FOR_INLINED_EXTENSION_RECEIVER")
     object IR_EXTERNAL_DECLARATION_STUB : IrDeclarationOriginImpl("IR_EXTERNAL_DECLARATION_STUB")
     object IR_EXTERNAL_JAVA_DECLARATION_STUB : IrDeclarationOriginImpl("IR_EXTERNAL_JAVA_DECLARATION_STUB")
     object IR_BUILTINS_STUB : IrDeclarationOriginImpl("IR_BUILTINS_STUB")
@@ -60,7 +63,10 @@ interface IrDeclarationOrigin {
 
     object FIELD_FOR_ENUM_ENTRY : IrDeclarationOriginImpl("FIELD_FOR_ENUM_ENTRY")
     object SYNTHETIC_HELPER_FOR_ENUM_VALUES : IrDeclarationOriginImpl("SYNTHETIC_HELPER_FOR_ENUM_VALUES", isSynthetic = true)
+    object SYNTHETIC_HELPER_FOR_ENUM_ENTRIES : IrDeclarationOriginImpl("SYNTHETIC_HELPER_FOR_ENUM_ENTRIES", isSynthetic = true)
     object FIELD_FOR_ENUM_VALUES : IrDeclarationOriginImpl("FIELD_FOR_ENUM_VALUES", isSynthetic = true)
+    object FIELD_FOR_ENUM_ENTRIES: IrDeclarationOriginImpl("FIELD_FOR_ENUM_ENTRIES", isSynthetic = true)
+    object PROPERTY_FOR_ENUM_ENTRIES: IrDeclarationOriginImpl("PROPERTY_FOR_ENUM_ENTRIES", isSynthetic = false)
     object FIELD_FOR_OBJECT_INSTANCE : IrDeclarationOriginImpl("FIELD_FOR_OBJECT_INSTANCE")
     object FIELD_FOR_CLASS_CONTEXT_RECEIVER : IrDeclarationOriginImpl("FIELD_FOR_CLASS_CONTEXT_RECEIVER", isSynthetic = true)
 
@@ -81,9 +87,24 @@ interface IrDeclarationOrigin {
 
     object SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT : IrDeclarationOriginImpl("SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT", isSynthetic = true)
 
-    class GeneratedByPlugin(val pluginKey: GeneratedDeclarationKey) : IrDeclarationOrigin {
+    /**
+     * [pluginKey] may be null if declaration with this origin was deserialized from klib
+     */
+    class GeneratedByPlugin private constructor(val pluginId: String, val pluginKey: GeneratedDeclarationKey?) : IrDeclarationOrigin {
+        constructor(pluginKey: GeneratedDeclarationKey) : this(pluginKey::class.qualifiedName!!, pluginKey)
+
+        companion object {
+            fun fromSerializedString(name: String): GeneratedByPlugin? {
+                val pluginId = name.removeSurrounding("GENERATED[", "]").takeIf { it != name } ?: return null
+                return GeneratedByPlugin(pluginId, pluginKey = null)
+            }
+        }
+
+        override val name: String
+            get() = "GENERATED[${pluginId}]"
+
         override fun toString(): String {
-            return "GENERATED[${pluginKey}]"
+            return name
         }
 
         override fun equals(other: Any?): Boolean {
@@ -97,11 +118,12 @@ interface IrDeclarationOrigin {
         }
     }
 
+    val name: String
     val isSynthetic: Boolean get() = false
 }
 
 abstract class IrDeclarationOriginImpl(
-    val name: String,
+    override val name: String,
     override val isSynthetic: Boolean = false
 ) : IrDeclarationOrigin {
     override fun toString(): String = name
@@ -118,5 +140,4 @@ abstract class IrDeclarationOriginImpl(
     override fun hashCode(): Int {
         return name.hashCode()
     }
-
 }

@@ -8,7 +8,8 @@ package org.jetbrains.kotlin.fir.resolve.transformers.body.resolve
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.createCurrentScopeList
-import org.jetbrains.kotlin.fir.resolve.transformers.FirProviderInterceptor
+import org.jetbrains.kotlin.fir.resolve.transformers.plugin.runCompilerRequiredAnnotationsResolvePhaseForLocalClass
+import org.jetbrains.kotlin.fir.resolve.transformers.plugin.runCompanionGenerationPhaseForLocalClass
 import org.jetbrains.kotlin.fir.resolve.transformers.runStatusResolveForLocalClass
 import org.jetbrains.kotlin.fir.resolve.transformers.runSupertypeResolvePhaseForLocalClass
 import org.jetbrains.kotlin.fir.resolve.transformers.runTypeResolvePhaseForLocalClass
@@ -17,8 +18,7 @@ fun <F : FirClassLikeDeclaration> F.runAllPhasesForLocalClass(
     transformer: FirAbstractBodyResolveTransformer,
     components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents,
     resolutionMode: ResolutionMode,
-    firTowerDataContextCollector: FirTowerDataContextCollector?,
-    firProviderInterceptor: FirProviderInterceptor?,
+    firResolveContextCollector: FirResolveContextCollector?
 ): F {
     if (status is FirResolvedDeclarationStatus) return this
     if (this is FirRegularClass) {
@@ -32,12 +32,19 @@ fun <F : FirClassLikeDeclaration> F.runAllPhasesForLocalClass(
         components.context.outerLocalClassForNested[nested.symbol] = outer.symbol
     }
 
+    runCompilerRequiredAnnotationsResolvePhaseForLocalClass(
+        components.session,
+        components.scopeSession,
+        localClassesNavigationInfo,
+        components.file,
+        components.containingDeclarations,
+    )
+    runCompanionGenerationPhaseForLocalClass(components.session)
     runSupertypeResolvePhaseForLocalClass(
         components.session,
         components.scopeSession,
         components.createCurrentScopeList(),
         localClassesNavigationInfo,
-        firProviderInterceptor,
         components.file,
         components.containingDeclarations,
     )
@@ -58,7 +65,7 @@ fun <F : FirClassLikeDeclaration> F.runAllPhasesForLocalClass(
         components,
         resolutionMode,
         localClassesNavigationInfo,
-        firTowerDataContextCollector
+        firResolveContextCollector
     )
     return this
 }

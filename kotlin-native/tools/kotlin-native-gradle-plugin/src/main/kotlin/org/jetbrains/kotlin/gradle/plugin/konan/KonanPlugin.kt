@@ -32,6 +32,7 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal
 import org.gradle.api.tasks.Exec
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaLauncher
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -41,14 +42,12 @@ import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.konan.KonanPlugin.Companion.COMPILE_ALL_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.tasks.*
-import org.jetbrains.kotlin.konan.CURRENT
-import org.jetbrains.kotlin.konan.CompilerVersion
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.buildDistribution
 import org.jetbrains.kotlin.konan.target.customerDistribution
-import org.jetbrains.kotlin.konan.util.DependencyProcessor
 import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.konan.util.DependencyDirectories
 import java.io.File
 import javax.inject.Inject
 
@@ -95,10 +94,11 @@ internal val Project.konanHome: String
         return project.kotlinNativeDist.absolutePath
     }
 
-internal val Project.konanVersion: CompilerVersion
+// Used only for distribution downloading that is not used in the project and should be removed
+internal val Project.konanVersion: String
     get() = project.findProperty(KonanPlugin.ProjectProperty.KONAN_VERSION)
-        ?.toString()?.let { CompilerVersion.fromString(it) }
-        ?: project.findProperty("kotlinNativeVersion") as? CompilerVersion ?: CompilerVersion.CURRENT
+        ?.toString()
+        ?: project.version.toString()
 
 internal val Project.konanBuildRoot          get() = buildDir.resolve("konan")
 internal val Project.konanBinBaseDir         get() = konanBuildRoot.resolve("bin")
@@ -136,9 +136,6 @@ internal val Project.konanTargets: List<KonanTarget>
 internal val Project.konanExtension: KonanExtension
     get() = extensions.getByName(KonanPlugin.KONAN_EXTENSION_NAME) as KonanExtension
 
-internal val Project.konanCompilerDownloadTask
-    get() = tasks.getByName(KonanPlugin.KONAN_DOWNLOAD_TASK_NAME)
-
 internal val Project.requestedTargets
     get() = findProperty(KonanPlugin.ProjectProperty.KONAN_BUILD_TARGETS)?.let {
         it.toString().trim().split("\\s+".toRegex())
@@ -148,29 +145,28 @@ internal val Project.jvmArgs
     get() = (findProperty(KonanPlugin.ProjectProperty.KONAN_JVM_ARGS) as String?)?.split("\\s+".toRegex()).orEmpty()
 
 internal val Project.compileAllTask
-    get() = getOrCreateTask(COMPILE_ALL_TASK_NAME)
+    get() = getOrRegisterTask(COMPILE_ALL_TASK_NAME)
 
 internal fun Project.targetIsRequested(target: KonanTarget): Boolean {
     val targets = requestedTargets
     return (targets.isEmpty() || targets.contains(target.visibleName) || targets.contains("all"))
 }
 
-/** Looks for task with given name in the given project. Throws [UnknownTaskException] if there's not such task. */
-private fun Project.getTask(name: String): Task = tasks.getByPath(name)
-
 /**
  * Looks for task with given name in the given project.
- * If such task isn't found, will create it. Returns created/found task.
+ * If such task isn't found, will register it. Returns registered/found task.
  */
-private fun Project.getOrCreateTask(name: String): Task = with(tasks) {
-    findByPath(name) ?: create(name, DefaultTask::class.java)
+private fun Project.getOrRegisterTask(name: String): TaskProvider<out Task> = if (tasks.names.contains(name)) {
+    tasks.named(name)
+} else {
+    tasks.register(name, DefaultTask::class.java)
 }
 
 internal fun Project.konanCompilerName(): String =
         "kotlin-native-${project.simpleOsName}-${project.konanVersion}"
 
 internal fun Project.konanCompilerDownloadDir(): String =
-        DependencyProcessor.localKonanDir.resolve(project.konanCompilerName()).absolutePath
+        DependencyDirectories.localKonanDir.resolve(project.konanCompilerName()).absolutePath
 
 // region Useful extensions and functions ---------------------------------------
 
@@ -239,7 +235,7 @@ internal fun dumpProperties(task: Task) {
             println("target             : $target")
             println("languageVersion    : $languageVersion")
             println("apiVersion         : $apiVersion")
-            println("konanVersion       : ${CompilerVersion.CURRENT}")
+            println("konanVersion       : ${KotlinVersion.CURRENT}")
             println("konanHome          : $konanHome")
             println()
         }
@@ -260,7 +256,7 @@ internal fun dumpProperties(task: Task) {
             println("linkerOpts         : $linkerOpts")
             println("headers            : ${headers.dump()}")
             println("linkFiles          : ${linkFiles.dump()}")
-            println("konanVersion       : ${CompilerVersion.CURRENT}")
+            println("konanVersion       : ${KotlinVersion.CURRENT}")
             println("konanHome          : $konanHome")
             println()
         }
@@ -310,8 +306,6 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
 
     companion object {
         internal const val ARTIFACTS_CONTAINER_NAME = "konanArtifacts"
-        internal const val KONAN_DOWNLOAD_TASK_NAME = "checkKonanCompiler"
-        internal const val KONAN_GENERATE_CMAKE_TASK_NAME = "generateCMake"
         internal const val COMPILE_ALL_TASK_NAME = "compileKonan"
 
         internal const val KONAN_EXTENSION_NAME = "konan"
@@ -343,7 +337,7 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                 // If the JDK that was set is not available get the JDK 11 as a default
                 service.launcherFor(object : Action<JavaToolchainSpec> {
                     override fun execute(toolchainSpec: JavaToolchainSpec) {
-                        toolchainSpec.languageVersion.set(JavaLanguageVersion.of(JdkMajorVersion.JDK_11.majorVersion))
+                        toolchainSpec.languageVersion.set(JavaLanguageVersion.of(11))   // FIXME: not resolved from buildSrc JdkMajorVersion.JDK_11_0.majorVersion))
                     }
                 }).get()
             }
@@ -356,7 +350,6 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
         project.plugins.apply("base")
         project.plugins.apply("java")
         // Create necessary tasks and extensions.
-        project.tasks.create(KONAN_DOWNLOAD_TASK_NAME, KonanCompilerDownloadTask::class.java)
         project.extensions.create(KONAN_EXTENSION_NAME, KonanExtension::class.java)
         val container = project.extensions.create(
                 KonanArtifactContainer::class.java,
@@ -374,15 +367,15 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
             project.setProperty(ProjectProperty.DOWNLOAD_COMPILER, true)
         }
 
-        // Create and set up aggregate building tasks.
-        val compileKonanTask = project.getOrCreateTask(COMPILE_ALL_TASK_NAME).apply {
+        // Register and set up aggregate building tasks.
+        val compileKonanTask = project.getOrRegisterTask(COMPILE_ALL_TASK_NAME).configure {
             group = BasePlugin.BUILD_GROUP
             description = "Compiles all the Kotlin/Native artifacts"
         }
-        project.getTask("build").apply {
+        project.tasks.named("build").configure {
             dependsOn(compileKonanTask)
         }
-        project.getTask("clean").apply {
+        project.tasks.named("clean").configure {
             doLast { project.cleanKonan() }
         }
 
@@ -408,13 +401,13 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                 }
         }
 
-        val runTask = project.getOrCreateTask("run")
+        val runTask = project.getOrRegisterTask("run")
         project.afterEvaluate {
             project.konanArtifactsContainer
                 .filterIsInstance(KonanProgram::class.java)
                 .forEach { program ->
                     program.tasks().forEach { compile ->
-                        compile.configure { this@configure.runTask?.let { runTask.dependsOn(it) } }
+                        compile.configure { this@configure.runTask?.let { runTask.configure { dependsOn(it) } } }
                     }
                 }
         }

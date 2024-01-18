@@ -1,4 +1,3 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_VARIABLE -UNUSED_PARAMETER
 // !CHECK_TYPE
 
@@ -17,8 +16,8 @@ fun test1(b: Boolean?) {
 }
 
 fun test2() {
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(
-        materialize()
+    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(
+        <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>materialize<!>()
     )
     select(materialize(), materialize<String>())
     select(materialize(), null, Inv<String>())
@@ -26,12 +25,12 @@ fun test2() {
         materialize(),
         null
     )<!>
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(
-        materialize(),
+    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(
+        <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>materialize<!>(),
         materialize()
     )
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>select<!>(
-        materialize(),
+    select(
+        <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>materialize<!>(),
         materialize(),
         null
     )

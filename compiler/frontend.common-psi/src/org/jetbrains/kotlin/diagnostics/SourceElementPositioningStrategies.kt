@@ -43,6 +43,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.DECLARATION_NAME
     )
 
+    val DECLARATION_NAME_ONLY = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.DECLARATION_NAME_ONLY,
+        PositioningStrategies.DECLARATION_NAME_ONLY
+    )
+
     val DECLARATION_SIGNATURE = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.DECLARATION_SIGNATURE,
         PositioningStrategies.DECLARATION_SIGNATURE
@@ -123,6 +128,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.DATA_MODIFIER
     )
 
+    val EXPECT_ACTUAL_MODIFIER = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.EXPECT_ACTUAL_MODIFIER,
+        PositioningStrategies.EXPECT_ACTUAL_MODIFIER
+    )
+
     val OBJECT_KEYWORD = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.OBJECT_KEYWORD,
         PositioningStrategies.OBJECT_KEYWORD
@@ -138,6 +148,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.PARAMETER_DEFAULT_VALUE
     )
 
+    val PARAMETERS_WITH_DEFAULT_VALUE = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.PARAMETERS_WITH_DEFAULT_VALUE,
+        PositioningStrategies.PARAMETERS_WITH_DEFAULT_VALUE
+    )
+
     val PARAMETER_VARARG_MODIFIER = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.PARAMETER_VARARG_MODIFIER,
         PositioningStrategies.PARAMETER_VARARG_MODIFIER
@@ -151,6 +166,11 @@ object SourceElementPositioningStrategies {
     val VALUE_ARGUMENTS = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.VALUE_ARGUMENTS,
         PositioningStrategies.VALUE_ARGUMENTS
+    )
+
+    val VALUE_ARGUMENTS_LIST = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.VALUE_ARGUMENTS_LIST,
+        PositioningStrategies.VALUE_ARGUMENTS_LIST
     )
 
     val SUPERTYPES_LIST = SourceElementPositioningStrategy(
@@ -263,11 +283,6 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.ANNOTATION_USE_SITE
     )
 
-    val ASSIGNMENT_LHS = SourceElementPositioningStrategy(
-        LightTreePositioningStrategies.ASSIGNMENT_LHS,
-        PositioningStrategies.ASSIGNMENT_LHS
-    )
-
     val IMPORT_LAST_NAME = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.IMPORT_LAST_NAME,
         PositioningStrategies.IMPORT_LAST_NAME
@@ -345,6 +360,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.TAILREC_MODIFIER
     )
 
+    val EXTERNAL_MODIFIER = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.EXTERNAL_MODIFIER,
+        PositioningStrategies.EXTERNAL_MODIFIER
+    )
+
     val PROPERTY_DELEGATE = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.PROPERTY_DELEGATE,
         PositioningStrategies.PROPERTY_DELEGATE
@@ -368,5 +388,10 @@ object SourceElementPositioningStrategies {
     val CALL_ELEMENT_WITH_DOT = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.CALL_ELEMENT_WITH_DOT,
         PositioningStrategies.CALL_ELEMENT_WITH_DOT
+    )
+
+    val TYPEALIAS_TYPE_REFERENCE = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.TYPEALIAS_TYPE_REFERENCE,
+        PositioningStrategies.TYPEALIAS_TYPE_REFERENCE,
     )
 }

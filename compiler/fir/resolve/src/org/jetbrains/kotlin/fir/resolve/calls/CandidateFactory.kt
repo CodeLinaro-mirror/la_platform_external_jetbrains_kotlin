@@ -5,22 +5,24 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls
 
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.builder.buildErrorFunction
 import org.jetbrains.kotlin.fir.declarations.builder.buildErrorProperty
+import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.isIntegerLiteralOrOperatorCall
-import org.jetbrains.kotlin.fir.returnExpressions
+import org.jetbrains.kotlin.fir.resolve.toFirRegularClass
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.impl.originalForWrappedIntegerOperator
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.classId
+import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.resolve.calls.components.PostponedArgumentsAnalyzerContext
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
@@ -33,61 +35,89 @@ class CandidateFactory private constructor(
     companion object {
         private fun buildBaseSystem(context: ResolutionContext, callInfo: CallInfo): ConstraintStorage {
             val system = context.inferenceComponents.createConstraintSystem()
+            system.addOuterSystem(context.bodyResolveContext.outerConstraintStorage)
             callInfo.arguments.forEach {
                 system.addSubsystemFromExpression(it)
             }
-            system.addOtherSystem(context.bodyResolveContext.inferenceSession.currentConstraintStorage)
             return system.asReadOnlyStorage()
         }
     }
 
     constructor(context: ResolutionContext, callInfo: CallInfo) : this(context, buildBaseSystem(context, callInfo))
 
+    /**
+     * [createCandidate] doesn't make any guarantees for inapplicable calls. Errors in the call or callee do not necessarily result in an
+     * inapplicable [Candidate].
+     */
     fun createCandidate(
         callInfo: CallInfo,
         symbol: FirBasedSymbol<*>,
         explicitReceiverKind: ExplicitReceiverKind,
         scope: FirScope?,
-        dispatchReceiverValue: ReceiverValue? = null,
-        givenExtensionReceiverOptions: List<ReceiverValue> = emptyList(),
-        objectsByName: Boolean = false
+        dispatchReceiver: FirExpression? = null,
+        givenExtensionReceiverOptions: List<FirExpression> = emptyList(),
+        objectsByName: Boolean = false,
+        isFromOriginalTypeInPresenceOfSmartCast: Boolean = false,
     ): Candidate {
         @Suppress("NAME_SHADOWING")
         val symbol = symbol.unwrapIntegerOperatorSymbolIfNeeded(callInfo)
 
         val result = Candidate(
-            symbol, dispatchReceiverValue, givenExtensionReceiverOptions,
-            explicitReceiverKind, context.inferenceComponents.constraintSystemFactory, baseSystem,
+            symbol,
+            dispatchReceiver,
+            givenExtensionReceiverOptions,
+            explicitReceiverKind,
+            context.inferenceComponents.constraintSystemFactory,
+            baseSystem,
             callInfo,
             scope,
             isFromCompanionObjectTypeScope = when (explicitReceiverKind) {
                 ExplicitReceiverKind.EXTENSION_RECEIVER ->
-                    givenExtensionReceiverOptions.singleOrNull().isCandidateFromCompanionObjectTypeScope()
-                ExplicitReceiverKind.DISPATCH_RECEIVER -> dispatchReceiverValue.isCandidateFromCompanionObjectTypeScope()
+                    givenExtensionReceiverOptions.singleOrNull().isCandidateFromCompanionObjectTypeScope(callInfo.session)
+                ExplicitReceiverKind.DISPATCH_RECEIVER -> dispatchReceiver.isCandidateFromCompanionObjectTypeScope(callInfo.session)
                 // The following cases are not applicable for companion objects.
                 ExplicitReceiverKind.NO_EXPLICIT_RECEIVER, ExplicitReceiverKind.BOTH_RECEIVERS -> false
-            }
+            },
+            isFromOriginalTypeInPresenceOfSmartCast,
         )
 
         // The counterpart in FE 1.0 checks if the given descriptor is VariableDescriptor yet not PropertyDescriptor.
-        // Here, we explicitly check if the referred declaration/symbol is value parameter, local variable, or backing field.
+        // Here, we explicitly check if the referred declaration/symbol is value parameter, local variable, enum entry, or backing field.
         val callSite = callInfo.callSite
         if (callSite is FirCallableReferenceAccess) {
-            if (symbol is FirValueParameterSymbol || symbol is FirPropertySymbol && symbol.isLocal || symbol is FirBackingFieldSymbol) {
-                result.addDiagnostic(Unsupported("References to variables aren't supported yet", callSite.calleeReference.source))
+            when {
+                symbol is FirValueParameterSymbol || symbol is FirPropertySymbol && symbol.isLocal || symbol is FirBackingFieldSymbol -> {
+                    result.addDiagnostic(
+                        Unsupported("References to variables aren't supported yet", callSite.calleeReference.source)
+                    )
+                }
+                symbol is FirEnumEntrySymbol -> {
+                    result.addDiagnostic(
+                        Unsupported("References to enum entries aren't supported", callSite.calleeReference.source)
+                    )
+                }
             }
-        } else if (objectsByName &&
-            symbol is FirRegularClassSymbol &&
-            symbol.classKind != ClassKind.OBJECT &&
-            symbol.companionObjectSymbol == null
-        ) {
+        } else if (objectsByName && symbol.isRegularClassWithoutCompanion(callInfo.session)) {
             result.addDiagnostic(NoCompanionObject)
         }
         if (callInfo.origin == FirFunctionCallOrigin.Operator && symbol is FirPropertySymbol) {
             // Flag all property references that are resolved from an convention operator call.
             result.addDiagnostic(PropertyAsOperator)
         }
+        if (symbol is FirPropertySymbol &&
+            !context.session.languageVersionSettings.supportsFeature(LanguageFeature.PrioritizedEnumEntries)
+        ) {
+            val containingClass = symbol.containingClassLookupTag()?.toFirRegularClass(context.session)
+            if (containingClass != null && symbol.fir.isEnumEntries(containingClass)) {
+                result.addDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
+            }
+        }
         return result
+    }
+
+    private fun FirBasedSymbol<*>.isRegularClassWithoutCompanion(session: FirSession): Boolean {
+        val referencedClass = (this as? FirClassLikeSymbol<*>)?.fullyExpandedClass(session) ?: return false
+        return referencedClass.classKind != ClassKind.OBJECT && referencedClass.companionObjectSymbol == null
     }
 
     private fun FirBasedSymbol<*>.unwrapIntegerOperatorSymbolIfNeeded(callInfo: CallInfo): FirBasedSymbol<*> {
@@ -102,11 +132,11 @@ class CandidateFactory private constructor(
         }
     }
 
-    private fun ReceiverValue?.isCandidateFromCompanionObjectTypeScope(): Boolean {
-        val expressionReceiverValue = this as? ExpressionReceiverValue ?: return false
-        val resolvedQualifier = (expressionReceiverValue.explicitReceiver as? FirResolvedQualifier) ?: return false
-        val originClassOfCandidate = expressionReceiverValue.type.classId ?: return false
-        return (resolvedQualifier.symbol?.fir as? FirRegularClass)?.companionObjectSymbol?.classId == originClassOfCandidate
+    private fun FirExpression?.isCandidateFromCompanionObjectTypeScope(useSiteSession: FirSession): Boolean {
+        val resolvedQualifier = this as? FirResolvedQualifier ?: return false
+        val originClassOfCandidate = this.resolvedType.classId ?: return false
+        val companion = resolvedQualifier.symbol?.fullyExpandedClass(useSiteSession)?.fir?.companionObjectSymbol
+        return companion?.classId == originClassOfCandidate
     }
 
     fun createErrorCandidate(callInfo: CallInfo, diagnostic: ConeDiagnostic): Candidate {
@@ -121,7 +151,7 @@ class CandidateFactory private constructor(
         }
         return Candidate(
             symbol,
-            dispatchReceiverValue = null,
+            dispatchReceiver = null,
             givenExtensionReceiverOptions = emptyList(),
             explicitReceiverKind = ExplicitReceiverKind.NO_EXPLICIT_RECEIVER,
             context.inferenceComponents.constraintSystemFactory,
@@ -136,7 +166,7 @@ class CandidateFactory private constructor(
             buildErrorFunction {
                 moduleData = context.session.moduleData
                 resolvePhase = FirResolvePhase.BODY_RESOLVE
-                origin = FirDeclarationOrigin.Synthetic
+                origin = FirDeclarationOrigin.Synthetic.Error
                 this.diagnostic = diagnostic
                 symbol = it
             }
@@ -148,7 +178,7 @@ class CandidateFactory private constructor(
             buildErrorProperty {
                 moduleData = context.session.moduleData
                 resolvePhase = FirResolvePhase.BODY_RESOLVE
-                origin = FirDeclarationOrigin.Synthetic
+                origin = FirDeclarationOrigin.Synthetic.Error
                 name = FirErrorPropertySymbol.NAME
                 this.diagnostic = diagnostic
                 symbol = it
@@ -157,18 +187,22 @@ class CandidateFactory private constructor(
     }
 }
 
-fun PostponedArgumentsAnalyzerContext.addSubsystemFromExpression(statement: FirStatement) {
-    when (statement) {
+fun PostponedArgumentsAnalyzerContext.addSubsystemFromExpression(statement: FirStatement): Boolean {
+    return when (statement) {
         is FirQualifiedAccessExpression,
         is FirWhenExpression,
         is FirTryExpression,
         is FirCheckNotNullCall,
-        is FirElvisExpression
-        -> (statement as FirResolvable).candidate()?.let { addOtherSystem(it.system.asReadOnlyStorage()) }
+        is FirElvisExpression -> {
+            val candidate = (statement as FirResolvable).candidate() ?: return false
+            addOtherSystem(candidate.system.asReadOnlyStorage())
+            true
+        }
 
         is FirSafeCallExpression -> addSubsystemFromExpression(statement.selector)
         is FirWrappedArgumentExpression -> addSubsystemFromExpression(statement.expression)
-        is FirBlock -> statement.returnExpressions().forEach { addSubsystemFromExpression(it) }
+        is FirBlock -> statement.returnExpressions().any { addSubsystemFromExpression(it) }
+        else -> false
     }
 }
 

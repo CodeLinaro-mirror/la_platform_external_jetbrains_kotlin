@@ -115,7 +115,7 @@ inline fun <reified T : Any> T.linearClosure(next: (T) -> T?): Set<T> {
     while (enqueued != null) {
         if (enqueued != this && results.add(enqueued)) {
             enqueued = next(enqueued)
-        }
+        } else break
     }
 
     return results
@@ -134,7 +134,7 @@ inline fun <reified T : Any> T.withLinearClosure(next: (T) -> T?): Set<T> {
     while (enqueued != null) {
         if (results.add(enqueued)) {
             enqueued = next(enqueued)
-        }
+        } else break
     }
 
     return results
@@ -168,21 +168,21 @@ internal fun <T> createResultSet(initialSize: Int = 16): MutableSet<T> {
 //region Deprecations
 
 @Suppress("unused")
-@Deprecated("Scheduled for removal in 1.8", level = DeprecationLevel.ERROR)
+@Deprecated("Scheduled for removal in 2.0", level = DeprecationLevel.ERROR)
 @PublishedApi
 internal fun <T> createResultSet(withValue: T, initialSize: Int = 16): MutableSet<T> {
     return LinkedHashSet<T>(initialSize).also { it.add(withValue) }
 }
 
 @Suppress("unused")
-@Deprecated("Scheduled for removal in 1.8", level = DeprecationLevel.ERROR)
+@Deprecated("Scheduled for removal in 2.0", level = DeprecationLevel.ERROR)
 @PublishedApi
 internal fun <T> createResultSet(withValues: Iterable<T>, initialSize: Int = 16): MutableSet<T> {
     return LinkedHashSet<T>(initialSize).also { it.addAll(withValues) }
 }
 
 @Suppress("unused")
-@Deprecated("Scheduled for removal in 1.8", level = DeprecationLevel.ERROR)
+@Deprecated("Scheduled for removal in 2.0", level = DeprecationLevel.ERROR)
 @PublishedApi
 internal inline fun <T> closureTo(
     destination: MutableSet<T>,

@@ -83,8 +83,8 @@ abstract class KtCodeFragment(
 
     override fun getContext(): PsiElement? {
         if (fakeContextForJavaFile != null) return fakeContextForJavaFile
-        if (context !is KtElement) {
-            val logInfoForContextElement = (context as? PsiFile)?.virtualFile?.path ?: context?.getElementTextWithContext()
+        if (context != null && context !is KtElement) {
+            val logInfoForContextElement = (context as? PsiFile)?.virtualFile?.path ?: context.getElementTextWithContext()
             LOG.warn("CodeFragment with non-kotlin context should have fakeContextForJavaFile set: \noriginalContext = $logInfoForContextElement")
             return null
         }
@@ -145,16 +145,20 @@ abstract class KtCodeFragment(
         if (contextFile != null) {
             if (contextFile.importDirectives.find { it.text == import } == null) {
                 imports.add(import)
+                clearCaches() // Increment the modification stamp
             }
         }
     }
 
     fun importsAsImportList(): KtImportList? {
         if (imports.isNotEmpty() && context != null) {
-            return KtPsiFactory(this).createAnalyzableFile("imports_for_codeFragment.kt", imports.joinToString("\n"), context).importList
+            return KtPsiFactory.contextual(context).createFile("imports_for_codeFragment.kt", imports.joinToString("\n")).importList
         }
         return null
     }
+
+    override val importLists: List<KtImportList>
+        get() = importsAsImportList().let(::listOfNotNull)
 
     override val importDirectives: List<KtImportDirective>
         get() = importsAsImportList()?.imports ?: emptyList()

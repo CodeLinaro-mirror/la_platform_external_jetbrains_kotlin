@@ -6,7 +6,9 @@
 package org.jetbrains.kotlin.test.model
 
 import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.backend.wasm.WasmCompilerResult
 import org.jetbrains.kotlin.codegen.ClassFileFactory
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fileClasses.JvmFileClassInfo
 import org.jetbrains.kotlin.ir.backend.js.CompilerResult
 import org.jetbrains.kotlin.js.facade.TranslationResult
@@ -34,8 +36,6 @@ object BinaryArtifacts {
 
         class JsIrArtifact(override val outputFile: File, val compilerResult: CompilerResult, val icCache: Map<String, ByteArray>? = null) : Js()
 
-        class JsEsArtifact(override val outputFile: File, val outputDceFile: File?) : Js()
-
         data class IncrementalJsArtifact(val originalArtifact: Js, val recompiledArtifact: Js) : Js() {
             override val outputFile: File
                 get() = unwrap().outputFile
@@ -51,7 +51,15 @@ object BinaryArtifacts {
             get() = ArtifactKinds.Native
     }
 
-    class KLib(val outputFile: File) : ResultingArtifact.Binary<KLib>() {
+    class Wasm(
+        val compilerResult: WasmCompilerResult,
+        val compilerResultWithDCE: WasmCompilerResult,
+    ) : ResultingArtifact.Binary<Wasm>() {
+        override val kind: BinaryKind<Wasm>
+            get() = ArtifactKinds.Wasm
+    }
+
+    class KLib(val outputFile: File, val reporter: BaseDiagnosticsCollector) : ResultingArtifact.Binary<KLib>() {
         override val kind: BinaryKind<KLib>
             get() = ArtifactKinds.KLib
     }

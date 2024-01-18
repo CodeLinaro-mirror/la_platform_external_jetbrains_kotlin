@@ -24,13 +24,13 @@ class ThreadData;
 void SetStackRef(ObjHeader** location, ObjHeader* value) noexcept;
 void SetHeapRef(ObjHeader** location, ObjHeader* value) noexcept;
 void SetHeapRefAtomic(ObjHeader** location, ObjHeader* value) noexcept;
+void SetHeapRefAtomicSeqCst(ObjHeader** location, ObjHeader* value) noexcept;
 OBJ_GETTER(ReadHeapRefAtomic, ObjHeader** location) noexcept;
 OBJ_GETTER(CompareAndSwapHeapRef, ObjHeader** location, ObjHeader* expected, ObjHeader* value) noexcept;
+bool CompareAndSetHeapRef(ObjHeader** location, ObjHeader* expected, ObjHeader* value) noexcept;
+OBJ_GETTER(GetAndSetHeapRef, ObjHeader** location, ObjHeader* value) noexcept;
 OBJ_GETTER(AllocateObject, ThreadData* threadData, const TypeInfo* typeInfo) noexcept;
 OBJ_GETTER(AllocateArray, ThreadData* threadData, const TypeInfo* typeInfo, uint32_t elements) noexcept;
-
-// This does not take into account how much storage did the underlying allocator (malloc/mimalloc) reserved.
-size_t GetAllocatedHeapSize(ObjHeader* object) noexcept;
 
 } // namespace mm
 } // namespace kotlin

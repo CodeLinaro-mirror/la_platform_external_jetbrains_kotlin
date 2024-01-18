@@ -29,11 +29,7 @@ class IrBlockBodyImpl(
         this.statements.addAll(statements)
     }
 
-    constructor(startOffset: Int, endOffset: Int, initializer: IrBlockBody.() -> Unit) : this(startOffset, endOffset) {
-        this.initializer()
-    }
-
-    override val statements: MutableList<IrStatement> = ArrayList()
+    override val statements: MutableList<IrStatement> = ArrayList(2)
 
     override val factory: IrFactory
         get() = IrFactoryImpl

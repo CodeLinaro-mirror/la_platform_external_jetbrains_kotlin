@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,18 +10,15 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDiagnosticsForFile
 import org.jetbrains.kotlin.diagnostics.KtDiagnostic
 import org.jetbrains.kotlin.fir.AbstractFirAnalyzerFacade
-import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
-import org.jetbrains.kotlin.fir.backend.Fir2IrResult
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.pipeline.FirResult
+import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
 import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.transformers.FirSealedClassInheritorsProcessor
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.model.TestFile
 
-class LowLevelFirAnalyzerFacade(
+open class LowLevelFirAnalyzerFacade(
     val firResolveSession: LLFirResolveSession,
     val allFirFiles: Map<TestFile, FirFile>,
     private val diagnosticCheckerFilter: DiagnosticCheckerFilter,
@@ -29,8 +26,20 @@ class LowLevelFirAnalyzerFacade(
     override val scopeSession: ScopeSession
         get() = ScopeSession()
 
+    override val result: FirResult
+        get() {
+            val output = ModuleCompilerAnalyzedOutput(firResolveSession.useSiteFirSession, scopeSession, allFirFiles.values.toList())
+            return FirResult(listOf(output))
+        }
+
+    private var resolved: Boolean = false
+
     override fun runCheckers(): Map<FirFile, List<KtDiagnostic>> {
-        findSealedInheritors()
+        if (!resolved) {
+            runResolution()
+            resolved = true
+        }
+
         return allFirFiles.values.associateWith { firFile ->
             val ktFile = firFile.psi as KtFile
             val diagnostics = ktFile.collectDiagnosticsForFile(firResolveSession, diagnosticCheckerFilter)
@@ -39,16 +48,5 @@ class LowLevelFirAnalyzerFacade(
         }
     }
 
-    private fun findSealedInheritors() {
-        allFirFiles.values.forEach { firFile ->
-            firFile.ensureResolved(FirResolvePhase.SUPER_TYPES)
-        }
-        val sealedProcessor = FirSealedClassInheritorsProcessor(allFirFiles.values.first().moduleData.session, ScopeSession())
-        sealedProcessor.process(allFirFiles.values)
-    }
-
-    override fun runResolution(): List<FirFile> = shouldNotBeCalled()
-    override fun convertToIr(fir2IrExtensions: Fir2IrExtensions): Fir2IrResult = shouldNotBeCalled()
+    override fun runResolution(): List<FirFile> = allFirFiles.values.toList()
 }
-
-private fun shouldNotBeCalled(): Nothing = error("Should not be called for LL test")

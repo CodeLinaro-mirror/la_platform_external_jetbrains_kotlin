@@ -5,18 +5,13 @@
 
 package org.jetbrains.kotlin.test
 
-import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.checkers.ENABLE_JVM_PREVIEW
 import org.jetbrains.kotlin.checkers.parseLanguageVersionSettings
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoot
-import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.*
-import org.jetbrains.kotlin.config.JvmTarget.Companion.fromString
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
-import java.util.*
 
 abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() {
     @Throws(Exception::class)
@@ -42,7 +37,7 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
     }
 
     protected open fun getTestJdkKind(files: List<F>): TestJdkKind {
-        if (files.any { file -> InTextDirectivesUtils.isDirectiveDefined(file.content, "JDK_17") }) return TestJdkKind.FULL_JDK_17
+        if (files.any { file -> InTextDirectivesUtils.isDirectiveDefined(file.content, "JDK_17_0") }) return TestJdkKind.FULL_JDK_17
 
         for (file in files) {
             if (InTextDirectivesUtils.isDirectiveDefined(file.content, "FULL_JDK")) {
@@ -112,11 +107,13 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
     open class TestModule(
         @JvmField val name: String,
         @JvmField val dependenciesSymbols: List<String>,
-        @JvmField val friendsSymbols: List<String>
+        @JvmField val friendsSymbols: List<String>,
+        @JvmField val dependsOnSymbols: List<String> = listOf(), // mimics the name from ModuleStructureExtractorImpl, thought later converted to `-Xfragment-refines` parameter
     ) : Comparable<TestModule> {
 
         val dependencies: MutableList<TestModule> = arrayListOf()
         val friends: MutableList<TestModule> = arrayListOf()
+        val dependsOn: MutableList<TestModule> = arrayListOf()
 
         override fun compareTo(other: TestModule): Int = name.compareTo(other.name)
 
@@ -149,7 +146,7 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
                 }
                 val targetString = directives["JVM_TARGET"]
                 if (targetString != null) {
-                    val jvmTarget = fromString(targetString)
+                    val jvmTarget = JvmTarget.fromString(targetString)
                         ?: error("Unknown target: $targetString")
                     configuration.put(JVMConfigurationKeys.JVM_TARGET, jvmTarget)
                 }
@@ -174,6 +171,13 @@ abstract class KotlinBaseTest<F : KotlinBaseTest.TestFile> : KtUsefulTestCase() 
                 if (fileLanguageVersionSettings != null) {
                     assert(explicitLanguageVersionSettings == null) { "Should not specify !LANGUAGE directive twice" }
                     explicitLanguageVersionSettings = fileLanguageVersionSettings
+                }
+
+                val lambdasString = directives["LAMBDAS"]
+                if (lambdasString != null) {
+                    val lambdas = JvmClosureGenerationScheme.fromString(lambdasString)
+                        ?: error("Unknown lambdas mode: $lambdasString")
+                    configuration.put(JVMConfigurationKeys.LAMBDAS, lambdas)
                 }
             }
             if (explicitLanguageVersionSettings != null) {

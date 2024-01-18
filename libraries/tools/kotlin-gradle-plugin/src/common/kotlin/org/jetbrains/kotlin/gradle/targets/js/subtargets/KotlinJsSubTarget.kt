@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.subtargets
 
+import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Task
 import org.gradle.api.plugins.ExtensionAware
@@ -19,8 +20,7 @@ import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlatformTestRun
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetDsl
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.npm.NpmResolverPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.tasks.registerTask
@@ -34,7 +34,8 @@ abstract class KotlinJsSubTarget(
 ) : KotlinJsSubTargetDsl {
     val project get() = target.project
 
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
+    private val nodeJsTaskProviders = project.rootProject.kotlinNodeJsExtension
 
     abstract val testTaskDescription: String
 
@@ -52,8 +53,6 @@ abstract class KotlinJsSubTarget(
     }
 
     internal fun configure() {
-        NpmResolverPlugin.apply(project)
-
         configureTests()
 
         target.compilations.all {
@@ -64,7 +63,7 @@ abstract class KotlinJsSubTarget(
         }
     }
 
-    override fun testTask(body: KotlinJsTest.() -> Unit) {
+    override fun testTask(body: Action<KotlinJsTest>) {
         testRuns.getByName(KotlinTargetWithTests.DEFAULT_TEST_RUN_NAME).executionTask.configure(body)
     }
 
@@ -98,7 +97,7 @@ abstract class KotlinJsSubTarget(
             testRun.subtargetTestTaskName(),
             listOf(compilation)
         ) { testJs ->
-            val compileTask = compilation.compileKotlinTaskProvider
+            val compileTask = compilation.compileTaskProvider
 
             testJs.group = LifecycleBasePlugin.VERIFICATION_GROUP
             testJs.description = testTaskDescription
@@ -106,7 +105,12 @@ abstract class KotlinJsSubTarget(
             val compileOutputFile = compileTask.flatMap { it.outputFileProperty }
             testJs.inputFileProperty.fileProvider(compileOutputFile)
 
-            testJs.dependsOn(nodeJs.npmInstallTaskProvider, compileTask, nodeJs.nodeJsSetupTaskProvider)
+            testJs.dependsOn(
+                nodeJsTaskProviders.npmInstallTaskProvider,
+                nodeJsTaskProviders.storeYarnLockTaskProvider,
+                compileTask,
+                nodeJsTaskProviders.nodeJsSetupTaskProvider
+            )
 
             testJs.onlyIf {
                 compileOutputFile.get().exists()

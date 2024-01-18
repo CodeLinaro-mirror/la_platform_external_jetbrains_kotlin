@@ -5,11 +5,14 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.report.BuildReportType
-import org.jetbrains.kotlin.gradle.targets.js.dukat.ExternalsOutputFormat
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 
 @DisplayName("Configuration cache")
 class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
@@ -60,15 +63,69 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 
     @MppGradlePluginTests
     @DisplayName("works with MPP publishing")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+        additionalVersions = [TestVersions.Gradle.G_7_6],
+    )
     @GradleTest
     fun testMppWithMavenPublish(gradleVersion: GradleVersion) {
         project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
-            // KT-49933: Support Gradle Configuration caching with HMPP
-            val publishedTargets = listOf(/*"kotlinMultiplatform",*/ "jvm6", "nodeJs")
+            val publishedTargets = listOf("kotlinMultiplatform", "jvm6", "nodeJs", "linux64", "mingw64")
+            testConfigurationCacheOf(
+                *(publishedTargets.map { ":publish${it.replaceFirstChar { it.uppercaseChar() }}PublicationToMavenRepository" }
+                    .toTypedArray()),
+                checkUpToDateOnRebuild = false
+            )
+        }
+    }
+
+    @NativeGradlePluginTests
+    @DisplayName("works with commonizer")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+        additionalVersions = [TestVersions.Gradle.G_7_6],
+    )
+    @GradleTest
+    fun testCommonizer(gradleVersion: GradleVersion, @TempDir konanHome: Path) {
+        project("native-configuration-cache", gradleVersion) {
+            build(
+                ":commonizeNativeDistribution",
+            ) {
+                assertOutputContains("0 problems were found storing the configuration cache.")
+            }
+
+            // Override kotlin native home location to be able to run clean native distribution commonization task
+            // since by default it is global location on host
+            val buildOptions = defaultBuildOptions.copy(
+                freeArgs = listOf("-Porg.jetbrains.kotlin.native.home=$konanHome"),
+                konanDataDir = null
+            )
+            build(":cleanNativeDistributionCommonization", buildOptions = buildOptions) {
+                assertOutputContains("0 problems were found storing the configuration cache.")
+            }
+
+            testConfigurationCacheOf(":lib:commonizeCInterop")
+        }
+    }
+
+    @MppGradlePluginTests
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_8_0 // configuration cache and precompiled script plugins fails on earlier versions
+    )
+    @GradleTest
+    fun `test composite build with precompiled script plugins and multiplatform`(gradleVersion: GradleVersion) {
+        project("composite-build-with-precompiled-script-plugins", gradleVersion) {
+            settingsGradleKts.replaceText(
+                "pluginManagement {",
+                """
+                    pluginManagement {
+                        includeBuild("build-logic")
+                """.trimIndent()
+            )
+            subProject("build-logic").projectPath.addPluginManagementToSettings()
 
             testConfigurationCacheOf(
-                ":buildKotlinToolingMetadata", // Remove it when KT-49933 is fixed and `kotlinMultiplatform` publication works
-                *(publishedTargets.map { ":publish${it.replaceFirstChar { it.uppercaseChar() }}PublicationToMavenRepository" }.toTypedArray()),
+                ":lib:transformCommonMainDependenciesMetadata",
                 checkUpToDateOnRebuild = false
             )
         }
@@ -88,7 +145,6 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
                     incremental = true,
                     kaptOptions = BuildOptions.KaptOptions(
                         verbose = true,
-                        useWorkers = true,
                         incrementalKapt = true,
                         includeCompileClasspath = false
                     )
@@ -97,10 +153,8 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
         }
     }
 
-    // Set min Gradle version to 6.8 because of using DependencyResolutionManagement API to add repositories.
     @JvmGradlePluginTests
     @DisplayName("with instance execution")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
     @GradleTest
     fun testInstantExecution(gradleVersion: GradleVersion) {
         project("instantExecution", gradleVersion) {
@@ -125,7 +179,6 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 
     @JvmGradlePluginTests
     @DisplayName("instant execution works with included build plugin")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_6_8)
     @GradleTest
     fun testInstantExecutionWithIncludedBuildPlugin(gradleVersion: GradleVersion) {
         project("instantExecutionWithIncludedBuildPlugin", gradleVersion) {
@@ -136,48 +189,14 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
         }
     }
 
-    @JsGradlePluginTests
-    @DisplayName("works with Dukat")
-    @GradleTest
-    fun testConfigurationCacheDukatSrc(gradleVersion: GradleVersion) {
-        testConfigurationCacheDukat(gradleVersion)
-    }
-
-    @JsGradlePluginTests
-    @DisplayName("works with Dukat binaries")
-    @GradleTest
-    fun testConfigurationCacheDukatBinaries(gradleVersion: GradleVersion) {
-        testConfigurationCacheDukat(gradleVersion) {
-            gradleProperties.modify {
-                """
-                
-                ${ExternalsOutputFormat.externalsOutputFormatProperty}=${ExternalsOutputFormat.BINARY}
-                """.trimIndent()
-            }
-        }
-    }
-
-    private fun testConfigurationCacheDukat(
-        gradleVersion: GradleVersion,
-        configure: TestProject.() -> Unit = {}
-    ) = project("dukat-integration/both", gradleVersion) {
-        buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
-        configure(this)
-        testConfigurationCacheOf(
-            "irGenerateExternalsIntegrated",
-            executedTaskNames = listOf(":irGenerateExternalsIntegrated")
-        )
-    }
-
     @MppGradlePluginTests
     @DisplayName("works in MPP withJava project")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0, maxVersion = TestVersions.Gradle.G_7_1)
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
     @GradleTest
     fun testJvmWithJavaConfigurationCache(gradleVersion: GradleVersion) {
         project("mppJvmWithJava", gradleVersion) {
-            build("jar")
-
-            build("jar") {
+            build("jvmWithJavaJar")
+            build("jvmWithJavaJar") {
                 assertOutputContains("Reusing configuration cache.")
             }
         }
@@ -185,16 +204,43 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 
     @JvmGradlePluginTests
     @DisplayName("with build report")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.MIN_SUPPORTED,
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+    )
     @GradleTest
     fun testBuildReportSmokeTestForConfigurationCache(gradleVersion: GradleVersion) {
-        project("simpleProject", gradleVersion) {
-            val buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
-            build("assemble", buildOptions = buildOptions) {
-                assertOutputContains("Kotlin build report is written to")
+        project(
+            "simpleProject",
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
+        ) {
+            build("assemble") {
+                assertBuildReportPathIsPrinted()
             }
 
-            build("assemble", buildOptions = buildOptions) {
-                assertOutputContains("Kotlin build report is written to")
+            build("assemble") {
+                assertBuildReportPathIsPrinted()
+            }
+        }
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("with build scan report")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.MIN_SUPPORTED,
+        additionalVersions = [TestVersions.Gradle.G_7_6], //build scan reports doesn't work properly for Gradle 8.0
+    )
+    @GradleTest
+    fun testBuildScanReportSmokeTestForConfigurationCache(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            val buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.BUILD_SCAN), logLevel = LogLevel.DEBUG)
+            build("clean", "assemble", "-Pkotlin.build.report.build_scan.custom_values_limit=0", "--scan", buildOptions = buildOptions) {
+                assertOutputContains("Can't add any more custom values into build scan")
+            }
+
+            build("clean", "assemble", "-Pkotlin.build.report.build_scan.custom_values_limit=0", "--scan", buildOptions = buildOptions) {
+                assertOutputContains("Can't add any more custom values into build scan")
             }
         }
     }
@@ -208,7 +254,7 @@ abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
         vararg taskNames: String,
         executedTaskNames: List<String>? = null,
         checkUpToDateOnRebuild: Boolean = true,
-        buildOptions: BuildOptions = defaultBuildOptions
+        buildOptions: BuildOptions = this.buildOptions,
     ) {
         assertSimpleConfigurationCacheScenarioWorks(
             *taskNames,

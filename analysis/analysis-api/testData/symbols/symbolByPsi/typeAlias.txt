@@ -4,9 +4,7 @@ KtTypeParameterSymbol:
   name: T
   origin: SOURCE
   typeParameters: []
-  upperBounds: [
-    kotlin/Any?
-  ]
+  upperBounds: []
   variance: INVARIANT
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
@@ -16,7 +14,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: X
   classKind: CLASS
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -25,7 +26,10 @@ KtNamedClassOrObjectSymbol:
   name: X
   origin: SOURCE
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: [
@@ -33,6 +37,7 @@ KtNamedClassOrObjectSymbol:
   ]
   visibility: Public
   getContainingModule: KtSourceModule "Sources of main"
+  annotationApplicableTargets: null
   deprecationStatus: null
 
 KtTypeParameterSymbol:
@@ -41,9 +46,7 @@ KtTypeParameterSymbol:
   name: Z
   origin: SOURCE
   typeParameters: []
-  upperBounds: [
-    kotlin/Any?
-  ]
+  upperBounds: []
   variance: INVARIANT
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
@@ -51,7 +54,16 @@ KtTypeParameterSymbol:
 KtTypeAliasSymbol:
   annotationsList: []
   classIdIfNonLocal: Y
-  expandedType: X<Z>
+  expandedType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: Z
+    ]
+    type: X<Z>
+  isActual: false
+  isExpect: false
   name: Y
   origin: SOURCE
   symbolKind: TOP_LEVEL

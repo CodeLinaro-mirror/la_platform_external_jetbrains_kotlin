@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.ir
 
+import org.gradle.api.Action
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsNodeDsl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsExec
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinWasmNode
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
@@ -20,34 +22,53 @@ abstract class KotlinNodeJsIr @Inject constructor(target: KotlinJsIrTarget) :
     KotlinJsIrSubTargetBase(target, "node"),
     KotlinJsNodeDsl {
 
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
+    private val nodeJsTaskProviders = project.rootProject.kotlinNodeJsExtension
 
     override val testTaskDescription: String
         get() = "Run all ${target.name} tests inside nodejs using the builtin test framework"
 
-    override fun runTask(body: NodeJsExec.() -> Unit) {
+    override fun runTask(body: Action<NodeJsExec>) {
         project.tasks.withType<NodeJsExec>().named(runTaskName).configure(body)
     }
 
     override fun locateOrRegisterRunTask(binary: JsIrBinary, name: String) {
         if (project.locateTask<NodeJsExec>(name) != null) return
 
-        val runTaskHolder = NodeJsExec.create(binary.compilation, name) {
+        val compilation = binary.compilation
+        val runTaskHolder = NodeJsExec.create(compilation, name) {
             group = taskGroupName
-            inputFileProperty.set(
-                project.layout.file(
-                    binary.linkSyncTask.map {
-                        it.destinationDir
-                            .resolve(binary.linkTask.get().outputFileProperty.get().name)
+            val inputFile = if ((compilation.target as KotlinJsIrTarget).wasmTargetType == KotlinWasmTargetType.WASI) {
+                dependsOn(binary.linkTask)
+                sourceMapStackTraces = false
+                binary.linkTask.flatMap { linkTask ->
+                    linkTask.outputFileProperty
+                }
+            } else {
+                dependsOn(binary.linkSyncTask)
+                binary.linkSyncTask.flatMap { linkSyncTask ->
+                    binary.linkTask.flatMap { linkTask ->
+                        linkTask.outputFileProperty.map { file ->
+                            linkSyncTask.destinationDirectory.get().resolve(file.name)
+                        }
                     }
-                )
+                }
+            }
+            inputFileProperty.fileProvider(
+                inputFile
             )
         }
         target.runTask.dependsOn(runTaskHolder)
     }
 
     override fun configureTestDependencies(test: KotlinJsTest) {
-        test.dependsOn(nodeJs.npmInstallTaskProvider, nodeJs.nodeJsSetupTaskProvider)
+        test.dependsOn(nodeJsTaskProviders.nodeJsSetupTaskProvider)
+        if (target.wasmTargetType != KotlinWasmTargetType.WASI) {
+            test.dependsOn(
+                nodeJsTaskProviders.npmInstallTaskProvider,
+                nodeJsTaskProviders.storeYarnLockTaskProvider,
+            )
+        }
     }
 
     override fun configureDefaultTestFramework(test: KotlinJsTest) {

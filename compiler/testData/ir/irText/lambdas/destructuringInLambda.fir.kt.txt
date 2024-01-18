@@ -25,21 +25,8 @@ data class A {
     return A(x = x, y = y)
   }
 
-  override fun equals(other: Any?): Boolean {
-    when {
-      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
-    }
-    when {
-      other !is A -> return false
-    }
-    val tmp0_other_with_cast: A = other as A
-    when {
-      EQEQ(arg0 = <this>.#x, arg1 = tmp0_other_with_cast.#x).not() -> return false
-    }
-    when {
-      EQEQ(arg0 = <this>.#y, arg1 = tmp0_other_with_cast.#y).not() -> return false
-    }
-    return true
+  override fun toString(): String {
+    return "A(" + "x=" + <this>.#x + ", " + "y=" + <this>.#y + ")"
   }
 
   override fun hashCode(): Int {
@@ -48,8 +35,21 @@ data class A {
     return result
   }
 
-  override fun toString(): String {
-    return "A(" + "x=" + <this>.#x + ", " + "y=" + <this>.#y + ")"
+  override operator fun equals(other: Any?): Boolean {
+    when {
+      EQEQEQ(arg0 = <this>, arg1 = other) -> return true
+    }
+    when {
+      other !is A -> return false
+    }
+    val tmp_0: A = other as A
+    when {
+      EQEQ(arg0 = <this>.#x, arg1 = tmp_0.#x).not() -> return false
+    }
+    when {
+      EQEQ(arg0 = <this>.#y, arg1 = tmp_0.#y).not() -> return false
+    }
+    return true
   }
 
 }
@@ -62,3 +62,4 @@ var fn: Function1<A, Int>
 
   get
   set
+

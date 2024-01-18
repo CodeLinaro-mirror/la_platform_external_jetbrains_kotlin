@@ -5,13 +5,13 @@
 
 #include <array>
 #include <type_traits>
+#include <vector>
 
 #include "KAssert.h"
 #include "Memory.h"
 #include "TypeInfo.h"
 #include "Types.h"
 #include "Utils.hpp"
-#include "std_support/Vector.hpp"
 
 namespace kotlin {
 namespace test_support {
@@ -27,9 +27,12 @@ private:
         virtual ~Builder() = default;
 
         int32_t instanceSize_ = 0;
-        std_support::vector<int32_t> objOffsets_;
+        std::vector<int32_t> objOffsets_;
+        int32_t objOffsetsCount_ = 0;
         int32_t flags_ = 0;
+        int32_t instanceAlignment_ = 8;
         const TypeInfo* superType_ = nullptr;
+        void (*processObjectInMark_)(void*, ObjHeader*) = nullptr;
     };
 
 public:
@@ -57,7 +60,16 @@ public:
     template <typename Payload>
     class ArrayBuilder : public Builder {
     public:
-        ArrayBuilder() noexcept { instanceSize_ = -static_cast<int32_t>(sizeof(Payload)); }
+        ArrayBuilder() noexcept {
+            instanceSize_ = -static_cast<int32_t>(sizeof(Payload));
+            if constexpr (std::is_same_v<Payload, ObjHeader*>) {
+                // Following RTTIGenerator.kt
+                objOffsetsCount_ = 1;
+                processObjectInMark_ = Kotlin_processArrayInMark;
+            } else {
+                processObjectInMark_ = Kotlin_processEmptyObjectInMark;
+            }
+        }
 
         ArrayBuilder&& addFlag(Konan_TypeFlags flag) noexcept {
             flags_ |= flag;
@@ -75,25 +87,35 @@ public:
         typeInfo_.instanceSize_ = builder.instanceSize_;
         objOffsets_ = std::move(builder.objOffsets_);
         typeInfo_.objOffsets_ = objOffsets_.data();
-        if (&typeInfo_ == theArrayTypeInfo) {
-            // Following RTTIGenerator.kt
-            typeInfo_.objOffsetsCount_ = 1;
-        } else {
-            typeInfo_.objOffsetsCount_ = objOffsets_.size();
-        }
+        typeInfo_.objOffsetsCount_ = builder.objOffsetsCount_;
+        typeInfo_.processObjectInMark = builder.processObjectInMark_;
         typeInfo_.flags_ = builder.flags_;
         typeInfo_.superType_ = builder.superType_;
+        typeInfo_.instanceAlignment_ = builder.instanceAlignment_;
     }
 
     TypeInfo* typeInfo() noexcept { return &typeInfo_; }
 
 private:
     TypeInfo typeInfo_{};
-    std_support::vector<int32_t> objOffsets_;
+    std::vector<int32_t> objOffsets_;
+};
+
+class Any : private Pinned {
+public:
+    ObjHeader* header() noexcept { return &header_; }
+
+    void installMetaObject() noexcept { (void)header()->meta_object(); }
+
+protected:
+    Any() noexcept = default;
+    ~Any() = default;
+
+    ObjHeader header_;
 };
 
 template <typename Payload>
-class Object : private Pinned {
+class Object : public Any {
 public:
     class FieldIterator {
     public:
@@ -151,15 +173,12 @@ public:
         header_.typeInfoOrMeta_ = const_cast<TypeInfo*>(typeInfo);
     }
 
-    ObjHeader* header() noexcept { return &header_; }
-
     Payload& operator*() noexcept { return payload_; }
     Payload* operator->() noexcept { return &payload_; }
 
     FieldIterable fields() noexcept { return FieldIterable(*this); }
 
 private:
-    ObjHeader header_;
     Payload payload_{};
 };
 
@@ -174,13 +193,15 @@ TypeInfoHolder::ObjectBuilder<Payload>::ObjectBuilder() noexcept {
         auto& actualField = payload.*field;
         objOffsets_.push_back(reinterpret_cast<uintptr_t>(&actualField) - reinterpret_cast<uintptr_t>(object.header()));
     }
+    objOffsetsCount_ = objOffsets_.size();
+    processObjectInMark_ = Kotlin_processObjectInMark;
 }
 
 namespace internal {
 
 // Array types are predetermined, use one of the subclasses below.
 template <typename Payload, size_t ElementCount>
-class Array : private Pinned {
+class Array : public Any {
 public:
     static Array<Payload, ElementCount>& FromArrayHeader(ArrayHeader* arr) noexcept {
         static_assert(std::is_trivially_destructible_v<Array>, "Array destructor is not guaranteed to be called.");
@@ -199,17 +220,16 @@ public:
                 TypeInfoHolder{TypeInfoHolder::ArrayBuilder<Payload>()}.typeInfo()->IsLayoutCompatible(typeInfo),
                 "constructing array from incompatible type info");
         header_.typeInfoOrMeta_ = const_cast<TypeInfo*>(typeInfo);
-        header_.count_ = ElementCount;
+        count_ = ElementCount;
     }
 
-    ObjHeader* header() noexcept { return header_.obj(); }
-    ArrayHeader* arrayHeader() noexcept { return &header_; }
+    ArrayHeader* arrayHeader() noexcept { return header()->array(); }
 
     std::array<Payload, ElementCount>& elements() noexcept { return elements_; }
 
 private:
-    ArrayHeader header_;
-    std::array<Payload, ElementCount> elements_{};
+    uint32_t count_;
+    alignas(ArrayHeader) std::array<Payload, ElementCount> elements_{};
 };
 
 } // namespace internal
@@ -322,6 +342,33 @@ public:
     }
 
     String() noexcept : internal::Array<KChar, ElementCount>(theStringTypeInfo) {}
+};
+
+struct RegularWeakReferenceImplPayload {
+    void* weakRef;
+    void* referred;
+
+    using Field = ObjHeader* RegularWeakReferenceImplPayload::*;
+    static constexpr std::array<Field, 0> kFields{};
+};
+
+extern "C" OBJ_GETTER(Konan_RegularWeakReferenceImpl_get, ObjHeader*);
+
+class RegularWeakReferenceImpl : public Object<RegularWeakReferenceImplPayload> {
+public:
+    static RegularWeakReferenceImpl& FromObjHeader(ObjHeader* obj) noexcept {
+        RuntimeAssert(obj->type_info() == theRegularWeakReferenceImplTypeInfo, "Invalid type");
+        return static_cast<RegularWeakReferenceImpl&>(Object::FromObjHeader(obj));
+    }
+
+    RegularWeakReferenceImpl() noexcept : Object(theRegularWeakReferenceImplTypeInfo) {}
+
+    OBJ_GETTER0(get) noexcept { RETURN_RESULT_OF(Konan_RegularWeakReferenceImpl_get, header()); }
+
+    ObjHeader* get() noexcept {
+        ObjHeader* result;
+        return get(&result);
+    }
 };
 
 } // namespace test_support

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.codegen.ASSERTIONS_DISABLED_FIELD_NAME
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.SamWrapperCodegen.SAM_WRAPPER_SUFFIX
 import org.jetbrains.kotlin.codegen.StackValue
-import org.jetbrains.kotlin.codegen.`when`.WhenByEnumsMapping
 import org.jetbrains.kotlin.codegen.binding.CodegenBinding
 import org.jetbrains.kotlin.codegen.context.CodegenContext
 import org.jetbrains.kotlin.codegen.context.CodegenContextUtil
@@ -25,6 +24,7 @@ import org.jetbrains.kotlin.codegen.optimization.common.intConstant
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapperBase
+import org.jetbrains.kotlin.codegen.`when`.WhenByEnumsMapping
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.load.java.JvmAbi
@@ -39,7 +39,6 @@ import org.jetbrains.kotlin.types.TypeProjectionImpl
 import org.jetbrains.kotlin.types.TypeSubstitutor
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 import org.jetbrains.org.objectweb.asm.commons.Method
@@ -57,9 +56,9 @@ const val NUMBERED_FUNCTION_PREFIX = "kotlin/jvm/functions/Function"
 const val INLINE_FUN_VAR_SUFFIX = "\$iv"
 
 internal const val FIRST_FUN_LABEL = "$$$$\$ROOT$$$$$"
-internal const val SPECIAL_TRANSFORMATION_NAME = "\$special"
+const val SPECIAL_TRANSFORMATION_NAME = "\$special"
 const val INLINE_TRANSFORMATION_SUFFIX = "\$inlined"
-internal const val INLINE_CALL_TRANSFORMATION_SUFFIX = "$$INLINE_TRANSFORMATION_SUFFIX"
+const val INLINE_CALL_TRANSFORMATION_SUFFIX = "$$INLINE_TRANSFORMATION_SUFFIX"
 internal const val INLINE_FUN_THIS_0_SUFFIX = "\$inline_fun"
 internal const val DEFAULT_LAMBDA_FAKE_CALL = "$$\$DEFAULT_LAMBDA_FAKE_CALL$$$"
 internal const val CAPTURED_FIELD_FOLD_PREFIX = "$$$"
@@ -228,6 +227,19 @@ internal fun isAnonymousClass(internalName: String) =
 
 fun wrapWithMaxLocalCalc(methodNode: MethodNode) =
     MaxStackFrameSizeAndLocalsCalculator(Opcodes.API_VERSION, methodNode.access, methodNode.desc, methodNode)
+
+inline fun newMethodNodeWithCorrectStackSize(block: (InstructionAdapter) -> Unit): MethodNode {
+    val newMethodNode = MethodNode(Opcodes.API_VERSION, "fake", "()V", null, null)
+    val mv = wrapWithMaxLocalCalc(newMethodNode)
+    block(InstructionAdapter(mv))
+
+    // Adding a fake return (and removing it below) to trigger maxStack calculation
+    mv.visitInsn(Opcodes.RETURN)
+    mv.visitMaxs(-1, -1)
+
+    newMethodNode.instructions.apply { remove(last) }
+    return newMethodNode
+}
 
 private fun String.isInteger(radix: Int = 10) = toIntOrNull(radix) != null
 
@@ -564,7 +576,7 @@ private fun addAfterUnboxInlineClassMarker(v: InstructionAdapter) {
 }
 
 internal fun addReturnsUnitMarkerIfNecessary(v: InstructionAdapter, resolvedCall: ResolvedCall<*>) {
-    val wrapperDescriptor = resolvedCall.candidateDescriptor.safeAs<FunctionDescriptor>() ?: return
+    val wrapperDescriptor = resolvedCall.candidateDescriptor as? FunctionDescriptor ?: return
     val unsubstitutedDescriptor = wrapperDescriptor.unwrapInitialDescriptorForSuspendFunction()
 
     val typeSubstitutor = TypeSubstitutor.create(

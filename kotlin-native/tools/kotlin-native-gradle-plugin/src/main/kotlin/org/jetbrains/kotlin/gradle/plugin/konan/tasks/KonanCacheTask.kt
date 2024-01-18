@@ -39,7 +39,7 @@ open class KonanCacheTask: DefaultTask() {
 
     @get:OutputDirectory
     val cacheFile: File
-        get() = cacheDirectory.resolve("${klibUniqName}-cache")
+        get() = cacheDirectory.resolve(if (makePerFileCache) "${klibUniqName}-per-file-cache" else "${klibUniqName}-cache")
 
     /**
      * Note: we can't use this function instead of [klibUniqName] in [cacheFile],
@@ -60,6 +60,9 @@ open class KonanCacheTask: DefaultTask() {
     var cacheKind: KonanCacheKind = KonanCacheKind.STATIC
 
     @get:Input
+    var makePerFileCache: Boolean = false
+
+    @get:Input
     /** Path to a compiler distribution that is used to build this cache. */
     val compilerDistributionPath: Property<File> = project.objects.property(File::class.java).apply {
         set(project.provider { project.kotlinNativeDist })
@@ -70,9 +73,11 @@ open class KonanCacheTask: DefaultTask() {
 
     @TaskAction
     fun compile() {
-        check(klibUniqName == readKlibUniqNameFromManifest()) {
-            "klibUniqName mismatch: configured '$klibUniqName', resolved '${readKlibUniqNameFromManifest()}'"
-        }
+        // This code uses bootstrap version of util-klib and fails due to the older default ABI than library being used
+        // A possible solution is to read it manually from manifest file or this check should be done by the compiler itself
+//        check(klibUniqName == readKlibUniqNameFromManifest()) {
+//            "klibUniqName mismatch: configured '$klibUniqName', resolved '${readKlibUniqNameFromManifest()}'"
+//        }
 
         // Compiler doesn't create a cache if the cacheFile already exists. So we need to remove it manually.
         if (cacheFile.exists()) {
@@ -85,13 +90,17 @@ open class KonanCacheTask: DefaultTask() {
             it.targetByName(target).let(it::loader).additionalCacheFlags
         }
         requireNotNull(originalKlib)
-        val args = listOf(
+        val args = mutableListOf(
             "-g",
             "-target", target,
             "-produce", cacheKind.outputKind.name.toLowerCase(),
             "-Xadd-cache=${originalKlib?.absolutePath}",
             "-Xcache-directory=${cacheDirectory.absolutePath}"
-        ) + additionalCacheFlags + cachedLibraries.map { "-Xcached-library=${it.key},${it.value}" }
+        )
+        if (makePerFileCache)
+            args += "-Xmake-per-file-cache"
+        args += additionalCacheFlags
+        args += cachedLibraries.map { "-Xcached-library=${it.key},${it.value}" }
         KonanCliCompilerRunner(project, konanHome = konanHome).run(args)
     }
 }

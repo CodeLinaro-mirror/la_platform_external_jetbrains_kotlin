@@ -23,16 +23,19 @@ import org.gradle.api.tasks.*
 import org.gradle.work.ChangeType
 import org.gradle.work.Incremental
 import org.gradle.work.InputChanges
+import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.cli.common.arguments.DevModeOverwritingStrategies
 import org.jetbrains.kotlin.cli.common.arguments.K2JSDceArguments
-import org.jetbrains.kotlin.cli.js.dce.K2JSDce
+import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.compilerRunner.runToolInSeparateProcess
+import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsDceOptions
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsDceOptionsImpl
 import org.jetbrains.kotlin.gradle.logging.GradleKotlinLogger
-import org.jetbrains.kotlin.gradle.utils.canonicalPathWithoutExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
+import org.jetbrains.kotlin.gradle.utils.absolutePathWithoutExtension
 import org.jetbrains.kotlin.gradle.utils.fileExtensionCasePermutations
+import org.jetbrains.kotlin.gradle.utils.newInstance
 import java.io.File
 import javax.inject.Inject
 
@@ -40,30 +43,36 @@ import javax.inject.Inject
 abstract class KotlinJsDce @Inject constructor(
     objectFactory: ObjectFactory
 ) : AbstractKotlinCompileTool<K2JSDceArguments>(objectFactory),
+    KotlinToolTask<KotlinJsDceCompilerToolOptions>,
     KotlinJsDce {
 
     init {
         cacheOnlyIfEnabledForKotlin()
+        outputs.cacheIf { !isDevMode }
 
         include("js".fileExtensionCasePermutations().map { "**/*.$it" })
     }
 
-    override fun createCompilerArgs(): K2JSDceArguments = K2JSDceArguments()
+    override val toolOptions: KotlinJsDceCompilerToolOptions = objectFactory.newInstance<KotlinJsDceCompilerToolOptionsDefault>()
 
-    override fun setupCompilerArgs(args: K2JSDceArguments, defaultsOnly: Boolean, ignoreClasspathResolutionErrors: Boolean) {
-        dceOptionsImpl.updateArguments(args)
-        args.declarationsToKeep = keep.toTypedArray()
+    override fun createCompilerArguments(context: CreateCompilerArgumentsContext) = context.create<K2JSDceArguments> {
+        primitive { args ->
+            KotlinJsDceCompilerToolOptionsHelper.fillCompilerArguments(toolOptions, args)
+            args.declarationsToKeep = keep.toTypedArray()
+            args.outputDirectory = destinationDirectory.get().asFile.path
+            args.devModeOverwritingStrategy = DevModeOverwritingStrategies.ALL
+        }
     }
-
-    private val dceOptionsImpl = KotlinJsDceOptionsImpl()
 
     // DCE can be broken in case of non-kotlin js files or modules
     @Internal
     var kotlinFilesOnly: Boolean = false
 
     @get:Internal
-    override val dceOptions: KotlinJsDceOptions
-        get() = dceOptionsImpl
+    override val dceOptions: KotlinJsDceOptions = object : KotlinJsDceOptions {
+        override val options: KotlinJsDceCompilerToolOptions
+            get() = toolOptions
+    }
 
     @get:Input
     override val keep: MutableList<String> = mutableListOf()
@@ -79,21 +88,23 @@ abstract class KotlinJsDce @Inject constructor(
     @get:Incremental
     @get:InputFiles
     @get:IgnoreEmptyDirectories
+    @get:NormalizeLineEndings
     @get:PathSensitive(PathSensitivity.RELATIVE)
     override val sources: FileCollection = super.sources
 
     @get:Incremental
     @get:InputFiles
+    @get:NormalizeLineEndings
     abstract override val libraries: ConfigurableFileCollection
 
     private val buildDir = project.layout.buildDirectory
 
     private val isDevMode
-        get() = dceOptions.devMode || "-dev-mode" in dceOptions.freeCompilerArgs
+        get() = toolOptions.devMode.get() || toolOptions.freeCompilerArgs.get().contains("-dev-mode")
 
     private val isExplicitDevModeAllStrategy
-        get() = strategyAllArg in dceOptions.freeCompilerArgs ||
-                strategyOlderArg !in dceOptions.freeCompilerArgs &&
+        get() = strategyAllArg in toolOptions.freeCompilerArgs.get() ||
+                strategyOlderArg !in toolOptions.freeCompilerArgs.get() &&
                 System.getProperty("kotlin.js.dce.devmode.overwriting.strategy") == DevModeOverwritingStrategies.ALL
 
     @TaskAction
@@ -114,30 +125,18 @@ abstract class KotlinJsDce @Inject constructor(
             .filter { !kotlinFilesOnly || isDceCandidate(it) }
             .map { it.path }
 
-        val outputDirArgs = arrayOf("-output-dir", destinationDirectory.get().asFile.path)
-
-        val processedSerializedArgs = if (shouldPerformIncrementalCopy) {
-            var shouldAddStrategyAllArgument = true
-            val processedArgs = serializedCompilerArguments
-                .map { if (it == strategyOlderArg) strategyAllArg.also { shouldAddStrategyAllArgument = false } else it }
-            if (shouldAddStrategyAllArgument) processedArgs + strategyAllArg else processedArgs
-        } else {
-            serializedCompilerArguments
-        }
-        val argsArray = processedSerializedArgs.toTypedArray()
-
-        val log = GradleKotlinLogger(logger)
-        val allArgs = argsArray + outputDirArgs + inputFiles
+        val arguments = createCompilerArguments()
+        arguments.freeArgs += inputFiles
 
         val exitCode = runToolInSeparateProcess(
-            allArgs,
-            K2JSDce::class.java.name,
+            ArgumentUtils.convertArgumentsToStringList(arguments).toTypedArray(),
+            dceToolMainClassName,
             defaultCompilerClasspath,
-            log,
+            GradleKotlinLogger(logger),
             buildDir.get().asFile,
             jvmArgs
         )
-        throwGradleExceptionIfError(exitCode, KotlinCompilerExecutionStrategy.OUT_OF_PROCESS)
+        throwExceptionIfCompilationFailed(exitCode, KotlinCompilerExecutionStrategy.OUT_OF_PROCESS)
     }
 
     private fun isDceCandidate(file: File): Boolean {
@@ -149,11 +148,19 @@ abstract class KotlinJsDce @Inject constructor(
             return false
         }
 
-        return File("${file.canonicalPathWithoutExtension()}.meta.js").exists()
+        return File("${file.absolutePathWithoutExtension()}.meta.js").exists()
     }
 
     companion object {
         const val strategyAllArg = "-Xdev-mode-overwriting-strategy=${DevModeOverwritingStrategies.ALL}"
         const val strategyOlderArg = "-Xdev-mode-overwriting-strategy=${DevModeOverwritingStrategies.OLDER}"
+        const val dceToolMainClassName = "org.jetbrains.kotlin.cli.js.dce.K2JSDce"
+    }
+
+    @Suppress("DeprecatedCallableAddReplaceWith")
+    @Deprecated("KTIJ-25227: Necessary override for IDEs < 2023.2", level = DeprecationLevel.ERROR)
+    override fun setupCompilerArgs(args: K2JSDceArguments, defaultsOnly: Boolean, ignoreClasspathResolutionErrors: Boolean) {
+        @Suppress("DEPRECATION_ERROR")
+        super.setupCompilerArgs(args, defaultsOnly, ignoreClasspathResolutionErrors)
     }
 }

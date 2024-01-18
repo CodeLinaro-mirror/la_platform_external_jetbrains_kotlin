@@ -1,56 +1,60 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.java.enhancement
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.FirCachesFactory
 import org.jetbrains.kotlin.fir.caches.createCache
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.builder.FirConstructorBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.FirPrimaryConstructorBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.FirSimpleFunctionBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
+import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
-import org.jetbrains.kotlin.fir.declarations.utils.isInner
-import org.jetbrains.kotlin.fir.declarations.utils.isStatic
-import org.jetbrains.kotlin.fir.declarations.utils.modality
-import org.jetbrains.kotlin.fir.declarations.utils.visibility
+import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.expressions.FirConstExpression
+import org.jetbrains.kotlin.fir.expressions.unexpandedClassId
 import org.jetbrains.kotlin.fir.java.FirJavaTypeConversionMode
 import org.jetbrains.kotlin.fir.java.JavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.java.resolveIfJavaType
 import org.jetbrains.kotlin.fir.java.symbols.FirJavaOverriddenSyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.java.toConeKotlinTypeProbablyFlexible
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
 import org.jetbrains.kotlin.fir.scopes.jvm.computeJvmDescriptor
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
+import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.jvm.FirJavaTypeRef
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.load.java.AnnotationQualifierApplicabilityType
+import org.jetbrains.kotlin.load.java.FakePureImplementationsProvider
 import org.jetbrains.kotlin.load.java.JavaTypeQualifiersByElementType
+import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.java.typeEnhancement.*
 import org.jetbrains.kotlin.load.kotlin.SignatureBuildingComponents
-import org.jetbrains.kotlin.name.CallableId
-import org.jetbrains.kotlin.name.FqNameUnsafe
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 import org.jetbrains.kotlin.types.model.TypeParameterMarker
 import org.jetbrains.kotlin.types.model.TypeSystemContext
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
+import org.jetbrains.kotlin.util.PrivateForInline
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 class FirSignatureEnhancement(
     private val owner: FirRegularClass,
@@ -69,8 +73,11 @@ class FirSignatureEnhancement(
 
     private val typeQualifierResolver = session.javaAnnotationTypeQualifierResolver
 
-    private val contextQualifiers: JavaTypeQualifiersByElementType? =
+    // This property is assumed to be initialized only after annotations for the class are initialized
+    // While in one of the cases FirSignatureEnhancement is created just one step before annotations resolution
+    private val contextQualifiers: JavaTypeQualifiersByElementType? by lazy(LazyThreadSafetyMode.NONE) {
         typeQualifierResolver.extractDefaultQualifiers(owner)
+    }
 
     private val enhancementsCache = session.enhancedSymbolStorage.cacheByOwner.getValue(owner.symbol, null)
 
@@ -112,8 +119,7 @@ class FirSignatureEnhancement(
                     predefinedEnhancementInfo = null
                 ).let {
                     val lowerBound = it.type.lowerBoundIfFlexible()
-
-                    if (firElement.isStatic && firElement.initializer != null && (lowerBound.isString || lowerBound.isInt)) {
+                    if ((lowerBound.isString || lowerBound.isInt) && firElement.isStatic && firElement.initializer != null) {
                         it.withReplacedConeType(it.type.withNullability(ConeNullability.NOT_NULL, session.typeContext))
                     } else {
                         it
@@ -136,7 +142,12 @@ class FirSignatureEnhancement(
                     isStatic = firElement.isStatic
                     annotationBuilder = { firElement.annotations }
                     status = firElement.status
-                    initializer = firElement.initializer
+                    if (firElement is FirJavaField) {
+                        lazyInitializer = firElement.lazyInitializer
+                    } else {
+                        initializer = firElement.initializer
+                    }
+
                     dispatchReceiverType = firElement.dispatchReceiverType
                     attributes = firElement.attributes.copy()
                 }
@@ -146,17 +157,13 @@ class FirSignatureEnhancement(
                 val accessorSymbol = firElement.symbol
                 val getterDelegate = firElement.getter.delegate
                 val enhancedGetterSymbol = if (getterDelegate is FirJavaMethod) {
-                    enhanceMethod(
-                        getterDelegate, getterDelegate.symbol.callableId, getterDelegate.name,
-                    )
+                    enhancementsCache.enhancedFunctions.getValue(getterDelegate.symbol, this to getterDelegate.name)
                 } else {
                     getterDelegate.symbol
                 }
                 val setterDelegate = firElement.setter?.delegate
                 val enhancedSetterSymbol = if (setterDelegate is FirJavaMethod) {
-                    enhanceMethod(
-                        setterDelegate, setterDelegate.symbol.callableId, setterDelegate.name,
-                    )
+                    enhancementsCache.enhancedFunctions.getValue(setterDelegate.symbol, this to setterDelegate.name)
                 } else {
                     setterDelegate?.symbol
                 }
@@ -168,12 +175,14 @@ class FirSignatureEnhancement(
                     delegateGetter = enhancedGetterSymbol.fir as FirSimpleFunction
                     delegateSetter = enhancedSetterSymbol?.fir as FirSimpleFunction?
                     status = firElement.status
-                    deprecation = getDeprecationsFromAccessors(delegateGetter, delegateSetter, session.languageVersionSettings.apiVersion)
+                    deprecationsProvider = getDeprecationsProviderFromAccessors(session, delegateGetter, delegateSetter)
                 }.symbol
             }
             else -> {
                 if (original is FirPropertySymbol) return original
-                error("Can't make enhancement for $original: `${firElement.render()}`")
+                errorWithAttachment("Can't make enhancement for ${original::class.java}") {
+                    withFirEntry("firElement", firElement)
+                }
             }
         }
     }
@@ -188,19 +197,20 @@ class FirSignatureEnhancement(
         if (firMethod !is FirJavaMethod && firMethod !is FirJavaConstructor) {
             return original
         }
-        enhanceTypeParameterBounds(firMethod.typeParameters)
-        return enhanceMethod(firMethod, original.callableId, name).also { enhancedVersion ->
-            val enhancedVersionFir = enhancedVersion.fir
-            (enhancedVersionFir.initialSignatureAttr as? FirSimpleFunction)?.let {
-                enhancedVersionFir.initialSignatureAttr = enhancedFunction(it.symbol, it.name).fir
-            }
-        }
+
+        val enhancedParameters = enhanceTypeParameterBoundsForMethod(firMethod)
+        return enhanceMethod(firMethod, original.callableId, name, enhancedParameters)
     }
 
+    /**
+     * @param enhancedTypeParameters pass enhanced type parameters that will be used instead of original ones.
+     * **null** means that [enhanceMethod] will use the original type parameters to create an enhanced function
+     */
     private fun enhanceMethod(
         firMethod: FirFunction,
         methodId: CallableId,
-        name: Name?
+        name: Name?,
+        enhancedTypeParameters: List<FirTypeParameterRef>?,
     ): FirFunctionSymbol<*> {
         val predefinedEnhancementInfo =
             SignatureBuildingComponents.signature(
@@ -218,7 +228,7 @@ class FirSignatureEnhancement(
 
         val defaultQualifiers = firMethod.computeDefaultQualifiers()
         val overriddenMembers = (firMethod as? FirSimpleFunction)?.overridden().orEmpty()
-        val hasReceiver = overriddenMembers.any { it.receiverTypeRef != null }
+        val hasReceiver = overriddenMembers.any { it.receiverParameter != null }
 
         val newReceiverTypeRef = if (firMethod is FirJavaMethod && hasReceiver) {
             enhanceReceiverType(firMethod, overriddenMembers, defaultQualifiers)
@@ -240,31 +250,19 @@ class FirSignatureEnhancement(
             )
         }
 
-        val newValueParameters = firMethod.valueParameters.zip(enhancedValueParameterTypes) { valueParameter, enhancedReturnType ->
-            valueParameter.defaultValue?.replaceTypeRef(enhancedReturnType)
+        val functionSymbol: FirFunctionSymbol<*>
+        var isJavaRecordComponent = false
 
-            buildValueParameter {
-                source = valueParameter.source
-                moduleData = this@FirSignatureEnhancement.moduleData
-                origin = FirDeclarationOrigin.Enhancement
-                returnTypeRef = enhancedReturnType
-                this.name = valueParameter.name
-                symbol = FirValueParameterSymbol(this.name)
-                defaultValue = valueParameter.defaultValue
-                isCrossinline = valueParameter.isCrossinline
-                isNoinline = valueParameter.isNoinline
-                isVararg = valueParameter.isVararg
-                resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
-                annotations += valueParameter.annotations
-            }
-        }
+        val typeParameterSubstitutionMap = mutableMapOf<FirTypeParameterSymbol, ConeKotlinType>()
+        var typeParameterSubstitutor: ConeSubstitutorByMap? = null
+
         val function = when (firMethod) {
             is FirJavaConstructor -> {
-                val symbol = FirConstructorSymbol(methodId)
+                val symbol = FirConstructorSymbol(methodId).also { functionSymbol = it }
                 if (firMethod.isPrimary) {
                     FirPrimaryConstructorBuilder().apply {
                         returnTypeRef = newReturnTypeRef
-                        val resolvedStatus = firMethod.status.safeAs<FirResolvedDeclarationStatus>()
+                        val resolvedStatus = firMethod.status as? FirResolvedDeclarationStatus
                         status = if (resolvedStatus != null) {
                             FirResolvedDeclarationStatusImpl(
                                 resolvedStatus.visibility,
@@ -274,10 +272,9 @@ class FirSignatureEnhancement(
                         } else {
                             FirDeclarationStatusImpl(firMethod.visibility, Modality.FINAL)
                         }.apply {
-                            isExpect = false
-                            isActual = false
-                            isOverride = false
                             isInner = firMethod.isInner
+                            // Java annotation class constructors have stable names, copy flag.
+                            hasStableParameterNames = firMethod.hasStableParameterNames
                         }
                         this.symbol = symbol
                         dispatchReceiverType = firMethod.dispatchReceiverType
@@ -296,59 +293,203 @@ class FirSignatureEnhancement(
                     moduleData = this@FirSignatureEnhancement.moduleData
                     resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
                     origin = FirDeclarationOrigin.Enhancement
-                    this.valueParameters += newValueParameters
-                    this.typeParameters += firMethod.typeParameters
+                    // TODO: we should set a new origin / containing declaration to type parameters (KT-60440)
+                    this.typeParameters += (enhancedTypeParameters ?: firMethod.typeParameters)
                 }
             }
             is FirJavaMethod -> {
+                isJavaRecordComponent = firMethod.isJavaRecordComponent == true
                 FirSimpleFunctionBuilder().apply {
                     source = firMethod.source
                     moduleData = this@FirSignatureEnhancement.moduleData
                     origin = FirDeclarationOrigin.Enhancement
-                    returnTypeRef = newReturnTypeRef
-                    receiverTypeRef = newReceiverTypeRef
+
                     this.name = name!!
                     status = firMethod.status
-                    symbol = FirNamedFunctionSymbol(methodId)
+                    symbol = FirNamedFunctionSymbol(methodId).also { functionSymbol = it }
                     resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
-                    valueParameters += newValueParameters
-                    typeParameters += firMethod.typeParameters
+                    typeParameters += (enhancedTypeParameters ?: firMethod.typeParameters).map { typeParameter ->
+                        // FirJavaMethod contains only FirTypeParameter so [enhancedTypeParameters] must have the same type
+                        require(typeParameter is FirTypeParameter) {
+                            "Unexpected type parameter type: ${typeParameter::class.simpleName}"
+                        }
+
+                        // TODO: we probably shouldn't build a copy second time. See performFirstRoundOfBoundsResolution (KT-60446)
+                        val newTypeParameter = buildTypeParameterCopy(typeParameter) {
+                            origin = FirDeclarationOrigin.Enhancement
+                            symbol = FirTypeParameterSymbol()
+                            containingDeclarationSymbol = functionSymbol
+                        }
+                        typeParameterSubstitutionMap[typeParameter.symbol] = ConeTypeParameterTypeImpl(
+                            newTypeParameter.symbol.toLookupTag(), isNullable = false
+                        )
+                        newTypeParameter
+                    }
+                    if (typeParameterSubstitutionMap.isNotEmpty()) {
+                        typeParameterSubstitutor = ConeSubstitutorByMap(typeParameterSubstitutionMap, session)
+                    }
+                    returnTypeRef = newReturnTypeRef.withReplacedConeType(
+                        typeParameterSubstitutor?.substituteOrNull(newReturnTypeRef.coneType)
+                    )
+                    val substitutedReceiverTypeRef = newReceiverTypeRef?.withReplacedConeType(
+                        typeParameterSubstitutor?.substituteOrNull(newReturnTypeRef.coneType)
+                    )
+                    receiverParameter = substitutedReceiverTypeRef?.let { receiverType ->
+                        buildReceiverParameter {
+                            typeRef = receiverType
+                            annotations += firMethod.valueParameters.first().annotations
+                            source = receiverType.source?.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
+                        }
+                    }
+                    typeParameters.forEach { typeParameter ->
+                        typeParameter.replaceBounds(
+                            typeParameter.bounds.map { boundTypeRef ->
+                                boundTypeRef.withReplacedConeType(typeParameterSubstitutor?.substituteOrNull(boundTypeRef.coneType))
+                            }
+                        )
+                    }
+
                     dispatchReceiverType = firMethod.dispatchReceiverType
                     attributes = firMethod.attributes.copy()
                 }
             }
-            else -> throw AssertionError("Unknown Java method to enhance: ${firMethod.render()}")
+            else -> errorWithAttachment("Unknown Java method to enhance: ${firMethod::class.java}") {
+                withFirEntry("firMethod", firMethod)
+            }
         }.apply {
+            val newValueParameters = firMethod.valueParameters.zip(enhancedValueParameterTypes) { valueParameter, enhancedReturnType ->
+                valueParameter.defaultValue?.replaceConeTypeOrNull(enhancedReturnType.coneType)
+
+                buildValueParameter {
+                    source = valueParameter.source
+                    containingFunctionSymbol = functionSymbol
+                    moduleData = this@FirSignatureEnhancement.moduleData
+                    origin = FirDeclarationOrigin.Enhancement
+                    returnTypeRef = enhancedReturnType.withReplacedConeType(
+                        typeParameterSubstitutor?.substituteOrNull(enhancedReturnType.coneType)
+                    )
+                    this.name = valueParameter.name
+                    symbol = FirValueParameterSymbol(this.name)
+                    defaultValue = valueParameter.defaultValue
+                    isCrossinline = valueParameter.isCrossinline
+                    isNoinline = valueParameter.isNoinline
+                    isVararg = valueParameter.isVararg
+                    resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
+                    annotations += valueParameter.annotations
+                }
+            }
+            this.valueParameters += newValueParameters
             annotations += firMethod.annotations
-            deprecation = annotations.getDeprecationInfosFromAnnotations(session.languageVersionSettings.apiVersion, fromJava = true)
-        }.build()
+            deprecationsProvider = annotations.getDeprecationsProviderFromAnnotations(session, fromJava = true)
+        }.build().apply {
+            if (isJavaRecordComponent) {
+                this.isJavaRecordComponent = true
+            }
+            updateIsOperatorFlagIfNeeded(this)
+        }
 
         return function.symbol
     }
 
-    fun enhanceTypeParameterBounds(typeParameters: List<FirTypeParameterRef>) {
+    private fun updateIsOperatorFlagIfNeeded(function: FirFunction) {
+        if (function !is FirSimpleFunction) return
+        val isOperator = OperatorFunctionChecks.isOperator(function, session, scopeSession = null).isSuccess
+        if (!isOperator) return
+        val newStatus = function.status.copy(isOperator = true)
+        function.replaceStatus(newStatus)
+    }
+
+    /**
+     * Perform first time initialization of bounds with FirResolvedTypeRef instances
+     * But after that bounds are still not enhanced and more over might have not totally correct raw types bounds
+     * (see the next step in the method performSecondRoundOfBoundsResolution)
+     *
+     * In case of A<T extends A>, or similar cases, the bound is converted to the flexible version A<*>..A<*>?,
+     * while in the end it's assumed to be A<A<*>>..A<*>?
+     *
+     * That's necessary because at this stage it's not quite easy to come just to the final version since for that
+     * we would the need upper bounds of all the type parameters that might not yet be initialized at the moment
+     *
+     * See the usages of FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_FIRST_ROUND
+     */
+    fun performFirstRoundOfBoundsResolution(typeParameters: List<FirTypeParameterRef>): Pair<List<List<FirTypeRef>>, List<FirTypeParameterRef>> {
+        val initialBounds: MutableList<List<FirTypeRef>> = mutableListOf()
+        val typeParametersCopy = ArrayList<FirTypeParameterRef>(typeParameters.size)
+        for (typeParameter in typeParameters) {
+            typeParametersCopy += if (typeParameter is FirTypeParameter) {
+                initialBounds.add(typeParameter.bounds.toList())
+                buildTypeParameterCopy(typeParameter) {
+                    // TODO: we should create a new symbol to avoid clashing (KT-60445)
+                    bounds.clear()
+                    typeParameter.bounds.mapTo(bounds) {
+                        it.resolveIfJavaType(session, javaTypeParameterStack, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_FIRST_ROUND)
+                    }
+                }
+            } else {
+                typeParameter
+            }
+        }
+
+        return initialBounds to typeParametersCopy
+    }
+
+    /**
+     * In most cases that method doesn't change anything
+     *
+     * But the cases like A<T extends A>
+     * After the first step we've got all bounds are initialized to potentially approximated version of raw types
+     * And here, we compute the final version using previously initialized bounds
+     *
+     * So, mostly it works just as the first step, but assumes that bounds already contain FirResolvedTypeRef
+     */
+    private fun performSecondRoundOfBoundsResolution(
+        typeParameters: List<FirTypeParameterRef>,
+        initialBounds: List<List<FirTypeRef>>
+    ) {
+        var currentIndex = 0
+        for (typeParameter in typeParameters) {
+            if (typeParameter is FirTypeParameter) {
+                typeParameter.replaceBounds(initialBounds[currentIndex].map {
+                    it.resolveIfJavaType(session, javaTypeParameterStack, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_AFTER_FIRST_ROUND)
+                })
+
+                currentIndex++
+            }
+        }
+    }
+
+    /**
+     * There are four rounds of bounds resolution for Java type parameters
+     * 1. Plain conversion of Java types without any enhancement (with approximated raw types)
+     * 2. The same conversion, but raw types are not computed precisely
+     * 3. Enhancement for top-level types (no enhancement for arguments)
+     * 4. Enhancement for the whole types (with arguments)
+     *
+     * This method requires type parameters that have already been run through the first round
+     */
+    fun enhanceTypeParameterBoundsAfterFirstRound(
+        typeParameters: List<FirTypeParameterRef>,
+        // The state of bounds before the first round
+        initialBounds: List<List<FirTypeRef>>,
+    ) {
+        performSecondRoundOfBoundsResolution(typeParameters, initialBounds)
+
         // Type parameters can have interdependencies between them. Assuming that there are no top-level cycles
         // (`A : B, B : A` - invalid), the cycles can still appear when type parameters use each other in argument
         // position (`A : C<B>, B : D<A>` - valid). In this case the precise enhancement of each bound depends on
         // the others' nullability, for which we need to enhance at least its head type constructor.
-        //
-        // While this is straightforward to do within a single class/method (enhance all bounds' head type
-        // constructors, then enhance fully), it's not so simple when two classes depend on each other (we need
-        // to enhance *both* classes' type parameters' bounds' heads first). This is why we replace each bound
-        // with an unenhanced version first: this ensures that the frontend at least doesn't fail.
-        //
-        // TODO: find a way to partially enhance type parameters of all classes before fully enhancing anything.
-        // TODO: should this be done in topological order on head type constructors?
-        //   I.e. for `A : B, B : C<A>` should we process `B` first?
-        typeParameters.replaceBounds { _, bound ->
-            bound.resolveIfJavaType(session, javaTypeParameterStack, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND)
-        }
         typeParameters.replaceBounds { typeParameter, bound ->
             enhanceTypeParameterBound(typeParameter, bound, forceOnlyHeadTypeConstructor = true)
         }
         typeParameters.replaceBounds { typeParameter, bound ->
             enhanceTypeParameterBound(typeParameter, bound, forceOnlyHeadTypeConstructor = false)
         }
+    }
+
+    private fun enhanceTypeParameterBoundsForMethod(firMethod: FirFunction): List<FirTypeParameterRef> {
+        val (initialBounds, copiedParameters) = performFirstRoundOfBoundsResolution(firMethod.typeParameters)
+        enhanceTypeParameterBoundsAfterFirstRound(copiedParameters, initialBounds)
+        return copiedParameters
     }
 
     private inline fun List<FirTypeParameterRef>.replaceBounds(block: (FirTypeParameter, FirTypeRef) -> FirTypeRef) {
@@ -363,9 +504,56 @@ class FirSignatureEnhancement(
         EnhancementSignatureParts(
             session, typeQualifierResolver, typeParameter, isCovariant = false, forceOnlyHeadTypeConstructor,
             AnnotationQualifierApplicabilityType.TYPE_PARAMETER_BOUNDS, contextQualifiers
-        ).enhance(bound, emptyList(), FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND)
+        ).enhance(bound, emptyList(), FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_AFTER_FIRST_ROUND)
 
-    fun enhanceSuperType(type: FirTypeRef): FirTypeRef =
+
+    fun enhanceSuperTypes(unenhnancedSuperTypes: List<FirTypeRef>): List<FirTypeRef> {
+        val purelyImplementedSupertype = getPurelyImplementedSupertype(moduleData.session)
+        val purelyImplementedSupertypeClassId = purelyImplementedSupertype?.classId
+        return buildList {
+            unenhnancedSuperTypes.mapNotNullTo(this) { superType ->
+                enhanceSuperType(superType).takeUnless {
+                    purelyImplementedSupertypeClassId != null && it.coneType.classId == purelyImplementedSupertypeClassId
+                }
+            }
+            purelyImplementedSupertype?.let {
+                add(buildResolvedTypeRef { type = it })
+            }
+        }
+    }
+
+    private fun getPurelyImplementedSupertype(session: FirSession): ConeKotlinType? {
+        val purelyImplementedClassIdFromAnnotation = owner.annotations
+            .firstOrNull { it.unexpandedClassId?.asSingleFqName() == JvmAnnotationNames.PURELY_IMPLEMENTS_ANNOTATION }
+            ?.let { (it.argumentMapping.mapping.values.firstOrNull() as? FirConstExpression<*>) }
+            ?.let { it.value as? String }
+            ?.takeIf { it.isNotBlank() && isValidJavaFqName(it) }
+            ?.let { ClassId.topLevel(FqName(it)) }
+        val purelyImplementedClassId = purelyImplementedClassIdFromAnnotation
+            ?: FakePureImplementationsProvider.getPurelyImplementedInterface(owner.symbol.classId)
+            ?: return null
+        val superTypeSymbol = session.symbolProvider.getClassLikeSymbolByClassId(purelyImplementedClassId) ?: return null
+        val superTypeParameterSymbols = superTypeSymbol.typeParameterSymbols
+        val typeParameters = owner.typeParameters
+        val supertypeParameterCount = superTypeParameterSymbols.size
+        val typeParameterCount = typeParameters.size
+        val parametersAsTypeProjections = when {
+            typeParameterCount == supertypeParameterCount ->
+                typeParameters.map { ConeTypeParameterTypeImpl(ConeTypeParameterLookupTag(it.symbol), isNullable = false) }
+            typeParameterCount == 1 && supertypeParameterCount > 1 && purelyImplementedClassIdFromAnnotation == null -> {
+                val projection = ConeTypeParameterTypeImpl(ConeTypeParameterLookupTag(typeParameters.first().symbol), isNullable = false)
+                (1..supertypeParameterCount).map { projection }
+            }
+            else -> return null
+        }
+        return ConeClassLikeTypeImpl(
+            purelyImplementedClassId.toLookupTag(),
+            parametersAsTypeProjections.toTypedArray(),
+            isNullable = false
+        )
+    }
+
+    private fun enhanceSuperType(type: FirTypeRef): FirTypeRef =
         EnhancementSignatureParts(
             session, typeQualifierResolver, null, isCovariant = false, forceOnlyHeadTypeConstructor = false,
             AnnotationQualifierApplicabilityType.TYPE_USE, contextQualifiers
@@ -439,7 +627,7 @@ class FirSignatureEnhancement(
         object Receiver : TypeInSignature() {
             override fun getTypeRef(member: FirCallableDeclaration): FirTypeRef {
                 if (member is FirJavaMethod) return member.valueParameters[0].returnTypeRef
-                return member.receiverTypeRef!!
+                return member.receiverParameter?.typeRef!!
             }
         }
 
@@ -502,6 +690,7 @@ class FirSignatureEnhancement(
         return buildResolvedTypeRef {
             type = typeWithoutEnhancement.enhance(session, qualifiers) ?: typeWithoutEnhancement
             annotations += typeRef.annotations
+            source = typeRef.source
         }
     }
 
@@ -533,8 +722,8 @@ private class EnhancementSignatureParts(
     override val typeSystem: TypeSystemContext
         get() = session.typeContext
 
-    override val FirAnnotation.forceWarning: Boolean
-        get() = false // TODO: force warnings on IDEA external annotations
+    override fun FirAnnotation.forceWarning(unenhancedType: KotlinTypeMarker?): Boolean =
+        false // TODO: force warnings on IDEA external annotations
 
     override val KotlinTypeMarker.annotations: Iterable<FirAnnotation>
         get() = (this as ConeKotlinType).attributes.customAnnotations
@@ -554,8 +743,8 @@ private class EnhancementSignatureParts(
         get() = (this as ConeTypeParameterLookupTag).symbol.fir.origin is FirDeclarationOrigin.Java
 }
 
-class FirEnhancedSymbolsStorage(val session: FirSession) : FirSessionComponent {
-    private val cachesFactory = session.firCachesFactory
+class FirEnhancedSymbolsStorage(private val cachesFactory: FirCachesFactory) : FirSessionComponent {
+    constructor(session: FirSession) : this(session.firCachesFactory)
 
     val cacheByOwner: FirCache<FirRegularClassSymbol, EnhancementSymbolsCache, Nothing?> =
         cachesFactory.createCache { _ -> EnhancementSymbolsCache(cachesFactory) }
@@ -563,9 +752,17 @@ class FirEnhancedSymbolsStorage(val session: FirSession) : FirSessionComponent {
     class EnhancementSymbolsCache(cachesFactory: FirCachesFactory) {
         @OptIn(PrivateForInline::class)
         val enhancedFunctions: FirCache<FirFunctionSymbol<*>, FirFunctionSymbol<*>, Pair<FirSignatureEnhancement, Name?>> =
-            cachesFactory.createCache { original, (enhancement, name) ->
-                enhancement.enhance(original, name)
-            }
+            cachesFactory.createCacheWithPostCompute(
+                createValue = { original, (enhancement, name) ->
+                    enhancement.enhance(original, name) to enhancement
+                },
+                postCompute = { _, enhancedVersion, enhancement ->
+                    val enhancedVersionFir = enhancedVersion.fir
+                    (enhancedVersionFir.initialSignatureAttr as? FirSimpleFunction)?.let {
+                        enhancedVersionFir.initialSignatureAttr = enhancement.enhancedFunction(it.symbol, it.name).fir
+                    }
+                }
+            )
 
         @OptIn(PrivateForInline::class)
         val enhancedVariables: FirCache<FirVariableSymbol<*>, FirVariableSymbol<*>, Pair<FirSignatureEnhancement, Name>> =

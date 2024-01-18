@@ -8,11 +8,19 @@ package org.jetbrains.kotlin.parcelize.test.services
 import org.jetbrains.kotlin.parcelize.test.services.ParcelizeRuntimeClasspathProvider.Companion.JUNIT_GENERATED_TEST_CLASS_FQNAME
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.jvm.JvmBoxMainClassProvider
+import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.junit.runner.JUnitCore
 
 class ParcelizeMainClassProvider(testServices: TestServices) : JvmBoxMainClassProvider(testServices) {
     override fun getMainClassNameAndAdditionalArguments(): List<String> {
-        return listOf(
+        val robolectricProperties = System.getProperties().propertyNames().asSequence()
+            .map { it.toString() }.filter { it.startsWith("robolectric") }
+            .map { "-D$it=${System.getProperty(it)}" }
+            .toList()
+            .toTypedArray()
+
+        return listOfNotNull(
+            *robolectricProperties,
             JUnitCore::class.java.name,
             JUNIT_GENERATED_TEST_CLASS_FQNAME
         )

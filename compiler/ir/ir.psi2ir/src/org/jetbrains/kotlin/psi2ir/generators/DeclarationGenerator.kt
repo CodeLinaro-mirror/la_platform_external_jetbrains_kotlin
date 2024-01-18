@@ -26,7 +26,8 @@ import org.jetbrains.kotlin.diagnostics.PsiDiagnosticUtils
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.ir.util.withScope
+import org.jetbrains.kotlin.ir.symbols.IrTypeAliasSymbol
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.endOffset
 import org.jetbrains.kotlin.psi.psiUtil.startOffsetSkippingComments
@@ -46,7 +47,7 @@ class DeclarationGenerator(override val context: GeneratorContext) : Generator {
         return try {
             when (ktDeclaration) {
                 is KtNamedFunction ->
-                    FunctionGenerator(this).generateFunctionDeclaration(ktDeclaration)
+                    FunctionGenerator(this).generateFunctionDeclaration(ktDeclaration, null)
                 is KtProperty ->
                     PropertyGenerator(this).generatePropertyDeclaration(ktDeclaration)
                 is KtClassOrObject ->
@@ -109,10 +110,16 @@ class DeclarationGenerator(override val context: GeneratorContext) : Generator {
 
     private fun generateTypeAliasDeclaration(ktTypeAlias: KtTypeAlias): IrTypeAlias =
         with(getOrFail(BindingContext.TYPE_ALIAS, ktTypeAlias)) {
-            context.symbolTable.declareTypeAlias(this) { symbol ->
+            context.symbolTable.descriptorExtension.declareTypeAlias(this) { symbol: IrTypeAliasSymbol ->
                 context.irFactory.createTypeAlias(
-                    ktTypeAlias.startOffsetSkippingComments, ktTypeAlias.endOffset, symbol,
-                    name, visibility, expandedType.toIrType(), isActual, IrDeclarationOrigin.DEFINED
+                    startOffset = ktTypeAlias.startOffsetSkippingComments,
+                    endOffset = ktTypeAlias.endOffset,
+                    origin = IrDeclarationOrigin.DEFINED,
+                    name = name,
+                    visibility = visibility,
+                    symbol = symbol,
+                    isActual = isActual,
+                    expandedType = expandedType.toIrType()
                 )
             }.also {
                 generateGlobalTypeParametersDeclarations(it, declaredTypeParameters)
@@ -124,7 +131,7 @@ class DeclarationGenerator(override val context: GeneratorContext) : Generator {
         from: List<TypeParameterDescriptor>
     ) {
         generateTypeParameterDeclarations(irTypeParametersOwner, from) { startOffset, endOffset, typeParameterDescriptor ->
-            context.symbolTable.declareGlobalTypeParameter(
+            context.symbolTable.descriptorExtension.declareGlobalTypeParameter(
                 startOffset,
                 endOffset,
                 IrDeclarationOrigin.DEFINED,
@@ -138,7 +145,7 @@ class DeclarationGenerator(override val context: GeneratorContext) : Generator {
         from: List<TypeParameterDescriptor>
     ) {
         generateTypeParameterDeclarations(irTypeParametersOwner, from) { startOffset, endOffset, typeParameterDescriptor ->
-            context.symbolTable.declareScopedTypeParameter(
+            context.symbolTable.descriptorExtension.declareScopedTypeParameter(
                 startOffset,
                 endOffset,
                 IrDeclarationOrigin.DEFINED,
@@ -207,5 +214,5 @@ abstract class DeclarationGeneratorExtension(val declarationGenerator: Declarati
     fun KotlinType.toIrType() = with(declarationGenerator) { toIrType() }
 }
 
-fun Generator.createBodyGenerator(scopeOwnerSymbol: IrSymbol) =
-    BodyGenerator(scopeOwnerSymbol, context)
+internal fun Generator.createBodyGenerator(scopeOwnerSymbol: IrSymbol, parentLoopResolver: LoopResolver? = null) =
+    BodyGenerator(scopeOwnerSymbol, context, parentLoopResolver)

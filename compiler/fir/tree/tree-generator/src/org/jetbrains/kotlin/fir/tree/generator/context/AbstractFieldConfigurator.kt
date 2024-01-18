@@ -6,6 +6,10 @@
 package org.jetbrains.kotlin.fir.tree.generator.context
 
 import org.jetbrains.kotlin.fir.tree.generator.model.*
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
+import org.jetbrains.kotlin.generators.tree.Importable
+import org.jetbrains.kotlin.generators.tree.SimpleTypeArgument
+import org.jetbrains.kotlin.generators.tree.TypeArgumentWithMultipleUpperBounds
 
 abstract class AbstractFieldConfigurator<T : AbstractFirTreeBuilder>(private val builder: T) {
     inner class ConfigureContext(val element: Element) {
@@ -22,7 +26,7 @@ abstract class AbstractFieldConfigurator<T : AbstractFirTreeBuilder>(private val
 
         fun generateBooleanFields(vararg names: String) {
             names.forEach {
-                +booleanField("is${it.replaceFirstChar(Char::uppercaseChar)}")
+                +booleanField(if (it.startsWith("is") || it.startsWith("has")) it else "is${it.replaceFirstChar(Char::uppercaseChar)}")
             }
         }
 
@@ -42,10 +46,6 @@ abstract class AbstractFieldConfigurator<T : AbstractFirTreeBuilder>(private val
             }
         }
 
-        fun parentArg(parent: Element, argument: String, type: String) {
-            parentArg(parent, Type(null, argument), Type(null, type))
-        }
-
         fun parentArg(parent: Element, argument: String, type: Importable) {
             parentArg(parent, Type(null, argument), type)
         }
@@ -61,10 +61,6 @@ abstract class AbstractFieldConfigurator<T : AbstractFirTreeBuilder>(private val
             argMap[argument] = type
         }
 
-        fun Type.withArgs(vararg args: Importable): Pair<Type, List<Importable>> {
-            return this to args.toList()
-        }
-
         fun Type.withArgs(vararg args: String): Pair<Type, List<Importable>> {
             return this to args.map { Type(null, it) }
         }
@@ -74,11 +70,11 @@ abstract class AbstractFieldConfigurator<T : AbstractFirTreeBuilder>(private val
         }
 
         fun shouldBeAnInterface() {
-            element.kind = Implementation.Kind.Interface
+            element.kind = ImplementationKind.Interface
         }
 
         fun shouldBeAbstractClass() {
-            element.kind = Implementation.Kind.AbstractClass
+            element.kind = ImplementationKind.AbstractClass
         }
     }
 

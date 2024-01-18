@@ -1,41 +1,35 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
 import org.jetbrains.kotlin.KtNodeTypes
-import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.getChild
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.declarations.utils.isSuspend
-import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
 import org.jetbrains.kotlin.fir.references.FirResolvedCallableReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.references.resolved
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toFirRegularClassSymbol
-import org.jetbrains.kotlin.fir.resolved
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.psi
-import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 import org.jetbrains.kotlin.utils.addToStdlib.lastIsInstanceOrNull
 
@@ -135,9 +129,12 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
     private fun findEnclosingSuspendFunction(context: CheckerContext): FirFunction? {
         return context.containingDeclarations.lastOrNull {
             when (it) {
-                is FirAnonymousFunction -> it.typeRef.coneType.isSuspendFunctionType(context.session)
-                is FirSimpleFunction -> it.isSuspend
-                else -> false
+                is FirAnonymousFunction ->
+                    if (it.isLambda) it.typeRef.coneType.isSuspendOrKSuspendFunctionType(context.session) else it.isSuspend
+                is FirSimpleFunction ->
+                    it.isSuspend
+                else ->
+                    false
             }
         } as? FirFunction
     }
@@ -161,13 +158,13 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
 
         val enclosingSuspendFunctionDispatchReceiverOwnerSymbol =
             (enclosingSuspendFunction.dispatchReceiverType as? ConeClassLikeType)?.lookupTag?.toFirRegularClassSymbol(session)
-        val enclosingSuspendFunctionExtensionReceiverOwnerSymbol = enclosingSuspendFunction.takeIf { it.receiverTypeRef != null }?.symbol
+        val enclosingSuspendFunctionExtensionReceiverOwnerSymbol = enclosingSuspendFunction.takeIf { it.receiverParameter != null }?.symbol
 
         val (dispatchReceiverExpression, extensionReceiverExpression, extensionReceiverParameterType) =
             expression.computeReceiversInfo(session, calledDeclarationSymbol)
 
         for (receiverExpression in listOfNotNull(dispatchReceiverExpression, extensionReceiverExpression)) {
-            if (!receiverExpression.typeRef.coneType.isRestrictSuspensionReceiver(session)) continue
+            if (!receiverExpression.resolvedType.isRestrictSuspensionReceiver(session)) continue
             if (sameInstanceOfReceiver(receiverExpression, enclosingSuspendFunctionDispatchReceiverOwnerSymbol)) continue
             if (sameInstanceOfReceiver(receiverExpression, enclosingSuspendFunctionExtensionReceiverOwnerSymbol)) continue
 
@@ -194,10 +191,10 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
         when (this) {
             is ConeClassLikeType -> {
                 val regularClassSymbol = fullyExpandedType(session).lookupTag.toFirRegularClassSymbol(session) ?: return false
-                if (regularClassSymbol.getAnnotationByClassId(StandardClassIds.Annotations.RestrictsSuspension) != null) {
+                if (regularClassSymbol.getAnnotationByClassId(StandardClassIds.Annotations.RestrictsSuspension, session) != null) {
                     return true
                 }
-                return regularClassSymbol.superConeTypes.any { it.isRestrictSuspensionReceiver(session) }
+                return regularClassSymbol.resolvedSuperTypes.any { it.isRestrictSuspensionReceiver(session) }
             }
             is ConeTypeParameterType -> {
                 return lookupTag.typeParameterSymbol.resolvedBounds.any { it.coneType.isRestrictSuspensionReceiver(session) }
@@ -222,11 +219,12 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
         session: FirSession,
         calledDeclarationSymbol: FirCallableSymbol<*>
     ): Triple<FirExpression?, FirExpression?, ConeKotlinType?> {
+        val dispatchReceiver = dispatchReceiver
         if (this is FirImplicitInvokeCall &&
-            dispatchReceiver != FirNoReceiverExpression && dispatchReceiver.typeRef.coneType.isSuspendFunctionType(session)
+            dispatchReceiver != null && dispatchReceiver.resolvedType.isSuspendOrKSuspendFunctionType(session)
         ) {
             val variableForInvoke = dispatchReceiver
-            val variableForInvokeType = variableForInvoke.typeRef.coneType
+            val variableForInvokeType = variableForInvoke.resolvedType
             if (!variableForInvokeType.isExtensionFunctionType) return Triple(null, null, null)
 
             // `a.foo()` is resolved to invokeExtension, so it's been desugared to `foo.invoke(a)`
@@ -239,8 +237,8 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker() {
         }
 
         return Triple(
-            dispatchReceiver.takeIf { it !is FirNoReceiverExpression },
-            extensionReceiver.takeIf { it !is FirNoReceiverExpression },
+            dispatchReceiver,
+            extensionReceiver,
             calledDeclarationSymbol.resolvedReceiverTypeRef?.coneType,
         )
     }

@@ -1,6 +1,6 @@
 open class SomeClass<T>
 class TestSome<P> {
-    companion object : SomeClass<P>() {
+    companion object : SomeClass<<!UNRESOLVED_REFERENCE!>P<!>>() {
     }
 }
 
@@ -10,7 +10,7 @@ class Test {
         }
 
         fun more(): InnerClass {
-            val b = <!RESOLUTION_TO_CLASSIFIER!>InnerClass<!>()
+            val b = <!INNER_CLASS_CONSTRUCTOR_NO_RECEIVER!>InnerClass<!>()
 
             val testVal = <!UNRESOLVED_REFERENCE!>inClass<!>
             <!UNRESOLVED_REFERENCE!>foo<!>()

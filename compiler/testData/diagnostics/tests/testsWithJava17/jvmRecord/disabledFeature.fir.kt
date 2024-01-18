@@ -1,4 +1,3 @@
-// FIR_IDE_IGNORE
 // !API_VERSION: 1.5
 // !LANGUAGE: -JvmRecordSupport
 // SKIP_TXT
@@ -14,11 +13,11 @@ class MyRec(
 )
 
 fun foo(jr: JRecord) {
-    JRecord(<!TOO_MANY_ARGUMENTS!>1<!>, <!TOO_MANY_ARGUMENTS!>""<!>)
+    JRecord(1, "")
 
-    jr.<!UNRESOLVED_REFERENCE!>x<!>()
-    jr.<!UNRESOLVED_REFERENCE!>y<!>()
+    jr.x()
+    jr.y()
 
-    jr.<!UNRESOLVED_REFERENCE!>x<!>
-    jr.<!UNRESOLVED_REFERENCE!>y<!>
+    jr.x
+    jr.y
 }

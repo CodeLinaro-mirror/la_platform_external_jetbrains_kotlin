@@ -10,9 +10,14 @@ import org.jetbrains.kotlin.js.engine.ScriptEngine
 import org.jetbrains.kotlin.js.engine.ScriptEngineNashorn
 import org.jetbrains.kotlin.js.engine.ScriptEngineV8
 import org.jetbrains.kotlin.js.engine.loadFiles
+import org.jetbrains.kotlin.test.utils.withExtension
+import org.jetbrains.kotlin.test.utils.withSuffixAndExtension
 import org.junit.Assert
+import java.io.File
 
+internal const val TEST_DATA_DIR_PATH = "js/js.translator/testData/"
 private const val DIST_DIR_JS_PATH = "dist/js/"
+private const val ESM_EXTENSION = ".mjs"
 
 fun createScriptEngine(): ScriptEngine {
     return if (java.lang.Boolean.getBoolean("kotlin.js.useNashorn")) ScriptEngineNashorn() else ScriptEngineV8()
@@ -22,14 +27,26 @@ fun ScriptEngine.overrideAsserter() {
     eval("this['kotlin-test'].kotlin.test.overrideAsserter_wbnzx$(this['kotlin-test'].kotlin.test.DefaultAsserter);")
 }
 
+private fun String.escapePath(): String {
+    return replace("\\", "/")
+}
+
+@Suppress("UNUSED_PARAMETER")
 fun ScriptEngine.runTestFunction(
     testModuleName: String?,
     testPackageName: String?,
     testFunctionName: String,
     withModuleSystem: Boolean,
     testFunctionArgs: String = "",
+    entryModulePath: String? = null,
 ): String {
+    if (withModuleSystem && testModuleName == null && entryModulePath == null) {
+        error("Entry point was not found. Please specify ENTRY_ES_MODULE directive near js file, if this is ES Modules test.")
+    }
     var script = when {
+        entryModulePath != null && entryModulePath.endsWith(ESM_EXTENSION) -> "globalThis".also {
+            eval("import('${entryModulePath.escapePath()}').then(module => Object.assign(globalThis, module)).catch(console.error)")
+        }
         withModuleSystem -> "\$kotlin_test_internal\$.require('" + testModuleName!! + "')"
         testModuleName === null -> "this"
         else -> testModuleName
@@ -51,9 +68,10 @@ abstract class AbstractJsTestChecker {
         testPackageName: String?,
         testFunctionName: String,
         expectedResult: String,
-        withModuleSystem: Boolean
+        withModuleSystem: Boolean,
+        entryModulePath: String? = null,
     ) {
-        val actualResult = run(files, testModuleName, testPackageName, testFunctionName, "", withModuleSystem)
+        val actualResult = run(files, testModuleName, testPackageName, testFunctionName, "", withModuleSystem, entryModulePath)
         Assert.assertEquals(expectedResult, actualResult.normalize())
     }
 
@@ -64,9 +82,10 @@ abstract class AbstractJsTestChecker {
         testFunctionName: String,
         testFunctionArgs: String,
         expectedResult: String,
-        withModuleSystem: Boolean
+        withModuleSystem: Boolean,
+        entryModulePath: String? = null
     ) {
-        val actualResult = run(files, testModuleName, testPackageName, testFunctionName, testFunctionArgs, withModuleSystem)
+        val actualResult = run(files, testModuleName, testPackageName, testFunctionName, testFunctionArgs, withModuleSystem, entryModulePath)
         Assert.assertEquals(expectedResult, actualResult.normalize())
     }
 
@@ -76,9 +95,10 @@ abstract class AbstractJsTestChecker {
         testPackageName: String?,
         testFunctionName: String,
         testFunctionArgs: String,
-        withModuleSystem: Boolean
+        withModuleSystem: Boolean,
+        entryModulePath: String? = null,
     ) = run(files) {
-        runTestFunction(testModuleName, testPackageName, testFunctionName, withModuleSystem, testFunctionArgs)
+        runTestFunction(testModuleName, testPackageName, testFunctionName, withModuleSystem, testFunctionArgs, entryModulePath)
     }
 
 
@@ -87,7 +107,20 @@ abstract class AbstractJsTestChecker {
     }
 
     fun checkStdout(files: List<String>, expectedResult: String) {
-        run(files) {
+        val newFiles = files
+            .mapIndexed { index, s ->
+                if (index == files.size - 1) {
+                    val file = File(s)
+                    val lines = file.readText().lines().toMutableList()
+                    lines.add(lines.size - 6, JS_IR_OUTPUT_REWRITE)
+                    val newFile = file.withSuffixAndExtension("_modified", "js")
+                    newFile.writeText(lines.joinToString("\n"))
+                    newFile.absolutePath
+                } else {
+                    s
+                }
+            }
+        run(newFiles) {
             val actualResult = eval(GET_KOTLIN_OUTPUT)
             Assert.assertEquals(expectedResult, actualResult.normalize())
             ""
@@ -148,7 +181,12 @@ abstract class AbstractNashornJsTestChecker : AbstractJsTestChecker() {
 }
 
 const val SETUP_KOTLIN_OUTPUT = "kotlin.kotlin.io.output = new kotlin.kotlin.io.BufferedOutput();"
-const val GET_KOTLIN_OUTPUT = "kotlin.kotlin.io.output.buffer;"
+const val GET_KOTLIN_OUTPUT = "main.get_output().buffer_1"
+
+private val JS_IR_OUTPUT_REWRITE = """
+    set_output(new BufferedOutput())
+    _.get_output = get_output
+""".trimIndent()
 
 object NashornJsTestChecker : AbstractNashornJsTestChecker() {
 
@@ -157,7 +195,7 @@ object NashornJsTestChecker : AbstractNashornJsTestChecker() {
     }
 
     override val preloadedScripts = listOf(
-        BasicWasmBoxTest.TEST_DATA_DIR_PATH + "nashorn-polyfills.js",
+        TEST_DATA_DIR_PATH + "nashorn-polyfills.js",
         DIST_DIR_JS_PATH + "kotlin.js",
         DIST_DIR_JS_PATH + "kotlin-test.js"
     )
@@ -173,7 +211,7 @@ object NashornJsTestChecker : AbstractNashornJsTestChecker() {
 
 object NashornIrJsTestChecker : AbstractNashornJsTestChecker() {
     override val preloadedScripts = listOf(
-        BasicWasmBoxTest.TEST_DATA_DIR_PATH + "nashorn-polyfills.js",
+        TEST_DATA_DIR_PATH + "nashorn-polyfills.js",
         "libraries/stdlib/js-v1/src/js/polyfills.js"
     )
 }

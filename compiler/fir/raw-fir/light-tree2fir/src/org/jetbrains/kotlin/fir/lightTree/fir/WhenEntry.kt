@@ -6,9 +6,9 @@
 package org.jetbrains.kotlin.fir.lightTree.fir
 
 import com.intellij.lang.LighterASTNode
-import org.jetbrains.kotlin.fir.builder.generateLazyLogicalOperation
-import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
-import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
+import org.jetbrains.kotlin.KtLightSourceElement
+import org.jetbrains.kotlin.fir.builder.buildBalancedOrExpressionTree
+import org.jetbrains.kotlin.fir.diagnostics.ConeSyntaxDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.buildErrorExpression
@@ -17,28 +17,18 @@ data class WhenEntry(
     val conditions: List<FirExpression>,
     val firBlock: FirBlock,
     val node: LighterASTNode,
-    val isElse: Boolean = false
+    val isElse: Boolean = false,
+    val shouldBindSubject: Boolean = false,
 ) {
     fun toFirWhenCondition(): FirExpression {
-        var firCondition: FirExpression? = null
-        for (condition in conditions) {
-            val firConditionElement = condition.toFirWhenCondition()
-            firCondition = when (firCondition) {
-                null -> firConditionElement
-                else -> firCondition.generateLazyLogicalOperation(firConditionElement, false, null)
-            }
-        }
-        return firCondition!!
-    }
-
-    private fun FirExpression.toFirWhenCondition(): FirExpression {
-        return this
+        require(conditions.isNotEmpty())
+        return buildBalancedOrExpressionTree(conditions)
     }
 
     fun toFirWhenConditionWithoutSubject(): FirExpression {
-        return when (val condition = conditions.firstOrNull()) {
-            null -> buildErrorExpression(null, ConeSimpleDiagnostic("No expression in condition with expression", DiagnosticKind.Syntax))
-            else -> condition
+        return when (conditions.size) {
+            0 -> buildErrorExpression(null, ConeSyntaxDiagnostic("No expression in condition with expression"))
+            else -> buildBalancedOrExpressionTree(conditions)
         }
     }
 }

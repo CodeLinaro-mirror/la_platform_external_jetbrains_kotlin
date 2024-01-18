@@ -24,9 +24,9 @@ abstract class InjectedAnotherStubTypeConstraintPosition<T>(private val builderI
     override fun toString(): String = "Injected from $builderInferenceLambdaOfInjectedStubType builder inference call"
 }
 
-abstract class BuilderInferenceSubstitutionConstraintPosition<L, I>(
+abstract class BuilderInferenceSubstitutionConstraintPosition<L>(
     private val builderInferenceLambda: L,
-    val initialConstraint: I,
+    val initialConstraint: InitialConstraint,
     val isFromNotSubstitutedDeclaredUpperBound: Boolean = false
 ) : ConstraintPosition(), OnlyInputTypeConstraintPosition {
     override fun toString(): String = "Incorporated builder inference constraint $initialConstraint " +
@@ -93,7 +93,9 @@ object BuilderInferencePosition : ConstraintPosition() {
     override fun toString(): String = "For builder inference call"
 }
 
-// TODO: should be used only in SimpleConstraintSystemImpl
+data object ProvideDelegateFixationPosition : ConstraintPosition()
+
+// TODO: should be used only in SimpleConstraintSystemImpl, KT-59675
 object SimpleConstraintSystemConstraintPosition : ConstraintPosition()
 
 // ------------------------------------------------ Errors ------------------------------------------------
@@ -111,7 +113,11 @@ class NewConstraintError(
     override val upperType: KotlinTypeMarker,
     override val position: IncorporationConstraintPosition,
 ) : ConstraintSystemError(if (position.from is ReceiverConstraintPosition<*>) INAPPLICABLE_WRONG_RECEIVER else INAPPLICABLE),
-    NewConstraintMismatch
+    NewConstraintMismatch {
+    override fun toString(): String {
+        return "$lowerType <: $upperType"
+    }
+}
 
 class NewConstraintWarning(
     override val lowerType: KotlinTypeMarker,

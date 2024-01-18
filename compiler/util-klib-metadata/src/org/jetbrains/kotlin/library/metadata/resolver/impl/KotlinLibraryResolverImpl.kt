@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package org.jetbrains.kotlin.library.resolver.impl
+package org.jetbrains.kotlin.library.metadata.resolver.impl
 
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.library.*
 import org.jetbrains.kotlin.library.metadata.PackageAccessHandler
-import org.jetbrains.kotlin.library.resolver.KotlinLibraryResolveResult
-import org.jetbrains.kotlin.library.resolver.KotlinLibraryResolver
-import org.jetbrains.kotlin.library.resolver.KotlinResolvedLibrary
-import org.jetbrains.kotlin.library.resolver.LibraryOrder
+import org.jetbrains.kotlin.library.metadata.resolver.KotlinLibraryResolveResult
+import org.jetbrains.kotlin.library.metadata.resolver.KotlinLibraryResolver
+import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
+import org.jetbrains.kotlin.library.metadata.resolver.LibraryOrder
 import org.jetbrains.kotlin.util.WithLogger
 
 fun <L: KotlinLibrary> SearchPathResolver<L>.libraryResolver(resolveManifestDependenciesLenient: Boolean = false)
@@ -32,16 +32,14 @@ class KotlinLibraryResolverImpl<L: KotlinLibrary> internal constructor(
         override val searchPathResolver: SearchPathResolver<L>,
         val resolveManifestDependenciesLenient: Boolean
 ): KotlinLibraryResolver<L>, WithLogger by searchPathResolver {
-
-    override fun resolveWithDependencies(
+    override fun resolveWithoutDependencies(
         unresolvedLibraries: List<UnresolvedLibrary>,
         noStdLib: Boolean,
         noDefaultLibs: Boolean,
         noEndorsedLibs: Boolean
     ) = findLibraries(unresolvedLibraries, noStdLib, noDefaultLibs, noEndorsedLibs)
-            .leaveDistinct()
-            .omitDuplicateNames()
-            .resolveDependencies()
+        .leaveDistinct()
+        .omitDuplicateNames()
 
     /**
      * Returns the list of libraries based on [libraryNames], [noStdLib], [noDefaultLibs] and [noEndorsedLibs] criteria.
@@ -102,7 +100,7 @@ class KotlinLibraryResolverImpl<L: KotlinLibrary> internal constructor(
      * 2. Wraps each [KotlinLibrary] into a [KotlinResolvedLibrary] with information about dependencies on other libraries.
      * 3. Creates resulting [KotlinLibraryResolveResult] object.
      */
-    private fun List<KotlinLibrary>.resolveDependencies(): KotlinLibraryResolveResult {
+    override fun List<KotlinLibrary>.resolveDependencies(): KotlinLibraryResolveResult {
 
         val rootLibraries = this.map { KotlinResolvedLibraryImpl(it) }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -6827,114 +6827,6 @@ public expect fun <T> Array<out T>?.contentDeepToString(): String
  * The elements are compared for equality with the [equals][Any.equals] function.
  * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
  */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun <T> Array<out T>.contentEquals(other: Array<out T>): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun ByteArray.contentEquals(other: ByteArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun ShortArray.contentEquals(other: ShortArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun IntArray.contentEquals(other: IntArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun LongArray.contentEquals(other: LongArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun FloatArray.contentEquals(other: FloatArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun DoubleArray.contentEquals(other: DoubleArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun BooleanArray.contentEquals(other: BooleanArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect infix fun CharArray.contentEquals(other: CharArray): Boolean
-
-/**
- * Returns `true` if the two specified arrays are *structurally* equal to one another,
- * i.e. contain the same number of the same elements in the same order.
- * 
- * The elements are compared for equality with the [equals][Any.equals] function.
- * For floating point numbers it means that `NaN` is equal to itself and `-0.0` is not equal to `0.0`.
- */
 @SinceKotlin("1.4")
 public expect infix fun <T> Array<out T>?.contentEquals(other: Array<out T>?): Boolean
 
@@ -7021,78 +6913,6 @@ public expect infix fun CharArray?.contentEquals(other: CharArray?): Boolean
 /**
  * Returns a hash code based on the contents of this array as if it is [List].
  */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun <T> Array<out T>.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun ByteArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun ShortArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun IntArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun LongArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun FloatArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun DoubleArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun BooleanArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun CharArray.contentHashCode(): Int
-
-/**
- * Returns a hash code based on the contents of this array as if it is [List].
- */
 @SinceKotlin("1.4")
 public expect fun <T> Array<out T>?.contentHashCode(): Int
 
@@ -7143,96 +6963,6 @@ public expect fun BooleanArray?.contentHashCode(): Int
  */
 @SinceKotlin("1.4")
 public expect fun CharArray?.contentHashCode(): Int
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun <T> Array<out T>.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun ByteArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun ShortArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun IntArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun LongArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun FloatArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun DoubleArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun BooleanArray.contentToString(): String
-
-/**
- * Returns a string representation of the contents of the specified array as if it is [List].
- * 
- * @sample samples.collections.Arrays.ContentOperations.contentToString
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@SinceKotlin("1.1")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-public expect fun CharArray.contentToString(): String
 
 /**
  * Returns a string representation of the contents of the specified array as if it is [List].
@@ -12531,6 +12261,10 @@ public infix fun CharArray.union(other: Iterable<Char>): Set<Char> {
 /**
  * Returns `true` if all elements match the given [predicate].
  * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
+ * 
  * @sample samples.collections.Collections.Aggregates.all
  */
 public inline fun <T> Array<out T>.all(predicate: (T) -> Boolean): Boolean {
@@ -12540,6 +12274,10 @@ public inline fun <T> Array<out T>.all(predicate: (T) -> Boolean): Boolean {
 
 /**
  * Returns `true` if all elements match the given [predicate].
+ * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  * 
  * @sample samples.collections.Collections.Aggregates.all
  */
@@ -12551,6 +12289,10 @@ public inline fun ByteArray.all(predicate: (Byte) -> Boolean): Boolean {
 /**
  * Returns `true` if all elements match the given [predicate].
  * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
+ * 
  * @sample samples.collections.Collections.Aggregates.all
  */
 public inline fun ShortArray.all(predicate: (Short) -> Boolean): Boolean {
@@ -12560,6 +12302,10 @@ public inline fun ShortArray.all(predicate: (Short) -> Boolean): Boolean {
 
 /**
  * Returns `true` if all elements match the given [predicate].
+ * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  * 
  * @sample samples.collections.Collections.Aggregates.all
  */
@@ -12571,6 +12317,10 @@ public inline fun IntArray.all(predicate: (Int) -> Boolean): Boolean {
 /**
  * Returns `true` if all elements match the given [predicate].
  * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
+ * 
  * @sample samples.collections.Collections.Aggregates.all
  */
 public inline fun LongArray.all(predicate: (Long) -> Boolean): Boolean {
@@ -12580,6 +12330,10 @@ public inline fun LongArray.all(predicate: (Long) -> Boolean): Boolean {
 
 /**
  * Returns `true` if all elements match the given [predicate].
+ * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  * 
  * @sample samples.collections.Collections.Aggregates.all
  */
@@ -12591,6 +12345,10 @@ public inline fun FloatArray.all(predicate: (Float) -> Boolean): Boolean {
 /**
  * Returns `true` if all elements match the given [predicate].
  * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
+ * 
  * @sample samples.collections.Collections.Aggregates.all
  */
 public inline fun DoubleArray.all(predicate: (Double) -> Boolean): Boolean {
@@ -12601,6 +12359,10 @@ public inline fun DoubleArray.all(predicate: (Double) -> Boolean): Boolean {
 /**
  * Returns `true` if all elements match the given [predicate].
  * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
+ * 
  * @sample samples.collections.Collections.Aggregates.all
  */
 public inline fun BooleanArray.all(predicate: (Boolean) -> Boolean): Boolean {
@@ -12610,6 +12372,10 @@ public inline fun BooleanArray.all(predicate: (Boolean) -> Boolean): Boolean {
 
 /**
  * Returns `true` if all elements match the given [predicate].
+ * 
+ * Note that if the array contains no elements, the function returns `true`
+ * because there are no elements in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  * 
  * @sample samples.collections.Collections.Aggregates.all
  */

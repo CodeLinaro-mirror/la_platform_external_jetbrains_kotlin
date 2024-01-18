@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrTypeAbbreviationImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
+import org.jetbrains.kotlin.utils.memoryOptimizedMap
 
 class DeepCopyTypeRemapper(
     private val symbolRemapper: SymbolRemapper
@@ -32,8 +33,8 @@ class DeepCopyTypeRemapper(
                 null,
                 symbolRemapper.getReferencedClassifier(type.classifier),
                 type.nullability,
-                type.arguments.map { remapTypeArgument(it) },
-                type.annotations.map { it.transform(deepCopy, null) as IrConstructorCall },
+                type.arguments.memoryOptimizedMap { remapTypeArgument(it) },
+                type.annotations.memoryOptimizedMap { it.transform(deepCopy, null) as IrConstructorCall },
                 type.abbreviation?.remapTypeAbbreviation()
             )
             else -> type
@@ -41,16 +42,16 @@ class DeepCopyTypeRemapper(
     }
 
     private fun remapTypeArgument(typeArgument: IrTypeArgument): IrTypeArgument =
-        if (typeArgument is IrTypeProjection)
-            makeTypeProjection(this.remapType(typeArgument.type), typeArgument.variance)
-        else
-            typeArgument
+        when (typeArgument) {
+            is IrTypeProjection -> makeTypeProjection(this.remapType(typeArgument.type), typeArgument.variance)
+            is IrStarProjection -> typeArgument
+        }
 
     private fun IrTypeAbbreviation.remapTypeAbbreviation() =
         IrTypeAbbreviationImpl(
             symbolRemapper.getReferencedTypeAlias(typeAlias),
             hasQuestionMark,
-            arguments.map { remapTypeArgument(it) },
+            arguments.memoryOptimizedMap { remapTypeArgument(it) },
             annotations
         )
 }

@@ -13,12 +13,15 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.HasAttributes
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.AbstractExecTask
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toUpperCaseAsciiOnly
 import java.io.File
 
 /**
@@ -97,9 +100,13 @@ sealed class NativeBinary(
 
     // Output access.
     // TODO: Provide output configurations and integrate them with Gradle Native.
-    var outputDirectory: File = with(project) {
+    var outputDirectory: File
+        get() = outputDirectoryProperty.get().asFile
+        set(value) = outputDirectoryProperty.set(value)
+
+    val outputDirectoryProperty: DirectoryProperty = with(project) {
         val targetSubDirectory = target.disambiguationClassifier?.let { "$it/" }.orEmpty()
-        buildDir.resolve("bin/$targetSubDirectory${this@NativeBinary.name}")
+        objects.directoryProperty().convention(layout.buildDirectory.dir("bin/$targetSubDirectory${this@NativeBinary.name}"))
     }
 
     val outputFile: File by lazy {
@@ -136,8 +143,24 @@ class Executable constructor(
             }
         }
 
+    /**
+     * The fully qualified name of the main function. For an example:
+     *
+     * - "main"
+     * - "com.example.main"
+     *
+     *  The main function can either take no arguments or an Array<String>.
+     */
     var entryPoint: String? = null
 
+    /**
+     * Set the fully qualified name of the main function. For an example:
+     *
+     * - "main"
+     * - "com.example.main"
+     *
+     *  The main function can either take no arguments or an Array<String>.
+     */
     fun entryPoint(point: String?) {
         entryPoint = point
     }
@@ -188,6 +211,7 @@ abstract class AbstractNativeLibrary(
     /**
      * If dependencies added by the [export] method are resolved transitively or not.
      */
+    @ExperimentalKotlinGradlePluginApi
     var transitiveExport: Boolean
         get() = project.configurations.maybeCreate(exportConfigurationName).isTransitive
         set(value) {
@@ -256,13 +280,20 @@ class Framework(
     /**
      * Embed bitcode for the framework or not. See [BitcodeEmbeddingMode].
      */
-    var embedBitcode: org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode = buildType.embedBitcode(konanTarget)
+    val embedBitcodeMode = project.objects.property(org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode::class.java)
+
+    @Deprecated("Use 'embedBitcodeMode' property instead.")
+    var embedBitcode: org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode
+        get() = embedBitcodeMode.get()
+        set(value) {
+            embedBitcodeMode.set(value)
+        }
 
     /**
      * Enable or disable embedding bitcode for the framework. See [BitcodeEmbeddingMode].
      */
     fun embedBitcode(mode: org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode) {
-        embedBitcode = mode
+        embedBitcodeMode.set(mode)
     }
 
     /**
@@ -275,26 +306,12 @@ class Framework(
      *     marker - Embed placeholder LLVM IR data as a marker.
      *              Has the same effect as the -Xembed-bitcode-marker command line option.
      */
-    fun embedBitcode(mode: String) = embedBitcode(org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode.valueOf(mode.toUpperCase()))
-
-    internal var isStaticWasReassigned = false
-
-    //Hack: Cocoapods plugin overrides default value, but we want to track user-side reassigning
-    internal fun setIsStaticSilently(value: Boolean) {
-        val wasReassigned = isStaticWasReassigned
-        isStatic = value
-        isStaticWasReassigned = wasReassigned
-    }
+    fun embedBitcode(mode: String) = embedBitcode(org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode.valueOf(mode.toUpperCaseAsciiOnly()))
 
     /**
      * Specifies if the framework is linked as a static library (false by default).
-     * Note: Cocoapods plugin links frameworks as a static library by default!
      */
     var isStatic = false
-        set(value) {
-            isStaticWasReassigned = true
-            field = value
-        }
 
     object BitcodeEmbeddingMode {
         val DISABLE = org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode.DISABLE

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,15 +8,18 @@ package org.jetbrains.kotlin.fir.builder
 import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.contracts.description.LogicOperationKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
+import org.jetbrains.kotlin.fir.contracts.FirLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.builder.buildLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
@@ -25,27 +28,40 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.*
+import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
-import org.jetbrains.kotlin.fir.expressions.impl.FirStubStatement
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildDelegateFieldReference
 import org.jetbrains.kotlin.fir.references.builder.buildImplicitThisReference
 import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
-import org.jetbrains.kotlin.fir.symbols.constructStarProjectedType
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirDelegateFieldSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
+import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjectionOut
 import org.jetbrains.kotlin.fir.types.ConeStarProjection
+import org.jetbrains.kotlin.fir.types.FirErrorTypeRef
+import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.builder.buildImplicitTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.impl.*
+import org.jetbrains.kotlin.fir.types.builder.buildTypeProjectionWithVariance
+import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.constructClassLikeType
+import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
+import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.realElement
 import org.jetbrains.kotlin.types.ConstantValueKind
+import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 fun String.parseCharacter(): CharacterWithDiagnostic {
     // Strip the quotes
@@ -141,6 +157,9 @@ fun IElementType.toUnaryName(): Name? {
 }
 
 fun IElementType.toFirOperation(): FirOperation =
+    toFirOperationOrNull() ?: error("Cannot convert element type to FIR operation: $this")
+
+fun IElementType.toFirOperationOrNull(): FirOperation? =
     when (this) {
         KtTokens.LT -> FirOperation.LT
         KtTokens.GT -> FirOperation.GT
@@ -161,7 +180,7 @@ fun IElementType.toFirOperation(): FirOperation =
         KtTokens.AS_KEYWORD -> FirOperation.AS
         KtTokens.AS_SAFE -> FirOperation.SAFE_AS
 
-        else -> throw AssertionError(this.toString())
+        else -> null
     }
 
 fun FirExpression.generateNotNullOrOther(
@@ -285,6 +304,18 @@ fun generateResolvedAccessExpression(source: KtSourceElement?, variable: FirVari
         }
     }
 
+fun FirVariable.toComponentCall(
+    entrySource: KtSourceElement?,
+    index: Int,
+): FirComponentCall {
+    return buildComponentCall {
+        val componentCallSource = entrySource?.fakeElement(KtFakeSourceElementKind.DesugaredComponentFunctionCall)
+        source = componentCallSource
+        explicitReceiver = generateResolvedAccessExpression(componentCallSource, this@toComponentCall)
+        componentIndex = index + 1
+    }
+}
+
 val FirClassBuilder.ownerRegularOrAnonymousObjectSymbol
     get() = when (this) {
         is FirAnonymousObjectBuilder -> symbol
@@ -299,9 +330,9 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     delegateBuilder: FirWrappedDelegateExpressionBuilder?,
     moduleData: FirModuleData,
     ownerRegularOrAnonymousObjectSymbol: FirClassSymbol<*>?,
-    ownerRegularClassTypeParametersCount: Int?,
     context: Context<T>,
     isExtension: Boolean,
+    lazyDelegateExpression: FirLazyExpression? = null,
 ) {
     if (delegateBuilder == null) return
     val delegateFieldSymbol = FirDelegateFieldSymbol(symbol.callableId).also {
@@ -338,17 +369,15 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                 calleeReference = buildImplicitThisReference {
                     boundSymbol = ownerRegularOrAnonymousObjectSymbol
                 }
-                typeRef = buildResolvedTypeRef {
-                    val typeParameterNumber = ownerRegularClassTypeParametersCount ?: 0
-                    type = ownerRegularOrAnonymousObjectSymbol.constructStarProjectedType(typeParameterNumber)
-                }
+                coneTypeOrNull = context.dispatchReceiverTypesStack.last()
             }
-            else -> buildConstExpression(null, ConstantValueKind.Null, null)
+            else -> buildConstExpression(null, ConstantValueKind.Null, null, setType = false)
         }
 
     fun delegateAccess() = buildPropertyAccessExpression {
         source = fakeSource
         calleeReference = buildDelegateFieldReference {
+            source = fakeSource
             resolvedSymbol = delegateFieldSymbol
         }
         if (ownerRegularOrAnonymousObjectSymbol != null) {
@@ -364,44 +393,65 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
             name = this@generateAccessorsByDelegate.name
             resolvedSymbol = this@generateAccessorsByDelegate.symbol
         }
-        typeRef = when {
+        coneTypeOrNull = when {
             !isMember && !isExtension -> if (isVar) {
-                FirImplicitKMutableProperty0TypeRef(null, ConeStarProjection)
+                StandardClassIds.KMutableProperty0.constructClassLikeType(arrayOf(ConeStarProjection))
             } else {
-                FirImplicitKProperty0TypeRef(null, ConeStarProjection)
+                StandardClassIds.KProperty0.constructClassLikeType(arrayOf(ConeStarProjection))
             }
             isMember && isExtension -> if (isVar) {
-                FirImplicitKMutableProperty2TypeRef(null, ConeStarProjection, ConeStarProjection, ConeStarProjection)
+                StandardClassIds.KMutableProperty2.constructClassLikeType(
+                    arrayOf(
+                        ConeStarProjection,
+                        ConeStarProjection,
+                        ConeStarProjection
+                    )
+                )
             } else {
-                FirImplicitKProperty2TypeRef(null, ConeStarProjection, ConeStarProjection, ConeStarProjection)
+                StandardClassIds.KProperty2.constructClassLikeType(arrayOf(ConeStarProjection, ConeStarProjection, ConeStarProjection))
             }
             else -> if (isVar) {
-                FirImplicitKMutableProperty1TypeRef(null, ConeStarProjection, ConeStarProjection)
+                StandardClassIds.KMutableProperty1.constructClassLikeType(arrayOf(ConeStarProjection, ConeStarProjection))
             } else {
-                FirImplicitKProperty1TypeRef(null, ConeStarProjection, ConeStarProjection)
+                StandardClassIds.KProperty1.constructClassLikeType(arrayOf(ConeStarProjection, ConeStarProjection))
+            }
+        }
+        this@generateAccessorsByDelegate.typeParameters.mapTo(typeArguments) {
+            buildTypeProjectionWithVariance {
+                source = fakeSource
+                variance = Variance.INVARIANT
+                typeRef = buildResolvedTypeRef {
+                    type = ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false)
+                }
             }
         }
     }
 
-    delegateBuilder.delegateProvider = buildFunctionCall {
-        explicitReceiver = delegateBuilder.expression
-        calleeReference = buildSimpleNamedReference {
+    delegate = lazyDelegateExpression ?: run {
+        delegateBuilder.delegateProvider = buildFunctionCall {
+            explicitReceiver = delegateBuilder.expression
+            calleeReference = buildSimpleNamedReference {
+                source = fakeSource
+                name = OperatorNameConventions.PROVIDE_DELEGATE
+            }
+            argumentList = buildBinaryArgumentList(thisRef(forDispatchReceiver = true), propertyRef())
+            origin = FirFunctionCallOrigin.Operator
             source = fakeSource
-            name = OperatorNameConventions.PROVIDE_DELEGATE
         }
-        argumentList = buildBinaryArgumentList(thisRef(forDispatchReceiver = true), propertyRef())
-        origin = FirFunctionCallOrigin.Operator
+
+        delegateBuilder.build()
     }
-    delegate = delegateBuilder.build()
+
     if (getter == null || getter is FirDefaultPropertyAccessor) {
         val annotations = getter?.annotations
         val returnTarget = FirFunctionTarget(null, isLambda = false)
         val getterStatus = getter?.status
+        val getterElement = getter?.source?.fakeElement(KtFakeSourceElementKind.DelegatedPropertyAccessor) ?: fakeSource
         getter = buildPropertyAccessor {
-            this.source = fakeSource
+            this.source = getterElement
             this.moduleData = moduleData
             origin = FirDeclarationOrigin.Source
-            returnTypeRef = buildImplicitTypeRef()
+            returnTypeRef = FirImplicitTypeRefImplWithoutSource
             isGetter = true
             status = FirDeclarationStatusImpl(getterStatus?.visibility ?: Visibilities.Unknown, Modality.FINAL).apply {
                 isInline = getterStatus?.isInline ?: isInline
@@ -421,6 +471,7 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                         origin = FirFunctionCallOrigin.Operator
                     }
                     target = returnTarget
+                    source = fakeSource
                 }
             )
             if (annotations != null) {
@@ -434,10 +485,12 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     }
     if (isVar && (setter == null || setter is FirDefaultPropertyAccessor)) {
         val annotations = setter?.annotations
+        val returnTarget = FirFunctionTarget(null, isLambda = false)
         val parameterAnnotations = setter?.valueParameters?.firstOrNull()?.annotations
         val setterStatus = setter?.status
+        val setterElement = setter?.source?.fakeElement(KtFakeSourceElementKind.DelegatedPropertyAccessor) ?: fakeSource
         setter = buildPropertyAccessor {
-            this.source = fakeSource
+            this.source = setterElement
             this.moduleData = moduleData
             origin = FirDeclarationOrigin.Source
             returnTypeRef = moduleData.session.builtinTypes.unitType
@@ -445,11 +498,13 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
             status = FirDeclarationStatusImpl(setterStatus?.visibility ?: Visibilities.Unknown, Modality.FINAL).apply {
                 isInline = setterStatus?.isInline ?: isInline
             }
+            symbol = FirPropertyAccessorSymbol()
             val parameter = buildValueParameter {
                 source = fakeSource
+                containingFunctionSymbol = this@buildPropertyAccessor.symbol
                 this.moduleData = moduleData
                 origin = FirDeclarationOrigin.Source
-                returnTypeRef = buildImplicitTypeRef()
+                returnTypeRef = FirImplicitTypeRefImplWithoutSource
                 name = SpecialNames.IMPLICIT_SET_PARAMETER
                 symbol = FirValueParameterSymbol(this@generateAccessorsByDelegate.name)
                 isCrossinline = false
@@ -460,27 +515,31 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                 }
             }
             valueParameters += parameter
-            symbol = FirPropertyAccessorSymbol()
             body = FirSingleExpressionBlock(
-                buildFunctionCall {
-                    source = fakeSource
-                    explicitReceiver = delegateAccess()
-                    calleeReference = buildSimpleNamedReference {
+                buildReturnExpression {
+                    result = buildFunctionCall {
                         source = fakeSource
-                        name = OperatorNameConventions.SET_VALUE
-                    }
-                    argumentList = buildArgumentList {
-                        arguments += thisRef()
-                        arguments += propertyRef()
-                        arguments += buildPropertyAccessExpression {
-                            calleeReference = buildResolvedNamedReference {
+                        explicitReceiver = delegateAccess()
+                        calleeReference = buildSimpleNamedReference {
+                            source = fakeSource
+                            name = OperatorNameConventions.SET_VALUE
+                        }
+                        argumentList = buildArgumentList {
+                            arguments += thisRef()
+                            arguments += propertyRef()
+                            arguments += buildPropertyAccessExpression {
                                 source = fakeSource
-                                name = SpecialNames.IMPLICIT_SET_PARAMETER
-                                resolvedSymbol = parameter.symbol
+                                calleeReference = buildResolvedNamedReference {
+                                    source = fakeSource
+                                    name = SpecialNames.IMPLICIT_SET_PARAMETER
+                                    resolvedSymbol = parameter.symbol
+                                }
                             }
                         }
+                        origin = FirFunctionCallOrigin.Operator
                     }
-                    origin = FirFunctionCallOrigin.Operator
+                    target = returnTarget
+                    source = fakeSource
                 }
             )
             if (annotations != null) {
@@ -488,24 +547,38 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
             }
             propertySymbol = this@generateAccessorsByDelegate.symbol
         }.also {
+            returnTarget.bind(it)
             it.initContainingClassAttr(context)
         }
     }
 }
 
-fun FirBlock?.extractContractDescriptionIfPossible(): Pair<FirBlock?, FirContractDescription?> {
-    if (this == null) return null to null
-    if (!isContractPresentFirCheck()) return this to null
-    val contractCall = replaceFirstStatement(FirStubStatement) as FirFunctionCall
-    return this to buildLegacyRawContractDescription {
-        source = contractCall.source
-        this.contractCall = contractCall
+fun processLegacyContractDescription(block: FirBlock): FirContractDescription? {
+    if (block.isContractPresentFirCheck()) {
+        val contractCall = block.replaceFirstStatement<FirFunctionCall> { FirContractCallBlock(it) }
+        return contractCall.toLegacyRawContractDescription()
+    }
+
+    return null
+}
+
+fun FirFunctionCall.toLegacyRawContractDescription(): FirLegacyRawContractDescription {
+    return buildLegacyRawContractDescription {
+        this.source = this@toLegacyRawContractDescription.source
+        this.contractCall = this@toLegacyRawContractDescription
     }
 }
 
 fun FirBlock.isContractPresentFirCheck(): Boolean {
     val firstStatement = statements.firstOrNull() ?: return false
-    val contractCall = firstStatement as? FirFunctionCall ?: return false
+    return firstStatement.isContractBlockFirCheck()
+}
+
+@OptIn(ExperimentalContracts::class)
+fun FirStatement.isContractBlockFirCheck(): Boolean {
+    contract { returns(true) implies (this@isContractBlockFirCheck is FirFunctionCall) }
+
+    val contractCall = this as? FirFunctionCall ?: return false
     if (contractCall.calleeReference.name.asString() != "contract") return false
     val receiver = contractCall.explicitReceiver as? FirQualifiedAccessExpression ?: return true
     if (!contractCall.checkReceiver("contracts")) return false
@@ -525,7 +598,7 @@ private fun FirExpression.checkReceiver(name: String?): Boolean {
 // this = .f(...)
 // receiver = <expr>
 // Returns safe call <expr>?.{ f(...) }
-fun FirQualifiedAccess.createSafeCall(receiver: FirExpression, source: KtSourceElement): FirSafeCallExpression {
+fun FirQualifiedAccessExpression.createSafeCall(receiver: FirExpression, source: KtSourceElement): FirSafeCallExpression {
     val checkedSafeCallSubject = buildCheckedSafeCallSubject {
         @OptIn(FirContractViolation::class)
         this.originalReceiverRef = FirExpressionRef<FirExpression>().apply {
@@ -549,7 +622,7 @@ fun FirQualifiedAccess.createSafeCall(receiver: FirExpression, source: KtSourceE
 // Turns (a?.b).f(...) to a?.{ b.f(...) ) -- for any qualified access `.f(...)`
 // Other patterns remain unchanged
 fun FirExpression.pullUpSafeCallIfNecessary(): FirExpression {
-    if (this !is FirQualifiedAccess) return this
+    if (this !is FirQualifiedAccessExpression) return this
     val safeCall = explicitReceiver as? FirSafeCallExpression ?: return this
     val safeCallSelector = safeCall.selector as? FirExpression ?: return this
 
@@ -562,15 +635,30 @@ fun FirExpression.pullUpSafeCallIfNecessary(): FirExpression {
 fun List<FirAnnotationCall>.filterUseSiteTarget(target: AnnotationUseSiteTarget): List<FirAnnotationCall> =
     mapNotNull {
         if (it.useSiteTarget != target) null
-        else buildAnnotationCall {
+        else buildAnnotationCallCopy(it) {
             source = it.source?.fakeElement(KtFakeSourceElementKind.FromUseSiteTarget)
-            useSiteTarget = it.useSiteTarget
-            annotationTypeRef = it.annotationTypeRef
-            argumentList = it.argumentList
-            calleeReference = it.calleeReference
-            argumentMapping = it.argumentMapping
         }
     }
+
+// TODO: avoid mutability KT-55002
+fun FirTypeRef.convertToReceiverParameter(): FirReceiverParameter {
+    val typeRef = this
+    return buildReceiverParameter {
+        source = typeRef.source?.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
+        @Suppress("UNCHECKED_CAST")
+        annotations += (typeRef.annotations as List<FirAnnotationCall>).filterUseSiteTarget(AnnotationUseSiteTarget.RECEIVER)
+        val filteredTypeRefAnnotations = typeRef.annotations.filterNot { it.useSiteTarget == AnnotationUseSiteTarget.RECEIVER }
+        if (filteredTypeRefAnnotations.size != typeRef.annotations.size) {
+            typeRef.replaceAnnotations(filteredTypeRefAnnotations)
+        }
+        this.typeRef = typeRef
+    }
+}
+
+fun KtSourceElement.asReceiverParameter(): FirReceiverParameter = buildReceiverParameter {
+    source = this@asReceiverParameter.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
+    typeRef = FirImplicitTypeRefImplWithoutSource
+}
 
 fun <T> FirCallableDeclaration.initContainingClassAttr(context: Context<T>) {
     containingClassForStaticMemberAttr = currentDispatchReceiverType(context)?.lookupTag ?: return
@@ -588,3 +676,47 @@ data class CalleeAndReceiver(
     val receiverExpression: FirExpression? = null,
     val isImplicitInvoke: Boolean = false
 )
+
+/**
+ * Creates balanced tree of OR expressions for given set of conditions
+ * We do so, to avoid too deep OR-expression structures, that can cause running out of stack while processing
+ * [conditions] should contain at least one element, otherwise it will cause StackOverflow
+ */
+fun buildBalancedOrExpressionTree(conditions: List<FirExpression>, lower: Int = 0, upper: Int = conditions.lastIndex): FirExpression {
+    val size = upper - lower + 1
+    val middle = size / 2 + lower
+
+    if (lower == upper) {
+        return conditions[middle]
+    }
+    val leftNode = buildBalancedOrExpressionTree(conditions, lower, middle - 1)
+    val rightNode = buildBalancedOrExpressionTree(conditions, middle, upper)
+
+    return leftNode.generateLazyLogicalOperation(
+        rightNode,
+        isAnd = false,
+        (leftNode.source ?: rightNode.source)?.fakeElement(KtFakeSourceElementKind.WhenCondition)
+    )
+}
+
+fun AnnotationUseSiteTarget?.appliesToPrimaryConstructorParameter() = this == null ||
+        this == AnnotationUseSiteTarget.CONSTRUCTOR_PARAMETER ||
+        this == AnnotationUseSiteTarget.RECEIVER ||
+        this == AnnotationUseSiteTarget.FILE
+
+fun KtSourceElement.withForcedKindFrom(context: Context<*>): KtSourceElement {
+    return when (val forcedKind = context.forcedElementSourceKind) {
+        kind -> this
+        is KtFakeSourceElementKind -> fakeElement(forcedKind)
+        else -> this.realElement()
+    }
+}
+
+fun FirErrorTypeRef.wrapIntoArray(): FirResolvedTypeRef {
+    val typeRef = this
+    return buildResolvedTypeRef {
+        source = typeRef.source
+        type = StandardClassIds.Array.constructClassLikeType(arrayOf(ConeKotlinTypeProjectionOut(typeRef.coneType)))
+        delegatedTypeRef = typeRef.copyWithNewSourceKind(KtFakeSourceElementKind.ArrayTypeFromVarargParameter)
+    }
+}

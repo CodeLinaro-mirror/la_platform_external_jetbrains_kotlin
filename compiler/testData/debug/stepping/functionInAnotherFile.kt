@@ -1,3 +1,4 @@
+// IGNORE_BACKEND: WASM
 // FILE: foo.kt
 import bar
 fun foo(x: Int): Int {
@@ -20,16 +21,27 @@ fun bar(x: Int) =
         foo(x)
     }
 
-// EXPECTATIONS
-// test.kt:13 box
-// foo.kt:4 foo
-// foo.kt:7 foo
-// test.kt:17 bar
-// test.kt:18 bar
-// foo.kt:4 foo
-// foo.kt:5 foo
-// test.kt:18 bar
-// test.kt:21 bar
-// foo.kt:7 foo
-// test.kt:13 box
+// EXPECTATIONS JVM JVM_IR
 // test.kt:14 box
+// foo.kt:5 foo
+// foo.kt:8 foo
+// test.kt:18 bar
+// test.kt:19 bar
+// foo.kt:5 foo
+// foo.kt:6 foo
+// test.kt:19 bar
+// test.kt:22 bar
+// foo.kt:8 foo
+// test.kt:14 box
+// test.kt:15 box
+
+// EXPECTATIONS JS_IR
+// test.kt:14 box
+// foo.kt:5 foo
+// foo.kt:8 foo
+// test.kt:18 bar
+// test.kt:19 bar
+// foo.kt:5 foo
+// foo.kt:6 foo
+// test.kt:22 bar
+// test.kt:15 box

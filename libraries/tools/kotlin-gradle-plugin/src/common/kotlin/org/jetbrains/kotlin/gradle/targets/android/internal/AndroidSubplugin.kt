@@ -36,8 +36,8 @@ class AndroidExtensionsSubpluginIndicator @Inject internal constructor(private v
         registry.register(KotlinAndroidExtensionModelBuilder())
         project.plugins.apply(AndroidSubplugin::class.java)
 
-        project.logger.warn(
-            "Warning: The 'kotlin-android-extensions' Gradle plugin is deprecated. " +
+        project.logger.error(
+            "Error: The 'kotlin-android-extensions' Gradle plugin is no longer supported. " +
                     "Please use this migration guide (https://goo.gle/kotlin-android-extensions-deprecation) to start " +
                     "working with View Binding (https://developer.android.com/topic/libraries/view-binding) " +
                     "and the 'kotlin-parcelize' plugin."
@@ -46,19 +46,7 @@ class AndroidExtensionsSubpluginIndicator @Inject internal constructor(private v
 
     private fun addAndroidExtensionsRuntime(project: Project) {
         val kotlinPluginVersion = project.getKotlinPluginVersion()
-
-        project.configurations.all { configuration ->
-            val name = configuration.name
-            if (name != "implementation" && name != "compile") return@all
-
-            androidPluginVersion ?: return@all
-            val requiredConfigurationName = when {
-                compareVersionNumbers(androidPluginVersion, "2.5") > 0 -> "implementation"
-                else -> "compile"
-            }
-
-            if (name != requiredConfigurationName) return@all
-
+        project.configurations.matching { it.name == "implementation" }.all { configuration ->
             configuration.dependencies.add(
                 project.dependencies.create(
                     "org.jetbrains.kotlin:kotlin-android-extensions-runtime:$kotlinPluginVersion"
@@ -129,7 +117,7 @@ class AndroidSubplugin : KotlinCompilerPluginSupportPlugin {
             )
             kotlinCompilation.compileKotlinTaskProvider.configure {
                 it.androidLayoutResourceFiles.from(
-                    sourceSet.res.sourceDirectoryTrees.layoutDirectories
+                    sourceSet.res.getSourceDirectoryTrees().layoutDirectories
                 )
             }
         }
@@ -180,7 +168,7 @@ class AndroidSubplugin : KotlinCompilerPluginSupportPlugin {
                 buildString {
                     append(name)
                     append(';')
-                    resDirectories.map { it.dir }.joinTo(this, separator = ";") { it.canonicalPath }
+                    resDirectories.map { it.dir }.joinTo(this, separator = ";") { it.normalize().absolutePath }
                 }
             }
             pluginOptions += CompositeSubpluginOption(
@@ -201,7 +189,7 @@ class AndroidSubplugin : KotlinCompilerPluginSupportPlugin {
 
         fun addSourceSetAsVariant(name: String) {
             val sourceSet = androidExtension.sourceSets.findByName(name) ?: return
-            val srcDirs = sourceSet.res.sourceDirectoryTrees
+            val srcDirs = sourceSet.res.getSourceDirectoryTrees()
             if (srcDirs.isNotEmpty()) {
                 addVariant(sourceSet.name, srcDirs)
             }

@@ -20,14 +20,12 @@ import org.jetbrains.kotlin.config.IncrementalCompilation
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.incremental.ChangesCollector
 import org.jetbrains.kotlin.incremental.IncrementalJsCache
-import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
-import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.InlineConstTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.incremental.components.*
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProviderFromCache
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumerImpl
+import org.jetbrains.kotlin.incremental.storage.RelativeFileToPathConverter
 import org.jetbrains.kotlin.jps.build.KotlinCompileContext
 import org.jetbrains.kotlin.jps.build.KotlinDirtySourceFilesHolder
 import org.jetbrains.kotlin.jps.build.ModuleBuildTarget
@@ -54,11 +52,11 @@ class KotlinJsModuleBuildTarget(kotlinContext: KotlinCompileContext, jpsModuleBu
     override val isIncrementalCompilationEnabled: Boolean
         get() = IncrementalCompilation.isEnabledForJs()
 
-    override val buildMetaInfoFactory
-        get() = JsBuildMetaInfo
-
-    override val buildMetaInfoFileName: String
+    override val compilerArgumentsFileName: String
         get() = JS_BUILD_META_INFO_FILE_NAME
+
+    override val buildMetaInfo: JsBuildMetaInfo
+        get() = JsBuildMetaInfo(kotlinContext.fileToPathConverter as? RelativeFileToPathConverter)
 
     val isFirstBuild: Boolean
         get() {
@@ -72,9 +70,10 @@ class KotlinJsModuleBuildTarget(kotlinContext: KotlinCompileContext, jpsModuleBu
         lookupTracker: LookupTracker,
         exceptActualTracer: ExpectActualTracker,
         inlineConstTracker: InlineConstTracker,
-        enumWhenTracker: EnumWhenTracker
+        enumWhenTracker: EnumWhenTracker,
+        importTracker: ImportTracker
     ) {
-        super.makeServices(builder, incrementalCaches, lookupTracker, exceptActualTracer, inlineConstTracker, enumWhenTracker)
+        super.makeServices(builder, incrementalCaches, lookupTracker, exceptActualTracer, inlineConstTracker, enumWhenTracker, importTracker)
 
         with(builder) {
             register(IncrementalResultsConsumer::class.java, IncrementalResultsConsumerImpl())
@@ -214,7 +213,7 @@ class KotlinJsModuleBuildTarget(kotlinContext: KotlinCompileContext, jpsModuleBu
     }
 
     override fun createCacheStorage(paths: BuildDataPaths) =
-        JpsIncrementalJsCache(jpsModuleBuildTarget, paths, kotlinContext.fileToPathConverter)
+        JpsIncrementalJsCache(jpsModuleBuildTarget, paths, kotlinContext.icContext)
 
     override fun updateCaches(
         dirtyFilesHolder: KotlinDirtySourceFilesHolder,

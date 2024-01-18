@@ -1,12 +1,11 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.analysis.diagnostics.jvm
 
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.config.LanguageFeature.DefaultMethodsCallFromJava6TargetError
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitConcurrentHashMapContains
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitJvmOverloadsOnConstructorsOfAnnotationClasses
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitSpreadOnSignaturePolymorphicCall
@@ -54,8 +53,6 @@ object FirJvmErrors {
 
     // annotations
     val STRICTFP_ON_CLASS by error0<KtAnnotationEntry>()
-    val VOLATILE_ON_VALUE by error0<KtAnnotationEntry>()
-    val VOLATILE_ON_DELEGATE by error0<KtAnnotationEntry>()
     val SYNCHRONIZED_ON_ABSTRACT by error0<KtAnnotationEntry>()
     val SYNCHRONIZED_IN_INTERFACE by error0<KtAnnotationEntry>()
     val SYNCHRONIZED_ON_INLINE by warning0<KtAnnotationEntry>()
@@ -71,9 +68,9 @@ object FirJvmErrors {
     val JVM_PACKAGE_NAME_MUST_BE_VALID_NAME by error0<KtAnnotationEntry>()
     val JVM_PACKAGE_NAME_NOT_SUPPORTED_IN_FILES_WITH_CLASSES by error0<KtAnnotationEntry>()
     val POSITIONED_VALUE_ARGUMENT_FOR_JAVA_ANNOTATION by error0<KtExpression>()
+    val REDUNDANT_REPEATABLE_ANNOTATION by warning2<KtAnnotationEntry, FqName, FqName>()
 
     // Super
-    val SUPER_CALL_WITH_DEFAULT_PARAMETERS by error1<PsiElement, String>()
     val INTERFACE_CANT_CALL_DEFAULT_METHOD_VIA_SUPER by error0<PsiElement>(SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED)
 
     // JVM Records
@@ -91,13 +88,9 @@ object FirJvmErrors {
     val ILLEGAL_JAVA_LANG_RECORD_SUPERTYPE by error0<PsiElement>()
 
     // JVM Default
-    val JVM_DEFAULT_NOT_IN_INTERFACE by error0<PsiElement>()
-    val JVM_DEFAULT_IN_JVM6_TARGET by error1<PsiElement, String>()
-    val JVM_DEFAULT_REQUIRED_FOR_OVERRIDE by error0<KtDeclaration>(SourceElementPositioningStrategies.DECLARATION_SIGNATURE)
     val JVM_DEFAULT_IN_DECLARATION by error1<KtElement, String>(SourceElementPositioningStrategies.DECLARATION_SIGNATURE_OR_DEFAULT)
     val JVM_DEFAULT_WITH_COMPATIBILITY_IN_DECLARATION by error0<KtElement>()
     val JVM_DEFAULT_WITH_COMPATIBILITY_NOT_ON_INTERFACE by error0<KtElement>()
-    val NON_JVM_DEFAULT_OVERRIDES_JAVA_DEFAULT by warning0<KtDeclaration>(SourceElementPositioningStrategies.DECLARATION_SIGNATURE)
 
     // External Declaration
     val EXTERNAL_DECLARATION_CANNOT_BE_ABSTRACT by error0<KtDeclaration>(SourceElementPositioningStrategies.ABSTRACT_MODIFIER)
@@ -107,7 +100,6 @@ object FirJvmErrors {
 
     // Repeatable Annotations
     val NON_SOURCE_REPEATED_ANNOTATION by error0<KtAnnotationEntry>()
-    val REPEATED_ANNOTATION_TARGET6 by error0<KtAnnotationEntry>()
     val REPEATED_ANNOTATION_WITH_CONTAINER by error2<KtAnnotationEntry, ClassId, ClassId>()
     val REPEATABLE_CONTAINER_MUST_HAVE_VALUE_ARRAY by deprecationError2<KtAnnotationEntry, ClassId, ClassId>(RepeatableAnnotationContainerConstraints)
     val REPEATABLE_CONTAINER_HAS_NON_DEFAULT_PARAMETER by deprecationError2<KtAnnotationEntry, ClassId, Name>(RepeatableAnnotationContainerConstraints)
@@ -122,12 +114,11 @@ object FirJvmErrors {
     val INAPPLICABLE_JVM_FIELD by error1<KtAnnotationEntry, String>()
     val INAPPLICABLE_JVM_FIELD_WARNING by warning1<KtAnnotationEntry, String>()
     val JVM_SYNTHETIC_ON_DELEGATE by error0<KtAnnotationEntry>()
-    val DEFAULT_METHOD_CALL_FROM_JAVA6_TARGET by deprecationError0<PsiElement>(DefaultMethodsCallFromJava6TargetError, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED)
-    val INTERFACE_STATIC_METHOD_CALL_FROM_JAVA6_TARGET by deprecationError0<PsiElement>(DefaultMethodsCallFromJava6TargetError, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED)
     val SUBCLASS_CANT_CALL_COMPANION_PROTECTED_NON_STATIC by error0<PsiElement>(SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED)
     val CONCURRENT_HASH_MAP_CONTAINS_OPERATOR by deprecationError0<PsiElement>(ProhibitConcurrentHashMapContains)
     val SPREAD_ON_SIGNATURE_POLYMORPHIC_CALL by deprecationError0<PsiElement>(ProhibitSpreadOnSignaturePolymorphicCall, SourceElementPositioningStrategies.SPREAD_OPERATOR)
     val JAVA_SAM_INTERFACE_CONSTRUCTOR_REFERENCE by error0<PsiElement>()
+    val NO_REFLECTION_IN_CLASS_PATH by warning0<PsiElement>()
 
     init {
         RootDiagnosticRendererFactory.registerFactory(FirJvmErrorsDefaultMessages)

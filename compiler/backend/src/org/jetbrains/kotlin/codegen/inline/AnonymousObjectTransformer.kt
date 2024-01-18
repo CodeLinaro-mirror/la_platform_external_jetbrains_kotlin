@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.metadata.jvm.serialization.JvmStringTable
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin.Companion.NO_ORIGIN
+import org.jetbrains.kotlin.utils.toMetadataVersion
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.Method
 import org.jetbrains.org.objectweb.asm.tree.*
@@ -58,7 +59,9 @@ class AnonymousObjectTransformer(
 
         createClassReader().accept(object : ClassVisitor(Opcodes.API_VERSION, classBuilder.visitor) {
             override fun visit(version: Int, access: Int, name: String, signature: String?, superName: String, interfaces: Array<String>) {
-                classBuilder.defineClass(null, maxOf(version, state.classFileVersion), access, name, signature, superName, interfaces)
+                classBuilder.defineClass(
+                    null, maxOf(version, state.config.classFileVersion), access, name, signature, superName, interfaces
+                )
                 if (superName.isCoroutineSuperClass()) {
                     inliningContext.isContinuation = true
                 }
@@ -70,15 +73,22 @@ class AnonymousObjectTransformer(
             }
 
             override fun visitAnnotation(desc: String, visible: Boolean): AnnotationVisitor? {
-                if (desc == JvmAnnotationNames.METADATA_DESC) {
-                    // Empty inner class info because no inner classes are used in kotlin.Metadata and its arguments
-                    val innerClassesInfo = FileBasedKotlinClass.InnerClassesInfo()
-                    return FileBasedKotlinClass.convertAnnotationVisitor(metadataReader, desc, innerClassesInfo)
-                } else if (desc == DEBUG_METADATA_ANNOTATION_ASM_TYPE.descriptor) {
-                    debugMetadataAnnotation = AnnotationNode(desc)
-                    return debugMetadataAnnotation
+                when (desc) {
+                    JvmAnnotationNames.METADATA_DESC -> {
+                        // Empty inner class info because no inner classes are used in kotlin.Metadata and its arguments
+                        val innerClassesInfo = FileBasedKotlinClass.InnerClassesInfo()
+                        return FileBasedKotlinClass.convertAnnotationVisitor(metadataReader, desc, innerClassesInfo)
+                    }
+                    DEBUG_METADATA_ANNOTATION_ASM_TYPE.descriptor -> {
+                        debugMetadataAnnotation = AnnotationNode(desc)
+                        return debugMetadataAnnotation
+                    }
+                    JvmAnnotationNames.SOURCE_DEBUG_EXTENSION_DESC -> {
+                        // The new value of @SourceDebugExtension will be written along with the new SMAP via ClassBuilder.visitSMAP.
+                        return null
+                    }
+                    else -> return classBuilder.newAnnotation(desc, visible)
                 }
-                return classBuilder.newAnnotation(desc, visible)
             }
 
             override fun visitMethod(
@@ -115,7 +125,7 @@ class AnonymousObjectTransformer(
 
             override fun visitEnd() {}
         }, ClassReader.SKIP_FRAMES)
-        val header = metadataReader.createHeader()
+        val header = metadataReader.createHeader(inliningContext.state.languageVersionSettings.languageVersion.toMetadataVersion())
         assert(isSameModule || (header != null && isPublicAbi(header))) {
             "Trying to inline an anonymous object which is not part of the public ABI: ${oldObjectType.className}"
         }
@@ -221,7 +231,7 @@ class AnonymousObjectTransformer(
         if (continuationClassName == transformationInfo.oldClassName) {
             coroutineTransformer.registerClassBuilder(continuationClassName)
         } else {
-            classBuilder.done()
+            classBuilder.done(state.config.generateSmapCopyToAnnotation)
         }
 
         return transformationResult
@@ -232,7 +242,7 @@ class AnonymousObjectTransformer(
         val publicAbi = inliningContext.callSiteInfo.isInPublicInlineScope
         writeKotlinMetadata(
             classBuilder,
-            state,
+            state.config,
             header.kind,
             publicAbi,
             header.extraInt and JvmAnnotationNames.METADATA_PUBLIC_ABI_FLAG.inv()
@@ -324,7 +334,7 @@ class AnonymousObjectTransformer(
             inliningContext.subInline(transformationInfo.nameGenerator),
             remapper,
             isSameModule,
-            "Transformer for " + transformationInfo.oldClassName,
+            { "Transformer for " + transformationInfo.oldClassName },
             SourceMapCopier(sourceMapper, sourceMap),
             InlineCallSiteInfo(
                 transformationInfo.oldClassName,
@@ -332,7 +342,8 @@ class AnonymousObjectTransformer(
                 inliningContext.callSiteInfo.inlineScopeVisibility,
                 inliningContext.callSiteInfo.file,
                 inliningContext.callSiteInfo.lineNumber
-            )
+            ),
+            isInlineOnlyMethod = false
         ).doInline(deferringVisitor, LocalVarRemapper(parameters, 0), false, mapOf())
         reifiedTypeParametersUsages?.let(result.reifiedTypeParametersUsages::mergeAll)
         deferringVisitor.visitMaxs(-1, -1)

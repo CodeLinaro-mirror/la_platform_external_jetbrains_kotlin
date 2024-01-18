@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.builder
 
@@ -12,18 +12,18 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 import org.jetbrains.kotlin.fir.expressions.builder.FirExpressionBuilder
-import org.jetbrains.kotlin.fir.expressions.builder.FirQualifiedAccessBuilder
-import org.jetbrains.kotlin.fir.expressions.impl.FirNoReceiverExpression
+import org.jetbrains.kotlin.fir.expressions.builder.FirQualifiedAccessExpressionBuilder
 import org.jetbrains.kotlin.fir.expressions.impl.FirPropertyAccessExpressionImpl
 import org.jetbrains.kotlin.fir.references.FirReference
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImpl
 import org.jetbrains.kotlin.fir.visitors.*
 
 /*
@@ -32,31 +32,31 @@ import org.jetbrains.kotlin.fir.visitors.*
  */
 
 @FirBuilderDsl
-class FirPropertyAccessExpressionBuilder : FirQualifiedAccessBuilder, FirAnnotationContainerBuilder, FirExpressionBuilder {
-    override var source: KtSourceElement? = null
-    override var typeRef: FirTypeRef = FirImplicitTypeRefImpl(null)
+class FirPropertyAccessExpressionBuilder : FirQualifiedAccessExpressionBuilder, FirAnnotationContainerBuilder, FirExpressionBuilder {
+    override var coneTypeOrNull: ConeKotlinType? = null
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
     lateinit var calleeReference: FirReference
     override val contextReceiverArguments: MutableList<FirExpression> = mutableListOf()
     override val typeArguments: MutableList<FirTypeProjection> = mutableListOf()
     override var explicitReceiver: FirExpression? = null
-    override var dispatchReceiver: FirExpression = FirNoReceiverExpression
-    override var extensionReceiver: FirExpression = FirNoReceiverExpression
-    val nonFatalDiagnostics: MutableList<ConeDiagnostic> = mutableListOf()
+    override var dispatchReceiver: FirExpression? = null
+    override var extensionReceiver: FirExpression? = null
+    override var source: KtSourceElement? = null
+    override val nonFatalDiagnostics: MutableList<ConeDiagnostic> = mutableListOf()
 
     @OptIn(FirImplementationDetail::class)
     override fun build(): FirPropertyAccessExpression {
         return FirPropertyAccessExpressionImpl(
-            source,
-            typeRef,
-            annotations,
+            coneTypeOrNull,
+            annotations.toMutableOrEmpty(),
             calleeReference,
-            contextReceiverArguments,
-            typeArguments,
+            contextReceiverArguments.toMutableOrEmpty(),
+            typeArguments.toMutableOrEmpty(),
             explicitReceiver,
             dispatchReceiver,
             extensionReceiver,
-            nonFatalDiagnostics,
+            source,
+            nonFatalDiagnostics.toMutableOrEmpty(),
         )
     }
 

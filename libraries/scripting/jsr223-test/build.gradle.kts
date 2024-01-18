@@ -17,7 +17,7 @@ val testJsr223Runtime by configurations.creating {
 val testCompilationClasspath by configurations.creating
 
 dependencies {
-    testApi(commonDependency("junit"))
+    testImplementation(libs.junit4)
     testCompileOnly(project(":kotlin-scripting-jvm-host-unshaded"))
     testCompileOnly(project(":compiler:cli"))
     testCompileOnly(project(":core:util.runtime"))
@@ -27,9 +27,8 @@ dependencies {
 
     testRuntimeOnly(project(":kotlin-scripting-jsr223-unshaded"))
     testRuntimeOnly(project(":kotlin-compiler"))
-    testRuntimeOnly(project(":kotlin-reflect"))
 
-    embeddableTestRuntime(commonDependency("junit"))
+    embeddableTestRuntime(libs.junit4)
     embeddableTestRuntime(project(":kotlin-scripting-jsr223"))
     embeddableTestRuntime(project(":kotlin-scripting-compiler-embeddable"))
     embeddableTestRuntime(testSourceSet.output)
@@ -54,6 +53,7 @@ projectTest(parallel = true) {
     doFirst {
         systemProperty("testJsr223RuntimeClasspath", testRuntimeProvider.get())
         systemProperty("testCompilationClasspath", testCompilationClasspathProvider.get())
+        systemProperty("kotlin.script.base.compiler.arguments", "-language-version 1.9")
     }
 }
 
@@ -61,4 +61,11 @@ projectTest(taskName = "embeddableTest", parallel = true) {
     workingDir = rootDir
     dependsOn(embeddableTestRuntime)
     classpath = embeddableTestRuntime
+    val testRuntimeProvider = project.provider { embeddableTestRuntime.asPath }
+    val testCompilationClasspathProvider = project.provider { testCompilationClasspath.asPath }
+    doFirst {
+        systemProperty("testJsr223RuntimeClasspath", testRuntimeProvider.get())
+        systemProperty("testCompilationClasspath", testCompilationClasspathProvider.get())
+        systemProperty("kotlin.script.base.compiler.arguments", "-language-version 1.9")
+    }
 }

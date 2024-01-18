@@ -14,9 +14,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AsmTypes {
-    private static final Map<Class<?>, Type> TYPES_MAP = new HashMap<>();
+    private static final Map<Class<?>, Type> TYPES_MAP = new ConcurrentHashMap<>();
 
     public static final Type OBJECT_TYPE = getType(Object.class);
     public static final Type JAVA_STRING_TYPE = getType(String.class);
@@ -88,6 +89,8 @@ public class AsmTypes {
     public static final Type OBJECT_REF_TYPE = Type.getObjectType(REF_TYPE_PREFIX + "ObjectRef");
 
     public static final Type DEFAULT_CONSTRUCTOR_MARKER = Type.getObjectType("kotlin/jvm/internal/DefaultConstructorMarker");
+
+    public static final Type ENUM_ENTRIES = Type.getObjectType("kotlin/enums/EnumEntries");
 
     @NotNull
     private static Type reflect(@NotNull String className) {

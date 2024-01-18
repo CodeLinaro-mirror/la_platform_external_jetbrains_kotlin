@@ -27,17 +27,17 @@ fun buildDecompiledTextForClassFile(
 
     val classId = classHeader.classId
 
-    if (!classHeader.metadataVersion.isCompatible()) {
+    if (!classHeader.metadataVersion.isCompatibleWithCurrentCompilerVersion()) {
         return createIncompatibleAbiVersionDecompiledText(JvmMetadataVersion.INSTANCE, classHeader.metadataVersion)
     }
 
     fun buildText(declarations: List<DeclarationDescriptor>) = buildDecompiledText(
         classHeader.packageNameWithFallback,
-        declarations, decompilerRendererForClassFiles, listOf(ByDescriptorIndexer, BySignatureIndexer)
+        declarations, decompilerRendererForClassFiles
     )
 
     return when (classHeader.kind) {
-        KotlinClassHeader.Kind.FILE_FACADE ->
+        KotlinClassHeader.Kind.FILE_FACADE, KotlinClassHeader.Kind.MULTIFILE_CLASS_PART ->
             buildText(resolver.resolveDeclarationsInFacade(classId.asSingleFqName()))
         KotlinClassHeader.Kind.CLASS -> {
             buildText(listOfNotNull(resolver.resolveTopLevelClass(classId)))

@@ -6,8 +6,9 @@
 package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
-import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
+import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
+import org.jetbrains.kotlin.ir.backend.js.utils.getVoid
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
@@ -20,18 +21,11 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 
 
-class ThrowableLowering(
-    val context: JsIrBackendContext,
-    val extendThrowableFunction: IrSimpleFunctionSymbol
-) : BodyLoweringPass {
-    private val nothingNType = context.irBuiltIns.nothingNType
-
+class ThrowableLowering(val context: JsIrBackendContext, val extendThrowableFunction: IrSimpleFunctionSymbol) : BodyLoweringPass {
     private val throwableConstructors = context.throwableConstructors
     private val newThrowableFunction = context.newThrowableSymbol
-    private val jsUndefined = context.intrinsics.jsUndefined
 
-    fun nullValue(): IrExpression = IrConstImpl.constNull(UNDEFINED_OFFSET, UNDEFINED_OFFSET, nothingNType)
-    fun undefinedValue(): IrExpression = IrCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, nothingNType, jsUndefined, 0, 0)
+    private fun undefinedValue(): IrExpression = context.getVoid()
 
     data class ThrowableArguments(
         val message: IrExpression,
@@ -65,6 +59,8 @@ class ThrowableLowering(
         }
 
     inner class Transformer : IrElementTransformer<IrDeclarationParent> {
+        private val anyConstructor = context.irBuiltIns.anyClass.constructors.first()
+
         override fun visitClass(declaration: IrClass, data: IrDeclarationParent) = super.visitClass(declaration, declaration)
 
         override fun visitConstructorCall(expression: IrConstructorCall, data: IrDeclarationParent): IrExpression {
@@ -94,7 +90,7 @@ class ThrowableLowering(
             val klass = data as IrClass
             val thisReceiver = IrGetValueImpl(expression.startOffset, expression.endOffset, klass.thisReceiver!!.symbol)
 
-            return expression.run {
+            val expressionReplacement = expression.run {
                 IrCallImpl(
                     startOffset, endOffset, type, extendThrowableFunction,
                     valueArgumentsCount = 3,
@@ -104,6 +100,25 @@ class ThrowableLowering(
                     it.putValueArgument(1, messageArg)
                     it.putValueArgument(2, causeArg)
                 }
+            }
+
+            return if (!context.es6mode) {
+                expressionReplacement
+            } else {
+                JsIrBuilder.buildComposite(
+                    context.irBuiltIns.unitType,
+                    listOf(
+                        IrDelegatingConstructorCallImpl(
+                            expression.startOffset,
+                            expression.endOffset,
+                            context.irBuiltIns.anyType,
+                            anyConstructor,
+                            0,
+                            0
+                        ),
+                        expressionReplacement
+                    )
+                )
             }
         }
     }

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle.targets.js.testing
 import org.gradle.process.ProcessForkOptions
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
+import java.nio.file.Path
 
 interface KotlinJsTestFramework : RequiresNpmDependencies {
     val settingsState: String
@@ -19,6 +20,5 @@ interface KotlinJsTestFramework : RequiresNpmDependencies {
         debug: Boolean
     ): TCServiceMessagesTestExecutionSpec
 
-    override val nodeModulesRequired: Boolean
-        get() = true
+    val workingDir: Path
 }

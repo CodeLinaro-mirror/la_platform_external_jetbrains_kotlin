@@ -10,8 +10,7 @@ dependencies {
     api(project(":compiler:fir:tree"))
     implementation(project(":core:util.runtime"))
 
-    compileOnly(project(":kotlin-reflect-api"))
-    compileOnly(commonDependency("com.google.guava:guava"))
+    compileOnly(libs.guava)
 }
 
 sourceSets {

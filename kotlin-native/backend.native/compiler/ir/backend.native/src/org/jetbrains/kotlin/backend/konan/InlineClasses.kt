@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.atMostOne
-import org.jetbrains.kotlin.backend.konan.descriptors.findPackage
+import org.jetbrains.kotlin.utils.atMostOne
+import org.jetbrains.kotlin.descriptors.findPackage
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
@@ -16,15 +16,14 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.inlineClassRepresentation
 import org.jetbrains.kotlin.ir.declarations.isSingleFieldValueClass
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
+import org.jetbrains.kotlin.ir.symbols.IrScriptSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.types.isNullable
 import org.jetbrains.kotlin.ir.types.makeNullable
-import org.jetbrains.kotlin.ir.util.constructors
-import org.jetbrains.kotlin.ir.util.defaultType
-import org.jetbrains.kotlin.ir.util.isTopLevel
-import org.jetbrains.kotlin.ir.util.packageFqName
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
@@ -287,27 +286,24 @@ internal object IrTypeInlineClassesSupport : InlineClassesSupport<IrClass, IrTyp
         }
     }
 
-    override fun computeFullErasure(type: IrType): Sequence<IrClass> {
-        val classifier = type.classifierOrFail
-        return when (classifier) {
-            is IrClassSymbol -> sequenceOf(classifier.owner)
-            is IrTypeParameterSymbol -> classifier.owner.superTypes.asSequence().flatMap { computeFullErasure(it) }
-            else -> error(classifier)
-        }
+    override fun computeFullErasure(type: IrType): Sequence<IrClass> = when (val classifier = type.classifierOrFail) {
+        is IrClassSymbol -> sequenceOf(classifier.owner)
+        is IrTypeParameterSymbol -> classifier.owner.superTypes.asSequence().flatMap { computeFullErasure(it) }
+        is IrScriptSymbol -> classifier.unexpectedSymbolKind<IrClassifierSymbol>()
     }
 
     override fun hasInlineModifier(clazz: IrClass): Boolean = clazz.isSingleFieldValueClass
 
     override fun getNativePointedSuperclass(clazz: IrClass): IrClass? {
         var superClass: IrClass? = clazz
-        while (superClass != null && InteropIdSignatures.nativePointed != superClass.symbol.signature)
+        while (superClass != null && InteropFqNames.nativePointed.toSafe() != superClass.fqNameWhenAvailable)
             superClass = superClass.getSuperClassNotAny()
         return superClass
     }
 
     override fun getInlinedClassUnderlyingType(clazz: IrClass): IrType =
             clazz.constructors.firstOrNull { it.isPrimary }?.valueParameters?.single()?.type
-                    ?: clazz.declarations.filterIsInstance<IrProperty>().atMostOne { it.backingField != null }?.backingField?.type
+                    ?: clazz.declarations.filterIsInstance<IrProperty>().atMostOne { it.backingField?.takeUnless { it.isStatic } != null }?.backingField?.type
                     ?: clazz.inlineClassRepresentation!!.underlyingType
 
     override fun getPackageFqName(clazz: IrClass) =

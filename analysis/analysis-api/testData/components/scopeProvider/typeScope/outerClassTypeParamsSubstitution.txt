@@ -1,11 +1,11 @@
 expression: a
-KtType: Outer.A<kotlin.Int>
+KtType: Outer<kotlin.String>.A<kotlin.Int>
 
 KtTypeScope:
 KtFunctionLikeSignature:
   receiverType = null
-  returnType = kotlin.collections.Map<kotlin.Int, kotlin.collections.Map<Y, O>>
-  symbol = /Outer.A.foo(<dispatch receiver>: Outer.A<X>, x: X, y: Y): kotlin.collections.Map<X, kotlin.collections.Map<Y, O>>
+  returnType = kotlin.collections.Map<kotlin.Int, kotlin.collections.Map<Y, kotlin.String>>
+  symbol = /Outer.A.foo(<dispatch receiver>: Outer.A<X, O>, x: X, y: Y): kotlin.collections.Map<X, kotlin.collections.Map<Y, O>>
   valueParameters = [
     KtVariableLikeSignature:
       name = x
@@ -24,7 +24,7 @@ KtFunctionLikeSignature:
 KtVariableLikeSignature:
   name = map
   receiverType = null
-  returnType = kotlin.collections.Map<kotlin.Int, O>
+  returnType = kotlin.collections.Map<kotlin.Int, kotlin.String>
   symbol = val map: kotlin.collections.Map<X, O>
   callableIdIfNonLocal = /Outer.A.map
 KtFunctionLikeSignature:
@@ -58,8 +58,12 @@ Declaration Scope:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: /Outer.A.foo
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -71,27 +75,133 @@ KtFunctionSymbol:
   modality: FINAL
   name: foo
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/collections/Map<X, kotlin/collections/Map<Y, O>>
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: X
+      KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: [
+          KtTypeParameterType:
+            annotationsList: []
+            type: Y
+          KtTypeParameterType:
+            annotationsList: []
+            type: O
+        ]
+        type: kotlin/collections/Map<Y, O>
+    ]
+    type: kotlin/collections/Map<X, kotlin/collections/Map<Y, O>>
   symbolKind: CLASS_MEMBER
   typeParameters: [
     KtTypeParameterSymbol(Y)
   ]
   valueParameters: [
-    KtValueParameterSymbol(x)
-    KtValueParameterSymbol(y)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: x
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtTypeParameterType:
+        annotationsList: []
+        type: X
+      symbolKind: LOCAL
+      typeParameters: []
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: y
+      origin: SOURCE
+      receiverParameter: null
+      returnType: KtTypeParameterType:
+        annotationsList: []
+        type: Y
+      symbolKind: LOCAL
+      typeParameters: []
   ]
   visibility: Public
 KtKotlinPropertySymbol:
   annotationsList: []
+  backingFieldSymbol: KtBackingFieldSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    isExtension: false
+    name: field
+    origin: PROPERTY_BACKING_FIELD
+    owningProperty: KtKotlinPropertySymbol(/Outer.A.map)
+    receiverParameter: null
+    returnType: KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: [
+        KtTypeParameterType:
+          annotationsList: []
+          type: X
+        KtTypeParameterType:
+          annotationsList: []
+          type: O
+      ]
+      type: kotlin/collections/Map<X, O>
+    symbolKind: LOCAL
+    typeParameters: []
   callableIdIfNonLocal: /Outer.A.map
-  getter: KtPropertyGetterSymbol(<getter>)
+  contextReceivers: []
+  getter: KtPropertyGetterSymbol:
+    annotationsList: []
+    callableIdIfNonLocal: null
+    contextReceivers: []
+    hasBody: false
+    hasStableParameterNames: true
+    isDefault: true
+    isExtension: false
+    isInline: false
+    isOverride: false
+    modality: FINAL
+    origin: SOURCE
+    receiverParameter: null
+    returnType: KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: [
+        KtTypeParameterType:
+          annotationsList: []
+          type: X
+        KtTypeParameterType:
+          annotationsList: []
+          type: O
+      ]
+      type: kotlin/collections/Map<X, O>
+    symbolKind: ACCESSOR
+    typeParameters: []
+    valueParameters: []
+    visibility: Public
   hasBackingField: true
   hasGetter: true
   hasSetter: false
   initializer: null
+  isActual: false
   isConst: false
   isDelegatedProperty: false
+  isExpect: false
   isExtension: false
   isFromPrimaryConstructor: false
   isLateInit: false
@@ -101,8 +211,18 @@ KtKotlinPropertySymbol:
   modality: FINAL
   name: map
   origin: SOURCE
-  receiverType: null
-  returnType: kotlin/collections/Map<X, O>
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: X
+      KtTypeParameterType:
+        annotationsList: []
+        type: O
+    ]
+    type: kotlin/collections/Map<X, O>
   setter: null
   symbolKind: CLASS_MEMBER
   typeParameters: []
@@ -110,8 +230,12 @@ KtKotlinPropertySymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.equals
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -123,19 +247,45 @@ KtFunctionSymbol:
   modality: OPEN
   name: equals
   origin: LIBRARY
-  receiverType: null
-  returnType: kotlin/Boolean
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Boolean
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: [
-    KtValueParameterSymbol(other)
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: false
+      name: other
+      origin: LIBRARY
+      receiverParameter: null
+      returnType: KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: []
+        type: kotlin/Any?
+      symbolKind: LOCAL
+      typeParameters: []
   ]
   visibility: Public
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.hashCode
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -147,8 +297,11 @@ KtFunctionSymbol:
   modality: OPEN
   name: hashCode
   origin: LIBRARY
-  receiverType: null
-  returnType: kotlin/Int
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Int
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
@@ -156,8 +309,12 @@ KtFunctionSymbol:
 KtFunctionSymbol:
   annotationsList: []
   callableIdIfNonLocal: kotlin/Any.toString
+  contextReceivers: []
+  contractEffects: []
   hasStableParameterNames: true
+  isActual: false
   isBuiltinFunctionInvoke: false
+  isExpect: false
   isExtension: false
   isExternal: false
   isInfix: false
@@ -169,10 +326,12 @@ KtFunctionSymbol:
   modality: OPEN
   name: toString
   origin: LIBRARY
-  receiverType: null
-  returnType: kotlin/String
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/String
   symbolKind: CLASS_MEMBER
   typeParameters: []
   valueParameters: []
   visibility: Public
-

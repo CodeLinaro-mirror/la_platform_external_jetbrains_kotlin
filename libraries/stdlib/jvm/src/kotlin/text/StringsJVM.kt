@@ -314,9 +314,14 @@ public actual inline fun String.toCharArray(): CharArray = (this as java.lang.St
  * @param destinationOffset the position in the array to copy to.
  * @param startIndex the start offset (inclusive) of the substring to copy.
  * @param endIndex the end offset (exclusive) of the substring to copy.
+ *
+ * @throws IndexOutOfBoundsException or [IllegalArgumentException] when [startIndex] or [endIndex] is out of range of this string builder indices or when `startIndex > endIndex`.
+ * @throws IndexOutOfBoundsException when the subrange doesn't fit into the [destination] array starting at the specified [destinationOffset],
+ *  or when that index is out of the [destination] array indices range.
  */
+@Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
 @kotlin.internal.InlineOnly
-public inline fun String.toCharArray(
+public actual inline fun String.toCharArray(
     destination: CharArray,
     destinationOffset: Int = 0,
     startIndex: Int = 0,
@@ -342,38 +347,17 @@ public inline fun String.Companion.format(format: String, vararg args: Any?): St
 
 /**
  * Uses this string as a format string and returns a string obtained by substituting the specified arguments,
- * using the specified locale.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-@kotlin.internal.InlineOnly
-public inline fun String.format(locale: Locale, vararg args: Any?): String = java.lang.String.format(locale, this, *args)
-
-/**
- * Uses this string as a format string and returns a string obtained by substituting the specified arguments,
  * using the specified locale. If [locale] is `null` then no localization is applied.
  */
 @SinceKotlin("1.4")
-@JvmName("formatNullable")
 @kotlin.internal.InlineOnly
 public inline fun String.format(locale: Locale?, vararg args: Any?): String = java.lang.String.format(locale, this, *args)
 
 /**
  * Uses the provided [format] as a format string and returns a string obtained by substituting the specified arguments,
- * using the specified locale.
- */
-@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@DeprecatedSinceKotlin(hiddenSince = "1.4")
-@kotlin.internal.InlineOnly
-public inline fun String.Companion.format(locale: Locale, format: String, vararg args: Any?): String =
-    java.lang.String.format(locale, format, *args)
-
-/**
- * Uses the provided [format] as a format string and returns a string obtained by substituting the specified arguments,
  * using the specified locale. If [locale] is `null` then no localization is applied.
  */
 @SinceKotlin("1.4")
-@JvmName("formatNullable")
 @kotlin.internal.InlineOnly
 public inline fun String.Companion.format(locale: Locale?, format: String, vararg args: Any?): String =
     java.lang.String.format(locale, format, *args)
@@ -649,7 +633,8 @@ public actual fun CharSequence.regionMatches(thisOffset: Int, other: CharSequenc
  * @param otherOffset the start offset in the other string of the substring to compare.
  * @param length the length of the substring to compare.
  */
-public fun String.regionMatches(thisOffset: Int, other: String, otherOffset: Int, length: Int, ignoreCase: Boolean = false): Boolean =
+@Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
+public actual fun String.regionMatches(thisOffset: Int, other: String, otherOffset: Int, length: Int, ignoreCase: Boolean = false): Boolean =
     if (!ignoreCase)
         (this as java.lang.String).regionMatches(thisOffset, other, otherOffset, length)
     else

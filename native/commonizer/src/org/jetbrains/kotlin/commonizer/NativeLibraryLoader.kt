@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.commonizer
 
-import org.jetbrains.kotlin.backend.common.serialization.metadata.KlibMetadataVersion
-import org.jetbrains.kotlin.backend.common.serialization.metadata.metadataVersion
 import org.jetbrains.kotlin.commonizer.konan.NativeLibrary
 import org.jetbrains.kotlin.library.ToolingSingleFileKlibResolveStrategy
+import org.jetbrains.kotlin.library.metadata.KlibMetadataVersion
+import org.jetbrains.kotlin.library.metadata.metadataVersion
 import org.jetbrains.kotlin.library.resolveSingleFileKlib
 import org.jetbrains.kotlin.util.Logger
 import java.io.File
@@ -32,7 +32,7 @@ internal class DefaultNativeLibraryLoader(
                 logger.fatal("Library does not have metadata version specified in manifest: $file")
 
             val metadataVersion = library.metadataVersion
-            if (metadataVersion?.isCompatible() != true)
+            if (metadataVersion?.isCompatibleWithCurrentCompilerVersion() != true)
                 logger.fatal(
                     """
                 Library has incompatible metadata version ${metadataVersion ?: "\"unknown\""}: $file

@@ -1,6 +1,3 @@
-// FIR_IDENTICAL
-// !LANGUAGE: +NewInference
-
 import kotlin.reflect.KClass
 
 typealias MyString = String

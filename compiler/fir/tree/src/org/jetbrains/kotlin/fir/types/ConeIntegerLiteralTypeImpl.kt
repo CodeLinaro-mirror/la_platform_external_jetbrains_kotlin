@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.fir.types
 
+import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
+import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.isLong
 import org.jetbrains.kotlin.fir.isULong
-import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
 import org.jetbrains.kotlin.fir.types.ConeIntegerLiteralTypeExtensions.approximateIntegerLiteralBounds
 import org.jetbrains.kotlin.fir.types.ConeIntegerLiteralTypeExtensions.createClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeIntegerLiteralTypeExtensions.createSupertypeList
@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.types.ConeIntegerLiteralTypeExtensions.getApprox
 import org.jetbrains.kotlin.fir.types.ConeIntegerLiteralTypeExtensions.withNullabilityAndAttributes
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.model.SimpleTypeMarker
 
@@ -38,6 +39,7 @@ class ConeIntegerLiteralConstantTypeImpl(
         fun create(
             value: Long,
             isUnsigned: Boolean,
+            isTypePresent: (ConeClassLikeType) -> Boolean,
             nullability: ConeNullability = ConeNullability.NOT_NULL
         ): ConeSimpleKotlinType {
             val possibleTypes = mutableListOf<ConeClassLikeType>()
@@ -64,6 +66,9 @@ class ConeIntegerLiteralConstantTypeImpl(
 
             if (isUnsigned) {
                 addUnsignedPossibleType()
+                if (possibleTypes.any { !isTypePresent(it) }) {
+                    return ConeErrorType(ConeSimpleDiagnostic("Unsigned integers need stdlib", DiagnosticKind.UnsignedNumbersAreNotPresent))
+                }
             } else {
                 addSignedPossibleTypes()
             }
@@ -79,7 +84,7 @@ class ConeIntegerLiteralConstantTypeImpl(
         }
 
         private fun createType(classId: ClassId): ConeClassLikeType {
-            return ConeClassLikeTypeImpl(ConeClassLikeLookupTagImpl(classId), emptyArray(), false)
+            return ConeClassLikeTypeImpl(classId.toLookupTag(), EMPTY_ARRAY, false)
         }
 
         private val INT_RANGE = Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()
@@ -134,17 +139,15 @@ fun ConeKotlinType.approximateIntegerLiteralType(expectedType: ConeKotlinType? =
 }
 
 private object ConeIntegerLiteralTypeExtensions {
-    private val COMPARABLE_TAG = ConeClassLikeLookupTagImpl(StandardClassIds.Comparable)
-
     fun createSupertypeList(type: ConeIntegerLiteralType): List<ConeClassLikeType> {
         return listOf(
             createClassLikeType(StandardClassIds.Number),
-            ConeClassLikeTypeImpl(COMPARABLE_TAG, arrayOf(ConeKotlinTypeProjectionIn(type)), false)
+            ConeClassLikeTypeImpl(StandardClassIds.Comparable.toLookupTag(), arrayOf(ConeKotlinTypeProjectionIn(type)), false)
         )
     }
 
     fun createClassLikeType(classId: ClassId): ConeClassLikeType {
-        return ConeClassLikeTypeImpl(ConeClassLikeLookupTagImpl(classId), emptyArray(), false)
+        return ConeClassLikeTypeImpl(classId.toLookupTag(), ConeTypeProjection.EMPTY_ARRAY, false)
     }
 
     fun ConeIntegerLiteralType.getApproximatedTypeImpl(expectedType: ConeKotlinType?): ConeClassLikeType {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,8 +21,6 @@ abstract class AnalysisApiKtModuleProvider : TestService {
 
     abstract fun registerProjectStructure(modules: KtModuleProjectStructure)
 
-    protected abstract fun getModuleName(ktModule: KtModule): String
-
     abstract fun getModuleStructure(): KtModuleProjectStructure
 }
 
@@ -36,26 +34,33 @@ class AnalysisApiKtModuleProviderImpl(
         return modulesByName.getValue(moduleName).ktModule
     }
 
-    override fun getModuleFiles(module: TestModule): List<PsiFile> = modulesByName.getValue(module.name).files
+    override fun getModuleFiles(module: TestModule): List<PsiFile> =
+        (modulesByName[module.name] ?: modulesByName.getValue(module.files.single().name)).files
 
     override fun registerProjectStructure(modules: KtModuleProjectStructure) {
         require(!this::modulesStructure.isInitialized)
         require(!this::modulesByName.isInitialized)
 
         this.modulesStructure = modules
-        this.modulesByName = modulesStructure.mainModules.associateBy { getModuleName(it.ktModule) }
+        this.modulesByName = modulesStructure.mainModules.associateByName()
     }
-
-    override fun getModuleName(ktModule: KtModule): String = when (ktModule) {
-        is KtLibraryModule -> ktModule.libraryName
-        is KtSdkModule -> ktModule.sdkName
-        is KtLibrarySourceModule -> ktModule.libraryName
-        is KtSourceModule -> ktModule.moduleName
-        is KtNotUnderContentRootModule -> TODO()
-    }
-
 
     override fun getModuleStructure(): KtModuleProjectStructure = modulesStructure
 }
 
 val TestServices.ktModuleProvider: AnalysisApiKtModuleProvider by TestServices.testServiceAccessor()
+
+fun List<KtModuleWithFiles>.associateByName(): Map<String, KtModuleWithFiles> {
+    return associateBy { (ktModule, _) ->
+        when (ktModule) {
+            is KtSourceModule -> ktModule.moduleName
+            is KtLibraryModule -> ktModule.libraryName
+            is KtLibrarySourceModule -> ktModule.libraryName
+            is KtSdkModule -> ktModule.sdkName
+            is KtBuiltinsModule -> "Builtins for ${ktModule.platform}"
+            is KtNotUnderContentRootModule -> ktModule.name
+            is KtScriptModule -> ktModule.file.name
+            else -> error("Unsupported module type: " + ktModule.javaClass.name)
+        }
+    }
+}

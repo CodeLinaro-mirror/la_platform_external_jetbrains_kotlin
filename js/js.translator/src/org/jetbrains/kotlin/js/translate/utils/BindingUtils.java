@@ -82,7 +82,7 @@ public final class BindingUtils {
     @NotNull
     private static KtParameter getParameterForDescriptor(@NotNull ValueParameterDescriptor descriptor) {
         PsiElement result = DescriptorToSourceUtils.descriptorToDeclaration(descriptor);
-        assert result instanceof KtParameter : message(descriptor, "ValueParameterDescriptor should have corresponding JetParameter");
+        assert result instanceof KtParameter : message(descriptor, "ValueParameterDescriptor should have corresponding KtParameter");
         return (KtParameter) result;
     }
 
@@ -140,7 +140,8 @@ public final class BindingUtils {
     }
 
     public static boolean isVariableReassignment(@NotNull BindingContext context, @NotNull KtExpression expression) {
-        return BindingContextUtils.getNotNull(context, BindingContext.VARIABLE_REASSIGNMENT, expression);
+        Boolean result = context.get(BindingContext.VARIABLE_REASSIGNMENT, expression);
+        return (result != null) ? result : false;
     }
 
     @Nullable

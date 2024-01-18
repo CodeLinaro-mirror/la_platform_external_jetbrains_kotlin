@@ -40,12 +40,14 @@ class KaptJavaLog(
     noticeWriter: PrintWriter,
     override val interceptorData: KaptJavaLogBase.DiagnosticInterceptorData,
     private val mapDiagnosticLocations: Boolean
-) : Log(context, errWriter, warnWriter, noticeWriter), KaptJavaLogBase {
+) : Log(context), KaptJavaLogBase {
     private val stubLineInfo = KaptStubLineInformation()
     private val javacMessages = JavacMessages.instance(context)
 
     init {
-        context.put(Log.outKey, noticeWriter)
+        setWriter(WriterKind.ERROR, errWriter)
+        setWriter(WriterKind.WARNING, warnWriter)
+        setWriter(WriterKind.NOTICE, noticeWriter)
     }
 
     override val reportedDiagnostics: List<JCDiagnostic>
@@ -261,7 +263,15 @@ private fun JCDiagnostic.Factory.errorJava9Aware(
 
         errorMethod.invoke(this, JCDiagnostic.DiagnosticFlag.MANDATORY, source, pos, key, args) as JCDiagnostic
     } else {
-        this.error(source, pos, key, *args)
+        val errorMethod = this::class.java.getDeclaredMethod(
+            "error",
+            DiagnosticSource::class.java,
+            JCDiagnostic.DiagnosticPosition::class.java,
+            String::class.java,
+            Array<Any>::class.java
+        )
+
+        errorMethod.invoke(this, source, pos, key, args) as JCDiagnostic
     }
 }
 

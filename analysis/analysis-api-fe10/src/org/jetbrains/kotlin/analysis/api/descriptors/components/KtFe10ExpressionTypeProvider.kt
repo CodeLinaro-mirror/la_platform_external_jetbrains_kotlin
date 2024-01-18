@@ -7,11 +7,14 @@ package org.jetbrains.kotlin.analysis.api.descriptors.components
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.components.KtExpressionTypeProvider
+import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisFacade.AnalysisMode
 import org.jetbrains.kotlin.analysis.api.descriptors.KtFe10AnalysisSession
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.Fe10KtAnalysisSessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtType
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.types.KtErrorType
+import org.jetbrains.kotlin.analysis.api.types.KtFunctionalType
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.diagnostics.Errors
@@ -19,6 +22,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
 import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.resolve.calls.components.isVararg
 import org.jetbrains.kotlin.resolve.calls.inference.returnTypeOrNothing
 import org.jetbrains.kotlin.resolve.calls.smartcasts.MultipleSmartCasts
 import org.jetbrains.kotlin.resolve.calls.smartcasts.SingleSmartCast
@@ -27,6 +31,7 @@ import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.util.getType
 import org.jetbrains.kotlin.resolve.sam.SamConstructorDescriptor
 import org.jetbrains.kotlin.resolve.sam.getFunctionTypeForAbstractMethod
+import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.TypeUtils
 import org.jetbrains.kotlin.types.checker.intersectWrappedTypes
 import org.jetbrains.kotlin.types.error.ErrorTypeKind
@@ -72,8 +77,13 @@ class KtFe10ExpressionTypeProvider(
 
             if (typeReference != null) {
                 val bindingContext = analysisContext.analyze(typeReference, AnalysisMode.PARTIAL)
-                val kotlinType = bindingContext[BindingContext.TYPE, typeReference]
-                    ?: ErrorUtils.createErrorType(ErrorTypeKind.RETURN_TYPE, typeReference.text)
+                val kotlinType =
+                    if (declaration is KtParameter && declaration.isVarArg) {
+                        // we want full Array<out T> type for parity with FIR implementation
+                        bindingContext[BindingContext.VALUE_PARAMETER, declaration]?.returnType
+                    } else {
+                        bindingContext[BindingContext.TYPE, typeReference]
+                    } ?: ErrorUtils.createErrorType(ErrorTypeKind.RETURN_TYPE, typeReference.text)
 
                 return kotlinType.toKtType(analysisContext)
             }
@@ -156,7 +166,12 @@ class KtFe10ExpressionTypeProvider(
 
     override fun getExpectedType(expression: PsiElement): KtType? {
         val ktExpression = expression.getParentOfType<KtExpression>(false) ?: return null
-        val parentExpression = ktExpression.parent
+        val parentExpression = if (ktExpression.parent is KtLabeledExpression) {
+            // lambda -> labeled expression -> lambda argument (value argument)
+            ktExpression.parent.parent
+        } else {
+            ktExpression.parent
+        }
 
         // Unwrap specific expressions
         when (ktExpression) {
@@ -170,39 +185,83 @@ class KtFe10ExpressionTypeProvider(
             }
         }
 
-        if (parentExpression is KtCallableDeclaration) {
-            if (expression is KtBlockExpression) {
-                return null
+        when (parentExpression) {
+            is KtCallableDeclaration -> {
+                if (expression is KtBlockExpression) {
+                    return null
+                }
+
+                val bindingContext = analysisContext.analyze(parentExpression)
+                val descriptor = bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, parentExpression]
+                if (descriptor is CallableDescriptor) {
+                    return descriptor.returnType?.toKtNonErrorType(analysisContext)
+                }
             }
 
-            val bindingContext = analysisContext.analyze(parentExpression)
-            val descriptor = bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, parentExpression]
-            if (descriptor is CallableDescriptor) {
-                return descriptor.returnType?.toKtType(analysisContext)
-            }
-        } else if (parentExpression is KtBinaryExpressionWithTypeRHS && KtPsiUtil.isCast(parentExpression)) {
-            val typeReference = parentExpression.right
-            if (typeReference != null) {
-                val bindingContext = analysisContext.analyze(typeReference)
-                var kotlinType = bindingContext[BindingContext.TYPE, typeReference]
-                if (kotlinType != null && KtPsiUtil.isSafeCast(parentExpression)) {
-                    kotlinType = kotlinType.makeNullable()
+            is KtBinaryExpressionWithTypeRHS -> {
+                val typeReference = parentExpression.right
+                if (KtPsiUtil.isCast(parentExpression) && typeReference != null) {
+                    val bindingContext = analysisContext.analyze(typeReference)
+                    var kotlinType = bindingContext[BindingContext.TYPE, typeReference]
+                    if (kotlinType != null && KtPsiUtil.isSafeCast(parentExpression)) {
+                        kotlinType = kotlinType.makeNullable()
+                    }
+                    return kotlinType?.toKtNonErrorType(analysisContext)
                 }
-                return kotlinType?.toKtType(analysisContext)
             }
-        } else if (parentExpression is KtValueArgument) {
-            val callExpression = getContainingCallExpression(parentExpression)
-            if (callExpression != null) {
-                val bindingContext = analysisContext.analyze(callExpression)
-                val resolvedCall = callExpression.getResolvedCall(bindingContext)
-                if (resolvedCall != null) {
-                    val parameterDescriptor = resolvedCall.getParameterForArgument(parentExpression)?.original
-                    if (parameterDescriptor != null) {
-                        val kotlinType = when (val originalCallableDescriptor = parameterDescriptor.containingDeclaration) {
-                            is SamConstructorDescriptor -> originalCallableDescriptor.returnTypeOrNothing
-                            else -> parameterDescriptor.type
+
+            is KtValueArgument -> {
+                val callExpression = getContainingCallExpression(parentExpression)
+                if (callExpression != null) {
+                    val bindingContext = analysisContext.analyze(callExpression)
+                    val resolvedCall = callExpression.getResolvedCall(bindingContext)
+                    if (resolvedCall != null) {
+                        val parameterDescriptor = resolvedCall.getParameterForArgument(parentExpression)?.original
+                        if (parameterDescriptor != null) {
+                            val kotlinType = when (val originalCallableDescriptor = parameterDescriptor.containingDeclaration) {
+                                is SamConstructorDescriptor -> originalCallableDescriptor.returnTypeOrNothing
+                                else -> {
+                                    if (parameterDescriptor.isVararg)
+                                        parameterDescriptor.varargElementType
+                                    else
+                                        parameterDescriptor.type
+                                }
+                            }
+                            return kotlinType?.toKtNonErrorType(analysisContext)
                         }
-                        return kotlinType.toKtType(analysisContext)
+                    }
+                }
+            }
+
+            is KtWhenConditionWithExpression -> {
+                val whenExpression = (parentExpression.parent as? KtWhenEntry)?.parent as? KtWhenExpression
+                if (whenExpression != null) {
+                    val subject = whenExpression.subjectExpression ?: return with(analysisSession) { builtinTypes.BOOLEAN }
+                    val kotlinType = analysisContext.analyze(subject).getType(subject)
+                    return kotlinType?.toKtNonErrorType(analysisContext)
+                }
+            }
+
+            is KtBlockExpression -> {
+                if (expression == parentExpression.statements.lastOrNull()) {
+                    val functionLiteral = parentExpression.parent as? KtFunctionLiteral
+                    if (functionLiteral != null) {
+                        val functionalType = getExpectedType(functionLiteral) as? KtFunctionalType
+                        functionalType?.returnType?.let { return it }
+                    }
+                }
+            }
+
+            is KtWhenEntry -> {
+                if (expression == parentExpression.expression) {
+                    val whenExpression = parentExpression.parent as? KtWhenExpression
+                    if (whenExpression != null) {
+                        getExpectedType(whenExpression)?.let { return it }
+
+                        val entries = whenExpression.entries
+                        val entryExpressions = entries.mapNotNull { entry -> entry.expression?.takeUnless { expression == it } }
+                        val kotlinTypes = entryExpressions.mapNotNull { analysisContext.analyze(it).getType(it) }
+                        return intersectWrappedTypes(kotlinTypes).toKtNonErrorType(analysisContext)
                     }
                 }
             }
@@ -210,7 +269,7 @@ class KtFe10ExpressionTypeProvider(
 
         val bindingContext = analysisContext.analyze(ktExpression)
         val kotlinType = bindingContext[BindingContext.EXPECTED_EXPRESSION_TYPE, ktExpression]
-        return kotlinType?.toKtType(analysisContext)
+        return kotlinType?.toKtNonErrorType(analysisContext)
     }
 
     private fun getContainingCallExpression(argument: KtValueArgument): KtCallExpression? {
@@ -258,4 +317,7 @@ class KtFe10ExpressionTypeProvider(
         val expressionType = expression.getType(bindingContext) ?: return false
         return !TypeUtils.isNullableType(expressionType)
     }
+
+    private fun KotlinType.toKtNonErrorType(analysisContext: Fe10AnalysisContext): KtType? =
+        this.toKtType(analysisContext).takeUnless { it is KtErrorType }
 }

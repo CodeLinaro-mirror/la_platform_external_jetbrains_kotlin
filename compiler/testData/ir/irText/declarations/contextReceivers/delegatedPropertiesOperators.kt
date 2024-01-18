@@ -1,5 +1,4 @@
 // !LANGUAGE: +ContextReceivers
-// TARGET_BACKEND: JVM_IR
 // WITH_STDLIB
 
 import kotlin.reflect.KProperty

@@ -11,9 +11,9 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.impl.source.tree.LeafPsiElement
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.diagnostics.getAncestors
 import org.jetbrains.kotlin.diagnostics.nameIdentifier
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.stubs.elements.KtNameReferenceExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtTypeProjectionElementType
+import org.jetbrains.kotlin.util.getChildren
 
 /**
  * Service to answer source-related questions in generic fashion.
@@ -53,8 +54,6 @@ interface SourceNavigator {
         }
 
         inline fun <R> FirElement.withNavigator(block: SourceNavigator.() -> R): R = with(forSource(this.source), block)
-
-        inline fun <R> KtSourceElement.withNavigator(block: SourceNavigator.() -> R): R = with(forSource(this), block)
     }
 }
 

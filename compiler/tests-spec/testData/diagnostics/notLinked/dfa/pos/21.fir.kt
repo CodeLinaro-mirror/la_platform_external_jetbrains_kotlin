@@ -1,7 +1,15 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
 // WITH_EXTENDED_CHECKERS
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 21
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, typealiases, enumClasses, interfaces, sealedClasses
+ */
 
 // TESTCASE NUMBER: 1
 fun case_1(x: Any?) {
@@ -17,7 +25,7 @@ fun case_1(x: Any?) {
  * ISSUES: KT-28329
  */
 fun case_2(x: Any) {
-    if (x is Int === true) {
+    if (<!DEPRECATED_IDENTITY_EQUALS!>x is Int === true<!>) {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any & kotlin.Int")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any & kotlin.Int")!>x<!>.inv()
     }
@@ -61,7 +69,7 @@ fun case_6(x: Any?) {
  * ISSUES: KT-28329
  */
 fun case_7(x: Any) {
-    if (!(x is DeepObject.A.B.C.D.E.F.G.J) !== false) else {
+    if (<!DEPRECATED_IDENTITY_EQUALS!>!(x is DeepObject.A.B.C.D.E.F.G.J) !== false<!>) else {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any & DeepObject.A.B.C.D.E.F.G.J")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any & DeepObject.A.B.C.D.E.F.G.J")!>x<!>.prop_1
     }
@@ -73,7 +81,7 @@ fun case_7(x: Any) {
  * ISSUES: KT-28329
  */
 fun case_8(x: Any?) {
-    if (!(x is Int?) !== false !== false !== false) else {
+    if (<!DEPRECATED_IDENTITY_EQUALS!><!DEPRECATED_IDENTITY_EQUALS!><!DEPRECATED_IDENTITY_EQUALS!>!(x is Int?) !== false<!> !== false<!> !== false<!>) else {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Int?")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Int?")!>x<!>?.inv()
     }
@@ -85,7 +93,7 @@ fun case_8(x: Any?) {
  * ISSUES: KT-28329
  */
 fun case_9(x: Any?) {
-    if (!!(x !is TypealiasNullableStringIndirect<!REDUNDANT_NULLABLE!>?<!>) !== false === true) else {
+    if (<!DEPRECATED_IDENTITY_EQUALS!><!DEPRECATED_IDENTITY_EQUALS!>!!(x !is TypealiasNullableStringIndirect<!REDUNDANT_NULLABLE!>?<!>) !== false<!> === true<!>) else {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & TypealiasNullableStringIndirect?")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & TypealiasNullableStringIndirect?")!>x<!>?.get(0)
     }
@@ -97,7 +105,7 @@ fun case_9(x: Any?) {
  * ISSUES: KT-28329
  */
 fun case_10(x: Any?) {
-    if (!!(x !is Interface3) === true && true) else {
+    if (<!DEPRECATED_IDENTITY_EQUALS!>!!(x !is Interface3) === true<!> && true) else {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>x<!>.<!UNRESOLVED_REFERENCE!>itest<!>()
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>x<!>.<!UNRESOLVED_REFERENCE!>itest3<!>()

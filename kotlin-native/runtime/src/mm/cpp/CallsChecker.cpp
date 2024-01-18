@@ -3,17 +3,19 @@
  * that can be found in the LICENSE file.
  */
 
-#ifndef KONAN_NO_EXTERNAL_CALLS_CHECKER
+#include "CallsChecker.hpp"
+
 #include <string_view>
 #include <cstring>
+#include <unordered_set>
 
 #include "KAssert.h"
 #include "Memory.h"
 #include "Porting.h"
+#include "StackTrace.hpp"
 #include "ThreadData.hpp"
 #include "ThreadRegistry.hpp"
 #include "ExecFormat.h"
-#include "std_support/UnorderedSet.hpp"
 
 using namespace kotlin;
 
@@ -22,9 +24,7 @@ extern "C" const void **Kotlin_callsCheckerKnownFunctions = nullptr;
 extern "C" int Kotlin_callsCheckerKnownFunctionsCount = 0;
 
 extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
-        "\x01_close",
         "\x01_mprotect",
-        "close",
         "mprotect",
         "posix_memalign",
 
@@ -38,12 +38,15 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "_ZNSt15__exception_ptr13exception_ptrD1Ev", // std::__exception_ptr::exception_ptr::~exception_ptr()
         "_ZNSt18condition_variableD1Ev", // std::condition_variable::~condition_variable()
         "_ZNSt3__112__next_primeEm", // std::__1::__next_prime(unsigned long)
+        "_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm", // std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::reserve(unsigned long)
+        "_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc", // std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::push_back(char)
         "_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED1Ev", // std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> >::~basic_string()
         "_ZNSt3__16chrono12steady_clock3nowEv", // std::__1::chrono::steady_clock::now()
         "_ZNSt3__19to_stringEi", // std::__1::to_string(int)
         "_ZNSt6chrono3_V212steady_clock3nowEv", // std::chrono::_V2::steady_clock::now()
         "_ZNSt8__detail15_List_node_base7_M_hookEPS0_", // std::__detail::_List_node_base::_M_hook(std::__detail::_List_node_base*)
         "_ZNSt8__detail15_List_node_base9_M_unhookEv", // std::__detail::_List_node_base::_M_unhook()
+        "_ZNSt8__detail15_List_node_base11_M_transferEPS0_S1_", // std::__detail::_List_node_base::_M_transfer(std::__detail::_List_node_base*, std::__detail::_List_node_base*)
         "_ZNSt9exceptionD2Ev", // std::exception::~exception()
         "_ZSt17current_exceptionv", // std::current_exception()
         "_ZSt17rethrow_exceptionSt13exception_ptr", // std::rethrow_exception(std::exception_ptr)
@@ -152,6 +155,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "setenv",
         "unsetenv",
 
+        "dispatch_async_f",
         "dispatch_once",
         "pthread_equal",
         "pthread_main_np",
@@ -191,14 +195,6 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "CFStringGetCharacters",
         "CFStringGetLength",
         "_Block_object_assign",
-        "class_addIvar",
-        "class_addMethod",
-        "class_addProtocol",
-        "class_copyMethodList",
-        "class_copyProtocolList",
-        "class_getClassMethod",
-        "class_getInstanceMethod",
-        "class_getInstanceVariable",
         "class_getName",
         "class_getSuperclass",
         "class_isMetaClass",
@@ -207,7 +203,6 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "method_getTypeEncoding",
         "objc_alloc",
         "objc_alloc_init",
-        "objc_allocateClassPair",
         "objc_autorelease",
         "objc_autoreleasePoolPush",
         "objc_autoreleaseReturnValue",
@@ -215,18 +210,13 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "objc_getClass",
         "objc_getProtocol",
         "objc_lookUpClass",
-        "objc_registerClassPair",
         "objc_retain",
         "objc_retainAutoreleaseReturnValue",
         "objc_retainBlock",
-        "objc_setAssociatedObject",
         "objc_storeWeak",
         "object_getClass",
         "object_isClass",
-        "protocol_copyProtocolList",
-        "protocol_getMethodDescription",
         "protocol_getName",
-        "sel_registerName",
 
         "llvm.assume",
         "llvm.ceil.*",
@@ -280,6 +270,7 @@ extern "C" const char* Kotlin_callsCheckerGoodFunctionNames[] = {
         "FlsSetValue",
         "GetCurrentProcess",
         "GetCurrentThreadId",
+        "GetLastError",
         "FlsFree",
         "K32GetProcessMemoryInfo",
         "VirtualFree",
@@ -324,7 +315,7 @@ public:
     ~KnownFunctionChecker() = delete;
 
 private:
-    std_support::unordered_set<const void*> known_functions_;
+    std::unordered_set<const void*> known_functions_;
     std::string_view good_names_copy_[sizeof(Kotlin_callsCheckerGoodFunctionNames) / sizeof(Kotlin_callsCheckerGoodFunctionNames[0])];
 };
 
@@ -333,6 +324,8 @@ private:
 
 constexpr int MSG_SEND_TO_NULL = -1;
 constexpr int CALLED_LLVM_BUILTIN = -2;
+
+thread_local size_t ignoreGuardsCount = 0;
 
 }
 
@@ -348,15 +341,10 @@ constexpr int CALLED_LLVM_BUILTIN = -2;
  */
 extern "C" RUNTIME_NOTHROW RUNTIME_NODEBUG void Kotlin_mm_checkStateAtExternalFunctionCall(const char* caller, const char *callee, const void *calleePtr) noexcept {
     if (reinterpret_cast<int64_t>(calleePtr) == MSG_SEND_TO_NULL) return; // objc_sendMsg called on nil, it does nothing, so it's ok
+    if (ignoreGuardsCount != 0) return;
     if (konan::isOnThreadExitNotSetOrAlreadyStarted()) return;
-    static thread_local bool recursiveCallGuard = false;
-    if (recursiveCallGuard) return;
     if (!mm::ThreadRegistry::Instance().IsCurrentThreadRegistered()) return;
-    struct unlockGuard {
-        unlockGuard() { recursiveCallGuard = true; }
-        ~unlockGuard() { recursiveCallGuard = false; }
-    } guard;
-
+    CallsCheckerIgnoreGuard recursiveGuard;
 
     auto actualState = GetThreadState();
     if (actualState == ThreadState::kNative) {
@@ -380,7 +368,9 @@ extern "C" RUNTIME_NOTHROW RUNTIME_NODEBUG void Kotlin_mm_checkStateAtExternalFu
         return;
     }
 
+    PrintStackTraceStderr();
     RuntimeFail("Expected kNative thread state at call of function %s by function %s", callee, caller);
 }
 
-#endif // KONAN_NO_EXTERNAL_CALLS_CHECKER
+CallsCheckerIgnoreGuard::CallsCheckerIgnoreGuard() noexcept { ++ignoreGuardsCount; }
+CallsCheckerIgnoreGuard::~CallsCheckerIgnoreGuard() { --ignoreGuardsCount; }

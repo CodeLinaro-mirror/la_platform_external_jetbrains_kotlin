@@ -9,12 +9,14 @@ import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
+import org.jetbrains.kotlin.backend.jvm.defaultArgumentCleanerPhase
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.backend.jvm.lower.SyntheticAccessorLowering.Companion.isAccessible
-import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -30,7 +32,7 @@ val reflectiveAccessLowering = makeIrFilePhase(
     ::ReflectiveAccessLowering,
     name = "ReflectiveCalls",
     description = "Avoid the need for accessors by replacing direct access to inaccessible members with accesses via reflection",
-    prerequisite = setOf()
+    prerequisite = setOf(defaultArgumentCleanerPhase)
 )
 
 // This lowering replaces member accesses that are illegal according to JVM
@@ -81,7 +83,6 @@ internal class ReflectiveAccessLowering(
     // `fieldLocationAndReceiver`.
     val callsOnCompanionObjects: MutableMap<IrCall, IrClassSymbol> = mutableMapOf()
 
-    @OptIn(ObsoleteDescriptorBasedAPI::class)
     private fun recordCompanionObjectAsDispatchReceiver(expression: IrCall) {
         val dispatchReceiver = expression.dispatchReceiver as? IrGetField ?: return
         val dispatchReceiverType = dispatchReceiver.symbol.owner.type as? IrSimpleType ?: return
@@ -105,9 +106,11 @@ internal class ReflectiveAccessLowering(
         if (callee.isAccessible(withSuper = superQualifier != null)) {
             return expression
         }
-        return if (expression.origin == IrStatementOrigin.GET_PROPERTY) {
+
+        val isAccessToProperty = expression.symbol.owner.correspondingPropertySymbol != null
+        return if (isAccessToProperty && expression.origin == IrStatementOrigin.GET_PROPERTY) {
             generateReflectiveAccessForGetter(expression)
-        } else if (expression.origin?.isAssignmentOperator() == true) {
+        } else if (isAccessToProperty && expression.origin?.isAssignmentOperator() == true) {
             generateReflectiveAccessForSetter(expression)
         } else if (expression.dispatchReceiver == null && expression.extensionReceiver == null) {
             generateReflectiveStaticCall(expression)
@@ -305,22 +308,34 @@ internal class ReflectiveAccessLowering(
     private fun IrFunctionAccessExpression.valueParameterTypes(): List<IrType> =
         symbol.owner.valueParameters.map { it.type }
 
-    private fun generateReflectiveMethodInvocation(call: IrCall): IrExpression =
-        generateReflectiveMethodInvocation(
-            call.superQualifierSymbol?.defaultType ?: call.dispatchReceiver?.type ?: call.symbol.owner.parentAsClass.defaultType,
+    private fun generateReflectiveMethodInvocation(call: IrCall): IrExpression {
+        val parameterTypes = mutableListOf<IrType>()
+        val arguments = mutableListOf<IrExpression>()
+
+        when {
+            call.extensionReceiver != null -> {
+                call.symbol.owner.extensionReceiverParameter?.let { parameterTypes.add(it.type) }
+                call.extensionReceiver?.let { arguments.add(it) }
+            }
+            call.dispatchReceiver != null && call.symbol.owner.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER -> {
+                call.symbol.owner.dispatchReceiverParameter?.let { parameterTypes.add(it.type) }
+                call.dispatchReceiver?.let { arguments.add(it) }
+            }
+        }
+
+        parameterTypes.addAll(call.valueParameterTypes())
+        arguments.addAll(call.getValueArguments())
+
+        return generateReflectiveMethodInvocation(
+            call.superQualifierSymbol?.defaultType ?: call.symbol.owner.resolveFakeOverrideOrFail().parentAsClass.defaultType,
             call.symbol.owner.name.asString(),
-            mutableListOf<IrType>().apply {
-                call.symbol.owner.extensionReceiverParameter?.let { add(it.type) }
-                addAll(call.valueParameterTypes())
-            },
+            parameterTypes,
             call.dispatchReceiver,
-            mutableListOf<IrExpression>().apply {
-                call.extensionReceiver?.let { add(it) }
-                addAll(call.getValueArguments())
-            },
+            arguments,
             call.type,
             call.symbol
         )
+    }
 
     private fun generateReflectiveStaticCall(call: IrCall): IrExpression {
         assert(call.dispatchReceiver == null) { "Assumed-to-be static call with a dispatch receiver" }
@@ -512,7 +527,7 @@ internal class ReflectiveAccessLowering(
     // invokespecial via JDI from which it *is* possible to do the required
     // super call.
     private fun generateInvokeSpecialForCall(expression: IrCall, superQualifier: IrClassSymbol): IrExpression {
-        val jvmSignature = context.methodSignatureMapper.mapSignatureSkipGeneric(expression.symbol.owner)
+        val jvmSignature = context.defaultMethodSignatureMapper.mapSignatureSkipGeneric(expression.symbol.owner)
         val owner = superQualifier.owner
         val builder = context.createJvmIrBuilder(expression.symbol)
 

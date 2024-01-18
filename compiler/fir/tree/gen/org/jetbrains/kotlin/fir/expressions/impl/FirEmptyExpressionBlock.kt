@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
@@ -12,9 +12,11 @@ import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImpl
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.MutableOrEmptyList
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 
 /*
  * This file was generated automatically
@@ -23,12 +25,12 @@ import org.jetbrains.kotlin.fir.visitors.*
 
 class FirEmptyExpressionBlock : FirBlock() {
     override val source: KtSourceElement? get() = null
+    @OptIn(UnresolvedExpressionTypeAccess::class)
+    override var coneTypeOrNull: ConeKotlinType? = null
     override val annotations: List<FirAnnotation> get() = emptyList()
     override val statements: List<FirStatement> get() = emptyList()
-    override var typeRef: FirTypeRef = FirImplicitTypeRefImpl(null)
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
-        typeRef.accept(visitor, data)
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirEmptyExpressionBlock {
@@ -45,11 +47,12 @@ class FirEmptyExpressionBlock : FirBlock() {
     }
 
     override fun <D> transformOtherChildren(transformer: FirTransformer<D>, data: D): FirEmptyExpressionBlock {
-        typeRef = typeRef.transform(transformer, data)
         return this
     }
 
-    override fun replaceTypeRef(newTypeRef: FirTypeRef) {
-        typeRef = newTypeRef
+    override fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?) {
+        coneTypeOrNull = newConeTypeOrNull
     }
+
+    override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {}
 }

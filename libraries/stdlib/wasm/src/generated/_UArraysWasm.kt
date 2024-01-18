@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -123,5 +123,149 @@ public actual fun UShortArray.asList(): List<UShort> {
         override fun indexOf(element: UShort): Int = this@asList.indexOf(element)
         override fun lastIndexOf(element: UShort): Int = this@asList.lastIndexOf(element)
     }
+}
+
+/**
+ * Returns `true` if the two specified arrays are *structurally* equal to one another,
+ * i.e. contain the same number of the same elements in the same order.
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public infix fun UIntArray.contentEquals(other: UIntArray): Boolean {
+    return this.contentEquals(other)
+}
+
+/**
+ * Returns `true` if the two specified arrays are *structurally* equal to one another,
+ * i.e. contain the same number of the same elements in the same order.
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public infix fun ULongArray.contentEquals(other: ULongArray): Boolean {
+    return this.contentEquals(other)
+}
+
+/**
+ * Returns `true` if the two specified arrays are *structurally* equal to one another,
+ * i.e. contain the same number of the same elements in the same order.
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public infix fun UByteArray.contentEquals(other: UByteArray): Boolean {
+    return this.contentEquals(other)
+}
+
+/**
+ * Returns `true` if the two specified arrays are *structurally* equal to one another,
+ * i.e. contain the same number of the same elements in the same order.
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public infix fun UShortArray.contentEquals(other: UShortArray): Boolean {
+    return this.contentEquals(other)
+}
+
+/**
+ * Returns a hash code based on the contents of this array as if it is [List].
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UIntArray.contentHashCode(): Int {
+    return this.contentHashCode()
+}
+
+/**
+ * Returns a hash code based on the contents of this array as if it is [List].
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun ULongArray.contentHashCode(): Int {
+    return this.contentHashCode()
+}
+
+/**
+ * Returns a hash code based on the contents of this array as if it is [List].
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UByteArray.contentHashCode(): Int {
+    return this.contentHashCode()
+}
+
+/**
+ * Returns a hash code based on the contents of this array as if it is [List].
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UShortArray.contentHashCode(): Int {
+    return this.contentHashCode()
+}
+
+/**
+ * Returns a string representation of the contents of the specified array as if it is [List].
+ * 
+ * @sample samples.collections.Arrays.ContentOperations.contentToString
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UIntArray.contentToString(): String {
+    return this.contentToString()
+}
+
+/**
+ * Returns a string representation of the contents of the specified array as if it is [List].
+ * 
+ * @sample samples.collections.Arrays.ContentOperations.contentToString
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun ULongArray.contentToString(): String {
+    return this.contentToString()
+}
+
+/**
+ * Returns a string representation of the contents of the specified array as if it is [List].
+ * 
+ * @sample samples.collections.Arrays.ContentOperations.contentToString
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UByteArray.contentToString(): String {
+    return this.contentToString()
+}
+
+/**
+ * Returns a string representation of the contents of the specified array as if it is [List].
+ * 
+ * @sample samples.collections.Arrays.ContentOperations.contentToString
+ */
+@Deprecated("Use Kotlin compiler 1.4 to avoid deprecation warning.")
+@SinceKotlin("1.3")
+@DeprecatedSinceKotlin(hiddenSince = "1.4")
+@ExperimentalUnsignedTypes
+public fun UShortArray.contentToString(): String {
+    return this.contentToString()
 }
 

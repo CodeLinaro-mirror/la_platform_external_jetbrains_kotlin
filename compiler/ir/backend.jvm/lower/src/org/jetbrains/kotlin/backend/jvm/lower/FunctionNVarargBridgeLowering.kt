@@ -13,11 +13,13 @@ import org.jetbrains.kotlin.backend.common.lower.irIfThen
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
+import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
 import org.jetbrains.kotlin.backend.jvm.ir.irArray
+import org.jetbrains.kotlin.backend.jvm.needsMfvcFlattening
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.functions.BuiltInFunctionArity
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
@@ -28,7 +30,6 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 internal val functionNVarargBridgePhase = makeIrFilePhase(
     ::FunctionNVarargBridgeLowering,
@@ -94,7 +95,10 @@ private class FunctionNVarargBridgeLowering(val context: JvmBackendContext) :
                 val overridesInvoke = function.overriddenSymbols.any { symbol ->
                     symbol.owner.name.asString() == "invoke"
                 }
-                overridesInvoke && function.valueParameters.size == superType.arguments.size - if (function.isSuspend) 0 else 1
+                overridesInvoke && function.valueParameters.size == superType.arguments.sumOf {
+                    if (it.typeOrNull?.needsMfvcFlattening() != true) 1
+                    else context.multiFieldValueClassReplacements.getRootMfvcNode(it.typeOrNull!!.erasedUpperBound).leavesCount
+                } - if (function.isSuspend) 0 else 1
             }
             invokeFunction.overriddenSymbols = emptyList()
             declaration.addBridge(invokeFunction, functionNInvokeFun.owner)
@@ -150,7 +154,7 @@ private class FunctionNVarargBridgeLowering(val context: JvmBackendContext) :
         get() {
             val clazz = classOrNull?.owner ?: return false
             val name = clazz.name.asString()
-            val fqName = clazz.parent.safeAs<IrPackageFragment>()?.fqName ?: return false
+            val fqName = (clazz.parent as? IrPackageFragment)?.packageFqName ?: return false
             return when {
                 name.startsWith("Function") ->
                     fqName == StandardNames.BUILT_INS_PACKAGE_FQ_NAME || fqName == FUNCTIONS_PACKAGE_FQ_NAME

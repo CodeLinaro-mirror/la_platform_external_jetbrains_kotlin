@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.scopes.impl
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirTypeIntersectionScopeContext.ResultOfIntersection
@@ -22,7 +23,8 @@ abstract class AbstractFirUseSiteMemberScope(
     dispatchReceiverType: ConeSimpleKotlinType,
     protected val declaredMemberScope: FirContainingNamesAwareScope
 ) : AbstractFirOverrideScope(session, overrideChecker) {
-    protected val supertypeScopeContext = FirTypeIntersectionScopeContext(session, overrideChecker, superTypeScopes, dispatchReceiverType)
+    protected val supertypeScopeContext =
+        FirTypeIntersectionScopeContext(session, overrideChecker, superTypeScopes, dispatchReceiverType, forClassUseSiteScope = true)
 
     private val functions: MutableMap<Name, Collection<FirNamedFunctionSymbol>> = hashMapOf()
 
@@ -34,8 +36,6 @@ abstract class AbstractFirUseSiteMemberScope(
     protected val functionsFromSupertypes: MutableMap<Name, List<ResultOfIntersection<FirNamedFunctionSymbol>>> = mutableMapOf()
     protected val propertiesFromSupertypes: MutableMap<Name, List<ResultOfIntersection<FirPropertySymbol>>> = mutableMapOf()
     protected val fieldsFromSupertypes: MutableMap<Name, List<FirFieldSymbol>> = mutableMapOf()
-
-    private val absentClassifiersFromSupertypes = mutableSetOf<Name>()
 
     private val callableNamesCached by lazy(LazyThreadSafetyMode.PUBLICATION) {
         buildSet {
@@ -52,6 +52,8 @@ abstract class AbstractFirUseSiteMemberScope(
     }
 
     final override fun processFunctionsByName(name: Name, processor: (FirNamedFunctionSymbol) -> Unit) {
+        // Important optimization: avoid creating cache keys for names that are definitely absent
+        if (name !in getCallableNames()) return
         functions.getOrPut(name) {
             collectFunctions(name)
         }.forEach {
@@ -101,6 +103,8 @@ abstract class AbstractFirUseSiteMemberScope(
     }
 
     final override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
+        // Important optimization: avoid creating cache keys for names that are definitely absent
+        if (name !in getCallableNames()) return
         properties.getOrPut(name) {
             collectProperties(name)
         }.forEach {
@@ -130,7 +134,7 @@ abstract class AbstractFirUseSiteMemberScope(
              *
              * TODO: is it enough to check only one function?
              */
-            mostSpecific
+            keySymbol
         } else {
             chosenSymbol
         }
@@ -197,13 +201,16 @@ abstract class AbstractFirUseSiteMemberScope(
     }
 
     override fun processClassifiersByNameWithSubstitution(name: Name, processor: (FirClassifierSymbol<*>, ConeSubstitutor) -> Unit) {
+        // Important optimization: avoid creating cache keys for names that are definitely absent
+        if (name !in getClassifierNames()) return
+
         var shadowed = false
         declaredMemberScope.processClassifiersByNameWithSubstitution(name) { classifier, substitutor ->
             shadowed = true
             processor(classifier, substitutor)
         }
         if (!shadowed) {
-            supertypeScopeContext.processClassifiersByNameWithSubstitution(name, absentClassifiersFromSupertypes, processor)
+            supertypeScopeContext.processClassifiersByNameWithSubstitution(name, processor)
         }
     }
 

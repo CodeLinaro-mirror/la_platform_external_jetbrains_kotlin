@@ -189,9 +189,9 @@ private object PathRelativizer {
  * Copies a file or directory located by this path to the given [target] path.
  *
  * Unlike `File.copyTo`, if some directories on the way to the [target] are missing, then they won't be created automatically.
- * You can use the following approach to ensure that required intermediate directories are created:
+ * You can use the [createParentDirectories] function to ensure that required intermediate directories are created:
  * ```
- * sourcePath.copyTo(destinationPath.apply { parent?.createDirectories() })
+ * sourcePath.copyTo(destinationPath.createParentDirectories())
  * ```
  *
  * If the [target] path already exists, this function will fail unless [overwrite] argument is set to `true`.
@@ -199,7 +199,7 @@ private object PathRelativizer {
  * When [overwrite] is `true` and [target] is a directory, it is replaced only if it is empty.
  *
  * If this path is a directory, it is copied without its content, i.e. an empty [target] directory is created.
- * If you want to copy directory including its contents, use [copyRecursively].
+ * If you want to copy directory including its contents, use [copyToRecursively].
  *
  * The operation doesn't preserve copied file attributes such as creation/modification date, permissions, etc.
  *
@@ -226,9 +226,9 @@ public inline fun Path.copyTo(target: Path, overwrite: Boolean = false): Path {
  * Copies a file or directory located by this path to the given [target] path.
  *
  * Unlike `File.copyTo`, if some directories on the way to the [target] are missing, then they won't be created automatically.
- * You can use the following approach to ensure that required intermediate directories are created:
+ * You can use the [createParentDirectories] function to ensure that required intermediate directories are created:
  * ```
- * sourcePath.copyTo(destinationPath.apply { parent?.createDirectories() })
+ * sourcePath.copyTo(destinationPath.createParentDirectories())
  * ```
  *
  * If the [target] path already exists, this function will fail unless the
@@ -238,7 +238,7 @@ public inline fun Path.copyTo(target: Path, overwrite: Boolean = false): Path {
  * it is replaced only if it is empty.
  *
  * If this path is a directory, it is copied *without* its content, i.e. an empty [target] directory is created.
- * If you want to copy a directory including its contents, use [copyRecursively].
+ * If you want to copy a directory including its contents, use [copyToRecursively].
  *
  * The operation doesn't preserve copied file attributes such as creation/modification date,
  * permissions, etc. unless [COPY_ATTRIBUTES][StandardCopyOption.COPY_ATTRIBUTES] is used.
@@ -500,6 +500,8 @@ public inline fun Path.deleteIfExists() =
  *   when creating the directory.
  *
  * @see Files.createDirectory
+ * @see Path.createDirectories
+ * @see Path.createParentDirectories
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalPathApi::class)
@@ -513,15 +515,20 @@ public inline fun Path.createDirectory(vararg attributes: FileAttribute<*>): Pat
  *
  * If the directory already exists, this function does not throw an exception, unlike [Path.createDirectory].
  *
+ * @return the path of this directory if it already exists or has been created successfully.
+ * The returned path can be converted [Path.toAbsolutePath][to absolute path] if it was relative.
+ *
  * @param attributes an optional list of file attributes to set atomically when creating the directory.
  *
- * @throws FileAlreadyExistsException if there is already a file located by this path
+ * @throws FileAlreadyExistsException if there is already a file located by this path or one of its parent paths
  * (optional specific exception, some implementations may throw more general [IOException]).
  * @throws IOException if an I/O error occurs.
- * @throws UnsupportedOperationException if the [attributes ]array contains an attribute that cannot be set atomically
+ * @throws UnsupportedOperationException if the [attributes] array contains an attribute that cannot be set atomically
  *   when creating the directory.
  *
  * @see Files.createDirectories
+ * @see Path.createDirectory
+ * @see Path.createParentDirectories
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalPathApi::class)
@@ -530,6 +537,41 @@ public inline fun Path.createDirectory(vararg attributes: FileAttribute<*>): Pat
 public inline fun Path.createDirectories(vararg attributes: FileAttribute<*>): Path =
     Files.createDirectories(this, *attributes)
 
+/**
+ * Ensures that all parent directories of this path exist, creating them if required.
+ *
+ * If the parent directory already exists, this function does nothing.
+ *
+ * Note that the [parent][Path.getParent] directory is not always the directory that contains the entry specified by this path.
+ * For example, the parent of the path `x/y/.` is `x/y`, which is logically the same directory,
+ * and the parent of `x/y/..` (which means just `x/`) is also `x/y`.
+ * Use the function [Path.normalize] to eliminate redundant name elements from the path.
+ *
+ * @param attributes an optional list of file attributes to set atomically when creating the missing parent directories.
+ *
+ * @return this path unchanged if all parent directories already exist or have been created successfully.
+ *
+ * @throws FileAlreadyExistsException if there is already a file located by the [parent][Path.getParent] path or one of its parent paths
+ * (optional specific exception, some implementations may throw more general [IOException]).
+ * @throws IOException if an I/O error occurs.
+ * @throws UnsupportedOperationException if the [attributes] array contains an attribute that cannot be set atomically
+ *   when creating the directory.
+ *
+ * @see Path.getParent
+ * @see Path.createDirectories
+ */
+@SinceKotlin("1.9")
+@Throws(IOException::class)
+public fun Path.createParentDirectories(vararg attributes: FileAttribute<*>): Path = also {
+    val parent = it.parent
+    if (parent != null && !parent.isDirectory()) {
+        try {
+            parent.createDirectories(*attributes)
+        } catch (e: FileAlreadyExistsException) {
+            if (!parent.isDirectory()) throw e
+        }
+    }
+}
 
 /**
  * Moves or renames the file located by this path to the [target] path.

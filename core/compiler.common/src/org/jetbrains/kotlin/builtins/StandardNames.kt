@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.builtins
 
 import org.jetbrains.kotlin.builtins.StandardNames.FqNames.reflect
-import org.jetbrains.kotlin.builtins.functions.FunctionClassKind
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
@@ -22,6 +22,8 @@ object StandardNames {
 
     @JvmField val ENUM_VALUES = Name.identifier("values")
 
+    @JvmField val ENUM_ENTRIES = Name.identifier("entries")
+
     @JvmField val ENUM_VALUE_OF = Name.identifier("valueOf")
 
     @JvmField val DATA_CLASS_COPY = Name.identifier("copy")
@@ -29,8 +31,18 @@ object StandardNames {
     @JvmField val DATA_CLASS_COMPONENT_PREFIX = "component"
 
     @JvmField val HASHCODE_NAME = Name.identifier("hashCode")
+    @JvmField val TO_STRING_NAME = Name.identifier("toString")
+    @JvmField val EQUALS_NAME = Name.identifier("equals")
 
     @JvmField val CHAR_CODE = Name.identifier("code")
+
+    @JvmField val NAME = Name.identifier("name")
+
+    @JvmField val MAIN = Name.identifier("main")
+
+    @JvmField val NEXT_CHAR = Name.identifier("nextChar")
+
+    @JvmField val IMPLICIT_LAMBDA_PARAMETER_NAME = Name.identifier("it")
 
     @JvmField val CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME = Name.identifier("count")
 
@@ -72,7 +84,10 @@ object StandardNames {
     @JvmField
     val TEXT_PACKAGE_FQ_NAME = BUILT_INS_PACKAGE_FQ_NAME.child(Name.identifier("text"))
 
+    @JvmField
     val KOTLIN_INTERNAL_FQ_NAME = BUILT_INS_PACKAGE_FQ_NAME.child(Name.identifier("internal"))
+
+    val NON_EXISTENT_CLASS = FqName("error.NonExistentClass")
 
     @JvmField
     val BUILT_INS_PACKAGE_FQ_NAMES = setOf(
@@ -135,6 +150,7 @@ object StandardNames {
         @JvmField val mustBeDocumented: FqName = annotationName("MustBeDocumented")
         @JvmField val unsafeVariance: FqName = fqName("UnsafeVariance")
         @JvmField val publishedApi: FqName = fqName("PublishedApi")
+        @JvmField val accessibleLateinitPropertyLiteral: FqName = internalName("AccessibleLateinitPropertyLiteral")
 
         @JvmField val iterator: FqName = collectionsFqName("Iterator")
         @JvmField val iterable: FqName = collectionsFqName("Iterable")
@@ -154,6 +170,7 @@ object StandardNames {
         @JvmField val mutableMapEntry: FqName = mutableMap.child(Name.identifier("MutableEntry"))
 
         @JvmField val kClass: FqNameUnsafe = reflect("KClass")
+        @JvmField val kType: FqNameUnsafe = reflect("KType")
         @JvmField val kCallable: FqNameUnsafe = reflect("KCallable")
         @JvmField val kProperty0: FqNameUnsafe = reflect("KProperty0")
         @JvmField val kProperty1: FqNameUnsafe = reflect("KProperty1")
@@ -226,6 +243,10 @@ object StandardNames {
         private fun annotationName(simpleName: String): FqName {
             return ANNOTATION_PACKAGE_FQ_NAME.child(Name.identifier(simpleName))
         }
+
+        private fun internalName(simpleName: String): FqName {
+            return KOTLIN_INTERNAL_FQ_NAME.child(Name.identifier(simpleName))
+        }
     }
 
     @JvmStatic
@@ -240,7 +261,7 @@ object StandardNames {
 
     @JvmStatic
     fun getKFunctionFqName(parameterCount: Int): FqNameUnsafe {
-        return reflect(FunctionClassKind.KFunction.classNamePrefix + parameterCount)
+        return reflect(FunctionTypeKind.KFunction.classNamePrefix + parameterCount)
     }
 
     @JvmStatic
@@ -251,7 +272,7 @@ object StandardNames {
 
     @JvmStatic
     fun getSuspendFunctionName(parameterCount: Int): String {
-        return FunctionClassKind.SuspendFunction.classNamePrefix + parameterCount
+        return FunctionTypeKind.SuspendFunction.classNamePrefix + parameterCount
     }
 
     @JvmStatic
@@ -261,7 +282,7 @@ object StandardNames {
 
     @JvmStatic
     fun getKSuspendFunctionName(parameterCount: Int): FqNameUnsafe {
-        return reflect(FunctionClassKind.KSuspendFunction.classNamePrefix + parameterCount)
+        return reflect(FunctionTypeKind.KSuspendFunction.classNamePrefix + parameterCount)
     }
 
     @JvmStatic

@@ -30,16 +30,20 @@ import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.resolve.transformers.resolveSupertypesInTheAir
+import org.jetbrains.kotlin.fir.resolve.transformers.FirSupertypeResolverVisitor
+import org.jetbrains.kotlin.fir.resolve.transformers.SupertypeComputationSession
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.utils.exceptions.withConeTypeEntry
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.jvm.JvmPrimitiveType
 import org.jetbrains.kotlin.resolve.jvm.KotlinFinderMarker
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 class FirJavaElementFinder(
     private val session: FirSession,
@@ -47,7 +51,6 @@ class FirJavaElementFinder(
 ) : PsiElementFinder(), KotlinFinderMarker {
     private val psiManager = PsiManager.getInstance(project)
 
-    @OptIn(ExperimentalStdlibApi::class)
     private val firProviders: List<FirProvider> = buildList {
         add(session.firProvider)
         session.collectAllDependentSourceSessions().mapTo(this) { it.firProvider }
@@ -114,7 +117,7 @@ class FirJavaElementFinder(
 
         val superTypeRefs = when {
             firClass.superTypeRefs.all { it is FirResolvedTypeRef } -> firClass.superTypeRefs
-            else -> firClass.resolveSupertypesInTheAir(session)
+            else -> firClass.resolveSupertypesOnAir(session)
         }
 
         stub.addSupertypesReferencesLists(firClass, superTypeRefs, session)
@@ -126,6 +129,13 @@ class FirJavaElementFinder(
         return stub
     }
 
+}
+
+private fun FirRegularClass.resolveSupertypesOnAir(session: FirSession): List<FirTypeRef> {
+    val visitor = FirSupertypeResolverVisitor(session, SupertypeComputationSession(), ScopeSession())
+    return visitor.withFile(session.firProvider.getFirClassifierContainerFile(this.symbol)) {
+        visitor.resolveSpecificClassLikeSupertypes(this, superTypeRefs)
+    }
 }
 
 private fun FirSession.collectAllDependentSourceSessions(): List<FirSession> {
@@ -259,7 +269,9 @@ private fun ConeKotlinType.mapToCanonicalString(session: FirSession): String {
         is ConeClassLikeType -> mapToCanonicalString(session)
         is ConeTypeVariableType, is ConeFlexibleType, is ConeCapturedType,
         is ConeDefinitelyNotNullType, is ConeIntersectionType, is ConeStubType, is ConeIntegerLiteralType ->
-            error("Unexpected type: $this [${this::class}]")
+            errorWithAttachment("Unexpected type: ${this::class.java}") {
+                withConeTypeEntry("type", this@mapToCanonicalString)
+            }
         is ConeLookupTagBasedType -> lookupTag.name.asString()
     }
 }

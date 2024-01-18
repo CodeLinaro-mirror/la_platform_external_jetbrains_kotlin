@@ -9,11 +9,14 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.analysis.api.impl.base.test.configurators.AnalysisApiBaseTestServiceRegistrar
+import org.jetbrains.kotlin.analysis.api.impl.base.test.configurators.AnalysisApiDecompiledCodeTestServiceRegistrar
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleProjectStructure
-import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtMainModuleFactoryForSourceModules
+import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtModuleFactory
+import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtSourceModuleFactory
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.TestModuleStructureFactory
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.FrontendKind
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.lazy.JvmResolveUtil
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
@@ -28,14 +31,20 @@ import kotlin.io.path.nameWithoutExtension
 object AnalysisApiFe10TestConfigurator : AnalysisApiTestConfigurator() {
     override val analyseInDependentSession: Boolean get() = false
 
+    override val frontendKind: FrontendKind get() = FrontendKind.Fe10
+
     override val testPrefix: String
         get() = "descriptors"
 
     override fun configureTest(builder: TestConfigurationBuilder, disposable: Disposable) {
+        builder.apply {
+            useAdditionalService<KtModuleFactory> { KtSourceModuleFactory() }
+        }
     }
 
     override val serviceRegistrars: List<AnalysisApiTestServiceRegistrar> = listOf(
         AnalysisApiBaseTestServiceRegistrar,
+        AnalysisApiDecompiledCodeTestServiceRegistrar,
         AnalysisApiFe10TestServiceRegistrar,
     )
 
@@ -44,12 +53,7 @@ object AnalysisApiFe10TestConfigurator : AnalysisApiTestConfigurator() {
         testServices: TestServices,
         project: Project,
     ): KtModuleProjectStructure {
-        return TestModuleStructureFactory.createProjectStructureByTestStructure(
-            moduleStructure,
-            testServices,
-            project,
-            KtMainModuleFactoryForSourceModules,
-        )
+        return TestModuleStructureFactory.createProjectStructureByTestStructure(moduleStructure, testServices, project)
     }
 
     override fun prepareFilesInModule(files: List<PsiFile>, module: TestModule, testServices: TestServices) {
@@ -58,11 +62,6 @@ object AnalysisApiFe10TestConfigurator : AnalysisApiTestConfigurator() {
         val project = compilerConfigurationProvider.getProject(module)
         val packageProviderFactory = compilerConfigurationProvider.getPackagePartProviderFactory(module)
         JvmResolveUtil.analyze(project, files.filterIsInstance<KtFile>(), compilerConfiguration, packageProviderFactory)
-    }
-
-
-    override fun doOutOfBlockModification(file: KtFile) {
-        // TODO not supported yet
     }
 
     override fun preprocessTestDataPath(path: Path): Path {

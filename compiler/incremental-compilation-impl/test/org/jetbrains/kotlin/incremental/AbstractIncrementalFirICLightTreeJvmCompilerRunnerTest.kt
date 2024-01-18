@@ -13,11 +13,11 @@ abstract class AbstractIncrementalFirICLightTreeJvmCompilerRunnerTest : Abstract
     override fun createCompilerArguments(destinationDir: File, testDir: File): K2JVMCompilerArguments =
         super.createCompilerArguments(destinationDir, testDir).apply {
             useK2 = true
-            useIR = true
+            languageVersion = "2.0"
             useFirIC = true
             useFirLT = true
         }
 
     override val buildLogFinder: BuildLogFinder
-        get() = BuildLogFinder(isGradleEnabled = true, isFirEnabled = true, isFirIcEnabled = true) // TODO: investigate cases that need isGradleEnabled - the combination looks fragile
+        get() = BuildLogFinder(isGradleEnabled = true, isFirEnabled = true) // TODO: investigate cases that need isGradleEnabled - the combination looks fragile
 }

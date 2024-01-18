@@ -6,9 +6,14 @@
 package org.jetbrains.kotlin.fir
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.config.ApiVersion
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.declarations.FirClass
+import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
+import org.jetbrains.kotlin.fir.declarations.getDeprecationForCallSite
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.expressions.builder.buildResolvedQualifier
 import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReference
@@ -16,11 +21,8 @@ import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.getSingleVisibleClassifier
 import org.jetbrains.kotlin.fir.resolve.createCurrentScopeList
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeDeprecated
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
-import org.jetbrains.kotlin.fir.resolve.typeForQualifier
+import org.jetbrains.kotlin.fir.resolve.setTypeOfQualifier
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -29,64 +31,69 @@ const val ROOT_PREFIX_FOR_IDE_RESOLUTION_MODE = "_root_ide_package_"
 
 fun BodyResolveComponents.resolveRootPartOfQualifier(
     namedReference: FirSimpleNamedReference,
-    source: KtSourceElement?,
-    typeArguments: List<FirTypeProjection>,
+    qualifiedAccess: FirQualifiedAccessExpression,
     nonFatalDiagnosticsFromExpression: List<ConeDiagnostic>?,
 ): FirResolvedQualifier? {
     val name = namedReference.name
     if (name.asString() == ROOT_PREFIX_FOR_IDE_RESOLUTION_MODE) {
         return buildResolvedQualifier {
-            this.source = source
+            this.source = qualifiedAccess.source
             packageFqName = FqName.ROOT
             this.nonFatalDiagnostics.addAll(nonFatalDiagnosticsFromExpression.orEmpty())
+            annotations += qualifiedAccess.annotations
         }.apply {
-            resultType = typeForQualifier(this)
+            setTypeOfQualifier(session)
         }
     }
 
     for (scope in createCurrentScopeList()) {
         scope.getSingleVisibleClassifier(session, this, name)?.let {
-            if (it is FirRegularClassSymbol) {
-                val isVisible = session.visibilityChecker.isVisible(
-                    it.fir,
-                    session,
-                    file,
-                    containingDeclarations,
-                    null,
-                    false,
-                )
-                if (!isVisible) {
-                    return@let
-                }
-                val classId = it.classId
-                return buildResolvedQualifier {
-                    this.source = source
-                    packageFqName = classId.packageFqName
-                    relativeClassFqName = classId.relativeClassName
-                    symbol = it
-                    this.typeArguments.addAll(typeArguments)
-                    this.nonFatalDiagnostics.addAll(
-                        extractNonFatalDiagnostics(
-                            source,
-                            explicitReceiver = null,
-                            it,
-                            extraNotFatalDiagnostics = nonFatalDiagnosticsFromExpression
-                        )
+            val klass = (it as? FirClassLikeSymbol<*>)?.fullyExpandedClass(session)
+                ?: return@let
+
+            val isVisible = session.visibilityChecker.isClassLikeVisible(
+                klass.fir,
+                session,
+                file,
+                containingDeclarations,
+            )
+            if (!isVisible) {
+                return@let
+            }
+            val classId = it.classId
+            return buildResolvedQualifier {
+                this.source = qualifiedAccess.source
+                packageFqName = classId.packageFqName
+                relativeClassFqName = classId.relativeClassName
+                symbol = it
+                this.typeArguments.addAll(qualifiedAccess.typeArguments)
+                this.nonFatalDiagnostics.addAll(
+                    extractNonFatalDiagnostics(
+                        qualifiedAccess.source,
+                        explicitReceiver = null,
+                        it,
+                        extraNotFatalDiagnostics = nonFatalDiagnosticsFromExpression,
+                        session
                     )
-                }.apply {
-                    resultType = typeForQualifier(this)
-                }
+                )
+                annotations += qualifiedAccess.annotations
+            }.apply {
+                setTypeOfQualifier(session)
             }
         }
     }
 
-    return FqName.ROOT.continueQualifierInPackage(name, typeArguments, nonFatalDiagnosticsFromExpression, this, source)
+    return FqName.ROOT.continueQualifierInPackage(
+        name,
+        qualifiedAccess,
+        nonFatalDiagnosticsFromExpression,
+        this
+    )
 }
 
 fun FirResolvedQualifier.continueQualifier(
     namedReference: FirSimpleNamedReference,
-    source: KtSourceElement?,
-    typeArguments: List<FirTypeProjection>,
+    qualifiedAccess: FirQualifiedAccessExpression,
     nonFatalDiagnosticsFromExpression: List<ConeDiagnostic>?,
     session: FirSession,
     components: BodyResolveComponents,
@@ -100,49 +107,55 @@ fun FirResolvedQualifier.continueQualifier(
             ?.takeIf { it is FirClassLikeSymbol<*> }
             ?.let { nestedClassSymbol ->
                 buildResolvedQualifier {
-                    this.source = source
+                    this.source = qualifiedAccess.source
                     packageFqName = this@continueQualifier.packageFqName
                     relativeClassFqName = this@continueQualifier.relativeClassFqName?.child(name)
                     symbol = nestedClassSymbol as FirClassLikeSymbol<*>
+                    isFullyQualified = true
 
-                    val outerTypeArguments = this.typeArguments.toList()
                     this.typeArguments.clear()
-                    this.typeArguments.addAll(typeArguments)
-                    this.typeArguments.addAll(outerTypeArguments)
+                    this.typeArguments.addAll(qualifiedAccess.typeArguments)
+                    this.typeArguments.addAll(this@continueQualifier.typeArguments)
                     this.nonFatalDiagnostics.addAll(nonFatalDiagnosticsFromExpression.orEmpty())
                     this.nonFatalDiagnostics.addAll(
                         extractNonFatalDiagnostics(
-                            source,
+                            qualifiedAccess.source,
                             explicitReceiver = null,
                             nestedClassSymbol,
-                            extraNotFatalDiagnostics = this@continueQualifier.nonFatalDiagnostics
+                            extraNotFatalDiagnostics = this@continueQualifier.nonFatalDiagnostics,
+                            session
                         )
                     )
                 }.apply {
-                    resultType = components.typeForQualifier(this)
+                    setTypeOfQualifier(components.session)
                 }
             }
     }
 
-    return packageFqName.continueQualifierInPackage(name, typeArguments, nonFatalDiagnosticsFromExpression, components, source)
+    return packageFqName.continueQualifierInPackage(
+        name,
+        qualifiedAccess,
+        nonFatalDiagnosticsFromExpression,
+        components
+    )
 }
 
 private fun FqName.continueQualifierInPackage(
     name: Name,
-    typeArguments: List<FirTypeProjection>,
+    qualifiedAccess: FirQualifiedAccessExpression,
     nonFatalDiagnosticsFromExpression: List<ConeDiagnostic>?,
-    components: BodyResolveComponents,
-    source: KtSourceElement?
+    components: BodyResolveComponents
 ): FirResolvedQualifier? {
     val childFqName = this.child(name)
     if (components.symbolProvider.getPackage(childFqName) != null) {
         return buildResolvedQualifier {
-            this.source = source
+            this.source = qualifiedAccess.source
             packageFqName = childFqName
-            this.typeArguments.addAll(typeArguments)
+            this.typeArguments.addAll(qualifiedAccess.typeArguments)
             this.nonFatalDiagnostics.addAll(nonFatalDiagnosticsFromExpression.orEmpty())
+            annotations += qualifiedAccess.annotations
         }.apply {
-            resultType = components.typeForQualifier(this)
+            setTypeOfQualifier(components.session)
         }
     }
 
@@ -150,21 +163,24 @@ private fun FqName.continueQualifierInPackage(
     val symbol = components.symbolProvider.getClassLikeSymbolByClassId(classId) ?: return null
 
     return buildResolvedQualifier {
-        this.source = source
+        this.source = qualifiedAccess.source
         packageFqName = this@continueQualifierInPackage
         relativeClassFqName = classId.relativeClassName
         this.symbol = symbol
-        this.typeArguments.addAll(typeArguments)
+        this.typeArguments.addAll(qualifiedAccess.typeArguments)
         this.nonFatalDiagnostics.addAll(
             extractNonFatalDiagnostics(
-                source,
+                qualifiedAccess.source,
                 explicitReceiver = null,
                 symbol,
-                extraNotFatalDiagnostics = nonFatalDiagnosticsFromExpression
+                extraNotFatalDiagnostics = nonFatalDiagnosticsFromExpression,
+                components.session
             )
         )
+        isFullyQualified = true
+        annotations += qualifiedAccess.annotations
     }.apply {
-        resultType = components.typeForQualifier(this)
+        setTypeOfQualifier(components.session)
     }
 }
 
@@ -172,12 +188,13 @@ internal fun extractNonFatalDiagnostics(
     source: KtSourceElement?,
     explicitReceiver: FirExpression?,
     symbol: FirClassLikeSymbol<*>,
-    extraNotFatalDiagnostics: List<ConeDiagnostic>?
+    extraNotFatalDiagnostics: List<ConeDiagnostic>?,
+    session: FirSession,
 ): List<ConeDiagnostic> {
     val prevDiagnostics = (explicitReceiver as? FirResolvedQualifier)?.nonFatalDiagnostics ?: emptyList()
     var result: MutableList<ConeDiagnostic>? = null
 
-    val deprecation = symbol.fir.deprecation?.forUseSite()
+    val deprecation = symbol.getDeprecationForCallSite(session)
     if (deprecation != null) {
         result = mutableListOf()
         result.addAll(prevDiagnostics)

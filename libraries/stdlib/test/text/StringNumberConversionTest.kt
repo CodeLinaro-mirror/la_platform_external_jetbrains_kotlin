@@ -5,7 +5,6 @@
 
 package test.text
 
-import test.*
 import kotlin.test.*
 
 class StringNumberConversionTest {
@@ -145,8 +144,35 @@ class StringNumberConversionTest {
             assertProduces("7.7e1", 77.0)
             assertProduces("+770e-1", 77.0)
 
-            assertProduces("-NaN", -Double.NaN)
+            assertProduces("NaN", Double.NaN)
+            assertProduces("Infinity", Double.POSITIVE_INFINITY)
             assertProduces("+Infinity", Double.POSITIVE_INFINITY)
+            assertProduces("-NaN", -Double.NaN)
+            assertProduces("-Infinity", Double.NEGATIVE_INFINITY)
+
+            assertFailsOrNull("7..7")
+            assertFailsOrNull("007 not a number")
+            assertFailsOrNull("")
+            assertFailsOrNull("   ")
+        }
+    }
+
+    @Test fun toFloat() {
+        compareConversion(String::toFloat, String::toFloatOrNull, ::floatTotalOrderEquals) {
+            assertProduces("-77", -77.0f)
+            assertProduces("77.", 77.0f)
+            assertProduces("77.0", 77.0f)
+            assertProduces("-1.77", -1.77f)
+            assertProduces("+.77", 0.77f)
+            assertProduces("\t-77 \n", -77.0f)
+            assertProduces("7.7e1", 77.0f)
+            assertProduces("+770e-1", 77.0f)
+
+            assertProduces("NaN", Float.NaN)
+            assertProduces("Infinity", Float.POSITIVE_INFINITY)
+            assertProduces("+Infinity", Float.POSITIVE_INFINITY)
+            assertProduces("-NaN", -Float.NaN)
+            assertProduces("-Infinity", Float.NEGATIVE_INFINITY)
 
             assertFailsOrNull("7..7")
             assertFailsOrNull("007 not a number")
@@ -213,17 +239,16 @@ class StringNumberConversionTest {
             assertFailsOrNull("   ")
         }
 
-        @Suppress("SIGNED_CONSTANT_CONVERTED_TO_UNSIGNED")
         compareConversionWithRadix(String::toUInt, String::toUIntOrNull) {
             assertProduces(10, "0", 0u)
             assertProduces(10, "473", 473u)
             assertProduces(10, "+42", 42u)
             assertProduces(10, "2147483647", 2147483647u)
 
-            assertProduces(16, "FF", 255)
+            assertProduces(16, "FF", 255u)
             assertProduces(16, "ffFFff01", 0u - 255u)
-            assertProduces(2, "1100110", 102)
-            assertProduces(27, "Kona", 411787)
+            assertProduces(2, "1100110", 102u)
+            assertProduces(27, "Kona", 411787u)
 
             assertFailsOrNull(10, "-0")
             assertFailsOrNull(10, "42949672940")
@@ -409,6 +434,8 @@ class StringNumberConversionTest {
 
 internal fun doubleTotalOrderEquals(a: Double?, b: Double?): Boolean = (a as Any?) == b
 
+internal fun floatTotalOrderEquals(a: Float?, b: Float?): Boolean = (a as Any?) == b
+
 internal fun <T : Any> compareConversion(
     convertOrFail: (String) -> T,
     convertOrNull: (String) -> T?,
@@ -439,7 +466,7 @@ internal class ConversionContext<T : Any>(
     }
 
     fun assertProduces(input: String, output: T) {
-        assertEquals(output, convertOrFail(input.removeLeadingPlusOnJava6()), input, "convertOrFail")
+        assertEquals(output, convertOrFail(input), input, "convertOrFail")
         assertEquals(output, convertOrNull(input), input, "convertOrNull")
     }
 
@@ -454,7 +481,7 @@ internal class ConversionWithRadixContext<T : Any>(
     val convertOrNull: (String, Int) -> T?
 ) {
     fun assertProduces(radix: Int, input: String, output: T) {
-        assertEquals(output, convertOrFail(input.removeLeadingPlusOnJava6(), radix))
+        assertEquals(output, convertOrFail(input, radix))
         assertEquals(output, convertOrNull(input, radix))
     }
 

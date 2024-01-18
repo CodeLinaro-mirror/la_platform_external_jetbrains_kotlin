@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,7 +23,7 @@ abstract class FirDelegatedConstructorCall : FirPureAbstractElement(), FirResolv
     abstract override val argumentList: FirArgumentList
     abstract override val contextReceiverArguments: List<FirExpression>
     abstract val constructedTypeRef: FirTypeRef
-    abstract val dispatchReceiver: FirExpression
+    abstract val dispatchReceiver: FirExpression?
     abstract override val calleeReference: FirReference
     abstract val isThis: Boolean
     abstract val isSuper: Boolean
@@ -31,14 +31,18 @@ abstract class FirDelegatedConstructorCall : FirPureAbstractElement(), FirResolv
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitDelegatedConstructorCall(this, data)
 
     @Suppress("UNCHECKED_CAST")
-    override fun <E: FirElement, D> transform(transformer: FirTransformer<D>, data: D): E = 
+    override fun <E : FirElement, D> transform(transformer: FirTransformer<D>, data: D): E =
         transformer.transformDelegatedConstructorCall(this, data) as E
+
+    abstract override fun replaceAnnotations(newAnnotations: List<FirAnnotation>)
 
     abstract override fun replaceArgumentList(newArgumentList: FirArgumentList)
 
     abstract override fun replaceContextReceiverArguments(newContextReceiverArguments: List<FirExpression>)
 
     abstract fun replaceConstructedTypeRef(newConstructedTypeRef: FirTypeRef)
+
+    abstract fun replaceDispatchReceiver(newDispatchReceiver: FirExpression?)
 
     abstract override fun replaceCalleeReference(newCalleeReference: FirReference)
 

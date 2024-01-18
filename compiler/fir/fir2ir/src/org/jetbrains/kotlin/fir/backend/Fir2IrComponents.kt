@@ -6,15 +6,13 @@
 package org.jetbrains.kotlin.fir.backend
 
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.backend.generators.AnnotationGenerator
-import org.jetbrains.kotlin.fir.backend.generators.CallAndReferenceGenerator
-import org.jetbrains.kotlin.fir.backend.generators.DelegatedMemberGenerator
-import org.jetbrains.kotlin.fir.backend.generators.FakeOverrideGenerator
+import org.jetbrains.kotlin.fir.backend.generators.*
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.fir.signaturer.FirBasedSignatureComposer
 import org.jetbrains.kotlin.ir.IrLock
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.linkage.IrProvider
+import org.jetbrains.kotlin.ir.overrides.IrFakeOverrideBuilder
 import org.jetbrains.kotlin.ir.util.SymbolTable
 
 interface Fir2IrComponents {
@@ -24,7 +22,7 @@ interface Fir2IrComponents {
     val converter: Fir2IrConverter
 
     val symbolTable: SymbolTable
-    val irBuiltIns: IrBuiltIns
+    val irBuiltIns: IrBuiltInsOverFir
     val builtIns: Fir2IrBuiltIns
     val irFactory: IrFactory
     val irProviders: List<IrProvider>
@@ -34,13 +32,21 @@ interface Fir2IrComponents {
     val declarationStorage: Fir2IrDeclarationStorage
 
     val typeConverter: Fir2IrTypeConverter
-    val signatureComposer: Fir2IrSignatureComposer
+    val signatureComposer: FirBasedSignatureComposer
     val visibilityConverter: Fir2IrVisibilityConverter
+
+    val callablesGenerator: Fir2IrCallableDeclarationsGenerator
+    val classifiersGenerator: Fir2IrClassifiersGenerator
+    val lazyDeclarationsGenerator: Fir2IrLazyDeclarationsGenerator
 
     val annotationGenerator: AnnotationGenerator
     val callGenerator: CallAndReferenceGenerator
     val fakeOverrideGenerator: FakeOverrideGenerator
     val delegatedMemberGenerator: DelegatedMemberGenerator
+    val fakeOverrideBuilder: IrFakeOverrideBuilder
 
     val extensions: Fir2IrExtensions
+    val configuration: Fir2IrConfiguration
+
+    val annotationsFromPluginRegistrar: Fir2IrAnnotationsFromPluginRegistrar
 }

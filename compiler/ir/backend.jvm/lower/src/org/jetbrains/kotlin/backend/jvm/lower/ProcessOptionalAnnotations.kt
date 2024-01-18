@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.backend.jvm.ir.isOptionalAnnotationClass
 import org.jetbrains.kotlin.ir.declarations.DescriptorMetadataSource
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.resolve.multiplatform.OptionalAnnotationUtil
 
 internal val processOptionalAnnotationsPhase = makeIrModulePhase(
     ::ProcessOptionalAnnotations,
@@ -23,9 +24,18 @@ class ProcessOptionalAnnotations(private val context: JvmBackendContext) : FileL
     override fun lower(irFile: IrFile) {
         for (declaration in irFile.declarations) {
             if (declaration !is IrClass || !declaration.isOptionalAnnotationClass) continue
-            // TODO FirMetadataSource.Class
-            val metadataSource = (declaration.metadata as? DescriptorMetadataSource.Class)?.descriptor ?: continue
-            context.state.factory.packagePartRegistry.optionalAnnotations += metadataSource
+            declaration.registerOptionalAnnotations()
+        }
+    }
+
+    private fun IrClass.registerOptionalAnnotations() {
+        // TODO FirMetadataSource.Class
+        val metadataSource = (metadata as? DescriptorMetadataSource.Class)?.descriptor ?: return
+        if (!OptionalAnnotationUtil.shouldGenerateExpectClass(metadataSource)) return
+        context.state.factory.packagePartRegistry.optionalAnnotations += metadataSource
+
+        declarations.forEach {
+            if (it is IrClass && it.isOptionalAnnotationClass) it.registerOptionalAnnotations()
         }
     }
 }

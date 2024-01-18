@@ -15,8 +15,8 @@ kotlin {
     linuxX64()
     linuxArm64()
 
-    if (properties.containsKey("p2.enableLinuxArm32Hfp")) {
-        linuxArm32Hfp()
+    if (properties.containsKey("p2.enableAdditionalTarget")) {
+        mingwX64()
     }
 
     targets.withType<KotlinNativeTarget>().configureEach {

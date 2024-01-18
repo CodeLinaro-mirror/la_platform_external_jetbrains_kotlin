@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.integration
 
 import com.intellij.mock.MockProject
@@ -63,11 +65,15 @@ class JsIrAnalysisHandlerExtensionTest : TestCaseWithTmpdir() {
             writeText(src.content)
         }
         val plugin = writePlugin()
+        val outputFile = File(outFile)
         val args = listOf(
             "-Xplugin=$plugin",
             "-libraries", libs,
-            "-output", outFile,
-            mainKt.absolutePath)
+            "-ir-output-dir", outputFile.parentFile.path,
+            "-ir-output-name", outputFile.nameWithoutExtension,
+            "-language-version", "1.9",
+            mainKt.absolutePath
+        )
         CompilerTestUtil.executeCompilerAssertSuccessful(compiler, args + extras)
     }
 

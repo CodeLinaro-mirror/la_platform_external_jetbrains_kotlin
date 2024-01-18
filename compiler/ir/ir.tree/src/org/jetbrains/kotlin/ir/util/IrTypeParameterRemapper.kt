@@ -12,12 +12,14 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrTypeAbbreviationImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
+import org.jetbrains.kotlin.utils.memoryOptimizedMap
 
-/* After moving an IrElement, some type parameter references within it may become out of scope.
-   This remapper restores validity by redirecting those references to new type parameters.
+/**
+ * After moving an [org.jetbrains.kotlin.ir.IrElement], some type parameter references within it may become out of scope.
+ * This remapper restores validity by redirecting those references to new type parameters.
  */
 class IrTypeParameterRemapper(
-    val typeParameterMap: Map<IrTypeParameter, IrTypeParameter>
+    private val typeParameterMap: Map<IrTypeParameter, IrTypeParameter>
 ) : TypeRemapper {
     override fun enterScope(irTypeParametersContainer: IrTypeParametersContainer) {}
     override fun leaveScope() {}
@@ -30,7 +32,7 @@ class IrTypeParameterRemapper(
                 null,
                 type.classifier.remap(),
                 type.nullability,
-                type.arguments.map { it.remap() },
+                type.arguments.memoryOptimizedMap { it.remap() },
                 type.annotations,
                 type.abbreviation?.remap()
             ).apply {
@@ -42,16 +44,16 @@ class IrTypeParameterRemapper(
             ?: this
 
     private fun IrTypeArgument.remap() =
-        if (this is IrTypeProjection)
-            makeTypeProjection(remapType(type), variance)
-        else
-            this
+        when (this) {
+            is IrTypeProjection -> makeTypeProjection(remapType(type), variance)
+            is IrStarProjection -> this
+        }
 
     private fun IrTypeAbbreviation.remap() =
         IrTypeAbbreviationImpl(
             typeAlias,
             hasQuestionMark,
-            arguments.map { it.remap() },
+            arguments.memoryOptimizedMap { it.remap() },
             annotations
         ).apply {
             annotations.forEach { it.remapTypes(this@IrTypeParameterRemapper) }

@@ -5,17 +5,7 @@
 
 package kotlin.test
 
-import kotlin.js.JsExport
-
-/**
- * Overrides current framework adapter with a provided instance of [FrameworkAdapter]. Use in order to support custom test frameworks.
- *
- * If this function is not called, the test framework will be detected automatically.
- *
- */
-internal fun setAdapter(adapter: FrameworkAdapter) {
-    currentAdapter = adapter
-}
+import kotlin.wasm.WasmExport
 
 /**
  * The functions below are used by the compiler to describe the tests structure, e.g.
@@ -30,18 +20,15 @@ internal fun setAdapter(adapter: FrameworkAdapter) {
  */
 
 internal fun suite(name: String, ignored: Boolean, suiteFn: () -> Unit) {
-    currentAdapter.suite(name, ignored, suiteFn)
+    adapter().suite(name, ignored, suiteFn)
 }
 
 internal fun test(name: String, ignored: Boolean, testFn: () -> Any?) {
-    currentAdapter.test(name, ignored, testFn)
+    adapter().test(name, ignored, testFn)
 }
 
-internal var currentAdapter: FrameworkAdapter = TeamcityAdapter()
-
 // This is called from the js-launcher alongside wasm start function
-@JsExport
-@OptIn(kotlin.js.ExperimentalJsExport::class)
+@WasmExport
 internal fun startUnitTests() {
     // This will be filled with the corresponding code during lowering
 }

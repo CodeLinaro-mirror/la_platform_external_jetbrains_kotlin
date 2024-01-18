@@ -11,16 +11,19 @@ import org.jetbrains.kotlin.descriptors.ScriptDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.IrFunctionBuilder
+import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.DescriptorMetadataSource
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
+import org.jetbrains.kotlin.ir.symbols.impl.IrVariableSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.util.indexOrMinusOne
 import org.jetbrains.kotlin.ir.util.isCrossinline
@@ -37,15 +40,14 @@ import org.jetbrains.kotlin.psi2ir.intermediate.createTemporaryVariableInBlock
 import org.jetbrains.kotlin.psi2ir.intermediate.setExplicitReceiverValue
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.util.isSingleUnderscore
-import org.jetbrains.kotlin.types.typeUtil.makeNullable
 import org.jetbrains.kotlin.utils.addIfNotNull
 
-class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationGeneratorExtension(declarationGenerator) {
+internal class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationGeneratorExtension(declarationGenerator) {
     @OptIn(ExperimentalStdlibApi::class)
     fun generateScriptDeclaration(ktScript: KtScript): IrDeclaration? {
         val descriptor = getOrFail(BindingContext.DECLARATION_TO_DESCRIPTOR, ktScript) as ScriptDescriptor
 
-        return context.symbolTable.declareScript(descriptor).buildWithScope { irScript ->
+        return context.symbolTable.descriptorExtension.declareScript(ktScript.startOffsetSkippingComments, ktScript.endOffset, descriptor).buildWithScope { irScript ->
 
             irScript.metadata = DescriptorMetadataSource.Script(descriptor)
 
@@ -54,19 +56,25 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             fun makeParameter(descriptor: ParameterDescriptor, origin: IrDeclarationOrigin, index: Int = -1): IrValueParameter {
                 val type = descriptor.type.toIrType()
                 val varargElementType = descriptor.varargElementType?.toIrType()
-                return context.symbolTable.declareValueParameter(
+                return context.symbolTable.descriptorExtension.declareValueParameter(
                     UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                     origin,
                     descriptor,
                     type
                 ) { symbol ->
                     context.irFactory.createValueParameter(
-                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                        origin, symbol, context.symbolTable.nameProvider.nameForDeclaration(descriptor),
-                        if (index != -1) index else descriptor.indexOrMinusOne,
-                        type, varargElementType,
-                        descriptor.isCrossinline, descriptor.isNoinline,
-                        isHidden = false, isAssignable = false
+                        startOffset = UNDEFINED_OFFSET,
+                        endOffset = UNDEFINED_OFFSET,
+                        origin = origin,
+                        name = context.symbolTable.nameProvider.nameForDeclaration(descriptor),
+                        type = type,
+                        isAssignable = false,
+                        symbol = symbol,
+                        index = if (index != UNDEFINED_PARAMETER_INDEX) index else descriptor.indexOrMinusOne,
+                        varargElementType = varargElementType,
+                        isCrossinline = descriptor.isCrossinline,
+                        isNoinline = descriptor.isNoinline,
+                        isHidden = false,
                     )
                 }.also { it.parent = irScript }
             }
@@ -86,17 +94,23 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                 it.owner != irScript && it.descriptor !in importedScripts
             }
             irScript.earlierScripts?.forEach {
-                context.symbolTable.introduceValueParameter(it.owner.thisReceiver)
+                context.symbolTable.descriptorExtension.introduceValueParameter(it.owner.thisReceiver!!)
             }
 
             fun createValueParameter(valueParameterDescriptor: ValueParameterDescriptor): IrValueParameter {
                 return context.irFactory.createValueParameter(
-                    UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                    IrDeclarationOrigin.SCRIPT_CALL_PARAMETER, IrValueParameterSymbolImpl(),
-                    valueParameterDescriptor.name, parametersIndex++,
-                    valueParameterDescriptor.type.toIrType(), valueParameterDescriptor.varargElementType?.toIrType(),
-                    valueParameterDescriptor.isCrossinline, valueParameterDescriptor.isNoinline,
-                    false, false
+                    startOffset = UNDEFINED_OFFSET,
+                    endOffset = UNDEFINED_OFFSET,
+                    origin = IrDeclarationOrigin.SCRIPT_CALL_PARAMETER,
+                    name = valueParameterDescriptor.name,
+                    type = valueParameterDescriptor.type.toIrType(),
+                    isAssignable = false,
+                    symbol = IrValueParameterSymbolImpl(),
+                    index = parametersIndex++,
+                    varargElementType = valueParameterDescriptor.varargElementType?.toIrType(),
+                    isCrossinline = valueParameterDescriptor.isCrossinline,
+                    isNoinline = valueParameterDescriptor.isNoinline,
+                    isHidden = false
                 ).also { it.parent = irScript }
             }
 
@@ -104,7 +118,17 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                 irScript.earlierScriptsParameter = descriptor.earlierScriptsConstructorParameter?.let(::createValueParameter)
             }
 
-            irScript.explicitCallParameters = descriptor.explicitConstructorParameters.map(::createValueParameter)
+            val explicitCallParams = descriptor.explicitConstructorParameters.map(::createValueParameter)
+
+            irScript.explicitCallParameters = descriptor.explicitConstructorParameters.map {
+                IrVariableImpl(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                    IrDeclarationOrigin.SCRIPT_CALL_PARAMETER, IrVariableSymbolImpl(),
+                    it.name,
+                    it.type.toIrType(),
+                    isVar = false, isConst = false, isLateinit = false
+                ).also { it.parent = irScript }
+            }
 
             irScript.implicitReceiversParameters = descriptor.implicitReceivers.map {
                 makeParameter(it.thisAsReceiverParameter, IrDeclarationOrigin.SCRIPT_IMPLICIT_RECEIVER, parametersIndex++)
@@ -114,14 +138,23 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                 // TODO: initializer
                 // TODO: do not keep direct links
                 val type = providedProperty.type.toIrType()
-                val valueParameter = context.symbolTable.declareValueParameter(
+                val valueParameter = context.symbolTable.descriptorExtension.declareValueParameter(
                     UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                     IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY, parameter, type
                 ) { symbol ->
                     context.irFactory.createValueParameter(
-                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                        IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY, symbol, descriptor.name,
-                        parametersIndex, type, null, isCrossinline = false, isNoinline = false, isHidden = false, isAssignable = false
+                        startOffset = UNDEFINED_OFFSET,
+                        endOffset = UNDEFINED_OFFSET,
+                        origin = IrDeclarationOrigin.SCRIPT_PROVIDED_PROPERTY,
+                        name = descriptor.name,
+                        type = type,
+                        isAssignable = false,
+                        symbol = symbol,
+                        index = parametersIndex,
+                        varargElementType = null,
+                        isCrossinline = false,
+                        isNoinline = false,
+                        isHidden = false,
                     ).also { it.parent = irScript }
                 }
                 parametersIndex++
@@ -142,20 +175,26 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
 
             irScript.constructor = with(IrFunctionBuilder().apply {
                 isPrimary = true
-                returnType = irScript.thisReceiver.type as IrSimpleType
+                returnType = irScript.thisReceiver!!.type as IrSimpleType
             }) {
                 irScript.factory.createConstructor(
-                    startOffset, endOffset, origin,
-                    context.symbolTable.referenceConstructor(descriptor.unsubstitutedPrimaryConstructor),
-                    SpecialNames.INIT,
-                    visibility, returnType,
-                    isInline = isInline, isExternal = isExternal, isPrimary = isPrimary, isExpect = isExpect,
+                    startOffset = startOffset,
+                    endOffset = endOffset,
+                    origin = origin,
+                    name = SpecialNames.INIT,
+                    visibility = visibility,
+                    isInline = isInline,
+                    isExpect = isExpect,
+                    returnType = returnType,
+                    symbol = context.symbolTable.descriptorExtension.referenceConstructor(descriptor.unsubstitutedPrimaryConstructor),
+                    isPrimary = isPrimary,
+                    isExternal = isExternal,
                     containerSource = containerSource
                 )
             }.also { irConstructor ->
                 irConstructor.valueParameters = buildList {
                     addIfNotNull(irScript.earlierScriptsParameter)
-                    addAll(irScript.explicitCallParameters)
+                    addAll(explicitCallParams)
                     addAll(irScript.implicitReceiversParameters)
                     addAll(irScript.providedPropertiesParameters)
                 }
@@ -168,7 +207,8 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                     is KtScriptInitializer -> {
                         val irExpressionBody = BodyGenerator(
                             irScript.symbol,
-                            context
+                            context,
+                            null
                         ).generateExpressionBody(d.body!!)
                         if (d == ktScript.declarations.last() && descriptor.resultValue != null) {
                             descriptor.resultValue!!.let { resultDescriptor ->
@@ -194,7 +234,7 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                     is KtDestructuringDeclaration -> {
                         // copied with modifications from StatementGenerator.visitDestructuringDeclaration
                         // TODO: consider code deduplication
-                        val bodyGenerator = BodyGenerator(irScript.symbol, context)
+                        val bodyGenerator = BodyGenerator(irScript.symbol, context, null)
                         val statementGenerator = bodyGenerator.createStatementGenerator()
                         val irBlock = IrCompositeImpl(
                             d.startOffsetSkippingComments, d.endOffset,
@@ -239,7 +279,7 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
                             ).apply {
                                 value = irComponentCall
                                 receiver = IrGetValueImpl(
-                                    ktEntry.startOffsetSkippingComments, ktEntry.endOffset, irScript.thisReceiver.symbol
+                                    ktEntry.startOffsetSkippingComments, ktEntry.endOffset, irScript.thisReceiver!!.symbol
                                 )
                             }
                             irBlock.statements.add(irComponentInitializer)
@@ -251,12 +291,4 @@ class ScriptGenerator(declarationGenerator: DeclarationGenerator) : DeclarationG
             }
         }
     }
-
-    private fun ParameterDescriptor.toIrValueParameter(startOffset: Int, endOffset: Int, origin: IrDeclarationOrigin) =
-        context.symbolTable.declareValueParameter(
-            startOffset, endOffset, origin,
-            this,
-            type.toIrType(),
-            varargElementType?.toIrType()
-        )
 }

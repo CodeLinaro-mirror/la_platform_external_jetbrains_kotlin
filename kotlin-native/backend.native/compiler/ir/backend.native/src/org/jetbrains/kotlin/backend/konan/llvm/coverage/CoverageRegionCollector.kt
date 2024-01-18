@@ -4,6 +4,7 @@
  */
 package org.jetbrains.kotlin.backend.konan.llvm.coverage
 
+import org.jetbrains.kotlin.ir.util.sourceFileSymbol
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.ir.IrElement
@@ -11,7 +12,6 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.util.nameForIrSerialization
 import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -56,9 +56,9 @@ internal class CoverageRegionCollector(private val fileFilter: (IrFile) -> Boole
 
 // User doesn't bother about compiler-generated declarations.
 // So lets filter them.
-private val IrDeclaration.isGeneratedByCompiler: Boolean
+private val IrFunction.isGeneratedByCompiler: Boolean
     get() {
-        return origin != IrDeclarationOrigin.DEFINED || nameForIrSerialization.asString() == "Konan_start"
+        return origin != IrDeclarationOrigin.DEFINED || name.asString() == "Konan_start"
     }
 
 /**

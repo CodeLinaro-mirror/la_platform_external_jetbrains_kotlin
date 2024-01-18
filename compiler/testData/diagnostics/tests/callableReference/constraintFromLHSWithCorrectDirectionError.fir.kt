@@ -1,5 +1,4 @@
 // SKIP_TXT
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_PARAMETER
 
 package test
@@ -15,5 +14,5 @@ fun <K, V> B<K>.foo(p: KProperty1<K, V>) {}
 class C : A
 
 fun <R : A> B<R>.test(){
-    <!INAPPLICABLE_CANDIDATE!>foo<!>(C::<!UNRESOLVED_REFERENCE!>bla<!>)
+    foo(C::<!UNRESOLVED_REFERENCE!>bla<!>)
 }

@@ -23,9 +23,10 @@ import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.SourceSet
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.logging.kotlinWarn
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.reportDiagnosticOncePerBuild
 import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
-import org.jetbrains.kotlin.gradle.utils.SingleWarningPerBuild
 import org.jetbrains.kotlin.gradle.utils.androidPluginIds
 import org.jetbrains.kotlin.gradle.utils.getOrPut
 import java.util.concurrent.atomic.AtomicBoolean
@@ -117,7 +118,7 @@ open class KotlinPlatformImplementationPluginBase(platformName: String) : Kotlin
                 addCommonSourceSetToPlatformSourceSet(commonSourceSet, platformProject)
 
                 // Workaround for older versions of Kotlin/Native overriding the old signature
-                commonProject.gradle.variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
+                commonProject.variantImplementationFactory<JavaSourceSetsAccessor.JavaSourceSetsAccessorVariantFactory>()
                     .getInstance(commonProject)
                     .sourceSetsIfAvailable
                     ?.findByName(commonSourceSet.name)
@@ -191,7 +192,7 @@ open class KotlinPlatformImplementationPluginBase(platformName: String) : Kotlin
     @Deprecated("Migrate to the new Kotlin source sets and use the addCommonSourceSetToPlatformSourceSet(Named, Project) overload")
     protected open fun addCommonSourceSetToPlatformSourceSet(sourceSet: SourceSet, platformProject: Project) = Unit
 
-    @Deprecated("Retained for older Kotlin/Native MPP plugin binary compatibility")
+    @Deprecated("Retained for older Kotlin/Native MPP plugin binary compatibility", level = DeprecationLevel.ERROR)
     protected val SourceSet.kotlin: SourceDirectorySet?
         get() {
             @Suppress("DEPRECATION")
@@ -241,16 +242,10 @@ internal fun <T> Project.whenEvaluated(fn: Project.() -> T) {
     }
 }
 
-internal val KOTLIN_12X_MPP_DEPRECATION_WARNING = "\n" + """
-    The 'org.jetbrains.kotlin.platform.*' plugins are deprecated and will no longer be available in Kotlin 1.4.
-    Please migrate the project to the 'org.jetbrains.kotlin.multiplatform' plugin.
-    See: https://kotlinlang.org/docs/reference/building-mpp-with-gradle.html
-    """.trimIndent()
-
 private const val KOTLIN_12X_MPP_DEPRECATION_SUPPRESS_FLAG = "kotlin.internal.mpp12x.deprecation.suppress"
 
 internal fun warnAboutKotlin12xMppDeprecation(project: Project) {
     if (project.findProperty(KOTLIN_12X_MPP_DEPRECATION_SUPPRESS_FLAG) != "true") {
-        SingleWarningPerBuild.show(project, KOTLIN_12X_MPP_DEPRECATION_WARNING)
+        project.reportDiagnosticOncePerBuild(KotlinToolingDiagnostics.Kotlin12XMppDeprecation())
     }
 }

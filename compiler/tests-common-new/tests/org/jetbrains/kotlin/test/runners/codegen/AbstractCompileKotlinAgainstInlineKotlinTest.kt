@@ -18,9 +18,12 @@ import org.jetbrains.kotlin.test.backend.ir.JvmIrBackendFacade
 import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureIrHandlersStep
-import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_FIR_MULTI_MODULE
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_K2_MULTI_MODULE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_MULTI_MODULE
+import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.SERIALIZE_IR
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES
+import org.jetbrains.kotlin.test.directives.configureFirParser
 import org.jetbrains.kotlin.test.directives.model.ValueDirective
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2ClassicBackendConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
@@ -45,7 +48,7 @@ abstract class AbstractCompileKotlinAgainstInlineKotlinTestBase<R : ResultingArt
     open val directiveToSuppressTest: ValueDirective<TargetBackend> = IGNORE_BACKEND_MULTI_MODULE
 
     override fun TestConfigurationBuilder.configuration() {
-        commonConfigurationForCodegenTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
+        commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
         useInlineHandlers()
         configureCommonHandlersForBoxTest()
         useModuleStructureTransformers(
@@ -88,6 +91,7 @@ open class AbstractIrCompileKotlinAgainstInlineKotlinTest :
 private fun TestConfigurationBuilder.configureForSerialization() {
     defaultDirectives {
         SERIALIZE_IR.with(JvmSerializeIrMode.INLINE)
+        +LINK_VIA_SIGNATURES
     }
 
     configureIrHandlersStep {
@@ -102,7 +106,7 @@ open class AbstractIrSerializeCompileKotlinAgainstInlineKotlinTest : AbstractIrC
     }
 }
 
-open class AbstractFirSerializeCompileKotlinAgainstInlineKotlinTest :
+open class AbstractFirSerializeCompileKotlinAgainstInlineKotlinTestBase(val parser: FirParser) :
     AbstractCompileKotlinAgainstInlineKotlinTestBase<FirOutputArtifact, IrBackendInput>(FrontendKinds.FIR, TargetBackend.JVM_IR_SERIALIZE) {
 
     override val frontendFacade: Constructor<FrontendFacade<FirOutputArtifact>>
@@ -114,10 +118,18 @@ open class AbstractFirSerializeCompileKotlinAgainstInlineKotlinTest :
     override val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.Jvm>>
         get() = ::JvmIrBackendFacade
 
-    override val directiveToSuppressTest = IGNORE_BACKEND_FIR_MULTI_MODULE
+    override val directiveToSuppressTest = IGNORE_BACKEND_K2_MULTI_MODULE
 
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.configureForSerialization()
+        builder.configureFirParser(parser)
     }
 }
+
+open class AbstractFirLightTreeSerializeCompileKotlinAgainstInlineKotlinTest :
+    AbstractFirSerializeCompileKotlinAgainstInlineKotlinTestBase(FirParser.LightTree)
+
+@FirPsiCodegenTest
+open class AbstractFirPsiSerializeCompileKotlinAgainstInlineKotlinTest :
+    AbstractFirSerializeCompileKotlinAgainstInlineKotlinTestBase(FirParser.Psi)

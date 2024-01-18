@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.analysis.api.descriptors.components
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiType
+import com.intellij.psi.PsiTypeElement
 import com.intellij.psi.impl.cache.TypeInfo
 import com.intellij.psi.impl.compiled.ClsTypeElementImpl
 import com.intellij.psi.impl.compiled.SignatureParsing
@@ -24,7 +25,11 @@ import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.load.kotlin.getOptimalModeForReturnType
 import org.jetbrains.kotlin.load.kotlin.getOptimalModeForValueParameter
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.platform.has
+import org.jetbrains.kotlin.platform.jvm.JvmPlatform
 import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.model.SimpleTypeMarker
+import java.lang.UnsupportedOperationException
 import java.text.StringCharacterIterator
 
 internal class KtFe10PsiTypeProvider(
@@ -35,19 +40,24 @@ internal class KtFe10PsiTypeProvider(
 
     private val typeMapper by lazy { KtFe10JvmTypeMapperContext(analysisContext.resolveSession) }
 
-    override fun asPsiType(
+    override fun asPsiTypeElement(
         type: KtType,
         useSitePosition: PsiElement,
         mode: KtTypeMappingMode,
         isAnnotationMethod: Boolean,
-    ): PsiType? {
-        val kotlinType = (type as KtFe10Type).type
+        allowErrorTypes: Boolean
+    ): PsiTypeElement? {
+        val kotlinType = (type as KtFe10Type).fe10Type
 
-        if (kotlinType.isError || kotlinType.arguments.any { !it.isStarProjection && it.type.isError }) {
-            return null
+        with(typeMapper.typeContext) {
+            if (kotlinType.contains { it.isError() }) {
+                return null
+            }
         }
 
-        return asPsiType(simplifyType(kotlinType), useSitePosition, mode.toTypeMappingMode(type, isAnnotationMethod))
+        if (!analysisSession.useSiteModule.platform.has<JvmPlatform>()) return null
+
+        return asPsiTypeElement(simplifyType(kotlinType), useSitePosition, mode.toTypeMappingMode(type, isAnnotationMethod))
     }
 
     private fun KtTypeMappingMode.toTypeMappingMode(type: KtType, isAnnotationMethod: Boolean): TypeMappingMode {
@@ -58,10 +68,11 @@ internal class KtFe10PsiTypeProvider(
             KtTypeMappingMode.GENERIC_ARGUMENT -> TypeMappingMode.GENERIC_ARGUMENT
             KtTypeMappingMode.SUPER_TYPE -> TypeMappingMode.SUPER_TYPE
             KtTypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS -> TypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS
+            KtTypeMappingMode.RETURN_TYPE_BOXED -> TypeMappingMode.RETURN_TYPE_BOXED
             KtTypeMappingMode.RETURN_TYPE ->
-                typeMapper.typeContext.getOptimalModeForReturnType(type.type, isAnnotationMethod)
+                typeMapper.typeContext.getOptimalModeForReturnType(type.fe10Type, isAnnotationMethod)
             KtTypeMappingMode.VALUE_PARAMETER ->
-                typeMapper.typeContext.getOptimalModeForValueParameter(type.type)
+                typeMapper.typeContext.getOptimalModeForValueParameter(type.fe10Type)
         }
     }
 
@@ -78,23 +89,30 @@ internal class KtFe10PsiTypeProvider(
         return result
     }
 
-    private fun asPsiType(type: KotlinType, useSitePosition: PsiElement, mode: TypeMappingMode): PsiType? {
+    private fun asPsiTypeElement(type: KotlinType, useSitePosition: PsiElement, mode: TypeMappingMode): PsiTypeElement? {
+        if (type !is SimpleTypeMarker) return null
+
         val signatureWriter = BothSignatureWriter(BothSignatureWriter.Mode.SKIP_CHECKS)
         typeMapper.mapType(type, mode, signatureWriter)
 
         val canonicalSignature = signatureWriter.toString()
         require(!canonicalSignature.contains(SpecialNames.ANONYMOUS_STRING))
 
-        if (canonicalSignature.contains("L<error>")) {
-            return null
-        }
+        if (canonicalSignature.contains("L<error>")) return null
+        if (canonicalSignature.contains(SpecialNames.NO_NAME_PROVIDED.asString())) return null
 
         val signature = StringCharacterIterator(canonicalSignature)
         val javaType = SignatureParsing.parseTypeString(signature, StubBuildingVisitor.GUESSING_MAPPER)
         val typeInfo = TypeInfo.fromString(javaType, false)
         val typeText = TypeInfo.createTypeText(typeInfo) ?: return null
 
-        val typeElement = ClsTypeElementImpl(useSitePosition, typeText, '\u0000')
-        return typeElement.type
+        return ClsTypeElementImpl(useSitePosition, typeText, '\u0000')
+    }
+
+    override fun asKtType(
+        psiType: PsiType,
+        useSitePosition: PsiElement,
+    ): KtType? {
+        throw UnsupportedOperationException("Conversion to KtType is not supported in K1 implementation")
     }
 }

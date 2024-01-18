@@ -1,24 +1,24 @@
 // MODULE: m1-common
 // FILE: common.kt
 // TODO: .fir.kt version is just a stub.
-expect interface My {
+<!INCOMPATIBLE_MATCHING{JVM}!>expect interface My {
     open fun openFunPositive()
-    open fun openFunNegative()
+    <!INCOMPATIBLE_MATCHING{JVM}!>open fun openFunNegative()<!>
     abstract fun abstractFun()
 
     open val openValPositive: Int
-    open val openValNegative: Int
+    <!INCOMPATIBLE_MATCHING{JVM}!>open val openValNegative: Int<!>
     abstract val abstractVal: Int
-}
+}<!>
 
 // MODULE: m1-jvm()()(m1-common)
 // FILE: jvm.kt
 actual interface My {
     actual fun openFunPositive() = Unit
-    <!ACTUAL_WITHOUT_EXPECT!>actual fun openFunNegative()<!>
+    actual fun <!ACTUAL_WITHOUT_EXPECT!>openFunNegative<!>()
     actual fun abstractFun()
 
     actual val openValPositive: Int get() = 0
-    <!ACTUAL_WITHOUT_EXPECT!>actual val openValNegative: Int<!>
+    actual val <!ACTUAL_WITHOUT_EXPECT!>openValNegative<!>: Int
     actual val abstractVal: Int
 }

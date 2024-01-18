@@ -18,14 +18,10 @@ dependencies {
     api(commonDependency("io.javaslang","javaslang"))
     compileOnly(intellijCore())
     compileOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
-    compileOnly(commonDependency("com.google.guava:guava"))
+    compileOnly(libs.guava)
 }
 
 sourceSets {
     "main" { projectDefault() }
     "test" {}
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions.freeCompilerArgs += "-Xjvm-default=compatibility"
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,32 +11,50 @@ import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import com.intellij.psi.*
 import com.intellij.psi.impl.compiled.ClsClassImpl
 import com.intellij.psi.impl.compiled.ClsFileImpl
+import com.intellij.psi.impl.file.impl.JavaFileManager
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.containers.ContainerUtil
 import org.jetbrains.kotlin.analysis.decompiled.light.classes.ClsJavaStubByVirtualFileCache
 import org.jetbrains.kotlin.analysis.project.structure.KtBinaryModule
 import org.jetbrains.kotlin.analysis.providers.KotlinPsiDeclarationProvider
 import org.jetbrains.kotlin.analysis.providers.KotlinPsiDeclarationProviderFactory
+import org.jetbrains.kotlin.analysis.providers.createPackagePartProvider
 import org.jetbrains.kotlin.asJava.builder.ClsWrapperStubPsiFactory
+import org.jetbrains.kotlin.asJava.classes.lazyPub
+import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeSmart
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 private class KotlinStaticPsiDeclarationFromBinaryModuleProvider(
     private val project: Project,
     override val scope: GlobalSearchScope,
+    override val packagePartProvider: PackagePartProvider,
     private val binaryModules: Collection<KtBinaryModule>,
     override val jarFileSystem: CoreJarFileSystem,
 ) : KotlinPsiDeclarationProvider(), AbstractDeclarationFromBinaryModuleProvider {
-    private val psiManager by lazy { PsiManager.getInstance(project) }
+    private val psiManager by lazyPub { PsiManager.getInstance(project) }
 
-    private fun clsClassImplsByFqName(
+    private val javaFileManager by lazyPub { project.getService(JavaFileManager::class.java) }
+
+    private val virtualFileCache = ContainerUtil.createConcurrentSoftMap<KtBinaryModule, ConcurrentMap<FqName, Set<VirtualFile>>>()
+
+    private fun clsClassImplsInPackage(
         fqName: FqName,
-        isPackageName: Boolean = true,
     ): Collection<ClsClassImpl> {
         return binaryModules
-            .flatMap {
-                virtualFilesFromModule(it, fqName, isPackageName)
+            .flatMap { binaryModule ->
+                val mapPerModule = virtualFileCache.getOrPut(binaryModule) { ConcurrentHashMap() }
+                mapPerModule.getOrPut(fqName) {
+                    val virtualFilesFromKotlinModule = virtualFilesFromKotlinModule(binaryModule, fqName)
+                    // NB: this assumes Kotlin module has a valid `kotlin_module` info,
+                    // i.e., package part info for the given `fqName` points to exact class paths we're looking for,
+                    // and thus it's redundant to walk through the folders in an exhaustive way.
+                    virtualFilesFromKotlinModule.ifEmpty { virtualFilesFromModule(binaryModule, fqName, isPackageName = true) }
+                }
             }
             .mapNotNull {
                 createClsJavaClassFromVirtualFile(it)
@@ -57,14 +75,21 @@ private class KotlinStaticPsiDeclarationFromBinaryModuleProvider(
         return fakeFile.classes.single() as ClsClassImpl
     }
 
-    override fun getClassesByClassId(classId: ClassId): Collection<ClsClassImpl> {
-        return clsClassImplsByFqName(classId.asSingleFqName(), isPackageName = false)
+    override fun getClassesByClassId(classId: ClassId): Collection<PsiClass> {
+        classId.parentClassId?.let { parentClassId ->
+            val innerClassName = classId.relativeClassName.asString().split(".").last()
+            return getClassesByClassId(parentClassId).mapNotNull { parentClsClass ->
+                parentClsClass.innerClasses.find { it.name == innerClassName }
+            }
+        }
+        return listOfNotNull(javaFileManager.findClass(classId.asFqNameString(), scope))
     }
 
+    // TODO(dimonchik0036): support 'is' accessor
     override fun getProperties(callableId: CallableId): Collection<PsiMember> {
         val classes = callableId.classId?.let { classId ->
             getClassesByClassId(classId)
-        } ?: clsClassImplsByFqName(callableId.packageName)
+        } ?: clsClassImplsInPackage(callableId.packageName)
         return classes.flatMap { psiClass ->
             psiClass.children
                 .filterIsInstance<PsiMember>()
@@ -85,7 +110,7 @@ private class KotlinStaticPsiDeclarationFromBinaryModuleProvider(
     override fun getFunctions(callableId: CallableId): Collection<PsiMethod> {
         val classes = callableId.classId?.let { classId ->
             getClassesByClassId(classId)
-        } ?: clsClassImplsByFqName(callableId.packageName)
+        } ?: clsClassImplsInPackage(callableId.packageName)
         return classes.flatMap { psiClass ->
             psiClass.methods.filter { psiMethod ->
                 psiMethod.name == callableId.callableName.identifier
@@ -96,12 +121,35 @@ private class KotlinStaticPsiDeclarationFromBinaryModuleProvider(
 
 // TODO: we can't register this in IDE yet due to non-trivial parameters: lib modules and jar file system.
 //  We need a session or facade that maintains such information
-public class KotlinStaticPsiDeclarationProviderFactory(
+class KotlinStaticPsiDeclarationProviderFactory(
     private val project: Project,
     private val binaryModules: Collection<KtBinaryModule>,
     private val jarFileSystem: CoreJarFileSystem,
 ) : KotlinPsiDeclarationProviderFactory() {
+    // TODO: For now, [createPsiDeclarationProvider] is always called with the project scope, hence singleton.
+    //  If we come up with a better / optimal search scope, we may need a different way to cache scope-to-provider mapping.
+    private val provider: KotlinStaticPsiDeclarationFromBinaryModuleProvider by lazy {
+        val searchScope = GlobalSearchScope.allScope(project)
+        KotlinStaticPsiDeclarationFromBinaryModuleProvider(
+            project,
+            searchScope,
+            project.createPackagePartProvider(searchScope),
+            binaryModules,
+            jarFileSystem,
+        )
+    }
+
     override fun createPsiDeclarationProvider(searchScope: GlobalSearchScope): KotlinPsiDeclarationProvider {
-        return KotlinStaticPsiDeclarationFromBinaryModuleProvider(project, searchScope, binaryModules, jarFileSystem)
+        return if (searchScope == provider.scope) {
+            provider
+        } else {
+            KotlinStaticPsiDeclarationFromBinaryModuleProvider(
+                project,
+                searchScope,
+                project.createPackagePartProvider(searchScope),
+                binaryModules,
+                jarFileSystem,
+            )
+        }
     }
 }

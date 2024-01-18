@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.providers.impl
 
+import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.providers.KotlinPackageProvider
 import org.jetbrains.kotlin.analysis.providers.KotlinPackageProviderFactory
@@ -13,12 +14,13 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtFile
 
 public class KotlinStaticPackageProvider(
+    project: Project,
     scope: GlobalSearchScope,
     files: Collection<KtFile>
-) : KotlinPackageProvider() {
-    private val packageToSubPackageNames: Map<FqName, Set<Name>> = run {
+) : KotlinPackageProviderBase(project, scope) {
+    private val kotlinPackageToSubPackages: Map<FqName, Set<Name>> = run {
         val filesInScope = files.filter { scope.contains(it.virtualFile) }
-        val packages = mutableMapOf<FqName, MutableSet<Name>>()
+        val packages: MutableMap<FqName, MutableSet<Name>> = mutableMapOf() // the explicit type is here to workaround KTIJ-21172
         filesInScope.forEach { file ->
             var currentPackage = FqName.ROOT
             for (subPackage in file.packageFqName.pathSegments()) {
@@ -30,17 +32,20 @@ public class KotlinStaticPackageProvider(
         packages
     }
 
-    override fun doKotlinPackageExists(packageFqName: FqName): Boolean {
-        return packageFqName in packageToSubPackageNames
+    override fun doesKotlinOnlyPackageExist(packageFqName: FqName): Boolean {
+        return packageFqName.isRoot || packageFqName in kotlinPackageToSubPackages
     }
 
-    override fun getKotlinSubPackageFqNames(packageFqName: FqName): Set<Name> {
-        return packageToSubPackageNames[packageFqName] ?: emptySet()
+    override fun getKotlinOnlySubPackagesFqNames(packageFqName: FqName, nameFilter: (Name) -> Boolean): Set<Name> {
+        return kotlinPackageToSubPackages[packageFqName]?.filterTo(mutableSetOf()) { nameFilter(it) } ?: emptySet()
     }
 }
 
-public class KotlinStaticPackageProviderFactory(private val files: Collection<KtFile>) : KotlinPackageProviderFactory() {
+public class KotlinStaticPackageProviderFactory(
+    private val project: Project,
+    private val files: Collection<KtFile>
+) : KotlinPackageProviderFactory() {
     override fun createPackageProvider(searchScope: GlobalSearchScope): KotlinPackageProvider {
-        return KotlinStaticPackageProvider(searchScope, files)
+        return KotlinStaticPackageProvider(project, searchScope, files)
     }
 }

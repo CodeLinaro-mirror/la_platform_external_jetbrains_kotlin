@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.ir.*
+import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.peek
@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.codegen.coroutines.*
 import org.jetbrains.kotlin.codegen.inline.coroutines.FOR_INLINE_SUFFIX
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
@@ -33,11 +34,10 @@ import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.extractTypeParameters
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -225,7 +225,9 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
             else
                 JavaDescriptorVisibilities.PACKAGE_VISIBILITY,
             isFakeOverride = false,
-            copyMetadata = false
+            copyMetadata = false,
+            typeParametersFromContext = extractTypeParameters(irFunction.parentAsClass),
+            remapMultiFieldValueClassStructure = context::remapMultiFieldValueClassStructure
         )
         static.body = irFunction.moveBodyTo(static)
         // Fixup dispatch parameter to outer class
@@ -289,9 +291,8 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
     }
 
     private fun addContinuationObjectAndContinuationParameterToSuspendFunctions(irFile: IrFile) {
-        class MutableFlag(var capturesCrossinline: Boolean)
-        irFile.accept(object : IrElementTransformer<MutableFlag?> {
-            override fun visitClass(declaration: IrClass, data: MutableFlag?): IrStatement {
+        irFile.accept(object : IrElementTransformerVoid() {
+            override fun visitClass(declaration: IrClass): IrStatement {
                 declaration.transformDeclarationsFlat {
                     if (it is IrSimpleFunction && it.isSuspend)
                         return@transformDeclarationsFlat transformToView(it)
@@ -302,9 +303,9 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
             }
 
             private fun transformToView(function: IrSimpleFunction): List<IrFunction> {
-                val flag = MutableFlag(false)
-                function.accept(this, flag)
+                function.accept(this, null)
 
+                val capturesCrossinline = function.isCapturingCrossinline()
                 val view = function.suspendFunctionViewOrStub(context)
                 val continuationParameter = view.continuationParameter()
                 val parameterMap = function.explicitParameters.zip(view.explicitParameters.filter { it != continuationParameter }).toMap()
@@ -325,10 +326,10 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
                     )
                 }
 
-                if (flag.capturesCrossinline || function.isInline) {
+                if (capturesCrossinline || function.isInline) {
                     result += context.irFactory.buildFun {
                         containerSource = view.containerSource
-                        name = Name.identifier(context.methodSignatureMapper.mapFunctionName(view) + FOR_INLINE_SUFFIX)
+                        name = Name.identifier(context.defaultMethodSignatureMapper.mapFunctionName(view) + FOR_INLINE_SUFFIX)
                         returnType = view.returnType
                         modality = view.modality
                         isSuspend = view.isSuspend
@@ -340,6 +341,7 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
                     }.apply {
                         copyAnnotationsFrom(view)
                         copyParameterDeclarationsFrom(view)
+                        context.remapMultiFieldValueClassStructure(view, this, parametersMappingOrNull = null)
                         copyAttributes(view)
                         generateErrorForInlineBody()
                     }
@@ -356,7 +358,7 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
                         newFunction,
                         view.dispatchReceiverParameter,
                         function as IrAttributeContainer,
-                        flag.capturesCrossinline
+                        capturesCrossinline
                     )
                     if (newFunction.body is IrExpressionBody) {
                         +irReturn(newFunction.body!!.statements[0] as IrExpression)
@@ -369,10 +371,26 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
                 return result
             }
 
-            override fun visitFieldAccess(expression: IrFieldAccessExpression, data: MutableFlag?): IrExpression {
-                if (expression.symbol.owner.origin == LocalDeclarationsLowering.DECLARATION_ORIGIN_FIELD_FOR_CROSSINLINE_CAPTURED_VALUE)
-                    data?.capturesCrossinline = true
-                return super.visitFieldAccess(expression, data)
+            private fun IrSimpleFunction.isCapturingCrossinline(): Boolean {
+                var capturesCrossinline = false
+                (this.originalBeforeInline ?: this).acceptVoid(object : IrElementVisitorVoid {
+                    override fun visitElement(element: IrElement) {
+                        element.acceptChildrenVoid(this)
+                    }
+
+                    override fun visitFieldAccess(expression: IrFieldAccessExpression) {
+                        if (expression.symbol.owner.origin == LocalDeclarationsLowering.DECLARATION_ORIGIN_FIELD_FOR_CROSSINLINE_CAPTURED_VALUE) {
+                            capturesCrossinline = true
+                            return
+                        }
+                        super.visitFieldAccess(expression)
+                    }
+
+                    override fun visitClass(declaration: IrClass) {
+                        return
+                    }
+                })
+                return capturesCrossinline
             }
         }, null)
     }
@@ -385,7 +403,7 @@ private fun IrSimpleFunction.suspendFunctionViewOrStub(context: JvmBackendContex
     // If superinterface is in another file, the bridge to default method will already have continuation parameter,
     // so skip it. See KT-47549.
     if (origin == JvmLoweredDeclarationOrigin.SUPER_INTERFACE_METHOD_BRIDGE &&
-        valueParameters.lastOrNull()?.origin == JvmLoweredDeclarationOrigin.CONTINUATION_CLASS
+        overriddenSymbols.singleOrNull()?.owner?.valueParameters?.lastOrNull()?.origin == JvmLoweredDeclarationOrigin.CONTINUATION_CLASS
     ) return this
     // We need to use suspend function originals here, since if we use 'this' here,
     // turing FlowCollector into 'fun interface' leads to AbstractMethodError. See KT-49294.
@@ -420,7 +438,7 @@ private fun IrSimpleFunction.createSuspendFunctionStub(context: JvmBackendContex
         function.valueParameters += valueParameters.take(index).map {
             it.copyTo(function, index = it.index, type = it.type.substitute(substitutionMap))
         }
-        function.addValueParameter(
+        val continuationParameter = function.addValueParameter(
             SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME,
             continuationType(context).substitute(substitutionMap),
             JvmLoweredDeclarationOrigin.CONTINUATION_CLASS
@@ -428,6 +446,10 @@ private fun IrSimpleFunction.createSuspendFunctionStub(context: JvmBackendContex
         function.valueParameters += valueParameters.drop(index).map {
             it.copyTo(function, index = it.index + 1, type = it.type.substitute(substitutionMap))
         }
+        context.remapMultiFieldValueClassStructure(
+            this, function,
+            parametersMappingOrNull = explicitParameters.zip(function.explicitParameters.filter { it != continuationParameter }).toMap()
+        )
     }
 }
 

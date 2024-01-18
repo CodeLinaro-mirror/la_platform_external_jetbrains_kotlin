@@ -28,16 +28,19 @@ class BridgeLoweringCache(private val context: JvmBackendContext) {
     private val signatureCache = ConcurrentHashMap<IrFunctionSymbol, Method>()
 
     fun computeJvmMethod(function: IrFunction): Method =
-        signatureCache.getOrPut(function.symbol) { context.methodSignatureMapper.mapAsmMethod(function) }
+        signatureCache.getOrPut(function.symbol) { context.defaultMethodSignatureMapper.mapAsmMethod(function) }
 
     private fun canHaveSpecialBridge(function: IrSimpleFunction): Boolean {
         if (function.name in specialBridgeMethods.specialMethodNames)
             return true
         // Function name could be mangled by inline class rules
         val functionName = function.name.asString()
-        if (specialBridgeMethods.specialMethodNames.any { functionName.startsWith(it.asString() + "-") })
-            return true
-        return false
+        return specialBridgeMethods.specialMethodNames.any {
+            // Optimized version of functionName.startsWith(it.asString() + "-") which is a hot spot
+            val specialMethodNameString = it.asString()
+            val specialMethodNameLength = specialMethodNameString.length
+            functionName.startsWith(specialMethodNameString) && functionName.length > specialMethodNameLength && functionName[specialMethodNameLength] == '-'
+        }
     }
 
     fun computeSpecialBridge(function: IrSimpleFunction): SpecialBridge? {

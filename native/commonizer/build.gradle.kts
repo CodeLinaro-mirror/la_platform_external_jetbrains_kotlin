@@ -27,6 +27,7 @@ dependencies {
     compileOnly(project(":compiler:cli-common"))
     compileOnly(project(":compiler:ir.serialization.common"))
     compileOnly(project(":compiler:frontend"))
+    compileOnly(project(":core:compiler.common.native"))
     compileOnly(project(":native:frontend.native"))
     compileOnly(project(":kotlin-util-klib-metadata"))
     compileOnly(intellijCore())
@@ -37,7 +38,7 @@ dependencies {
 
     api(kotlinStdlib())
 
-    testImplementation(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(project(":kotlinx-metadata-klib")) { isTransitive = false }
     testImplementation(project(":kotlinx-metadata")) { isTransitive = false }
@@ -48,7 +49,7 @@ dependencies {
 
 val runCommonizer by tasks.registering(JavaExec::class) {
     classpath(configurations.compileOnly, sourceSets.main.get().runtimeClasspath)
-    main = "org.jetbrains.kotlin.commonizer.cli.CommonizerCLI"
+    mainClass.set("org.jetbrains.kotlin.commonizer.cli.CommonizerCLI")
 }
 
 sourceSets {
@@ -57,7 +58,6 @@ sourceSets {
 }
 
 projectTest(parallel = true) {
-    dependsOn(":dist")
     workingDir = rootDir
 }
 

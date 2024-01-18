@@ -13,7 +13,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleProjectStructure
-import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.NotNullableUserDataProperty
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.model.TestModule
@@ -24,9 +23,12 @@ import java.util.concurrent.locks.ReadWriteLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.withLock
 import kotlin.reflect.KClass
+import org.jetbrains.kotlin.analysis.providers.KotlinGlobalModificationService
 
 abstract class AnalysisApiTestConfigurator {
     open val testPrefix: String? get() = null
+
+    abstract val frontendKind: FrontendKind
 
     abstract val analyseInDependentSession: Boolean
 
@@ -36,7 +38,9 @@ abstract class AnalysisApiTestConfigurator {
 
     open fun prepareFilesInModule(files: List<PsiFile>, module: TestModule, testServices: TestServices) {}
 
-    abstract fun doOutOfBlockModification(file: KtFile)
+    open fun doGlobalModuleStateModification(project: Project) {
+        KotlinGlobalModificationService.getInstance(project).publishGlobalModuleStateModification()
+    }
 
     open fun preprocessTestDataPath(path: Path): Path = path
 
@@ -50,28 +54,33 @@ abstract class AnalysisApiTestConfigurator {
         serviceRegistrars.forEach { it.registerProjectServices(project, testServices) }
     }
 
+    fun registerProjectModelServices(project: MockProject, testServices: TestServices) {
+        serviceRegistrars.forEach { it.registerProjectModelServices(project, testServices) }
+    }
+
     fun registerApplicationServices(application: MockApplication, testServices: TestServices) {
         ApplicationServiceRegistrar.register(application, serviceRegistrars, testServices)
     }
 }
 
-private object ApplicationServiceRegistrar {
+object ApplicationServiceRegistrar {
     fun register(application: MockApplication, registrars: List<AnalysisApiTestServiceRegistrar>, testServices: TestServices) {
+        val lock = application.lock
         for (registrar in registrars) {
-            val registered = application.lock.readLock().withLock {
-                application.serviceRegistered[registrar::class] == true
-            }
-
-            if (registered) {
+            if (lock.readLock().withLock { application.isRegistrarRegistered(registrar) }) {
                 continue
             }
 
-            application.lock.writeLock().withLock {
+            lock.writeLock().withLock {
+                if (application.isRegistrarRegistered(registrar)) return@withLock
                 registrar.registerApplicationServices(application, testServices)
                 application.serviceRegistered[registrar::class] = true
             }
         }
     }
+
+    private fun Application.isRegistrarRegistered(registrar: AnalysisApiTestServiceRegistrar): Boolean =
+        serviceRegistered[registrar::class] == true
 
     private val Application.lock
             by NotNullableUserDataProperty<Application, ReadWriteLock>(

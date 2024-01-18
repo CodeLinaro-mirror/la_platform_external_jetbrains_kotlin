@@ -1,6 +1,14 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 5
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, interfaces, properties, functions
+ */
 
 // TESTCASE NUMBER: 1
 fun case_1(x: Any?) {
@@ -208,7 +216,7 @@ fun case_10(x: Any?) {
     if (x is ClassLevel1? && x is ClassLevel2? && x is ClassLevel3?) {
         if (x is ClassLevel4?) {
 
-        } else if (x is ClassLevel5? && x != null) {
+        } else if (x is ClassLevel5? && <!SENSELESS_COMPARISON!>x != null<!>) {
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.equals(null)
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.propT
@@ -225,7 +233,7 @@ fun case_10(x: Any?) {
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.test4()
             <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.test5()
         }
-    } else if (x is ClassLevel4? && x != null && x is ClassLevel5?) {
+    } else if (x is ClassLevel4? && <!SENSELESS_COMPARISON!>x != null<!> && x is ClassLevel5?) {
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.equals(null)
         <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & ClassLevel5")!>x<!>.propT
@@ -352,7 +360,7 @@ fun case_15(x: Any?) {
 }
 
 // TESTCASE NUMBER: 16
-fun case_16(a: Any?, b: Int = if (a is Number? && a is Int? && a !== null) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Int")!>a<!> else 0) {
+fun case_16(a: Any?, b: Int = if (a is Number? && a is Int? && <!FORBIDDEN_IDENTITY_EQUALS_WARNING!>a !== null<!>) <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & kotlin.Int")!>a<!> else 0) {
     <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any?")!>a<!>
     <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>b<!>
     <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>b<!>.equals(null)

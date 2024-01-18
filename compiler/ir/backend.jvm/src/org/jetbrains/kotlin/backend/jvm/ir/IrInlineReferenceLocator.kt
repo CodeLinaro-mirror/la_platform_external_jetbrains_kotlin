@@ -5,13 +5,13 @@
 
 package org.jetbrains.kotlin.backend.jvm.ir
 
+import org.jetbrains.kotlin.ir.util.inlineDeclaration
+import org.jetbrains.kotlin.ir.util.isFunctionInlining
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrCall
-import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
-import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.FqName
@@ -61,12 +61,23 @@ class IrInlineScopeResolver(context: JvmBackendContext) : IrInlineReferenceLocat
         super.visitCall(expression, data)
     }
 
+    override fun visitBlock(expression: IrBlock, data: IrDeclaration?) {
+        if (expression is IrInlinedFunctionBlock && expression.isFunctionInlining()) {
+            val callee = expression.inlineDeclaration
+            if (callee is IrSimpleFunction && callee.isPrivateInline && data != null) {
+                (inlineFunctionCallSites.getOrPut(callee) { mutableSetOf() } as MutableSet).add(data)
+            }
+        }
+
+        super.visitBlock(expression, data)
+    }
+
     private inline val IrSimpleFunction.isPrivateInline
         get() = isInline && DescriptorVisibilities.isPrivate(visibility)
 
     private fun IrFunction.isCoroutineIntrinsic(): Boolean =
-        (name.asString() == "suspendCoroutine" && getPackageFragment().fqName == FqName("kotlin.coroutines")) ||
-                (name.asString() == "suspendCoroutineUninterceptedOrReturn" && getPackageFragment().fqName == FqName("kotlin.coroutines.intrinsics"))
+        (name.asString() == "suspendCoroutine" && getPackageFragment().packageFqName == FqName("kotlin.coroutines")) ||
+                (name.asString() == "suspendCoroutineUninterceptedOrReturn" && getPackageFragment().packageFqName == FqName("kotlin.coroutines.intrinsics"))
 
     fun findContainer(scope: IrElement): IrDeclarationContainer? =
         findContainer(scope, approximateToPackage = false)

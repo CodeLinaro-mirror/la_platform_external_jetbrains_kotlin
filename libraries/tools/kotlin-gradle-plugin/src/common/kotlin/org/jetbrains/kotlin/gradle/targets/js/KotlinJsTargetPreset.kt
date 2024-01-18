@@ -10,9 +10,6 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.plugin.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.PublicationRegistrationMode
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.hasKpmModel
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.mapTargetCompilationsToKpmVariants
 import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTargetConfigurator
@@ -20,6 +17,7 @@ import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.gradle.utils.runProjectConfigurationHealthCheckWhenEvaluated
 import org.jetbrains.kotlin.statistics.metrics.StringMetrics
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.decapitalizeAsciiOnly
 
 open class KotlinJsTargetPreset(
     project: Project
@@ -59,21 +57,6 @@ open class KotlinJsTargetPreset(
             this.isMpp = this@KotlinJsTargetPreset.isMpp
 
             project.runProjectConfigurationHealthCheckWhenEvaluated {
-                if (!isBrowserConfigured && !isNodejsConfigured) {
-                    project.logger.warn(
-                        """
-                            Please choose a JavaScript environment to build distributions and run tests.
-                            Not choosing any of them will be an error in the future releases.
-                            kotlin {
-                                js {
-                                    // To build distributions for and run tests on browser or Node.js use one or both of:
-                                    browser()
-                                    nodejs()
-                                }
-                            }
-                        """.trimIndent()
-                    )
-                }
                 val buildStatsService = KotlinBuildStatsService.getInstance()
                 when {
                     isBrowserConfigured && isNodejsConfigured -> buildStatsService?.report(StringMetrics.JS_TARGET_MODE, "both")
@@ -96,19 +79,11 @@ open class KotlinJsTargetPreset(
     }
 
     override fun createCompilationFactory(forTarget: KotlinJsTarget): KotlinJsCompilationFactory {
-        return KotlinJsCompilationFactory(project, forTarget, irPreset?.let { forTarget.irTarget })
+        return KotlinJsCompilationFactory(forTarget)
     }
 
     companion object {
         const val PRESET_NAME = "js"
-    }
-
-    override fun createTarget(name: String): KotlinJsTarget {
-        val result = super.createTarget(name)
-        if (project.hasKpmModel) {
-            mapTargetCompilationsToKpmVariants(result, PublicationRegistrationMode.IMMEDIATE)
-        }
-        return result
     }
 }
 
@@ -128,7 +103,7 @@ class KotlinJsSingleTargetPreset(
         irPreset?.let {
             super.provideTargetDisambiguationClassifier(target)
                 ?.removePrefix(target.name.removeJsCompilerSuffix(KotlinJsCompilerType.LEGACY))
-                ?.decapitalize()
+                ?.decapitalizeAsciiOnly()
         }
 
     override fun createKotlinTargetConfigurator() = KotlinJsTargetConfigurator()

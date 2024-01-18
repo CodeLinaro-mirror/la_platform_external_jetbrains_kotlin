@@ -1,6 +1,6 @@
 import kotlin.contracts.*
 
-@Suppress("OPT_IN_USAGE_ERROR", "OPT_IN_USAGE_FUTURE_ERROR")
+@Suppress(<!ERROR_SUPPRESSION!>"OPT_IN_USAGE_ERROR"<!>, "OPT_IN_USAGE_FUTURE_ERROR")
 inline fun atLeastOnce(block: () -> Unit) {
     contract {
         callsInPlace(block, InvocationKind.AT_LEAST_ONCE)
@@ -8,7 +8,7 @@ inline fun atLeastOnce(block: () -> Unit) {
     block()
 }
 
-@Suppress("OPT_IN_USAGE_ERROR", "OPT_IN_USAGE_FUTURE_ERROR")
+@Suppress(<!ERROR_SUPPRESSION!>"OPT_IN_USAGE_ERROR"<!>, "OPT_IN_USAGE_FUTURE_ERROR")
 inline fun atMostOnce(block: () -> Unit) {
     contract {
         callsInPlace(block, InvocationKind.AT_MOST_ONCE)
@@ -16,7 +16,7 @@ inline fun atMostOnce(block: () -> Unit) {
     block()
 }
 
-@Suppress("OPT_IN_USAGE_ERROR", "OPT_IN_USAGE_FUTURE_ERROR")
+@Suppress(<!ERROR_SUPPRESSION!>"OPT_IN_USAGE_ERROR"<!>, "OPT_IN_USAGE_FUTURE_ERROR")
 inline fun exactlyOnce(block: () -> Unit) {
     contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
@@ -28,7 +28,7 @@ fun test() {
     var s: String? = null
     s = ""
     atLeastOnce {
-        <!SMARTCAST_IMPOSSIBLE!>s<!>.length // unstable since lambda can be called twice
+        s<!UNSAFE_CALL!>.<!>length // unstable since lambda can be called twice
         s = null
         var s2: String? = null
         s2 = ""

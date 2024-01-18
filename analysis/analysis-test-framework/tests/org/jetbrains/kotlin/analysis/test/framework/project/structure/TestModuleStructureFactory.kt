@@ -9,15 +9,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.search.ProjectScope
-import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleWithFiles
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleProjectStructure
+import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleWithFiles
+import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.StandaloneProjectFactory
 import org.jetbrains.kotlin.analysis.project.structure.KtBinaryModule
 import org.jetbrains.kotlin.analysis.project.structure.KtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
-import org.jetbrains.kotlin.analysis.project.structure.allDirectDependenciesOfType
+import org.jetbrains.kotlin.analysis.project.structure.KtNotUnderContentRootModule
 import org.jetbrains.kotlin.analysis.test.framework.services.environmentManager
-import org.jetbrains.kotlin.analysis.utils.errors.checkIsInstance
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
@@ -28,76 +27,51 @@ import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JvmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.PathUtil
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.nio.file.Path
+import kotlin.io.path.absolute
 import kotlin.io.path.exists
 import kotlin.io.path.extension
 import kotlin.io.path.nameWithoutExtension
 
-fun interface KtMainModuleFactory {
-    fun createMainModule(
-        testModule: TestModule,
-        testServices: TestServices,
-        project: Project,
-    ): KtModuleWithFiles
-}
-
-object KtMainModuleFactoryForSourceModules : KtMainModuleFactory {
-    override fun createMainModule(
-        testModule: TestModule,
-        testServices: TestServices,
-        project: Project,
-    ): KtModuleWithFiles {
-        val psiFiles = TestModuleStructureFactory.createSourcePsiFiles(testModule, testServices, project)
-        return KtModuleWithFiles(
-            KtSourceModuleImpl(
-                testModule.name,
-                testModule.targetPlatform,
-                testModule.languageVersionSettings,
-                project,
-                GlobalSearchScope.filesScope(project, psiFiles.mapTo(mutableSetOf()) { it.virtualFile }),
-            ),
-            psiFiles
-        )
-    }
-}
-
 object TestModuleStructureFactory {
-    @OptIn(TestInfrastructureInternals::class)
     fun createProjectStructureByTestStructure(
         moduleStructure: TestModuleStructure,
         testServices: TestServices,
-        project: Project,
-        mainModuleFactory: KtMainModuleFactory
+        project: Project
     ): KtModuleProjectStructure {
-        val modulesFromTestServices = moduleStructure.modules.map { testModule ->
-            testModule.toKtModule(testServices, project, mainModuleFactory)
-        }
-        val moduleByName = modulesFromTestServices.associateBy { getModuleName(it.ktModule) }
+        val moduleEntries = moduleStructure.modules
+            .map { testModule -> testServices.ktModuleFactory.createModule(testModule, testServices, project) }
+
+        val moduleEntriesByName = moduleEntries.associateByName()
+
         val binaryModulesBySourceRoots = mutableMapOf<Set<Path>, KtBinaryModule>()
 
-        moduleStructure.modules.forEach { testModule ->
-            val ktModule = moduleByName.getValue(testModule.name).ktModule
-            checkIsInstance<KtModuleWithModifiableDependencies>(ktModule)
+        for (testModule in moduleStructure.modules) {
+            val moduleWithFiles = moduleEntriesByName[testModule.name] ?: moduleEntriesByName.getValue(testModule.files.single().name)
+            when (val ktModule = moduleWithFiles.ktModule) {
+                is KtNotUnderContentRootModule -> {
+                    // Not-under-content-root modules have no external dependencies on purpose
+                }
+                is KtModuleWithModifiableDependencies -> {
+                    addModuleDependencies(testModule, moduleEntriesByName, ktModule)
 
-            addModuleDependencies(testModule, moduleByName, ktModule)
-
-            buildList {
-                addIfNotNull(getJdkModule(testModule, project))
-                addAll(getStdlibModules(testModule, project))
-                addAll(getLibraryModules(testServices, testModule, project))
-                addAll(createLibrariesByCompilerConfigurators(testModule, testServices, project))
-            }.forEach { library ->
-                val cachedLibrary = binaryModulesBySourceRoots.getOrPut(library.getBinaryRoots().toSet()) { library }
-                ktModule.directRegularDependencies.add(cachedLibrary)
+                    buildList {
+                        addIfNotNull(getJdkModule(testModule, project, testServices))
+                        addAll(getStdlibModules(testModule, project, testServices))
+                        addAll(getLibraryModules(testServices, testModule, project))
+                        addAll(createLibrariesByCompilerConfigurators(testModule, testServices, project))
+                    }.forEach { library ->
+                        val cachedLibrary = binaryModulesBySourceRoots.getOrPut(library.getBinaryRoots().toSet()) { library }
+                        ktModule.directRegularDependencies.add(cachedLibrary)
+                    }
+                }
+                else -> error("Unexpected module type: " + ktModule.javaClass.name)
             }
+        }
 
-        }
-        return KtModuleProjectStructure(modulesFromTestServices, binaryModulesBySourceRoots.values) { module ->
-            module.allDirectDependenciesOfType<KtLibraryModuleImpl>().first { it.isBuitinsContainingStdlib }
-        }
+        return KtModuleProjectStructure(moduleEntries, binaryModulesBySourceRoots.values)
     }
 
     @OptIn(TestInfrastructureInternals::class)
@@ -110,29 +84,17 @@ object TestModuleStructureFactory {
         val contentRoots = compilerConfiguration[CLIConfigurationKeys.CONTENT_ROOTS, emptyList()]
         return contentRoots
             .filterIsInstance<JvmClasspathRoot>()
-            .map { root -> createKtLibraryModuleByJar(root.file.toPath(), project, isBuitinsContainingStdlib = false) }
+            .map { root -> createKtLibraryModuleByJar(root.file.toPath(), testServices, project) }
     }
 
-
-    private fun getModuleName(ktModule: KtModule) = when (ktModule) {
-        is KtSourceModuleImpl -> ktModule.moduleName
-        is KtLibraryModuleImpl -> ktModule.libraryName
-        is KtLibrarySourceModuleImpl -> ktModule.libraryName
-        else -> error("Unknown module ${ktModule::class}")
-    }
-
-    private fun addModuleDependencies(
-        testModule: TestModule,
-        moduleByName: Map<String, KtModuleWithFiles>,
-        ktModule: KtModule
-    ) {
+    private fun addModuleDependencies(testModule: TestModule, moduleByName: Map<String, KtModuleWithFiles>, ktModule: KtModule) {
         requireIsInstance<KtModuleWithModifiableDependencies>(ktModule)
         testModule.allDependencies.forEach { dependency ->
             val dependencyKtModule = moduleByName.getValue(dependency.moduleName).ktModule
             when (dependency.relation) {
                 DependencyRelation.RegularDependency -> ktModule.directRegularDependencies.add(dependencyKtModule)
                 DependencyRelation.FriendDependency -> ktModule.directFriendDependencies.add(dependencyKtModule)
-                DependencyRelation.DependsOnDependency -> ktModule.directRefinementDependencies.add(dependencyKtModule)
+                DependencyRelation.DependsOnDependency -> ktModule.directDependsOnDependencies.add(dependencyKtModule)
             }
         }
     }
@@ -144,53 +106,54 @@ object TestModuleStructureFactory {
     ): List<KtLibraryModuleImpl> {
         val configurationKind = JvmEnvironmentConfigurator.extractConfigurationKind(testModule.directives)
         return JvmEnvironmentConfigurator
-            .getLibraryFilesExceptRealRuntime( testServices, configurationKind, testModule.directives)
+            .getLibraryFilesExceptRealRuntime(testServices, configurationKind, testModule.directives)
             .map { it.toPath().toAbsolutePath() }
             .map { jar ->
                 createKtLibraryModuleByJar(
                     jar,
+                    testServices,
                     project,
-                    isBuitinsContainingStdlib = jar.nameWithoutExtension == "kotlin-stdlib-jvm-minimal-for-test"
                 )
             }
     }
 
     private fun createKtLibraryModuleByJar(
         jar: Path,
+        testServices: TestServices,
         project: Project,
         libraryName: String = jar.nameWithoutExtension,
-        isBuitinsContainingStdlib: Boolean = false,
     ): KtLibraryModuleImpl {
         check(jar.extension == "jar")
-        check(jar.exists())
+        check(jar.exists()) {
+            "library $jar does not exist"
+        }
         return KtLibraryModuleImpl(
             libraryName,
             JvmPlatforms.defaultJvmPlatform,
-            ProjectScope.getLibrariesScope(project),
+            getScopeForLibraryByRoots(listOf(jar), testServices),
             project,
             listOf(jar),
             librarySources = null,
-            isBuitinsContainingStdlib,
         )
     }
 
     private fun getStdlibModules(
         testModule: TestModule,
-        project: Project
+        project: Project,
+        testServices: TestServices,
     ): List<KtLibraryModule> {
         val configurationKind = JvmEnvironmentConfigurator.extractConfigurationKind(testModule.directives)
         if (!configurationKind.withRuntime) return emptyList()
+        val lib = testServices.standardLibrariesPathProvider.runtimeJarForTests().toPath().absolute()
         return listOf(
-            KotlinPaths.Jar.StdLib to PathUtil.KOTLIN_JAVA_STDLIB_NAME,
-        ).map { (jar, name) ->
-            val lib = PathUtil.kotlinPathsForDistDirectory.jar(jar).toPath().toAbsolutePath()
-            createKtLibraryModuleByJar(lib, project, name, isBuitinsContainingStdlib = jar == KotlinPaths.Jar.StdLib)
-        }
+            createKtLibraryModuleByJar(lib, testServices, project, PathUtil.KOTLIN_JAVA_STDLIB_NAME),
+        )
     }
 
     private fun getJdkModule(
         testModule: TestModule,
-        project: Project
+        project: Project,
+        testServices: TestServices,
     ): KtJdkModuleImpl? {
         val jdkKind = JvmEnvironmentConfigurator.extractJdkKind(testModule.directives)
 
@@ -204,18 +167,17 @@ object TestModuleStructureFactory {
         return KtJdkModuleImpl(
             "jdk",
             JvmPlatforms.defaultJvmPlatform,
-            ProjectScope.getLibrariesScope(project),
+            getScopeForLibraryByRoots(jdkSourceRoots, testServices),
             project,
             jdkSourceRoots
         )
     }
 
-    private fun TestModule.toKtModule(
-        testServices: TestServices,
-        project: Project,
-        mainModuleFactory: KtMainModuleFactory,
-    ): KtModuleWithFiles {
-        return mainModuleFactory.createMainModule(this, testServices, project)
+    fun getScopeForLibraryByRoots(roots: Collection<Path>, testServices: TestServices): GlobalSearchScope {
+        return StandaloneProjectFactory.createSearchScopeByLibraryRoots(
+            roots,
+            testServices.environmentManager.getProjectEnvironment()
+        )
     }
 
     fun createSourcePsiFiles(

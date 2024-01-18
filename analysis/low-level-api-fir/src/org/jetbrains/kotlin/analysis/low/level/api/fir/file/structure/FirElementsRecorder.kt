@@ -9,19 +9,17 @@ import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.DuplicatedFirSourceElementsException
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.isErrorElement
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.expressions.FirConstExpression
-import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
-import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
+import org.jetbrains.kotlin.fir.builder.toFirOperationOrNull
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
+import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.*
-import org.jetbrains.kotlin.fir.types.FirErrorTypeRef
-import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.FirUserTypeRef
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.findDescendantOfType
 import org.jetbrains.kotlin.types.ConstantValueKind
@@ -65,13 +63,25 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
         element.acceptChildren(this, data)
     }
 
+    override fun visitTypeParameter(typeParameter: FirTypeParameter, data: MutableMap<KtElement, FirElement>) {
+        for (bound in typeParameter.bounds) {
+            val constraintSubject = (bound.psi?.parent as? KtTypeConstraint)?.subjectTypeParameterName ?: continue
+            cache(constraintSubject, typeParameter, data)
+        }
+        super.visitTypeParameter(typeParameter, data)
+    }
+
     override fun visitVariableAssignment(variableAssignment: FirVariableAssignment, data: MutableMap<KtElement, FirElement>) {
-        cacheElement(variableAssignment.lValue, data) // FirReference is not cached by default
+        // For the LHS of the assignment, record the assignment itself
+        (variableAssignment.lValue.source?.psi as? KtElement)?.let { cache(it, variableAssignment, data) }
         visitElement(variableAssignment, data)
     }
 
     override fun <T> visitConstExpression(constExpression: FirConstExpression<T>, data: MutableMap<KtElement, FirElement>) {
         cacheElement(constExpression, data)
+        constExpression.annotations.forEach {
+            it.accept(this, data)
+        }
         // KtPrefixExpression(-, KtConstExpression(n)) is represented as FirConstExpression(-n) with converted constant value.
         // If one queries FIR for KtConstExpression, we still return FirConstExpression(-n) even though its source is KtPrefixExpression.
         // Here, we cache FirConstExpression(n) for KtConstExpression(n) to make everything natural and intuitive!
@@ -92,11 +102,13 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
 
     override fun visitErrorTypeRef(errorTypeRef: FirErrorTypeRef, data: MutableMap<KtElement, FirElement>) {
         super.visitResolvedTypeRef(errorTypeRef, data)
+        recordTypeQualifiers(errorTypeRef, data)
         errorTypeRef.delegatedTypeRef?.accept(this, data)
     }
 
     override fun visitResolvedTypeRef(resolvedTypeRef: FirResolvedTypeRef, data: MutableMap<KtElement, FirElement>) {
         super.visitResolvedTypeRef(resolvedTypeRef, data)
+        recordTypeQualifiers(resolvedTypeRef, data)
         resolvedTypeRef.delegatedTypeRef?.accept(this, data)
     }
 
@@ -104,7 +116,7 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
         userTypeRef.acceptChildren(this, data)
     }
 
-    private fun cacheElement(element: FirElement, cache: MutableMap<KtElement, FirElement>) {
+    protected fun cacheElement(element: FirElement, cache: MutableMap<KtElement, FirElement>) {
         val psi = element.source
             ?.takeIf {
                 it is KtRealPsiSourceElement ||
@@ -115,6 +127,8 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
                         it.kind == KtFakeSourceElementKind.ImplicitConstructor ||
                         it.kind == KtFakeSourceElementKind.DesugaredPrefixNameReference ||
                         it.kind == KtFakeSourceElementKind.DesugaredPostfixNameReference ||
+                        it.kind == KtFakeSourceElementKind.SmartCastExpression ||
+                        it.kind == KtFakeSourceElementKind.DanglingModifierList ||
                         it.isSourceForCompoundAccess(element)
             }.psi as? KtElement
             ?: return
@@ -144,15 +158,31 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
     private fun FirElement.isReadInCompoundCall(): Boolean {
         if (this is FirPropertyAccessExpression) return true
         if (this !is FirFunctionCall) return false
-        val name = (calleeReference as? FirResolvedNamedReference)?.name
+        val name = (calleeReference as? FirResolvedNamedReference)?.name ?: getFallbackCompoundCalleeName()
         return name == OperatorNameConventions.GET
     }
 
     private fun FirElement.isWriteInCompoundCall(): Boolean {
         if (this is FirVariableAssignment) return true
         if (this !is FirFunctionCall) return false
-        val name = (calleeReference as? FirResolvedNamedReference)?.name
+        val name = (calleeReference as? FirResolvedNamedReference)?.name ?: getFallbackCompoundCalleeName()
         return name == OperatorNameConventions.SET || name in OperatorNameConventions.ASSIGNMENT_OPERATIONS
+    }
+
+    /**
+     * If the callee reference is not a [FirResolvedNamedReference], we can get the compound callee name from the source instead. For
+     * example, if the callee reference is a [FirErrorNamedReference] with an unresolved name `plusAssign`, the operation element type from
+     * the source will be `KtTokens.PLUSEQ`, which can be transformed to `plusAssign`.
+     */
+    private fun FirElement.getFallbackCompoundCalleeName(): Name? {
+        val psi = source.psi as? KtOperationExpression ?: return null
+        val operationReference = psi.operationReference
+        return operationReference.getAssignmentOperationName() ?: operationReference.getReferencedNameAsName()
+    }
+
+    private fun KtSimpleNameExpression.getAssignmentOperationName(): Name? {
+        val firOperation = getReferencedNameElementType().toFirOperationOrNull() ?: return null
+        return FirOperationNameConventions.ASSIGNMENTS[firOperation]
     }
 
     private val FirConstExpression<*>.isConverted: Boolean
@@ -182,14 +212,25 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
         return buildConstExpression(
             original.ktConstantExpression?.toKtPsiSourceElement(),
             this,
-            convertedValue as T
+            convertedValue as T,
+            setType = false
         ).also {
-            it.replaceTypeRef(original.typeRef)
+            it.replaceConeTypeOrNull(original.resolvedType)
+        }
+    }
+
+    private fun recordTypeQualifiers(resolvedTypeRef: FirResolvedTypeRef, data: MutableMap<KtElement, FirElement>) {
+        val userTypeRef = resolvedTypeRef.delegatedTypeRef as? FirUserTypeRef ?: return
+        val qualifiers = userTypeRef.qualifier
+        if (qualifiers.size <= 1) return
+        qualifiers.forEachIndexed { index, qualifierPart ->
+            if (index == qualifiers.lastIndex) return@forEachIndexed
+            val source = qualifierPart.source?.psi as? KtElement ?: return@forEachIndexed
+            cache(source, resolvedTypeRef, data)
         }
     }
 
     companion object {
-        @OptIn(ExperimentalStdlibApi::class)
         fun recordElementsFrom(firElement: FirElement, recorder: FirElementsRecorder): Map<KtElement, FirElement> =
             buildMap { firElement.accept(recorder, this) }
     }

@@ -1,4 +1,5 @@
-// IGNORE_BACKEND_FIR: JVM_IR
+// LAMBDAS: CLASS
+// IGNORE_BACKEND_K2: JVM_IR
 // TARGET_BACKEND: JVM
 // FILE: Base.java
 public class Base {

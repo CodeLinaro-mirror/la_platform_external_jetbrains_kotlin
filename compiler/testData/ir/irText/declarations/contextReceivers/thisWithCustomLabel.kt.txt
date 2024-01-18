@@ -37,17 +37,17 @@ class C {
 
 }
 
-fun f(<this>: A<Int>, <this>: A<String>, <this>: B) {
-  <this>.<get-a>().toFloat() /*~> Unit */
-  <this>.<get-a>().<get-length>() /*~> Unit */
-  <this>.<get-b>() /*~> Unit */
+fun f($context_receiver_0: A<Int>, $context_receiver_1: A<String>, $context_receiver_2: B) {
+  $context_receiver_0.<get-a>().toFloat() /*~> Unit */
+  $context_receiver_1.<get-a>().<get-length>() /*~> Unit */
+  $context_receiver_2.<get-b>() /*~> Unit */
 }
 
 val C.p: Int
-  get(<this>: A<Int>, <this>: A<String>, <this>: B): Int {
-    <this>.<get-a>().toFloat() /*~> Unit */
-    <this>.<get-a>().<get-length>() /*~> Unit */
-    <this>.<get-b>() /*~> Unit */
+  get($context_receiver_0: A<Int>, $context_receiver_1: A<String>, $context_receiver_2: B): Int {
+    $context_receiver_0.<get-a>().toFloat() /*~> Unit */
+    $context_receiver_1.<get-a>().<get-length>() /*~> Unit */
+    $context_receiver_2.<get-b>() /*~> Unit */
     <this>.<get-c>() /*~> Unit */
     <this>.<get-c>() /*~> Unit */
     <this>.<get-c>() /*~> Unit */

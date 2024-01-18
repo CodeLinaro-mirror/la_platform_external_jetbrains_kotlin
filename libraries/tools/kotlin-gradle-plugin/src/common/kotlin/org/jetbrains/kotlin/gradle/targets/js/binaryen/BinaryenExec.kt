@@ -5,20 +5,26 @@
 
 package org.jetbrains.kotlin.gradle.targets.js.binaryen
 
+import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.gradle.work.DisableCachingByDefault
+import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 import javax.inject.Inject
 
-open class BinaryenExec
+@DisableCachingByDefault
+abstract class BinaryenExec
 @Inject
 constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
     @Transient
     @get:Internal
     lateinit var binaryen: BinaryenRootExtension
+
+    @get:Inject
+    abstract val fs: FileSystemOperations
 
     init {
         onlyIf {
@@ -28,19 +34,42 @@ constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
 
     @Input
     var binaryenArgs: MutableList<String> = mutableListOf(
-        "--enable-nontrapping-float-to-int",
-        "--enable-typed-function-references",
+        // Proposals
         "--enable-gc",
         "--enable-reference-types",
         "--enable-exception-handling",
-        "--hybrid",
-        "-O3",
+        "--enable-bulk-memory",  // For array initialization from data sections
+
+        // Other options
+        "--enable-nontrapping-float-to-int",
+        // It's turned out that it's not safe
+        // "--closed-world",
+
+        // Optimizations:
+        // Note the order and repetition of the next options matter.
+        // 
+        // About Binaryen optimizations:
+        // GC Optimization Guidebook -- https://github.com/WebAssembly/binaryen/wiki/GC-Optimization-Guidebook
+        // Optimizer Cookbook -- https://github.com/WebAssembly/binaryen/wiki/Optimizer-Cookbook
+        //
         "--inline-functions-with-loops",
         "--traps-never-happen",
         "--fast-math",
+        // without "--type-merging" it produces increases the size 
+        // "--type-ssa",
+        "-O3",
+        "-O3",
+        "--gufa",
+        "-O3",
+        // requires --closed-world
+        // "--type-merging",
+        "-O3",
+        "-Oz",
     )
 
+    @PathSensitive(PathSensitivity.RELATIVE)
     @InputFile
+    @NormalizeLineEndings
     val inputFileProperty: RegularFileProperty = project.newFileProperty()
 
     @OutputFile
@@ -73,7 +102,7 @@ constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
                 it.binaryen = binaryen
                 it.executable = binaryen.requireConfigured().executablePath.absolutePath
                 it.dependsOn(binaryen.setupTaskProvider)
-                it.dependsOn(compilation.compileKotlinTaskProvider)
+                it.dependsOn(compilation.compileTaskProvider)
                 it.configuration()
             }
         }

@@ -8,32 +8,32 @@ package org.jetbrains.kotlin.fir.resolve
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.fakeElement
+import org.jetbrains.kotlin.fir.FirFunctionTypeParameter
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.getAnnotationsByClassId
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
-import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
-import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTagWithFixedSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
+import org.jetbrains.kotlin.fir.symbols.*
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirLookupTagEntry
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.util.WeakPair
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 fun ConeClassifierLookupTag.toSymbol(useSiteSession: FirSession): FirClassifierSymbol<*>? =
     when (this) {
         is ConeClassLikeLookupTag -> toSymbol(useSiteSession)
         is ConeClassifierLookupTagWithFixedSymbol -> this.symbol
+        // TODO: replace null with error(), see KT-57921
         else -> null
     }
 
@@ -42,31 +42,23 @@ fun ConeClassLikeLookupTag.toSymbol(useSiteSession: FirSession): FirClassLikeSym
     if (this is ConeClassLookupTagWithFixedSymbol) {
         return this.symbol
     }
-    val firSymbolProvider = useSiteSession.symbolProvider
     (this as? ConeClassLikeLookupTagImpl)?.boundSymbol?.takeIf { it.first === useSiteSession }?.let { return it.second }
 
-    return firSymbolProvider.getClassLikeSymbolByClassId(classId).also {
+    return useSiteSession.symbolProvider.getClassLikeSymbolByClassId(classId).also {
         (this as? ConeClassLikeLookupTagImpl)?.bindSymbolToLookupTag(useSiteSession, it)
     }
 }
 
-@OptIn(LookupTagInternals::class)
-fun ConeClassLikeLookupTag.toSymbolOrError(useSiteSession: FirSession): FirClassLikeSymbol<*> =
-    toSymbol(useSiteSession)
-        ?: error("Class symbol with classId $classId was not found")
-
-@OptIn(LookupTagInternals::class)
 fun ConeClassLikeLookupTag.toFirRegularClassSymbol(session: FirSession): FirRegularClassSymbol? =
-    session.symbolProvider.getSymbolByLookupTag(this) as? FirRegularClassSymbol
+    toSymbol(session) as? FirRegularClassSymbol
 
 @OptIn(LookupTagInternals::class)
 fun ConeClassLikeLookupTagImpl.bindSymbolToLookupTag(session: FirSession, symbol: FirClassLikeSymbol<*>?) {
     boundSymbol = WeakPair(session, symbol)
 }
 
-@LookupTagInternals
-fun ConeClassLikeLookupTag.toFirRegularClass(session: FirSession): FirRegularClass? =
-    session.symbolProvider.getSymbolByLookupTag(this)?.fir as? FirRegularClass
+@SymbolInternals
+fun ConeClassLikeLookupTag.toFirRegularClass(session: FirSession): FirRegularClass? = toFirRegularClassSymbol(session)?.fir
 
 fun FirSymbolProvider.getSymbolByLookupTag(lookupTag: ConeClassifierLookupTag): FirClassifierSymbol<*>? {
     return lookupTag.toSymbol(session)
@@ -76,26 +68,27 @@ fun FirSymbolProvider.getSymbolByLookupTag(lookupTag: ConeClassLikeLookupTag): F
     return lookupTag.toSymbol(session)
 }
 
-fun ConeKotlinType.withParameterNameAnnotation(valueParameter: FirValueParameter): ConeKotlinType {
-    if (valueParameter.name == SpecialNames.NO_NAME_PROVIDED || valueParameter.name == SpecialNames.UNDERSCORE_FOR_UNUSED_VAR) return this
+fun ConeKotlinType.withParameterNameAnnotation(parameter: FirFunctionTypeParameter, session: FirSession): ConeKotlinType {
+    val name = parameter.name
+    if (name == null || name == SpecialNames.NO_NAME_PROVIDED || name == SpecialNames.UNDERSCORE_FOR_UNUSED_VAR) return this
     // Existing @ParameterName annotation takes precedence
-    if (attributes.customAnnotations.getAnnotationsByClassId(StandardNames.FqNames.parameterNameClassId).isNotEmpty()) return this
+    if (attributes.customAnnotations.getAnnotationsByClassId(StandardNames.FqNames.parameterNameClassId, session).isNotEmpty()) return this
 
-    val fakeSource = valueParameter.source?.fakeElement(KtFakeSourceElementKind.ParameterNameAnnotationCall)
+    val fakeSource = parameter.source?.fakeElement(KtFakeSourceElementKind.ParameterNameAnnotationCall)
     val parameterNameAnnotationCall = buildAnnotation {
         source = fakeSource
         annotationTypeRef =
             buildResolvedTypeRef {
                 source = fakeSource
                 type = ConeClassLikeTypeImpl(
-                    ConeClassLikeLookupTagImpl(StandardNames.FqNames.parameterNameClassId),
+                    StandardNames.FqNames.parameterNameClassId.toLookupTag(),
                     emptyArray(),
                     isNullable = false
                 )
             }
         argumentMapping = buildAnnotationArgumentMapping {
             mapping[StandardClassIds.Annotations.ParameterNames.parameterNameName] =
-                buildConstExpression(fakeSource, ConstantValueKind.String, valueParameter.name.asString(), setType = true)
+                buildConstExpression(fakeSource, ConstantValueKind.String, name.asString(), setType = true)
         }
     }
     val attributesWithParameterNameAnnotation =
@@ -118,6 +111,7 @@ fun ConeKotlinType.findClassRepresentation(
 ): ConeClassLikeLookupTag? =
     when (this) {
         is ConeClassLikeType -> this.fullyExpandedType(session).lookupTag
+        is ConeDynamicType -> upperBound.findClassRepresentation(dispatchReceiverParameterType, session)
         is ConeFlexibleType -> lowerBound.findClassRepresentation(dispatchReceiverParameterType, session)
         is ConeCapturedType -> constructor.supertypes.orEmpty()
             .findClassRepresentationThatIsSubtypeOf(dispatchReceiverParameterType, session)
@@ -142,4 +136,3 @@ private fun Collection<ConeKotlinType>.findClassRepresentationThatIsSubtypeOf(
     supertype: ConeKotlinType,
     session: FirSession
 ): ConeClassLikeLookupTag? = firstOrNull { it.isSubtypeOf(supertype, session) }?.findClassRepresentation(supertype, session)
-

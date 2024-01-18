@@ -8,15 +8,21 @@ repositories {
 }
 
 with(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.apply(rootProject)) {
-    //nightly nodejs that supports wasm M5
-    nodeVersion = "19.0.0-nightly202206017ad5b420ae"
-    nodeDownloadBaseUrl = "https://nodejs.org/download/nightly/"
+    // canary nodejs that supports recent Wasm GC changes
+    nodeVersion = "21.0.0-v8-canary202309167e82ab1fa2"
+    nodeDownloadBaseUrl = "https://nodejs.org/download/v8-canary"
 }
 
-with(org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin.apply(rootProject)) {
-    //A little hacky way to disable yarn for unsupported nightly node version
-    command = "echo"
-    download = false
+with(org.jetbrains.kotlin.gradle.targets.js.d8.D8RootPlugin.apply(rootProject)) {
+    // Test that we can set the version and it is a String.
+    // But use the default version since update this place every time anyway.
+    version = (version as String)
+}
+
+allprojects.forEach {
+    it.tasks.withType<org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask>().configureEach {
+        args.add("--ignore-engines")
+    }
 }
 
 tasks.named<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask>("kotlinStoreYarnLock") {
@@ -25,8 +31,14 @@ tasks.named<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask>("kotli
 }
 
 kotlin {
-    wasm {
-        <JsEngine>()
+    wasmJs {
+        <JsEngine> {
+            testTask {
+                filter.apply {
+                    excludeTest("WasmTest", "testShouldBeExcluded")
+                }
+            }
+        }
         <ApplyBinaryen>
     }
 

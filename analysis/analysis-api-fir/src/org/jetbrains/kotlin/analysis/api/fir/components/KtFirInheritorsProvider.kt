@@ -28,14 +28,14 @@ internal class KtFirInheritorsProvider(
         val inheritorClassIds = classSymbol.firSymbol.fir.getSealedClassInheritors(analysisSession.useSiteSession)
 
         return with(analysisSession) {
-            inheritorClassIds.mapNotNull { it.getCorrespondingToplevelClassOrObjectSymbol() as? KtNamedClassOrObjectSymbol }
+            inheritorClassIds.mapNotNull { getClassOrObjectSymbolByClassId(it) as? KtNamedClassOrObjectSymbol }
         }
     }
 
     override fun getEnumEntries(classSymbol: KtNamedClassOrObjectSymbol): List<KtEnumEntrySymbol> {
         require(classSymbol.classKind == KtClassKind.ENUM_CLASS)
         return with(analysisSession) {
-            classSymbol.getDeclaredMemberScope().getCallableSymbols().filterIsInstance<KtEnumEntrySymbol>().toList()
+            classSymbol.getStaticDeclaredMemberScope().getCallableSymbols().filterIsInstance<KtEnumEntrySymbol>().toList()
         }
     }
 

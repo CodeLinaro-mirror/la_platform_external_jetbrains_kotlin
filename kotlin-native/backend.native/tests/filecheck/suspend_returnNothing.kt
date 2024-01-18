@@ -16,10 +16,10 @@ open class EmptyContinuation(override val context: CoroutineContext = EmptyCorou
 suspend fun suspendForever(): Int = suspendCoroutineUninterceptedOrReturn {
     COROUTINE_SUSPENDED
 }
-// CHECK-LABEL: define %struct.ObjHeader* @"kfun:$fooCOROUTINE
+// CHECK-LABEL: define internal %struct.ObjHeader* @"kfun:$fooCOROUTINE
 
 // CHECK-NOT: ; Function Attrs: {{.*}}noreturn
-// CHECK-LABEL: define %struct.ObjHeader* @"kfun:#foo(){}kotlin.Nothing"
+// CHECK-LABEL: define %struct.ObjHeader* @"kfun:#foo#suspend(kotlin.coroutines.Continuation<kotlin.Nothing>){}kotlin.Any"
 suspend fun foo(): Nothing {
     suspendForever()
     throw Error()

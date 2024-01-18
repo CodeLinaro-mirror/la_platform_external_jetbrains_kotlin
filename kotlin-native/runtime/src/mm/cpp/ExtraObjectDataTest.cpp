@@ -29,8 +29,8 @@ public:
 
     ~ExtraObjectDataTest() {
         mm::GlobalsRegistry::Instance().ClearForTests();
-        mm::GlobalData::Instance().extraObjectDataFactory().ClearForTests();
         mm::GlobalData::Instance().gc().ClearForTests();
+        mm::GlobalData::Instance().allocator().clearForTests();
     }
 };
 
@@ -49,7 +49,7 @@ TEST_F(ExtraObjectDataTest, Install) {
     EXPECT_TRUE(object.header()->has_meta_object());
     EXPECT_THAT(object.header()->meta_object(), extraData.AsMetaObjHeader());
     EXPECT_THAT(object.header()->type_info(), typeInfo);
-    EXPECT_FALSE(extraData.HasWeakReferenceCounter());
+    EXPECT_FALSE(extraData.HasRegularWeakReferenceImpl());
     EXPECT_THAT(extraData.GetBaseObject(), object.header());
 
     extraData.Uninstall();
@@ -79,7 +79,8 @@ TEST_F(ExtraObjectDataTest, ConcurrentInstall) {
             }
             auto& extraData = mm::ExtraObjectData::Install(object.header());
             actual[i] = &extraData;
-            mm::GlobalData::Instance().threadRegistry().CurrentThreadData()->Publish();
+            // Really only needed for legacy allocators.
+            mm::GlobalData::Instance().threadRegistry().CurrentThreadData()->allocator().prepareForGC();
         });
     }
 

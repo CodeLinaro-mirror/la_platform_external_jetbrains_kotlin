@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the LICENSE file.
  */
 
 #ifndef RUNTIME_TYPEINFO_H
@@ -27,7 +16,12 @@ struct WritableTypeInfo;
 #endif
 
 struct ObjHeader;
-struct AssociatedObjectTableRecord;
+struct TypeInfo;
+
+struct AssociatedObjectTableRecord {
+  const TypeInfo* key;
+  ObjHeader* (*getAssociatedObjectInstance)(ObjHeader**);
+};
 
 // Type for runtime representation of Konan object.
 // Keep in sync with runtimeTypeMap in RTTIGenerator.
@@ -96,6 +90,10 @@ struct InterfaceTableRecord {
 
 // This struct represents runtime type information and by itself is the compile time
 // constant.
+// When adding a field here do not forget to adjust:
+//   1. RTTIGenerator
+//   2. ObjectTestSupport TypeInfoHolder
+//   3. createTypeInfo in ObjcExport.mm
 struct TypeInfo {
     // Reference to self, to allow simple obtaining TypeInfo via meta-object.
     const TypeInfo* typeInfo_;
@@ -138,16 +136,20 @@ struct TypeInfo {
     // Null-terminated array.
     const AssociatedObjectTableRecord* associatedObjects;
 
+    // Invoked on an object during mark phase.
+    // TODO: Consider providing a generic traverse method instead.
+    void (*processObjectInMark)(void* state, ObjHeader* object);
+
+    // Required alignment of instance
+    uint32_t instanceAlignment_;
+
+
     // vtable starts just after declared contents of the TypeInfo:
     // void* const vtable_[];
 #ifdef __cplusplus
-    inline VTableElement const* vtable() const {
-      return reinterpret_cast<VTableElement const*>(this + 1);
-    }
+    inline VTableElement const* vtable() const { return reinterpret_cast<VTableElement const*>(this + 1); }
 
-    inline VTableElement* vtable() {
-      return reinterpret_cast<VTableElement*>(this + 1);
-    }
+    inline VTableElement* vtable() { return reinterpret_cast<VTableElement*>(this + 1); }
 
     inline bool IsArray() const { return instanceSize_ < 0; }
 

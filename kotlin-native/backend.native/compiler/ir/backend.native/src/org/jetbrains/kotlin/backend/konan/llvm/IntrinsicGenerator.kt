@@ -5,18 +5,18 @@ import llvm.*
 import org.jetbrains.kotlin.backend.konan.KonanFqNames
 import org.jetbrains.kotlin.backend.konan.MemoryModel
 import org.jetbrains.kotlin.backend.konan.RuntimeNames
-import org.jetbrains.kotlin.backend.konan.descriptors.getAnnotationStringValue
+import org.jetbrains.kotlin.ir.util.getAnnotationStringValue
 import org.jetbrains.kotlin.backend.konan.descriptors.isConstantConstructorIntrinsic
 import org.jetbrains.kotlin.backend.konan.descriptors.isTypedIntrinsic
 import org.jetbrains.kotlin.backend.konan.llvm.objc.genObjCSelector
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.types.getClass
-import org.jetbrains.kotlin.ir.util.dump
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.findAnnotation
 
 internal enum class IntrinsicType {
@@ -65,14 +65,16 @@ internal enum class IntrinsicType {
     IDENTITY,
     IMMUTABLE_BLOB,
     INIT_INSTANCE,
+    IS_SUBTYPE,
     IS_EXPERIMENTAL_MM,
+    THE_UNIT_INSTANCE,
     // Enums
     ENUM_VALUES,
     ENUM_VALUE_OF,
+    ENUM_ENTRIES,
     // Coroutines
     GET_CONTINUATION,
     RETURN_IF_SUSPENDED,
-    COROUTINE_LAUNCHPAD,
     // Interop
     INTEROP_READ_BITS,
     INTEROP_WRITE_BITS,
@@ -91,7 +93,25 @@ internal enum class IntrinsicType {
     INTEROP_FUNPTR_INVOKE,
     INTEROP_MEMORY_COPY,
     // Worker
-    WORKER_EXECUTE
+    WORKER_EXECUTE,
+    // Atomics
+    ATOMIC_GET_FIELD,
+    ATOMIC_SET_FIELD,
+    COMPARE_AND_SET_FIELD,
+    COMPARE_AND_EXCHANGE_FIELD,
+    GET_AND_SET_FIELD,
+    GET_AND_ADD_FIELD,
+    COMPARE_AND_SET,
+    COMPARE_AND_EXCHANGE,
+    GET_AND_SET,
+    GET_AND_ADD,
+    // Atomic arrays
+    ATOMIC_GET_ARRAY_ELEMENT,
+    ATOMIC_SET_ARRAY_ELEMENT,
+    COMPARE_AND_EXCHANGE_ARRAY_ELEMENT,
+    COMPARE_AND_SET_ARRAY_ELEMENT,
+    GET_AND_SET_ARRAY_ELEMENT,
+    GET_AND_ADD_ARRAY_ELEMENT
 }
 
 internal enum class ConstantConstructorIntrinsicType {
@@ -106,11 +126,7 @@ internal interface IntrinsicGeneratorEnvironment {
 
     val functionGenerationContext: FunctionGenerationContext
 
-    val continuation: LLVMValueRef
-
     val exceptionHandler: ExceptionHandler
-
-    val stackLocalsManager: StackLocalsManager
 
     fun calculateLifetime(element: IrElement): Lifetime
 
@@ -120,6 +136,10 @@ internal interface IntrinsicGeneratorEnvironment {
     fun evaluateExplicitArgs(expression: IrFunctionAccessExpression): List<LLVMValueRef>
 
     fun evaluateExpression(value: IrExpression, resultSlot: LLVMValueRef?): LLVMValueRef
+
+    fun getObjectFieldPointer(thisRef: LLVMValueRef, field: IrField): LLVMValueRef
+
+    fun getStaticFieldPointer(field: IrField): LLVMValueRef
 }
 
 internal fun tryGetIntrinsicType(callSite: IrFunctionAccessExpression): IntrinsicType? =
@@ -157,8 +177,9 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     /**
      * Some intrinsics have to be processed before evaluation of their arguments.
      * So this method looks at [callSite] and if it is call to "special" intrinsic
-     * processes it. Otherwise it returns null.
+     * processes it. Otherwise, it returns null.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun tryEvaluateSpecialCall(callSite: IrFunctionAccessExpression, resultSlot: LLVMValueRef?): LLVMValueRef? {
         val function = callSite.symbol.owner
         if (!function.isTypedIntrinsic) {
@@ -168,7 +189,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
             IntrinsicType.IMMUTABLE_BLOB -> {
                 @Suppress("UNCHECKED_CAST")
                 val arg = callSite.getValueArgument(0) as IrConst<String>
-                context.llvm.staticData.createImmutableBlob(arg)
+                codegen.llvm.staticData.createImmutableBlob(arg)
             }
             IntrinsicType.OBJC_GET_SELECTOR -> {
                 val selector = (callSite.getValueArgument(0) as IrConst<*>).value as String
@@ -183,18 +204,6 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                         environment.calculateLifetime(initializer),
                 )
                 codegen.theUnitInstanceRef.llvm
-            }
-            IntrinsicType.COROUTINE_LAUNCHPAD -> {
-                val suspendFunctionCall = callSite.getValueArgument(0) as IrCall
-                val continuation = environment.evaluateExpression(callSite.getValueArgument(1)!!, null)
-                val suspendFunction = suspendFunctionCall.symbol.owner
-                assert(suspendFunction.isSuspend) { "Call to a suspend function expected but was ${suspendFunction.dump()}" }
-                environment.evaluateCall(suspendFunction,
-                        environment.evaluateExplicitArgs(suspendFunctionCall) + listOf(continuation),
-                        environment.calculateLifetime(suspendFunctionCall),
-                        suspendFunction.parent as? IrClass, // Call non-virtually.
-                        resultSlot,
-                )
             }
             else -> null
         }
@@ -249,13 +258,27 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 IntrinsicType.INTEROP_WRITE_PRIMITIVE -> emitWritePrimitive(callSite, args)
                 IntrinsicType.INTEROP_GET_POINTER_SIZE -> emitGetPointerSize()
                 IntrinsicType.CREATE_UNINITIALIZED_INSTANCE -> emitCreateUninitializedInstance(callSite, resultSlot)
+                IntrinsicType.IS_SUBTYPE -> emitIsSubtype(callSite, args)
                 IntrinsicType.INTEROP_NATIVE_PTR_TO_LONG -> emitNativePtrToLong(callSite, args)
                 IntrinsicType.INTEROP_NATIVE_PTR_PLUS_LONG -> emitNativePtrPlusLong(args)
                 IntrinsicType.INTEROP_GET_NATIVE_NULL_PTR -> emitGetNativeNullPtr()
                 IntrinsicType.IDENTITY -> emitIdentity(args)
-                IntrinsicType.GET_CONTINUATION -> emitGetContinuation()
                 IntrinsicType.INTEROP_MEMORY_COPY -> emitMemoryCopy(callSite, args)
                 IntrinsicType.IS_EXPERIMENTAL_MM -> emitIsExperimentalMM()
+                IntrinsicType.THE_UNIT_INSTANCE -> theUnitInstanceRef.llvm
+                IntrinsicType.ATOMIC_GET_FIELD -> reportNonLoweredIntrinsic(intrinsicType)
+                IntrinsicType.ATOMIC_SET_FIELD -> reportNonLoweredIntrinsic(intrinsicType)
+                IntrinsicType.COMPARE_AND_SET -> emitCompareAndSet(callSite, args)
+                IntrinsicType.COMPARE_AND_EXCHANGE -> emitCompareAndSwap(callSite, args, resultSlot)
+                IntrinsicType.GET_AND_SET -> emitGetAndSet(callSite, args, resultSlot)
+                IntrinsicType.GET_AND_ADD -> emitGetAndAdd(callSite, args)
+                IntrinsicType.ATOMIC_GET_ARRAY_ELEMENT -> emitAtomicGetArrayElement(callSite, args, resultSlot)
+                IntrinsicType.ATOMIC_SET_ARRAY_ELEMENT -> emitAtomicSetArrayElement(callSite, args)
+                IntrinsicType.COMPARE_AND_EXCHANGE_ARRAY_ELEMENT -> emitCompareAndExchangeArrayElement(callSite, args, resultSlot)
+                IntrinsicType.COMPARE_AND_SET_ARRAY_ELEMENT -> emitCompareAndSetArrayElement(callSite, args)
+                IntrinsicType.GET_AND_SET_ARRAY_ELEMENT -> emitGetAndSetArrayElement(callSite, args, resultSlot)
+                IntrinsicType.GET_AND_ADD_ARRAY_ELEMENT -> emitGetAndAddArrayElement(callSite, args)
+                IntrinsicType.GET_CONTINUATION,
                 IntrinsicType.RETURN_IF_SUSPENDED,
                 IntrinsicType.INTEROP_BITS_TO_FLOAT,
                 IntrinsicType.INTEROP_BITS_TO_DOUBLE,
@@ -266,11 +289,15 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 IntrinsicType.INTEROP_CONVERT,
                 IntrinsicType.ENUM_VALUES,
                 IntrinsicType.ENUM_VALUE_OF,
-                IntrinsicType.WORKER_EXECUTE ->
+                IntrinsicType.ENUM_ENTRIES,
+                IntrinsicType.WORKER_EXECUTE,
+                IntrinsicType.COMPARE_AND_SET_FIELD,
+                IntrinsicType.COMPARE_AND_EXCHANGE_FIELD,
+                IntrinsicType.GET_AND_SET_FIELD,
+                IntrinsicType.GET_AND_ADD_FIELD ->
                     reportNonLoweredIntrinsic(intrinsicType)
                 IntrinsicType.INIT_INSTANCE,
                 IntrinsicType.OBJC_INIT_BY,
-                IntrinsicType.COROUTINE_LAUNCHPAD,
                 IntrinsicType.OBJC_GET_SELECTOR,
                 IntrinsicType.IMMUTABLE_BLOB ->
                     reportSpecialIntrinsic(intrinsicType)
@@ -283,7 +310,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 val typeArgument = constant.typeArguments[0]
                 val typeArgumentClass = typeArgument.getClass()!!
                 val typeInfo = codegen.typeInfoValue(typeArgumentClass)
-                listOf(constPointer(typeInfo).bitcast(int8TypePtr))
+                listOf(constPointer(typeInfo).bitcast(codegen.llvm.int8PtrType))
             }
             ConstantConstructorIntrinsicType.KTYPE_IMPL ->
                 reportNonLoweredIntrinsic(intrinsicType)
@@ -299,17 +326,125 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     private fun reportNonLoweredIntrinsic(intrinsicType: ConstantConstructorIntrinsicType): Nothing =
             context.reportCompilationError("Constant constructor intrinsic of type $intrinsicType should be handled by previous lowering phase")
 
-    private fun FunctionGenerationContext.emitGetContinuation(): LLVMValueRef =
-            environment.continuation
 
     private fun FunctionGenerationContext.emitIdentity(args: List<LLVMValueRef>): LLVMValueRef =
             args.single()
 
     private fun FunctionGenerationContext.emitIsExperimentalMM(): LLVMValueRef =
-            Int1(context.memoryModel == MemoryModel.EXPERIMENTAL).llvm
+            llvm.int1(context.memoryModel == MemoryModel.EXPERIMENTAL)
+
+    // cmpxcgh llvm instruction return pair. idnex is index of required element of this pair
+    enum class CmpExchangeMode(val index:Int) {
+        SWAP(0),
+        SET(1)
+    }
+
+    private fun FunctionGenerationContext.emitCmpExchange(callSite: IrCall, args: List<LLVMValueRef>, mode: CmpExchangeMode, resultSlot: LLVMValueRef?): LLVMValueRef {
+        require(args.size == 3) { "The call to ${callSite.symbol.owner.name.asString()} expects 3 value arguments." }
+        return if (isObjectRef(args[1])) {
+            require(context.memoryModel == MemoryModel.EXPERIMENTAL)
+            when (mode) {
+                CmpExchangeMode.SET -> call(llvm.CompareAndSetVolatileHeapRef, args)
+                CmpExchangeMode.SWAP -> call(llvm.CompareAndSwapVolatileHeapRef, args,
+                        environment.calculateLifetime(callSite), resultSlot = resultSlot)
+            }
+        } else {
+            val cmp = LLVMBuildAtomicCmpXchg(builder, args[0], args[1], args[2],
+                    LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent,
+                    LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent,
+                    SingleThread = 0
+            )!!
+
+            LLVMBuildExtractValue(builder, cmp, mode.index, "")!!
+        }
+    }
+
+    private fun FunctionGenerationContext.emitAtomicRMW(callSite: IrCall, args: List<LLVMValueRef>, op: LLVMAtomicRMWBinOp, resultSlot: LLVMValueRef?): LLVMValueRef {
+        require(args.size == 2) { "The call to ${callSite.symbol.owner.name.asString()} expects 2 value arguments." }
+        return if (isObjectRef(args[1])) {
+            require(op == LLVMAtomicRMWBinOp.LLVMAtomicRMWBinOpXchg)
+            require(context.memoryModel == MemoryModel.EXPERIMENTAL)
+            call(llvm.GetAndSetVolatileHeapRef, args,
+                    environment.calculateLifetime(callSite), resultSlot = resultSlot)
+        } else {
+            LLVMBuildAtomicRMW(builder, op, args[0], args[1],
+                    LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent,
+                    singleThread = 0
+            )!!
+        }
+    }
+
+    private fun FunctionGenerationContext.transformArgsForVolatile(callSite: IrCall, args: List<LLVMValueRef>): List<LLVMValueRef> {
+        val field = context.mapping.functionToVolatileField[callSite.symbol.owner]!!
+        return if (callSite.dispatchReceiver != null) {
+            require(!field.isStatic)
+            listOf(environment.getObjectFieldPointer(args[0], field)) + args.drop(1)
+        } else {
+            require(field.isStatic)
+            listOf(environment.getStaticFieldPointer(field)) + args
+        }
+    }
+
+    private fun FunctionGenerationContext.emitCompareAndSet(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
+        return emitCmpExchange(callSite, transformArgsForVolatile(callSite, args), CmpExchangeMode.SET, null)
+    }
+    private fun FunctionGenerationContext.emitCompareAndSwap(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
+        return emitCmpExchange(callSite, transformArgsForVolatile(callSite, args), CmpExchangeMode.SWAP, resultSlot)
+    }
+    private fun FunctionGenerationContext.emitGetAndSet(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
+        return emitAtomicRMW(callSite, transformArgsForVolatile(callSite, args), LLVMAtomicRMWBinOp.LLVMAtomicRMWBinOpXchg, resultSlot)
+    }
+    private fun FunctionGenerationContext.emitGetAndAdd(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
+        return emitAtomicRMW(callSite, transformArgsForVolatile(callSite, args), LLVMAtomicRMWBinOp.LLVMAtomicRMWBinOpAdd, null)
+    }
+
+    private fun FunctionGenerationContext.arrayGetElementAddress(callSite: IrCall, array: LLVMValueRef, index: LLVMValueRef): LLVMValueRef {
+        val receiver = callSite.extensionReceiver
+        require(receiver != null)
+        return when {
+            receiver.type.isIntArray() -> call(llvm.Kotlin_intArrayGetElementAddress, listOf(array, index))
+            receiver.type.isLongArray() -> call(llvm.Kotlin_longArrayGetElementAddress, listOf(array, index))
+            receiver.type.isArray() -> call(llvm.Kotlin_arrayGetElementAddress, listOf(array, index), environment.calculateLifetime(callSite))
+            else -> error("Only IntArray, LongArray and Array<T> are supported for atomic array intrinsics.")
+        }
+    }
+
+    private fun FunctionGenerationContext.emitAtomicSetArrayElement(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
+        require(args.size == 3) { "The call to ${callSite.symbol.owner.name.asString()} expects 3 value arguments." }
+        val address = arrayGetElementAddress(callSite, args[0], args[1])
+        storeAny(args[2], address, onStack = false, isVolatile = true)
+        return theUnitInstanceRef.llvm
+    }
+
+    private fun FunctionGenerationContext.emitAtomicGetArrayElement(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
+        require(args.size == 2) { "The call to ${callSite.symbol.owner.name.asString()} expects 2 value arguments." }
+        val address = arrayGetElementAddress(callSite, args[0], args[1])
+        return loadSlot(address, isVar = true, resultSlot, memoryOrder = LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent)
+    }
+
+    private fun FunctionGenerationContext.transformArgsForAtomicArray(callSite: IrCall, args: List<LLVMValueRef>): List<LLVMValueRef> {
+        val address = arrayGetElementAddress(callSite, args[0], args[1])
+        return listOf(address) + args.drop(2)
+    }
+
+    private fun FunctionGenerationContext.emitGetAndSetArrayElement(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
+        return emitAtomicRMW(callSite, transformArgsForAtomicArray(callSite, args), LLVMAtomicRMWBinOp.LLVMAtomicRMWBinOpXchg, resultSlot)
+    }
+
+    private fun FunctionGenerationContext.emitGetAndAddArrayElement(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
+        return emitAtomicRMW(callSite, transformArgsForAtomicArray(callSite, args), LLVMAtomicRMWBinOp.LLVMAtomicRMWBinOpAdd, null)
+    }
+
+    private fun FunctionGenerationContext.emitCompareAndExchangeArrayElement(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
+        return emitCmpExchange(callSite, transformArgsForAtomicArray(callSite, args), CmpExchangeMode.SWAP, resultSlot)
+    }
+
+    private fun FunctionGenerationContext.emitCompareAndSetArrayElement(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
+        return emitCmpExchange(callSite, transformArgsForAtomicArray(callSite, args), CmpExchangeMode.SET, null)
+    }
 
     private fun FunctionGenerationContext.emitGetNativeNullPtr(): LLVMValueRef =
-            kNullInt8Ptr
+            llvm.kNullInt8Ptr
 
     private fun FunctionGenerationContext.emitNativePtrPlusLong(args: List<LLVMValueRef>): LLVMValueRef =
         gep(args[0], args[1])
@@ -325,14 +460,21 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     }
 
     private fun FunctionGenerationContext.emitCreateUninitializedInstance(callSite: IrCall, resultSlot: LLVMValueRef?): LLVMValueRef {
-        val typeParameterT = context.ir.symbols.createUninitializedInstance.descriptor.typeParameters[0]
-        val enumClass = callSite.getTypeArgument(typeParameterT)!!
+        val enumClass = callSite.getTypeArgument(0)!!
         val enumIrClass = enumClass.getClass()!!
-        return allocInstance(enumIrClass, environment.calculateLifetime(callSite), environment.stackLocalsManager, resultSlot)
+        return allocInstance(enumIrClass, environment.calculateLifetime(callSite), resultSlot)
     }
 
+    private fun FunctionGenerationContext.emitIsSubtype(callSite: IrCall, args: List<LLVMValueRef>) =
+            with(VirtualTablesLookup) {
+                checkIsSubtype(
+                        objTypeInfo = bitcast(pointerType(llvm.kTypeInfo), args.single()),
+                        dstClass = callSite.getTypeArgument(0)!!.classOrNull!!.owner
+                )
+            }
+
     private fun FunctionGenerationContext.emitGetPointerSize(): LLVMValueRef =
-            Int32(LLVMPointerSize(codegen.llvmTargetData)).llvm
+            llvm.int32(LLVMPointerSize(codegen.llvmTargetData))
 
     private fun FunctionGenerationContext.emitReadPrimitive(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
         val pointerType = pointerType(callSite.llvmReturnType)
@@ -343,7 +485,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
     private fun FunctionGenerationContext.emitWritePrimitive(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
         val function = callSite.symbol.owner
-        val pointerType = pointerType(codegen.getLLVMType(function.valueParameters.last().type))
+        val pointerType = pointerType(function.valueParameters.last().type.toLLVMType(llvm))
         val rawPointer = args[1]
         val pointer = bitcast(pointerType, rawPointer)
         store(args[2], pointer)
@@ -352,7 +494,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
     private fun FunctionGenerationContext.emitReadBits(args: List<LLVMValueRef>): LLVMValueRef {
         val ptr = args[0]
-        assert(ptr.type == int8TypePtr)
+        assert(ptr.type == llvm.int8PtrType)
 
         val offset = extractConstUnsignedInt(args[1])
         val size = extractConstUnsignedInt(args[2]).toInt()
@@ -364,9 +506,9 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         // Note: LLVM allows to read without padding tail up to byte boundary, but the result seems to be incorrect.
 
         val bitsWithPaddingNum = prefixBitsNum + size + suffixBitsNum
-        val bitsWithPaddingType = LLVMIntTypeInContext(llvmContext, bitsWithPaddingNum)!!
+        val bitsWithPaddingType = LLVMIntTypeInContext(llvm.llvmContext, bitsWithPaddingNum)!!
 
-        val bitsWithPaddingPtr = bitcast(org.jetbrains.kotlin.backend.konan.llvm.pointerType(bitsWithPaddingType), gep(ptr, org.jetbrains.kotlin.backend.konan.llvm.Int64(offset / 8).llvm))
+        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(ptr, llvm.int64(offset / 8)))
         val bitsWithPadding = load(bitsWithPaddingPtr).setUnaligned()
 
         val bits = shr(
@@ -375,28 +517,28 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         )
         return when {
             bitsWithPaddingNum == 64 -> bits
-            bitsWithPaddingNum > 64 -> trunc(bits, org.jetbrains.kotlin.backend.konan.llvm.int64Type)
-            else -> ext(bits, org.jetbrains.kotlin.backend.konan.llvm.int64Type, signed)
+            bitsWithPaddingNum > 64 -> trunc(bits, llvm.int64Type)
+            else -> ext(bits, llvm.int64Type, signed)
         }
     }
 
     private fun FunctionGenerationContext.emitWriteBits(args: List<LLVMValueRef>): LLVMValueRef {
         val ptr = args[0]
-        assert(ptr.type == int8TypePtr)
+        assert(ptr.type == llvm.int8PtrType)
 
         val offset = extractConstUnsignedInt(args[1])
         val size = extractConstUnsignedInt(args[2]).toInt()
 
         val value = args[3]
-        assert(value.type == int64Type)
+        assert(value.type == llvm.int64Type)
 
-        val bitsType = LLVMIntTypeInContext(llvmContext, size)!!
+        val bitsType = LLVMIntTypeInContext(llvm.llvmContext, size)!!
 
         val prefixBitsNum = (offset % 8).toInt()
         val suffixBitsNum = (8 - ((size + offset) % 8).toInt()) % 8
 
         val bitsWithPaddingNum = prefixBitsNum + size + suffixBitsNum
-        val bitsWithPaddingType = LLVMIntTypeInContext(llvmContext, bitsWithPaddingNum)!!
+        val bitsWithPaddingType = LLVMIntTypeInContext(llvm.llvmContext, bitsWithPaddingNum)!!
 
         // 0011111000:
         val discardBitsMask = LLVMConstShl(
@@ -409,7 +551,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
         val preservedBitsMask = LLVMConstNot(discardBitsMask)!!
 
-        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(ptr, Int64(offset / 8).llvm))
+        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(ptr, llvm.int64(offset / 8)))
 
         val bits = trunc(value, bitsType)
 
@@ -422,7 +564,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
             or(bitsWithPadding, preservedBits)
         }
-        llvm.LLVMBuildStore(builder, bitsToStore, bitsWithPaddingPtr)!!.setUnaligned()
+        LLVMBuildStore(builder, bitsToStore, bitsWithPaddingPtr)!!.setUnaligned()
         return codegen.theUnitInstanceRef.llvm
     }
 
@@ -437,16 +579,12 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         val receiver = args[0]
         val superClass = args[1]
 
-        val structType = structType(kInt8Ptr, kInt8Ptr)
+        val structType = llvm.structType(llvm.int8PtrType, llvm.int8PtrType)
         val ptr = alloca(structType)
-        store(receiver, LLVMBuildGEP(builder, ptr, cValuesOf(kImmZero, kImmZero), 2, "")!!)
-        store(superClass, LLVMBuildGEP(builder, ptr, cValuesOf(kImmZero, kImmOne), 2, "")!!)
-        return bitcast(int8TypePtr, ptr)
+        store(receiver, LLVMBuildGEP(builder, ptr, cValuesOf(llvm.kImmInt32Zero, llvm.kImmInt32Zero), 2, "")!!)
+        store(superClass, LLVMBuildGEP(builder, ptr, cValuesOf(llvm.kImmInt32Zero, llvm.kImmInt32One), 2, "")!!)
+        return bitcast(llvm.int8PtrType, ptr)
     }
-
-    // TODO: Find better place for these guys.
-    private val kImmZero     = LLVMConstInt(int32Type,  0, 1)!!
-    private val kImmOne      = LLVMConstInt(int32Type,  1, 1)!!
 
     private fun FunctionGenerationContext.emitGetObjCClass(callSite: IrCall): LLVMValueRef {
         val typeArgument = callSite.getTypeArgument(0)
@@ -456,34 +594,31 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     private fun FunctionGenerationContext.emitObjCGetMessenger(args: List<LLVMValueRef>, isStret: Boolean): LLVMValueRef {
         val messengerNameSuffix = if (isStret) "_stret" else ""
 
-        val functionReturnType = LlvmRetType(int8TypePtr)
-        val functionParameterTypes = listOf(LlvmParamType(int8TypePtr), LlvmParamType(int8TypePtr))
+        val functionReturnType = LlvmRetType(llvm.int8PtrType)
+        val functionParameterTypes = listOf(LlvmParamType(llvm.int8PtrType), LlvmParamType(llvm.int8PtrType))
 
-        val libobjc = context.standardLlvmSymbolsOrigin
-        val normalMessenger = context.llvm.externalFunction(LlvmFunctionProto(
+        val normalMessenger = codegen.llvm.externalNativeRuntimeFunction(
                 "objc_msgSend$messengerNameSuffix",
                 functionReturnType,
                 functionParameterTypes,
-                isVararg = true,
-                origin = libobjc
-        ))
-        val superMessenger = context.llvm.externalFunction(LlvmFunctionProto(
+                isVararg = true
+        )
+        val superMessenger = codegen.llvm.externalNativeRuntimeFunction(
                 "objc_msgSendSuper$messengerNameSuffix",
                 functionReturnType,
                 functionParameterTypes,
-                isVararg = true,
-                origin = libobjc
-        ))
+                isVararg = true
+        )
 
         val superClass = args.single()
         val messenger = LLVMBuildSelect(builder,
-                If = icmpEq(superClass, kNullInt8Ptr),
-                Then = normalMessenger.llvmValue,
-                Else = superMessenger.llvmValue,
+                If = icmpEq(superClass, llvm.kNullInt8Ptr),
+                Then = normalMessenger.toConstPointer().llvm,
+                Else = superMessenger.toConstPointer().llvm,
                 Name = ""
         )!!
 
-        return bitcast(int8TypePtr, messenger)
+        return bitcast(llvm.int8PtrType, messenger)
     }
 
     private fun FunctionGenerationContext.emitAreEqualByValue(args: List<LLVMValueRef>): LLVMValueRef {
@@ -491,13 +626,13 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         assert (first.type == second.type) { "Types are different: '${llvmtype2string(first.type)}' and '${llvmtype2string(second.type)}'" }
 
         return when (val typeKind = LLVMGetTypeKind(first.type)) {
-            llvm.LLVMTypeKind.LLVMFloatTypeKind, llvm.LLVMTypeKind.LLVMDoubleTypeKind,
+            LLVMTypeKind.LLVMFloatTypeKind, LLVMTypeKind.LLVMDoubleTypeKind,
             LLVMTypeKind.LLVMVectorTypeKind -> {
                 // TODO LLVM API does not provide guarantee for LLVMIntTypeInContext availability for longer types; consider meaningful diag message instead of NPE
-                val integerType = LLVMIntTypeInContext(llvmContext, first.type.sizeInBits())!!
+                val integerType = LLVMIntTypeInContext(llvm.llvmContext, first.type.sizeInBits())!!
                 icmpEq(bitcast(integerType, first), bitcast(integerType, second))
             }
-            llvm.LLVMTypeKind.LLVMIntegerTypeKind, llvm.LLVMTypeKind.LLVMPointerTypeKind -> icmpEq(first, second)
+            LLVMTypeKind.LLVMIntegerTypeKind, LLVMTypeKind.LLVMPointerTypeKind -> icmpEq(first, second)
             else -> error(typeKind)
         }
     }
@@ -525,7 +660,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         ) { "Invalid vector element type ${LLVMGetTypeKind(callSite.llvmReturnType)}"}
 
         val elementCount = vectorSize / elementSize
-        emitThrowIfOOB(index, Int32((elementCount)).llvm)
+        emitThrowIfOOB(index, llvm.int32((elementCount)))
 
         val targetType = LLVMVectorType(callSite.llvmReturnType, elementCount)!!
         return extractElement(
@@ -571,11 +706,11 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
     private fun FunctionGenerationContext.emitShift(op: LLVMOpcode, args: List<LLVMValueRef>): LLVMValueRef {
         val (first, second) = args
-        val shift = if (first.type == int64Type) {
-            val tmp = and(second, Int32(63).llvm)
-            zext(tmp, int64Type)
+        val shift = if (first.type == llvm.int64Type) {
+            val tmp = and(second, llvm.int32(63))
+            zext(tmp, llvm.int64Type)
         } else {
-            and(second, Int32(31).llvm)
+            and(second, llvm.int32(31))
         }
         return LLVMBuildBinOp(builder, op, first, shift, "")!!
     }
@@ -739,8 +874,8 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         val (first, second) = args
         val equal = icmpEq(first, second)
         val less = if (signed) icmpLt(first, second) else icmpULt(first, second)
-        val tmp = select(less, Int32(-1).llvm, Int32(1).llvm)
-        return select(equal, Int32(0).llvm, tmp)
+        val tmp = select(less, llvm.int32(-1), llvm.int32(1))
+        return select(equal, llvm.int32(0), tmp)
     }
 
     private fun FunctionGenerationContext.emitSignedCompareTo(args: List<LLVMValueRef>) =
@@ -749,13 +884,13 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     private fun FunctionGenerationContext.emitUnsignedCompareTo(args: List<LLVMValueRef>) =
             emitCompareTo(args, signed = false)
 
-    private fun makeConstOfType(type: LLVMTypeRef, value: Int): LLVMValueRef = when (type) {
-        int8Type -> Int8(value.toByte()).llvm
-        int16Type -> Char16(value.toChar()).llvm
-        int32Type -> Int32(value).llvm
-        int64Type -> Int64(value.toLong()).llvm
-        floatType -> Float32(value.toFloat()).llvm
-        doubleType -> Float64(value.toDouble()).llvm
+    private fun FunctionGenerationContext.makeConstOfType(type: LLVMTypeRef, value: Int): LLVMValueRef = when (type) {
+        llvm.int8Type -> llvm.int8(value.toByte())
+        llvm.int16Type -> llvm.char16(value.toChar())
+        llvm.int32Type -> llvm.int32(value)
+        llvm.int64Type -> llvm.int64(value.toLong())
+        llvm.floatType -> llvm.float32(value.toFloat())
+        llvm.doubleType -> llvm.float64(value.toDouble())
         else -> context.reportCompilationError("Unexpected primitive type: $type")
     }
 }

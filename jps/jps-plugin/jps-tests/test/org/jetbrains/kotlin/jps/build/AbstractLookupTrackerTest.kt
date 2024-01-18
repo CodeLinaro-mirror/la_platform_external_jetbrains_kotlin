@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.jps.build
 import com.intellij.testFramework.RunAll
 import com.intellij.testFramework.UsefulTestCase
 import com.intellij.util.ThrowableRunnable
-import com.intellij.util.containers.Interner
 import org.jetbrains.kotlin.TestWithWorkingDir
 import org.jetbrains.kotlin.build.JvmSourceRoot
 import org.jetbrains.kotlin.cli.common.ExitCode
@@ -19,14 +18,13 @@ import org.jetbrains.kotlin.compilerRunner.*
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.incremental.components.LookupInfo
 import org.jetbrains.kotlin.incremental.components.LookupTracker
-import org.jetbrains.kotlin.incremental.components.Position
-import org.jetbrains.kotlin.incremental.components.ScopeKind
 import org.jetbrains.kotlin.incremental.isKotlinFile
 import org.jetbrains.kotlin.incremental.js.*
 import org.jetbrains.kotlin.incremental.makeModuleFile
 import org.jetbrains.kotlin.incremental.testingUtils.TouchPolicy
 import org.jetbrains.kotlin.incremental.testingUtils.copyTestSources
 import org.jetbrains.kotlin.incremental.testingUtils.getModificationsToPerform
+import org.jetbrains.kotlin.incremental.utils.TestLookupTracker
 import org.jetbrains.kotlin.incremental.utils.TestMessageCollector
 import org.jetbrains.kotlin.jps.build.fixtures.EnableICFixture
 import org.jetbrains.kotlin.jps.incremental.createTestingCompilerEnvironment
@@ -82,6 +80,7 @@ abstract class AbstractJvmLookupTrackerTest : AbstractLookupTrackerTest() {
             disableDefaultScriptingPlugin = true
             buildFile = moduleFile.canonicalPath
             reportOutputFiles = true
+            useFirLT = false
         }
         val argsArray = ArgumentUtils.convertArgumentsToStringList(args).toTypedArray()
 
@@ -106,7 +105,8 @@ abstract class AbstractJsKlibLookupTrackerTest : AbstractJsLookupTrackerTest() {
     override fun configureAdditionalArgs(args: K2JSCompilerArguments) {
         args.irProduceKlibDir = true
         args.irOnly = true
-        args.outputFile = outDir.resolve("out.klib").absolutePath
+        args.outputDir = outDir.normalize().absolutePath
+        args.moduleName = "out"
     }
 }
 
@@ -166,6 +166,8 @@ abstract class AbstractJsLookupTrackerTest : AbstractLookupTrackerTest() {
             libraries = libPaths.joinToString(File.pathSeparator)
             reportOutputFiles = true
             freeArgs = filesToCompile.map { it.canonicalPath }
+            forceDeprecatedLegacyCompilerUsage = true
+            useFirLT = false
         }
         configureAdditionalArgs(args)
         return runJSCompiler(args, env)
@@ -346,21 +348,3 @@ abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
         KotlinTestUtils.assertEqualsToFile("Lookups do not match after $step", expectedFile, actual)
     }
 }
-
-class TestLookupTracker : LookupTracker {
-    val lookups = arrayListOf<LookupInfo>()
-    private val interner = Interner.createStringInterner<String>()
-
-    override val requiresPosition: Boolean
-        get() = true
-
-    override fun record(filePath: String, position: Position, scopeFqName: String, scopeKind: ScopeKind, name: String) {
-        val internedFilePath = interner.intern(filePath)
-        val internedScopeFqName = interner.intern(scopeFqName)
-        val internedName = interner.intern(name)
-
-        lookups.add(LookupInfo(internedFilePath, position, internedScopeFqName, scopeKind, internedName))
-    }
-}
-
-

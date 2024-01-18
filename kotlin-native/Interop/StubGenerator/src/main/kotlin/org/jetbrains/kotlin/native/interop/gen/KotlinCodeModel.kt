@@ -162,6 +162,8 @@ data class KotlinFunctionType(
 }
 
 internal val cnamesStructsPackageName = "cnames.structs"
+internal val objcnamesClassesPackageName = "objcnames.classes"
+internal val objcnamesProtocolsPackageName = "objcnames.protocols"
 
 object KotlinTypes {
     val independent = Classifier.topLevel("kotlin.native.internal", "Independent")
@@ -187,7 +189,7 @@ object KotlinTypes {
     val map by CollectionClassifier
 
     val nativePtr by InteropType
-    val vector128 by KotlinNativeType
+    val vector128 by InteropType
 
     val cOpaque by InteropType
     val cOpaquePointer by InteropType
@@ -221,6 +223,8 @@ object KotlinTypes {
     val objCNotImplementedVar by InteropClassifier
 
     val cValue by InteropClassifier
+
+    val experimentalForeignApi by InteropClassifier
 
     private open class ClassifierAtPackage(val pkg: String) {
         operator fun getValue(thisRef: KotlinTypes, property: KProperty<*>): Classifier =

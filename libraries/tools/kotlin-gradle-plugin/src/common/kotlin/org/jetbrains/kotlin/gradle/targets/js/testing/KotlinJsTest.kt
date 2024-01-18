@@ -6,23 +6,29 @@
 package org.jetbrains.kotlin.gradle.targets.js.testing
 
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectSet
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import org.gradle.process.internal.DefaultProcessForkOptions
+import org.gradle.work.DisableCachingByDefault
+import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.testing.mocha.KotlinMocha
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
 import org.jetbrains.kotlin.gradle.utils.getValue
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 import javax.inject.Inject
 
+@DisableCachingByDefault
 abstract class KotlinJsTest
 @Inject
 constructor(
@@ -32,15 +38,9 @@ constructor(
 ) : KotlinTest(),
     RequiresNpmDependencies {
     @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
-
-    private val npmResolutionManager by project.provider { nodeJs.npmResolutionManager }
+    private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
     private val nodeExecutable by project.provider { nodeJs.requireConfigured().nodeExecutable }
-
-    private val npmProjectDir by project.provider { compilation.npmProject.dir }
-
-    private val projectPath = project.path
 
     @Input
     var environment = mutableMapOf<String, String>()
@@ -49,21 +49,16 @@ constructor(
     var testFramework: KotlinJsTestFramework? = null
         set(value) {
             field = value
-            onTestFrameworkCallbacks.forEach { callback ->
-                callback(value)
+            onTestFrameworkCallbacks.all { callback ->
+                callback.execute(value)
             }
         }
 
-    private var onTestFrameworkCallbacks: MutableList<(KotlinJsTestFramework?) -> Unit> =
-        mutableListOf()
+    private var onTestFrameworkCallbacks: DomainObjectSet<Action<KotlinJsTestFramework?>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectSet<Action<KotlinJsTestFramework?>>
 
-    fun onTestFrameworkSet(action: (KotlinJsTestFramework?) -> Unit) {
+    fun onTestFrameworkSet(action: Action<KotlinJsTestFramework?>) {
         onTestFrameworkCallbacks.add(action)
-        testFramework?.let { testFramework: KotlinJsTestFramework ->
-            onTestFrameworkCallbacks.forEach { callback ->
-                callback(testFramework)
-            }
-        }
     }
 
     @Suppress("unused")
@@ -72,6 +67,7 @@ constructor(
 
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @InputFile
+    @NormalizeLineEndings
     val inputFileProperty: RegularFileProperty = project.newFileProperty()
 
     @Input
@@ -80,6 +76,7 @@ constructor(
     @Suppress("unused")
     @get:PathSensitive(PathSensitivity.ABSOLUTE)
     @get:IgnoreEmptyDirectories
+    @get:NormalizeLineEndings
     @get:InputFiles
     val runtimeClasspath: FileCollection by lazy {
         compilation.runtimeDependencyFiles
@@ -88,6 +85,7 @@ constructor(
     @Suppress("unused")
     @get:IgnoreEmptyDirectories
     @get:InputFiles
+    @get:NormalizeLineEndings
     @get:PathSensitive(PathSensitivity.ABSOLUTE)
     internal val compilationOutputs: FileCollection by lazy {
         compilation.output.allOutputs
@@ -102,8 +100,9 @@ constructor(
         }
     }
 
-    override val nodeModulesRequired: Boolean
-        @Internal get() = testFramework!!.nodeModulesRequired
+    @Input
+    val nodeJsArgs: MutableList<String> =
+        mutableListOf()
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         @Internal get() = testFramework!!.requiredNpmDependencies
@@ -156,21 +155,14 @@ constructor(
         return testFramework
     }
 
-    override fun executeTests() {
-        npmResolutionManager.checkRequiredDependencies(task = this, services = services, logger = logger, projectPath = projectPath)
-        super.executeTests()
-    }
-
     override fun createTestExecutionSpec(): TCServiceMessagesTestExecutionSpec {
         val forkOptions = DefaultProcessForkOptions(fileResolver)
-        forkOptions.workingDir = npmProjectDir
+        forkOptions.workingDir = testFramework!!.workingDir.toFile()
         forkOptions.executable = nodeExecutable
 
         environment.forEach { (key, value) ->
             forkOptions.environment(key, value)
         }
-
-        val nodeJsArgs = mutableListOf<String>()
 
         return testFramework!!.createTestExecutionSpec(
             task = this,

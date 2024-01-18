@@ -1,6 +1,14 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 31
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, typealiases, enumClasses, properties, interfaces, sealedClasses
+ */
 
 /*
  * TESTCASE NUMBER: 1
@@ -39,11 +47,11 @@ fun case_2(x: Class?) {
  */
 fun case_3(x: Any?) {
     if ((x as Class?)?.prop_8?.prop_8?.prop_8?.prop_8 == null) else {
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class?")!>x<!>
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class?")!>x<!><!UNSAFE_CALL!>.<!>prop_8
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class?")!>x<!><!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class?")!>x<!><!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
-        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class?")!>x<!><!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class")!>x<!>
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class")!>x<!>.prop_8
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class")!>x<!>.prop_8<!UNSAFE_CALL!>.<!>prop_8
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class")!>x<!>.prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
+        <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any? & Class")!>x<!>.prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
     }
 }
 
@@ -88,7 +96,7 @@ fun case_6(x: Class?) {
         <!DEBUG_INFO_EXPRESSION_TYPE("Class? & Class")!>x<!>.prop_8
         <!DEBUG_INFO_EXPRESSION_TYPE("Class? & Class")!>x<!>.prop_8.prop_8
         <!DEBUG_INFO_EXPRESSION_TYPE("Class? & Class")!>x<!>.prop_8.prop_8.prop_8
-        <!DEBUG_INFO_EXPRESSION_TYPE("Class? & Class")!>x<!>.prop_8.prop_8.prop_8<!UNSAFE_CALL!>.<!>prop_8<!UNSAFE_CALL!>.<!>prop_8
+        <!DEBUG_INFO_EXPRESSION_TYPE("Class? & Class")!>x<!>.prop_8.prop_8.prop_8.prop_8<!UNSAFE_CALL!>.<!>prop_8
     }
 }
 

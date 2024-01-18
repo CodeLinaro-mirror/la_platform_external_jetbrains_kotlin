@@ -148,7 +148,7 @@ class BuildCacheIT : KGPBaseTest() {
     @DisplayName("Restore from build cache should not break incremental compilation")
     @GradleTest
     fun testIncrementalCompilationAfterCacheHit(gradleVersion: GradleVersion) {
-        project("incrementalMultiproject", gradleVersion, buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true)) {
+        project("incrementalMultiproject", gradleVersion, buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, useGradleClasspathSnapshot = false)) {
             enableLocalBuildCache(localBuildCacheDir)
             build("assemble")
             build("clean", "assemble") {
@@ -159,11 +159,45 @@ class BuildCacheIT : KGPBaseTest() {
 
             bKtSourceFile.modify { it.replace("fun b() {}", "fun b() {}\nfun b2() {}") }
 
-            build("assemble", buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, logLevel = LogLevel.DEBUG)) {
+            build("assemble", buildOptions = defaultBuildOptions.copy(useICClasspathSnapshot = true, useGradleClasspathSnapshot = false, logLevel = LogLevel.DEBUG)) {
                 assertIncrementalCompilation(expectedCompiledKotlinFiles = setOf(bKtSourceFile).map { it.relativeTo(projectPath)})
                 assertOutputContains("Incremental compilation with ABI snapshot enabled")
             }
         }
     }
 
+    @DisplayName("Restore from build cache and consequent compilation error should not break incremental compilation")
+    @GradleTest
+    fun testIncrementalCompilationAfterCacheHitAndCompilationError(gradleVersion: GradleVersion) {
+        project("incrementalMultiproject", gradleVersion) {
+            enableLocalBuildCache(localBuildCacheDir)
+            build("assemble")
+            build("clean", "assemble") {
+                assertTasksFromCache(":lib:compileKotlin")
+                assertTasksFromCache(":app:compileKotlin")
+            }
+            val bKtSourceFile = projectPath.resolve("lib/src/main/kotlin/bar/B.kt")
+
+            bKtSourceFile.modify { it.replace("fun b() {}", "fun b() {}\nfun b2) {}") }
+
+            buildAndFail("assemble", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+                assertTasksFailed(":lib:compileKotlin")
+                assertOutputDoesNotContain("On recompilation full rebuild will be performed")
+                val affectedFiles = setOf(
+                    bKtSourceFile,
+                )
+                assertCompiledKotlinSources(affectedFiles.relativizeTo(projectPath), output)
+            }
+
+            bKtSourceFile.modify { it.replace("fun b2) {}", "fun b2() {}") }
+
+            build("assemble", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+                val affectedFiles = setOf(
+                    bKtSourceFile,
+                    subProject("app").kotlinSourcesDir().resolve("foo/BB.kt"),
+                )
+                assertIncrementalCompilation(expectedCompiledKotlinFiles = affectedFiles.relativizeTo(projectPath))
+            }
+        }
+    }
 }

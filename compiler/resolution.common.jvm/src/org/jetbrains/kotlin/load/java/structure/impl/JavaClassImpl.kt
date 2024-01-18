@@ -25,20 +25,26 @@ import org.jetbrains.kotlin.asJava.KtLightClassMarker
 import org.jetbrains.kotlin.asJava.isSyntheticValuesOrValueOfMethod
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.load.java.structure.*
+import org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementPsiSource
+import org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementSourceFactory
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtPsiUtil
 
-class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass), VirtualFileBoundJavaClass, JavaAnnotationOwnerImpl, JavaModifierListOwnerImpl {
+class JavaClassImpl(psiClassSource: JavaElementPsiSource<PsiClass>) : JavaClassifierImpl<PsiClass>(psiClassSource), VirtualFileBoundJavaClass, JavaAnnotationOwnerImpl, JavaModifierListOwnerImpl {
+
+    @SuppressWarnings("unused") // used in KSP
+    constructor(psiClass: PsiClass) : this(JavaElementSourceFactory.getInstance(psiClass.project).createPsiSource(psiClass))
+
     init {
-        assert(psiClass !is PsiTypeParameter) { "PsiTypeParameter should be wrapped in JavaTypeParameter, not JavaClass: use JavaClassifier.create()" }
+        assert(psiClassSource.psi !is PsiTypeParameter) { "PsiTypeParameter should be wrapped in JavaTypeParameter, not JavaClass: use JavaClassifier.create()" }
     }
 
     override val innerClassNames: Collection<Name>
         get() = psi.innerClasses.mapNotNull { it.name?.takeIf(Name::isValidIdentifier)?.let(Name::identifier) }
 
     override fun findInnerClass(name: Name): JavaClass? {
-        return psi.findInnerClassByName(name.asString(), false)?.let(::JavaClassImpl)
+        return psi.findInnerClassByName(name.asString(), false)?.let { JavaClassImpl(psiElementSource.factory.createPsiSource(it)) }
     }
 
     override val fqName: FqName?
@@ -63,7 +69,9 @@ class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass)
         get() = JavaElementUtil.isSealed(this)
 
     override val permittedTypes: Collection<JavaClassifierType>
-        get() = classifierTypes(psi.permitsListTypes)
+        get() = psi.permitsListTypes.convertIndexed { index, _ ->
+            JavaClassifierTypeImpl(sourceFactory.createPermittedTypeSource(psiElementSource, index))
+        }
 
     override val isRecord: Boolean
         get() = psi.isRecord
@@ -71,14 +79,16 @@ class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass)
     override val outerClass: JavaClassImpl?
         get() {
             val outer = psi.containingClass
-            return if (outer == null) null else JavaClassImpl(outer)
+            return if (outer == null) null else JavaClassImpl(psiElementSource.factory.createPsiSource(outer))
         }
 
     override val typeParameters: List<JavaTypeParameter>
-        get() = typeParameters(psi.typeParameters)
+        get() = typeParameters(psi.typeParameters, sourceFactory)
 
     override val supertypes: Collection<JavaClassifierType>
-        get() = classifierTypes(psi.superTypes)
+        get() = psi.superTypes.convertIndexed { index, _ ->
+            JavaClassifierTypeImpl(sourceFactory.createSuperTypeSource(psiElementSource, index))
+        }
 
     override val methods: Collection<JavaMethod>
         get() {
@@ -88,7 +98,8 @@ class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass)
             return methods(
                 psi.methods.filter { method ->
                     !method.isConstructor && method.returnType != null && !(isEnum && isSyntheticValuesOrValueOfMethod(method))
-                }
+                },
+                sourceFactory,
             ).distinct()
         }
 
@@ -98,7 +109,7 @@ class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass)
             return fields(psi.fields.filter {
                 // ex. Android plugin generates LightFields for resources started from '.' (.DS_Store file etc)
                 Name.isValidIdentifier(it.name)
-            })
+            }, sourceFactory)
         }
 
     override val constructors: Collection<JavaConstructor>
@@ -106,14 +117,14 @@ class JavaClassImpl(psiClass: PsiClass) : JavaClassifierImpl<PsiClass>(psiClass)
             assertNotLightClass()
             // See for example org.jetbrains.plugins.scala.lang.psi.light.ScFunctionWrapper,
             // which is present in getConstructors(), but its isConstructor() returns false
-            return constructors(psi.constructors.filter { method -> method.isConstructor })
+            return constructors(psi.constructors.filter { method -> method.isConstructor }, sourceFactory)
         }
 
     override val recordComponents: Collection<JavaRecordComponent>
         get() {
             assertNotLightClass()
 
-            return psi.recordComponents.convert(::JavaRecordComponentImpl)
+            return psi.recordComponents.convert { JavaRecordComponentImpl(psiElementSource.factory.createPsiSource(it)) }
         }
 
     override fun hasDefaultConstructor() = !isInterface && constructors.isEmpty()

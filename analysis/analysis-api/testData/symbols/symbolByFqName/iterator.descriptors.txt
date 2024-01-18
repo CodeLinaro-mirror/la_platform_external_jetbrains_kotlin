@@ -3,7 +3,10 @@ KtNamedClassOrObjectSymbol:
   classIdIfNonLocal: kotlin/collections/Iterator
   classKind: INTERFACE
   companionObject: null
+  contextReceivers: []
+  isActual: false
   isData: false
+  isExpect: false
   isExternal: false
   isFun: false
   isInline: false
@@ -12,13 +15,17 @@ KtNamedClassOrObjectSymbol:
   name: Iterator
   origin: LIBRARY
   superTypes: [
-    kotlin/Any
+    KtUsualClassType:
+      annotationsList: []
+      ownTypeArguments: []
+      type: kotlin/Any
   ]
   symbolKind: TOP_LEVEL
   typeParameters: [
     KtTypeParameterSymbol(T)
   ]
   visibility: Public
-  getContainingModule: Could not render due to kotlin.NotImplementedError: An operation is not implemented: deserialized class Iterator
+  getContainingModule: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KtFe10DescNamedClassOrObjectSymbol
 
+  annotationApplicableTargets: null
   deprecationStatus: null

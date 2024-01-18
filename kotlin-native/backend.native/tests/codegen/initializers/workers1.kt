@@ -14,12 +14,12 @@ import kotlin.native.concurrent.*
 
 class Z(val x: Int)
 
-@SharedImmutable
 val z1 = Z(42)
 
 val z2 = Z(x.s.length)
 
 // FILE: main.kt
+@file:OptIn(ObsoleteWorkersApi::class)
 import kotlin.native.concurrent.*
 
 fun foo() {

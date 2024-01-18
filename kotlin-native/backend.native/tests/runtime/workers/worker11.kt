@@ -3,11 +3,12 @@
  * that can be found in the LICENSE file.
  */
 
-@file:OptIn(FreezingIsDeprecated::class)
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class, FreezingIsDeprecated::class, ObsoleteWorkersApi::class)
 package runtime.workers.worker11
 
 import kotlin.test.*
-
+import kotlin.concurrent.AtomicInt
+import kotlin.concurrent.*
 import kotlin.native.concurrent.*
 import kotlinx.cinterop.convert
 
@@ -49,7 +50,6 @@ fun initJobs(count: Int) = Array<Job?>(count) { i -> Job(i, i * 2, i)}
 
 val COUNT = 2
 
-@SharedImmutable
 val counters = Array(COUNT) { AtomicInt(0) }
 
 @Test fun runTest1() {
@@ -79,7 +79,7 @@ val counters = Array(COUNT) { AtomicInt(0) }
           workerIndex
       }) { index ->
           assertEquals(0, counters[index].value)
-          counters[index].increment()
+          counters[index].incrementAndGet()
       }
   }
   futures2.forEach { it.result }

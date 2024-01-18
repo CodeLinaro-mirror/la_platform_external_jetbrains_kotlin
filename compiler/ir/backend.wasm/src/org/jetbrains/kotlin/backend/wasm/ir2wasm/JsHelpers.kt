@@ -5,17 +5,21 @@
 
 package org.jetbrains.kotlin.backend.wasm.ir2wasm
 
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.jsAssignment
-import org.jetbrains.kotlin.js.backend.ast.JsArrayLiteral
-import org.jetbrains.kotlin.js.backend.ast.JsBlock
-import org.jetbrains.kotlin.js.backend.ast.JsNameRef
-import org.jetbrains.kotlin.js.backend.ast.JsStringLiteral
+import org.jetbrains.kotlin.js.backend.JsToStringGenerationVisitor
+import java.util.Base64
 
-fun generateStringLiteralsSupport(literals: List<String>): String {
-    return JsBlock(
-        jsAssignment(
-            JsNameRef("stringLiterals", "runtime"),
-            JsArrayLiteral(literals.map { JsStringLiteral(it) })
-        ).makeStmt()
-    ).toString()
+fun String.toJsStringLiteral(): CharSequence =
+    JsToStringGenerationVisitor.javaScriptString(this)
+
+data class JsModuleAndQualifierReference(
+    val module: String?,
+    val qualifier: String?,
+) {
+    val jsVariableName = run {
+        // Encode variable name as base64 to have a valid unique JS identifier
+        val encoder = Base64.getEncoder().withoutPadding()
+        val moduleBase64 = module?.let { encoder.encodeToString(module.encodeToByteArray()) }.orEmpty()
+        val qualifierBase64 = qualifier?.let { encoder.encodeToString(qualifier.encodeToByteArray()) }.orEmpty()
+        "_ref_${moduleBase64}_$qualifierBase64"
+    }
 }

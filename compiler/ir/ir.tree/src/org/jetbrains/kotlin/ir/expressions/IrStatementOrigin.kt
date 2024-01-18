@@ -90,6 +90,10 @@ interface IrStatementOrigin {
 
     object BRIDGE_DELEGATION : IrStatementOriginImpl("BRIDGE_DELEGATION")
 
+    object SYNTHETIC_NOT_AUTOBOXED_CHECK : IrStatementOriginImpl("SYNTHETIC_NOT_AUTOBOXED_CHECK")
+
+    object PARTIAL_LINKAGE_RUNTIME_ERROR : IrStatementOriginImpl("PARTIAL_LINKAGE_RUNTIME_ERROR")
+
     data class COMPONENT_N private constructor(val index: Int) : IrStatementOriginImpl("COMPONENT_$index") {
         companion object {
             private val precreatedComponents = Array(32) { i -> COMPONENT_N(i + 1) }

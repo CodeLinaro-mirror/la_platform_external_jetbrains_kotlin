@@ -5,47 +5,88 @@
 
 package org.jetbrains.kotlin.analysis.project.structure.impl
 
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiFileSystemItem
 import com.intellij.psi.PsiJavaFile
+import com.intellij.util.containers.ContainerUtil
+import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtStaticProjectStructureProvider
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.StandaloneProjectFactory.findJvmRootsForJavaFiles
+import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirBuiltinsSessionFactory
 import org.jetbrains.kotlin.analysis.project.structure.*
+import org.jetbrains.kotlin.platform.TargetPlatform
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.analysisContext
+import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
+import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
 
 internal class KtModuleProviderImpl(
-    internal val mainModules: List<KtModule>,
-) : ProjectStructureProvider() {
-    override fun getKtModuleForKtElement(element: PsiElement): KtModule {
-        val containingFileAsPsiFile = element.containingFile
-            ?: error("Can't get containing PsiFile for ${element.text}")
-        // If an [element] is created on the fly, e.g., via [KtPsiFactory],
-        // its containing [PsiFile] may not have [VirtualFile].
-        // That also means the [element] is not bound to any [KtModule] either.
-        val containingFileAsVirtualFile = containingFileAsPsiFile.virtualFile
-            ?: error("Can't get containing VirtualFile for ${element.text} in $containingFileAsPsiFile")
-        return mainModules.first { module ->
-            containingFileAsVirtualFile in module.contentScope
-        }
+    private val platform: TargetPlatform,
+    private val project: Project,
+    override val allKtModules: List<KtModule>,
+) : KtStaticProjectStructureProvider() {
+    private val ktNotUnderContentRootModuleWithoutPsiFile by lazy {
+        KtNotUnderContentRootModuleImpl(
+            name = "unnamed-outside-content-root",
+            moduleDescription = "Standalone-not-under-content-root-module-without-psi-file",
+            project = project,
+        )
     }
 
-    private val binaryModules: Collection<KtBinaryModule> by lazy {
-        mainModules
+    private val notUnderContentRootModuleCache = ContainerUtil.createConcurrentWeakMap<PsiFile, KtNotUnderContentRootModule>()
+
+    private val builtinsModule: KtBuiltinsModule by lazy {
+        LLFirBuiltinsSessionFactory.getInstance(project).getBuiltinsSession(platform).ktModule as KtBuiltinsModule
+    }
+
+    @OptIn(KtModuleStructureInternals::class)
+    override fun getModule(element: PsiElement, contextualModule: KtModule?): KtModule {
+        val containingFileAsPsiFile = element.containingFile
+            ?: return ktNotUnderContentRootModuleWithoutPsiFile
+        // If an [element] is created on the fly, e.g., via [KtPsiFactory],
+        // its containing [PsiFile] may not have [VirtualFile].
+        // We can attempt to use an associated [analysisContext] (from [KtPsiFactory]) if any.
+        // If both fail, the [element] is not bound to any [KtModule], and we bail out early
+        // by returning a [KtNotUnderContentRootModule] (for that specific unbound file).
+        val containingFileAsVirtualFile = containingFileAsPsiFile.virtualFile
+            ?: (containingFileAsPsiFile as? KtFile)?.analysisContext?.containingFile?.virtualFile
+            ?: return notUnderContentRootModuleCache.getOrPut(containingFileAsPsiFile) {
+                KtNotUnderContentRootModuleImpl(
+                    name = containingFileAsPsiFile.name,
+                    moduleDescription = "Standalone-not-under-content-root-module-for-$containingFileAsPsiFile",
+                    file = containingFileAsPsiFile,
+                    project = project,
+                )
+            }
+
+        if (containingFileAsVirtualFile.extension == BuiltInSerializerProtocol.BUILTINS_FILE_EXTENSION) {
+            return builtinsModule
+        }
+
+        containingFileAsVirtualFile.analysisExtensionFileContextModule?.let { return it }
+
+        return allKtModules.firstOrNull { module ->
+            containingFileAsVirtualFile in module.contentScope
+        }
+            ?: throw KotlinExceptionWithAttachments("Cannot find KtModule; see the attachment for more details.")
+                .withAttachment(
+                    containingFileAsVirtualFile.path,
+                    allKtModules.joinToString(separator = System.lineSeparator()) { it.asDebugString() }
+                )
+    }
+
+    internal val binaryModules: List<KtBinaryModule> by lazy {
+        allKtModules
             .flatMap { it.allDirectDependencies() }
             .filterIsInstance<KtBinaryModule>()
     }
 
-    override fun getKtBinaryModules(): Collection<KtBinaryModule> {
-        return binaryModules
-    }
-
-    override fun getStdlibWithBuiltinsModule(module: KtModule): KtLibraryModule? {
-        return binaryModules
-            .filterIsInstance<KtLibraryModuleImpl>()
-            .firstOrNull { it.isBuiltinsContainingStdlib }
-    }
-
-    internal fun allSourceFiles(): List<PsiFileSystemItem> = buildList {
-        val files = mainModules.mapNotNull { (it as? KtSourceModuleImpl)?.sourceRoots }.flatten()
-        addAll(files)
-        addAll(findJvmRootsForJavaFiles(files.filterIsInstance<PsiJavaFile>()))
+    override val allSourceFiles: List<PsiFileSystemItem> by lazy {
+        buildList {
+            val files = allKtModules.mapNotNull { (it as? KtSourceModuleImpl)?.sourceRoots }.flatten()
+            addAll(files)
+            addAll(findJvmRootsForJavaFiles(files.filterIsInstance<PsiJavaFile>()))
+        }
     }
 }

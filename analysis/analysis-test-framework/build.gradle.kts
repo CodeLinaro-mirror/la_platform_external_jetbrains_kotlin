@@ -4,19 +4,24 @@ plugins {
 }
 
 dependencies {
-    testApi(kotlinStdlib())
-    testApi(intellijCore())
-    testApiJUnit5()
+    testImplementation(kotlinStdlib())
+    testImplementation(intellijCore())
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
 
-    testApi(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(project(":kotlin-test:kotlin-test-junit"))
     testImplementation(project(":analysis:analysis-internal-utils"))
-    testApi(project(":compiler:psi"))
-    testApi(project(":analysis:kt-references"))
+    testImplementation(project(":compiler:psi"))
+    testImplementation(project(":analysis:kt-references"))
     testApi(projectTests(":compiler:tests-common-new"))
-    testApi(project(":analysis:analysis-api-providers"))
-    testApi(project(":analysis:analysis-api"))
+    testApi(projectTests(":compiler:tests-common"))
+    testImplementation(project(":analysis:analysis-api-providers"))
+    testImplementation(project(":analysis:analysis-api"))
     testApi(project(":analysis:analysis-api-standalone:analysis-api-standalone-base"))
-    testApi(project(":analysis:analysis-api-impl-barebone"))
+    testApi(project(":analysis:analysis-api-standalone:analysis-api-fir-standalone-base"))
+    testImplementation(project(":analysis:analysis-api-impl-barebone"))
+    testImplementation(project(":analysis:analysis-api-impl-base"))
 }
 
 sourceSets {
@@ -25,7 +30,6 @@ sourceSets {
 }
 
 projectTest(jUnitMode = JUnitMode.JUnit5) {
-    dependsOn(":dist")
     dependsOn(":plugins:fir-plugin-prototype:plugin-annotations:jar")
     workingDir = rootDir
     useJUnitPlatform()

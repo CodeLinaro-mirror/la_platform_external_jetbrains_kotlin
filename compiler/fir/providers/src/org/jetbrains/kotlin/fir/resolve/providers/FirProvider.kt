@@ -8,11 +8,10 @@ package org.jetbrains.kotlin.fir.resolve.providers
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirScriptSymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -38,6 +37,10 @@ abstract class FirProvider : FirSessionComponent {
         getFirClassifierContainerFileIfAny(symbol.classId)
 
     abstract fun getFirCallableContainerFile(symbol: FirCallableSymbol<*>): FirFile?
+
+    abstract fun getFirScriptContainerFile(symbol: FirScriptSymbol): FirFile?
+
+    abstract fun getFirScriptByFilePath(path: String): FirScriptSymbol?
 
     abstract fun getFirFilesByPackage(fqName: FqName): List<FirFile>
 

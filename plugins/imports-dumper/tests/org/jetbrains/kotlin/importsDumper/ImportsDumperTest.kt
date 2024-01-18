@@ -57,6 +57,8 @@ class ImportsDumperTest : TestCaseWithTmpdir() {
                 testDataDir.absolutePath,
                 "-d",
                 tmpDir.path,
+                "-language-version",
+                "1.9",
                 "-Xplugin=${importsDumperJarInDist.path}",
                 "-P",
                 "plugin:${ImportsDumperCommandLineProcessor.PLUGIN_ID}:" +
@@ -64,12 +66,12 @@ class ImportsDumperTest : TestCaseWithTmpdir() {
             )
         )
 
-        return getNormalizedCompilerOutput(output, exitCode, testDataDir.path)
+        return getNormalizedCompilerOutput(output, exitCode, testDataDir.path, tmpDir.absolutePath)
     }
 }
 
 private fun String.relativizeAbsolutePaths(relativeTo: File): String {
     // JSON escapes slashes
-    val pattern = relativeTo.absoluteFile.toString().replace("/", "\\/")
+    val pattern = relativeTo.absoluteFile.toString().replace(File.separatorChar.toString(), "/")
     return this.replace(pattern, "\$TESTDATA_DIR$")
 }

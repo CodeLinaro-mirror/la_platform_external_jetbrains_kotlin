@@ -1,5 +1,10 @@
+// FIR_IDENTICAL
 // WITH_STDLIB
 // WITH_REFLECT
+// DUMP_LOCAL_DECLARATION_SIGNATURES
+
+// MUTE_SIGNATURE_COMPARISON_K2: ANY
+// ^ KT-57430
 
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
@@ -10,7 +15,7 @@ class SettingType<out V : Any>(
 )
 
 class SettingReference<V : Any, T : SettingType<V>>(
-    var t : T
+    var t : T,
     var v : V
 )
 

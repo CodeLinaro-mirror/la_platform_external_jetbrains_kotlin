@@ -8,17 +8,12 @@ package org.jetbrains.kotlin.backend.konan.llvm
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.isExpectMember
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
-import org.jetbrains.kotlin.descriptors.konan.CompiledKlibModuleOrigin
-import org.jetbrains.kotlin.descriptors.konan.SyntheticModulesOrigin
-import org.jetbrains.kotlin.descriptors.konan.klibModuleOrigin
-import org.jetbrains.kotlin.konan.library.KonanLibrary
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
+import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
+import org.jetbrains.kotlin.library.metadata.CompiledKlibModuleOrigin
+import org.jetbrains.kotlin.library.metadata.SyntheticModulesOrigin
+import org.jetbrains.kotlin.library.metadata.klibModuleOrigin
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
-
-internal interface LlvmImports {
-    fun add(origin: CompiledKlibModuleOrigin, onlyBitcode: Boolean = false)
-    fun bitcodeIsUsed(library: KonanLibrary): Boolean
-    fun nativeDependenciesAreUsed(library: KonanLibrary): Boolean
-}
 
 internal val DeclarationDescriptor.llvmSymbolOrigin: CompiledKlibModuleOrigin
     get() {
@@ -33,3 +28,7 @@ internal val DeclarationDescriptor.llvmSymbolOrigin: CompiledKlibModuleOrigin
     }
 
 internal val Context.standardLlvmSymbolsOrigin: CompiledKlibModuleOrigin get() = this.stdlibModule.llvmSymbolOrigin
+
+@OptIn(ObsoleteDescriptorBasedAPI::class)
+internal val IrPackageFragment.llvmSymbolOrigin
+    get() = packageFragmentDescriptor.llvmSymbolOrigin

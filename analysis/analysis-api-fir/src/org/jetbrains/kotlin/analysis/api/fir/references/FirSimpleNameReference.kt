@@ -12,11 +12,14 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirNamedClassOrObjectSymb
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSyntheticJavaPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
+import org.jetbrains.kotlin.fir.expressions.FirLoopJump
+import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.resolve.references.ReferenceAccess
 
 internal class KtFirSimpleNameReference(
-    expression: KtSimpleNameExpression
+    expression: KtSimpleNameExpression,
+    val isRead: Boolean,
 ) : KtSimpleNameReference(expression), KtFirReference {
 
     private val isAnnotationCall: Boolean
@@ -45,16 +48,23 @@ internal class KtFirSimpleNameReference(
     }
 
     override fun getResolvedToPsi(analysisSession: KtAnalysisSession): Collection<PsiElement> = with(analysisSession) {
+        if (expression is KtLabelReferenceExpression) {
+            val fir = expression.getOrBuildFir((analysisSession as KtFirAnalysisSession).firResolveSession)
+            if (fir is FirLoopJump) {
+                return listOfNotNull(fir.target.labeledElement.psi)
+            }
+        }
         val referenceTargetSymbols = resolveToSymbols()
         val psiOfReferenceTarget = super.getResolvedToPsi(analysisSession, referenceTargetSymbols)
         if (psiOfReferenceTarget.isNotEmpty()) return psiOfReferenceTarget
         referenceTargetSymbols.flatMap { symbol ->
             when (symbol) {
                 is KtFirSyntheticJavaPropertySymbol ->
-                    when (expression.readWriteAccess(useResolveForReadWrite = true)) {
-                        ReferenceAccess.READ -> listOfNotNull(symbol.javaGetterSymbol.psi)
-                        ReferenceAccess.WRITE -> listOfNotNull(symbol.javaSetterSymbol?.psi)
-                        ReferenceAccess.READ_WRITE -> listOfNotNull(symbol.javaGetterSymbol.psi, symbol.javaSetterSymbol?.psi)
+                    if (isRead) {
+                        listOfNotNull(symbol.javaGetterSymbol.psi)
+                    } else {
+                        if (symbol.javaSetterSymbol == null) listOfNotNull(symbol.javaGetterSymbol.psi)
+                        else listOfNotNull(symbol.javaSetterSymbol?.psi)
                     }
                 else -> listOfNotNull(symbol.psi)
             }

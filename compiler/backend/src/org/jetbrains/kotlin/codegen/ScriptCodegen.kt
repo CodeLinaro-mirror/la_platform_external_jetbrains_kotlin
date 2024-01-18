@@ -42,7 +42,7 @@ class ScriptCodegen private constructor(
     override fun generateDeclaration() {
         v.defineClass(
                 scriptDeclaration,
-                state.classFileVersion,
+                state.config.classFileVersion,
                 ACC_PUBLIC or ACC_SUPER,
                 classAsmType.internalName,
                 null,
@@ -68,9 +68,12 @@ class ScriptCodegen private constructor(
     override fun generateSyntheticPartsAfterBody() {}
 
     override fun generateKotlinMetadataAnnotation() {
-        val serializer = DescriptorSerializer.create(scriptDescriptor, JvmSerializerExtension(v.serializationBindings, state), null)
+        val serializer = DescriptorSerializer.create(
+            scriptDescriptor, JvmSerializerExtension(v.serializationBindings, state), null,
+            state.config.languageVersionSettings,
+        )
         val classProto = serializer.classProto(scriptDescriptor).build()
-        writeKotlinMetadata(v, state, KotlinClassHeader.Kind.CLASS, false, JvmAnnotationNames.METADATA_SCRIPT_FLAG) { av ->
+        writeKotlinMetadata(v, state.config, KotlinClassHeader.Kind.CLASS, false, JvmAnnotationNames.METADATA_SCRIPT_FLAG) { av ->
             DescriptorAsmUtil.writeAnnotationData(av, serializer, classProto)
         }
     }

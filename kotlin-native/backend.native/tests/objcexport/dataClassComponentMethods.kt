@@ -5,7 +5,17 @@
 
 package dataClassComponentMethods
 
-data class DataClassWithComponentMethods(val x: Int, val y: Int)
+data class DataClassWithExplicitComponentMethod(val x: Int, val y: Int) {
+    fun component1(arg: Int): Int {
+        return arg + x
+    }
+}
+
+interface ComponentInterface {
+    fun component1(): Int
+}
+
+data class DataClassWithInheritedComponentMethod(val x: Int) : ComponentInterface
 
 class RegularClassWithComponentMethods {
     fun component1() = 3
@@ -14,3 +24,8 @@ class RegularClassWithComponentMethods {
 
 fun component1() = 5
 fun component4() = 6
+
+data class DataClassWithStrangeNames(val component124: Int, val componentABC: Int) {
+    operator fun component15() = component124
+    fun component16() = component124
+}

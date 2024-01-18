@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.scripting.definitions
 
-import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
@@ -17,6 +16,10 @@ import kotlin.script.experimental.api.ScriptCompilationConfiguration
 import kotlin.script.experimental.api.valueOrNull
 import kotlin.script.experimental.dependencies.ScriptDependencies
 
+// Note: misleading name, it is now general configurations provider, not only for dependencies
+// but we are affraid to touch it so far, since the impact should be assessed first
+// TODO: consider deprecating completely and swith to a new interface in the K2
+// TODO: support SourceCode (or KtSourceFile) as a key
 open class ScriptDependenciesProvider constructor(
     protected val project: Project
 ) {
@@ -45,6 +48,6 @@ open class ScriptDependenciesProvider constructor(
 
     companion object {
         fun getInstance(project: Project): ScriptDependenciesProvider? =
-            ServiceManager.getService(project, ScriptDependenciesProvider::class.java)
+            project.getService(ScriptDependenciesProvider::class.java)
     }
 }

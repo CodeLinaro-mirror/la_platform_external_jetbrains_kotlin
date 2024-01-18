@@ -8,6 +8,11 @@ public val kotlin.CharSequence.indices: kotlin.ranges.IntRange { get; }
 
 public val kotlin.CharSequence.lastIndex: kotlin.Int { get; }
 
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun HexFormat(builderAction: kotlin.text.HexFormat.Builder.() -> kotlin.Unit): kotlin.text.HexFormat
+
 @kotlin.SinceKotlin(version = "1.2")
 @kotlin.Deprecated(message = "Use CharArray.concatToString() instead", replaceWith = kotlin.ReplaceWith(expression = "chars.concatToString()", imports = {}))
 @kotlin.DeprecatedSinceKotlin(errorSince = "1.5", warningSince = "1.4")
@@ -41,6 +46,10 @@ public fun kotlin.text.StringBuilder.append(vararg value: kotlin.Any?): kotlin.t
 
 public fun kotlin.text.StringBuilder.append(vararg value: kotlin.String?): kotlin.text.StringBuilder
 
+@kotlin.Deprecated(level = DeprecationLevel.ERROR, message = "Use appendRange instead.", replaceWith = kotlin.ReplaceWith(expression = "this.appendRange(str, offset, offset + len)", imports = {}))
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.append(str: kotlin.CharArray, offset: kotlin.Int, len: kotlin.Int): kotlin.text.StringBuilder
+
 @kotlin.SinceKotlin(version = "1.4")
 @kotlin.internal.InlineOnly
 public inline fun kotlin.text.Appendable.appendLine(): kotlin.text.Appendable
@@ -65,6 +74,10 @@ public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Any?): kotl
 @kotlin.internal.InlineOnly
 public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Boolean): kotlin.text.StringBuilder
 
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Byte): kotlin.text.StringBuilder
+
 @kotlin.SinceKotlin(version = "1.4")
 @kotlin.internal.InlineOnly
 public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Char): kotlin.text.StringBuilder
@@ -76,6 +89,26 @@ public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.CharArray):
 @kotlin.SinceKotlin(version = "1.4")
 @kotlin.internal.InlineOnly
 public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.CharSequence?): kotlin.text.StringBuilder
+
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Double): kotlin.text.StringBuilder
+
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Float): kotlin.text.StringBuilder
+
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Int): kotlin.text.StringBuilder
+
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Long): kotlin.text.StringBuilder
+
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.text.StringBuilder.appendLine(value: kotlin.Short): kotlin.text.StringBuilder
 
 @kotlin.SinceKotlin(version = "1.4")
 @kotlin.internal.InlineOnly
@@ -350,6 +383,52 @@ public inline fun <K, V, M : kotlin.collections.MutableMap<in K, kotlin.collecti
 public inline fun <K> kotlin.CharSequence.groupingBy(crossinline keySelector: (kotlin.Char) -> K): kotlin.collections.Grouping<kotlin.Char, K>
 
 public fun kotlin.CharSequence.hasSurrogatePairAt(index: kotlin.Int): kotlin.Boolean
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.hexToByte(format: kotlin.text.HexFormat = ...): kotlin.Byte
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.hexToByteArray(format: kotlin.text.HexFormat = ...): kotlin.ByteArray
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.hexToInt(format: kotlin.text.HexFormat = ...): kotlin.Int
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.hexToLong(format: kotlin.text.HexFormat = ...): kotlin.Long
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.hexToShort(format: kotlin.text.HexFormat = ...): kotlin.Short
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.String.hexToUByte(format: kotlin.text.HexFormat = ...): kotlin.UByte
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.ExperimentalUnsignedTypes
+@kotlin.internal.InlineOnly
+public inline fun kotlin.String.hexToUByteArray(format: kotlin.text.HexFormat = ...): kotlin.UByteArray
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.String.hexToUInt(format: kotlin.text.HexFormat = ...): kotlin.UInt
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.String.hexToULong(format: kotlin.text.HexFormat = ...): kotlin.ULong
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.String.hexToUShort(format: kotlin.text.HexFormat = ...): kotlin.UShort
 
 @kotlin.SinceKotlin(version = "1.3")
 @kotlin.internal.InlineOnly
@@ -685,6 +764,9 @@ public inline fun kotlin.CharSequence.reduceRightOrNull(operation: (kotlin.Char,
 
 public fun kotlin.CharSequence.regionMatches(thisOffset: kotlin.Int, other: kotlin.CharSequence, otherOffset: kotlin.Int, length: kotlin.Int, ignoreCase: kotlin.Boolean = ...): kotlin.Boolean
 
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.regionMatches(thisOffset: kotlin.Int, other: kotlin.String, otherOffset: kotlin.Int, length: kotlin.Int, ignoreCase: kotlin.Boolean = ...): kotlin.Boolean
+
 public fun kotlin.CharSequence.removePrefix(prefix: kotlin.CharSequence): kotlin.CharSequence
 
 public fun kotlin.String.removePrefix(prefix: kotlin.CharSequence): kotlin.String
@@ -947,11 +1029,6 @@ public fun kotlin.Char.titlecase(): kotlin.String
 @kotlin.SinceKotlin(version = "1.5")
 public fun kotlin.Char.titlecaseChar(): kotlin.Char
 
-@kotlin.Deprecated(message = "Use Kotlin compiler 1.4 to avoid deprecation warning.")
-@kotlin.DeprecatedSinceKotlin(hiddenSince = "1.4")
-@kotlin.internal.InlineOnly
-public inline fun kotlin.String.toBoolean(): kotlin.Boolean
-
 @kotlin.SinceKotlin(version = "1.4")
 public fun kotlin.String?.toBoolean(): kotlin.Boolean
 
@@ -975,6 +1052,10 @@ public fun kotlin.String.toByteOrNull(radix: kotlin.Int): kotlin.Byte?
 @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.String.toCharArray(): kotlin.CharArray
 
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.String.toCharArray(destination: kotlin.CharArray, destinationOffset: kotlin.Int = ..., startIndex: kotlin.Int = ..., endIndex: kotlin.Int = ...): kotlin.CharArray
+
 @kotlin.SinceKotlin(version = "1.4")
 @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.String.toCharArray(startIndex: kotlin.Int = ..., endIndex: kotlin.Int = ...): kotlin.CharArray
@@ -996,6 +1077,62 @@ public inline fun kotlin.String.toFloat(): kotlin.Float
 public inline fun kotlin.String.toFloatOrNull(): kotlin.Float?
 
 public fun kotlin.CharSequence.toHashSet(): kotlin.collections.HashSet<kotlin.Char>
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.Byte.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.ByteArray.toHexString(startIndex: kotlin.Int = ..., endIndex: kotlin.Int = ..., format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.ByteArray.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.Int.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.Long.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public fun kotlin.Short.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.UByte.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.ExperimentalUnsignedTypes
+@kotlin.internal.InlineOnly
+public inline fun kotlin.UByteArray.toHexString(startIndex: kotlin.Int = ..., endIndex: kotlin.Int = ..., format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.ExperimentalUnsignedTypes
+@kotlin.internal.InlineOnly
+public inline fun kotlin.UByteArray.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.UInt.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.ULong.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+@kotlin.internal.InlineOnly
+public inline fun kotlin.UShort.toHexString(format: kotlin.text.HexFormat = ...): kotlin.String
 
 public fun kotlin.String.toInt(): kotlin.Int
 
@@ -1325,6 +1462,86 @@ public open class CharacterCodingException : kotlin.Exception {
     public constructor CharacterCodingException(message: kotlin.String?)
 }
 
+@kotlin.ExperimentalStdlibApi
+@kotlin.SinceKotlin(version = "1.9")
+public final class HexFormat {
+    public final val bytes: kotlin.text.HexFormat.BytesHexFormat { get; }
+
+    public final val number: kotlin.text.HexFormat.NumberHexFormat { get; }
+
+    public final val upperCase: kotlin.Boolean { get; }
+
+    public open override fun toString(): kotlin.String
+
+    public final class Builder {
+        public final val bytes: kotlin.text.HexFormat.BytesHexFormat.Builder { get; }
+
+        public final val number: kotlin.text.HexFormat.NumberHexFormat.Builder { get; }
+
+        public final var upperCase: kotlin.Boolean { get; set; }
+
+        @kotlin.internal.InlineOnly
+        public final inline fun bytes(builderAction: kotlin.text.HexFormat.BytesHexFormat.Builder.() -> kotlin.Unit): kotlin.Unit
+
+        @kotlin.internal.InlineOnly
+        public final inline fun number(builderAction: kotlin.text.HexFormat.NumberHexFormat.Builder.() -> kotlin.Unit): kotlin.Unit
+    }
+
+    public final class BytesHexFormat {
+        public final val bytePrefix: kotlin.String { get; }
+
+        public final val byteSeparator: kotlin.String { get; }
+
+        public final val byteSuffix: kotlin.String { get; }
+
+        public final val bytesPerGroup: kotlin.Int { get; }
+
+        public final val bytesPerLine: kotlin.Int { get; }
+
+        public final val groupSeparator: kotlin.String { get; }
+
+        public open override fun toString(): kotlin.String
+
+        public final class Builder {
+            public final var bytePrefix: kotlin.String { get; set; }
+
+            public final var byteSeparator: kotlin.String { get; set; }
+
+            public final var byteSuffix: kotlin.String { get; set; }
+
+            public final var bytesPerGroup: kotlin.Int { get; set; }
+
+            public final var bytesPerLine: kotlin.Int { get; set; }
+
+            public final var groupSeparator: kotlin.String { get; set; }
+        }
+    }
+
+    public companion object of HexFormat {
+        public final val Default: kotlin.text.HexFormat { get; }
+
+        public final val UpperCase: kotlin.text.HexFormat { get; }
+    }
+
+    public final class NumberHexFormat {
+        public final val prefix: kotlin.String { get; }
+
+        public final val removeLeadingZeros: kotlin.Boolean { get; }
+
+        public final val suffix: kotlin.String { get; }
+
+        public open override fun toString(): kotlin.String
+
+        public final class Builder {
+            public final var prefix: kotlin.String { get; set; }
+
+            public final var removeLeadingZeros: kotlin.Boolean { get; set; }
+
+            public final var suffix: kotlin.String { get; set; }
+        }
+    }
+}
+
 public final data class MatchGroup {
     public constructor MatchGroup(value: kotlin.String)
 
@@ -1476,6 +1693,9 @@ public final class StringBuilder : kotlin.text.Appendable, kotlin.CharSequence {
     @kotlin.SinceKotlin(version = "1.3")
     public final fun append(value: kotlin.Boolean): kotlin.text.StringBuilder
 
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Byte): kotlin.text.StringBuilder
+
     public open override fun append(value: kotlin.Char): kotlin.text.StringBuilder
 
     @kotlin.SinceKotlin(version = "1.4")
@@ -1486,8 +1706,20 @@ public final class StringBuilder : kotlin.text.Appendable, kotlin.CharSequence {
 
     public open override fun append(value: kotlin.CharSequence?, startIndex: kotlin.Int, endIndex: kotlin.Int): kotlin.text.StringBuilder
 
-    @kotlin.Deprecated(level = DeprecationLevel.HIDDEN, message = "Provided for binary compatibility.")
-    public final fun append(value: kotlin.String): kotlin.text.StringBuilder
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Double): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Float): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Int): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Long): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun append(value: kotlin.Short): kotlin.text.StringBuilder
 
     @kotlin.SinceKotlin(version = "1.3")
     public final fun append(value: kotlin.String?): kotlin.text.StringBuilder
@@ -1501,7 +1733,7 @@ public final class StringBuilder : kotlin.text.Appendable, kotlin.CharSequence {
     public final fun appendRange(value: kotlin.CharSequence, startIndex: kotlin.Int, endIndex: kotlin.Int): kotlin.text.StringBuilder
 
     @kotlin.SinceKotlin(version = "1.3")
-    @kotlin.Deprecated(level = DeprecationLevel.ERROR, message = "Obtaining StringBuilder capacity is not supported in JS and common code.")
+    @kotlin.Deprecated(level = DeprecationLevel.WARNING, message = "Obtaining StringBuilder capacity is not supported in JS and common code.")
     public final fun capacity(): kotlin.Int
 
     @kotlin.SinceKotlin(version = "1.3")
@@ -1537,6 +1769,9 @@ public final class StringBuilder : kotlin.text.Appendable, kotlin.CharSequence {
     @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
     public final fun insert(index: kotlin.Int, value: kotlin.Boolean): kotlin.text.StringBuilder
 
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Byte): kotlin.text.StringBuilder
+
     @kotlin.SinceKotlin(version = "1.4")
     @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
     public final fun insert(index: kotlin.Int, value: kotlin.Char): kotlin.text.StringBuilder
@@ -1549,8 +1784,20 @@ public final class StringBuilder : kotlin.text.Appendable, kotlin.CharSequence {
     @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
     public final fun insert(index: kotlin.Int, value: kotlin.CharSequence?): kotlin.text.StringBuilder
 
-    @kotlin.Deprecated(level = DeprecationLevel.HIDDEN, message = "Provided for binary compatibility.")
-    public final fun insert(index: kotlin.Int, value: kotlin.String): kotlin.text.StringBuilder
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Double): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Float): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Int): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Long): kotlin.text.StringBuilder
+
+    @kotlin.SinceKotlin(version = "1.9")
+    public final fun insert(index: kotlin.Int, value: kotlin.Short): kotlin.text.StringBuilder
 
     @kotlin.SinceKotlin(version = "1.4")
     @kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})

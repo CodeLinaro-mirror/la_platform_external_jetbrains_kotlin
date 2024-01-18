@@ -8,12 +8,14 @@ kotlin {
 }
 
 dependencies {
-    compileOnly(project(":kotlin-reflect-api"))
+    implementation(kotlinxCollectionsImmutable())
+    compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
     compileOnly(project(":compiler:psi"))
-    compileOnly(project(":compiler:frontend"))
+    implementation(project(":compiler:backend"))
     compileOnly(project(":core:compiler.common"))
     compileOnly(project(":core:compiler.common.jvm"))
+    compileOnly(project(":core:compiler.common.js"))
     implementation(project(":analysis:analysis-internal-utils"))
     implementation(project(":analysis:analysis-api-providers"))
     implementation(project(":analysis:kt-references"))
@@ -21,7 +23,7 @@ dependencies {
 
     api(intellijCore())
     api(commonDependency("org.jetbrains.intellij.deps:asm-all"))
-    api(commonDependency("com.google.guava:guava"))
+    api(libs.guava)
 }
 
 kotlin {
@@ -40,6 +42,5 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 testsJar()
 
 projectTest {
-    dependsOn(":dist")
     workingDir = rootDir
 }

@@ -8,7 +8,7 @@ inline fun <reified Self : DatabaseEntity, reified Target : DatabaseEntity> Self
     property: KProperty1<Target, MutableCollection<Self>>): Delegate<Self, Target?> = TODO()
 
 class GitLabBuildProcessor: DatabaseEntity {
-    var processor by <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>parent<!>(GitLabChangesProcessor::buildProcessors)
+    var processor by parent(GitLabChangesProcessor::buildProcessors)
 }
 
 interface DatabaseEntity: Entity
@@ -24,7 +24,7 @@ infix fun filter(filter: (R, Any?) -> Boolean): Delegate<R, T>
 }
 
 class GitLabChangesProcessor: DatabaseEntity {
-    var buildProcessors by <!INAPPLICABLE_CANDIDATE!>child_many<!>(
+    var buildProcessors by child_many(
         GitLabBuildProcessor::class.java,
         GitLabBuildProcessor::<!UNRESOLVED_REFERENCE!>processor<!>
     )

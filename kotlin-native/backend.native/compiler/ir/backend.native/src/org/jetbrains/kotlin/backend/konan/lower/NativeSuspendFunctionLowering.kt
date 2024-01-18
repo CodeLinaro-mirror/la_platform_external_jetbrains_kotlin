@@ -2,23 +2,22 @@ package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.common.descriptors.synthesizedName
 import org.jetbrains.kotlin.backend.common.lower.*
+import org.jetbrains.kotlin.backend.common.lower.optimizations.LivenessAnalysis
 import org.jetbrains.kotlin.backend.konan.Context
+import org.jetbrains.kotlin.backend.konan.NativeGenerationState
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrSetValueImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrSuspendableExpressionImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrSuspensionPointImpl
+import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrVariableSymbolImpl
@@ -28,21 +27,27 @@ import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.calls.checkers.isRestrictedSuspendFunction
+import org.jetbrains.kotlin.resolve.calls.checkers.isRestrictsSuspensionReceiver
 
-internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunctionsLowering<Context>(ctx) {
+internal class NativeSuspendFunctionsLowering(
+        generationState: NativeGenerationState
+) : AbstractSuspendFunctionsLowering<Context>(generationState.context) {
     private val symbols = context.ir.symbols
+    private val fileLowerState = generationState.fileLowerState
 
     override val stateMachineMethodName = Name.identifier("invokeSuspend")
 
+    @OptIn(ObsoleteDescriptorBasedAPI::class)
     override fun getCoroutineBaseClass(function: IrFunction): IrClassSymbol =
-            (if (function.isRestrictedSuspendFunction()) {
+            if (function.descriptor.isRestrictedSuspendFunction()) {
                 symbols.restrictedContinuationImpl
             } else {
                 symbols.continuationImpl
-            })
+            }
 
     override fun nameForCoroutineClass(function: IrFunction) =
-            "${function.name}COROUTINE\$${context.coroutineCount++}".synthesizedName
+            fileLowerState.getCoroutineImplUniqueName(function).synthesizedName
 
     override fun initializeStateMachine(coroutineConstructors: List<IrConstructor>, coroutineClassThis: IrValueDeclaration) {
         // Nothing to do: it's redundant to initialize the "label" field with null
@@ -58,27 +63,17 @@ internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunc
         )
     }
 
-
-    override fun IrBuilderWithScope.launchSuspendFunctionWithGivenContinuation(
-            symbol: IrSimpleFunctionSymbol, dispatchReceiver: IrExpression,
-            arguments: List<IrExpression>, continuation: IrExpression
-    ) = irCall(this@NativeSuspendFunctionsLowering.context.ir.symbols.coroutineLaunchpad).apply {
-        putValueArgument(0, irCall(symbol).apply {
-            this.dispatchReceiver = dispatchReceiver
-            arguments.forEachIndexed { index, irExpression ->
-                putValueArgument(index, irExpression)
-            }
-        })
-        putValueArgument(1, continuation)
-    }
-
-    override fun buildStateMachine(stateMachineFunction: IrFunction,
-                                   transformingFunction: IrFunction,
-                                   argumentToPropertiesMap: Map<IrValueParameter, IrField>) {
+    override fun buildStateMachine(
+            stateMachineFunction: IrFunction,
+            transformingFunction: IrFunction,
+            argumentToPropertiesMap: Map<IrValueParameter, IrField>,
+    ) {
         val originalBody = transformingFunction.body!!
         val resultArgument = stateMachineFunction.valueParameters.single()
 
         val coroutineClass = stateMachineFunction.parentAsClass
+
+        val thisReceiver = stateMachineFunction.dispatchReceiverParameter!!
 
         val labelField = coroutineClass.addField(Name.identifier("label"), symbols.nativePtrType, true)
 
@@ -87,13 +82,12 @@ internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunc
 
         val irBuilder = context.createIrBuilder(stateMachineFunction.symbol, startOffset, endOffset)
         stateMachineFunction.body = irBuilder.irBlockBody(startOffset, endOffset) {
-
             val suspendResult = irVar("suspendResult".synthesizedName, context.irBuiltIns.anyNType, true)
 
             // Extract all suspend calls to temporaries in order to make correct jumps to them.
             originalBody.transformChildrenVoid(ExpressionSlicer(labelField.type, transformingFunction, saveState, restoreState, suspendResult, resultArgument))
 
-            val liveLocals = computeLivenessAtSuspensionPoints(originalBody)
+            val liveLocals = LivenessAnalysis.run(originalBody) { it is IrSuspensionPoint }
 
             val immutableLiveLocals = liveLocals.values.flatten().filterNot { it.isVar }.toSet()
             val localsMap = immutableLiveLocals.associate { it to irVar(it.name, it.type, true) }
@@ -112,8 +106,6 @@ internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunc
             }
 
             originalBody.transformChildrenVoid(object : IrElementTransformerVoid() {
-
-                private val thisReceiver = stateMachineFunction.dispatchReceiverParameter!!
 
                 // Replace returns to refer to the new function.
                 override fun visitReturn(expression: IrReturn): IrExpression {
@@ -171,7 +163,7 @@ internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunc
                                     val scope = liveLocals[suspensionPoint]!!
                                     return irBlock(expression) {
                                         scope.forEach {
-                                            +irSetVar(localsMap[it]
+                                            +irSet(localsMap[it]
                                                     ?: it, irGetField(irGet(thisReceiver), localToPropertyMap[it.symbol]!!))
                                         }
                                     }
@@ -246,31 +238,6 @@ internal class NativeSuspendFunctionsLowering(ctx: Context): AbstractSuspendFunc
                 return newVariable
             }
         })
-    }
-
-    private fun computeLivenessAtSuspensionPoints(body: IrBody): Map<IrSuspensionPoint, List<IrVariable>> {
-        // TODO: data flow analysis.
-        // Just save all visible for now.
-        val result = mutableMapOf<IrSuspensionPoint, List<IrVariable>>()
-        body.acceptChildrenVoid(object: VariablesScopeTracker() {
-
-            override fun visitExpression(expression: IrExpression) {
-                val suspensionPoint = expression as? IrSuspensionPoint
-                if (suspensionPoint == null) {
-                    super.visitExpression(expression)
-                    return
-                }
-
-                suspensionPoint.result.acceptChildrenVoid(this)
-                suspensionPoint.resumeResult.acceptChildrenVoid(this)
-
-                val visibleVariables = mutableListOf<IrVariable>()
-                scopeStack.forEach { visibleVariables += it }
-                result[suspensionPoint] = visibleVariables
-            }
-        })
-
-        return result
     }
 
     private inner class ExpressionSlicer(val suspensionPointIdType: IrType, val irFunction: IrFunction,

@@ -5,8 +5,7 @@
 
 package org.jetbrains.kotlin.gradle
 
-import org.gradle.api.logging.configuration.WarningMode
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
+import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.util.*
 import org.junit.Test
 import kotlin.test.assertTrue
@@ -35,22 +34,9 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
 
         with(outerProject) {
             embedProject(innerProject)
-            gradleBuildScript(innerProject.projectName).appendText("\nrepositories { jcenter() }; dependencies { implementation rootProject }")
+            gradleBuildScript(innerProject.projectName).appendText("\ndependencies { implementation rootProject }")
 
-            testResolveAllConfigurations(
-                subproject = innerProject.projectName,
-                options = defaultBuildOptions().copy(warningMode = WarningMode.Summary)
-            ) {
-                assertContains(">> :${innerProject.projectName}:runtimeClasspath --> sample-lib-nodejs-1.0.jar")
-            }
-
-            gradleProperties().appendText(jsCompilerType(KotlinJsCompilerType.IR))
-
-            testResolveAllConfigurations(
-                subproject = innerProject.projectName,
-                skipSetup = true,
-                options = defaultBuildOptions().copy(warningMode = WarningMode.Summary)
-            ) {
+            testResolveAllConfigurations(subproject = innerProject.projectName) {
                 assertContains(">> :${innerProject.projectName}:runtimeClasspath --> sample-lib-nodejs-1.0.klib")
             }
         }
@@ -78,7 +64,7 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
             embedProject(innerProject)
             gradleBuildScript().appendText("\ndependencies { nodeJsMainImplementation project(':${innerProject.projectName}') }")
 
-            testResolveAllConfigurations(innerProject.projectName, options = defaultBuildOptions().copy(warningMode = WarningMode.Summary))
+            testResolveAllConfigurations(innerProject.projectName)
         }
     }
 
@@ -119,34 +105,15 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
 
         with(outerProject) {
             embedProject(innerProject)
-            gradleBuildScript(innerProject.projectName).appendText("\ndependencies { implementation rootProject }")
+            gradleBuildScript(innerProject.projectName).modify {
+                """
+                ${it.replace("kotlinOptions.jvmTarget = \"1.7\"", "kotlinOptions.jvmTarget = \"11\"")}
+                
+                dependencies { implementation rootProject }
+                """.trimIndent()
+            }
 
             testResolveAllConfigurations(innerProject.projectName)
-        }
-    }
-
-    @Test
-    fun testJsKtAppResolvesJsKtApp() {
-        val outerProject = Project("kotlin2JsInternalTest", gradleVersion)
-        val innerProject = Project("kotlin2JsNoOutputFileProject")
-
-        with(outerProject) {
-            embedProject(innerProject)
-            gradleBuildScript(innerProject.projectName).appendText("\ndependencies { implementation rootProject }")
-
-            gradleBuildScript(innerProject.projectName).appendText(
-                // Newer Gradle versions fail to resolve the deprecated configurations because of variant-aware resolution ambiguity between
-                // the *Elements configuration and its sub-variants (classes, resources)
-                "\n" + """
-                configurations {
-                    configure([compile, runtime, testCompile, testRuntime, getByName('default')]) {
-                        canBeResolved = false
-                    }
-                }
-                """.trimIndent()
-            )
-
-            testResolveAllConfigurations(innerProject.projectName, options = defaultBuildOptions().copy(warningMode = WarningMode.Summary))
         }
     }
 
@@ -163,15 +130,23 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
             gradleBuildScript().appendText(
                 "\n" + """
                 dependencies {
-                    jvm6Implementation project(':${innerJvmProject.projectName}')
-                    jvm6TestRuntimeOnly project(':${innerJvmProject.projectName}')
-                    nodeJsImplementation project(':${innerJsProject.projectName}')
-                    nodeJsTestRuntimeOnly project(':${innerJsProject.projectName}')
+                    def jvmCompilations = kotlin.getTargets().getByName("jvm6").getCompilations()
+                    def jsCompilations = kotlin.getTargets().getByName("nodeJs").getCompilations()
+                    
+                    def jvmMainImplConfigName = jvmCompilations.getByName("main").getImplementationConfigurationName()
+                    def jvmTestImplConfigName = jvmCompilations.getByName("test").getImplementationConfigurationName()
+                    def jsMainImplConfigName = jsCompilations.getByName("main").getImplementationConfigurationName()
+                    def jsTestImplConfigName = jsCompilations.getByName("test").getImplementationConfigurationName()
+
+                    add(jvmMainImplConfigName, project(':${innerJvmProject.projectName}'))
+                    add(jvmTestImplConfigName, project(':${innerJvmProject.projectName}'))
+                    add(jsMainImplConfigName, project(':${innerJsProject.projectName}'))
+                    add(jsTestImplConfigName, project(':${innerJsProject.projectName}'))
                 }
             """.trimIndent()
             )
 
-            testResolveAllConfigurations(innerJvmProject.projectName, options = defaultBuildOptions().copy(warningMode = WarningMode.Summary))
+            testResolveAllConfigurations(innerJvmProject.projectName)
         }
     }
 
@@ -192,81 +167,6 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
                 assertContains(">> :${innerProject.projectName}:testRuntimeClasspath --> sample-lib-jvm6-1.0.jar")
             }
         }
-    }
-
-    @Test
-    fun testKtAppResolvesOldMpp() {
-        val outerProject = Project("multiplatformProject")
-        val innerJvmProject = Project("simpleProject")
-        val innerJsProject = Project("kotlin2JsInternalTest")
-
-        with(outerProject) {
-            embedProject(innerJvmProject)
-            embedProject(innerJsProject)
-
-            listOf(innerJvmProject to ":libJvm", innerJsProject to ":libJs").forEach { (project, dependency) ->
-                gradleBuildScript(project.projectName).appendText(
-                    "\n" + """
-                        dependencies {
-                            implementation project('$dependency')
-                            implementation project(':lib')
-                        }
-                    """.trimIndent()
-                )
-
-                testResolveAllConfigurations(
-                    project.projectName,
-                    options = defaultBuildOptions().copy(warningMode = WarningMode.Summary)
-                )
-            }
-        }
-    }
-
-    @Test
-    fun testResolvesOldKotlinArtifactsPublishedWithMetadata() = with(Project("multiplatformProject", gradleVersion)) {
-        setupWorkingDir()
-        gradleBuildScript().appendText(
-            "\n" + """
-                configure([project(':lib'), project(':libJvm'), project(':libJs')]) {
-                    group 'com.example.oldmpp'
-                    version '1.0'
-                    apply plugin: 'maven-publish'
-                    afterEvaluate {
-                        publishing {
-                            repositories { maven { url "file://${'$'}{rootDir.absolutePath.replace('\\', '/')}/repo" } }
-                            publications { kotlin(MavenPublication) { from(components.java) } }
-                        }
-                    }
-                }
-            """.trimIndent()
-        )
-        build("publish") { assertSuccessful() }
-
-        gradleBuildScript().modify {
-            it.replace("'com.example.oldmpp'", "'com.example.consumer'") +
-                    "\nsubprojects { repositories { maven { url \"file://${'$'}{rootDir.absolutePath.replace('\\\\', '/')}/repo\" } } }"
-        }
-
-        gradleBuildScript("lib").appendText("\ndependencies { implementation 'com.example.oldmpp:lib:1.0' }")
-        testResolveAllConfigurations("lib")
-
-        gradleBuildScript("libJvm").appendText("\ndependencies { implementation 'com.example.oldmpp:libJvm:1.0' }")
-        testResolveAllConfigurations("libJvm")
-
-        gradleBuildScript("libJs").appendText("\ndependencies { implementation 'com.example.oldmpp:libJs:1.0' }")
-        testResolveAllConfigurations("libJs")
-
-        embedProject(Project("sample-lib", directoryPrefix = "new-mpp-lib-and-app"))
-        gradleBuildScript("sample-lib").appendText(
-            "\n" + """
-            dependencies {
-                commonMainApi 'com.example.oldmpp:lib:1.0'
-                jvm6MainApi 'com.example.oldmpp:libJvm:1.0'
-                nodeJsMainApi 'com.example.oldmpp:libJs:1.0'
-            }
-        """.trimIndent()
-        )
-        testResolveAllConfigurations("sample-lib")
     }
 
     @Test
@@ -310,16 +210,27 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
                 it.replace("'com.example:sample-lib:1.0'", "project('${libProject.projectName}')")
             }
 
+            val testGradleVersion = chooseWrapperVersionOrFinishTest()
+            val isAtLeastGradle75 = GradleVersion.version(testGradleVersion) >= GradleVersion.version("7.5")
+
             listOf("jvm6" to "Classpath", "nodeJs" to "Classpath").forEach { (target, suffix) ->
                 build("dependencyInsight", "--configuration", "${target}Compile$suffix", "--dependency", "sample-lib") {
                     assertSuccessful()
-                    assertContains("variant \"${target}ApiElements\" [")
+                    if (isAtLeastGradle75) {
+                        assertContains("Variant ${target}ApiElements")
+                    } else {
+                        assertContains("variant \"${target}ApiElements\" [")
+                    }
                 }
 
                 if (suffix == "Classpath") {
                     build("dependencyInsight", "--configuration", "${target}Runtime$suffix", "--dependency", "sample-lib") {
                         assertSuccessful()
-                        assertContains("variant \"${target}RuntimeElements\" [")
+                        if (isAtLeastGradle75) {
+                            assertContains("Variant ${target}RuntimeElements")
+                        } else {
+                            assertContains("variant \"${target}RuntimeElements\" [")
+                        }
                     }
                 }
             }
@@ -344,41 +255,6 @@ class VariantAwareDependenciesMppIT : BaseGradleIT() {
             assertTrue(items.toString()) { items.any { "atomicfu-jvm" in it } }
         }
     }
-
-    @Test
-    fun testResolveCompatibilityMetadataVariantWithNative() = with(Project("native-libraries")) {
-        setupWorkingDir()
-        val nestedProjectName = "nested"
-        embedProject(Project("native-libraries"), nestedProjectName)
-
-        projectDir.resolve("gradle.properties").appendText(
-            "\n" + """
-                kotlin.mpp.enableGranularSourceSetsMetadata=true
-                kotlin.mpp.enableCompatibilityMetadataVariant=true
-            """
-        )
-
-        val resolveConfigurationTaskName = "resolveConfiguration"
-        val marker = "###=>"
-
-        gradleBuildScript().appendText(
-            "\n" + """
-                dependencies { "commonMainImplementation"(project(":$nestedProjectName")) }
-                tasks.create("$resolveConfigurationTaskName") {
-                    doFirst {
-                        println("$marker" + configurations.getByName("metadataCompileClasspath").toList())
-                    }
-                }
-            """
-        )
-
-        build(resolveConfigurationTaskName) {
-            assertSuccessful()
-            val output = output.lines().single { marker in it }.substringAfter(marker).removeSurrounding("[", "]").split(",")
-            assertTrue { output.any { "$nestedProjectName-1.0.jar" in it } }
-        }
-    }
-
 }
 
 internal fun BaseGradleIT.Project.embedProject(other: BaseGradleIT.Project, renameTo: String? = null) {
@@ -391,16 +267,6 @@ internal fun BaseGradleIT.Project.embedProject(other: BaseGradleIT.Project, rena
         tempDir.copyRecursively(projectDir.resolve(embeddedModuleName))
     } finally {
         check(tempDir.deleteRecursively())
-    }
-    if (projectName == other.projectName) {
-        val embeddedModuleDir = projectDir.resolve(embeddedModuleName)
-        embeddedModuleDir.walk().forEach {
-            if (it.name.contains("build.gradle")) {
-                it.modify { string ->
-                    string.lines().dropLast(5).joinToString(separator = "\n")
-                }
-            }
-        }
     }
     testCase.apply {
         gradleSettingsScript().appendText("\ninclude(\"$embeddedModuleName\")")

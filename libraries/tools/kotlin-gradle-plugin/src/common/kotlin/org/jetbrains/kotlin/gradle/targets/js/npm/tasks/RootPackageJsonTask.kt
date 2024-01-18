@@ -7,22 +7,43 @@ package org.jetbrains.kotlin.gradle.targets.js.npm.tasks
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.*
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
+import org.gradle.work.DisableCachingByDefault
+import org.gradle.work.NormalizeLineEndings
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.npm.*
+import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinRootNpmResolver
+import org.jetbrains.kotlin.gradle.targets.js.yarn.yarn
 import java.io.File
 
-open class RootPackageJsonTask : DefaultTask() {
+@DisableCachingByDefault
+abstract class RootPackageJsonTask :
+    DefaultTask(),
+    UsesKotlinNpmResolutionManager {
     init {
         check(project == project.rootProject)
-
-        onlyIf {
-            resolutionManager.isConfiguringState()
-        }
     }
 
-    @Transient
-    private val nodeJs = NodeJsRootPlugin.apply(project.rootProject)
-    private val resolutionManager = nodeJs.npmResolutionManager
+    // Only in configuration phase
+    // Not part of configuration caching
+
+    private val nodeJs
+        get() = project.rootProject.kotlinNodeJsExtension
+
+    private val yarn
+        get() = project.rootProject.yarn
+
+    private val rootResolver: KotlinRootNpmResolver
+        get() = nodeJs.resolver
+
+    // -----
+
+    private val npmEnvironment by lazy {
+        nodeJs.requireConfigured().asNpmEnvironment
+    }
+
+    private val yarnEnv by lazy {
+        yarn.requireConfigured().asYarnEnvironment
+    }
 
     @get:OutputFile
     val rootPackageJson: File by lazy {
@@ -31,14 +52,18 @@ open class RootPackageJsonTask : DefaultTask() {
 
     @get:PathSensitive(PathSensitivity.RELATIVE)
     @get:IgnoreEmptyDirectories
+    @get:NormalizeLineEndings
     @get:InputFiles
     val packageJsonFiles: Collection<File> by lazy {
-        resolutionManager.packageJsonFiles
+        rootResolver.projectResolvers.values
+            .flatMap { it.compilationResolvers }
+            .map { it.compilationNpmResolution }
+            .map { it.npmProjectPackageJsonFile }
     }
 
     @TaskAction
     fun resolve() {
-        resolutionManager.prepare(logger)
+        npmResolutionManager.get().prepare(logger, npmEnvironment, yarnEnv)
     }
 
     companion object {

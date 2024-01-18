@@ -12,17 +12,19 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.compilerRunner.CompilerSystemPropertiesService
+import org.jetbrains.kotlin.gradle.dsl.ExplicitApiMode
 import org.jetbrains.kotlin.gradle.dsl.KotlinTopLevelExtension
 import org.jetbrains.kotlin.gradle.dsl.topLevelExtension
+import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.mpp.associateWithClosure
-import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.KotlinCompilationData
-import org.jetbrains.kotlin.gradle.plugin.sources.applyLanguageSettingsToKotlinOptions
-import org.jetbrains.kotlin.gradle.report.BuildMetricsReporterService
+import org.jetbrains.kotlin.gradle.plugin.internal.BuildIdService
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmAndroidCompilation
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KOTLIN_BUILD_DIR_NAME
-import org.jetbrains.kotlin.project.model.LanguageSettings
 
 /**
  * Configuration for the base compile task, [org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile].
@@ -32,21 +34,14 @@ import org.jetbrains.kotlin.project.model.LanguageSettings
  */
 internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile<*>>(
     project: Project,
-    private val ext: KotlinTopLevelExtension,
-    private val languageSettings: Provider<LanguageSettings>
+    val ext: KotlinTopLevelExtension
 ) : TaskConfigAction<TASK>(project) {
 
     init {
-        configureTaskProvider { taskProvider ->
-            project.runOnceAfterEvaluated("apply properties and language settings to ${taskProvider.name}") {
-                taskProvider.configure {
-                    applyLanguageSettingsToKotlinOptions(
-                        languageSettings.get(), (it as org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>).kotlinOptions
-                    )
-                }
-            }
-        }
-
+        val compilerSystemPropertiesService = CompilerSystemPropertiesService.registerIfAbsent(project)
+        val buildFinishedListenerService = BuildFinishedListenerService.registerIfAbsent(project)
+        val cachedClassLoadersService = ClassLoadersCachingBuildService.registerIfAbsent(project)
+        val buildIdService = BuildIdService.registerIfAbsent(project)
         configureTask { task ->
             val propertiesProvider = project.kotlinPropertiesProvider
 
@@ -58,19 +53,49 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
                 .disallowChanges()
 
             task.localStateDirectories.from(task.taskBuildLocalStateDirectory).disallowChanges()
-            BuildMetricsReporterService.registerIfAbsent(project)?.let {
-                task.buildMetricsReporterService.value(it)
-            }
+            task.systemPropertiesService.value(compilerSystemPropertiesService).disallowChanges()
 
             propertiesProvider.kotlinDaemonJvmArgs?.let { kotlinDaemonJvmArgs ->
                 task.kotlinDaemonJvmArguments.set(providers.provider {
                     kotlinDaemonJvmArgs.split("\\s+".toRegex())
                 })
             }
-            task.compilerExecutionStrategy.value(propertiesProvider.kotlinCompilerExecutionStrategy)
+            task.compilerExecutionStrategy.convention(propertiesProvider.kotlinCompilerExecutionStrategy).finalizeValueOnRead()
+            task.useDaemonFallbackStrategy.convention(propertiesProvider.kotlinDaemonUseFallbackStrategy).finalizeValueOnRead()
+            task.suppressKotlinOptionsFreeArgsModificationWarning
+                .convention(propertiesProvider.kotlinOptionsSuppressFreeArgsModificationWarning)
+                .finalizeValueOnRead()
+
+            task.preciseCompilationResultsBackup
+                .convention(propertiesProvider.preciseCompilationResultsBackup)
+                .finalizeValueOnRead()
+            task.taskOutputsBackupExcludes.addAll(task.preciseCompilationResultsBackup.map {
+                if (it) listOf(task.destinationDirectory.get().asFile, task.taskBuildLocalStateDirectory.get().asFile) else emptyList()
+            })
+            task.keepIncrementalCompilationCachesInMemory
+                .convention(task.preciseCompilationResultsBackup.map { it && propertiesProvider.keepIncrementalCompilationCachesInMemory })
+                .finalizeValueOnRead()
+            task.taskOutputsBackupExcludes.addAll(task.keepIncrementalCompilationCachesInMemory.map {
+                if (it) listOf(task.taskBuildCacheableOutputDirectory.get().asFile) else emptyList()
+            })
+            task.suppressExperimentalIcOptimizationsWarning
+                .convention(propertiesProvider.suppressExperimentalICOptimizationsWarning)
+                .finalizeValueOnRead()
+            task.buildFinishedListenerService.value(buildFinishedListenerService).disallowChanges()
+            task.buildIdService.value(buildIdService).disallowChanges()
 
             task.incremental = false
             task.useModuleDetection.convention(false)
+            if (propertiesProvider.useK2 == true) {
+                @Suppress("DEPRECATION")
+                task.compilerOptions.useK2.value(true)
+            }
+            task.runViaBuildToolsApi.convention(propertiesProvider.runKotlinCompilerViaBuildToolsApi).finalizeValueOnRead()
+            task.classLoadersCachingService.value(cachedClassLoadersService).disallowChanges()
+
+            task.explicitApiMode
+                .value(project.providers.provider { ext.explicitApi })
+                .finalizeValueOnRead()
         }
     }
 
@@ -80,31 +105,54 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
     protected fun getClasspathSnapshotDir(task: TASK): Provider<Directory> =
         getKotlinBuildDir(task).map { it.dir("classpath-snapshot") }
 
-    constructor(compilation: KotlinCompilationData<*>) : this(
-        compilation.project, compilation.project.topLevelExtension, compilation.project.provider { compilation.languageSettings }
+    constructor(compilationInfo: KotlinCompilationInfo) : this(
+        compilationInfo.project,
+        compilationInfo.project.topLevelExtension
     ) {
         configureTask { task ->
-            task.friendPaths.from({ compilation.friendPaths })
-            if (compilation is KotlinCompilation<*>) {
+            task.friendPaths.from({ compilationInfo.friendPaths })
+            compilationInfo.tcs.compilation.let { compilation ->
                 task.friendSourceSets
-                    .value(providers.provider { compilation.associateWithClosure.map { it.name } })
+                    .value(providers.provider { compilation.allAssociatedCompilations.map { it.name } })
                     .disallowChanges()
                 task.pluginClasspath.from(
-                    compilation.project.configurations.getByName(compilation.pluginConfigurationName)
+                    compilation.internal.configurations.pluginConfiguration
                 )
             }
-            task.moduleName.set(providers.provider { compilation.moduleName })
-            task.ownModuleName.set(project.provider { compilation.ownModuleName })
-            task.sourceSetName.value(providers.provider { compilation.compilationPurpose })
+
+            @Suppress("DEPRECATION")
+            task.ownModuleName.set(project.provider { compilationInfo.moduleName })
+            task.sourceSetName.value(providers.provider { compilationInfo.compilationName })
             task.multiPlatformEnabled.value(
                 providers.provider {
-                    compilation.project.plugins.any {
+                    compilationInfo.project.plugins.any {
                         it is KotlinPlatformPluginBase ||
-                                it is AbstractKotlinMultiplatformPluginWrapper ||
-                                it is AbstractKotlinPm20PluginWrapper
+                                it is AbstractKotlinMultiplatformPluginWrapper
                     }
                 }
             )
+
+            task.explicitApiMode
+                .value(
+                    project.providers.provider {
+                        // Plugin explicitly does not configures 'explicitApi' mode for test sources
+                        // compilation, as test sources are not published
+                        val compilation = compilationInfo.tcs.compilation
+                        val isCommonCompilation = compilation.target is KotlinMetadataTarget
+
+                        val androidCompilation = compilationInfo.tcs.compilation as? KotlinJvmAndroidCompilation
+                        val isMainAndroidCompilation = androidCompilation?.let {
+                            getTestedVariantData(it.androidVariant) == null
+                        } ?: false
+
+                        if (compilationInfo.isMain || isCommonCompilation || isMainAndroidCompilation) {
+                            ext.explicitApi
+                        } else {
+                            ExplicitApiMode.Disabled
+                        }
+                    }
+                )
+                .finalizeValueOnRead()
         }
     }
 }

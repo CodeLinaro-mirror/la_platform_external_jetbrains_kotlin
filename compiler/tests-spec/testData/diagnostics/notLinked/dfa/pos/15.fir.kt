@@ -1,6 +1,15 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 15
+ * DESCRIPTION: Raw data flow analysis test
+ * NOTE: performance test
+ * HELPERS: classes, interfaces, functions, properties
+ */
 
 // TESTCASE NUMBER: 1
 open class Case1_1 : InterfaceWithTypeParameter1<Case1_1>

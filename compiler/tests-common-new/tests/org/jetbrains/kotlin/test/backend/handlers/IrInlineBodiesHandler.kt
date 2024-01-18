@@ -6,30 +6,36 @@
 package org.jetbrains.kotlin.test.backend.handlers
 
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.lazy.AbstractIrLazyFunction
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.ir.util.DeserializableClass
 import org.jetbrains.kotlin.ir.util.IdSignature
-import org.jetbrains.kotlin.ir.util.allUnbound
 import org.jetbrains.kotlin.ir.util.resolveFakeOverride
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
+import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 
 class IrInlineBodiesHandler(testServices: TestServices) : AbstractIrHandler(testServices) {
     val declaredInlineFunctionSignatures = mutableSetOf<IdSignature>()
 
+    @OptIn(ObsoleteDescriptorBasedAPI::class)
     override fun processModule(module: TestModule, info: IrBackendInput) {
-        val irModule = info.irModuleFragment
-        irModule.acceptChildrenVoid(InlineFunctionsCollector())
-        assertions.assertTrue(declaredInlineFunctionSignatures.isNotEmpty())
-        irModule.acceptChildrenVoid(InlineCallBodiesCheck())
-        assertions.assertTrue((info as IrBackendInput.JvmIrBackendInput).backendInput.symbolTable.allUnbound.isEmpty())
+        info.processAllIrModuleFragments(module) { irModule, _ ->
+            irModule.acceptChildrenVoid(InlineFunctionsCollector())
+            irModule.acceptChildrenVoid(InlineCallBodiesCheck(firEnabled = module.frontendKind == FrontendKinds.FIR))
+        }
+
+        assertions.assertTrue((info as IrBackendInput.JvmIrBackendInput).backendInput.symbolTable.descriptorExtension.allUnboundSymbols.isEmpty())
     }
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
-        // TODO("Not yet implemented")
+        assertions.assertTrue(declaredInlineFunctionSignatures.isNotEmpty())
     }
 
     inner class InlineFunctionsCollector : IrElementVisitorVoid {
@@ -43,7 +49,7 @@ class IrInlineBodiesHandler(testServices: TestServices) : AbstractIrHandler(test
         }
     }
 
-    inner class InlineCallBodiesCheck : IrElementVisitorVoid {
+    inner class InlineCallBodiesCheck(val firEnabled: Boolean) : IrElementVisitorVoid {
         override fun visitElement(element: IrElement) {
             element.acceptChildrenVoid(this)
         }
@@ -54,9 +60,25 @@ class IrInlineBodiesHandler(testServices: TestServices) : AbstractIrHandler(test
             val callee = symbol.owner
             if (callee.symbol.signature in declaredInlineFunctionSignatures) {
                 val trueCallee = (callee as IrSimpleFunction).resolveFakeOverride()!!
-                assertions.assertNotNull(trueCallee.body)
+                assertions.assertTrue(trueCallee.hasBody()) {
+                    "IrInlineBodiesHandler: function with body expected"
+                }
             }
             super.visitMemberAccess(expression)
+        }
+
+        private fun IrSimpleFunction.hasBody(): Boolean {
+            if (this !is AbstractIrLazyFunction) return body != null
+            if (!isDeserializationEnabled) return false
+            if (!isInline || isFakeOverride) return false
+            val topLevelDeclaration = getTopLevelDeclaration()
+            if (topLevelDeclaration is DeserializableClass) return true
+            return when (firEnabled) {
+                // In compilation with FIR parents of external top-levels functions are replaced
+                //   in lowerings, not in fir2ir converter
+                true -> topLevelDeclaration.parent is IrExternalPackageFragment
+                false -> false
+            }
         }
     }
 }

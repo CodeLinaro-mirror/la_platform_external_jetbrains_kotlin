@@ -6,18 +6,27 @@
 package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.getAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getNonDefaultAdditionalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
+import org.jetbrains.kotlin.ir.util.isFunctionInlining
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
-import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.util.isAnonymousObject
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.NameUtils
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toUpperCaseAsciiOnly
+import kotlin.collections.set
 
-abstract class InventNamesForLocalClasses(private val allowTopLevelCallables: Boolean) : FileLoweringPass {
+abstract class InventNamesForLocalClasses(
+    private val allowTopLevelCallables: Boolean,
+    private val generateNamesForRegeneratedObjects: Boolean = false
+) : FileLoweringPass {
 
     protected abstract fun computeTopLevelClassName(clazz: IrClass): String
     protected abstract fun sanitizeNameIfNeeded(name: String): String
@@ -32,7 +41,7 @@ abstract class InventNamesForLocalClasses(private val allowTopLevelCallables: Bo
      * @property enclosingName internal name of the enclosing class (including anonymous classes, local objects and callable references)
      * @property isLocal true if the next declaration to be encountered in the IR tree is local
      */
-    private data class Data(val enclosingName: String?, val isLocal: Boolean) {
+    private data class Data(val enclosingName: String?, val isLocal: Boolean, val processingInlinedFunction: Boolean = false) {
         fun makeLocal(): Data = if (isLocal) this else copy(isLocal = true)
     }
 
@@ -40,7 +49,35 @@ abstract class InventNamesForLocalClasses(private val allowTopLevelCallables: Bo
         private val anonymousClassesCount = mutableMapOf<String, Int>()
         private val localFunctionNames = mutableMapOf<IrFunctionSymbol, String>()
 
+        override fun visitContainerExpression(expression: IrContainerExpression, data: Data) {
+            if (expression is IrInlinedFunctionBlock && !generateNamesForRegeneratedObjects) {
+                return expression.getNonDefaultAdditionalStatementsFromInlinedBlock().forEach { it.accept(this, data) }
+            }
+
+            if (!data.processingInlinedFunction && expression is IrInlinedFunctionBlock && expression.isFunctionInlining()) {
+                expression.getAdditionalStatementsFromInlinedBlock().forEach { it.accept(this, data) }
+
+                val inlinedAt = expression.inlineCall.symbol.owner.name.asString()
+                val newData = data.copy(
+                    enclosingName = data.enclosingName + "$\$inlined\$$inlinedAt", isLocal = true, processingInlinedFunction = true
+                )
+                expression.getOriginalStatementsFromInlinedBlock().forEach { it.accept(this, newData) }
+
+                return
+            }
+            super.visitContainerExpression(expression, data)
+        }
+
         override fun visitClass(declaration: IrClass, data: Data) {
+            val parent = declaration.parent
+            val isLocal = parent is IrFile && declaration.isAnonymousObject
+            if (!isLocal) return processClass(declaration, data)
+
+            val enclosingName = (parent as IrFile).name.removeSuffix(".kt").plus("Kt").capitalizeAsciiOnly()
+            processClass(declaration, data.copy(enclosingName = enclosingName, isLocal = true))
+        }
+
+        private fun processClass(declaration: IrClass, data: Data) {
             if (!data.isLocal) {
                 // This is not a local class, so we need not invent a name for it, the type mapper will correctly compute it
                 // by navigating through its containers.
@@ -98,6 +135,8 @@ abstract class InventNamesForLocalClasses(private val allowTopLevelCallables: Bo
                         localFunctionNames[declaration.symbol] = name
                     }
                 }
+
+                declaration is IrVariable && generateNamesForRegeneratedObjects || data.processingInlinedFunction -> enclosingName
                 enclosingName != null -> "$enclosingName$$simpleName"
                 else -> simpleName
             }
@@ -114,10 +153,20 @@ abstract class InventNamesForLocalClasses(private val allowTopLevelCallables: Bo
         }
 
         override fun visitFunctionReference(expression: IrFunctionReference, data: Data) {
+            if (data.processingInlinedFunction && expression.originalBeforeInline == null) {
+                // skip IrFunctionReference from `singleArgumentInlineFunction`
+                return
+            }
             val internalName = localFunctionNames[expression.symbol] ?: inventName(null, data)
             putLocalClassName(expression, internalName)
 
             expression.acceptChildren(this, data)
+        }
+
+        override fun visitFunctionExpression(expression: IrFunctionExpression, data: Data) {
+            expression.acceptChildren(this, data)
+            val internalName = localFunctionNames[expression.function.symbol] ?: inventName(null, data)
+            putLocalClassName(expression, internalName)
         }
 
         override fun visitPropertyReference(expression: IrPropertyReference, data: Data) {

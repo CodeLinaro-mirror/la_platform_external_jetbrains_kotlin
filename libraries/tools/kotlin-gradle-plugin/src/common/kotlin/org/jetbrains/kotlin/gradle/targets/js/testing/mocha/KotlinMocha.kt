@@ -9,36 +9,39 @@ import org.gradle.api.Project
 import org.gradle.process.ProcessForkOptions
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesClientSettings
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
+import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutor
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.internal.parseNodeJsStackTraceAsJvm
-import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTestFramework
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinTestRunnerCliArgs
-import java.io.File
-import org.jetbrains.kotlin.gradle.targets.js.isTeamCity
+import org.jetbrains.kotlin.gradle.utils.getValue
+import java.nio.file.Path
 
 class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, private val basePath: String) :
     KotlinJsTestFramework {
     @Transient
     private val project: Project = compilation.target.project
     private val npmProject = compilation.npmProject
-    private val versions = NodeJsRootPlugin.apply(project.rootProject).versions
-    private val isTeamCity by lazy { project.isTeamCity }
+    private val versions = project.rootProject.kotlinNodeJsExtension.versions
+    private val isTeamCity = project.providers.gradleProperty(TCServiceMessagesTestExecutor.TC_PROJECT_PROPERTY)
+    private val npmProjectDir by project.provider { npmProject.dir }
+
+    override val workingDir: Path
+        get() = npmProjectDir.toPath()
 
     override val settingsState: String
         get() = "mocha"
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         get() = setOf(
-            versions.kotlinJsTestRunner,
             versions.mocha,
             versions.sourceMapSupport,
-            versions.formatUtil
         )
 
     override fun getPath() = "$basePath:kotlinMocha"
@@ -60,7 +63,7 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
             prependSuiteName = true,
             stackTraceParser = ::parseNodeJsStackTraceAsJvm,
             ignoreOutOfRootNodes = true,
-            escapeTCMessagesInLog = isTeamCity
+            escapeTCMessagesInLog = isTeamCity.isPresent
         )
 
         val cliArgs = KotlinTestRunnerCliArgs(
@@ -72,8 +75,7 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
 
         val file = task.inputFileProperty.get().asFile.toString()
 
-        val adapter = createAdapterJs(file, "kotlin-test-nodejs-runner", ADAPTER_NODEJS)
-        val args = mutableListOf(
+        val args = nodeJsArgs + mutableListOf(
             "--require",
             npmProject.require("source-map-support/register.js")
         ).apply {
@@ -81,9 +83,10 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
                 add("--inspect-brk")
             }
             add(mocha)
-            add(adapter.canonicalPath)
+            add(file)
             addAll(cliArgs.toList())
             addAll(cliArg("--reporter", "kotlin-test-js-runner/mocha-kotlin-reporter.js"))
+            addAll(cliArg("--require", npmProject.require("kotlin-test-js-runner/kotlin-test-nodejs-runner.js")))
             if (debug) {
                 add(NO_TIMEOUT_ARG)
             } else {
@@ -97,15 +100,14 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
         val dryRunArgs = if (platformType == KotlinPlatformType.wasm)
             null
         else {
-            mutableListOf(
+            nodeJsArgs + mutableListOf(
                 "--require",
                 npmProject.require("source-map-support/register.js")
             ).apply {
                 add(mocha)
-                add(createAdapterJs(file, "kotlin-test-nodejs-empty-runner", ADAPTER_EMPTY_NODEJS).canonicalPath)
+                add(file)
                 addAll(cliArgs.toList())
-
-                addAll(cliArg("-n", "experimental-wasm-typed-funcref,experimental-wasm-gc,experimental-wasm-eh"))
+                addAll(cliArg("--require", npmProject.require("kotlin-test-js-runner/kotlin-test-nodejs-empty-runner.js")))
             }
         }
 
@@ -122,28 +124,7 @@ class KotlinMocha(@Transient override val compilation: KotlinJsCompilation, priv
         return value?.let { listOf(cli, it) } ?: emptyList()
     }
 
-    private fun createAdapterJs(
-        file: String,
-        adapter: String,
-        adapterName: String
-    ): File {
-        val adapterJs = npmProject.dir.resolve(adapterName)
-        adapterJs.printWriter().use { writer ->
-            val adapterFile = npmProject.require("kotlin-test-js-runner/$adapter.js")
-            val escapedFile = file.jsQuoted()
-
-            writer.println("require(${adapterFile.jsQuoted()})")
-
-            writer.println("module.exports = require($escapedFile)")
-        }
-
-        return adapterJs
-    }
-
     companion object {
-        const val ADAPTER_NODEJS = "adapter-nodejs.js"
-        const val ADAPTER_EMPTY_NODEJS = "adapter-empty-nodejs.js"
-
         private const val DEFAULT_TIMEOUT = "2s"
     }
 }

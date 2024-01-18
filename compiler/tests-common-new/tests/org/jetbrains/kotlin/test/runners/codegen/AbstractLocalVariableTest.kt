@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.test.runners.codegen
 
 import org.jetbrains.kotlin.test.Constructor
+import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.classic.ClassicBackendInput
 import org.jetbrains.kotlin.test.backend.classic.ClassicJvmBackendFacade
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.backend.ir.JvmIrBackendFacade
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.directives.configureFirParser
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2ClassicBackendConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
@@ -40,6 +42,14 @@ open class AbstractIrLocalVariableTest : AbstractLocalVariableTestBase<ClassicFr
     }
 }
 
+open class AbstractIrLocalVariableBytecodeInlinerTest : AbstractIrLocalVariableTest()
+open class AbstractIrLocalVariableIrInlinerTest : AbstractIrLocalVariableTest() {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.useIrInliner()
+    }
+}
+
 open class AbstractLocalVariableTest : AbstractLocalVariableTestBase<ClassicFrontendOutputArtifact, ClassicBackendInput>(
     FrontendKinds.ClassicFrontend,
     TargetBackend.JVM
@@ -60,7 +70,7 @@ open class AbstractLocalVariableTest : AbstractLocalVariableTestBase<ClassicFron
     }
 }
 
-open class AbstractFirLocalVariableTest : AbstractLocalVariableTestBase<FirOutputArtifact, IrBackendInput>(
+open class AbstractFirLocalVariableTestBase(val parser: FirParser) : AbstractLocalVariableTestBase<FirOutputArtifact, IrBackendInput>(
     FrontendKinds.FIR,
     TargetBackend.JVM_IR
 ) {
@@ -76,5 +86,11 @@ open class AbstractFirLocalVariableTest : AbstractLocalVariableTestBase<FirOutpu
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.configureDumpHandlersForCodegenTest()
+        builder.configureFirParser(parser)
     }
 }
+
+open class AbstractFirLightTreeLocalVariableTest : AbstractFirLocalVariableTestBase(FirParser.LightTree)
+
+@FirPsiCodegenTest
+open class AbstractFirPsiLocalVariableTest : AbstractFirLocalVariableTestBase(FirParser.Psi)

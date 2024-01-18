@@ -38,10 +38,10 @@ object SpecialNames {
     val ANONYMOUS = Name.special(ANONYMOUS_STRING)
 
     @JvmField
-    val UNARY = Name.special("<unary>")
+    val ANONYMOUS_FQ_NAME = FqName.topLevel(Name.special(ANONYMOUS_STRING))
 
     @JvmField
-    val UNARY_RESULT = Name.special("<unary-result>")
+    val UNARY = Name.special("<unary>")
 
     @JvmField
     val THIS = Name.special("<this>")
@@ -69,6 +69,12 @@ object SpecialNames {
 
     @JvmField
     val RECEIVER = Name.special("<receiver>")
+
+    /**
+     * Kotlin-generated `entries` read-only property
+     */
+    @JvmField
+    val ENUM_GET_ENTRIES = Name.special("<get-entries>")
 
     /**
      * Special name to store expressions used as indexes in subscription operators (`get` and `set`).

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,8 +8,9 @@ package org.jetbrains.kotlin.fir.expressions
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirPureAbstractElement
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.visitors.*
+import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
 
 /*
  * This file was generated automatically
@@ -18,16 +19,19 @@ import org.jetbrains.kotlin.fir.visitors.*
 
 abstract class FirExpression : FirPureAbstractElement(), FirStatement {
     abstract override val source: KtSourceElement?
-    abstract val typeRef: FirTypeRef
+    @UnresolvedExpressionTypeAccess
+    abstract val coneTypeOrNull: ConeKotlinType?
     abstract override val annotations: List<FirAnnotation>
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R = visitor.visitExpression(this, data)
 
     @Suppress("UNCHECKED_CAST")
-    override fun <E: FirElement, D> transform(transformer: FirTransformer<D>, data: D): E = 
+    override fun <E : FirElement, D> transform(transformer: FirTransformer<D>, data: D): E =
         transformer.transformExpression(this, data) as E
 
-    abstract fun replaceTypeRef(newTypeRef: FirTypeRef)
+    abstract fun replaceConeTypeOrNull(newConeTypeOrNull: ConeKotlinType?)
+
+    abstract override fun replaceAnnotations(newAnnotations: List<FirAnnotation>)
 
     abstract override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirExpression
 }

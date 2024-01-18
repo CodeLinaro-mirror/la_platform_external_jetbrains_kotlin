@@ -1,31 +1,22 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+ * that can be found in the LICENSE file.
  */
 
-import org.jetbrains.gradle.plugins.tools.lib
-import org.jetbrains.gradle.plugins.tools.solib
+import org.jetbrains.kotlin.tools.lib
+import org.jetbrains.kotlin.tools.solib
 import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.target.ClangArgs
 import org.jetbrains.kotlin.konan.target.Family.*
 import org.jetbrains.kotlin.konan.target.HostManager.Companion.hostIsMac
 
 plugins {
-    `kotlin`
-    `native-interop-plugin`
-    `native`
+    id("org.jetbrains.kotlin.jvm")
+    id("kotlin.native.build-tools-conventions")
+    id("native-interop-plugin")
+    id("native")
 }
 
 
@@ -76,7 +67,7 @@ if (libclangextIsEnabled) {
 
     val llvmLibs = listOf(
             "clangAST", "clangASTMatchers", "clangAnalysis", "clangBasic", "clangDriver", "clangEdit",
-            "clangFrontend", "clangFrontendTool", "clangLex", "clangParse", "clangSema", "clangEdit",
+            "clangFrontend", "clangFrontendTool", "clangLex", "clangParse", "clangSema",
             "clangRewrite", "clangRewriteFrontend", "clangStaticAnalyzerFrontend",
             "clangStaticAnalyzerCheckers", "clangStaticAnalyzerCore", "clangSerialization",
             "clangToolingCore",
@@ -154,7 +145,7 @@ dependencies {
     testImplementation(kotlin("test-junit"))
 }
 
-val nativelibs = project.tasks.create<Copy>("nativelibs") {
+val nativelibs = project.tasks.register<Copy>("nativelibs") {
     val clangstubsSolib = solib("clangstubs")
     dependsOn(clangstubsSolib)
 
@@ -171,12 +162,17 @@ kotlinNativeInterop {
         genTask.inputs.dir(libclangextDir)
     }
 }
-val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
-        allWarningsAsErrors = true
-        freeCompilerArgs = listOf("-Xskip-prerelease-check")
+        freeCompilerArgs += listOf(
+                "-Xskip-prerelease-check",
+                "-opt-in=kotlinx.cinterop.BetaInteropApi",
+                "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+                // staticCFunction uses kotlin.reflect.jvm.reflect on its lambda parameter.
+                "-Xlambdas=class",
+        )
+
     }
 }
 
@@ -199,14 +195,9 @@ tasks.withType<Test>().configureEach {
     systemProperty("kotlin.native.interop.indexer.temp", File(buildDir, "testTemp"))
 }
 
-tasks.matching { it.name == "linkClangstubsSharedLibrary" }.all {
-    dependsOn(libclangextTask)
-    inputs.dir(libclangextDir)
-}
-
 // Please note that list of headers should be fixed manually.
 // See KT-46231 for details.
-tasks.create("updatePrebuilt") {
+tasks.register("updatePrebuilt") {
     dependsOn("genClangInteropStubs")
 
     doLast {

@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.tools.tests
 
-import kotlinx.validation.api.*
+import kotlinx.validation.api.filterOutAnnotated
+import kotlinx.validation.api.filterOutNonPublic
+import kotlinx.validation.api.loadApiFromJvmClasses
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestName
@@ -18,7 +20,7 @@ class RuntimePublicAPITest {
     val testName = TestName()
 
     @Test fun kotlinStdlibRuntimeMerged() {
-        snapshotAPIAndCompare("../../stdlib/jvm/build/libs", "kotlin-stdlib", listOf("kotlin.jvm.internal"))
+        snapshotAPIAndCompare("../../stdlib/build/libs", "kotlin-stdlib", listOf("kotlin.jvm.internal"))
     }
 
     @Test fun kotlinStdlibJdk7() {
@@ -31,24 +33,6 @@ class RuntimePublicAPITest {
 
     @Test fun kotlinReflect() {
         snapshotAPIAndCompare("../../reflect/api/build/libs", "kotlin-reflect-api(?!-[-a-z]+)", nonPublicPackages = listOf("kotlin.reflect.jvm.internal"))
-    }
-
-    @Test fun kotlinGradlePluginIdea() {
-        snapshotAPIAndCompare(
-            "../kotlin-gradle-plugin-idea/build/libs", "kotlin-gradle-plugin-idea(?!-[-a-z]+)",
-            nonPublicAnnotations = listOf("org/jetbrains/kotlin/gradle/kpm/idea/InternalKotlinGradlePluginApi")
-        )
-    }
-
-    @Test fun kotlinGradlePluginIdeaProto() {
-        snapshotAPIAndCompare(
-            "../kotlin-gradle-plugin-idea-proto/build/libs", "kotlin-gradle-plugin-idea-proto-api(?!-[-a-z]+)",
-            nonPublicAnnotations = listOf("org/jetbrains/kotlin/gradle/kpm/idea/InternalKotlinGradlePluginApi")
-        )
-    }
-
-    @Test fun kotlinToolingCore() {
-        snapshotAPIAndCompare("../kotlin-tooling-core/build/libs", "kotlin-tooling-core(?!-[-a-z]+)")
     }
 
     private fun snapshotAPIAndCompare(
@@ -64,7 +48,6 @@ class RuntimePublicAPITest {
         val publicPackagePrefixes = publicPackages.map { it.replace('.', '/') + '/' }
         val publicPackageFilter = { className: String -> publicPackagePrefixes.none { className.startsWith(it) } }
 
-        println("Reading binary API from $jarFile")
         val api = JarFile(jarFile).loadApiFromJvmClasses(publicPackageFilter)
             .filterOutNonPublic(nonPublicPackages)
             .filterOutAnnotated(nonPublicAnnotations.toSet())

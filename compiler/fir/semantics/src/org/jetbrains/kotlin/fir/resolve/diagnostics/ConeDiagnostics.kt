@@ -7,22 +7,30 @@ package org.jetbrains.kotlin.fir.resolve.diagnostics
 
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.contracts.description.ConeContractDescriptionElement
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
+import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithSource
+import org.jetbrains.kotlin.fir.expressions.FirConstExpression
+import org.jetbrains.kotlin.fir.expressions.FirOperation
+import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCandidate
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.FirQualifierPart
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 
 sealed interface ConeUnresolvedError : ConeDiagnostic {
-    val qualifier: String?
+    val qualifier: String
 }
 
 interface ConeDiagnosticWithSymbol<S : FirBasedSymbol<*>> : ConeDiagnostic {
@@ -41,9 +49,9 @@ interface ConeDiagnosticWithSingleCandidate : ConeDiagnosticWithCandidates {
     override val candidateSymbols: Collection<FirBasedSymbol<*>> get() = listOf(candidateSymbol)
 }
 
-class ConeUnresolvedReferenceError(val name: Name? = null) : ConeUnresolvedError {
-    override val qualifier: String? get() = name?.asString()
-    override val reason: String get() = "Unresolved reference" + if (name != null) ": ${name.asString()}" else ""
+class ConeUnresolvedReferenceError(val name: Name) : ConeUnresolvedError {
+    override val qualifier: String get() = if (!name.isSpecial) name.asString() else "NO_NAME"
+    override val reason: String get() = "Unresolved reference: ${name.asString()}"
 }
 
 class ConeUnresolvedSymbolError(val classId: ClassId) : ConeUnresolvedError {
@@ -51,13 +59,24 @@ class ConeUnresolvedSymbolError(val classId: ClassId) : ConeUnresolvedError {
     override val reason: String get() = "Symbol not found for $classId"
 }
 
-class ConeUnresolvedQualifierError(override val qualifier: String) : ConeUnresolvedError {
-    override val reason: String get() = "Symbol not found for $qualifier"
+class ConeUnresolvedTypeQualifierError(val qualifiers: List<FirQualifierPart>, override val isNullable: Boolean)
+    : ConeUnresolvedError, ConeDiagnosticWithNullability {
+    override val qualifier: String get() = qualifiers.joinToString(separator = ".") { it.name.asString() }
+    override val reason: String get() = "Symbol not found for $qualifier${if (isNullable) "?" else ""}"
 }
 
-class ConeUnresolvedNameError(val name: Name) : ConeUnresolvedError {
+class ConeUnresolvedNameError(
+    val name: Name,
+    val operatorToken: String? = null,
+) : ConeUnresolvedError {
     override val qualifier: String get() = name.asString()
-    override val reason: String get() = "Unresolved name: $name"
+    override val reason: String get() = "Unresolved name: $prettyReference"
+
+    private val prettyReference: String
+        get() = when (val token = operatorToken) {
+            null -> name.toString()
+            else -> "$name ($token)"
+        }
 }
 
 class ConeFunctionCallExpectedError(
@@ -85,11 +104,16 @@ class ConeHiddenCandidateError(
     override val reason: String get() = "HIDDEN: ${describeSymbol(candidateSymbol)} is deprecated with DeprecationLevel.HIDDEN"
 }
 
-class ConeVisibilityError(
+open class ConeVisibilityError(
     override val symbol: FirBasedSymbol<*>
 ) : ConeDiagnosticWithSymbol<FirBasedSymbol<*>> {
     override val reason: String get() = "HIDDEN: ${describeSymbol(symbol)} is invisible"
 }
+
+class ConeTypeVisibilityError(
+    symbol: FirBasedSymbol<*>,
+    val smallestUnresolvablePrefix: List<FirQualifierPart>,
+) : ConeVisibilityError(symbol)
 
 class ConeInapplicableWrongReceiver(override val candidates: Collection<AbstractCandidate>) : ConeDiagnosticWithCandidates {
     override val reason: String
@@ -136,17 +160,99 @@ object ConeVariableExpectedError : ConeDiagnostic {
     override val reason: String get() = "Variable expected"
 }
 
-class ConeValReassignmentError(val variable: FirVariableSymbol<*>) : ConeDiagnostic {
-    override val reason: String get() = "Re-assigning a val variable"
-}
+sealed class ConeContractDescriptionError : ConeDiagnostic {
+    class IllegalElement(val element: FirElement) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Illegal element in contract description"
+    }
 
-class ConeContractDescriptionError(override val reason: String) : ConeDiagnostic
+    class UnresolvedCall(val name: Name) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Unresolved call in contract description: ${name.asString()}"
+    }
+
+    class NoReceiver(val name: Name) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "No receiver for call ${name.asString()} found"
+    }
+
+    class NoArgument(val name: Name) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "No argument for call ${name.asString()} found"
+    }
+
+    class NotAConstant(val element: Any) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "$element is not a constant reference"
+    }
+
+    class IllegalConst(
+        val element: FirConstExpression<*>,
+        val onlyNullAllowed: Boolean
+    ) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = buildString {
+                append(element.render())
+                append("is not a null")
+                if (!onlyNullAllowed) {
+                    append(", true or false")
+                }
+            }
+    }
+
+    class NotAParameterReference(val element: ConeContractDescriptionElement) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "$element is not a parameter or receiver reference"
+    }
+
+    class IllegalParameter(val symbol: FirCallableSymbol<*>, override val reason: String) : ConeContractDescriptionError()
+
+    class UnresolvedThis(val expression: FirThisReceiverExpression) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Can't resolve this reference"
+    }
+
+    class IllegalThis(val expression: FirThisReceiverExpression) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Only this reference to extension receiver of a function is allowed"
+    }
+
+    class UnresolvedInvocationKind(val element: FirElement) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "${element.render()} is not a valid invocation kind"
+    }
+
+    class NotABooleanExpression(val element: ConeContractDescriptionElement) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "$element is not a boolean expression"
+    }
+
+    class NotContractDsl(val callableId: CallableId) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "$callableId is not a part of contracts DSL"
+    }
+
+    class IllegalEqualityOperator(val operation: FirOperation) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "$operation operator call is illegal in contract description"
+    }
+
+    class NotSelfTypeParameter(val symbol: FirTypeParameterSymbol) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Type parameter ${symbol.name} does not belong to owner of contract"
+    }
+
+    class NotReifiedTypeParameter(val symbol: FirTypeParameterSymbol) : ConeContractDescriptionError() {
+        override val reason: String
+            get() = "Type parameter ${symbol.name} is not reified"
+    }
+}
 
 class ConeIllegalAnnotationError(val name: Name) : ConeDiagnostic {
     override val reason: String get() = "Not a legal annotation: $name"
 }
 
-interface ConeUnmatchedTypeArgumentsError : ConeDiagnosticWithSymbol<FirClassLikeSymbol<*>> {
+sealed interface ConeUnmatchedTypeArgumentsError : ConeDiagnosticWithSymbol<FirClassLikeSymbol<*>> {
     val desiredCount: Int
 }
 
@@ -156,6 +262,14 @@ class ConeWrongNumberOfTypeArgumentsError(
     source: KtSourceElement
 ) : ConeDiagnosticWithSource(source), ConeUnmatchedTypeArgumentsError {
     override val reason: String get() = "Wrong number of type arguments"
+}
+
+class ConeTypeArgumentsNotAllowedError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
+    override val reason: String get() = "Type parameters cannot be parameterized with type arguments"
+}
+
+class ConeTypeArgumentsForOuterClassWhenNestedReferencedError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
+    override val reason: String get() = "Type arguments for outer class are redundant when nested class is referenced"
 }
 
 class ConeNoTypeArgumentsOnRhsError(
@@ -172,7 +286,7 @@ class ConeOuterClassArgumentsRequired(
 }
 
 class ConeInstanceAccessBeforeSuperCall(val target: String) : ConeDiagnostic {
-    override val reason: String get() = "Cannot access ''${target}'' before superclass constructor has been called"
+    override val reason: String get() = "Cannot access ''${target}'' before the instance has been initialized"
 }
 
 class ConeUnsupportedCallableReferenceTarget(override val candidate: AbstractCandidate) : ConeDiagnosticWithSingleCandidate {
@@ -231,4 +345,43 @@ private fun describeSymbol(symbol: FirBasedSymbol<*>): String {
         is FirCallableSymbol<*> -> symbol.callableId.toString()
         else -> "$symbol"
     }
+}
+
+class ConeAmbiguousAlteredAssign(val altererNames: List<String?>) : ConeDiagnostic {
+    override val reason: String
+        get() = "Assign altered by multiple extensions"
+}
+
+object ConeForbiddenIntersection : ConeDiagnostic {
+    override val reason: String get() = "Such an intersection type is not allowed"
+}
+
+class ConeAmbiguouslyResolvedAnnotationFromPlugin(
+    val typeFromCompilerPhase: ConeKotlinType,
+    val typeFromTypesPhase: ConeKotlinType
+) : ConeDiagnostic {
+    override val reason: String
+        get() = """
+            Annotation type resolved differently on compiler annotation and types stages:
+              - compiler annotations: $typeFromCompilerPhase
+              - types stage: $typeFromTypesPhase
+        """
+}
+
+class ConeAmbiguouslyResolvedAnnotationArgument(
+    val symbolFromCompilerPhase: FirBasedSymbol<*>,
+    val symbolFromAnnotationArgumentsPhase: FirBasedSymbol<*>?
+) : ConeDiagnostic {
+    override val reason: String
+        get() = """
+            Annotation symbol resolved differently on compiler annotation and symbols stages:
+              - compiler annotations: $symbolFromCompilerPhase
+              - compiler arguments stage: $symbolFromAnnotationArgumentsPhase
+        """
+}
+
+object ConeResolutionResultOverridesOtherToPreserveCompatibility : ConeDiagnostic {
+    override val reason: String
+        get() = "Resolution result overrides another result to preserve compatibility, result maybe changed in future versions"
+
 }

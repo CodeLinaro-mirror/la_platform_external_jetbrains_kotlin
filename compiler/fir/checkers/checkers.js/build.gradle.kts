@@ -6,7 +6,13 @@ plugins {
 }
 
 dependencies {
+    api(project(":core:compiler.common.js"))
+    api(project(":js:js.ast"))
     api(project(":compiler:fir:checkers"))
+
+    // FE checks for modules use ModuleKind
+    // This dependency can be removed when we stop supporting PLAIN and UMD module systems
+    implementation(project(":js:js.serializer"))
 
     /*
      * We can't remove this dependency until we use
@@ -15,14 +21,13 @@ dependencies {
     implementation(project(":compiler:frontend"))
     implementation(project(":compiler:psi"))
 
-    compileOnly(project(":kotlin-reflect-api"))
     compileOnly(intellijCore())
 }
 
 sourceSets {
     "main" {
         projectDefault()
-        this.java.srcDir("gen")
+        generatedDir()
     }
     "test" { none() }
 }

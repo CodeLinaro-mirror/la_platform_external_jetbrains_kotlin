@@ -1,7 +1,9 @@
 /*
- * Copyright 2000-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
+
+@file:Suppress("FunctionName")
 
 package org.jetbrains.kotlin.resolve.jvm.diagnostics
 
@@ -17,32 +19,20 @@ enum class MemberKind { FIELD, METHOD }
 
 data class RawSignature(val name: String, val desc: String, val kind: MemberKind)
 
-enum class JvmDeclarationOriginKind {
-    OTHER,
-    PACKAGE_PART,
-    INTERFACE_DEFAULT_IMPL,
-    CLASS_MEMBER_DELEGATION_TO_DEFAULT_IMPL,
-    DEFAULT_IMPL_DELEGATION_TO_SUPERINTERFACE_DEFAULT_IMPL,
-    DELEGATION,
-    SAM_DELEGATION,
-    BRIDGE,
-    MULTIFILE_CLASS,
-    MULTIFILE_CLASS_PART,
-    SYNTHETIC, // this means that there's no proper descriptor for this jvm declaration,
-    COLLECTION_STUB,
-    AUGMENTED_BUILTIN_API,
-    ERASED_INLINE_CLASS,
-    UNBOX_METHOD_OF_INLINE_CLASS,
-    JVM_OVERLOADS,
-    INLINE_VERSION_OF_SUSPEND_FUN,
-}
-
-class JvmDeclarationOrigin(
+open class JvmDeclarationOrigin(
     val originKind: JvmDeclarationOriginKind,
     val element: PsiElement?,
     val descriptor: DeclarationDescriptor?,
     val parametersForJvmOverload: List<KtParameter?>? = null
 ) {
+    // This property is used to get the original element in the sources, from which this declaration was generated.
+    // In the old JVM backend, it is just the PSI element. In JVM IR, it is the original IR element (before any deep copy).
+    open val originalSourceElement: Any?
+        get() = element
+
+    override fun toString(): String =
+        if (this == NO_ORIGIN) "NO_ORIGIN" else "origin=$originKind element=${element?.javaClass?.simpleName} descriptor=$descriptor"
+
     companion object {
         @JvmField
         val NO_ORIGIN: JvmDeclarationOrigin = JvmDeclarationOrigin(OTHER, null, null)
@@ -96,9 +86,6 @@ val CollectionStub = JvmDeclarationOrigin(COLLECTION_STUB, null, null)
 
 fun AugmentedBuiltInApi(descriptor: CallableDescriptor): JvmDeclarationOrigin =
     JvmDeclarationOrigin(AUGMENTED_BUILTIN_API, null, descriptor)
-
-fun ErasedInlineClassOrigin(element: PsiElement?, descriptor: ClassDescriptor): JvmDeclarationOrigin =
-    JvmDeclarationOrigin(ERASED_INLINE_CLASS, element, descriptor)
 
 fun UnboxMethodOfInlineClass(descriptor: FunctionDescriptor): JvmDeclarationOrigin =
     JvmDeclarationOrigin(UNBOX_METHOD_OF_INLINE_CLASS, null, descriptor)

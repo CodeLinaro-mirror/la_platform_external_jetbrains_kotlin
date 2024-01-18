@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,7 +9,8 @@ import org.jetbrains.kotlin.generators.builtins.PrimitiveType
 import org.jetbrains.kotlin.generators.builtins.UnsignedType
 import org.jetbrains.kotlin.generators.builtins.convert
 import org.jetbrains.kotlin.generators.builtins.generateBuiltIns.BuiltInsSourceGenerator
-import org.jetbrains.kotlin.generators.builtins.numbers.GeneratePrimitives
+import org.jetbrains.kotlin.generators.builtins.numbers.primitives.BasePrimitivesGenerator
+import org.jetbrains.kotlin.generators.builtins.numbers.primitives.END_LINE
 import org.jetbrains.kotlin.generators.builtins.printDoc
 import java.io.File
 import java.io.PrintWriter
@@ -41,21 +42,21 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
             """.trimIndent()
         "rem" -> {
             """
-                Calculates the remainder of truncating division of this value by the other value.
+                Calculates the remainder of truncating division of this value (dividend) by the other value (divisor).
                 
                 The result is always less than the divisor.
                 """.trimIndent()
         }
         "mod" -> {
             """
-                Calculates the remainder of flooring division of this value by the other value.
+                Calculates the remainder of flooring division of this value (dividend) by the other value (divisor).
 
                 The result is always less than the divisor.
                 
                 For unsigned types, the remainders of flooring division and truncating division are the same.
                 """.trimIndent()
         }
-        else -> GeneratePrimitives.binaryOperatorDoc(operator, operand1.asSigned, operand2.asSigned)
+        else -> BasePrimitivesGenerator.binaryOperatorDoc(operator, operand1.asSigned, operand2.asSigned)
     }
 
     override fun generateBody() {
@@ -96,6 +97,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         generateBinaryOperators()
         generateUnaryOperators()
         generateRangeTo()
+        generateRangeUntil()
 
         if (type == UnsignedType.UINT || type == UnsignedType.ULONG) {
             generateBitShiftOperators()
@@ -145,7 +147,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
     }
 
     private fun generateBinaryOperators() {
-        for (name in GeneratePrimitives.binaryOperators) {
+        for (name in BasePrimitivesGenerator.binaryOperators) {
             generateOperator(name)
         }
         generateFloorDivMod("floorDiv")
@@ -202,7 +204,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
 
     private fun generateUnaryOperators() {
         for (name in listOf("inc", "dec")) {
-            out.println(GeneratePrimitives.incDecOperatorsDoc(name).replaceIndent("    "))
+            out.printDoc(BasePrimitivesGenerator.incDecOperatorsDoc(name), "    ")
             out.println("    @kotlin.internal.InlineOnly")
             out.println("    public inline operator fun $name(): $className = $className(data.$name())")
             out.println()
@@ -219,17 +221,29 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
         out.println()
     }
 
+    private fun generateRangeUntil() {
+        val rangeElementType = maxByDomainCapacity(type, UnsignedType.UINT)
+        val rangeType = rangeElementType.capitalized + "Range"
+        fun convert(name: String) = if (rangeElementType == type) name else "$name.to${rangeElementType.capitalized}()"
+        out.println("    /**")
+        out.println("     * Creates a range from this value up to but excluding the specified [other] value.")
+        out.println("     *")
+        out.println("     * If the [other] value is less than or equal to `this` value, then the returned range is empty.")
+        out.println("     */")
+        out.println("    @SinceKotlin(\"1.9\")")
+        out.println("    @WasExperimental(ExperimentalStdlibApi::class)")
+        out.println("    @kotlin.internal.InlineOnly")
+        out.println("    public inline operator fun rangeUntil(other: $className): $rangeType = ${convert("this")} until ${convert("other")}")
+        out.println()
+    }
+
 
     private fun generateBitShiftOperators() {
 
         fun generateShiftOperator(name: String, implementation: String = name) {
-            val doc = GeneratePrimitives.shiftOperators[implementation]!!
-            val detail = GeneratePrimitives.shiftOperatorsDocDetail(type.asSigned)
-            out.println("    /**")
-            out.println("     * $doc")
-            out.println("     *")
-            out.println(detail.replaceIndent("     "))
-            out.println("     */")
+            val doc = BasePrimitivesGenerator.shiftOperators[implementation]!!
+            val detail = BasePrimitivesGenerator.shiftOperatorsDocDetail(type.asSigned)
+            out.printDoc(doc + END_LINE + END_LINE + detail, "    ")
             out.println("    @kotlin.internal.InlineOnly")
             out.println("    public inline infix fun $name(bitCount: Int): $className = $className(data $implementation bitCount)")
             out.println()
@@ -240,7 +254,7 @@ class UnsignedTypeGenerator(val type: UnsignedType, out: PrintWriter) : BuiltIns
     }
 
     private fun generateBitwiseOperators() {
-        for ((name, doc) in GeneratePrimitives.bitwiseOperators) {
+        for ((name, doc) in BasePrimitivesGenerator.bitwiseOperators) {
             out.println("    /** $doc */")
             out.println("    @kotlin.internal.InlineOnly")
             out.println("    public inline infix fun $name(other: $className): $className = $className(this.data $name other.data)")
@@ -555,14 +569,13 @@ import kotlin.internal.*
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalUnsignedTypes::class)
-@OptIn(ExperimentalStdlibApi::class)
 public class ${elementType}Range(start: $elementType, endInclusive: $elementType) : ${elementType}Progression(start, endInclusive, 1), ClosedRange<${elementType}>, OpenEndRange<${elementType}> {
     override val start: $elementType get() = first
     override val endInclusive: $elementType get() = last
     
-    @SinceKotlin("1.7")
-    @ExperimentalStdlibApi
     @Deprecated("Can throw an exception when it's impossible to represent the value with $elementType type, for example, when the range includes MAX_VALUE. It's recommended to use 'endInclusive' property that doesn't throw.")
+    @SinceKotlin("1.9")
+    @WasExperimental(ExperimentalStdlibApi::class)
     override val endExclusive: $elementType get() {
         if (last == $elementType.MAX_VALUE) error("Cannot return the exclusive upper bound of a range that includes MAX_VALUE.")
         return last + 1u

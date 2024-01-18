@@ -6,6 +6,11 @@
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.attributes.Bundling
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.DocsType
+import org.gradle.api.attributes.Usage
 import org.gradle.api.provider.Provider
 import org.gradle.api.publish.PublicationContainer
 import org.gradle.api.publish.PublishingExtension
@@ -14,18 +19,20 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.sources.KotlinDependencyScope
 import org.jetbrains.kotlin.gradle.plugin.sources.sourceSetDependencyConfigurationByScope
-import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.metadata.isKotlinGranularMetadataEnabled
 import org.jetbrains.kotlin.gradle.tooling.buildKotlinToolingMetadataTask
 
 internal fun configurePublishingWithMavenPublish(project: Project) = project.pluginManager.withPlugin("maven-publish") {
-    project.extensions.configure(PublishingExtension::class.java) { publishing ->
-        createRootPublication(project, publishing)
-        createTargetPublications(project, publishing)
+    if (project.kotlinPropertiesProvider.createDefaultMultiplatformPublications) {
+        project.extensions.configure(PublishingExtension::class.java) { publishing ->
+            createRootPublication(project, publishing)
+            createTargetPublications(project, publishing)
+        }
     }
 
     project.components.add(project.multiplatformExtension.rootSoftwareComponent)
@@ -41,9 +48,6 @@ private fun createRootPublication(project: Project, publishing: PublishingExtens
         from(kotlinSoftwareComponent)
         (this as MavenPublicationInternal).publishWithOriginalFileName()
         kotlinSoftwareComponent.publicationDelegate = this@apply
-        kotlinSoftwareComponent.sourcesArtifacts.forEach { sourceArtifact ->
-            artifact(sourceArtifact)
-        }
 
         addKotlinToolingMetadataArtifactIfNeeded(project)
     }
@@ -62,7 +66,7 @@ private fun createTargetPublications(project: Project, publishing: PublishingExt
     val kotlin = project.multiplatformExtension
     // Enforce the order of creating the publications, since the metadata publication is used in the other publications:
     kotlin.targets
-        .withType(AbstractKotlinTarget::class.java)
+        .withType(InternalKotlinTarget::class.java)
         .matching { it.publishable }
         .all { kotlinTarget ->
             if (kotlinTarget is KotlinAndroidTarget)
@@ -73,18 +77,16 @@ private fun createTargetPublications(project: Project, publishing: PublishingExt
         }
 }
 
-private fun AbstractKotlinTarget.createMavenPublications(publications: PublicationContainer) {
-    components
-        .map { gradleComponent -> gradleComponent to kotlinComponents.single { it.name == gradleComponent.name } }
-        .filter { (_, kotlinComponent) -> kotlinComponent.publishableOnCurrentHost }
-        .forEach { (gradleComponent, kotlinComponent) ->
+private fun InternalKotlinTarget.createMavenPublications(publications: PublicationContainer) {
+    kotlinComponents
+        .filter { kotlinComponent -> kotlinComponent.publishableOnCurrentHost }
+        .forEach { kotlinComponent ->
             val componentPublication = publications.create(kotlinComponent.name, MavenPublication::class.java).apply {
-                // do this in whenEvaluated since older Gradle versions seem to check the files in the variant eagerly:
-                project.whenEvaluated {
+                // do await for usages since older Gradle versions seem to check the files in the variant eagerly:
+                // We are deferring this to 'AfterFinaliseCompilations' as safety measure for now.
+                project.launchInStage(KotlinPluginLifecycle.Stage.AfterFinaliseCompilations) {
+                    val gradleComponent = components.find { kotlinComponent.name == it.name } ?: return@launchInStage
                     from(gradleComponent)
-                    kotlinComponent.sourcesArtifacts.forEach { sourceArtifact ->
-                        artifact(sourceArtifact)
-                    }
                 }
                 (this as MavenPublicationInternal).publishWithOriginalFileName()
                 artifactId = kotlinComponent.defaultArtifactId
@@ -102,7 +104,7 @@ private fun AbstractKotlinTarget.createMavenPublications(publications: Publicati
             }
 
             (kotlinComponent as? KotlinTargetComponentWithPublication)?.publicationDelegate = componentPublication
-            publicationConfigureActions.all { it.execute(componentPublication) }
+            onPublicationCreated(componentPublication)
         }
 }
 
@@ -124,7 +126,7 @@ private fun rewritePom(
  * can't read Gradle module metadata won't resolve a dependency on an MPP to the granular metadata variant and won't then choose the
  * right dependencies for each source set, we put only the dependencies of the legacy common variant into the POM, i.e. commonMain API.
  */
-private fun dependenciesForPomRewriting(target: AbstractKotlinTarget): Provider<Set<ModuleCoordinates>>? =
+private fun dependenciesForPomRewriting(target: InternalKotlinTarget): Provider<Set<ModuleCoordinates>>? =
     if (target !is KotlinMetadataTarget || !target.project.isKotlinGranularMetadataEnabled)
         null
     else {
@@ -136,8 +138,28 @@ private fun dependenciesForPomRewriting(target: AbstractKotlinTarget): Provider<
                 val project = target.project
 
                 // Only the commonMain API dependencies can be published for consumers who can't read Gradle project metadata
-                val commonMainApi = project.sourceSetDependencyConfigurationByScope(commonMain, KotlinDependencyScope.API_SCOPE)
+                val commonMainApi = project.configurations.sourceSetDependencyConfigurationByScope(
+                    commonMain,
+                    KotlinDependencyScope.API_SCOPE
+                )
                 val commonMainDependencies = commonMainApi.allDependencies
                 commonMainDependencies.map { ModuleCoordinates(it.group, it.name, it.version) }.toSet()
             }
     }
+
+internal fun Configuration.configureSourcesPublicationAttributes(target: KotlinTarget) {
+    val project = target.project
+
+    // In order to be consistent with Java Gradle Plugin, set usage attribute for sources variant
+    // to be either JAVA_RUNTIME (for jvm) or KOTLIN_RUNTIME (for other targets)
+    // the latter isn't a strong requirement since there is no tooling that consume kotlin sources through gradle variants at the moment
+    // so consistency with Java Gradle Plugin seemed most desirable choice.
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerRuntimeUsage(target))
+    attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.attributeValueByName(Category.DOCUMENTATION))
+    attributes.attribute(DocsType.DOCS_TYPE_ATTRIBUTE, project.attributeValueByName(DocsType.SOURCES))
+    // Bundling attribute is about component dependencies, external means that they are provided as separate components
+    // source variants doesn't have any dependencies (at least at the moment) so there is not much sense to use this attribute
+    // however for Java Gradle Plugin compatibility and in order to prevent weird Variant Resolution errors we include this attribute
+    attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, project.attributeValueByName(Bundling.EXTERNAL))
+    usesPlatformOf(target)
+}

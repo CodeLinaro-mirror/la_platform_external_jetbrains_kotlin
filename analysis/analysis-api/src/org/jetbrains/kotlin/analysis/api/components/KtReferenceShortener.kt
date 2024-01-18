@@ -6,26 +6,56 @@
 package org.jetbrains.kotlin.analysis.api.components
 
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.SmartPsiElementPointer
 import org.jetbrains.kotlin.analysis.api.components.ShortenOption.Companion.defaultCallableShortenOption
 import org.jetbrains.kotlin.analysis.api.components.ShortenOption.Companion.defaultClassShortenOption
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtEnumEntrySymbol
+import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtUserType
 
 public enum class ShortenOption {
     /** Skip shortening references to this symbol. */
     DO_NOT_SHORTEN,
 
-    /** Only shorten references to this symbol if it's already imported in the file. Otherwise, leave it as it is. */
+    /**
+     * Only shorten references to this symbol if it's possible without adding a new import directive to the file. Otherwise, leave it as
+     * it is.
+     *
+     * Example:
+     *   package a.b.c
+     *   import foo.bar
+     *   fun test() {}
+     *   fun runFunctions() {
+     *     foo.bar()     // -> bar()
+     *     a.b.c.test()  // -> test()
+     *   }
+     */
     SHORTEN_IF_ALREADY_IMPORTED,
 
-    /** Shorten references to this symbol and import it into the file. */
+    /**
+     * Shorten references to this symbol and import it into the file if importing it is needed for the shortening.
+     *
+     * Example:
+     *   package a.b.c
+     *   fun test() {}
+     *   fun runFunctions() {
+     *     foo.bar()     // -> bar() and add a new import directive `import foo.bar`
+     *     a.b.c.test()  // -> test()
+     *   }
+     */
     SHORTEN_AND_IMPORT,
 
-    /** Shorten references to this symbol and import this symbol and all its sibling symbols with star import on the parent. */
+    /**
+     * Shorten references to this symbol and import this symbol and all its sibling symbols with star import on the parent if importing them
+     * is needed for the shortening.
+     */
     SHORTEN_AND_STAR_IMPORT;
 
     public companion object {
@@ -57,7 +87,12 @@ public interface KtReferenceShortenerMixIn : KtAnalysisSessionMixIn {
 
     /**
      * Collects possible references to shorten. By default, it shortens a fully-qualified members to the outermost class and does not
-     * shorten enum entries.
+     * shorten enum entries.  In case of KDoc shortens reference only if it is already imported.
+     *
+     * N.B. This API is not implemented for the FE10 implementation!
+     * For a K1- and K2-compatible API, use [org.jetbrains.kotlin.idea.base.codeInsight.ShortenReferencesFacility].
+     *
+     * Also see [org.jetbrains.kotlin.idea.base.analysis.api.utils.shortenReferences] and functions around it.
      */
     public fun collectPossibleReferenceShortenings(
         file: KtFile,
@@ -74,6 +109,15 @@ public interface KtReferenceShortenerMixIn : KtAnalysisSessionMixIn {
             )
         }
 
+    /**
+     * Collects possible references to shorten in [element]s text range. By default, it shortens a fully-qualified members to the outermost
+     * class and does not shorten enum entries.
+     *
+     * N.B. This API is not implemented for the FE10 implementation!
+     * For a K1- and K2-compatible API, use [org.jetbrains.kotlin.idea.base.codeInsight.ShortenReferencesFacility].
+     *
+     * Also see [org.jetbrains.kotlin.idea.base.analysis.api.utils.shortenReferences] and functions around it.
+     */
     public fun collectPossibleReferenceShorteningsInElement(
         element: KtElement,
         classShortenOption: (KtClassLikeSymbol) -> ShortenOption = defaultClassShortenOption,
@@ -90,6 +134,13 @@ public interface KtReferenceShortenerMixIn : KtAnalysisSessionMixIn {
 }
 
 public interface ShortenCommand {
-    public fun invokeShortening()
+    public val targetFile: SmartPsiElementPointer<KtFile>
+    public val importsToAdd: Set<FqName>
+    public val starImportsToAdd: Set<FqName>
+    public val typesToShorten: List<SmartPsiElementPointer<KtUserType>>
+    public val qualifiersToShorten: List<SmartPsiElementPointer<KtDotQualifiedExpression>>
+    public val kDocQualifiersToShorten: List<SmartPsiElementPointer<KDocName>>
+
     public val isEmpty: Boolean
+        get() = typesToShorten.isEmpty() && qualifiersToShorten.isEmpty() && kDocQualifiersToShorten.isEmpty()
 }

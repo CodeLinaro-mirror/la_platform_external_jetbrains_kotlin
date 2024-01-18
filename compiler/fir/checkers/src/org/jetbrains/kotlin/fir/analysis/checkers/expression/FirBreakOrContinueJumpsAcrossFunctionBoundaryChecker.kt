@@ -5,16 +5,18 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
 
 object FirBreakOrContinueJumpsAcrossFunctionBoundaryChecker : FirLoopJumpChecker() {
     override fun check(expression: FirLoopJump, context: CheckerContext, reporter: DiagnosticReporter) {
+        val allowInlined = context.languageVersionSettings.supportsFeature(LanguageFeature.BreakContinueInInlineLambdas)
         val errorPathElements = ArrayDeque<FirElement>()
 
         fun findPathAndCheck(element: FirElement?): Boolean {
@@ -31,8 +33,19 @@ object FirBreakOrContinueJumpsAcrossFunctionBoundaryChecker : FirLoopJumpChecker
 
             when (element) {
                 expression -> {
-                    if (errorPathElements.any()) {
-                        reporter.reportOn(expression.source, FirErrors.BREAK_OR_CONTINUE_JUMPS_ACROSS_FUNCTION_BOUNDARY, context)
+                    if (errorPathElements.isNotEmpty()) {
+                        val hasNonInline = errorPathElements.any {
+                            when(it) {
+                                is FirAnonymousFunction -> it.inlineStatus != InlineStatus.Inline
+                                is FirAnonymousFunctionExpression -> it.anonymousFunction.inlineStatus != InlineStatus.Inline
+                                else -> true
+                            }}
+                        if (hasNonInline) {
+                            reporter.reportOn(expression.source, FirErrors.BREAK_OR_CONTINUE_JUMPS_ACROSS_FUNCTION_BOUNDARY, context)
+                        } else if (!allowInlined) {
+                            reporter.reportOn(expression.source, FirErrors.UNSUPPORTED_FEATURE,
+                                LanguageFeature.BreakContinueInInlineLambdas to context.languageVersionSettings, context)
+                        }
                     }
                     return true
                 }
@@ -43,6 +56,7 @@ object FirBreakOrContinueJumpsAcrossFunctionBoundaryChecker : FirLoopJumpChecker
                         }
                     }
                 }
+                is FirLoop -> return findPathAndCheck(element.condition) || findPathAndCheck(element.block)
                 is FirWhenExpression -> {
                     for (branch in element.branches) {
                         if (findPathAndCheck(branch.result)) {
@@ -52,6 +66,12 @@ object FirBreakOrContinueJumpsAcrossFunctionBoundaryChecker : FirLoopJumpChecker
                 }
                 is FirVariable -> return findPathAndCheck(element.initializer)
                 is FirWrappedExpression -> return findPathAndCheck(element.expression)
+                is FirFunctionCall -> {
+                    if (findPathAndCheck(element.extensionReceiver) || findPathAndCheck(element.dispatchReceiver)) {
+                        return true
+                    }
+                    if (element.arguments.any(::findPathAndCheck)) return true
+                }
                 is FirCall -> {
                     for (argument in element.arguments) {
                         if (findPathAndCheck(argument)) {
@@ -98,4 +118,5 @@ object FirBreakOrContinueJumpsAcrossFunctionBoundaryChecker : FirLoopJumpChecker
 
         findPathAndCheck(expression.target.labeledElement.block)
     }
+
 }

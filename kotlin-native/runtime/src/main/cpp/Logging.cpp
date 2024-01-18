@@ -6,25 +6,15 @@
 #include "Logging.hpp"
 
 #include <array>
-#if __has_include(<optional>)
+#include <cinttypes>
+#include <map>
 #include <optional>
-#elif __has_include(<experimental/optional>)
-// TODO: Remove when wasm32 is gone.
-#include <experimental/optional>
-namespace std {
-template <typename T>
-using optional = std::experimental::optional<T>;
-inline constexpr auto nullopt = std::experimental::nullopt;
-} // namespace std
-#else
-#error "No <optional>"
-#endif
+#include <string>
 
+#include "CallsChecker.hpp"
 #include "Format.h"
 #include "KAssert.h"
 #include "Porting.h"
-#include "std_support/Map.hpp"
-#include "std_support/String.hpp"
 
 using namespace kotlin;
 
@@ -63,9 +53,9 @@ std::optional<logging::Level> ParseLevel(std::string_view levelString) noexcept 
     return std::nullopt;
 }
 
-std_support::map<std_support::string, logging::Level> ParseTagsFilter(std::string_view tagsFilter) noexcept {
+std::map<std::string, logging::Level> ParseTagsFilter(std::string_view tagsFilter) noexcept {
     if (tagsFilter.empty()) return {};
-    std_support::map<std_support::string, logging::Level> result;
+    std::map<std::string, logging::Level> result;
     std::string_view rest = tagsFilter;
     while (!rest.empty()) {
         auto tag = ParseTag(rest);
@@ -85,7 +75,7 @@ std_support::map<std_support::string, logging::Level> ParseTagsFilter(std::strin
             konan::consoleErrorf("'. No logging will be performed\n");
             return {};
         }
-        result.emplace(std_support::string(tag.value->data(), tag.value->size()), *level);
+        result.emplace(std::string(tag.value->data(), tag.value->size()), *level);
     }
     return result;
 }
@@ -110,7 +100,7 @@ public:
 
 private:
     // TODO: Make it more efficient.
-    std_support::map<std_support::string, logging::Level> tagLevelMap_;
+    std::map<std::string, logging::Level> tagLevelMap_;
 };
 
 class StderrLogger : public logging::internal::Logger {
@@ -143,25 +133,47 @@ std_support::span<char> FormatTags(std_support::span<char> buffer, std_support::
     return FormatToSpan(buffer, "]");
 }
 
-} // namespace
-
-std_support::unique_ptr<logging::internal::LogFilter> logging::internal::CreateLogFilter(std::string_view tagsFilter) noexcept {
-    return std_support::make_unique<::LogFilter>(tagsFilter);
+std_support::span<char> FormatTimestamp(std_support::span<char> buffer, kotlin::nanoseconds timestamp) noexcept {
+    auto s = static_cast<double>(timestamp.count().value) / 1'000'000'000;
+    return FormatToSpan(buffer, "[%.3fs]", s);
 }
 
-std_support::unique_ptr<logging::internal::Logger> logging::internal::CreateStderrLogger() noexcept {
-    return std_support::make_unique<StderrLogger>();
+std_support::span<char> FormatThread(std_support::span<char> buffer, int threadId) noexcept {
+    return FormatToSpan(buffer, "[tid#%d]", threadId);
+}
+
+struct DefaultLogContext {
+    ::LogFilter logFilter;
+    StderrLogger logger;
+    kotlin::steady_clock::time_point initialTimestamp;
+
+    explicit DefaultLogContext(std::string_view tagsFilter) noexcept :
+        logFilter(tagsFilter), initialTimestamp(kotlin::steady_clock::now()) {}
+};
+
+} // namespace
+
+std::unique_ptr<logging::internal::LogFilter> logging::internal::CreateLogFilter(std::string_view tagsFilter) noexcept {
+    return std::make_unique<::LogFilter>(tagsFilter);
+}
+
+std::unique_ptr<logging::internal::Logger> logging::internal::CreateStderrLogger() noexcept {
+    return std::make_unique<StderrLogger>();
 }
 
 std_support::span<char> logging::internal::FormatLogEntry(
         std_support::span<char> buffer,
         logging::Level level,
         std_support::span<const char* const> tags,
+        int threadId,
+        kotlin::nanoseconds timestamp,
         const char* format,
         std::va_list args) noexcept {
     auto subbuffer = buffer.subspan(0, buffer.size() - 1);
     subbuffer = FormatLevel(subbuffer, level);
     subbuffer = FormatTags(subbuffer, tags);
+    subbuffer = FormatThread(subbuffer, threadId);
+    subbuffer = FormatTimestamp(subbuffer, timestamp);
     subbuffer = FormatToSpan(subbuffer, " ");
     subbuffer = VFormatToSpan(subbuffer, format, args);
     buffer = buffer.subspan(subbuffer.data() - buffer.data());
@@ -174,12 +186,14 @@ void logging::internal::Log(
         const Logger& logger,
         Level level,
         std_support::span<const char* const> tags,
+        int threadId,
+        kotlin::nanoseconds timestamp,
         const char* format,
         std::va_list args) noexcept {
     if (!logFilter.Enabled(level, tags)) return;
     // TODO: This might be suboptimal.
     std::array<char, 1024> logEntry;
-    auto rest = FormatLogEntry(logEntry, level, tags, format, args);
+    auto rest = FormatLogEntry(logEntry, level, tags, threadId, timestamp, format, args);
     logger.Log(level, tags, std::string_view(logEntry.data(), rest.data() - logEntry.data()));
 }
 
@@ -191,9 +205,12 @@ void logging::Log(Level level, std::initializer_list<const char*> tags, const ch
 }
 
 void logging::VLog(Level level, std::initializer_list<const char*> tags, const char* format, std::va_list args) noexcept {
-    [[clang::no_destroy]] static auto logFilter = internal::CreateLogFilter(compiler::runtimeLogs());
-    [[clang::no_destroy]] static auto logger = internal::CreateStderrLogger();
+    CallsCheckerIgnoreGuard guard;
+
+    [[clang::no_destroy]] static DefaultLogContext ctx(compiler::runtimeLogs());
     RuntimeAssert(tags.size() > 0, "Cannot Log without tags");
     std_support::span<const char* const> tagsSpan(std::data(tags), std::size(tags));
-    internal::Log(*logFilter, *logger, level, tagsSpan, format, args);
+    auto threadId = konan::currentThreadId();
+    auto timestamp = kotlin::steady_clock::now();
+    internal::Log(ctx.logFilter, ctx.logger, level, tagsSpan, threadId, timestamp - ctx.initialTimestamp, format, args);
 }

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.script.jsr223
 
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
@@ -36,6 +38,7 @@ import javax.script.ScriptContext
 import javax.script.ScriptEngineFactory
 import kotlin.reflect.KClass
 
+@Deprecated("Use kotlin-scripting-jsr223 instead")
 class KotlinJsr223JvmLocalScriptEngine(
         factory: ScriptEngineFactory,
         val templateClasspath: List<File>,

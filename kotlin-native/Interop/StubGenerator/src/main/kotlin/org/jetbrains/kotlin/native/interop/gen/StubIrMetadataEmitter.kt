@@ -6,6 +6,7 @@ package org.jetbrains.kotlin.native.interop.gen
 
 import kotlinx.metadata.*
 import kotlinx.metadata.klib.*
+import kotlinx.metadata.internal.common.*
 import org.jetbrains.kotlin.metadata.serialization.Interner
 import org.jetbrains.kotlin.utils.addIfNotNull
 
@@ -118,7 +119,7 @@ internal class ModuleMetadataEmitter(
             val kmClass = data.withMappingExtensions {
                 KmClass().also { km ->
                     element.annotations.mapTo(km.annotations) { it.map() }
-                    km.flags = element.flags
+                    km.modifiersFrom(element)
                     km.name = element.classifier.fqNameSerialized
                     element.superClassInit?.let { km.supertypes += it.type.map() }
                     element.interfaces.mapTo(km.supertypes) { it.map() }
@@ -139,7 +140,9 @@ internal class ModuleMetadataEmitter(
 
         override fun visitTypealias(element: TypealiasStub, data: VisitingContext): KmTypeAlias =
                 data.withMappingExtensions {
-                    KmTypeAlias(element.flags, element.alias.topLevelName).also { km ->
+                    KmTypeAlias(element.alias.topLevelName).also { km ->
+                        element.annotations.mapTo(km.annotations) { it.map() }
+                        km.visibility = Visibility.PUBLIC
                         km.underlyingType = element.aliasee.map(shouldExpandTypeAliases = false)
                         km.expandedType = element.aliasee.map()
                     }
@@ -152,10 +155,11 @@ internal class ModuleMetadataEmitter(
                     } else {
                         element.copy(
                                 external = false,
-                                annotations = listOf(AnnotationStub.Deprecated.unableToImport)
+                                annotations = mutableListOf(AnnotationStub.Deprecated.unableToImport)
                         )
                     }
-                    KmFunction(function.flags, function.name).also { km ->
+                    KmFunction(function.name).also { km ->
+                        km.modifiersFrom(function)
                         km.receiverParameterType = function.receiver?.type?.map()
                         function.typeParameters.mapTo(km.typeParameters) { it.map() }
                         function.parameters.mapTo(km.valueParameters) { it.map() }
@@ -169,13 +173,16 @@ internal class ModuleMetadataEmitter(
                     val property = when (val bridgeSupportedKind = element.bridgeSupportedKind) {
                         null -> element.copy(
                                 kind = PropertyStub.Kind.Val(PropertyAccessor.Getter.SimpleGetter()),
-                                annotations = listOf(AnnotationStub.Deprecated.unableToImport)
+                                annotations = mutableListOf(AnnotationStub.Deprecated.unableToImport)
                         )
                         element.kind -> element
                         else -> element.copy(kind = bridgeSupportedKind)
                     }
                     val name = getPropertyNameInScope(property, data.container)
-                    KmProperty(property.flags, name, property.getterFlags, property.setterFlags).also { km ->
+                    KmProperty(name).also { km ->
+                        km.modifiersFrom(property)
+                        km.getter.getterModifiersFrom(property)
+                        km.setter = setterFrom(property)
                         property.annotations.mapTo(km.annotations) { it.map() }
                         km.receiverParameterType = property.receiverType?.map()
                         km.returnType = property.type.map()
@@ -198,7 +205,8 @@ internal class ModuleMetadataEmitter(
 
         override fun visitConstructor(constructorStub: ConstructorStub, data: VisitingContext) =
                 data.withMappingExtensions {
-                    KmConstructor(constructorStub.flags).apply {
+                    KmConstructor().apply {
+                        modifiersFrom(constructorStub)
                         constructorStub.parameters.mapTo(valueParameters, { it.map() })
                         constructorStub.annotations.mapTo(annotations, { it.map() })
                     }
@@ -232,34 +240,31 @@ private class MappingExtensions(
         private val bridgeBuilderResult: BridgeBuilderResult
 ) {
 
-    private fun flagsOfNotNull(vararg flags: Flag?): Flags =
-            flagsOf(*listOfNotNull(*flags).toTypedArray())
-
     private fun <K, V> mapOfNotNull(vararg entries: Pair<K, V>?): Map<K, V> =
             listOfNotNull(*entries).toMap()
 
-    private val VisibilityModifier.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_PUBLIC.takeIf { this == VisibilityModifier.PUBLIC },
-                Flag.IS_PROTECTED.takeIf { this == VisibilityModifier.PROTECTED },
-                Flag.IS_INTERNAL.takeIf { this == VisibilityModifier.INTERNAL },
-                Flag.IS_PRIVATE.takeIf { this == VisibilityModifier.PRIVATE }
-        )
+    private val VisibilityModifier.kmVisibility: Visibility
+        get() = when (this) {
+            VisibilityModifier.PUBLIC -> Visibility.PUBLIC
+            VisibilityModifier.PROTECTED -> Visibility.PROTECTED
+            VisibilityModifier.INTERNAL -> Visibility.INTERNAL
+            VisibilityModifier.PRIVATE -> Visibility.PRIVATE
+        }
 
-    private val MemberStubModality.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_FINAL.takeIf { this == MemberStubModality.FINAL },
-                Flag.IS_OPEN.takeIf { this == MemberStubModality.OPEN },
-                Flag.IS_ABSTRACT.takeIf { this == MemberStubModality.ABSTRACT }
-        )
+    private val MemberStubModality.kmModality: Modality
+        get() = when (this) {
+            MemberStubModality.FINAL -> Modality.FINAL
+            MemberStubModality.OPEN -> Modality.OPEN
+            MemberStubModality.ABSTRACT -> Modality.ABSTRACT
+        }
 
-    val FunctionStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_PUBLIC,
-                Flag.Function.IS_EXTERNAL.takeIf { this.external },
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() },
-                Flag.Function.HAS_NON_STABLE_PARAMETER_NAMES.takeIf { !this.hasStableParameterNames }
-        ) or modality.flags
+    fun KmFunction.modifiersFrom(fs: FunctionStub) {
+        visibility = Visibility.PUBLIC
+        modality = fs.modality.kmModality
+        isExternal = fs.external
+        hasAnnotations = fs.annotations.isNotEmpty()
+        hasNonStableParameterNames = !fs.hasStableParameterNames
+    }
 
     val Classifier.fqNameSerialized: String
         get() = buildString {
@@ -271,96 +276,79 @@ private class MappingExtensions(
             append(getRelativeFqName(asSimpleName = false))
         }
 
-    val PropertyStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_PUBLIC,
-                Flag.Property.IS_DECLARATION,
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() },
-                Flag.Property.HAS_CONSTANT.takeIf { kind is PropertyStub.Kind.Constant },
-                Flag.Property.HAS_GETTER,
-                Flag.Property.HAS_SETTER.takeIf { kind is PropertyStub.Kind.Var },
-                when (kind) {
-                    is PropertyStub.Kind.Val -> null
-                    is PropertyStub.Kind.Var -> Flag.Property.IS_VAR
-                    is PropertyStub.Kind.Constant -> Flag.Property.IS_CONST
+    fun KmProperty.modifiersFrom(ps: PropertyStub) {
+        visibility = Visibility.PUBLIC
+        modality = ps.modality.kmModality
+        kind = MemberKind.DECLARATION
+        hasAnnotations = ps.annotations.isNotEmpty()
+        when (ps.kind) {
+            is PropertyStub.Kind.Val -> {}
+            is PropertyStub.Kind.Var -> {
+                isVar = true
+            }
+            is PropertyStub.Kind.Constant -> {
+                isConst = true
+                hasConstant = true
+            }
+        }
+    }
+
+    fun KmPropertyAccessorAttributes.getterModifiersFrom(ps: PropertyStub) {
+        val getter = when (val kind = ps.kind) {
+            is PropertyStub.Kind.Val -> kind.getter
+            is PropertyStub.Kind.Var -> kind.getter
+            is PropertyStub.Kind.Constant -> null
+        }
+        if (getter == null) {
+            // constant
+            visibility = Visibility.PUBLIC
+            modality = Modality.FINAL
+        } else {
+            visibility = Visibility.PUBLIC
+            modality = ps.modality.kmModality
+            hasAnnotations = getter.annotations.isNotEmpty()
+            isNotDefault = true
+            isExternal = getter is PropertyAccessor.Getter.ExternalGetter
+        }
+    }
+
+    fun setterFrom(ps: PropertyStub): KmPropertyAccessorAttributes? {
+        val setter = if (ps.kind is PropertyStub.Kind.Var) ps.kind.setter else return null
+        return KmPropertyAccessorAttributes().apply {
+            hasAnnotations = setter.annotations.isNotEmpty()
+            visibility = Visibility.PUBLIC
+            modality = ps.modality.kmModality
+            isNotDefault = true
+            isExternal = setter is PropertyAccessor.Setter.ExternalSetter
+        }
+    }
+
+    fun KmType.modifiersFrom(st: StubType) {
+        isNullable = st.nullable
+    }
+
+    fun KmClass.modifiersFrom(cs: ClassStub) {
+        hasAnnotations = cs.annotations.isNotEmpty()
+        visibility = Visibility.PUBLIC
+        kind = when (cs) {
+            is ClassStub.Simple -> {
+                modality = when (cs.modality) {
+                    ClassStubModality.NONE -> Modality.FINAL
+                    ClassStubModality.OPEN -> Modality.OPEN
+                    ClassStubModality.ABSTRACT, ClassStubModality.INTERFACE -> Modality.ABSTRACT
                 }
-        ) or modality.flags
-
-    val PropertyStub.getterFlags: Flags
-        get() = when (val kind = kind) {
-            is PropertyStub.Kind.Val -> kind.getter.flags(modality)
-            is PropertyStub.Kind.Var -> kind.getter.flags(modality)
-            is PropertyStub.Kind.Constant -> kind.flags
+                if (cs.modality == ClassStubModality.INTERFACE) ClassKind.INTERFACE else ClassKind.CLASS
+            }
+            is ClassStub.Companion -> ClassKind.COMPANION_OBJECT
+            is ClassStub.Enum -> ClassKind.ENUM_CLASS
         }
+    }
 
-    val PropertyStub.Kind.Constant.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_PUBLIC,
-                Flag.IS_FINAL
-        )
-
-    private fun PropertyAccessor.Getter.flags(propertyModality: MemberStubModality): Flags =
-        flagsOfNotNull(
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() },
-                Flag.IS_PUBLIC,
-                Flag.PropertyAccessor.IS_NOT_DEFAULT,
-                Flag.PropertyAccessor.IS_EXTERNAL.takeIf { this is PropertyAccessor.Getter.ExternalGetter }
-        ) or propertyModality.flags
-
-    val PropertyStub.setterFlags: Flags
-        get() = when (val kind = kind) {
-            is PropertyStub.Kind.Var -> kind.setter.flags(modality)
-            else -> flagsOf()
-        }
-
-    private fun PropertyAccessor.Setter.flags(propertyModality: MemberStubModality): Flags =
-        flagsOfNotNull(
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() },
-                Flag.IS_PUBLIC,
-                Flag.PropertyAccessor.IS_NOT_DEFAULT,
-                Flag.PropertyAccessor.IS_EXTERNAL.takeIf { this is PropertyAccessor.Setter.ExternalSetter }
-        ) or propertyModality.flags
-
-    val StubType.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.Type.IS_NULLABLE.takeIf { nullable }
-        )
-
-    val AbbreviatedType.expandedTypeFlags: Flags
-        get() = flagsOfNotNull(
-                Flag.Type.IS_NULLABLE.takeIf { isEffectivelyNullable() }
-        )
-
-    val TypealiasStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.IS_PUBLIC
-        )
-
-    val FunctionParameterStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() }
-        )
-
-    val ClassStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() },
-                Flag.IS_PUBLIC,
-                Flag.IS_OPEN.takeIf { this is ClassStub.Simple && modality == ClassStubModality.OPEN },
-                Flag.IS_FINAL.takeIf { this is ClassStub.Simple && modality == ClassStubModality.NONE },
-                Flag.IS_ABSTRACT.takeIf { this is ClassStub.Simple
-                        && (modality == ClassStubModality.ABSTRACT || modality == ClassStubModality.INTERFACE) },
-                Flag.Class.IS_INTERFACE.takeIf { this is ClassStub.Simple && modality == ClassStubModality.INTERFACE },
-                Flag.Class.IS_COMPANION_OBJECT.takeIf { this is ClassStub.Companion },
-                Flag.Class.IS_CLASS.takeIf { this is ClassStub.Simple && modality != ClassStubModality.INTERFACE },
-                Flag.Class.IS_ENUM_CLASS.takeIf { this is ClassStub.Enum }
-        )
-
-
-    val ConstructorStub.flags: Flags
-        get() = flagsOfNotNull(
-                Flag.Constructor.IS_SECONDARY.takeIf { !isPrimary },
-                Flag.HAS_ANNOTATIONS.takeIf { annotations.isNotEmpty() }
-        ) or visibility.flags
+    fun KmConstructor.modifiersFrom(cs: ConstructorStub) {
+        visibility = cs.visibility.kmVisibility
+        isSecondary = !cs.isPrimary
+        hasAnnotations = cs.annotations.isNotEmpty()
+    }
 
     private tailrec fun StubType.isEffectivelyNullable(): Boolean =
             when {
@@ -370,14 +358,16 @@ private class MappingExtensions(
             }
 
     fun AnnotationStub.map(): KmAnnotation {
-        fun Pair<String, String>.asAnnotationArgument() =
-                (first to KmAnnotationArgument.StringValue(second)).takeIf { second.isNotEmpty() }
+        fun Pair<String, String>.asOptionalAnnotationArgument(): Pair<String, KmAnnotationArgument.StringValue>? {
+            val (argumentName, argumentValue) = this
+            return if (argumentValue.isEmpty()) null else argumentName to KmAnnotationArgument.StringValue(argumentValue)
+        }
 
         fun replaceWith(replaceWith: String) = KmAnnotationArgument.AnnotationValue(KmAnnotation(
                 Classifier.topLevel("kotlin", "ReplaceWith").fqNameSerialized,
                 mapOfNotNull(
                         "imports" to KmAnnotationArgument.ArrayValue(emptyList()),
-                        ("expression" to replaceWith).asAnnotationArgument()
+                        "expression" to KmAnnotationArgument.StringValue(replaceWith)
                 )
         ))
 
@@ -390,32 +380,35 @@ private class MappingExtensions(
             AnnotationStub.ObjC.ConsumesReceiver -> emptyMap()
             AnnotationStub.ObjC.ReturnsRetained -> emptyMap()
             is AnnotationStub.ObjC.Method -> mapOfNotNull(
-                    ("selector" to selector).asAnnotationArgument(),
-                    ("encoding" to encoding).asAnnotationArgument(),
+                    ("selector" to selector).asOptionalAnnotationArgument(),
+                    ("encoding" to encoding).asOptionalAnnotationArgument(),
                     ("isStret" to KmAnnotationArgument.BooleanValue(isStret))
             )
+            is AnnotationStub.ObjC.Direct -> mapOfNotNull(
+                    ("symbol" to symbol).asOptionalAnnotationArgument(),
+            )
             is AnnotationStub.ObjC.Factory -> mapOfNotNull(
-                    ("selector" to selector).asAnnotationArgument(),
-                    ("encoding" to encoding).asAnnotationArgument(),
+                    ("selector" to selector).asOptionalAnnotationArgument(),
+                    ("encoding" to encoding).asOptionalAnnotationArgument(),
                     ("isStret" to KmAnnotationArgument.BooleanValue(isStret))
             )
             AnnotationStub.ObjC.Consumed -> emptyMap()
             is AnnotationStub.ObjC.Constructor -> mapOfNotNull(
                     ("designated" to KmAnnotationArgument.BooleanValue(designated)),
-                    ("initSelector" to selector).asAnnotationArgument()
+                    ("initSelector" to selector).asOptionalAnnotationArgument()
             )
             is AnnotationStub.ObjC.ExternalClass -> mapOfNotNull(
-                    ("protocolGetter" to protocolGetter).asAnnotationArgument(),
-                    ("binaryName" to binaryName).asAnnotationArgument()
+                    ("protocolGetter" to protocolGetter).asOptionalAnnotationArgument(),
+                    ("binaryName" to binaryName).asOptionalAnnotationArgument()
             )
             AnnotationStub.CCall.CString -> emptyMap()
             AnnotationStub.CCall.WCString -> emptyMap()
             is AnnotationStub.CCall.Symbol -> mapOfNotNull(
-                    ("id" to symbolName).asAnnotationArgument()
+                    ("id" to symbolName).asOptionalAnnotationArgument()
             )
             is AnnotationStub.CCall.CppClassConstructor -> emptyMap()
             is AnnotationStub.CStruct -> mapOfNotNull(
-                    ("spelling" to struct).asAnnotationArgument()
+                    ("spelling" to struct).asOptionalAnnotationArgument()
             )
             is AnnotationStub.CNaturalStruct ->
                 error("@CNaturalStruct should not be used for Kotlin/Native interop")
@@ -423,12 +416,12 @@ private class MappingExtensions(
                     "value" to KmAnnotationArgument.LongValue(length)
             )
             is AnnotationStub.Deprecated -> mapOfNotNull(
-                    ("message" to message).asAnnotationArgument(),
+                    ("message" to message).asOptionalAnnotationArgument(),
                     ("replaceWith" to replaceWith(replaceWith)),
                     ("level" to deprecationLevel(level))
             )
             is AnnotationStub.CEnumEntryAlias -> mapOfNotNull(
-                    ("entryName" to entryName).asAnnotationArgument()
+                    ("entryName" to entryName).asOptionalAnnotationArgument()
             )
             is AnnotationStub.CEnumVarTypeSize -> mapOfNotNull(
                     ("size" to KmAnnotationArgument.IntValue(size))
@@ -449,6 +442,7 @@ private class MappingExtensions(
             )
             is AnnotationStub.CStruct.CPlusPlusClass -> emptyMap()
             is AnnotationStub.CStruct.ManagedType -> emptyMap()
+            is AnnotationStub.ExperimentalForeignApi -> emptyMap()
         }
         return KmAnnotation(classifier.fqNameSerialized, args)
     }
@@ -477,12 +471,14 @@ private class MappingExtensions(
         is AbbreviatedType -> {
             val typeAliasClassifier = KmClassifier.TypeAlias(abbreviatedClassifier.fqNameSerialized)
             val typeArguments = typeArguments.map { it.map(shouldExpandTypeAliases) }
-            val abbreviatedType = KmType(flags).also { km ->
+            val abbreviatedType = KmType().also { km ->
+                km.modifiersFrom(this)
                 km.classifier = typeAliasClassifier
                 km.arguments += typeArguments
             }
             if (shouldExpandTypeAliases) {
-                KmType(expandedTypeFlags).also { km ->
+                KmType().also { km ->
+                    km.isNullable = this.isEffectivelyNullable()
                     km.abbreviatedType = abbreviatedType
                     val kmUnderlyingType = underlyingType.map(true)
                     km.arguments += kmUnderlyingType.arguments
@@ -492,21 +488,25 @@ private class MappingExtensions(
                 abbreviatedType
             }
         }
-        is ClassifierStubType -> KmType(flags).also { km ->
+        is ClassifierStubType -> KmType().also { km ->
+            km.modifiersFrom(this)
             typeArguments.mapTo(km.arguments) { it.map(shouldExpandTypeAliases) }
             km.classifier = KmClassifier.Class(classifier.fqNameSerialized)
         }
-        is FunctionalType -> KmType(flags).also { km ->
+        is FunctionalType -> KmType().also { km ->
+            km.modifiersFrom(this)
             typeArguments.mapTo(km.arguments) { it.map(shouldExpandTypeAliases) }
             km.classifier = KmClassifier.Class(classifier.fqNameSerialized)
         }
-        is TypeParameterType -> KmType(flags).also { km ->
+        is TypeParameterType -> KmType().also { km ->
+            km.modifiersFrom(this)
             km.classifier = KmClassifier.TypeParameter(id)
         }
     }
 
     fun FunctionParameterStub.map(): KmValueParameter =
-            KmValueParameter(flags, name).also { km ->
+            KmValueParameter(name).also { km ->
+                km.hasAnnotations = annotations.isNotEmpty()
                 val kmType = type.map()
                 if (isVararg) {
                     km.varargElementType = kmType
@@ -521,7 +521,7 @@ private class MappingExtensions(
             }
 
     fun TypeParameterStub.map(): KmTypeParameter =
-            KmTypeParameter(flagsOf(), name, id, KmVariance.INVARIANT).also { km ->
+            KmTypeParameter(name, id, KmVariance.INVARIANT).also { km ->
                 km.upperBounds.addIfNotNull(upperBound?.map())
             }
 

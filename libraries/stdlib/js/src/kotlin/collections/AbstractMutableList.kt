@@ -8,6 +8,7 @@
  * Copyright 2007 Google Inc.
 */
 
+@file:JsFileName("AbstractMutableListJs")
 
 package kotlin.collections
 
@@ -16,6 +17,7 @@ package kotlin.collections
  *
  * @param E the type of elements contained in the list. The list is invariant in its element type.
  */
+@AllowDifferentMembersInActual // New 'removeRange', 'checkIsMutable', etc. members are added compared to the expect declaration
 public actual abstract class AbstractMutableList<E> protected actual constructor() : AbstractMutableCollection<E>(), MutableList<E> {
     protected var modCount: Int = 0
 
@@ -67,23 +69,9 @@ public actual abstract class AbstractMutableList<E> protected actual constructor
 
     actual override fun contains(element: E): Boolean = indexOf(element) >= 0
 
-    actual override fun indexOf(element: E): Int {
-        for (index in 0..lastIndex) {
-            if (get(index) == element) {
-                return index
-            }
-        }
-        return -1
-    }
+    actual override fun indexOf(element: E): Int = indexOfFirst { it == element }
 
-    actual override fun lastIndexOf(element: E): Int {
-        for (index in lastIndex downTo 0) {
-            if (get(index) == element) {
-                return index
-            }
-        }
-        return -1
-    }
+    actual override fun lastIndexOf(element: E): Int = indexOfLast { it == element }
 
     actual override fun listIterator(): MutableListIterator<E> = listIterator(0)
     actual override fun listIterator(index: Int): MutableListIterator<E> = ListIteratorImpl(index)

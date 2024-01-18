@@ -9,15 +9,21 @@ import org.jetbrains.kotlin.fir.analysis.checkers.expression.*
 import org.jetbrains.kotlin.fir.analysis.jvm.checkers.expression.*
 
 object JvmExpressionCheckers : ExpressionCheckers() {
-    override val qualifiedAccessCheckers: Set<FirQualifiedAccessChecker>
+    override val basicExpressionCheckers: Set<FirBasicExpressionChecker>
         get() = setOf(
-            FirJvmProtectedInSuperClassCompanionCallChecker
+            FirJvmProtectedInSuperClassCompanionCallChecker,
+            FirJvmReflectionApiCallChecker,
         )
 
     override val qualifiedAccessExpressionCheckers: Set<FirQualifiedAccessExpressionChecker>
         get() = setOf(
             FirInterfaceDefaultMethodCallChecker,
-            FirJavaSamInterfaceConstructorReferenceChecker
+            FirJavaSamInterfaceConstructorReferenceChecker,
+        )
+
+    override val callableReferenceAccessCheckers: Set<FirCallableReferenceAccessChecker>
+        get() = setOf(
+            FirUnsupportedSyntheticCallableReferenceChecker,
         )
 
     override val functionCallCheckers: Set<FirFunctionCallChecker>
@@ -33,5 +39,6 @@ object JvmExpressionCheckers : ExpressionCheckers() {
         get() = setOf(
             FirJavaAnnotationsChecker,
             FirJvmPackageNameAnnotationsChecker,
+            FirJvmSerializableLambdaChecker,
         )
 }

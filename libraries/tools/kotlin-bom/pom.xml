@@ -7,7 +7,7 @@
 
     <groupId>org.jetbrains.kotlin</groupId>
     <artifactId>kotlin-bom</artifactId>
-    <version>1.7.255-SNAPSHOT</version>
+    <version>2.0.255-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <!-- No parent to avoid accidentally inheriting parent's dependencyManagement section -->
@@ -137,11 +137,6 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>kotlin-script-runtime</artifactId>
-                <version>${kotlin.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>kotlin-script-util</artifactId>
                 <version>${kotlin.version}</version>
             </dependency>
             <dependency>

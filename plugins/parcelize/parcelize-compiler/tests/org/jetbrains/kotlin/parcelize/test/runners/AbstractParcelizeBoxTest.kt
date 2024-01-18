@@ -5,32 +5,36 @@
 
 package org.jetbrains.kotlin.parcelize.test.runners
 
-import org.jetbrains.kotlin.parcelize.test.services.*
+import org.jetbrains.kotlin.parcelize.test.services.ParcelizeEnvironmentConfigurator
+import org.jetbrains.kotlin.parcelize.test.services.ParcelizeMainClassProvider
+import org.jetbrains.kotlin.parcelize.test.services.ParcelizeRuntimeClasspathProvider
+import org.jetbrains.kotlin.parcelize.test.services.ParcelizeUtilSourcesProvider
 import org.jetbrains.kotlin.test.Constructor
+import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
-import org.jetbrains.kotlin.test.backend.classic.ClassicBackendInput
-import org.jetbrains.kotlin.test.backend.classic.ClassicJvmBackendFacade
 import org.jetbrains.kotlin.test.backend.handlers.IrTextDumpHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.backend.ir.JvmIrBackendFacade
-import org.jetbrains.kotlin.test.bind
-import org.jetbrains.kotlin.test.builders.*
+import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.builders.configureClassicFrontendHandlersStep
+import org.jetbrains.kotlin.test.builders.configureFirHandlersStep
+import org.jetbrains.kotlin.test.builders.configureIrHandlersStep
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.REQUIRES_SEPARATE_PROCESS
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
+import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.ENABLE_PLUGIN_PHASES
-import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2ClassicBackendConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
-import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
+import org.jetbrains.kotlin.test.frontend.fir.Fir2IrJvmResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
-import org.jetbrains.kotlin.test.runners.codegen.commonConfigurationForCodegenTest
+import org.jetbrains.kotlin.test.runners.codegen.commonConfigurationForTest
 import org.jetbrains.kotlin.test.runners.codegen.configureCommonHandlersForBoxTest
 import org.jetbrains.kotlin.test.services.jvm.JvmBoxMainClassProvider
 import org.jetbrains.kotlin.test.services.service
@@ -49,7 +53,7 @@ abstract class AbstractParcelizeBoxTestBase<R : ResultingArtifact.FrontendOutput
             +REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
         }
 
-        commonConfigurationForCodegenTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
+        commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter, backendFacade)
 
         configureClassicFrontendHandlersStep {
             useHandlers(
@@ -71,7 +75,7 @@ abstract class AbstractParcelizeBoxTestBase<R : ResultingArtifact.FrontendOutput
 
         useCustomRuntimeClasspathProviders(::ParcelizeRuntimeClasspathProvider)
 
-        useConfigurators(::ParcelizeEnvironmentConfigurator.bind(targetFrontend == FrontendKinds.FIR))
+        useConfigurators(::ParcelizeEnvironmentConfigurator)
 
         useAdditionalSourceProviders(::ParcelizeUtilSourcesProvider)
 
@@ -81,20 +85,6 @@ abstract class AbstractParcelizeBoxTestBase<R : ResultingArtifact.FrontendOutput
 
         enableMetaInfoHandler()
     }
-}
-
-open class AbstractParcelizeBoxTest : AbstractParcelizeBoxTestBase<ClassicFrontendOutputArtifact, ClassicBackendInput>(
-    FrontendKinds.ClassicFrontend,
-    TargetBackend.JVM
-) {
-    override val frontendFacade: Constructor<FrontendFacade<ClassicFrontendOutputArtifact>>
-        get() = ::ClassicFrontendFacade
-
-    override val frontendToBackendConverter: Constructor<Frontend2BackendConverter<ClassicFrontendOutputArtifact, ClassicBackendInput>>
-        get() = ::ClassicFrontend2ClassicBackendConverter
-
-    override val backendFacade: Constructor<BackendFacade<ClassicBackendInput, BinaryArtifacts.Jvm>>
-        get() = ::ClassicJvmBackendFacade
 }
 
 open class AbstractParcelizeIrBoxTest : AbstractParcelizeBoxTestBase<ClassicFrontendOutputArtifact, IrBackendInput>(
@@ -111,7 +101,7 @@ open class AbstractParcelizeIrBoxTest : AbstractParcelizeBoxTestBase<ClassicFron
         get() = ::JvmIrBackendFacade
 }
 
-open class AbstractParcelizeFirBoxTest : AbstractParcelizeBoxTestBase<FirOutputArtifact, IrBackendInput>(
+abstract class AbstractParcelizeFirBoxTestBase(val parser: FirParser) : AbstractParcelizeBoxTestBase<FirOutputArtifact, IrBackendInput>(
     FrontendKinds.FIR,
     TargetBackend.JVM_IR
 ) {
@@ -119,7 +109,7 @@ open class AbstractParcelizeFirBoxTest : AbstractParcelizeBoxTestBase<FirOutputA
         get() = ::FirFrontendFacade
 
     override val frontendToBackendConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
-        get() = ::Fir2IrResultsConverter
+        get() = ::Fir2IrJvmResultsConverter
     override val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.Jvm>>
         get() = ::JvmIrBackendFacade
 
@@ -128,7 +118,10 @@ open class AbstractParcelizeFirBoxTest : AbstractParcelizeBoxTestBase<FirOutputA
         with(builder) {
             defaultDirectives {
                 +ENABLE_PLUGIN_PHASES
+                FirDiagnosticsDirectives.FIR_PARSER with parser
             }
         }
     }
 }
+
+open class AbstractParcelizeFirLightTreeBoxTest : AbstractParcelizeFirBoxTestBase(FirParser.LightTree)

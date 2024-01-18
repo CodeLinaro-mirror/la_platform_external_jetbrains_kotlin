@@ -5,8 +5,12 @@
 
 package org.jetbrains.kotlin.test.directives
 
+import org.jetbrains.kotlin.test.FirParser
+import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_PARSER
 import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability.Global
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirResolvedTypesVerifier
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirScopeDumpHandler
 
 object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
@@ -35,15 +39,20 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
         applicability = Global
     )
 
-    val USE_LIGHT_TREE by directive(
-        description = "Enables light tree parser instead of PSI"
+    val FIR_PARSER by enumDirective<FirParser>(
+        description = "Defines which parser should be used for FIR compiler"
+    )
+
+    val RENDER_DIAGNOSTICS_MESSAGES by directive(
+        description = "Forces diagnostic arguments to be rendered"
+    )
+
+    val FIR_DISABLE_LAZY_RESOLVE_CHECKS by directive(
+        description = "Temporary disables lazy resolve checks until the lazy resolve contract violation is fixed"
     )
 
     val COMPARE_WITH_LIGHT_TREE by directive(
-        description = """
-            Enable comparing diagnostics between PSI and light tree modes
-            For enabling light tree mode use $USE_LIGHT_TREE directive
-        """.trimIndent(),
+        description = "Enable comparing diagnostics between PSI and light tree modes",
         applicability = Global
     )
 
@@ -65,4 +74,30 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
     val ENABLE_PLUGIN_PHASES by directive(
         description = "Enable plugin phases"
     )
+
+    val IGNORE_LEAKED_INTERNAL_TYPES by stringDirective(
+        description = """
+            Ignore failures in ${FirResolvedTypesVerifier::class}.
+            Directive must contain description of ignoring in argument
+        """.trimIndent()
+    )
+
+    val PLATFORM_DEPENDANT_METADATA by directive(
+        description = """
+            Generate separate dumps for JVM and JS load compiled kotlin tests
+            See AbstractLoadedMetadataDumpHandler
+        """
+    )
+
+    val RENDER_FIR_DECLARATION_ATTRIBUTES by directive(
+        description = """
+            Prints declaration attributes to dumps in load compiled kotlin tests
+        """
+    )
+}
+
+fun TestConfigurationBuilder.configureFirParser(parser: FirParser) {
+    defaultDirectives {
+        FIR_PARSER with parser
+    }
 }

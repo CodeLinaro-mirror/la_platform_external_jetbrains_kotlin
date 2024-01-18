@@ -19,7 +19,7 @@ val embeddableTestRuntime by configurations.creating {
 }
 
 dependencies {
-    allTestsRuntime(commonDependency("junit"))
+    allTestsRuntime(libs.junit4)
     testApi(kotlinStdlib("jdk8"))
     testApi(project(":kotlin-scripting-ide-services-unshaded"))
     testApi(project(":kotlin-scripting-compiler"))
@@ -28,7 +28,7 @@ dependencies {
 
     testImplementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-core"))
     testImplementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-core-jvm"))
-    testImplementation(project(":kotlin-reflect"))
+    testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     testImplementation(project(":analysis:decompiled:decompiler-to-psi"))
     testImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(intellijCore())
@@ -59,6 +59,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
 projectTest(parallel = true) {
     dependsOn(":kotlin-compiler:distKotlinc")
     workingDir = rootDir
+    doFirst {
+        systemProperty("kotlin.script.base.compiler.arguments", "-language-version 1.9")
+    }
 }
 
 // This doesn;t work now due to conflicts between embeddable compiler contents and intellij sdk modules
@@ -69,4 +72,7 @@ projectTest(taskName = "embeddableTest", parallel = true) {
     classpath = embeddableTestRuntime
 
     exclude("**/JvmReplIdeTest.class")
+    doFirst {
+        systemProperty("kotlin.script.base.compiler.arguments", "-language-version 1.9")
+    }
 }

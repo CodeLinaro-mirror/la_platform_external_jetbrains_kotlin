@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.scripting.compiler.plugin
 
 import com.intellij.openapi.Disposable
@@ -21,9 +23,11 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoot
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
 import org.jetbrains.kotlin.compiler.plugin.AbstractCliOption
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
+import org.jetbrains.kotlin.scripting.compiler.plugin.impl.SCRIPT_BASE_COMPILER_ARGUMENTS_PROPERTY
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.reporter
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.updateWithCompilerOptions
 import org.jetbrains.kotlin.scripting.configuration.ScriptingConfigurationKeys
@@ -73,16 +77,9 @@ class ScriptingCompilerPluginTest : TestCase() {
             confBody()
         }
         configuration.add(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS, ScriptingCompilerConfigurationComponentRegistrar())
+        configuration.add(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS, ScriptingK2CompilerPluginRegistrar())
 
         return KotlinCoreEnvironment.createForTests(disposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
-    }
-
-    fun testUseOldBackendPreservedOnOptionsUpdate() {
-        val configuration = KotlinTestUtils.newConfiguration(ConfigurationKind.NO_KOTLIN_REFLECT, TestJdkKind.FULL_JDK).apply {
-            put(JVMConfigurationKeys.IR, false)
-            updateWithCompilerOptions(emptyList())
-        }
-        Assert.assertEquals(configuration[JVMConfigurationKeys.IR], false)
     }
 
     fun testScriptResolverEnvironmentArgsParsing() {
@@ -106,7 +103,8 @@ class ScriptingCompilerPluginTest : TestCase() {
         )
     }
 
-    fun testLazyScriptDefinitionDiscovery() {
+    // muted, see KT-61490
+    fun testLazyScriptDefinitionDiscovery() = expectTestToFailOnK2 {
 
         withTempDir { tmpdir ->
             withDisposable { disposable ->
@@ -202,8 +200,16 @@ class ScriptingCompilerPluginTest : TestCase() {
                     "Failed to compile scripts:\n$messageCollector"
                 }
 
+                val isK2 = System.getProperty(SCRIPT_BASE_COMPILER_ARGUMENTS_PROPERTY)?.contains("-language-version 1.9") != true &&
+                        System.getProperty(SCRIPT_TEST_BASE_COMPILER_ARGUMENTS_PROPERTY)?.contains("-language-version 1.9") != true
+
                 val cp = (runtimeClasspath + scriptingClasspath + defsOut).joinToString(File.pathSeparator)
-                val exitCode = K2JVMCompiler().exec(System.err, "-cp", cp, *(scriptFiles.toTypedArray()), "-d", scriptsOut2.canonicalPath)
+                val exitCode = K2JVMCompiler().exec(
+                    System.err,
+                    "-cp", cp, *(scriptFiles.toTypedArray()), "-d", scriptsOut2.canonicalPath, "-Xallow-any-scripts-in-source-roots",
+                    "-Xuse-fir-lt=false",
+                    "-language-version", if (isK2) "2.0" else "1.9"
+                )
 
                 Assert.assertEquals(ExitCode.OK, exitCode)
             }

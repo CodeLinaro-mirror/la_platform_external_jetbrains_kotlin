@@ -46,9 +46,13 @@ kotlin {
         }
     }
 
-    js('nodeJs')
+    js('nodeJs') {
+        nodejs {
 
-    wasm()
+        }
+    }
+
+    wasmJs()
 
     targets {
         fromPreset(presets.jvm, 'jvm6') {
@@ -81,7 +85,7 @@ kotlin {
     }
 }
 
-task resolveRuntimeDependencies(type: DefaultTask) {
+tasks.register("resolveRuntimeDependencies", DefaultTask) {
     doFirst { 
         // KT-26301
         def configName = kotlin.targets.jvm6.compilations.main.runtimeDependencyConfigurationName

@@ -20,9 +20,9 @@ import org.jetbrains.kotlin.ObsoleteTestInfrastructure
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.cli.jvm.compiler.*
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
-import org.jetbrains.kotlin.fir.FirRenderer
-import org.jetbrains.kotlin.fir.createSessionForTests
+import org.jetbrains.kotlin.fir.FirTestSessionFactoryHelper
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.name.ClassId
@@ -60,8 +60,18 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
         super.tearDown()
     }
 
-    private fun createJarWithForeignAnnotations(): File =
-        MockLibraryUtilExt.compileJavaFilesLibraryToJar(FOREIGN_ANNOTATIONS_SOURCES_PATH, "foreign-annotations")
+    private fun createJarWithForeignAnnotations(): List<File> {
+        val jsr305Jar =
+            MockLibraryUtilExt.compileJavaFilesLibraryToJar(JSR_305_SOURCES_PATH, "jsr305")
+
+        return listOf(
+            MockLibraryUtilExt.compileJavaFilesLibraryToJar(
+                FOREIGN_ANNOTATIONS_SOURCES_PATH, "foreign-annotations",
+                extraClasspath = listOf(jsr305Jar.absolutePath),
+            ),
+            jsr305Jar,
+        )
+    }
 
     private fun createEnvironment(content: String): KotlinCoreEnvironment {
         val classpath = mutableListOf(getAnnotationsJar(), ForTestCompileRuntime.runtimeJarForTests())
@@ -69,7 +79,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
             classpath.add(ForTestCompileRuntime.jvmAnnotationsForTests())
         }
         if (InTextDirectivesUtils.isDirectiveDefined(content, "FOREIGN_ANNOTATIONS")) {
-            classpath.add(createJarWithForeignAnnotations())
+            classpath.addAll(createJarWithForeignAnnotations())
         }
         return KotlinCoreEnvironment.createForTests(
             testRootDisposable,
@@ -132,7 +142,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
 
         val scope = GlobalSearchScope.filesScope(project, virtualFiles)
             .uniteWith(TopDownAnalyzerFacadeForJVM.AllJavaSourcesInProjectScope(project))
-        val session = createSessionForTests(
+        val session = FirTestSessionFactoryHelper.createSessionForTests(
             environment.toAbstractProjectEnvironment(),
             scope.toAbstractProjectFileSearchScope()
         )
@@ -171,11 +181,12 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
         val packageStatement = psiFile.children.filterIsInstance<PsiPackageStatement>().firstOrNull()
         val packageName = packageStatement?.packageName
         val fqName = parentFqName.child(Name.identifier(this.name!!))
-        return ClassId(packageName?.let { FqName(it) } ?: FqName.ROOT, fqName, false)
+        return ClassId(packageName?.let { FqName(it) } ?: FqName.ROOT, fqName, isLocal = false)
     }
 
     companion object {
         private const val FOREIGN_ANNOTATIONS_SOURCES_PATH = "third-party/annotations"
+        private const val JSR_305_SOURCES_PATH = "third-party/jsr305"
     }
 }
 

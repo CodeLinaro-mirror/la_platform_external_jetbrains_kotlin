@@ -14,53 +14,35 @@
  * limitations under the License.
  */
 
-import kotlin.text.Regex
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.util.*
 import org.jetbrains.kotlin.CopySamples
 import org.jetbrains.kotlin.CopyCommonSources
 import org.jetbrains.kotlin.PlatformInfo
-import org.jetbrains.kotlin.KotlinBuildPusher
-import org.jetbrains.kotlin.CollisionDetector
-import org.jetbrains.kotlin.CollisionTransformer
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
+import org.jetbrains.kotlin.cpp.CppUsage
+import org.jetbrains.kotlin.cpp.GitClangFormatPlugin
 import org.jetbrains.kotlin.CompareDistributionSignatures
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.jetbrains.kotlin.UtilsKt
 import java.util.concurrent.ConcurrentHashMap
+import plugins.KotlinBuildPublishingPluginKt
 
 buildscript {
     apply from: "gradle/kotlinGradlePlugin.gradle"
 
     repositories {
-        if (UtilsKt.getCacheRedirectorEnabled(project)) {
-            maven { url "https://cache-redirector.jetbrains.com/maven-central" }
-            maven { url "https://cache-redirector.jetbrains.com/jcenter" }
-        }
-        else {
-            mavenCentral()
-            jcenter()
-        }
+        mavenCentral()
         gradlePluginPortal()
     }
 
     dependencies {
-        //classpath project(":kotlin-native-utils")
-        classpath 'gradle.plugin.com.github.johnrengelman:shadow:7.1.2'
+        classpath 'com.github.johnrengelman:shadow:8.1.1'
     }
 }
-import org.jetbrains.kotlin.konan.*
 
-// Allows generating wrappers for the root build and all the samples during execution of the default 'wrapper' task.
-// Run './gradlew wrapper --gradle-version <version>' to update all the wrappers.
-//apply plugin: org.jetbrains.kotlin.GradleWrappers
-//
-//wrappers.projects = ['samples', 'samples/calculator', 'samples/cocoapods/kotlin-library']
-//wrapper.distributionType = Wrapper.DistributionType.ALL
-
-// FIXME: Remove until IDEA-231214 is fixed.
-//defaultTasks 'clean', 'dist'
+defaultTasks 'clean', 'dist'
 
 convention.plugins.platformInfo = PlatformInfo
 
@@ -68,11 +50,14 @@ if (isMac()) {
     checkXcodeVersion(project)
 }
 
+apply plugin: "kotlin.native.build-tools-conventions"
+
 ext {
     distDir = UtilsKt.getKotlinNativeDist(project)
-    dependenciesDir = DependencyProcessor.defaultDependenciesRoot
+    def konanDataDir = project.hasProperty('konan.data.dir') ? project.property('konan.data.dir').toString() : null
+    dependenciesDir = DependencyDirectories.INSTANCE.getDependenciesRoot(konanDataDir)
     experimentalEnabled = project.hasProperty("org.jetbrains.kotlin.native.experimentalTargets")
-    platformManager = new PlatformManager(DistributionKt.buildDistribution(projectDir.absolutePath),
+    platformManager = new PlatformManager(DistributionKt.buildDistribution(projectDir.absolutePath, konanDataDir),
             ext.experimentalEnabled)
 
     cacheableTargetNames = platformManager.hostPlatform.cacheableTargets
@@ -86,37 +71,20 @@ ext {
             KonanTarget.LINUX_MIPSEL32.INSTANCE
     ]
 
-    kotlinCompilerModule= [path: ":kotlin-compiler", configuration: "runtimeElements"]
+    kotlinCompilerModule = project(":kotlin-compiler")
     kotlinStdLibModule= project(":kotlin-stdlib")
-    kotlinReflectModule= project(":kotlin-reflect")
-    kotlinScriptRuntimeModule= project(":kotlin-script-runtime")
-    kotlinUtilKliMetadatabModule= project(":kotlin-util-klib-metadata")
-
-    konanVersionFull = ext.kotlinNativeVersion
-    gradlePluginVersion = konanVersionFull
 
     // A separate map for each build for automatic cleaning the daemon after the build have finished.
     toolClassLoadersMap = new ConcurrentHashMap<Object, URLClassLoader>()
 }
 
 allprojects {
-    buildscript {
-        repositories {
-            if (UtilsKt.getCacheRedirectorEnabled(project))
-                maven { url 'https://cache-redirector.jetbrains.com/jcenter' }
-            else
-                jcenter()
-        }
-    }
     if (path != ":kotlin-native:dependencies") {
         evaluationDependsOn(":kotlin-native:dependencies")
     }
 
     repositories {
-        if (UtilsKt.getCacheRedirectorEnabled(project))
-            maven { url 'https://cache-redirector.jetbrains.com/maven-central' }
-        else
-            mavenCentral()
+        mavenCentral()
         maven {
             url project.bootstrapKotlinRepo
         }
@@ -130,8 +98,8 @@ allprojects {
 
 void setupHostAndTarget() {
     ext.hostName = platformManager.hostName
-    ext.targetList = platformManager.enabled.collect { it.visibleName } as List
-    ext.konanTargetList = platformManager.enabled as List
+    ext.targetList = EnabledTargetsKt.enabledTargets(platformManager).collect { it.visibleName } as List
+    ext.konanTargetList = EnabledTargetsKt.enabledTargets(platformManager) as List
 }
 
 void setupClang(Project project) {
@@ -151,16 +119,43 @@ void loadCommandLineProperties() {
     if (project.hasProperty("konanc_flags")) {
         throw new Error("Specify either -Ptest_flags or -Pbuild_flags.")
     }
-    ext.globalBuildArgs = project.hasProperty("build_flags") ? ext.build_flags.split() : []
-    ext.globalTestArgs = project.hasProperty("test_flags") ? ext.test_flags.split() : []
-    ext.testTarget = project.hasProperty("test_target") ? ext.test_target : null
+
+    ext.globalBuildArgs = new ArrayList<String>()
+    if (project.hasProperty("build_flags")) {
+        for (String flag : ext.build_flags.toString().split("\\s")) {
+            flag = flag.trim()
+            if (!flag.isEmpty()) ext.globalBuildArgs.add(flag)
+        }
+    }
+
+    ext.globalTestArgs = new ArrayList<String>()
+    ext.globalTestArgs.add("-Xpartial-linkage=enable")
+    ext.globalTestArgs.add("-Xpartial-linkage-loglevel=error")
+    if (project.hasProperty("test_flags")) {
+        for (String flag : ext.test_flags.toString().split("\\s")) {
+            flag = flag.trim()
+            if (!flag.isEmpty()) ext.globalTestArgs.add(flag)
+        }
+    }
+
+    ext.testTarget = project.hasProperty("test_target") ? ext.test_target : ext.hostName
 }
 
 configurations {
     ftpAntTask
     distPack
     commonSources
+
+    runtimeBitcode {
+        canBeConsumed = false
+        canBeResolved = true
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CppUsage.LLVM_BITCODE))
+        }
+    }
 }
+
+apply plugin: CompilationDatabasePlugin
 
 dependencies {
     ftpAntTask 'org.apache.ant:ant-commons-net:1.9.9'
@@ -173,41 +168,42 @@ dependencies {
     distPack project(':kotlin-native:utilities:basic-utils')
     distPack project(':kotlin-native:klib')
     distPack project(path: ':kotlin-native:endorsedLibraries:kotlinx.cli', configuration: "jvmRuntimeElements")
-    //distPack "org.jetbrains.kotlin:kotlin-native-shared:$konanVersion"
     commonSources project(path: ':kotlin-stdlib-common', configuration: 'sources')
     commonSources project(path: ':kotlin-test:kotlin-test-common', configuration: 'sources')
     commonSources project(path: ':kotlin-test:kotlin-test-annotations-common', configuration: 'sources')
+    compilationDatabase project(":kotlin-native:common")
+    compilationDatabase project(":kotlin-native:runtime")
+    runtimeBitcode project(":kotlin-native:runtime")
 }
 
-apply plugin: CompilationDatabasePlugin
+apply plugin: GitClangFormatPlugin
+apply plugin: 'maven-publish'
+apply plugin: BasePlugin
 
-//task sharedJar {
-//    dependsOn gradle.includedBuild('shared').task(':jar')
-//}
+tasks.register("dist_compiler") {
+    dependsOn("distCompiler")
+}
+tasks.register("dist_runtime") {
+    dependsOn("distRuntime")
+}
+tasks.register("cross_dist") {
+    dependsOn("crossDist")
+}
+tasks.register("list_dist") {
+    dependsOn("listDist")
+}
 
-//task gradlePluginJar {
-//    dependsOn gradle.includedBuild('kotlin-native-gradle-plugin').task(':shadowJar')
-//}
-
-//task gradlePluginCheck {
-//    dependsOn gradle.includedBuild('kotlin-native-gradle-plugin').task(':check')
-//}
-
-task dist_compiler(dependsOn: "distCompiler")
-task dist_runtime(dependsOn: "distRuntime")
-task cross_dist(dependsOn: "crossDist")
-task list_dist(dependsOn: "listDist")
-task build {
+tasks.named("build") {
     dependsOn 'dist', 'distPlatformLibs'
 }
 
-task distCommonSources(type: CopyCommonSources) {
+tasks.register("distCommonSources", CopyCommonSources) {
     outputDir "$distDir/sources"
     sourcePaths configurations.commonSources
     zipSources true
 }
 
-task distNativeSources(type: Zip) {
+tasks.register("distNativeSources", Zip) {
     destinationDirectory = file("$distDir/sources")
     archiveFileName = "kotlin-stdlib-native-sources.zip"
 
@@ -223,31 +219,27 @@ task distNativeSources(type: Zip) {
     }
 }
 
-task distEndorsedSources {
-    dependsOn(':kotlin-native:endorsedLibraries:endorsedLibsSources')
-}
-
-task distSources {
+tasks.register("distSources") {
     dependsOn(distCommonSources)
     dependsOn(distNativeSources)
-    dependsOn(distEndorsedSources)
 }
 
-task shadowJar(type: ShadowJar) {
+tasks.register("shadowJar", ShadowJar) {
     mergeServiceFiles()
     destinationDirectory.set(file("$distDir/konan/lib"))
     archiveBaseName.set("kotlin-native")
+    archiveVersion.set("")
+    archiveClassifier.set("")
     // Exclude trove4j because of license agreement.
     exclude "*trove4j*"
     exclude("META-INF/versions/9/module-info.class")
     configurations = [project.configurations.distPack]
-    archiveClassifier.set(null)
     outputs.upToDateWhen {
-        archiveFile.getOrNull()?.asFile.exists() ?: false
+        archiveFile.getOrNull()?.asFile?.exists() ?: false
     }
 }
 
-task distCompiler(type: Copy) {
+tasks.register("distCompiler", Copy) {
     // Workaround: make distCompiler no-op if we are using custom dist:
     // the dist is already in place and has the compiler, so we don't have to
     // build and copy the compiler to dist.
@@ -316,7 +308,7 @@ task distCompiler(type: Copy) {
     from(project.file('konan')) {
         into('konan')
         include('**/*.properties')
-        filter(ReplaceTokens, tokens: [compilerVersion: konanVersionFull.toString()])
+        filter(ReplaceTokens, tokens: [compilerVersion: kotlinVersion])
         // Set LLVM variant that will be used by default in the distribution.
         // `user` - smaller, includes only necessary components.
         // `dev` - bigger, includes (almost) every possible component. Use this one,
@@ -336,7 +328,7 @@ task distCompiler(type: Copy) {
     }
 }
 
-task distDef(type: Copy) {
+tasks.register("distDef", Copy) {
     destinationDir project.file("$distDir/konan/platformDef/")
 
     platformManager.targetValues.each { target ->
@@ -350,70 +342,41 @@ task distDef(type: Copy) {
     }
 }
 
-task listDist(type: Exec) {
+tasks.register("listDist", Exec) {
     commandLine 'find', distDir
 }
 
-task distRuntime(type: Copy) {
+tasks.register("distRuntime", Copy) {
     dependsOn "${hostName}CrossDistRuntime"
 }
 
-task distEndorsedLibraries {
-    dependsOn "${hostName}CrossDistEndorsedLibraries"
-}
-
-task distStdlibCache {
+tasks.register("distStdlibCache") {
     if (hostName in cacheableTargetNames) {
         dependsOn("${hostName}StdlibCache")
     }
 }
 
-task distEndorsedCache {
-    if (hostName in cacheableTargetNames) {
-        dependsOn("${hostName}EndorsedCache")
-    }
-}
-
 def stdlib = 'klib/common/stdlib'
 def stdlibDefaultComponent = "$stdlib/default"
-def endorsedLibs = 'klib/common/endorsedLibraries'
-def endorsedLibsBase = 'klib/common'
 
-task crossDistRuntime {
+tasks.register("crossDistRuntime") {
     dependsOn.addAll(targetList.collect { "${it}CrossDistRuntime" })
 }
 
-task crossDistEndorsedLibraries {
-    dependsOn.addAll(targetList.collect { "${it}CrossDistEndorsedLibraries" })
-}
-
-task crossDistPlatformLibs {
+tasks.register("crossDistPlatformLibs") {
     dependsOn.addAll(targetList.collect { "${it}PlatformLibs" })
 }
 
-task crossDistStdlib {
+tasks.register("crossDistStdlib") {
     dependsOn.addAll(targetList.collect { "${it}CrossDistStdlib" })
 }
 
-task crossDistStdlibCache {
+tasks.register("crossDistStdlibCache") {
     dependsOn.addAll(targetList.findAll { it in cacheableTargetNames }.collect { "${it}StdlibCache" })
 }
 
-task crossDistEndorsedCache {
-    dependsOn.addAll(targetList.findAll { it in cacheableTargetNames }.collect { "${it}EndorsedCache" })
-}
-
-def endorsedLibsCopyTask = task("crossDistEndorsedLibrariesCopy", type: Copy) {
-    destinationDir project.file("$distDir/$endorsedLibsBase")
-
-    from(project(':kotlin-native:endorsedLibraries').file("build")) {
-        include('**')
-        exclude('cache')
-    }
-}
-
 targetList.each { target ->
-    task("${target}CrossDistStdlib", type: Copy) {
+    tasks.register("${target}CrossDistStdlib", Copy) {
         dependsOn ":kotlin-native:runtime:${target}Stdlib"
         // TODO: add explicit dependency on host task with IR klib stdlib parts
         // As for now it is possibly to build up distribution from the tc-dist to crossdist
@@ -431,7 +394,7 @@ targetList.each { target ->
                 include('**')
             } else {
                 // We don't want to rewrite stdlib parts as they are the same and may be already used
-                // by the other build phases like caching or endorsed libraries.
+                // by the other build phases like caching.
                 include('*/targets/**')
                 include('*/manifest')
             }
@@ -449,35 +412,30 @@ targetList.each { target ->
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
-    task("${target}CrossDistBitcodeCopy", type: Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
+    tasks.register("${target}CrossDistBitcodeCopy", Copy) {
+        def bitcodeFiles = configurations.runtimeBitcode.incoming.artifactView {
+            attributes {
+                attribute(TargetWithSanitizer.TARGET_ATTRIBUTE, new TargetWithSanitizer(platformManager.targetByName(target), null))
+            }
+        }.files
 
         destinationDir project.file("$distDir/konan/targets/")
 
-        from(project(':kotlin-native:runtime').file("build/bitcode/main/$target")) {
+        from(bitcodeFiles) {
             include("*.bc")
             exclude("runtime.bc")
             into("$target/native")
         }
     }
 
-    task("${target}CrossDistRuntime", type: Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Runtime"
+    tasks.register("${target}CrossDistRuntime", Copy) {
         dependsOn ":kotlin-native:${target}CrossDistStdlib"
         dependsOn "${target}CrossDistBitcodeCopy"
 
         destinationDir project.file("$distDir/$stdlibDefaultComponent")
-
-        if (target == 'wasm32') {
-            into("targets/wasm32/included") {
-                from(project(':kotlin-native:runtime').file('src/main/js'))
-                from(project(':kotlin-native:runtime').file('src/launcher/js'))
-                from(project(':kotlin-native:Interop:JsRuntime').file('src/main/js'))
-            }
-        }
     }
 
-    task("${target}PlatformLibs") {
+    tasks.register("${target}PlatformLibs") {
         dependsOn ":kotlin-native:platformLibs:${target}Install"
         if (target in cacheableTargetNames) {
             dependsOn(":kotlin-native:platformLibs:${target}Cache")
@@ -485,7 +443,7 @@ targetList.each { target ->
     }
 
     if (target in cacheableTargetNames) {
-        task ("${target}StdlibCache", type: Copy) {
+        tasks.register("${target}StdlibCache", Copy) {
             dependsOn "${target}CrossDistStdlib"
             dependsOn ":kotlin-native:runtime:${target}StdlibCache"
 
@@ -495,90 +453,89 @@ targetList.each { target ->
                 include('**')
             }
         }
-
-        task ("${target}EndorsedCache", type: Copy) {
-            dependsOn "${target}CrossDistStdlib"
-            dependsOn ":kotlin-native:endorsedLibraries:${target}Cache"
-
-            destinationDir project.file("$distDir/klib/cache")
-
-            from("${project(':kotlin-native:endorsedLibraries').buildDir}/cache/$target") {
-                include('**')
-            }
-        }
     }
 
-    task("${target}CrossDist") {
+    tasks.register("${target}CrossDist") {
         dependsOn "${target}CrossDistRuntime", "distCompiler"
-        dependsOn "${target}CrossDistEndorsedLibraries"
         if (target in cacheableTargetNames) {
-            dependsOn "${target}StdlibCache", "${target}EndorsedCache"
+            dependsOn "${target}StdlibCache"
         }
-    }
-
-    task("${target}CrossDistEndorsedLibraries") {
-        def endorsedLibsBuildTask = ":kotlin-native:endorsedLibraries:${target}EndorsedLibraries"
-        dependsOn endorsedLibsBuildTask
-        dependsOn endorsedLibsCopyTask
-        // There is only one copy task for endorsed libs, because they are already copied into a single dir,
-        // while having target-tasks will make Gradle issue warnings on incorrect inputs and outputs usage.
-        // So this copy task should run after the all build tasks.
-        endorsedLibsCopyTask.mustRunAfter(endorsedLibsBuildTask)
     }
 }
 
-task distPlatformLibs {
+tasks.register("distPlatformLibs") {
     dependsOn ':kotlin-native:platformLibs:hostInstall'
     dependsOn ':kotlin-native:platformLibs:hostCache'
 }
 
-task dist {
+tasks.register("dist") {
     dependsOn "distCompiler",
             "distRuntime",
-            "distEndorsedLibraries",
             "distDef",
-            "distStdlibCache",
-            "distEndorsedCache"
+            "distStdlibCache"
 }
 
-task crossDist {
+tasks.register("crossDist") {
     dependsOn "distCompiler",
             "crossDistRuntime",
-            "crossDistEndorsedLibraries",
             "distDef",
             "crossDistStdlib",
-            "crossDistStdlibCache",
-            "crossDistEndorsedCache"
+            "crossDistStdlibCache"
 }
 
-task bundle {
+tasks.register("bundle") {
     dependsOn 'bundleRegular', 'bundlePrebuilt'
 }
 
-task bundleRegular(type: (isWindows()) ? Zip : Tar) {
+def sbomBundleRegular = SbomKt.configureSbom(project, "BundleRegular", "Kotlin/Native bundle", [].toSet(), null)
+
+def sbomBundleRegularForPublish = tasks.register("sbomBundleRegularForPublish", Copy) {
+    dependsOn(sbomBundleRegular)
+    destinationDir = file("$buildDir/spdx/regular")
+    from(sbomBundleRegular.map { it.outputDirectory.file("BundleRegular.spdx.json") }) {
+        rename(".*", "kotlin-native-${HostManager.platformName()}-${kotlinVersion}.spdx.json")
+    }
+}
+
+tasks.register("bundleRegular", (isWindows()) ? Zip : Tar) {
+    dependsOn(sbomBundleRegularForPublish)
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-$simpleOsName")
+    archiveVersion.set(kotlinVersion)
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
         exclude 'klib/testLibrary'
         // Don't include platform libraries into the bundle (generate them at the user side instead).
         exclude 'klib/platform'
-        // Exclude platform libraries caches too. Keep caches for stdlib and endorsed libs.
+        // Exclude platform libraries caches too. Keep caches for stdlib.
         exclude 'klib/cache/*/org.jetbrains.kotlin.native.platform.*/**'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 }
 
-task bundlePrebuilt(type: (isWindows()) ? Zip : Tar) {
+def sbomBundlePrebuilt = SbomKt.configureSbom(project,
+        "BundlePrebuilt", "Kotlin/Native bundle (prebuilt platform libs)", [].toSet(), null)
+
+def sbomBundlePrebuiltForPublish = tasks.register("sbomBundlePrebuiltForPublish", Copy) {
+    dependsOn(sbomBundlePrebuilt)
+    destinationDir = file("$buildDir/spdx/prebuilt")
+    from(sbomBundlePrebuilt.map { it.outputDirectory.file("BundlePrebuilt.spdx.json") }) {
+        rename(".*", "kotlin-native-prebuilt-${HostManager.platformName()}-${kotlinVersion}.spdx.json")
+    }
+}
+
+tasks.register("bundlePrebuilt", (isWindows()) ? Zip : Tar) {
+    dependsOn(sbomBundlePrebuiltForPublish)
     dependsOn("crossDistPlatformLibs")
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-prebuilt-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-prebuilt-$simpleOsName")
+    archiveVersion.set(kotlinVersion)
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
         exclude 'klib/testLibrary'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 }
 
@@ -588,26 +545,32 @@ void configurePackingLicensesToBundle(AbstractArchiveTask task, boolean contains
         if (!containsPlatformLibraries || !isMac()) {
             exclude '**/xcode_license.pdf'
         }
-        into task.archiveBaseName
+        if (!containsPlatformLibraries) {
+            exclude '**/mingw-w64-headers_LICENSE.txt'
+        }
+        into "${task.archiveBaseName.get()}-${task.archiveVersion.get()}"
     }
 
     task.from(project.rootProject.file("license")) {
-        into "${task.archiveBaseName.get()}/licenses"
+        into "${task.archiveBaseName.get()}-${task.archiveVersion.get()}/licenses"
     }
 }
 
-configurePackingLicensesToBundle(bundleRegular, /* containsPlatformLibraries = */ false)
-configurePackingLicensesToBundle(bundlePrebuilt, /* containsPlatformLibraries = */ true)
+tasks.named("bundleRegular").configure {
+    configurePackingLicensesToBundle(it, /* containsPlatformLibraries = */ false)
+}
+tasks.named("bundlePrebuilt").configure {
+    configurePackingLicensesToBundle(it, /* containsPlatformLibraries = */ true)
+}
 
 configure([bundleRegular, bundlePrebuilt]) {
     dependsOn("crossDist")
     dependsOn("crossDistStdlibCache")
-    dependsOn("crossDistEndorsedCache")
     dependsOn("distSources")
     dependsOn("distDef")
     from(project.projectDir) {
         include 'RELEASE_NOTES.md'
-        into baseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 
     destinationDirectory.set(file('.'))
@@ -620,15 +583,16 @@ configure([bundleRegular, bundlePrebuilt]) {
     }
 }
 
-task 'tc-dist'(type: (isWindows()) ? Zip : Tar) {
+tasks.register("tc-dist", (isWindows()) ? Zip : Tar) {
     dependsOn('dist')
     dependsOn('distSources')
     def simpleOsName = HostManager.platformName()
-    archiveBaseName.set("kotlin-native-dist-$simpleOsName-$konanVersionFull")
+    archiveBaseName.set("kotlin-native-dist-$simpleOsName")
+    archiveVersion.set(kotlinVersion)
     from(UtilsKt.getKotlinNativeDist(project)) {
         include '**'
         exclude 'dependencies'
-        into archiveBaseName
+        into "${archiveBaseName.get()}-${archiveVersion.get()}"
     }
 
     destinationDirectory.set(file('.'))
@@ -641,20 +605,20 @@ task 'tc-dist'(type: (isWindows()) ? Zip : Tar) {
     }
 }
 
-task samples {
+tasks.register("samples") {
     dependsOn 'samplesZip', 'samplesTar'
 }
 
-task samplesZip(type: Zip)
-task samplesTar(type: Tar) {
-    extension = 'tar.gz'
+tasks.register("samplesZip", Zip)
+tasks.register("samplesTar", Tar) {
+    archiveExtension = 'tar.gz'
     compression = Compression.GZIP
 }
 
 configure([samplesZip, samplesTar]) {
-    baseName "kotlin-native-samples-$konanVersionFull"
-    destinationDir = projectDir
-    into(baseName)
+    archiveBaseName = "kotlin-native-samples-$kotlinVersion"
+    destinationDirectory = projectDir
+    into(archiveBaseName)
 
     from(file('samples')) {
         // Process properties files separately.
@@ -670,6 +634,7 @@ configure([samplesZip, samplesTar]) {
         filter {
             it.startsWith('org.jetbrains.kotlin.native.home=') || it.startsWith('# Use custom Kotlin/Native home:') ? null : it
         }
+        filter(org.apache.tools.ant.filters.FixCrLfFilter, "eol": org.apache.tools.ant.filters.FixCrLfFilter.CrLf.newInstance("lf"))
     }
 
     // Exclude build artifacts.
@@ -679,83 +644,19 @@ configure([samplesZip, samplesTar]) {
     exclude '**/*.kt.bc-build/'
 }
 
-project.tasks.register("copy_samples") {
+tasks.register("copy_samples") {
     dependsOn 'copySamples'
 }
-project.tasks.register("copySamples", CopySamples) {
+tasks.register("copySamples", CopySamples) {
     destinationDir file('build/samples-under-test')
 }
 
-task uploadBundle {
-    dependsOn ':kotlin-native:bundle'
-    if (isMac()) {
-        dependsOn ':kotlin-native:bundleRestricted'
-    }
-    doLast {
-        def kind = (konanVersionFull.meta == MetaVersion.DEV) ? "dev" : "releases"
-        def ftpSettings = [
-                server: project.findProperty("cdnUrl") ?: System.getenv("CDN_URL"),
-                userid: project.findProperty("cdnUser") ?: System.getenv("CDN_USER"),
-                password: project.findProperty("cdnPass") ?: System.getenv("CDN_PASS"),
-                remoteDir: "/builds/$kind/$konanVersion/${HostManager.platformName()}"
-        ]
-        ant {
-            taskdef(name: 'ftp',
-                    classname: 'org.apache.tools.ant.taskdefs.optional.net.FTP',
-                    classpath: configurations.ftpAntTask.asPath)
-            ftp([action: "mkdir"] + ftpSettings)
-            ftp(ftpSettings) {
-                fileset(file: bundle.archivePath)
-            }
-            if (isMac()) {
-                ftp(ftpSettings) {
-                    fileset(file: bundleRestricted.archivePath)
-                }
-            }
-        }
-    }
-}
-
-task teamcityCompilerVersion {
-    doLast {
-        println("##teamcity[setParameter name='kotlin.native.version.base' value='$konanVersion']")
-        println("##teamcity[setParameter name='kotlin.native.version.full' value='$konanVersionFull']")
-        println("##teamcity[setParameter name='kotlin.native.version.meta' value='${konanVersionFull.meta.toString().toLowerCase()}']")
-        println("##teamcity[buildNumber '${konanVersionFull.toString(true, true)}']")
-    }
-}
-
-task clean(type: Delete) {
-    dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
-    doFirst {
-        delete distDir
-        delete buildDir
-        delete bundle.outputs.files
-        delete "${projectDir}/compile_commands.json"
-    }
-}
-
-task pusher(type: KotlinBuildPusher){
-    kotlinVersion = project.kotlinVersion
-    konanVersion = project.ext.kotlinNativeVersion
-    buildServer = "buildserver.labs.intellij.net"
-    compilerConfigurationId = System.getenv("TEAMCITY_COMPILER_ID") ?: "Kotlin_KotlinDev_Compiler"
-    overrideConfigurationId = System.getenv("TEAMCITY_OVERRIDE_NATIVE_ID") ?: "Kotlin_KotlinDev_DeployMavenArtifacts_OverrideNative"
-    token = project.findProperty("teamcityBearToken") ?: System.getenv("TEAMCITY_BEAR_TOKEN")
-}
-
 compilationDatabase {
-    allTargets {
-        mergeFrom(provider { project("common") })
-        mergeFrom(provider { project("runtime") })
-
-        // TODO: Reconsider this
-        task.configure {
-            dependsOn(":kotlin-native:runtime:downloadGoogleTest")
-        }
-    }
+    allTargets {}
 }
 
+// TODO: Replace with a more convenient user-facing task that can build for a specific target.
+//       like compilationDatabase with optional argument --target.
 tasks.register("compdb", Copy) {
     from compilationDatabase.hostTarget.task
     into layout.projectDirectory
@@ -765,7 +666,7 @@ tasks.register("compdb", Copy) {
 }
 
 targetList.each { targetName ->
-    task "${targetName}CheckPlatformAbiCompatibility"(type: CompareDistributionSignatures) {
+    tasks.register("${targetName}CheckPlatformAbiCompatibility", CompareDistributionSignatures) {
         dependsOn "${targetName}PlatformLibs"
 
         libraries = new CompareDistributionSignatures.Libraries.Platform(targetName)
@@ -776,7 +677,7 @@ targetList.each { targetName ->
     }
 }
 
-task "checkStdlibAbiCompatibility"(type: CompareDistributionSignatures) {
+tasks.register("checkStdlibAbiCompatibility", CompareDistributionSignatures) {
     dependsOn "distRuntime"
 
     libraries = CompareDistributionSignatures.Libraries.Standard.INSTANCE
@@ -784,4 +685,135 @@ task "checkStdlibAbiCompatibility"(type: CompareDistributionSignatures) {
         oldDistribution = project.findProperty("anotherDistro")
     }
     onMismatchMode = CompareDistributionSignatures.OnMismatchMode.FAIL
+}
+// FIXME: should be a part of Host/TargetManager
+String platformName(KonanTarget target) {
+    def result
+    switch (target) {
+        case KonanTarget.LINUX_X64:
+            result ="linux-x86_64"
+            break
+        case KonanTarget.MACOS_X64:
+            result = "macos-x86_64"
+            break
+        case KonanTarget.MACOS_ARM64:
+            result = "macos-aarch64"
+            break
+        case KonanTarget.MINGW_X64:
+            result = "windows-x86_64"
+            break
+        default:
+            throw TargetSupportException("Unknown host target")
+    }
+    return result
+}
+
+Map<KonanTarget, File> createConfigurations(List<File> bundles) {
+    def hostTargets = platformManager.enabledByHost.keySet()
+    def result = hostTargets.collectEntries { target ->
+        [ (target): bundles.find { it.name.contains(platformName(target)) }]
+    }
+    result.retainAll { it.value != null }
+    def missingBundles = hostTargets - result.keySet()
+    if (!missingBundles.isEmpty()) {
+        println("Some of the archive bundles are missing for targets $missingBundles:")
+        println(result)
+        throw new IllegalArgumentException("Bundle archives are missing for $missingBundles")
+    }
+    result.each { target, file ->
+        if (!file.name.contains(kotlinVersion)) {
+            throw new IllegalArgumentException("Incorrect version specified for the publish: ${file.name}")
+        }
+    }
+    return result
+}
+
+def bundlesLocationFiles = UtilsKt.getNativeBundlesLocation(project)
+        .listFiles()
+        .toList()
+
+KotlinBuildPublishingPluginKt.configureDefaultPublishing(
+        /* receiver = */        project,
+        /* signingRequired = */ KotlinBuildPublishingPluginKt.getSignLibraryPublication(project)
+)
+
+tasks.named("clean", Delete) {
+    dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
+    doFirst {
+        delete distDir
+        delete buildDir
+        delete bundle.outputs.files
+        delete "${projectDir}/compile_commands.json"
+    }
+}
+
+publishing {
+    publications {
+        def publishBundlesFromLocation = UtilsKt.getNativeBundlesLocation(project) != project.projectDir
+        register("Bundle", MavenPublication) { mvn ->
+            mvn.groupId = project.group.toString()
+            mvn.artifactId = project.name
+            mvn.version = kotlinVersion
+
+            if (publishBundlesFromLocation) {
+                def bundleArchives = bundlesLocationFiles
+                        .findAll { it.name.startsWith("kotlin-native") && !it.name.contains("prebuilt") && !it.name.endsWith("spdx.json") }
+                def bundleConfigs = createConfigurations(bundleArchives)
+                bundleConfigs.forEach { target, file ->
+                    mvn.artifact(file) {
+                        classifier = platformName(target)
+                        extension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
+                    }
+                    mvn.artifact("${UtilsKt.getNativeBundlesLocation(project)}/kotlin-native-${platformName(target)}-${kotlinVersion}.spdx.json") {
+                        classifier = platformName(target)
+                        extension = "spdx.json"
+                    }
+                }
+            } else {
+                mvn.artifact(bundleRegular) {
+                    classifier = HostManager.platformName()
+                    extension = (isWindows()) ? 'zip' : 'tar.gz'
+                }
+            }
+
+            KotlinBuildPublishingPluginKt.configureKotlinPomAttributes(
+                    /* receiver = */  mvn,
+                    /* project = */   project,
+                    /* explicitDescription = */ "Kotlin/Native bundle",
+                    /* packaging = */ "pom"
+            )
+        }
+        register("BundlePrebuilt", MavenPublication) { mvn ->
+            mvn.groupId = project.group.toString()
+            mvn.artifactId = project.name + "-prebuilt"
+            mvn.version = kotlinVersion
+
+            if (publishBundlesFromLocation) {
+                def prebuiltBundleArchives = bundlesLocationFiles
+                        .findAll { it.name.startsWith("kotlin-native-prebuilt") && !it.name.endsWith("spdx.json") }
+                def bundlePrebuiltConfigs = createConfigurations(prebuiltBundleArchives)
+                bundlePrebuiltConfigs.forEach { target, file ->
+                    mvn.artifact(file) {
+                        classifier = platformName(target)
+                        extension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
+                    }
+                    mvn.artifact("${UtilsKt.getNativeBundlesLocation(project)}/kotlin-native-prebuilt-${platformName(target)}-${kotlinVersion}.spdx.json") {
+                        classifier = platformName(target)
+                        extension = "spdx.json"
+                    }
+                }
+            } else {
+                mvn.artifact(bundlePrebuilt) {
+                    classifier = HostManager.platformName()
+                    extension = (isWindows()) ? 'zip' : 'tar.gz'
+                }
+            }
+            KotlinBuildPublishingPluginKt.configureKotlinPomAttributes(
+                    /* receiver = */  mvn,
+                    /* project = */   project,
+                    /* explicitDescription = */ "Kotlin/Native bundle (prebuilt platform libs)",
+                    /* packaging = */ "pom"
+            )
+        }
+    }
 }

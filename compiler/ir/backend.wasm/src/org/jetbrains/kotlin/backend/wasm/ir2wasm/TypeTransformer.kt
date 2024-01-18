@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.wasm.ir.*
 
 class WasmTypeTransformer(
-    val context: WasmBaseCodegenContext,
+    val context: WasmModuleCodegenContext,
     val builtIns: IrBuiltIns
 ) {
     val symbols = context.backendContext.wasmSymbols
@@ -82,7 +82,7 @@ class WasmTypeTransformer(
                 WasmF64
 
             builtIns.nothingNType ->
-                WasmAnyRef
+                WasmRefNullrefType
 
             // Value will not be created. Just using a random Wasm type.
             builtIns.nothingType ->
@@ -96,12 +96,12 @@ class WasmTypeTransformer(
                 val ic = context.backendContext.inlineClassesUtils.getInlinedClass(this)
 
                 if (klass.isExternal) {
-                    WasmAnyRef
+                    WasmExternRef
                 } else if (isBuiltInWasmRefType(this)) {
                     when (val name = klass.name.identifier) {
                         "anyref" -> WasmAnyRef
                         "eqref" -> WasmEqRef
-                        "dataref" -> WasmRefNullType(WasmHeapType.Simple.Data)
+                        "structref" -> WasmRefNullType(WasmHeapType.Simple.Struct)
                         "i31ref" -> WasmI31Ref
                         "funcref" -> WasmRefNullType(WasmHeapType.Simple.Func)
                         else -> error("Unknown reference type $name")

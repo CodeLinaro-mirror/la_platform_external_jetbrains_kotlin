@@ -21,13 +21,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @DisplayName("Kapt incremental tests with aggregating apt")
-class KaptIncrementalWithAggregatingApt : KaptIncrementalIT() {
+open class KaptIncrementalWithAggregatingApt : KaptIncrementalIT() {
 
     override val defaultBuildOptions = super.defaultBuildOptions.copy(
         incremental = true,
         kaptOptions = super.defaultBuildOptions.kaptOptions!!.copy(
             verbose = true,
-            useWorkers = true,
             incrementalKapt = true,
             includeCompileClasspath = false
         )
@@ -389,4 +388,9 @@ class KaptIncrementalWithAggregatingApt : KaptIncrementalIT() {
             }
         }
     }
+}
+
+@DisplayName("Kapt incremental tests with aggregating apt with precise compilation outputs backup")
+class KaptIncrementalWithAggregatingAptAndPreciseBackup : KaptIncrementalWithAggregatingApt() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
 }

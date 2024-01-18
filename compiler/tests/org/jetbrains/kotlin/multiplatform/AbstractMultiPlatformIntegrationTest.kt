@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.multiplatform
 
 import org.jetbrains.kotlin.cli.AbstractCliTest
 import org.jetbrains.kotlin.cli.common.CLICompiler
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.cli.metadata.K2MetadataCompiler
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.test.util.trimTrailingWhitespacesAndAddNewlineAtEOF
+import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -48,7 +50,7 @@ abstract class AbstractMultiPlatformIntegrationTest : KtUsefulTestCase() {
 
         val commonDest = File(tmpdir, "common").absolutePath
         val jvmDest = File(tmpdir, "jvm").absolutePath.takeIf { jvmSrc != null }
-        val jsDest = File(File(tmpdir, "js"), "output.js").absolutePath.takeIf { jsSrc != null }
+        val jsDest = File(tmpdir, "js").absolutePath.takeIf { jsSrc != null }
         val common2Dest = File(tmpdir, "common2").absolutePath.takeIf { common2Src != null }
         val jvm2Dest = File(tmpdir, "jvm2").absolutePath.takeIf { jvm2Src != null }
 
@@ -65,7 +67,20 @@ abstract class AbstractMultiPlatformIntegrationTest : KtUsefulTestCase() {
             if (jsSrc != null) {
                 appendLine()
                 appendLine("-- JS --")
-                appendLine(K2JSCompiler().compile(jsSrc, commonSrc, "-output", jsDest!!))
+                appendLine(
+                    K2JSCompiler().compile(
+                        jsSrc,
+                        commonSrc,
+                        "-Xir-produce-klib-dir",
+                        "-Xir-only",
+                        "-libraries",
+                        PathUtil.kotlinPathsForCompiler.jsStdLibJarPath.absolutePath,
+                        "-ir-output-dir",
+                        jsDest!!,
+                        "-ir-output-name",
+                        "output"
+                    )
+                )
             }
 
             if (common2Src != null) {

@@ -1,5 +1,8 @@
 // !LANGUAGE: +MultiPlatformProjects
+// IGNORE_BACKEND_K2: ANY
+// FIR status: outdated code (expect and actual in the same module)
 // WITH_STDLIB
+
 // FILE: common.kt
 
 expect annotation class Foo(val z: String = "OK")

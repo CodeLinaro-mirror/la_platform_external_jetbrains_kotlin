@@ -13,14 +13,15 @@ import org.jetbrains.kotlin.backend.konan.llvm.computeSymbolName
 import org.jetbrains.kotlin.backend.konan.llvm.isExported
 import org.jetbrains.kotlin.backend.konan.llvm.localHash
 import org.jetbrains.kotlin.backend.konan.lower.DECLARATION_ORIGIN_BRIDGE_METHOD
-import org.jetbrains.kotlin.backend.konan.lower.DECLARATION_ORIGIN_MODULE_GLOBAL_INITIALIZER
-import org.jetbrains.kotlin.backend.konan.lower.DECLARATION_ORIGIN_MODULE_THREAD_LOCAL_INITIALIZER
 import org.jetbrains.kotlin.backend.konan.lower.bridgeTarget
+import org.jetbrains.kotlin.backend.konan.lower.getDefaultValueForOverriddenBuiltinFunction
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.types.isNothing
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
-import org.jetbrains.kotlin.load.java.BuiltinMethodsWithSpecialGenericSignature
+import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
@@ -112,8 +113,7 @@ internal object DataFlowIR {
     }
 
     object FunctionAttributes {
-        val IS_TOP_LEVEL_FIELD_INITIALIZER = 1
-        val IS_GLOBAL_INITIALIZER = 2
+        val IS_STATIC_FIELD_INITIALIZER = 1
         val RETURNS_UNIT = 4
         val RETURNS_NOTHING = 8
         val EXPLICITLY_EXPORTED = 16
@@ -125,8 +125,7 @@ internal object DataFlowIR {
         lateinit var parameters: Array<FunctionParameter>
         lateinit var returnParameter: FunctionParameter
 
-        val isTopLevelFieldInitializer = attributes.and(FunctionAttributes.IS_TOP_LEVEL_FIELD_INITIALIZER) != 0
-        val isGlobalInitializer = attributes.and(FunctionAttributes.IS_GLOBAL_INITIALIZER) != 0
+        val isStaticFieldInitializer = attributes.and(FunctionAttributes.IS_STATIC_FIELD_INITIALIZER) != 0
         val returnsUnit = attributes.and(FunctionAttributes.RETURNS_UNIT) != 0
         val returnsNothing = attributes.and(FunctionAttributes.RETURNS_NOTHING) != 0
         val explicitlyExported = attributes.and(FunctionAttributes.EXPLICITLY_EXPORTED) != 0
@@ -244,7 +243,7 @@ internal object DataFlowIR {
             : Call(constructor, arguments, constructedType, irCallSite)
 
         open class VirtualCall(callee: FunctionSymbol, arguments: List<Edge>,
-                                   val receiverType: Type, returnType: Type, override val irCallSite: IrCall?)
+                               val receiverType: Type, returnType: Type, override val irCallSite: IrCall?)
             : Call(callee, arguments, returnType, irCallSite)
 
         class VtableCall(callee: FunctionSymbol, receiverType: Type, val calleeVtableIndex: Int,
@@ -434,7 +433,7 @@ internal object DataFlowIR {
         }
     }
 
-    class SymbolTable(val context: Context, val irModule: IrModuleFragment, val module: Module) {
+    class SymbolTable(val context: Context, val module: Module) {
 
         private val TAKE_NAMES = true // Take fqNames for all functions and types (for debug purposes).
 
@@ -458,7 +457,7 @@ internal object DataFlowIR {
         var privateTypeIndex = 1 // 0 for [Virtual]
         var privateFunIndex = 0
 
-        init {
+        fun populateWith(irModule: IrModuleFragment) {
             irModule.accept(object : IrElementVisitorVoid {
                 override fun visitElement(element: IrElement) {
                     element.acceptChildrenVoid(this)
@@ -483,9 +482,10 @@ internal object DataFlowIR {
             }, data = null)
         }
 
+        @OptIn(ObsoleteDescriptorBasedAPI::class)
         fun mapClassReferenceType(irClass: IrClass): Type {
             // Do not try to devirtualize ObjC classes.
-            if (irClass.module.name == Name.special("<forward declarations>") || irClass.isObjCClass())
+            if (irClass.module.name == FORWARD_DECLARATIONS_MODULE_NAME || irClass.isObjCClass())
                 return Type.Virtual
 
             val isFinal = irClass.isFinalClass
@@ -496,11 +496,11 @@ internal object DataFlowIR {
             val placeToClassTable = true
             val symbolTableIndex = if (placeToClassTable) module.numberOfClasses++ else -1
             val type = if (irClass.isExported())
-                           Type.Public(name.localHash.value, privateTypeIndex++, isFinal, isAbstract, null,
-                                   module, symbolTableIndex, irClass, takeName { name })
-                       else
-                           Type.Private(privateTypeIndex++, isFinal, isAbstract, null,
-                                   module, symbolTableIndex, irClass, takeName { name })
+                Type.Public(localHash(name.toByteArray()), privateTypeIndex++, isFinal, isAbstract, null,
+                        module, symbolTableIndex, irClass, takeName { name })
+            else
+                Type.Private(privateTypeIndex++, isFinal, isAbstract, null,
+                        module, symbolTableIndex, irClass, takeName { name })
 
             classMap[irClass] = type
 
@@ -510,7 +510,7 @@ internal object DataFlowIR {
                 type.vtable += layoutBuilder.vtableEntries.map {
                     val implementation = it.getImplementation(context)
                             ?: error(
-                                    irClass.getContainingFile(),
+                                    irClass.fileOrNull,
                                     irClass,
                                     """
                                         no implementation found for ${it.overriddenFunction.render()}
@@ -525,7 +525,7 @@ internal object DataFlowIR {
                     type.itable[iface.classId] = iface.interfaceVTableEntries.map {
                         val implementation = layoutBuilder.overridingOf(it)
                                 ?: error(
-                                        irClass.getContainingFile(),
+                                        irClass.fileOrNull,
                                         irClass,
                                         """
                                             no implementation found for ${it.render()}
@@ -595,8 +595,8 @@ internal object DataFlowIR {
             }
             val name = "kfun:$containingDeclarationPart${it.computeFunctionName()}"
 
-            val returnsUnit = it is IrConstructor || (!it.isSuspend && it.returnType.isUnit())
-            val returnsNothing = !it.isSuspend && it.returnType.isNothing()
+            val returnsUnit = it is IrConstructor || it.returnType.isUnit()
+            val returnsNothing = it.returnType.isNothing()
             var attributes = 0
             if (returnsUnit)
                 attributes = attributes or FunctionAttributes.RETURNS_UNIT
@@ -607,9 +607,6 @@ internal object DataFlowIR {
                     || it.hasAnnotation(RuntimeNames.objCMethodImp)) {
                 attributes = attributes or FunctionAttributes.EXPLICITLY_EXPORTED
             }
-            if (it.origin == DECLARATION_ORIGIN_MODULE_GLOBAL_INITIALIZER
-                    || it.origin == DECLARATION_ORIGIN_MODULE_THREAD_LOCAL_INITIALIZER)
-                attributes = attributes or FunctionAttributes.IS_GLOBAL_INITIALIZER
             val symbol = when {
                 it.isExternal || it.isBuiltInOperator -> {
                     val escapesAnnotation = it.annotations.findAnnotation(FQ_NAME_ESCAPES)
@@ -618,7 +615,7 @@ internal object DataFlowIR {
                     val escapesBitMask = (escapesAnnotation?.getValueArgument(0) as? IrConst<Int>)?.value
                     @Suppress("UNCHECKED_CAST")
                     val pointsToBitMask = (pointsToAnnotation?.getValueArgument(0) as? IrVararg)?.elements?.map { (it as IrConst<Int>).value }
-                    FunctionSymbol.External(name.localHash.value, attributes, it, takeName { name }, it.isExported()).apply {
+                    FunctionSymbol.External(localHash(name.toByteArray()), attributes, it, takeName { name }, it.isExported()).apply {
                         escapes  = escapesBitMask
                         pointsTo = pointsToBitMask?.toIntArray()
                     }
@@ -629,7 +626,7 @@ internal object DataFlowIR {
                     val irClass = it.parent as? IrClass
                     val bridgeTarget = it.bridgeTarget
                     val isSpecialBridge = bridgeTarget.let {
-                        it != null && BuiltinMethodsWithSpecialGenericSignature.getDefaultValueForOverriddenBuiltinFunction(it.descriptor) != null
+                        it != null && it.getDefaultValueForOverriddenBuiltinFunction() != null
                     }
                     val bridgeTargetSymbol = if (isSpecialBridge || bridgeTarget == null) null else mapFunction(bridgeTarget)
                     val placeToFunctionsTable = !isAbstract && it !is IrConstructor && irClass != null
@@ -637,7 +634,7 @@ internal object DataFlowIR {
                     val symbolTableIndex = if (placeToFunctionsTable) module.numberOfFunctions++ else -1
                     val frozen = it is IrConstructor && irClass!!.isFrozen(context)
                     val functionSymbol = if (it.isExported())
-                        FunctionSymbol.Public(name.localHash.value, module, symbolTableIndex, attributes, it, bridgeTargetSymbol, takeName { name })
+                        FunctionSymbol.Public(localHash(name.toByteArray()), module, symbolTableIndex, attributes, it, bridgeTargetSymbol, takeName { name })
                     else
                         FunctionSymbol.Private(privateFunIndex++, module, symbolTableIndex, attributes, it, bridgeTargetSymbol, takeName { name })
                     if (frozen) {
@@ -648,14 +645,10 @@ internal object DataFlowIR {
             }
             functionMap[it] = symbol
 
-            symbol.parameters =
-                    (function.allParameters.map { it.type } + (if (function.isSuspend) listOf(continuationType) else emptyList()))
-                            .map { mapTypeToFunctionParameter(it) }
-                            .toTypedArray()
-            symbol.returnParameter = mapTypeToFunctionParameter(if (function.isSuspend)
-                                                               context.irBuiltIns.anyType
-                                                           else
-                                                               function.returnType)
+            symbol.parameters = function.allParameters.map { it.type }
+                    .map { mapTypeToFunctionParameter(it) }
+                    .toTypedArray()
+            symbol.returnParameter = mapTypeToFunctionParameter(function.returnType)
 
             return symbol
         }
@@ -667,8 +660,8 @@ internal object DataFlowIR {
         private fun mapPropertyInitializer(irField: IrField): FunctionSymbol {
             functionMap[irField]?.let { return it }
 
-            assert(irField.parent !is IrClass) { "All local properties initializers should've been lowered" }
-            val attributes = FunctionAttributes.IS_TOP_LEVEL_FIELD_INITIALIZER or FunctionAttributes.RETURNS_UNIT
+            assert(irField.isStatic) { "All local properties initializers should've been lowered" }
+            val attributes = FunctionAttributes.IS_STATIC_FIELD_INITIALIZER or FunctionAttributes.RETURNS_UNIT
             val symbol = FunctionSymbol.Private(privateFunIndex++, module, -1, attributes, irField, null, takeName { "${irField.computeSymbolName()}_init" })
 
             functionMap[irField] = symbol

@@ -26,10 +26,10 @@ import org.jetbrains.kotlin.ir.types.IrType
 class IrSetFieldImpl(
     override val startOffset: Int,
     override val endOffset: Int,
-    override val symbol: IrFieldSymbol,
+    override var symbol: IrFieldSymbol,
     override var type: IrType,
-    override val origin: IrStatementOrigin? = null,
-    override val superQualifierSymbol: IrClassSymbol? = null,
+    override var origin: IrStatementOrigin? = null,
+    override var superQualifierSymbol: IrClassSymbol? = null,
 ) : IrSetField() {
     constructor(
         startOffset: Int, endOffset: Int,

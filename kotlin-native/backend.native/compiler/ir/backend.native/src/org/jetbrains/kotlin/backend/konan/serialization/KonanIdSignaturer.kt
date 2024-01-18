@@ -8,7 +8,7 @@ import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.ir.util.KotlinMangler
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 
-class KonanIdSignaturer(private val mangler: KotlinMangler.DescriptorMangler) : IdSignatureDescriptor(mangler) {
+class KonanIdSignaturer(mangler: KotlinMangler.DescriptorMangler) : IdSignatureDescriptor(mangler) {
 
     override fun createSignatureBuilder(type: SpecialDeclarationType): DescriptorBasedSignatureBuilder =
             KonanDescriptorBasedSignatureBuilder(type)
@@ -23,7 +23,7 @@ class KonanIdSignaturer(private val mangler: KotlinMangler.DescriptorMangler) : 
          * [IdSignature.Flags.IS_NATIVE_INTEROP_LIBRARY] flag.
          */
         private fun markInteropDeclaration(descriptor: DeclarationDescriptor) {
-            if (descriptor.module.isFromInteropLibrary()) {
+            if (descriptor.isFromInteropLibrary()) {
                 mask = mask or IdSignature.Flags.IS_NATIVE_INTEROP_LIBRARY.encode(true)
             }
         }

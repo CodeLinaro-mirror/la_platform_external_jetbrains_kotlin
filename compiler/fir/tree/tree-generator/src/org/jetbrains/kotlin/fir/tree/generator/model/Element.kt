@@ -6,25 +6,14 @@
 package org.jetbrains.kotlin.fir.tree.generator.model
 
 import org.jetbrains.kotlin.fir.tree.generator.printer.BASE_PACKAGE
-import org.jetbrains.kotlin.fir.tree.generator.printer.typeWithArguments
 import org.jetbrains.kotlin.fir.tree.generator.util.set
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
+import org.jetbrains.kotlin.generators.tree.Importable
+import org.jetbrains.kotlin.generators.tree.TypeArgument
+import org.jetbrains.kotlin.generators.tree.typeWithArguments
+import org.jetbrains.kotlin.generators.tree.AbstractElement as CommonAbstractElement
 
-interface KindOwner : Importable {
-    var kind: Implementation.Kind?
-    val allParents: List<KindOwner>
-}
-
-interface FieldContainer {
-    val allFields: List<Field>
-    operator fun get(fieldName: String): Field?
-}
-
-interface AbstractElement : FieldContainer, KindOwner {
-    val name: String
-    val fields: Set<Field>
-    val parents: List<AbstractElement>
-    val typeArguments: List<TypeArgument>
-    val parentsArguments: Map<AbstractElement, Map<Importable, Importable>>
+interface AbstractElement : CommonAbstractElement<AbstractElement, Field> {
     val baseTransformerType: AbstractElement?
     val transformerType: AbstractElement
     val doesNotNeedImplementation: Boolean
@@ -33,22 +22,16 @@ interface AbstractElement : FieldContainer, KindOwner {
     val allFirFields: List<Field>
     val defaultImplementation: Implementation?
     val customImplementations: List<Implementation>
-    val overridenFields: Map<Field, Map<Importable, Boolean>>
     val useNullableForReplace: Set<Field>
-
-    val isSealed: Boolean
-        get() = false
-
-    override val allParents: List<KindOwner> get() = parents
 }
 
 class Element(override val name: String, kind: Kind) : AbstractElement {
     companion object {
         private val allowedKinds = setOf(
-            Implementation.Kind.Interface,
-            Implementation.Kind.SealedInterface,
-            Implementation.Kind.AbstractClass,
-            Implementation.Kind.SealedClass
+            ImplementationKind.Interface,
+            ImplementationKind.SealedInterface,
+            ImplementationKind.AbstractClass,
+            ImplementationKind.SealedClass
         )
     }
 
@@ -61,7 +44,7 @@ class Element(override val name: String, kind: Kind) : AbstractElement {
     override val customImplementations = mutableListOf<Implementation>()
     override val typeArguments = mutableListOf<TypeArgument>()
     override val parentsArguments = mutableMapOf<AbstractElement, MutableMap<Importable, Importable>>()
-    override var kind: Implementation.Kind? = null
+    override var kind: ImplementationKind? = null
         set(value) {
             if (value !in allowedKinds) {
                 throw IllegalArgumentException(value.toString())
@@ -102,6 +85,7 @@ class Element(override val name: String, kind: Kind) : AbstractElement {
                 existingField.needsSeparateTransform = existingField.needsSeparateTransform || parentField.needsSeparateTransform
                 existingField.needTransformInOtherChildren = existingField.needTransformInOtherChildren || parentField.needTransformInOtherChildren
                 existingField.withReplace = parentField.withReplace || existingField.withReplace
+                existingField.parentHasSeparateTransform = parentField.needsSeparateTransform
                 if (parentField.type != existingField.type && parentField.withReplace) {
                     existingField.overridenTypes += parentField
                     overridenFields[existingField, parentField] = false
@@ -185,27 +169,3 @@ class ElementWithArguments(val element: Element, override val typeArguments: Lis
         return element.hashCode()
     }
 }
-
-sealed class TypeArgument(val name: String) {
-    abstract val upperBounds: List<Importable>
-}
-
-class SimpleTypeArgument(name: String, val upperBound: Importable?) : TypeArgument(name) {
-    override val upperBounds: List<Importable> = listOfNotNull(upperBound)
-
-    override fun toString(): String {
-        var result = name
-        if (upperBound != null) {
-            result += " : ${upperBound.typeWithArguments}"
-        }
-        return result
-    }
-}
-
-class TypeArgumentWithMultipleUpperBounds(name: String, override val upperBounds: List<Importable>) : TypeArgument(name) {
-    override fun toString(): String {
-        return name
-    }
-}
-
-data class ArbitraryImportable(override val packageName: String, override val type: String) : Importable

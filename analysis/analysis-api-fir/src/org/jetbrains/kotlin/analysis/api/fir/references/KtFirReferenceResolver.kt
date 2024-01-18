@@ -5,38 +5,39 @@
 
 package org.jetbrains.kotlin.idea.references
 
-import com.intellij.openapi.diagnostic.ControlFlowException
-import com.intellij.openapi.project.IndexNotReadyException
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementResolveResult
 import com.intellij.psi.ResolveResult
 import com.intellij.psi.impl.source.resolve.ResolveCache
+import org.jetbrains.kotlin.analysis.api.KtAllowAnalysisFromWriteAction
 import org.jetbrains.kotlin.analysis.api.KtAllowAnalysisOnEdt
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.lifetime.allowAnalysisFromWriteAction
 import org.jetbrains.kotlin.analysis.api.lifetime.allowAnalysisOnEdt
-import org.jetbrains.kotlin.analysis.utils.printer.getElementTextInContext
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.shouldIjPlatformExceptionBeRethrown
+import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 
 object KtFirReferenceResolver : ResolveCache.PolyVariantResolver<KtReference> {
     class KotlinResolveResult(element: PsiElement) : PsiElementResolveResult(element)
 
-    @OptIn(KtAllowAnalysisOnEdt::class)
+    @OptIn(KtAllowAnalysisOnEdt::class, KtAllowAnalysisFromWriteAction::class)
     override fun resolve(ref: KtReference, incompleteCode: Boolean): Array<ResolveResult> {
         check(ref is KtFirReference) { "reference should be FirKtReference, but was ${ref::class}" }
         check(ref is AbstractKtReference<*>) { "reference should be AbstractKtReference, but was ${ref::class}" }
         return allowAnalysisOnEdt {
-            val resolveToPsiElements = try {
-                analyze(ref.expression) { ref.getResolvedToPsi(this) }
-            } catch (e: Throwable) {
-                if (e is ControlFlowException || e is IndexNotReadyException) throw e
+            allowAnalysisFromWriteAction {
+                val resolveToPsiElements = try {
+                    analyze(ref.expression) { ref.getResolvedToPsi(this) }
+                } catch (e: Exception) {
+                    if (shouldIjPlatformExceptionBeRethrown(e)) throw e
 
-                throw KtReferenceResolveException(ref, e)
+                    errorWithAttachment("Unable to resolve reference ${ref.element::class}", cause = e) {
+                        withPsiEntry("reference", ref.element)
+                    }
+                }
+                resolveToPsiElements.map { KotlinResolveResult(it) }.toTypedArray()
             }
-            resolveToPsiElements.map { KotlinResolveResult(it) }.toTypedArray()
         }
     }
 }
-
-class KtReferenceResolveException(
-    reference: KtReference,
-    cause: Throwable
-) : RuntimeException("Reference is:\n${reference.element.getElementTextInContext()}", cause)

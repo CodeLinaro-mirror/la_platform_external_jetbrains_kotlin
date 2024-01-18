@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -156,6 +156,10 @@ public inline fun <K, V, R, C : MutableCollection<in R>> Map<out K, V>.mapTo(des
 
 /**
  * Returns `true` if all entries match the given [predicate].
+ * 
+ * Note that if the map contains no entries, the function returns `true`
+ * because there are no entries in it that _do not_ match the predicate.
+ * See a more detailed explanation of this logic concept in ["Vacuous truth"](https://en.wikipedia.org/wiki/Vacuous_truth) article.
  * 
  * @sample samples.collections.Collections.Aggregates.all
  */
@@ -580,6 +584,8 @@ public inline fun <K, V> Map<out K, V>.asIterable(): Iterable<Map.Entry<K, V>> {
 
 /**
  * Creates a [Sequence] instance that wraps the original map returning its entries when being iterated.
+ * 
+ * @sample samples.collections.Sequences.Building.sequenceFromMap
  */
 public fun <K, V> Map<out K, V>.asSequence(): Sequence<Map.Entry<K, V>> {
     return entries.asSequence()

@@ -12,6 +12,7 @@ fun test1() {
 fun test2() {
     val x: Int
     val y: Int
+    val z: Int
 
     object {
         init {
@@ -19,8 +20,14 @@ fun test2() {
         }
 
         fun localFunc() {
-            y = 0
+            <!CAPTURED_VAL_INITIALIZATION!>y<!> = 0
         }
+
+        val prop: Int
+            get() {
+                <!CAPTURED_VAL_INITIALIZATION!>z<!> = 0
+                return 2
+            }
     }
 
     println(x)
@@ -33,11 +40,11 @@ fun test3() {
 
     class A {
         init {
-            x = 0
+            <!CAPTURED_VAL_INITIALIZATION!>x<!> = 0
         }
 
         fun localFunc() {
-            y = 0
+            <!CAPTURED_VAL_INITIALIZATION!>y<!> = 0
         }
     }
 

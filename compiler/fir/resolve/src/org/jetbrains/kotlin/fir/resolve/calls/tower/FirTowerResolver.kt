@@ -10,8 +10,8 @@ import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.*
-import org.jetbrains.kotlin.fir.resolve.scope
-import org.jetbrains.kotlin.fir.scopes.FakeOverrideTypeCalculator
+import org.jetbrains.kotlin.fir.resolve.delegatingConstructorScope
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.typeContext
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
@@ -20,8 +20,8 @@ import org.jetbrains.kotlin.types.AbstractTypeChecker
 class FirTowerResolver(
     private val components: BodyResolveComponents,
     resolutionStageRunner: ResolutionStageRunner,
+    private val collector: CandidateCollector = CandidateCollector(components, resolutionStageRunner)
 ) {
-    private val collector = CandidateCollector(components, resolutionStageRunner)
     private val manager = TowerResolveManager(collector)
 
     fun runResolver(
@@ -91,16 +91,18 @@ class FirTowerResolver(
     fun runResolverForDelegatingConstructor(
         info: CallInfo,
         constructedType: ConeClassLikeType,
+        derivedClassLookupTag: ConeClassLikeLookupTag,
         context: ResolutionContext
     ): CandidateCollector {
         val outerType = components.outerClassManager.outerType(constructedType)
-        val scope = constructedType.scope(components.session, components.scopeSession, FakeOverrideTypeCalculator.DoNothing) ?: return collector
+        val scope = constructedType.delegatingConstructorScope(components.session, components.scopeSession, derivedClassLookupTag)
+            ?: return collector
 
         val dispatchReceiver =
             if (outerType != null)
                 components.implicitReceiverStack.receiversAsReversed().drop(1).firstOrNull {
                     AbstractTypeChecker.isSubtypeOf(components.session.typeContext, it.type, outerType)
-                } ?: return collector // TODO: report diagnostic about not-found receiver
+                } ?: return collector // TODO: report diagnostic about not-found receiver, KT-59677
             else
                 null
 
@@ -115,7 +117,7 @@ class FirTowerResolver(
                     it,
                     ExplicitReceiverKind.NO_EXPLICIT_RECEIVER,
                     scope,
-                    dispatchReceiver,
+                    dispatchReceiver?.receiverExpression,
                     givenExtensionReceiverOptions = emptyList()
                 ),
                 context

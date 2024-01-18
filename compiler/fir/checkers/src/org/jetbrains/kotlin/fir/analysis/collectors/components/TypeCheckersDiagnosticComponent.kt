@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.type.FirTypeChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.type.TypeCheckers
 import org.jetbrains.kotlin.fir.analysis.checkersComponent
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.types.*
 
 @OptIn(CheckersComponentInternal::class)
@@ -20,43 +21,51 @@ class TypeCheckersDiagnosticComponent(
     reporter: DiagnosticReporter,
     private val checkers: TypeCheckers = session.checkersComponent.typeCheckers,
 ) : AbstractDiagnosticCollectorComponent(session, reporter) {
+    override fun visitElement(element: FirElement, data: CheckerContext) {
+        if (element is FirTypeRef) {
+            error("${element::class.simpleName} should call parent checkers inside ${this::class.simpleName}")
+        }
+    }
 
     override fun visitDynamicTypeRef(dynamicTypeRef: FirDynamicTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(dynamicTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(dynamicTypeRef, data)
     }
 
     override fun visitFunctionTypeRef(functionTypeRef: FirFunctionTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(functionTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(functionTypeRef, data)
     }
 
     override fun visitUserTypeRef(userTypeRef: FirUserTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(userTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(userTypeRef, data)
     }
 
     override fun visitResolvedTypeRef(resolvedTypeRef: FirResolvedTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(resolvedTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(resolvedTypeRef, data)
     }
 
     override fun visitErrorTypeRef(errorTypeRef: FirErrorTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(errorTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(errorTypeRef, data)
     }
 
     override fun visitTypeRefWithNullability(typeRefWithNullability: FirTypeRefWithNullability, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(typeRefWithNullability, data, reporter)
+        checkers.allTypeRefCheckers.check(typeRefWithNullability, data)
+    }
+
+    override fun visitIntersectionTypeRef(intersectionTypeRef: FirIntersectionTypeRef, data: CheckerContext) {
+        checkers.allTypeRefCheckers.check(intersectionTypeRef, data)
     }
 
     override fun visitImplicitTypeRef(implicitTypeRef: FirImplicitTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(implicitTypeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(implicitTypeRef, data)
     }
 
     override fun visitTypeRef(typeRef: FirTypeRef, data: CheckerContext) {
-        checkers.allTypeRefCheckers.check(typeRef, data, reporter)
+        checkers.allTypeRefCheckers.check(typeRef, data)
     }
 
     private fun <T : FirTypeRef> Collection<FirTypeChecker<T>>.check(
         typeRef: T,
-        context: CheckerContext,
-        reporter: DiagnosticReporter
+        context: CheckerContext
     ) {
         for (checker in this) {
             checker.check(typeRef, context, reporter)

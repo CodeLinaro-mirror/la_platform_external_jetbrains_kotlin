@@ -1,16 +1,18 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.tree.generator.printer
 
 import org.jetbrains.kotlin.fir.tree.generator.model.*
-import org.jetbrains.kotlin.fir.tree.generator.model.Implementation.Kind
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
 import org.jetbrains.kotlin.fir.tree.generator.pureAbstractElementType
-import org.jetbrains.kotlin.util.SmartPrinter
-import org.jetbrains.kotlin.util.withIndent
-
+import org.jetbrains.kotlin.generators.tree.Importable
+import org.jetbrains.kotlin.generators.tree.typeWithArguments
+import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
+import org.jetbrains.kotlin.utils.withIndent
 import java.io.File
 
 fun Implementation.generateCode(generationPath: File): GeneratedFile {
@@ -19,7 +21,7 @@ fun Implementation.generateCode(generationPath: File): GeneratedFile {
     val stringBuilder = StringBuilder()
     SmartPrinter(stringBuilder).apply {
         printCopyright()
-        println("@file:Suppress(\"DuplicatedCode\")")
+        println("@file:Suppress(\"DuplicatedCode\", \"unused\")")
         println()
         println("package $packageName")
         println()
@@ -51,17 +53,26 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
     }
 
     with(implementation) {
-        if (requiresOptIn) {
-            println("@OptIn(FirImplementationDetail::class)")
+        buildSet {
+            if (requiresOptIn) {
+                add("FirImplementationDetail")
+            }
+
+            for (field in fieldsWithoutDefault) {
+                field.optInAnnotation?.let { add(it.type) }
+            }
+        }.ifNotEmpty {
+            println("@OptIn(${joinToString { "$it::class" }})")
         }
+
         if (!isPublic) {
             print("internal ")
         }
         print("${kind!!.title} $type")
         print(element.typeParameters)
 
-        val isInterface = kind == Kind.Interface || kind == Kind.SealedInterface
-        val isAbstract = kind == Kind.AbstractClass || kind == Kind.SealedClass
+        val isInterface = kind == ImplementationKind.Interface || kind == ImplementationKind.SealedInterface
+        val isAbstract = kind == ImplementationKind.AbstractClass || kind == ImplementationKind.SealedClass
 
         fun abstract() {
             if (isAbstract) {
@@ -75,16 +86,19 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
             }
             println("(")
             withIndent {
-
                 fieldsWithoutDefault.forEachIndexed { _, field ->
-                    printField(field, isImplementation = true, override = true, end = ",")
+                    if (field.isParameter) {
+                        println("${field.name}: ${field.typeWithArguments},")
+                    } else if (!field.isFinal) {
+                        printField(field, isImplementation = true, override = true, inConstructor = true, notNull = field.notNull)
+                    }
                 }
             }
             print(")")
         }
 
         print(" : ")
-        if (!isInterface && !allParents.any { it.kind == Kind.AbstractClass || it.kind == Kind.SealedClass }) {
+        if (!isInterface && !allParents.any { it.kind == ImplementationKind.AbstractClass || it.kind == ImplementationKind.SealedClass }) {
             print("${pureAbstractElementType.type}(), ")
         }
         print(allParents.joinToString { "${it.typeWithArguments}${it.kind.braces()}" })
@@ -94,7 +108,7 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
                 allFields.forEach {
 
                     abstract()
-                    printField(it, isImplementation = true, override = true, end = "")
+                    printField(it, isImplementation = true, override = true, notNull = it.notNull)
                 }
             } else {
                 fieldsWithDefault.forEach {
@@ -106,18 +120,26 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
             }
 
 
-            element.allFields.filter {
+            val bindingCalls = element.allFields.filter {
                 it.withBindThis && it.type.contains("Symbol") && it !is FieldList && it.name != "companionObjectSymbol"
             }.takeIf {
                 it.isNotEmpty() && !isInterface && !isAbstract &&
                         !element.type.contains("Reference")
                         && !element.type.contains("ResolvedQualifier")
                         && !element.type.endsWith("Ref")
-            }?.let { symbolFields ->
+                        && !element.type.endsWith("AnnotationsContainer")
+            }.orEmpty()
+
+            val customCalls = fieldsWithoutDefault.filter { it.customInitializationCall != null }
+            if (bindingCalls.isNotEmpty() || customCalls.isNotEmpty()) {
                 println("init {")
-                for (symbolField in symbolFields) {
-                    withIndent {
+                withIndent {
+                    for (symbolField in bindingCalls) {
                         println("${symbolField.name}${symbolField.call()}bind(this)")
+                    }
+
+                    for (customCall in customCalls) {
+                        println("${customCall.name} = ${customCall.customInitializationCall}")
                     }
                 }
                 println("}")
@@ -209,7 +231,7 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
                                     println(
                                         """
                                     |if (dispatchReceiver !== explicitReceiver) {
-                                    |            dispatchReceiver = dispatchReceiver.transform(transformer, data)
+                                    |            dispatchReceiver = dispatchReceiver?.transform(transformer, data)
                                     |        }
                                 """.trimMargin(),
                                     )
@@ -218,7 +240,7 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
                                     println(
                                         """
                                     |if (extensionReceiver !== explicitReceiver && extensionReceiver !== dispatchReceiver) {
-                                    |            extensionReceiver = extensionReceiver.transform(transformer, data)
+                                    |            extensionReceiver = extensionReceiver?.transform(transformer, data)
                                     |        }
                                 """.trimMargin(),
                                     )
@@ -342,7 +364,7 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
                     when {
                         field.withGetter -> {}
 
-                        field.origin is FieldList -> {
+                        field.origin is FieldList && !field.isMutableOrEmpty -> {
                             println("${field.name}.clear()")
                             println("${field.name}.addAll($newValue)")
                         }
@@ -351,7 +373,11 @@ fun SmartPrinter.printImplementation(implementation: Implementation) {
                             if (field.useNullableForReplace) {
                                 println("require($newValue != null)")
                             }
-                            println("${field.name} = $newValue")
+                            print("${field.name} = $newValue")
+                            if (field.origin is FieldList && field.isMutableOrEmpty) {
+                                print(".toMutableOrEmpty()")
+                            }
+                            println()
                         }
                     }
                 }

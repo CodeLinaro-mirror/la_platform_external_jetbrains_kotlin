@@ -18,38 +18,35 @@ package org.jetbrains.kotlin.incremental
 
 import com.intellij.util.containers.MultiMap
 import org.jetbrains.kotlin.build.GeneratedFile
-import org.jetbrains.kotlin.build.report.ICReporter
 import org.jetbrains.kotlin.build.report.debug
 import org.jetbrains.kotlin.incremental.snapshots.FileSnapshotMap
 import org.jetbrains.kotlin.incremental.storage.BasicMapsOwner
-import org.jetbrains.kotlin.incremental.storage.FileToPathConverter
 import org.jetbrains.kotlin.incremental.storage.SourceToOutputFilesMap
 import java.io.File
 
 class InputsCache(
     workingDir: File,
-    private val reporter: ICReporter,
-    pathConverter: FileToPathConverter
+    private val icContext: IncrementalCompilationContext,
 ) : BasicMapsOwner(workingDir) {
     companion object {
         private const val SOURCE_SNAPSHOTS = "source-snapshot"
         private const val SOURCE_TO_OUTPUT_FILES = "source-to-output"
     }
 
-    internal val sourceSnapshotMap = registerMap(FileSnapshotMap(SOURCE_SNAPSHOTS.storageFile, pathConverter))
-    private val sourceToOutputMap = registerMap(SourceToOutputFilesMap(SOURCE_TO_OUTPUT_FILES.storageFile, pathConverter))
+    internal val sourceSnapshotMap = registerMap(FileSnapshotMap(SOURCE_SNAPSHOTS.storageFile, icContext))
+    private val sourceToOutputMap = registerMap(SourceToOutputFilesMap(SOURCE_TO_OUTPUT_FILES.storageFile, icContext))
 
     fun removeOutputForSourceFiles(sources: Iterable<File>) {
         for (sourceFile in sources) {
-            sourceToOutputMap.remove(sourceFile).forEach {
-                reporter.debug { "Deleting $it on clearing cache for $sourceFile" }
-                it.delete()
+            sourceToOutputMap.getAndRemove(sourceFile)?.forEach {
+                icContext.reporter.debug { "Deleting $it on clearing cache for $sourceFile" }
+                icContext.transaction.deleteFile(it.toPath())
             }
         }
     }
 
     fun getOutputForSourceFiles(sources: Iterable<File>): List<File> = sources.flatMap {
-        sourceToOutputMap[it]
+        sourceToOutputMap[it].orEmpty()
     }
 
     // generatedFiles can contain multiple entries with the same source file

@@ -5,18 +5,14 @@
 
 package org.jetbrains.kotlin.analysis.test.framework.base
 
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.util.Computable
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.ktModuleProvider
-import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 
 abstract class AbstractAnalysisApiBasedSingleModuleTest : AbstractAnalysisApiBasedTest() {
-    final override fun doTestByFileStructure(moduleStructure: TestModuleStructure, testServices: TestServices) {
+    final override fun doTestByModuleStructure(moduleStructure: TestModuleStructure, testServices: TestServices) {
         val singleModule = moduleStructure.modules.single()
         val ktFiles = testServices.ktModuleProvider.getModuleFiles(singleModule).filterIsInstance<KtFile>()
         doTestByFileStructure(ktFiles, singleModule, testServices)

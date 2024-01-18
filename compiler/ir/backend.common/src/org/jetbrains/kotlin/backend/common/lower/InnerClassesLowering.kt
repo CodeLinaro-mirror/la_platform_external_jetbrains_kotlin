@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.types.classOrNull
@@ -43,9 +44,11 @@ class InnerClassesLowering(val context: BackendContext, private val innerClasses
             val variableRemapper = VariableRemapper(oldConstructorParameterToNew)
             for ((oldParam, newParam) in oldConstructorParameterToNew.entries) {
                 newParam.defaultValue = oldParam.defaultValue?.let { oldDefault ->
-                    context.irFactory.createExpressionBody(oldDefault.startOffset, oldDefault.endOffset) {
-                        expression = oldDefault.expression.transform(variableRemapper, null).patchDeclarationParents(newConstructor)
-                    }
+                    context.irFactory.createExpressionBody(
+                        startOffset = oldDefault.startOffset,
+                        endOffset = oldDefault.endOffset,
+                        expression = oldDefault.expression.transform(variableRemapper, null).patchDeclarationParents(newConstructor),
+                    )
                 }
             }
 
@@ -261,10 +264,9 @@ class InnerClassConstructorCallsLowering(val context: BackendContext, val innerC
 
                 val newCallee = innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(callee.owner)
                 val newReflectionTarget = expression.reflectionTarget?.let { reflectionTarget ->
-                    if (reflectionTarget is IrConstructorSymbol) {
-                        innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(reflectionTarget.owner)
-                    } else {
-                        null
+                    when (reflectionTarget) {
+                        is IrConstructorSymbol -> innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(reflectionTarget.owner)
+                        is IrSimpleFunctionSymbol -> null
                     }
                 }
 

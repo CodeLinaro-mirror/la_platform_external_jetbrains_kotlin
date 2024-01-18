@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.daemon
 
 import com.intellij.openapi.Disposable
@@ -22,14 +24,16 @@ import org.jetbrains.kotlin.cli.common.extensions.ReplFactoryExtension
 import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.cli.common.repl.*
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
-import org.jetbrains.kotlin.cli.jvm.plugins.ServiceLoaderLite
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.configureJdkHomeFromSystemProperty
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.daemon.common.CompileService
 import org.jetbrains.kotlin.daemon.common.CompilerId
 import org.jetbrains.kotlin.daemon.common.RemoteOperationsTracer
+import org.jetbrains.kotlin.util.ServiceLoaderLite
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
 import java.io.PrintStream
@@ -55,6 +59,7 @@ abstract class KotlinJvmReplServiceBase(
         put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
         addJvmClasspathRoots(PathUtil.kotlinPathsForCompiler.let { listOf(it.stdlibPath, it.reflectPath, it.scriptRuntimePath) })
         addJvmClasspathRoots(templateClasspath)
+        configureJdkHomeFromSystemProperty() // needed for IdeaJsr223Test in Kotlin plugin
         configureJdkClasspathRoots()
         put(CommonConfigurationKeys.MODULE_NAME, "kotlin-script")
         languageVersionSettings = LanguageVersionSettingsImpl(
@@ -207,13 +212,12 @@ inline fun getValidId(counter: AtomicInteger, check: (Int) -> Boolean): Int {
 
 fun CompilerConfiguration.configureScripting(compilerId: CompilerId) {
     val error = try {
-        val componentRegistrars =
-            (this::class.java.classLoader as? URLClassLoader)?.let {
-                ServiceLoaderLite.loadImplementations(ComponentRegistrar::class.java, it)
-            } ?: ServiceLoaderLite.loadImplementations(
-                ComponentRegistrar::class.java, compilerId.compilerClasspath.map(::File), this::class.java.classLoader
-            )
+        val componentRegistrars = loadRegistrars<ComponentRegistrar>(compilerId)
         addAll(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS, componentRegistrars)
+
+        val compilerPluginRegistrars = loadRegistrars<CompilerPluginRegistrar>(compilerId)
+        addAll(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS, compilerPluginRegistrars)
+
         null
     } catch (e: NoClassDefFoundError) {
         e
@@ -226,4 +230,12 @@ fun CompilerConfiguration.configureScripting(compilerId: CompilerId) {
             error
         )
     }
+}
+
+private inline fun <reified T : Any> CompilerConfiguration.loadRegistrars(compilerId: CompilerId): List<T> {
+    return (this::class.java.classLoader as? URLClassLoader)?.let {
+        ServiceLoaderLite.loadImplementations(T::class.java, it)
+    } ?: ServiceLoaderLite.loadImplementations(
+        T::class.java, compilerId.compilerClasspath.map(::File), this::class.java.classLoader
+    )
 }

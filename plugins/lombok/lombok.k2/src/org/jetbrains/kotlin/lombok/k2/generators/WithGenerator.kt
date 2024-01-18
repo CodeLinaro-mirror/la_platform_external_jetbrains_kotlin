@@ -40,7 +40,7 @@ class WithGenerator(session: FirSession) : FirDeclarationGenerationExtension(ses
     private val cache: FirCache<FirClassSymbol<*>, Map<Name, FirJavaMethod>?, Nothing?> =
         session.firCachesFactory.createCache(::createWith)
 
-    override fun getCallableNamesForClass(classSymbol: FirClassSymbol<*>): Set<Name> {
+    override fun getCallableNamesForClass(classSymbol: FirClassSymbol<*>, context: MemberGenerationContext): Set<Name> {
         if (!classSymbol.isSuitableJavaClass()) return emptySet()
         return cache.getValue(classSymbol)?.keys ?: emptySet()
     }
@@ -70,6 +70,7 @@ class WithGenerator(session: FirSession) : FirDeclarationGenerationExtension(ses
 
                 valueParameters += buildJavaValueParameter {
                     moduleData = field.moduleData
+                    containingFunctionSymbol = this@buildJavaMethod.symbol
                     returnTypeRef = field.returnTypeRef
                     name = field.name
                     annotationBuilder = { emptyList() }
@@ -91,14 +92,19 @@ class WithGenerator(session: FirSession) : FirDeclarationGenerationExtension(ses
 
         return classSymbol.fir.declarations
             .filterIsInstance<FirJavaField>()
-            .filter { it.isVar }
             .collectWithNotNull { lombokService.getWith(it.symbol) ?: classWith }
             .takeIf { it.isNotEmpty() }
     }
 
     private fun computeWithName(field: FirJavaField, withInfo: With): Name? {
         if (withInfo.visibility == AccessLevel.NONE) return null
-        val functionName = "with" + toPropertyNameCapitalized(field.name.identifier)
+        val rawPropertyName = field.name.identifier
+        val propertyName = if (field.returnTypeRef.isPrimitiveBoolean() && rawPropertyName.startsWith("is")) {
+            rawPropertyName.removePrefix("is")
+        } else {
+            rawPropertyName
+        }
+        val functionName = "with" + toPropertyNameCapitalized(propertyName)
         return Name.identifier(functionName)
     }
 }

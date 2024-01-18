@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.fir.tree.generator.model.Element
 import org.jetbrains.kotlin.fir.tree.generator.model.IntermediateBuilder
 import org.jetbrains.kotlin.fir.tree.generator.model.Type
 import org.jetbrains.kotlin.fir.tree.generator.printer.BASE_PACKAGE
-import org.jetbrains.kotlin.fir.tree.generator.util.DummyDelegate
+import org.jetbrains.kotlin.utils.DummyDelegate
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -93,16 +93,16 @@ abstract class AbstractFirTreeBuilder {
     }
 }
 
-fun generatedType(type: String, firType: Boolean = false): Type = generatedType("", type, firType)
+fun generatedType(type: String): Type = generatedType("", type)
 
-fun generatedType(packageName: String, type: String, firType: Boolean = false): Type {
+fun generatedType(packageName: String, type: String): Type {
     val realPackage = BASE_PACKAGE + if (packageName.isNotBlank()) ".$packageName" else ""
-    return type(realPackage, type, exactPackage = true, firType)
+    return type(realPackage, type, exactPackage = true)
 }
 
-fun type(packageName: String?, type: String, exactPackage: Boolean = false, firType: Boolean = false): Type {
+fun type(packageName: String?, type: String, exactPackage: Boolean = false): Type {
     val realPackage = if (exactPackage) packageName else packageName?.let { "org.jetbrains.kotlin.$it" }
-    return Type(realPackage, type, firType)
+    return Type(realPackage, type)
 }
 
 fun type(type: String): Type = type(null, type)

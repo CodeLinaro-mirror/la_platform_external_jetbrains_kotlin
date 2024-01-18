@@ -7,8 +7,9 @@ package org.jetbrains.kotlin.fir.tree.generator.printer
 
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 import org.jetbrains.kotlin.fir.tree.generator.model.Element
-import org.jetbrains.kotlin.util.SmartPrinter
-import org.jetbrains.kotlin.util.withIndent
+import org.jetbrains.kotlin.generators.tree.typeWithArguments
+import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.withIndent
 
 import java.io.File
 
@@ -36,7 +37,7 @@ fun printTransformer(elements: List<Element>, generationPath: File): GeneratedFi
                 element.typeParameters.takeIf { it.isNotBlank() }?.let { print(it) }
                 println(
                     "transform${element.name}($varName: ${element.typeWithArguments}, data: D): ${element.transformerType
-                        .typeWithArguments}${element.multipleUpperBoundsList()}{",
+                        .typeWithArguments}${element.multipleUpperBoundsList()} {",
                 )
                 withIndent {
                     println("return transformElement($varName, data)")
@@ -52,7 +53,7 @@ fun printTransformer(elements: List<Element>, generationPath: File): GeneratedFi
 
                 println(
                     "visit${element.name}($varName: ${element.typeWithArguments}, data: D): ${element.transformerType
-                        .typeWithArguments}${element.multipleUpperBoundsList()}{",
+                        .typeWithArguments}${element.multipleUpperBoundsList()} {",
                 )
                 withIndent {
                     println("return transform${element.name}($varName, data)")

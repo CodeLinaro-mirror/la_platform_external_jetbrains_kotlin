@@ -40,7 +40,7 @@ class OptimizationMethodVisitor(
     name: String,
     desc: String,
     signature: String?,
-    exceptions: Array<String>?
+    exceptions: Array<out String>?
 ) : TransformationMethodVisitor(delegate, access, name, desc, signature, exceptions) {
     val normalizationMethodTransformer = CompositeMethodTransformer(
         InplaceArgumentsMethodTransformer(),
@@ -61,6 +61,7 @@ class OptimizationMethodVisitor(
         RedundantGotoMethodTransformer(),
         RedundantNopsCleanupMethodTransformer(),
         NegatedJumpsMethodTransformer(),
+        RedundantCheckcastsBeforeAastoreMethodTransformer,
         MethodVerifier("AFTER optimizations", generationState)
     )
 
@@ -68,7 +69,7 @@ class OptimizationMethodVisitor(
         normalizationMethodTransformer.transform("fake", methodNode)
         UninitializedStoresProcessor(methodNode).run()
 
-        if (!mandatoryTransformationsOnly && canBeOptimized(methodNode) && !generationState.disableOptimization) {
+        if (!mandatoryTransformationsOnly && canBeOptimized(methodNode) && !generationState.config.disableOptimization) {
             optimizationTransformer.transform("fake", methodNode)
         }
 

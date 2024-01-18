@@ -1,6 +1,14 @@
-// !LANGUAGE: +NewInference
 // !DIAGNOSTICS: -UNUSED_EXPRESSION -UNUSED_VARIABLE -UNUSED_VALUE
 // SKIP_TXT
+
+/*
+ * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (POSITIVE)
+ *
+ * SECTIONS: dfa
+ * NUMBER: 51
+ * DESCRIPTION: Raw data flow analysis test
+ * HELPERS: classes, objects, typealiases, functions, enumClasses, interfaces, sealedClasses
+ */
 
 // TESTCASE NUMBER: 1
 fun case_1(x: Any?) {
@@ -171,8 +179,8 @@ fun case_15(z: Any?) {
         return@let it as Int
         while (true) { println(1) }
     }
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>y<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>y<!>.equals(10)
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any")!>y<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any")!>y<!>.equals(10)
 }
 
 /*
@@ -184,8 +192,8 @@ fun case_16(z: Any?) {
         return@run this as Int
         while (true) { println(1) }
     }
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>y<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Int")!>y<!>.equals(10)
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any")!>y<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Any")!>y<!>.equals(10)
 }
 
 /*

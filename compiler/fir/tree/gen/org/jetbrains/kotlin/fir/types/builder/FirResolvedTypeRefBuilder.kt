@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DuplicatedCode")
+@file:Suppress("DuplicatedCode", "unused")
 
 package org.jetbrains.kotlin.fir.types.builder
 
@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
+import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
@@ -30,16 +31,14 @@ class FirResolvedTypeRefBuilder : FirAnnotationContainerBuilder {
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
     lateinit var type: ConeKotlinType
     var delegatedTypeRef: FirTypeRef? = null
-    var isFromStubType: Boolean = false
 
     @OptIn(FirImplementationDetail::class)
     override fun build(): FirResolvedTypeRef {
         return FirResolvedTypeRefImpl(
             source,
-            annotations,
+            annotations.toMutableOrEmpty(),
             type,
             delegatedTypeRef,
-            isFromStubType,
         )
     }
 
@@ -63,6 +62,5 @@ inline fun buildResolvedTypeRefCopy(original: FirResolvedTypeRef, init: FirResol
     copyBuilder.annotations.addAll(original.annotations)
     copyBuilder.type = original.type
     copyBuilder.delegatedTypeRef = original.delegatedTypeRef
-    copyBuilder.isFromStubType = original.isFromStubType
     return copyBuilder.apply(init).build()
 }

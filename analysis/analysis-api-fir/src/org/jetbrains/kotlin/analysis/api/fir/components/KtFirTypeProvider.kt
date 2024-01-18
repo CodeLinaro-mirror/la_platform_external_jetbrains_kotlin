@@ -14,36 +14,35 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.dispatchReceiverType
 import org.jetbrains.kotlin.analysis.api.fir.types.KtFirType
 import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.toConeNullability
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.types.KtTypeNullability
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbolOfTypeSafe
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
-import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker.isCompatible
-import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.analysis.checkers.typeParameterSymbols
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
+import org.jetbrains.kotlin.fir.declarations.fullyExpandedClass
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
-import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.psi
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.ensureResolved
 import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.psi.KtDoubleColonExpression
-import org.jetbrains.kotlin.psi.KtElement
-import org.jetbrains.kotlin.psi.KtTypeReference
+import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.model.CaptureStatus
 import org.jetbrains.kotlin.util.bfs
@@ -54,13 +53,24 @@ internal class KtFirTypeProvider(
 ) : KtTypeProvider(), KtFirAnalysisSessionComponent {
     override val builtinTypes: KtBuiltinTypes = KtFirBuiltInTypes(rootModuleSession.builtinTypes, firSymbolBuilder, token)
 
-    override fun approximateToSuperPublicDenotableType(type: KtType): KtType? {
+    override fun approximateToSuperPublicDenotableType(type: KtType, approximateLocalTypes: Boolean): KtType? {
         require(type is KtFirType)
         val coneType = type.coneType
         val approximatedConeType = PublicTypeApproximator.approximateTypeToPublicDenotable(
             coneType,
             rootModuleSession,
-            approximateLocalTypes = true,
+            approximateLocalTypes = approximateLocalTypes,
+        )
+
+        return approximatedConeType?.asKtType()
+    }
+
+    override fun approximateToSubPublicDenotableType(type: KtType, approximateLocalTypes: Boolean): KtType? {
+        require(type is KtFirType)
+        val coneType = type.coneType
+        val approximatedConeType = rootModuleSession.typeApproximator.approximateToSubType(
+            coneType,
+            PublicTypeApproximator.PublicApproximatorConfiguration(localTypes = approximateLocalTypes),
         )
 
         return approximatedConeType?.asKtType()
@@ -68,7 +78,7 @@ internal class KtFirTypeProvider(
 
     override fun buildSelfClassType(symbol: KtNamedClassOrObjectSymbol): KtType {
         require(symbol is KtFirNamedClassOrObjectSymbol)
-        symbol.firSymbol.ensureResolved(FirResolvePhase.SUPER_TYPES)
+        symbol.firSymbol.lazyResolveToPhase(FirResolvePhase.SUPER_TYPES)
         val firClass = symbol.firSymbol.fir
         val type = ConeClassLikeTypeImpl(
             firClass.symbol.toLookupTag(),
@@ -86,19 +96,75 @@ internal class KtFirTypeProvider(
     }
 
     override fun getKtType(ktTypeReference: KtTypeReference): KtType {
-        return when (val fir = ktTypeReference.getOrBuildFir(firResolveSession)) {
+        val parent = ktTypeReference.parent
+        val fir = when {
+            parent is KtParameter && parent.ownerFunction != null && parent.typeReference === ktTypeReference -> parent.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(
+                firResolveSession, FirResolvePhase.TYPES
+            )?.fir?.returnTypeRef
+            parent is KtCallableDeclaration && (parent is KtNamedFunction || parent is KtProperty) && (parent.receiverTypeReference === ktTypeReference || parent.typeReference === ktTypeReference) -> {
+                val firCallable = parent.resolveToFirSymbolOfTypeSafe<FirCallableSymbol<*>>(
+                    firResolveSession, FirResolvePhase.TYPES
+                )?.fir
+                if (parent.receiverTypeReference === ktTypeReference) firCallable?.receiverParameter?.typeRef else firCallable?.returnTypeRef
+            }
+            parent is KtConstructorCalleeExpression && parent.parent is KtAnnotationEntry -> {
+                fun FirMemberDeclaration.findAnnotationTypeRef(annotationEntry: KtAnnotationEntry) = annotations.find {
+                    it.psi === annotationEntry
+                }?.annotationTypeRef
+
+                val annotationEntry = parent.parent as KtAnnotationEntry
+                val firDeclaration = getFirDeclaration(annotationEntry, ktTypeReference)
+                if (firDeclaration != null) {
+                    firDeclaration.findAnnotationTypeRef(annotationEntry) ?: (firDeclaration as? FirProperty)?.run {
+                        backingField?.findAnnotationTypeRef(annotationEntry)
+                            ?: getter?.findAnnotationTypeRef(annotationEntry)
+                            ?: setter?.findAnnotationTypeRef(annotationEntry)
+                    }
+                } else {
+                    ktTypeReference.getOrBuildFir(firResolveSession)
+                }
+            }
+            else -> ktTypeReference.getOrBuildFir(firResolveSession)
+        }
+        return when (fir) {
             is FirResolvedTypeRef -> fir.coneType.asKtType()
             is FirDelegatedConstructorCall -> fir.constructedTypeRef.coneType.asKtType()
+            is FirTypeProjectionWithVariance -> {
+                when (val typeRef = fir.typeRef) {
+                    is FirResolvedTypeRef -> typeRef.coneType.asKtType()
+                    else -> throwUnexpectedFirElementError(fir, ktTypeReference)
+                }
+            }
             else -> throwUnexpectedFirElementError(fir, ktTypeReference)
+        }
+    }
+
+    private fun getFirDeclaration(annotationEntry: KtAnnotationEntry, ktTypeReference: KtTypeReference): FirMemberDeclaration? {
+        if (annotationEntry.typeReference !== ktTypeReference) return null
+        val declaration = annotationEntry.parent?.parent as? KtNamedDeclaration ?: return null
+        return when {
+            declaration is KtClassOrObject -> declaration.resolveToFirSymbolOfTypeSafe<FirClassLikeSymbol<*>>(
+                firResolveSession, FirResolvePhase.TYPES
+            )?.fir
+            declaration is KtParameter && declaration.ownerFunction != null ->
+                declaration.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(
+                    firResolveSession, FirResolvePhase.TYPES
+                )?.fir
+            declaration is KtCallableDeclaration && (declaration is KtNamedFunction || declaration is KtProperty) -> {
+                declaration.resolveToFirSymbolOfTypeSafe<FirCallableSymbol<*>>(
+                    firResolveSession, FirResolvePhase.TYPES
+                )?.fir
+            }
+            else -> return null
         }
     }
 
     override fun getReceiverTypeForDoubleColonExpression(expression: KtDoubleColonExpression): KtType? {
         return when (val fir = expression.getOrBuildFir(firResolveSession)) {
             is FirGetClassCall ->
-                fir.typeRef.coneType.getReceiverOfReflectionType()?.asKtType()
+                fir.resolvedType.getReceiverOfReflectionType()?.asKtType()
             is FirCallableReferenceAccess ->
-                fir.typeRef.coneType.getReceiverOfReflectionType()?.asKtType()
+                fir.resolvedType.getReceiverOfReflectionType()?.asKtType()
             else -> throwUnexpectedFirElementError(fir, expression)
         }
     }
@@ -149,9 +215,9 @@ internal class KtFirTypeProvider(
         val session = analysisSession.firResolveSession.useSiteFirSession
         val symbol = lookupTag.toSymbol(session)
         val superTypes = when (symbol) {
-            is FirAnonymousObjectSymbol -> symbol.superConeTypes
-            is FirRegularClassSymbol -> symbol.superConeTypes
-            is FirTypeAliasSymbol -> symbol.fullyExpandedClass(session)?.superConeTypes ?: return emptySequence()
+            is FirAnonymousObjectSymbol -> symbol.resolvedSuperTypes
+            is FirRegularClassSymbol -> symbol.resolvedSuperTypes
+            is FirTypeAliasSymbol -> symbol.fullyExpandedClass(session)?.resolvedSuperTypes ?: return emptySequence()
             is FirTypeParameterSymbol -> symbol.resolvedBounds.map { it.type }
             else -> return emptySequence()
         }
@@ -161,8 +227,9 @@ internal class KtFirTypeProvider(
             ?: this.typeArguments.mapNotNull { it.type })
 
         require(typeParameterSymbols.size == argumentTypes.size) {
-            "'${symbol.fir.render(FirRenderer.RenderMode.NoBodies)}' expects '${typeParameterSymbols.size}' type arguments " +
-                    "but type '${this.render()}' has ${argumentTypes.size} type arguments."
+            val renderedSymbol = FirRenderer.noAnnotationBodiesAccessorAndArguments().renderElementAsString(symbol.fir)
+            "'$renderedSymbol' expects '${typeParameterSymbols.size}' type arguments " +
+                    "but type '${this.renderForDebugging()}' has ${argumentTypes.size} type arguments."
         }
 
         val substitutor = substitutorByMap(typeParameterSymbols.zip(argumentTypes).toMap(), session)
@@ -194,6 +261,11 @@ internal class KtFirTypeProvider(
             "Fir declaration should be FirCallableDeclaration; instead it was ${firSymbol::class}"
         }
         return firSymbol.dispatchReceiverType(analysisSession.firSymbolBuilder)
+    }
+
+    override fun getArrayElementType(type: KtType): KtType? {
+        require(type is KtFirType)
+        return type.coneType.arrayElementType()?.asKtType()
     }
 }
 

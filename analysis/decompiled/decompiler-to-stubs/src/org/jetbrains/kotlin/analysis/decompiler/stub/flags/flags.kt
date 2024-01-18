@@ -45,12 +45,18 @@ val INFIX = createBooleanFlagToModifier(Flags.IS_INFIX, KtTokens.INFIX_KEYWORD)
 val DATA = createBooleanFlagToModifier(Flags.IS_DATA, KtTokens.DATA_KEYWORD)
 val EXTERNAL_FUN = createBooleanFlagToModifier(Flags.IS_EXTERNAL_FUNCTION, KtTokens.EXTERNAL_KEYWORD)
 val EXTERNAL_PROPERTY = createBooleanFlagToModifier(Flags.IS_EXTERNAL_PROPERTY, KtTokens.EXTERNAL_KEYWORD)
+val EXTERNAL_ACCESSOR = createBooleanFlagToModifier(Flags.IS_EXTERNAL_ACCESSOR, KtTokens.EXTERNAL_KEYWORD)
 val EXTERNAL_CLASS = createBooleanFlagToModifier(Flags.IS_EXTERNAL_CLASS, KtTokens.EXTERNAL_KEYWORD)
 val INLINE = createBooleanFlagToModifier(Flags.IS_INLINE, KtTokens.INLINE_KEYWORD)
+val INLINE_ACCESSOR = createBooleanFlagToModifier(Flags.IS_INLINE_ACCESSOR, KtTokens.INLINE_KEYWORD)
 val VALUE_CLASS = createBooleanFlagToModifier(Flags.IS_VALUE_CLASS, KtTokens.VALUE_KEYWORD)
 val FUN_INTERFACE = createBooleanFlagToModifier(Flags.IS_FUN_INTERFACE, KtTokens.FUN_KEYWORD)
 val TAILREC = createBooleanFlagToModifier(Flags.IS_TAILREC, KtTokens.TAILREC_KEYWORD)
 val SUSPEND = createBooleanFlagToModifier(Flags.IS_SUSPEND, KtTokens.SUSPEND_KEYWORD)
+
+val EXPECT_CLASS = createBooleanFlagToModifier(Flags.IS_EXPECT_CLASS, KtTokens.EXPECT_KEYWORD)
+val EXPECT_FUNCTION = createBooleanFlagToModifier(Flags.IS_EXPECT_FUNCTION, KtTokens.EXPECT_KEYWORD)
+val EXPECT_PROPERTY = createBooleanFlagToModifier(Flags.IS_EXPECT_PROPERTY, KtTokens.EXPECT_KEYWORD)
 
 private fun createBooleanFlagToModifier(
     flagField: Flags.BooleanFlagField, ktModifierKeywordToken: KtModifierKeywordToken

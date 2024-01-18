@@ -6,13 +6,14 @@
 package org.jetbrains.kotlin.test.services
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.StandardFileSystems
+import com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.KtInMemoryTextSourceFile
-import org.jetbrains.kotlin.fir.lightTree.LightTree2Fir
+import org.jetbrains.kotlin.KtSourceFile
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.sourceFiles.LightTreeFile
 import org.jetbrains.kotlin.test.model.TestFile
+import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.jetbrains.kotlin.toSourceLinesMapping
 import java.io.File
 
 abstract class SourceFilePreprocessor(val testServices: TestServices) {
@@ -86,9 +87,13 @@ class SourceFileProviderImpl(val testServices: TestServices, override val prepro
     }
 }
 
-fun SourceFileProvider.getKtFileForSourceFile(testFile: TestFile, project: Project): KtFile {
-// TODO
-//    return TestCheckerUtil.createCheckAndReturnPsiFile(
+fun SourceFileProvider.getKtFileForSourceFile(testFile: TestFile, project: Project, findViaVfs: Boolean = false): KtFile {
+    if (findViaVfs) {
+        val realFile = getRealFileForSourceFile(testFile)
+        StandardFileSystems.local().findFileByPath(realFile.path)
+            ?.let { PsiManager.getInstance(project).findFile(it) as? KtFile }
+            ?.let { return it }
+    }
     return KtTestUtil.createFile(
         testFile.name,
         getContentOfSourceFile(testFile),
@@ -96,25 +101,23 @@ fun SourceFileProvider.getKtFileForSourceFile(testFile: TestFile, project: Proje
     )
 }
 
-fun SourceFileProvider.getKtFilesForSourceFiles(testFiles: Collection<TestFile>, project: Project): Map<TestFile, KtFile> {
+fun SourceFileProvider.getKtFilesForSourceFiles(testFiles: Collection<TestFile>, project: Project, findViaVfs: Boolean = false): Map<TestFile, KtFile> {
     return testFiles.mapNotNull {
         if (!it.isKtFile) return@mapNotNull null
-        it to getKtFileForSourceFile(it, project)
+        it to getKtFileForSourceFile(it, project, findViaVfs)
     }.toMap()
 }
 
-fun SourceFileProvider.getLightTreeKtFileForSourceFile(testFile: TestFile): LightTreeFile {
-    val shortName = testFile.name.substringAfterLast('/').substringAfterLast('\\')
-    val sourceFile = KtInMemoryTextSourceFile(shortName, "/$shortName", getContentOfSourceFile(testFile))
-    val linesMapping = sourceFile.text.toSourceLinesMapping()
-    val lightTree = LightTree2Fir.buildLightTree(sourceFile.text)
-    return LightTreeFile(lightTree, sourceFile, linesMapping)
-}
+fun TestFile.toLightTreeShortName() = name.substringAfterLast('/').substringAfterLast('\\')
 
-fun SourceFileProvider.getLightTreeFilesForSourceFiles(testFiles: Collection<TestFile>): Map<TestFile, LightTreeFile> {
+fun SourceFileProvider.getKtSourceFilesForSourceFiles(
+    testFiles: Collection<TestFile>,
+): Map<TestFile, KtSourceFile> {
     return testFiles.mapNotNull {
         if (!it.isKtFile) return@mapNotNull null
-        it to getLightTreeKtFileForSourceFile(it)
+        val shortName = it.toLightTreeShortName()
+        val ktSourceFile = KtInMemoryTextSourceFile(shortName, "/$shortName", getContentOfSourceFile(it))
+        it to ktSourceFile
     }.toMap()
 }
 
@@ -132,3 +135,10 @@ val TestFile.isJsFile: Boolean
 
 val TestFile.isMjsFile: Boolean
     get() = name.endsWith(".mjs")
+
+val TestModule.javaFiles: List<TestFile>
+    get() = files.filter { it.isJavaFile }
+
+fun SourceFileProvider.getRealJavaFiles(module: TestModule): List<File> {
+    return module.javaFiles.map { getRealFileForSourceFile(it) }
+}

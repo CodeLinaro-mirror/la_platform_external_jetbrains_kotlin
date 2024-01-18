@@ -1,6 +1,3 @@
-import org.jetbrains.kotlin.ideaExt.idea
-import java.io.File
-
 plugins {
     kotlin("jvm")
     id("jps-compatible")
@@ -19,51 +16,46 @@ dependencies {
     
     testApi(kotlinStdlib())
 
-    testApi(commonDependency("junit:junit"))
+    testImplementation(libs.junit4)
     testCompileOnly(project(":kotlin-test:kotlin-test-jvm"))
     testCompileOnly(project(":kotlin-test:kotlin-test-junit"))
     testApi(projectTests(":compiler:tests-common"))
+    testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:fir:raw-fir:psi2fir"))
     testApi(projectTests(":compiler:fir:raw-fir:light-tree2fir"))
-    testApi(projectTests(":compiler:fir:fir2ir"))
     testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
     testApi(projectTests(":generators:test-generator"))
     testApi(project(":compiler:ir.ir2cfg"))
     testApi(project(":compiler:ir.tree")) // used for deepCopyWithSymbols call that is removed by proguard from the compiler TODO: make it more straightforward
     testApi(project(":kotlin-scripting-compiler"))
-    testApi(project(":kotlin-script-util"))
-    testCompileOnly(project(":kotlin-reflect-api"))
 
     otherCompilerModules.forEach {
         testCompileOnly(project(it))
     }
 
-    testImplementation(project(":kotlin-reflect"))
+    testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
     testImplementation(toolsJar())
 
     antLauncherJar(commonDependency("org.apache.ant", "ant"))
     antLauncherJar(toolsJar())
 }
 
-val generationRoot = projectDir.resolve("tests-gen")
+optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" {}
     "test" {
         projectDefault()
-        this.java.srcDir(generationRoot.name)
+        generatedTestDir()
     }
 }
 
-if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
-    apply(plugin = "idea")
-    idea {
-        this.module.generatedSourceDirs.add(generationRoot)
-    }
-}
-
-projectTest(parallel = true) {
+projectTest(
+    parallel = true,
+    defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_1_8, JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)
+) {
     dependsOn(":dist")
+    useJsIrBoxTests(version = version, buildDir = "$buildDir/")
 
     workingDir = rootDir
     systemProperty("kotlin.test.script.classpath", testSourceSet.output.classesDirs.joinToString(File.pathSeparator))

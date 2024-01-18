@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,16 +8,15 @@ package org.jetbrains.kotlin.asJava.classes
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiType
-import com.intellij.psi.impl.java.stubs.PsiJavaFileStub
 import com.intellij.psi.impl.light.LightMethodBuilder
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import org.jetbrains.kotlin.analyzer.KotlinModificationTrackerService
-import org.jetbrains.kotlin.asJava.builder.LightClassData
-import org.jetbrains.kotlin.asJava.builder.LightClassDataHolder
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
+import org.jetbrains.kotlin.asJava.toLightClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.KtScript
@@ -25,16 +24,7 @@ import org.jetbrains.kotlin.psi.KtScript
 class KtUltraLightClassForScript(
     script: KtScript,
     private val support: KtUltraLightSupport,
-) : KtLightClassForScript(script) {
-
-    override val clsDelegate: PsiClass get() = invalidAccess()
-
-    override val lightClassData: LightClassData get() = invalidAccess()
-
-    override fun getLightClassDataHolder(): LightClassDataHolder.ForScript = invalidAccess()
-
-    override val javaFileStub: PsiJavaFileStub? = null
-
+) : KtLightClassForScriptBase(script) {
     private val membersBuilder by lazyPub {
         UltraLightMembersCreator(
             containingClass = this,
@@ -139,5 +129,14 @@ class KtUltraLightClassForScript(
 
     override fun getOwnFields(): List<KtLightField> = _ownFields
 
-    override fun copy(): KtLightClassForScript = KtUltraLightClassForScript(script, support)
+    override fun copy(): KtUltraLightClassForScript = KtUltraLightClassForScript(script, support)
+
+    override fun getOwnInnerClasses(): List<PsiClass> {
+        return script.declarations.filterIsInstance<KtClassOrObject>()
+            // workaround for ClassInnerStuffCache not supporting classes with null names, see KT-13927
+            // inner classes with null names can't be searched for and can't be used from java anyway
+            // we can't prohibit creating light classes with null names either since they can contain members
+            .filter { it.name != null }
+            .mapNotNull(KtClassOrObject::toLightClass)
+    }
 }

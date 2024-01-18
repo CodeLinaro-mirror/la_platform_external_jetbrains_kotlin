@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,16 +9,17 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.isClass
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.utils.modality
-import org.jetbrains.kotlin.fir.dispatchReceiverClassOrNull
+import org.jetbrains.kotlin.fir.dispatchReceiverClassLookupTagOrNull
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
-import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccess
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.scopes.FakeOverrideTypeCalculator
+import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.unwrapFakeOverrides
@@ -30,7 +31,7 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 
 fun BodyResolveComponents.findTypesForSuperCandidates(
     superTypeRefs: List<FirTypeRef>,
-    containingCall: FirQualifiedAccess,
+    containingCall: FirQualifiedAccessExpression,
 ): List<ConeKotlinType> {
     val supertypes = superTypeRefs.map { (it as FirResolvedTypeRef).type }
     val isMethodOfAny = containingCall is FirFunctionCall && isCallingMethodOfAny(containingCall)
@@ -126,20 +127,24 @@ private inline fun BodyResolveComponents.resolveSupertypesByMembers(
     }
 }
 
-@OptIn(ExperimentalStdlibApi::class)
 private fun BodyResolveComponents.getFunctionMembers(type: ConeKotlinType, name: Name): Collection<FirCallableDeclaration> =
     buildList {
-        type.scope(session, scopeSession, FakeOverrideTypeCalculator.DoNothing)?.processFunctionsByName(name) {
-            add(it.fir)
-        }
+        type.scope(
+            useSiteSession = session,
+            scopeSession = scopeSession,
+            callableCopyTypeCalculator = CallableCopyTypeCalculator.DoNothing,
+            requiredMembersPhase = FirResolvePhase.STATUS,
+        )?.processFunctionsByName(name) { add(it.fir) }
     }
 
-@OptIn(ExperimentalStdlibApi::class)
 private fun BodyResolveComponents.getPropertyMembers(type: ConeKotlinType, name: Name): Collection<FirCallableDeclaration> =
     buildList {
-        type.scope(session, scopeSession, FakeOverrideTypeCalculator.DoNothing)?.processPropertiesByName(name) {
-            addIfNotNull(it.fir as? FirVariable)
-        }
+        type.scope(
+            useSiteSession = session,
+            scopeSession = scopeSession,
+            callableCopyTypeCalculator = CallableCopyTypeCalculator.DoNothing,
+            requiredMembersPhase = FirResolvePhase.STATUS,
+        )?.processPropertiesByName(name) { addIfNotNull(it.fir as? FirVariable) }
     }
 
 
@@ -153,5 +158,5 @@ private fun BodyResolveComponents.isConcreteMember(supertype: ConeKotlinType, me
     val classSymbol =
         (supertype as? ConeClassLikeType)?.lookupTag?.toSymbol(session) as? FirRegularClassSymbol ?: return true
     if (classSymbol.fir.classKind != ClassKind.INTERFACE) return true
-    return member.symbol.unwrapFakeOverrides().dispatchReceiverClassOrNull()?.classId != StandardClassIds.Any
+    return member.symbol.unwrapFakeOverrides().dispatchReceiverClassLookupTagOrNull()?.classId != StandardClassIds.Any
 }

@@ -17,7 +17,7 @@ public external fun eval(expr: kotlin.String): dynamic
 
 public external fun js(code: kotlin.String): dynamic
 
-/*∆*/ public fun jsTypeOf(value_hack: kotlin.Any?): kotlin.String
+public external fun jsTypeOf(a: kotlin.Any?): kotlin.String
 
 public fun json(vararg pairs: kotlin.Pair<kotlin.String, kotlin.Any?>): kotlin.js.Json
 
@@ -209,6 +209,23 @@ public final annotation class ExperimentalJsExport : kotlin.Annotation {
     public constructor ExperimentalJsExport()
 }
 
+@kotlin.RequiresOptIn(level = Level.WARNING)
+@kotlin.annotation.MustBeDocumented
+@kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+@kotlin.SinceKotlin(version = "1.9")
+public final annotation class ExperimentalJsFileName : kotlin.Annotation {
+    public constructor ExperimentalJsFileName()
+}
+
+@kotlin.RequiresOptIn(level = Level.WARNING)
+@kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.CLASS, AnnotationTarget.ANNOTATION_CLASS, AnnotationTarget.PROPERTY, AnnotationTarget.FIELD, AnnotationTarget.LOCAL_VARIABLE, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.CONSTRUCTOR, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.PROPERTY_SETTER, AnnotationTarget.TYPEALIAS})
+@kotlin.annotation.MustBeDocumented
+@kotlin.SinceKotlin(version = "1.9")
+public final annotation class ExperimentalJsReflectionCreateInstance : kotlin.Annotation {
+    public constructor ExperimentalJsReflectionCreateInstance()
+}
+
 public external object JSON {
     public final fun <T> parse(text: kotlin.String): T
 
@@ -239,6 +256,39 @@ public external interface JsClass<T : kotlin.Any> {
 @kotlin.SinceKotlin(version = "1.3")
 public final annotation class JsExport : kotlin.Annotation {
     public constructor JsExport()
+
+    @kotlin.js.ExperimentalJsExport
+    @kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+    @kotlin.annotation.Target(allowedTargets = {AnnotationTarget.CLASS, AnnotationTarget.PROPERTY, AnnotationTarget.FUNCTION, AnnotationTarget.CONSTRUCTOR})
+    @kotlin.SinceKotlin(version = "1.8")
+    public final annotation class Ignore : kotlin.Annotation {
+        public constructor Ignore()
+    }
+}
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.VALUE_PARAMETER})
+@kotlin.SinceKotlin(version = "1.9")
+public final annotation class JsExternalArgument : kotlin.Annotation {
+    public constructor JsExternalArgument()
+}
+
+@kotlin.ExperimentalStdlibApi
+@kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
+@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.CLASS})
+@kotlin.SinceKotlin(version = "1.9")
+public final annotation class JsExternalInheritorsOnly : kotlin.Annotation {
+    public constructor JsExternalInheritorsOnly()
+}
+
+@kotlin.annotation.Retention(value = AnnotationRetention.SOURCE)
+@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.FILE})
+@kotlin.SinceKotlin(version = "1.9")
+public final annotation class JsFileName : kotlin.Annotation {
+    public constructor JsFileName(name: kotlin.String)
+
+    public final val name: kotlin.String { get; }
 }
 
 @kotlin.annotation.Retention(value = AnnotationRetention.BINARY)

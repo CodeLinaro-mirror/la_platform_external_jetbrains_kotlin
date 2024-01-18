@@ -14,22 +14,22 @@ fun testAny() {
 
 fun testAnyCall() {
     callAny {
-        error -> <!ARGUMENT_TYPE_MISMATCH!><!UNRESOLVED_REFERENCE!>error<!>()<!>
+        error -> <!UNRESOLVED_REFERENCE!>error<!>()
     }
 }
 
 fun testParam() {
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>callParam<!> {
-        param -> param
+    callParam {
+        <!CANNOT_INFER_PARAMETER_TYPE!>param<!> -> param
     }
 }
 
 fun testParamCall() {
     callParam {
-        param -> <!ARGUMENT_TYPE_MISMATCH!><!UNRESOLVED_REFERENCE!>param<!>()<!>
+        <!CANNOT_INFER_PARAMETER_TYPE!>param<!> -> <!UNRESOLVED_REFERENCE!>param<!>()
     }
 }
 
 fun testNoContext() {
-    { it -> it }
+    { <!VALUE_PARAMETER_WITH_NO_TYPE_ANNOTATION!>it<!> -> it }
 }

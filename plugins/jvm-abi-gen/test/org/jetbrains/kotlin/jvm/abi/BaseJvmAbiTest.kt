@@ -15,13 +15,11 @@ import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import java.io.File
-import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createTempDirectory
 
 abstract class BaseJvmAbiTest : TestCase() {
     private lateinit var workingDir: File
 
-    @OptIn(ExperimentalPathApi::class)
     override fun setUp() {
         super.setUp()
         workingDir = createTempDirectory(javaClass.simpleName).toFile().apply { deleteOnExit() }
@@ -54,7 +52,7 @@ abstract class BaseJvmAbiTest : TestCase() {
             get() = if (name == null) workingDir.resolve("javaOut") else workingDir.resolve("$name/javaOut")
 
         val directives: File
-            get() = workingDir.resolve("directives.txt")
+            get() = projectDir.resolve("directives.txt")
 
         override fun toString(): String =
             "compilation '$name'"
@@ -69,20 +67,22 @@ abstract class BaseJvmAbiTest : TestCase() {
             dep.abiDir
         }
 
+        val directives = if (compilation.directives.exists()) compilation.directives.readText() else ""
+
         val messageCollector = LocationReportingTestMessageCollector()
         val compiler = K2JVMCompiler()
         val args = compiler.createArguments().apply {
             freeArgs = listOf(compilation.srcDir.canonicalPath)
             classpath = (abiDependencies + kotlinJvmStdlib).joinToString(File.pathSeparator) { it.canonicalPath }
             pluginClasspaths = arrayOf(abiPluginJar.canonicalPath)
-            pluginOptions = listOfNotNull(
+            pluginOptions = arrayOf(
                 abiOption(JvmAbiCommandLineProcessor.OUTPUT_PATH_OPTION.optionName, compilation.abiDir.canonicalPath),
-                if (useLegacyAbiGen) abiOption("useLegacyAbiGen", "true") else null
-            ).toTypedArray()
+            )
             destination = compilation.destinationDir.canonicalPath
-            useOldBackend = !useIrBackend
-            languageVersion = if (!compilation.directives.exists()) null else {
-                InTextDirectivesUtils.findStringWithPrefixes(compilation.directives.readText(), "// LANGUAGE_VERSION:")
+            noSourceDebugExtension = InTextDirectivesUtils.findStringWithPrefixes(directives, "// NO_SOURCE_DEBUG_EXTENSION") != null
+
+            if (InTextDirectivesUtils.findStringWithPrefixes(directives, "// USE_K2") != null) {
+                useK2 = true
             }
         }
         val exitCode = compiler.exec(messageCollector, Services.EMPTY, args)
@@ -108,12 +108,6 @@ abstract class BaseJvmAbiTest : TestCase() {
             FileUtil.copyDir(compilation.javaDestinationDir, compilation.abiDir)
         }
     }
-
-    protected open val useIrBackend: Boolean
-        get() = false
-
-    protected open val useLegacyAbiGen: Boolean
-        get() = false
 
     protected val kotlinJvmStdlib = File("dist/kotlinc/lib/kotlin-stdlib.jar").also {
         check(it.exists()) { "Stdlib file '$it' does not exist" }

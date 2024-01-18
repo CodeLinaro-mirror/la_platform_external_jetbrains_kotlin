@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("DEPRECATION")
+
 package org.jetbrains.kotlin.scripting.compiler.plugin.impl
 
 import com.intellij.openapi.Disposable
@@ -10,6 +12,7 @@ import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.cli.common.arguments.validateArguments
+import org.jetbrains.kotlin.cli.common.checkPluginsArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.reportArgumentParseProblems
@@ -17,10 +20,12 @@ import org.jetbrains.kotlin.cli.common.setupCommonArguments
 import org.jetbrains.kotlin.cli.jvm.*
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
+import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -39,6 +44,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.resolve.sam.SamWithReceiverResolver
 import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar
+import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingK2CompilerPluginRegistrar
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.ScriptsCompilationDependencies
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.collectScriptsCompilationDependencies
 import org.jetbrains.kotlin.scripting.configuration.ScriptingConfigurationKeys
@@ -123,10 +129,13 @@ internal class ScriptingSamWithReceiverComponentContributor(val annotations: Lis
 internal fun SharedScriptCompilationContext.applyConfigure(): SharedScriptCompilationContext = apply {
     val samWithReceiverAnnotations = baseScriptCompilationConfiguration[ScriptCompilationConfiguration.annotationsForSamWithReceivers]
     if (samWithReceiverAnnotations?.isEmpty() == false) {
-        StorageComponentContainerContributor.registerExtension(
-            environment.project,
-            ScriptingSamWithReceiverComponentContributor(samWithReceiverAnnotations.map { it.typeName })
-        )
+        val annotations = samWithReceiverAnnotations.map { it.typeName }
+        if (!environment.configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
+            StorageComponentContainerContributor.registerExtension(
+                environment.project,
+                ScriptingSamWithReceiverComponentContributor(annotations)
+            )
+        }
     }
 }
 
@@ -148,13 +157,9 @@ internal fun createInitialConfigurations(
     val initialScriptCompilationConfiguration =
         scriptCompilationConfiguration.withUpdatesFromCompilerConfiguration(kotlinCompilerConfiguration)
 
-    kotlinCompilerConfiguration.add(
-        ScriptingConfigurationKeys.SCRIPT_DEFINITIONS,
-        ScriptDefinition.FromConfigurations(hostConfiguration, scriptCompilationConfiguration, null)
-    )
-
-    kotlinCompilerConfiguration.loadPlugins()
-
+    // this is the second processing of the same args from script configuration, the first happens inside createInitialComopilerConfiguration
+    // but this one important for the error reporting
+    // TODO: rewrite to avoid double processing of the options
     initialScriptCompilationConfiguration[ScriptCompilationConfiguration.compilerOptions]?.let { compilerOptions ->
         kotlinCompilerConfiguration.updateWithCompilerOptions(compilerOptions, messageCollector, ignoredOptionsReportingState, false)
     }
@@ -190,8 +195,7 @@ internal fun CompilerConfiguration.updateWithCompilerOptions(
         validateArguments(it.errors)?.let { throw Exception("Error parsing arguments: $it") } ?: true
     }
 ) {
-    val compilerArguments = K2JVMCompilerArguments()
-    parseCommandLineArguments(compilerOptions, compilerArguments)
+    val compilerArguments = makeScriptCompilerArguments(compilerOptions)
 
     if (!validate(compilerArguments)) return
 
@@ -206,6 +210,17 @@ internal fun CompilerConfiguration.updateWithCompilerOptions(
     configureKlibPaths(compilerArguments)
 }
 
+private fun makeScriptCompilerArguments(compilerOptions: List<String>): K2JVMCompilerArguments {
+
+    val compilerArguments = K2JVMCompilerArguments()
+    val argumentsWithExternalProp =
+        (System.getProperty(SCRIPT_BASE_COMPILER_ARGUMENTS_PROPERTY)?.takeIf { it.isNotBlank() }?.split(' ') ?: emptyList()) +
+                compilerOptions
+
+    parseCommandLineArguments(argumentsWithExternalProp, compilerArguments)
+    return compilerArguments
+}
+
 private fun ScriptCompilationConfiguration.withUpdatesFromCompilerConfiguration(kotlinCompilerConfiguration: CompilerConfiguration) =
     withUpdatedClasspath(kotlinCompilerConfiguration.jvmClasspathRoots)
 
@@ -216,10 +231,8 @@ private fun createInitialCompilerConfiguration(
     reportingState: IgnoredOptionsReportingState
 ): CompilerConfiguration {
 
-    val baseArguments = K2JVMCompilerArguments()
-    parseCommandLineArguments(
-        scriptCompilationConfiguration[ScriptCompilationConfiguration.compilerOptions] ?: emptyList(),
-        baseArguments
+    val baseArguments = makeScriptCompilerArguments(
+        scriptCompilationConfiguration[ScriptCompilationConfiguration.compilerOptions] ?: emptyList()
     )
 
     reportArgumentsIgnoredGenerally(baseArguments, messageCollector, reportingState)
@@ -288,6 +301,22 @@ private fun createInitialCompilerConfiguration(
         configureJdkClasspathRoots()
 
         put(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM, true)
+
+        add(
+            ScriptingConfigurationKeys.SCRIPT_DEFINITIONS,
+            ScriptDefinition.FromConfigurations(hostConfiguration, scriptCompilationConfiguration, null)
+        )
+
+        val pluginClasspaths = baseArguments.pluginClasspaths?.asList().orEmpty()
+        val pluginOptions = baseArguments.pluginOptions?.asList().orEmpty()
+        val pluginConfigurations = baseArguments.pluginConfigurations.orEmpty().toMutableList()
+
+        checkPluginsArguments(messageCollector, false, pluginClasspaths, pluginOptions, pluginConfigurations)
+        if (pluginClasspaths.isNotEmpty() || pluginConfigurations.isNotEmpty()) {
+            PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, this)
+        } else {
+            loadPlugins()
+        }
     }
 }
 

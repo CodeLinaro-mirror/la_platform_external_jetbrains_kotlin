@@ -20,7 +20,7 @@ abstract class AbstractAnalysisApiAnnotationsOnTypesTest : AbstractAnalysisApiSi
 
     override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
         val ktTypeReference = testServices.expressionMarkerProvider
-            .getElementOfTypAtCaret<KtTypeReference>(ktFile)
+            .getElementOfTypeAtCaret<KtTypeReference>(ktFile)
         val actual = analyseForTest(ktTypeReference) {
             val ktType = ktTypeReference.getKtType()
             val annotations = ktType.annotations
@@ -28,7 +28,7 @@ abstract class AbstractAnalysisApiAnnotationsOnTypesTest : AbstractAnalysisApiSi
                 appendLine("KtTypeReference: ${ktTypeReference.text}")
                 appendLine("annotations: [")
                 for (annotation in annotations) {
-                    appendLine(DebugSymbolRenderer.renderAnnotationApplication(annotation).indented(indent = 2))
+                    appendLine(DebugSymbolRenderer().renderAnnotationApplication(annotation).indented(indent = 2))
                 }
                 appendLine("]")
             }

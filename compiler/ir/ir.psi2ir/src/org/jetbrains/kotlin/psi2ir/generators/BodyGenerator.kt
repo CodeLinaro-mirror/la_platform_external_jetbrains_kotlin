@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.Scope
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.createExpressionBody
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
@@ -39,10 +40,15 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperClassOrAny
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.typeUtil.isUnit
 
-class BodyGenerator(
+internal interface LoopResolver {
+    fun getLoop(expression: KtExpression): IrLoop?
+}
+
+internal class BodyGenerator(
     val scopeOwnerSymbol: IrSymbol,
-    override val context: GeneratorContext
-) : GeneratorWithScope {
+    override val context: GeneratorContext,
+    private val parentLoopResolver: LoopResolver?
+) : GeneratorWithScope, LoopResolver {
 
     val scopeOwner: DeclarationDescriptor get() = scopeOwnerSymbol.descriptor
 
@@ -99,7 +105,7 @@ class BodyGenerator(
             val parameterValue = VariableLValue(
                 context,
                 ktDestructuringDeclaration.startOffsetSkippingComments, ktDestructuringDeclaration.endOffset,
-                context.symbolTable.referenceValue(valueParameter),
+                context.symbolTable.descriptorExtension.referenceValue(valueParameter),
                 valueParameter.type.toIrType(),
                 IrStatementOrigin.DESTRUCTURING_DECLARATION
             )
@@ -156,10 +162,8 @@ class BodyGenerator(
 
         generateDelegatingConstructorCall(irBlockBody, ktConstructor)
 
-        if (context.configuration.generateBodies) {
-            ktConstructor.bodyExpression?.let { ktBody ->
-                createStatementGenerator().generateStatements(ktBody.statements, irBlockBody)
-            }
+        ktConstructor.bodyExpression?.let { ktBody ->
+            createStatementGenerator().generateStatements(ktBody.statements, irBlockBody)
         }
 
         return irBlockBody
@@ -196,8 +200,9 @@ class BodyGenerator(
         loopTable[expression] = irLoop
     }
 
-    fun getLoop(expression: KtExpression): IrLoop? =
-        loopTable[expression]
+    override fun getLoop(expression: KtExpression): IrLoop? {
+        return loopTable[expression] ?: parentLoopResolver?.getLoop(expression)
+    }
 
     fun generatePrimaryConstructorBody(ktClassOrObject: KtPureClassOrObject, irConstructor: IrConstructor): IrBody {
         val irBlockBody = context.irFactory.createBlockBody(ktClassOrObject.pureStartOffset, ktClassOrObject.pureEndOffset)
@@ -211,7 +216,7 @@ class BodyGenerator(
         irBlockBody.statements.add(
             IrInstanceInitializerCallImpl(
                 ktClassOrObject.pureStartOffset, ktClassOrObject.pureEndOffset,
-                context.symbolTable.referenceClass(classDescriptor),
+                context.symbolTable.descriptorExtension.referenceClass(classDescriptor),
                 context.irBuiltIns.unitType
             )
         )
@@ -228,7 +233,7 @@ class BodyGenerator(
         irBlockBody.statements.add(
             IrInstanceInitializerCallImpl(
                 ktConstructor.startOffsetSkippingComments, ktConstructor.endOffset,
-                context.symbolTable.referenceClass(classDescriptor),
+                context.symbolTable.descriptorExtension.referenceClass(classDescriptor),
                 context.irBuiltIns.unitType
             )
         )
@@ -295,7 +300,7 @@ class BodyGenerator(
             IrDelegatingConstructorCallImpl.fromSymbolDescriptor(
                 ktElement.pureStartOffset, ktElement.pureEndOffset,
                 context.irBuiltIns.unitType,
-                context.symbolTable.referenceConstructor(anyConstructor)
+                context.symbolTable.descriptorExtension.referenceConstructor(anyConstructor)
             )
         )
     }
@@ -306,7 +311,7 @@ class BodyGenerator(
             IrEnumConstructorCallImpl.fromSymbolDescriptor(
                 ktElement.startOffsetSkippingComments, ktElement.endOffset,
                 context.irBuiltIns.unitType,
-                context.symbolTable.referenceConstructor(enumConstructor),
+                context.symbolTable.descriptorExtension.referenceConstructor(enumConstructor),
                 1 // kotlin.Enum<T> has a single type parameter
             ).apply {
                 putTypeArgument(0, classDescriptor.defaultType.toIrType())
@@ -324,7 +329,7 @@ class BodyGenerator(
             return IrEnumConstructorCallImpl.fromSymbolDescriptor(
                 ktEnumEntry.startOffsetSkippingComments, ktEnumEntry.endOffset,
                 context.irBuiltIns.unitType,
-                context.symbolTable.referenceConstructor(enumEntryConstructor),
+                context.symbolTable.descriptorExtension.referenceConstructor(enumEntryConstructor),
                 0 // enums can't be generic
             )
         }
@@ -364,18 +369,18 @@ class BodyGenerator(
         irBlockBody: IrBlockBody
     ) {
         val thisAsReceiverParameter = classDescriptor.thisAsReceiverParameter
-        val receiver = IrGetValueImpl(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-            thisAsReceiverParameter.type.toIrType(),
-            context.symbolTable.referenceValue(thisAsReceiverParameter)
-        )
         for ((index, receiverDescriptor) in classDescriptor.contextReceivers.withIndex()) {
             val irValueParameter = irConstructor.valueParameters[index]
             irBlockBody.statements.add(
                 IrSetFieldImpl(
                     UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                     context.additionalDescriptorStorage.getSyntheticField(receiverDescriptor.value).symbol,
-                    receiver,
+                    IrGetValueImpl(
+                        UNDEFINED_OFFSET,
+                        UNDEFINED_OFFSET,
+                        thisAsReceiverParameter.type.toIrType(),
+                        context.symbolTable.descriptorExtension.referenceValue(thisAsReceiverParameter)
+                    ),
                     IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, irValueParameter.type, irValueParameter.symbol),
                     context.irBuiltIns.unitType
                 )

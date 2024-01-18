@@ -5,21 +5,22 @@
 
 package org.jetbrains.kotlin.fir.resolve.dfa.cfg
 
-import org.jetbrains.kotlin.fir.FirRenderer
-import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.FirDoWhileLoop
 import org.jetbrains.kotlin.fir.expressions.FirLoop
 import org.jetbrains.kotlin.fir.expressions.FirWhileLoop
+import org.jetbrains.kotlin.fir.expressions.calleeReference
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.renderer.FirCallNoArgumentsRenderer
+import org.jetbrains.kotlin.fir.renderer.FirRenderer
 
 fun CFGNode<*>.render(): String =
     buildString {
         append(
             when (this@render) {
-                is FunctionEnterNode -> "Enter function \"${fir.name()}\""
-                is FunctionExitNode -> "Exit function \"${fir.name()}\""
-                is LocalFunctionDeclarationNode -> "Local function declaration ${owner.name}"
+                is FunctionEnterNode -> "Enter function ${owner.name}"
+                is FunctionExitNode -> "Exit function ${owner.name}"
+                is LocalFunctionDeclarationNode -> "Local function declaration"
 
                 is BlockEnterNode -> "Enter block"
                 is BlockExitNode -> "Exit block"
@@ -37,31 +38,29 @@ fun CFGNode<*>.render(): String =
                 is LoopBlockExitNode -> "Exit loop block"
                 is LoopConditionEnterNode -> "Enter loop condition"
                 is LoopConditionExitNode -> "Exit loop condition"
-                is LoopExitNode -> "Exit ${fir.type()}loop"
+                is LoopExitNode -> "Exit ${fir.type()} loop"
 
-                is QualifiedAccessNode -> "Access variable ${fir.calleeReference.render(CfgRenderMode)}"
+                is QualifiedAccessNode -> "Access variable ${CfgRenderer.renderElementAsString(fir.calleeReference)}"
                 is ResolvedQualifierNode -> "Access qualifier ${fir.classId}"
                 is ComparisonExpressionNode -> "Comparison ${fir.operation.operator}"
-                is TypeOperatorCallNode -> "Type operator: \"${fir.render(CfgRenderMode)}\""
+                is TypeOperatorCallNode -> "Type operator: \"${CfgRenderer.renderElementAsString(fir)}\""
+                is SmartCastExpressionExitNode -> "Smart cast: \"${CfgRenderer.renderElementAsString(fir)}\""
                 is EqualityOperatorCallNode -> "Equality operator ${fir.operation.operator}"
                 is JumpNode -> "Jump: ${fir.render()}"
                 is StubNode -> "Stub"
-                is CheckNotNullCallNode -> "Check not null: ${fir.render(CfgRenderMode)}"
+                is CheckNotNullCallNode -> "Check not null: ${CfgRenderer.renderElementAsString(fir)}"
 
                 is ConstExpressionNode -> "Const: ${fir.render()}"
                 is VariableDeclarationNode ->
-                    "Variable declaration: ${buildString {
-                        FirRenderer(
-                            this,
-                            CfgRenderMode
-                        ).visitCallableDeclaration(fir)
-                    }}"
+                    "Variable declaration: ${
+                        CfgRenderer.renderAsCallableDeclarationString(fir)
+                    }"
 
-                is VariableAssignmentNode -> "Assignment: ${fir.lValue.render(CfgRenderMode)}"
-                is FunctionCallNode -> "Function call: ${fir.render(CfgRenderMode)}"
-                is DelegatedConstructorCallNode -> "Delegated constructor call: ${fir.render(CfgRenderMode)}"
-                is StringConcatenationCallNode -> "String concatenation call: ${fir.render(CfgRenderMode)}"
-                is ThrowExceptionNode -> "Throw: ${fir.render(CfgRenderMode)}"
+                is VariableAssignmentNode -> "Assignment: ${fir.calleeReference?.let(CfgRenderer::renderElementAsString)}"
+                is FunctionCallNode -> "Function call: ${CfgRenderer.renderElementAsString(fir)}"
+                is DelegatedConstructorCallNode -> "Delegated constructor call: ${CfgRenderer.renderElementAsString(fir)}"
+                is StringConcatenationCallNode -> "String concatenation call: ${CfgRenderer.renderElementAsString(fir)}"
+                is ThrowExceptionNode -> "Throw: ${CfgRenderer.renderElementAsString(fir)}"
 
                 is TryExpressionEnterNode -> "Try expression enter"
                 is TryMainBlockEnterNode -> "Try main block enter"
@@ -70,8 +69,6 @@ fun CFGNode<*>.render(): String =
                 is CatchClauseExitNode -> "Catch exit"
                 is FinallyBlockEnterNode -> "Enter finally"
                 is FinallyBlockExitNode -> "Exit finally"
-                is FinallyProxyEnterNode -> TODO()
-                is FinallyProxyExitNode -> TODO()
                 is TryExpressionExitNode -> "Try expression exit"
 
                 is BinaryAndEnterNode -> "Enter &&"
@@ -83,50 +80,52 @@ fun CFGNode<*>.render(): String =
                 is BinaryOrEnterRightOperandNode -> "Enter right part of ||"
                 is BinaryOrExitNode -> "Exit ||"
 
-                is PartOfClassInitializationNode -> "Part of class initialization"
                 is PropertyInitializerEnterNode -> "Enter property"
                 is PropertyInitializerExitNode -> "Exit property"
+                is DelegateExpressionExitNode -> "Exit property delegate"
                 is FieldInitializerEnterNode -> "Enter field"
                 is FieldInitializerExitNode -> "Exit field"
                 is InitBlockEnterNode -> "Enter init block"
                 is InitBlockExitNode -> "Exit init block"
-                is AnnotationEnterNode -> "Enter annotation"
-                is AnnotationExitNode -> "Exit annotation"
-
-                is EnterContractNode -> "Enter contract"
-                is ExitContractNode -> "Exit contract"
 
                 is EnterSafeCallNode -> "Enter safe call"
                 is ExitSafeCallNode -> "Exit safe call"
 
                 is WhenSubjectExpressionExitNode -> "Exit ${'$'}subj"
 
-                is PostponedLambdaEnterNode -> "Postponed enter to lambda"
+                is SplitPostponedLambdasNode -> "Postponed enter to lambda"
                 is PostponedLambdaExitNode -> "Postponed exit from lambda"
-
-                is AnonymousFunctionExpressionExitNode -> "Exit anonymous function expression"
-
-                is UnionFunctionCallArgumentsNode -> "Call arguments union"
                 is MergePostponedLambdaExitsNode -> "Merge postponed lambda exits"
+                is AnonymousFunctionExpressionNode -> "Exit anonymous function expression"
+
+                is FileEnterNode -> "Enter file ${fir.name}"
+                is FileExitNode -> "Exit file ${fir.name}"
 
                 is ClassEnterNode -> "Enter class ${owner.name}"
                 is ClassExitNode -> "Exit class ${owner.name}"
-                is LocalClassExitNode -> "Exit local class ${owner.name}"
+                is LocalClassExitNode -> "Local class declaration"
                 is AnonymousObjectEnterNode -> "Enter anonymous object"
-                is AnonymousObjectExitNode -> "Exit anonymous object"
                 is AnonymousObjectExpressionExitNode -> "Exit anonymous object expression"
 
-                is ContractDescriptionEnterNode -> "Enter contract description"
+                is ScriptEnterNode -> "Enter class ${fir.name}"
+                is ScriptExitNode -> "Exit class ${fir.name}"
 
+                is CodeFragmentEnterNode -> "Enter code fragment"
+                is CodeFragmentExitNode -> "Exit code fragment"
+
+                is FakeExpressionEnterNode -> "Enter fake expression"
+
+                is EnterValueParameterNode -> "Enter default value of ${fir.name}"
                 is EnterDefaultArgumentsNode -> "Enter default value of ${fir.name}"
                 is ExitDefaultArgumentsNode -> "Exit default value of ${fir.name}"
+                is ExitValueParameterNode -> "Exit default value of ${fir.name}"
 
                 is ElvisLhsExitNode -> "Exit lhs of ?:"
                 is ElvisLhsIsNotNullNode -> "Lhs of ?: is not null"
                 is ElvisRhsEnterNode -> "Enter rhs of ?:"
                 is ElvisExitNode -> "Exit ?:"
 
-                is CallableReferenceNode -> "Callable reference: ${fir.render(CfgRenderMode)}"
+                is CallableReferenceNode -> "Callable reference: ${CfgRenderer.renderElementAsString(fir)}"
                 is GetClassCallNode -> "::class call"
 
                 is AbstractBinaryExitNode -> throw IllegalStateException()
@@ -134,22 +133,9 @@ fun CFGNode<*>.render(): String =
         )
     }
 
-private val CfgRenderMode = FirRenderer.RenderMode(
-    renderLambdaBodies = false,
-    renderCallArguments = false,
-    renderCallableFqNames = false,
-    renderDeclarationResolvePhase = false,
-    renderAnnotation = false,
-)
-
-private fun FirFunction.name(): String = when (this) {
-    is FirSimpleFunction -> name.asString()
-    is FirAnonymousFunction -> "anonymousFunction"
-    is FirConstructor -> "<init>"
-    is FirPropertyAccessor -> if (isGetter) "getter" else "setter"
-    is FirErrorFunction -> "errorFunction"
-    else -> TODO(toString())
-}
+// NB: renderer has a state, so we have to create it each time
+private val CfgRenderer
+    get() = FirRenderer(annotationRenderer = null, callArgumentsRenderer = FirCallNoArgumentsRenderer())
 
 private fun FirLoop.type(): String = when (this) {
     is FirWhileLoop -> "while"

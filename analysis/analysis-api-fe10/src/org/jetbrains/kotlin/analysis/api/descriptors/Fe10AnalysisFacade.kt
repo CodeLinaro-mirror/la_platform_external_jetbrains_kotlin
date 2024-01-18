@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.descriptors
 
-import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbolOrigin
@@ -25,7 +24,7 @@ import org.jetbrains.kotlin.types.checker.KotlinTypeRefiner
 interface Fe10AnalysisFacade {
     companion object {
         fun getInstance(project: Project): Fe10AnalysisFacade {
-            return ServiceManager.getService(project, Fe10AnalysisFacade::class.java)
+            return project.getService(Fe10AnalysisFacade::class.java)
         }
     }
 
@@ -36,11 +35,16 @@ interface Fe10AnalysisFacade {
     fun getOverloadingConflictResolver(element: KtElement): OverloadingConflictResolver<ResolvedCall<*>>
     fun getKotlinTypeRefiner(element: KtElement): KotlinTypeRefiner
 
-    fun analyze(element: KtElement, mode: AnalysisMode = AnalysisMode.FULL): BindingContext
+    fun analyze(elements: List<KtElement>, mode: AnalysisMode = AnalysisMode.FULL): BindingContext
+
+    fun analyze(element: KtElement, mode: AnalysisMode = AnalysisMode.FULL): BindingContext {
+        return analyze(listOf(element), mode)
+    }
 
     fun getOrigin(file: VirtualFile): KtSymbolOrigin
 
     enum class AnalysisMode {
+        ALL_COMPILER_CHECKS,
         FULL,
         PARTIAL_WITH_DIAGNOSTICS,
         PARTIAL

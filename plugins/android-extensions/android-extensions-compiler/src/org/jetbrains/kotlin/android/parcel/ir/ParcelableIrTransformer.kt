@@ -16,27 +16,21 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.IrCall
-import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 class ParcelableIrTransformer(private val context: IrPluginContext, private val androidSymbols: AndroidSymbols) :
@@ -58,40 +52,32 @@ class ParcelableIrTransformer(private val context: IrPluginContext, private val 
         deferredOperations.forEach { it() }
 
         // Remap broken stubs, which psi2ir generates for the synthetic descriptors coming from the ParcelizeResolveExtension.
-        moduleFragment.transformChildrenVoid(object : IrElementTransformerVoid() {
-            override fun visitCall(expression: IrCall): IrExpression {
-                val remappedSymbol = symbolMap[expression.symbol]
-                    ?: return super.visitCall(expression)
-                return IrCallImpl(
-                    expression.startOffset, expression.endOffset, expression.type, remappedSymbol,
-                    expression.typeArgumentsCount, expression.valueArgumentsCount, expression.origin,
-                    expression.superQualifierSymbol
-                ).apply {
-                    copyTypeAndValueArgumentsFrom(expression)
-                }
+        moduleFragment.acceptChildrenVoid(object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildren(this, null)
             }
 
-            override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
+            override fun visitCall(expression: IrCall) {
+                expression.acceptChildren(this, null)
+                expression.symbol = symbolMap[expression.symbol] ?: return
+            }
+
+            override fun visitFunctionReference(expression: IrFunctionReference) {
+                expression.acceptChildren(this, null)
                 val remappedSymbol = symbolMap[expression.symbol]
                 val remappedReflectionTarget = expression.reflectionTarget?.let { symbolMap[it] }
-                if (remappedSymbol == null && remappedReflectionTarget == null)
-                    return super.visitFunctionReference(expression)
+                if (remappedSymbol == null && remappedReflectionTarget == null) return
 
-                return IrFunctionReferenceImpl(
-                    expression.startOffset, expression.endOffset, expression.type, remappedSymbol ?: expression.symbol,
-                    expression.typeArgumentsCount, expression.valueArgumentsCount, remappedReflectionTarget,
-                    expression.origin
-                ).apply {
-                    copyTypeAndValueArgumentsFrom(expression)
-                }
+                expression.symbol = remappedSymbol ?: expression.symbol
+                expression.reflectionTarget = remappedReflectionTarget
             }
 
-            override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
+            override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+                declaration.acceptChildren(this, null)
                 // Remap overridden symbols, otherwise the code might break in BridgeLowering
                 declaration.overriddenSymbols = declaration.overriddenSymbols.map { symbol ->
                     symbolMap[symbol] ?: symbol
                 }
-                return super.visitSimpleFunction(declaration)
             }
         })
     }
@@ -128,7 +114,7 @@ class ParcelableIrTransformer(private val context: IrPluginContext, private val 
             }
 
             declaration.functions.find {
-                it.descriptor.safeAs<ParcelableSyntheticComponent>()?.componentKind == ParcelableSyntheticComponent.ComponentKind.DESCRIBE_CONTENTS
+                (it.descriptor as? ParcelableSyntheticComponent)?.componentKind == ParcelableSyntheticComponent.ComponentKind.DESCRIBE_CONTENTS
             }?.let { stub ->
                 symbolMap[stub.symbol] = describeContents.symbol
                 declaration.declarations.remove(stub)
@@ -183,7 +169,7 @@ class ParcelableIrTransformer(private val context: IrPluginContext, private val 
             }
 
             declaration.functions.find {
-                it.descriptor.safeAs<ParcelableSyntheticComponent>()?.componentKind == ParcelableSyntheticComponent.ComponentKind.WRITE_TO_PARCEL
+                (it.descriptor as? ParcelableSyntheticComponent)?.componentKind == ParcelableSyntheticComponent.ComponentKind.WRITE_TO_PARCEL
             }?.let { stub ->
                 symbolMap[stub.symbol] = writeToParcel.symbol
                 declaration.declarations.remove(stub)

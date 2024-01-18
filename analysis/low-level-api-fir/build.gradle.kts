@@ -15,33 +15,44 @@ dependencies {
     api(project(":compiler:fir:checkers"))
     api(project(":compiler:fir:checkers:checkers.jvm"))
     api(project(":compiler:fir:checkers:checkers.js"))
+    api(project(":compiler:fir:checkers:checkers.native"))
     api(project(":compiler:fir:java"))
     api(project(":compiler:backend.common.jvm"))
     api(project(":analysis:analysis-api-impl-barebone"))
     api(project(":js:js.config"))
-    testApi(project(":analysis:analysis-api-fir"))
+    api(project(":compiler:cli-common"))
+    implementation(project(":analysis:decompiled:decompiler-to-psi"))
+    testImplementation(project(":analysis:analysis-api-fir"))
     implementation(project(":compiler:frontend.common"))
-    implementation(project(":compiler:ir.psi2ir"))
     implementation(project(":compiler:fir:entrypoint"))
     implementation(project(":analysis:analysis-api-providers"))
+    implementation(project(":analysis:analysis-api"))
     implementation(project(":analysis:analysis-internal-utils"))
+    implementation(project(":analysis:analysis-api-standalone:analysis-api-standalone-base"))
+    implementation(project(":kotlin-scripting-compiler"))
+    implementation(project(":kotlin-scripting-common"))
+
+    // We cannot use the latest version `3.1.5` because it doesn't support Java 8.
+    implementation("com.github.ben-manes.caffeine:caffeine:2.9.3")
 
     api(intellijCore())
 
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(projectTests(":compiler:test-infrastructure"))
-    testApi(projectTests(":compiler:tests-common-new"))
+    testImplementation(projectTests(":compiler:tests-common-new"))
 
     testImplementation("org.opentest4j:opentest4j:1.2.0")
-    testApi(toolsJar())
-    testApi(projectTests(":compiler:tests-common"))
-    testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
-    testApi(projectTests(":analysis:analysis-api-impl-barebone"))
-    testApi(projectTests(":analysis:analysis-test-framework"))
-    testApi(projectTests(":analysis:analysis-api-impl-base"))
-    testApi(project(":kotlin-test:kotlin-test-junit"))
-    testApiJUnit5()
-    testApi(project(":kotlin-reflect"))
+    testImplementation(project(":analysis:analysis-api-standalone:analysis-api-fir-standalone-base"))
+    testImplementation(toolsJar())
+    testImplementation(projectTests(":compiler:tests-common"))
+    testImplementation(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
+    testImplementation(projectTests(":analysis:analysis-api-impl-barebone"))
+    testImplementation(projectTests(":analysis:analysis-test-framework"))
+    testImplementation(projectTests(":analysis:analysis-api-impl-base"))
+    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testApi(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(project(":analysis:symbol-light-classes"))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
@@ -57,6 +68,12 @@ sourceSets {
     "test" { projectDefault() }
 }
 
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-receivers")
+    }
+}
+
 projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")
     workingDir = rootDir
@@ -67,6 +84,8 @@ allprojects {
     tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
         kotlinOptions {
             freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.fir.symbols.SymbolInternals"
+            freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirInternals"
+            freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals"
         }
     }
 }

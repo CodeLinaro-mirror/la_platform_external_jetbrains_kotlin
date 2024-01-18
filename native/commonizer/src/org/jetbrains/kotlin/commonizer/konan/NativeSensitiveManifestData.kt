@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.commonizer.*
 import org.jetbrains.kotlin.konan.properties.propertyList
 import org.jetbrains.kotlin.library.*
 import org.jetbrains.kotlin.library.impl.BaseWriterImpl
+import org.jetbrains.kotlin.library.impl.toSpaceSeparatedString
 
 /**
  * The set of properties in manifest of Kotlin/Native library that should be
@@ -21,6 +22,7 @@ data class NativeSensitiveManifestData(
     val isInterop: Boolean,
     val packageFqName: String?,
     val exportForwardDeclarations: List<String>,
+    val includedForwardDeclarations: List<String>,
     val nativeTargets: Collection<String>,
     val shortName: String?,
     val commonizerTarget: CommonizerTarget?,
@@ -34,6 +36,7 @@ data class NativeSensitiveManifestData(
             isInterop = library.isInterop,
             packageFqName = library.packageFqName,
             exportForwardDeclarations = library.exportForwardDeclarations,
+            includedForwardDeclarations = library.includedForwardDeclarations,
             nativeTargets = library.nativeTargets,
             shortName = library.shortName,
             commonizerTarget = library.commonizerTarget?.let(::parseCommonizerTargetOrNull),
@@ -53,12 +56,16 @@ fun BaseWriterImpl.addManifest(manifest: NativeSensitiveManifestData) {
     // Make sure all the lists are sorted for reproducible output
 
     addOptionalProperty(KLIB_PROPERTY_DEPENDS, manifest.dependencies.isNotEmpty()) {
-        manifest.dependencies.sorted().joinToString(separator = " ")
+        manifest.dependencies.sorted().toSpaceSeparatedString()
     }
     addOptionalProperty(KLIB_PROPERTY_INTEROP, manifest.isInterop) { "true" }
     addOptionalProperty(KLIB_PROPERTY_PACKAGE, manifest.packageFqName != null) { manifest.packageFqName!! }
     addOptionalProperty(KLIB_PROPERTY_EXPORT_FORWARD_DECLARATIONS, manifest.exportForwardDeclarations.isNotEmpty() || manifest.isInterop) {
         manifest.exportForwardDeclarations.sorted().joinToString(" ")
+    }
+
+    addOptionalProperty(KLIB_PROPERTY_INCLUDED_FORWARD_DECLARATIONS, manifest.includedForwardDeclarations.isNotEmpty() || manifest.isInterop) {
+        manifest.includedForwardDeclarations.sorted().joinToString(" ")
     }
 
     addOptionalProperty(KLIB_PROPERTY_NATIVE_TARGETS, manifest.nativeTargets.isNotEmpty()) {

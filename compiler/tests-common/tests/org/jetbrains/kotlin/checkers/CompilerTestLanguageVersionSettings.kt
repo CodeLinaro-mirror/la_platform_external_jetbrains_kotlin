@@ -23,22 +23,21 @@ const val SKIP_METADATA_VERSION_CHECK = "SKIP_METADATA_VERSION_CHECK"
 const val ALLOW_RESULT_RETURN_TYPE = "ALLOW_RESULT_RETURN_TYPE"
 const val INHERIT_MULTIFILE_PARTS = "INHERIT_MULTIFILE_PARTS"
 const val SANITIZE_PARENTHESES = "SANITIZE_PARENTHESES"
-const val CONSTRAINT_SYSTEM_FOR_OVERLOAD_RESOLUTION = "CONSTRAINT_SYSTEM_FOR_OVERLOAD_RESOLUTION"
 const val ENABLE_JVM_PREVIEW = "ENABLE_JVM_PREVIEW"
 
 data class CompilerTestLanguageVersionSettings(
-        private val initialLanguageFeatures: Map<LanguageFeature, LanguageFeature.State>,
-        override val apiVersion: ApiVersion,
-        override val languageVersion: LanguageVersion,
-        val analysisFlags: Map<AnalysisFlag<*>, Any?> = emptyMap()
+    private val initialLanguageFeatures: Map<LanguageFeature, LanguageFeature.State>,
+    override val apiVersion: ApiVersion,
+    override val languageVersion: LanguageVersion,
+    val analysisFlags: Map<AnalysisFlag<*>, Any?> = emptyMap()
 ) : LanguageVersionSettings {
     val extraLanguageFeatures = specificFeaturesForTests() + initialLanguageFeatures
     private val delegate = LanguageVersionSettingsImpl(languageVersion, apiVersion, emptyMap(), extraLanguageFeatures)
 
     override fun getFeatureSupport(feature: LanguageFeature): LanguageFeature.State =
-            extraLanguageFeatures[feature] ?: delegate.getFeatureSupport(feature)
+        extraLanguageFeatures[feature] ?: delegate.getFeatureSupport(feature)
 
-    override fun isPreRelease(): Boolean = false
+    override fun isPreRelease(): Boolean = KotlinCompilerVersion.isPreRelease()
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> getFlag(flag: AnalysisFlag<T>): T = analysisFlags[flag] as T? ?: flag.defaultValue
@@ -54,7 +53,11 @@ private fun specificFeaturesForTests(): Map<LanguageFeature, LanguageFeature.Sta
 fun parseLanguageVersionSettingsOrDefault(directiveMap: Directives): CompilerTestLanguageVersionSettings =
     parseLanguageVersionSettings(directiveMap) ?: defaultLanguageVersionSettings()
 
-fun parseLanguageVersionSettings(directives: Directives): CompilerTestLanguageVersionSettings? {
+@JvmOverloads
+fun parseLanguageVersionSettings(
+    directives: Directives,
+    extraLanguageFeatures: Map<LanguageFeature, LanguageFeature.State> = emptyMap()
+): CompilerTestLanguageVersionSettings? {
     val apiVersionString = directives[API_VERSION_DIRECTIVE]
     val languageFeaturesString = directives[LANGUAGE_DIRECTIVE]
 
@@ -67,9 +70,6 @@ fun parseLanguageVersionSettings(directives: Directives): CompilerTestLanguageVe
         analysisFlag(JvmAnalysisFlags.inheritMultifileParts, if (INHERIT_MULTIFILE_PARTS in directives) true else null),
         analysisFlag(JvmAnalysisFlags.sanitizeParentheses, if (SANITIZE_PARENTHESES in directives) true else null),
         analysisFlag(JvmAnalysisFlags.enableJvmPreview, if (ENABLE_JVM_PREVIEW in directives) true else null),
-        analysisFlag(AnalysisFlags.constraintSystemForOverloadResolution, directives[CONSTRAINT_SYSTEM_FOR_OVERLOAD_RESOLUTION]?.let {
-            ConstraintSystemForOverloadResolutionMode.valueOf(it)
-        }),
         analysisFlag(AnalysisFlags.explicitApiVersion, if (apiVersionString != null) true else null)
     )
 
@@ -85,7 +85,7 @@ fun parseLanguageVersionSettings(directives: Directives): CompilerTestLanguageVe
 
     val languageVersion = maxOf(LanguageVersion.LATEST_STABLE, LanguageVersion.fromVersionString(apiVersion.versionString)!!)
 
-    val languageFeatures = languageFeaturesString?.let(::collectLanguageFeatureMap).orEmpty()
+    val languageFeatures = languageFeaturesString?.let(::collectLanguageFeatureMap).orEmpty() + extraLanguageFeatures
 
     return CompilerTestLanguageVersionSettings(languageFeatures, apiVersion, languageVersion, mapOf(*analysisFlags.toTypedArray()))
 }

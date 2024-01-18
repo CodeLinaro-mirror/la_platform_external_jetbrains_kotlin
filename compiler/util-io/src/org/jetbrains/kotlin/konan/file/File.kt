@@ -13,9 +13,7 @@ import java.io.RandomAccessFile
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.*
-import java.nio.file.attribute.BasicFileAttributeView
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.attribute.FileTime
 
 data class File constructor(internal val javaPath: Path) {
     constructor(parent: Path, child: String): this(parent.resolve(child))
@@ -30,13 +28,14 @@ data class File constructor(internal val javaPath: Path) {
         get() = javaPath.toAbsolutePath().toString()
     val absoluteFile: File
         get() = File(absolutePath)
-    val canonicalPath: String
-        get() = javaPath.toFile().canonicalPath
+    val canonicalPath: String by lazy {
+        javaPath.toFile().canonicalPath
+    }
     val canonicalFile: File
         get() = File(canonicalPath)
 
     val name: String
-        get() = javaPath.fileName.toString().removeSuffixIfPresent("/") // https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8153248
+        get() = javaPath.fileName.toString().removeSuffixIfPresent(separator) // https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8153248
     val extension: String
         get() = name.substringAfterLast('.', "")
     val parent: String
@@ -64,11 +63,7 @@ data class File constructor(internal val javaPath: Path) {
         Files.copy(javaPath, destination.javaPath, StandardCopyOption.REPLACE_EXISTING)
     }
 
-    fun recursiveCopyTo(destination: File, resetTimeAttributes: Boolean = false) {
-        val sourcePath = javaPath
-        val destPath = destination.javaPath
-        sourcePath.recursiveCopyTo(destPath, resetTimeAttributes = resetTimeAttributes)
-    }
+    fun renameTo(destination: File) = javaPath.toFile().renameTo(destination.javaPath.toFile())
 
     fun mkdirs() = Files.createDirectories(javaPath)
     fun delete() = Files.deleteIfExists(javaPath)
@@ -119,11 +114,13 @@ data class File constructor(internal val javaPath: Path) {
     }
 
     fun deleteOnExit(): File {
-        // Works only on the default file system, 
+        // Works only on the default file system,
         // but that's okay for now.
         javaPath.toFile().deleteOnExit()
         return this // Allow streaming.
     }
+    fun createNew() = javaPath.toFile().createNewFile()
+
     fun readBytes() = Files.readAllBytes(javaPath)
     fun writeBytes(bytes: ByteArray) = Files.write(javaPath, bytes)
     fun appendBytes(bytes: ByteArray)
@@ -134,6 +131,12 @@ data class File constructor(internal val javaPath: Path) {
     }
 
     fun writeText(text: String): Unit = writeLines(listOf(text))
+
+    fun appendLines(lines: Iterable<String>) {
+        Files.write(javaPath, lines, StandardOpenOption.APPEND)
+    }
+
+    fun appendText(text: String): Unit = appendLines(listOf(text))
 
     fun forEachLine(action: (String) -> Unit) {
         Files.lines(javaPath).use { lines ->
@@ -167,6 +170,7 @@ data class File constructor(internal val javaPath: Path) {
             get() = File(System.getProperty("java.home"))
         val pathSeparator = java.io.File.pathSeparator
         val separator = java.io.File.separator
+        val separatorChar = java.io.File.separatorChar
     }
 
     fun readStrings() = mutableListOf<String>().also { list -> forEachLine{list.add(it)}}
@@ -186,30 +190,6 @@ fun createTempFile(name: String, suffix: String? = null)
         = Files.createTempFile(name, suffix).File()
 fun createTempDir(name: String): File
         = Files.createTempDirectory(name).File()
-
-fun Path.recursiveCopyTo(destPath: Path, resetTimeAttributes: Boolean = false) {
-    val sourcePath = this
-    Files.walk(sourcePath).forEach next@ { oldPath ->
-
-        val relative = sourcePath.relativize(oldPath)
-        val destFs = destPath.getFileSystem()
-        // We are copying files between file systems, 
-        // so pass the relative path through the String.
-        val newPath = destFs.getPath(destPath.toString(), relative.toString())
-
-        // File systems don't allow replacing an existing root.
-        if (newPath == newPath.getRoot()) return@next
-        if (Files.isDirectory(newPath)) {
-            Files.createDirectories(newPath)
-        } else {
-            Files.copy(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING)
-        }
-        if (resetTimeAttributes) {
-            val zero = FileTime.fromMillis(0)
-            Files.getFileAttributeView(newPath, BasicFileAttributeView::class.java).setTimes(zero, zero, zero);
-        }
-    }
-}
 
 fun bufferedReader(errorStream: InputStream?) = BufferedReader(InputStreamReader(errorStream))
 

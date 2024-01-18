@@ -5,110 +5,89 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstddef>
+#include <memory>
+#include <vector>
 
-#include "Allocator.hpp"
+#include "AllocatorImpl.hpp"
+#include "Barriers.hpp"
+#include "FinalizerProcessor.hpp"
 #include "GCScheduler.hpp"
+#include "GCState.hpp"
+#include "GCStatistics.hpp"
 #include "IntrusiveList.hpp"
-#include "ObjectFactory.hpp"
+#include "MarkAndSweepUtils.hpp"
+#include "ObjectData.hpp"
+#include "ParallelMark.hpp"
 #include "ScopedThread.hpp"
+#include "ThreadData.hpp"
 #include "Types.h"
 #include "Utils.hpp"
-#include "GCState.hpp"
-#include "std_support/Memory.hpp"
 
 namespace kotlin {
-
-namespace mm {
-class ThreadData;
-}
-
 namespace gc {
 
-class FinalizerProcessor;
-
-// Stop-the-world mark + concurrent sweep. The GC runs in a separate thread, finalizers run in another thread of their own.
-// TODO: Also make mark concurrent.
+// Stop-the-world parallel mark + concurrent sweep. The GC runs in a separate thread, finalizers run in another thread of their own.
+// TODO: Also make marking run concurrently with Kotlin threads.
 class ConcurrentMarkAndSweep : private Pinned {
 public:
-    class ObjectData {
-        static inline constexpr unsigned colorMask = (1 << 1) - 1;
-
-    public:
-        enum class Color : unsigned {
-            kWhite = 0, // Initial color at the start of collection cycles. Objects with this color at the end of GC cycle are collected.
-                        // All new objects are allocated with this color.
-            kBlack, // Objects encountered during mark phase.
-        };
-
-        Color color() const noexcept { return static_cast<Color>(getPointerBits(next_, colorMask)); }
-        void setColor(Color color) noexcept { next_ = setPointerBits(clearPointerBits(next_, colorMask), static_cast<unsigned>(color)); }
-
-        ObjectData* next() const noexcept { return clearPointerBits(next_, colorMask); }
-        void setNext(ObjectData* next) noexcept {
-            RuntimeAssert(!hasPointerBits(next, colorMask), "next must be untagged: %p", next);
-            auto bits = getPointerBits(next_, colorMask);
-            next_ = setPointerBits(next, bits);
-        }
-
-    private:
-        // Color is encoded in low bits.
-        ObjectData* next_ = nullptr;
-    };
-
-    struct MarkQueueTraits {
-        static ObjectData* next(const ObjectData& value) noexcept { return value.next(); }
-
-        static void setNext(ObjectData& value, ObjectData* next) noexcept { value.setNext(next); }
-    };
-
-    using MarkQueue = intrusive_forward_list<ObjectData, MarkQueueTraits>;
-
     class ThreadData : private Pinned {
     public:
-        using ObjectData = ConcurrentMarkAndSweep::ObjectData;
-        using Allocator = AllocatorWithGC<Allocator, ThreadData>;
-
-        explicit ThreadData(ConcurrentMarkAndSweep& gc, mm::ThreadData& threadData, GCSchedulerThreadData& gcScheduler) noexcept :
-            gc_(gc), gcScheduler_(gcScheduler) {}
+        explicit ThreadData(ConcurrentMarkAndSweep& gc, mm::ThreadData& threadData) noexcept : gc_(gc), threadData_(threadData) {}
         ~ThreadData() = default;
 
-        void SafePointAllocation(size_t size) noexcept;
+        void OnSuspendForGC() noexcept;
 
-        void ScheduleAndWaitFullGC() noexcept;
-        void ScheduleAndWaitFullGCWithFinalizers() noexcept;
+        void safePoint() noexcept { barriers_.onSafePoint(); }
 
-        void OnOOM(size_t size) noexcept;
+        void onThreadRegistration() noexcept { barriers_.onThreadRegistration(); }
 
-        Allocator CreateAllocator() noexcept { return Allocator(gc::Allocator(), *this); }
+        BarriersThreadData& barriers() noexcept { return barriers_; }
+
+        bool tryLockRootSet();
+        void publish();
+        bool published() const;
+        void clearMarkFlags();
+
+        mm::ThreadData& commonThreadData() const;
 
     private:
+        friend ConcurrentMarkAndSweep;
         ConcurrentMarkAndSweep& gc_;
-        GCSchedulerThreadData& gcScheduler_;
+        mm::ThreadData& threadData_;
+        BarriersThreadData barriers_;
+
+        std::atomic<bool> rootSetLocked_ = false;
+        std::atomic<bool> published_ = false;
     };
 
-    using Allocator = ThreadData::Allocator;
-
-    ConcurrentMarkAndSweep(mm::ObjectFactory<ConcurrentMarkAndSweep>& objectFactory, GCScheduler& scheduler) noexcept;
+    ConcurrentMarkAndSweep(
+            alloc::Allocator& allocator, gcScheduler::GCScheduler& scheduler, bool mutatorsCooperate, std::size_t auxGCThreads) noexcept;
     ~ConcurrentMarkAndSweep();
 
     void StartFinalizerThreadIfNeeded() noexcept;
     void StopFinalizerThreadIfRunning() noexcept;
     bool FinalizersThreadIsRunning() noexcept;
 
+    void reconfigure(std::size_t maxParallelism, bool mutatorsCooperate, size_t auxGCThreads) noexcept;
+
+    GCStateHolder& state() noexcept { return state_; }
+
 private:
-    // Returns `true` if GC has happened, and `false` if not (because someone else has suspended the threads).
-    bool PerformFullGC(int64_t epoch) noexcept;
+    void mainGCThreadBody();
+    void auxiliaryGCThreadBody();
+    void PerformFullGC(int64_t epoch) noexcept;
 
-    mm::ObjectFactory<ConcurrentMarkAndSweep>& objectFactory_;
-    GCScheduler& gcScheduler_;
+    alloc::Allocator& allocator_;
+    gcScheduler::GCScheduler& gcScheduler_;
 
-    uint64_t lastGCTimestampUs_ = 0;
     GCStateHolder state_;
-    ScopedThread gcThread_;
-    std_support::unique_ptr<FinalizerProcessor> finalizerProcessor_;
+    FinalizerProcessor<alloc::FinalizerQueue, alloc::FinalizerQueueTraits> finalizerProcessor_;
 
-    MarkQueue markQueue_;
+    mark::ParallelMark markDispatcher_;
+    ScopedThread mainThread_;
+    std::vector<ScopedThread> auxThreads_;
 };
 
 } // namespace gc

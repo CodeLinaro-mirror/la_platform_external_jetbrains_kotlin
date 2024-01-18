@@ -5,6 +5,10 @@
 
 package org.jetbrains.kotlin.fir.tree.generator.model
 
+import org.jetbrains.kotlin.generators.tree.FieldContainer
+import org.jetbrains.kotlin.generators.tree.Importable
+import org.jetbrains.kotlin.generators.tree.generics
+
 private const val DEFAULT_BUILDER_PACKAGE = "org.jetbrains.kotlin.fir.tree.builder"
 
 sealed class Builder : FieldContainer, Importable {
@@ -39,6 +43,8 @@ class LeafBuilder(val implementation: Implementation) : Builder() {
             "${implementation.element.type}Builder"
         }
 
+    override fun getTypeWithArguments(notNull: Boolean): String = type + implementation.element.generics
+
     override val allFields: List<FieldWithDefault> by lazy { implementation.fieldsWithoutDefault }
 
     override val uselessFields: List<FieldWithDefault> by lazy {
@@ -65,4 +71,6 @@ class IntermediateBuilder(override val type: String) : Builder() {
 
     override val uselessFields: List<FieldWithDefault> = emptyList()
     override var packageName: String = DEFAULT_BUILDER_PACKAGE
+
+    override fun getTypeWithArguments(notNull: Boolean): String = type
 }
