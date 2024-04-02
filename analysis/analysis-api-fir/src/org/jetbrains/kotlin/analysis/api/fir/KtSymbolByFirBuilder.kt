@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -42,13 +42,14 @@ import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedSymbolError
 import org.jetbrains.kotlin.fir.resolve.getContainingClass
 import org.jetbrains.kotlin.fir.resolve.getSymbolByLookupTag
 import org.jetbrains.kotlin.fir.resolve.inference.ConeTypeParameterBasedTypeVariable
-import org.jetbrains.kotlin.fir.scopes.impl.originalConstructorIfTypeAlias
+import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.substitution.ChainedSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectOrStaticData
+import org.jetbrains.kotlin.fir.scopes.impl.originalConstructorIfTypeAlias
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
@@ -71,13 +72,13 @@ import kotlin.contracts.contract
 /**
  * Maps FirElement to KtSymbol & ConeType to KtType, thread safe
  */
-internal class KtSymbolByFirBuilder constructor(
+internal class KtSymbolByFirBuilder(
     private val project: Project,
-    private val analysisSession: KtFirAnalysisSession,
+    val analysisSession: KtFirAnalysisSession,
     val token: KtLifetimeToken,
 ) {
-    private val firResolveSession: LLFirResolveSession = analysisSession.firResolveSession
-    private val firProvider get() = firResolveSession.useSiteFirSession.symbolProvider
+    private val firResolveSession: LLFirResolveSession get() = analysisSession.firResolveSession
+    private val firProvider: FirSymbolProvider get() = rootSession.symbolProvider
     val rootSession: FirSession = firResolveSession.useSiteFirSession
 
     private val symbolsCache = BuilderCache<FirBasedSymbol<*>, KtSymbol>()
@@ -339,9 +340,20 @@ internal class KtSymbolByFirBuilder constructor(
         }
 
         fun buildValueParameterSymbol(firSymbol: FirValueParameterSymbol): KtValueParameterSymbol {
-            firSymbol.fir.unwrapSubstitutionOverrideIfNeeded()?.let {
-                return buildValueParameterSymbol(it.symbol)
+            val functionSymbol = firSymbol.containingFunctionSymbol
+            functionSymbol.fir.unwrapSubstitutionOverrideIfNeeded()?.let { unwrappedFunction ->
+                val originalIndex = functionSymbol.valueParameterSymbols.indexOf(firSymbol)
+                if (originalIndex == -1) {
+                    errorWithAttachment("Containing function doesn't have the corresponding parameter") {
+                        withFirSymbolEntry("valueParameter", firSymbol)
+                        withFirSymbolEntry("function", functionSymbol)
+                    }
+                }
+
+                val unwrappedParameter = unwrappedFunction.symbol.valueParameterSymbols[originalIndex]
+                return buildValueParameterSymbol(unwrappedParameter)
             }
+
             return symbolsCache.cache(firSymbol) {
                 KtFirValueParameterSymbol(firSymbol, analysisSession)
             }
@@ -461,15 +473,14 @@ internal class KtSymbolByFirBuilder constructor(
                     // TODO this is a temporary hack to prevent FIR IDE from crashing on builder inference, see KT-50916
                     val typeVariable = coneType.constructor.variable as? ConeTypeParameterBasedTypeVariable
                     val typeParameterSymbol = typeVariable?.typeParameterSymbol ?: throwUnexpectedElementError(coneType)
-                    val coneTypeParameterType = (typeParameterSymbol.toConeType() as ConeTypeParameterType)
-                        .withNullability(coneType.nullability, rootSession.typeContext)
+                    val coneTypeParameterType = typeParameterSymbol.toConeType(coneType.nullability.isNullable)
 
                     KtFirTypeParameterType(coneTypeParameterType, this@KtSymbolByFirBuilder)
                 }
 
                 is ConeTypeVariableType -> {
-                    val diagnostic = when ( val typeParameter = coneType.lookupTag.originalTypeParameter) {
-                        null -> ConeSimpleDiagnostic("Cannot infer parameter type for ${coneType.lookupTag.debugName}")
+                    val diagnostic = when ( val typeParameter = coneType.typeConstructor.originalTypeParameter) {
+                        null -> ConeSimpleDiagnostic("Cannot infer parameter type for ${coneType.typeConstructor.debugName}")
                         else -> ConeCannotInferTypeParameterType((typeParameter as ConeTypeParameterLookupTag).typeParameterSymbol)
                     }
                     buildKtType(ConeErrorType(diagnostic, isUninferredParameter = true, attributes = coneType.attributes))
@@ -542,20 +553,7 @@ internal class KtSymbolByFirBuilder constructor(
      */
     private inline fun <reified T : FirCallableDeclaration> T.unwrapUseSiteSubstitutionOverride(): T? {
         val originalDeclaration = originalForSubstitutionOverride ?: return null
-
-        val containingClass = getContainingMemberOrSelf().getContainingClass(rootSession) ?: return null
-        val originalContainingClass = originalDeclaration.getContainingMemberOrSelf().getContainingClass(rootSession) ?: return null
-
-        // If substitution override does not change the containing class of the FIR declaration,
-        // it is a use-site substitution override
-        if (containingClass != originalContainingClass) return null
-
-        return originalDeclaration
-    }
-
-    private fun FirCallableDeclaration.getContainingMemberOrSelf(): FirCallableDeclaration = when (this) {
-        is FirValueParameter -> containingFunctionSymbol.fir
-        else -> this
+        return originalDeclaration.takeIf { this.origin is FirDeclarationOrigin.SubstitutionOverride.CallSite }
     }
 
     /**

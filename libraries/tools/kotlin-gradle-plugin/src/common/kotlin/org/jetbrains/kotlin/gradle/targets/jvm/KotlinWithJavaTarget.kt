@@ -6,7 +6,6 @@
 @file:Suppress("PackageDirectoryMismatch") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.file.Directory
@@ -31,7 +30,8 @@ abstract class KotlinWithJavaTarget<KotlinOptionsType : KotlinCommonOptions, CO 
     override val targetName: String,
     compilerOptionsFactory: () -> HasCompilerOptions<CO>,
     kotlinOptionsFactory: (CO) -> KotlinOptionsType
-) : AbstractKotlinTarget(project) {
+) : AbstractKotlinTarget(project),
+    HasConfigurableCompilerOptions<KotlinJvmCompilerOptions> {
     override var disambiguationClassifier: String? = null
         internal set
 
@@ -64,16 +64,6 @@ abstract class KotlinWithJavaTarget<KotlinOptionsType : KotlinCommonOptions, CO 
     @ExperimentalKotlinGradlePluginApi
     override val compilerOptions: KotlinJvmCompilerOptions = project.objects
         .newInstance<KotlinJvmCompilerOptionsDefault>()
-
-    @ExperimentalKotlinGradlePluginApi
-    fun compilerOptions(configure: KotlinJvmCompilerOptions.() -> Unit) {
-        configure(compilerOptions)
-    }
-
-    @ExperimentalKotlinGradlePluginApi
-    fun compilerOptions(configure: Action<KotlinJvmCompilerOptions>) {
-        configure.execute(compilerOptions)
-    }
 }
 
 private fun sanitizeFileName(candidate: String): String = candidate.filter { it.isLetterOrDigit() }

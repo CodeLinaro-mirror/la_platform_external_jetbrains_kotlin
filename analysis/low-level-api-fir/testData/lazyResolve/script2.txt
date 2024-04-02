@@ -19,13 +19,16 @@ FILE: [ResolvedTo(RAW_FIR)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -59,13 +62,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -99,13 +105,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -139,13 +148,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -179,13 +191,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -219,13 +234,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -259,13 +277,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -299,53 +320,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
-                LAZY_super<R|kotlin/Any|>
-            }
-
-            public? final? [ResolvedTo(RAW_FIR)] val cz: <implicit> = LAZY_EXPRESSION
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] get(): <implicit>
-
-            public? final? [ResolvedTo(RAW_FIR)] fun bar(): <implicit> { LAZY_BLOCK }
-
-        }
-
-
-ARGUMENTS_OF_ANNOTATIONS:
-FILE: [ResolvedTo(IMPORTS)] script2.kts
-    context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
-    SCRIPT: [ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] <script-script2.kts>
-        [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
-
-        public? final? [ResolvedTo(RAW_FIR)] fun f([ResolvedTo(RAW_FIR)] p: Int?): Int { LAZY_BLOCK }
-
-        public? final? [ResolvedTo(RAW_FIR)] fun consume([ResolvedTo(RAW_FIR)] x: Int): R|kotlin/Unit| { LAZY_BLOCK }
-
-        public? final? [ResolvedTo(RAW_FIR)] val x: Int? = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): Int?
-
-        public? final? [ResolvedTo(RAW_FIR)] val y: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
-
-        public? final? [ResolvedTo(RAW_FIR)] val z: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
-
-        public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
-
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
-        public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
-
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -379,13 +363,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -419,13 +406,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -438,10 +428,10 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
         }
 
 
-ANNOTATIONS_ARGUMENTS_MAPPING:
+ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] script2.kts
     context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
-    SCRIPT: [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] <script-script2.kts>
+    SCRIPT: [ResolvedTo(ANNOTATION_ARGUMENTS)] <script-script2.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public? final? [ResolvedTo(RAW_FIR)] fun f([ResolvedTo(RAW_FIR)] p: Int?): Int { LAZY_BLOCK }
@@ -459,13 +449,16 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        consume#(LAZY_EXPRESSION)
-        x#!!
-        consume#(LAZY_EXPRESSION)
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
+        [ResolvedTo(RAW_FIR)] init { LAZY_BLOCK }
+
         public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
             public? [ResolvedTo(RAW_FIR)] get(): <implicit>
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -489,24 +482,33 @@ FILE: [ResolvedTo(IMPORTS)] script2.kts
         public final [ResolvedTo(CONTRACTS)] fun consume([ResolvedTo(CONTRACTS)] x: R|kotlin/Int|): R|kotlin/Unit| {
         }
 
-        public final [ResolvedTo(CONTRACTS)] val x: R|kotlin/Int?| = IntegerLiteral(1)
-            public [ResolvedTo(CONTRACTS)] get(): R|kotlin/Int?|
+        public final [ResolvedTo(BODY_RESOLVE)] val x: R|kotlin/Int?| = Int(1)
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int?|
 
-        public? final? [ResolvedTo(RAW_FIR)] val y: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
+        public final [ResolvedTo(BODY_RESOLVE)] val y: R|kotlin/Int| = R|/x|!!
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
 
-        public? final? [ResolvedTo(RAW_FIR)] val z: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
+        public final [ResolvedTo(BODY_RESOLVE)] val z: R|kotlin/Int| = R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1))
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
 
         public? final? [ResolvedTo(RAW_FIR)] fun foo(): <implicit> { LAZY_BLOCK }
 
-        R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
-        R|/x|!!
-        R|/consume|(R|/x|.R|kotlin/Int.plus|(Int(1)))
-        public? final? [ResolvedTo(RAW_FIR)] val zz: <implicit> = LAZY_EXPRESSION
-            public? [ResolvedTo(RAW_FIR)] get(): <implicit>
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
+        }
 
-        public? final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/x|!!
+        }
+
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
+        }
+
+        public final [ResolvedTo(BODY_RESOLVE)] val zz: R|kotlin/Int| = R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1))
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
+
+        public final? [ResolvedTo(RAW_FIR)] class A : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=A] constructor(): R|A| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -547,9 +549,18 @@ FILE: [ResolvedTo(BODY_RESOLVE)] script2.kts
             ^foo R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1))
         }
 
-        R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
-        R|/x|!!
-        R|/consume|(R|/x|.R|kotlin/Int.plus|(Int(1)))
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
+        }
+
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/x|!!
+        }
+
+        [ResolvedTo(BODY_RESOLVE)] init {
+            R|/consume|(R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1)))
+        }
+
         public final [ResolvedTo(BODY_RESOLVE)] val zz: R|kotlin/Int| = R|/x|.R|kotlin/Int.plus<Inapplicable(UNSAFE_CALL): kotlin/Int.plus>#|(Int(1))
             public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
 
@@ -566,3 +577,4 @@ FILE: [ResolvedTo(BODY_RESOLVE)] script2.kts
             }
 
         }
+

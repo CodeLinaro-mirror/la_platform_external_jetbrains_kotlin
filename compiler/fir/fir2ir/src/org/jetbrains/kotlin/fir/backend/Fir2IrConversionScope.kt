@@ -5,16 +5,14 @@
 
 package org.jetbrains.kotlin.fir.backend
 
-import org.jetbrains.kotlin.fir.declarations.FirClass
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.utils.isExtension
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
+import org.jetbrains.kotlin.fir.types.ConeTypeParameterType
+import org.jetbrains.kotlin.ir.builders.Scope
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
-import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSymbolInternals
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.isSetter
 import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.util.render
@@ -29,6 +27,10 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
 
     @PublishedApi
     @PrivateForInline
+    internal val scopeStack = mutableListOf<Scope>()
+
+    @PublishedApi
+    @PrivateForInline
     internal val containingFirClassStack = mutableListOf<FirClass>()
 
     @PublishedApi
@@ -37,9 +39,15 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
 
     inline fun <T : IrDeclarationParent, R> withParent(parent: T, f: T.() -> R): R {
         parentStack += parent
+        if (parent is IrDeclaration) {
+            scopeStack += Scope(parent.symbol)
+        }
         try {
             return parent.f()
         } finally {
+            if (parent is IrDeclaration) {
+                scopeStack.removeAt(scopeStack.size - 1)
+            }
             parentStack.removeAt(parentStack.size - 1)
         }
     }
@@ -69,11 +77,13 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
 
     fun parentFromStack(): IrDeclarationParent = parentStack.last()
 
+    fun scope(): Scope = scopeStack.last()
+
     fun parentAccessorOfPropertyFromStack(propertySymbol: IrPropertySymbol): IrSimpleFunction {
         // It is safe to access an owner of property symbol here, because this function may be called
         // only from property accessor of corresponding property
         // We inside accessor -> accessor is built -> property is built
-        @OptIn(IrSymbolInternals::class)
+        @OptIn(UnsafeDuringIrConstructionAPI::class)
         val property = propertySymbol.owner
         for (parent in parentStack.asReversed()) {
             when (parent) {
@@ -88,7 +98,7 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
     inline fun <reified D : IrDeclaration> findDeclarationInParentsStack(symbol: IrSymbol): @kotlin.internal.NoInfer D {
         // This is an unsafe fast path for production
         if (!AbstractTypeChecker.RUN_SLOW_ASSERTIONS) {
-            @OptIn(IrSymbolInternals::class)
+            @OptIn(UnsafeDuringIrConstructionAPI::class)
             return symbol.owner as D
         }
         // With slow assertions the following code guarantees that taking owner from symbol is safe
@@ -102,7 +112,7 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
          *   for which we have Fir2IrLazyClass in symbol
          */
         if (configuration.allowNonCachedDeclarations) {
-            @OptIn(IrSymbolInternals::class)
+            @OptIn(UnsafeDuringIrConstructionAPI::class)
             return symbol.owner as D
         }
         error("Declaration with symbol $symbol is not found in parents stack")
@@ -180,28 +190,29 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
         }
     }
 
-    fun returnTarget(expression: FirReturnExpression, declarationStorage: Fir2IrDeclarationStorage): IrFunction {
+    fun returnTarget(expression: FirReturnExpression, declarationStorage: Fir2IrDeclarationStorage): IrFunctionSymbol {
         val irTarget = when (val firTarget = expression.target.labeledElement) {
-            is FirConstructor -> declarationStorage.getCachedIrConstructor(firTarget)
+            is FirConstructor -> declarationStorage.getCachedIrConstructorSymbol(firTarget)
             is FirPropertyAccessor -> {
-                var answer: IrFunction? = null
+                var answer: IrFunctionSymbol? = null
                 for ((property, firProperty) in propertyStack.asReversed()) {
                     if (firProperty?.getter === firTarget) {
-                        answer = property.getter
+                        answer = property.getter?.symbol
                     } else if (firProperty?.setter === firTarget) {
-                        answer = property.setter
+                        answer = property.setter?.symbol
                     }
                 }
                 answer
             }
-            else -> declarationStorage.getCachedIrFunction(firTarget)
+            else -> declarationStorage.getCachedIrFunctionSymbol(firTarget)
         }
         for (potentialTarget in functionStack.asReversed()) {
-            if (potentialTarget == irTarget) {
-                return potentialTarget
+            val targetSymbol = potentialTarget.symbol
+            if (targetSymbol == irTarget) {
+                return targetSymbol
             }
         }
-        return functionStack.last()
+        return functionStack.last().symbol
     }
 
     fun parent(): IrDeclarationParent? = parentStack.lastOrNull()
@@ -227,4 +238,15 @@ class Fir2IrConversionScope(val configuration: Fir2IrConfiguration) {
 
     fun lastWhenSubject(): IrVariable = whenSubjectVariableStack.last()
     fun lastSafeCallSubject(): IrVariable = safeCallSubjectVariableStack.last()
+
+    fun shouldEraseType(type: ConeTypeParameterType): Boolean = containingFirClassStack.asReversed().any { clazz ->
+        if (clazz !is FirAnonymousObject && !clazz.isLocal) return@any false
+
+        val typeParameterSymbol = type.lookupTag.typeParameterSymbol
+        if (typeParameterSymbol.containingDeclarationSymbol.fir.let { it !is FirProperty || it.delegate == null || !it.isExtension }) {
+            return@any false
+        }
+
+        return@any clazz.typeParameters.any { it.symbol === typeParameterSymbol }
+    }
 }

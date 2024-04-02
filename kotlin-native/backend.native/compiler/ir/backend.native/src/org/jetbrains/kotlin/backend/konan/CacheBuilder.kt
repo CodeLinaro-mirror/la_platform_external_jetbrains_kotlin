@@ -8,15 +8,14 @@ package org.jetbrains.kotlin.backend.konan
 import org.jetbrains.kotlin.backend.common.serialization.FingerprintHash
 import org.jetbrains.kotlin.backend.common.serialization.SerializedIrFileFingerprint
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.metadata.resolver.TopologicalLibraryOrder
 import org.jetbrains.kotlin.library.uniqueName
-import org.jetbrains.kotlin.backend.konan.descriptors.isInteropLibrary
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.library.unresolvedDependencies
+import org.jetbrains.kotlin.library.metadata.isInteropLibrary
 
 internal fun KotlinLibrary.getAllTransitiveDependencies(allLibraries: Map<String, KotlinLibrary>): List<KotlinLibrary> {
     val allDependencies = mutableSetOf<KotlinLibrary>()
@@ -50,6 +49,7 @@ class CacheBuilder(
 
     private val allLibraries by lazy { konanConfig.resolvedLibraries.getFullList(TopologicalLibraryOrder) }
     private val uniqueNameToLibrary by lazy { allLibraries.associateBy { it.uniqueName } }
+    private val uniqueNameToHash = mutableMapOf<String, FingerprintHash>()
 
     private val caches = mutableMapOf<KotlinLibrary, CachedLibraries.Cache>()
     private val cacheRootDirectories = mutableMapOf<KotlinLibrary, String>()
@@ -82,17 +82,18 @@ class CacheBuilder(
         val externalLibrariesToCache = mutableListOf<KotlinLibrary>()
         val icedLibraries = mutableListOf<KotlinLibrary>()
 
+        val stdlib = konanConfig.distribution.stdlib
         allLibraries.forEach { library ->
-            val isDefaultOrExternal = library.isDefault || library.isExternal
-            val cache = konanConfig.cachedLibraries.getLibraryCache(library, !isDefaultOrExternal)
+            val isSubjectOfIC = !library.isDefault && !library.isExternal && !library.libraryName.startsWith(stdlib)
+            val cache = konanConfig.cachedLibraries.getLibraryCache(library, allowIncomplete = isSubjectOfIC)
             cache?.let {
                 caches[library] = it
                 cacheRootDirectories[library] = it.rootDirectory
             }
-            if (isDefaultOrExternal) {
-                if (cache == null) externalLibrariesToCache += library
-            } else {
+            if (isSubjectOfIC) {
                 icedLibraries += library
+            } else {
+                if (cache == null) externalLibrariesToCache += library
             }
             library.unresolvedDependencies.forEach {
                 val dependency = uniqueNameToLibrary[it.path]!!
@@ -237,7 +238,8 @@ class CacheBuilder(
 
         val libraryCacheDirectory = when {
             library.isDefault -> konanConfig.systemCacheDirectory
-            isExternal -> CachedLibraries.computeVersionedCacheDirectory(konanConfig.autoCacheDirectory, library, uniqueNameToLibrary)
+            isExternal -> CachedLibraries.computeVersionedCacheDirectory(
+                    konanConfig.autoCacheDirectory, library, uniqueNameToLibrary, uniqueNameToHash)
             else -> konanConfig.incrementalCacheDirectory!!
         }
         val libraryCache = libraryCacheDirectory.child(

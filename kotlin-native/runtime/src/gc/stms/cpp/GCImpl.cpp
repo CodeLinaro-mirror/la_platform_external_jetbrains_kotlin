@@ -20,13 +20,13 @@ gc::GC::ThreadData::ThreadData(GC& gc, mm::ThreadData& threadData) noexcept : im
 
 gc::GC::ThreadData::~ThreadData() = default;
 
-ALWAYS_INLINE void gc::GC::ThreadData::onAllocation(ObjHeader* object) noexcept {}
-
 void gc::GC::ThreadData::OnSuspendForGC() noexcept { }
 
 void gc::GC::ThreadData::safePoint() noexcept {}
 
 void gc::GC::ThreadData::onThreadRegistration() noexcept {}
+
+ALWAYS_INLINE void gc::GC::ThreadData::onAllocation(ObjHeader* object) noexcept {}
 
 gc::GC::GC(alloc::Allocator& allocator, gcScheduler::GCScheduler& gcScheduler) noexcept :
     impl_(std::make_unique<Impl>(allocator, gcScheduler)) {}
@@ -60,11 +60,6 @@ ALWAYS_INLINE void gc::GC::processArrayInMark(void* state, ArrayHeader* array) n
     gc::internal::processArrayInMark<gc::internal::MarkTraits>(state, array);
 }
 
-// static
-ALWAYS_INLINE void gc::GC::processFieldInMark(void* state, ObjHeader* field) noexcept {
-    gc::internal::processFieldInMark<gc::internal::MarkTraits>(state, field);
-}
-
 int64_t gc::GC::Schedule() noexcept {
     return impl_->gc().state().schedule();
 }
@@ -77,12 +72,22 @@ void gc::GC::WaitFinalizers(int64_t epoch) noexcept {
     impl_->gc().state().waitEpochFinalized(epoch);
 }
 
-bool gc::isMarked(ObjHeader* object) noexcept {
-    return alloc::objectDataForObject(object).marked();
+void gc::GC::configureMainThreadFinalizerProcessor(std::function<void(alloc::RunLoopFinalizerProcessorConfig&)> f) noexcept {
+    impl_->gc().mainThreadFinalizerProcessor().withConfig(std::move(f));
 }
 
-ALWAYS_INLINE OBJ_GETTER(gc::tryRef, std::atomic<ObjHeader*>& object) noexcept {
-    RETURN_OBJ(object.load(std::memory_order_relaxed));
+bool gc::GC::mainThreadFinalizerProcessorAvailable() noexcept {
+    return impl_->gc().mainThreadFinalizerProcessor().available();
+}
+
+ALWAYS_INLINE void gc::beforeHeapRefUpdate(mm::DirectRefAccessor ref, ObjHeader* value) noexcept {}
+
+ALWAYS_INLINE OBJ_GETTER(gc::weakRefReadBarrier, std::atomic<ObjHeader*>& weakReferee) noexcept {
+    RETURN_OBJ(weakReferee.load(std::memory_order_relaxed));
+}
+
+bool gc::isMarked(ObjHeader* object) noexcept {
+    return alloc::objectDataForObject(object).marked();
 }
 
 ALWAYS_INLINE bool gc::tryResetMark(GC::ObjectData& objectData) noexcept {

@@ -15,29 +15,23 @@ import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
-import org.jetbrains.kotlin.backend.jvm.JvmIrTypeSystemContext
-import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.cli.common.messages.GroupingMessageCollector
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
+import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.convertToIrAndActualizeForJvm
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.fir.FirAnalyzerFacade
 import org.jetbrains.kotlin.fir.FirTestSessionFactoryHelper
-import org.jetbrains.kotlin.fir.backend.Fir2IrCommonMemberStorage
-import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
-import org.jetbrains.kotlin.fir.backend.jvm.*
-import org.jetbrains.kotlin.fir.pipeline.signatureComposerForJvmFir2Ir
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
@@ -46,8 +40,6 @@ import org.jetbrains.kotlin.resolve.AnalyzingUtils
 import org.jetbrains.kotlin.resolve.BindingTrace
 import org.jetbrains.kotlin.resolve.lazy.JvmResolveUtil
 import org.jetbrains.kotlin.test.FirParser
-import org.jetbrains.kotlin.util.DummyLogger
-import org.jetbrains.kotlin.util.Logger
 import java.io.File
 
 object GenerationUtils {
@@ -118,7 +110,6 @@ object GenerationUtils {
             getPackagePartProvider = packagePartProvider
         )
 
-        val linkViaSignatures = configuration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES)
         // TODO: add running checkers and check that it's safe to compile
         val firAnalyzerFacade = FirAnalyzerFacade(
             session,
@@ -129,32 +120,14 @@ object GenerationUtils {
 
         val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), JvmIrMangler)
         val diagnosticReporter = DiagnosticReporterFactory.createReporter()
-
-        val fir2IrConfiguration = Fir2IrConfiguration(
-            languageVersionSettings = configuration.languageVersionSettings,
-            diagnosticReporter = diagnosticReporter,
-            linkViaSignatures = linkViaSignatures,
-            evaluatedConstTracker = configuration
-                .putIfAbsent(CommonConfigurationKeys.EVALUATED_CONST_TRACKER, EvaluatedConstTracker.create()),
-            inlineConstTracker = configuration[CommonConfigurationKeys.INLINE_CONST_TRACKER],
-            expectActualTracker = configuration[CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER],
-            allowNonCachedDeclarations = false,
-            useIrFakeOverrideBuilder = configuration.getBoolean(CommonConfigurationKeys.USE_IR_FAKE_OVERRIDE_BUILDER),
-        )
-
-        val commonMemberStorage = Fir2IrCommonMemberStorage(signatureComposerForJvmFir2Ir(linkViaSignatures), FirJvmKotlinMangler())
-
         firAnalyzerFacade.runResolution()
-        val (moduleFragment, components, pluginContext) = firAnalyzerFacade.result.outputs.single().convertToIr(
+        val (moduleFragment, components, pluginContext) = firAnalyzerFacade.result.convertToIrAndActualizeForJvm(
             fir2IrExtensions,
-            fir2IrConfiguration,
-            commonMemberStorage,
-            irBuiltIns = null,
-            JvmIrMangler,
-            FirJvmVisibilityConverter,
-            DefaultBuiltIns.Instance,
-            ::JvmIrTypeSystemContext
+            configuration,
+            diagnosticReporter,
+            irGeneratorExtensions = emptyList()
         )
+
         val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
 
         val codegenFactory = JvmIrCodegenFactory(
@@ -176,22 +149,11 @@ object GenerationUtils {
         generationState.oldBEInitTrace(files)
         codegenFactory.generateModuleInFrontendIRMode(
             generationState, moduleFragment, components.symbolTable, components.irProviders,
-            fir2IrExtensions, FirJvmBackendExtension(components, irActualizedResult = null), pluginContext,
+            fir2IrExtensions, FirJvmBackendExtension(components, actualizedExpectDeclarations = null), pluginContext,
         ) {}
 
         generationState.factory.done()
         return generationState
-    }
-
-    fun messageCollectorLogger(collector: MessageCollector) = object : Logger {
-        override fun warning(message: String) = collector.report(CompilerMessageSeverity.STRONG_WARNING, message)
-        override fun error(message: String) = collector.report(CompilerMessageSeverity.ERROR, message)
-        override fun log(message: String) = collector.report(CompilerMessageSeverity.LOGGING, message)
-        override fun fatal(message: String): Nothing {
-            collector.report(CompilerMessageSeverity.ERROR, message)
-            (collector as? GroupingMessageCollector)?.flush()
-            kotlin.error(message)
-        }
     }
 
     private fun compileFilesUsingStandardMode(
@@ -202,10 +164,8 @@ object GenerationUtils {
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
         trace: BindingTrace
     ): GenerationState {
-        val logger = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)?.let { messageCollectorLogger(it) }
-            ?: DummyLogger
         val resolvedKlibs = configuration.get(JVMConfigurationKeys.KLIB_PATHS)?.let { klibPaths ->
-            jvmResolveLibraries(klibPaths, logger)
+            jvmResolveLibraries(klibPaths, configuration.getLogger(treatWarningsAsErrors = true))
         }
 
         val analysisResult =

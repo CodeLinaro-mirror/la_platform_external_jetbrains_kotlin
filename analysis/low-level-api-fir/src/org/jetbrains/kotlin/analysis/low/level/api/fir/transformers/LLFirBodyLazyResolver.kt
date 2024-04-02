@@ -1,11 +1,11 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.transformers
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignationWithFile
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignation
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getModule
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.targets.LLFirResolveTarget
@@ -13,17 +13,11 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirEle
 import org.jetbrains.kotlin.analysis.low.level.api.fir.compile.codeFragmentScopeProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.LLFirLockProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.LLFirDeclarationModificationService
-import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.FirLazyBodiesCalculator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.state.LLFirResolvableResolveSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkDelegatedConstructorIsResolved
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.*
-import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
-import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
-import org.jetbrains.kotlin.utils.exceptions.checkWithAttachment
-import org.jetbrains.kotlin.fir.FirElementWithResolveState
-import org.jetbrains.kotlin.fir.FirFileAnnotationsContainer
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkDelegatedConstructorIsResolved
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.getExplicitBackingField
 import org.jetbrains.kotlin.fir.expressions.*
@@ -31,41 +25,40 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildLazyDelegatedConstructo
 import org.jetbrains.kotlin.fir.expressions.builder.buildMultiDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirLazyDelegatedConstructorCall
-import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitSuperReference
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitThisReference
-import org.jetbrains.kotlin.fir.resolve.FirCodeFragmentContext
-import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.dfa.FirControlFlowGraphReferenceImpl
-import org.jetbrains.kotlin.fir.resolve.codeFragmentContext
 import org.jetbrains.kotlin.fir.resolve.dfa.RealVariable
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isUsedInControlFlowGraphBuilderForClass
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isUsedInControlFlowGraphBuilderForFile
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isUsedInControlFlowGraphBuilderForScript
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirBodyResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirResolveContextCollector
 import org.jetbrains.kotlin.fir.resolve.transformers.contracts.FirContractsDslNames
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isUsedInControlFlowGraphBuilderForClass
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isUsedInControlFlowGraphBuilderForFile
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.isResolved
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
+import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.psi.KtCodeFragment
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.checkWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
-import org.jetbrains.kotlin.utils.findIsInstanceAnd
 
 internal object LLFirBodyLazyResolver : LLFirLazyResolver(FirResolvePhase.BODY_RESOLVE) {
     override fun resolve(
         target: LLFirResolveTarget,
         lockProvider: LLFirLockProvider,
-        session: FirSession,
         scopeSession: ScopeSession,
         towerDataContextCollector: FirResolveContextCollector?,
     ) {
-        val resolver = LLFirBodyTargetResolver(target, lockProvider, session, scopeSession, towerDataContextCollector)
+        val resolver = LLFirBodyTargetResolver(target, lockProvider, scopeSession, towerDataContextCollector)
         resolver.resolveDesignation()
     }
 
@@ -78,7 +71,6 @@ internal object LLFirBodyLazyResolver : LLFirLazyResolver(FirResolvePhase.BODY_R
                 checkBodyIsResolved(target)
             }
             is FirFunction -> checkBodyIsResolved(target)
-            is FirScript -> checkStatementsAreResolved(target)
         }
     }
 }
@@ -86,7 +78,6 @@ internal object LLFirBodyLazyResolver : LLFirLazyResolver(FirResolvePhase.BODY_R
 private class LLFirBodyTargetResolver(
     target: LLFirResolveTarget,
     lockProvider: LLFirLockProvider,
-    session: FirSession,
     scopeSession: ScopeSession,
     firResolveContextCollector: FirResolveContextCollector?,
 ) : LLFirAbstractBodyTargetResolver(
@@ -96,7 +87,7 @@ private class LLFirBodyTargetResolver(
     FirResolvePhase.BODY_RESOLVE,
 ) {
     override val transformer = object : FirBodyResolveTransformer(
-        session,
+        resolveTargetSession,
         phase = resolverPhase,
         implicitTypeOnly = false,
         scopeSession = scopeSession,
@@ -104,7 +95,28 @@ private class LLFirBodyTargetResolver(
         firResolveContextCollector = firResolveContextCollector,
     ) {
         override val preserveCFGForClasses: Boolean get() = false
+        override val buildCfgForScripts: Boolean get() = false
+        override val buildCfgForFiles: Boolean get() = false
+
+        /**
+         * It is safe to resolve foreign annotations on demand because the contract allows it
+         * ([annotation arguments][FirResolvePhase.ANNOTATION_ARGUMENTS] phase is less than [body][FirResolvePhase.BODY_RESOLVE] phase).
+         */
+        override fun transformForeignAnnotationCall(symbol: FirBasedSymbol<*>, annotationCall: FirAnnotationCall): FirAnnotationCall {
+            // It is possible that some members of local classes will propagate annotations between each other,
+            // so we should just skip them, as they will be resolved anyway
+            if (symbol.cannotResolveAnnotationsOnDemand()) return annotationCall
+
+            symbol.lazyResolveToPhase(FirResolvePhase.ANNOTATION_ARGUMENTS)
+            checkAnnotationCallIsResolved(symbol, annotationCall)
+            return annotationCall
+        }
     }
+
+    /**
+     * No one should depend on body resolution of another declaration
+     */
+    override val skipDependencyTargetResolutionStep: Boolean get() = true
 
     override fun doResolveWithoutLock(target: FirElementWithResolveState): Boolean {
         when (target) {
@@ -119,10 +131,11 @@ private class LLFirBodyTargetResolver(
 
                 return true
             }
+
             is FirFile -> {
                 if (target.resolvePhase >= resolverPhase) return true
 
-                resolveFileAnnotationContainerIfNeeded(target)
+                target.annotationsContainer?.lazyResolveToPhase(resolverPhase)
 
                 // resolve file CFG graph here, to do this we need to have property blocks resoled
                 resolveMembersForControlFlowGraph(target)
@@ -132,6 +145,19 @@ private class LLFirBodyTargetResolver(
 
                 return true
             }
+
+            is FirScript -> {
+                if (target.resolvePhase >= resolverPhase) return true
+
+                // resolve properties so they are available for CFG building in resolveScript
+                resolveMembersForControlFlowGraph(target)
+                performCustomResolveUnderLock(target) {
+                    resolve(target, BodyStateKeepers.SCRIPT)
+                }
+
+                return true
+            }
+
             is FirCodeFragment -> {
                 resolveCodeFragmentContext(target)
                 performCustomResolveUnderLock(target) {
@@ -142,7 +168,7 @@ private class LLFirBodyTargetResolver(
             }
         }
 
-        return super.doResolveWithoutLock(target)
+        return false
     }
 
     private fun calculateControlFlowGraph(target: FirRegularClass) {
@@ -203,6 +229,35 @@ private class LLFirBodyTargetResolver(
         }
     }
 
+    private fun calculateControlFlowGraph(target: FirScript) {
+        checkWithAttachment(
+            target.controlFlowGraphReference == null,
+            { "'controlFlowGraphReference' should be 'null' if the script phase < $resolverPhase)" },
+        ) {
+            withFirEntry("firScript", target)
+        }
+
+        val dataFlowAnalyzer = transformer.declarationsTransformer.dataFlowAnalyzer
+        dataFlowAnalyzer.enterScript(target, buildGraph = true)
+        val controlFlowGraph = dataFlowAnalyzer.exitScript()
+            ?: errorWithAttachment("CFG should not be 'null' as 'buildGraph' is specified") {
+                withFirEntry("firScript", target)
+            }
+
+        target.replaceControlFlowGraphReference(FirControlFlowGraphReferenceImpl(controlFlowGraph))
+    }
+
+    private fun resolveMembersForControlFlowGraph(target: FirScript) {
+        withScript(target) {
+            for (member in target.declarations) {
+                if (member is FirControlFlowGraphOwner && member.isUsedInControlFlowGraphBuilderForScript) {
+                    member.lazyResolveToPhase(resolverPhase.previous)
+                    performResolve(member)
+                }
+            }
+        }
+    }
+
     private fun resolveCodeFragmentContext(firCodeFragment: FirCodeFragment) {
         val ktCodeFragment = firCodeFragment.psi as? KtCodeFragment
             ?: errorWithAttachment("Code fragment source not found") {
@@ -239,15 +294,18 @@ private class LLFirBodyTargetResolver(
     }
 
     override fun doLazyResolveUnderLock(target: FirElementWithResolveState) {
+        // There is no sense to resolve such declarations as they do not have bodies
+        // Also, they have STUB expression instead of default values, so we shouldn't change them
+        if (target is FirCallableDeclaration && target.isCopyCreatedInScope) return
+
         when (target) {
-            is FirFile, is FirRegularClass, is FirCodeFragment -> error("Should have been resolved in ${::doResolveWithoutLock.name}")
+            is FirFile, is FirScript, is FirRegularClass, is FirCodeFragment -> error("Should have been resolved in ${::doResolveWithoutLock.name}")
             is FirConstructor -> resolve(target, BodyStateKeepers.CONSTRUCTOR)
             is FirFunction -> resolve(target, BodyStateKeepers.FUNCTION)
             is FirProperty -> resolve(target, BodyStateKeepers.PROPERTY)
             is FirField -> resolve(target, BodyStateKeepers.FIELD)
             is FirVariable -> resolve(target, BodyStateKeepers.VARIABLE)
             is FirAnonymousInitializer -> resolve(target, BodyStateKeepers.ANONYMOUS_INITIALIZER)
-            is FirScript -> resolve(target, BodyStateKeepers.SCRIPT)
             is FirDanglingModifierList,
             is FirFileAnnotationsContainer,
             is FirTypeAlias,
@@ -260,68 +318,40 @@ private class LLFirBodyTargetResolver(
 
     override fun rawResolve(target: FirElementWithResolveState) {
         when (target) {
-            is FirScript -> target.takeUnless(FirScript::isCertainlyResolved)?.let(::resolveScript)
+            is FirScript -> {
+                resolveScript(target)
+                calculateControlFlowGraph(target)
+            }
+
             else -> super.rawResolve(target)
         }
 
         LLFirDeclarationModificationService.bodyResolved(target, resolverPhase)
     }
+
+    private fun resolveScript(script: FirScript) {
+        transformer.declarationsTransformer.withScript(script) {
+            script.parameters.forEach { it.transformSingle(transformer, ResolutionMode.ContextIndependent) }
+            script
+        }
+    }
 }
 
 internal object BodyStateKeepers {
-    val SCRIPT: StateKeeper<FirScript, FirDesignationWithFile> = stateKeeper { script, designation ->
-        val oldStatements = script.statements
-        if (oldStatements.none { it.isScriptStatement } || script.isCertainlyResolved) return@stateKeeper
-
-        add(RESULT_PROPERTY, designation)
-        add(FirScript::statements, FirScript::replaceStatements) {
-            val recreatedStatements = FirLazyBodiesCalculator.createStatementsForScript(script)
-            requireSameSize(oldStatements, recreatedStatements)
-
-            ArrayList<FirStatement>(oldStatements.size).apply {
-                oldStatements.zip(recreatedStatements).mapTo(this) { (old, new) ->
-                    when {
-                        !old.isScriptStatement -> old
-                        old is FirProperty && old.origin == FirDeclarationOrigin.ScriptCustomization.ResultProperty -> {
-                            old.replaceInitializer((new as FirProperty).initializer)
-                            old
-                        }
-
-                        else -> new
-                    }
-                }
-            }
-        }
+    val SCRIPT: StateKeeper<FirScript, FirDesignation> = stateKeeper { _, _ ->
+        add(FirScript::controlFlowGraphReference, FirScript::replaceControlFlowGraphReference)
     }
 
-    private val RESULT_PROPERTY: StateKeeper<FirScript, FirDesignationWithFile> = stateKeeper { script, _ ->
-        val resultedProperty = script.findResultProperty() ?: return@stateKeeper
-        add(
-            provider = { resultedProperty.bodyResolveState },
-            mutator = { _, value -> resultedProperty.replaceBodyResolveState(value) },
-        )
-
-        add(
-            provider = { resultedProperty.returnTypeRef },
-            mutator = { _, value -> resultedProperty.replaceReturnTypeRef(value) },
-        )
-
-        add(
-            provider = { resultedProperty.controlFlowGraphReference },
-            mutator = { _, value -> resultedProperty.replaceControlFlowGraphReference(value) },
-        )
-    }
-
-    val CODE_FRAGMENT: StateKeeper<FirCodeFragment, FirDesignationWithFile> = stateKeeper { _, _ ->
+    val CODE_FRAGMENT: StateKeeper<FirCodeFragment, FirDesignation> = stateKeeper { _, _ ->
         add(FirCodeFragment::block, FirCodeFragment::replaceBlock, ::blockGuard)
     }
 
-    val ANONYMOUS_INITIALIZER: StateKeeper<FirAnonymousInitializer, FirDesignationWithFile> = stateKeeper { _, _ ->
+    val ANONYMOUS_INITIALIZER: StateKeeper<FirAnonymousInitializer, FirDesignation> = stateKeeper { _, _ ->
         add(FirAnonymousInitializer::body, FirAnonymousInitializer::replaceBody, ::blockGuard)
         add(FirAnonymousInitializer::controlFlowGraphReference, FirAnonymousInitializer::replaceControlFlowGraphReference)
     }
 
-    val FUNCTION: StateKeeper<FirFunction, FirDesignationWithFile> = stateKeeper { function, designation ->
+    val FUNCTION: StateKeeper<FirFunction, FirDesignation> = stateKeeper { function, designation ->
         if (function.isCertainlyResolved) {
             if (!isCallableWithSpecialBody(function)) {
                 entityList(function.valueParameters, VALUE_PARAMETER, designation)
@@ -342,12 +372,12 @@ internal object BodyStateKeepers {
         add(FirFunction::controlFlowGraphReference, FirFunction::replaceControlFlowGraphReference)
     }
 
-    val CONSTRUCTOR: StateKeeper<FirConstructor, FirDesignationWithFile> = stateKeeper { _, designation ->
+    val CONSTRUCTOR: StateKeeper<FirConstructor, FirDesignation> = stateKeeper { _, designation ->
         add(FUNCTION, designation)
         add(FirConstructor::delegatedConstructor, FirConstructor::replaceDelegatedConstructor, ::delegatedConstructorCallGuard)
     }
 
-    val VARIABLE: StateKeeper<FirVariable, FirDesignationWithFile> = stateKeeper { variable, _ ->
+    val VARIABLE: StateKeeper<FirVariable, FirDesignation> = stateKeeper { variable, _ ->
         add(FirVariable::returnTypeRef, FirVariable::replaceReturnTypeRef)
 
         if (!isCallableWithSpecialBody(variable)) {
@@ -356,7 +386,7 @@ internal object BodyStateKeepers {
         }
     }
 
-    private val VALUE_PARAMETER: StateKeeper<FirValueParameter, FirDesignationWithFile> = stateKeeper { valueParameter, _ ->
+    private val VALUE_PARAMETER: StateKeeper<FirValueParameter, FirDesignation> = stateKeeper { valueParameter, _ ->
         if (valueParameter.defaultValue != null) {
             add(FirValueParameter::defaultValue, FirValueParameter::replaceDefaultValue, ::expressionGuard)
         }
@@ -364,12 +394,12 @@ internal object BodyStateKeepers {
         add(FirValueParameter::controlFlowGraphReference, FirValueParameter::replaceControlFlowGraphReference)
     }
 
-    val FIELD: StateKeeper<FirField, FirDesignationWithFile> = stateKeeper { _, designation ->
+    val FIELD: StateKeeper<FirField, FirDesignation> = stateKeeper { _, designation ->
         add(VARIABLE, designation)
         add(FirField::controlFlowGraphReference, FirField::replaceControlFlowGraphReference)
     }
 
-    val PROPERTY: StateKeeper<FirProperty, FirDesignationWithFile> = stateKeeper { property, designation ->
+    val PROPERTY: StateKeeper<FirProperty, FirDesignation> = stateKeeper { property, designation ->
         if (property.bodyResolveState >= FirPropertyBodyResolveState.ALL_BODIES_RESOLVED) {
             return@stateKeeper
         }
@@ -388,7 +418,7 @@ internal object BodyStateKeepers {
 }
 
 context(StateKeeperBuilder)
-private fun StateKeeperScope<FirFunction, FirDesignationWithFile>.preserveContractBlock(function: FirFunction) {
+private fun StateKeeperScope<FirFunction, FirDesignation>.preserveContractBlock(function: FirFunction) {
     val oldBody = function.body
     if (oldBody == null || oldBody is FirLazyBlock) {
         return
@@ -425,18 +455,6 @@ private fun StateKeeperScope<FirFunction, FirDesignationWithFile>.preserveContra
         }
     }
 }
-
-private fun FirScript.findResultProperty(): FirProperty? = statements.findIsInstanceAnd<FirProperty> {
-    it.origin == FirDeclarationOrigin.ScriptCustomization.ResultProperty
-}
-
-private val FirScript.isCertainlyResolved: Boolean
-    get() {
-        val dependentProperty = findResultProperty() ?: return false
-
-        // This meant that we already resolve the entire script on implicit body phase
-        return dependentProperty.bodyResolveState == FirPropertyBodyResolveState.ALL_BODIES_RESOLVED
-    }
 
 private val FirFunction.isCertainlyResolved: Boolean
     get() {
@@ -503,21 +521,6 @@ private fun delegatedConstructorCallGuard(fir: FirDelegatedConstructorCall): Fir
                     superTypeRef = originalCalleeReference.superTypeRef
                 }
             }
-        }
-    }
-}
-
-private fun requireSameSize(old: List<FirStatement>, new: List<FirStatement>) {
-    requireWithAttachment(
-        condition = old.size == new.size,
-        message = { "The number of statements are different" }
-    ) {
-        withEntryGroup("originalStatements") {
-            old.forEachIndexed { index, statement -> withFirEntry("statement$index", statement) }
-        }
-
-        withEntryGroup("newStatements") {
-            new.forEachIndexed { index, statement -> withFirEntry("statement$index", statement) }
         }
     }
 }

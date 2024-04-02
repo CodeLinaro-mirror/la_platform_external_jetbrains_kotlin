@@ -26,10 +26,10 @@ repositories {
     }
 }
 
-val wabtDir = File(buildDir, "wabt")
+val wabtDir = File(layout.buildDirectory.get().asFile, "wabt")
 val wabtVersion = "1.0.19"
 val testSuiteRevision = "18f8340"
-val testSuiteDir = File(buildDir, "testsuite")
+val testSuiteDir = File(layout.buildDirectory.get().asFile, "testsuite")
 
 val gradleOs = org.gradle.internal.os.OperatingSystem.current()
 val wabtOS = when {
@@ -55,8 +55,7 @@ dependencies {
     implementation(kotlinStdlib())
     implementation(kotlinxCollectionsImmutable())
     testImplementation(libs.junit4)
-    testCompileOnly(project(":kotlin-test:kotlin-test-jvm"))
-    testCompileOnly(project(":kotlin-test:kotlin-test-junit"))
+    testCompileOnly(kotlinTest("junit"))
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-serialization-json"))
 

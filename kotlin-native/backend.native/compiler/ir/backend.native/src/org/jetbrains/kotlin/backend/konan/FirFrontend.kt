@@ -12,10 +12,7 @@ import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.native.FirNativeOverrideChecker
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
-import org.jetbrains.kotlin.fir.pipeline.FirResult
-import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
-import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirViaLightTree
-import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirFromKtFiles
+import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.fir.resolve.ImplicitIntegerCoercionModuleCapability
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.library.isInterop
@@ -71,9 +68,6 @@ internal inline fun <F> PhaseContext.firFrontend(
             metadataCompilationMode = config.metadataKlib,
             isCommonSource = isCommonSource,
             fileBelongsToModule = fileBelongsToModule,
-            registerExtraComponents = {
-                it.register(FirOverrideChecker::class, FirNativeOverrideChecker(it))
-            },
     )
 
     val outputs = sessionsWithSources.map { (session, sources) ->
@@ -83,6 +77,8 @@ internal inline fun <F> PhaseContext.firFrontend(
             }
         }
     }
+
+    outputs.runPlatformCheckers(diagnosticsReporter)
 
     return if (syntaxErrors || diagnosticsReporter.hasErrors) {
         FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector, renderDiagnosticNames)

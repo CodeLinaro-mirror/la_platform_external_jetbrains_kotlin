@@ -50,13 +50,15 @@ fun CFGNode<*>.render(): String =
                 is StubNode -> "Stub"
                 is CheckNotNullCallNode -> "Check not null: ${CfgRenderer.renderElementAsString(fir)}"
 
-                is ConstExpressionNode -> "Const: ${fir.render()}"
+                is LiteralExpressionNode -> "Const: ${fir.render()}"
                 is VariableDeclarationNode ->
                     "Variable declaration: ${
                         CfgRenderer.renderAsCallableDeclarationString(fir)
                     }"
 
                 is VariableAssignmentNode -> "Assignment: ${fir.calleeReference?.let(CfgRenderer::renderElementAsString)}"
+                is FunctionCallArgumentsEnterNode -> "Function call arguments enter"
+                is FunctionCallArgumentsExitNode -> "Function call arguments exit"
                 is FunctionCallNode -> "Function call: ${CfgRenderer.renderElementAsString(fir)}"
                 is DelegatedConstructorCallNode -> "Delegated constructor call: ${CfgRenderer.renderElementAsString(fir)}"
                 is StringConcatenationCallNode -> "String concatenation call: ${CfgRenderer.renderElementAsString(fir)}"

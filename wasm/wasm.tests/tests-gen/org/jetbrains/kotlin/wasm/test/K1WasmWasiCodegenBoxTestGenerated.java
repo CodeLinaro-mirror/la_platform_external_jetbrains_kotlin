@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,6 +23,12 @@ public class K1WasmWasiCodegenBoxTestGenerated extends AbstractK1WasmWasiCodegen
     @Test
     public void testAllFilesPresentInBoxWasmWasi() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmWasi"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.WASM, true);
+    }
+
+    @Test
+    @TestMetadata("onExportedFunctionExit.kt")
+    public void testOnExportedFunctionExit() throws Exception {
+        runTest("compiler/testData/codegen/boxWasmWasi/onExportedFunctionExit.kt");
     }
 
     @Test

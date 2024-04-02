@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan.driver.phases
 
 import org.jetbrains.kotlin.backend.common.lower
+import org.jetbrains.kotlin.backend.common.phaser.createSimpleNamedCompilerPhase
 import org.jetbrains.kotlin.backend.konan.NativeGenerationState
 import org.jetbrains.kotlin.backend.konan.OutputFiles
 import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
@@ -50,7 +51,7 @@ internal val K2SpecialBackendChecksPhase = createSimpleNamedCompilerPhase<PhaseC
         "SpecialBackendChecks",
         "Special backend checks",
 ) { context, input ->
-    val moduleFragment = input.irModuleFragment
+    val moduleFragment = input.fir2irActualizedResult.irModuleFragment
     SpecialBackendChecksTraversal(
             context,
             input.symbols,

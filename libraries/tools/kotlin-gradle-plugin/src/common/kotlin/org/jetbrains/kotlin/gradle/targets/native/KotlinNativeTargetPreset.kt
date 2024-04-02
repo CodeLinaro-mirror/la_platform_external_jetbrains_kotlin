@@ -10,6 +10,7 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import org.gradle.api.Project
 import org.jetbrains.kotlin.compilerRunner.konanHome
+import org.jetbrains.kotlin.compilerRunner.kotlinNativeToolchainEnabled
 import org.jetbrains.kotlin.gradle.DeprecatedTargetPresetApi
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.targets.android.internal.InternalKotlinTargetPreset
@@ -35,7 +36,7 @@ abstract class AbstractKotlinNativeTargetPreset<T : KotlinNativeTarget>(
 
     private fun setupNativeHomePrivateProperty() = with(project) {
         if (!hasProperty(KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY))
-            extensions.extraProperties.set(KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY, konanHome)
+            extensions.extraProperties.set(KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY, konanHome.absolutePath)
     }
 
     protected abstract fun createTargetConfigurator(): AbstractKotlinTargetConfigurator<T>
@@ -43,7 +44,10 @@ abstract class AbstractKotlinNativeTargetPreset<T : KotlinNativeTarget>(
     protected abstract fun instantiateTarget(name: String): T
 
     override fun createTargetInternal(name: String): T {
-        project.setupNativeCompiler(konanTarget)
+        if (!project.kotlinNativeToolchainEnabled) {
+            @Suppress("DEPRECATION")
+            project.setupNativeCompiler(konanTarget)
+        }
 
         val result = instantiateTarget(name).apply {
             targetName = name
@@ -56,12 +60,6 @@ abstract class AbstractKotlinNativeTargetPreset<T : KotlinNativeTarget>(
         }
 
         createTargetConfigurator().configureTarget(result)
-
-        SingleActionPerProject.run(project, "setUpKotlinNativePlatformDependencies") {
-            project.whenEvaluated {
-                project.setupKotlinNativePlatformDependencies()
-            }
-        }
 
         SingleActionPerProject.run(project, "setupCInteropDependencies") {
             project.setupCInteropCommonizerDependencies()
@@ -82,7 +80,7 @@ open class KotlinNativeTargetPreset(name: String, project: Project, konanTarget:
     AbstractKotlinNativeTargetPreset<KotlinNativeTarget>(name, project, konanTarget) {
 
     override fun createTargetConfigurator(): AbstractKotlinTargetConfigurator<KotlinNativeTarget> =
-        KotlinNativeTargetConfigurator<KotlinNativeTarget>()
+        KotlinNativeTargetConfigurator()
 
     override fun instantiateTarget(name: String): KotlinNativeTarget {
         return project.objects.newInstance(KotlinNativeTarget::class.java, project, konanTarget)
@@ -94,7 +92,7 @@ open class KotlinNativeTargetWithHostTestsPreset(name: String, project: Project,
     AbstractKotlinNativeTargetPreset<KotlinNativeTargetWithHostTests>(name, project, konanTarget) {
 
     override fun createTargetConfigurator(): AbstractKotlinTargetConfigurator<KotlinNativeTargetWithHostTests> =
-        KotlinNativeTargetWithHostTestsConfigurator()
+        KotlinNativeTargetConfigurator()
 
     override fun instantiateTarget(name: String): KotlinNativeTargetWithHostTests =
         project.objects.newInstance(KotlinNativeTargetWithHostTests::class.java, project, konanTarget)
@@ -105,7 +103,7 @@ open class KotlinNativeTargetWithSimulatorTestsPreset(name: String, project: Pro
     AbstractKotlinNativeTargetPreset<KotlinNativeTargetWithSimulatorTests>(name, project, konanTarget) {
 
     override fun createTargetConfigurator(): AbstractKotlinTargetConfigurator<KotlinNativeTargetWithSimulatorTests> =
-        KotlinNativeTargetWithSimulatorTestsConfigurator()
+        KotlinNativeTargetConfigurator()
 
     override fun instantiateTarget(name: String): KotlinNativeTargetWithSimulatorTests =
         project.objects.newInstance(KotlinNativeTargetWithSimulatorTests::class.java, project, konanTarget)

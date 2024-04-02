@@ -18,8 +18,6 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.*
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
-import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -46,6 +44,11 @@ class FirRenderer(
     override val valueParameterRenderer: FirValueParameterRenderer? = FirValueParameterRenderer(),
     override val errorExpressionRenderer: FirErrorExpressionRenderer? = FirErrorExpressionOnlyErrorRenderer(),
     override val fileAnnotationsContainerRenderer: FirFileAnnotationsContainerRenderer? = null,
+    override val resolvedNamedReferenceRenderer: FirResolvedNamedReferenceRenderer = FirResolvedNamedReferenceRendererWithLabel(),
+    override val resolvedQualifierRenderer: FirResolvedQualifierRenderer = FirResolvedQualifierRendererWithLabel(),
+    private val lineBreakAfterContextReceivers: Boolean = true,
+    private val renderFieldAnnotationSeparately: Boolean = true,
+    override val getClassCallRenderer: FirGetClassCallRenderer = FirGetClassCallRendererForDebugging(),
 ) : FirRendererComponents {
 
     override val visitor = Visitor()
@@ -98,6 +101,9 @@ class FirRenderer(
         valueParameterRenderer?.components = this
         errorExpressionRenderer?.components = this
         fileAnnotationsContainerRenderer?.components = this
+        resolvedNamedReferenceRenderer.components = this
+        resolvedQualifierRenderer.components = this
+        getClassCallRenderer.components = this
     }
 
     fun renderElementAsString(element: FirElement, trim: Boolean = false): String {
@@ -145,7 +151,12 @@ class FirRenderer(
         print("context(")
         renderSeparated(contextReceivers, visitor)
         print(")")
-        printer.newLine()
+
+        if (lineBreakAfterContextReceivers) {
+            printer.newLine()
+        } else {
+            print(" ")
+        }
     }
 
     private fun List<FirTypeParameterRef>.renderTypeParameters() {
@@ -213,7 +224,7 @@ class FirRenderer(
 
             printer.newLine()
 
-            script.statements.forEach {
+            script.declarations.forEach {
                 it.accept(this)
                 printer.newLine()
             }
@@ -248,7 +259,9 @@ class FirRenderer(
             if (callableDeclaration is FirProperty) {
                 val backingField = callableDeclaration.backingField
                 if (backingField?.annotations?.isNotEmpty() == true) {
-                    print("field:")
+                    if (renderFieldAnnotationSeparately) {
+                        print("field:")
+                    }
                     annotationRenderer?.render(backingField)
                 }
             }
@@ -471,6 +484,7 @@ class FirRenderer(
 
         override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
             resolvePhaseRenderer?.render(anonymousInitializer)
+            annotationRenderer?.render(anonymousInitializer)
             print("init")
             bodyRenderer?.renderBody(anonymousInitializer.body)
         }
@@ -685,10 +699,10 @@ class FirRenderer(
             print("LAZY_EXPRESSION")
         }
 
-        override fun <T> visitConstExpression(constExpression: FirConstExpression<T>) {
-            annotationRenderer?.render(constExpression)
-            val kind = constExpression.kind
-            val value = constExpression.value
+        override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>) {
+            annotationRenderer?.render(literalExpression)
+            val kind = literalExpression.kind
+            val value = literalExpression.value
             print("$kind(")
             if (value !is Char) {
                 print(value.toString())
@@ -736,6 +750,12 @@ class FirRenderer(
         override fun visitVarargArgumentsExpression(varargArgumentsExpression: FirVarargArgumentsExpression) {
             print("vararg(")
             renderSeparated(varargArgumentsExpression.arguments, visitor)
+            print(")")
+        }
+
+        override fun visitSamConversionExpression(samConversionExpression: FirSamConversionExpression) {
+            print("SAM(")
+            samConversionExpression.expression.accept(this)
             print(")")
         }
 
@@ -924,55 +944,11 @@ class FirRenderer(
         }
 
         override fun visitResolvedNamedReference(resolvedNamedReference: FirResolvedNamedReference) {
-            print("R|")
-            val symbol = resolvedNamedReference.resolvedSymbol
-            val isSubstitutionOverride = (symbol.fir as? FirCallableDeclaration)?.isSubstitutionOverride == true
-
-            if (isSubstitutionOverride) {
-                print("SubstitutionOverride<")
-            }
-
-            referencedSymbolRenderer.printReference(symbol.unwrapIntersectionOverrides())
-
-            if (resolvedNamedReference is FirResolvedCallableReference) {
-                if (resolvedNamedReference.inferredTypeArguments.isNotEmpty()) {
-                    print("<")
-                    for ((index, element) in resolvedNamedReference.inferredTypeArguments.withIndex()) {
-                        if (index > 0) {
-                            print(", ")
-                        }
-                        typeRenderer.render(element)
-                    }
-                    print(">")
-                }
-            }
-
-            if (isSubstitutionOverride) {
-                when (symbol) {
-                    is FirNamedFunctionSymbol -> {
-                        print(": ")
-                        symbol.fir.returnTypeRef.accept(this)
-                    }
-                    is FirPropertySymbol -> {
-                        print(": ")
-                        symbol.fir.returnTypeRef.accept(this)
-                    }
-                }
-                print(">")
-            }
-            if (resolvedNamedReference is FirResolvedErrorReference) {
-                print("<${resolvedNamedReference.diagnostic.reason}>#")
-            }
-            print("|")
+            resolvedNamedReferenceRenderer.render(resolvedNamedReference)
         }
 
         override fun visitResolvedErrorReference(resolvedErrorReference: FirResolvedErrorReference) {
             visitResolvedNamedReference(resolvedErrorReference)
-        }
-
-        private fun FirBasedSymbol<*>.unwrapIntersectionOverrides(): FirBasedSymbol<*> {
-            (this as? FirCallableSymbol<*>)?.baseForIntersectionOverride?.let { return it.unwrapIntersectionOverrides() }
-            return this
         }
 
         override fun visitResolvedCallableReference(resolvedCallableReference: FirResolvedCallableReference) {
@@ -1149,9 +1125,7 @@ class FirRenderer(
         }
 
         override fun visitGetClassCall(getClassCall: FirGetClassCall) {
-            annotationRenderer?.render(getClassCall)
-            print("<getClass>")
-            visitCall(getClassCall)
+            getClassCallRenderer.render(getClassCall)
         }
 
         override fun visitClassReferenceExpression(classReferenceExpression: FirClassReferenceExpression) {
@@ -1179,18 +1153,12 @@ class FirRenderer(
         }
 
         override fun visitResolvedQualifier(resolvedQualifier: FirResolvedQualifier) {
-            annotationRenderer?.render(resolvedQualifier)
-            print("Q|")
-            val classId = resolvedQualifier.classId
-            if (classId != null) {
-                print(classId.asString())
-            } else {
-                print(resolvedQualifier.packageFqName.asString().replace(".", "/"))
-            }
-            if (resolvedQualifier.isNullableLHSForCallableReference) {
-                print("?")
-            }
-            print("|")
+            resolvedQualifierRenderer.render(resolvedQualifier)
+            resolvedQualifier.typeArguments.renderTypeArguments()
+        }
+
+        override fun visitErrorResolvedQualifier(errorResolvedQualifier: FirErrorResolvedQualifier) {
+            visitResolvedQualifier(errorResolvedQualifier)
         }
 
         override fun visitBinaryLogicExpression(binaryLogicExpression: FirBinaryLogicExpression) {

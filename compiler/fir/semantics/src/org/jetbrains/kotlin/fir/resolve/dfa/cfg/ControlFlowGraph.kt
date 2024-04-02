@@ -36,6 +36,7 @@ class ControlFlowGraph(val declaration: FirDeclaration?, val name: String, val k
         Class,
         Constructor,
         Function,
+        Script,
         LocalFunction,
         AnonymousFunction,
         AnonymousFunctionCalledInPlace,
@@ -105,6 +106,10 @@ object UncaughtExceptionPath : EdgeLabel {
     override val label: String get() = "onUncaughtException"
 }
 
+object PostponedPath : EdgeLabel {
+    override val label: String get() = "Postponed"
+}
+
 enum class EdgeKind(
     val usedInDfa: Boolean, // propagate flow to alive nodes
     val usedInDeadDfa: Boolean, // propagate flow to dead nodes
@@ -117,7 +122,19 @@ enum class EdgeKind(
     DfgForward(usedInDfa = true, usedInDeadDfa = true, usedInCfa = false, isBack = false, isDead = false),
     CfgForward(usedInDfa = false, usedInDeadDfa = false, usedInCfa = true, isBack = false, isDead = false),
     CfgBackward(usedInDfa = false, usedInDeadDfa = false, usedInCfa = true, isBack = true, isDead = false),
-    DeadBackward(usedInDfa = false, usedInDeadDfa = false, usedInCfa = true, isBack = true, isDead = true)
+    DeadBackward(usedInDfa = false, usedInDeadDfa = false, usedInCfa = true, isBack = true, isDead = true),
+    ;
+
+    companion object {
+        fun forward(usedInCfa: Boolean = false, usedInDfa: Boolean = false): EdgeKind? {
+            return when {
+                usedInCfa && usedInDfa -> Forward
+                usedInCfa -> CfgForward
+                usedInDfa -> DfgForward
+                else -> null
+            }
+        }
+    }
 }
 
 private val CFGNode<*>.previousNodeCount

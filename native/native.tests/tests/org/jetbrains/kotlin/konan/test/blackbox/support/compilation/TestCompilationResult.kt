@@ -8,6 +8,10 @@ package org.jetbrains.kotlin.konan.test.blackbox.support.compilation
 import org.jetbrains.kotlin.konan.test.blackbox.support.LoggedData
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 
+class CompilationToolException(val reason: String) : Exception() {
+    override fun toString() = "CompilationToolException: $reason"
+}
+
 internal sealed interface TestCompilationResult<A : TestCompilationArtifact> {
     sealed interface ImmediateResult<A : TestCompilationArtifact> : TestCompilationResult<A> {
         val loggedData: LoggedData
@@ -25,7 +29,8 @@ internal sealed interface TestCompilationResult<A : TestCompilationArtifact> {
     companion object {
         fun <A : TestCompilationArtifact> TestCompilationResult<A>.assertSuccess(): Success<A> = when (this) {
             is Success -> this
-            is Failure -> fail { describeFailure() }
+            is UnexpectedFailure -> throw CompilationToolException(describeFailure())
+            is CompilationToolFailure -> throw CompilationToolException(describeFailure())
             is DependencyFailures -> fail { describeDependencyFailures() }
         }
 

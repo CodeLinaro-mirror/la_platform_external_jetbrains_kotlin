@@ -31,6 +31,7 @@ dependencies {
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
     testApi(project(":compiler:fir:checkers:checkers.js"))
     testApi(project(":compiler:fir:checkers:checkers.native"))
+    testApi(project(":compiler:fir:checkers:checkers.wasm"))
     testApi(project(":compiler:fir:plugin-utils"))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
@@ -48,7 +49,7 @@ dependencies {
 }
 
 optInToExperimentalCompilerApi()
-optInToIrSymbolInternals()
+optInToUnsafeDuringIrConstructionAPI()
 
 val generationRoot = projectDir.resolve("tests-gen")
 

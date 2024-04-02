@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -1861,6 +1861,346 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builderInference"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
         }
 
+        @Test
+        @TestMetadata("lambdaParameterHasTVType.kt")
+        public void testLambdaParameterHasTVType() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/lambdaParameterHasTVType.kt");
+        }
+
+        @Test
+        @TestMetadata("pcaRootIsDelegatedConstructorCall.kt")
+        public void testPcaRootIsDelegatedConstructorCall() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/pcaRootIsDelegatedConstructorCall.kt");
+        }
+
+        @Test
+        @TestMetadata("pclaRootIsElvisSynthetic.kt")
+        public void testPclaRootIsElvisSynthetic() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/pclaRootIsElvisSynthetic.kt");
+        }
+
+        @Test
+        @TestMetadata("pclaRootIsIfWhenSyntheticCall.kt")
+        public void testPclaRootIsIfWhenSyntheticCall() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/pclaRootIsIfWhenSyntheticCall.kt");
+        }
+
+        @Test
+        @TestMetadata("pclaRootIsTrySyntheticCall.kt")
+        public void testPclaRootIsTrySyntheticCall() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/pclaRootIsTrySyntheticCall.kt");
+        }
+
+        @Test
+        @TestMetadata("pclaRootIsTrySyntheticCallWithDelegate.kt")
+        public void testPclaRootIsTrySyntheticCallWithDelegate() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/pclaRootIsTrySyntheticCallWithDelegate.kt");
+        }
+
+        @Test
+        @TestMetadata("posptonedPCLACallInsideStringInterpolation.kt")
+        public void testPosptonedPCLACallInsideStringInterpolation() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/posptonedPCLACallInsideStringInterpolation.kt");
+        }
+
+        @Test
+        @TestMetadata("receiverUsesOuterTVButReturnTypeIsProper.kt")
+        public void testReceiverUsesOuterTVButReturnTypeIsProper() throws Exception {
+            runTest("compiler/testData/codegen/box/builderInference/receiverUsesOuterTVButReturnTypeIsProper.kt");
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/box/builderInference/issues")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Issues {
+            @Test
+            public void testAllFilesPresentInIssues() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builderInference/issues"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
+
+            @Test
+            @TestMetadata("kt43710.kt")
+            public void testKt43710() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt43710.kt");
+            }
+
+            @Test
+            @TestMetadata("kt47989a.kt")
+            public void testKt47989a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt47989a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt47989b.kt")
+            public void testKt47989b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt47989b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49160a.kt")
+            public void testKt49160a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49160a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49160b.kt")
+            public void testKt49160b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49160b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49160c.kt")
+            public void testKt49160c() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49160c.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49160d.kt")
+            public void testKt49160d() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49160d.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49160e.kt")
+            public void testKt49160e() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49160e.kt");
+            }
+
+            @Test
+            @TestMetadata("kt49263.kt")
+            public void testKt49263() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt49263.kt");
+            }
+
+            @Test
+            @TestMetadata("kt50453.kt")
+            public void testKt50453() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt50453.kt");
+            }
+
+            @Test
+            @TestMetadata("kt50827a.kt")
+            public void testKt50827a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt50827a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt50827b.kt")
+            public void testKt50827b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt50827b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52757.kt")
+            public void testKt52757() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt52757.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52838a.kt")
+            public void testKt52838a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt52838a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52838b.kt")
+            public void testKt52838b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt52838b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52838c.kt")
+            public void testKt52838c() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt52838c.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53109.kt")
+            public void testKt53109() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53109.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53422a.kt")
+            public void testKt53422a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53422a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53422b.kt")
+            public void testKt53422b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53422b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53553.kt")
+            public void testKt53553() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53553.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53639.kt")
+            public void testKt53639() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53639.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53740a.kt")
+            public void testKt53740a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53740a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt53740b.kt")
+            public void testKt53740b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt53740b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54400a.kt")
+            public void testKt54400a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54400a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54400b.kt")
+            public void testKt54400b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54400b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54400c.kt")
+            public void testKt54400c() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54400c.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54664.kt")
+            public void testKt54664() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54664.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54767a.kt")
+            public void testKt54767a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54767a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt54767b.kt")
+            public void testKt54767b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt54767b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt55056.kt")
+            public void testKt55056() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt55056.kt");
+            }
+
+            @Test
+            @TestMetadata("kt55252.kt")
+            public void testKt55252() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt55252.kt");
+            }
+
+            @Test
+            @TestMetadata("kt55281.kt")
+            public void testKt55281() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt55281.kt");
+            }
+
+            @Test
+            @TestMetadata("kt56949.kt")
+            public void testKt56949() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt56949.kt");
+            }
+
+            @Test
+            @TestMetadata("kt57707.kt")
+            public void testKt57707() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt57707.kt");
+            }
+
+            @Test
+            @TestMetadata("kt57834.kt")
+            public void testKt57834() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt57834.kt");
+            }
+
+            @Test
+            @TestMetadata("kt59426.kt")
+            public void testKt59426() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt59426.kt");
+            }
+
+            @Test
+            @TestMetadata("kt59798.kt")
+            public void testKt59798() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt59798.kt");
+            }
+
+            @Test
+            @TestMetadata("kt60291a.kt")
+            public void testKt60291a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt60291a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt60291b.kt")
+            public void testKt60291b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt60291b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt60291c.kt")
+            public void testKt60291c() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt60291c.kt");
+            }
+
+            @Test
+            @TestMetadata("kt60447a.kt")
+            public void testKt60447a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt60447a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt60447b.kt")
+            public void testKt60447b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt60447b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt61310.kt")
+            public void testKt61310() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt61310.kt");
+            }
+
+            @Test
+            @TestMetadata("kt63733.kt")
+            public void testKt63733() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt63733.kt");
+            }
+
+            @Test
+            @TestMetadata("kt63840a.kt")
+            public void testKt63840a() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt63840a.kt");
+            }
+
+            @Test
+            @TestMetadata("kt63840b.kt")
+            public void testKt63840b() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt63840b.kt");
+            }
+
+            @Test
+            @TestMetadata("kt63840c.kt")
+            public void testKt63840c() throws Exception {
+                runTest("compiler/testData/codegen/box/builderInference/issues/kt63840c.kt");
+            }
+        }
+
         @Nested
         @TestMetadata("compiler/testData/codegen/box/builderInference/oneParameter")
         @TestDataPath("$PROJECT_ROOT")
@@ -1922,9 +2262,27 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
                         }
 
                         @Test
+                        @TestMetadata("ByAssignmentToALocalVariableMaterializeCase.kt")
+                        public void testByAssignmentToALocalVariableMaterializeCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/ByAssignmentToALocalVariableMaterializeCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ByAssignmentToALocalVariableYieldCase.kt")
+                        public void testByAssignmentToALocalVariableYieldCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/ByAssignmentToALocalVariableYieldCase.kt");
+                        }
+
+                        @Test
                         @TestMetadata("InsideAnonymousObject.kt")
                         public void testInsideAnonymousObject() throws Exception {
                             runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/InsideAnonymousObject.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("InsideLocalClass.kt")
+                        public void testInsideLocalClass() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/InsideLocalClass.kt");
                         }
 
                         @Test
@@ -1943,6 +2301,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
                         @TestMetadata("ThroughDelegatedLocalVariableYieldCase.kt")
                         public void testThroughDelegatedLocalVariableYieldCase() throws Exception {
                             runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/ThroughDelegatedLocalVariableYieldCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ThroughGenericFunctionCall.kt")
+                        public void testThroughGenericFunctionCall() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/sourceSinkFeedContexts/ThroughGenericFunctionCall.kt");
                         }
 
                         @Test
@@ -2175,6 +2539,116 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
                         @TestMetadata("TypeParameter.kt")
                         public void testTypeParameter() throws Exception {
                             runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/targetTypes/TypeParameter.kt");
+                        }
+                    }
+
+                    @Nested
+                    @TestMetadata("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks")
+                    @TestDataPath("$PROJECT_ROOT")
+                    public class TypeInfoSinks {
+                        @Test
+                        public void testAllFilesPresentInTypeInfoSinks() throws Exception {
+                            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+                        }
+
+                        @Test
+                        @TestMetadata("ExtensionFunctions.kt")
+                        public void testExtensionFunctions() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/ExtensionFunctions.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ImmutableExtensionProperties.kt")
+                        public void testImmutableExtensionProperties() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/ImmutableExtensionProperties.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ImmutableProperties.kt")
+                        public void testImmutableProperties() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/ImmutableProperties.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("MutableExtensionPropertiesMaterializeCase.kt")
+                        public void testMutableExtensionPropertiesMaterializeCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/MutableExtensionPropertiesMaterializeCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("MutableExtensionPropertiesYieldCase.kt")
+                        public void testMutableExtensionPropertiesYieldCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/MutableExtensionPropertiesYieldCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("MutablePropertiesMaterializeCase.kt")
+                        public void testMutablePropertiesMaterializeCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/MutablePropertiesMaterializeCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("MutablePropertiesYieldCase.kt")
+                        public void testMutablePropertiesYieldCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/MutablePropertiesYieldCase.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ParametersOfBuilderArguments.kt")
+                        public void testParametersOfBuilderArguments() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/ParametersOfBuilderArguments.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ReceiversOfBuilderArguments.kt")
+                        public void testReceiversOfBuilderArguments() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSinks/ReceiversOfBuilderArguments.kt");
+                        }
+                    }
+
+                    @Nested
+                    @TestMetadata("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources")
+                    @TestDataPath("$PROJECT_ROOT")
+                    public class TypeInfoSources {
+                        @Test
+                        public void testAllFilesPresentInTypeInfoSources() throws Exception {
+                            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+                        }
+
+                        @Test
+                        @TestMetadata("ExtensionFunctions.kt")
+                        public void testExtensionFunctions() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/ExtensionFunctions.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ExtensionProperties.kt")
+                        public void testExtensionProperties() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/ExtensionProperties.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ParametersOfBuilderArguments.kt")
+                        public void testParametersOfBuilderArguments() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/ParametersOfBuilderArguments.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ReceiversOfBuilderArguments.kt")
+                        public void testReceiversOfBuilderArguments() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/ReceiversOfBuilderArguments.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("ReturnTypesOfBuilderParameters.kt")
+                        public void testReturnTypesOfBuilderParameters() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/ReturnTypesOfBuilderParameters.kt");
+                        }
+
+                        @Test
+                        @TestMetadata("UnitReturnTypeOfBuilderParametersExplicitReturnCase.kt")
+                        public void testUnitReturnTypeOfBuilderParametersExplicitReturnCase() throws Exception {
+                            runTest("compiler/testData/codegen/box/builderInference/oneParameter/oneTypeVariable/oneTypeInfoOrigin/typeInfoSources/UnitReturnTypeOfBuilderParametersExplicitReturnCase.kt");
                         }
                     }
                 }
@@ -2593,9 +3067,21 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("unitCoercionOverloads.kt")
+            public void testUnitCoercionOverloads() throws Exception {
+                runTest("compiler/testData/codegen/box/callableReference/adaptedReferences/unitCoercionOverloads.kt");
+            }
+
+            @Test
             @TestMetadata("varargFromBaseClass.kt")
             public void testVarargFromBaseClass() throws Exception {
                 runTest("compiler/testData/codegen/box/callableReference/adaptedReferences/varargFromBaseClass.kt");
+            }
+
+            @Test
+            @TestMetadata("varargOverloads.kt")
+            public void testVarargOverloads() throws Exception {
+                runTest("compiler/testData/codegen/box/callableReference/adaptedReferences/varargOverloads.kt");
             }
 
             @Test
@@ -3876,6 +4362,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("kt65197.kt")
+        public void testKt65197() throws Exception {
+            runTest("compiler/testData/codegen/box/casts/kt65197.kt");
+        }
+
+        @Test
         @TestMetadata("lambdaToUnitCast.kt")
         public void testLambdaToUnitCast() throws Exception {
             runTest("compiler/testData/codegen/box/casts/lambdaToUnitCast.kt");
@@ -4792,6 +5284,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("nestedInitBlocksWithLambda.kt")
+        public void testNestedInitBlocksWithLambda() throws Exception {
+            runTest("compiler/testData/codegen/box/classes/nestedInitBlocksWithLambda.kt");
+        }
+
+        @Test
         @TestMetadata("outerThis.kt")
         public void testOuterThis() throws Exception {
             runTest("compiler/testData/codegen/box/classes/outerThis.kt");
@@ -5013,6 +5511,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("closureWithParameterAndBoxing.kt")
         public void testClosureWithParameterAndBoxing() throws Exception {
             runTest("compiler/testData/codegen/box/closures/closureWithParameterAndBoxing.kt");
+        }
+
+        @Test
+        @TestMetadata("closuresAsSingleton.kt")
+        public void testClosuresAsSingleton() throws Exception {
+            runTest("compiler/testData/codegen/box/closures/closuresAsSingleton.kt");
         }
 
         @Test
@@ -7465,6 +7969,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("delegatedSuspendMember.kt")
         public void testDelegatedSuspendMember() throws Exception {
             runTest("compiler/testData/codegen/box/coroutines/delegatedSuspendMember.kt");
+        }
+
+        @Test
+        @TestMetadata("deserializedSuspendFunctionProperty.kt")
+        public void testDeserializedSuspendFunctionProperty() throws Exception {
+            runTest("compiler/testData/codegen/box/coroutines/deserializedSuspendFunctionProperty.kt");
         }
 
         @Test
@@ -10269,6 +10779,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("kt64139.kt")
+            public void testKt64139() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/varSpilling/kt64139.kt");
+            }
+
+            @Test
             @TestMetadata("lvtWithInlineOnly.kt")
             public void testLvtWithInlineOnly() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/varSpilling/lvtWithInlineOnly.kt");
@@ -11332,6 +11848,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("callableReferenceAsSecondArgumentOfDelegate.kt")
+        public void testCallableReferenceAsSecondArgumentOfDelegate() throws Exception {
+            runTest("compiler/testData/codegen/box/delegatedProperty/callableReferenceAsSecondArgumentOfDelegate.kt");
+        }
+
+        @Test
         @TestMetadata("capturePropertyInClosure.kt")
         public void testCapturePropertyInClosure() throws Exception {
             runTest("compiler/testData/codegen/box/delegatedProperty/capturePropertyInClosure.kt");
@@ -11386,6 +11908,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("delegateToConstVal.kt")
+        public void testDelegateToConstVal() throws Exception {
+            runTest("compiler/testData/codegen/box/delegatedProperty/delegateToConstVal.kt");
+        }
+
+        @Test
         @TestMetadata("delegateToConstructorParameter.kt")
         public void testDelegateToConstructorParameter() throws Exception {
             runTest("compiler/testData/codegen/box/delegatedProperty/delegateToConstructorParameter.kt");
@@ -11401,6 +11929,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("delegatedPropertyInEnum.kt")
         public void testDelegatedPropertyInEnum() throws Exception {
             runTest("compiler/testData/codegen/box/delegatedProperty/delegatedPropertyInEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("DelegationByFunctionWithEnumUpperBound.kt")
+        public void testDelegationByFunctionWithEnumUpperBound() throws Exception {
+            runTest("compiler/testData/codegen/box/delegatedProperty/DelegationByFunctionWithEnumUpperBound.kt");
         }
 
         @Test
@@ -11551,6 +12085,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("referenceEnclosingClassFieldInReceiver2.kt")
         public void testReferenceEnclosingClassFieldInReceiver2() throws Exception {
             runTest("compiler/testData/codegen/box/delegatedProperty/referenceEnclosingClassFieldInReceiver2.kt");
+        }
+
+        @Test
+        @TestMetadata("resolveGetValueWithWholeDelegate.kt")
+        public void testResolveGetValueWithWholeDelegate() throws Exception {
+            runTest("compiler/testData/codegen/box/delegatedProperty/resolveGetValueWithWholeDelegate.kt");
         }
 
         @Test
@@ -12035,6 +12575,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("commonCaseForInference.kt")
+            public void testCommonCaseForInference() throws Exception {
+                runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/commonCaseForInference.kt");
+            }
+
+            @Test
             @TestMetadata("delegatedPropertyWithIdProvideDelegate.kt")
             public void testDelegatedPropertyWithIdProvideDelegate() throws Exception {
                 runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/delegatedPropertyWithIdProvideDelegate.kt");
@@ -12095,6 +12641,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("inferenceFromReceiver2.kt")
+            public void testInferenceFromReceiver2() throws Exception {
+                runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/inferenceFromReceiver2.kt");
+            }
+
+            @Test
             @TestMetadata("inlineProvideDelegate.kt")
             public void testInlineProvideDelegate() throws Exception {
                 runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/inlineProvideDelegate.kt");
@@ -12149,6 +12701,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("notNullAssertionInLocalDelegated.kt")
+            public void testNotNullAssertionInLocalDelegated() throws Exception {
+                runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/notNullAssertionInLocalDelegated.kt");
+            }
+
+            @Test
             @TestMetadata("propertyMetadata.kt")
             public void testPropertyMetadata() throws Exception {
                 runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/propertyMetadata.kt");
@@ -12158,6 +12716,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             @TestMetadata("provideDelegateByExtensionFunction.kt")
             public void testProvideDelegateByExtensionFunction() throws Exception {
                 runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/provideDelegateByExtensionFunction.kt");
+            }
+
+            @Test
+            @TestMetadata("setValue.kt")
+            public void testSetValue() throws Exception {
+                runTest("compiler/testData/codegen/box/delegatedProperty/provideDelegate/setValue.kt");
             }
         }
     }
@@ -12196,6 +12760,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("genericFunctionInGenericInterface.kt")
+        public void testGenericFunctionInGenericInterface() throws Exception {
+            runTest("compiler/testData/codegen/box/delegation/genericFunctionInGenericInterface.kt");
+        }
+
+        @Test
         @TestMetadata("genericProperty.kt")
         public void testGenericProperty() throws Exception {
             runTest("compiler/testData/codegen/box/delegation/genericProperty.kt");
@@ -12205,6 +12775,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("hiddenSuperOverrideIn1.0.kt")
         public void testHiddenSuperOverrideIn1_0() throws Exception {
             runTest("compiler/testData/codegen/box/delegation/hiddenSuperOverrideIn1.0.kt");
+        }
+
+        @Test
+        @TestMetadata("ifWithCallableReferenceInLazy.kt")
+        public void testIfWithCallableReferenceInLazy() throws Exception {
+            runTest("compiler/testData/codegen/box/delegation/ifWithCallableReferenceInLazy.kt");
         }
 
         @Test
@@ -12223,6 +12799,18 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("kt8154.kt")
         public void testKt8154() throws Exception {
             runTest("compiler/testData/codegen/box/delegation/kt8154.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedNameClash.kt")
+        public void testNestedNameClash() throws Exception {
+            runTest("compiler/testData/codegen/box/delegation/nestedNameClash.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedNameClash2.kt")
+        public void testNestedNameClash2() throws Exception {
+            runTest("compiler/testData/codegen/box/delegation/nestedNameClash2.kt");
         }
 
         @Test
@@ -13700,6 +14288,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("genericContextOverride.kt")
+        public void testGenericContextOverride() throws Exception {
+            runTest("compiler/testData/codegen/box/extensionProperties/genericContextOverride.kt");
+        }
+
+        @Test
         @TestMetadata("genericValForPrimitiveType.kt")
         public void testGenericValForPrimitiveType() throws Exception {
             runTest("compiler/testData/codegen/box/extensionProperties/genericValForPrimitiveType.kt");
@@ -13810,6 +14404,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("fakeOverrideOfPrivateSetter.kt")
+        public void testFakeOverrideOfPrivateSetter() throws Exception {
+            runTest("compiler/testData/codegen/box/fakeOverride/fakeOverrideOfPrivateSetter.kt");
+        }
+
+        @Test
         @TestMetadata("function.kt")
         public void testFunction() throws Exception {
             runTest("compiler/testData/codegen/box/fakeOverride/function.kt");
@@ -13825,6 +14425,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("intersectionInLocal.kt")
         public void testIntersectionInLocal() throws Exception {
             runTest("compiler/testData/codegen/box/fakeOverride/intersectionInLocal.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionOverrideBetweenValAndVar.kt")
+        public void testIntersectionOverrideBetweenValAndVar() throws Exception {
+            runTest("compiler/testData/codegen/box/fakeOverride/intersectionOverrideBetweenValAndVar.kt");
         }
 
         @Test
@@ -13923,6 +14529,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("continueAndOuterFinally.kt")
         public void testContinueAndOuterFinally() throws Exception {
             runTest("compiler/testData/codegen/box/finally/continueAndOuterFinally.kt");
+        }
+
+        @Test
+        @TestMetadata("decrementInFinally.kt")
+        public void testDecrementInFinally() throws Exception {
+            runTest("compiler/testData/codegen/box/finally/decrementInFinally.kt");
         }
 
         @Test
@@ -14092,6 +14704,24 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("functionsDifferInTypeParameterBounds.kt")
+        public void testFunctionsDifferInTypeParameterBounds() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/functionsDifferInTypeParameterBounds.kt");
+        }
+
+        @Test
+        @TestMetadata("functionsDifferInTypeParameterBounds2.kt")
+        public void testFunctionsDifferInTypeParameterBounds2() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/functionsDifferInTypeParameterBounds2.kt");
+        }
+
+        @Test
+        @TestMetadata("functionsDifferInTypeParameterBounds3.kt")
+        public void testFunctionsDifferInTypeParameterBounds3() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/functionsDifferInTypeParameterBounds3.kt");
+        }
+
+        @Test
         @TestMetadata("listAssignmentInWhen.kt")
         public void testListAssignmentInWhen() throws Exception {
             runTest("compiler/testData/codegen/box/fir/listAssignmentInWhen.kt");
@@ -14116,6 +14746,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("missingDependencyClassInTypeArguments.kt")
+        public void testMissingDependencyClassInTypeArguments() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/missingDependencyClassInTypeArguments.kt");
+        }
+
+        @Test
         @TestMetadata("nestedClassTypeParameterDeserialization.kt")
         public void testNestedClassTypeParameterDeserialization() throws Exception {
             runTest("compiler/testData/codegen/box/fir/nestedClassTypeParameterDeserialization.kt");
@@ -14128,6 +14764,18 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("smartCastToInvisibleClassMember.kt")
+        public void testSmartCastToInvisibleClassMember() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/smartCastToInvisibleClassMember.kt");
+        }
+
+        @Test
+        @TestMetadata("starProjectionLambdaNullReturn.kt")
+        public void testStarProjectionLambdaNullReturn() throws Exception {
+            runTest("compiler/testData/codegen/box/fir/starProjectionLambdaNullReturn.kt");
+        }
+
+        @Test
         @TestMetadata("suppressedInvisibleReferenceQualifier.kt")
         public void testSuppressedInvisibleReferenceQualifier() throws Exception {
             runTest("compiler/testData/codegen/box/fir/suppressedInvisibleReferenceQualifier.kt");
@@ -14137,6 +14785,16 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("toLong.kt")
         public void testToLong() throws Exception {
             runTest("compiler/testData/codegen/box/fir/toLong.kt");
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/box/fir/primitivesInJava")
+        @TestDataPath("$PROJECT_ROOT")
+        public class PrimitivesInJava {
+            @Test
+            public void testAllFilesPresentInPrimitivesInJava() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/fir/primitivesInJava"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
         }
     }
 
@@ -14617,6 +15275,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("kt48058.kt")
         public void testKt48058() throws Exception {
             runTest("compiler/testData/codegen/box/functions/kt48058.kt");
+        }
+
+        @Test
+        @TestMetadata("kt58825_arrayOverloads.kt")
+        public void testKt58825_arrayOverloads() throws Exception {
+            runTest("compiler/testData/codegen/box/functions/kt58825_arrayOverloads.kt");
         }
 
         @Test
@@ -21004,6 +21668,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("kt63732.kt")
+        public void testKt63732() throws Exception {
+            runTest("compiler/testData/codegen/box/innerNested/kt63732.kt");
+        }
+
+        @Test
         @TestMetadata("kt6804.kt")
         public void testKt6804() throws Exception {
             runTest("compiler/testData/codegen/box/innerNested/kt6804.kt");
@@ -21500,6 +22170,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("annotationClassWithInner.kt")
+        public void testAnnotationClassWithInner() throws Exception {
+            runTest("compiler/testData/codegen/box/involvesIrInterpreter/annotationClassWithInner.kt");
+        }
+
+        @Test
         @TestMetadata("booleanOperations.kt")
         public void testBooleanOperations() throws Exception {
             runTest("compiler/testData/codegen/box/involvesIrInterpreter/booleanOperations.kt");
@@ -21515,6 +22191,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("charOperations.kt")
         public void testCharOperations() throws Exception {
             runTest("compiler/testData/codegen/box/involvesIrInterpreter/charOperations.kt");
+        }
+
+        @Test
+        @TestMetadata("complexBooleanConstant.kt")
+        public void testComplexBooleanConstant() throws Exception {
+            runTest("compiler/testData/codegen/box/involvesIrInterpreter/complexBooleanConstant.kt");
         }
 
         @Test
@@ -21629,6 +22311,16 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("useCorrectToString.kt")
         public void testUseCorrectToString() throws Exception {
             runTest("compiler/testData/codegen/box/involvesIrInterpreter/useCorrectToString.kt");
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/box/involvesIrInterpreter/constEvaluationFromJavaWorld")
+        @TestDataPath("$PROJECT_ROOT")
+        public class ConstEvaluationFromJavaWorld {
+            @Test
+            public void testAllFilesPresentInConstEvaluationFromJavaWorld() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/involvesIrInterpreter/constEvaluationFromJavaWorld"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
         }
 
         @Nested
@@ -22206,6 +22898,26 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             @Test
             public void testAllFilesPresentInObjectMethods() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/javaInterop/objectMethods"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/box/javaInterop/primitiveVsWrapperTypeInInheritance")
+        @TestDataPath("$PROJECT_ROOT")
+        public class PrimitiveVsWrapperTypeInInheritance {
+            @Test
+            public void testAllFilesPresentInPrimitiveVsWrapperTypeInInheritance() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/javaInterop/primitiveVsWrapperTypeInInheritance"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
+        }
+
+        @Nested
+        @TestMetadata("compiler/testData/codegen/box/javaInterop/statics")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Statics {
+            @Test
+            public void testAllFilesPresentInStatics() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/javaInterop/statics"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
             }
         }
     }
@@ -23798,6 +24510,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             }
 
             @Test
+            @TestMetadata("aliasSuperTypeInLazy.kt")
+            public void testAliasSuperTypeInLazy() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/aliasSuperTypeInLazy.kt");
+            }
+
+            @Test
             public void testAllFilesPresentInK2() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/multiplatform/k2"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
             }
@@ -23806,6 +24524,18 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             @TestMetadata("anonymousObjectAndSpecificImplementationInDeserializedIr.kt")
             public void testAnonymousObjectAndSpecificImplementationInDeserializedIr() throws Exception {
                 runTest("compiler/testData/codegen/box/multiplatform/k2/anonymousObjectAndSpecificImplementationInDeserializedIr.kt");
+            }
+
+            @Test
+            @TestMetadata("commonFakeOverridePropertyRef.kt")
+            public void testCommonFakeOverridePropertyRef() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/commonFakeOverridePropertyRef.kt");
+            }
+
+            @Test
+            @TestMetadata("covariantOverrideInActual.kt")
+            public void testCovariantOverrideInActual() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/covariantOverrideInActual.kt");
             }
 
             @Test
@@ -23818,6 +24548,24 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             @TestMetadata("expectValInInlineClass.kt")
             public void testExpectValInInlineClass() throws Exception {
                 runTest("compiler/testData/codegen/box/multiplatform/k2/expectValInInlineClass.kt");
+            }
+
+            @Test
+            @TestMetadata("extensionPropertiesOverloads.kt")
+            public void testExtensionPropertiesOverloads() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/extensionPropertiesOverloads.kt");
+            }
+
+            @Test
+            @TestMetadata("internalOverride.kt")
+            public void testInternalOverride() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/internalOverride.kt");
+            }
+
+            @Test
+            @TestMetadata("internalOverride2.kt")
+            public void testInternalOverride2() throws Exception {
+                runTest("compiler/testData/codegen/box/multiplatform/k2/internalOverride2.kt");
             }
 
             @Nested
@@ -24139,6 +24887,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
                 @TestMetadata("constructor.kt")
                 public void testConstructor() throws Exception {
                     runTest("compiler/testData/codegen/box/multiplatform/k2/defaultArguments/constructor.kt");
+                }
+
+                @Test
+                @TestMetadata("defaultArgumentInDelegatedFunction.kt")
+                public void testDefaultArgumentInDelegatedFunction() throws Exception {
+                    runTest("compiler/testData/codegen/box/multiplatform/k2/defaultArguments/defaultArgumentInDelegatedFunction.kt");
                 }
 
                 @Test
@@ -26028,6 +26782,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("reassignDestructured.kt")
+        public void testReassignDestructured() throws Exception {
+            runTest("compiler/testData/codegen/box/primitiveTypes/reassignDestructured.kt");
+        }
+
+        @Test
         @TestMetadata("stringEqualsHashCodeToString.kt")
         public void testStringEqualsHashCodeToString() throws Exception {
             runTest("compiler/testData/codegen/box/primitiveTypes/stringEqualsHashCodeToString.kt");
@@ -26850,6 +27610,24 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("PrivatePropertyOfComplexGenericFunctionType.kt")
+        public void testPrivatePropertyOfComplexGenericFunctionType() throws Exception {
+            runTest("compiler/testData/codegen/box/properties/PrivatePropertyOfComplexGenericFunctionType.kt");
+        }
+
+        @Test
+        @TestMetadata("PrivatePropertyOfGenericContravariantFunctionType.kt")
+        public void testPrivatePropertyOfGenericContravariantFunctionType() throws Exception {
+            runTest("compiler/testData/codegen/box/properties/PrivatePropertyOfGenericContravariantFunctionType.kt");
+        }
+
+        @Test
+        @TestMetadata("PrivatePropertyOfGenericCovariantFunctionType.kt")
+        public void testPrivatePropertyOfGenericCovariantFunctionType() throws Exception {
+            runTest("compiler/testData/codegen/box/properties/PrivatePropertyOfGenericCovariantFunctionType.kt");
+        }
+
+        @Test
         @TestMetadata("privatePropertyWithoutBackingField.kt")
         public void testPrivatePropertyWithoutBackingField() throws Exception {
             runTest("compiler/testData/codegen/box/properties/privatePropertyWithoutBackingField.kt");
@@ -26880,6 +27658,78 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             @Test
             public void testAllFilesPresentInBackingField() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/properties/backingField"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
+            }
+
+            @Test
+            @TestMetadata("backingFieldVisibility.kt")
+            public void testBackingFieldVisibility() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/backingFieldVisibility.kt");
+            }
+
+            @Test
+            @TestMetadata("backingFieldWithSmartTypeParameters.kt")
+            public void testBackingFieldWithSmartTypeParameters() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/backingFieldWithSmartTypeParameters.kt");
+            }
+
+            @Test
+            @TestMetadata("charSequenceWithBackingField1.kt")
+            public void testCharSequenceWithBackingField1() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/charSequenceWithBackingField1.kt");
+            }
+
+            @Test
+            @TestMetadata("charSequenceWithBackingField2.kt")
+            public void testCharSequenceWithBackingField2() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/charSequenceWithBackingField2.kt");
+            }
+
+            @Test
+            @TestMetadata("charSequenceWithBackingField3.kt")
+            public void testCharSequenceWithBackingField3() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/charSequenceWithBackingField3.kt");
+            }
+
+            @Test
+            @TestMetadata("charSequenceWithBackingField4.kt")
+            public void testCharSequenceWithBackingField4() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/charSequenceWithBackingField4.kt");
+            }
+
+            @Test
+            @TestMetadata("charSequenceWithBackingField5.kt")
+            public void testCharSequenceWithBackingField5() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/charSequenceWithBackingField5.kt");
+            }
+
+            @Test
+            @TestMetadata("explicitBackingFieldInAnonymous.kt")
+            public void testExplicitBackingFieldInAnonymous() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/explicitBackingFieldInAnonymous.kt");
+            }
+
+            @Test
+            @TestMetadata("getterReturnTypeWithBackingField.kt")
+            public void testGetterReturnTypeWithBackingField() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/getterReturnTypeWithBackingField.kt");
+            }
+
+            @Test
+            @TestMetadata("independentBackingFieldType.kt")
+            public void testIndependentBackingFieldType() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/independentBackingFieldType.kt");
+            }
+
+            @Test
+            @TestMetadata("lateinitBackingFields.kt")
+            public void testLateinitBackingFields() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/lateinitBackingFields.kt");
+            }
+
+            @Test
+            @TestMetadata("overriddenPropertiesWithExplicitBackingFields.kt")
+            public void testOverriddenPropertiesWithExplicitBackingFields() throws Exception {
+                runTest("compiler/testData/codegen/box/properties/backingField/overriddenPropertiesWithExplicitBackingFields.kt");
             }
         }
 
@@ -34441,6 +35291,18 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
             runTest("compiler/testData/codegen/box/sam/kt59858.kt");
         }
 
+        @Test
+        @TestMetadata("kt63564.kt")
+        public void testKt63564() throws Exception {
+            runTest("compiler/testData/codegen/box/sam/kt63564.kt");
+        }
+
+        @Test
+        @TestMetadata("kt64116.kt")
+        public void testKt64116() throws Exception {
+            runTest("compiler/testData/codegen/box/sam/kt64116.kt");
+        }
+
         @Nested
         @TestMetadata("compiler/testData/codegen/box/sam/adapters")
         @TestDataPath("$PROJECT_ROOT")
@@ -34926,6 +35788,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("genericInheritanceWithNonGenericNoAmbiguity.kt")
+        public void testGenericInheritanceWithNonGenericNoAmbiguity() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/genericInheritanceWithNonGenericNoAmbiguity.kt");
+        }
+
+        @Test
         @TestMetadata("genericIntersection.kt")
         public void testGenericIntersection() throws Exception {
             runTest("compiler/testData/codegen/box/smartCasts/genericIntersection.kt");
@@ -34965,6 +35833,18 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("implicitToGrandSon.kt")
         public void testImplicitToGrandSon() throws Exception {
             runTest("compiler/testData/codegen/box/smartCasts/implicitToGrandSon.kt");
+        }
+
+        @Test
+        @TestMetadata("invokeRecieverSmartcastK1.kt")
+        public void testInvokeRecieverSmartcastK1() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/invokeRecieverSmartcastK1.kt");
+        }
+
+        @Test
+        @TestMetadata("invokeRecieverSmartcastK2.kt")
+        public void testInvokeRecieverSmartcastK2() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/invokeRecieverSmartcastK2.kt");
         }
 
         @Test
@@ -35034,6 +35914,30 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("NullableFunctionTypeAsMemberImmutableProperty.kt")
+        public void testNullableFunctionTypeAsMemberImmutableProperty() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/NullableFunctionTypeAsMemberImmutableProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("NullableFunctionTypeAsMemberImmutablePropertyFromConstructor.kt")
+        public void testNullableFunctionTypeAsMemberImmutablePropertyFromConstructor() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/NullableFunctionTypeAsMemberImmutablePropertyFromConstructor.kt");
+        }
+
+        @Test
+        @TestMetadata("NullableFunctionTypeAsPrimaryConstructorParameter.kt")
+        public void testNullableFunctionTypeAsPrimaryConstructorParameter() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/NullableFunctionTypeAsPrimaryConstructorParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("NullableFunctionTypeAsSecondaryConstructorParameter.kt")
+        public void testNullableFunctionTypeAsSecondaryConstructorParameter() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/NullableFunctionTypeAsSecondaryConstructorParameter.kt");
+        }
+
+        @Test
         @TestMetadata("propertyInitializationAfterSmartCast.kt")
         public void testPropertyInitializationAfterSmartCast() throws Exception {
             runTest("compiler/testData/codegen/box/smartCasts/propertyInitializationAfterSmartCast.kt");
@@ -35046,9 +35950,21 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("smartcastFromGenericToString.kt")
+        public void testSmartcastFromGenericToString() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/smartcastFromGenericToString.kt");
+        }
+
+        @Test
         @TestMetadata("smartcastOnDynamic.kt")
         public void testSmartcastOnDynamic() throws Exception {
             runTest("compiler/testData/codegen/box/smartCasts/smartcastOnDynamic.kt");
+        }
+
+        @Test
+        @TestMetadata("smartcastToStarType.kt")
+        public void testSmartcastToStarType() throws Exception {
+            runTest("compiler/testData/codegen/box/smartCasts/smartcastToStarType.kt");
         }
 
         @Test
@@ -37140,6 +38056,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         }
 
         @Test
+        @TestMetadata("inlineClassArraysAsNamedArgumentInVararg.kt")
+        public void testInlineClassArraysAsNamedArgumentInVararg() throws Exception {
+            runTest("compiler/testData/codegen/box/vararg/inlineClassArraysAsNamedArgumentInVararg.kt");
+        }
+
+        @Test
         @TestMetadata("kt10926.kt")
         public void testKt10926() throws Exception {
             runTest("compiler/testData/codegen/box/vararg/kt10926.kt");
@@ -37209,6 +38131,12 @@ public class FirJsES6CodegenBoxTestGenerated extends AbstractFirJsES6CodegenBoxT
         @TestMetadata("varargInFunParam.kt")
         public void testVarargInFunParam() throws Exception {
             runTest("compiler/testData/codegen/box/vararg/varargInFunParam.kt");
+        }
+
+        @Test
+        @TestMetadata("varargInTailrec.kt")
+        public void testVarargInTailrec() throws Exception {
+            runTest("compiler/testData/codegen/box/vararg/varargInTailrec.kt");
         }
 
         @Test

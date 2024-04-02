@@ -151,8 +151,9 @@ abstract class IncrementalCompilationJsMultiProjectIT : BaseIncrementalCompilati
     }
 }
 
-abstract class IncrementalCompilationJsMultiProjectWithPreciseBackupIT : IncrementalCompilationJsMultiProjectIT() {
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
+@DisplayName("K/JS multi-project IC with disabled precise outputs backups")
+abstract class IncrementalCompilationJsMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJsMultiProjectIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }
 
 class IncrementalCompilationK1JsMultiProject : IncrementalCompilationJsMultiProjectIT() {
@@ -168,11 +169,11 @@ class IncrementalCompilationK2JsMultiProject : IncrementalCompilationJsMultiProj
     }
 }
 
-class IncrementalCompilationK1JsMultiProjectWithPreciseBackupIT : IncrementalCompilationJsMultiProjectWithPreciseBackupIT() {
+class IncrementalCompilationK1JsMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJsMultiProjectWithoutPreciseBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK1()
 }
 
-class IncrementalCompilationK2JsMultiProjectWithPreciseBackupIT : IncrementalCompilationJsMultiProjectWithPreciseBackupIT() {
+class IncrementalCompilationK2JsMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJsMultiProjectWithoutPreciseBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK2()
 }
 
@@ -334,15 +335,32 @@ abstract class IncrementalCompilationJvmMultiProjectIT : BaseIncrementalCompilat
     }
 }
 
-abstract class IncrementalCompilationJvmMultiProjectWithPreciseBackupIT : IncrementalCompilationJvmMultiProjectIT() {
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
+@DisplayName("K/JVM multi-project IC with disabled precise outputs backups")
+abstract class IncrementalCompilationJvmMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJvmMultiProjectIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }
 
-class IncrementalCompilationK1JvmMultiProjectWithPreciseBackupIT : IncrementalCompilationJvmMultiProjectWithPreciseBackupIT() {
+class IncrementalCompilationK2JvmMultiProjectBuildToolsApiDaemonIT : IncrementalCompilationJvmMultiProjectWithoutPreciseBackupIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(runViaBuildToolsApi = true, compilerExecutionStrategy = KotlinCompilerExecutionStrategy.DAEMON)
+
+    @Disabled("Doesn't make sense since Build Tools API supports incremental compilation for the in-process mode")
+    override fun testMissingIncrementalState(gradleVersion: GradleVersion) {
+    }
+}
+
+class IncrementalCompilationK2JvmMultiProjectBuildToolsApiInProcessIT : IncrementalCompilationJvmMultiProjectWithoutPreciseBackupIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(runViaBuildToolsApi = true, compilerExecutionStrategy = KotlinCompilerExecutionStrategy.IN_PROCESS)
+
+    @Disabled("Doesn't make sense since Build Tools API supports incremental compilation for the in-process mode")
+    override fun testMissingIncrementalState(gradleVersion: GradleVersion) {
+    }
+}
+
+class IncrementalCompilationK1JvmMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJvmMultiProjectWithoutPreciseBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK1()
 }
 
-class IncrementalCompilationK2JvmMultiProjectWithPreciseBackupIT : IncrementalCompilationJvmMultiProjectWithPreciseBackupIT() {
+class IncrementalCompilationK2JvmMultiProjectWithoutPreciseBackupIT : IncrementalCompilationJvmMultiProjectWithoutPreciseBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK2()
 }
 
@@ -500,8 +518,9 @@ open class IncrementalCompilationOldICJvmMultiProjectIT : IncrementalCompilation
     }
 }
 
-class IncrementalCompilationOldICJvmMultiProjectWithPreciseBackupIT : IncrementalCompilationOldICJvmMultiProjectIT() {
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
+@DisplayName("K/JVM multi-project IC with disabled precise outputs backups and disabled classpath snapshots")
+class IncrementalCompilationOldICJvmMultiProjectWithoutPreciseBackupIT : IncrementalCompilationOldICJvmMultiProjectIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }
 
 abstract class BaseIncrementalCompilationMultiProjectIT : IncrementalCompilationBaseIT() {
@@ -897,7 +916,7 @@ abstract class BaseIncrementalCompilationMultiProjectIT : IncrementalCompilation
 
     @DisplayName("Test compilation when incremental state is missing")
     @GradleTest
-    fun testMissingIncrementalState(gradleVersion: GradleVersion) {
+    open fun testMissingIncrementalState(gradleVersion: GradleVersion) {
         defaultProject(gradleVersion) {
             // Perform the first non-incremental build without using Kotlin daemon so that incremental state is not produced
             build(

@@ -197,25 +197,18 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
         val freeCompilerArgs = parseFreeCompilerArgs(registeredDirectives, location)
         val expectedTimeoutFailure = parseExpectedTimeoutFailure(registeredDirectives)
 
-        val testKind = parseTestKind(registeredDirectives, location).let { testKind ->
-            if (testKind == TestKind.REGULAR && settings.get<ForcedStandaloneTestKind>().value)
-                TestKind.STANDALONE
-            else
-                testKind
-        }
+        val testKind = parseTestKind(registeredDirectives, location) ?: settings.get<TestKind>()
 
         if (testKind == TestKind.REGULAR) {
             // Fix package declarations to avoid unintended conflicts between symbols with the same name in different test cases.
             fixPackageNames(testModules.values, nominalPackageName, testDataFile)
         }
 
-        val lldbSpec = if (testKind == TestKind.STANDALONE_LLDB)
-            parseLLDBSpec(
-                baseDir = testDataFile.parentFile,
-                registeredDirectives,
-                location
-            )
-        else null
+        val lldbSpec = if (testKind == TestKind.STANDALONE_LLDB) parseLLDBSpec(testDataFile, registeredDirectives, settings) else null
+
+        val outputMatcher = lldbSpec?.let {
+            OutputMatcher(Output.STDOUT) { output -> lldbSpec.checkLLDBOutput(output, settings.get()) }
+        } ?: parseOutputRegex(registeredDirectives)
 
         val testCase = TestCase(
             id = TestCaseId.TestDataFile(testDataFile),
@@ -227,13 +220,15 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
                 computeExecutionTimeoutCheck(settings, expectedTimeoutFailure),
                 computeExitCodeCheck(testKind, registeredDirectives, location),
                 computeOutputDataFileCheck(testDataFile, registeredDirectives, location),
-                lldbSpec?.let { OutputMatcher { output -> lldbSpec.checkLLDBOutput(output, settings.get()) } }
+                outputMatcher,
+                fileCheckMatcher = null,
             ),
             extras = when (testKind) {
                 TestKind.STANDALONE_NO_TR -> {
                     NoTestRunnerExtras(
                         entryPoint = parseEntryPoint(registeredDirectives, location),
-                        inputDataFile = parseInputDataFile(baseDir = testDataFile.parentFile, registeredDirectives, location)
+                        inputDataFile = parseInputDataFile(baseDir = testDataFile.parentFile, registeredDirectives, location),
+                        arguments = parseProgramArguments(registeredDirectives)
                     )
                 }
                 TestKind.REGULAR, TestKind.STANDALONE -> {

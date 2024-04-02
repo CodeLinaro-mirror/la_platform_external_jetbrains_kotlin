@@ -11,35 +11,28 @@ import org.gradle.api.Task
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.language.base.plugins.LifecycleBasePlugin
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsOptions
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.*
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptionsDefault
 import org.jetbrains.kotlin.gradle.plugin.AbstractKotlinTargetConfigurator.Companion.runTaskNameSuffix
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation.Companion.MAIN_COMPILATION_NAME
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.plugin.KotlinTargetComponent
+import org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.targets.js.JsAggregatingExecutionSource
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsReportAggregatingTestRun
-import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
+import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTestRunFactory
 import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
 import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
 import org.jetbrains.kotlin.gradle.targets.js.dsl.*
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetConfigurator.Companion.configureJsDefaultOptions
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmResolverPlugin
-import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.typescript.TypeScriptValidationTask
 import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.*
-import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
-import org.jetbrains.kotlin.gradle.utils.decamelize
-import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
-import org.jetbrains.kotlin.gradle.utils.newInstance
-import org.jetbrains.kotlin.gradle.utils.setProperty
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -51,7 +44,6 @@ abstract class KotlinJsIrTarget
 constructor(
     project: Project,
     platformType: KotlinPlatformType,
-    internal val mixedMode: Boolean,
 ) :
     KotlinTargetWithBinaries<KotlinJsIrCompilation, KotlinJsBinaryContainer>(project, platformType),
     KotlinTargetWithTests<JsAggregatingExecutionSource, KotlinJsReportAggregatingTestRun>,
@@ -62,16 +54,15 @@ constructor(
     KotlinWasmSubTargetContainerDsl {
 
     private val propertiesProvider = PropertiesProvider(project)
-    override lateinit var testRuns: NamedDomainObjectContainer<KotlinJsReportAggregatingTestRun>
-        internal set
+
+    override val testRuns: NamedDomainObjectContainer<KotlinJsReportAggregatingTestRun> by lazy {
+        project.container(KotlinJsReportAggregatingTestRun::class.java, KotlinJsTestRunFactory(this))
+    }
 
     open var isMpp: Boolean? = null
         internal set
 
     override var wasmTargetType: KotlinWasmTargetType? = null
-        internal set
-
-    var legacyTarget: KotlinJsTarget? = null
         internal set
 
     override var moduleName: String? = null
@@ -83,7 +74,7 @@ constructor(
         }
 
     override val kotlinComponents: Set<KotlinTargetComponent> by lazy {
-        val mainCompilation = compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
+        val mainCompilation = compilations.getByName(MAIN_COMPILATION_NAME)
         val usageContexts = createUsageContexts(mainCompilation).toMutableSet()
 
         val componentName =
@@ -117,7 +108,7 @@ constructor(
     override fun createUsageContexts(producingCompilation: KotlinCompilation<*>): Set<DefaultKotlinUsageContext> {
         val usageContexts = super.createUsageContexts(producingCompilation)
 
-        if (isMpp!! || mixedMode) return usageContexts
+        if (isMpp!!) return usageContexts
 
         return usageContexts +
                 DefaultKotlinUsageContext(
@@ -130,19 +121,9 @@ constructor(
 
     internal val commonFakeApiElementsConfigurationName: String
         get() = lowerCamelCaseName(
-            if (mixedMode)
-                disambiguationClassifierInPlatform
-            else
-                disambiguationClassifier,
+            disambiguationClassifier,
             "commonFakeApiElements"
         )
-
-    val disambiguationClassifierInPlatform: String?
-        get() = if (mixedMode) {
-            disambiguationClassifier?.removeJsCompilerSuffix(KotlinJsCompilerType.IR)
-        } else {
-            disambiguationClassifier
-        }
 
     override val binaries: KotlinJsBinaryContainer
         get() = compilations.withType(KotlinJsIrCompilation::class.java)
@@ -169,7 +150,7 @@ constructor(
             compilation.binaries
                 .withType(JsIrBinary::class.java)
                 .all { binary ->
-                    val syncTask = registerCompileSync(binary)
+                    val syncTask = binary.linkSyncTask
                     binaryenReplaceInput[binary]?.invoke()
                     val tsValidationTask = registerTypeScriptCheckTask(binary)
 
@@ -186,25 +167,6 @@ constructor(
     }
 
     private val commonLazy by commonLazyDelegate
-
-    private fun registerCompileSync(binary: JsIrBinary): TaskProvider<DefaultIncrementalSyncTask> {
-        val compilation = binary.compilation
-        val npmProject = compilation.npmProject
-
-        return project.registerTask<DefaultIncrementalSyncTask>(
-            binary.linkSyncTaskName
-        ) { task ->
-            task.from.from(
-                binary.linkTask.flatMap { linkTask ->
-                    linkTask.destinationDirectory.map { it.asFile }
-                }
-            )
-
-            task.from.from(project.tasks.named(compilation.processResourcesTaskName))
-
-            task.destinationDirectory.set(npmProject.dist)
-        }
-    }
 
     private fun registerTypeScriptCheckTask(binary: JsIrBinary): TaskProvider<TypeScriptValidationTask> {
         val linkTask = binary.linkTask
@@ -298,7 +260,7 @@ constructor(
 
             whenNodejsConfigured {
                 testTask {
-                    val name = binary.linkTask.flatMap { it.outputFileProperty.map { it.name } }
+                    val name = binary.mainFileName
                     it.inputFileProperty.fileProvider(
                         binaryenExec.flatMap { it.outputFileProperty.map { it.asFile.parentFile.resolve(name.get()) } }
                     )
@@ -426,7 +388,7 @@ constructor(
         compilations.all {
             it.kotlinOptions.configureCommonJsOptions()
 
-            binaries
+            it.binaries
                 .withType(JsIrBinary::class.java)
                 .all {
                     it.linkTask.configure { linkTask ->
@@ -440,7 +402,7 @@ constructor(
         compilations.all {
             it.kotlinOptions.configureEsModulesOptions()
 
-            binaries
+            it.binaries
                 .withType(JsIrBinary::class.java)
                 .all {
                     it.linkTask.configure { linkTask ->
@@ -449,6 +411,20 @@ constructor(
                 }
         }
 
+    }
+
+    @ExperimentalMainFunctionArgumentsDsl
+    override fun passAsArgumentToMainFunction(jsExpression: String) {
+        compilations
+            .all {
+                it.binaries
+                    .withType(JsIrBinary::class.java)
+                    .all {
+                        it.linkTask.configure { linkTask ->
+                            linkTask.compilerOptions.freeCompilerArgs.add("-Xplatform-arguments-in-main-function=$jsExpression")
+                        }
+                    }
+            }
     }
 
     private fun KotlinJsOptions.configureCommonJsOptions() {
@@ -477,14 +453,11 @@ constructor(
             }
     }
 
-    @Suppress("RedundantVisibilityModifier")
     @ExperimentalKotlinGradlePluginApi
-    internal override val compilerOptions: KotlinJsCompilerOptions = project.objects
+    override val compilerOptions: KotlinJsCompilerOptions = project.objects
         .newInstance<KotlinJsCompilerOptionsDefault>()
         .apply {
-            configureJsDefaultOptions(platformType)
-
-            freeCompilerArgs.add(DISABLE_PRE_IR)
+            configureJsDefaultOptions()
         }
 }
 

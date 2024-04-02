@@ -13,8 +13,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.appendText
+import java.nio.file.attribute.PosixFilePermission
+import kotlin.io.path.*
+
 
 @OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
 @DisplayName("Tests for K/N with Apple Framework")
@@ -28,30 +29,42 @@ class AppleFrameworkIT : KGPBaseTest() {
     fun shouldAssembleAppleFrameworkForXcodeForIosArm64(
         gradleVersion: GradleVersion,
     ) {
-
         nativeProject(
             "sharedAppleFramework",
             gradleVersion,
-            buildOptions = defaultBuildOptions,
-            environmentVariables = EnvironmentalVariables(
+        ) {
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
                 "SDK_NAME" to "iphoneos123",
                 "ARCHS" to "arm64",
                 "TARGET_BUILD_DIR" to "no use",
-                "FRAMEWORKS_FOLDER_PATH" to "no use"
-            ),
-        ) {
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/builtProductsDir").toString(),
+            )
 
-            build("assembleDebugAppleFrameworkForXcodeIosArm64") {
+            build("assembleDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
-                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework")
-                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework.dSYM")
+                assertDirectoryInProjectExists("shared/build/builtProductsDir/sdk.framework")
+                assertDirectoryInProjectExists("shared/build/builtProductsDir/sdk.framework.dSYM")
+                assertDirectoryInProjectDoesNotExist("shared/build/xcode-frameworks/sdk.framework")
             }
 
-            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64") {
+            build("clean")
+
+            build("assembleDebugAppleFrameworkForXcodeIosArm64", "-Pkotlin.apple.copyFrameworkToBuiltProductsDir=false", environmentVariables = environmentVariables) {
+                assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
+
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework")
+                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/sdk.framework.dSYM")
+
+                assertDirectoryInProjectDoesNotExist("shared/build/builtProductsDir/sdk.framework")
+
+            }
+
+            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64")
-                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/lib.framework")
-                assertDirectoryInProjectExists("shared/build/xcode-frameworks/debug/iphoneos123/lib.framework.dSYM")
+                assertDirectoryInProjectExists("shared/build/builtProductsDir/lib.framework")
+                assertDirectoryInProjectExists("shared/build/builtProductsDir/lib.framework.dSYM")
             }
         }
     }
@@ -68,14 +81,15 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
             buildOptions = defaultBuildOptions
         ) {
-            val environmentVariables = mapOf(
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "Release",
                 "SDK_NAME" to "iphonesimulator",
                 "ARCHS" to "arm64 x86_64",
                 "TARGET_BUILD_DIR" to "no use",
-                "FRAMEWORKS_FOLDER_PATH" to "no use"
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/Release/iphonesimulator").toString(),
             )
-            build("assembleReleaseAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+            build("assembleReleaseAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:linkReleaseFrameworkIosSimulatorArm64")
                 assertTasksExecuted(":shared:linkReleaseFrameworkIosX64")
                 assertTasksExecuted(":shared:assembleReleaseAppleFrameworkForXcode")
@@ -97,15 +111,16 @@ class AppleFrameworkIT : KGPBaseTest() {
             "sharedAppleFramework",
             gradleVersion,
         ) {
-            val environmentVariables = mapOf(
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
                 "SDK_NAME" to "macosx",
                 "ARCHS" to "x86_64",
                 "EXPANDED_CODE_SIGN_IDENTITY" to "-",
                 "TARGET_BUILD_DIR" to testBuildDir.toString(),
-                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/debug/macosx").toString(),
             )
-            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeMacosX64")
                 assertSymlinkInProjectExists("shared/build/xcode-frameworks/debug/macosx/sdk.framework/Headers")
                 assertSymlinkExists(testBuildDir.resolve("build/xcode-derived/sdk.framework/Headers"))
@@ -124,14 +139,15 @@ class AppleFrameworkIT : KGPBaseTest() {
             "sharedAppleFramework",
             gradleVersion,
         ) {
-            val environmentVariables = mapOf(
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
                 "SDK_NAME" to "iphoneos",
                 "ARCHS" to "arm64",
                 "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
-                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
-            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertDirectoryInProjectExists("build/xcode-derived/sdk.framework")
             }
         }
@@ -148,15 +164,16 @@ class AppleFrameworkIT : KGPBaseTest() {
             "sharedAppleFramework",
             gradleVersion,
         ) {
-            val environmentVariables = mapOf(
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
                 "SDK_NAME" to "iphoneos",
                 "ARCHS" to "arm64",
                 "EXPANDED_CODE_SIGN_IDENTITY" to "-",
                 "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
-                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived"
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
-            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = EnvironmentalVariables(environmentVariables)) {
+            build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertDirectoryInProjectExists("build/xcode-derived/sdk.framework")
                 assertDirectoryInProjectDoesNotExist("build/xcode-derived/sdk.framework.DSYM")
             }
@@ -186,13 +203,14 @@ class AppleFrameworkIT : KGPBaseTest() {
             "sharedAppleFramework",
             gradleVersion,
         ) {
-            val environmentVariables = mapOf(
+            val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "Debug",
                 "SDK_NAME" to "iphoneos",
                 "ARCHS" to "arm64",
                 "EXPANDED_CODE_SIGN_IDENTITY" to "-",
                 "TARGET_BUILD_DIR" to testBuildDir.toString(),
-                "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir"
+                "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
             buildAndAssertAllTasks(
                 registeredTasks = listOf(
@@ -207,8 +225,67 @@ class AppleFrameworkIT : KGPBaseTest() {
                     "shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
                     "shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
                 ),
-                environmentVariables = EnvironmentalVariables(environmentVariables)
+                environmentVariables = environmentVariables
             )
+        }
+    }
+
+    @DisplayName("embedAndSignAppleFrameworkForXcode was registered with ENABLE_USER_SCRIPT_SANDBOXING=YES")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldFailEmbedAndSignAppleFrameworkForXcodeWithUserScriptSandboxingEnabled(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "Debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "EXPANDED_CODE_SIGN_IDENTITY" to "-",
+                "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
+                "ENABLE_USER_SCRIPT_SANDBOXING" to "YES",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
+            )
+            buildAndFail(
+                ":shared:embedAndSignAppleFrameworkForXcode",
+                environmentVariables = EnvironmentalVariables(environmentVariables)
+            ) {
+                assertTasksFailed(":shared:checkSandboxAndWriteProtection")
+                assertOutputContains("You have sandboxing for user scripts enabled.")
+            }
+        }
+    }
+
+    @DisplayName("embedAndSignAppleFrameworkForXcode was registered with missing BUILT_PRODUCTS_DIR directory")
+    @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTest
+    fun shouldFailEmbedAndSignAppleFrameworkForXcodeWithMissingBuildProductsDir(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject(
+            "sharedAppleFramework",
+            gradleVersion,
+        ) {
+            val environmentVariables = mapOf(
+                "CONFIGURATION" to "Debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "EXPANDED_CODE_SIGN_IDENTITY" to "-",
+                "TARGET_BUILD_DIR" to projectPath.absolutePathString(),
+                "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir(true).absolutePathString(),
+            )
+            buildAndFail(
+                ":shared:embedAndSignAppleFrameworkForXcode",
+                environmentVariables = EnvironmentalVariables(environmentVariables)
+            ) {
+                assertTasksFailed(":shared:checkSandboxAndWriteProtection")
+                assertOutputContains("BUILT_PRODUCTS_DIR is not accessible, probably you have sandboxing for user scripts enabled.")
+            }
         }
     }
 
@@ -223,16 +300,16 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "Debug",
-                    "SDK_NAME" to "iphoneos",
-                    "ARCHS" to "arm64"
-                )
+                "CONFIGURATION" to "Debug",
+                "SDK_NAME" to "iphoneos",
+                "ARCHS" to "arm64",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
+
             buildAndAssertAllTasks(
                 registeredTasks = listOf(
                     "shared:embedAndSignAppleFrameworkForXcode",
-                    "shared:embedAndSignCustomAppleFrameworkForXcode"
+                    "shared:embedAndSignCustomAppleFrameworkForXcode",
                 ),
                 notRegisteredTasks = listOf(
                     "shared:assembleReleaseAppleFrameworkForXcodeIosX64",
@@ -242,9 +319,9 @@ class AppleFrameworkIT : KGPBaseTest() {
                     "shared:assembleCustomDebugAppleFrameworkForXcodeIosX64",
                     "shared:assembleCustomReleaseAppleFrameworkForXcodeIosX64",
                     "shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64",
-                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64"
+                    "shared:assembleCustomReleaseAppleFrameworkForXcodeIosArm64",
                 ),
-                environmentVariables = environmentVariables
+                environmentVariables = environmentVariables,
             )
             buildAndFail(
                 ":shared:embedAndSignCustomAppleFrameworkForXcode",
@@ -269,13 +346,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/debug/iphoneos123").toString(),
             )
 
             subProject("shared").buildGradleKts.modify {
@@ -305,13 +381,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
 
             subProject("shared").buildGradleKts.appendText(
@@ -341,13 +416,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
 
             projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
@@ -371,13 +445,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
 
             projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
@@ -401,13 +474,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
 
             projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
@@ -435,13 +507,12 @@ class AppleFrameworkIT : KGPBaseTest() {
             gradleVersion,
         ) {
             val environmentVariables = EnvironmentalVariables(
-                mapOf(
-                    "CONFIGURATION" to "debug",
-                    "SDK_NAME" to "iphoneos123",
-                    "ARCHS" to "arm64",
-                    "TARGET_BUILD_DIR" to "no use",
-                    "FRAMEWORKS_FOLDER_PATH" to "no use"
-                )
+                "CONFIGURATION" to "debug",
+                "SDK_NAME" to "iphoneos123",
+                "ARCHS" to "arm64",
+                "TARGET_BUILD_DIR" to "no use",
+                "FRAMEWORKS_FOLDER_PATH" to "no use",
+                "BUILT_PRODUCTS_DIR" to iosBuildProductsDir().absolutePathString(),
             )
 
             projectPath.resolve("shared/src/commonMain/kotlin/com/github/jetbrains/myapplication/Greeting.kt")
@@ -504,5 +575,18 @@ class AppleFrameworkIT : KGPBaseTest() {
                 assertOutputDoesNotContain("mainStaticReleaseFrameworkIos")
             }
         }
+    }
+}
+
+private val GradleProject.darwinBuildProductsDir: Path
+    get() = projectPath.resolve("DerivedSources").apply {
+        if (notExists()) {
+            createDirectory()
+        }
+    }
+
+private fun GradleProject.iosBuildProductsDir(writeProtected: Boolean = false): Path = darwinBuildProductsDir.apply {
+    if (writeProtected) {
+        setPosixFilePermissions(setOf(PosixFilePermission.OWNER_READ))
     }
 }

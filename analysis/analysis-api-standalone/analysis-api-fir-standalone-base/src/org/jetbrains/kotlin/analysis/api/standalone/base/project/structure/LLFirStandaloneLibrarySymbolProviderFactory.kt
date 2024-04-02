@@ -5,28 +5,36 @@
 
 package org.jetbrains.kotlin.analysis.api.standalone.base.project.structure
 
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirLibrarySymbolProviderFactory
 import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirModuleData
 import org.jetbrains.kotlin.analysis.project.structure.KtLibraryModule
-import org.jetbrains.kotlin.backend.common.CommonKLibResolver
 import org.jetbrains.kotlin.fir.BinaryModuleData
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.deserialization.SingleModuleDataProvider
 import org.jetbrains.kotlin.fir.java.FirJavaFacade
 import org.jetbrains.kotlin.fir.java.deserialization.JvmClassFileBasedSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.impl.FirBuiltinSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.session.KlibBasedSymbolProvider
 import org.jetbrains.kotlin.fir.session.MetadataSymbolProvider
 import org.jetbrains.kotlin.fir.session.NativeForwardDeclarationsSymbolProvider
+import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.library.KotlinLibrary
+import org.jetbrains.kotlin.library.ToolingSingleFileKlibResolveStrategy
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
 import org.jetbrains.kotlin.load.kotlin.PackageAndMetadataPartProvider
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
-import org.jetbrains.kotlin.util.DummyLogger
+import java.lang.IllegalStateException
+import java.nio.file.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.extension
+import kotlin.io.path.isDirectory
+import org.jetbrains.kotlin.util.Logger as KLogger
 
 class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) : LLFirLibrarySymbolProviderFactory() {
     override fun createJvmLibrarySymbolProvider(
@@ -37,6 +45,7 @@ class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) 
         firJavaFacade: FirJavaFacade,
         packagePartProvider: PackagePartProvider,
         scope: GlobalSearchScope,
+        isFallbackDependenciesProvider: Boolean,
     ): List<FirSymbolProvider> {
         return listOf(
             JvmClassFileBasedSymbolProvider(
@@ -57,16 +66,23 @@ class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) 
         moduleDataProvider: SingleModuleDataProvider,
         packagePartProvider: PackagePartProvider,
         scope: GlobalSearchScope,
+        isFallbackDependenciesProvider: Boolean,
     ): List<FirSymbolProvider> {
-        return listOf(
-            MetadataSymbolProvider(
-                session,
-                moduleDataProvider,
-                kotlinScopeProvider,
-                packagePartProvider as PackageAndMetadataPartProvider,
-                VirtualFileFinderFactory.getInstance(project).create(scope),
+        return buildList {
+            add(
+                MetadataSymbolProvider(
+                    session,
+                    moduleDataProvider,
+                    kotlinScopeProvider,
+                    packagePartProvider as PackageAndMetadataPartProvider,
+                    VirtualFileFinderFactory.getInstance(project).create(scope),
+                )
             )
-        )
+            val kLibs = moduleData.getLibraryKLibs()
+            if (kLibs.isNotEmpty()) {
+                add(KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, kLibs))
+            }
+        }
     }
 
     override fun createNativeLibrarySymbolProvider(
@@ -75,6 +91,7 @@ class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) 
         kotlinScopeProvider: FirKotlinScopeProvider,
         moduleDataProvider: SingleModuleDataProvider,
         scope: GlobalSearchScope,
+        isFallbackDependenciesProvider: Boolean,
     ): List<FirSymbolProvider> {
         val forwardDeclarationsModuleData = BinaryModuleData.createDependencyModuleData(
             FORWARD_DECLARATIONS_MODULE_NAME,
@@ -96,6 +113,7 @@ class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) 
         kotlinScopeProvider: FirKotlinScopeProvider,
         moduleDataProvider: SingleModuleDataProvider,
         scope: GlobalSearchScope,
+        isFallbackDependenciesProvider: Boolean,
     ): List<FirSymbolProvider> {
         val kLibs = moduleData.getLibraryKLibs()
 
@@ -104,13 +122,56 @@ class LLFirStandaloneLibrarySymbolProviderFactory(private val project: Project) 
         )
     }
 
+    override fun createBuiltinsSymbolProvider(
+        session: FirSession,
+        moduleData: LLFirModuleData,
+        kotlinScopeProvider: FirKotlinScopeProvider,
+    ): List<FirSymbolProvider> {
+        return listOf(
+            FirBuiltinSymbolProvider(session, moduleData, kotlinScopeProvider)
+        )
+    }
+
 
     private fun LLFirModuleData.getLibraryKLibs(): List<KotlinLibrary> {
         val ktLibraryModule = ktModule as? KtLibraryModule ?: return emptyList()
-        val resolveResult = CommonKLibResolver.resolve(
-            ktLibraryModule.getBinaryRoots().map { it.toString() },
-            DummyLogger
-        )
-        return resolveResult.getFullResolvedList().map { it.library }
+
+        return ktLibraryModule.getBinaryRoots()
+            .filter { it.isDirectory() || it.extension == KLIB_FILE_EXTENSION }
+            .mapNotNull { it.tryResolveAsKLib() }
+    }
+
+    private fun Path.tryResolveAsKLib(): KotlinLibrary? {
+        return try {
+            val konanFile = org.jetbrains.kotlin.konan.file.File(absolutePathString())
+            ToolingSingleFileKlibResolveStrategy.tryResolve(konanFile, IntellijLogBasedLogger)
+        } catch (e: Exception) {
+            LOG.warn("Cannot resolve a KLib $this", e)
+            null
+        }
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(LLFirStandaloneLibrarySymbolProviderFactory::class.java)
+    }
+
+    private object IntellijLogBasedLogger : KLogger {
+        override fun log(message: String) {
+            LOG.info(message)
+        }
+
+        override fun error(message: String) {
+            LOG.error(message)
+        }
+
+        override fun warning(message: String) {
+            LOG.warn(message)
+        }
+
+        @Deprecated(KLogger.FATAL_DEPRECATION_MESSAGE, ReplaceWith(KLogger.FATAL_REPLACEMENT))
+        override fun fatal(message: String): Nothing {
+            throw IllegalStateException(message)
+        }
     }
 }
+

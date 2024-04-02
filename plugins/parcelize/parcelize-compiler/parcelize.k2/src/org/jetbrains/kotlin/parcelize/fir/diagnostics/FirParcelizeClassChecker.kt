@@ -6,15 +6,17 @@
 package org.jetbrains.kotlin.parcelize.fir.diagnostics
 
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategies
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.resolve.isSubclassOf
 import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -28,7 +30,7 @@ import org.jetbrains.kotlin.parcelize.ParcelizeNames.PARCELIZE_CLASS_CLASS_IDS
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
-object FirParcelizeClassChecker : FirClassChecker() {
+object FirParcelizeClassChecker : FirClassChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
         checkParcelableClass(declaration, context, reporter)
         checkParcelerClass(declaration, context, reporter)
@@ -95,16 +97,14 @@ object FirParcelizeClassChecker : FirClassChecker() {
     }
 
     private fun checkParcelerClass(klass: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
-        if (klass !is FirRegularClass || klass.isCompanion) return
-        for (superTypeRef in klass.superTypeRefs) {
-            if (superTypeRef.coneType.classId == OLD_PARCELER_ID) {
-                val strategy = if (klass.name == SpecialNames.NO_NAME_PROVIDED) {
-                    SourceElementPositioningStrategies.OBJECT_KEYWORD
-                } else {
-                    SourceElementPositioningStrategies.NAME_IDENTIFIER
-                }
-                reporter.reportOn(klass.source, KtErrorsParcelize.DEPRECATED_PARCELER, context, positioningStrategy = strategy)
+        if (klass !is FirRegularClass || !klass.isCompanion) return
+        if (klass.isSubclassOf(OLD_PARCELER_ID.toLookupTag(), context.session, isStrict = true)) {
+            val strategy = if (klass.name == SpecialNames.NO_NAME_PROVIDED) {
+                SourceElementPositioningStrategies.OBJECT_KEYWORD
+            } else {
+                SourceElementPositioningStrategies.NAME_IDENTIFIER
             }
+            reporter.reportOn(klass.source, KtErrorsParcelize.DEPRECATED_PARCELER, context, positioningStrategy = strategy)
         }
     }
 }
@@ -116,10 +116,27 @@ fun FirClassSymbol<*>?.isParcelize(session: FirSession): Boolean {
     }
 
     if (this == null) return false
-    if (this.annotations.any { it.toAnnotationClassId(session) in PARCELIZE_CLASS_CLASS_IDS }) return true
-    return resolvedSuperTypeRefs.any { superTypeRef ->
-        val symbol = superTypeRef.type.fullyExpandedType(session).toRegularClassSymbol(session) ?: return@any false
+    return checkParcelizeClassSymbols(this, session) { symbol ->
         symbol.annotations.any { it.toAnnotationClassId(session) in PARCELIZE_CLASS_CLASS_IDS }
+    }
+}
+
+/**
+ * Check all related [FirClassSymbol]s to the provided [symbol] which are valid locations for a
+ * `Parcelize` annotation to be present. This commonizes class symbol navigation between checker and
+ * generator, even though [predicate] implementation is different.
+ */
+inline fun checkParcelizeClassSymbols(
+    symbol: FirClassSymbol<*>,
+    session: FirSession,
+    predicate: (FirClassSymbol<*>) -> Boolean,
+): Boolean {
+    if (predicate(symbol)) return true
+    return symbol.resolvedSuperTypeRefs.any { superTypeRef ->
+        val superTypeSymbol = superTypeRef.type.toRegularClassSymbol(session)
+            ?.takeIf { it.rawStatus.modality == Modality.SEALED }
+            ?: return@any false
+        predicate(superTypeSymbol)
     }
 }
 

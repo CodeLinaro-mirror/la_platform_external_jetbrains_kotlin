@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.backend.jvm
 
-import org.jetbrains.kotlin.backend.common.lower.parents
+import org.jetbrains.kotlin.ir.util.parents
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.MultiFieldValueClassMapping
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.RegularMapping
 import org.jetbrains.kotlin.backend.jvm.ir.*
@@ -387,8 +387,7 @@ class MemoizedMultiFieldValueClassReplacements(
 
     private val IrProperty.backingFieldIfNotToRemove get() = backingField?.takeUnless { it in getFieldsToRemove(this.parentAsClass) }
 
-    @Suppress("ClassName")
-    private object FLATTENED_NOTHING_DEFAULT_VALUE : IrStatementOriginImpl("FLATTENED_NOTHING_DEFAULT_VALUE")
+    private val FLATTENED_NOTHING_DEFAULT_VALUE by IrStatementOriginImpl
 
     fun mapFunctionMfvcStructures(
         irBuilder: IrBlockBuilder,
@@ -466,7 +465,6 @@ class MemoizedMultiFieldValueClassReplacements(
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun verifyStructureCompatibility(
         targetStructure: List<RemappedParameter>,
         sourceStructure: List<RemappedParameter>

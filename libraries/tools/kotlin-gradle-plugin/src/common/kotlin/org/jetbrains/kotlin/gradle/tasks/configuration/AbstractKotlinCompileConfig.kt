@@ -55,6 +55,8 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
             task.localStateDirectories.from(task.taskBuildLocalStateDirectory).disallowChanges()
             task.systemPropertiesService.value(compilerSystemPropertiesService).disallowChanges()
 
+            task.kotlinCompilerArgumentsLogLevel.value(propertiesProvider.kotlinCompilerArgumentsLogLevel).disallowChanges()
+
             propertiesProvider.kotlinDaemonJvmArgs?.let { kotlinDaemonJvmArgs ->
                 task.kotlinDaemonJvmArguments.set(providers.provider {
                     kotlinDaemonJvmArgs.split("\\s+".toRegex())
@@ -78,18 +80,14 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
             task.taskOutputsBackupExcludes.addAll(task.keepIncrementalCompilationCachesInMemory.map {
                 if (it) listOf(task.taskBuildCacheableOutputDirectory.get().asFile) else emptyList()
             })
-            task.suppressExperimentalIcOptimizationsWarning
-                .convention(propertiesProvider.suppressExperimentalICOptimizationsWarning)
+            task.enableUnsafeIncrementalCompilationForMultiplatform
+                .convention(propertiesProvider.enableUnsafeOptimizationsForMultiplatform)
                 .finalizeValueOnRead()
             task.buildFinishedListenerService.value(buildFinishedListenerService).disallowChanges()
             task.buildIdService.value(buildIdService).disallowChanges()
 
             task.incremental = false
             task.useModuleDetection.convention(false)
-            if (propertiesProvider.useK2 == true) {
-                @Suppress("DEPRECATION")
-                task.compilerOptions.useK2.value(true)
-            }
             task.runViaBuildToolsApi.convention(propertiesProvider.runKotlinCompilerViaBuildToolsApi).finalizeValueOnRead()
             task.classLoadersCachingService.value(cachedClassLoadersService).disallowChanges()
 

@@ -16,19 +16,18 @@ import org.jetbrains.kotlin.gradle.PRESETS_API_IS_DEPRECATED_MESSAGE
 import org.jetbrains.kotlin.gradle.internal.syncCommonOptions
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinPluginLifecycle.Stage.AfterFinaliseDsl
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.reportDiagnostic
 import org.jetbrains.kotlin.gradle.plugin.hierarchy.KotlinHierarchyDslImpl
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.targets.android.internal.InternalKotlinTargetPreset
 import org.jetbrains.kotlin.gradle.targets.android.internal.internal
-import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryK2
+import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryNext
 import org.jetbrains.kotlin.gradle.utils.newInstance
 import javax.inject.Inject
 
 @Suppress("DEPRECATION")
-@KotlinGradlePluginDsl
+@KotlinGradlePluginPublicDsl
 abstract class KotlinMultiplatformExtension
 @InternalKotlinGradlePluginApi constructor(project: Project) :
     KotlinProjectExtension(project),
@@ -37,6 +36,7 @@ abstract class KotlinMultiplatformExtension
     KotlinTargetContainerWithWasmPresetFunctions,
     KotlinTargetContainerWithNativeShortcuts,
     KotlinHierarchyDsl,
+    HasConfigurableCompilerOptions<KotlinCommonCompilerOptions>,
     KotlinMultiplatformSourceSetConventions by KotlinMultiplatformSourceSetConventionsImpl {
     @Deprecated(
         PRESETS_API_IS_DEPRECATED_MESSAGE,
@@ -46,12 +46,13 @@ abstract class KotlinMultiplatformExtension
 
     final override val targets: NamedDomainObjectCollection<KotlinTarget> = project.container(KotlinTarget::class.java)
 
+    @Deprecated("Because only IR compiler is left, no more necessary to know about compiler type in properties")
+    override val compilerTypeFromProperties: KotlinJsCompilerType? = null
+
     internal suspend fun awaitTargets(): NamedDomainObjectCollection<KotlinTarget> {
         AfterFinaliseDsl.await()
         return targets
     }
-
-    override val compilerTypeFromProperties: KotlinJsCompilerType? = project.kotlinPropertiesProvider.jsCompiler
 
     private val presetExtension = project.objects.newInstance(
         DefaultTargetsFromPresetExtension::class.java,
@@ -153,7 +154,7 @@ abstract class KotlinMultiplatformExtension
 
     fun metadata(configure: KotlinOnlyTarget<KotlinMetadataCompilation<*>>.() -> Unit = { }): KotlinOnlyTarget<KotlinMetadataCompilation<*>> =
         @Suppress("UNCHECKED_CAST")
-        (targets.getByName(KotlinMultiplatformPlugin.METADATA_TARGET_NAME) as KotlinOnlyTarget<KotlinMetadataCompilation<*>>).also(configure)
+        (targets.getByName(KotlinMetadataTarget.METADATA_TARGET_NAME) as KotlinOnlyTarget<KotlinMetadataCompilation<*>>).also(configure)
 
     fun metadata(configure: Action<KotlinOnlyTarget<KotlinMetadataCompilation<*>>>) = metadata { configure.execute(this) }
 
@@ -244,26 +245,16 @@ abstract class KotlinMultiplatformExtension
     }
 
     @ExperimentalKotlinGradlePluginApi
-    internal val compilerOptions: KotlinCommonCompilerOptions = project.objects
+    override val compilerOptions: KotlinCommonCompilerOptions = project.objects
         .newInstance<KotlinCommonCompilerOptionsDefault>()
-        .configureExperimentalTryK2(project)
+        .configureExperimentalTryNext(project)
         .also {
             syncCommonOptions(it)
         }
-
-    @ExperimentalKotlinGradlePluginApi
-    internal fun compilerOptions(configure: KotlinCommonCompilerOptions.() -> Unit) {
-        configure(compilerOptions)
-    }
-
-    @ExperimentalKotlinGradlePluginApi
-    internal fun compilerOptions(configure: Action<KotlinCommonCompilerOptions>) {
-        configure.execute(compilerOptions)
-    }
 }
 
 @DeprecatedTargetPresetApi
-@KotlinGradlePluginDsl
+@KotlinGradlePluginPublicDsl
 interface TargetsFromPresetExtension : NamedDomainObjectCollection<KotlinTarget> {
 
     @Deprecated(

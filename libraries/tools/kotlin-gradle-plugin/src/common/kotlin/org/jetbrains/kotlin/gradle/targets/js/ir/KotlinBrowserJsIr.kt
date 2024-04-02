@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle.targets.js.ir
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectSet
 import org.gradle.api.Task
+import org.gradle.api.file.Directory
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -15,7 +16,6 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.JsModuleKind
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.utils.archivesName
 import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalDceDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBrowserDsl
@@ -29,11 +29,11 @@ import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig.Mode
 import org.jetbrains.kotlin.gradle.targets.js.webpack.WebpackDevtool
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
+import org.jetbrains.kotlin.gradle.utils.archivesName
 import org.jetbrains.kotlin.gradle.utils.doNotTrackStateCompat
-import org.jetbrains.kotlin.gradle.utils.newFileProperty
+import org.jetbrains.kotlin.gradle.utils.domainObjectSet
 import org.jetbrains.kotlin.gradle.utils.relativeOrAbsolute
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
-import java.io.File
 import javax.inject.Inject
 
 abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
@@ -42,10 +42,8 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
 
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
 
-    private val webpackTaskConfigurations: DomainObjectSet<Action<KotlinWebpack>> = project.objects.domainObjectSet(Action::class.java)
-            as DomainObjectSet<Action<KotlinWebpack>>
-    private val runTaskConfigurations: DomainObjectSet<Action<KotlinWebpack>> = project.objects.domainObjectSet(Action::class.java)
-            as DomainObjectSet<Action<KotlinWebpack>>
+    private val webpackTaskConfigurations = project.objects.domainObjectSet<Action<KotlinWebpack>>()
+    private val runTaskConfigurations = project.objects.domainObjectSet<Action<KotlinWebpack>>()
 
     override val testTaskDescription: String
         get() = "Run all ${target.name} tests inside browser using karma and webpack"
@@ -53,19 +51,15 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     override fun configureTestDependencies(test: KotlinJsTest) {
         test.dependsOn(
             nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
             nodeJs.nodeJsSetupTaskProvider
         )
+        test.dependsOn(nodeJs.packageManagerExtension.map { it.postInstallTasks })
     }
 
     override fun configureDefaultTestFramework(test: KotlinJsTest) {
         if (test.testFramework == null) {
             test.useKarma {
-                if (compilation.platformType == KotlinPlatformType.wasm) {
-                    useChromeHeadlessWasmGc()
-                } else {
-                    useChromeHeadless()
-                }
+                useChromeHeadless()
             }
         }
 
@@ -81,13 +75,13 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
         runTaskConfigurations.add {
             it.webpackConfigApplier(body)
         }
-        testTask(Action {
+        testTask {
             it.onTestFrameworkSet {
                 if (it is KotlinKarma) {
                     body.execute(it.webpackConfig)
                 }
             }
-        })
+        }
     }
 
     override fun runTask(body: Action<KotlinWebpack>) {
@@ -104,7 +98,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     }
 
     override fun configureRun(
-        compilation: KotlinJsIrCompilation
+        compilation: KotlinJsIrCompilation,
     ) {
         val commonRunTask = registerSubTargetTask<Task>(disambiguateCamelCased(RUN_TASK_NAME)) {}
 
@@ -129,18 +123,23 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                     task.description = "start ${mode.name.toLowerCaseAsciiOnly()} webpack dev server"
 
                     val npmProject = compilation.npmProject
-                    task.devServer = KotlinWebpackConfig.DevServer(
-                        open = true,
-                        static = mutableListOf(
-                            npmProject.dist.normalize().relativeOrAbsolute(npmProject.dir),
-                            compilation.output.resourcesDir.relativeOrAbsolute(npmProject.dir),
-                        ),
-                        client = KotlinWebpackConfig.DevServer.Client(
-                            KotlinWebpackConfig.DevServer.Client.Overlay(
-                                errors = true,
-                                warnings = false
+                    val resourcesDir = compilation.output.resourcesDir
+                    task.devServerProperty.convention(
+                        npmProject.dist.zip(npmProject.dir) { distDirectory, dir ->
+                            KotlinWebpackConfig.DevServer(
+                                open = true,
+                                static = mutableListOf(
+                                    distDirectory.asFile.normalize().relativeOrAbsolute(dir.asFile),
+                                    resourcesDir.relativeOrAbsolute(dir.asFile),
+                                ),
+                                client = KotlinWebpackConfig.DevServer.Client(
+                                    KotlinWebpackConfig.DevServer.Client.Overlay(
+                                        errors = true,
+                                        warnings = false
+                                    )
+                                )
                             )
-                        )
+                        }
                     )
 
                     task.watchOptions = KotlinWebpackConfig.WatchOptions(
@@ -155,7 +154,9 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                     task.commonConfigure(
                         binary = binary,
                         mode = mode,
-                        inputFilesDirectory = task.project.provider { binary.linkSyncTask.get().destinationDirectory.get() },
+                        inputFilesDirectory = task.project.objects.directoryProperty().fileProvider(
+                            task.project.provider { binary.linkSyncTask.get().destinationDirectory.get() },
+                        ),
                         entryModuleName = binary.linkTask.flatMap { it.compilerOptions.moduleName },
                         configurationActions = runTaskConfigurations,
                         nodeJs = nodeJs,
@@ -171,7 +172,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     }
 
     override fun configureBuild(
-        compilation: KotlinJsIrCompilation
+        compilation: KotlinJsIrCompilation,
     ) {
         val project = compilation.target.project
 
@@ -187,31 +188,6 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                 val mode = binary.mode
                 val archivesName = project.archivesName
 
-                val distributeResourcesTask = registerSubTargetTask<Copy>(
-                    disambiguateCamelCased(
-                        binary.name,
-                        DISTRIBUTE_RESOURCES_TASK_NAME
-                    )
-                ) { copy ->
-                    copy.from(processResourcesTask)
-
-                    if (binary.compilation.platformType == KotlinPlatformType.wasm) {
-                        copy.from(
-                            binary.linkSyncTask.flatMap { linkSyncTask ->
-                                linkSyncTask.destinationDirectory.map { destDir ->
-                                    binary.linkTask.map { linkTask ->
-                                        linkTask.compilerOptions.moduleName.map {
-                                            destDir.resolve("$it.wasm")
-                                        }
-                                    }
-                                }
-                            }
-                        )
-                    }
-
-                    copy.into(binary.distribution.directory)
-                }
-
                 val webpackTask = registerSubTargetTask<KotlinWebpack>(
                     disambiguateCamelCased(
                         binary.executeTaskBaseName,
@@ -220,19 +196,22 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                     listOf(compilation)
                 ) { task ->
                     task.description = "build webpack ${mode.name.toLowerCaseAsciiOnly()} bundle"
-                    task.outputDirectory.fileValue(binary.distribution.directory).finalizeValueOnRead()
-
-
-                    task.dependsOn(
-                        distributeResourcesTask
-                    )
+                    val buildDirectory = project.layout.buildDirectory
+                    val targetName = target.name
+                    task.outputDirectory.convention(
+                        binary.distribution.distributionName.flatMap {
+                            buildDirectory.dir("kotlin-webpack/$targetName/$it")
+                        }
+                    ).finalizeValueOnRead()
 
                     task.dependsOn(binary.linkSyncTask)
 
                     task.commonConfigure(
                         binary = binary,
                         mode = mode,
-                        inputFilesDirectory = task.project.provider { binary.linkSyncTask.get().destinationDirectory.get() },
+                        inputFilesDirectory = task.project.objects.directoryProperty().fileProvider(
+                            task.project.provider { binary.linkSyncTask.get().destinationDirectory.get() },
+                        ),
                         entryModuleName = binary.linkTask.flatMap { it.compilerOptions.moduleName },
                         configurationActions = webpackTaskConfigurations,
                         nodeJs = nodeJs,
@@ -240,16 +219,29 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
                     )
                 }
 
-                val distributionTask = registerSubTargetTask<Task>(
+                val distributionTask = registerSubTargetTask<Copy>(
                     disambiguateCamelCased(
                         if (binary.mode == KotlinJsBinaryMode.PRODUCTION) "" else binary.name,
                         DISTRIBUTION_TASK_NAME
                     )
-                ) {
-                    it.dependsOn(webpackTask)
-                    it.dependsOn(distributeResourcesTask)
+                ) { copy ->
+                    copy.from(processResourcesTask)
+                    copy.from(webpackTask.flatMap { it.outputDirectory })
 
-                    it.outputs.dir(project.newFileProperty { binary.distribution.directory })
+                    if (binary.compilation.platformType == KotlinPlatformType.wasm) {
+                        copy.from(
+                            binary.linkSyncTask.zip(binary.linkTask) { linkSyncTask, linkTask ->
+                                val moduleNameProvider = linkTask.compilerOptions.moduleName
+                                linkSyncTask.destinationDirectory.zip(moduleNameProvider) { destDir, moduleName ->
+                                    moduleName.map {
+                                        destDir.resolve("$it.wasm")
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    copy.into(binary.distribution.outputDirectory)
                 }
 
                 if (mode == KotlinJsBinaryMode.PRODUCTION) {
@@ -266,7 +258,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     private fun KotlinWebpack.commonConfigure(
         binary: JsIrBinary,
         mode: KotlinJsBinaryMode,
-        inputFilesDirectory: Provider<File>,
+        inputFilesDirectory: Provider<Directory>,
         entryModuleName: Provider<String>,
         configurationActions: DomainObjectSet<Action<KotlinWebpack>>,
         nodeJs: NodeJsRootExtension,
@@ -274,13 +266,14 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     ) {
         dependsOn(
             nodeJs.npmInstallTaskProvider,
-            nodeJs.storeYarnLockTaskProvider,
             target.project.tasks.named(compilation.processResourcesTaskName)
         )
 
+        dependsOn(nodeJs.packageManagerExtension.map { it.postInstallTasks })
+
         configureOptimization(mode)
 
-        this.inputFilesDirectory.fileProvider(inputFilesDirectory)
+        this.inputFilesDirectory.set(inputFilesDirectory)
 
         val platformType = binary.compilation.platformType
         val moduleKind = binary.linkTask.flatMap { it.compilerOptions.moduleKind }
@@ -316,7 +309,7 @@ abstract class KotlinBrowserJsIr @Inject constructor(target: KotlinJsIrTarget) :
     private fun <T> getByKind(
         kind: KotlinJsBinaryMode,
         releaseValue: T,
-        debugValue: T
+        debugValue: T,
     ): T = when (kind) {
         KotlinJsBinaryMode.PRODUCTION -> releaseValue
         KotlinJsBinaryMode.DEVELOPMENT -> debugValue

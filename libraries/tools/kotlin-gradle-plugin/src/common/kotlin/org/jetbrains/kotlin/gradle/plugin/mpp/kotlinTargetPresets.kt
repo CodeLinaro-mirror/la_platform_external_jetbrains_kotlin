@@ -26,13 +26,15 @@ abstract class KotlinOnlyTargetPreset<R : KotlinOnlyTarget<T>, T : KotlinCompila
     // This function is used in IDE import in order to override sourceSetName
     protected open fun overrideDisambiguationClassifierOnIdeImport(name: String): String? = null
 
-    abstract protected fun instantiateTarget(name: String): R
+    protected abstract fun instantiateTarget(name: String): R
 
     override fun createTargetInternal(name: String): R {
         val result = instantiateTarget(name).apply {
             targetName = name
             disambiguationClassifier = provideTargetDisambiguationClassifier(this@apply)
+            @Suppress("DEPRECATION")
             useDisambiguationClassifierAsSourceSetNamePrefix = useDisambiguationClassifierAsSourceSetNamePrefix()
+            @Suppress("DEPRECATION")
             overrideDisambiguationClassifierOnIdeImport = overrideDisambiguationClassifierOnIdeImport(name)
             @Suppress("DEPRECATION")
             preset = this@KotlinOnlyTargetPreset
@@ -42,7 +44,6 @@ abstract class KotlinOnlyTargetPreset<R : KotlinOnlyTarget<T>, T : KotlinCompila
         }
 
         createKotlinTargetConfigurator().configureTarget(result)
-
         return result
     }
 

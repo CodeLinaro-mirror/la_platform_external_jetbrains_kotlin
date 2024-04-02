@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.caches.FirCachesFactory
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.languageVersionSettings
-import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
@@ -245,9 +244,10 @@ private fun FirAnnotation.getDeprecationLevel(): DeprecationLevelValue? {
             ?.unwrapArgument()
             ?: arguments.lastOrNull()
     } ?: return null
-    val targetExpression = argument as? FirQualifiedAccessExpression ?: return null
-    val targetName = (targetExpression.calleeReference as? FirNamedReference)?.name?.asString() ?: return null
-    return DeprecationLevelValue.values().find { it.name == targetName }
+
+    val targetName = argument.extractEnumValueArgumentInfo()?.enumEntryName?.asString() ?: return null
+
+    return DeprecationLevelValue.entries.find { it.name == targetName }
 }
 
 private fun List<FirAnnotation>.extractDeprecationAnnotationInfoPerUseSite(
@@ -272,7 +272,7 @@ private fun List<FirAnnotation>.extractDeprecationAnnotationInfoPerUseSite(
         for ((deprecated, shouldPropagateToOverrides) in annotations) {
             if (deprecated.unexpandedClassId == StandardClassIds.Annotations.SinceKotlin) {
                 val sinceKotlinSingleArgument = deprecated.findArgumentByName(ParameterNames.sinceKotlinVersion)
-                val apiVersion = ((sinceKotlinSingleArgument as? FirConstExpression<*>)?.value as? String)
+                val apiVersion = ((sinceKotlinSingleArgument as? FirLiteralExpression<*>)?.value as? String)
                     ?.let(ApiVersion.Companion::parse) ?: continue
                 val wasExperimental = this@extractDeprecationAnnotationInfoPerUseSite.any {
                     it.unexpandedClassId == StandardClassIds.Annotations.WasExperimental
@@ -287,6 +287,7 @@ private fun List<FirAnnotation>.extractDeprecationAnnotationInfoPerUseSite(
                     it.unexpandedClassId == StandardClassIds.Annotations.DeprecatedSinceKotlin
                 }
                 val message = deprecated.getStringArgument(ParameterNames.deprecatedMessage)
+                    ?: deprecated.getFirstArgumentStringIfNotNamed()
 
                 val deprecatedInfo =
                     if (deprecatedSinceKotlin == null) {
@@ -310,6 +311,12 @@ private fun List<FirAnnotation>.extractDeprecationAnnotationInfoPerUseSite(
     }
 }
 
+private fun FirAnnotation.getFirstArgumentStringIfNotNamed(): String? {
+    if (this !is FirAnnotationCall) return null
+    val firstArgument = argumentList.arguments.firstOrNull() ?: return null
+    return (firstArgument as? FirLiteralExpression<*>)?.value?.toString()
+}
+
 
 fun FirBasedSymbol<*>.isDeprecationLevelHidden(languageVersionSettings: LanguageVersionSettings): Boolean =
     when (this) {
@@ -319,6 +326,72 @@ fun FirBasedSymbol<*>.isDeprecationLevelHidden(languageVersionSettings: Language
 
 private object IsHiddenEverywhereBesideSuperCalls : FirDeclarationDataKey()
 
-var FirCallableDeclaration.isHiddenEverywhereBesideSuperCalls: Boolean? by FirDeclarationDataRegistry.data(
+var FirCallableDeclaration.hiddenEverywhereBesideSuperCallsStatus: HiddenEverywhereBesideSuperCallsStatus? by FirDeclarationDataRegistry.data(
     IsHiddenEverywhereBesideSuperCalls
 )
+
+enum class HiddenEverywhereBesideSuperCallsStatus {
+    HIDDEN, HIDDEN_IN_DECLARING_CLASS_ONLY, HIDDEN_FAKE,
+}
+
+private object IsHiddenToOvercomeSignatureClash : FirDeclarationDataKey()
+
+var FirCallableDeclaration.isHiddenToOvercomeSignatureClash: Boolean? by FirDeclarationDataRegistry.data(
+    IsHiddenToOvercomeSignatureClash
+)
+
+enum class CallToPotentiallyHiddenSymbolResult {
+    Hidden, Visible, VisibleWithDeprecation,
+}
+
+/**
+ * To check whether a symbol is visible and if it's deprecated, the method needs to be called for the symbol and all its
+ * overridden symbols.
+ * [isSuperCall] must be set to `true` when the receiver is `super`.
+ * [isCallToOverride] must be set to `false` for the original symbol and to `true` for all its overridden symbols.
+ *
+ * Given the following hierarchy
+ *
+ * ```
+ * public class A {
+ *     public String getX() { return ""; }  // HIDDEN
+ *     public String getY() { return ""; }  // HIDDEN_IN_DECLARING_CLASS_ONLY
+ *     public String getZ() { return ""; }  // HIDDEN_FAKE
+ * }
+ *
+ * class B extends A {
+ *     @Override public String getX() { return super.getX(); }
+ *     @Override public String getY() { return super.getY(); }
+ *     @Override public String getZ() { return super.getZ(); }
+ * }
+ * ```
+ *
+ * the results will be as follows
+ *
+ * | Receiver \ Symbol | getX    | getY                   | getZ                   |
+ * |-------------------|---------|------------------------|------------------------|
+ * | A                 | Hidden  | Hidden                 | Hidden                 |
+ * | super             | Visible | VisibleWithDeprecation | Hidden                 |
+ * | B                 | Hidden  | VisibleWithDeprecation | VisibleWithDeprecation |
+ *
+ */
+fun FirCallableSymbol<*>.hiddenStatusOfCall(isSuperCall: Boolean, isCallToOverride: Boolean): CallToPotentiallyHiddenSymbolResult {
+    val fir = fir
+    if (fir.isHiddenToOvercomeSignatureClash == true) {
+        return CallToPotentiallyHiddenSymbolResult.Hidden
+    }
+
+    val status = fir.hiddenEverywhereBesideSuperCallsStatus ?: return CallToPotentiallyHiddenSymbolResult.Visible
+
+    return when (status) {
+        // If the declaration is HIDDEN, we don't need a deprecation on supercalls because what are we warning the user about?
+        // The declaration can't get any more hidden.
+        HiddenEverywhereBesideSuperCallsStatus.HIDDEN -> if (isSuperCall) CallToPotentiallyHiddenSymbolResult.Visible else CallToPotentiallyHiddenSymbolResult.Hidden
+        // However, on HIDDEN_IN_DECLARING_CLASS_ONLY,
+        // we report a deprecation warning on super calls because we might want to rename the method in the future
+        // (getFirst -> first).
+        HiddenEverywhereBesideSuperCallsStatus.HIDDEN_IN_DECLARING_CLASS_ONLY -> if (isSuperCall || isCallToOverride) CallToPotentiallyHiddenSymbolResult.VisibleWithDeprecation else CallToPotentiallyHiddenSymbolResult.Hidden
+        // HIDDEN_FAKE is always hidden (even for super calls), unless overridden.
+        HiddenEverywhereBesideSuperCallsStatus.HIDDEN_FAKE -> if (isCallToOverride) CallToPotentiallyHiddenSymbolResult.VisibleWithDeprecation else CallToPotentiallyHiddenSymbolResult.Hidden
+    }
+}

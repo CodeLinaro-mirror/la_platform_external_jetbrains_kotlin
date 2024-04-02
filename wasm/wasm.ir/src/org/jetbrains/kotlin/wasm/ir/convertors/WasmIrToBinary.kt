@@ -9,9 +9,11 @@ import org.jetbrains.kotlin.wasm.ir.*
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import kotlinx.collections.immutable.*
-import org.jetbrains.kotlin.wasm.ir.source.location.Box
-import org.jetbrains.kotlin.wasm.ir.source.location.SourceLocation
-import org.jetbrains.kotlin.wasm.ir.source.location.SourceLocationMapping
+import org.jetbrains.kotlin.wasm.ir.debug.DebugData
+import org.jetbrains.kotlin.wasm.ir.debug.DebugInformation
+import org.jetbrains.kotlin.wasm.ir.debug.DebugInformationConsumer
+import org.jetbrains.kotlin.wasm.ir.debug.DebugInformationGenerator
+import org.jetbrains.kotlin.wasm.ir.source.location.*
 
 private object WasmBinary {
     const val MAGIC = 0x6d736100u
@@ -56,15 +58,25 @@ class WasmIrToBinary(
     val module: WasmModule,
     val moduleName: String,
     val emitNameSection: Boolean,
-    private val sourceMapFileName: String? = null,
-    private val sourceLocationMappings: MutableList<SourceLocationMapping>? = null
-) {
+    private val debugInformationGenerator: DebugInformationGenerator? = null
+) : DebugInformationConsumer {
     private var b: ByteWriter = ByteWriter.OutputStream(outputStream)
 
     // "Stack" of offsets waiting initialization. 
-    // Since blocks has as a prefix variable length number encoding its size we can't calculate absolute offsets inside those blocks 
-    // until we generate whole block and generate size. So, we put them into "stack" and initialize as soo as we have all required data.
+    // Since blocks have as a prefix variable length number encoding its size, we can't calculate absolute offsets inside those blocks
+    // until we generate the whole block and generate size. So, we put them into "stack" and initialize as soon as we have all required data.
     private var offsets = persistentListOf<Box>()
+
+    override fun consumeDebugInformation(debugInformation: DebugInformation) {
+        debugInformation.forEach {
+            appendSection(WasmBinary.Section.CUSTOM) {
+                b.writeString(it.name)
+                when (it.data) {
+                    is DebugData.StringData -> b.writeString(it.data.value)
+                }
+            }
+        }
+    }
 
     fun appendWasmModule() {
         b.writeUInt32(WasmBinary.MAGIC)
@@ -76,7 +88,7 @@ class WasmIrToBinary(
                 val numRecGroups = if (recGroupTypes.isEmpty()) 0 else 1
                 appendVectorSize(functionTypes.size + numRecGroups)
                 functionTypes.forEach { appendFunctionTypeDeclaration(it) }
-                if (!recGroupTypes.isEmpty()) {
+                if (recGroupTypes.isNotEmpty()) {
                     b.writeVarInt7(WasmBinary.REC_GROUP)
                     appendVectorSize(recGroupTypes.size)
                     recGroupTypes.forEach {
@@ -174,13 +186,7 @@ class WasmIrToBinary(
                 appendTextSection(definedFunctions)
             }
 
-            if (sourceMapFileName != null) {
-                // Custom section with URL to sourcemap
-                appendSection(WasmBinary.Section.CUSTOM) {
-                    b.writeString("sourceMappingURL")
-                    b.writeString(sourceMapFileName)
-                }
-            }
+            debugInformationGenerator?.let { consumeDebugInformation(it.generateDebugInformation()) }
         }
     }
 
@@ -247,7 +253,7 @@ class WasmIrToBinary(
 
     private fun appendInstr(instr: WasmInstr) {
         instr.location?.let {
-            sourceLocationMappings?.add(SourceLocationMapping(offsets + Box(b.written), it))
+            debugInformationGenerator?.addSourceLocation(SourceLocationMappingToBinary(it, offsets + Box(b.written)))
         }
 
         val opcode = instr.operator.opcode
@@ -361,14 +367,26 @@ class WasmIrToBinary(
     }
 
     private fun appendStructTypeDeclaration(type: WasmStructDeclaration) {
-        b.writeVarInt7(WasmBinary.SUB_TYPE)
-
         val superType = type.superType
-        if (superType != null) {
-            appendVectorSize(1)
-            appendModuleFieldReference(superType.owner)
+
+        // https://webassembly.github.io/gc/core/binary/types.html#binary-subtype
+        if (superType == null && type.isFinal) {
+            // Short encoding form for final types without subtypes.
         } else {
-            appendVectorSize(0)
+            // General encoding
+            b.writeVarInt7(
+                if (type.isFinal)
+                    WasmBinary.SUB_FINAL_TYPE
+                else
+                    WasmBinary.SUB_TYPE
+            )
+
+            if (superType != null) {
+                appendVectorSize(1)
+                appendModuleFieldReference(superType.owner)
+            } else {
+                appendVectorSize(0)
+            }
         }
 
         b.writeVarInt7(WasmBinary.STRUCT_TYPE)
@@ -703,5 +721,23 @@ abstract class ByteWriter {
         }
 
         override fun createTemp() = OutputStream(ByteArrayOutputStream())
+    }
+}
+
+private class SourceLocationMappingToBinary(
+    override val sourceLocation: SourceLocation,
+    // Offsets in generating binary, initialized lazily. Since blocks has as a prefix variable length number encoding its size
+    // we can't calculate absolute offsets inside those blocks until we generate whole block and generate size.
+    private val offsets: List<Box>,
+) : SourceLocationMapping() {
+    override val generatedLocation: SourceLocation.Location by lazy {
+        SourceLocation.Location(
+            file = "",
+            line = 0,
+            column = offsets.sumOf {
+                assert(it.value >= 0) { "Offset must be >=0 but ${it.value}" }
+                it.value
+            }
+        )
     }
 }

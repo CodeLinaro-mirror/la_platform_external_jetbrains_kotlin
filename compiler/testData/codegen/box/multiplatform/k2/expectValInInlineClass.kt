@@ -1,5 +1,4 @@
 // LANGUAGE: +MultiPlatformProjects
-// IGNORE_BACKEND_K1: ANY
 // IGNORE_LIGHT_TREE
 // IGNORE_LIGHT_ANALYSIS
 // IGNORE_BACKEND_K2: JVM_IR
@@ -14,7 +13,7 @@ expect value class Wrapper(val obj: Any) {
 // FILE: test.kt
 
 actual value class Wrapper(val obj: Any) {
-    val prop: String
+    actual val prop: String
         get() = "OK"
 }
 

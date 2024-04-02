@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.descriptors.isInterface
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.classKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirBasicDeclarationChecker
@@ -23,7 +24,6 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.languageVersionSettings
-import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.types.coneType
@@ -31,7 +31,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.JvmStandardClassIds
 import org.jetbrains.kotlin.name.SpecialNames
 
-object FirJvmStaticChecker : FirBasicDeclarationChecker() {
+object FirJvmStaticChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration is FirConstructor) {
             // WRONG_DECLARATION_TARGET
@@ -212,10 +212,7 @@ object FirJvmStaticChecker : FirBasicDeclarationChecker() {
 
     private fun CheckerContext.containerIsNonCompanionObject(outerLevel: Int): Boolean {
         val containingClassSymbol = this.getContainerAt(outerLevel) ?: return false
-
-        @OptIn(SymbolInternals::class)
-        val containingClass = (containingClassSymbol.fir as? FirRegularClass) ?: return false
-
+        val containingClass = (containingClassSymbol as? FirRegularClassSymbol) ?: return false
         return containingClass.classKind == ClassKind.OBJECT && !containingClass.isCompanion
     }
 

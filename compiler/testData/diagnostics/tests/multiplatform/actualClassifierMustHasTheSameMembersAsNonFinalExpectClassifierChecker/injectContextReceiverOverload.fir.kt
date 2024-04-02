@@ -9,11 +9,11 @@ expect open class Foo {
 // MODULE: m2-jvm()()(m1-common)
 // FILE: jvm.kt
 
-actual open class Foo {
+actual open class <!NO_ACTUAL_CLASS_MEMBER_FOR_EXPECTED_CLASS!>Foo<!> {
     actual fun foo() {}
 
     // Expected: NON_ACTUAL_MEMBER_DECLARED_IN_EXPECT_NON_FINAL_CLASSIFIER_ACTUALIZATION_WARNING.
     // But it doesn't work because context receivers are not yet supported in expect actual matcher KT-61447
     context(Int)
-    fun foo() {}
+    fun <!ACTUAL_MISSING!>foo<!>() {}
 }

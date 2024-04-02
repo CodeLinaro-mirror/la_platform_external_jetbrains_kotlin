@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.toInvisibleReferenceDiagnostic
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 
-object FirDestructuringDeclarationChecker : FirPropertyChecker() {
+object FirDestructuringDeclarationChecker : FirPropertyChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirProperty, context: CheckerContext, reporter: DiagnosticReporter) {
         val source = declaration.source ?: return
         // val (...) = `destructuring_declaration`
@@ -154,7 +155,13 @@ object FirDestructuringDeclarationChecker : FirPropertyChecker() {
             is ConeConstraintSystemHasContradiction -> {
                 val componentType = componentCall.resolvedType
                 if (componentType is ConeErrorType) {
-                    // There will be other errors on this error type.
+                    reporter.reportOn(
+                        source,
+                        FirErrors.COMPONENT_FUNCTION_MISSING,
+                        diagnostic.candidates.first().callInfo.name,
+                        destructuringDeclarationType,
+                        context
+                    )
                     return
                 }
                 val expectedType = property.returnTypeRef.coneType

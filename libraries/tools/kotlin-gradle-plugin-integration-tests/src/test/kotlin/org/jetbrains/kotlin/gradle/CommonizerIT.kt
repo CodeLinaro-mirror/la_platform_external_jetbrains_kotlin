@@ -14,10 +14,14 @@ import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.reportSourceSetCommonizerDependencies
 import org.jetbrains.kotlin.incremental.testingUtils.assertEqualDirectories
+import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_COMMONIZED_LIBS_DIR
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget.*
 import org.junit.jupiter.api.DisplayName
-import kotlin.io.path.*
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import kotlin.io.path.Path
+import kotlin.io.path.walk
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -59,6 +63,34 @@ open class CommonizerIT : KGPBaseTest() {
         }
     }
 
+    @DisplayName("Clean commonized native distribution")
+    @GradleTest
+    fun testCleanNativeDistributionCommonization(gradleVersion: GradleVersion, @TempDir konanData: Path) {
+        nativeProject("commonizeNativeDistributionWithIosLinuxWindows", gradleVersion) {
+            val buildOptions = defaultBuildOptions.withBundledKotlinNative().copy(
+                konanDataDir = konanData
+            )
+
+            fun commonizationResultFilesCount() = konanData
+                .walk()
+                .filter { it.contains(Path(KONAN_DISTRIBUTION_COMMONIZED_LIBS_DIR)) }
+                .count()
+
+            build(":cleanNativeDistributionCommonization", buildOptions = buildOptions) {
+                assertTasksExecuted(":cleanNativeDistributionCommonization")
+            }
+            build(":commonizeNativeDistribution", buildOptions = buildOptions) {
+                assertTasksExecuted(":commonizeNativeDistribution")
+                if (commonizationResultFilesCount() == 0) fail("Expected some files after executing commonizeNativeDistribution")
+            }
+
+            build(":cleanNativeDistributionCommonization", buildOptions = buildOptions) {
+                assertTasksExecuted(":cleanNativeDistributionCommonization")
+                if (commonizationResultFilesCount() != 1) fail("Expected only .lock file after cleaning")
+            }
+        }
+    }
+
     @DisplayName("Commonize Curl Interop UP-TO-DATE check")
     @GradleTest
     fun testCommonizeCurlInteropUTDCheck(gradleVersion: GradleVersion) {
@@ -93,8 +125,10 @@ open class CommonizerIT : KGPBaseTest() {
             }
             build(":commonize") {
                 assertNativeDistributionCommonizationCacheHit()
-                assertTasksNotExecuted(":cinteropCurlTargetA")
-                assertTasksNotExecuted(":cinteropCurlTargetB")
+                assertTasksAreNotInTaskGraph(
+                    ":cinteropCurlTargetA",
+                    ":cinteropCurlTargetB",
+                )
             }
         }
     }
@@ -113,9 +147,11 @@ open class CommonizerIT : KGPBaseTest() {
 
             build(":commonize") {
                 assertTasksExecuted(":commonizeNativeDistribution")
-                assertTasksNotExecuted(":cinteropCurlTargetA")
-                assertTasksNotExecuted(":cinteropCurlTargetB")
-                assertTasksNotExecuted(":commonizeCInterop")
+                assertTasksAreNotInTaskGraph(
+                    ":cinteropCurlTargetA",
+                    ":cinteropCurlTargetB",
+                    ":commonizeCInterop",
+                )
             }
 
             build(":commonize", "-Pkotlin.mpp.enableCInteropCommonization=true") {
@@ -127,35 +163,39 @@ open class CommonizerIT : KGPBaseTest() {
 
             build(":commonize", "-Pkotlin.mpp.enableCInteropCommonization=false") {
                 assertNativeDistributionCommonizationCacheHit()
-                assertTasksNotExecuted(":cinteropCurlTargetA")
-                assertTasksNotExecuted(":cinteropCurlTargetB")
-                assertTasksNotExecuted(":commonizeCInterop")
+                assertTasksAreNotInTaskGraph(
+                    ":cinteropCurlTargetA",
+                    ":cinteropCurlTargetB",
+                    ":commonizeCInterop",
+                )
             }
         }
     }
 
-
     @DisplayName("Commonize Curl Interop copy CommonizeCInterop for Ide")
     @GradleTest
-    fun testCommonizeCurlInteropcopyCommonizeCInteropForIde(gradleVersion: GradleVersion) {
+    fun testCommonizeCurlInteropcopyCommonizeCInteropForIde(
+        gradleVersion: GradleVersion,
+    ) {
         nativeProject("commonizeCurlInterop", gradleVersion) {
 
             configureCommonizerTargets()
 
-            val expectedOutputDirectoryForIde = projectPath.resolve(".gradle/kotlin/commonizer")
+            val commonizerIdeOutput: Path = projectPersistentCache.resolve("metadata").resolve("commonizer")
+
             val expectedOutputDirectoryForBuild = projectPath.resolve("build/classes/kotlin/commonizer")
 
             build(":copyCommonizeCInteropForIde") {
                 assertTasksExecuted(":cinteropCurlTargetB")
                 assertTasksExecuted(":commonizeCInterop")
 
-                assertDirectoryExists(expectedOutputDirectoryForIde, "Missing output directory for IDE")
+                assertDirectoryExists(commonizerIdeOutput, "Missing output directory for IDE")
                 assertDirectoryExists(expectedOutputDirectoryForBuild, "Missing output directory for build")
-                assertEqualDirectories(expectedOutputDirectoryForBuild.toFile(), expectedOutputDirectoryForIde.toFile(), false)
+                assertEqualDirectories(expectedOutputDirectoryForBuild.toFile(), commonizerIdeOutput.toFile(), false)
             }
 
             build(":clean") {
-                assertDirectoryExists(expectedOutputDirectoryForIde, "Expected ide output directory to survive cleaning")
+                assertDirectoryExists(commonizerIdeOutput, "Expected ide output directory to survive cleaning")
                 assertFileNotExists(expectedOutputDirectoryForBuild, "Expected output directory for build to be cleaned")
             }
         }
@@ -480,10 +520,14 @@ open class CommonizerIT : KGPBaseTest() {
     fun testCommonizationWithTwoCInteropCommonizerGroups(gradleVersion: GradleVersion) {
         nativeProject("commonize-kt-57796-twoCInteropCommonizerGroups", gradleVersion) {
             build(":app:commonizeCInterop") {
-                assertTasksNotExecuted(":lib:transformCommonMainCInteropDependenciesMetadata")
-                assertTasksExecuted(":lib:commonizeCInterop")
-                assertTasksNotExecuted(":app:transformCommonMainCInteropDependenciesMetadata")
-                assertTasksExecuted(":app:commonizeCInterop")
+                assertTasksExecuted(
+                    ":lib:commonizeCInterop",
+                    ":app:commonizeCInterop",
+                )
+                assertTasksAreNotInTaskGraph(
+                    ":lib:transformCommonMainCInteropDependenciesMetadata",
+                    ":app:transformCommonMainCInteropDependenciesMetadata",
+                )
             }
         }
     }
@@ -491,13 +535,40 @@ open class CommonizerIT : KGPBaseTest() {
     @DisplayName("KT-57796 commonization with two cinterop commonizer groups`")
     @GradleTest
     fun testCommonizationWithLibraryContainingTwoRoots(gradleVersion: GradleVersion) {
-        project("commonize-kt-56729-consume-library-with-two-roots", gradleVersion) {
+        project(
+            "commonize-kt-56729-consume-library-with-two-roots",
+            gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build("publish")
 
             build(":consumer:assemble") {
                 assertTasksExecuted(":consumer:compileCommonMainKotlinMetadata")
                 assertOutputDoesNotContain("Duplicated libraries:")
                 assertOutputDoesNotContain("w: duplicate library name")
+            }
+        }
+    }
+
+    @DisplayName("KT-58223 test commonized libraries for IDE can be stored in different data dir")
+    @GradleTest
+    fun testCommonizedLibrariesForIDECanBeStoredInDifferentDir(
+        gradleVersion: GradleVersion,
+    ) {
+        nativeProject("commonizeCurlInterop", gradleVersion) {
+            configureCommonizerTargets()
+
+            val commonizerIdeOutput: Path = projectPersistentCache.resolve("metadata").resolve("commonizer")
+
+            build(":copyCommonizeCInteropForIde") {
+                assertTasksExecuted(":cinteropCurlTargetB")
+                assertTasksExecuted(":commonizeCInterop")
+
+                assertDirectoryExists(commonizerIdeOutput, "Missing output directory for IDE")
+            }
+
+            build(":clean") {
+                assertDirectoryExists(commonizerIdeOutput, "Expected ide output directory to survive cleaning")
             }
         }
     }

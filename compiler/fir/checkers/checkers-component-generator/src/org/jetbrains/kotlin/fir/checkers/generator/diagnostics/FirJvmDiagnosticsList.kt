@@ -9,7 +9,9 @@ import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.config.LanguageFeature.*
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model.DiagnosticList
 import org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model.PositioningStrategy
+import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -18,14 +20,13 @@ import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.util.PrivateForInline
 
 @Suppress("ClassName", "unused")
 @OptIn(PrivateForInline::class)
 object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
     val DECLARATIONS by object : DiagnosticGroup("Declarations") {
-        val CONFLICTING_JVM_DECLARATIONS by error<PsiElement>()
-
         val OVERRIDE_CANNOT_BE_STATIC by error<PsiElement>()
         val JVM_STATIC_NOT_IN_OBJECT_OR_CLASS_COMPANION by error<PsiElement>(PositioningStrategy.DECLARATION_SIGNATURE)
         val JVM_STATIC_NOT_IN_OBJECT_OR_COMPANION by error<PsiElement>(PositioningStrategy.DECLARATION_SIGNATURE)
@@ -40,6 +41,17 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
 
         val VALUE_CLASS_WITHOUT_JVM_INLINE_ANNOTATION by error<PsiElement>()
         val JVM_INLINE_WITHOUT_VALUE_CLASS by error<PsiElement>()
+
+        val WRONG_NULLABILITY_FOR_JAVA_OVERRIDE by warning<PsiElement>(PositioningStrategy.OVERRIDE_MODIFIER) {
+            parameter<FirCallableSymbol<*>>("override")
+            parameter<FirCallableSymbol<*>>("base")
+        }
+
+        val ACCIDENTAL_OVERRIDE_CLASH_BY_JVM_SIGNATURE by error<KtNamedFunction>(PositioningStrategy.DECLARATION_NAME) {
+            parameter<FirNamedFunctionSymbol>("hidden")
+            parameter<String>("overrideDescription")
+            parameter<FirNamedFunctionSymbol>("regular")
+        }
     }
 
     val TYPES by object : DiagnosticGroup("Types") {
@@ -47,10 +59,29 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
             parameter<ConeKotlinType>("expectedType")
             parameter<ConeKotlinType>("actualType")
         }
+
+        val RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS by warning<PsiElement> {
+            parameter<ConeKotlinType>("actualType")
+            parameter<ConeKotlinType>("expectedType")
+            parameter<String>("messageSuffix")
+        }
+        val NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS by warning<PsiElement> {
+            parameter<ConeKotlinType>("actualType")
+            parameter<ConeKotlinType>("expectedType")
+            parameter<String>("messageSuffix")
+        }
     }
 
     val TYPE_PARAMETERS by object : DiagnosticGroup("Type parameters") {
         val UPPER_BOUND_CANNOT_BE_ARRAY by error<PsiElement>()
+        val UPPER_BOUND_VIOLATED_BASED_ON_JAVA_ANNOTATIONS by warning<PsiElement> {
+            parameter<ConeKotlinType>("expectedUpperBound")
+            parameter<ConeKotlinType>("actualUpperBound")
+        }
+        val UPPER_BOUND_VIOLATED_IN_TYPEALIAS_EXPANSION_BASED_ON_JAVA_ANNOTATIONS by warning<PsiElement> {
+            parameter<ConeKotlinType>("expectedUpperBound")
+            parameter<ConeKotlinType>("actualUpperBound")
+        }
     }
 
     val ANNOTATIONS by object : DiagnosticGroup("annotations") {
@@ -171,5 +202,9 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
         )
         val JAVA_SAM_INTERFACE_CONSTRUCTOR_REFERENCE by error<PsiElement>()
         val NO_REFLECTION_IN_CLASS_PATH by warning<PsiElement>()
+        val SYNTHETIC_PROPERTY_WITHOUT_JAVA_ORIGIN by warning<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
+            parameter<FirNamedFunctionSymbol>("originalSymbol")
+            parameter<Name>("functionName")
+        }
     }
 }

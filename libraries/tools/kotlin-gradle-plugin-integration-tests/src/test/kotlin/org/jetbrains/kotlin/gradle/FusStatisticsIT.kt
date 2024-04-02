@@ -6,10 +6,16 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.condition.OS
+import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.deleteIfExists
+import kotlin.streams.toList
+import kotlin.test.assertTrue
 
 @DisplayName("FUS statistic")
 //Tests for FUS statistics have to create new instance of KotlinBuildStatsService
@@ -22,6 +28,7 @@ class FusStatisticsIT : KGPDaemonsBaseTest() {
         "GRADLE_VERSION",
         "KOTLIN_STDLIB_VERSION",
         "KOTLIN_COMPILER_VERSION",
+        "USE_CLASSPATH_SNAPSHOT=true"
     )
 
     private val GradleProject.fusStatisticsPath: Path
@@ -53,7 +60,7 @@ class FusStatisticsIT : KGPDaemonsBaseTest() {
     fun testMetricCollectingOfApplyingCocoapodsPlugin(gradleVersion: GradleVersion) {
         project("native-cocoapods-template", gradleVersion) {
             build("assemble", "-Pkotlin.session.logger.root.path=$projectPath") {
-                assertFileContains(fusStatisticsPath, "COCOAPODS_PLUGIN_ENABLED=true")
+                assertFileContains(fusStatisticsPath, "COCOAPODS_PLUGIN_ENABLED=true", "ENABLED_HMPP=true", "MPP_PLATFORMS")
             }
         }
     }
@@ -90,18 +97,22 @@ class FusStatisticsIT : KGPDaemonsBaseTest() {
 
     @DisplayName("for project with buildSrc")
     @GradleTest
-    @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+    @OsCondition(
+        supportedOn = [OS.LINUX, OS.MAC, OS.WINDOWS],
+        enabledOnCI = [OS.LINUX, OS.MAC], //Fails on windows KT-65227
     )
-    fun testProjectWithBuildSrc(gradleVersion: GradleVersion) {
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0]
+    )
+    fun testProjectWithBuildSrcForGradleVersion7(gradleVersion: GradleVersion) {
+        //KT-64022 there are a different build instances in buildSrc and rest project:
         project(
             "instantExecutionWithBuildSrc",
             gradleVersion,
         ) {
             build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
-                val fusStatisticsPath = fusStatisticsPath
-                assertFileContains(
-                    fusStatisticsPath,
+                assertFilesCombinedContains(
+                    Files.list(projectPath.resolve("kotlin-profile")).toList(),
                     *expectedMetrics,
                     "BUILD_SRC_EXISTS=true"
                 )
@@ -116,24 +127,27 @@ class FusStatisticsIT : KGPDaemonsBaseTest() {
         maxVersion = TestVersions.Gradle.G_8_0
     )
     fun testProjectWithIncludedBuild(gradleVersion: GradleVersion) {
+        //KT-64022
+        //there are a different build instances in buildSrc and rest project
+
         project(
             "instantExecutionWithIncludedBuildPlugin",
             gradleVersion,
             buildOptions = defaultBuildOptions.copy(configurationCache = true)
         ) {
             build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
-                val fusStatisticsPath = fusStatisticsPath
-                assertFileContains(
-                    fusStatisticsPath,
-                    *expectedMetrics,
-                )
+                Files.list(projectPath.resolve("kotlin-profile")).forEach {
+                    assertFileContains(it, *expectedMetrics)
+                }
             }
+            Files.list(projectPath.resolve("kotlin-profile")).forEach {
+                assertTrue(it.deleteIfExists())
+            }
+
             build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
-                val fusStatisticsPath = fusStatisticsPath
-                assertFileContains(
-                    fusStatisticsPath,
-                    *expectedMetrics,
-                )
+                Files.list(projectPath.resolve("kotlin-profile")).forEach {
+                    assertFileContains(it, *expectedMetrics)
+                }
             }
         }
     }
@@ -166,29 +180,110 @@ class FusStatisticsIT : KGPDaemonsBaseTest() {
         }
     }
 
+    @DisplayName("fus metric for multiproject")
+    @GradleTest
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+    )
+    fun testFusStatisticsForMultiproject(gradleVersion: GradleVersion) {
+        project(
+            "incrementalMultiproject", gradleVersion,
+        ) {
+            //Collect metrics from BuildMetricsService also
+            build(
+                "compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath",
+                buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
+            ) {
+                assertFileContains(
+                    fusStatisticsPath,
+                    "CONFIGURATION_IMPLEMENTATION_COUNT=2",
+                    "NUMBER_OF_SUBPROJECTS=2",
+                    "COMPILATIONS_COUNT=2"
+                )
+            }
+        }
+    }
+
     @DisplayName("general fields with configuration cache")
     @GradleTest
     @GradleTestVersions(
         additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
     )
     fun testFusStatisticsWithConfigurationCache(gradleVersion: GradleVersion) {
+        testFusStatisticsWithConfigurationCache(gradleVersion, false)
+    }
+
+    @DisplayName("general fields with configuration cache and project isolation")
+    @GradleTest
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_1,
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+    )
+    fun testFusStatisticsWithConfigurationCacheAndProjectIsolation(gradleVersion: GradleVersion) {
+        testFusStatisticsWithConfigurationCache(gradleVersion, true)
+    }
+
+    fun testFusStatisticsWithConfigurationCache(gradleVersion: GradleVersion, isProjectIsolationEnabled: Boolean) {
         project(
             "simpleProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = true),
+            buildOptions = defaultBuildOptions.copy(
+                configurationCache = true,
+                projectIsolation = isProjectIsolationEnabled,
+                buildReport = listOf(BuildReportType.FILE)
+            ),
         ) {
             build(
                 "compileKotlin",
                 "-Pkotlin.session.logger.root.path=$projectPath",
             ) {
                 assertConfigurationCacheStored()
+                assertFileContains(
+                    fusStatisticsPath,
+                    *expectedMetrics,
+                    "CONFIGURATION_IMPLEMENTATION_COUNT=1",
+                    "NUMBER_OF_SUBPROJECTS=1",
+                    "COMPILATIONS_COUNT=1"
+                )
             }
+
+            assertTrue(fusStatisticsPath.deleteIfExists())
+            build("clean", buildOptions = buildOptions)
 
             build(
                 "compileKotlin",
                 "-Pkotlin.session.logger.root.path=$projectPath",
             ) {
                 assertConfigurationCacheReused()
+                assertFileContains(
+                    fusStatisticsPath,
+                    *expectedMetrics,
+                    "CONFIGURATION_IMPLEMENTATION_COUNT=1",
+                    "NUMBER_OF_SUBPROJECTS=1",
+                    "COMPILATIONS_COUNT=1"
+                )
+            }
+        }
+    }
+
+    @DisplayName("configuration type metrics")
+    @GradleTest
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+    )
+    fun testConfigurationTypeFusMetrics(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            build(
+                "compileKotlin",
+                "-Pkotlin.session.logger.root.path=$projectPath",
+            ) {
+                assertFileContains(
+                    fusStatisticsPath,
+                    "CONFIGURATION_COMPILE_ONLY_COUNT=1",
+                    "CONFIGURATION_API_COUNT=1",
+                    "CONFIGURATION_IMPLEMENTATION_COUNT=1",
+                    "CONFIGURATION_RUNTIME_ONLY_COUNT=1",
+                )
             }
         }
     }

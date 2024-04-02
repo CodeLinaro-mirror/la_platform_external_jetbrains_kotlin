@@ -5,7 +5,6 @@
 
 #include "ExtraObjectData.hpp"
 
-#include "MainQueueProcessor.hpp"
 #include "PointerBits.h"
 #include "ThreadData.hpp"
 
@@ -40,7 +39,10 @@ mm::ExtraObjectData& mm::ExtraObjectData::Install(ObjHeader* object) noexcept {
 }
 
 void mm::ExtraObjectData::UnlinkFromBaseObject() noexcept {
-    auto *object = GetBaseObject();
+    auto* object = weakReferenceOrBaseObject_.exchange(nullptr);
+    RuntimeAssert(
+            !hasPointerBits(object, WEAK_REF_TAG), "ExtraObjectData %p has uncleared weak reference %p during unlink", this,
+            clearPointerBits(object, WEAK_REF_TAG));
     atomicSetRelease(const_cast<const TypeInfo**>(&object->typeInfoOrMeta_), typeInfo_);
     RuntimeAssert(
             !object->has_meta_object(), "Object %p has metaobject %p after removing metaobject %p", object, object->meta_object_or_null(),
@@ -50,13 +52,7 @@ void mm::ExtraObjectData::UnlinkFromBaseObject() noexcept {
 void mm::ExtraObjectData::ReleaseAssociatedObject() noexcept {
 #ifdef KONAN_OBJC_INTEROP
     if (void* associatedObject = associatedObject_) {
-        if (getFlag(FLAGS_RELEASE_ON_MAIN_QUEUE) && isMainQueueProcessorAvailable()) {
-            runOnMainQueue(associatedObject, [](void* obj) {
-                Kotlin_ObjCExport_releaseAssociatedObject(obj);
-            });
-        } else {
-            Kotlin_ObjCExport_releaseAssociatedObject(associatedObject);
-        }
+        Kotlin_ObjCExport_releaseAssociatedObject(associatedObject);
         associatedObject_ = nullptr;
     }
 #endif

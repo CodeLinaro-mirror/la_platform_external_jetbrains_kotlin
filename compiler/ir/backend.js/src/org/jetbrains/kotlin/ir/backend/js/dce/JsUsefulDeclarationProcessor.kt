@@ -27,7 +27,6 @@ internal class JsUsefulDeclarationProcessor(
 ) : UsefulDeclarationProcessor(printReachabilityInfo, removeUnusedAssociatedObjects) {
     private val equalsMethod = getMethodOfAny("equals")
     private val hashCodeMethod = getMethodOfAny("hashCode")
-    private val isEsModules = context.configuration[JSConfigurationKeys.MODULE_KIND] == ModuleKind.ES
 
     override val bodyVisitor: BodyVisitorBase = object : BodyVisitorBase() {
         override fun visitCall(expression: IrCall, data: IrDeclaration) {
@@ -71,7 +70,7 @@ internal class JsUsefulDeclarationProcessor(
                 }
 
                 context.reflectionSymbols.getKClass -> {
-                    addConstructedClass(expression.getTypeArgument(0)!!.classifierOrFail.owner as IrClass)
+                    expression.getTypeArgument(0)?.classOrNull?.owner?.let(::addConstructedClass)
                 }
 
                 context.intrinsics.jsObjectCreateSymbol -> {
@@ -154,17 +153,25 @@ internal class JsUsefulDeclarationProcessor(
         if (!irClass.containsMetadata()) return
 
         when {
-            irClass.isObject -> context.intrinsics.metadataObjectConstructorSymbol.owner.enqueue(irClass, "object metadata")
+            irClass.isObject -> {
+                context.intrinsics.initMetadataForCompanionSymbol.owner.enqueue(irClass, "object metadata")
+                context.intrinsics.initMetadataForObjectSymbol.owner.enqueue(irClass, "companion object metadata")
+            }
 
             irClass.isInterface -> {
                 context.intrinsics.implementSymbol.owner.enqueue(irClass, "interface metadata")
-                context.intrinsics.metadataInterfaceConstructorSymbol.owner.enqueue(irClass, "interface metadata")
+                context.intrinsics.initMetadataForInterfaceSymbol.owner.enqueue(irClass, "interface metadata")
             }
 
-            else -> context.intrinsics.metadataClassConstructorSymbol.owner.enqueue(irClass, "class metadata")
+            else -> {
+                context.intrinsics.initMetadataForClassSymbol.owner.enqueue(irClass, "class metadata")
+                context.intrinsics.initMetadataForLambdaSymbol.owner.enqueue(irClass, "lambda metadata")
+                context.intrinsics.initMetadataForCoroutineSymbol.owner.enqueue(irClass, "coroutine metadata")
+                context.intrinsics.initMetadataForFunctionReferenceSymbol.owner.enqueue(irClass, "function reference metadata")
+            }
         }
 
-        context.intrinsics.setMetadataForSymbol.owner.enqueue(irClass, "metadata")
+        context.intrinsics.initMetadataForSymbol.owner.enqueue(irClass, "metadata")
 
         if (irClass.containsInterfaceDefaultImplementation()) {
             context.intrinsics.jsPrototypeOfSymbol.owner.enqueue(irClass, "interface default implementation")

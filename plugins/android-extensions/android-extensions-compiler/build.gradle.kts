@@ -36,7 +36,7 @@ dependencies {
     testApi(project(":compiler:cli"))
     testApi(project(":kotlin-android-extensions-runtime"))
     testApi(projectTests(":compiler:tests-common"))
-    testApi(project(":kotlin-test:kotlin-test-jvm"))
+    testApi(kotlinTest("junit"))
     testImplementation(libs.junit4)
 
     robolectricDependency("org.robolectric:android-all:5.0.2_r3-robolectric-r0")
@@ -53,7 +53,7 @@ dependencies {
 }
 
 optInToExperimentalCompilerApi()
-optInToIrSymbolInternals()
+optInToUnsafeDuringIrConstructionAPI()
 
 sourceSets {
     "main" { projectDefault() }
@@ -68,7 +68,7 @@ javadocJar()
 
 testsJar()
 
-val robolectricDependencyDir = "$buildDir/robolectricDependencies"
+val robolectricDependencyDir = layout.buildDirectory.dir("robolectricDependencies")
 val prepareRobolectricDependencies by tasks.registering(Copy::class) {
     from(robolectricDependency)
     into(robolectricDependencyDir)
@@ -100,7 +100,7 @@ projectTest {
         systemProperty("robolectric.classpath", robolectricClasspathProvider.get())
 
         systemProperty("robolectric.offline", "true")
-        systemProperty("robolectric.dependency.dir", robolectricDependencyDir)
+        systemProperty("robolectric.dependency.dir", robolectricDependencyDir.get().asFile)
 
         systemProperty("layoutLib.path", layoutLibConf.singleFile.canonicalPath)
         systemProperty("layoutLibApi.path", layoutLibApiConf.singleFile.canonicalPath)

@@ -11,9 +11,9 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.file.SourceDirectorySet
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.*
-import org.jetbrains.kotlin.gradle.plugin.launchInStage
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.tooling.core.MutableExtras
@@ -43,6 +43,10 @@ abstract class DefaultKotlinSourceSet @Inject constructor(
     override val runtimeOnlyConfigurationName: String
         get() = disambiguateName(RUNTIME_ONLY)
 
+    @ExperimentalKotlinGradlePluginApi
+    override val dependencySourcesConfigurationName: String
+        get() = disambiguateName("dependencySources")
+
     @Deprecated("KT-55312")
     override val apiMetadataConfigurationName: String
         get() = lowerCamelCaseName(apiConfigurationName, METADATA_CONFIGURATION_NAME_SUFFIX)
@@ -69,7 +73,9 @@ abstract class DefaultKotlinSourceSet @Inject constructor(
 
     override val languageSettings: LanguageSettingsBuilder = DefaultLanguageSettingsBuilder(project)
 
-    override val resources: SourceDirectorySet = createDefaultSourceDirectorySet(project, "$name resources")
+    internal var actualResources: SourceDirectorySet = createDefaultSourceDirectorySet(project, "$name resources")
+
+    override val resources: SourceDirectorySet get() = actualResources
 
     override fun kotlin(configure: SourceDirectorySet.() -> Unit): SourceDirectorySet = kotlin.apply {
         configure(this)

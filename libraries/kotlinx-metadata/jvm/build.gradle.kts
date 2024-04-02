@@ -44,7 +44,7 @@ dependencies {
     embedded(project(":core:metadata"))
     embedded(project(":core:metadata.jvm"))
     embedded(protobufLite())
-    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(kotlinTest("junit"))
     testImplementation(libs.junit4)
     testImplementation(commonDependency("org.jetbrains.intellij.deps:asm-all"))
     testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
@@ -79,7 +79,7 @@ apiValidation {
 }
 
 tasks.dokkaHtml.configure {
-    outputDirectory.set(buildDir.resolve("dokka"))
+    outputDirectory.set(layout.buildDirectory.dir("dokka"))
     pluginsMapConfiguration.set(
         mapOf(
             "org.jetbrains.dokka.base.DokkaBase"

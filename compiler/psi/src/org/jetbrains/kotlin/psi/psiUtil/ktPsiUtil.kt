@@ -12,6 +12,7 @@ import com.intellij.psi.*
 import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.tree.TokenSet
 import org.jetbrains.kotlin.KtNodeTypes
+import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -297,9 +298,10 @@ fun KtNamedFunction.isContractPresentPsiCheck(isAllowedOnMembers: Boolean): Bool
 fun KtExpression.isContractDescriptionCallPsiCheck(): Boolean =
     (this is KtCallExpression && calleeExpression?.text == "contract") || (this is KtQualifiedExpression && isContractDescriptionCallPsiCheck())
 
+@OptIn(KtPsiInconsistencyHandling::class)
 fun KtQualifiedExpression.isContractDescriptionCallPsiCheck(): Boolean {
     val expression = selectorExpression ?: return false
-    return receiverExpression.text == "kotlin.contracts" && expression.isContractDescriptionCallPsiCheck()
+    return receiverExpressionOrNull?.text == "kotlin.contracts" && expression.isContractDescriptionCallPsiCheck()
 }
 
 fun KtElement.isFirstStatement(): Boolean {
@@ -641,7 +643,7 @@ fun String.quoteIfNeeded(): String = if (this.isIdentifier()) this else "`$this`
 
 fun PsiElement.isTopLevelKtOrJavaMember(): Boolean {
     return when (this) {
-        is KtDeclaration -> parent is KtFile
+        is KtDeclaration -> isKtFile(parent)
         is PsiClass -> containingClass == null && this.qualifiedName != null
         else -> false
     }
@@ -707,9 +709,16 @@ fun getTrailingCommaByElementsList(elementList: PsiElement?): PsiElement? {
 val KtNameReferenceExpression.isUnderscoreInBackticks
     get() = getReferencedName() == "`_`"
 
+@Suppress("NO_TAIL_CALLS_FOUND", "NON_TAIL_RECURSIVE_CALL") // K2 warning suppression, TODO: KT-62472
 tailrec fun KtTypeElement.unwrapNullability(): KtTypeElement? {
     return when (this) {
         is KtNullableType -> this.innerType?.unwrapNullability()
         else -> this
     }
+}
+
+internal fun isKtFile(parent: PsiElement?): Boolean {
+    //avoid loading KtFile which depends on java psi, which is not available in some setup
+    //e.g. remote dev https://youtrack.jetbrains.com/issue/GTW-7554
+    return parent is PsiFile && parent.language == KotlinLanguage.INSTANCE
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -137,6 +137,18 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
     }
 
     @Test
+    @TestMetadata("javaMethodWithExternalNotNullAnnotation.kt")
+    public void testJavaMethodWithExternalNotNullAnnotation() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaMethodWithExternalNotNullAnnotation.kt");
+    }
+
+    @Test
+    @TestMetadata("javaMethodWithNotNullAnnotation.kt")
+    public void testJavaMethodWithNotNullAnnotation() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaMethodWithNotNullAnnotation.kt");
+    }
+
+    @Test
     @TestMetadata("javaStaticField.kt")
     public void testJavaStaticField() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaStaticField.kt");
@@ -152,6 +164,78 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
     @TestMetadata("javaSyntheticAccessor.kt")
     public void testJavaSyntheticAccessor() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaSyntheticAccessor.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryConstructorProperty.kt")
+    public void testLibraryConstructorProperty() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryConstructorProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryConstructorPropertyWithAnnotations.kt")
+    public void testLibraryConstructorPropertyWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryConstructorPropertyWithAnnotations.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryConstructorVariable.kt")
+    public void testLibraryConstructorVariable() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryConstructorVariable.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryConstructorVariableWithAnnotations.kt")
+    public void testLibraryConstructorVariableWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryConstructorVariableWithAnnotations.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryMemberProperty.kt")
+    public void testLibraryMemberProperty() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryMemberProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryMemberPropertyWithAnnotations.kt")
+    public void testLibraryMemberPropertyWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryMemberPropertyWithAnnotations.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryMemberVariable.kt")
+    public void testLibraryMemberVariable() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryMemberVariable.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryMemberVariableWithAnnotations.kt")
+    public void testLibraryMemberVariableWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryMemberVariableWithAnnotations.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryProperty.kt")
+    public void testLibraryProperty() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryPropertyWithAnnotations.kt")
+    public void testLibraryPropertyWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryPropertyWithAnnotations.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryVariable.kt")
+    public void testLibraryVariable() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryVariable.kt");
+    }
+
+    @Test
+    @TestMetadata("libraryVariableWithAnnotations.kt")
+    public void testLibraryVariableWithAnnotations() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/libraryVariableWithAnnotations.kt");
     }
 
     @Test
@@ -185,6 +269,12 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
     }
 
     @Test
+    @TestMetadata("syntheticProperty.kt")
+    public void testSyntheticProperty() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/syntheticProperty.kt");
+    }
+
+    @Test
     @TestMetadata("typeAnnotationOnBackingField.kt")
     public void testTypeAnnotationOnBackingField() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByReference/typeAnnotationOnBackingField.kt");
@@ -200,6 +290,34 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
     @TestMetadata("valueParameter.kt")
     public void testValueParameter() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByReference/valueParameter.kt");
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/symbols/symbolByReference/js")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Js {
+        @Test
+        public void testAllFilesPresentInJs() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/symbolByReference/js"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("functionFromJsDynamicScopeNoArguments.kt")
+        public void testFunctionFromJsDynamicScopeNoArguments() throws Exception {
+            runTest("analysis/analysis-api/testData/symbols/symbolByReference/js/functionFromJsDynamicScopeNoArguments.kt");
+        }
+
+        @Test
+        @TestMetadata("functionFromJsDynamicScopeWithArguments.kt")
+        public void testFunctionFromJsDynamicScopeWithArguments() throws Exception {
+            runTest("analysis/analysis-api/testData/symbols/symbolByReference/js/functionFromJsDynamicScopeWithArguments.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyFromJsDynamicScope.kt")
+        public void testPropertyFromJsDynamicScope() throws Exception {
+            runTest("analysis/analysis-api/testData/symbols/symbolByReference/js/propertyFromJsDynamicScope.kt");
+        }
     }
 
     @Nested

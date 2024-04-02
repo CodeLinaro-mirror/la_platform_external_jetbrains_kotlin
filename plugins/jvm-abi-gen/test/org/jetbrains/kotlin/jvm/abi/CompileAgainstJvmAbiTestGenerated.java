@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -43,6 +43,11 @@ public class CompileAgainstJvmAbiTestGenerated extends AbstractCompileAgainstJvm
     @TestMetadata("clinit")
     public void testClinit() throws Exception {
         runTest("plugins/jvm-abi-gen/testData/compile/clinit/");
+    }
+
+    @TestMetadata("conflictingClasses")
+    public void testConflictingClasses() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/conflictingClasses/");
     }
 
     @TestMetadata("inlineAnnotationInstantiation")
@@ -100,6 +105,26 @@ public class CompileAgainstJvmAbiTestGenerated extends AbstractCompileAgainstJvm
         runTest("plugins/jvm-abi-gen/testData/compile/kt-40340/");
     }
 
+    @TestMetadata("multifileClass")
+    public void testMultifileClass() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/multifileClass/");
+    }
+
+    @TestMetadata("multifileClassOptimized")
+    public void testMultifileClassOptimized() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/multifileClassOptimized/");
+    }
+
+    @TestMetadata("multifileClassOptimizedWithRemovePrivateOption")
+    public void testMultifileClassOptimizedWithRemovePrivateOption() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/multifileClassOptimizedWithRemovePrivateOption/");
+    }
+
+    @TestMetadata("multifileClassWithRemovePrivateOption")
+    public void testMultifileClassWithRemovePrivateOption() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/multifileClassWithRemovePrivateOption/");
+    }
+
     @TestMetadata("privateAnnotationsFromJavaApp")
     public void testPrivateAnnotationsFromJavaApp() throws Exception {
         runTest("plugins/jvm-abi-gen/testData/compile/privateAnnotationsFromJavaApp/");
@@ -118,6 +143,11 @@ public class CompileAgainstJvmAbiTestGenerated extends AbstractCompileAgainstJvm
     @TestMetadata("privateClassesFromJavaLib")
     public void testPrivateClassesFromJavaLib() throws Exception {
         runTest("plugins/jvm-abi-gen/testData/compile/privateClassesFromJavaLib/");
+    }
+
+    @TestMetadata("privateInterfaceImplementedByPublicClass")
+    public void testPrivateInterfaceImplementedByPublicClass() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/compile/privateInterfaceImplementedByPublicClass/");
     }
 
     @TestMetadata("privateOnlyConstructors")

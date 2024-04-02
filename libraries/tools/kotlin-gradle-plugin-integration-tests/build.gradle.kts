@@ -1,16 +1,11 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import org.gradle.jvm.toolchain.internal.NoToolchainAvailableException
-import org.jetbrains.kotlin.pill.PillExtension
+import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import java.nio.file.Paths
 
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("jps-compatible")
-}
-
-pill {
-    variant = PillExtension.Variant.FULL
 }
 
 testsJar()
@@ -42,6 +37,11 @@ dependencies {
             requireCapability("org.jetbrains.kotlin:kotlin-lombok-common")
         }
     }
+    testImplementation(project(":kotlin-power-assert")) {
+        capabilities {
+            requireCapability("org.jetbrains.kotlin:kotlin-power-assert-common")
+        }
+    }
     testImplementation(project(":kotlin-sam-with-receiver")) {
         capabilities {
             requireCapability("org.jetbrains.kotlin:kotlin-sam-with-receiver-common")
@@ -68,7 +68,7 @@ dependencies {
     testImplementation(project(":kotlin-tooling-metadata"))
     testImplementation(kotlinGradlePluginTest)
     testImplementation(project(":kotlin-gradle-subplugin-example"))
-    testImplementation(project(":kotlin-test:kotlin-test-jvm"))
+    testImplementation(kotlinTest("junit"))
     testImplementation(project(":kotlin-util-klib"))
 
     testImplementation(project(":native:kotlin-native-utils"))
@@ -105,11 +105,13 @@ dependencies {
 
     testRuntimeOnly(project(":compiler:tests-mutes"))
 
-    // Workaround for missing transitive import of the common(project `kotlin-test-common`
-    // for `kotlin-test-jvm` into the IDE:
-    testCompileOnly(project(":kotlin-test:kotlin-test-common")) { isTransitive = false }
     testCompileOnly(commonDependency("org.jetbrains.intellij.deps:asm-all"))
 }
+
+val konanDataDir: String = System.getProperty("konanDataDirForIntegrationTests")
+    ?: project.rootDir
+        .resolve(".kotlin")
+        .resolve("konan-for-gradle-tests").absolutePath
 
 // Aapt2 from Android Gradle Plugin 3.2 and below does not handle long paths on Windows.
 val shortenTempRootName = project.providers.systemProperty("os.name").get().contains("Windows")
@@ -126,17 +128,58 @@ val cleanTestKitCacheTask = tasks.register<Delete>("cleanTestKitCache") {
     group = "Build"
     description = "Deletes temporary Gradle TestKit cache"
 
-    delete(project.buildDir.resolve("testKitCache"))
+    delete(layout.buildDirectory.dir("testKitCache"))
 }
 
 tasks.register<Delete>("cleanUserHomeKonanDir") {
-    group = KGP_TEST_TASKS_GROUP
-    description = "Deletes ~/.konan dir before tests. This step is necessary to ensure that no test inadvertently creates this directory during execution."
+    description =
+        "Deletes ~/.konan dir before tests. This step is necessary to ensure that no test inadvertently creates this directory during execution."
 
     val userHomeKonanDir = Paths.get("${System.getProperty("user.home")}/.konan")
+
     delete(userHomeKonanDir)
 
-    println("Default .konan directory user's home has been deleted: $userHomeKonanDir")
+    doLast {
+        logger.info("Default .konan directory user's home has been deleted: $userHomeKonanDir")
+    }
+}
+
+tasks.register<Copy>("prepareNativeBundleForGradleIT") {
+
+    description = "This task adds dependency on :kotlin-native:bundle and then copying built bundle into the tests' konan dir"
+
+    if (project.kotlinBuildProperties.isKotlinNativeEnabled) {
+        // 1. Build full Kotlin Native bundle
+        dependsOn(":kotlin-native:bundle")
+
+        // 2. Coping and extracting k/n artifacts from the 1st step to tests' konan data directory
+        val (extension, unzipFunction) = when (HostManager.host) {
+            KonanTarget.MINGW_X64 -> Pair("zip", ::zipTree)
+            else -> Pair("tar.gz", ::tarTree)
+        }
+
+        val kotlinNativeRootDir = rootProject.findProject(":kotlin-native")?.projectDir
+            ?: throw IllegalStateException("The path to kotlin-native module is undefined.")
+
+        from(
+            unzipFunction(
+                kotlinNativeRootDir.resolve("kotlin-native-${HostManager.platformName()}-${project.kotlinBuildProperties.defaultSnapshotVersion}.$extension")
+            )
+        )
+        from(
+            unzipFunction(
+                kotlinNativeRootDir.resolve("kotlin-native-prebuilt-${HostManager.platformName()}-${project.kotlinBuildProperties.defaultSnapshotVersion}.$extension")
+            )
+        )
+
+        into(
+            konanDataDir
+        )
+
+        doFirst {
+            delete(konanDataDir)
+        }
+    }
 }
 
 fun Test.includeMppAndAndroid(include: Boolean) = includeTestsWithPattern(include) {
@@ -145,6 +188,28 @@ fun Test.includeMppAndAndroid(include: Boolean) = includeTestsWithPattern(includ
 
 fun Test.includeNative(include: Boolean) = includeTestsWithPattern(include) {
     addAll(listOf("org.jetbrains.kotlin.gradle.native.*", "*Commonizer*"))
+}
+
+fun Test.applyKotlinNativeFromCurrentBranchIfNeeded() {
+    val kotlinNativeFromMasterEnabled = project.kotlinBuildProperties.isKotlinNativeEnabled && project.kotlinBuildProperties.useKotlinNativeLocalDistributionForTests
+    if (kotlinNativeFromMasterEnabled && !project.kotlinBuildProperties.isTeamcityBuild) {
+        dependsOn(":kotlin-gradle-plugin-integration-tests:prepareNativeBundleForGradleIT")
+    }
+
+    // Providing necessary properties for running tests with k/n built from master on the local environment
+    val defaultSnapshotVersion = project.kotlinBuildProperties.defaultSnapshotVersion
+    if (kotlinNativeFromMasterEnabled && defaultSnapshotVersion != null) {
+        systemProperty("kotlinNativeVersion", defaultSnapshotVersion)
+        systemProperty("konanDataDirForIntegrationTests", konanDataDir)
+    }
+
+    // Providing necessary properties for running tests with k/n built from master on the TeamCity
+    if (project.kotlinBuildProperties.isTeamcityBuild) {
+        System.getProperty("kotlinNativeVersionForGradleIT")?.let {
+            systemProperty("kotlinNativeVersion", it)
+        }
+        systemProperty("konanDataDirForIntegrationTests", konanDataDir)
+    }
 }
 
 fun Test.includeTestsWithPattern(include: Boolean, patterns: (MutableSet<String>).() -> Unit) {
@@ -158,7 +223,7 @@ fun Test.includeTestsWithPattern(include: Boolean, patterns: (MutableSet<String>
 }
 
 fun Test.advanceGradleVersion() {
-    val gradleVersionForTests = "8.1.1"
+    val gradleVersionForTests = "8.4"
     systemProperty("kotlin.gradle.version.for.tests", gradleVersionForTests)
 }
 
@@ -250,6 +315,7 @@ val nativeTestsTask = tasks.register<Test>("kgpNativeTests") {
         excludeTags("JvmKGP", "JsKGP", "DaemonsKGP", "OtherKGP", "MppKGP", "AndroidKGP")
         includeEngines("junit-jupiter")
     }
+    applyKotlinNativeFromCurrentBranchIfNeeded()
 }
 
 // Daemon tests could run only sequentially as they could not be shared between parallel test builds
@@ -274,6 +340,7 @@ val otherPluginsTestTask = tasks.register<Test>("kgpOtherTests") {
         excludeTags("JvmKGP", "JsKGP", "NativeKGP", "DaemonsKGP", "MppKGP", "AndroidKGP")
         includeEngines("junit-jupiter")
     }
+    applyKotlinNativeFromCurrentBranchIfNeeded()
 }
 
 val mppTestsTask = tasks.register<Test>("kgpMppTests") {
@@ -285,6 +352,7 @@ val mppTestsTask = tasks.register<Test>("kgpMppTests") {
         excludeTags("JvmKGP", "JsKGP", "NativeKGP", "DaemonsKGP", "OtherKGP", "AndroidKGP")
         includeEngines("junit-jupiter")
     }
+    applyKotlinNativeFromCurrentBranchIfNeeded()
 }
 
 val androidTestsTask = tasks.register<Test>("kgpAndroidTests") {
@@ -320,6 +388,7 @@ tasks.withType<Test> {
     dependsOn(":gradle:android-test-fixes:install")
     dependsOn(":gradle:gradle-warnings-detector:install")
     dependsOn(":gradle:kotlin-compiler-args-properties:install")
+    dependsOn(":libraries:tools:gradle:fus-statistics-gradle-plugin:install")
     dependsOn(":examples:annotation-processor-example:install")
     dependsOn(":kotlin-dom-api-compat:install")
     if (project.kotlinBuildProperties.isTeamcityBuild) {
@@ -335,28 +404,18 @@ tasks.withType<Test> {
     }
 
     val jdk8Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_1_8)
-    val jdk9Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_9_0)
-    val jdk10Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_10_0)
     val jdk11Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_11_0)
-    val jdk16Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_16_0)
     val jdk17Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_17_0)
+    val jdk21Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_21_0)
     val mavenLocalRepo = project.providers.systemProperty("maven.repo.local").orNull
 
     // Query required JDKs paths only on execution phase to avoid triggering auto-download on project configuration phase
     // names should follow "jdk\\d+Home" regex where number is a major JDK version
     doFirst {
         systemProperty("jdk8Home", jdk8Provider.get())
-        systemProperty("jdk9Home", jdk9Provider.get())
-        systemProperty("jdk10Home", jdk10Provider.get())
         systemProperty("jdk11Home", jdk11Provider.get())
-        systemProperty("jdk16Home", jdk16Provider.get())
         systemProperty("jdk17Home", jdk17Provider.get())
-        // jdk21Provider.isPresent throws NoToolchainAvailableException, so, we have to check for the exception
-        // Storing jdk21Provider in a field leads to "Configuration cache state could not be cached" error,
-        // since it tries to resolve the toolchain as well.
-        try {
-            systemProperty("jdk21Home", project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_21_0).get())
-        } catch (_: NoToolchainAvailableException) {}
+        systemProperty("jdk21Home", jdk21Provider.get())
         if (mavenLocalRepo != null) {
             systemProperty("maven.repo.local", mavenLocalRepo)
         }

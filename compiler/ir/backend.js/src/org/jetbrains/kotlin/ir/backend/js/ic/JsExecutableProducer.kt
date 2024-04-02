@@ -9,6 +9,10 @@ import org.jetbrains.kotlin.ir.backend.js.SourceMapsInfo
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.*
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 
+/**
+ * This class is responsible for incrementally producing the final JavaScript code based on the provided cache artifacts.
+ * @param caches - Cache artifacts, which are instances of [ModuleArtifact], can be obtained using [CacheUpdater.actualizeCaches].
+ */
 class JsExecutableProducer(
     private val mainModuleName: String,
     private val moduleKind: ModuleKind,
@@ -29,7 +33,7 @@ class JsExecutableProducer(
     fun buildExecutable(granularity: JsGenerationGranularity, outJsProgram: Boolean) =
         when (granularity) {
             JsGenerationGranularity.WHOLE_PROGRAM -> buildSingleModuleExecutable(outJsProgram)
-            JsGenerationGranularity.PER_MODULE -> buildMultiArtifactExecutable(outJsProgram, JsPerModuleCache(caches))
+            JsGenerationGranularity.PER_MODULE -> buildMultiArtifactExecutable(outJsProgram, JsPerModuleCache(moduleKind, caches))
             JsGenerationGranularity.PER_FILE -> buildMultiArtifactExecutable(outJsProgram, JsPerFileCache(caches))
         }
 

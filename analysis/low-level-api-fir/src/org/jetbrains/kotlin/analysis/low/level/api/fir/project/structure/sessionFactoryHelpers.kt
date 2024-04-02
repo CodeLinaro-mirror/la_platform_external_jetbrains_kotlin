@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure
 
 import com.intellij.openapi.project.Project
-import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.resolve.extensions.KtResolveExtensionProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.IdeSessionComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.services.createSealedInheritorsProvider
@@ -17,13 +16,11 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.LLFirIdeRegiste
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.extensions.LLFirNonEmptyResolveExtensionTool
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.extensions.LLFirResolveExtensionTool
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSourcesSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.LLFirExceptionHandler
 import org.jetbrains.kotlin.analysis.project.structure.KtCompilerPluginsProvider
 import org.jetbrains.kotlin.analysis.project.structure.KtSourceModule
-import org.jetbrains.kotlin.analysis.project.structure.moduleScopeProvider
+import org.jetbrains.kotlin.analysis.providers.KotlinResolutionScopeProvider
 import org.jetbrains.kotlin.analysis.providers.createAnnotationResolver
-import org.jetbrains.kotlin.analysis.providers.createDeclarationProvider
 import org.jetbrains.kotlin.fir.FirExceptionHandler
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.SessionConfiguration
@@ -41,7 +38,7 @@ import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
 internal fun LLFirSession.registerIdeComponents(project: Project) {
     register(IdeSessionComponents::class, IdeSessionComponents.create())
     register(FirCachesFactory::class, FirThreadSafeCachesFactory)
-    register(SealedClassInheritorsProvider::class, project.createSealedInheritorsProvider())
+    register(SealedClassInheritorsProvider::class, createSealedInheritorsProvider(project))
     register(FirExceptionHandler::class, LLFirExceptionHandler)
     register(CodeFragmentScopeProvider::class, CodeFragmentScopeProvider(this))
     createResolveExtensionTool()?.let {
@@ -75,19 +72,15 @@ internal fun FirSession.registerCompilerPluginExtensions(project: Project, modul
 }
 
 @SessionConfiguration
-internal fun LLFirSourcesSession.registerCompilerPluginServices(
-    contentScope: GlobalSearchScope,
+internal fun LLFirSession.registerCompilerPluginServices(
     project: Project,
     module: KtSourceModule
 ) {
-    val projectWithDependenciesScope = contentScope.uniteWith(project.moduleScopeProvider.getModuleLibrariesScope(module))
+    val projectWithDependenciesScope = KotlinResolutionScopeProvider.getInstance(project).getResolutionScope(module)
     val annotationsResolver = project.createAnnotationResolver(projectWithDependenciesScope)
 
     // We need FirRegisteredPluginAnnotations and FirPredicateBasedProvider during extensions' registration process
     register(FirRegisteredPluginAnnotations::class, LLFirIdeRegisteredPluginAnnotations(this, annotationsResolver))
-    register(
-        FirPredicateBasedProvider::class,
-        LLFirIdePredicateBasedProvider(this, annotationsResolver, project.createDeclarationProvider(projectWithDependenciesScope, module))
-    )
+    register(FirPredicateBasedProvider::class, LLFirIdePredicateBasedProvider(this, annotationsResolver))
 
 }

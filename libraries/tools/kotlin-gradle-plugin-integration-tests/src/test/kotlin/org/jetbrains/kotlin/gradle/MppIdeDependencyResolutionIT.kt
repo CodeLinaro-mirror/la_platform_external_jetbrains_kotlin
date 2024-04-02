@@ -8,10 +8,7 @@ package org.jetbrains.kotlin.gradle
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
 import org.jetbrains.kotlin.commonizer.identityString
-import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
-import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinDependency
-import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinResolvedBinaryDependency
-import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinUnresolvedBinaryDependency
+import org.jetbrains.kotlin.gradle.idea.tcs.*
 import org.jetbrains.kotlin.gradle.idea.tcs.extras.*
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.*
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -93,7 +90,11 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
 
     @GradleTest
     fun testCinterops(gradleVersion: GradleVersion) {
-        project(projectName = "cinteropImport", gradleVersion = gradleVersion) {
+        project(
+            projectName = "cinteropImport",
+            gradleVersion = gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build(":dep-with-cinterop:publishAllPublicationsToBuildRepository")
 
             resolveIdeDependencies("dep-with-cinterop") { dependencies ->
@@ -189,8 +190,13 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
     }
 
     @GradleTest
-    fun `test cinterops - are stored in root gradle folder`(gradleVersion: GradleVersion) {
-        project(projectName = "cinteropImport", gradleVersion = gradleVersion) {
+    fun `test cinterops - are stored in root gradle folder`(
+        gradleVersion: GradleVersion,
+    ) {
+        project(
+            projectName = "cinteropImport",
+            gradleVersion = gradleVersion,
+        ) {
             resolveIdeDependencies("dep-with-cinterop") { dependencies ->
 
                 /* Check behaviour of platform cinterops on linuxX64Main */
@@ -198,12 +204,12 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                     .filter { !it.isNativeDistribution && it.klibExtra?.isInterop == true }
                     .ifEmpty { fail("Expected at least one cinterop on linuxX64Main") }
 
+                val persistentCInteropsCache = projectPersistentCache.resolve("metadata").resolve("kotlinCInteropLibraries")
                 cinterops.forEach { cinterop ->
                     if (cinterop.classpath.isEmpty()) fail("Missing classpath for $cinterop")
                     cinterop.classpath.forEach { cinteropFile ->
                         /* Check file was copied into root .gradle folder */
-                        val expectedParent = projectPath.toFile().resolve(".gradle/kotlin/kotlinCInteropLibraries").canonicalFile
-                        assertEquals(expectedParent, cinteropFile.parentFile.canonicalFile)
+                        assertEquals(persistentCInteropsCache.toFile().canonicalFile, cinteropFile.parentFile.canonicalFile)
 
                         /* Check crc in file name */
                         val crc = CRC32()
@@ -326,7 +332,11 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
     @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_6)
     @GradleTest
     fun `test dependency on java testFixtures and feature source sets`(gradleVersion: GradleVersion) {
-        project("kt-60053-dependencyOn-testFixtures", gradleVersion) {
+        project(
+            "kt-60053-dependencyOn-testFixtures",
+            gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build("publish")
 
             resolveIdeDependencies(":consumer") { dependencies ->
@@ -386,6 +396,38 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
         project("kt-61652-CME-when-jupiter-is-applied-to-independet-project", gradleVersion) {
             resolveIdeDependencies(":app") {
                 assertOutputDoesNotContain("ConcurrentModificationException")
+            }
+        }
+    }
+
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_2)
+    @GradleTest
+    fun `test resolve sources for dependency with multiple capabilities`(gradleVersion: GradleVersion) {
+        project(
+            "kt-63226-multiple-capabilities",
+            gradleVersion,
+            localRepoDir = workingDir.resolve(gradleVersion.version),
+        ) {
+            build(":producer:publish")
+
+            resolveIdeDependencies(":consumer") { dependencies ->
+                dependencies["jvmMain"].getOrFail(
+                    binaryCoordinates("test:producer:1.0")
+                        .withResolvedSourcesFile("producer-1.0-sources.jar")
+                )
+
+                // according to build.gradle.kts of test project jvmTest should have both artifacts from :producer
+                // one with regular capabilities
+                dependencies["jvmTest"].getOrFail(
+                    binaryCoordinates("test:producer:1.0")
+                        .withResolvedSourcesFile("producer-1.0-sources.jar")
+                )
+
+                // and another with foo capability
+                dependencies["jvmTest"].getOrFail(
+                    binaryCoordinates("test:producer:1.0")
+                        .withResolvedSourcesFile("producer-1.0-foo-sources.jar")
+                )
             }
         }
     }

@@ -11,15 +11,16 @@ import org.jetbrains.kotlin.descriptors.isEnumClass
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirPropertyChecker
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.java.hasJvmFieldAnnotation
 import org.jetbrains.kotlin.fir.declarations.utils.fromPrimaryConstructor
 import org.jetbrains.kotlin.fir.declarations.utils.hasBackingField
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.java.hasJvmFieldAnnotation
 import org.jetbrains.kotlin.fir.resolve.fqName
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
@@ -31,7 +32,7 @@ import org.jetbrains.kotlin.parcelize.ParcelizeNames.CREATOR_NAME
 import org.jetbrains.kotlin.parcelize.ParcelizeNames.IGNORED_ON_PARCEL_CLASS_IDS
 import org.jetbrains.kotlin.parcelize.ParcelizeNames.PARCELER_ID
 
-object FirParcelizePropertyChecker : FirPropertyChecker() {
+object FirParcelizePropertyChecker : FirPropertyChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirProperty, context: CheckerContext, reporter: DiagnosticReporter) {
         val session = context.session
         val containingClassSymbol = declaration.dispatchReceiverType?.toRegularClassSymbol(session) ?: return
@@ -65,7 +66,7 @@ object FirParcelizePropertyChecker : FirPropertyChecker() {
         context: CheckerContext,
         reporter: DiagnosticReporter
     ) {
-        val type = property.returnTypeRef.coneType
+        val type = property.returnTypeRef.coneType.fullyExpandedType(context.session)
         if (type is ConeErrorType || containingClassSymbol.hasCustomParceler(context.session) || property.hasIgnoredOnParcel()) {
             return
         }
@@ -80,7 +81,7 @@ object FirParcelizePropertyChecker : FirPropertyChecker() {
     private fun getCustomParcelerTypes(annotations: List<FirAnnotation>, session: FirSession): Set<ConeKotlinType> =
         annotations.mapNotNullTo(mutableSetOf()) { annotation ->
             if (annotation.fqName(session) in ParcelizeNames.TYPE_PARCELER_FQ_NAMES && annotation.typeArguments.size == 2) {
-                annotation.typeArguments[0].toConeTypeProjection().type
+                annotation.typeArguments[0].toConeTypeProjection().type?.fullyExpandedType(session)
             } else {
                 null
             }

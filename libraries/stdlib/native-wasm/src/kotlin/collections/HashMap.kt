@@ -9,7 +9,7 @@ import kotlin.native.concurrent.isFrozen
 import kotlin.native.FreezingIsDeprecated
 
 @OptIn(FreezingIsDeprecated::class)
-actual class HashMap<K, V> private constructor(
+public actual class HashMap<K, V> private constructor(
     // keys in insert order
     private var keysArray: Array<K>,
     // values in insert order, allocated only when actually used, always null in pure HashSet
@@ -32,7 +32,7 @@ actual class HashMap<K, V> private constructor(
      * or otherwise changes it in a way that iterations in progress may return incorrect results.
      *
      * This value can be used by iterators of the [keys], [values] and [entries] views
-     * to provide fail-fast behavoir when a concurrent modification is detected during iteration.
+     * to provide fail-fast behavior when a concurrent modification is detected during iteration.
      * [ConcurrentModificationException] will be thrown in this case.
      */
     private var modCount: Int = 0
@@ -52,7 +52,7 @@ actual class HashMap<K, V> private constructor(
     /**
      * Creates a new empty [HashMap].
      */
-    actual constructor() : this(INITIAL_CAPACITY)
+    public actual constructor() : this(INITIAL_CAPACITY)
 
     /**
      * Creates a new empty [HashMap] with the specified initial capacity.
@@ -66,7 +66,7 @@ actual class HashMap<K, V> private constructor(
      *
      * @throws IllegalArgumentException if [initialCapacity] is negative.
      */
-    actual constructor(initialCapacity: Int) : this(
+    public actual constructor(initialCapacity: Int) : this(
             arrayOfUninitializedElements(initialCapacity),
             null,
             IntArray(initialCapacity),
@@ -77,7 +77,7 @@ actual class HashMap<K, V> private constructor(
     /**
      * Creates a new [HashMap] filled with the contents of the specified [original] map.
      */
-    actual constructor(original: Map<out K, V>) : this(original.size) {
+    public actual constructor(original: Map<out K, V>) : this(original.size) {
         putAll(original)
     }
 
@@ -95,7 +95,7 @@ actual class HashMap<K, V> private constructor(
      *
      * @throws IllegalArgumentException if [initialCapacity] is negative or [loadFactor] is non-positive.
      */
-    actual constructor(initialCapacity: Int, loadFactor: Float) : this(initialCapacity) {
+    public actual constructor(initialCapacity: Int, loadFactor: Float) : this(initialCapacity) {
         require(loadFactor > 0) { "Non-positive load factor: $loadFactor" }
     }
 
@@ -136,11 +136,11 @@ actual class HashMap<K, V> private constructor(
     }
 
     override actual fun remove(key: K): V? {
-        val index = removeKey(key)  // mutability gets checked here
+        checkIsMutable()
+        val index = findKey(key)
         if (index < 0) return null
-        val valuesArray = valuesArray!!
-        val oldValue = valuesArray[index]
-        valuesArray.resetAt(index)
+        val oldValue = valuesArray!![index]
+        removeEntryAt(index)
         return oldValue
     }
 
@@ -379,16 +379,17 @@ actual class HashMap<K, V> private constructor(
         }
     }
 
-    internal fun removeKey(key: K): Int {
+    internal fun removeKey(key: K): Boolean {
         checkIsMutable()
         val index = findKey(key)
-        if (index < 0) return TOMBSTONE
-        removeKeyAt(index)
-        return index
+        if (index < 0) return false
+        removeEntryAt(index)
+        return true
     }
 
-    private fun removeKeyAt(index: Int) {
+    private fun removeEntryAt(index: Int) {
         keysArray.resetAt(index)
+        valuesArray?.resetAt(index)
         removeHashAt(presenceArray[index])
         presenceArray[index] = TOMBSTONE
         _size--
@@ -518,7 +519,7 @@ actual class HashMap<K, V> private constructor(
         val index = findKey(entry.key)
         if (index < 0) return false
         if (valuesArray!![index] != entry.value) return false
-        removeKeyAt(index)
+        removeEntryAt(index)
         return true
     }
 
@@ -526,7 +527,7 @@ actual class HashMap<K, V> private constructor(
         checkIsMutable()
         val index = findValue(element)
         if (index < 0) return false
-        removeKeyAt(index)
+        removeEntryAt(index)
         return true
     }
 
@@ -577,7 +578,7 @@ actual class HashMap<K, V> private constructor(
             checkForComodification()
             check(lastIndex != -1) { "Call next() before removing element from the iterator." }
             map.checkIsMutable()
-            map.removeKeyAt(lastIndex)
+            map.removeEntryAt(lastIndex)
             lastIndex = -1
             expectedModCount = map.modCount
         }
@@ -682,7 +683,7 @@ internal class HashMapKeys<E> internal constructor(
     override fun clear() = backing.clear()
     override fun add(element: E): Boolean = throw UnsupportedOperationException()
     override fun addAll(elements: Collection<E>): Boolean = throw UnsupportedOperationException()
-    override fun remove(element: E): Boolean = backing.removeKey(element) >= 0
+    override fun remove(element: E): Boolean = backing.removeKey(element)
     override fun iterator(): MutableIterator<E> = backing.keysIterator()
 
     override fun removeAll(elements: Collection<E>): Boolean {
@@ -770,4 +771,4 @@ internal class HashMapEntrySet<K, V> internal constructor(
 }
 
 // This hash map keeps insertion order.
-actual typealias LinkedHashMap<K, V> = HashMap<K, V>
+public actual typealias LinkedHashMap<K, V> = HashMap<K, V>

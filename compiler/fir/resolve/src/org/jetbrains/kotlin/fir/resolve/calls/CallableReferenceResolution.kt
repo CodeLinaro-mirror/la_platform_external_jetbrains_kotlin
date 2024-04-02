@@ -29,6 +29,8 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemOperation
 import org.jetbrains.kotlin.resolve.calls.inference.runTransaction
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
+import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.expressions.CoercionStrategy
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
@@ -47,12 +49,30 @@ internal object CheckCallableReferenceExpectedType : CheckerStage() {
 
         val fir: FirCallableDeclaration = candidate.symbol.fir as FirCallableDeclaration
 
-        val (rawResultingType, callableReferenceAdaptation) = buildReflectionType(fir, resultingReceiverType, candidate, context)
+        val isExpectedTypeReflectionType = callInfo.expectedType?.isReflectFunctionType(callInfo.session) == true
+        val (rawResultingType, callableReferenceAdaptation) = buildResultingTypeAndAdaptation(
+            fir,
+            resultingReceiverType,
+            candidate,
+            context,
+            // If the input and output types match the expected type but the expected type is a reflection type, and we need an adaptation,
+            // we want to report AdaptedCallableReferenceIsUsedWithReflection but *not* InapplicableCandidate because
+            // AdaptedCallableReferenceIsUsedWithReflection has the higher applicability.
+            // Therefore, we force a reflection type whenever the expected type is a reflection type.
+            //
+            // If the input and output types end up not matching, we'll report InapplicableCandidate, regardless of whether the
+            // expected/actual type is a reflection type.
+            forceReflectionType = isExpectedTypeReflectionType
+        )
         val resultingType = candidate.substitutor.substituteOrSelf(rawResultingType)
 
-        if (callableReferenceAdaptation.needCompatibilityResolveForCallableReference()) {
+        if (callableReferenceAdaptation != null) {
             if (!context.session.languageVersionSettings.supportsFeature(LanguageFeature.DisableCompatibilityModeForNewInference)) {
                 sink.reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
+            }
+
+            if (isExpectedTypeReflectionType) {
+                sink.reportDiagnostic(AdaptedCallableReferenceIsUsedWithReflection)
             }
         }
 
@@ -65,7 +85,7 @@ internal object CheckCallableReferenceExpectedType : CheckerStage() {
             val position = ConeArgumentConstraintPosition(callInfo.callSite)
 
             if (expectedType != null && !resultingType.contains {
-                    it is ConeTypeVariableType && it.lookupTag !in outerCsBuilder.currentStorage().allTypeVariables
+                    it is ConeTypeVariableType && it.typeConstructor !in outerCsBuilder.currentStorage().allTypeVariables
                 }
             ) {
                 addSubtypeConstraint(resultingType, expectedType, position)
@@ -88,11 +108,17 @@ internal object CheckCallableReferenceExpectedType : CheckerStage() {
     }
 }
 
-private fun buildReflectionType(
+/**
+ *  The resulting type is a reflection type ([FunctionTypeKind.reflectKind])
+ *  iff the adaptation is `null` or [forceReflectionType]` == true`.
+ *  Otherwise, it's a non-reflection type ([FunctionTypeKind.nonReflectKind]).
+ */
+private fun buildResultingTypeAndAdaptation(
     fir: FirCallableDeclaration,
     receiverType: ConeKotlinType?,
     candidate: Candidate,
-    context: ResolutionContext
+    context: ResolutionContext,
+    forceReflectionType: Boolean,
 ): Pair<ConeKotlinType, CallableReferenceAdaptation?> {
     val returnTypeRef = context.bodyResolveComponents.returnTypeCalculator.tryCalculateReturnType(fir)
     return when (fir) {
@@ -111,31 +137,58 @@ private fun buildReflectionType(
                 parameters += receiverType
             }
 
-            val returnType = callableReferenceAdaptation?.let {
-                parameters += it.argumentTypes
-                if (it.coercionStrategy == CoercionStrategy.COERCION_TO_UNIT) {
-                    context.session.builtinTypes.unitType.type
-                } else {
-                    returnTypeRef.coneType
+            val returnTypeWithoutCoercion = returnTypeRef.coneType
+            val returnType = if (callableReferenceAdaptation == null) {
+                returnTypeWithoutCoercion.also {
+                    fir.valueParameters.mapTo(parameters) { it.returnTypeRef.coneType }
                 }
-            } ?: returnTypeRef.coneType.also {
-                fir.valueParameters.mapTo(parameters) { it.returnTypeRef.coneType }
+            } else {
+                parameters += callableReferenceAdaptation.argumentTypes
+                // K1 simply doesn't perform any conversions for so-called "top level callable references",
+                // only for "callable reference arguments"
+                // (see CallableReferencesCandidateFactory.buildReflectionType, val buildTypeWithConversions)
+                // Here hasSyntheticOuterCall is ~ an equivalent of "top level callable references" in K1
+                // K2 behavior differs at least in two aspects:
+                // - it still allows to drop some default parameters / convert some varargs
+                //     - see testData/diagnostics/tests/callableReference/adapted/simpleAdaptationOutsideOfCall.kt
+                //     - see testData/diagnostics/tests/callableReference/resolve/withVararg.kt
+                // - coercion to unit is still allowed if a candidate return type is not type parameter based
+                //     - see testData/diagnostics/tests/inference/callableReferences/conversionLastStatementInLambda.kt
+                val hasSyntheticOuterCall = candidate.callInfo.hasSyntheticOuterCall
+                if (callableReferenceAdaptation.coercionStrategy != CoercionStrategy.COERCION_TO_UNIT ||
+                    hasSyntheticOuterCall && returnTypeWithoutCoercion.unwrapFlexibleAndDefinitelyNotNull() is ConeTypeParameterType
+                ) {
+                    returnTypeWithoutCoercion
+                } else {
+                    context.session.builtinTypes.unitType.type
+                }
             }
-
 
             val baseFunctionTypeKind = callableReferenceAdaptation?.suspendConversionStrategy?.kind
                 ?: fir.specialFunctionTypeKind(context.session)
                 ?: FunctionTypeKind.Function
 
             return createFunctionType(
-                if (callableReferenceAdaptation == null) baseFunctionTypeKind.reflectKind() else baseFunctionTypeKind.nonReflectKind(),
+                if (callableReferenceAdaptation == null || forceReflectionType) baseFunctionTypeKind.reflectKind() else baseFunctionTypeKind.nonReflectKind(),
                 parameters,
                 receiverType = receiverType.takeIf { fir.receiverParameter != null },
                 rawReturnType = returnType,
                 contextReceivers = fir.contextReceivers.map { it.typeRef.coneType }
             ) to callableReferenceAdaptation
         }
-        is FirVariable -> createKPropertyType(fir, receiverType, returnTypeRef, candidate) to null
+        is FirVariable -> {
+            val returnType = returnTypeRef.type
+            val isMutable = fir.canBeMutableReference(candidate)
+            val propertyType = when {
+                isMutable && returnType.hasCapture() ->
+                    // capturing types in mutable property references is unsound in general
+                    context.inferenceComponents.resultTypeResolver.typeApproximator
+                        .approximateToSuperType(returnType, TypeApproximatorConfiguration.InternalTypesApproximation) as? ConeKotlinType
+                        ?: returnType
+                else -> returnType
+            }
+            createKPropertyType(receiverType, propertyType, isMutable) to null
+        }
         else -> ConeErrorType(ConeUnsupportedCallableReferenceTarget(candidate)) to null
     }
 }
@@ -145,16 +198,20 @@ internal class CallableReferenceAdaptation(
     val coercionStrategy: CoercionStrategy,
     val defaults: Int,
     val mappedArguments: CallableReferenceMappedArguments,
-    val suspendConversionStrategy: CallableReferenceConversionStrategy
-)
-
-private fun CallableReferenceAdaptation?.needCompatibilityResolveForCallableReference(): Boolean {
-    // KT-13934: check containing declaration for companion object
-    if (this == null) return false
-    return defaults != 0 ||
-            suspendConversionStrategy != CallableReferenceConversionStrategy.NoConversion ||
-            coercionStrategy != CoercionStrategy.NO_COERCION ||
-            mappedArguments.values.any { it is ResolvedCallArgument.VarargArgument }
+    val suspendConversionStrategy: CallableReferenceConversionStrategy,
+) {
+    init {
+        if (AbstractTypeChecker.RUN_SLOW_ASSERTIONS) {
+            require(
+                defaults != 0 ||
+                        suspendConversionStrategy != CallableReferenceConversionStrategy.NoConversion ||
+                        coercionStrategy != CoercionStrategy.NO_COERCION ||
+                        mappedArguments.values.any { it is ResolvedCallArgument.VarargArgument }
+            ) {
+                "Adaptation must be non-trivial."
+            }
+        }
+    }
 }
 
 private fun BodyResolveComponents.getCallableReferenceAdaptation(
@@ -436,20 +493,6 @@ class FirFakeArgumentForCallableReference(
 
 fun ConeKotlinType.isKCallableType(): Boolean {
     return this.classId == StandardClassIds.KCallable
-}
-
-private fun createKPropertyType(
-    propertyOrField: FirVariable,
-    receiverType: ConeKotlinType?,
-    returnTypeRef: FirResolvedTypeRef,
-    candidate: Candidate,
-): ConeKotlinType {
-    val propertyType = returnTypeRef.type
-    return org.jetbrains.kotlin.fir.resolve.createKPropertyType(
-        receiverType,
-        propertyType,
-        isMutable = propertyOrField.canBeMutableReference(candidate)
-    )
 }
 
 private fun FirVariable.canBeMutableReference(candidate: Candidate): Boolean {

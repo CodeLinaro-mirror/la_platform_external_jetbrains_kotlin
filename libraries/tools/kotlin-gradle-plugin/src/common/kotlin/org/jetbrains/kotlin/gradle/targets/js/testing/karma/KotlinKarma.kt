@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.gradle.targets.js.testing.karma
 import com.google.gson.GsonBuilder
 import jetbrains.buildServer.messages.serviceMessages.BaseTestSuiteMessage
 import org.gradle.api.Project
+import org.gradle.api.file.Directory
 import org.gradle.api.internal.tasks.testing.TestResultProcessor
+import org.gradle.api.provider.Provider
 import org.gradle.internal.logging.progress.ProgressLogger
 import org.gradle.internal.service.ServiceRegistry
 import org.gradle.process.ProcessForkOptions
@@ -23,12 +25,12 @@ import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecuto
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.internal.MppTestReportHelper
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.NpmPackageVersion
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.appendConfigsFromDir
 import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webpackRulesContainer
 import org.jetbrains.kotlin.gradle.targets.js.internal.parseNodeJsStackTraceAsJvm
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
@@ -36,15 +38,15 @@ import org.jetbrains.kotlin.gradle.targets.js.testing.*
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
 import org.jetbrains.kotlin.gradle.utils.appendLine
+import org.jetbrains.kotlin.gradle.utils.getFile
 import org.jetbrains.kotlin.gradle.utils.getValue
 import org.jetbrains.kotlin.gradle.utils.property
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.slf4j.Logger
 import java.io.File
-import java.nio.file.Path
 
 class KotlinKarma(
-    @Transient override val compilation: KotlinJsCompilation,
+    @Transient override val compilation: KotlinJsIrCompilation,
     private val services: () -> ServiceRegistry,
     private val basePath: String,
 ) : KotlinJsTestFramework {
@@ -56,7 +58,7 @@ class KotlinKarma(
 
     @Transient
     private val nodeJs = project.rootProject.kotlinNodeJsExtension
-    private val nodeRootPackageDir by lazy { nodeJs.rootPackageDir }
+    private val nodeRootPackageDir by lazy { nodeJs.rootPackageDirectory }
     private val versions = nodeJs.versions
 
     private val config: KarmaConfig = KarmaConfig()
@@ -70,15 +72,13 @@ class KotlinKarma(
     private var configDirectory: File by property {
         defaultConfigDirectory
     }
-    private val isTeamCity = project.providers.gradleProperty(TCServiceMessagesTestExecutor.TC_PROJECT_PROPERTY)
-
     private val npmProjectDir by project.provider { npmProject.dir }
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         get() = requiredDependencies + webpackConfig.getRequiredDependencies(versions)
 
-    override val workingDir: Path
-        get() = npmProjectDir.toPath()
+    override val workingDir: Provider<Directory>
+        get() = npmProjectDir
 
     override fun getPath() = "$basePath:kotlinKarma"
 
@@ -95,7 +95,7 @@ class KotlinKarma(
         devtool = null,
         export = false,
         progressReporter = true,
-        progressReporterPathFilter = nodeRootPackageDir,
+        progressReporterPathFilter = nodeRootPackageDir.getFile(),
         rules = project.objects.webpackRulesContainer(),
         experiments = mutableSetOf("topLevelAwait")
     )
@@ -201,6 +201,7 @@ class KotlinKarma(
 
     fun useChromeCanaryHeadless() = useChromeLike("ChromeCanaryHeadless")
 
+    @Deprecated("Chrome supports wasm GC by default, so you can use useChromeHeadless", replaceWith = ReplaceWith("useChromHeadless"))
     fun useChromeHeadlessWasmGc() {
         val chromeCanaryHeadlessWasmGc = "ChromeHeadlessWasmGc"
 
@@ -334,7 +335,7 @@ class KotlinKarma(
         nodeJsArgs: MutableList<String>,
         debug: Boolean,
     ): TCServiceMessagesTestExecutionSpec {
-        val file = task.inputFileProperty.get().asFile
+        val file = task.inputFileProperty.getFile()
         val fileString = file.toString()
 
         config.files.add(npmProject.require("kotlin-test-js-runner/kotlin-test-karma-runner.js"))
@@ -351,10 +352,10 @@ class KotlinKarma(
                     )
                 )
                 config.files.add(
-                    createLoadWasm(npmProject.dir, file).normalize().absolutePath
+                    createLoadWasm(npmProject.dir.getFile(), file).normalize().absolutePath
                 )
 
-                config.proxies["/${wasmFile.name}"] = wasmFileString
+                config.proxies["/${wasmFile.name}"] = basify(npmProjectDir.getFile(), wasmFile)
 
                 config.customContextFile = npmProject.require("kotlin-test-js-runner/static/context.html")
                 config.customDebugFile = npmProject.require("kotlin-test-js-runner/static/debug.html")
@@ -393,10 +394,9 @@ class KotlinKarma(
             prependSuiteName = true,
             stackTraceParser = ::parseNodeJsStackTraceAsJvm,
             ignoreOutOfRootNodes = true,
-            escapeTCMessagesInLog = isTeamCity.isPresent
         )
 
-        config.basePath = npmProject.nodeModulesDir.absolutePath
+        config.basePath = npmProjectDir.getFile().absolutePath
 
         configurators.forEach {
             it(task)
@@ -409,7 +409,7 @@ class KotlinKarma(
 
         config.client.args.addAll(cliArgs.toList())
 
-        val karmaConfJs = npmProject.dir.resolve("karma.conf.js")
+        val karmaConfJs = npmProject.dir.getFile().resolve("karma.conf.js")
         karmaConfJs.printWriter().use { confWriter ->
             envJsCollector.forEach { (envVar, value) ->
                 //language=JavaScript 1.8
@@ -584,7 +584,7 @@ class KotlinKarma(
     private fun createDebuggerJs(
         file: String,
     ): File {
-        val adapterJs = npmProject.dir.resolve("debugger.js")
+        val adapterJs = npmProject.dir.getFile().resolve("debugger.js")
         adapterJs.printWriter().use { writer ->
             // It is necessary for debugger attaching (--inspect-brk analogue)
             writer.println("debugger;")
@@ -604,6 +604,15 @@ class KotlinKarma(
         appendConfigsFromDir(configDirectory)
         appendLine()
     }
+}
+
+// In Karma config it means relative path based on basePath which is configured inside Karma config
+// It helps to get rid of windows backslashes in proxies config
+// `base` is using because of how Karma works with proxies
+// http://karma-runner.github.io/6.4/config/configuration-file.html#proxies
+// http://karma-runner.github.io/6.4/config/files.html#loading-assets
+internal fun basify(npmProjectDir: File, file: File): String {
+    return "/base/${file.relativeTo(npmProjectDir).invariantSeparatorsPath}"
 }
 
 internal fun createLoadWasm(npmProjectDir: File, file: File): File {

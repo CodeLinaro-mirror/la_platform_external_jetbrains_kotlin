@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -50,6 +50,18 @@ public class FirIdeNormalAnalysisSourceModuleDeclaredMemberScopeTestGenerated ex
     @TestMetadata("class.kt")
     public void testClass() throws Exception {
         runTest("analysis/analysis-api/testData/components/scopeProvider/declaredMemberScope/class.kt");
+    }
+
+    @Test
+    @TestMetadata("delegateInterface.kt")
+    public void testDelegateInterface() throws Exception {
+        runTest("analysis/analysis-api/testData/components/scopeProvider/declaredMemberScope/delegateInterface.kt");
+    }
+
+    @Test
+    @TestMetadata("delegateInterfaceLibrary.kt")
+    public void testDelegateInterfaceLibrary() throws Exception {
+        runTest("analysis/analysis-api/testData/components/scopeProvider/declaredMemberScope/delegateInterfaceLibrary.kt");
     }
 
     @Test

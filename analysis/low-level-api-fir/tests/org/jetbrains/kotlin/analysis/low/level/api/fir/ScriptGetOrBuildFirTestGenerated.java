@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -55,6 +55,18 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         @TestMetadata("annotationOnReturnTypeScript.kts")
         public void testAnnotationOnReturnTypeScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/annotationOnReturnTypeScript.kts");
+        }
+
+        @Test
+        @TestMetadata("destructuringAnnotation.kts")
+        public void testDestructuringAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/destructuringAnnotation.kts");
+        }
+
+        @Test
+        @TestMetadata("destructuringEntryAnnotation.kts")
+        public void testDestructuringEntryAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/destructuringEntryAnnotation.kts");
         }
 
         @Test
@@ -340,6 +352,12 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         public void testSyntheticResultDeclaration() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/syntheticResultDeclaration.kts");
         }
+
+        @Test
+        @TestMetadata("syntheticResultDeclarationInitializer.kts")
+        public void testSyntheticResultDeclarationInitializer() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/syntheticResultDeclarationInitializer.kts");
+        }
     }
 
     @Nested
@@ -409,6 +427,16 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         @TestMetadata("whereClause2Script.kts")
         public void testWhereClause2Script() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/declarations/whereClause2Script.kts");
+        }
+    }
+
+    @Nested
+    @TestMetadata("analysis/low-level-api-fir/testData/getOrBuildFir/deserialized")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Deserialized {
+        @Test
+        public void testAllFilesPresentInDeserialized() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/getOrBuildFir/deserialized"), Pattern.compile("^(.+)\\.(kts)$"), null, true);
         }
     }
 
@@ -486,6 +514,18 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         }
 
         @Test
+        @TestMetadata("firstStatement.kts")
+        public void testFirstStatement() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/firstStatement.kts");
+        }
+
+        @Test
+        @TestMetadata("firstStatementCall.kts")
+        public void testFirstStatementCall() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/firstStatementCall.kts");
+        }
+
+        @Test
         @TestMetadata("forExpressionRangeScript.kts")
         public void testForExpressionRangeScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/forExpressionRangeScript.kts");
@@ -543,6 +583,18 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         @TestMetadata("parenthesizedExpressionScript.kts")
         public void testParenthesizedExpressionScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/parenthesizedExpressionScript.kts");
+        }
+
+        @Test
+        @TestMetadata("secondStatement.kts")
+        public void testSecondStatement() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/secondStatement.kts");
+        }
+
+        @Test
+        @TestMetadata("secondStatementCall.kts")
+        public void testSecondStatementCall() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/secondStatementCall.kts");
         }
 
         @Test
@@ -777,6 +829,12 @@ public class ScriptGetOrBuildFirTestGenerated extends AbstractScriptGetOrBuildFi
         @TestMetadata("enumEntryScript.kts")
         public void testEnumEntryScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/getOrBuildFir/wholeDeclaration/enumEntryScript.kts");
+        }
+
+        @Test
+        @TestMetadata("fileAnnotationListScript.kts")
+        public void testFileAnnotationListScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFir/wholeDeclaration/fileAnnotationListScript.kts");
         }
 
         @Test

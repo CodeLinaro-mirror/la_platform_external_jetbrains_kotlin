@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -173,6 +173,12 @@ public class Fe10IdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends A
     }
 
     @Test
+    @TestMetadata("facadeWithJvmName.kt")
+    public void testFacadeWithJvmName() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByPsi/facadeWithJvmName.kt");
+    }
+
+    @Test
     @TestMetadata("forLoopVariable.kt")
     public void testForLoopVariable() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByPsi/forLoopVariable.kt");
@@ -248,6 +254,12 @@ public class Fe10IdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends A
     @TestMetadata("memberProperties.kt")
     public void testMemberProperties() throws Exception {
         runTest("analysis/analysis-api/testData/symbols/symbolByPsi/memberProperties.kt");
+    }
+
+    @Test
+    @TestMetadata("multifilePart.kt")
+    public void testMultifilePart() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByPsi/multifilePart.kt");
     }
 
     @Test

@@ -37,8 +37,6 @@ abstract class AbstractKotlinTarget(
 
     override fun getAttributes(): AttributeContainer = attributeContainer
 
-    internal abstract val compilerOptions: KotlinCommonCompilerOptions
-
     @Deprecated("Scheduled for removal with Kotlin 2.2")
     override var useDisambiguationClassifierAsSourceSetNamePrefix: Boolean = true
         internal set
@@ -109,11 +107,11 @@ abstract class AbstractKotlinTarget(
         val kotlinExtension = project.kotlinExtension
 
         val result =
-            if (kotlinExtension !is KotlinMultiplatformExtension || targetName == KotlinMultiplatformPlugin.METADATA_TARGET_NAME)
+            if (kotlinExtension !is KotlinMultiplatformExtension || targetName == KotlinMetadataTarget.METADATA_TARGET_NAME)
                 KotlinVariantWithCoordinates(compilation, usageContexts)
             else {
                 val metadataTarget =
-                    kotlinExtension.targets.getByName(KotlinMultiplatformPlugin.METADATA_TARGET_NAME) as AbstractKotlinTarget
+                    kotlinExtension.targets.getByName(KotlinMetadataTarget.METADATA_TARGET_NAME) as AbstractKotlinTarget
 
                 KotlinVariantWithMetadataVariant(compilation, usageContexts, metadataTarget)
             }
@@ -127,7 +125,10 @@ abstract class AbstractKotlinTarget(
     ): Set<DefaultKotlinUsageContext> {
         return listOfNotNull(
             COMPILE to apiElementsConfigurationName,
-            (RUNTIME to runtimeElementsConfigurationName).takeIf { producingCompilation is KotlinCompilationToRunnableFiles }
+            (RUNTIME to runtimeElementsConfigurationName).takeIf {
+                @Suppress("DEPRECATION")
+                producingCompilation is KotlinCompilationToRunnableFiles
+            }
         ).mapTo(mutableSetOf()) { (mavenScope, dependenciesConfigurationName) ->
             DefaultKotlinUsageContext(
                 producingCompilation,

@@ -24,8 +24,26 @@ class ProjectIsolationIT : KGPBaseTest() {
         project(
             projectName = "instantExecution",
             gradleVersion = gradleVersion,
+            // we can remove this line, when the min version of Gradle be at least 8.1
+            dependencyManagement = DependencyManagement.DisabledDependencyManagement
         ) {
             build(":main-project:compileKotlin")
+        }
+    }
+
+    @DisplayName("project with buildSrc should be compatible with project isolation")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4
+    )
+    @JvmGradlePluginTests
+    @GradleTest
+    fun testProjectIsolationWithBuildSrc(gradleVersion: GradleVersion) {
+        project(
+            projectName = "kt-63990-buildSrcWithKotlinJvmPlugin",
+            gradleVersion = gradleVersion,
+            buildOptions = defaultBuildOptions.copy(configurationCache = null)
+        ) {
+            build("tasks")
         }
     }
 }

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.components.KtExpressionTypeProvider
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
+import org.jetbrains.kotlin.analysis.api.fir.unwrapSafeCall
 import org.jetbrains.kotlin.analysis.api.fir.utils.unwrap
 import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtErrorType
@@ -219,9 +220,9 @@ internal class KtFirExpressionTypeProvider(
 
     private fun getExpectedTypeOfFunctionParameter(expression: PsiElement): KtType? {
         val (ktCallElement, argumentExpression) = expression.getFunctionCallAsWithThisAsParameter() ?: return null
-        val firCall = ktCallElement.getOrBuildFirSafe<FirCall>(firResolveSession) ?: return null
+        val firCall = ktCallElement.getOrBuildFir(firResolveSession)?.unwrapSafeCall() as? FirCall ?: return null
 
-        val callee = (firCall.calleeReference as? FirResolvedNamedReference)?.resolvedSymbol
+        val callee = (firCall.toReference(firResolveSession.useSiteFirSession) as? FirResolvedNamedReference)?.resolvedSymbol
         if (callee?.fir?.origin == FirDeclarationOrigin.SamConstructor) {
             val substitutor = (firCall as? FirQualifiedAccessExpression)
                 ?.createConeSubstitutorFromTypeArguments(discardErrorTypes = true)
@@ -317,6 +318,7 @@ internal class KtFirExpressionTypeProvider(
         // Given: `val x: T = expression`
         // Expected type of `expression` is `T`
         val property = expression.unwrapQualified<KtProperty> { property, expr -> property.initializer == expr } ?: return null
+        if (property.typeReference == null) return null
         return getReturnTypeForKtDeclaration(property).nonErrorTypeOrNull()
     }
 
@@ -329,6 +331,7 @@ internal class KtFirExpressionTypeProvider(
             // which may raise an exception if we attempt to retrieve, e.g., callable declaration from it.
             return null
         }
+        if (function.typeReference == null) return null
         return getReturnTypeForKtDeclaration(function).nonErrorTypeOrNull()
     }
 

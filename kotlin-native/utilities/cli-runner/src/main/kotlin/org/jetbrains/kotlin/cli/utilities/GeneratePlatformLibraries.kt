@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.backend.konan.CachedLibraries
 import org.jetbrains.kotlin.backend.konan.OutputFiles
 import org.jetbrains.kotlin.backend.konan.files.renameAtomic
 import org.jetbrains.kotlin.konan.target.*
-import org.jetbrains.kotlin.konan.util.KonanHomeProvider
+import org.jetbrains.kotlin.utils.KotlinNativePaths
 import org.jetbrains.kotlin.konan.util.PlatformLibsInfo
 import org.jetbrains.kotlin.konan.util.visibleName
 import org.jetbrains.kotlin.native.interop.gen.jvm.parseKeyValuePairs
@@ -24,7 +24,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.exitProcess
-import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
+import org.jetbrains.kotlin.utils.usingNativeMemoryAllocator
 
 // TODO: We definitely need to unify logging in different parts of the compiler.
 private class Logger(val level: Level = Level.NORMAL) {
@@ -126,7 +126,7 @@ fun generatePlatformLibraries(args: Array<String>) = usingNativeMemoryAllocator 
     argParser.parse(args)
 
     val distribution = Distribution(
-            KonanHomeProvider.determineKonanHome(),
+            KotlinNativePaths.homePath.absolutePath,
             onlyDefaultProfiles = false,
             runtimeFileOverride = null,
             propertyOverrides = parseKeyValuePairs(overrideKonanProperties),
@@ -268,7 +268,6 @@ private fun generateLibrary(
                 "-target", target.visibleName,
                 "-def", defFile.absolutePath,
                 "-compiler-option", "-fmodules-cache-path=${tmpDirectory.child("clangModulesCache").absolutePath}",
-                "-repo", outputDirectory.absolutePath,
                 "-no-default-libs", "-no-endorsed-libs", "-Xpurge-user-libs", "-nopack",
                 "-Xdisable-experimental-annotation",
                 *cinteropOptions.additionalArguments.toTypedArray(),
@@ -323,7 +322,6 @@ private fun buildCache(
     val compilerArgs = arrayOf(
             "-p", cacheKind,
             "-target", target.visibleName,
-            "-repo", outputDirectory.absolutePath,
             "-Xadd-cache=${outputDirectory.absolutePath}/${def.libraryName}",
             "-Xcache-directory=${cacheDirectory.absolutePath}",
             *cacheArgs.toTypedArray()

@@ -53,9 +53,7 @@ internal sealed class WasmVM(val shortName: String) {
             tool.run(
                 *toolArgs.toTypedArray(),
                 "--wasm-verbose",
-                "--wasm-gc",
                 *if (disableExceptionHandlingIfPossible) arrayOf("--no-wasm-exceptions") else emptyArray(),
-                "--wasm-function-references",
                 *jsFiles.flatMap { listOf("-f", it) }.toTypedArray(),
                 "--module=$entryMjs",
                 workingDirectory = workingDirectory,
@@ -83,7 +81,8 @@ internal sealed class WasmVM(val shortName: String) {
 internal class ExternalTool(val path: String) {
     fun run(vararg arguments: String, workingDirectory: File? = null): String {
         val command = arrayOf(path, *arguments)
-        val processBuilder = ProcessBuilder(*command).redirectErrorStream(true)
+        val processBuilder = ProcessBuilder(*command)
+            .redirectErrorStream(true)
 
         if (workingDirectory != null) {
             processBuilder.directory(workingDirectory)
@@ -106,7 +105,7 @@ internal class ExternalTool(val path: String) {
         val stdout = StringBuilder()
         val bufferedStdout = BufferedReader(InputStreamReader(process.inputStream))
 
-        while (process.isAlive) {
+        while (true) {
             val line = bufferedStdout.readLine() ?: break
             stdout.appendLine(line)
             println(line)
@@ -121,5 +120,5 @@ internal class ExternalTool(val path: String) {
     }
 }
 
-private fun escapeShellArgument(arg: String): String =
+internal fun escapeShellArgument(arg: String): String =
     "'${arg.replace("'", "'\\''")}'"

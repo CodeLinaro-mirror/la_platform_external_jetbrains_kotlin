@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,7 +9,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.components.KtDiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.api.diagnostics.KtDiagnosticWithPsi
-import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiSingleFileTest
+import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils.getLineAndColumnRangeInPsiFile
 import org.jetbrains.kotlin.diagnostics.PsiDiagnosticUtils.offsetToLineAndColumn
 import org.jetbrains.kotlin.psi.KtElement
@@ -21,17 +21,17 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import kotlin.test.assertEquals
 
-abstract class AbstractCollectDiagnosticsTest : AbstractAnalysisApiSingleFileTest() {
-    override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
+abstract class AbstractCollectDiagnosticsTest : AbstractAnalysisApiBasedTest() {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
         fun TextRange.asLineColumnRange(): String {
-            return getLineAndColumnRangeInPsiFile(ktFile, this).toString()
+            return getLineAndColumnRangeInPsiFile(mainFile, this).toString()
         }
 
-        analyseForTest(ktFile) {
+        analyseForTest(mainFile) {
             val diagnosticsInFile =
-                ktFile.collectDiagnosticsForFile(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS).map { it.getKey() }.sorted()
+                mainFile.collectDiagnosticsForFile(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS).map { it.getKey() }.sorted()
             val diagnosticsFromElements = buildList {
-                ktFile.accept(object : KtTreeVisitorVoid() {
+                mainFile.accept(object : KtTreeVisitorVoid() {
                     override fun visitKtElement(element: KtElement) {
                         for (diagnostic in element.getDiagnostics(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS)) {
                             add(element to diagnostic.getKey())

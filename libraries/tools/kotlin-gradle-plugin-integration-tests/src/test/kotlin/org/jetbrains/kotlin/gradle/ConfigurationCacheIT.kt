@@ -79,6 +79,19 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
         }
     }
 
+    @MppGradlePluginTests
+    @DisplayName("KT-63363: all metadata jar works well with configuration cache")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+        additionalVersions = [TestVersions.Gradle.G_7_6],
+    )
+    @GradleTest
+    fun testAllMetadataJarWithConfigurationCache(gradleVersion: GradleVersion) {
+        project("new-mpp-lib-and-app/sample-lib", gradleVersion) {
+            testConfigurationCacheOf(":allMetadataJar")
+        }
+    }
+
     @NativeGradlePluginTests
     @DisplayName("works with commonizer")
     @GradleTestVersions(
@@ -86,24 +99,37 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
         additionalVersions = [TestVersions.Gradle.G_7_6],
     )
     @GradleTest
-    fun testCommonizer(gradleVersion: GradleVersion, @TempDir konanHome: Path) {
+    fun testCommonizer(gradleVersion: GradleVersion) {
         project("native-configuration-cache", gradleVersion) {
-            build(
-                ":commonizeNativeDistribution",
-            ) {
-                assertOutputContains("0 problems were found storing the configuration cache.")
+            build(":cleanNativeDistributionCommonization")
+
+            build(":lib:compileCommonMainKotlinMetadata") {
+                assertTasksExecuted(":commonizeNativeDistribution")
+                assertTasksExecuted(":lib:compileCommonMainKotlinMetadata")
+                assertConfigurationCacheStored()
             }
 
-            // Override kotlin native home location to be able to run clean native distribution commonization task
-            // since by default it is global location on host
-            val buildOptions = defaultBuildOptions.copy(
-                freeArgs = listOf("-Porg.jetbrains.kotlin.native.home=$konanHome"),
-                konanDataDir = null
-            )
-            build(":cleanNativeDistributionCommonization", buildOptions = buildOptions) {
-                assertOutputContains("0 problems were found storing the configuration cache.")
+            build("clean", ":cleanNativeDistributionCommonization") {
+                assertTasksExecuted(":cleanNativeDistributionCommonization")
+                assertConfigurationCacheStored()
             }
 
+            build(":lib:compileCommonMainKotlinMetadata") {
+                assertTasksExecuted(":commonizeNativeDistribution")
+                assertTasksExecuted(":lib:compileCommonMainKotlinMetadata")
+                assertConfigurationCacheReused()
+            }
+        }
+    }
+
+    @NativeGradlePluginTests
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+        additionalVersions = [TestVersions.Gradle.G_7_6],
+    )
+    @GradleTest
+    fun testCInteropCommonizer(gradleVersion: GradleVersion) {
+        project("native-configuration-cache", gradleVersion) {
             testConfigurationCacheOf(":lib:commonizeCInterop")
         }
     }
@@ -157,7 +183,12 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @DisplayName("with instance execution")
     @GradleTest
     fun testInstantExecution(gradleVersion: GradleVersion) {
-        project("instantExecution", gradleVersion) {
+        project(
+            "instantExecution",
+            gradleVersion,
+            // we can remove this line, when the min version of Gradle be at least 8.1
+            dependencyManagement = DependencyManagement.DisabledDependencyManagement
+        ) {
             testConfigurationCacheOf(
                 "assemble",
                 executedTaskNames = listOf(":lib-project:compileKotlin")

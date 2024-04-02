@@ -35,6 +35,8 @@ interface JsCommonBackendContext : CommonBackendContext {
 
     val coroutineSymbols: JsCommonCoroutineSymbols
 
+    val jsPromiseSymbol: IrClassSymbol?
+
     val catchAllThrowableType: IrType
         get() = irBuiltIns.throwableType
 
@@ -47,7 +49,7 @@ interface JsCommonBackendContext : CommonBackendContext {
     val enumEntries: IrClassSymbol
     val createEnumEntries: IrSimpleFunctionSymbol
 
-    fun createTestContainerFun(irFile: IrFile): IrSimpleFunction
+    fun createTestContainerFun(container: IrDeclaration): IrSimpleFunction
 
 }
 

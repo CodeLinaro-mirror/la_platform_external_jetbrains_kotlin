@@ -64,6 +64,7 @@ class JsDefaultArgumentStubGenerator(context: JsIrBackendContext) :
     }
 
     private fun IrFunction.introduceDefaultResolution(): IrFunction {
+        context.mapping.defaultArgumentsDispatchFunction[this]?.let { return it }
         val irBuilder = context.createIrBuilder(symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)
 
         val variables = hashMapOf<IrValueParameter, IrValueParameter>()
@@ -116,7 +117,7 @@ class JsDefaultArgumentStubGenerator(context: JsIrBackendContext) :
                     context.additionalExportedDeclarations.add(defaultFunStub)
 
                     if (!originalFun.hasAnnotation(JsAnnotations.jsNameFqn)) {
-                        annotations = annotations memoryOptimizedPlus originalFun.generateJsNameAnnotationCall()
+                        originalFun.annotations = originalFun.annotations memoryOptimizedPlus originalFun.generateJsNameAnnotationCall()
                     }
                 }
             }
@@ -129,7 +130,7 @@ class JsDefaultArgumentStubGenerator(context: JsIrBackendContext) :
             }
 
         originalFun.annotations = irrelevantAnnotations
-        defaultFunStub.annotations = defaultFunStub.annotations memoryOptimizedPlus exportAnnotations
+        defaultFunStub.annotations = exportAnnotations
         originalFun.origin = JsLoweredDeclarationOrigin.JS_SHADOWED_EXPORT
 
         return listOf(originalFun, defaultFunStub)

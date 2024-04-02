@@ -14,10 +14,7 @@ import org.jetbrains.kotlin.diagnostics.Severity
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.diagnostics.rendering.DefaultErrorMessages
 import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.resolve.jvm.diagnostics.KtDefaultJvmErrorMessages
 import org.jetbrains.kotlin.test.FirParser
-import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
@@ -26,16 +23,9 @@ import org.jetbrains.kotlin.test.frontend.fir.handlers.toMetaInfos
 import org.jetbrains.kotlin.test.model.BinaryArtifactHandler
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
+import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
-
-inline fun IrBackendInput.processAllIrModuleFragments(
-    module: TestModule,
-    processor: (irModuleFragment: IrModuleFragment, moduleName: String) -> Unit
-) {
-    dependentIrModuleFragments.forEach { processor(it, it.name.asString()) }
-    processor(irModuleFragment, module.name)
-}
 
 fun BinaryArtifactHandler<*>.reportKtDiagnostics(module: TestModule, ktDiagnosticReporter: BaseDiagnosticsCollector) {
     val globalMetadataInfoHandler = testServices.globalMetadataInfoHandler
@@ -44,14 +34,17 @@ fun BinaryArtifactHandler<*>.reportKtDiagnostics(module: TestModule, ktDiagnosti
     val lightTreeEnabled = firParser == FirParser.LightTree
 
     val processedModules = mutableSetOf<TestModule>()
+    val diagnosticsService = testServices.diagnosticsService
 
     fun processModule(module: TestModule) {
         if (!processedModules.add(module)) return
         for (testFile in module.files) {
             val ktDiagnostics = ktDiagnosticReporter.diagnosticsByFilePath["/${testFile.name}"] ?: continue
             ktDiagnostics.forEach {
-                val metaInfos = it.toMetaInfos(module, testFile, globalMetadataInfoHandler, lightTreeEnabled, lightTreeComparingModeEnabled)
-                globalMetadataInfoHandler.addMetadataInfosForFile(testFile, metaInfos)
+                if (diagnosticsService.shouldRenderDiagnostic(module, it.factoryName, it.severity)) {
+                    val metaInfos = it.toMetaInfos(module, testFile, globalMetadataInfoHandler, lightTreeEnabled, lightTreeComparingModeEnabled)
+                    globalMetadataInfoHandler.addMetadataInfosForFile(testFile, metaInfos)
+                }
             }
         }
         for ((moduleName, _, _) in module.dependsOnDependencies) {
@@ -63,35 +56,45 @@ fun BinaryArtifactHandler<*>.reportKtDiagnostics(module: TestModule, ktDiagnosti
     processModule(module)
 }
 
-fun BinaryArtifactHandler<*>.checkFullDiagnosticRender(module: TestModule) {
-    if (DiagnosticsDirectives.RENDER_ALL_DIAGNOSTICS_FULL_TEXT !in module.directives) return
-
-    val reportedDiagnostics = mutableListOf<String>()
-    for (testFile in module.files) {
-        val finder =
-            SequentialPositionFinder(testServices.sourceFileProvider.getContentOfSourceFile(testFile).byteInputStream().reader())
-        for (metaInfo in testServices.globalMetadataInfoHandler.getReportedMetaInfosForFile(testFile).sortedBy { it.start }) {
-            when (metaInfo) {
-                is DiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
-                    val message = DefaultErrorMessages.render(it)
-                    val position = DiagnosticUtils.getLineAndColumnRange(it.psiFile, it.textRanges).start
-                    reportedDiagnostics +=
-                        renderDiagnosticMessage(it.psiFile.name, it.severity, message, position.line, position.column)
-                }
-                is FirDiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
-                    val message = RootDiagnosticRendererFactory(it).render(it)
-                    val position = finder.findNextPosition(DiagnosticUtils.firstRange(it.textRanges).startOffset, false)
-                    reportedDiagnostics +=
-                        renderDiagnosticMessage(testFile.relativePath, it.severity, message, position.line, position.column)
+fun BinaryArtifactHandler<*>.checkFullDiagnosticRender() {
+    val dumper = MultiModuleInfoDumper()
+    val moduleStructure = testServices.moduleStructure
+    var needToVerifyDiagnostics = false
+    for (module in moduleStructure.modules) {
+        if (DiagnosticsDirectives.RENDER_ALL_DIAGNOSTICS_FULL_TEXT !in module.directives) continue
+        needToVerifyDiagnostics = true
+        val reportedDiagnostics = mutableListOf<String>()
+        for (testFile in module.files) {
+            val finder =
+                SequentialPositionFinder(testServices.sourceFileProvider.getContentOfSourceFile(testFile).byteInputStream().reader())
+            for (metaInfo in testServices.globalMetadataInfoHandler.getReportedMetaInfosForFile(testFile).sortedBy { it.start }) {
+                when (metaInfo) {
+                    is DiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
+                        val message = DefaultErrorMessages.render(it)
+                        val position = DiagnosticUtils.getLineAndColumnRange(it.psiFile, it.textRanges).start
+                        reportedDiagnostics +=
+                            renderDiagnosticMessage(it.psiFile.name, it.severity, message, position.line, position.column)
+                    }
+                    is FirDiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
+                        val message = RootDiagnosticRendererFactory(it).render(it)
+                        val position = finder.findNextPosition(DiagnosticUtils.firstRange(it.textRanges).startOffset, false)
+                        reportedDiagnostics +=
+                            renderDiagnosticMessage(testFile.relativePath, it.severity, message, position.line, position.column)
+                    }
                 }
             }
         }
+        if (reportedDiagnostics.isNotEmpty()) {
+            reportedDiagnostics.joinTo(dumper.builderForModule(module), separator = "\n\n", postfix = "\n")
+        }
     }
 
-    testServices.assertions.assertEqualsToFile(
-        File(FileUtil.getNameWithoutExtension(module.files.first().originalFile.absolutePath) + ".diag.txt"),
-        reportedDiagnostics.joinToString(separator = "\n\n", postfix = "\n")
-    )
+    if (needToVerifyDiagnostics) {
+        testServices.assertions.assertEqualsToFile(
+            File(FileUtil.getNameWithoutExtension(moduleStructure.originalTestDataFiles.first().absolutePath) + ".diag.txt"),
+            dumper.generateResultingDump()
+        )
+    }
 }
 
 private fun renderDiagnosticMessage(fileName: String, severity: Severity, message: String?, line: Int, column: Int): String {

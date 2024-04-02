@@ -13,9 +13,9 @@ import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.isObjectInstanceField
 import org.jetbrains.kotlin.ir.backend.js.utils.isObjectInstanceGetter
+import org.jetbrains.kotlin.ir.backend.js.utils.primaryConstructorReplacement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrExpressionBodyImpl
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.*
 
@@ -63,7 +63,7 @@ class PurifyObjectInstanceGettersLowering(val context: JsCommonBackendContext) :
         val objectToCreate = type.classOrNull?.owner ?: return null
 
         if (objectToCreate.isPureObject()) {
-            initializer = IrExpressionBodyImpl(
+            initializer = context.irFactory.createExpressionBody(
                 objectToCreate.primaryConstructor?.let { JsIrBuilder.buildConstructorCall(it.symbol) }
                     ?: objectToCreate.primaryConstructorReplacement?.let { JsIrBuilder.buildCall(it.symbol) }
                     ?: error("Object should contain a primary constructor")
@@ -102,7 +102,4 @@ class PurifyObjectInstanceGettersLowering(val context: JsCommonBackendContext) :
                 )
 
     }
-
-    private val IrClass.primaryConstructorReplacement: IrSimpleFunction?
-        get() = findDeclaration<IrSimpleFunction> { it.isEs6PrimaryConstructorReplacement }
 }

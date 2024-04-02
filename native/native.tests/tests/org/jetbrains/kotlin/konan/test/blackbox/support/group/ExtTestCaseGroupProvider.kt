@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.konan.test.blackbox.support.group
 import com.intellij.core.CoreApplicationEnvironment
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.pom.PomModel
 import com.intellij.pom.core.impl.PomModelImpl
 import com.intellij.pom.tree.TreeAspect
@@ -19,8 +20,22 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.konan.target.Architecture
+import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.WithTestRunnerExtras
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.ASSERTIONS_MODE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.DISABLE_NATIVE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.DISABLE_NATIVE_K1
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.DISABLE_NATIVE_K2
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FILECHECK_STAGE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FREE_CINTEROP_ARGS
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FREE_COMPILER_ARGS
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.IGNORE_NATIVE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.IGNORE_NATIVE_K1
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.IGNORE_NATIVE_K2
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.OUTPUT_DATA_FILE
+import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunChecks
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.*
@@ -33,7 +48,12 @@ import org.jetbrains.kotlin.resolve.ImportPath
 import org.jetbrains.kotlin.resolve.checkers.OptInNames
 import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.*
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_K1
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_K2
+import org.jetbrains.kotlin.test.directives.model.StringDirective
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
@@ -70,12 +90,7 @@ internal class ExtTestCaseGroupProvider : TestCaseGroupProvider, TestDisposable(
                     testDataFile = testDataFile,
                     structureFactory = structureFactory,
                     customSourceTransformers = settings.get<ExternalSourceTransformersProvider>().getSourceTransformers(testDataFile),
-                    testRoots = settings.get(),
-                    generatedSources = settings.get(),
-                    customKlibs = settings.get(),
-                    pipelineType = settings.get(),
-                    testMode = settings.get(),
-                    timeouts = settings.get(),
+                    settings = settings,
                 )
 
                 if (extTestDataFile.isRelevant)
@@ -96,21 +111,31 @@ private class ExtTestDataFile(
     private val testDataFile: File,
     structureFactory: ExtTestDataFileStructureFactory,
     customSourceTransformers: ExternalSourceTransformers?,
-    testRoots: TestRoots,
-    private val generatedSources: GeneratedSources,
-    private val customKlibs: CustomKlibs,
-    private val pipelineType: PipelineType,
-    private val testMode: TestMode,
-    private val timeouts: Timeouts,
+    settings: Settings,
 ) {
+    private val testRoots = settings.get<TestRoots>()
+    private val generatedSources = settings.get<GeneratedSources>()
+    private val customKlibs = settings.get<CustomKlibs>()
+    private val timeouts = settings.get<Timeouts>()
+    private val pipelineType = settings.get<PipelineType>()
+    private val testMode = settings.get<TestMode>()
+    private val cacheMode = settings.get<CacheMode>()
+    private val optimizationMode = settings.get<OptimizationMode>()
+
     private val structure by lazy {
         val allSourceTransformers: ExternalSourceTransformers = if (customSourceTransformers.isNullOrEmpty())
             MANDATORY_SOURCE_TRANSFORMERS
         else
             MANDATORY_SOURCE_TRANSFORMERS + customSourceTransformers
 
-        structureFactory.ExtTestDataFileStructure(testDataFile, allSourceTransformers)
+        structureFactory.ExtTestDataFileStructure(testDataFile, allSourceTransformers).also {
+            assertFalse(it.directives.contains(OUTPUT_DATA_FILE.name)) {
+                "${testDataFile.absolutePath}: directive ${OUTPUT_DATA_FILE.name} is not supported by ExtTestDataFile"
+            }
+        }
     }
+
+    private val isExpectedFailure: Boolean = settings.isIgnoredTarget(structure.directives)
 
     private val testDataFileSettings by lazy {
         val optIns = structure.directives.multiValues(OPT_IN_DIRECTIVE)
@@ -133,68 +158,49 @@ private class ExtTestDataFile(
             nominalPackageName = computePackageName(
                 testDataBaseDir = testRoots.baseDir,
                 testDataFile = testDataFile
-            )
+            ),
+            assertionsMode = AssertionsMode.fromString(structure.directives[ASSERTIONS_MODE.name])
         )
     }
 
     val isRelevant: Boolean =
         isCompatibleTarget(TargetBackend.NATIVE, testDataFile) // Checks TARGET_BACKEND/DONT_TARGET_EXACT_BACKEND directives.
-                && !isIgnoredTarget(pipelineType, testDataFile, TargetBackend.NATIVE) // Checks IGNORE_BACKEND directives.
+                && !settings.isDisabledNative(structure.directives)
                 && testDataFileSettings.languageSettings.none { it in INCOMPATIBLE_LANGUAGE_SETTINGS }
                 && INCOMPATIBLE_DIRECTIVES.none { it in structure.directives }
                 && structure.directives[API_VERSION_DIRECTIVE] !in INCOMPATIBLE_API_VERSIONS
                 && structure.directives[LANGUAGE_VERSION_DIRECTIVE] !in INCOMPATIBLE_LANGUAGE_VERSIONS
+                && !(FILECHECK_STAGE.name in structure.directives
+                     && (cacheMode as? CacheMode.WithStaticCache)?.useStaticCacheForUserLibraries == true)
+                && !(optimizationMode != OptimizationMode.OPT && structure.directives[FILECHECK_STAGE.name] == "OptimizeTLSDataLoads")
                 && !(testDataFileSettings.languageSettings.contains("+${LanguageFeature.MultiPlatformProjects.name}")
                      && pipelineType == PipelineType.K2
                      && testMode == TestMode.ONE_STAGE_MULTI_MODULE)
 
-    private fun isIgnoredTarget(pipelineType: PipelineType, testDataFile: File, backend: TargetBackend): Boolean {
-        return when (pipelineType) {
-            PipelineType.K1 ->
-                isIgnoredTarget(
-                    backend,
-                    testDataFile,
-                    /*includeAny = */true,
-                    IGNORE_BACKEND_DIRECTIVE_PREFIX,
-                    IGNORE_BACKEND_K1_DIRECTIVE_PREFIX
-                )
-            PipelineType.K2 ->
-                isIgnoredTarget(
-                    backend,
-                    testDataFile,
-                    /*includeAny = */true,
-                    IGNORE_BACKEND_DIRECTIVE_PREFIX,
-                    IGNORE_BACKEND_K2_DIRECTIVE_PREFIX
-                )
-            PipelineType.DEFAULT ->
-                isIgnoredTarget(
-                    backend,
-                    testDataFile,
-                    /*includeAny = */true,
-                    IGNORE_BACKEND_DIRECTIVE_PREFIX,
-                )
-        }
-    }
-
     private fun assembleFreeCompilerArgs(): TestCompilerArgs {
         val args = mutableListOf<String>()
+        structure.directives.listValues(FREE_COMPILER_ARGS.name)?.let { args.addAll(it)}
         testDataFileSettings.languageSettings.sorted().mapTo(args) { "-XXLanguage:$it" }
         testDataFileSettings.optInsForCompiler.sorted().mapTo(args) { "-opt-in=$it" }
+        args += "-opt-in=kotlin.native.internal.InternalForKotlinNative" // for `Any.isPermanent()` and `Any.isLocal()`
         args += "-opt-in=kotlin.native.internal.InternalForKotlinNativeTests" // for ReflectionPackageName
-        return TestCompilerArgs(args)
+        val freeCInteropArgs = structure.directives.listValues(FREE_CINTEROP_ARGS.name)
+            .orEmpty().flatMap { it.split(" ") }
+            .map { it.replace("\$generatedSourcesDir", testDataFileSettings.generatedSourcesDir.absolutePath) }
+        return TestCompilerArgs(args, freeCInteropArgs, testDataFileSettings.assertionsMode)
     }
 
     fun createTestCase(settings: Settings, sharedModules: ThreadSafeCache<String, TestModule.Shared?>): TestCase {
         assertTrue(isRelevant)
 
-        val definitelyStandaloneTest = settings.get<ForcedStandaloneTestKind>().value
+        val definitelyStandaloneTest = settings.get<TestKind>() != TestKind.REGULAR
         val isStandaloneTest = definitelyStandaloneTest || determineIfStandaloneTest()
         patchPackageNames(isStandaloneTest)
         patchFileLevelAnnotations()
         val entryPointFunctionFQN = findEntryPoint()
         generateTestLauncher(isStandaloneTest, entryPointFunctionFQN)
 
-        return doCreateTestCase(isStandaloneTest, sharedModules)
+        return doCreateTestCase(settings, isStandaloneTest, sharedModules)
     }
 
     /**
@@ -204,6 +210,20 @@ private class ExtTestDataFile(
      */
     private fun determineIfStandaloneTest(): Boolean = with(structure) {
         if (directives.contains(NATIVE_STANDALONE_DIRECTIVE)) return true
+        if (directives.contains(FILECHECK_STAGE.name)) return true
+        if (directives.contains(ASSERTIONS_MODE.name)) return true
+        if (isExpectedFailure) return true
+        // To make the debug of possible failed testruns easier, it makes sense to run dodgy tests alone
+        if (directives.contains(IGNORE_NATIVE.name) ||
+            directives.contains(IGNORE_NATIVE_K1.name) ||
+            directives.contains(IGNORE_NATIVE_K2.name)
+        ) return true
+
+        /**
+         * K2 in MPP compilation expects that it receives module structure with exactly one platform leaf module
+         * This invariant may be broken during grouping tests, so MPP tests should be run in standalone mode
+         */
+        if (pipelineType != PipelineType.K1 && testDataFileSettings.languageSettings.contains("+MultiPlatformProjects")) return true
 
         var isStandaloneTest = false
 
@@ -269,24 +289,26 @@ private class ExtTestDataFile(
                     val oldPackageDirective = file.packageDirective
                     val oldPackageName = oldPackageDirective?.fqName ?: FqName.ROOT
 
-                    val newPackageName = oldToNewPackageNameMapping.getValue(oldPackageName)
+                    val newPackageName = oldToNewPackageNameMapping.getValue(file.packageFqNameForKLib)
                     val newPackageDirective = handler.psiFactory.createPackageDirective(newPackageName)
 
                     if (oldPackageDirective != null) {
                         // Replace old package directive by the new one.
-                        oldPackageDirective.replace(newPackageDirective).ensureSurroundedByWhiteSpace()
+                        oldPackageDirective.replace(newPackageDirective).ensureSurroundedByNewLines()
                     } else {
                         // Insert the package directive immediately after file-level annotations.
-                        file.addAfter(newPackageDirective, file.fileAnnotationList).ensureSurroundedByWhiteSpace()
+                        file.addAfter(newPackageDirective, file.fileAnnotationList).ensureSurroundedByNewLines()
                     }
 
-                    // Add @ReflectionPackageName annotation to make the compiler use original package name in the reflective information.
-                    val annotationText =
-                        "kotlin.native.internal.ReflectionPackageName(${oldPackageName.asString().quoteAsKotlinStringLiteral()})"
-                    val fileAnnotationList = handler.psiFactory.createFileAnnotationListWithAnnotation(annotationText)
-                    file.addAnnotations(fileAnnotationList)
+                    if (!file.name.endsWith(".def")) { // don't process .def file contents after package directive
+                        // Add @ReflectionPackageName annotation to make the compiler use original package name in the reflective information.
+                        val annotationText =
+                            "kotlin.native.internal.ReflectionPackageName(${oldPackageName.asString().quoteAsKotlinStringLiteral()})"
+                        val fileAnnotationList = handler.psiFactory.createFileAnnotationListWithAnnotation(annotationText)
+                        file.addAnnotations(fileAnnotationList)
 
-                    visitKtElement(file, file.collectAccessibleDeclarationNames())
+                        visitKtElement(file, file.collectAccessibleDeclarationNames())
+                    }
                 }
 
                 override fun visitPackageDirective(directive: KtPackageDirective, unused: Set<Name>) = Unit
@@ -298,6 +320,9 @@ private class ExtTestDataFile(
                         || importedFqName.startsWith(StandardNames.BUILT_INS_PACKAGE_NAME)
                         || importedFqName.startsWith(KOTLINX_PACKAGE_NAME)
                         || importedFqName.startsWith(HELPERS_PACKAGE_NAME)
+                        || importedFqName.startsWith(CNAMES_PACKAGE_NAME)
+                        || importedFqName.startsWith(OBJCNAMES_PACKAGE_NAME)
+                        || importedFqName.startsWith(PLATFORM_PACKAGE_NAME)
                     ) {
                         return
                     }
@@ -451,11 +476,11 @@ private class ExtTestDataFile(
         if (oldFileAnnotationList != null) {
             // Add new annotations to the old ones.
             fileAnnotationList.annotationEntries.forEach {
-                oldFileAnnotationList.add(it).ensureSurroundedByWhiteSpace()
+                oldFileAnnotationList.add(it).ensureSurroundedByNewLines()
             }
         } else {
             // Insert the annotations list immediately before package directive.
-            this.addBefore(fileAnnotationList, packageDirective).ensureSurroundedByWhiteSpace()
+            this.addBefore(fileAnnotationList, packageDirective).ensureSurroundedByNewLines()
         }
     }
 
@@ -502,6 +527,7 @@ private class ExtTestDataFile(
     }
 
     private fun doCreateTestCase(
+        settings: Settings,
         isStandaloneTest: Boolean,
         sharedModules: ThreadSafeCache<String, TestModule.Shared?>
     ): TestCase = with(structure) {
@@ -513,14 +539,20 @@ private class ExtTestDataFile(
                 }
             }
         )
-
+        val fileCheckStage = retrieveFileCheckStage()
         val testCase = TestCase(
             id = TestCaseId.TestDataFile(testDataFile),
             kind = if (isStandaloneTest) TestKind.STANDALONE else TestKind.REGULAR,
             modules = modules,
             freeCompilerArgs = assembleFreeCompilerArgs(),
             nominalPackageName = testDataFileSettings.nominalPackageName,
-            checks = TestRunChecks.Default(timeouts.executionTimeout),
+            expectedFailure = isExpectedFailure,
+            checks = TestRunChecks.Default(timeouts.executionTimeout).copy(
+                fileCheckMatcher = fileCheckStage?.let { TestRunCheck.FileCheckMatcher(settings, testDataFile) },
+                // for expected failures, it does not matter, which exit code would the process have, since test might fail with other reasons
+                exitCodeCheck = TestRunCheck.ExitCode.Expected(0).takeUnless { isExpectedFailure },
+            ),
+            fileCheckStage = fileCheckStage,
             extras = WithTestRunnerExtras(runnerType = TestRunnerType.DEFAULT)
         )
         testCase.initialize(
@@ -529,6 +561,20 @@ private class ExtTestDataFile(
         )
 
         return testCase
+    }
+
+    private fun retrieveFileCheckStage(): String? {
+        val fileCheckStages = structure.directives.multiValues(FILECHECK_STAGE.name)
+        return when (fileCheckStages.size) {
+            0 -> {
+                require(!isDirectiveDefined(testDataFile.readText(), FILECHECK_STAGE.name)) {
+                    "In ${testDataFile.absolutePath}, one argument for FILECHECK directive is needed: LLVM stage name, to dump bitcode after"
+                }
+                null
+            }
+            1 -> fileCheckStages.single()
+            else -> fail { "In ${testDataFile.absolutePath}, only one argument for FILECHECK directive is allowed: $fileCheckStages" }
+        }
     }
 
     companion object {
@@ -569,6 +615,9 @@ private class ExtTestDataFile(
         private val OPT_IN_ANNOTATION_NAME = Name.identifier("OptIn")
         private val HELPERS_PACKAGE_NAME = Name.identifier("helpers")
         private val KOTLINX_PACKAGE_NAME = Name.identifier("kotlinx")
+        private val CNAMES_PACKAGE_NAME = Name.identifier("cnames")
+        private val OBJCNAMES_PACKAGE_NAME = Name.identifier("objcnames")
+        private val PLATFORM_PACKAGE_NAME = Name.identifier("platform")
 
         private val MANDATORY_SOURCE_TRANSFORMERS: ExternalSourceTransformers = listOf(DiagnosticsRemovingSourceTransformer)
     }
@@ -579,7 +628,8 @@ private class ExtTestDataFileSettings(
     val optInsForSourceCode: Set<String>,
     val optInsForCompiler: Set<String>,
     val generatedSourcesDir: File,
-    val nominalPackageName: PackageName
+    val nominalPackageName: PackageName,
+    val assertionsMode: AssertionsMode,
 )
 
 private typealias SharedModuleGenerator = (sharedModulesDir: File) -> TestModule.Shared?
@@ -598,22 +648,23 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
         val directives: Directives get() = filesAndModules.directives
 
         val filesToTransform: Iterable<CurrentFileHandler>
-            get() = filesAndModules.parsedFiles.map { (extTestFile, psiFile) ->
-                object : CurrentFileHandler {
-                    override val packageFqName get() = psiFile.packageFqName
-                    override val module = object : CurrentFileHandler.ModuleHandler {
-                        override fun markAsMain() {
-                            extTestFile.module.isMain = true
+            get() = filesAndModules.parsedFiles.filter { it.key.name.endsWith(".kt") || it.key.name.endsWith(".def") }
+                .map { (extTestFile, psiFile) ->
+                    object : CurrentFileHandler {
+                        override val packageFqName get() = psiFile.packageFqNameForKLib
+                        override val module = object : CurrentFileHandler.ModuleHandler {
+                            override fun markAsMain() {
+                                extTestFile.module.isMain = true
+                            }
+                        }
+                        override val psiFactory get() = this@ExtTestDataFileStructureFactory.psiFactory
+
+                        override fun accept(visitor: KtVisitor<*, *>): Unit = psiFile.accept(visitor)
+                        override fun <D> accept(visitor: KtVisitor<*, D>, data: D) {
+                            psiFile.accept(visitor, data)
                         }
                     }
-                    override val psiFactory get() = this@ExtTestDataFileStructureFactory.psiFactory
-
-                    override fun accept(visitor: KtVisitor<*, *>): Unit = psiFile.accept(visitor)
-                    override fun <D> accept(visitor: KtVisitor<*, D>, data: D) {
-                        psiFile.accept(visitor, data)
-                    }
                 }
-            }
 
         fun addFileToMainModule(fileName: String, text: String): Unit = filesAndModules.addFileToMainModule(fileName, text)
 
@@ -680,6 +731,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
 
             source.files.forEach { extTestFile ->
                 val file = moduleDir.resolve(extTestFile.name)
+                file.parentFile.mkdirs()
                 file.writeText(extTestFile.text)
                 process(destination, TestFile.createCommitted(file, destination))
             }
@@ -835,7 +887,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
             configuration.put(CommonConfigurationKeys.MODULE_NAME, "native-blackbox-test-patching-module")
 
             val environment = KotlinCoreEnvironment.createForProduction(
-                parentDisposable = parentDisposable,
+                projectDisposable = parentDisposable,
                 configuration = configuration,
                 configFiles = EnvironmentConfigFiles.METADATA_CONFIG_FILES
             )
@@ -855,3 +907,123 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
         }
     }
 }
+
+internal fun Settings.isIgnoredTarget(testDataFile: File): Boolean {
+    val disposable = Disposer.newDisposable("Disposable for ExtTestCaseGroupProvider.isIgnoredTarget")
+    try {
+        val extTestDataFileStructure = ExtTestDataFileStructureFactory(disposable).ExtTestDataFileStructure(testDataFile, emptyList())
+        return isIgnoredTarget(extTestDataFileStructure.directives)
+    } finally {
+        Disposer.dispose(disposable)
+    }
+}
+
+internal fun Settings.isIgnoredTarget(directives: Directives): Boolean {
+    return isIgnoredWithIGNORE_BACKEND(directives) ||
+            isIgnoredWithIGNORE_NATIVE(directives)
+}
+
+// Mimics `InTextDirectivesUtils.isIgnoredTarget(NATIVE, file)` but does not require file contents, but only already parsed directives.
+private fun Settings.isIgnoredWithIGNORE_BACKEND(directives: Directives): Boolean {
+    val containsNativeOrAny: (List<String>) -> Boolean = { TargetBackend.NATIVE.name in it || TargetBackend.ANY.name in it }
+
+    if (directives.listValues(IGNORE_BACKEND.name)?.let(containsNativeOrAny) == true)
+        return true
+    when (get<PipelineType>()) {
+        PipelineType.K1 ->
+            if (directives.listValues(IGNORE_BACKEND_K1.name)?.let(containsNativeOrAny) == true)
+                return true
+        PipelineType.K2 ->
+            if (directives.listValues(IGNORE_BACKEND_K2.name)?.let(containsNativeOrAny) == true)
+                return true
+        else -> {}
+    }
+    return false
+}
+
+private val TARGET_FAMILY = "targetFamily"
+private val TARGET_ARCHITECTURE = "targetArchitecture"
+private val IS_APPLE_TARGET = "isAppleTarget"
+private val CACHE_MODE_NAMES = CacheMode.Alias.entries.map { it.name }
+private val TEST_MODE_NAMES = TestMode.entries.map { it.name }
+private val OPTIMIZATION_MODE_NAMES = OptimizationMode.entries.map { it.name }
+private val GC_TYPE_NAMES = GCType.entries.map { it.name }
+private val FAMILY_NAMES = Family.entries.map { it.name }
+private val ARCHITECTURE_NAMES = Architecture.entries.map { it.name }
+private val BOOLEAN_NAMES = listOf(true.toString(), false.toString())
+
+private fun Settings.isDisabledNative(directives: Directives) =
+    evaluate(getDirectiveValues(directives, DISABLE_NATIVE, DISABLE_NATIVE_K1, DISABLE_NATIVE_K2))
+
+private fun Settings.isIgnoredWithIGNORE_NATIVE(directives: Directives) =
+    evaluate(getDirectiveValues(directives, IGNORE_NATIVE, IGNORE_NATIVE_K1, IGNORE_NATIVE_K2))
+
+// Evaluation of conjunction of boolean expressions like `property1=value1 && property2=value2`.
+// Any null element makes whole result as `true`.
+private fun Settings.evaluate(directiveValues: List<String?>): Boolean {
+    directiveValues.forEach {
+        if (it == null)
+            return true  // Directive without value is treated as unconditional
+        val split = it.split("&&")
+        val booleanList = split.map {
+            val matchResult = "(.+)=(.+)".toRegex().find(it.trim())
+                ?: throw AssertionError("Invalid format for IGNORE_NATIVE* directive ($it). Must be <property>=<value>")
+            val propName = matchResult.groups[1]?.value
+            val (actualValue, supportedValues) = when (propName) {
+                ClassLevelProperty.CACHE_MODE.shortName -> get<CacheMode>().alias.name to CACHE_MODE_NAMES
+                ClassLevelProperty.TEST_MODE.shortName -> get<TestMode>().name to TEST_MODE_NAMES
+                ClassLevelProperty.OPTIMIZATION_MODE.shortName -> get<OptimizationMode>().name to OPTIMIZATION_MODE_NAMES
+                ClassLevelProperty.TEST_TARGET.shortName -> get<KotlinNativeTargets>().testTarget.name to null
+                ClassLevelProperty.GC_TYPE.shortName -> get<GCType>().name to GC_TYPE_NAMES
+                TARGET_FAMILY -> get<KotlinNativeTargets>().testTarget.family.name to FAMILY_NAMES
+                TARGET_ARCHITECTURE -> get<KotlinNativeTargets>().testTarget.architecture.name to ARCHITECTURE_NAMES
+                IS_APPLE_TARGET -> get<KotlinNativeTargets>().testTarget.family.isAppleFamily.toString() to BOOLEAN_NAMES
+                else -> throw AssertionError("ClassLevelProperty name: $propName is not yet supported in IGNORE_NATIVE* test directives.")
+            }
+            val valueFromTestDirective = matchResult.groups[2]?.value!!
+            supportedValues?.let {
+                if (actualValue !in it)
+                    throw AssertionError("Internal error: Test run value $propName=$actualValue is not in expected supported values: $it")
+                if (valueFromTestDirective !in it)
+                    throw AssertionError("Test directive `IGNORE_NATIVE*: $propName=$valueFromTestDirective` has unsupported value. Supported are: $it")
+            }
+            actualValue == valueFromTestDirective
+        }
+        val matches = booleanList.reduce { a, b -> a && b }
+        if (matches)
+            return true
+    }
+    return false
+}
+
+// Returns list of relevant directive values.
+// Null is added to result list in case the directive given without value.
+private fun Settings.getDirectiveValues(
+    directives: Directives,
+    directiveAllPipelineTypes: StringDirective,
+    directiveK1: StringDirective,
+    directiveK2: StringDirective
+): List<String?> = buildList {
+    fun extract(directives: Directives, directive: StringDirective) {
+        if (directives.contains(directive.name))
+            directives.listValues(directive.name)?.let { addAll(it) } ?: add(null)
+    }
+    extract(directives, directiveAllPipelineTypes)
+    when (get<PipelineType>()) {
+        PipelineType.K1 -> extract(directives, directiveK1)
+        PipelineType.K2 -> extract(directives, directiveK2)
+        else -> {}
+    }
+}
+
+private val KtFile.packageFqNameForKLib: FqName
+    get() = when (name.substringAfterLast(".")) {
+        "kt" -> packageFqName
+        "def" -> {
+            // Without package directive, CInterop tool puts declarations to a package with kinda odd name, as such:
+            // name of .def file without extension, splitted by dot-separated parts, and reversed.
+            if (packageFqName != FqName.ROOT) packageFqName
+            else FqName.fromSegments(name.removeSuffix(".def").split(".").reversed())
+        }
+        else -> TODO("File extension is not yet supported: $name")
+    }

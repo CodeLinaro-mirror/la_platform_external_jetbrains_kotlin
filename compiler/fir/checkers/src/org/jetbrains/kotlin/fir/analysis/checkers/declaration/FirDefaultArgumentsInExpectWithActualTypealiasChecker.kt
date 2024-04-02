@@ -9,18 +9,22 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
-import org.jetbrains.kotlin.fir.declarations.getSingleExpectForActualOrNull
+import org.jetbrains.kotlin.fir.declarations.getSingleMatchedExpectForActualOrNull
 import org.jetbrains.kotlin.fir.declarations.utils.isActual
 import org.jetbrains.kotlin.fir.scopes.collectAllFunctions
 import org.jetbrains.kotlin.fir.scopes.getDeclaredConstructors
 import org.jetbrains.kotlin.fir.scopes.getSingleClassifier
 import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 
-internal object FirDefaultArgumentsInExpectWithActualTypealiasChecker : FirTypeAliasChecker() {
+internal object FirDefaultArgumentsInExpectWithActualTypealiasChecker : FirTypeAliasChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirTypeAlias, context: CheckerContext, reporter: DiagnosticReporter) {
         if (!context.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) ||
             !context.languageVersionSettings.supportsFeature(LanguageFeature.MultiplatformRestrictions)
@@ -32,7 +36,7 @@ internal object FirDefaultArgumentsInExpectWithActualTypealiasChecker : FirTypeA
         }
         val actualTypealiasSymbol = declaration.symbol
         // We want to report errors even if a candidate is incompatible, but it's single
-        val expectedSingleCandidate = actualTypealiasSymbol.getSingleExpectForActualOrNull() ?: return
+        val expectedSingleCandidate = actualTypealiasSymbol.getSingleMatchedExpectForActualOrNull() ?: return
         val expectClassSymbol = expectedSingleCandidate as FirRegularClassSymbol
 
         val membersWithDefaultValueParameters = getMembersWithDefaultValueParametersUnlessAnnotation(expectClassSymbol)

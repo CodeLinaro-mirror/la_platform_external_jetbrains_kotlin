@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -43,7 +43,7 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
 
     @Test
     public void testAllFilesPresentInCompilation() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
     }
 
     @Test
@@ -76,13 +76,19 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     public class CodeFragments {
         @Test
         public void testAllFilesPresentInCodeFragments() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
         }
 
         @Test
         @TestMetadata("annotationUsage.kt")
         public void testAnnotationUsage() throws Exception {
             runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/annotationUsage.kt");
+        }
+
+        @Test
+        @TestMetadata("commonContext.kt")
+        public void testCommonContext() throws Exception {
+            runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonContext.kt");
         }
 
         @Test
@@ -145,7 +151,7 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
         public class Capturing {
             @Test
             public void testAllFilesPresentInCapturing() throws Exception {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
             }
 
             @Test
@@ -197,6 +203,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
             }
 
             @Test
+            @TestMetadata("extensionReceiverSmartCasted.kt")
+            public void testExtensionReceiverSmartCasted() throws Exception {
+                runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/extensionReceiverSmartCasted.kt");
+            }
+
+            @Test
             @TestMetadata("initializer.kt")
             public void testInitializer() throws Exception {
                 runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/initializer.kt");
@@ -206,6 +218,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
             @TestMetadata("local.kt")
             public void testLocal() throws Exception {
                 runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/local.kt");
+            }
+
+            @Test
+            @TestMetadata("localDelegatedProperty.kt")
+            public void testLocalDelegatedProperty() throws Exception {
+                runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localDelegatedProperty.kt");
             }
 
             @Test
@@ -260,6 +278,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
             @TestMetadata("localMutated.kt")
             public void testLocalMutated() throws Exception {
                 runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localMutated.kt");
+            }
+
+            @Test
+            @TestMetadata("localVariable.kt")
+            public void testLocalVariable() throws Exception {
+                runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localVariable.kt");
             }
 
             @Test

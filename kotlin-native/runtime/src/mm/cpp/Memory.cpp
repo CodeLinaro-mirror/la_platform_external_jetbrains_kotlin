@@ -16,6 +16,7 @@
 #include "Natives.h"
 #include "ObjectOps.hpp"
 #include "Porting.h"
+#include "ReferenceOps.hpp"
 #include "Runtime.h"
 #include "SafePoint.hpp"
 #include "StableRef.hpp"
@@ -94,8 +95,13 @@ ALWAYS_INLINE bool isShareable(const ObjHeader* obj) {
     return true;
 }
 
-extern "C" MemoryState* InitMemory(bool firstRuntime) {
+extern "C" MemoryState* InitMemory() {
+    mm::GlobalData::waitInitialized();
     return mm::ToMemoryState(mm::ThreadRegistry::Instance().RegisterCurrentThread());
+}
+
+void kotlin::initGlobalMemory() noexcept {
+    mm::GlobalData::init();
 }
 
 extern "C" void DeinitMemory(MemoryState* state, bool destroyRuntime) {
@@ -144,63 +150,51 @@ extern "C" RUNTIME_NOTHROW void InitAndRegisterGlobal(ObjHeader** location, cons
     mm::GlobalsRegistry::Instance().RegisterStorageForGlobal(threadData, location);
     // Null `initialValue` means that the appropriate value was already set by static initialization.
     if (initialValue != nullptr) {
-        mm::SetHeapRef(location, const_cast<ObjHeader*>(initialValue));
+        UpdateHeapRef(location, const_cast<ObjHeader*>(initialValue));
     }
 }
 
 extern "C" const MemoryModel CurrentMemoryModel = MemoryModel::kExperimental;
 
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void SetStackRef(ObjHeader** location, const ObjHeader* object) {
-    mm::SetStackRef(location, const_cast<ObjHeader*>(object));
-}
-
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void SetHeapRef(ObjHeader** location, const ObjHeader* object) {
-    mm::SetHeapRef(location, const_cast<ObjHeader*>(object));
-}
-
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void ZeroHeapRef(ObjHeader** location) {
-    mm::SetHeapRef(location, nullptr);
+    mm::RefAccessor<false>{location} = nullptr;
 }
 
 extern "C" RUNTIME_NOTHROW void ZeroArrayRefs(ArrayHeader* array) {
     for (uint32_t index = 0; index < array->count_; ++index) {
         ObjHeader** location = ArrayAddressOfElementAt(array, index);
-        mm::SetHeapRef(location, nullptr);
+        mm::RefFieldAccessor{location} = nullptr;
     }
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void ZeroStackRef(ObjHeader** location) {
-    mm::SetStackRef(location, nullptr);
+    mm::StackRefAccessor{location} = nullptr;
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateStackRef(ObjHeader** location, const ObjHeader* object) {
-    mm::SetStackRef(location, const_cast<ObjHeader*>(object));
+    mm::StackRefAccessor{location} = const_cast<ObjHeader*>(object);
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateHeapRef(ObjHeader** location, const ObjHeader* object) {
-    mm::SetHeapRef(location, const_cast<ObjHeader*>(object));
+    mm::RefAccessor<false>{location} = const_cast<ObjHeader*>(object);
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateVolatileHeapRef(ObjHeader** location, const ObjHeader* object) {
-    mm::SetHeapRefAtomicSeqCst(location, const_cast<ObjHeader*>(object));
+    mm::RefAccessor<false>{location}.storeAtomic(const_cast<ObjHeader*>(object), std::memory_order_seq_cst);
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW OBJ_GETTER(CompareAndSwapVolatileHeapRef, ObjHeader** location, ObjHeader* expectedValue, ObjHeader* newValue) {
-    RETURN_RESULT_OF(mm::CompareAndSwapHeapRef, location, expectedValue, newValue);
+    ObjHeader* actual = expectedValue;
+    mm::RefAccessor<false>{location}.compareAndExchange(actual, newValue, std::memory_order_seq_cst);
+    RETURN_OBJ(actual);
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW bool CompareAndSetVolatileHeapRef(ObjHeader** location, ObjHeader* expectedValue, ObjHeader* newValue) {
-    return mm::CompareAndSetHeapRef(location, expectedValue, newValue);
+    return mm::RefAccessor<false>{location}.compareAndExchange(expectedValue, newValue, std::memory_order_seq_cst);
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW OBJ_GETTER(GetAndSetVolatileHeapRef, ObjHeader** location, ObjHeader* newValue) {
-    RETURN_RESULT_OF(mm::GetAndSetHeapRef, location, newValue);
-}
-
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateHeapRefIfNull(ObjHeader** location, const ObjHeader* object) {
-    if (object == nullptr) return;
-    ObjHeader* result = nullptr; // No need to store this value in a rootset.
-    mm::CompareAndSwapHeapRef(location, nullptr, const_cast<ObjHeader*>(object), &result);
+    RETURN_OBJ(mm::RefAccessor<false>{location}.exchange(newValue, std::memory_order_seq_cst));
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateHeapRefsInsideOneArray(const ArrayHeader* array, int fromIndex,
@@ -209,22 +203,10 @@ extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateHeapRefsInsideOneArray(const
 }
 
 extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void UpdateReturnRef(ObjHeader** returnSlot, const ObjHeader* object) {
-    mm::SetStackRef(returnSlot, const_cast<ObjHeader*>(object));
+    UpdateStackRef(returnSlot, object);
 }
 
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW OBJ_GETTER(
-        SwapHeapRefLocked, ObjHeader** location, ObjHeader* expectedValue, ObjHeader* newValue, int32_t* spinlock, int32_t* cookie) {
-    RETURN_RESULT_OF(mm::CompareAndSwapHeapRef, location, expectedValue, newValue);
-}
 
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW void SetHeapRefLocked(
-        ObjHeader** location, ObjHeader* newValue, int32_t* spinlock, int32_t* cookie) {
-    mm::SetHeapRefAtomic(location, newValue);
-}
-
-extern "C" ALWAYS_INLINE RUNTIME_NOTHROW OBJ_GETTER(ReadHeapRefLocked, ObjHeader** location, int32_t* spinlock, int32_t* cookie) {
-    RETURN_RESULT_OF(mm::ReadHeapRefAtomic, location);
-}
 
 extern "C" OBJ_GETTER(ReadHeapRefNoLock, ObjHeader* object, int32_t index) {
     // TODO: Remove when legacy MM is gone.
@@ -456,6 +438,47 @@ extern "C" void Kotlin_native_internal_GC_setCyclicCollector(ObjHeader* gc, bool
     // Nothing to do.
 }
 
+extern "C" KBoolean Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_isAvailable(ObjHeader* gc) {
+    return mm::GlobalData::Instance().gc().mainThreadFinalizerProcessorAvailable();
+}
+
+extern "C" KLong Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_getMaxTimeInTask(ObjHeader* gc) {
+    KLong result;
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor([&](auto& config) noexcept -> void {
+        result = std::chrono::duration_cast<std::chrono::microseconds>(config.maxTimeInTask).count();
+    });
+    return result;
+}
+
+extern "C" void Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_setMaxTimeInTask(ObjHeader* gc, KLong value) {
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor(
+            [=](auto& config) noexcept -> void { config.maxTimeInTask = std::chrono::microseconds(value); });
+}
+
+extern "C" KLong Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_getMinTimeBetweenTasks(ObjHeader* gc) {
+    KLong result;
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor([&](auto& config) noexcept -> void {
+        result = std::chrono::duration_cast<std::chrono::microseconds>(config.minTimeBetweenTasks).count();
+    });
+    return result;
+}
+
+extern "C" void Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_setMinTimeBetweenTasks(ObjHeader* gc, KLong value) {
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor(
+            [=](auto& config) noexcept -> void { config.minTimeBetweenTasks = std::chrono::microseconds(value); });
+}
+
+extern "C" KULong Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_getBatchSize(ObjHeader* gc) {
+    KULong result;
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor(
+            [&](auto& config) noexcept -> void { result = config.batchSize; });
+    return result;
+}
+
+extern "C" void Kotlin_native_runtime_GC_MainThreadFinalizerProcessor_setBatchSize(ObjHeader* gc, KULong value) {
+    mm::GlobalData::Instance().gc().configureMainThreadFinalizerProcessor([=](auto& config) noexcept -> void { config.batchSize = value; });
+}
+
 extern "C" bool Kotlin_Any_isShareable(ObjHeader* thiz) {
     // TODO: Remove when legacy MM is gone.
     return true;
@@ -513,7 +536,7 @@ extern "C" RUNTIME_NOTHROW OBJ_GETTER(AdoptStablePointer, void* pointer) {
     AssertThreadState(ThreadState::kRunnable);
     mm::StableRef stableRef(static_cast<mm::RawSpecialRef*>(pointer));
     auto* obj = *stableRef;
-    mm::SetStackRef(OBJ_RESULT, obj);
+    UpdateStackRef(OBJ_RESULT, obj);
     std::move(stableRef).dispose();
     return obj;
 }
@@ -571,7 +594,7 @@ MemoryState* kotlin::mm::GetMemoryState() noexcept {
 }
 
 bool kotlin::mm::IsCurrentThreadRegistered() noexcept {
-    return ThreadRegistry::Instance().IsCurrentThreadRegistered();
+    return ThreadRegistry::IsCurrentThreadRegistered();
 }
 
 ALWAYS_INLINE kotlin::CalledFromNativeGuard::CalledFromNativeGuard(bool reentrant) noexcept : reentrant_(reentrant) {
@@ -596,10 +619,6 @@ RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processObjectInMark(void* s
 
 RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processArrayInMark(void* state, ObjHeader* object) {
     gc::GC::processArrayInMark(state, object->array());
-}
-
-RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processFieldInMark(void* state, ObjHeader* field) {
-    gc::GC::processFieldInMark(state, field);
 }
 
 RUNTIME_NOTHROW ALWAYS_INLINE extern "C" void Kotlin_processEmptyObjectInMark(void* state, ObjHeader* object) {

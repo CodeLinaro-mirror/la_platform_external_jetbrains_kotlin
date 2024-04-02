@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import org.jetbrains.kotlin.gradle.tasks.configuration.KaptGenerateStubsConfig
 import org.jetbrains.kotlin.gradle.tasks.configuration.KaptWithoutKotlincConfig
 import org.jetbrains.kotlin.gradle.tasks.configuration.KotlinCompileConfig
-import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryK2
+import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryNext
 
 /** Plugin that can be used by third-party plugins to create Kotlin-specific DSL and tasks (compilation and KAPT) for JVM platform. */
 abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory {
@@ -45,10 +45,9 @@ abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory
     override fun createCompilerJvmOptions(): KotlinJvmCompilerOptions {
         return myProject.objects
             .newInstance(KotlinJvmCompilerOptionsDefault::class.java)
-            .configureExperimentalTryK2(myProject)
+            .configureExperimentalTryNext(myProject)
     }
 
-    @Suppress("DEPRECATION")
     @Deprecated("Replaced by compilerJvmOptions", replaceWith = ReplaceWith("createCompilerJvmOptions()"))
     override fun createKotlinJvmOptions(): KotlinJvmOptions {
         return object : KotlinJvmOptions {
@@ -87,7 +86,9 @@ abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory
             KotlinCompileConfig(myProject, kotlinExtension)
         )
         registeredKotlinJvmCompileTask.configure {
+            @Suppress("DEPRECATION")
             it.ownModuleName.set(compilerOptions.moduleName)
+            @Suppress("DEPRECATION")
             it.moduleName.set(compilerOptions.moduleName)
         }
         return registeredKotlinJvmCompileTask

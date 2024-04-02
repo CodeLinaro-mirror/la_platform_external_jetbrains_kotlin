@@ -21,6 +21,7 @@ buildscript {
 plugins {
     kotlin("jvm")
     application
+    id("native-dependencies")
 }
 
 application {
@@ -29,7 +30,6 @@ application {
 
 dependencies {
     implementation(project(":kotlin-native:Interop:Indexer"))
-    implementation(project(":kotlin-native:utilities:basic-utils"))
     implementation(project(path = ":kotlin-native:endorsedLibraries:kotlinx.cli", configuration = "jvmRuntimeElements"))
 
     api(project(":kotlin-stdlib"))
@@ -38,8 +38,7 @@ dependencies {
     implementation(project(":compiler:util"))
     implementation(project(":compiler:ir.serialization.common"))
 
-    testImplementation(kotlin("test-junit"))
-    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(kotlinTest("junit"))
 }
 
 tasks {
@@ -59,31 +58,21 @@ tasks {
                 project(":kotlin-native:Interop:Runtime")
         )
         dependsOn(projectsWithNativeLibs.map { "${it.path}:nativelibs" })
+        dependsOn(nativeDependencies.llvmDependency)
         systemProperty("java.library.path", projectsWithNativeLibs.joinToString(File.pathSeparator) {
-            File(it.buildDir, "nativelibs").absolutePath
+            it.layout.buildDirectory.dir("nativelibs").get().asFile.absolutePath
         })
-        val llvmDir = project.findProperty("llvmDir")
-        val libclangPath = "$llvmDir/" + if (org.jetbrains.kotlin.konan.target.HostManager.hostIsMingw) {
+        val libclangPath = "${nativeDependencies.llvmPath}/" + if (org.jetbrains.kotlin.konan.target.HostManager.hostIsMingw) {
             "bin/libclang.dll"
         } else {
             "lib/${System.mapLibraryName("clang")}"
         }
         systemProperty("kotlin.native.llvm.libclang", libclangPath)
-        systemProperty("kotlin.native.interop.stubgenerator.temp", File(buildDir, "stubGeneratorTestTemp"))
+        systemProperty("kotlin.native.interop.stubgenerator.temp", layout.buildDirectory.dir("stubGeneratorTestTemp").get().asFile)
 
         // Set the konan.home property because we run the cinterop tool not from a distribution jar
         // so it will not be able to determine this path by itself.
         systemProperty("konan.home", project.project(":kotlin-native").projectDir)
         environment["LIBCLANG_DISABLE_CRASH_RECOVERY"] = "1"
-    }
-}
-
-sourceSets {
-    "main" {
-        kotlin {
-            srcDir(project.kotlinNativeVersionSrc())
-            srcDir("../../shared/src/library/kotlin")
-            srcDir("../../shared/src/main/kotlin")
-        }
     }
 }

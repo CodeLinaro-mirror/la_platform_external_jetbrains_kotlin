@@ -70,9 +70,6 @@ public class JVMConfigurationKeys {
     public static final CompilerConfigurationKey<File> MODULE_XML_FILE =
             CompilerConfigurationKey.create("path to module.xml");
 
-    public static final CompilerConfigurationKey<String> DECLARATIONS_JSON_PATH =
-            CompilerConfigurationKey.create("path to declarations output");
-
     public static final CompilerConfigurationKey<List<Module>> MODULES =
             CompilerConfigurationKey.create("module data");
 
@@ -155,7 +152,7 @@ public class JVMConfigurationKeys {
             CompilerConfigurationKey.create("Validate generated JVM bytecode");
 
     public static final CompilerConfigurationKey<Boolean> LINK_VIA_SIGNATURES =
-            CompilerConfigurationKey.create("Link JVM IR symbols via signatures, instead of by descriptors");
+            CompilerConfigurationKey.create("Link JVM IR symbols via signatures, instead of by descriptors on the K1 frontend");
 
     public static final CompilerConfigurationKey<Boolean> ENABLE_DEBUG_MODE =
             CompilerConfigurationKey.create("Enable debug mode");

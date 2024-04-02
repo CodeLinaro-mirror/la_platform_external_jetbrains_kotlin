@@ -21,5 +21,7 @@ object CommonTypeCheckers : TypeCheckers() {
         FirDuplicateParameterNameInFunctionTypeChecker,
         FirOptionalExpectationTypeChecker,
         FirIncompatibleClassTypeChecker,
+        FirContextReceiversTypeChecker,
+        FirArrayOfNothingTypeChecker,
     )
 }

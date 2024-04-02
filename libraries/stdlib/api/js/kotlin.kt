@@ -165,21 +165,17 @@ public inline fun <T> T.apply(block: T.() -> kotlin.Unit): T
 public inline infix fun <T> kotlin.Comparable<T>.compareTo(other: T): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Byte.countLeadingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Int.countLeadingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Long.countLeadingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Short.countLeadingZeroBits(): kotlin.Int
 
@@ -204,20 +200,16 @@ public inline fun kotlin.ULong.countLeadingZeroBits(): kotlin.Int
 public inline fun kotlin.UShort.countLeadingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Byte.countOneBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Int.countOneBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Long.countOneBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Short.countOneBits(): kotlin.Int
 
@@ -242,20 +234,16 @@ public inline fun kotlin.ULong.countOneBits(): kotlin.Int
 public inline fun kotlin.UShort.countOneBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Byte.countTrailingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Int.countTrailingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Long.countTrailingZeroBits(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Short.countTrailingZeroBits(): kotlin.Int
 
@@ -638,20 +626,16 @@ public inline operator fun <T, V> kotlin.reflect.KMutableProperty1<T, V>.setValu
 public fun kotlin.Throwable.stackTraceToString(): kotlin.String
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Byte.takeHighestOneBit(): kotlin.Byte
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Int.takeHighestOneBit(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Long.takeHighestOneBit(): kotlin.Long
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Short.takeHighestOneBit(): kotlin.Short
 
@@ -680,20 +664,16 @@ public inline fun kotlin.UShort.takeHighestOneBit(): kotlin.UShort
 public inline fun <T> T.takeIf(predicate: (T) -> kotlin.Boolean): T?
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Byte.takeLowestOneBit(): kotlin.Byte
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Int.takeLowestOneBit(): kotlin.Int
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 public fun kotlin.Long.takeLowestOneBit(): kotlin.Long
 
 @kotlin.SinceKotlin(version = "1.4")
-@kotlin.WasExperimental(markerClass = {kotlin.ExperimentalStdlibApi::class})
 @kotlin.internal.InlineOnly
 public inline fun kotlin.Short.takeLowestOneBit(): kotlin.Short
 
@@ -845,15 +825,6 @@ public inline fun kotlin.Short.toUShort(): kotlin.UShort
 @kotlin.ExperimentalStdlibApi
 @kotlin.internal.InlineOnly
 public inline fun <T : kotlin.AutoCloseable?, R> T.use(block: (T) -> R): R
-
-@kotlin.annotation.Retention(value = AnnotationRetention.SOURCE)
-@kotlin.annotation.Target(allowedTargets = {AnnotationTarget.CLASS, AnnotationTarget.TYPEALIAS})
-@kotlin.annotation.MustBeDocumented
-@kotlin.ExperimentalMultiplatform
-@kotlin.SinceKotlin(version = "1.9")
-public final annotation class AllowDifferentMembersInActual : kotlin.Annotation {
-    public constructor AllowDifferentMembersInActual()
-}
 
 public interface Annotation {
 }
@@ -1628,6 +1599,7 @@ public final annotation class ExperimentalStdlibApi : kotlin.Annotation {
 @kotlin.annotation.Target(allowedTargets = {AnnotationTarget.CLASS})
 @kotlin.annotation.Retention(value = AnnotationRetention.BINARY)
 @kotlin.SinceKotlin(version = "1.8")
+@kotlin.RequiresOptIn
 public final annotation class ExperimentalSubclassOptIn : kotlin.Annotation {
     public constructor ExperimentalSubclassOptIn()
 }

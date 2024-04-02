@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -2252,6 +2252,12 @@ public class IrBytecodeTextTestGenerated extends AbstractIrBytecodeTextTest {
         @TestMetadata("enumEntriesMultiMapping.kt")
         public void testEnumEntriesMultiMapping() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/enum/enumEntriesMultiMapping.kt");
+        }
+
+        @Test
+        @TestMetadata("enumEntriesNoMapping.kt")
+        public void testEnumEntriesNoMapping() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/enum/enumEntriesNoMapping.kt");
         }
 
         @Test
@@ -4598,6 +4604,12 @@ public class IrBytecodeTextTestGenerated extends AbstractIrBytecodeTextTest {
         @TestMetadata("inlineLambdaObjectInit.kt")
         public void testInlineLambdaObjectInit() throws Exception {
             runTest("compiler/testData/codegen/bytecodeText/lineNumbers/inlineLambdaObjectInit.kt");
+        }
+
+        @Test
+        @TestMetadata("kt61768.kt")
+        public void testKt61768() throws Exception {
+            runTest("compiler/testData/codegen/bytecodeText/lineNumbers/kt61768.kt");
         }
 
         @Test

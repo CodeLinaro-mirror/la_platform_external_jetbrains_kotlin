@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,12 +11,12 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignation
 import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.codeFragment
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
-import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.analysis.utils.errors.withPsiEntry
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.builder.BodyBuildingMode
 import org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder
+import org.jetbrains.kotlin.fir.builder.buildDestructuringVariable
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -28,10 +28,15 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.name.NameUtils
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
+import org.jetbrains.kotlin.util.PrivateForInline
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 
 internal class RawFirNonLocalDeclarationBuilder private constructor(
     session: FirSession,
@@ -76,16 +81,17 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
                 else -> null
             }
 
-            return build(session, scopeProvider, designation, rootNonLocalDeclaration, functionsToRebind)
+            return build(session, scopeProvider, designation, rootNonLocalDeclaration, functionsToRebind, rebindContainingSymbol = true)
         }
 
-        fun build(
+        private fun build(
             session: FirSession,
             scopeProvider: FirScopeProvider,
             designation: FirDesignation,
             rootNonLocalDeclaration: KtElement,
             functionsToRebind: Set<FirFunction>? = null,
-            replacementApplier: RawFirReplacement.Applier? = null
+            replacementApplier: RawFirReplacement.Applier? = null,
+            rebindContainingSymbol: Boolean = false,
         ): FirDeclaration {
             check(rootNonLocalDeclaration is KtDeclaration || rootNonLocalDeclaration is KtCodeFragment)
 
@@ -97,14 +103,38 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
                 functionsToRebind = functionsToRebind,
                 replacementApplier = replacementApplier
             )
+
             builder.context.packageFqName = rootNonLocalDeclaration.containingKtFile.packageFqName
-            return builder.moveNext(designation.path.iterator(), containingClass = null)
+            if (rebindContainingSymbol) {
+                @OptIn(PrivateForInline::class)
+                builder.context.forcedContainerSymbol = designation.target.symbol
+            }
+
+            return builder.moveNext(designation.path.iterator(), containingDeclaration = null)
         }
     }
 
     override fun bindFunctionTarget(target: FirFunctionTarget, function: FirFunction) {
-        val rewrittenTarget = functionsToRebind?.firstOrNull { it.realPsi == function.realPsi } ?: function
-        super.bindFunctionTarget(target, rewrittenTarget)
+        super.bindFunctionTarget(target, computeRebindTarget(function) ?: function)
+    }
+
+    /**
+     * @return [FirFunction] if another function should be used instead of [function] for [FirFunctionTarget]
+     *
+     * @see bindFunctionTarget
+     * @see functionsToRebind
+     */
+    private fun computeRebindTarget(function: FirFunction): FirFunction? {
+        if (functionsToRebind.isNullOrEmpty()) return null
+        val realPsi = function.realPsi
+        if (realPsi != null) {
+            return functionsToRebind.firstOrNull { it.realPsi == realPsi }
+        }
+
+        val accessor = function as? FirPropertyAccessor ?: return null
+        val accessorPsi = accessor.psi ?: return null
+
+        return functionsToRebind.firstOrNull { it is FirPropertyAccessor && it.isGetter == accessor.isGetter && it.psi == accessorPsi }
     }
 
     override fun addCapturedTypeParameters(
@@ -120,10 +150,51 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
     }
 
     private inner class VisitorWithReplacement(private val containingClass: FirRegularClass?) : Visitor() {
-        fun convertDestructuringDeclaration(element: KtDestructuringDeclaration): FirVariable {
+        fun convertDestructuringDeclaration(element: KtDestructuringDeclaration, containingDeclaration: FirDeclaration?): FirVariable {
             val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
             requireIsInstance<KtDestructuringDeclaration>(replacementDeclaration)
-            return buildErrorTopLevelDestructuringDeclaration(replacementDeclaration.toFirSourceElement())
+            return if (containingDeclaration is FirScript) {
+                withContainerSymbol(containingDeclaration.symbol) {
+                    // Annotations from script destructuring declarations are linked to the script itself
+                    buildScriptDestructuringDeclaration(replacementDeclaration)
+                }
+            } else {
+                buildErrorTopLevelDestructuringDeclaration(replacementDeclaration.toFirSourceElement())
+            }
+        }
+
+        fun convertDestructuringDeclarationEntry(element: KtDestructuringDeclarationEntry): FirVariable {
+            val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
+            requireIsInstance<KtDestructuringDeclarationEntry>(replacementDeclaration)
+            requireIsInstance<FirProperty>(originalDeclaration)
+
+            val container = originalDeclaration.destructuringDeclarationContainerVariable?.fir
+            requireWithAttachment(container != null, { "Container is not found"}) {
+                withFirEntry("originalDeclaration", originalDeclaration)
+                withPsiEntry("element", element)
+            }
+
+            return buildDestructuringVariable(
+                moduleData = baseModuleData,
+                container = container,
+                element,
+                isVar = false,
+                localEntries = false,
+                index = element.index(),
+                configure = { configureScriptDestructuringDeclarationEntry(it, container) },
+            )
+        }
+
+        private fun KtDestructuringDeclarationEntry.index(): Int {
+            val destructuringDeclaration = parent
+            requireIsInstance<KtDestructuringDeclaration>(destructuringDeclaration)
+            return destructuringDeclaration.entries.indexOf(this)
+        }
+
+        fun convertAnonymousInitializer(element: KtAnonymousInitializer, containingDeclaration: FirDeclaration?): FirAnonymousInitializer {
+            val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
+            requireIsInstance<KtAnonymousInitializer>(replacementDeclaration)
+            return buildAnonymousInitializer(replacementDeclaration, containingDeclaration?.symbol)
         }
 
         override fun convertElement(element: KtElement, original: FirElement?): FirElement? =
@@ -281,10 +352,9 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
                 if (superTypeListEntry is KtDelegatedSuperTypeEntry) {
                     val expectedName = NameUtils.delegateFieldName(index)
                     if (originalDeclaration.name == expectedName) {
-                        return buildFieldForSupertypeDelegate(
-                            superTypeListEntry, superTypeListEntry.typeReference.toFirOrErrorType(), index
-                        )
+                        return buildFieldForSupertypeDelegate(superTypeListEntry, type = null, index)
                     }
+
                     index++
                 }
             }
@@ -292,8 +362,9 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
         }
     }
 
-    private fun moveNext(iterator: Iterator<FirDeclaration>, containingClass: FirRegularClass?): FirDeclaration {
+    private fun moveNext(iterator: Iterator<FirDeclaration>, containingDeclaration: FirDeclaration?): FirDeclaration {
         if (!iterator.hasNext()) {
+            val containingClass = containingDeclaration as? FirRegularClass
             val visitor = VisitorWithReplacement(containingClass)
             return when (declarationToBuild) {
                 is KtProperty -> {
@@ -316,17 +387,19 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
                         else -> visitor.convertElement(declarationToBuild, originalDeclaration)
                     }
                 }
-                is KtDestructuringDeclaration -> visitor.convertDestructuringDeclaration(declarationToBuild)
+                is KtDestructuringDeclaration -> visitor.convertDestructuringDeclaration(declarationToBuild, containingDeclaration)
+                is KtDestructuringDeclarationEntry -> visitor.convertDestructuringDeclarationEntry(declarationToBuild)
                 is KtCodeFragment -> {
                     val firFile = visitor.convertElement(declarationToBuild, originalDeclaration) as FirFile
                     firFile.codeFragment
                 }
+                is KtAnonymousInitializer -> visitor.convertAnonymousInitializer(declarationToBuild, containingDeclaration)
                 else -> visitor.convertElement(declarationToBuild, originalDeclaration)
             } as FirDeclaration
         }
 
         val parent = iterator.next()
-        if (parent !is FirRegularClass) return moveNext(iterator, containingClass = null)
+        if (parent !is FirRegularClass) return moveNext(iterator, containingDeclaration = parent)
 
         val classOrObject = parent.psi
         if (classOrObject !is KtClassOrObject) {

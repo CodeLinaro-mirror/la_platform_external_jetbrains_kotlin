@@ -8,10 +8,10 @@ import org.jetbrains.gradle.ext.TopLevelArtifact
 import org.jetbrains.kotlin.ideaExt.*
 
 
-val ideaPluginDir: File by extra
-val ideaSandboxDir: File by extra
 val ideaSdkPath: String
-    get() = rootProject.ideaHomePathForTests().absolutePath
+    get() = rootProject.ideaHomePathForTests().get().asFile.absolutePath
+val distDir by extra("$rootDir/dist")
+val distKotlinHomeDir by extra("$distDir/kotlinc")
 
 fun updateCompilerXml() {
     val modulesExcludedFromJps = listOf(
@@ -60,7 +60,6 @@ fun updateCompilerXml() {
         "libraries/tools/kotlin-test-js-runner",
         "libraries/tools/kotlin-tooling-core",
         "libraries/tools/kotlin-tooling-metadata",
-        "libraries/tools/kotlinp",
         "libraries/tools/maven-archetypes",
         "libraries/tools/mutability-annotations-compat",
         "libraries/tools/script-runtime",
@@ -70,6 +69,7 @@ fun updateCompilerXml() {
         "libraries/tools/kotlin-gradle-plugin-idea-proto",
         "repo/gradle-settings-conventions",
         "plugins/fir-plugin-prototype/plugin-annotations",
+        "plugins/atomicfu/atomicfu-compiler/test/org/jetbrains/kotlin/konan/test/blackbox",
     )
 
     val d = '$'
@@ -104,10 +104,10 @@ fun JUnit.configureForKotlin(xmx: String = "1600m") {
         "-Didea.ignore.disabled.plugins=true",
         "-Didea.home.path=$ideaSdkPath",
         "-Didea.use.native.fs.for.win=false",
-        "-Djps.kotlin.home=${ideaPluginDir.absolutePath}",
+        "-Djps.kotlin.home=${File(distKotlinHomeDir).absolutePath}",
         "-Duse.jps=true",
         "-Djava.awt.headless=true"
-    ).filterNotNull().joinToString(" ")
+    ).joinToString(" ")
 
     envs = mapOf(
         "NO_FS_ROOTS_ACCESS_CHECK" to "true",

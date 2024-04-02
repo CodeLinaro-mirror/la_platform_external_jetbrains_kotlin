@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.js.backend.ast.*
+import org.jetbrains.kotlin.js.backend.ast.metadata.constant
 import org.jetbrains.kotlin.utils.DFS
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 
@@ -24,12 +25,12 @@ class JsNameLinkingNamer(
 
     val nameMap = mutableMapOf<IrDeclaration, JsName>()
 
-    private fun IrDeclarationWithName.getName(prefix: String = ""): JsName {
+    private fun IrDeclarationWithName.getName(): JsName {
         return nameMap.getOrPut(this) {
             val name = (this as? IrClass)?.let { context.localClassNames[this] } ?: let {
                 this.nameIfPropertyAccessor() ?: getJsNameOrKotlinName().asString()
             }
-            JsName(sanitizeName(prefix + name), true)
+            JsName(sanitizeName(name), true)
         }
     }
 
@@ -50,7 +51,11 @@ class JsNameLinkingNamer(
             }
         }
 
-        return declaration.getName()
+        return declaration.getName().also {
+            if (declaration == context.intrinsics.void.owner.backingField) {
+                it.constant = true
+            }
+        }
     }
 
     override fun getNameForMemberFunction(function: IrSimpleFunction): JsName {
@@ -90,6 +95,7 @@ class JsNameLinkingNamer(
                 else -> JsImport.Target.Default(nameRef)
             }
             imports[this] = JsImport(jsModule, importSubject)
+            nameMap[this] = name
         } else {
             importedModules += JsImportedModule(jsModule, name, nameRef)
         }

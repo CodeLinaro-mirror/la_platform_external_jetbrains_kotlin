@@ -20,8 +20,9 @@ import org.jetbrains.kotlin.cli.jvm.compiler.*
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollector
-import org.jetbrains.kotlin.fir.analysis.collectors.FirDiagnosticsCollector
+import org.jetbrains.kotlin.fir.analysis.collectors.components.DiagnosticComponentsFactory
 import org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.dump.MultiModuleHtmlFirDump
@@ -97,7 +98,7 @@ class FirResolveModularizedTotalKotlinTest : AbstractFrontendModularizedTest() {
         val scopeSession = ScopeSession()
         val processors = createAllCompilerResolveProcessors(session, scopeSession).let {
             if (RUN_CHECKERS) {
-                it + FirCheckersResolveProcessor(session, scopeSession)
+                it + FirCheckersResolveProcessor(session, scopeSession, MppCheckerKind.Common)
             } else {
                 it
             }
@@ -153,17 +154,21 @@ class FirResolveModularizedTotalKotlinTest : AbstractFrontendModularizedTest() {
     }
 
     override fun processModule(moduleData: ModuleData): ProcessorAction {
-        val disposable = Disposer.newDisposable()
-        val configuration = createDefaultConfiguration(moduleData)
-        configureLanguageVersionSettings(configuration, moduleData, LanguageVersion.fromVersionString(LANGUAGE_VERSION_K2)!!)
-        val environment = KotlinCoreEnvironment.createForTests(disposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
+        val disposable = Disposer.newDisposable("Disposable for ${FirResolveModularizedTotalKotlinTest::class.simpleName}.processModule")
 
-        PsiElementFinder.EP.getPoint(environment.project)
-            .unregisterExtension(JavaElementFinder::class.java)
+        try {
+            val configuration = createDefaultConfiguration(moduleData)
+            configureLanguageVersionSettings(configuration, moduleData, LanguageVersion.fromVersionString(LANGUAGE_VERSION_K2)!!)
+            val environment = KotlinCoreEnvironment.createForTests(disposable, configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES)
 
-        runAnalysis(moduleData, environment)
+            PsiElementFinder.EP.getPoint(environment.project)
+                .unregisterExtension(JavaElementFinder::class.java)
 
-        Disposer.dispose(disposable)
+            runAnalysis(moduleData, environment)
+        } finally {
+            Disposer.dispose(disposable)
+        }
+
         if (bench.hasFiles && FAIL_FAST) return ProcessorAction.STOP
         return ProcessorAction.NEXT
     }
@@ -265,8 +270,9 @@ class FirResolveModularizedTotalKotlinTest : AbstractFrontendModularizedTest() {
 class FirCheckersResolveProcessor(
     session: FirSession,
     scopeSession: ScopeSession,
+    mppCheckerKind: MppCheckerKind
 ) : FirTransformerBasedResolveProcessor(session, scopeSession, phase = null) {
-    val diagnosticCollector: AbstractDiagnosticCollector = FirDiagnosticsCollector.create(session, scopeSession)
+    val diagnosticCollector: AbstractDiagnosticCollector = DiagnosticComponentsFactory.create(session, scopeSession, mppCheckerKind)
 
     override val transformer: FirTransformer<Nothing?> = FirCheckersRunnerTransformer(diagnosticCollector)
 }

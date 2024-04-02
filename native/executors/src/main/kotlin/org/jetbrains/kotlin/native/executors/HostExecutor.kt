@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.native.executors
 
 import kotlinx.coroutines.*
+import org.jetbrains.kotlin.konan.target.HostManager
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -16,31 +17,35 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.logging.Logger
-import kotlin.time.*
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.ExperimentalTime
+import kotlin.time.TimeSource
+import kotlin.time.measureTimedValue
 
 class ProcessStreams(
+    scope: CoroutineScope,
     process: Process,
     stdin: InputStream,
     stdout: OutputStream,
     stderr: OutputStream,
-    jobLauncher: (suspend () -> Unit) -> Job,
 ) {
     private val ignoreIOErrors = AtomicBoolean(false)
-    private val stdin = jobLauncher {
+    private val stdin = scope.launch {
         stdin.apply {
             copyStreams(this, process.outputStream)
             close()
         }
         process.outputStream.close()
     }
-    private val stdout = jobLauncher {
+    private val stdout = scope.launch {
         stdout.apply {
             copyStreams(process.inputStream, this)
             close()
         }
         process.inputStream.close()
     }
-    private val stderr = jobLauncher {
+    private val stderr = scope.launch {
         stderr.apply {
             copyStreams(process.errorStream, this)
             close()
@@ -51,9 +56,8 @@ class ProcessStreams(
     private fun copyStreams(from: InputStream, to: OutputStream) {
         try {
             from.copyTo(to)
-        } catch(e: IOException) {
-            if (ignoreIOErrors.get())
-                return
+        } catch (e: IOException) {
+            if (ignoreIOErrors.get()) return
             throw e
         }
     }
@@ -71,22 +75,6 @@ class ProcessStreams(
         stdout.cancel()
         stderr.cancel()
         stdin.cancel()
-    }
-}
-
-fun CoroutineScope.pumpStreams(
-    process: Process,
-    stdin: InputStream,
-    stdout: OutputStream,
-    stderr: OutputStream,
-) = ProcessStreams(
-    process,
-    stdin,
-    stdout,
-    stderr,
-) {
-    launch {
-        it()
     }
 }
 
@@ -116,9 +104,10 @@ private fun <T> ProcessBuilder.scoped(block: suspend CoroutineScope.(Process) ->
     // e.g. gradle --no-daemon task execution was cancelled by the user pressing ^C
     ProcessKiller.register(process)
     return try {
-        runBlocking(Dispatchers.IO) {
+        val result = runBlocking(Dispatchers.IO) {
             block(process)
         }
+        result
     } finally {
         // Make sure the process is killed even if the current thread was interrupted.
         // e.g. gradle task execution was cancelled by the user pressing ^C
@@ -126,6 +115,35 @@ private fun <T> ProcessBuilder.scoped(block: suspend CoroutineScope.(Process) ->
         // The process is dead, no need to ensure its destruction during the shutdown.
         ProcessKiller.deregister(process)
     }
+}
+
+private class SleeperWithBackoff {
+    // Start with exponential backoff, then try 150ms for a while, and finally settle on a second.
+    private val backoffMilliseconds = longArrayOf(10, 20, 40, 80, 150, 150, 150, 150, 150)
+    private val maxBackoffMilliseconds = 1000L
+    private var nextIndex = 0
+
+    private val nextBackoffMilliseconds: Long
+        get() = backoffMilliseconds.getOrNull(nextIndex++) ?: maxBackoffMilliseconds
+
+    fun sleep() {
+        Thread.sleep(nextBackoffMilliseconds)
+    }
+}
+
+private fun Process.waitFor(timeout: Duration): Boolean {
+    if (!HostManager.hostIsMingw) return waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    // KT-65113: Looks like there's a race in waitFor implementation for Windows. It can wait for the entire `timeout` but the process'
+    // exitValue would be 0.
+    if (!isAlive) return true
+    if (!timeout.isPositive()) return false
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    val sleeper = SleeperWithBackoff()
+    do {
+        sleeper.sleep()
+        if (!isAlive) break
+    } while (deadline.hasNotPassedNow())
+    return !isAlive
 }
 
 /**
@@ -151,20 +169,34 @@ class HostExecutor : Executor {
             directory(workingDirectory)
             environment().putAll(request.environment)
         }.scoped { process ->
-            val streams = pumpStreams(process, request.stdin, request.stdout, request.stderr)
+            val streams = ProcessStreams(this, process, request.stdin, request.stdout, request.stderr)
             val (isTimeout, duration) = measureTimedValue {
-                !process.waitFor(request.timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+                !process.waitFor(request.timeout)
             }
-            if (isTimeout) {
-                logger.warning("Timeout running $commandLine in $duration")
+            suspend fun cancel() {
                 streams.cancel()
                 process.destroyForcibly()
                 streams.drain()
+            }
+            if (isTimeout) {
+                logger.warning("Timeout running $commandLine in $duration")
+                cancel()
                 ExecuteResponse(null, duration)
             } else {
-                logger.info("Finished executing $commandLine in $duration exit code ${process.exitValue()}")
-                streams.drain()
-                ExecuteResponse(process.exitValue(), duration)
+                val exitCode = process.exitValue()
+                logger.info("Finished executing $commandLine in $duration exit code $exitCode")
+                // KT-65113: Looks like read() from stdout/stderr of a child process may hang on Windows
+                // even when the child process is already terminated.
+                val waitStreamsDuration = if (HostManager.hostIsMingw) 10.seconds else Duration.INFINITE
+                try {
+                    withTimeout(waitStreamsDuration) {
+                        streams.drain()
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    logger.warning("Failed to join the streams in $waitStreamsDuration.")
+                    cancel()
+                }
+                ExecuteResponse(exitCode, duration)
             }
         }
     }

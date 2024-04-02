@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.ir.util
 
+import org.jetbrains.kotlin.AbstractKtSourceElement
+import org.jetbrains.kotlin.KtOffsetsOnlySourceElement
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.UnsignedType
@@ -17,9 +19,9 @@ import org.jetbrains.kotlin.ir.builders.irImplicitCast
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
-import org.jetbrains.kotlin.ir.overrides.IrUnimplementedOverridesStrategy
 import org.jetbrains.kotlin.ir.overrides.FakeOverrideBuilderStrategy
 import org.jetbrains.kotlin.ir.overrides.IrFakeOverrideBuilder
+import org.jetbrains.kotlin.ir.overrides.IrUnimplementedOverridesStrategy
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
@@ -28,11 +30,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.SpecialNames
-import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.*
 import java.io.StringWriter
@@ -225,39 +223,66 @@ val IrProperty.isSimpleProperty: Boolean
                 (setterFun == null || setterFun.origin == IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR)
     }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.functions: Sequence<IrSimpleFunction>
     get() = declarations.asSequence().filterIsInstance<IrSimpleFunction>()
 
+// This declaration accesses IrBasedSymbol.owner, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.superClass: IrClass?
     get() = superTypes
         .firstOrNull { !it.isInterface() && !it.isAny() }
         ?.classOrNull
         ?.owner
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClassSymbol.functions: Sequence<IrSimpleFunctionSymbol>
     get() = owner.functions.map { it.symbol }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.constructors: Sequence<IrConstructor>
     get() = declarations.asSequence().filterIsInstance<IrConstructor>()
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.defaultConstructor: IrConstructor?
     get() = constructors.firstOrNull { ctor -> ctor.valueParameters.all { it.defaultValue != null } }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClassSymbol.constructors: Sequence<IrConstructorSymbol>
     get() = owner.constructors.map { it.symbol }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.fields: Sequence<IrField>
     get() = declarations.asSequence().filterIsInstance<IrField>()
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
+val IrClass.nestedClasses: Sequence<IrClass>
+    get() = declarations.asSequence().filterIsInstance<IrClass>()
+
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClassSymbol.fields: Sequence<IrFieldSymbol>
     get() = owner.fields.map { it.symbol }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.primaryConstructor: IrConstructor?
     get() = this.declarations.singleOrNull { it is IrConstructor && it.isPrimary } as IrConstructor?
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrClass.invokeFun: IrSimpleFunction?
     get() = declarations.filterIsInstance<IrSimpleFunction>().singleOrNull { it.name.asString() == "invoke" }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 val IrDeclarationContainer.properties: Sequence<IrProperty>
     get() = declarations.asSequence().filterIsInstance<IrProperty>()
 
@@ -306,12 +331,6 @@ fun IrClass.isSubclassOf(ancestor: IrClass): Boolean {
     return this.hasAncestorInSuperTypes()
 }
 
-fun IrSimpleFunction.findInterfaceImplementation(): IrSimpleFunction? {
-    if (isReal) return null
-
-    return resolveFakeOverride()?.run { if (parentAsClass.isInterface) this else null }
-}
-
 val IrClass.isAnnotationClass get() = kind == ClassKind.ANNOTATION_CLASS
 val IrClass.isEnumClass get() = kind == ClassKind.ENUM_CLASS
 val IrClass.isEnumEntry get() = kind == ClassKind.ENUM_ENTRY
@@ -350,6 +369,7 @@ val IrDeclaration.parentAsClass: IrClass
 fun IrElement.getPackageFragment(): IrPackageFragment? =
     this as? IrPackageFragment ?: (this as? IrDeclaration)?.getPackageFragment()
 
+@Suppress("NO_TAIL_CALLS_FOUND", "NON_TAIL_RECURSIVE_CALL") // K2 warning suppression, TODO: KT-62472
 tailrec fun IrDeclaration.getPackageFragment(): IrPackageFragment {
     val parent = this.parent
     return parent as? IrPackageFragment
@@ -452,6 +472,8 @@ fun IrFunction.isExternalOrInheritedFromExternal(): Boolean {
     return isEffectivelyExternal() || (this is IrSimpleFunction && isExternalOrInheritedFromExternalImpl(this))
 }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 inline fun <reified T : IrDeclaration> IrDeclarationContainer.findDeclaration(predicate: (T) -> Boolean): T? =
     declarations.find { it is T && predicate(it) } as? T
 
@@ -773,6 +795,37 @@ fun IrExpression.remapReceiver(oldReceiver: IrValueParameter?, newReceiver: IrVa
     else -> shallowCopy()
 }
 
+fun IrGetValue.remapSymbolParent(classRemapper: (IrClass) -> IrClass, functionRemapper: (IrFunction) -> IrFunction): IrGetValue {
+    val symbol = symbol
+    if (symbol !is IrValueParameterSymbol) {
+        return this
+    }
+
+    val parameter = symbol.owner
+    val newSymbol = when (val parent = parameter.parent) {
+        is IrClass -> {
+            assert(parameter == parent.thisReceiver)
+            classRemapper(parent).thisReceiver!!
+        }
+
+        is IrFunction -> {
+            val remappedFunction = functionRemapper(parent)
+            when (parameter) {
+                parent.dispatchReceiverParameter -> remappedFunction.dispatchReceiverParameter!!
+                parent.extensionReceiverParameter -> remappedFunction.extensionReceiverParameter!!
+                else -> {
+                    assert(parent.valueParameters[parameter.index] == parameter)
+                    remappedFunction.valueParameters[parameter.index]
+                }
+            }
+        }
+
+        else -> error(parent)
+    }
+
+    return IrGetValueImpl(startOffset, endOffset, newSymbol.type, newSymbol.symbol, origin)
+}
+
 val IrDeclarationParent.isFacadeClass: Boolean
     get() = this is IrClass &&
             (origin == IrDeclarationOrigin.JVM_MULTIFILE_CLASS ||
@@ -823,7 +876,7 @@ fun IrClass.addSimpleDelegatingConstructor(
         )
     }
 
-val IrCall.isSuspend get() = (symbol.owner as? IrSimpleFunction)?.isSuspend == true
+val IrCall.isSuspend get() = symbol.owner.isSuspend
 val IrFunctionReference.isSuspend get() = (symbol.owner as? IrSimpleFunction)?.isSuspend == true
 
 val IrFunction.isOverridable get() = this is IrSimpleFunction && this.isOverridable
@@ -1174,6 +1227,8 @@ fun IrFunction.isMethodOfAny(): Boolean =
                 else -> false
             }
 
+// This declaration accesses IrDeclarationContainer.declarations, which is marked with this opt-in
+@UnsafeDuringIrConstructionAPI
 fun IrDeclarationContainer.simpleFunctions() = declarations.flatMap {
     when (it) {
         is IrSimpleFunction -> listOf(it)
@@ -1250,7 +1305,7 @@ private object BindToNewEmptySymbols : FakeOverrideBuilderStrategy(
         }
     }
 
-    override fun inFile(file: IrFile?, block: () -> Unit) { block() }
+    override fun <R> inFile(file: IrFile?, block: () -> R): R = block()
 }
 
 fun IrClass.addFakeOverrides(
@@ -1258,12 +1313,11 @@ fun IrClass.addFakeOverrides(
     implementedMembers: List<IrOverridableMember> = emptyList(),
     ignoredParentSymbols: List<IrSymbol> = emptyList()
 ) {
-    IrFakeOverrideBuilder(typeSystem, BindToNewEmptySymbols, emptyList())
-        .buildFakeOverridesForClassUsingOverriddenSymbols(this,
-                                                          implementedMembers = implementedMembers,
-                                                          compatibilityMode = false,
-                                                          ignoredParentSymbols = ignoredParentSymbols)
-        .forEach { addChild(it) }
+    val fakeOverrides = IrFakeOverrideBuilder(typeSystem, BindToNewEmptySymbols, emptyList())
+        .buildFakeOverridesForClassUsingOverriddenSymbols(this, implementedMembers, compatibilityMode = false, ignoredParentSymbols)
+    for (fakeOverride in fakeOverrides) {
+        addChild(fakeOverride)
+    }
 }
 
 fun IrFactory.createStaticFunctionWithReceivers(
@@ -1548,3 +1602,21 @@ private fun Any?.toIrConstOrNull(irType: IrType, startOffset: Int = SYNTHETIC_OF
 fun Any?.toIrConst(irType: IrType, startOffset: Int = SYNTHETIC_OFFSET, endOffset: Int = SYNTHETIC_OFFSET): IrConst<*> =
     toIrConstOrNull(irType, startOffset, endOffset)
         ?: throw UnsupportedOperationException("Unsupported const element type ${irType.makeNotNull().render()}")
+
+val IrDeclaration.parentsWithSelf: Sequence<IrDeclarationParent>
+    get() = generateSequence(this as? IrDeclarationParent) { (it as? IrDeclaration)?.parent }
+
+val IrDeclaration.parents: Sequence<IrDeclarationParent>
+    get() = generateSequence(parent) { (it as? IrDeclaration)?.parent }
+
+val IrDeclaration.isExpect
+    get() = this is IrClass && isExpect ||
+            this is IrFunction && isExpect ||
+            this is IrProperty && isExpect
+
+fun IrElement.sourceElement(): AbstractKtSourceElement? =
+    if (startOffset >= 0) KtOffsetsOnlySourceElement(this.startOffset, this.endOffset)
+    else null
+
+fun IrFunction.isTopLevelInPackage(name: String, packageFqName: FqName) =
+    this.name.asString() == name && parent.kotlinFqName == packageFqName

@@ -20,7 +20,6 @@ import com.intellij.lang.ASTNode;
 import com.intellij.navigation.ItemPresentation;
 import com.intellij.navigation.ItemPresentationProviders;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiModifiableCodeBlock;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
@@ -34,8 +33,10 @@ import org.jetbrains.kotlin.psi.typeRefHelpers.TypeRefHelpersKt;
 import java.util.Collections;
 import java.util.List;
 
+import static org.jetbrains.kotlin.psi.psiUtil.KtPsiUtilKt.isKtFile;
+
 public class KtNamedFunction extends KtTypeParameterListOwnerStub<KotlinFunctionStub>
-        implements KtFunction, KtDeclarationWithInitializer, PsiModifiableCodeBlock {
+        implements KtFunction, KtDeclarationWithInitializer {
     public KtNamedFunction(@NotNull ASTNode node) {
         super(node);
     }
@@ -247,7 +248,7 @@ public class KtNamedFunction extends KtTypeParameterListOwnerStub<KotlinFunction
     @Override
     public boolean isLocal() {
         PsiElement parent = getParent();
-        return !(parent instanceof KtFile || parent instanceof KtClassBody || parent.getParent() instanceof KtScript);
+        return !(isKtFile(parent) || parent instanceof KtClassBody || parent.getParent() instanceof KtScript);
     }
 
     public boolean isAnonymous() {
@@ -260,10 +261,10 @@ public class KtNamedFunction extends KtTypeParameterListOwnerStub<KotlinFunction
             return stub.isTopLevel();
         }
 
-        return getParent() instanceof KtFile;
+        return isKtFile(getParent());
     }
 
-    @Override
+    @SuppressWarnings({"unused", "MethodMayBeStatic"}) //keep for compatibility with potential plugins
     public boolean shouldChangeModificationCount(PsiElement place) {
         // Suppress Java check for out-of-block
         return false;

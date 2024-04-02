@@ -8,16 +8,19 @@ package org.jetbrains.kotlin.fir.types
 import kotlin.reflect.KClass
 
 class AbbreviatedTypeAttribute(
-    val coneType: ConeKotlinType
-): ConeAttribute<AbbreviatedTypeAttribute>() {
+    override val coneType: ConeKotlinType,
+) : ConeAttributeWithConeType<AbbreviatedTypeAttribute>() {
     override fun union(other: AbbreviatedTypeAttribute?): AbbreviatedTypeAttribute? = null
     override fun intersect(other: AbbreviatedTypeAttribute?): AbbreviatedTypeAttribute? = null
-    override fun add(other: AbbreviatedTypeAttribute?): AbbreviatedTypeAttribute? = null
+    override fun add(other: AbbreviatedTypeAttribute?): AbbreviatedTypeAttribute = other ?: this
     override fun isSubtypeOf(other: AbbreviatedTypeAttribute?): Boolean = true
     override fun toString(): String = "{${coneType.renderForDebugging()}=}"
+    override fun copyWith(newType: ConeKotlinType): AbbreviatedTypeAttribute = AbbreviatedTypeAttribute(newType)
 
     override val key: KClass<out AbbreviatedTypeAttribute>
         get() = AbbreviatedTypeAttribute::class
+    override val keepInInferredDeclarationType: Boolean
+        get() = true
 }
 
 val ConeAttributes.abbreviatedType: AbbreviatedTypeAttribute? by ConeAttributes.attributeAccessor<AbbreviatedTypeAttribute>()

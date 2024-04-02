@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -34,6 +34,8 @@ sealed class FirDeclarationOrigin(
         object TypeAliasConstructor : Synthetic()
         object FakeFunction : Synthetic()
         object ForwardDeclaration : Synthetic()
+        object ScriptTopLevelDestructuringDeclarationContainer : Synthetic()
+        object FakeHiddenInPreparationForNewJdk : Synthetic()
     }
     object DynamicScope : FirDeclarationOrigin()
     object SamConstructor : FirDeclarationOrigin()
@@ -51,6 +53,7 @@ sealed class FirDeclarationOrigin(
     sealed class ScriptCustomization(val kind: FirScriptCustomizationKind) : FirDeclarationOrigin() {
         object Default : ScriptCustomization(FirScriptCustomizationKind.DEFAULT)
         object ResultProperty : ScriptCustomization(FirScriptCustomizationKind.RESULT_PROPERTY)
+        object Parameter : ScriptCustomization(FirScriptCustomizationKind.PARAMETER)
     }
     class Plugin(val key: GeneratedDeclarationKey) : FirDeclarationOrigin(displayName = "Plugin[$key]", generated = true)
 
@@ -61,3 +64,21 @@ sealed class FirDeclarationOrigin(
 
 val GeneratedDeclarationKey.origin: FirDeclarationOrigin
     get() = FirDeclarationOrigin.Plugin(this)
+
+/**
+ * @return **true** if a declaration with [this] origin can be in not fully resolved state
+ */
+val FirDeclarationOrigin.isLazyResolvable: Boolean
+    get() = when (this) {
+        is FirDeclarationOrigin.Source,
+        is FirDeclarationOrigin.ImportedFromObjectOrStatic,
+        is FirDeclarationOrigin.Delegated,
+        is FirDeclarationOrigin.Synthetic,
+        is FirDeclarationOrigin.SubstitutionOverride,
+        is FirDeclarationOrigin.SamConstructor,
+        is FirDeclarationOrigin.WrappedIntegerOperator,
+        is FirDeclarationOrigin.IntersectionOverride,
+        is FirDeclarationOrigin.ScriptCustomization,
+        -> true
+        else -> false
+    }

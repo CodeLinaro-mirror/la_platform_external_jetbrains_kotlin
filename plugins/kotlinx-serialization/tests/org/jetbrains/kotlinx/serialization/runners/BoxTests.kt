@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlinx.serialization.runners
 
-import org.jetbrains.kotlin.js.test.fir.AbstractFirJsBoxTest
 import org.jetbrains.kotlin.js.test.fir.AbstractFirJsTest
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.runners.codegen.AbstractFirLightTreeBlackBoxCodegenTest
@@ -39,6 +38,20 @@ open class AbstractSerializationFirLightTreeBlackBoxTest : AbstractFirLightTreeB
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.configureForKotlinxSerialization()
+    }
+}
+
+open class AbstractSerializationJdk11FirLightTreeBoxTest : AbstractFirLightTreeBlackBoxCodegenTest() {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.configureForKotlinxSerialization(useJdk11 = true)
+    }
+}
+
+open class AbstractSerializationWithoutRuntimeFirLightTreeBoxTest : AbstractFirLightTreeBlackBoxCodegenTest() {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.configureForKotlinxSerialization(noLibraries = true)
     }
 }
 

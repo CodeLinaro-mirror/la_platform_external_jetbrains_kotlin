@@ -6,39 +6,36 @@
 package org.jetbrains.kotlin.gradle.targets.js.testing
 
 import org.gradle.api.Project
+import org.gradle.api.file.Directory
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Provider
 import org.gradle.process.ProcessForkOptions
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesClientSettings
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutor
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.addWasmExperimentalArguments
 import org.jetbrains.kotlin.gradle.targets.js.d8.D8RootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.internal.parseNodeJsStackTraceAsJvm
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.writeWasmUnitTestRunner
-import org.jetbrains.kotlin.gradle.utils.doNotTrackStateCompat
 import org.jetbrains.kotlin.gradle.utils.getValue
 import java.nio.file.Path
 
 internal class KotlinWasmD8(private val kotlinJsTest: KotlinJsTest) : KotlinJsTestFramework {
     override val settingsState: String = "KotlinWasmD8"
     @Transient
-    override val compilation: KotlinJsCompilation = kotlinJsTest.compilation
+    override val compilation: KotlinJsIrCompilation = kotlinJsTest.compilation
     @Transient
     private val project: Project = compilation.target.project
 
     private val d8 = D8RootPlugin.apply(project.rootProject)
-    private val d8Executable by project.provider { d8.requireConfigured().executablePath }
-    private val isTeamCity = project.providers.gradleProperty(TCServiceMessagesTestExecutor.TC_PROJECT_PROPERTY)
+    private val d8Executable by project.provider { d8.requireConfigured().executable }
     private val npmProjectDir by project.provider { compilation.npmProject.dir }
 
-    override val workingDir: Path
-        get() = npmProjectDir.toPath()
-
-    init {
-        kotlinJsTest.doNotTrackStateCompat("Should always re-run for WASM")
-    }
+    override val workingDir: Provider<Directory>
+        get() = npmProjectDir
 
     override fun createTestExecutionSpec(
         task: KotlinJsTest,
@@ -48,7 +45,7 @@ internal class KotlinWasmD8(private val kotlinJsTest: KotlinJsTest) : KotlinJsTe
     ): TCServiceMessagesTestExecutionSpec {
         val testRunnerFile = writeWasmUnitTestRunner(task.inputFileProperty.get().asFile)
 
-        forkOptions.executable = d8Executable.absolutePath
+        forkOptions.executable = d8Executable
         forkOptions.workingDir = testRunnerFile.parentFile
 
         val clientSettings = TCServiceMessagesClientSettings(
@@ -57,7 +54,6 @@ internal class KotlinWasmD8(private val kotlinJsTest: KotlinJsTest) : KotlinJsTe
             prependSuiteName = true,
             stackTraceParser = ::parseNodeJsStackTraceAsJvm,
             ignoreOutOfRootNodes = true,
-            escapeTCMessagesInLog = isTeamCity.isPresent
         )
 
         val cliArgs = KotlinTestRunnerCliArgs(

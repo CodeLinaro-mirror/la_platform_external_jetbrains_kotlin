@@ -7,12 +7,15 @@ package org.jetbrains.kotlin.fir.resolve
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.containingClassForLocalAttr
+import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.resolve.dfa.RealVariable
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.ClassId
 
@@ -25,6 +28,20 @@ fun FirClassLikeDeclaration.getContainingDeclaration(session: FirSession): FirCl
         if (!parentId.isRoot) {
             val containingDeclarationId = ClassId(classId.packageFqName, parentId, isLocal = false)
             return session.symbolProvider.getClassLikeSymbolByClassId(containingDeclarationId)?.fir
+        }
+    }
+
+    return null
+}
+
+fun FirClassLikeSymbol<out FirClassLikeDeclaration>.getContainingDeclaration(session: FirSession): FirClassLikeSymbol<out FirClassLikeDeclaration>? {
+    if (isLocal) {
+        return (this as? FirRegularClassSymbol)?.containingClassForLocalAttr?.toFirRegularClassSymbol(session)
+    } else {
+        val parentId = classId.relativeClassName.parent()
+        if (!parentId.isRoot) {
+            val containingDeclarationId = ClassId(classId.packageFqName, parentId, isLocal = false)
+            return session.symbolProvider.getClassLikeSymbolByClassId(containingDeclarationId)
         }
     }
 
@@ -53,14 +70,13 @@ fun isValidTypeParameterFromOuterDeclaration(
             }
 
             if (currentDeclaration is FirCallableDeclaration) {
-                val containingClassId = currentDeclaration.symbol.callableId.classId ?: return true
-                return containsTypeParameter(session.symbolProvider.getClassLikeSymbolByClassId(containingClassId)?.fir)
+                val containingClassLookupTag = currentDeclaration.containingClassLookupTag() ?: return true
+                return containsTypeParameter(containingClassLookupTag.toSymbol(session)?.fir)
             } else if (currentDeclaration is FirClass) {
                 for (superTypeRef in currentDeclaration.superTypeRefs) {
-                    val superClassFir = superTypeRef.firClassLike(session)
-                    if (superClassFir == null || superClassFir is FirRegularClass && containsTypeParameter(superClassFir)) {
-                        return true
-                    }
+                    val superClassFir = superTypeRef.firClassLike(session) ?: return true
+                    if (superClassFir is FirRegularClass && containsTypeParameter(superClassFir)) return true
+                    if (superClassFir is FirTypeAlias && containsTypeParameter(superClassFir.fullyExpandedClass(session))) return true
                 }
             }
         }

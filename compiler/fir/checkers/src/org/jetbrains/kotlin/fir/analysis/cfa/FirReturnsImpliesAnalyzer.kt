@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.cfa.util.previousCfgNodes
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.cfa.FirControlFlowChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
@@ -18,7 +19,7 @@ import org.jetbrains.kotlin.fir.contracts.effects
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.expressions.FirConstExpression
+import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
@@ -34,7 +35,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 
-object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
+object FirReturnsImpliesAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
 
     override fun analyze(graph: ControlFlowGraph, reporter: DiagnosticReporter, context: CheckerContext) {
         val logicSystem = object : LogicSystem(context.session.typeContext) {
@@ -95,6 +96,7 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
         val typeContext = context.session.typeContext
 
         val isReturn = node is JumpNode && node.fir is FirReturnExpression
+        @Suppress("USELESS_CAST") // K2 warning suppression, TODO: KT-62472
         val resultExpression = if (isReturn) (node.fir as FirReturnExpression).result else node.fir
 
         val expressionType = (resultExpression as? FirExpression)?.resolvedType
@@ -109,7 +111,7 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
         var flow = node.flow
         val operation = effect.value.toOperation()
         if (operation != null) {
-            if (resultExpression is FirConstExpression<*>) {
+            if (resultExpression is FirLiteralExpression<*>) {
                 if (!operation.isTrueFor(resultExpression.value)) return false
             } else {
                 if (expressionType != null && !operation.canBeTrueFor(context.session, expressionType)) return false
@@ -150,7 +152,7 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker() {
     private fun Operation.canBeTrueFor(session: FirSession, type: ConeKotlinType): Boolean = when (this) {
         Operation.EqTrue, Operation.EqFalse ->
             AbstractTypeChecker.isSubtypeOf(session.typeContext, session.builtinTypes.booleanType.type, type)
-        Operation.EqNull -> type.canBeNull
+        Operation.EqNull -> type.canBeNull(session)
         Operation.NotEqNull -> !type.isNullableNothing
     }
 

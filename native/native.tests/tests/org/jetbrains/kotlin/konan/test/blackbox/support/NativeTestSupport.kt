@@ -69,7 +69,7 @@ internal object CastCompatibleKotlinNativeClassLoader {
     val kotlinNativeClassLoader = NativeTestSupport.computeNativeClassLoader(this::class.java.classLoader)
 }
 
-private object NativeTestSupport {
+internal object NativeTestSupport {
     private val NAMESPACE = ExtensionContext.Namespace.create(NativeTestSupport::class.java.simpleName)
 
     /*************** Test process settings ***************/
@@ -201,7 +201,7 @@ private object NativeTestSupport {
         output += computeTestMode(enforcedProperties)
         output += computeCompilerPlugins(enforcedProperties)
         output += computeCustomKlibs(enforcedProperties)
-        output += computeForcedStandaloneTestKind(enforcedProperties)
+        output += computeTestKind(enforcedProperties)
         output += computeForcedNoopTestRunner(enforcedProperties)
         output += computeTimeouts(enforcedProperties)
         // Parse annotations of current class, since there's no way to put annotations to upper-level enclosing class
@@ -283,7 +283,8 @@ private object NativeTestSupport {
             kotlinNativeTargets,
             optimizationMode,
             useStaticCacheForUserLibraries,
-            makePerFileCaches
+            makePerFileCaches,
+            cacheMode
         )
     }
 
@@ -308,13 +309,11 @@ private object NativeTestSupport {
             )
         )
 
-    private fun computeForcedStandaloneTestKind(enforcedProperties: EnforcedProperties): ForcedStandaloneTestKind =
-        ForcedStandaloneTestKind(
-            ClassLevelProperty.FORCE_STANDALONE.readValue(
-                enforcedProperties,
-                String::toBooleanStrictOrNull,
-                default = false
-            )
+    private fun computeTestKind(enforcedProperties: EnforcedProperties): TestKind =
+        ClassLevelProperty.TEST_KIND.readValue(
+            enforcedProperties,
+            TestKind.values(),
+            default = TestKind.REGULAR
         )
 
     private fun computeForcedNoopTestRunner(enforcedProperties: EnforcedProperties): ForcedNoopTestRunner =

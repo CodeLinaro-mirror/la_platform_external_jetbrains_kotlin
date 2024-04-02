@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -293,6 +293,12 @@ public class FirPsiSteppingTestGenerated extends AbstractFirPsiSteppingTest {
     @TestMetadata("inlineSimpleCall.kt")
     public void testInlineSimpleCall() throws Exception {
         runTest("compiler/testData/debug/stepping/inlineSimpleCall.kt");
+    }
+
+    @Test
+    @TestMetadata("javaSam.kt")
+    public void testJavaSam() throws Exception {
+        runTest("compiler/testData/debug/stepping/javaSam.kt");
     }
 
     @Test
@@ -599,6 +605,48 @@ public class FirPsiSteppingTestGenerated extends AbstractFirPsiSteppingTest {
     @TestMetadata("whenExpr.kt")
     public void testWhenExpr() throws Exception {
         runTest("compiler/testData/debug/stepping/whenExpr.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInConjunction.kt")
+    public void testWhenInConjunction() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInConjunction.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInDisjunction.kt")
+    public void testWhenInDisjunction() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInDisjunction.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInGeneralObjectComparison.kt")
+    public void testWhenInGeneralObjectComparison() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInGeneralObjectComparison.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInNegation.kt")
+    public void testWhenInNegation() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInNegation.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInNullComparison.kt")
+    public void testWhenInNullComparison() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInNullComparison.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInPrimitiveToObjectComparison.kt")
+    public void testWhenInPrimitiveToObjectComparison() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInPrimitiveToObjectComparison.kt");
+    }
+
+    @Test
+    @TestMetadata("whenInZeroComparison.kt")
+    public void testWhenInZeroComparison() throws Exception {
+        runTest("compiler/testData/debug/stepping/whenInZeroComparison.kt");
     }
 
     @Test

@@ -1,11 +1,9 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.github.jengelman.gradle.plugins.shadow.transformers.DontIncludeResourceTransformer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.pill.PillExtension
 
 plugins {
     id("gradle-plugin-common-configuration")
-    id("jps-compatible")
     id("org.jetbrains.kotlinx.binary-compatibility-validator")
 }
 
@@ -13,10 +11,6 @@ repositories {
     google()
     mavenCentral()
     gradlePluginPortal()
-}
-
-pill {
-    variant = PillExtension.Variant.FULL
 }
 
 kotlin {
@@ -32,13 +26,12 @@ kotlin {
                 "org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi",
             )
         )
-        suppressWarnings = true
     }
 }
 
 apiValidation {
     publicMarkers.add("org.jetbrains.kotlin.gradle.ExternalKotlinTargetApi")
-    publicMarkers.add("org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginDsl")
+    publicMarkers.add("org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginPublicDsl")
     nonPublicMarkers.add("org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi")
     additionalSourceSets.add("common")
 }
@@ -67,30 +60,15 @@ dependencies {
     commonCompileOnly(project(":kotlin-compiler-runner-unshaded"))
     commonCompileOnly(project(":kotlin-gradle-statistics"))
     commonCompileOnly(project(":kotlin-gradle-build-metrics"))
-    commonCompileOnly("com.android.tools.build:gradle:4.2.2") {
-        exclude("org.ow2.asm")
-        exclude("net.sf.proguard")
-        exclude("net.sf.jopt-simple")
-        exclude("com.squareup")
-        exclude("com.google.crypto.tink")
-        exclude("com.google.guava")
-        exclude("com.google.protobuf")
-        exclude("com.google.testing.platform")
-        exclude("com.android.tools.lint")
-        exclude("androidx.databinding")
-        exclude("com.android.tools.analytics-library")
-        exclude("com.android.tools.build.jetifier")
-        exclude("com.android.tools.build", "transform-api")
-        exclude("com.android.tools.build", "builder-test-api")
-        exclude("com.android.tools.build", "bundletool")
-        exclude("com.android.tools.build", "aaptcompiler")
-        exclude("com.android.tools.build", "aapt2-proto")
-    }
+    commonCompileOnly(libs.android.gradle.plugin.gradle.api) { isTransitive = false }
+    commonCompileOnly(libs.android.gradle.plugin.gradle) { isTransitive = false }
+    commonCompileOnly(libs.android.gradle.plugin.builder) { isTransitive = false }
+    commonCompileOnly(libs.android.gradle.plugin.builder.model) { isTransitive = false }
+    commonCompileOnly(libs.android.tools.common) { isTransitive = false }
     commonCompileOnly(intellijPlatformUtil())
     commonCompileOnly(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     commonCompileOnly(libs.gradle.enterprise.gradlePlugin)
     commonCompileOnly(commonDependency("com.google.code.gson:gson"))
-    commonCompileOnly("de.undercouch:gradle-download-task:4.1.1")
     commonCompileOnly("com.github.gundy:semver4j:0.16.4:nodeps") {
         exclude(group = "*")
     }
@@ -110,7 +88,7 @@ dependencies {
         exclude(group = "org.jetbrains.kotlin", module = "kotlin-compiler-embeddable")
     }
     commonRuntimeOnly(project(":kotlin-util-klib"))
-    commonRuntimeOnly(project(":prepare:kotlin-gradle-plugin-compiler-dependencies"))
+    commonRuntimeOnly(project(":kotlin-compiler-embeddable"))
 
     embedded(project(":kotlin-gradle-build-metrics"))
     embedded(project(":kotlin-gradle-statistics"))
@@ -119,7 +97,6 @@ dependencies {
     embedded(libs.guava) { isTransitive = false }
     embedded(commonDependency("org.jetbrains.teamcity:serviceMessages")) { isTransitive = false }
     embedded(project(":kotlin-tooling-metadata")) { isTransitive = false }
-    embedded("de.undercouch:gradle-download-task:4.1.1")
     embedded("com.github.gundy:semver4j:0.16.4:nodeps") {
         exclude(group = "*")
     }
@@ -140,7 +117,7 @@ dependencies {
     testImplementation(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     testImplementation(projectTests(":kotlin-build-common"))
     testImplementation(project(":kotlin-compiler-runner"))
-    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(kotlinTest("junit"))
     testImplementation(libs.junit4)
     testImplementation(project(":kotlin-gradle-statistics"))
     testImplementation(project(":kotlin-tooling-metadata"))
@@ -168,13 +145,6 @@ tasks {
 
     withType<ShadowJar>().configureEach {
         relocate("com.github.gundy", "$kotlinEmbeddableRootPackage.com.github.gundy")
-        relocate("de.undercouch.gradle.tasks.download", "$kotlinEmbeddableRootPackage.de.undercouch.gradle.tasks.download")
-
-        // don't expose external Gradle plugin marker
-        // workaround from https://github.com/johnrengelman/shadow/issues/505#issuecomment-644098082
-        transform(DontIncludeResourceTransformer::class.java) {
-            resource = "META-INF/gradle-plugins/de.undercouch.download.properties"
-        }
     }
 }
 
@@ -304,7 +274,7 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         })
         dependsOnKotlinGradlePluginInstall()
         useAndroidSdk()
-        doFirst { acceptAndroidSdkLicenses() }
+        acceptAndroidSdkLicenses()
         maxParallelForks = 8
 
         testLogging {

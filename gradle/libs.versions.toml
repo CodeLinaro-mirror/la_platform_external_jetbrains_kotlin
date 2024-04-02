@@ -1,8 +1,8 @@
 [versions]
 dexMemberList = "4.1.1"
-dokka = "1.8.20"
-gradle-custom-user-data = "1.9"
-gradle-enterprise = "3.13.4"
+dokka = "1.9.10"
+gradle-custom-user-data = "1.12"
+gradle-enterprise = "3.14.1"
 gradle-plugin-publish = "1.2.1"
 # Version for foojay should be also synced with version in repo/gradle-settings-conventions/settings.gradle.kts
 gradle-toolchains-foojay-resolver = "0.4.0"
@@ -11,9 +11,9 @@ jdom2 = "2.0.6.1"
 kotlinx-serialization = "1.5.0"
 shadow = "8.1.1" # Should be in sync with version in kotlin-native/
 spdx = "0.1.0-dev-10"
-proguard = "6.2.2"
-ktor = "2.3.3"
-kotlinx-metadataJvm = "0.6.2"
+proguard = "7.4.2"
+ktor = "2.3.7"
+kotlinx-metadataJvm = "0.7.0"
 # Forcing gson version because of https://github.com/google/gson/pull/1991
 gson = { strictly = "2.8.9" } # should be in sync with version.properties
 jetbrains-ideaExt = "1.0.1"
@@ -22,6 +22,10 @@ jgit = "6.6.0.202305301015-r"
 junit4 = "4.13.2"
 junit5 = "5.10.0"
 junit-platform = "1.10.0"
+android-gradle-plugin = "7.1.3"
+android-tools = "30.3.1"
+gradle-node = "7.0.1"
+commons-text="1.10.0"
 
 [libraries]
 dexMemberList = { module = "com.jakewharton.dex:dex-member-list", version.ref = "dexMemberList" }
@@ -34,7 +38,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-metadataJvm = { module = "org.jetbrains.kotlinx:kotlinx-metadata-jvm", version.ref = "kotlinx-metadataJvm" }
 shadow-gradlePlugin = { module = "com.github.johnrengelman:shadow", version.ref = "shadow" }
 spdx-gradlePlugin = { module = "org.spdx:spdx-gradle-plugin", version.ref = "spdx" }
-proguard-gradlePlugin = { module = "net.sf.proguard:proguard-gradle", version.ref = "proguard" }
+proguard-gradlePlugin = { module = "com.guardsquare:proguard-gradle", version.ref = "proguard" }
 
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
@@ -64,5 +68,12 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 junit-platform-runner = { module = "org.junit.platform:junit-platform-runner", version.ref = "junit-platform" }
 junit-platform-suite-api = { module = "org.junit.platform:junit-platform-suite-api", version.ref = "junit-platform" }
 
+android-gradle-plugin-gradle-api = { module = "com.android.tools.build:gradle-api", version.ref = "android-gradle-plugin" }
+android-gradle-plugin-gradle = { module = "com.android.tools.build:gradle", version.ref = "android-gradle-plugin" }
+android-gradle-plugin-builder = { module = "com.android.tools.build:builder", version.ref = "android-gradle-plugin" }
+android-gradle-plugin-builder-model = { module = "com.android.tools.build:builder-model", version.ref = "android-gradle-plugin" }
+android-tools-common = { module = "com.android.tools:common", version.ref = "android-tools" }
+
 [plugins]
 jetbrains-ideaExt = { id = "org.jetbrains.gradle.plugin.idea-ext", version.ref = "jetbrains-ideaExt" }
+gradle-node = { id = "com.github.node-gradle.node", version.ref = "gradle-node" }

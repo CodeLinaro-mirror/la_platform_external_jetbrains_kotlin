@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -122,6 +122,18 @@ public class FirIdeNormalAnalysisSourceModuleHLExpressionTypeTestGenerated exten
     @TestMetadata("intLiteral.kt")
     public void testIntLiteral() throws Exception {
         runTest("analysis/analysis-api/testData/components/expressionTypeProvider/expressionType/intLiteral.kt");
+    }
+
+    @Test
+    @TestMetadata("javaEnhancedType.kt")
+    public void testJavaEnhancedType() throws Exception {
+        runTest("analysis/analysis-api/testData/components/expressionTypeProvider/expressionType/javaEnhancedType.kt");
+    }
+
+    @Test
+    @TestMetadata("javaEnhancedTypeExternalAnnotation.kt")
+    public void testJavaEnhancedTypeExternalAnnotation() throws Exception {
+        runTest("analysis/analysis-api/testData/components/expressionTypeProvider/expressionType/javaEnhancedTypeExternalAnnotation.kt");
     }
 
     @Test

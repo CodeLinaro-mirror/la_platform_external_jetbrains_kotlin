@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 internal open class BaseTestRunProvider {
     protected fun createTestRun(testCase: TestCase, executable: TestExecutable, testRunName: String, testName: TestName?): TestRun {
         val runParameters = getTestRunParameters(testCase, testName)
-        return TestRun(displayName = testRunName, executable, runParameters, testCase.id, testCase.checks)
+        return TestRun(displayName = testRunName, executable, runParameters, testCase.id, testCase.checks, testCase.expectedFailure)
     }
 
     protected fun createSingleTestRun(testCase: TestCase, executable: TestExecutable): TestRun = createTestRun(
@@ -37,11 +37,20 @@ internal open class BaseTestRunProvider {
             }
             TestKind.STANDALONE_NO_TR -> {
                 assertTrue(testName == null)
-                addIfNotNull(testCase.extras<NoTestRunnerExtras>().inputDataFile?.let(TestRunParameter::WithInputData))
+                val extras = testCase.extras<NoTestRunnerExtras>()
+                addIfNotNull(extras.inputDataFile?.let(TestRunParameter::WithInputData))
+                add(TestRunParameter.WithFreeCommandLineArguments(extras.arguments))
             }
             TestKind.STANDALONE -> {
                 add(TestRunParameter.WithTCTestLogger)
-                addIfNotNull(testName?.let(TestRunParameter::WithTestFilter))
+                if (testName != null)
+                    add(TestRunParameter.WithTestFilter(testName))
+                else {
+                    val ignoredTests = (testCase.extras as TestCase.WithTestRunnerExtras).ignoredTests
+                    if (ignoredTests.isNotEmpty()) {
+                        add(TestRunParameter.WithGTestPatterns(negativePatterns = ignoredTests))
+                    }
+                }
             }
             TestKind.REGULAR -> {
                 add(TestRunParameter.WithTCTestLogger)

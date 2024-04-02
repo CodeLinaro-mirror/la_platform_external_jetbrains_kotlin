@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.backend.konan.driver.phases
 
+import org.jetbrains.kotlin.backend.common.phaser.createSimpleNamedCompilerPhase
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Linker
 import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
@@ -18,7 +19,6 @@ internal data class LinkerPhaseInput(
         val dependenciesTrackingResult: DependenciesTrackingResult,
         val outputFiles: OutputFiles,
         val resolvedCacheBinaries: ResolvedCacheBinaries,
-        val isCoverageEnabled: Boolean,
 )
 
 internal val LinkerPhase = createSimpleNamedCompilerPhase<PhaseContext, LinkerPhaseInput>(
@@ -28,7 +28,6 @@ internal val LinkerPhase = createSimpleNamedCompilerPhase<PhaseContext, LinkerPh
     val linker = Linker(
             config = context.config,
             linkerOutput = input.outputKind,
-            isCoverageEnabled = input.isCoverageEnabled,
             outputFiles = input.outputFiles
     )
     val commands = linker.linkCommands(

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.builder
 
 import com.intellij.psi.tree.IElementType
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.contracts.description.LogicOperationKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -17,10 +18,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.contracts.FirLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.builder.buildLegacyRawContractDescription
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.FirReceiverParameter
-import org.jetbrains.kotlin.fir.declarations.FirVariable
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
@@ -39,23 +37,15 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirDelegateFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
-import org.jetbrains.kotlin.fir.types.ConeClassLikeType
-import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjectionOut
-import org.jetbrains.kotlin.fir.types.ConeStarProjection
-import org.jetbrains.kotlin.fir.types.FirErrorTypeRef
-import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildTypeProjectionWithVariance
-import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
-import org.jetbrains.kotlin.realElement
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
@@ -333,6 +323,8 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     context: Context<T>,
     isExtension: Boolean,
     lazyDelegateExpression: FirLazyExpression? = null,
+    lazyBodyForGeneratedAccessors: FirLazyBlock? = null,
+    bindFunction: (target: FirFunctionTarget, function: FirFunction) -> Unit = FirFunctionTarget::bind,
 ) {
     if (delegateBuilder == null) return
     val delegateFieldSymbol = FirDelegateFieldSymbol(symbol.callableId).also {
@@ -371,7 +363,7 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                 }
                 coneTypeOrNull = context.dispatchReceiverTypesStack.last()
             }
-            else -> buildConstExpression(null, ConstantValueKind.Null, null, setType = false)
+            else -> buildLiteralExpression(null, ConstantValueKind.Null, null, setType = false)
         }
 
     fun delegateAccess() = buildPropertyAccessExpression {
@@ -428,7 +420,7 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     }
 
     delegate = lazyDelegateExpression ?: run {
-        delegateBuilder.delegateProvider = buildFunctionCall {
+        delegateBuilder.provideDelegateCall = buildFunctionCall {
             explicitReceiver = delegateBuilder.expression
             calleeReference = buildSimpleNamedReference {
                 source = fakeSource
@@ -446,7 +438,9 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
         val annotations = getter?.annotations
         val returnTarget = FirFunctionTarget(null, isLambda = false)
         val getterStatus = getter?.status
-        val getterElement = getter?.source?.fakeElement(KtFakeSourceElementKind.DelegatedPropertyAccessor) ?: fakeSource
+        val getterElement = getter?.source?.takeIf {
+            it.kind == KtRealSourceElementKind
+        }?.fakeElement(KtFakeSourceElementKind.DelegatedPropertyAccessor) ?: fakeSource
         getter = buildPropertyAccessor {
             this.source = getterElement
             this.moduleData = moduleData
@@ -457,8 +451,7 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                 isInline = getterStatus?.isInline ?: isInline
             }
             symbol = FirPropertyAccessorSymbol()
-
-            body = FirSingleExpressionBlock(
+            body = lazyBodyForGeneratedAccessors ?: FirSingleExpressionBlock(
                 buildReturnExpression {
                     result = buildFunctionCall {
                         source = fakeSource
@@ -479,10 +472,11 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
             }
             propertySymbol = this@generateAccessorsByDelegate.symbol
         }.also {
-            returnTarget.bind(it)
+            bindFunction(returnTarget, it)
             it.initContainingClassAttr(context)
         }
     }
+
     if (isVar && (setter == null || setter is FirDefaultPropertyAccessor)) {
         val annotations = setter?.annotations
         val returnTarget = FirFunctionTarget(null, isLambda = false)
@@ -515,7 +509,7 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
                 }
             }
             valueParameters += parameter
-            body = FirSingleExpressionBlock(
+            body = lazyBodyForGeneratedAccessors ?: FirSingleExpressionBlock(
                 buildReturnExpression {
                     result = buildFunctionCall {
                         source = fakeSource
@@ -547,25 +541,26 @@ fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
             }
             propertySymbol = this@generateAccessorsByDelegate.symbol
         }.also {
-            returnTarget.bind(it)
+            bindFunction(returnTarget, it)
             it.initContainingClassAttr(context)
         }
     }
 }
 
-fun processLegacyContractDescription(block: FirBlock): FirContractDescription? {
+fun processLegacyContractDescription(block: FirBlock, diagnostic: ConeDiagnostic?): FirContractDescription? {
     if (block.isContractPresentFirCheck()) {
         val contractCall = block.replaceFirstStatement<FirFunctionCall> { FirContractCallBlock(it) }
-        return contractCall.toLegacyRawContractDescription()
+        return contractCall.toLegacyRawContractDescription(diagnostic)
     }
 
     return null
 }
 
-fun FirFunctionCall.toLegacyRawContractDescription(): FirLegacyRawContractDescription {
+fun FirFunctionCall.toLegacyRawContractDescription(diagnostic: ConeDiagnostic? = null): FirLegacyRawContractDescription {
     return buildLegacyRawContractDescription {
         this.source = this@toLegacyRawContractDescription.source
         this.contractCall = this@toLegacyRawContractDescription
+        this.diagnostic = diagnostic
     }
 }
 
@@ -606,8 +601,19 @@ fun FirQualifiedAccessExpression.createSafeCall(receiver: FirExpression, source:
         }
         this.source = receiver.source?.fakeElement(KtFakeSourceElementKind.CheckedSafeCallSubject)
     }
-
-    replaceExplicitReceiver(checkedSafeCallSubject)
+    // If an `invoke` function from a functional type expects a
+    // receiver, it's still defined as the first value parameter.
+    // A construction like `1.(fun Int.() = 1)()` means we're calling
+    // `Function1<Int, Unit>.invoke(Int)`.
+    if (this is FirImplicitInvokeCall) {
+        val newArguments = buildArgumentList {
+            arguments.add(checkedSafeCallSubject)
+            arguments.addAll(this@createSafeCall.arguments)
+        }
+        replaceArgumentList(newArguments)
+    } else {
+        replaceExplicitReceiver(checkedSafeCallSubject)
+    }
     return buildSafeCallExpression {
         this.receiver = receiver
         @OptIn(FirContractViolation::class)
@@ -643,9 +649,9 @@ fun List<FirAnnotationCall>.filterUseSiteTarget(target: AnnotationUseSiteTarget)
 // TODO: avoid mutability KT-55002
 fun FirTypeRef.convertToReceiverParameter(): FirReceiverParameter {
     val typeRef = this
+    @Suppress("UNCHECKED_CAST")
     return buildReceiverParameter {
         source = typeRef.source?.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
-        @Suppress("UNCHECKED_CAST")
         annotations += (typeRef.annotations as List<FirAnnotationCall>).filterUseSiteTarget(AnnotationUseSiteTarget.RECEIVER)
         val filteredTypeRefAnnotations = typeRef.annotations.filterNot { it.useSiteTarget == AnnotationUseSiteTarget.RECEIVER }
         if (filteredTypeRefAnnotations.size != typeRef.annotations.size) {
@@ -703,14 +709,6 @@ fun AnnotationUseSiteTarget?.appliesToPrimaryConstructorParameter() = this == nu
         this == AnnotationUseSiteTarget.CONSTRUCTOR_PARAMETER ||
         this == AnnotationUseSiteTarget.RECEIVER ||
         this == AnnotationUseSiteTarget.FILE
-
-fun KtSourceElement.withForcedKindFrom(context: Context<*>): KtSourceElement {
-    return when (val forcedKind = context.forcedElementSourceKind) {
-        kind -> this
-        is KtFakeSourceElementKind -> fakeElement(forcedKind)
-        else -> this.realElement()
-    }
-}
 
 fun FirErrorTypeRef.wrapIntoArray(): FirResolvedTypeRef {
     val typeRef = this

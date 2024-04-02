@@ -13,6 +13,11 @@ import org.jetbrains.kotlin.backend.common.lower.irIfThen
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.NativeMapping
 import org.jetbrains.kotlin.backend.konan.descriptors.*
+import org.jetbrains.kotlin.backend.konan.ir.*
+import org.jetbrains.kotlin.backend.konan.ir.BridgeDirection
+import org.jetbrains.kotlin.backend.konan.ir.BridgeDirectionKind
+import org.jetbrains.kotlin.backend.konan.ir.BridgeDirections
+import org.jetbrains.kotlin.backend.konan.ir.OverriddenFunctionInfo
 import org.jetbrains.kotlin.backend.konan.llvm.computeFunctionName
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -21,10 +26,12 @@ import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrValueParameterImpl
-import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.*
+import org.jetbrains.kotlin.ir.expressions.IrBlockBody
+import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
@@ -127,37 +134,37 @@ internal class WorkersBridgesBuilding(val context: Context) : DeclarationContain
                     val startOffset = jobFunction.startOffset
                     val endOffset = jobFunction.endOffset
                     runtimeJobFunction =
-                        IrFunctionImpl(
-                                startOffset, endOffset,
+                        context.irFactory.createSimpleFunction(
+                                startOffset,
+                                endOffset,
                                 IrDeclarationOrigin.DEFINED,
-                                IrSimpleFunctionSymbolImpl(),
                                 jobFunction.name,
                                 jobFunction.visibility,
-                                jobFunction.modality,
                                 isInline = false,
-                                isExternal = false,
+                                isExpect = false,
+                                returnType = context.irBuiltIns.anyNType,
+                                jobFunction.modality,
+                                IrSimpleFunctionSymbolImpl(),
                                 isTailrec = false,
                                 isSuspend = false,
-                                returnType = context.irBuiltIns.anyNType,
-                                isExpect = false,
-                                isFakeOverride = false,
                                 isOperator = false,
-                                isInfix = false
-                    )
+                                isInfix = false,
+                        )
 
                     runtimeJobFunction.valueParameters +=
-                        IrValueParameterImpl(
-                                startOffset, endOffset,
-                                IrDeclarationOrigin.DEFINED,
-                                IrValueParameterSymbolImpl(),
-                                arg.name,
-                                arg.index,
+                        context.irFactory.createValueParameter(
+                                startOffset = startOffset,
+                                endOffset = endOffset,
+                                origin = IrDeclarationOrigin.DEFINED,
+                                name = arg.name,
                                 type = context.irBuiltIns.anyNType,
+                                isAssignable = arg.isAssignable,
+                                symbol = IrValueParameterSymbolImpl(),
+                                index = arg.index,
                                 varargElementType = null,
                                 isCrossinline = arg.isCrossinline,
                                 isNoinline = arg.isNoinline,
                                 isHidden = arg.isHidden,
-                                isAssignable = arg.isAssignable
                         )
                 }
                 val overriddenJobDescriptor = OverriddenFunctionInfo(jobFunction, runtimeJobFunction)

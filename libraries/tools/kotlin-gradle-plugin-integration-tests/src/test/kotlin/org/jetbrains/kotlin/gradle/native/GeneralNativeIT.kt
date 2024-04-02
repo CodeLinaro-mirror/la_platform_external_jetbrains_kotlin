@@ -18,20 +18,17 @@ import org.jetbrains.kotlin.gradle.util.capitalize
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.runProcess
 import org.jetbrains.kotlin.konan.target.*
-import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.util.*
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.appendText
 import kotlin.io.path.deleteIfExists
-import kotlin.io.path.readText
+import kotlin.io.path.readLines
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.fail
 
 @DisplayName("Tests for general K/N builds")
 @NativeGradlePluginTests
@@ -365,6 +362,32 @@ class GeneralNativeIT : KGPBaseTest() {
         )
     }
 
+    @DisplayName("Checks generating lldbinit file")
+    @GradleTest
+    fun testGenerateLLDBInitFile(gradleVersion: GradleVersion) {
+        nativeProject("native-binaries/frameworks", gradleVersion = gradleVersion) {
+            val lldbPath = projectPath.resolve("build").resolve("lldbinit")
+
+            build(":setupLldbScript") {
+                assertFileInProjectExists(lldbPath.absolutePathString())
+                assertFileContains(lldbPath, "command script import")
+                assertFileContains(lldbPath, "konan_lldb.py")
+
+                val scriptContent = lldbPath.readLines()
+                assert(scriptContent.size == 1) {
+                    "lldbinit file contains more than 1 line or doesn't contains lines at all"
+                }
+
+                val scriptPath = scriptContent
+                    .first()
+                    .replace("command script import", "")
+                    .trimIndent()
+
+                assertFileInProjectExists(scriptPath)
+            }
+        }
+    }
+
     private data class ExportApiTestData(val taskName: String, val binaryName: String)
 
     private fun testExportApi(project: TestProject, testData: List<ExportApiTestData>) = with(project) {
@@ -384,7 +407,11 @@ class GeneralNativeIT : KGPBaseTest() {
     @DisplayName("Transitive export is not required for exporting variant")
     @GradleTest
     fun testTransitiveExportIsNotRequiredForExportingVariant(gradleVersion: GradleVersion) {
-        project("native-binaries/export-published-lib", gradleVersion) {
+        project(
+            "native-binaries/export-published-lib",
+            gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             val headerPath = "shared/build/bin/linuxX64/debugStatic/libshared_api.h"
 
             build(":lib:publish")
@@ -779,7 +806,11 @@ class GeneralNativeIT : KGPBaseTest() {
     @DisplayName("Checks builds with cinterop tool")
     @GradleTest
     fun testCinterop(gradleVersion: GradleVersion) {
-        nativeProject("native-cinterop", gradleVersion, configureSubProjects = true) {
+        nativeProject(
+            "native-cinterop",
+            gradleVersion, configureSubProjects = true,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             fun libraryFiles(projectName: String, cinteropName: String) = listOf(
                 projectPath.resolve("$projectName/build/classes/kotlin/host/main/cinterop/${projectName}-cinterop-$cinteropName.klib"),
                 projectPath.resolve("$projectName/build/classes/kotlin/host/main/klib/${projectName}.klib"),
@@ -810,41 +841,29 @@ class GeneralNativeIT : KGPBaseTest() {
     }
 
     @DisplayName("Checks builds with changing compiler version")
-    @OptIn(EnvironmentalVariablesOverride::class)
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
+    @GradleTestVersions
     @GradleTest
     fun testCompilerVersionChange(gradleVersion: GradleVersion) {
-        if (KotlinToolingVersion(TestVersions.Kotlin.STABLE_RELEASE) < KotlinToolingVersion("1.9.20-Beta")) {
-            val konanDataDir = defaultBuildOptions.konanDataDir?.toAbsolutePath()?.normalize()?.absolutePathString()
-                ?: error("konanDataDir must not be null in this test. Please set a custom konanDataDir property.")
+        nativeProject("native-compiler-version", gradleVersion) {
+            val compileTasks = ":compileKotlinHost"
 
-            nativeProject(
-                "native-compiler-version",
-                gradleVersion,
-                environmentVariables = EnvironmentalVariables(mapOf("KONAN_DATA_DIR" to konanDataDir)),
-            ) {
-                val compileTasks = ":compileKotlinHost"
-
-                build(compileTasks) {
-                    assertTasksExecuted(compileTasks)
-                }
-
-                build(compileTasks) {
-                    assertTasksUpToDate(compileTasks)
-                }
-
-                // Check that changing K/N version lead to tasks rerun
-                build(compileTasks, "-Porg.jetbrains.kotlin.native.version=${TestVersions.Kotlin.STABLE_RELEASE}") {
-                    assertTasksExecuted(compileTasks)
-                }
+            build(compileTasks) {
+                assertTasksExecuted(compileTasks)
             }
-        } else {
-            fail(
-                "Please remove setting KONAN_DATA_DIR environment variable," +
-                        " because Kotlin stable release now supports konan.data.dir Gradle property."
-            )
-        }
 
+            build(compileTasks) {
+                assertTasksUpToDate(compileTasks)
+            }
+
+            // Check that changing K/N version lead to tasks rerun
+            build(
+                compileTasks, buildOptions = defaultBuildOptions.copy(
+                    nativeOptions = defaultBuildOptions.nativeOptions.copy(version = TestVersions.Kotlin.STABLE_RELEASE)
+                )
+            ) {
+                assertTasksExecuted(compileTasks)
+            }
+        }
     }
 
     @DisplayName("Assert that a project with a native target can be configure")
@@ -958,7 +977,11 @@ class GeneralNativeIT : KGPBaseTest() {
     @DisplayName("Checks citerop configuration variant aware resolution")
     @GradleTest
     fun testCinteropConfigurationsVariantAwareResolution(gradleVersion: GradleVersion) {
-        nativeProject("native-cinterop", gradleVersion, configureSubProjects = true) {
+        nativeProject(
+            "native-cinterop",
+            gradleVersion, configureSubProjects = true,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build(":publishedLibrary:publish")
 
             build(":dependencyInsight", "--configuration", "hostTestCInterop", "--dependency", "org.example:publishedLibrary") {
@@ -987,7 +1010,10 @@ class GeneralNativeIT : KGPBaseTest() {
     @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
     @GradleTest
     fun shouldAllowToOverrideDownloadUrl(gradleVersion: GradleVersion, @TempDir customKonanDir: Path) {
-        nativeProject("native-parallel", gradleVersion) {
+        nativeProject(
+            "native-parallel", gradleVersion,
+            dependencyManagement = DependencyManagement.DisabledDependencyManagement
+        ) {
             gradleProperties.appendText(
                 """
                 
@@ -1000,6 +1026,9 @@ class GeneralNativeIT : KGPBaseTest() {
             buildAndFail(
                 "build",
                 buildOptions = defaultBuildOptions.copy(
+                    nativeOptions = defaultBuildOptions.nativeOptions.copy(
+                        distributionDownloadFromMaven = false // please remove this test, when this flag will be removed
+                    ),
                     konanDataDir = customKonanDir.toAbsolutePath()
                 )
             ) {
@@ -1058,6 +1087,30 @@ class GeneralNativeIT : KGPBaseTest() {
         nativeProject("native-root-project-name-with-space", gradleVersion, configureSubProjects = true) {
             build("assemble") {
                 assertOutputDoesNotContain("Could not find \"Contains\" in")
+            }
+        }
+    }
+
+    @DisplayName("Test compiler arguments for K/Native Tasks")
+    @GradleTest
+    fun testCompilerArgumentsLogLevel(gradleVersion: GradleVersion) {
+        nativeProject("native-libraries", gradleVersion) {
+            val updatedBuildOptions = buildOptions.copy(
+                compilerArgumentsLogLevel = "warning"
+            )
+            build("assemble", buildOptions = updatedBuildOptions) {
+                val tasksWithNativeCompilerArguments = listOf(
+                    ":compileCommonMainKotlinMetadata", // it is shared native metadata, which is compiled by konan
+                    ":compileKotlinLinux64",
+                    ":linkMainDebugStaticLinux64",
+                )
+                for (task in tasksWithNativeCompilerArguments) {
+                    val taskOutput = getOutputForTask(task, LogLevel.INFO)
+                    assertTrue(
+                        taskOutput.contains("Arguments = "),
+                        "Arguments were not logged by Task $task"
+                    )
+                }
             }
         }
     }

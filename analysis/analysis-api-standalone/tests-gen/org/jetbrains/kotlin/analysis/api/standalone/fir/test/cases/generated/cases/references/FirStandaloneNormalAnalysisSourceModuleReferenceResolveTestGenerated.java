@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.analysis.api.standalone.fir.test.cases.generated.ca
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.kotlin.analysis.api.standalone.fir.test.AnalysisApiFirStandaloneModeTestConfiguratorFactory;
+import org.jetbrains.kotlin.analysis.api.standalone.fir.test.configurators.AnalysisApiFirStandaloneModeTestConfiguratorFactory;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfiguratorFactoryData;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.TestModuleKind;
@@ -116,6 +116,12 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     @TestMetadata("ClassReferenceInImport.kt")
     public void testClassReferenceInImport() throws Exception {
         runTest("analysis/analysis-api/testData/referenceResolve/ClassReferenceInImport.kt");
+    }
+
+    @Test
+    @TestMetadata("CollectionStream.kt")
+    public void testCollectionStream() throws Exception {
+        runTest("analysis/analysis-api/testData/referenceResolve/CollectionStream.kt");
     }
 
     @Test
@@ -329,39 +335,9 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     }
 
     @Test
-    @TestMetadata("JavaAnnotationParameter.kt")
-    public void testJavaAnnotationParameter() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaAnnotationParameter.kt");
-    }
-
-    @Test
-    @TestMetadata("JavaConstructorNotNullParameter.kt")
-    public void testJavaConstructorNotNullParameter() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaConstructorNotNullParameter.kt");
-    }
-
-    @Test
-    @TestMetadata("JavaEnumEntry.kt")
-    public void testJavaEnumEntry() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaEnumEntry.kt");
-    }
-
-    @Test
-    @TestMetadata("JavaEnumValueOf.kt")
-    public void testJavaEnumValueOf() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaEnumValueOf.kt");
-    }
-
-    @Test
-    @TestMetadata("JavaReference.kt")
-    public void testJavaReference() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaReference.kt");
-    }
-
-    @Test
-    @TestMetadata("JavaStaticMethod.kt")
-    public void testJavaStaticMethod() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/JavaStaticMethod.kt");
+    @TestMetadata("JsAsDynamic.kt")
+    public void testJsAsDynamic() throws Exception {
+        runTest("analysis/analysis-api/testData/referenceResolve/JsAsDynamic.kt");
     }
 
     @Test
@@ -455,6 +431,12 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     }
 
     @Test
+    @TestMetadata("parameterByNameInSafeCall.kt")
+    public void testParameterByNameInSafeCall() throws Exception {
+        runTest("analysis/analysis-api/testData/referenceResolve/parameterByNameInSafeCall.kt");
+    }
+
+    @Test
     @TestMetadata("PlusAssignByHand.kt")
     public void testPlusAssignByHand() throws Exception {
         runTest("analysis/analysis-api/testData/referenceResolve/PlusAssignByHand.kt");
@@ -482,12 +464,6 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     @TestMetadata("ReferenceInFunWhereConstraint.kt")
     public void testReferenceInFunWhereConstraint() throws Exception {
         runTest("analysis/analysis-api/testData/referenceResolve/ReferenceInFunWhereConstraint.kt");
-    }
-
-    @Test
-    @TestMetadata("ReferenceToSam.kt")
-    public void testReferenceToSam() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/ReferenceToSam.kt");
     }
 
     @Test
@@ -584,12 +560,6 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     @TestMetadata("superWithLabel_caretAtSuper.kt")
     public void testSuperWithLabel_caretAtSuper() throws Exception {
         runTest("analysis/analysis-api/testData/referenceResolve/superWithLabel_caretAtSuper.kt");
-    }
-
-    @Test
-    @TestMetadata("SyntheticProperty.kt")
-    public void testSyntheticProperty() throws Exception {
-        runTest("analysis/analysis-api/testData/referenceResolve/SyntheticProperty.kt");
     }
 
     @Test
@@ -770,6 +740,202 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             @TestMetadata("SetOperatorInc.kt")
             public void testSetOperatorInc() throws Exception {
                 runTest("analysis/analysis-api/testData/referenceResolve/arrayAccess/withErrors/SetOperatorInc.kt");
+            }
+        }
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/referenceResolve/codeFragment")
+    @TestDataPath("$PROJECT_ROOT")
+    public class CodeFragment {
+        @Test
+        public void testAllFilesPresentInCodeFragment() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/codeFragment"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment")
+        @TestDataPath("$PROJECT_ROOT")
+        public class BlockCodeFragment {
+            @Test
+            public void testAllFilesPresentInBlockCodeFragment() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("BinaryExpression.kt")
+            public void testBinaryExpression() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/BinaryExpression.kt");
+            }
+
+            @Test
+            @TestMetadata("CompanionCall.kt")
+            public void testCompanionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/CompanionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("ContextFunctionCall.kt")
+            public void testContextFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/ContextFunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("FunctionCall.kt")
+            public void testFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/FunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("LocalFunctionCall.kt")
+            public void testLocalFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/LocalFunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragment.kt")
+            public void testNestedCodeFragment() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/NestedCodeFragment.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragmentClass.kt")
+            public void testNestedCodeFragmentClass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/NestedCodeFragmentClass.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragmentClassMember.kt")
+            public void testNestedCodeFragmentClassMember() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/NestedCodeFragmentClassMember.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragmentFunction.kt")
+            public void testNestedCodeFragmentFunction() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/NestedCodeFragmentFunction.kt");
+            }
+
+            @Test
+            @TestMetadata("PropertyCall.kt")
+            public void testPropertyCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/PropertyCall.kt");
+            }
+
+            @Test
+            @TestMetadata("SecondStatement.kt")
+            public void testSecondStatement() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/blockCodeFragment/SecondStatement.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment")
+        @TestDataPath("$PROJECT_ROOT")
+        public class ExpressionCodeFragment {
+            @Test
+            public void testAllFilesPresentInExpressionCodeFragment() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("BinaryExpression.kt")
+            public void testBinaryExpression() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/BinaryExpression.kt");
+            }
+
+            @Test
+            @TestMetadata("CompanionCall.kt")
+            public void testCompanionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/CompanionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("ContextFunctionCall.kt")
+            public void testContextFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/ContextFunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("FunctionCall.kt")
+            public void testFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/FunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("LocalFunctionCall.kt")
+            public void testLocalFunctionCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/LocalFunctionCall.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragment.kt")
+            public void testNestedCodeFragment() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/NestedCodeFragment.kt");
+            }
+
+            @Test
+            @TestMetadata("NestedCodeFragmentUsage.kt")
+            public void testNestedCodeFragmentUsage() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/NestedCodeFragmentUsage.kt");
+            }
+
+            @Test
+            @TestMetadata("PropertyCall.kt")
+            public void testPropertyCall() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/expressionCodeFragment/PropertyCall.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment")
+        @TestDataPath("$PROJECT_ROOT")
+        public class TypeCodeFragment {
+            @Test
+            public void testAllFilesPresentInTypeCodeFragment() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("FromContextFile.kt")
+            public void testFromContextFile() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/FromContextFile.kt");
+            }
+
+            @Test
+            @TestMetadata("FromContextModule.kt")
+            public void testFromContextModule() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/FromContextModule.kt");
+            }
+
+            @Test
+            @TestMetadata("GenericType.kt")
+            public void testGenericType() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/GenericType.kt");
+            }
+
+            @Test
+            @TestMetadata("GenericTypeArgument.kt")
+            public void testGenericTypeArgument() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/GenericTypeArgument.kt");
+            }
+
+            @Test
+            @TestMetadata("LocalClass.kt")
+            public void testLocalClass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/LocalClass.kt");
+            }
+
+            @Test
+            @TestMetadata("Simple.kt")
+            public void testSimple() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/Simple.kt");
+            }
+
+            @Test
+            @TestMetadata("TypeAnnotation.kt")
+            public void testTypeAnnotation() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/codeFragment/typeCodeFragment/TypeAnnotation.kt");
             }
         }
     }
@@ -1124,6 +1290,42 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
         }
 
         @Test
+        @TestMetadata("lambdaWithExtensionParameter_extensionProperty_regularCall.kt")
+        public void testLambdaWithExtensionParameter_extensionProperty_regularCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_extensionProperty_regularCall.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithExtensionParameter_extensionProperty_safeCall.kt")
+        public void testLambdaWithExtensionParameter_extensionProperty_safeCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_extensionProperty_safeCall.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithExtensionParameter_parameter_regularCall.kt")
+        public void testLambdaWithExtensionParameter_parameter_regularCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_parameter_regularCall.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithExtensionParameter_parameter_safeCall.kt")
+        public void testLambdaWithExtensionParameter_parameter_safeCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_parameter_safeCall.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithExtensionParameter_property_regularCall.kt")
+        public void testLambdaWithExtensionParameter_property_regularCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_property_regularCall.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaWithExtensionParameter_property_safeCall.kt")
+        public void testLambdaWithExtensionParameter_property_safeCall() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/invoke/lambdaWithExtensionParameter_property_safeCall.kt");
+        }
+
+        @Test
         @TestMetadata("noParams.kt")
         public void testNoParams() throws Exception {
             runTest("analysis/analysis-api/testData/referenceResolve/invoke/noParams.kt");
@@ -1265,6 +1467,98 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
     }
 
     @Nested
+    @TestMetadata("analysis/analysis-api/testData/referenceResolve/java")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Java {
+        @Test
+        public void testAllFilesPresentInJava() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/java"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("JavaAnnotationParameter.kt")
+        public void testJavaAnnotationParameter() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaAnnotationParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("JavaConstructorNotNullParameter.kt")
+        public void testJavaConstructorNotNullParameter() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaConstructorNotNullParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("JavaEnumEntry.kt")
+        public void testJavaEnumEntry() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaEnumEntry.kt");
+        }
+
+        @Test
+        @TestMetadata("JavaEnumValueOf.kt")
+        public void testJavaEnumValueOf() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaEnumValueOf.kt");
+        }
+
+        @Test
+        @TestMetadata("JavaReference.kt")
+        public void testJavaReference() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaReference.kt");
+        }
+
+        @Test
+        @TestMetadata("JavaStaticMethod.kt")
+        public void testJavaStaticMethod() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/JavaStaticMethod.kt");
+        }
+
+        @Test
+        @TestMetadata("ReferenceToSam.kt")
+        public void testReferenceToSam() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/ReferenceToSam.kt");
+        }
+
+        @Test
+        @TestMetadata("SyntheticProperty.kt")
+        public void testSyntheticProperty() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/java/SyntheticProperty.kt");
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName")
+        @TestDataPath("$PROJECT_ROOT")
+        public class EnumWithCustomGetName {
+            @Test
+            public void testAllFilesPresentInEnumWithCustomGetName() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("FunctionCallOnConstant.kt")
+            public void testFunctionCallOnConstant() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName/FunctionCallOnConstant.kt");
+            }
+
+            @Test
+            @TestMetadata("FunctionCallOnVariable.kt")
+            public void testFunctionCallOnVariable() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName/FunctionCallOnVariable.kt");
+            }
+
+            @Test
+            @TestMetadata("PropertyAccessOnConstant.kt")
+            public void testPropertyAccessOnConstant() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName/PropertyAccessOnConstant.kt");
+            }
+
+            @Test
+            @TestMetadata("PropertyAccessOnVariable.kt")
+            public void testPropertyAccessOnVariable() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/java/enumWithCustomGetName/PropertyAccessOnVariable.kt");
+            }
+        }
+    }
+
+    @Nested
     @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc")
     @TestDataPath("$PROJECT_ROOT")
     public class KDoc {
@@ -1274,12 +1568,204 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
         }
 
         @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject")
+        @TestDataPath("$PROJECT_ROOT")
+        public class CompanionObject {
+            @Test
+            public void testAllFilesPresentInCompanionObject() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("childQualifiedFunctionFromSuperClassCompanion.kt")
+            public void testChildQualifiedFunctionFromSuperClassCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/childQualifiedFunctionFromSuperClassCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedClassNestedInClassNestedInCompanion.kt")
+            public void testQualifiedClassNestedInClassNestedInCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedClassNestedInClassNestedInCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromCompanion.kt")
+            public void testQualifiedFunctionFromCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromCompanionInOtherFile.kt")
+            public void testQualifiedFunctionFromCompanionInOtherFile() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromCompanionInOtherFile.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromCompanionWithImport.kt")
+            public void testQualifiedFunctionFromCompanionWithImport() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromCompanionWithImport.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromOwnCompanion.kt")
+            public void testQualifiedFunctionFromOwnCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromOwnCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromSuperClassCompanion.kt")
+            public void testQualifiedFunctionFromSuperClassCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromSuperClassCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionFromSuperClassCompanionInOtherFile.kt")
+            public void testQualifiedFunctionFromSuperClassCompanionInOtherFile() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionFromSuperClassCompanionInOtherFile.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiedFunctionOfClassNestedInCompanion.kt")
+            public void testQualifiedFunctionOfClassNestedInCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/qualifiedFunctionOfClassNestedInCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("unqualifiedFunctionFromOwnCompanion.kt")
+            public void testUnqualifiedFunctionFromOwnCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/unqualifiedFunctionFromOwnCompanion.kt");
+            }
+
+            @Test
+            @TestMetadata("unqualifiedFunctionFromSuperClassCompanion.kt")
+            public void testUnqualifiedFunctionFromSuperClassCompanion() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/companionObject/unqualifiedFunctionFromSuperClassCompanion.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/extensions")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Extensions {
+            @Test
+            public void testAllFilesPresentInExtensions() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/extensions"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("callablesWithSameName.kt")
+            public void testCallablesWithSameName() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/callablesWithSameName.kt");
+            }
+
+            @Test
+            @TestMetadata("fromBaseClass.kt")
+            public void testFromBaseClass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/fromBaseClass.kt");
+            }
+
+            @Test
+            @TestMetadata("functionOverloads.kt")
+            public void testFunctionOverloads() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/functionOverloads.kt");
+            }
+
+            @Test
+            @TestMetadata("nonExtensions.kt")
+            public void testNonExtensions() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/nonExtensions.kt");
+            }
+
+            @Test
+            @TestMetadata("qualifiers.kt")
+            public void testQualifiers() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/qualifiers.kt");
+            }
+
+            @Test
+            @TestMetadata("receiverTypesWithSameName_nestedScopes.kt")
+            public void testReceiverTypesWithSameName_nestedScopes() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/receiverTypesWithSameName_nestedScopes.kt");
+            }
+
+            @Test
+            @TestMetadata("receiverTypesWithSameName_starImports.kt")
+            public void testReceiverTypesWithSameName_starImports() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/receiverTypesWithSameName_starImports.kt");
+            }
+
+            @Test
+            @TestMetadata("topLevelFunction.kt")
+            public void testTopLevelFunction() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/topLevelFunction.kt");
+            }
+
+            @Test
+            @TestMetadata("topLevelProperty.kt")
+            public void testTopLevelProperty() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/topLevelProperty.kt");
+            }
+
+            @Test
+            @TestMetadata("topLevelTypeVsMemberFunctionAsReceiver.kt")
+            public void testTopLevelTypeVsMemberFunctionAsReceiver() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/topLevelTypeVsMemberFunctionAsReceiver.kt");
+            }
+
+            @Test
+            @TestMetadata("typeAliasReceiver.kt")
+            public void testTypeAliasReceiver() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/typeAliasReceiver.kt");
+            }
+
+            @Test
+            @TestMetadata("typeCompatibility.kt")
+            public void testTypeCompatibility() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/typeCompatibility.kt");
+            }
+
+            @Nested
+            @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/generics")
+            @TestDataPath("$PROJECT_ROOT")
+            public class Generics {
+                @Test
+                public void testAllFilesPresentInGenerics() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/generics"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("genericParameterReceiver.kt")
+                public void testGenericParameterReceiver() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/generics/genericParameterReceiver.kt");
+                }
+
+                @Test
+                @TestMetadata("genericsCompatibility.kt")
+                public void testGenericsCompatibility() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/generics/genericsCompatibility.kt");
+                }
+
+                @Test
+                @TestMetadata("typeWithGenericsReceiver.kt")
+                public void testTypeWithGenericsReceiver() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/extensions/generics/typeWithGenericsReceiver.kt");
+                }
+            }
+        }
+
+        @Nested
         @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/imports")
         @TestDataPath("$PROJECT_ROOT")
         public class Imports {
             @Test
             public void testAllFilesPresentInImports() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/imports"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("SameNameClassesFromStarImports.kt")
+            public void testSameNameClassesFromStarImports() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/imports/SameNameClassesFromStarImports.kt");
             }
 
             @Test
@@ -1296,6 +1782,18 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             @Test
             public void testAllFilesPresentInJavaDeclarations() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/javaDeclarations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("FunctionQualifiedWithJavaSubclass.kt")
+            public void testFunctionQualifiedWithJavaSubclass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/javaDeclarations/FunctionQualifiedWithJavaSubclass.kt");
+            }
+
+            @Test
+            @TestMetadata("FunctionQualifiedWithKotlinSubclass.kt")
+            public void testFunctionQualifiedWithKotlinSubclass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/javaDeclarations/FunctionQualifiedWithKotlinSubclass.kt");
             }
 
             @Test
@@ -1393,6 +1891,12 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             }
 
             @Test
+            @TestMetadata("SelfNonLocalNestedClass.kt")
+            public void testSelfNonLocalNestedClass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/localContext/SelfNonLocalNestedClass.kt");
+            }
+
+            @Test
             @TestMetadata("SelfNonLocalProperty.kt")
             public void testSelfNonLocalProperty() throws Exception {
                 runTest("analysis/analysis-api/testData/referenceResolve/kDoc/localContext/SelfNonLocalProperty.kt");
@@ -1414,6 +1918,28 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             @TestMetadata("SiblingNonLocalProperty.kt")
             public void testSiblingNonLocalProperty() throws Exception {
                 runTest("analysis/analysis-api/testData/referenceResolve/kDoc/localContext/SiblingNonLocalProperty.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/packages")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Packages {
+            @Test
+            public void testAllFilesPresentInPackages() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/packages"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("longPackage.kt")
+            public void testLongPackage() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/packages/longPackage.kt");
+            }
+
+            @Test
+            @TestMetadata("packageVsTopLevelDeclarations.kt")
+            public void testPackageVsTopLevelDeclarations() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/packages/packageVsTopLevelDeclarations.kt");
             }
         }
 
@@ -1470,6 +1996,266 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             @Test
             public void testAllFilesPresentInQualified() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/qualified"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Nested
+            @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables")
+            @TestDataPath("$PROJECT_ROOT")
+            public class Callables {
+                @Test
+                public void testAllFilesPresentInCallables() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                }
+
+                @Test
+                @TestMetadata("functionFromClass.kt")
+                public void testFunctionFromClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromClass.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromInnerClass.kt")
+                public void testFunctionFromInnerClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromInnerClass.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromInterface.kt")
+                public void testFunctionFromInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromInterface.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromNestedClass.kt")
+                public void testFunctionFromNestedClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromNestedClass.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromPrivateNestedClass.kt")
+                public void testFunctionFromPrivateNestedClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromPrivateNestedClass.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromSuperClass.kt")
+                public void testFunctionFromSuperClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromSuperClass.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromSuperInterface.kt")
+                public void testFunctionFromSuperInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromSuperInterface.kt");
+                }
+
+                @Test
+                @TestMetadata("functionFromSuperSuperInterface.kt")
+                public void testFunctionFromSuperSuperInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/functionFromSuperSuperInterface.kt");
+                }
+
+                @Test
+                @TestMetadata("overloadedFunctionFromClass.kt")
+                public void testOverloadedFunctionFromClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/overloadedFunctionFromClass.kt");
+                }
+
+                @Test
+                @TestMetadata("overloadedFunctionFromClassWithPrivateOverload.kt")
+                public void testOverloadedFunctionFromClassWithPrivateOverload() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/overloadedFunctionFromClassWithPrivateOverload.kt");
+                }
+
+                @Test
+                @TestMetadata("privateFunctionFromClass.kt")
+                public void testPrivateFunctionFromClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/privateFunctionFromClass.kt");
+                }
+
+                @Test
+                @TestMetadata("privatePropertyFromClass.kt")
+                public void testPrivatePropertyFromClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/privatePropertyFromClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromClass.kt")
+                public void testPropertyFromClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromInnerClass.kt")
+                public void testPropertyFromInnerClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromInnerClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromInterface.kt")
+                public void testPropertyFromInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromInterface.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromNestedClass.kt")
+                public void testPropertyFromNestedClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromNestedClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromPrivateNestedClass.kt")
+                public void testPropertyFromPrivateNestedClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromPrivateNestedClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromSuperClass.kt")
+                public void testPropertyFromSuperClass() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromSuperClass.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromSuperInterface.kt")
+                public void testPropertyFromSuperInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromSuperInterface.kt");
+                }
+
+                @Test
+                @TestMetadata("propertyFromSuperSuperInterface.kt")
+                public void testPropertyFromSuperSuperInterface() throws Exception {
+                    runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/propertyFromSuperSuperInterface.kt");
+                }
+
+                @Nested
+                @TestMetadata("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported")
+                @TestDataPath("$PROJECT_ROOT")
+                public class NotImported {
+                    @Test
+                    public void testAllFilesPresentInNotImported() throws Exception {
+                        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromClass.kt")
+                    public void testFunctionFromClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromInnerClass.kt")
+                    public void testFunctionFromInnerClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromInnerClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromInterface.kt")
+                    public void testFunctionFromInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromInterface.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromNestedClass.kt")
+                    public void testFunctionFromNestedClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromNestedClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromPrivateNestedClass.kt")
+                    public void testFunctionFromPrivateNestedClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromPrivateNestedClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromSuperClass.kt")
+                    public void testFunctionFromSuperClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromSuperClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromSuperInterface.kt")
+                    public void testFunctionFromSuperInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromSuperInterface.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("functionFromSuperSuperInterface.kt")
+                    public void testFunctionFromSuperSuperInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/functionFromSuperSuperInterface.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("overloadedFunctionFromClass.kt")
+                    public void testOverloadedFunctionFromClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/overloadedFunctionFromClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("overloadedFunctionFromClassWithPrivateOverload.kt")
+                    public void testOverloadedFunctionFromClassWithPrivateOverload() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/overloadedFunctionFromClassWithPrivateOverload.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("privateFunctionFromClass.kt")
+                    public void testPrivateFunctionFromClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/privateFunctionFromClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("privatePropertyFromClass.kt")
+                    public void testPrivatePropertyFromClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/privatePropertyFromClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromClass.kt")
+                    public void testPropertyFromClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromInnerClass.kt")
+                    public void testPropertyFromInnerClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromInnerClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromInterface.kt")
+                    public void testPropertyFromInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromInterface.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromNestedClass.kt")
+                    public void testPropertyFromNestedClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromNestedClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromPrivateNestedClass.kt")
+                    public void testPropertyFromPrivateNestedClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromPrivateNestedClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromSuperClass.kt")
+                    public void testPropertyFromSuperClass() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromSuperClass.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromSuperInterface.kt")
+                    public void testPropertyFromSuperInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromSuperInterface.kt");
+                    }
+
+                    @Test
+                    @TestMetadata("propertyFromSuperSuperInterface.kt")
+                    public void testPropertyFromSuperSuperInterface() throws Exception {
+                        runTest("analysis/analysis-api/testData/referenceResolve/kDoc/qualified/callables/notImported/propertyFromSuperSuperInterface.kt");
+                    }
+                }
             }
 
             @Nested
@@ -1647,6 +2433,58 @@ public class FirStandaloneNormalAnalysisSourceModuleReferenceResolveTestGenerate
             public void testErrorInLatestQualifer() throws Exception {
                 runTest("analysis/analysis-api/testData/referenceResolve/kDoc/withErrors/errorInLatestQualifer.kt");
             }
+
+            @Test
+            @TestMetadata("invalidPropertyAccessOnFunction.kt")
+            public void testInvalidPropertyAccessOnFunction() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/withErrors/invalidPropertyAccessOnFunction.kt");
+            }
+
+            @Test
+            @TestMetadata("invalidPropertyAccessOnFunctionFromCompanionObject.kt")
+            public void testInvalidPropertyAccessOnFunctionFromCompanionObject() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/withErrors/invalidPropertyAccessOnFunctionFromCompanionObject.kt");
+            }
+
+            @Test
+            @TestMetadata("invalidPropertyAccessOnFunctionFromNonImportedCompanionObject.kt")
+            public void testInvalidPropertyAccessOnFunctionFromNonImportedCompanionObject() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/withErrors/invalidPropertyAccessOnFunctionFromNonImportedCompanionObject.kt");
+            }
+
+            @Test
+            @TestMetadata("invalidPropertyAccessOnFunctionFromSuperClass.kt")
+            public void testInvalidPropertyAccessOnFunctionFromSuperClass() throws Exception {
+                runTest("analysis/analysis-api/testData/referenceResolve/kDoc/withErrors/invalidPropertyAccessOnFunctionFromSuperClass.kt");
+            }
+        }
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/referenceResolve/kotlinPackage")
+    @TestDataPath("$PROJECT_ROOT")
+    public class KotlinPackage {
+        @Test
+        public void testAllFilesPresentInKotlinPackage() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/referenceResolve/kotlinPackage"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("kotlinPackageAllowed.kt")
+        public void testKotlinPackageAllowed() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/kotlinPackage/kotlinPackageAllowed.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinPackageNotAllowed.kt")
+        public void testKotlinPackageNotAllowed() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/kotlinPackage/kotlinPackageNotAllowed.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinxPackage.kt")
+        public void testKotlinxPackage() throws Exception {
+            runTest("analysis/analysis-api/testData/referenceResolve/kotlinPackage/kotlinxPackage.kt");
         }
     }
 

@@ -21,10 +21,6 @@ class Kapt4IT : Kapt3IT() {
         forceKapt4()
     }
 
-
-    @Disabled("Enable when KT-61845 is fixed")
-    override fun testKt18799(gradleVersion: GradleVersion) {}
-
     @Disabled("Doesn't make sense in Kapt 4")
     override fun useGeneratedKotlinSourceK2(gradleVersion: GradleVersion) {}
 
@@ -36,9 +32,6 @@ class Kapt4IT : Kapt3IT() {
 
     @Disabled("Doesn't make sense in Kapt 4")
     override fun useK2KaptProperty(gradleVersion: GradleVersion) {}
-
-    @Disabled("Doesn't make sense in Kapt 4")
-    override fun testRepeatableAnnotationsWithOldJvmBackend(gradleVersion: GradleVersion) {}
 
     @DisplayName("KT-61879: K2 KAPT works with proguarded compiler jars and enum class")
     @GradleTest
@@ -72,12 +65,6 @@ class Kapt4ClassLoadersCacheIT : Kapt3ClassLoadersCacheIT() {
 
     @Disabled("Doesn't make sense in Kapt 4")
     override fun fallBackModeWithLanguageVersion2_0(gradleVersion: GradleVersion) {}
-
-    @Disabled("Doesn't make sense in Kapt 4")
-    override fun testRepeatableAnnotationsWithOldJvmBackend(gradleVersion: GradleVersion) {}
-
-    @Disabled("Doesn't work in 2.0. Neither with Kapt 3 nor with Kapt 4")
-    override fun testMPPKaptPresence(gradleVersion: GradleVersion) {}
 }
 
 fun TestProject.forceKapt4() {
@@ -86,10 +73,12 @@ fun TestProject.forceKapt4() {
             "build.gradle" -> it.appendText(
                 """
                 
-                pluginManager.withPlugin('kotlin') {
+                try {
+                    Class.forName('org.jetbrains.kotlin.gradle.tasks.KotlinCompile')
                     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
                        compilerOptions.freeCompilerArgs.addAll(['-Xuse-kapt4', '-Xsuppress-version-warnings'])
                     }
+                } catch(ClassNotFoundException ignore) {
                 }
                 
                 """.trimIndent()
@@ -97,10 +86,12 @@ fun TestProject.forceKapt4() {
             "build.gradle.kts" -> it.appendText(
                 """
                 
-                pluginManager.withPlugin("kotlin") {
+                try {
+                    Class.forName("org.jetbrains.kotlin.gradle.tasks.KotlinCompile")
                     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile::class.java).configureEach {
                        compilerOptions.freeCompilerArgs.addAll(listOf("-Xuse-kapt4", "-Xsuppress-version-warnings"))
                     }
+                } catch(ignore: ClassNotFoundException) {
                 }
                 
                 """.trimIndent()

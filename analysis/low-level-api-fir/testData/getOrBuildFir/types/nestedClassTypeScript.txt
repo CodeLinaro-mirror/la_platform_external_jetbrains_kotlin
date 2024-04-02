@@ -16,7 +16,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedClassTypeScript.kts
                 LAZY_super<R|kotlin/Any|>
             }
 
-            public? final? [ResolvedTo(RAW_FIR)] class Nested : R|kotlin/Any| {
+            public final? [ResolvedTo(RAW_FIR)] class Nested : R|kotlin/Any| {
                 public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Nested] constructor(): R|Foo.Nested| {
                     LAZY_super<R|kotlin/Any|>
                 }
@@ -30,7 +30,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedClassTypeScript.kts
                 LAZY_super<R|Foo|>
             }
 
-            public final [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] fun create(): R|Foo.Nested| {
+            public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun create(): R|Foo.Nested| {
             }
 
         }

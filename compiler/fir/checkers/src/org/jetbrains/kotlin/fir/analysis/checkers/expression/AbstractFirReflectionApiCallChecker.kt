@@ -9,22 +9,22 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.fullyExpandedClassId
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.expressions.calleeReference
+import org.jetbrains.kotlin.fir.expressions.toReference
 import org.jetbrains.kotlin.fir.packageFqName
 import org.jetbrains.kotlin.fir.references.resolved
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
 // TODO (KT-60899): implement this checker for JS, similarly to K1's JsReflectionAPICallChecker.
-abstract class AbstractFirReflectionApiCallChecker : FirBasicExpressionChecker() {
+abstract class AbstractFirReflectionApiCallChecker : FirBasicExpressionChecker(MppCheckerKind.Common) {
     protected abstract fun isWholeReflectionApiAvailable(context: CheckerContext): Boolean
     protected abstract fun report(source: KtSourceElement?, context: CheckerContext, reporter: DiagnosticReporter)
 
@@ -40,7 +40,7 @@ abstract class AbstractFirReflectionApiCallChecker : FirBasicExpressionChecker()
         // Do not report the diagnostic on kotlin-reflect sources.
         if (isReflectionSource(context)) return
 
-        val resolvedReference = expression.calleeReference?.resolved ?: return
+        val resolvedReference = expression.toReference(context.session)?.resolved ?: return
         val referencedSymbol = resolvedReference.resolvedSymbol as? FirCallableSymbol ?: return
 
         val containingClassId = (expression as? FirQualifiedAccessExpression)?.dispatchReceiver?.resolvedType?.fullyExpandedClassId(context.session)
@@ -51,7 +51,7 @@ abstract class AbstractFirReflectionApiCallChecker : FirBasicExpressionChecker()
         }
     }
 
-    private fun isAllowedReflectionApi(name: Name, containingClassId: ClassId, context: CheckerContext): Boolean =
+    protected open fun isAllowedReflectionApi(name: Name, containingClassId: ClassId, context: CheckerContext): Boolean =
         name in ALLOWED_MEMBER_NAMES ||
                 containingClassId == K_CLASS && isAllowedKClassMember(name, context) ||
                 (name.asString() == "get" || name.asString() == "set") && containingClassId in K_PROPERTY_CLASSES ||

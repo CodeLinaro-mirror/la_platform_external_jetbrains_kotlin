@@ -1,10 +1,10 @@
-import com.github.gradle.node.yarn.task.YarnTask
+import com.github.gradle.node.npm.task.NpxTask
 
 description = "Simple Kotlin/JS tests runner with TeamCity reporter"
 
 plugins {
     id("base")
-    id("com.github.node-gradle.node") version "5.0.0"
+    alias(libs.plugins.gradle.node)
 }
 
 publish(sbom = false)
@@ -36,23 +36,21 @@ dependencies {
 }
 
 tasks {
-    named("yarn") {
+    named("npmInstall") {
         val nodeModulesDir = projectDir.resolve("node_modules")
         outputs.upToDateWhen {
             nodeModulesDir.isDirectory
         }
-        // Without it several yarns can works incorrectly
-        (this as YarnTask).apply {
-            args.set(args.get() + "--network-concurrency" + "1" + "--mutex" + "network")
-        }
     }
 
-    register<YarnTask>("yarnBuild") {
+    register<NpxTask>("npmBuild") {
         group = "build"
 
-        dependsOn("yarn")
+        dependsOn("npmInstall", "cleanLib", "fromStaticToLib")
+
+        command.set("rollup")
         workingDir.set(projectDir)
-        args.set(listOf("build"))
+        args.set(listOf("-c", "rollup.config.mjs", "--silent"))
 
         inputs.dir("src")
         inputs.files(
@@ -69,30 +67,47 @@ tasks {
             "tc-log-error-webpack.js",
             "webpack-5-debug.js",
             "package.json",
-            "rollup.config.js",
+            "rollup.config.mjs",
             "tsconfig.json",
-            "yarn.lock"
+            "package-lock.json"
         )
         outputs.dir("lib")
     }
 
-    register<Delete>("cleanYarn") {
+    register<Copy>("fromStaticToLib") {
+        group = "build"
+
+        dependsOn("cleanLib")
+
+        from(projectDir.resolve("static"))
+        into("lib/static")
+    }
+
+    register<Delete>("cleanLib") {
         group = "build"
 
         delete = setOf(
-            "node_modules",
             "lib",
-            ".rpt2_cache"
+        )
+    }
+
+    register<Delete>("cleanNpm") {
+        group = "build"
+
+        dependsOn("cleanLib")
+
+        delete = setOf(
+            "node_modules",
         )
     }
 
     named("clean") {
-        dependsOn("cleanYarn")
+        dependsOn("cleanNpm")
     }
 }
 
 val jar by tasks.creating(Jar::class) {
-    dependsOn(tasks.named("yarnBuild"))
+    dependsOn(tasks.named("npmBuild"))
     from(projectDir.resolve("lib"))
     from(projectDir.resolve("package.json"))
 }

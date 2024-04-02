@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,10 +8,11 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.util
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignation
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignationWithScript
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.withFirDesignationEntry
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.getNonLocalContainingOrThisDeclaration
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector.ContextKind
+import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.isAutonomousDeclaration
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector.Context
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector.ContextKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector.FilterResponse
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
@@ -34,11 +35,15 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveCon
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.typeContext
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
+import org.jetbrains.kotlin.psi.KtDeclaration
+import org.jetbrains.kotlin.psi.KtParameter
+import org.jetbrains.kotlin.psi.psiUtil.isPropertyParameter
 import org.jetbrains.kotlin.psi.psiUtil.parentsWithSelf
 import org.jetbrains.kotlin.util.PrivateForInline
-import org.jetbrains.kotlin.utils.yieldIfNotNull
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import java.util.ArrayList
 
 object ContextCollector {
@@ -50,6 +55,16 @@ object ContextCollector {
         BODY
     }
 
+    /**
+     * Represents resolution context of a specific place in code (a context).
+     *
+     * @param towerDataContext a list of tower data elements that may define declaration scopes, implicit receivers,
+     * and additional information applicable either to the context element or its semantic parents.
+     *
+     * @param smartCasts a set of smart-casts (potentially) available to the context element. Note that the key, [RealVariable], includes
+     * stability. Only stable smart casts impact data flow. Check the "Smart cast sink stability" in the Kotlin language specification.
+     * Unstable smart casts are still provided for more precise checking and diagnosing.
+     */
     class Context(
         val towerDataContext: FirTowerDataContext,
         val smartCasts: Map<RealVariable, Set<ConeKotlinType>>,
@@ -107,21 +122,29 @@ object ContextCollector {
     }
 
     fun computeDesignation(file: FirFile, targetElement: PsiElement): FirDesignation? {
-        val contextKtDeclaration = targetElement.getNonLocalContainingOrThisDeclaration()
+        val contextKtDeclaration = targetElement.getNonLocalContainingOrThisDeclaration(::isValidTarget)
         if (contextKtDeclaration != null) {
             val designationPath = FirElementFinder.collectDesignationPath(file, contextKtDeclaration)
             if (designationPath != null) {
-                val script = file.declarations.singleOrNull() as? FirScript
-
-                return if (script == null || script === designationPath.target) {
-                    FirDesignation(designationPath.path, designationPath.target)
-                } else {
-                    FirDesignationWithScript(designationPath.path, designationPath.target, script)
-                }
+                return designationPath
             }
         }
 
         return null
+    }
+
+    private fun isValidTarget(declaration: KtDeclaration): Boolean {
+        if (declaration.isAutonomousDeclaration) {
+            return true
+        }
+
+        if (declaration is KtParameter && declaration.isPropertyParameter()) {
+            // Prefer context for primary constructor properties.
+            // Context of the constructor itself can be computed by passing the 'KtPrimaryConstructor' element.
+            return true
+        }
+
+        return false
     }
 
     /**
@@ -138,25 +161,13 @@ object ContextCollector {
         holder: SessionHolder,
         designation: FirDesignation?,
         shouldCollectBodyContext: Boolean,
-        filter: (PsiElement) -> FilterResponse
+        filter: (PsiElement) -> FilterResponse,
     ): ContextProvider {
-        val interceptor = designation?.let(::DesignationInterceptor) ?: { null }
+        val interceptor = designation?.let(::DesignationInterceptor)
         val visitor = ContextCollectorVisitor(holder, shouldCollectBodyContext, filter, interceptor)
-        file.accept(visitor)
+        visitor.collect(file)
 
         return ContextProvider { element, kind -> visitor[element, kind] }
-    }
-
-    private class DesignationInterceptor(private val designation: FirDesignation) : () -> FirElement? {
-        private val targetIterator = iterator {
-            yieldIfNotNull((designation as? FirDesignationWithScript)?.firScript)
-            yieldAll(designation.path)
-            yield(designation.target)
-        }
-
-        override fun invoke(): FirElement? {
-            return if (targetIterator.hasNext()) targetIterator.next() else null
-        }
     }
 
     fun interface ContextProvider {
@@ -164,12 +175,35 @@ object ContextCollector {
     }
 }
 
+private class DesignationInterceptor(val designation: FirDesignation) : () -> FirElement? {
+    private val targetIterator = iterator {
+        yieldAll(designation.path)
+        yield(designation.target)
+    }
+
+    override fun invoke(): FirElement? = if (targetIterator.hasNext()) targetIterator.next() else null
+}
+
 private class ContextCollectorVisitor(
     private val holder: SessionHolder,
     private val shouldCollectBodyContext: Boolean,
     private val filter: (PsiElement) -> FilterResponse,
-    private val designationPathInterceptor: () -> FirElement?
+    private val designationPathInterceptor: DesignationInterceptor?,
 ) : FirDefaultVisitorVoid() {
+    fun collect(file: FirFile) {
+        if (designationPathInterceptor != null) {
+            withInterceptor {
+                // This code is unreachable in the case of a not empty path
+                errorWithAttachment("Designation path is empty") {
+                    withFirEntry("file", file)
+                    withFirDesignationEntry("designation", designationPathInterceptor.designation)
+                }
+            }
+        } else {
+            file.accept(this)
+        }
+    }
+
     private data class ContextKey(val element: PsiElement, val kind: ContextKind)
 
     operator fun get(element: PsiElement, kind: ContextKind): Context? {
@@ -264,7 +298,7 @@ private class ContextCollectorVisitor(
             }
         }
 
-        val towerDataContextSnapshot = context.towerDataContext.createSnapshot()
+        val towerDataContextSnapshot = context.towerDataContext.createSnapshot(keepMutable = true)
 
         for ((index, oldType) in oldReceiverTypes) {
             implicitReceiverStack.replaceReceiverType(index, oldType)
@@ -316,19 +350,43 @@ private class ContextCollectorVisitor(
         else -> true
     }
 
-    override fun visitScript(script: FirScript) {
-        context.withScript(script, holder) {
-            withInterceptor {
-                super.visitScript(script)
+    override fun visitScript(script: FirScript) = withProcessor(script) {
+        dumpContext(script, ContextKind.SELF)
+
+        processSignatureAnnotations(script)
+
+        onActiveBody {
+            context.withScript(script, holder) {
+                dumpContext(script, ContextKind.BODY)
+
+                onActive {
+                    withInterceptor {
+                        processChildren(script)
+                    }
+                }
             }
         }
     }
 
-    override fun visitFile(file: FirFile) {
+    override fun visitFile(file: FirFile) = withProcessor(file) {
         context.withFile(file, holder) {
-            withInterceptor {
-                super.visitFile(file)
+            dumpContext(file, ContextKind.SELF)
+
+            processFileHeader(file)
+
+            onActive {
+                withInterceptor {
+                    processChildren(file)
+                }
             }
+        }
+    }
+
+    override fun visitCodeFragment(codeFragment: FirCodeFragment) {
+        codeFragment.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
+
+        context.withCodeFragment(codeFragment, holder) {
+            super.visitCodeFragment(codeFragment)
         }
     }
 
@@ -390,6 +448,22 @@ private class ContextCollectorVisitor(
         }
     }
 
+    @OptIn(PrivateForInline::class)
+    private fun Processor.processFileHeader(file: FirFile) {
+        process(file.packageDirective)
+        processList(file.imports)
+        process(file.annotationsContainer)
+    }
+
+    /**
+     * Same as [processClassHeader], but for anonymous objects.
+     *
+     * N.B. Anonymous classes cannot have its own explicit type parameters, so we do not process them.
+     */
+    private fun Processor.processAnonymousObjectHeader(anonymousObject: FirAnonymousObject) {
+        processList(anonymousObject.superTypeRefs)
+    }
+
     override fun visitConstructor(constructor: FirConstructor) = withProcessor(constructor) {
         dumpContext(constructor, ContextKind.SELF)
 
@@ -433,7 +507,7 @@ private class ContextCollectorVisitor(
         onActiveBody {
             enumEntry.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
 
-            context.forEnumEntry {
+            context.withEnumEntry(enumEntry) {
                 dumpContext(enumEntry, ContextKind.BODY)
 
                 onActive {
@@ -616,6 +690,8 @@ private class ContextCollectorVisitor(
         processSignatureAnnotations(anonymousObject)
 
         onActiveBody {
+            processAnonymousObjectHeader(anonymousObject)
+
             context.withAnonymousObject(anonymousObject, holder) {
                 dumpContext(anonymousObject, ContextKind.BODY)
 
@@ -624,7 +700,6 @@ private class ContextCollectorVisitor(
                 }
             }
         }
-
     }
 
     override fun visitBlock(block: FirBlock) = withProcessor(block) {
@@ -694,7 +769,7 @@ private class ContextCollectorVisitor(
      * If the designation is over, then allows the [block] code to take control.
      */
     private fun withInterceptor(block: () -> Unit) {
-        val target = designationPathInterceptor()
+        val target = designationPathInterceptor?.invoke()
         if (target != null) {
             target.accept(this)
         } else {

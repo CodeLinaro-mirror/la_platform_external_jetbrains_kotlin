@@ -27,14 +27,15 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.backend.konan.llvm.*
+import org.jetbrains.kotlin.ir.objcinterop.isObjCObjectType
 
 internal class ExternalModulesDFG(val allTypes: List<DataFlowIR.Type.Declared>,
                                   val publicTypes: Map<Long, DataFlowIR.Type.Public>,
                                   val publicFunctions: Map<Long, DataFlowIR.FunctionSymbol.Public>,
                                   val functionDFGs: Map<DataFlowIR.FunctionSymbol, DataFlowIR.Function>)
 
-internal object STATEMENT_ORIGIN_PRODUCER_INVOCATION : IrStatementOriginImpl("PRODUCER_INVOCATION")
-internal object STATEMENT_ORIGIN_JOB_INVOCATION : IrStatementOriginImpl("JOB_INVOCATION")
+internal val STATEMENT_ORIGIN_PRODUCER_INVOCATION = IrStatementOriginImpl("PRODUCER_INVOCATION")
+internal val STATEMENT_ORIGIN_JOB_INVOCATION = IrStatementOriginImpl("JOB_INVOCATION")
 
 private fun IrTypeOperator.isCast() =
         this == IrTypeOperator.CAST || this == IrTypeOperator.IMPLICIT_CAST || this == IrTypeOperator.SAFE_CAST
@@ -159,7 +160,7 @@ internal class ModuleDFGBuilder(val context: Context, val irModule: IrModuleFrag
 
     private inline fun takeName(block: () -> String) = if (TAKE_NAMES) block() else null
 
-    private val module = DataFlowIR.Module(irModule.descriptor)
+    private val module = DataFlowIR.Module()
     private val symbolTable = DataFlowIR.SymbolTable(context, module)
 
     // Possible values of a returnable block.

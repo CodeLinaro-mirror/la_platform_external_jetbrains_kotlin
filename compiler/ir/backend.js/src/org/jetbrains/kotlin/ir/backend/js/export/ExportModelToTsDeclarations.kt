@@ -7,11 +7,13 @@ package org.jetbrains.kotlin.ir.backend.js.export
 
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
+import org.jetbrains.kotlin.ir.backend.js.lower.isEs6PrimaryConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.utils.JsAnnotations
 import org.jetbrains.kotlin.ir.backend.js.utils.getFqNameWithJsNameWhenAvailable
 import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
 import org.jetbrains.kotlin.ir.backend.js.utils.sanitizeName
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.parentAsClass
@@ -20,7 +22,9 @@ import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.findIsInstanceAnd
 
+private const val NonNullable = "NonNullable"
 private const val Nullable = "Nullable"
 private const val objects = "_objects_"
 private const val declare = "declare "
@@ -123,7 +127,7 @@ class ExportModelToTsDeclarations {
     }
 
     private fun ExportedNamespace.generateTypeScriptString(indent: String, prefix: String): String {
-        return "${prefix}namespace $name {\n" + declarations.toTypeScript("$indent    ") + "$indent}"
+        return "${prefix.takeIf { !isPrivate } ?: "declare "}namespace $name {\n" + declarations.toTypeScript("$indent    ") + "$indent}"
     }
 
     private fun ExportedConstructor.generateTypeScriptString(indent: String): String {
@@ -331,11 +335,9 @@ class ExportModelToTsDeclarations {
     }
 
     private fun ExportedRegularClass.hasSuperClassWithPrivateConstructor(): Boolean {
-        return superClasses.firstIsInstanceOrNull<ExportedType.ClassType>()
-            ?.ir
-            ?.takeIf { !it.isObject }
-            ?.primaryConstructor
-            ?.let { it.visibility == DescriptorVisibilities.PRIVATE || it.hasAnnotation(JsAnnotations.jsExportIgnoreFqn) } ?: false
+        val superClass = superClasses.firstIsInstanceOrNull<ExportedType.ClassType>()?.ir?.takeIf { !it.isObject } ?: return false
+        val exportedConstructor = superClass.primaryConstructor ?: superClass.declarations.findIsInstanceAnd<IrFunction> { it.isEs6PrimaryConstructorReplacement }
+        return exportedConstructor?.let { it.visibility == DescriptorVisibilities.PRIVATE || it.hasAnnotation(JsAnnotations.jsExportIgnoreFqn) } ?: true
     }
 
     private fun List<ExportedType>.toExtendsClause(indent: String): String {
@@ -443,6 +445,7 @@ class ExportModelToTsDeclarations {
 
         is ExportedType.ErrorType -> if (isInCommentContext) comment else "any /*$comment*/"
         is ExportedType.Nullable -> "$Nullable<" + baseType.toTypeScript(indent, isInCommentContext) + ">"
+        is ExportedType.NonNullable -> "$NonNullable<" + baseType.toTypeScript(indent, isInCommentContext) + ">"
         is ExportedType.InlineInterfaceType -> {
             members.joinToString(prefix = "{\n", postfix = "$indent}", separator = "") { it.toTypeScript("$indent    ") + "\n" }
         }

@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.fir
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.FirImplicitInvokeCallBuilder
@@ -49,6 +48,7 @@ fun FirTypeRef.resolvedTypeFromPrototype(
             source = this@resolvedTypeFromPrototype.source ?: fallbackSource
             this.type = type
             diagnostic = type.diagnostic
+            annotations += this@resolvedTypeFromPrototype.annotations
         }
     } else {
         buildResolvedTypeRef {
@@ -71,7 +71,7 @@ fun FirTypeRef.resolvedTypeFromPrototype(
 fun List<FirAnnotation>.computeTypeAttributes(
     session: FirSession,
     predefined: List<ConeAttribute<*>> = emptyList(),
-    containerDeclaration: FirDeclaration? = null,
+    allowExtensionFunctionType: Boolean = true,
     shouldExpandTypeAliases: Boolean
 ): ConeAttributes {
     if (this.isEmpty()) {
@@ -89,7 +89,9 @@ fun List<FirAnnotation>.computeTypeAttributes(
         when (classId) {
             CompilerConeAttributes.Exact.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.Exact
             CompilerConeAttributes.NoInfer.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.NoInfer
-            CompilerConeAttributes.ExtensionFunctionType.ANNOTATION_CLASS_ID -> attributes += CompilerConeAttributes.ExtensionFunctionType
+            CompilerConeAttributes.ExtensionFunctionType.ANNOTATION_CLASS_ID -> when {
+                allowExtensionFunctionType -> attributes += CompilerConeAttributes.ExtensionFunctionType
+            }
             CompilerConeAttributes.ContextFunctionTypeParams.ANNOTATION_CLASS_ID ->
                 attributes +=
                     CompilerConeAttributes.ContextFunctionTypeParams(
@@ -111,7 +113,7 @@ fun List<FirAnnotation>.computeTypeAttributes(
     }
 
     if (customAnnotations.isNotEmpty()) {
-        attributes += CustomAnnotationTypeAttribute(customAnnotations, containerDeclaration?.symbol)
+        attributes += CustomAnnotationTypeAttribute(customAnnotations)
     }
 
     return ConeAttributes.create(attributes)
@@ -125,4 +127,4 @@ private fun FirAnnotation.tryExpandClassId(session: FirSession): ClassId? {
 }
 
 private fun FirAnnotation.extractContextReceiversCount() =
-    (argumentMapping.mapping[StandardNames.CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME] as? FirConstExpression<*>)?.value as? Int
+    (argumentMapping.mapping[StandardNames.CONTEXT_FUNCTION_TYPE_PARAMETER_COUNT_NAME] as? FirLiteralExpression<*>)?.value as? Int

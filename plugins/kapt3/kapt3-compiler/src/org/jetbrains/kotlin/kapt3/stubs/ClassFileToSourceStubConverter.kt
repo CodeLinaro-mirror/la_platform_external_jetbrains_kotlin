@@ -123,8 +123,6 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
 
     private val mutableBindings = mutableMapOf<String, KaptJavaFileObject>()
 
-    private val isIrBackend = kaptContext.generationState.isIrBackend
-
     val bindings: Map<String, KaptJavaFileObject>
         get() = mutableBindings
 
@@ -141,6 +139,8 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
     private val compiledClassByName = kaptContext.compiledClasses.associateBy { it.name!! }
 
     private var done = false
+
+    private val treeMakerImportMethod = TreeMaker::class.java.declaredMethods.single { it.name == "Import" }
 
     fun convert(): List<KaptStub> {
         if (kaptContext.logger.isVerbose) {
@@ -313,13 +313,15 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
             val importedExpr = treeMaker.FqName(importedFqName.asString())
 
             imports += if (importDirective.isAllUnder) {
-                treeMaker.Import(treeMaker.Select(importedExpr, treeMaker.nameTable.names.asterisk), false)
+                treeMakerImportMethod.invoke(
+                    treeMaker, treeMaker.Select(importedExpr, treeMaker.nameTable.names.asterisk), false
+                ) as JCImport
             } else {
                 if (!importedShortNames.add(importedFqName.shortName().asString())) {
                     continue
                 }
 
-                treeMaker.Import(importedExpr, false)
+                treeMakerImportMethod.invoke(treeMaker, importedExpr, false) as JCImport
             }
         }
 
@@ -339,8 +341,16 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
         if (!checkIfValidTypeName(clazz, Type.getObjectType(clazz.name))) return null
 
         val descriptor = kaptContext.origins[clazz]?.descriptor ?: return null
-        val isNested = (descriptor as? ClassDescriptor)?.isNested ?: false
-        val isInner = isNested && (descriptor as? ClassDescriptor)?.isInner ?: false
+
+        val isNested: Boolean
+        val isInner: Boolean
+        if (descriptor is ClassDescriptor) {
+            isNested = descriptor.isNested
+            isInner = isNested && descriptor.isInner
+        } else {
+            isNested = false
+            isInner = false
+        }
 
         val flags = getClassAccessFlags(clazz, descriptor, isInner, isNested)
 
@@ -672,15 +682,11 @@ class ClassFileToSourceStubConverter(val kaptContext: KaptContextForStubGenerati
         val origin = kaptContext.origins[field]
         val descriptor = origin?.descriptor
 
-        val fieldAnnotations = when {
-            !isIrBackend && descriptor is PropertyDescriptor -> descriptor.backingField?.annotations
-            else -> descriptor?.annotations
-        } ?: Annotations.EMPTY
-
         val modifiers = convertModifiers(
             containingClass,
             field.access, ElementKind.FIELD, packageFqName,
-            field.visibleAnnotations, field.invisibleAnnotations, fieldAnnotations
+            field.visibleAnnotations, field.invisibleAnnotations,
+            descriptor?.annotations ?: Annotations.EMPTY,
         )
 
         val name = field.name

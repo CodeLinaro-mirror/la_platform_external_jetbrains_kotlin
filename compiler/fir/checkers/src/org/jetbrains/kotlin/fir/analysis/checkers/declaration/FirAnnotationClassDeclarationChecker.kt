@@ -14,12 +14,13 @@ import org.jetbrains.kotlin.diagnostics.hasValOrVar
 import org.jetbrains.kotlin.diagnostics.hasVar
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.analysis.checkers.*
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
+import org.jetbrains.kotlin.fir.analysis.checkers.canBeEvaluatedAtCompileTime
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.diagnostics.*
+import org.jetbrains.kotlin.fir.analysis.checkers.getAllowedAnnotationTargets
+import org.jetbrains.kotlin.fir.analysis.checkers.getTargetAnnotation
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.CYCLE_IN_ANNOTATION_PARAMETER
-import org.jetbrains.kotlin.fir.declarations.getRetention
-import org.jetbrains.kotlin.fir.declarations.getRetentionAnnotation
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.isSynthetic
@@ -32,7 +33,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.name.StandardClassIds.primitiveArrayTypeByElementType
 import org.jetbrains.kotlin.name.StandardClassIds.unsignedArrayTypeByElementType
 
-object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
+object FirAnnotationClassDeclarationChecker : FirRegularClassChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration.classKind != ANNOTATION_CLASS) return
         if (declaration.isLocal) reporter.reportOn(declaration.source, FirErrors.LOCAL_ANNOTATION_CLASS_ERROR, context)
@@ -67,7 +68,7 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
                         reporter.reportOn(source, FirErrors.VAR_ANNOTATION_PARAMETER, context)
                     }
                     val defaultValue = parameter.defaultValue
-                    if (defaultValue != null && checkConstantArguments(defaultValue, context.session) != null) {
+                    if (defaultValue != null && !canBeEvaluatedAtCompileTime(defaultValue, context.session)) {
                         reporter.reportOn(defaultValue.source, FirErrors.ANNOTATION_PARAMETER_DEFAULT_VALUE_MUST_BE_CONSTANT, context)
                     }
 
@@ -219,6 +220,9 @@ object FirAnnotationClassDeclarationChecker : FirRegularClassChecker() {
             if (referencedAnnotation == targetAnnotation) {
                 annotationsWithCycle += ownedAnnotation
                 return true
+            }
+            if (referencedAnnotation.isJavaOrEnhancement) {
+                return false
             }
             return annotationHasCycle(referencedAnnotation)
         }

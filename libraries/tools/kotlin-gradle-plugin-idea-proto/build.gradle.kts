@@ -25,7 +25,7 @@ dependencies {
     api(project(":kotlin-gradle-plugin-idea"))
     embedded("com.google.protobuf:protobuf-java:3.21.9")
     embedded("com.google.protobuf:protobuf-kotlin:3.21.9")
-    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(kotlinTest("junit"))
     testImplementation(kotlin("reflect"))
     testImplementation(testFixtures(project(":kotlin-gradle-plugin-idea")))
 }
@@ -94,11 +94,12 @@ run {
         implicitDependencies("com.google.protobuf:protoc:3.21.9:windows-x86_64@exe")
     }
 
-    val protocExecutable = buildDir.resolve("protoc/bin")
+    val protocExecutable = layout.buildDirectory.file("protoc/bin")
     val setupProtoc = tasks.register("setupProtoc") {
         doFirst {
-            protoc.files.single().copyTo(protocExecutable, overwrite = true)
-            protocExecutable.setExecutable(true)
+            val protocFile = protocExecutable.get().asFile
+            protoc.files.single().copyTo(protocFile, overwrite = true)
+            protocFile.setExecutable(true)
         }
     }
 
@@ -122,16 +123,16 @@ run {
 
         workingDir(project.projectDir)
 
-        commandLine(
-            *arrayOf(
-                protocExecutable.absolutePath,
+        argumentProviders.add {
+            listOf(
+                protocExecutable.get().asFile.absolutePath,
                 "-I=$protoSources",
                 "--java_out=${javaOutput.absolutePath}",
                 "--kotlin_out=${kotlinOutput.absolutePath}"
             ) + protoSources.listFiles().orEmpty()
                 .filter { it.extension == "proto" }
-                .map { it.path },
-        )
+                .map { it.path }
+        }
     }
 }
 

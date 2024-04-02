@@ -1,6 +1,6 @@
-// !LANGUAGE: +MultiPlatformProjects
-// IGNORE_BACKEND_K1: JS, JS_IR, JS_IR_ES6, NATIVE, WASM
+// LANGUAGE: +MultiPlatformProjects
 // ISSUE: KT-57963
+// JVM_ABI_K1_K2_DIFF: KT-63984
 
 // MODULE: common
 // TARGET_PLATFORM: Common

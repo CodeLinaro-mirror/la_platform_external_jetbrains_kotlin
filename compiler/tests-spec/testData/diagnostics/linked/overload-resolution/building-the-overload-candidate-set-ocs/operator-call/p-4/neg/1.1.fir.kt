@@ -25,7 +25,7 @@ fun case1() {
 }
 
 class B() {
-    val p: String by <!DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE!>Delegate()<!> // DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE expected
+    val p: String by <!DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE, PROPERTY_AS_OPERATOR!>Delegate()<!> // DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE expected
 }
 
 class Delegate {
@@ -50,7 +50,7 @@ fun case2() {
 }
 
 class B() {
-    var p: String by <!DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE, DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE!>Delegate()<!> // DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE expected
+    var p: String by <!DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE, DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE, PROPERTY_AS_OPERATOR, PROPERTY_AS_OPERATOR!>Delegate()<!> // DELEGATE_SPECIAL_FUNCTION_NONE_APPLICABLE expected
 }
 
 class Delegate {
@@ -151,12 +151,12 @@ package testPackCase5
 class Case5() {
 
     fun f(c: Case5){
-        this + 1 //OPERATOR_MODIFIER_REQUIRED for class plus, resolved to (1)
-        c + 1 //OPERATOR_MODIFIER_REQUIRED for class plus, resolved to (1)
+        this <!OPERATOR_CALL_ON_CONSTRUCTOR!>+<!> 1 // OPERATOR_CALL_ON_CONSTRUCTOR/OPERATOR_MODIFIER_REQUIRED for class plus, resolved to (1)
+        c <!OPERATOR_CALL_ON_CONSTRUCTOR!>+<!> 1 // OPERATOR_CALL_ON_CONSTRUCTOR/OPERATOR_MODIFIER_REQUIRED for class plus, resolved to (1)
     }
 
-    inner class  plus constructor(val i:Int){
-        operator fun invoke(i:Int) {}  //(1)
+    inner class plus /* (1) */ constructor(val i:Int){
+        operator fun invoke(i:Int) {}
     }
 }
 

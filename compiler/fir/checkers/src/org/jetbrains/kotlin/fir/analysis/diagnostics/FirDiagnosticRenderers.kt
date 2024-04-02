@@ -14,9 +14,7 @@ import org.jetbrains.kotlin.diagnostics.rendering.Renderer
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.calleeReference
-import org.jetbrains.kotlin.fir.expressions.unwrapSmartcastExpression
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
@@ -37,7 +35,7 @@ object FirDiagnosticRenderers {
             is FirClassLikeSymbol<*>,
             is FirCallableSymbol<*>,
             -> FirRenderer(
-                typeRenderer = ConeTypeRenderer(),
+                typeRenderer = ConeTypeRendererForReadability { ConeIdShortRenderer() },
                 idRenderer = ConeIdShortRenderer(),
                 classMemberRenderer = FirNoClassMemberRenderer(),
                 bodyRenderer = null,
@@ -45,7 +43,10 @@ object FirDiagnosticRenderers {
                 callArgumentsRenderer = FirCallNoArgumentsRenderer(),
                 modifierRenderer = FirPartialModifierRenderer(),
                 valueParameterRenderer = FirValueParameterRendererNoDefaultValue(),
-                declarationRenderer = FirDeclarationRenderer("local ")
+                declarationRenderer = FirDeclarationRenderer("local "),
+                annotationRenderer = FirAnnotationRendererForReadability(),
+                lineBreakAfterContextReceivers = false,
+                renderFieldAnnotationSeparately = false,
             ).renderElementAsString(symbol.fir, trim = true)
             is FirTypeParameterSymbol -> symbol.name.asString()
             else -> "???"
@@ -81,7 +82,8 @@ object FirDiagnosticRenderers {
     }
 
     val CALLEE_NAME = Renderer { element: FirExpression ->
-        when (val reference = element.unwrapSmartcastExpression().calleeReference) {
+        @OptIn(UnsafeExpressionUtility::class)
+        when (val reference = element.unwrapSmartcastExpression().toReferenceUnsafe()) {
             is FirNamedReference -> reference.name.asString()
             is FirThisReference -> "this"
             is FirSuperReference -> "super"
@@ -102,17 +104,25 @@ object FirDiagnosticRenderers {
         name.asString()
     }
 
-    val RENDER_CLASS_OR_OBJECT = Renderer { classSymbol: FirClassSymbol<*> ->
+    val RENDER_CLASS_OR_OBJECT_QUOTED = Renderer { classSymbol: FirClassSymbol<*> ->
         val name = classSymbol.classId.relativeClassName.asString()
         val classOrObject = when (classSymbol.classKind) {
             ClassKind.OBJECT -> "Object"
             ClassKind.INTERFACE -> "Interface"
             else -> "Class"
         }
-        "$classOrObject $name"
+        "$classOrObject '$name'"
     }
 
-    val RENDER_CLASS_OR_OBJECT_NAME = Renderer { firClassLike: FirClassLikeSymbol<*> ->
+    val RENDER_ENUM_ENTRY_QUOTED = Renderer { enumEntry: FirEnumEntrySymbol ->
+        var name = enumEntry.callableId.callableName.asString()
+        enumEntry.callableId.classId?.let {
+            name = "${it.shortClassName.asString()}.$name"
+        }
+        "Enum entry '$name'"
+    }
+
+    val RENDER_CLASS_OR_OBJECT_NAME_QUOTED = Renderer { firClassLike: FirClassLikeSymbol<*> ->
         val name = firClassLike.classId.relativeClassName.shortName().asString()
         val prefix = when (firClassLike) {
             is FirTypeAliasSymbol -> "typealias"
@@ -160,11 +170,11 @@ object FirDiagnosticRenderers {
 
     val WHEN_MISSING_CASES = Renderer { missingCases: List<WhenMissingCase> ->
         if (missingCases.singleOrNull() == WhenMissingCase.Unknown) {
-            "'else' branch"
+            "an 'else' branch"
         } else {
             val list = missingCases.joinToString(", ", limit = WHEN_MISSING_LIMIT) { "'$it'" }
             val branches = if (missingCases.size > 1) "branches" else "branch"
-            "$list $branches or 'else' branch instead"
+            "the $list $branches or an 'else' branch"
         }
     }
 
@@ -195,10 +205,24 @@ object FirDiagnosticRenderers {
     }
 
     val OPTIONAL_SENTENCE = Renderer { it: String? ->
-        if (!it.isNullOrBlank()) " $it." else ""
+        if (!it.isNullOrBlank()) {
+            buildString {
+                append(" ")
+                append(it.trim())
+                if (!endsWith(".")) {
+                    append(".")
+                }
+            }
+        } else {
+            ""
+        }
     }
 
     val FOR_OPTIONAL_OPERATOR = Renderer { it: String? ->
         if (!it.isNullOrBlank()) " for operator '$it'" else ""
+    }
+
+    val SYMBOL_WITH_CONTAINING_DECLARATION = Renderer { symbol: FirCallableSymbol<*> ->
+        "'${SYMBOL.render(symbol)}' defined in ${NAME_OF_CONTAINING_DECLARATION_OR_FILE.render(symbol.callableId)}"
     }
 }

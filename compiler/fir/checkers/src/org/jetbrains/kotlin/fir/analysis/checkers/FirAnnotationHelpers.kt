@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -35,7 +35,7 @@ import org.jetbrains.kotlin.resolve.checkers.OptInNames
 private val defaultAnnotationTargets = KotlinTarget.DEFAULT_TARGET_SET
 
 fun FirAnnotation.getAllowedAnnotationTargets(session: FirSession): Set<KotlinTarget> {
-    if (annotationTypeRef is FirErrorTypeRef) return KotlinTarget.values().toSet()
+    if (annotationTypeRef is FirErrorTypeRef) return KotlinTarget.ALL_TARGET_SET
     val annotationClassSymbol = (this.annotationTypeRef.coneType as? ConeClassLikeType)
         ?.fullyExpandedType(session)?.lookupTag?.toSymbol(session) ?: return defaultAnnotationTargets
     annotationClassSymbol.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
@@ -56,13 +56,12 @@ fun FirRegularClass.getAllowedAnnotationTargets(session: FirSession): Set<Kotlin
 }
 
 fun FirClassLikeSymbol<*>.getAllowedAnnotationTargets(session: FirSession): Set<KotlinTarget> {
-    lazyResolveToPhase(FirResolvePhase.ANNOTATIONS_ARGUMENTS_MAPPING)
+    lazyResolveToPhase(FirResolvePhase.ANNOTATION_ARGUMENTS)
     val targetAnnotation = getTargetAnnotation(session) ?: return defaultAnnotationTargets
-    val arguments = targetAnnotation.findArgumentByName(ParameterNames.targetAllowedTargets)?.unwrapAndFlattenArgument().orEmpty()
+    val arguments = targetAnnotation.findArgumentByName(ParameterNames.targetAllowedTargets)?.unwrapAndFlattenArgument(flattenArrays = true).orEmpty()
 
     return arguments.mapNotNullTo(mutableSetOf()) { argument ->
-        val targetExpression = argument as? FirQualifiedAccessExpression
-        val calleeReference = targetExpression?.calleeReference
+        val calleeReference = argument.toReference(session)
         val targetName =
             calleeReference?.resolved?.name?.asString()
             //for java annotations mappings: if java annotation is found in sdk and no kotlin dependency there is provided
@@ -70,7 +69,7 @@ fun FirClassLikeSymbol<*>.getAllowedAnnotationTargets(session: FirSession): Set<
             //but `JvmStubBasedFirDeserializedSymbolProvider` which works in IDE over stubs, misses classes   
                 ?: (calleeReference as? FirFromMissingDependenciesNamedReference)?.name?.asString()
                 ?: return@mapNotNullTo null
-        KotlinTarget.values().firstOrNull { target -> target.name == targetName }
+        KotlinTarget.entries.firstOrNull { target -> target.name == targetName }
     }
 }
 
@@ -83,7 +82,7 @@ fun FirClassLikeSymbol<*>.getTargetAnnotation(session: FirSession): FirAnnotatio
 }
 
 fun FirExpression.extractClassesFromArgument(session: FirSession): List<FirRegularClassSymbol> {
-    return unwrapAndFlattenArgument().mapNotNull {
+    return unwrapAndFlattenArgument(flattenArrays = true).mapNotNull {
         it.extractClassFromArgument(session)
     }
 }
@@ -93,10 +92,12 @@ fun FirExpression.extractClassFromArgument(session: FirSession): FirRegularClass
     return when (val argument = argument) {
         is FirResolvedQualifier ->
             argument.symbol as? FirRegularClassSymbol
-        is FirClassReferenceExpression ->
-            argument.classTypeRef.coneTypeSafe<ConeClassLikeType>()?.fullyExpandedType(session)?.toRegularClassSymbol(session)
-        else ->
-            null
+        is FirClassReferenceExpression -> {
+            val classTypeRef = argument.classTypeRef
+            val coneType = classTypeRef.coneType.unwrapFlexibleAndDefinitelyNotNull()
+            coneType.fullyExpandedType(session).toRegularClassSymbol(session)
+        }
+        else -> null
     }
 }
 

@@ -29,10 +29,6 @@ class WasmPrimitivesGenerator(writer: PrintWriter) : BasePrimitivesGenerator(wri
         }
     }
 
-    override fun CompanionObjectBuilder.modifyGeneratedCompanionObject(thisKind: PrimitiveType) {
-        isPublic = true
-    }
-
     override fun primitiveConstants(type: PrimitiveType): List<Any> {
         return when (type) {
             PrimitiveType.FLOAT -> listOf(
@@ -103,7 +99,7 @@ class WasmPrimitivesGenerator(writer: PrintWriter) : BasePrimitivesGenerator(wri
                     }
                 }
                 "rem" -> when (thisKind) {
-                    in PrimitiveType.floatingPoint -> "this - (wasm_${thisKind.prefixLowercase}_truncate(this / $parameterName) * $parameterName)"
+                    in PrimitiveType.floatingPoint -> "wasm_${thisKind.prefixLowercase}_copysign(this - (wasm_${thisKind.prefixLowercase}_truncate(this / $parameterName) * $parameterName), this)"
                     else -> return implementAsIntrinsic(thisKind, methodName)
                 }
                 else -> return implementAsIntrinsic(thisKind, methodName)
@@ -238,7 +234,7 @@ class WasmPrimitivesGenerator(writer: PrintWriter) : BasePrimitivesGenerator(wri
     override fun MethodBuilder.modifyGeneratedToString(thisKind: PrimitiveType) {
         when (thisKind) {
             in PrimitiveType.floatingPoint -> "dtoa(this${thisKind.castToIfNecessary(PrimitiveType.DOUBLE)})"
-            PrimitiveType.INT, PrimitiveType.LONG -> "itoa${thisKind.bitSize}(this, 10)"
+            PrimitiveType.INT, PrimitiveType.LONG -> "itoa${thisKind.bitSize}(this)"
             else -> "this.toInt().toString()"
         }.setAsExpressionBody()
     }

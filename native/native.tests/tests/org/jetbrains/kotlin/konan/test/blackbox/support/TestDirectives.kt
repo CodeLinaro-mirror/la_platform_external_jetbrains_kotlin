@@ -8,18 +8,24 @@ package org.jetbrains.kotlin.konan.test.blackbox.support
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.ENTRY_POINT
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.EXIT_CODE
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.EXPECTED_TIMEOUT_FAILURE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FIR_IDENTICAL
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FREE_CINTEROP_ARGS
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.FREE_COMPILER_ARGS
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.INPUT_DATA_FILE
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.KIND
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.LLDB_TRACE
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.OUTPUT_DATA_FILE
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.OUTPUT_REGEX
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.PROGRAM_ARGS
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.TEST_RUNNER
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck.OutputDataFile
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.PipelineType
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Settings
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.LLDBSessionSpec
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.StringDirective
+import org.jetbrains.kotlin.test.directives.model.singleValue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
@@ -81,13 +87,13 @@ internal object TestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    // TODO: to be supported later
-//    val OUTPUT_REGEX by stringDirective(
-//        description = """
-//            The regex that the expected program output should match to. When program finishes its execution, the actual output (stdout)
-//            will be checked against this regex.
-//        """.trimIndent()
-//    )
+    val OUTPUT_REGEX by stringDirective(
+        description = """
+            The regex that the expected program output should match to. When program finishes its execution, the actual output (stdout)
+            will be checked against this regex.
+        """.trimIndent(),
+        multiLine = true,
+    )
 
     // TODO: to be supported later
 //    val OUTPUT_INCLUDES by stringDirective(
@@ -128,10 +134,8 @@ internal object TestDirectives : SimpleDirectivesContainer() {
         description = "Specify free compiler arguments for Kotlin/Native compiler"
     )
 
-    val LLDB_TRACE by stringDirective(
-        description = """
-            Specify a filename containing the LLDB commands and the patterns that
-             the output should match""".trimIndent(),
+    val FREE_CINTEROP_ARGS by stringDirective(
+        description = "Specify free CInterop tool arguments"
     )
 
     // TODO "MUTED_WHEN" directive should be supported not only in AbstractNativeSimpleTest, but also in other hierarchies
@@ -144,6 +148,70 @@ internal object TestDirectives : SimpleDirectivesContainer() {
     val FIR_IDENTICAL by directive(
         description = "Test behavior should be identical for FIR testing"
     )
+
+    val FILECHECK_STAGE by stringDirective(
+        description = "Specify a LLVM stage to dump LLVM IR after, and check it with LLVM FileCheck using its directives in test file"
+    )
+
+    val DISABLE_NATIVE by stringDirective(
+        description = "Test is not compiled/run with neither K1 nor K2 frontend and marked as disabled(GRAY)."
+    )
+
+    val DISABLE_NATIVE_K1 by stringDirective(
+        description = "Test is not compiled/run with K1 frontend and marked as disabled(GRAY)."
+    )
+
+    val DISABLE_NATIVE_K2 by stringDirective(
+        description = "Test is not compiled/run with K2 frontend and marked as disabled(GRAY)."
+    )
+
+    val IGNORE_NATIVE by stringDirective(
+        """
+            Usage: // IGNORE_NATIVE: property1=value1[ && property2=value2][ && property3=value3]
+            Declares this test is expected to fail in described run configuration on both K1 and K2 frontends.
+        """.trimIndent()
+    )
+
+    val IGNORE_NATIVE_K1 by stringDirective(
+        """
+            Usage: // IGNORE_NATIVE_K1: property1=value1[ && property2=value2][ && property3=value3]
+            Declares this test is expected to fail in described run configuration on K1 frontend.
+        """.trimIndent()
+    )
+
+    val IGNORE_NATIVE_K2 by stringDirective(
+        """
+            Usage: // IGNORE_NATIVE_K2: property1=value1[ && property2=value2][ && property3=value3]
+            Declares this test is expected to fail in described run configuration on K2 frontend.
+        """.trimIndent()
+    )
+
+    val PROGRAM_ARGS by stringDirective(
+        description = """
+            Command line arguments to pass to the executable.
+            Note that this directive makes sense only in combination with // KIND: STANDALONE_NO_TR
+        """.trimIndent()
+    )
+
+    val ASSERTIONS_MODE by enumDirective<AssertionsMode>(
+        description = """
+            Force assertions mode to given value, overriding calculated mode which is derived from cacheMode and optimizationMode.
+        """.trimIndent()
+    )
+}
+
+// mimics class `JVMAssertionsMode`
+internal enum class AssertionsMode(val description: String) {
+    ALWAYS_ENABLE("always-enable"),
+    ALWAYS_DISABLE("always-disable"),
+    JVM("jvm"),
+    LEGACY("legacy");
+
+    companion object {
+        val DEFAULT = LEGACY
+        fun fromStringOrNull(string: String?) = entries.find { it.description == string }
+        fun fromString(string: String?) = fromStringOrNull(string) ?: DEFAULT
+    }
 }
 
 internal enum class TestKind {
@@ -165,15 +233,33 @@ internal enum class MutedOption {
     K2
 }
 
-internal class TestCompilerArgs(val compilerArgs: List<String>) {
+internal val CINTEROP_SOURCE_EXTENSIONS = setOf("c", "cpp", "m", "mm")
+internal val CINTEROP_DEFINITION_EXTENSIONS = setOf("def", "h")
+internal val KNOWN_EXTENSIONS = setOf("kt") + CINTEROP_DEFINITION_EXTENSIONS + CINTEROP_SOURCE_EXTENSIONS
+
+internal class TestCInteropArgs(cinteropArgs: List<String>) : TestCompilerArgs(emptyList(), cinteropArgs) {
+    constructor(vararg cinteropArgs: String) : this(cinteropArgs.asList())
+}
+
+internal open class TestCompilerArgs(
+    val compilerArgs: List<String>,
+    val cinteropArgs: List<String> = emptyList(),
+    val assertionsMode: AssertionsMode = AssertionsMode.DEFAULT,
+) {
     constructor(vararg compilerArgs: String) : this(compilerArgs.asList())
 
     private val uniqueCompilerArgs = compilerArgs.toSet()
-    override fun hashCode() = uniqueCompilerArgs.hashCode()
-    override fun equals(other: Any?) = (other as? TestCompilerArgs)?.uniqueCompilerArgs == uniqueCompilerArgs
+    private val uniqueCinteropArgs = cinteropArgs.toSet()
+    override fun hashCode() = (uniqueCompilerArgs + uniqueCinteropArgs).hashCode()
+    override fun equals(other: Any?) = (other as? TestCompilerArgs)?.uniqueCompilerArgs == uniqueCompilerArgs &&
+            other.uniqueCinteropArgs == uniqueCinteropArgs
 
-    operator fun plus(otherCompilerArgs: TestCompilerArgs): TestCompilerArgs = this + otherCompilerArgs.compilerArgs
-    operator fun plus(otherCompilerArgs: List<String>): TestCompilerArgs = TestCompilerArgs(compilerArgs + otherCompilerArgs)
+    operator fun plus(otherCompilerArgs: TestCompilerArgs): TestCompilerArgs = TestCompilerArgs(
+        this.compilerArgs + otherCompilerArgs.compilerArgs,
+        this.cinteropArgs + otherCompilerArgs.cinteropArgs,
+        if (this.assertionsMode == otherCompilerArgs.assertionsMode) this.assertionsMode
+        else fail { "Cannot add ${this.assertionsMode} and ${otherCompilerArgs.assertionsMode}" },
+    )
 
     companion object {
         val EMPTY = TestCompilerArgs(emptyList())
@@ -210,9 +296,9 @@ internal class TestCompilerArgs(val compilerArgs: List<String>) {
     }
 }
 
-internal fun parseTestKind(registeredDirectives: RegisteredDirectives, location: Location): TestKind {
+internal fun parseTestKind(registeredDirectives: RegisteredDirectives, location: Location): TestKind? {
     if (KIND !in registeredDirectives)
-        return TestKind.REGULAR // The default one.
+        return null // The default is determined by TEST_KIND global property
 
     val values = registeredDirectives[KIND]
     return values.singleOrNull() ?: fail { "$location: Exactly one test kind expected in $KIND directive: $values" }
@@ -237,13 +323,16 @@ internal fun parseEntryPoint(registeredDirectives: RegisteredDirectives, locatio
     return entryPoint
 }
 
-internal fun parseLLDBSpec(baseDir: File, registeredDirectives: RegisteredDirectives, location: Location): LLDBSessionSpec {
-    val specFile = parseFileBasedDirective(baseDir, LLDB_TRACE, registeredDirectives, location)
-        ?: fail { "$location: An LLDB session specification must be provided" }
+internal fun parseLLDBSpec(testDataFile: File, registeredDirectives: RegisteredDirectives, settings: Settings): LLDBSessionSpec {
+    val firIdentical = FIR_IDENTICAL in registeredDirectives
+    val firSpecificExt = if (settings.get<PipelineType>() == PipelineType.K2 && !firIdentical) "fir." else ""
+    val specFilePathWithoutExtension = testDataFile.absolutePath.removeSuffix(testDataFile.extension)
+    val specFileLocation = "$specFilePathWithoutExtension${firSpecificExt}txt"
+    val specFile = File(specFileLocation)
     return try {
         LLDBSessionSpec.parse(specFile.readText())
     } catch (e: Exception) {
-        Assertions.fail<Nothing>("$location: Cannot parse LLDB session specification: " + e.message, e)
+        Assertions.fail<Nothing>("${testDataFile.absolutePath}: Cannot parse LLDB session specification: " + e.message, e)
     }
 }
 
@@ -285,9 +374,15 @@ internal fun parseFileName(parsedDirective: RegisteredDirectivesParser.ParsedDir
             """.trimIndent()
         }
 
-    assertTrue(fileName.endsWith(".kt") && fileName.length > 3 && '/' !in fileName && '\\' !in fileName) {
-        "$location: Invalid file name in ${parsedDirective.directive} directive: $fileName"
-    }
+    val fileExtension = fileName.split(".").last()
+    if (fileExtension in KNOWN_EXTENSIONS)
+        assertTrue(fileName.length > 3 && '/' !in fileName && '\\' !in fileName) {
+            "$location: Invalid file name with extension $fileExtension in ${parsedDirective.directive} directive: $fileName"
+        }
+    else
+        assertTrue(false) {
+            "$location: Invalid file extension .$fileExtension in ${parsedDirective.directive} directive: $fileName"
+        }
 
     return fileName
 }
@@ -311,23 +406,22 @@ internal fun parseExpectedExitCode(registeredDirectives: RegisteredDirectives, l
 }
 
 internal fun parseFreeCompilerArgs(registeredDirectives: RegisteredDirectives, location: Location): TestCompilerArgs {
-    if (FREE_COMPILER_ARGS !in registeredDirectives)
-        return TestCompilerArgs.EMPTY
-
+    val freeCInteropArgs = registeredDirectives[FREE_CINTEROP_ARGS]
     val freeCompilerArgs = registeredDirectives[FREE_COMPILER_ARGS]
-    val forbiddenCompilerArgs = TestCompilerArgs.findForbiddenArgs(freeCompilerArgs)
-    assertTrue(forbiddenCompilerArgs.isEmpty()) {
-        """
+    if (freeCompilerArgs.isNotEmpty()) {
+        val forbiddenCompilerArgs = TestCompilerArgs.findForbiddenArgs(freeCompilerArgs)
+        assertTrue(forbiddenCompilerArgs.isEmpty()) {
+            """
             $location: Forbidden compiler arguments found in $FREE_COMPILER_ARGS directive: $forbiddenCompilerArgs
             All arguments: $freeCompilerArgs
         """.trimIndent()
+        }
     }
-
-    return TestCompilerArgs(freeCompilerArgs)
+    return TestCompilerArgs(freeCompilerArgs, freeCInteropArgs)
 }
 
 internal fun parseOutputDataFile(baseDir: File, registeredDirectives: RegisteredDirectives, location: Location): OutputDataFile? =
-    parseFileBasedDirective(baseDir, OUTPUT_DATA_FILE, registeredDirectives, location)?.let(TestRunCheck::OutputDataFile)
+    parseFileBasedDirective(baseDir, OUTPUT_DATA_FILE, registeredDirectives, location)?.let { OutputDataFile(file = it) }
 
 internal fun parseInputDataFile(baseDir: File, registeredDirectives: RegisteredDirectives, location: Location): File? =
     parseFileBasedDirective(baseDir, INPUT_DATA_FILE, registeredDirectives, location)
@@ -347,6 +441,21 @@ private fun parseFileBasedDirective(
     assertTrue(file.isFile) { "$location: File specified in $directive directive does not exist or is not a file: $file" }
 
     return file
+}
+
+internal fun parseProgramArguments(registeredDirectives: RegisteredDirectives): List<String> = registeredDirectives[PROGRAM_ARGS]
+
+internal fun parseOutputRegex(registeredDirectives: RegisteredDirectives): TestRunCheck.OutputMatcher? {
+    if (OUTPUT_REGEX !in registeredDirectives)
+        return null
+    val regexStr = registeredDirectives.singleValue(OUTPUT_REGEX)
+    val regex = regexStr.toRegex(RegexOption.DOT_MATCHES_ALL)
+    return TestRunCheck.OutputMatcher {
+        assertTrue(regex.matches(it)) {
+            "Regex `$regex` failed to match `$it`"
+        }
+        true
+    }
 }
 
 internal class Location(private val testDataFile: File, val lineNumber: Int? = null) {

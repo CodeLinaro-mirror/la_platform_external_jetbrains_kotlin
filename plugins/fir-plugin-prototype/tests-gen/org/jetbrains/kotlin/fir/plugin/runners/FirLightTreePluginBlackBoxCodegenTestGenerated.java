@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,6 +23,12 @@ public class FirLightTreePluginBlackBoxCodegenTestGenerated extends AbstractFirL
     @Test
     public void testAllFilesPresentInBox() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/fir-plugin-prototype/testData/box"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("annotationsGeneratedInBackend_mpp.kt")
+    public void testAnnotationsGeneratedInBackend_mpp() throws Exception {
+        runTest("plugins/fir-plugin-prototype/testData/box/annotationsGeneratedInBackend_mpp.kt");
     }
 
     @Test
@@ -53,6 +59,18 @@ public class FirLightTreePluginBlackBoxCodegenTestGenerated extends AbstractFirL
     @TestMetadata("composableFunction.kt")
     public void testComposableFunction() throws Exception {
         runTest("plugins/fir-plugin-prototype/testData/box/composableFunction.kt");
+    }
+
+    @Test
+    @TestMetadata("composableFunctionMultiModules.kt")
+    public void testComposableFunctionMultiModules() throws Exception {
+        runTest("plugins/fir-plugin-prototype/testData/box/composableFunctionMultiModules.kt");
+    }
+
+    @Test
+    @TestMetadata("composableFunctionMultiModules2.kt")
+    public void testComposableFunctionMultiModules2() throws Exception {
+        runTest("plugins/fir-plugin-prototype/testData/box/composableFunctionMultiModules2.kt");
     }
 
     @Test
@@ -89,6 +107,12 @@ public class FirLightTreePluginBlackBoxCodegenTestGenerated extends AbstractFirL
     @TestMetadata("newSupertype.kt")
     public void testNewSupertype() throws Exception {
         runTest("plugins/fir-plugin-prototype/testData/box/newSupertype.kt");
+    }
+
+    @Test
+    @TestMetadata("nullableComposableParameterAcrossModules.kt")
+    public void testNullableComposableParameterAcrossModules() throws Exception {
+        runTest("plugins/fir-plugin-prototype/testData/box/nullableComposableParameterAcrossModules.kt");
     }
 
     @Test

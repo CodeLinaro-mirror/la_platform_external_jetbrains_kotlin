@@ -11,9 +11,11 @@ import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.DUMMY_FRAMEWORK_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.POD_IMPORT_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.POD_SPEC_TASK_NAME
+import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.SYNC_TASK_NAME
 import org.jetbrains.kotlin.gradle.targets.native.cocoapods.CocoapodsPluginDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.assertProcessRunResult
+import org.jetbrains.kotlin.gradle.util.removingTrailingNewline
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.runProcess
 import org.junit.jupiter.api.BeforeAll
@@ -21,7 +23,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import java.util.zip.ZipFile
 import kotlin.io.path.*
-import kotlin.test.*
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
 @DisplayName("CocoaPods plugin tests")
@@ -42,6 +46,7 @@ class CocoaPodsIT : KGPBaseTest() {
     private val podspecTaskName = ":$POD_SPEC_TASK_NAME"
     private val podImportTaskName = ":$POD_IMPORT_TASK_NAME"
     private val podInstallTaskName = ":${KotlinCocoapodsPlugin.POD_INSTALL_TASK_NAME}"
+    private val syncTaskName = ":$SYNC_TASK_NAME"
 
     private val defaultPodName = "AFNetworking"
 
@@ -54,6 +59,23 @@ class CocoaPodsIT : KGPBaseTest() {
     @GradleTest
     fun testPodImportSingle(gradleVersion: GradleVersion) {
         nativeProjectWithCocoapodsAndIosAppPodFile(cocoapodsSingleKtPod, gradleVersion) {
+
+            buildWithCocoapodsWrapper(podImportTaskName) {
+                podImportAsserts(buildGradleKts)
+            }
+
+            buildWithCocoapodsWrapper(":kotlin-library:podImport") {
+                podImportAsserts(subProject("kotlin-library").buildGradleKts, "kotlin-library")
+            }
+        }
+    }
+
+    @DisplayName("Pod import single noPodspec")
+    @GradleTest
+    fun testPodImportSingleNoPodspec(gradleVersion: GradleVersion) {
+        nativeProjectWithCocoapodsAndIosAppPodFile(cocoapodsSingleKtPod, gradleVersion) {
+
+            buildGradleKts.addCocoapodsBlock("noPodspec()")
 
             buildWithCocoapodsWrapper(podImportTaskName) {
                 podImportAsserts(buildGradleKts)
@@ -111,14 +133,56 @@ class CocoaPodsIT : KGPBaseTest() {
     @DisplayName("Dummy UTD")
     @GradleTest
     fun testDummyUTD(gradleVersion: GradleVersion) {
-        nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion) {
+        val buildOptions = defaultBuildOptions.copy(
+            nativeOptions = defaultBuildOptions.nativeOptions.copy(
+                cocoapodsPlatform = "iphonesimulator",
+                cocoapodsArchs = "x86_64",
+                cocoapodsConfiguration = "Debug"
+            )
+        )
+
+        nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion, buildOptions = buildOptions) {
+
+            buildGradleKts.addCocoapodsBlock(
+                """
+                    framework {
+                        baseName = "shared"
+                        isStatic = false
+                    }
+                """.trimIndent()
+            )
 
             buildWithCocoapodsWrapper(dummyTaskName) {
+                assertDirectoryInProjectExists("build/cocoapods/framework/shared.framework")
+                assertDirectoryInProjectExists("build/cocoapods/framework/shared.framework.dSYM")
                 assertTasksExecuted(dummyTaskName)
             }
+
             buildWithCocoapodsWrapper(dummyTaskName) {
                 assertTasksUpToDate(dummyTaskName)
             }
+
+            buildWithCocoapodsWrapper(syncTaskName) {
+                assertTasksExecuted(syncTaskName)
+            }
+
+            val frameworkResult = runProcess(
+                listOf("dwarfdump", "--uuid", "shared.framework/shared"),
+                projectPath.resolve("build/cocoapods/framework/").toFile()
+            )
+
+            val dsymResult = runProcess(
+                listOf("dwarfdump", "--uuid", "shared.framework.dSYM"),
+                projectPath.resolve("build/cocoapods/framework/").toFile()
+            )
+
+            assertContains(frameworkResult.output, "UUID:")
+            assertContains(dsymResult.output, "UUID:")
+
+            val frameworkUUID = frameworkResult.output.split(" ").getOrNull(1)
+            val dsymUUID = dsymResult.output.split(" ").getOrNull(1)
+
+            assertEquals(frameworkUUID, dsymUUID)
         }
     }
 
@@ -134,8 +198,6 @@ class CocoaPodsIT : KGPBaseTest() {
         )
 
         nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion, buildOptions = buildOptions) {
-            val syncTaskName = ":syncFramework"
-
             buildGradleKts.addCocoapodsBlock(
                 """
                     framework {
@@ -175,8 +237,6 @@ class CocoaPodsIT : KGPBaseTest() {
         )
 
         nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion, buildOptions = buildOptions) {
-            val syncTaskName = ":syncFramework"
-
             buildGradleKts.addCocoapodsBlock(
                 """
                     framework {
@@ -544,9 +604,11 @@ class CocoaPodsIT : KGPBaseTest() {
         nativeProjectWithCocoapodsAndIosAppPodFile(cocoapodsCommonizationProjectName, gradleVersion) {
             buildWithCocoapodsWrapper(":commonize", "-Pkotlin.mpp.enableCInteropCommonization=false") {
                 assertTasksExecuted(":commonizeNativeDistribution")
-                assertTasksNotExecuted(":cinteropAFNetworkingIosArm64")
-                assertTasksNotExecuted(":cinteropAFNetworkingIosX64")
-                assertTasksNotExecuted(":commonizeCInterop")
+                assertTasksAreNotInTaskGraph(
+                    ":cinteropAFNetworkingIosArm64",
+                    ":cinteropAFNetworkingIosX64",
+                    ":commonizeCInterop",
+                )
             }
         }
     }
@@ -732,6 +794,23 @@ class CocoaPodsIT : KGPBaseTest() {
         }
     }
 
+    @DisplayName("Add pod-dependencies together with noPodspec")
+    @GradleTest
+    fun testPodDependenciesWithNoPodspec(gradleVersion: GradleVersion) {
+        nativeProjectWithCocoapodsAndIosAppPodFile(gradleVersion = gradleVersion) {
+            buildGradleKts.addCocoapodsBlock(
+                """
+                    noPodspec()
+        
+                    pod("Base64", version = "1.1.2")
+                """.trimIndent()
+            )
+            buildWithCocoapodsWrapper(":linkPodDebugFrameworkIOS") {
+                assertFileInProjectNotExists("cocoapods.podspec")
+            }
+        }
+    }
+
     @DisplayName("Hierarchy of dependant pods compiles successfully")
     @GradleTest
     fun testHierarchyOfDependantPodsCompilesSuccessfully(gradleVersion: GradleVersion) {
@@ -863,6 +942,7 @@ class CocoaPodsIT : KGPBaseTest() {
 
     private val maybeCocoaPodsIsNotInstalledError = "Possible reason: CocoaPods is not installed"
     private val maybePodfileIsIncorrectError = "Please, check that podfile contains following lines in header"
+    private val missingPodExecutableInPath = "CocoaPods executable not found in your PATH"
 
     @DisplayName("Pod install emits correct error when pod binary is not present in PATH")
     @GradleTest
@@ -884,7 +964,8 @@ class CocoaPodsIT : KGPBaseTest() {
                 podInstallTaskName,
             ) {
                 assertOutputDoesNotContain(maybePodfileIsIncorrectError)
-                assertOutputContains(maybeCocoaPodsIsNotInstalledError)
+                assertOutputDoesNotContain(maybeCocoaPodsIsNotInstalledError)
+                assertOutputContains(missingPodExecutableInPath)
             }
         }
     }
@@ -912,6 +993,58 @@ class CocoaPodsIT : KGPBaseTest() {
             ) {
                 assertOutputContains(maybePodfileIsIncorrectError)
                 assertOutputDoesNotContain(maybeCocoaPodsIsNotInstalledError)
+            }
+        }
+    }
+
+    @DisplayName("Installing pod with custom defined pod executable in the local.properties")
+    @GradleTest
+    fun testPodInstallWithCustomExecutablePath(gradleVersion: GradleVersion) {
+        val podPathRun = runProcess(listOf("which", "pod"), Path("/").toFile())
+        val pathWithoutCocoapods = "/bin:/usr/bin"
+        nativeProjectWithCocoapodsAndIosAppPodFile(
+            gradleVersion = gradleVersion,
+            environmentVariables = EnvironmentalVariables(
+                mapOf("PATH" to pathWithoutCocoapods)
+            )
+        ) {
+
+            val podPath = podPathRun.output.removingTrailingNewline()
+
+            assertTrue {
+                podPath.isNotBlank()
+            }
+            assertTrue {
+                podPathRun.exitCode != 1
+            }
+
+            buildGradleKts.addCocoapodsBlock(
+                """
+                    framework {
+                        baseName = "kotlin-library"
+                    }
+                    name = "kotlin-library"
+                    podfile = project.file("ios-app/Podfile")
+                """.trimIndent()
+            )
+
+            buildAndFailWithCocoapodsWrapper(podInstallTaskName) {
+                assertOutputContains(missingPodExecutableInPath)
+            }
+
+            projectPath.resolve("local.properties")
+                .also { if (!it.exists()) it.createFile() }
+                .apply {
+                    append("\n")
+                    appendText(
+                        """
+                            kotlin.apple.cocoapods.bin=${podPath}
+                        """.trimIndent()
+                    )
+                }
+
+            buildWithCocoapodsWrapper(podInstallTaskName) {
+                assertTasksExecuted(podInstallTaskName)
             }
         }
     }
@@ -968,7 +1101,7 @@ class CocoaPodsIT : KGPBaseTest() {
                 spec.summary                  = 'CocoaPods test library'
                 spec.vendored_frameworks      = 'cocoapods.xcframework'
                 spec.libraries                = 'c++'
-                spec.ios.deployment_target = '13.5'
+                spec.ios.deployment_target    = '13.5'
             end
         """.trimIndent()
 
@@ -982,7 +1115,7 @@ class CocoaPodsIT : KGPBaseTest() {
                 spec.authors                  = { 'Kotlin Dev' => 'kotlin.dev@jetbrains.com' }
                 spec.license                  = 'MIT'
                 spec.summary                  = 'CocoaPods test library'
-                spec.ios.deployment_target = '13.5'
+                spec.ios.deployment_target    = '13.5'
                 spec.dependency 'AFNetworking'
                 spec.social_media_url = 'https://twitter.com/kotlin'
                 spec.vendored_frameworks = 'CustomFramework.xcframework'

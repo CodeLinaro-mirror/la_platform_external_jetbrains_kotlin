@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.ir.backend.js.export
 
-import org.jetbrains.kotlin.backend.common.ir.isExpect
+import org.jetbrains.kotlin.ir.util.isExpect
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
+import org.jetbrains.kotlin.ir.backend.js.lower.ES6_BOX_PARAMETER
 import org.jetbrains.kotlin.ir.backend.js.lower.isBoxParameter
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.utils.*
@@ -33,7 +34,10 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
 
     fun generateExport(file: IrPackageFragment): List<ExportedDeclaration> {
         val namespaceFqName = file.packageFqName
-        val exports = file.declarations.memoryOptimizedFlatMap { declaration -> listOfNotNull(exportDeclaration(declaration)) }
+        val exports = file.declarations.memoryOptimizedMapNotNull { declaration ->
+            declaration.takeIf { it.couldBeConvertedToExplicitExport() != true }?.let(::exportDeclaration)
+        }
+
         return when {
             exports.isEmpty() -> emptyList()
             !generateNamespacesForPackages || namespaceFqName.isRoot -> exports
@@ -305,6 +309,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
             val candidate = getExportCandidate(declaration) ?: continue
             if (isImplicitlyExportedClass && candidate !is IrClass) continue
             if (!shouldDeclarationBeExportedImplicitlyOrExplicitly(candidate, context)) continue
+            if (candidate.isFakeOverride && klass.isInterface) continue
 
             val processingResult = specialProcessing(candidate)
             if (processingResult != null) {
@@ -323,6 +328,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
                     members.addIfNotNull(exportProperty(candidate)?.withAttributesFor(candidate))
 
                 is IrClass -> {
+                    if (klass.isInterface) continue
                     val ec = exportClass(candidate)?.withAttributesFor(candidate)
                     if (ec is ExportedClass) {
                         nestedClasses.add(ec)
@@ -362,7 +368,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
     }
 
     private fun IrValueParameter.shouldBeExported(): Boolean {
-        return origin != JsLoweredDeclarationOrigin.JS_SUPER_CONTEXT_PARAMETER
+        return origin != JsLoweredDeclarationOrigin.JS_SUPER_CONTEXT_PARAMETER && origin != ES6_BOX_PARAMETER
     }
 
     private fun IrClass.shouldContainImplementationOfMagicProperty(superTypes: Iterable<IrType>): Boolean {
@@ -522,7 +528,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
         return ExportedType.ErrorType("UnknownType ${type.render()}")
     }
 
-    private fun exportTypeParameter(typeParameter: IrTypeParameter): ExportedType.TypeParameter {
+    fun exportTypeParameter(typeParameter: IrTypeParameter): ExportedType.TypeParameter {
         val constraint = typeParameter.superTypes.asSequence()
             .filter { it != context.irBuiltIns.anyNType }
             .map {
@@ -546,12 +552,6 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
                 }
             }
         )
-    }
-
-    private fun ExportedDeclaration.withAttributesFor(declaration: IrDeclaration): ExportedDeclaration {
-        declaration.getDeprecated()?.let { attributes.add(ExportedAttribute.DeprecatedAttribute(it)) }
-
-        return this
     }
 
     private val currentlyProcessedTypes = hashSetOf<IrType>()
@@ -636,13 +636,6 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
         return exportedType.withNullability(isMarkedNullable)
             .also { currentlyProcessedTypes.remove(type) }
     }
-
-    private fun IrDeclarationWithName.getExportedIdentifier(): String =
-        with(getJsNameOrKotlinName()) {
-            if (isSpecial)
-                error("Cannot export special name: ${name.asString()} for declaration $fqNameWhenAvailable")
-            else identifier
-        }
 
     private fun functionExportability(function: IrSimpleFunction): Exportability {
         if (function.isInline && function.typeParameters.any { it.isReified })
@@ -745,14 +738,14 @@ private fun shouldDeclarationBeExported(declaration: IrDeclarationWithName, cont
     if (declaration is IrClass && declaration.kind == ClassKind.ENUM_ENTRY)
         return false
 
+    if (declaration.isJsExportIgnore())
+        return false
+
     if (context.additionalExportedDeclarationNames.contains(declaration.fqNameWhenAvailable))
         return true
 
     if (context.additionalExportedDeclarations.contains(declaration))
         return true
-
-    if (declaration.isJsExportIgnore())
-        return false
 
     if (declaration is IrOverridableDeclaration<*>) {
         val overriddenNonEmpty = declaration
@@ -778,10 +771,10 @@ private fun shouldDeclarationBeExported(declaration: IrDeclarationWithName, cont
 
 fun IrOverridableDeclaration<*>.isAllowedFakeOverriddenDeclaration(context: JsIrBackendContext): Boolean {
     val firstExportedRealOverride = runIf(isFakeOverride) {
-        resolveFakeOverrideOrNull(allowAbstract = true) { it === this || it.parentClassOrNull?.isExported(context) != true }
+        resolveFakeOverrideMaybeAbstract { it === this || it.parentClassOrNull?.isExported(context) != true }
     }
 
-    if (firstExportedRealOverride?.parentClassOrNull.isExportedInterface(context)) {
+    if (firstExportedRealOverride?.parentClassOrNull.isExportedInterface(context) && firstExportedRealOverride?.isJsExportIgnore() != true) {
         return true
     }
 
@@ -809,7 +802,7 @@ fun IrDeclaration.isExportedImplicitlyOrExplicitly(context: JsIrBackendContext):
     return shouldDeclarationBeExportedImplicitlyOrExplicitly(candidate, context)
 }
 
-private fun DescriptorVisibility.toExportedVisibility() =
+fun DescriptorVisibility.toExportedVisibility() =
     when (this) {
         DescriptorVisibilities.PROTECTED -> ExportedVisibility.PROTECTED
         else -> ExportedVisibility.DEFAULT
@@ -868,3 +861,17 @@ val strictModeReservedWords = setOf(
 )
 
 private val allReservedWords = reservedWords + strictModeReservedWords
+
+fun ExportedDeclaration.withAttributesFor(declaration: IrDeclaration): ExportedDeclaration {
+    declaration.getDeprecated()?.let { attributes.add(ExportedAttribute.DeprecatedAttribute(it)) }
+
+    return this
+}
+
+fun IrDeclarationWithName.getExportedIdentifier(): String =
+    with(getJsNameOrKotlinName()) {
+        if (isSpecial)
+            error("Cannot export special name: ${name.asString()} for declaration $fqNameWhenAvailable")
+        else identifier
+    }
+

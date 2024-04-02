@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinSourceDependency.Type.Regu
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.*
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.*
+import org.jetbrains.kotlin.konan.target.HostManager
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import kotlin.test.assertEquals
@@ -20,11 +21,6 @@ import kotlin.test.assertIs
 
 @MppGradlePluginTests
 @DisplayName("Tests for multiplatform with composite builds")
-/*
- Testing with maxVersion 8.2, because of significant branching introduced in KT-58157
- We can remove this, once MAX_SUPPORTED is higher or equal to 8.2
- */
-@GradleTestVersions(maxVersion = TestVersions.Gradle.G_8_2)
 class MppCompositeBuildIT : KGPBaseTest() {
     @GradleTest
     fun `test - sample0 - ide dependencies`(gradleVersion: GradleVersion) {
@@ -145,7 +141,7 @@ class MppCompositeBuildIT : KGPBaseTest() {
     @GradleTest
     fun `test - sample1 - ide dependencies`(gradleVersion: GradleVersion) {
         project("mpp-composite-build/sample1", gradleVersion) {
-            projectPath.resolve("included-build").addDefaultBuildFiles()
+            projectPath.resolve("included-build").addDefaultSettingsToSettingsGradle(gradleVersion)
             buildGradleKts.replaceText("<kgp_version>", KOTLIN_VERSION)
             projectPath.resolve("included-build/build.gradle.kts").replaceText("<kgp_version>", KOTLIN_VERSION)
 
@@ -171,8 +167,11 @@ class MppCompositeBuildIT : KGPBaseTest() {
 
     @GradleTest
     fun `test - sample1 - assemble and execute`(gradleVersion: GradleVersion) {
-        project("mpp-composite-build/sample1", gradleVersion) {
-            projectPath.resolve("included-build").addDefaultBuildFiles()
+        project(
+            "mpp-composite-build/sample1",
+            gradleVersion,
+        ) {
+            projectPath.resolve("included-build").addDefaultSettingsToSettingsGradle(gradleVersion)
             buildGradleKts.replaceText("<kgp_version>", KOTLIN_VERSION)
             projectPath.resolve("included-build/build.gradle.kts").replaceText("<kgp_version>", KOTLIN_VERSION)
 
@@ -197,8 +196,14 @@ class MppCompositeBuildIT : KGPBaseTest() {
 
     @GradleTest
     fun `test - sample1 - assemble and execute - included build using older version of Kotlin`(gradleVersion: GradleVersion) {
-        project("mpp-composite-build/sample1", gradleVersion) {
-            projectPath.resolve("included-build").addDefaultBuildFiles()
+        project(
+            "mpp-composite-build/sample1",
+            gradleVersion,
+            buildOptions = defaultBuildOptions.suppressDeprecationWarningsOn(
+                reason = "KGP 1.7.21 produces deprecation warnings with Gradle 8.4"
+            ) { gradleVersion >= GradleVersion.version(TestVersions.Gradle.G_8_4) }
+        ) {
+            projectPath.resolve("included-build").addDefaultSettingsToSettingsGradle(gradleVersion)
             buildGradleKts.replaceText("<kgp_version>", KOTLIN_VERSION)
             projectPath.resolve("included-build/build.gradle.kts").replaceText("<kgp_version>", "1.7.21")
 
@@ -238,6 +243,45 @@ class MppCompositeBuildIT : KGPBaseTest() {
                 assertTasksUpToDate(":consumerA:compileNativeMainKotlinMetadata")
                 assertTasksUpToDate(":consumerA:compileKotlinIosX64")
                 assertTasksUpToDate(":consumerA:compileKotlinJvm")
+            }
+        }
+    }
+
+    @GradleTest
+    fun `test - sample2-withHostSpecificTargets - import cinterop dependencies`(gradleVersion: GradleVersion) {
+        val producer = project("mpp-composite-build/sample2-withHostSpecificTargets/producerBuild", gradleVersion) {
+            if (HostManager.hostIsMac) {
+                subProject("producerA").buildGradleKts.append(
+                    """                      
+                        tasks.configureEach {
+                            if (name == "iosArm64MetadataJar" || name == "iosX64MetadataJar") {
+                                enabled = false
+                            }
+                        }
+                    """.trimIndent()
+                )
+            }
+        }
+
+        project("mpp-composite-build/sample2-withHostSpecificTargets/consumerBuild", gradleVersion) {
+            settingsGradleKts.toFile().replaceText("<producer_path>", producer.projectPath.toUri().path)
+            gradleProperties.append("kotlin.mpp.enableCInteropCommonization=true")
+
+            build("cleanNativeDistributionCommonization")
+            build(":consumerA:transformNativeMainCInteropDependenciesMetadataForIde") {
+                if (HostManager.hostIsMac) {
+                    assertTasksSkipped(
+                        ":producerBuild:producerA:iosArm64MetadataJar",
+                        ":producerBuild:producerA:iosX64MetadataJar",
+                    )
+                } else {
+                    assertTasksAreNotInTaskGraph(
+                        ":producerBuild:producerA:iosArm64MetadataJar",
+                        ":producerBuild:producerA:iosX64MetadataJar",
+                    )
+                }
+                assertTasksExecuted(":consumerA:transformNativeMainCInteropDependenciesMetadataForIde")
+
             }
         }
     }
@@ -354,8 +398,6 @@ class MppCompositeBuildIT : KGPBaseTest() {
         }
     }
 
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_1)
-    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_70)
     @GradleAndroidTest
     fun `test - sample6-KT-56712-umbrella-composite`(
         gradleVersion: GradleVersion, agpVersion: String, jdkVersion: JdkVersions.ProvidedJdk,
@@ -403,7 +445,7 @@ class MppCompositeBuildIT : KGPBaseTest() {
     }
 
     @GradleTest
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0, maxVersion = TestVersions.Gradle.G_8_2)
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
     fun `test sample7`(gradleVersion: GradleVersion) {
         val producer = project("mpp-composite-build/sample7-KT-59863-pluginManagement.includeBuild/producerBuild", gradleVersion)
         project(

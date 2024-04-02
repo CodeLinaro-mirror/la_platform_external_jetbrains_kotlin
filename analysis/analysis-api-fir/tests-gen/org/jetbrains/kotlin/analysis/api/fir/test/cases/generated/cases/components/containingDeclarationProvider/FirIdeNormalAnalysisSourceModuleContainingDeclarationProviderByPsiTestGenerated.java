@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -50,6 +50,12 @@ public class FirIdeNormalAnalysisSourceModuleContainingDeclarationProviderByPsiT
     @TestMetadata("classes.kt")
     public void testClasses() throws Exception {
         runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/classes.kt");
+    }
+
+    @Test
+    @TestMetadata("codeFragments.kt")
+    public void testCodeFragments() throws Exception {
+        runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/codeFragments.kt");
     }
 
     @Test

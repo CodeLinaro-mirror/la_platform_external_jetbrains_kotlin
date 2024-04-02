@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtMod
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtModuleFactory
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtSourceModuleFactory
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.TestModuleStructureFactory
+import org.jetbrains.kotlin.analysis.test.framework.services.configuration.AnalysisApiJvmEnvironmentConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.FrontendKind
@@ -24,6 +25,8 @@ import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
+import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.nameWithoutExtension
@@ -38,7 +41,12 @@ object AnalysisApiFe10TestConfigurator : AnalysisApiTestConfigurator() {
 
     override fun configureTest(builder: TestConfigurationBuilder, disposable: Disposable) {
         builder.apply {
-            useAdditionalService<KtModuleFactory> { KtSourceModuleFactory() }
+            useAdditionalService<KtModuleFactory> { KtSourceModuleFactory }
+            useConfigurators(
+                ::CommonEnvironmentConfigurator,
+                ::AnalysisApiJvmEnvironmentConfigurator,
+                ::JsEnvironmentConfigurator
+            )
         }
     }
 
@@ -64,7 +72,7 @@ object AnalysisApiFe10TestConfigurator : AnalysisApiTestConfigurator() {
         JvmResolveUtil.analyze(project, files.filterIsInstance<KtFile>(), compilerConfiguration, packageProviderFactory)
     }
 
-    override fun preprocessTestDataPath(path: Path): Path {
+    override fun computeTestDataPath(path: Path): Path {
         val newPath = path.resolveSibling(path.nameWithoutExtension + "." + testPrefix + "." + path.extension)
         if (newPath.toFile().exists()) return newPath
         return path

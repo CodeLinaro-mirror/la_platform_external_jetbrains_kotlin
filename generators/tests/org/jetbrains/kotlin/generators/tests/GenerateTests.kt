@@ -24,10 +24,10 @@ import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirLoadK2CompiledWithPlug
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirPsiPluginDiagnosticTest
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.impl.generateTestGroupSuite
-import org.jetbrains.kotlin.generators.model.annotation
 import org.jetbrains.kotlin.generators.tests.IncrementalTestsGeneratorUtil.Companion.IcTestTypes.PURE_KOTLIN
 import org.jetbrains.kotlin.generators.tests.IncrementalTestsGeneratorUtil.Companion.IcTestTypes.WITH_JAVA
 import org.jetbrains.kotlin.generators.tests.IncrementalTestsGeneratorUtil.Companion.incrementalJvmTestData
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.incremental.*
 import org.jetbrains.kotlin.jvm.abi.AbstractCompareJvmAbiTest
 import org.jetbrains.kotlin.jvm.abi.AbstractCompileAgainstJvmAbiTest
@@ -35,19 +35,34 @@ import org.jetbrains.kotlin.jvm.abi.AbstractJvmAbiContentTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractArgumentParsingTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractKapt4ToolIntegrationTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractKaptToolIntegrationTest
-import org.jetbrains.kotlin.kapt3.test.runners.AbstractClassFileToSourceStubConverterTest
 import org.jetbrains.kotlin.kapt3.test.runners.AbstractIrClassFileToSourceStubConverterTest
 import org.jetbrains.kotlin.kapt3.test.runners.AbstractIrKotlinKaptContextTest
-import org.jetbrains.kotlin.kapt3.test.runners.AbstractKotlinKaptContextTest
 import org.jetbrains.kotlin.kapt4.AbstractKotlinKapt4ContextTest
 import org.jetbrains.kotlin.lombok.*
 import org.jetbrains.kotlin.noarg.*
 import org.jetbrains.kotlin.parcelize.test.runners.*
+import org.jetbrains.kotlin.powerassert.AbstractFirLightTreeBlackBoxCodegenTestForPowerAssert
+import org.jetbrains.kotlin.powerassert.AbstractIrBlackBoxCodegenTestForPowerAssert
 import org.jetbrains.kotlin.samWithReceiver.*
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJsIrTest
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJvmIrTest
-import org.junit.jupiter.api.Tag
+
+
+private class ExcludePattern {
+    companion object {
+        private const val MEMBER_ALIAS = "(^removeMemberTypeAlias)|(^addMemberTypeAlias)"
+
+        private const val ALL_EXPECT = "(^.*Expect.*)"
+        private const val COMPANION_CONSTANT = "(^companionConstantChanged)"
+
+        internal val forK2 = listOf(
+            ALL_EXPECT, // KT-63125 - Partially related to single-module expect-actual tests, but regexp is really wide
+            MEMBER_ALIAS, // KT-55195 - Invalid for K2
+            COMPANION_CONSTANT // KT-56242 - Work in progress
+        ).joinToString("|")
+    }
+}
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
@@ -68,36 +83,30 @@ fun main(args: Array<String>) {
                 init = incrementalJvmTestData(
                     TargetBackend.JVM_IR,
                     folderToExcludePatternMap = mapOf(
-                        PURE_KOTLIN to "(^.*Expect.*)"
-                                + "|(^removeMemberTypeAlias)|(^addMemberTypeAlias)" //KT-55195
-                                + "|(^companionConstantChanged)" //KT-56242
+                        PURE_KOTLIN to ExcludePattern.forK2
                     )
                 )
             )
 
-            testClass<AbstractIncrementalFirICLightTreeJvmCompilerRunnerTest>(
+            testClass<AbstractIncrementalK2FirICJvmCompilerRunnerTest>(
                 init = incrementalJvmTestData(
                     TargetBackend.JVM_IR,
                     folderToExcludePatternMap = mapOf(
-                        PURE_KOTLIN to "(^.*Expect.*)"
-                                + "|(^removeMemberTypeAlias)|(^addMemberTypeAlias)" //KT-55195
-                                + "|(^companionConstantChanged)", //KT-56242
+                        PURE_KOTLIN to ExcludePattern.forK2,
                         WITH_JAVA to "^classToPackageFacade" // KT-56698
                     )
                 )
             )
-            testClass<AbstractIncrementalFirLightTreeJvmCompilerRunnerTest>(
+            testClass<AbstractIncrementalK2PsiJvmCompilerRunnerTest>(
                 init = incrementalJvmTestData(
                     TargetBackend.JVM_IR,
                     folderToExcludePatternMap = mapOf(
-                        PURE_KOTLIN to "(^.*Expect.*)"
-                                + "|(^removeMemberTypeAlias)|(^addMemberTypeAlias)" //KT-55195
-                                + "|(^companionConstantChanged)" //KT-56242
+                        PURE_KOTLIN to ExcludePattern.forK2
                     )
                 )
             )
 
-            testClass<AbstractIncrementalK1JsKlibCompilerRunnerTest>() {
+            testClass<AbstractIncrementalK1JsKlibCompilerRunnerTest> {
                 // IC of sealed interfaces are not supported in JS
                 model("incremental/pureKotlin", extension = null, recursive = false, excludedPattern = "(^sealed.*)|(.*SinceK2)")
                 model("incremental/classHierarchyAffected", extension = null, recursive = false)
@@ -123,29 +132,30 @@ fun main(args: Array<String>) {
             // TODO: https://youtrack.jetbrains.com/issue/KT-61602/JS-K2-ICL-Fix-muted-tests
             testClass<AbstractIncrementalK2JsKlibCompilerWithScopeExpansionRunnerTest> {
                 // IC of sealed interfaces are not supported in JS
-                model("incremental/pureKotlin", extension = null, recursive = false,
+                model(
+                    "incremental/pureKotlin", extension = null, recursive = false,
                     // TODO: 'fileWithConstantRemoved' should be fixed in https://youtrack.jetbrains.com/issue/KT-58824
                     excludedPattern = "^(sealed.*|fileWithConstantRemoved|propertyRedeclaration|funRedeclaration|funVsConstructorOverloadConflict)"
                 )
-                model("incremental/classHierarchyAffected", extension = null, recursive = false,
+                model(
+                    "incremental/classHierarchyAffected", extension = null, recursive = false,
                     excludedPattern = "secondaryConstructorAdded"
                 )
                 model("incremental/js", extension = null, excludeParentDirs = true)
-
-                //model("incremental/scopeExpansion", extension = null, excludeParentDirs = true)
             }
 
-            testClass<AbstractIncrementalK1JsLegacyCompilerRunnerWithFriendModulesDisabledTest> {
+            testClass<AbstractIncrementalK1JsKlibCompilerRunnerWithFriendModulesDisabledTest> {
                 model("incremental/js/friendsModuleDisabled", extension = null, recursive = false)
             }
 
             testClass<AbstractIncrementalMultiplatformJvmCompilerRunnerTest> {
                 model("incremental/mpp/allPlatforms", extension = null, excludeParentDirs = true)
-                model("incremental/mpp/jvmOnly", extension = null, excludeParentDirs = true)
+                model("incremental/mpp/jvmOnlyK1", extension = null, excludeParentDirs = true)
             }
-            testClass<AbstractIncrementalK1JsLegacyMultiplatformJsCompilerRunnerTest> {
+            testClass<AbstractIncrementalK1JsKlibMultiplatformJsCompilerRunnerTest> {
                 model("incremental/mpp/allPlatforms", extension = null, excludeParentDirs = true)
             }
+            //TODO: write a proper k2 multiplatform test runner KT-63183
         }
 
         testGroup(
@@ -225,7 +235,7 @@ fun main(args: Array<String>) {
     }
 
     generateTestGroupSuiteWithJUnit5 {
-        val excludedFirTestdataPattern = "^(.+)\\.fir\\.kts?\$"
+        val excludedFirTestdataPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX
 
         testGroup("plugins/parcelize/parcelize-compiler/tests-gen", "plugins/parcelize/parcelize-compiler/testData") {
             testClass<AbstractParcelizeIrBoxTest> {
@@ -288,9 +298,6 @@ fun main(args: Array<String>) {
         }
 
         testGroup("plugins/allopen/tests-gen", "plugins/allopen/testData") {
-            testClass<AbstractBytecodeListingTestForAllOpen> {
-                model("bytecodeListing", excludedPattern = excludedFirTestdataPattern)
-            }
             testClass<AbstractIrBytecodeListingTestForAllOpen> {
                 model("bytecodeListing", excludedPattern = excludedFirTestdataPattern)
             }
@@ -314,9 +321,6 @@ fun main(args: Array<String>) {
             }
             testClass<AbstractFirPsiDiagnosticsTestForNoArg> {
                 model("diagnostics", excludedPattern = excludedFirTestdataPattern)
-            }
-            testClass<AbstractBytecodeListingTestForNoArg> {
-                model("bytecodeListing", excludedPattern = excludedFirTestdataPattern)
             }
             testClass<AbstractIrBytecodeListingTestForNoArg> {
                 model("bytecodeListing", excludedPattern = excludedFirTestdataPattern)
@@ -353,6 +357,15 @@ fun main(args: Array<String>) {
             }
         }
 
+        testGroup("plugins/power-assert/tests-gen", "plugins/power-assert/testData") {
+            testClass<AbstractIrBlackBoxCodegenTestForPowerAssert> {
+                model("codegen", excludedPattern = excludedFirTestdataPattern)
+            }
+            testClass<AbstractFirLightTreeBlackBoxCodegenTestForPowerAssert> {
+                model("codegen", excludedPattern = excludedFirTestdataPattern)
+            }
+        }
+
         testGroup("plugins/sam-with-receiver/tests-gen", "plugins/sam-with-receiver/testData") {
             testClass<AbstractSamWithReceiverTest> {
                 model("diagnostics", excludedPattern = excludedFirTestdataPattern)
@@ -381,17 +394,8 @@ fun main(args: Array<String>) {
         }
 
         testGroup("plugins/kapt3/kapt3-compiler/tests-gen", "plugins/kapt3/kapt3-compiler/testData") {
-            val annotations = listOf(annotation(Tag::class.java, "IgnoreJDK11"))
-            testClass<AbstractKotlinKaptContextTest>(annotations = annotations) {
+            testClass<AbstractIrKotlinKaptContextTest> {
                 model("kotlinRunner")
-            }
-
-            testClass<AbstractIrKotlinKaptContextTest>(annotations = annotations) {
-                model("kotlinRunner")
-            }
-
-            testClass<AbstractClassFileToSourceStubConverterTest> {
-                model("converter")
             }
 
             testClass<AbstractIrClassFileToSourceStubConverterTest> {

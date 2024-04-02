@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -44,5 +44,37 @@ public class FirIdeNormalAnalysisScriptSourceModuleCollectDiagnosticsTestGenerat
     @Test
     public void testAllFilesPresentInDiagnostics() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Suppression {
+        @Test
+        public void testAllFilesPresentInSuppression() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("scriptUninitializedTopLevelProperty.kts")
+        public void testScriptUninitializedTopLevelProperty() throws Exception {
+            runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression/scriptUninitializedTopLevelProperty.kts");
+        }
+
+        @Test
+        @TestMetadata("scriptUninitializedTopLevelProperty2.kts")
+        public void testScriptUninitializedTopLevelProperty2() throws Exception {
+            runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression/scriptUninitializedTopLevelProperty2.kts");
+        }
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/when")
+    @TestDataPath("$PROJECT_ROOT")
+    public class When {
+        @Test
+        public void testAllFilesPresentInWhen() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/when"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
     }
 }

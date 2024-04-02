@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.test.directives
 
-import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.config.ApiVersion
+import org.jetbrains.kotlin.config.ExplicitApiMode
+import org.jetbrains.kotlin.config.JvmDefaultMode
+import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 
 object LanguageSettingsDirectives : SimpleDirectivesContainer() {
@@ -49,10 +52,6 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
 
     val IGNORE_DATA_FLOW_IN_ASSERT by directive(
         description = "Enables corresponding analysis flag (AnalysisFlags.ignoreDataFlowInAssert)"
-    )
-
-    val ALLOW_RESULT_RETURN_TYPE by directive(
-        description = "Allow using Result in return type position"
     )
 
     val EXPLICIT_API_MODE by enumDirective(
@@ -99,7 +98,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
     val USE_TYPE_TABLE by directive("Use type table in metadata serialization")
     val NO_NEW_JAVA_ANNOTATION_TARGETS by directive("Do not generate Java annotation targets TYPE_USE/TYPE_PARAMETER for Kotlin annotation classes with Kotlin targets TYPE/TYPE_PARAMETER")
     val OLD_INNER_CLASSES_LOGIC by directive("Use old logic for generation of InnerClasses attributes")
-    val LINK_VIA_SIGNATURES by directive("Use linkage via signatures instead of descriptors / FIR")
+    val LINK_VIA_SIGNATURES_K1 by directive("Use linkage via signatures instead of descriptors on the K1 frontend")
     val ENABLE_JVM_IR_INLINER by directive("Enable inlining on IR, instead of inlining on bytecode")
     val GENERATE_PROPERTY_ANNOTATIONS_METHODS by directive(
         description = "Enables corresponding analysis flag (JvmAnalysisFlags.generatePropertyAnnotationsMethods)"

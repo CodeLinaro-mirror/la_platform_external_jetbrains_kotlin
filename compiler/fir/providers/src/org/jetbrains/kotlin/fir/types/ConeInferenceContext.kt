@@ -14,10 +14,7 @@ import org.jetbrains.kotlin.fir.resolve.createSubstitutionForSupertype
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
-import org.jetbrains.kotlin.fir.resolve.substitution.NoSubstitutor
-import org.jetbrains.kotlin.fir.resolve.substitution.createTypeSubstitutorByTypeConstructor
+import org.jetbrains.kotlin.fir.resolve.substitution.*
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousObjectSymbol
@@ -69,7 +66,7 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
     ): SimpleTypeMarker {
         val attributesList = attributes?.filterIsInstanceTo<ConeAttribute<*>, MutableList<ConeAttribute<*>>>(mutableListOf())
         val coneAttributes: ConeAttributes = if (isExtensionFunction) {
-            require(constructor is ConeClassLikeLookupTag && constructor.isSomeFunctionType(session))
+            require(constructor is ConeClassLikeLookupTag)
             // We don't want to create new instance of ConeAttributes which
             //   contains only CompilerConeAttributes.ExtensionFunctionType
             //   to avoid memory consumption
@@ -95,9 +92,16 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
                 nullable,
                 coneAttributes
             )
+            is ConeIntersectionType -> if (coneAttributes === constructor.attributes) {
+                constructor
+            } else {
+                ConeIntersectionType(
+                    constructor.intersectedTypes.map { it.withAttributes(coneAttributes) },
+                    constructor.alternativeType?.withAttributes(coneAttributes)
+                )
+            }
             else -> error("!")
         }
-
     }
 
     override fun createTypeArgument(type: KotlinTypeMarker, variance: TypeVariance): TypeArgumentMarker {
@@ -196,6 +200,10 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
         if (this is ConeIntersectionType) {
             return this.intersectedTypes.any { it.containsInternal(predicate) }
+        }
+
+        if (this is ConeCapturedType) {
+            return this.constructor.projection.type?.containsInternal(predicate) == true
         }
 
         repeat(argumentsCount()) { index ->
@@ -335,6 +343,13 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         return isProjectionNotNull
     }
 
+    override fun CapturedTypeMarker.hasRawSuperType(): Boolean {
+        require(this is ConeCapturedType)
+        return constructor.supertypes?.any { superType ->
+            superType.contains { it is ConeKotlinType && it.isRaw() }
+        } == true
+    }
+
     override fun DefinitelyNotNullTypeMarker.original(): SimpleTypeMarker {
         require(this is ConeDefinitelyNotNullType)
         return this.original
@@ -349,6 +364,15 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
     override fun createEmptySubstitutor(): ConeSubstitutor {
         return ConeSubstitutor.Empty
+    }
+
+    override fun createSubstitutionFromSubtypingStubTypesToTypeVariables(): TypeSubstitutorMarker {
+        return object : AbstractConeSubstitutor(this) {
+            override fun substituteType(type: ConeKotlinType): ConeKotlinType? {
+                return ((type as? ConeStubTypeForTypeVariableInSubtyping)
+                    ?.constructor?.variable?.defaultType)?.withNullability(type.nullability, this@ConeInferenceContext)
+            }
+        }
     }
 
     override fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker {
@@ -377,8 +401,8 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         return isContainedInInvariantOrContravariantPositions
     }
 
-    override fun createErrorType(debugName: String): ConeErrorType {
-        return ConeErrorType(ConeIntermediateDiagnostic(debugName))
+    override fun createErrorType(debugName: String, delegatedType: SimpleTypeMarker?): ConeErrorType {
+        return ConeErrorType(ConeIntermediateDiagnostic(debugName), delegatedType = delegatedType as ConeKotlinType?)
     }
 
     override fun createUninferredType(constructor: TypeConstructorMarker): KotlinTypeMarker {
@@ -427,9 +451,9 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
     }
 
     override fun TypeConstructorMarker.toErrorType(): SimpleTypeMarker {
-        if (this is ErrorTypeConstructor) return createErrorType(reason)
-        if (this is ConeClassLikeLookupTag) return createErrorType("Not found classifier: $classId")
-        return createErrorType("Unknown reason")
+        if (this is ErrorTypeConstructor) return createErrorType(reason, delegatedType = null)
+        if (this is ConeClassLikeLookupTag) return createErrorType("Not found classifier: $classId", delegatedType = null)
+        return createErrorType("Unknown reason", delegatedType = null)
     }
 
     override fun findCommonIntegerLiteralTypesSuperType(explicitSupertypes: List<SimpleTypeMarker>): SimpleTypeMarker? {

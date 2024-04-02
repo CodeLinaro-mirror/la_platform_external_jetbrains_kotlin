@@ -5,25 +5,48 @@
 
 package org.jetbrains.kotlin.generators.tree
 
+import org.jetbrains.kotlin.generators.tree.printer.braces
 import org.jetbrains.kotlin.types.Variance
+import org.jetbrains.kotlin.utils.addToStdlib.joinToWithBuffer
 import java.util.*
 import kotlin.reflect.KClass
 
-interface TypeRef : Importable {
+interface TypeRef {
+
+    /**
+     * Constructs a new [TypeRef] by recursively replacing referenced [TypeParameterRef]s with other types according to the provided
+     * substitution map.
+     */
+    fun substitute(map: TypeParameterSubstitutionMap): TypeRef
+
+    /**
+     * Prints this type to [appendable] with all its arguments and question marks, while recursively collecting
+     * `this` and other referenced types into the import collector passed as context.
+     */
+    context(ImportCollector)
+    fun renderTo(appendable: Appendable)
+
     object Star : TypeRef {
-        override val type: String
-            get() = "*"
 
-        override val packageName: String?
-            get() = null
+        override fun substitute(map: TypeParameterSubstitutionMap) = this
 
-        override fun getTypeWithArguments(notNull: Boolean): String = type
+        override fun toString(): String = "*"
 
-        override fun toString(): String = type
+        context(ImportCollector)
+        override fun renderTo(appendable: Appendable) {
+            appendable.append(toString())
+        }
     }
 }
 
-interface ClassOrElementRef : TypeRefWithNullability
+/**
+ * Prints this type as a string with all its arguments and question marks, while recursively collecting
+ * `this` and other referenced types into the import collector passed as context.
+ */
+context(ImportCollector)
+fun TypeRef.render(): String = buildString { renderTo(this) }
+
+sealed interface ClassOrElementRef : TypeRefWithNullability, Importable
 
 // Based on com.squareup.kotlinpoet.ClassName
 class ClassRef<P : TypeParameterRef> private constructor(
@@ -48,23 +71,25 @@ class ClassRef<P : TypeParameterRef> private constructor(
     private val names = Collections.unmodifiableList(names)
 
     /** Fully qualified name using `.` as a separator, like `kotlin.collections.Map.Entry`. */
-    val canonicalName: String = if (names[0].isEmpty())
-        names.subList(1, names.size).joinToString(".") else
-        names.joinToString(".")
+    val canonicalName: String = if (names[0].isEmpty()) typeName else names.joinToString(".")
 
     /** Package name, like `"kotlin.collections"` for `Map.Entry`. */
-    override val packageName: String get() = names[0]
+    override val packageName: String
+        get() = names[0]
 
     /** Simple name of this class, like `"Entry"` for `Map.Entry`. */
     val simpleName: String get() = names[names.size - 1]
 
-    override val type: String
-        get() = simpleName
+    override val typeName: String
+        get() = simpleNames.joinToString(separator = ".")
 
-    override val fullQualifiedName: String
-        get() = canonicalName
-
-    override fun getTypeWithArguments(notNull: Boolean): String = type + generics
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        addImport(this)
+        simpleNames.joinTo(appendable, separator = ".")
+        renderArgsTo(appendable)
+        renderNullabilityTo(appendable)
+    }
 
     /**
      * The enclosing classes, outermost first, followed by the simple name. This is `["Map", "Entry"]`
@@ -76,26 +101,123 @@ class ClassRef<P : TypeParameterRef> private constructor(
     override fun copy(nullable: Boolean) = ClassRef(kind, names, args, nullable)
 
     override fun toString() = canonicalName
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ClassRef<*>) return false
+        return kind == other.kind && args == other.args && nullable == other.nullable && names == other.names
+    }
+
+    override fun hashCode(): Int = Objects.hash(kind, args, nullable, names)
 }
 
-sealed interface TypeParameterRef : TypeRef
+/**
+ * Used for specifying a type argument with use-site variance, e.g. `FirClassSymbol<out FirClass>`.
+ */
+data class TypeRefWithVariance<out T : TypeRef>(val variance: Variance, val typeRef: T) : TypeRef {
+
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        if (variance != Variance.INVARIANT) {
+            appendable.append(variance.label)
+            appendable.append(' ')
+        }
+        typeRef.renderTo(appendable)
+    }
+
+    override fun substitute(map: TypeParameterSubstitutionMap): TypeRefWithVariance<*> =
+        TypeRefWithVariance(variance, typeRef.substitute(map))
+}
+
+interface ElementOrRef<Element> : ParametrizedTypeRef<ElementOrRef<Element>, NamedTypeParameterRef>, ClassOrElementRef
+        where Element : AbstractElement<Element, *, *> {
+    val element: Element
+
+    override fun copy(nullable: Boolean): ElementRef<Element>
+}
+
+data class ElementRef<Element : AbstractElement<Element, *, *>>(
+    override val element: Element,
+    override val args: Map<NamedTypeParameterRef, TypeRef> = emptyMap(),
+    override val nullable: Boolean = false,
+) : ElementOrRef<Element> {
+    override fun copy(args: Map<NamedTypeParameterRef, TypeRef>) = ElementRef(element, args, nullable)
+    override fun copy(nullable: Boolean) = ElementRef(element, args, nullable)
+
+    override val typeName: String
+        get() = element.typeName
+
+    override val packageName: String
+        get() = element.packageName
+
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        addImport(element)
+        appendable.append(element.typeName)
+        renderArgsTo(appendable)
+        renderNullabilityTo(appendable)
+    }
+
+    override fun toString() = buildString {
+        append(element.typeName)
+        append("<")
+        append(args)
+        append(">")
+        if (nullable) {
+            append("?")
+        }
+    }
+}
+
+data class Lambda(
+    val receiver: TypeRefWithNullability?,
+    val parameterTypes: List<TypeRefWithNullability> = emptyList(),
+    val returnType: TypeRefWithNullability,
+    override val nullable: Boolean = false,
+) : TypeRefWithNullability {
+    override fun substitute(map: TypeParameterSubstitutionMap) =
+        Lambda(
+            receiver?.substitute(map) as TypeRefWithNullability?,
+            parameterTypes.map { it.substitute(map) as TypeRefWithNullability },
+            returnType.substitute(map) as TypeRefWithNullability,
+            nullable,
+        )
+
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        if (nullable) appendable.append("(")
+        receiver?.let {
+            it.renderTo(appendable)
+            appendable.append('.')
+        }
+        parameterTypes.joinToWithBuffer(appendable, prefix = "(", postfix = ") -> ") { it.renderTo(this) }
+        returnType.renderTo(appendable)
+        if (nullable) appendable.append(")?")
+    }
+
+    override fun copy(nullable: Boolean) = Lambda(receiver, parameterTypes, returnType, nullable)
+}
+
+sealed interface TypeParameterRef : TypeRef, TypeRefWithNullability {
+    override fun substitute(map: TypeParameterSubstitutionMap): TypeRef = map[this] ?: this
+}
 
 data class PositionTypeParameterRef(
     val index: Int,
+    override val nullable: Boolean = false,
 ) : TypeParameterRef {
     override fun toString() = index.toString()
 
-    override val type: String
-        get() = error("Getting type from ${this::class.simpleName} is not supported")
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        renderingIsNotSupported()
+    }
 
-    override val packageName: String?
-        get() = null
-
-    override fun getTypeWithArguments(notNull: Boolean): String = type
+    override fun copy(nullable: Boolean) = PositionTypeParameterRef(index, nullable)
 }
 
 open class NamedTypeParameterRef(
     val name: String,
+    override val nullable: Boolean = false,
 ) : TypeParameterRef {
     override fun equals(other: Any?): Boolean {
         return other is NamedTypeParameterRef && other.name == name
@@ -107,13 +229,13 @@ open class NamedTypeParameterRef(
 
     override fun toString() = name
 
-    override val type: String
-        get() = name
+    context(ImportCollector)
+    override fun renderTo(appendable: Appendable) {
+        appendable.append(name)
+        renderNullabilityTo(appendable)
+    }
 
-    override val packageName: String?
-        get() = null
-
-    override fun getTypeWithArguments(notNull: Boolean) = name
+    final override fun copy(nullable: Boolean) = NamedTypeParameterRef(name, nullable)
 }
 
 interface TypeRefWithNullability : TypeRef {
@@ -122,26 +244,46 @@ interface TypeRefWithNullability : TypeRef {
     fun copy(nullable: Boolean): TypeRefWithNullability
 }
 
-interface ParametrizedTypeRef<Self, P : TypeParameterRef> : TypeRef {
+fun TypeRefWithNullability.renderNullabilityTo(appendable: Appendable) {
+    if (nullable) {
+        appendable.append('?')
+    }
+}
+
+interface ParametrizedTypeRef<Self : ParametrizedTypeRef<Self, P>, P : TypeParameterRef> : TypeRef {
     val args: Map<P, TypeRef>
 
     fun copy(args: Map<P, TypeRef>): Self
+
+    override fun substitute(map: TypeParameterSubstitutionMap): Self =
+        copy(args.mapValues { it.value.substitute(map) })
 }
 
-val ParametrizedTypeRef<*, *>.generics: String
-    get() = if (args.isEmpty()) "" else args.values.joinToString(prefix = "<", postfix = ">") { it.typeWithArguments }
+context(ImportCollector)
+fun ParametrizedTypeRef<*, *>.renderArgsTo(appendable: Appendable) {
+    if (args.isNotEmpty()) {
+        args.values.joinTo(appendable, prefix = "<", postfix = ">") {
+            it.renderTo(appendable)
+            ""
+        }
+    }
+}
 
-fun <T> ParametrizedTypeRef<T, NamedTypeParameterRef>.withArgs(vararg args: Pair<String, TypeRef>) =
-    copy(args.associate { (k, v) -> NamedTypeParameterRef(k) to v })
+typealias TypeParameterSubstitutionMap = Map<out TypeParameterRef, TypeRef>
 
-fun <T> ParametrizedTypeRef<T, PositionTypeParameterRef>.withArgs(vararg args: TypeRef) =
-    copy(args.withIndex().associate { (i, t) -> PositionTypeParameterRef(i) to t })
+fun <Self : ParametrizedTypeRef<Self, NamedTypeParameterRef>> ParametrizedTypeRef<Self, NamedTypeParameterRef>.withArgs(
+    vararg args: Pair<String, TypeRef>
+) = copy(args.associate { (k, v) -> NamedTypeParameterRef(k) to v })
+
+fun <Self : ParametrizedTypeRef<Self, PositionTypeParameterRef>> ParametrizedTypeRef<Self, PositionTypeParameterRef>.withArgs(
+    vararg args: TypeRef
+) = copy(args.withIndex().associate { (i, t) -> PositionTypeParameterRef(i) to t })
 
 
 class TypeVariable(
     name: String,
-    val bounds: List<TypeRef>,
-    val variance: Variance,
+    val bounds: List<TypeRef> = emptyList(),
+    val variance: Variance = Variance.INVARIANT,
 ) : NamedTypeParameterRef(name)
 
 fun <P : TypeParameterRef> KClass<*>.asRef(): ClassRef<P> {
@@ -161,3 +303,22 @@ inline fun <reified T : Any> type(vararg args: TypeRef) = T::class.asRef<Positio
 
 fun type(packageName: String, name: String, kind: TypeKind = TypeKind.Interface) =
     ClassRef<PositionTypeParameterRef>(kind, packageName, name)
+
+val ClassOrElementRef.typeKind: TypeKind
+    get() = when (this) {
+        is ElementOrRef<*> -> element.kind!!.typeKind
+        is ClassRef<*> -> kind
+    }
+
+fun ClassOrElementRef.inheritanceClauseParenthesis(): String = when (this) {
+    is ElementOrRef<*> -> element.kind.braces()
+    is ClassRef<*> -> when (kind) {
+        TypeKind.Class -> "()"
+        TypeKind.Interface -> ""
+    }
+}
+
+val TypeRef.nullable: Boolean
+    get() = (this as? TypeRefWithNullability)?.nullable ?: false
+
+fun TypeRef.renderingIsNotSupported(): Nothing = error("Rendering is not supported for ${this::class.simpleName}")

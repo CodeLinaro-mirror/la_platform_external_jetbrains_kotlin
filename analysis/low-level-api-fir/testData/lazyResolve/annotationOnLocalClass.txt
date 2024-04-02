@@ -1,12 +1,12 @@
 RAW_FIR:
 FILE: [ResolvedTo(RAW_FIR)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -19,13 +19,13 @@ FILE: [ResolvedTo(RAW_FIR)] annotationOnLocalClass.kt
 
 IMPORTS:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -38,13 +38,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 COMPILER_REQUIRED_ANNOTATIONS:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -57,13 +57,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 COMPANION_GENERATION:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -76,13 +76,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 SUPER_TYPES:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -95,13 +95,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 TYPES:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -114,13 +114,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 STATUS:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -133,13 +133,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 EXPECT_ACTUAL_MATCHING:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -150,34 +150,15 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
     }
     public final [ResolvedTo(EXPECT_ACTUAL_MATCHING)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
-ARGUMENTS_OF_ANNOTATIONS:
-FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
-        public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
-            LAZY_super<R|kotlin/Any|>
-        }
-
-    }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
-        public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
-            LAZY_super<R|kotlin/Any|>
-        }
-
-        public? final? [ResolvedTo(RAW_FIR)] [IsFromPrimaryConstructor=true] val s: AnotherAnnotation = R|<local>/s|
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] get(): AnotherAnnotation
-
-    }
-    public final [ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
-
 CONTRACTS:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -198,13 +179,13 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
 IMPLICIT_TYPES_BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -223,15 +204,15 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
 
     }
 
-ANNOTATIONS_ARGUMENTS_MAPPING:
+ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
-    public? final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class AnotherAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherAnnotation] constructor(): R|one/two/AnotherAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public? final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
+    public final? [ResolvedTo(RAW_FIR)] annotation class KotlinAnnotation : R|kotlin/Annotation| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] constructor([ResolvedTo(RAW_FIR)] [CorrespondingProperty=one/two/KotlinAnnotation.s] s: AnotherAnnotation): R|one/two/KotlinAnnotation| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -240,7 +221,7 @@ FILE: [ResolvedTo(IMPORTS)] annotationOnLocalClass.kt
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=KotlinAnnotation] get(): AnotherAnnotation
 
     }
-    public final [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] fun resolveMe(): R|kotlin/Unit| {
+    public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun resolveMe(): R|kotlin/Unit| {
         @KotlinAnnotation[Unresolved](AnotherAnnotation#()) local final? [ResolvedTo(RAW_FIR)] class LocalClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
                 super<R|kotlin/Any|>()

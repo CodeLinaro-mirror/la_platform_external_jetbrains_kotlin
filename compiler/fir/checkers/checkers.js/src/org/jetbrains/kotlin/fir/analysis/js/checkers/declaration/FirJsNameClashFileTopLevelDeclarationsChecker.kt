@@ -7,16 +7,20 @@ package org.jetbrains.kotlin.fir.analysis.js.checkers.declaration
 
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirFileChecker
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors
 import org.jetbrains.kotlin.fir.analysis.js.checkers.FirJsStableName
 import org.jetbrains.kotlin.fir.analysis.js.checkers.collectNameClashesWith
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirClass
+import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
+import org.jetbrains.kotlin.fir.declarations.constructors
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 
-object FirJsNameClashFileTopLevelDeclarationsChecker : FirFileChecker() {
+object FirJsNameClashFileTopLevelDeclarationsChecker : FirFileChecker(MppCheckerKind.Common) {
     private fun MutableMap<String, MutableList<FirJsStableName>>.addStableName(
         symbol: FirBasedSymbol<*>,
         context: CheckerContext
@@ -34,18 +38,7 @@ object FirJsNameClashFileTopLevelDeclarationsChecker : FirFileChecker() {
     override fun check(declaration: FirFile, context: CheckerContext, reporter: DiagnosticReporter) {
         val topLevelDeclarationsWithStableName = mutableMapOf<String, MutableList<FirJsStableName>>()
         for (topLevelDeclaration in declaration.declarations) {
-            if (topLevelDeclaration is FirTypeAlias) {
-                // Skip type aliases since they cannot be external, cannot be exported to JavaScript, and cannot be marked with @JsName.
-                // Furthermore, in the generated JavaScript code, all type alias declarations are removed,
-                // and their usages are replaced with the aliased types.
-                continue
-            }
             topLevelDeclarationsWithStableName.addStableName(topLevelDeclaration.symbol, context)
-            if (topLevelDeclaration is FirClass) {
-                for (classConstructor in topLevelDeclaration.constructors(context.session)) {
-                    topLevelDeclarationsWithStableName.addStableName(classConstructor, context)
-                }
-            }
         }
         for ((name, stableNames) in topLevelDeclarationsWithStableName.entries) {
             for (symbol in stableNames) {

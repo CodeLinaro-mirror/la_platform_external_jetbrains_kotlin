@@ -9,6 +9,8 @@ plugins {
     // HACK: java plugin makes idea import dependencies on this project as source (with empty sources however),
     // this prevents reindexing of kotlin-compiler.jar after build on every change in compiler modules
     `java-library`
+    // required to disambiguate attributes of non-jvm Kotlin libraries
+    kotlin("jvm")
 }
 
 
@@ -50,6 +52,9 @@ val libraries by configurations.creating {
 
 val librariesStripVersion by configurations.creating
 
+// for sbom only
+val librariesKotlinTest by configurations.creating
+
 // Compiler plugins should be copied without `kotlin-` prefix
 val compilerPlugins by configurations.creating {
     exclude("org.jetbrains.kotlin", "kotlin-stdlib-common")
@@ -80,8 +85,6 @@ val buildNumber by configurations.creating
 
 val compilerBaseName = name
 
-val outputJar = fileFrom(buildDir, "libs", "$compilerBaseName.jar")
-
 val compilerModules: Array<String> by rootProject.extra
 
 val distLibraryProjects = listOfNotNull(
@@ -107,10 +110,6 @@ val distLibraryProjects = listOfNotNull(
     ":kotlin-scripting-compiler-impl",
     ":kotlin-scripting-jvm",
     ":js:js.engines",
-    ":kotlin-test:kotlin-test-junit",
-    ":kotlin-test:kotlin-test-junit5",
-    ":kotlin-test:kotlin-test-jvm",
-    ":kotlin-test:kotlin-test-testng",
     ":libraries:tools:mutability-annotations-compat",
     ":plugins:android-extensions-compiler",
     ":plugins:jvm-abi-gen"
@@ -122,6 +121,7 @@ val distCompilerPluginProjects = listOf(
     ":plugins:parcelize:parcelize-compiler",
     ":plugins:parcelize:parcelize-runtime",
     ":kotlin-noarg-compiler-plugin",
+    ":kotlin-power-assert-compiler-plugin",
     ":kotlin-sam-with-receiver-compiler-plugin",
     ":kotlinx-serialization-compiler-plugin",
     ":kotlin-lombok-compiler-plugin",
@@ -135,9 +135,6 @@ val distCompilerPluginProjectsCompat = listOf(
 val distSourcesProjects = listOfNotNull(
     ":kotlin-annotations-jvm",
     ":kotlin-script-runtime",
-    ":kotlin-test:kotlin-test-junit",
-    ":kotlin-test:kotlin-test-junit5",
-    ":kotlin-test:kotlin-test-testng"
 )
 
 configurations.all {
@@ -164,11 +161,10 @@ dependencies {
         }
 
     libraries(kotlinStdlib("jdk8"))
+    librariesKotlinTest(kotlinTest("junit"))
     if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         libraries(kotlinStdlib(classifier = "distJsJar"))
         libraries(kotlinStdlib(classifier = "distJsKlib"))
-        libraries(project(":kotlin-test:kotlin-test-js-ir", configuration = "jsRuntimeElements"))
-        libraries(project(":kotlin-test:kotlin-test-js-ir", configuration = "jsLegacyRuntimeElements"))
     }
 
     librariesStripVersion(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-core")) { isTransitive = false }
@@ -208,8 +204,6 @@ dependencies {
         sources(project(":kotlin-stdlib", configuration = "distSources"))
         sources(project(":kotlin-stdlib", configuration = "distJsSourcesJar"))
         sources(project(":kotlin-reflect", configuration = "sources"))
-        sources(project(":kotlin-test", "combinedJvmSourcesJar"))
-        sources(project(":kotlin-test:kotlin-test-js-ir", configuration = "jsSourcesElements"))
 
         distStdlibMinimalForTests(project(":kotlin-stdlib-jvm-minimal-for-test"))
 
@@ -251,18 +245,26 @@ dependencies {
     fatJarContentsStripVersions(commonDependency("one.util:streamex")) { isTransitive = false }
 }
 
+val librariesKotlinTestFiles = files(
+    listOf(null, "junit", "junit5", "testng", "js").map { suffix ->
+        listOf(null, "sources").map { classifier ->
+            configurations.detachedConfiguration(dependencies.create(kotlinTest(suffix, classifier))).apply { isTransitive = false }
+        }
+    }
+)
+
 publish()
 
 // sbom for dist
 val distSbomTask = configureSbom(
     target = "Dist",
     documentName = "Kotlin Compiler Distribution",
-    setOf(configurations.runtimeClasspath.name, libraries.name, librariesStripVersion.name, compilerPlugins.name)
+    setOf(configurations.runtimeClasspath.name, libraries.name, librariesKotlinTest.name, librariesStripVersion.name, compilerPlugins.name)
 )
 
 val packCompiler by task<Jar> {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    destinationDirectory.set(File(buildDir, "libs"))
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
     archiveClassifier.set("before-proguard")
 
     dependsOn(fatJarContents)
@@ -313,10 +315,10 @@ val proguard by task<CacheableProguardTask> {
             **.class,**.properties,**.kt,**.kotlin_*,**.jnilib,**.so,**.dll,**.txt,**.caps,
             META-INF/services/**,META-INF/native/**,META-INF/extensions/**,META-INF/MANIFEST.MF,
             messages/**""".trimIndent()),
-        provider { packCompiler.get().outputs.files.singleFile }
+        packCompiler.map { it.outputs.files.singleFile }
     )
 
-    outjars(fileFrom(buildDir, "libs", "$compilerBaseName-after-proguard.jar"))
+    outjars(layout.buildDirectory.file("libs/$compilerBaseName-after-proguard.jar"))
 
     libraryjars(mapOf("filter" to "!META-INF/versions/**"), proguardLibraries)
     libraryjars(
@@ -341,10 +343,10 @@ val proguard by task<CacheableProguardTask> {
         )
     )
 
-    printconfiguration("$buildDir/compiler.pro.dump")
+    printconfiguration(layout.buildDirectory.file("compiler.pro.dump"))
 }
 
-val pack = if (kotlinBuildProperties.proguard) proguard else packCompiler
+val pack: TaskProvider<out DefaultTask> = if (kotlinBuildProperties.proguard) proguard else packCompiler
 val distDir: String by rootProject.extra
 
 val jar = runtimeJar {
@@ -352,7 +354,7 @@ val jar = runtimeJar {
     dependsOn(compilerVersion)
 
     from {
-        zipTree(pack.get().singleOutputFile())
+        pack.map { zipTree(it.singleOutputFile(layout)) }
     }
 
     from {
@@ -400,6 +402,7 @@ val distKotlinc = distTask<Sync>("distKotlinc") {
     into("lib") {
         from(jarFiles) { rename { "$compilerBaseName.jar" } }
         from(librariesFiles)
+        from(librariesKotlinTestFiles)
         from(librariesStripVersionFiles) {
             rename {
                 it.replace(Regex("-\\d.*\\.jar\$"), ".jar")

@@ -6,14 +6,13 @@
 package org.jetbrains.kotlin.js.test.converters
 
 import org.jetbrains.kotlin.backend.common.CommonKLibResolver
+import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
-import org.jetbrains.kotlin.ir.backend.js.resolverLogger
 import org.jetbrains.kotlin.ir.backend.js.serializeModuleIntoKlib
-import org.jetbrains.kotlin.ir.util.IrMessageLogger
 import org.jetbrains.kotlin.js.test.utils.JsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.library.KotlinAbiVersion
@@ -61,9 +60,8 @@ class FirJsKlibBackendFacade(
             serializeModuleIntoKlib(
                 configuration[CommonConfigurationKeys.MODULE_NAME]!!,
                 configuration,
-                configuration.get(IrMessageLogger.IR_MESSAGE_LOGGER) ?: IrMessageLogger.None,
                 inputArtifact.diagnosticReporter,
-                inputArtifact.sourceFiles,
+                inputArtifact.metadataSerializer,
                 klibPath = outputFile,
                 libraries.map { it.library },
                 inputArtifact.irModuleFragment,
@@ -73,15 +71,13 @@ class FirJsKlibBackendFacade(
                 containsErrorCode = inputArtifact.hasErrors,
                 abiVersion = KotlinAbiVersion.CURRENT, // TODO get from test file data
                 jsOutputName = null
-            ) {
-                inputArtifact.serializeSingleFile(it, inputArtifact.irActualizerResult)
-            }
+            )
         }
 
         // TODO: consider avoiding repeated libraries resolution
         val lib = CommonKLibResolver.resolve(
             getAllJsDependenciesPaths(module, testServices) + listOf(outputFile),
-            configuration.resolverLogger
+            configuration.getLogger(treatWarningsAsErrors = true)
         ).getFullResolvedList().last().library
 
         val moduleDescriptor = JsFactories.DefaultDeserializedDescriptorFactory.createDescriptorOptionalBuiltIns(

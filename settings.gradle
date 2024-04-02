@@ -26,6 +26,13 @@ plugins {
 }
 
 def buildProperties = BuildPropertiesKt.getKotlinBuildPropertiesForSettings(settings)
+if (buildProperties.isKotlinNativeEnabled && startParameter.isConfigurationCacheRequested()) {
+    throw new Exception(
+            """
+            Kotlin Native is not compatible with Gradle configuration-cache.
+            Please, disable Configuration-cache before you enable native.
+            """.stripIndent())
+}
 
 // modules
 include ":benchmarks",
@@ -66,6 +73,7 @@ include ":benchmarks",
         ":compiler:ir.ir2cfg",
         ":compiler:ir.objcinterop",
         ":compiler:ir.backend.common",
+        ":compiler:ir.actualization",
         ":compiler:ir.serialization.common",
         ":compiler:ir.serialization.jvm",
         ":compiler:ir.serialization.js",
@@ -109,10 +117,16 @@ include ":benchmarks",
         ":native:kotlin-klib-commonizer-api",
         ":native:kotlin-klib-commonizer-embeddable",
         ":native:executors",
+        ":native:base",
+        ":native:objcexport-header-generator",
+        ":native:objcexport-header-generator-k1",
+        ":native:objcexport-header-generator-analysis-api",
         ":core:compiler.common",
         ":core:compiler.common.jvm",
         ":core:compiler.common.js",
         ":core:compiler.common.native",
+        ":core:compiler.common.wasm",
+        ":core:compiler.common.web",
         ":compiler:backend.common.jvm",
         ":core:descriptors",
         ":core:descriptors.jvm",
@@ -147,6 +161,11 @@ include ":kotlin-noarg-compiler-plugin",
         ":kotlin-noarg-compiler-plugin.backend",
         ":kotlin-noarg-compiler-plugin.cli"
 
+include ":kotlin-power-assert-compiler-plugin",
+        ":kotlin-power-assert-compiler-plugin.embeddable",
+        ":kotlin-power-assert-compiler-plugin.backend",
+        ":kotlin-power-assert-compiler-plugin.cli"
+
 include ":kotlin-sam-with-receiver-compiler-plugin",
         ":kotlin-sam-with-receiver-compiler-plugin.embeddable",
         ":kotlin-sam-with-receiver-compiler-plugin.common",
@@ -166,12 +185,6 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":plugins:fir-plugin-prototype",
         ":plugins:fir-plugin-prototype:plugin-annotations",
         ":plugins:fir-plugin-prototype:fir-plugin-ic-test",
-        ":kotlin-test:kotlin-test-common",
-        ":kotlin-test:kotlin-test-annotations-common",
-        ":kotlin-test:kotlin-test-jvm",
-        ":kotlin-test:kotlin-test-junit",
-        ":kotlin-test:kotlin-test-junit5",
-        ":kotlin-test:kotlin-test-testng",
         ":kotlin-test-js-runner",
         ":kotlinx-metadata",
         ":kotlinx-metadata-jvm",
@@ -193,6 +206,7 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":generators:test-generator",
         ":generators:tree-generator-common",
         ":tools:kotlinp",
+        ":tools:kotlinp-jvm",
         ":kotlin-build-tools-enum-compat",
         ":kotlin-gradle-compiler-types",
         ":kotlin-gradle-plugin-api",
@@ -216,15 +230,16 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":gradle:kotlin-compiler-args-properties",
         ":gradle:regression-benchmark-templates",
         ":gradle:regression-benchmarks",
+        ":libraries:tools:gradle:fus-statistics-gradle-plugin",
         ":kotlin-tooling-metadata",
         ":kotlin-tooling-core",
         ":kotlin-allopen",
         ":kotlin-noarg",
+        ":kotlin-power-assert",
         ":kotlin-sam-with-receiver",
         ":kotlin-assignment",
         ":kotlin-gradle-subplugin-example",
         ":examples:annotation-processor-example",
-        ":kotlin-script-util",
         ":kotlin-annotation-processing",
         ":kotlin-annotation-processing-cli",
         ":kotlin-annotation-processing-base",
@@ -268,13 +283,26 @@ include ":kotlin-imports-dumper-compiler-plugin",
         ":wasm:wasm.frontend",
         ":wasm:wasm.config",
         ":repo:codebase-tests",
-        ":repo:artifacts-tests",
-        ":prepare:kotlin-gradle-plugin-compiler-dependencies"
+        ":repo:artifacts-tests"
+
+include ":libraries:tools:abi-comparator"
 
 include ":kotlin-atomicfu-compiler-plugin",
         ":kotlin-atomicfu-compiler-plugin-embeddable",
         ":kotlinx-atomicfu-runtime",
         ":atomicfu"
+
+include ":plugins:js-plain-objects:compiler-plugin",
+        ":plugins:js-plain-objects:compiler-plugin-embeddable",
+        ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.common",
+        ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.k2",
+        ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.backend",
+        ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.cli"
+
+if (!buildProperties.inJpsBuildIdeaSync) {
+    include ":plugins:js-plain-objects:runtime",
+            ":libraries:tools:js-plain-objects"
+}
 
 include ":compiler:fir",
         ":compiler:fir:cones",
@@ -299,6 +327,8 @@ include ":compiler:fir",
         ":compiler:fir:checkers:checkers.jvm",
         ":compiler:fir:checkers:checkers.js",
         ":compiler:fir:checkers:checkers.native",
+        ":compiler:fir:checkers:checkers.wasm",
+        ":compiler:fir:checkers:checkers.web.common",
         ":compiler:fir:checkers:checkers-component-generator",
         ":compiler:fir:entrypoint",
         ":compiler:fir:analysis-tests",
@@ -348,7 +378,6 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:incremental-compilation-impl-tests-for-ide",
             ":prepare:ide-plugin-dependencies:js-ir-runtime-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-build-common-tests-for-ide",
-            ":prepare:ide-plugin-dependencies:kotlin-compiler-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-compiler-cli-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-dist-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-gradle-statistics-for-ide",
@@ -362,10 +391,9 @@ if (!buildProperties.inJpsBuildIdeaSync) {
             ":prepare:ide-plugin-dependencies:assignment-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:parcelize-compiler-plugin-for-ide",
             ":prepare:ide-plugin-dependencies:lombok-compiler-plugin-for-ide",
-            ":prepare:ide-plugin-dependencies:kotlin-backend-native-for-ide",
+            ":prepare:ide-plugin-dependencies:kotlin-objcexport-header-generator-for-ide",
             ":prepare:ide-plugin-dependencies:tests-common-tests-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-compiler-testdata-for-ide",
-            ":prepare:ide-plugin-dependencies:kotlin-stdlib-minimal-for-test-for-ide",
             ":prepare:ide-plugin-dependencies:kotlin-compiler-tests-for-ide",
             ":prepare:ide-plugin-dependencies:low-level-api-fir-for-ide",
             ":prepare:ide-plugin-dependencies:high-level-api-for-ide",
@@ -391,9 +419,20 @@ include ":compiler:build-tools:kotlin-build-tools-api",
 
 // Experimental modules, should be placed into plugins/compose-compiler-plugin folder
 include ":plugins:compose-compiler-plugin:compiler",
+        ":plugins:compose-compiler-plugin:compiler:integration-tests",
         ":plugins:compose-compiler-plugin:compiler-hosted",
-        ":plugins:compose-compiler-plugin:compiler-daemon",
-        ":plugins:compose-compiler-plugin:compiler-daemon:integration-tests"
+        ":plugins:compose-compiler-plugin:testutils-gradle-plugin",
+        ":plugins:compose-compiler-plugin:compiler-daemon", // Should be removed after a while
+        ":plugins:compose-compiler-plugin:compiler-daemon:integration-tests" // Should be removed after a while
+
+// Swift Export modules
+include ":native:swift:sir",
+        ":native:swift:sir:tree-generator",
+        ":native:swift:sir-passes",
+        ":native:swift:sir-printer",
+        ":native:swift:sir-compiler-bridge",
+        ":native:swift:swift-export-standalone",
+        ":generators:sir-tests-generator"
 
 void intellij(String imlPath) {
     File imlFile = new File("${rootDir}/intellij/community/plugins/kotlin/${imlPath}")
@@ -550,6 +589,7 @@ include ":jps:jps-common",
 include ":generators:analysis-api-generator",
         ":analysis",
         ":analysis:low-level-api-fir",
+        ":analysis:low-level-api-fir:tests-jdk11",
         ":analysis:analysis-api-fir:analysis-api-fir-generator",
         ":analysis:analysis-api-fir",
         ":analysis:analysis-api",
@@ -570,10 +610,18 @@ include ":generators:analysis-api-generator",
         ":analysis:decompiled:decompiler-to-psi",
         ":analysis:decompiled:decompiler-to-stubs",
         ":analysis:decompiled:decompiler-to-file-stubs",
-        ":analysis:decompiled:native",
+        ":analysis:decompiled:decompiler-js",
+        ":analysis:decompiled:decompiler-native",
         ":analysis:decompiled:light-classes-for-decompiled",
         ":analysis:decompiled:light-classes-for-decompiled-fe10",
-        ":prepare:analysis-api-test-framework"
+        ":prepare:analysis-api-test-framework",
+        ":tools:ide-plugin-dependencies-validator"
+
+if (buildProperties.isKotlinNativeEnabled) {
+    include ":generators:analysis-api-generator:generator-kotlin-native",
+            ":analysis:low-level-api-fir:low-level-api-fir-native",
+            ":analysis:analysis-api-standalone:analysis-api-standalone-native"
+}
 
 
 if (buildProperties.inJpsBuildIdeaSync) {
@@ -586,9 +634,6 @@ if (buildProperties.inJpsBuildIdeaSync) {
             ":kotlin-stdlib",
             ":kotlin-dom-api-compat",
             ":kotlin-stdlib-js-ir-minimal-for-test",
-            ":kotlin-stdlib-wasm",
-            ":kotlin-stdlib-wasm-js",
-            ":kotlin-stdlib-wasm-wasi",
             ":kotlin-stdlib-jdk7",
             ":kotlin-stdlib-jdk8",
             ":kotlin-stdlib:samples",
@@ -598,18 +643,12 @@ if (buildProperties.inJpsBuildIdeaSync) {
             ":tools:kotlin-stdlib-gen",
 
             ":kotlin-test",
-            ":kotlin-test:kotlin-test-js-ir",
-            ":kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it",
-            ":kotlin-test:kotlin-test-wasm-js",
-            ":kotlin-test:kotlin-test-wasm-wasi",
+            ":kotlin-test:kotlin-test-js-it",
             ":native:native.tests"
 
     project(':kotlin-stdlib-common').projectDir = "$rootDir/libraries/stdlib/common" as File
     project(':kotlin-stdlib').projectDir = "$rootDir/libraries/stdlib" as File
     project(':kotlin-dom-api-compat').projectDir = "$rootDir/libraries/kotlin-dom-api-compat" as File
-    project(':kotlin-stdlib-wasm').projectDir = "$rootDir/libraries/stdlib/wasm" as File
-    project(':kotlin-stdlib-wasm-js').projectDir = "$rootDir/libraries/stdlib/wasm/js" as File
-    project(':kotlin-stdlib-wasm-wasi').projectDir = "$rootDir/libraries/stdlib/wasm/wasi" as File
     project(':kotlin-stdlib-js-ir-minimal-for-test').projectDir = "$rootDir/libraries/stdlib/js-ir-minimal-for-test" as File
     project(':kotlin-stdlib-jdk7').projectDir = "$rootDir/libraries/stdlib/jdk7" as File
     project(':kotlin-stdlib-jdk8').projectDir = "$rootDir/libraries/stdlib/jdk8" as File
@@ -619,12 +658,10 @@ if (buildProperties.inJpsBuildIdeaSync) {
     project(':tools:binary-compatibility-validator').projectDir = "$rootDir/libraries/tools/binary-compatibility-validator" as File
     project(':tools:jdk-api-validator').projectDir = "$rootDir/libraries/tools/jdk-api-validator" as File
     project(':tools:kotlin-stdlib-gen').projectDir = "$rootDir/libraries/tools/kotlin-stdlib-gen" as File
+    project(':tools:ide-plugin-dependencies-validator').projectDir = "$rootDir/libraries/tools/ide-plugin-dependencies-validator" as File
 
     project(':kotlin-test').projectDir = "$rootDir/libraries/kotlin.test" as File
-    project(':kotlin-test:kotlin-test-js-ir').projectDir = "$rootDir/libraries/kotlin.test/js-ir" as File
-    project(':kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it').projectDir = "$rootDir/libraries/kotlin.test/js-ir/it" as File
-    project(':kotlin-test:kotlin-test-wasm-js').projectDir = "$rootDir/libraries/kotlin.test/wasm/js" as File
-    project(':kotlin-test:kotlin-test-wasm-wasi').projectDir = "$rootDir/libraries/kotlin.test/wasm/wasi" as File
+    project(':kotlin-test:kotlin-test-js-it').projectDir = "$rootDir/libraries/kotlin.test/js/it" as File
     project(':native:native.tests').projectDir = "$rootDir/native/native.tests" as File
 }
 include ":compiler:android-tests"
@@ -632,12 +669,6 @@ include ":compiler:android-tests"
 rootProject.name = "kotlin"
 
 project(':kotlin-script-runtime').projectDir = "$rootDir/libraries/tools/script-runtime" as File
-project(':kotlin-test:kotlin-test-common').projectDir = "$rootDir/libraries/kotlin.test/common" as File
-project(':kotlin-test:kotlin-test-annotations-common').projectDir = "$rootDir/libraries/kotlin.test/annotations-common" as File
-project(':kotlin-test:kotlin-test-jvm').projectDir = "$rootDir/libraries/kotlin.test/jvm" as File
-project(':kotlin-test:kotlin-test-junit').projectDir = "$rootDir/libraries/kotlin.test/junit" as File
-project(':kotlin-test:kotlin-test-junit5').projectDir = "$rootDir/libraries/kotlin.test/junit5" as File
-project(':kotlin-test:kotlin-test-testng').projectDir = "$rootDir/libraries/kotlin.test/testng" as File
 project(':kotlin-test-js-runner').projectDir = "$rootDir/libraries/tools/kotlin-test-js-runner" as File
 project(':kotlin-reflect').projectDir = "$rootDir/libraries/reflect" as File
 project(':kotlin-reflect-api').projectDir = "$rootDir/libraries/reflect/api" as File
@@ -666,6 +697,7 @@ project(':compiler:ir.psi2ir').projectDir = "$rootDir/compiler/ir/ir.psi2ir" as 
 project(':compiler:ir.ir2cfg').projectDir = "$rootDir/compiler/ir/ir.ir2cfg" as File
 project(':compiler:ir.objcinterop').projectDir = "$rootDir/compiler/ir/ir.objcinterop" as File
 project(':compiler:ir.backend.common').projectDir = "$rootDir/compiler/ir/backend.common" as File
+project(':compiler:ir.actualization').projectDir = "$rootDir/compiler/ir/ir.actualization" as File
 project(':compiler:backend.js').projectDir = "$rootDir/compiler/ir/backend.js" as File
 project(':compiler:backend.wasm').projectDir = "$rootDir/compiler/ir/backend.wasm" as File
 project(':compiler:backend.jvm').projectDir = "$rootDir/compiler/ir/backend.jvm" as File
@@ -686,6 +718,8 @@ project(':native:frontend.native').projectDir = "$rootDir/native/frontend" as Fi
 project(':native:kotlin-klib-commonizer').projectDir = "$rootDir/native/commonizer" as File
 project(":native:kotlin-klib-commonizer-api").projectDir = "$rootDir/native/commonizer-api" as File
 project(':native:kotlin-klib-commonizer-embeddable').projectDir = "$rootDir/native/commonizer-embeddable" as File
+project(':native:objcexport-header-generator-k1').projectDir = "$rootDir/native/objcexport-header-generator/impl/k1" as File
+project(':native:objcexport-header-generator-analysis-api').projectDir = "$rootDir/native/objcexport-header-generator/impl/analysis-api" as File
 project(':plugins:android-extensions-compiler').projectDir = "$rootDir/plugins/android-extensions/android-extensions-compiler" as File
 project(':kotlin-android-extensions').projectDir = "$rootDir/prepare/android-extensions-compiler-gradle" as File
 project(':kotlin-parcelize-compiler').projectDir = "$rootDir/prepare/parcelize-compiler-gradle" as File
@@ -713,6 +747,11 @@ project(':kotlin-noarg-compiler-plugin.k2').projectDir = "$rootDir/plugins/noarg
 project(':kotlin-noarg-compiler-plugin.backend').projectDir = "$rootDir/plugins/noarg/noarg.backend" as File
 project(':kotlin-noarg-compiler-plugin.cli').projectDir = "$rootDir/plugins/noarg/noarg.cli" as File
 
+project(':kotlin-power-assert-compiler-plugin').projectDir = "$rootDir/plugins/power-assert" as File
+project(':kotlin-power-assert-compiler-plugin.embeddable').projectDir = "$rootDir/plugins/power-assert/power-assert.embeddable" as File
+project(':kotlin-power-assert-compiler-plugin.backend').projectDir = "$rootDir/plugins/power-assert/power-assert.backend" as File
+project(':kotlin-power-assert-compiler-plugin.cli').projectDir = "$rootDir/plugins/power-assert/power-assert.cli" as File
+
 project(':kotlin-sam-with-receiver-compiler-plugin').projectDir = "$rootDir/plugins/sam-with-receiver" as File
 project(':kotlin-sam-with-receiver-compiler-plugin.embeddable').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.embeddable" as File
 project(':kotlin-sam-with-receiver-compiler-plugin.common').projectDir = "$rootDir/plugins/sam-with-receiver/sam-with-receiver.common" as File
@@ -728,6 +767,7 @@ project(':kotlin-assignment-compiler-plugin.cli').projectDir = "$rootDir/plugins
 project(':kotlin-assignment-compiler-plugin.embeddable').projectDir = "$rootDir/plugins/assign-plugin/assign-plugin.embeddable" as File
 
 project(':tools:kotlinp').projectDir = "$rootDir/libraries/tools/kotlinp" as File
+project(':tools:kotlinp-jvm').projectDir = "$rootDir/libraries/tools/kotlinp/jvm" as File
 project(":kotlin-build-tools-enum-compat").projectDir = "$rootDir/libraries/tools/kotlin-build-tools-enum-compat" as File
 project(':kotlin-gradle-compiler-types').projectDir = "$rootDir/libraries/tools/kotlin-gradle-compiler-types" as File
 project(':kotlin-gradle-plugin-api').projectDir = "$rootDir/libraries/tools/kotlin-gradle-plugin-api" as File
@@ -754,12 +794,12 @@ project(':kotlin-tooling-metadata').projectDir = "$rootDir/libraries/tools/kotli
 project(':kotlin-tooling-core').projectDir = "$rootDir/libraries/tools/kotlin-tooling-core" as File
 project(':kotlin-allopen').projectDir = "$rootDir/libraries/tools/kotlin-allopen" as File
 project(':kotlin-noarg').projectDir = "$rootDir/libraries/tools/kotlin-noarg" as File
+project(':kotlin-power-assert').projectDir = "$rootDir/libraries/tools/kotlin-power-assert" as File
 project(':kotlin-sam-with-receiver').projectDir = "$rootDir/libraries/tools/kotlin-sam-with-receiver" as File
 project(':kotlin-assignment').projectDir = "$rootDir/libraries/tools/kotlin-assignment" as File
 project(':kotlin-lombok').projectDir = "$rootDir/libraries/tools/kotlin-lombok" as File
 project(':kotlin-gradle-subplugin-example').projectDir = "$rootDir/libraries/examples/kotlin-gradle-subplugin-example" as File
 project(':examples:annotation-processor-example').projectDir = "$rootDir/libraries/examples/annotation-processor-example" as File
-project(':kotlin-script-util').projectDir = "$rootDir/libraries/tools/kotlin-script-util" as File
 project(':kotlin-annotation-processing-embeddable').projectDir = "$rootDir/plugins/kapt3/kotlin-annotation-processing-embeddable" as File
 project(':kotlin-daemon-embeddable').projectDir = "$rootDir/prepare/kotlin-daemon-embeddable" as File
 project(':kotlin-annotation-processing-compiler').projectDir = "$rootDir/plugins/kapt3/kapt3-compiler" as File
@@ -837,7 +877,6 @@ if (buildProperties.isKotlinNativeEnabled) {
     include ':kotlin-native:Interop:Indexer'
     include ':kotlin-native:Interop:JsRuntime'
     include ':kotlin-native:Interop:Skia'
-    include ':kotlin-native:utilities:basic-utils'
     include ':kotlin-native:utilities:cli-runner'
     include ':kotlin-native:klib'
     include ':kotlin-native:common'
@@ -848,6 +887,6 @@ if (buildProperties.isKotlinNativeEnabled) {
     include ':kotlin-native:platformLibs'
     include ':kotlin-native:libclangext'
     include ':kotlin-native:backend.native:tests'
-    include ":kotlin-native-compiler-embeddable"
-    project(":kotlin-native-compiler-embeddable").projectDir = "$rootDir/kotlin-native/prepare/kotlin-native-embeddable-compiler" as File
+    include ':kotlin-native:prepare:kotlin-native-compiler-embeddable'
+    include ':native:kotlin-test-native-xctest'
 }

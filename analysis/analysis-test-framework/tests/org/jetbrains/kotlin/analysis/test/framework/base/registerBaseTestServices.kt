@@ -9,15 +9,16 @@ import com.intellij.openapi.Disposable
 import org.jetbrains.kotlin.analysis.test.framework.AnalysisApiTestDirectives
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.AnalysisApiKtModuleProvider
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.AnalysisApiKtModuleProviderImpl
+import org.jetbrains.kotlin.analysis.test.framework.project.structure.AnalysisApiTestCodeFragmentDirectives
 import org.jetbrains.kotlin.analysis.test.framework.services.*
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.test.ExecutionListenerBasedDisposableProvider
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
-import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.services.ApplicationDisposableProvider
 import org.jetbrains.kotlin.test.services.KotlinStandardLibrariesPathProvider
 import org.jetbrains.kotlin.test.services.StandardLibrariesPathProviderForKotlinProject
+import org.jetbrains.kotlin.utils.bind
 
 @OptIn(TestInfrastructureInternals::class)
 fun TestConfigurationBuilder.registerAnalysisApiBaseTestServices(
@@ -33,4 +34,5 @@ fun TestConfigurationBuilder.registerAnalysisApiBaseTestServices(
     useCustomCompilerConfigurationProvider(::AnalysisApiTestCompilerConfiguratorProvider)
     usePreAnalysisHandlers(::ProjectStructureInitialisationPreAnalysisHandler.bind(configurator))
     useDirectives(AnalysisApiTestDirectives)
+    useDirectives(AnalysisApiTestCodeFragmentDirectives)
 }

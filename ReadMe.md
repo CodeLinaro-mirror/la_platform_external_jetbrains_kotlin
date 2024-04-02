@@ -2,7 +2,7 @@
 [![TeamCity (simple build status)](https://img.shields.io/teamcity/http/teamcity.jetbrains.com/s/Kotlin_KotlinPublic_Compiler.svg)](https://teamcity.jetbrains.com/buildConfiguration/Kotlin_KotlinPublic_Compiler?branch=%3Cdefault%3E&buildTypeTab=overview&mode=builds)
 [![Maven Central](https://img.shields.io/maven-central/v/org.jetbrains.kotlin/kotlin-maven-plugin.svg)](https://search.maven.org/#search%7Cga%7C1%7Cg%3A%22org.jetbrains.kotlin%22)
 [![GitHub license](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Revved up by Gradle Enterprise](https://img.shields.io/badge/Revved%20up%20by-Gradle%20Enterprise-06A0CE?logo=Gradle&labelColor=02303A)](https://ge.jetbrains.com/scans?search.rootProjectNames=Kotlin)
+[![Revved up by Develocity](https://img.shields.io/badge/Revved%20up%20by-Develocity-06A0CE?logo=Gradle&labelColor=02303A)](https://ge.jetbrains.com/scans?search.rootProjectNames=Kotlin)
 
 # Kotlin Programming Language
 
@@ -143,11 +143,16 @@ sed -i -e '/<components>/,/<\/components>/d' gradle/verification-metadata.xml
 ./gradlew -i --write-verification-metadata sha256,md5 -Pkotlin.native.enabled=true resolveDependencies
 ```
 
-*`resolveDependencies` task resolves dependencies for all platforms including dependencies downloaded by plugins*
+*`resolveDependencies` task resolves dependencies for all platforms including dependencies downloaded by plugins.*
 
-- If you’re adding a dependency with OS mentioning in an artifact name (`darwin`, `mac`, `osx`, `linux`, `windows`), remember to add them to 
+Keep in mind:
+
+- If you’re adding a dependency with OS mentioned in an artifact name (`darwin`, `mac`, `osx`, `linux`, `windows`), remember to add them to 
   `implicitDependencies` configuration or update `resolveDependencies` task if needed. `resolveDependencies` should resolve all dependencies
   including dependencies for different platforms.
+- If you have a `local.properties` file in your Kotlin project folder, make sure that it doesn't contain `kotlin.native.enabled=false`.
+  Otherwise, native-only dependencies may not be added to the verification metadata. This is because `local.properties` has higher 
+  precedence than the `-Pkotlin.native.enabled=true` specified in the Gradle command.
 
 ## Using -dev and -SNAPSHOT versions
 

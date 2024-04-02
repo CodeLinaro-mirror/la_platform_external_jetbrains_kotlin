@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.util
 
-import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignation
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.patchDesignationPathIfNeeded
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.packageFqName
@@ -14,6 +15,8 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
+import org.jetbrains.kotlin.utils.ifEmpty
 
 internal object FirElementFinder {
     fun findClassifierWithClassId(
@@ -25,20 +28,20 @@ internal object FirElementFinder {
         expectedDeclarationAcceptor = { it is FirClassLikeDeclaration && it.symbol.name == classId.shortClassName },
     )?.target?.let { it as FirClassLikeDeclaration }
 
-    fun findClassPathToDeclaration(
+    fun collectDesignationPath(
         firFile: FirFile,
-        declarationContainerClassId: ClassId,
+        declarationContainerClassId: ClassId?,
         targetMemberDeclaration: FirDeclaration,
-    ): List<FirRegularClass>? = collectDesignationPath(
+    ): FirDesignation? = collectDesignationPath(
         firFile = firFile,
         containerClassId = declarationContainerClassId,
         expectedDeclarationAcceptor = { it == targetMemberDeclaration },
-    )?.path
+    )
 
     fun findDeclaration(firFile: FirFile, nonLocalDeclaration: KtDeclaration): FirDeclaration? = collectDesignationPath(
         firFile = firFile,
         nonLocalDeclaration = nonLocalDeclaration,
-    )?.target
+    )?.declarationTarget
 
     fun findPathToDeclarationWithTarget(
         firFile: FirFile,
@@ -46,29 +49,32 @@ internal object FirElementFinder {
     ): List<FirDeclaration>? = collectDesignationPath(
         firFile = firFile,
         nonLocalDeclaration = nonLocalDeclaration,
-    )?.pathWithTarget
-
-    class FirDeclarationDesignation(
-        val path: List<FirRegularClass>,
-        val target: FirDeclaration,
-    ) {
-        val pathWithTarget: List<FirDeclaration> get() = path + target
-    }
+    )?.let { it.path + it.declarationTarget }
 
     fun collectDesignationPath(
         firFile: FirFile,
         nonLocalDeclaration: KtDeclaration,
-    ): FirDeclarationDesignation? = collectDesignationPath(
+    ): FirDesignation? = collectDesignationPath(
         firFile = firFile,
         containerClassId = nonLocalDeclaration.containingClassOrObject?.getClassId(),
         expectedDeclarationAcceptor = { it.psi == nonLocalDeclaration },
     )
 
+    /**
+     * @see collectDesignationPath
+     */
+    private val FirDesignation.declarationTarget: FirDeclaration get() = target as FirDeclaration
+
+    /**
+     * @return [FirDesignation] where [FirDesignation.target] is [FirDeclaration]
+     *
+     * @see declarationTarget
+     */
     private fun collectDesignationPath(
         firFile: FirFile,
         containerClassId: ClassId?,
         expectedDeclarationAcceptor: (FirDeclaration) -> Boolean,
-    ): FirDeclarationDesignation? {
+    ): FirDesignation? {
         if (containerClassId != null) {
             requireWithAttachment(!containerClassId.isLocal, { "ClassId should not be local" }) {
                 withEntry("classId", containerClassId) { it.asString() }
@@ -84,7 +90,7 @@ internal object FirElementFinder {
         }
 
         val classIdPathSegment = containerClassId?.relativeClassName?.pathSegments().orEmpty()
-        val path = ArrayList<FirRegularClass>(classIdPathSegment.size)
+        val path = ArrayList<FirDeclaration>(classIdPathSegment.size + 2)
         var result: FirDeclaration? = null
 
         fun find(declarations: Iterable<FirDeclaration>, classIdPathIndex: Int): Boolean {
@@ -97,11 +103,13 @@ internal object FirElementFinder {
                     }
 
                     subDeclaration is FirScript -> {
-                        val scriptDeclarations = subDeclaration.statements.asSequence().filterIsInstance<FirDeclaration>()
-                        if (find(scriptDeclarations.asIterable(), classIdPathIndex)) {
+                        path += subDeclaration
+                        val scriptDeclarations = subDeclaration.declarations
+                        if (find(scriptDeclarations, classIdPathIndex)) {
                             return true
                         }
 
+                        path.removeLast()
                         continue
                     }
 
@@ -128,13 +136,19 @@ internal object FirElementFinder {
             return false
         }
 
+        path += firFile
         find(firFile.declarations, classIdPathIndex = 0)
-        return result?.let {
-            FirDeclarationDesignation(
-                path = if (path.isEmpty()) emptyList() else path,
-                target = it,
-            )
+
+        if (result == null) {
+            return null
         }
+
+        // K1 doesn't perform smart-casts on 'result'
+        @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
+        return FirDesignation(
+            path = patchDesignationPathIfNeeded(result!!, path).ifEmpty { emptyList() },
+            target = result!!,
+        )
     }
 
     inline fun <reified E : FirElement> findElementIn(

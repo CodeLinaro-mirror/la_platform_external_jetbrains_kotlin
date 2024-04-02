@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.analysis.api.standalone.fir.test.cases.generated.ca
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.kotlin.analysis.api.standalone.fir.test.AnalysisApiFirStandaloneModeTestConfiguratorFactory;
+import org.jetbrains.kotlin.analysis.api.standalone.fir.test.configurators.AnalysisApiFirStandaloneModeTestConfiguratorFactory;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfiguratorFactoryData;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator;
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.TestModuleKind;
@@ -56,6 +56,12 @@ public class FirStandaloneNormalAnalysisSourceModuleDelegateMemberScopeTestGener
     @TestMetadata("simple.kt")
     public void testSimple() throws Exception {
         runTest("analysis/analysis-api/testData/components/scopeProvider/delegatedMemberScope/simple.kt");
+    }
+
+    @Test
+    @TestMetadata("simpleLibrary.kt")
+    public void testSimpleLibrary() throws Exception {
+        runTest("analysis/analysis-api/testData/components/scopeProvider/delegatedMemberScope/simpleLibrary.kt");
     }
 
     @Test

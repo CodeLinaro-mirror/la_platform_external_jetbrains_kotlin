@@ -5,17 +5,17 @@
 
 package org.jetbrains.kotlin.fir.checkers.generator.diagnostics.model
 
-import org.jetbrains.kotlin.fir.checkers.generator.collectClassNamesTo
-import org.jetbrains.kotlin.fir.checkers.generator.inBracketsWithIndent
-import org.jetbrains.kotlin.fir.checkers.generator.printImports
-import org.jetbrains.kotlin.fir.tree.generator.printer.printCopyright
-import org.jetbrains.kotlin.fir.tree.generator.printer.printGeneratedMessage
+import org.jetbrains.kotlin.fir.checkers.generator.*
+import org.jetbrains.kotlin.fir.checkers.generator.printCopyright
 import org.jetbrains.kotlin.fir.tree.generator.util.writeToFileUsingSmartPrinterIfFileContentChanged
+import org.jetbrains.kotlin.generators.tree.printer.printKDoc
 import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import java.io.File
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
+import kotlin.reflect.KVariance
 
 object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
     const val BASE_PACKAGE = "org.jetbrains.kotlin.fir.analysis.diagnostics"
@@ -41,7 +41,7 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
         println("package $packageName")
         println()
         collectAndPrintImports(diagnosticList, packageName, starImportsToAdd)
-        printGeneratedMessage()
+        printKDoc(diagnosticList.extendedKDoc())
         printErrorsObject(diagnosticList)
     }
 
@@ -68,7 +68,9 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
     }
 
     private fun SmartPrinter.printDiagnostic(diagnostic: DiagnosticData) {
-        print("val ${diagnostic.name} by ${diagnostic.getFactoryFunction()}")
+        print("val ${diagnostic.name}: ${diagnostic.getPropertType()}")
+        diagnostic.parameters.map { it.type }.ifNotEmpty { printTypeArguments(this) }
+        print(" by ${diagnostic.getFactoryFunction()}")
         printTypeArguments(diagnostic.getAllTypeArguments())
         printPositioningStrategyAndLanguageFeature(diagnostic)
         println()
@@ -119,6 +121,11 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
         if (typeArgumentType == null) {
             print("*")
         } else {
+            when (typeArgument.variance) {
+                KVariance.INVARIANT, null -> {}
+                KVariance.IN -> print("in ")
+                KVariance.OUT -> print("out ")
+            }
             printType(typeArgumentType)
         }
     }
@@ -146,6 +153,7 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
             if (!diagnostic.hasDefaultPositioningStrategy()) {
                 add(PositioningStrategy.importToAdd)
             }
+            add("org.jetbrains.kotlin.diagnostics." + diagnostic.getPropertType())
         }
         for (deprecationDiagnostic in diagnosticList.allDiagnostics.filterIsInstance<DeprecationDiagnosticData>()) {
             add("org.jetbrains.kotlin.config.LanguageFeature.${deprecationDiagnostic.featureForError.name}")
@@ -160,6 +168,11 @@ object ErrorListDiagnosticListRenderer : DiagnosticListRenderer() {
     private fun DiagnosticData.getFactoryFunction(): String = when (this) {
         is RegularDiagnosticData -> severity.name.lowercase()
         is DeprecationDiagnosticData -> "deprecationError"
+    } + parameters.size
+
+    private fun DiagnosticData.getPropertType(): String = when (this) {
+        is RegularDiagnosticData -> "KtDiagnosticFactory"
+        is DeprecationDiagnosticData -> "KtDiagnosticFactoryForDeprecation"
     } + parameters.size
 }
 

@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.addWasmExperimentalArguments
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
@@ -28,7 +29,7 @@ open class NodeJsExec
 constructor(
     @Internal
     @Transient
-    override val compilation: KotlinJsCompilation,
+    final override val compilation: KotlinJsIrCompilation,
 ) : AbstractExecTask<NodeJsExec>(NodeJsExec::class.java), RequiresNpmDependencies {
     @Transient
     @get:Internal
@@ -38,7 +39,7 @@ constructor(
     val npmProject = compilation.npmProject
 
     init {
-        onlyIf {
+        this.onlyIf {
             !inputFileProperty.isPresent || inputFileProperty.asFile.map {
                 it.exists()
             }.get()
@@ -91,9 +92,9 @@ constructor(
 
     companion object {
         fun create(
-            compilation: KotlinJsCompilation,
+            compilation: KotlinJsIrCompilation,
             name: String,
-            configuration: NodeJsExec.() -> Unit = {}
+            configuration: NodeJsExec.() -> Unit = {},
         ): TaskProvider<NodeJsExec> {
             val target = compilation.target
             val project = target.project
@@ -107,21 +108,37 @@ constructor(
                 listOf(compilation)
             ) {
                 it.nodeJs = nodeJs
-                it.executable = nodeJs.requireConfigured().nodeExecutable
+                it.executable = nodeJs.requireConfigured().executable
                 if ((compilation.target as? KotlinJsIrTarget)?.wasmTargetType != KotlinWasmTargetType.WASI) {
-                    it.workingDir = npmProject.dir
+                    it.workingDir(npmProject.dir)
                     it.dependsOn(
                         nodeJsTaskProviders.npmInstallTaskProvider,
-                        nodeJsTaskProviders.storeYarnLockTaskProvider,
                     )
+                    it.dependsOn(nodeJs.packageManagerExtension.map { it.postInstallTasks })
                 }
                 it.dependsOn(nodeJsTaskProviders.nodeJsSetupTaskProvider)
-                it.dependsOn(compilation.compileKotlinTaskProvider)
+                it.dependsOn(compilation.compileTaskProvider)
                 if (compilation.platformType == KotlinPlatformType.wasm) {
                     it.nodeArgs.addWasmExperimentalArguments()
                 }
                 it.configuration()
             }
         }
+
+        @Deprecated(
+            "Use create(KotlinJsIrCompilation, name, configuration)",
+            replaceWith = ReplaceWith("create(compilation, name, configuration)"),
+            level = DeprecationLevel.HIDDEN
+        )
+        fun create(
+            compilation: KotlinJsCompilation,
+            name: String,
+            configuration: NodeJsExec.() -> Unit = {},
+        ): TaskProvider<NodeJsExec> =
+            create(
+                compilation as KotlinJsIrCompilation,
+                name,
+                configuration
+            )
     }
 }

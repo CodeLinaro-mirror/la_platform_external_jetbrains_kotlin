@@ -37,7 +37,7 @@ open class ConeTypeRenderer(
         }
         val typeArguments = type.typeArguments
         val isExtension = type.isExtensionFunctionType
-        val (receiver, otherTypeArguments) = if (isExtension && typeArguments.first() != ConeStarProjection) {
+        val (receiver, otherTypeArguments) = if (isExtension && typeArguments.size >= 2 && typeArguments.first() != ConeStarProjection) {
             typeArguments.first() to typeArguments.drop(1)
         } else {
             null to typeArguments.toList()
@@ -74,7 +74,7 @@ open class ConeTypeRenderer(
         when (type) {
             is ConeTypeVariableType -> {
                 builder.append("TypeVariable(")
-                builder.append(type.lookupTag.name)
+                builder.append(type.typeConstructor.name)
                 builder.append(")")
             }
 
@@ -118,10 +118,6 @@ open class ConeTypeRenderer(
                     render(intersected)
                 }
                 builder.append(")")
-            }
-
-            is ConeStubTypeForSyntheticFixation -> {
-                builder.append("Stub (fixation): ${type.constructor.variable}")
             }
 
             is ConeStubTypeForChainInference -> {

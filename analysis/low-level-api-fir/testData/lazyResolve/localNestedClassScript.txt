@@ -4,7 +4,7 @@ FILE: [ResolvedTo(RAW_FIR)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -15,7 +15,7 @@ FILE: [ResolvedTo(RAW_FIR)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -33,7 +33,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -44,7 +44,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -62,7 +62,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -73,7 +73,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -91,7 +91,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -102,7 +102,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -120,7 +120,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -131,7 +131,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -149,7 +149,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -160,7 +160,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -178,7 +178,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -189,7 +189,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -207,7 +207,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -218,7 +218,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -230,42 +230,13 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
         public final [ResolvedTo(EXPECT_ACTUAL_MATCHING)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
-ARGUMENTS_OF_ANNOTATIONS:
-FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
-    context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
-    SCRIPT: [ResolvedTo(TYPES)] <script-localNestedClassScript.kts>
-        [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
-
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
-                LAZY_super<R|kotlin/Any|>
-            }
-
-            public? open [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| { LAZY_BLOCK }
-
-            public? open [ResolvedTo(RAW_FIR)] fun boo([ResolvedTo(RAW_FIR)] b: String): R|kotlin/Unit| { LAZY_BLOCK }
-
-        }
-
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
-                LAZY_super<TopLevelClass>
-            }
-
-            public? open? override [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| { LAZY_BLOCK }
-
-        }
-
-        public final [ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
-
-
 CONTRACTS:
 FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
     SCRIPT: [ResolvedTo(TYPES)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -276,7 +247,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -312,7 +283,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -323,7 +294,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -353,13 +324,13 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
         }
 
 
-ANNOTATIONS_ARGUMENTS_MAPPING:
+ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
     context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
     SCRIPT: [ResolvedTo(TYPES)] <script-localNestedClassScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
+        public open [ResolvedTo(RAW_FIR)] class TopLevelClass : R|kotlin/Any| {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=TopLevelClass] constructor(): R|TopLevelClass| {
                 LAZY_super<R|kotlin/Any|>
             }
@@ -370,7 +341,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public? open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
+        public open [ResolvedTo(RAW_FIR)] class AnotherTopLevelClass : TopLevelClass {
             public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=AnotherTopLevelClass] constructor(): R|AnotherTopLevelClass| {
                 LAZY_super<TopLevelClass>
             }
@@ -379,7 +350,7 @@ FILE: [ResolvedTo(IMPORTS)] localNestedClassScript.kts
 
         }
 
-        public final [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] fun resolveMe(): R|kotlin/Unit| {
+        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun resolveMe(): R|kotlin/Unit| {
             local final? [ResolvedTo(RAW_FIR)] class LocalClass : AnotherTopLevelClass {
                 public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
                     super<AnotherTopLevelClass>()
@@ -495,3 +466,4 @@ FILE: [ResolvedTo(BODY_RESOLVE)] localNestedClassScript.kts
             }
 
         }
+

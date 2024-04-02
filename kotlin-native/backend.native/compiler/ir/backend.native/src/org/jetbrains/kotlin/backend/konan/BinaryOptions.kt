@@ -15,6 +15,8 @@ import kotlin.properties.ReadOnlyProperty
 object BinaryOptions : BinaryOptionRegistry() {
     val runtimeAssertionsMode by option<RuntimeAssertsMode>()
 
+    val checkStateAtExternalCalls by booleanOption()
+
     val memoryModel by option<MemoryModel>()
 
     val freezing by option<Freezing>()
@@ -32,6 +34,8 @@ object BinaryOptions : BinaryOptionRegistry() {
     val objcExportDisableSwiftMemberNameMangling by booleanOption()
 
     val objcExportIgnoreInterfaceMethodCollisions by booleanOption()
+
+    val objcExportReportNameCollisions by booleanOption()
 
     val gc by option<GC>(shortcut = { it.shortcut })
 
@@ -63,9 +67,19 @@ object BinaryOptions : BinaryOptionRegistry() {
 
     val objcDisposeOnMain by booleanOption()
 
+    val objcDisposeWithRunLoop by booleanOption()
+
     val disableMmap by booleanOption()
 
     val disableAllocatorOverheadEstimate by booleanOption()
+
+    val enableSafepointSignposts by booleanOption()
+
+    val packFields by booleanOption()
+
+    val cInterfaceMode by option<CInterfaceGenerationMode>()
+
+    val globalDataLazyInit by booleanOption()
 }
 
 open class BinaryOption<T : Any>(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,8 +10,8 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
-import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.canBePartOfParentDeclaration
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.getNonLocalContainingOrThisDeclaration
+import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.isAutonomousDeclaration
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.codeFragment
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.findSourceByTraversingWholeTree
@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.getNextSiblingIgnoringWhitespaceAndComments
 import org.jetbrains.kotlin.psi.psiUtil.isAncestor
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
@@ -73,7 +74,7 @@ internal class FileStructure private constructor(
             container = declaration
         } else {
             val modifierList = PsiTreeUtil.getParentOfType(element, KtModifierList::class.java, false)
-            container = if (modifierList != null && modifierList.nextSibling is PsiErrorElement) {
+            container = if (modifierList != null && modifierList.getNextSiblingIgnoringWhitespaceAndComments() is PsiErrorElement) {
                 modifierList
             } else {
                 element.containingKtFile
@@ -85,7 +86,7 @@ internal class FileStructure private constructor(
 
     private fun getStructureKtElement(element: KtElement): KtDeclaration? {
         val container = element.getNonLocalContainingOrThisDeclaration {
-            !it.canBePartOfParentDeclaration
+            it.isAutonomousDeclaration
         }
 
         val resultedContainer = when {
@@ -114,8 +115,6 @@ internal class FileStructure private constructor(
     }
 
     fun getAllDiagnosticsForFile(diagnosticCheckerFilter: DiagnosticCheckerFilter): List<KtPsiDiagnostic> {
-        // TODO, KT-60799: Add a new FileStructure for file diagnostics
-        firFile.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
         val structureElements = getAllStructureElements()
         return buildList {
             collectDiagnosticsFromStructureElements(structureElements, diagnosticCheckerFilter)
@@ -145,7 +144,7 @@ internal class FileStructure private constructor(
                 structureElements += structureElement
 
                 // Go down only in the case of container declaration
-                val canHaveInnerStructure = dcl is KtClassOrObject || dcl is KtScript
+                val canHaveInnerStructure = dcl is KtClassOrObject || dcl is KtScript || dcl is KtDestructuringDeclaration
                 if (canHaveInnerStructure) {
                     dcl.acceptChildren(this)
                 }
@@ -158,9 +157,8 @@ internal class FileStructure private constructor(
             }
         })
 
-        return structureElements
+        return structureElements.toList().asReversed()
     }
-
 
     private fun createDeclarationStructure(declaration: KtDeclaration): FileStructureElement {
         val firDeclaration = declaration.findSourceNonLocalFirDeclaration(
@@ -201,20 +199,14 @@ internal class FileStructure private constructor(
         }
         container is KtFile -> {
             val firFile = moduleComponents.firFileBuilder.buildRawFirFileWithCaching(ktFile)
-            firFile.lazyResolveToPhase(FirResolvePhase.IMPORTS)
-
-            firFile.annotationsContainer?.let {
-                moduleComponents.firModuleLazyDeclarationResolver.lazyResolve(
-                    target = it,
-                    scopeSession = moduleComponents.scopeSessionProvider.getScopeSession(),
-                    FirResolvePhase.BODY_RESOLVE,
-                )
-            }
+            firFile.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
 
             RootStructureElement(firFile, moduleComponents)
         }
         container is KtDeclaration -> createDeclarationStructure(container)
-        container is KtModifierList && container.nextSibling is PsiErrorElement -> createDanglingModifierListStructure(container)
+        container is KtModifierList && container.getNextSiblingIgnoringWhitespaceAndComments() is PsiErrorElement -> {
+            createDanglingModifierListStructure(container)
+        }
         else -> errorWithAttachment("Invalid container ${container::class}") {
             withPsiEntry("container", container)
         }

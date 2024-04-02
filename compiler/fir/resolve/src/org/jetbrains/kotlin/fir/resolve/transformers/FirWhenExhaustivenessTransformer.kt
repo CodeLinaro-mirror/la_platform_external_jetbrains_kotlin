@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.enumWhenTracker
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.ExhaustivenessStatus.NotExhaustive
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.reportEnumUsageInWhen
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
@@ -32,6 +33,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 
 class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyResolveComponents) : FirTransformer<Any?>() {
     companion object {
@@ -43,7 +45,8 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
         )
 
         fun computeAllMissingCases(session: FirSession, whenExpression: FirWhenExpression): List<WhenMissingCase> {
-            val subjectType = getSubjectType(session, whenExpression) ?: return emptyList()
+            val subjectType =
+                getSubjectType(session, whenExpression) ?: return NotExhaustive.NO_ELSE_BRANCH.reasons
             return buildList {
                 for (type in subjectType.unwrapIntersectionType()) {
                     val checkers = getCheckers(type, session)
@@ -117,7 +120,9 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
         }
 
         val session = bodyResolveComponents.session
-        val subjectType = getSubjectType(session, whenExpression) ?: run {
+        val subjectType = getSubjectType(session, whenExpression)?.let {
+            session.typeApproximator.approximateToSuperType(it, TypeApproximatorConfiguration.FinalApproximationAfterResolutionAndInference) ?: it
+        } ?: run {
             whenExpression.replaceExhaustivenessStatus(ExhaustivenessStatus.NotExhaustive.NO_ELSE_BRANCH)
             return
         }
@@ -266,7 +271,7 @@ private object WhenOnBooleanExhaustivenessChecker : WhenExhaustivenessChecker() 
         override fun visitEqualityOperatorCall(equalityOperatorCall: FirEqualityOperatorCall, data: Flags) {
             if (equalityOperatorCall.operation.let { it == FirOperation.EQ || it == FirOperation.IDENTITY }) {
                 val argument = equalityOperatorCall.arguments[1]
-                if (argument is FirConstExpression<*>) {
+                if (argument is FirLiteralExpression<*>) {
                     when (argument.value) {
                         true -> data.containsTrue = true
                         false -> data.containsFalse = true
@@ -301,7 +306,9 @@ private object WhenOnEnumExhaustivenessChecker : WhenExhaustivenessChecker() {
         override fun visitEqualityOperatorCall(equalityOperatorCall: FirEqualityOperatorCall, data: MutableSet<FirEnumEntry>) {
             if (!equalityOperatorCall.operation.let { it == FirOperation.EQ || it == FirOperation.IDENTITY }) return
             val argument = equalityOperatorCall.arguments[1]
-            val symbol = argument.toResolvedCallableReference()?.resolvedSymbol as? FirVariableSymbol<*> ?: return
+
+            @OptIn(UnsafeExpressionUtility::class)
+            val symbol = argument.toResolvedCallableReferenceUnsafe()?.resolvedSymbol as? FirVariableSymbol<*> ?: return
             val checkedEnumEntry = symbol.fir as? FirEnumEntry ?: return
             data.add(checkedEnumEntry)
         }
@@ -355,7 +362,8 @@ private object WhenOnSealedClassExhaustivenessChecker : WhenExhaustivenessChecke
                     }
                 }
                 else -> {
-                    argument.toResolvedCallableSymbol()?.takeIf { it.fir is FirEnumEntry }
+                    @OptIn(UnsafeExpressionUtility::class)
+                    argument.toResolvedCallableSymbolUnsafe()?.takeIf { it.fir is FirEnumEntry }
                 }
             } ?: return
             processBranch(symbol, isNegated, data)

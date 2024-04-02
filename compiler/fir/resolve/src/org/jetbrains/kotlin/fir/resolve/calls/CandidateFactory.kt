@@ -35,7 +35,6 @@ class CandidateFactory private constructor(
     companion object {
         private fun buildBaseSystem(context: ResolutionContext, callInfo: CallInfo): ConstraintStorage {
             val system = context.inferenceComponents.createConstraintSystem()
-            system.addOuterSystem(context.bodyResolveContext.outerConstraintStorage)
             callInfo.arguments.forEach {
                 system.addSubsystemFromExpression(it)
             }
@@ -79,6 +78,7 @@ class CandidateFactory private constructor(
                 ExplicitReceiverKind.NO_EXPLICIT_RECEIVER, ExplicitReceiverKind.BOTH_RECEIVERS -> false
             },
             isFromOriginalTypeInPresenceOfSmartCast,
+            context.bodyResolveContext.inferenceSession,
         )
 
         // The counterpart in FE 1.0 checks if the given descriptor is VariableDescriptor yet not PropertyDescriptor.
@@ -100,9 +100,16 @@ class CandidateFactory private constructor(
         } else if (objectsByName && symbol.isRegularClassWithoutCompanion(callInfo.session)) {
             result.addDiagnostic(NoCompanionObject)
         }
-        if (callInfo.origin == FirFunctionCallOrigin.Operator && symbol is FirPropertySymbol) {
-            // Flag all property references that are resolved from an convention operator call.
-            result.addDiagnostic(PropertyAsOperator)
+        if (callInfo.origin == FirFunctionCallOrigin.Operator) {
+            val propertySymbol = when {
+                symbol is FirPropertySymbol -> symbol
+                callInfo.candidateForCommonInvokeReceiver != null -> callInfo.candidateForCommonInvokeReceiver.symbol as? FirPropertySymbol
+                else -> null
+            }
+            if (propertySymbol != null) {
+                // Flag all property references that are resolved from an convention operator call.
+                result.addDiagnostic(PropertyAsOperator(propertySymbol))
+            }
         }
         if (symbol is FirPropertySymbol &&
             !context.session.languageVersionSettings.supportsFeature(LanguageFeature.PrioritizedEnumEntries)
@@ -125,7 +132,7 @@ class CandidateFactory private constructor(
         // There is no need to unwrap unary operators
         if (fir.valueParameters.isEmpty()) return this
         val original = fir.originalForWrappedIntegerOperator ?: return this
-        return if (callInfo.arguments.first().isIntegerLiteralOrOperatorCall()) {
+        return if (callInfo.arguments.firstOrNull()?.isIntegerLiteralOrOperatorCall() == true) {
             this
         } else {
             original
@@ -158,6 +165,7 @@ class CandidateFactory private constructor(
             baseSystem,
             callInfo,
             originScope = null,
+            inferenceSession = context.bodyResolveContext.inferenceSession,
         )
     }
 
@@ -187,22 +195,44 @@ class CandidateFactory private constructor(
     }
 }
 
-fun PostponedArgumentsAnalyzerContext.addSubsystemFromExpression(statement: FirStatement): Boolean {
+fun processConstraintStorageFromExpression(statement: FirStatement, processor: (ConstraintStorage) -> Unit): Boolean {
     return when (statement) {
         is FirQualifiedAccessExpression,
         is FirWhenExpression,
         is FirTryExpression,
         is FirCheckNotNullCall,
-        is FirElvisExpression -> {
+        is FirElvisExpression,
+        -> {
             val candidate = (statement as FirResolvable).candidate() ?: return false
-            addOtherSystem(candidate.system.asReadOnlyStorage())
+            processor(candidate.system.asReadOnlyStorage())
             true
         }
 
-        is FirSafeCallExpression -> addSubsystemFromExpression(statement.selector)
-        is FirWrappedArgumentExpression -> addSubsystemFromExpression(statement.expression)
-        is FirBlock -> statement.returnExpressions().any { addSubsystemFromExpression(it) }
+        is FirSafeCallExpression -> processConstraintStorageFromExpression(statement.selector, processor)
+        is FirWrappedArgumentExpression -> processConstraintStorageFromExpression(statement.expression, processor)
+        is FirBlock -> {
+            var wasAny = false
+
+            // Might be `.any {` call, but we should process all the items
+            statement.returnExpressions().forEach {
+                if (processConstraintStorageFromExpression(it, processor)) {
+                    wasAny = true
+                }
+            }
+
+            wasAny
+        }
         else -> false
+    }
+}
+
+fun PostponedArgumentsAnalyzerContext.addSubsystemFromExpression(statement: FirStatement): Boolean {
+    return processConstraintStorageFromExpression(statement) {
+        // If a call inside a lambda uses outer CS,
+        // it's already integrated into inference session via FirPCLAInferenceSession.processPartiallyResolvedCall
+        if (!it.usesOuterCs) {
+            addOtherSystem(it)
+        }
     }
 }
 

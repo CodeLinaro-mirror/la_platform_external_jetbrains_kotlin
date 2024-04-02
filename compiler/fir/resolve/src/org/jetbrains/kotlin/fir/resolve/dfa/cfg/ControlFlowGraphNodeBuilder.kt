@@ -106,8 +106,8 @@ fun ControlFlowGraphBuilder.createWhenSyntheticElseBranchNode(fir: FirWhenExpres
 fun ControlFlowGraphBuilder.createWhenBranchResultEnterNode(fir: FirWhenBranch): WhenBranchResultEnterNode =
     WhenBranchResultEnterNode(currentGraph, fir, levelCounter)
 
-fun ControlFlowGraphBuilder.createLoopConditionExitNode(fir: FirExpression): LoopConditionExitNode =
-    LoopConditionExitNode(currentGraph, fir, levelCounter)
+fun ControlFlowGraphBuilder.createLoopConditionExitNode(fir: FirExpression, loop: FirLoop): LoopConditionExitNode =
+    LoopConditionExitNode(currentGraph, fir, loop, levelCounter)
 
 fun ControlFlowGraphBuilder.createLoopConditionEnterNode(fir: FirExpression, loop: FirLoop): LoopConditionEnterNode =
     LoopConditionEnterNode(currentGraph, fir, loop, levelCounter)
@@ -117,6 +117,15 @@ fun ControlFlowGraphBuilder.createLoopBlockEnterNode(fir: FirLoop): LoopBlockEnt
 
 fun ControlFlowGraphBuilder.createLoopBlockExitNode(fir: FirLoop): LoopBlockExitNode =
     LoopBlockExitNode(currentGraph, fir, levelCounter)
+
+fun ControlFlowGraphBuilder.createFunctionCallArgumentsEnterNode(fir: FirFunctionCall): FunctionCallArgumentsEnterNode =
+    FunctionCallArgumentsEnterNode(currentGraph, fir, levelCounter)
+
+fun ControlFlowGraphBuilder.createFunctionCallArgumentsExitNode(
+    fir: FirFunctionCall,
+    enterNode: FunctionCallArgumentsEnterNode,
+): FunctionCallArgumentsExitNode =
+    FunctionCallArgumentsExitNode(currentGraph, fir, enterNode, levelCounter)
 
 fun ControlFlowGraphBuilder.createFunctionCallNode(fir: FirFunctionCall): FunctionCallNode =
     FunctionCallNode(currentGraph, fir, levelCounter)
@@ -154,8 +163,8 @@ fun ControlFlowGraphBuilder.createElvisExitNode(fir: FirElvisExpression): ElvisE
 fun ControlFlowGraphBuilder.createVariableDeclarationNode(fir: FirProperty): VariableDeclarationNode =
     VariableDeclarationNode(currentGraph, fir, levelCounter)
 
-fun ControlFlowGraphBuilder.createConstExpressionNode(fir: FirConstExpression<*>): ConstExpressionNode =
-    ConstExpressionNode(currentGraph, fir, levelCounter)
+fun ControlFlowGraphBuilder.createLiteralExpressionNode(fir: FirLiteralExpression<*>): LiteralExpressionNode =
+    LiteralExpressionNode(currentGraph, fir, levelCounter)
 
 fun ControlFlowGraphBuilder.createThrowExceptionNode(fir: FirThrowExpression): ThrowExceptionNode =
     ThrowExceptionNode(currentGraph, fir, levelCounter)
@@ -202,7 +211,10 @@ fun ControlFlowGraphBuilder.createEnterSafeCallNode(fir: FirSafeCallExpression):
 fun ControlFlowGraphBuilder.createPostponedLambdaExitNode(fir: FirAnonymousFunctionExpression): PostponedLambdaExitNode =
     PostponedLambdaExitNode(currentGraph, fir, levelCounter)
 
-fun ControlFlowGraphBuilder.createSplitPostponedLambdasNode(fir: FirStatement, lambdas: List<FirAnonymousFunction>): SplitPostponedLambdasNode =
+fun ControlFlowGraphBuilder.createSplitPostponedLambdasNode(
+    fir: FirStatement,
+    lambdas: List<FirAnonymousFunction>,
+): SplitPostponedLambdasNode =
     SplitPostponedLambdasNode(currentGraph, fir, lambdas, levelCounter)
 
 fun ControlFlowGraphBuilder.createMergePostponedLambdaExitsNode(fir: FirElement): MergePostponedLambdaExitsNode =

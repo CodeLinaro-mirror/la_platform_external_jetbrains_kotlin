@@ -54,12 +54,12 @@ internal class EnforcedProperties(testClass: Class<*>) {
         acceptableAnnotations[propertyType]?.contains(value) ?: true
 }
 
-internal enum class ClassLevelProperty(shortName: String) {
+internal enum class ClassLevelProperty(val shortName: String) {
     TEST_TARGET("target"),
     TEST_MODE("mode"),
     COMPILER_PLUGINS("compilerPlugins"),
     CUSTOM_KLIBS("customKlibs"),
-    FORCE_STANDALONE("forceStandalone"),
+    TEST_KIND("testKind"),
     COMPILE_ONLY("compileOnly"),
     OPTIMIZATION_MODE("optimizationMode"),
     USE_THREAD_STATE_CHECKER("useThreadStateChecker"),

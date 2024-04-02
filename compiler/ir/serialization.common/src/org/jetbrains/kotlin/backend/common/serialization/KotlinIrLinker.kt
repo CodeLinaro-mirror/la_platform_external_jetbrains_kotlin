@@ -57,6 +57,9 @@ abstract class KotlinIrLinker(
 
     open val partialLinkageSupport: PartialLinkageSupportForLinker get() = PartialLinkageSupportForLinker.DISABLED
 
+    open val returnUnboundSymbolsIfSignatureNotFound: Boolean
+        get() = partialLinkageSupport.isEnabled
+
     protected open val userVisibleIrModulesSupport: UserVisibleIrModulesSupport get() = UserVisibleIrModulesSupport.DEFAULT
 
     fun deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(
@@ -77,7 +80,7 @@ abstract class KotlinIrLinker(
         val symbol: IrSymbol? = actualModuleDeserializer?.tryDeserializeIrSymbol(idSignature, symbolKind)
 
         return symbol ?: run {
-            if (partialLinkageSupport.isEnabled)
+            if (returnUnboundSymbolsIfSignatureNotFound)
                 referenceDeserializedSymbol(symbolTable, null, symbolKind, idSignature)
             else
                 SignatureIdNotFoundInModuleWithDependencies(
@@ -181,14 +184,14 @@ abstract class KotlinIrLinker(
     override fun tryReferencingSimpleFunctionByLocalSignature(parent: IrDeclaration, idSignature: IdSignature): IrSimpleFunctionSymbol? {
         if (idSignature.isPubliclyVisible) return null
         val file = getFileOf(parent)
-        val moduleDescriptor = file.packageFragmentDescriptor.containingDeclaration
+        val moduleDescriptor = file.moduleDescriptor
         return resolveModuleDeserializer(moduleDescriptor, null).referenceSimpleFunctionByLocalSignature(file, idSignature)
     }
 
     override fun tryReferencingPropertyByLocalSignature(parent: IrDeclaration, idSignature: IdSignature): IrPropertySymbol? {
         if (idSignature.isPubliclyVisible) return null
         val file = getFileOf(parent)
-        val moduleDescriptor = file.packageFragmentDescriptor.containingDeclaration
+        val moduleDescriptor = file.moduleDescriptor
         return resolveModuleDeserializer(moduleDescriptor, null).referencePropertyByLocalSignature(file, idSignature)
     }
 
@@ -398,7 +401,7 @@ enum class DeserializationStrategy(
     val theWholeWorld: Boolean,
     val inlineBodies: Boolean
 ) {
-    ON_DEMAND(true, true, false, false, true),
+    ON_DEMAND(true, false, false, false, false),
     ONLY_REFERENCED(false, true, false, false, true),
     ALL(false, true, true, true, true),
     EXPLICITLY_EXPORTED(false, true, true, false, true),

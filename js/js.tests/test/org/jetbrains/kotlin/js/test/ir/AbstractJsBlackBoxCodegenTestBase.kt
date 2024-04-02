@@ -19,11 +19,11 @@ import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
-import org.jetbrains.kotlin.test.runners.codegen.actualizersAndPluginsFacadeStepIfNeeded
 import org.jetbrains.kotlin.test.runners.codegen.commonClassicFrontendHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.LibraryProvider
 import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
@@ -108,6 +108,12 @@ abstract class AbstractJsBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendO
                 useHandlers(::JsIrInterpreterDumpHandler)
             }
         }
+
+        forTestsMatching("compiler/testData/codegen/box/properties/backingField/*") {
+            defaultDirectives {
+                LanguageSettingsDirectives.LANGUAGE with "+ExplicitBackingFields"
+            }
+        }
     }
 }
 
@@ -155,9 +161,10 @@ fun <
     }
 
     facadeStep(frontendToBackendConverter)
-    actualizersAndPluginsFacadeStepIfNeeded(targetFrontend)
     irHandlersStep()
 
     facadeStep(backendFacade)
-    klibArtifactsHandlersStep()
+    klibArtifactsHandlersStep {
+        useHandlers(::JsBackendDiagnosticsHandler)
+    }
 }

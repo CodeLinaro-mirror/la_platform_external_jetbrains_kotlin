@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -241,6 +241,12 @@ public class ByDecompiledPsiStubBuilderTestGenerated extends AbstractByDecompile
     }
 
     @Test
+    @TestMetadata("SealedInterface")
+    public void testSealedInterface() throws Exception {
+        runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/SealedInterface/");
+    }
+
+    @Test
     @TestMetadata("SecondaryConstructors")
     public void testSecondaryConstructors() throws Exception {
         runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/SecondaryConstructors/");
@@ -304,5 +310,11 @@ public class ByDecompiledPsiStubBuilderTestGenerated extends AbstractByDecompile
     @TestMetadata("Types")
     public void testTypes() throws Exception {
         runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/Types/");
+    }
+
+    @Test
+    @TestMetadata("UnderscoreParameterName")
+    public void testUnderscoreParameterName() throws Exception {
+        runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/UnderscoreParameterName/");
     }
 }

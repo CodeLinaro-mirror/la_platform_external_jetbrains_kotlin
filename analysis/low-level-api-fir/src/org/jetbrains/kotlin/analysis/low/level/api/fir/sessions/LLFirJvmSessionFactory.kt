@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 
 @OptIn(SessionConfiguration::class)
 internal class LLFirJvmSessionFactory(project: Project) : LLFirAbstractSessionFactory(project) {
-
     override fun createSourcesSession(module: KtSourceModule): LLFirSourcesSession {
         return doCreateSourcesSession(module, FirKotlinScopeProvider(::wrapScopeWithJvmMapped)) { context ->
             registerJavaComponents(JavaModuleResolver.getInstance(project))
@@ -79,6 +78,33 @@ internal class LLFirJvmSessionFactory(project: Project) : LLFirAbstractSessionFa
         }
     }
 
+    override fun createDanglingFileSession(module: KtDanglingFileModule, contextSession: LLFirSession): LLFirSession {
+        return doCreateDanglingFileSession(module, contextSession) {
+            registerJavaComponents(JavaModuleResolver.getInstance(project))
+
+            val contextJavaSymbolProvider = contextSession.nullableJavaSymbolProvider
+            if (contextJavaSymbolProvider != null) {
+                register(JavaSymbolProvider::class, contextJavaSymbolProvider)
+            }
+
+            register(
+                FirSymbolProvider::class,
+                LLFirModuleWithDependenciesSymbolProvider(
+                    this,
+                    providers = listOfNotNull(
+                        firProvider.symbolProvider,
+                        switchableExtensionDeclarationsSymbolProvider,
+                        syntheticFunctionInterfaceProvider,
+                        contextJavaSymbolProvider
+                    ),
+                    dependencyProvider
+                )
+            )
+
+            register(FirJvmTypeMapper::class, FirJvmTypeMapper(this))
+        }
+    }
+
     override fun createProjectLibraryProvidersForScope(
         session: LLFirSession,
         moduleData: LLFirModuleData,
@@ -86,6 +112,7 @@ internal class LLFirJvmSessionFactory(project: Project) : LLFirAbstractSessionFa
         project: Project,
         builtinTypes: BuiltinTypes,
         scope: GlobalSearchScope,
+        isFallbackDependenciesProvider: Boolean,
     ): List<FirSymbolProvider> {
         val moduleDataProvider = SingleModuleDataProvider(moduleData)
         val packagePartProvider = project.createPackagePartProvider(scope)
@@ -100,7 +127,8 @@ internal class LLFirJvmSessionFactory(project: Project) : LLFirAbstractSessionFa
                     moduleDataProvider,
                     firJavaFacade,
                     packagePartProvider,
-                    scope
+                    scope,
+                    isFallbackDependenciesProvider,
                 )
             )
             addIfNotNull(

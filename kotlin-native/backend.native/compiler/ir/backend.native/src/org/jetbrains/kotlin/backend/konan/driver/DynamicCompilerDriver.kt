@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
-import org.jetbrains.kotlin.konan.util.usingNativeMemoryAllocator
+import org.jetbrains.kotlin.utils.usingNativeMemoryAllocator
 
 /**
  * Dynamic driver does not "know" upfront which phases will be executed.
@@ -78,8 +78,13 @@ internal class DynamicCompilerDriver : CompilerDriver() {
 
     private fun produceCLibrary(engine: PhaseEngine<PhaseContext>, config: KonanConfig, environment: KotlinCoreEnvironment) {
         val frontendOutput = engine.runFrontend(config, environment) ?: return
+
         val (psiToIrOutput, cAdapterElements) = engine.runPsiToIr(frontendOutput, isProducingLibrary = false) {
-            it.runPhase(BuildCExports, frontendOutput)
+            if (config.cInterfaceGenerationMode == CInterfaceGenerationMode.V1) {
+                it.runPhase(BuildCExports, frontendOutput)
+            } else {
+                null
+            }
         }
         require(psiToIrOutput is PsiToIrOutput.ForBackend)
         val backendContext = createBackendContext(config, frontendOutput, psiToIrOutput) {

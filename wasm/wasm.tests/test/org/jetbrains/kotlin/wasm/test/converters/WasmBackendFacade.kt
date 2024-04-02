@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.wasm.test.converters
 
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
+import org.jetbrains.kotlin.backend.wasm.WasmCompilerResult
 import org.jetbrains.kotlin.backend.wasm.compileToLoweredIr
 import org.jetbrains.kotlin.backend.wasm.compileWasm
 import org.jetbrains.kotlin.backend.wasm.dce.eliminateDeadDeclarations
@@ -32,12 +33,15 @@ import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.wasm.test.handlers.getWasmTestOutputDirectory
+import org.jetbrains.kotlin.wasm.test.tools.WasmOptimizer
 import java.io.File
 
 class WasmBackendFacade(
     private val testServices: TestServices
 ) : AbstractTestFacade<BinaryArtifacts.KLib, BinaryArtifacts.Wasm>() {
+    private val supportedOptimizer: WasmOptimizer = WasmOptimizer.Binaryen
 
     override val inputKind = ArtifactKinds.KLib
     override val outputKind = ArtifactKinds.Wasm
@@ -45,6 +49,7 @@ class WasmBackendFacade(
     override fun transform(module: TestModule, inputArtifact: BinaryArtifacts.KLib): BinaryArtifacts.Wasm? {
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
         val generateSourceMaps = WasmEnvironmentConfigurationDirectives.GENERATE_SOURCE_MAP in testServices.moduleStructure.allDirectives
+        val generateDts = WasmEnvironmentConfigurationDirectives.CHECK_TYPESCRIPT_DECLARATIONS in testServices.moduleStructure.allDirectives
 
         // Enforce PL with the ERROR log level to fail any tests where PL detected any incompatibilities.
         configuration.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.ERROR))
@@ -89,24 +94,26 @@ class WasmBackendFacade(
         )
 
         val testPackage = extractTestPackage(testServices)
-        val (allModules, backendContext) = compileToLoweredIr(
+        val (allModules, backendContext, typeScriptFragment) = compileToLoweredIr(
             depsDescriptors = moduleStructure,
             phaseConfig = phaseConfig,
             irFactory = IrFactoryImpl,
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, "box"))),
             propertyLazyInitialization = true,
+            generateTypeScriptFragment = generateDts
         )
-        val generateWat = debugMode >= DebugMode.DEBUG
+        val generateWat = debugMode >= DebugMode.DEBUG || configuration.getBoolean(JSConfigurationKeys.WASM_GENERATE_WAT)
         val baseFileName = "index"
 
         val compilerResult = compileWasm(
             allModules = allModules,
             backendContext = backendContext,
+            typeScriptFragment = typeScriptFragment,
             baseFileName = baseFileName,
             emitNameSection = true,
             allowIncompleteImplementations = false,
             generateWat = generateWat,
-            generateSourceMaps = generateSourceMaps
+            generateSourceMaps = generateSourceMaps,
         )
 
         val dceDumpNameCache = DceDumpNameCache()
@@ -117,21 +124,37 @@ class WasmBackendFacade(
         val compilerResultWithDCE = compileWasm(
             allModules = allModules,
             backendContext = backendContext,
+            typeScriptFragment = typeScriptFragment,
             baseFileName = baseFileName,
             emitNameSection = true,
             allowIncompleteImplementations = true,
             generateWat = generateWat,
-            generateSourceMaps = generateSourceMaps
+            generateSourceMaps = generateSourceMaps,
         )
 
         return BinaryArtifacts.Wasm(
             compilerResult,
-            compilerResultWithDCE
+            compilerResultWithDCE,
+            runIf(WasmEnvironmentConfigurationDirectives.RUN_THIRD_PARTY_OPTIMIZER in testServices.moduleStructure.allDirectives) {
+                compilerResultWithDCE.runThirdPartyOptimizer()
+            }
         )
     }
 
     override fun shouldRunAnalysis(module: TestModule): Boolean {
         return WasmEnvironmentConfigurator.isMainModule(module, testServices)
+    }
+
+    private fun WasmCompilerResult.runThirdPartyOptimizer(): WasmCompilerResult {
+        val (newWasm, newWat) = supportedOptimizer.run(wasm, withText = wat != null)
+        return WasmCompilerResult(
+            wat = newWat,
+            jsUninstantiatedWrapper = jsUninstantiatedWrapper,
+            jsWrapper = jsWrapper,
+            wasm = newWasm,
+            debugInformation = null,
+            dts = dts
+        )
     }
 }
 

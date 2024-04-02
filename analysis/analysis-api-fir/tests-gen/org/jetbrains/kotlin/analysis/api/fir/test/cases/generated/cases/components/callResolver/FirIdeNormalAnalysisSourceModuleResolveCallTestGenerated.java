@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -665,6 +665,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCallTestGenerated extends Ab
     }
 
     @Test
+    @TestMetadata("noBuiltIns.kt")
+    public void testNoBuiltIns() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/noBuiltIns.kt");
+    }
+
+    @Test
     @TestMetadata("postfixUnaryOperatorOnVar.kt")
     public void testPostfixUnaryOperatorOnVar() throws Exception {
         runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/postfixUnaryOperatorOnVar.kt");
@@ -758,6 +764,30 @@ public class FirIdeNormalAnalysisSourceModuleResolveCallTestGenerated extends Ab
     @TestMetadata("samConstructorCall.kt")
     public void testSamConstructorCall() throws Exception {
         runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/samConstructorCall.kt");
+    }
+
+    @Test
+    @TestMetadata("samFromJava_lambda.kt")
+    public void testSamFromJava_lambda() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/samFromJava_lambda.kt");
+    }
+
+    @Test
+    @TestMetadata("samFromJava_methodReference.kt")
+    public void testSamFromJava_methodReference() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/samFromJava_methodReference.kt");
+    }
+
+    @Test
+    @TestMetadata("samLambda.kt")
+    public void testSamLambda() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/samLambda.kt");
+    }
+
+    @Test
+    @TestMetadata("samMethodReference.kt")
+    public void testSamMethodReference() throws Exception {
+        runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/samMethodReference.kt");
     }
 
     @Test
@@ -1011,6 +1041,12 @@ public class FirIdeNormalAnalysisSourceModuleResolveCallTestGenerated extends Ab
         @TestMetadata("incorrectCodeJavaDeclaration.kt")
         public void testIncorrectCodeJavaDeclaration() throws Exception {
             runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/invalidCode/incorrectCodeJavaDeclaration.kt");
+        }
+
+        @Test
+        @TestMetadata("invalidImplicitInvoke.kt")
+        public void testInvalidImplicitInvoke() throws Exception {
+            runTest("analysis/analysis-api/testData/components/callResolver/resolveCall/invalidCode/invalidImplicitInvoke.kt");
         }
 
         @Test

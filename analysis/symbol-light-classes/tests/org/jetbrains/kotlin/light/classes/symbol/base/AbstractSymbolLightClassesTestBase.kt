@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,9 +8,11 @@ package org.jetbrains.kotlin.light.classes.symbol.base
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiClass
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedSingleModuleTest
+import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.project.structure.getKtFiles
+import org.jetbrains.kotlin.analysis.test.framework.project.structure.ktModuleProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.libraries.CompiledLibraryProvider
-import org.jetbrains.kotlin.analysis.test.framework.services.libraries.CompilerExecutor
+import org.jetbrains.kotlin.analysis.test.framework.services.libraries.TestModuleCompiler
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.asJava.toLightClass
@@ -42,14 +44,14 @@ import kotlin.test.fail
 private const val TEST_MODULE_NAME = "light_idea_test_case"
 
 abstract class AbstractSymbolLightClassesTestBase(
-    override val configurator: AnalysisApiTestConfigurator
-) : AbstractAnalysisApiBasedSingleModuleTest() {
+    override val configurator: AnalysisApiTestConfigurator,
+) : AbstractAnalysisApiBasedTest() {
 
     override fun configureTest(builder: TestConfigurationBuilder) {
         super.configureTest(builder)
         with(builder) {
             useAdditionalServices(service(::CompiledLibraryProvider))
-            useDirectives(Directives, CompilerExecutor.Directives)
+            useDirectives(Directives, TestModuleCompiler.Directives)
             useAdditionalSourceProviders(::NullabilityAnnotationSourceProvider)
             defaultDirectives {
                 +ConfigurationDirectives.WITH_STDLIB
@@ -58,8 +60,13 @@ abstract class AbstractSymbolLightClassesTestBase(
         }
     }
 
-    override fun doTestByFileStructure(ktFiles: List<KtFile>, module: TestModule, testServices: TestServices) {
-        if (isTestAgainstCompiledCode && CompilerExecutor.Directives.COMPILATION_ERRORS in module.directives) {
+    override fun doTestByMainModuleAndOptionalMainFile(mainFile: KtFile?, mainModule: TestModule, testServices: TestServices) {
+        val ktFiles = testServices.ktModuleProvider.getKtFiles(mainModule)
+        doLightClassTest(ktFiles, mainModule, testServices)
+    }
+
+    open fun doLightClassTest(ktFiles: List<KtFile>, module: TestModule, testServices: TestServices) {
+        if (isTestAgainstCompiledCode && TestModuleCompiler.Directives.COMPILATION_ERRORS in module.directives) {
             return
         }
 
@@ -93,7 +100,7 @@ abstract class AbstractSymbolLightClassesTestBase(
         ktFiles: List<KtFile>,
         testDataFile: Path,
         module: TestModule,
-        project: Project
+        project: Project,
     ): String
 
     protected fun ignoreExceptionIfIgnoreDirectivePresent(module: TestModule, action: () -> Unit) {
@@ -132,13 +139,21 @@ abstract class AbstractSymbolLightClassesTestBase(
         error("Test is passing. Please, remove `// ${directive.name}` directive")
     }
 
+    protected fun findLightClass(fqname: String, ktFile: KtFile): PsiClass? {
+        val project = ktFile.project
+        return findLightClass(fqname, GlobalSearchScope.fileScope(ktFile), project) ?: findLightClass(fqname, project)
+    }
+
     protected fun findLightClass(fqname: String, project: Project): PsiClass? {
-        val searchScope = GlobalSearchScope.allScope(project)
-        JavaElementFinder.getInstance(project).findClass(fqname, searchScope)?.let { return it }
+        return findLightClass(fqname, GlobalSearchScope.allScope(project), project)
+    }
+
+    private fun findLightClass(fqname: String, scope: GlobalSearchScope, project: Project): PsiClass? {
+        JavaElementFinder.getInstance(project).findClass(fqname, scope)?.let { return it }
 
         val fqName = FqName(fqname)
         val parentFqName = fqName.parent().takeUnless(FqName::isRoot) ?: return null
-        val enumClass = JavaElementFinder.getInstance(project).findClass(parentFqName.asString(), searchScope) ?: return null
+        val enumClass = JavaElementFinder.getInstance(project).findClass(parentFqName.asString(), scope) ?: return null
         val kotlinEnumClass = enumClass.unwrapped?.safeAs<KtClass>()?.takeIf(KtClass::isEnum) ?: return null
 
         val enumEntryName = fqName.shortName().asString()

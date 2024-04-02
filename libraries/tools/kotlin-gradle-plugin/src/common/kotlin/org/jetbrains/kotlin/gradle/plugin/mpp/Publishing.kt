@@ -26,28 +26,42 @@ import org.jetbrains.kotlin.gradle.plugin.sources.KotlinDependencyScope
 import org.jetbrains.kotlin.gradle.plugin.sources.sourceSetDependencyConfigurationByScope
 import org.jetbrains.kotlin.gradle.targets.metadata.isKotlinGranularMetadataEnabled
 import org.jetbrains.kotlin.gradle.tooling.buildKotlinToolingMetadataTask
+import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.utils.CompletableFuture
+import org.jetbrains.kotlin.gradle.utils.Future
+import org.jetbrains.kotlin.gradle.utils.projectStoredProperty
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 
-internal fun configurePublishingWithMavenPublish(project: Project) = project.pluginManager.withPlugin("maven-publish") {
-    if (project.kotlinPropertiesProvider.createDefaultMultiplatformPublications) {
-        project.extensions.configure(PublishingExtension::class.java) { publishing ->
-            createRootPublication(project, publishing)
-            createTargetPublications(project, publishing)
+private val Project.kotlinMultiplatformRootPublicationImpl: CompletableFuture<MavenPublication?>
+        by projectStoredProperty { CompletableFuture() }
+internal val Project.kotlinMultiplatformRootPublication: Future<MavenPublication?>
+    get() = kotlinMultiplatformRootPublicationImpl
+
+internal val MultiplatformPublishingSetupAction = KotlinProjectSetupCoroutine {
+    if (isPluginApplied("maven-publish")) {
+        if (project.kotlinPropertiesProvider.createDefaultMultiplatformPublications) {
+            project.extensions.configure(PublishingExtension::class.java) { publishing ->
+                createRootPublication(project, publishing).also(kotlinMultiplatformRootPublicationImpl::complete)
+                createTargetPublications(project, publishing)
+            }
+        } else {
+            kotlinMultiplatformRootPublicationImpl.complete(null)
         }
+        project.components.add(project.multiplatformExtension.rootSoftwareComponent)
+    } else {
+        kotlinMultiplatformRootPublicationImpl.complete(null)
     }
-
-    project.components.add(project.multiplatformExtension.rootSoftwareComponent)
 }
 
 /**
  * The root publication that references the platform specific publications as its variants
  */
-private fun createRootPublication(project: Project, publishing: PublishingExtension) {
+private fun createRootPublication(project: Project, publishing: PublishingExtension): MavenPublication {
     val kotlinSoftwareComponent = project.multiplatformExtension.rootSoftwareComponent
 
-    publishing.publications.create("kotlinMultiplatform", MavenPublication::class.java).apply {
+    return publishing.publications.create("kotlinMultiplatform", MavenPublication::class.java).apply {
         from(kotlinSoftwareComponent)
         (this as MavenPublicationInternal).publishWithOriginalFileName()
-        kotlinSoftwareComponent.publicationDelegate = this@apply
 
         addKotlinToolingMetadataArtifactIfNeeded(project)
     }
@@ -154,12 +168,12 @@ internal fun Configuration.configureSourcesPublicationAttributes(target: KotlinT
     // to be either JAVA_RUNTIME (for jvm) or KOTLIN_RUNTIME (for other targets)
     // the latter isn't a strong requirement since there is no tooling that consume kotlin sources through gradle variants at the moment
     // so consistency with Java Gradle Plugin seemed most desirable choice.
-    attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerRuntimeUsage(target))
-    attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.attributeValueByName(Category.DOCUMENTATION))
-    attributes.attribute(DocsType.DOCS_TYPE_ATTRIBUTE, project.attributeValueByName(DocsType.SOURCES))
+    attributes.setAttribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerRuntimeUsage(target))
+    attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.attributeValueByName(Category.DOCUMENTATION))
+    attributes.setAttribute(DocsType.DOCS_TYPE_ATTRIBUTE, project.attributeValueByName(DocsType.SOURCES))
     // Bundling attribute is about component dependencies, external means that they are provided as separate components
     // source variants doesn't have any dependencies (at least at the moment) so there is not much sense to use this attribute
     // however for Java Gradle Plugin compatibility and in order to prevent weird Variant Resolution errors we include this attribute
-    attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, project.attributeValueByName(Bundling.EXTERNAL))
+    attributes.setAttribute(Bundling.BUNDLING_ATTRIBUTE, project.attributeValueByName(Bundling.EXTERNAL))
     usesPlatformOf(target)
 }

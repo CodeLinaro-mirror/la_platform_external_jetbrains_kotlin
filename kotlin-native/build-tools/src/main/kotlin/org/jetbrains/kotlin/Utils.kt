@@ -2,7 +2,6 @@
  * Copyright 2010-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
-@file:OptIn(ExperimentalStdlibApi::class)
 
 package org.jetbrains.kotlin
 
@@ -12,22 +11,16 @@ import org.gradle.api.Task
 import org.gradle.api.file.FileCollection
 import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.api.provider.Provider
-import org.jetbrains.kotlin.konan.properties.loadProperties
-import org.jetbrains.kotlin.konan.properties.propertyList
-import org.jetbrains.kotlin.konan.properties.saveProperties
+import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.konan.target.*
 import java.io.File
-import java.util.concurrent.TimeUnit
 import java.nio.file.Path
-import org.jetbrains.kotlin.konan.file.File as KFile
-import org.gradle.api.tasks.TaskProvider
-import java.util.*
-import kotlin.collections.HashSet
 
 /**
  * Copy-pasted from [org.jetbrains.kotlin.library.KLIB_PROPERTY_NATIVE_TARGETS]
  */
 private const val KLIB_PROPERTY_NATIVE_TARGETS = "native_targets"
+private const val KLIB_PROPERTY_COMPILER_VERSION = "compiler_version"
 
 //region Project properties.
 
@@ -65,10 +58,10 @@ val validPropertiesNames = listOf(
 )
 
 val Project.kotlinNativeDist
-    get() = rootProject.currentKotlinNativeDist
+    get() = rootProject.project(":kotlin-native").currentKotlinNativeDist
 
 val Project.currentKotlinNativeDist
-    get() = file(validPropertiesNames.firstOrNull { hasProperty(it) }?.let { findProperty(it) } ?: "dist")
+    get() = rootProject.file(validPropertiesNames.firstOrNull { hasProperty(it) }?.let { findProperty(it) } ?: "dist")
 
 val kotlinNativeHome
     get() = validPropertiesNames.mapNotNull(System::getProperty).first()
@@ -93,11 +86,6 @@ fun Task.dependsOnPlatformLibs() {
                 this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
                 //this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-${it}Cache")
             }
-            if (this is KonanLinkTest) {
-                project.file(lib).dependencies().forEach {
-                    this.dependsOn(":kotlin-native:platformLibs:${project.testTarget.name}-$it")
-                }
-            }
             this.dependsOnDist()
         } ?: error("unsupported task : $this")
     }
@@ -115,9 +103,6 @@ val Project.globalBuildArgs: List<String>
 
 val Project.globalTestArgs: List<String>
     get() = project.groovyPropertyArrayToList("globalTestArgs")
-
-val Project.testTargetSupportsCodeCoverage: Boolean
-    get() = this.testTarget.supportsCodeCoverage()
 
 fun projectOrFiles(proj: Project, notation: String): Any? {
     val propertyMapper = proj.findProperty("notationMapping") ?: return proj.project(notation)
@@ -179,7 +164,7 @@ fun Project.dependsOnDist(taskName: String) {
     project.tasks.getByName(taskName).dependsOnDist()
 }
 
-fun TaskProvider<Task>.dependsOnDist() {
+fun TaskProvider<out Task>.dependsOnDist() {
     configure {
         dependsOnDist()
     }
@@ -214,6 +199,10 @@ private fun Project.isCrossDist(target: KonanTarget): Boolean {
 
 fun Task.dependsOnDist() {
     val target = project.testTarget
+    dependsOnDist(target)
+}
+
+fun Task.dependsOnDist(target: KonanTarget) {
     if (project.isDefaultNativeHome) {
         dependsOn(":kotlin-native:dist")
         if (target != HostManager.host) {
@@ -239,6 +228,12 @@ fun Task.dependsOnCrossDist(target: KonanTarget) {
         if (!project.isCrossDist(target)) {
             dependsOn(":kotlin-native:${target.name}CrossDist")
         }
+    }
+}
+
+fun Task.dependsOnPlatformLibs(target: KonanTarget) {
+    if (project.isDefaultNativeHome) {
+        dependsOn(":kotlin-native:${target.name}PlatformLibs")
     }
 }
 
@@ -284,25 +279,28 @@ fun Task.dependsOnKonanBuildingTask(artifact: String, target: KonanTarget) {
 
 //endregion
 
-@JvmOverloads
 fun compileSwift(
     project: Project, target: KonanTarget, sources: List<String>, options: List<String>,
-    output: Path, fullBitcode: Boolean = false
+    output: Path
 ) {
     val platform = project.platformManager.platform(target)
     assert(platform.configurables is AppleConfigurables)
     val configs = platform.configurables as AppleConfigurables
-    val compiler = configs.absoluteTargetToolchain + "/usr/bin/swiftc"
+    val compiler = with(configs.absoluteTargetToolchain) {
+        // This is a follow up to the change "Consolidate toolchain paths between platforms" (3aeca1956e1a)
+        // The absoluteTargetToolchain has started to include usr subdir, but the bootstrap version still has the old path without.
+        this + if (this.endsWith("/usr")) "/bin/swiftc" else "/usr/bin/swiftc"
+    }
 
     val swiftTarget = configs.targetTriple.withOSVersion(configs.osVersionMin).toString()
 
     val args = listOf("-sdk", configs.absoluteTargetSysRoot, "-target", swiftTarget) +
             options + "-o" + output.toString() + sources +
-            if (fullBitcode) listOf("-embed-bitcode", "-Xlinker", "-bitcode_verify") else listOf("-embed-bitcode-marker")
+            listOf("-Xlinker", "-adhoc_codesign") // Linker doesn't do adhoc codesigning for tvOS arm64 simulator by default.
 
     val (stdOut, stdErr, exitCode) = runProcess(
             executor = localExecutor(project), executable = compiler, args = args,
-            env = mapOf("DYLD_FALLBACK_FRAMEWORK_PATH" to configs.absoluteTargetToolchain + "/ExtraFrameworks")
+            env = mapOf("DYLD_FALLBACK_FRAMEWORK_PATH" to File(configs.absoluteTargetToolchain).parent + "/ExtraFrameworks")
     )
 
     println(
@@ -328,62 +326,6 @@ fun targetSupportsCoreSymbolication(targetName: String) =
 
 fun targetSupportsThreads(targetName: String) =
     HostManager().targetByName(targetName).supportsThreads()
-
-fun Project.mergeManifestsByTargets(source: File, destination: File) {
-    logger.info("Merging manifests: $source -> $destination")
-
-    val sourceFile = KFile(source.absolutePath)
-    val sourceProperties = sourceFile.loadProperties()
-
-    val destinationFile = KFile(destination.absolutePath)
-    val destinationProperties = destinationFile.loadProperties()
-
-    // check that all properties except for KLIB_PROPERTY_NATIVE_TARGETS are equivalent
-    val mismatchedProperties = (sourceProperties.keys + destinationProperties.keys)
-        .asSequence()
-        .map { it.toString() }
-        .filter { it != KLIB_PROPERTY_NATIVE_TARGETS }
-        .sorted()
-        .mapNotNull { propertyKey: String ->
-            val sourceProperty: String? = sourceProperties.getProperty(propertyKey)
-            val destinationProperty: String? = destinationProperties.getProperty(propertyKey)
-            when {
-                sourceProperty == null -> "\"$propertyKey\" is absent in $sourceFile"
-                destinationProperty == null -> "\"$propertyKey\" is absent in $destinationFile"
-                sourceProperty == destinationProperty -> {
-                    // properties match, OK
-                    null
-                }
-                sourceProperties.propertyList(propertyKey, escapeInQuotes = true).toSet() ==
-                        destinationProperties.propertyList(propertyKey, escapeInQuotes = true).toSet() -> {
-                    // properties match, OK
-                    null
-                }
-                else -> "\"$propertyKey\" differ: [$sourceProperty] vs [$destinationProperty]"
-            }
-        }
-        .toList()
-
-    check(mismatchedProperties.isEmpty()) {
-        buildString {
-            appendln("Found mismatched properties while merging manifest files: $source -> $destination")
-            mismatchedProperties.joinTo(this, "\n")
-        }
-    }
-
-    // merge KLIB_PROPERTY_NATIVE_TARGETS property
-    val sourceNativeTargets = sourceProperties.propertyList(KLIB_PROPERTY_NATIVE_TARGETS)
-    val destinationNativeTargets = destinationProperties.propertyList(KLIB_PROPERTY_NATIVE_TARGETS)
-
-    val mergedNativeTargets = HashSet<String>().apply {
-        addAll(sourceNativeTargets)
-        addAll(destinationNativeTargets)
-    }
-
-    destinationProperties[KLIB_PROPERTY_NATIVE_TARGETS] = mergedNativeTargets.joinToString(" ")
-
-    destinationFile.saveProperties(destinationProperties)
-}
 
 fun Project.buildStaticLibrary(cSources: Collection<File>, output: File, objDir: File) {
     delete(objDir)

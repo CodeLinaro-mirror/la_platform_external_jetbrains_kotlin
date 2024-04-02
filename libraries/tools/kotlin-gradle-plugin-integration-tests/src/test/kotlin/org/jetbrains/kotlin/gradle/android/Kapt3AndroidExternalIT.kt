@@ -90,7 +90,10 @@ open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
             "android-dbflow".withPrefix,
             gradleVersion,
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
-            buildJdk = jdkVersion.location
+            buildJdk = jdkVersion.location,
+            dependencyManagement = DependencyManagement.DefaultDependencyManagement(
+                setOf("https://jitpack.io")
+            )
         ) {
             build("assembleDebug") {
                 assertKaptSuccessful()
@@ -135,7 +138,7 @@ open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
 
     @DisplayName("kapt works with databinding")
     @GradleAndroidTest
-    fun testDatabinding(
+    open fun testDatabinding(
         gradleVersion: GradleVersion,
         agpVersion: String,
         jdkVersion: JdkVersions.ProvidedJdk,
@@ -194,7 +197,6 @@ open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
 
     @DisplayName("kapt works with androidx")
     @GradleAndroidTest
-    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_42, maxVersion = TestVersions.AGP.AGP_42)
     fun testDatabindingWithAndroidX(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -214,7 +216,7 @@ open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
 
     @DisplayName("KT-61622: common sources are attached in MPP + Android project")
     @GradleAndroidTest
-    fun testMppAndroidKapt(
+    open fun testMppAndroidKapt(
         gradleVersion: GradleVersion,
         agpVersion: String,
         jdkVersion: JdkVersions.ProvidedJdk,

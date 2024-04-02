@@ -99,9 +99,6 @@ abstract class AbstractJvmLookupTrackerTest : AbstractLookupTrackerTest() {
 }
 
 abstract class AbstractJsKlibLookupTrackerTest : AbstractJsLookupTrackerTest() {
-    override val jsStdlibFile: File
-        get() = File(System.getProperty("jps.testData.js-ir-runtime") ?: "build/js-ir-runtime/full-runtime.klib")
-
     override fun configureAdditionalArgs(args: K2JSCompilerArguments) {
         args.irProduceKlibDir = true
         args.irOnly = true
@@ -154,10 +151,9 @@ abstract class AbstractJsLookupTrackerTest : AbstractLookupTrackerTest() {
     }
 
     protected open val jsStdlibFile: File
-        get() = PathUtil.kotlinPathsForDistDirectoryForTests.jsStdLibJarPath
+        get() = PathUtil.kotlinPathsForDistDirectoryForTests.jsStdLibKlibPath
 
     protected open fun configureAdditionalArgs(args: K2JSCompilerArguments) {
-        args.outputFile = File(outDir, "out.js").canonicalPath
     }
 
     override fun runCompiler(filesToCompile: Iterable<File>, env: JpsCompilerEnvironment): Any? {
@@ -166,7 +162,6 @@ abstract class AbstractJsLookupTrackerTest : AbstractLookupTrackerTest() {
             libraries = libPaths.joinToString(File.pathSeparator)
             reportOutputFiles = true
             freeArgs = filesToCompile.map { it.canonicalPath }
-            forceDeprecatedLegacyCompilerUsage = true
             useFirLT = false
         }
         configureAdditionalArgs(args)
@@ -232,7 +227,7 @@ abstract class AbstractLookupTrackerTest : TestWithWorkingDir() {
 
         val testDir = File(path)
         val workToOriginalFileMap = HashMap(copyTestSources(testDir, srcDir, filePrefix = ""))
-        var dirtyFiles = srcDir.walk().filterTo(HashSet()) { it.isKotlinFile(listOf("kt", "kts")) }
+        var dirtyFiles = srcDir.walk().filterTo(HashSet()) { it.isKotlinFile(setOf("kt", "kts")) }
         val steps = getModificationsToPerform(
             testDir,
             moduleNames = null,

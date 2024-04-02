@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -87,12 +87,13 @@ internal fun generateTemporaryVariable(
     name: Name,
     initializer: FirExpression,
     typeRef: FirTypeRef? = null,
+    origin: FirDeclarationOrigin = FirDeclarationOrigin.Source,
     extractAnnotationsTo: (KtAnnotated.(FirAnnotationContainerBuilder) -> Unit),
 ): FirVariable =
     buildProperty {
         this.source = source
         this.moduleData = moduleData
-        origin = FirDeclarationOrigin.Source
+        this.origin = origin
         returnTypeRef = typeRef ?: FirImplicitTypeRefImplWithoutSource
         this.name = name
         this.initializer = initializer
@@ -108,6 +109,7 @@ internal fun generateTemporaryVariable(
     source: KtSourceElement?,
     specialName: String,
     initializer: FirExpression,
+    origin: FirDeclarationOrigin = FirDeclarationOrigin.Source,
     extractAnnotationsTo: (KtAnnotated.(FirAnnotationContainerBuilder) -> Unit),
 ): FirVariable =
     generateTemporaryVariable(
@@ -115,11 +117,12 @@ internal fun generateTemporaryVariable(
         source,
         Name.special("<$specialName>"),
         initializer,
-        null,
+        typeRef = null,
+        origin,
         extractAnnotationsTo,
     )
 
-context(DestructuringContext<KtDestructuringDeclarationEntry>)
+context(AbstractRawFirBuilder<*>, DestructuringContext<KtDestructuringDeclarationEntry>)
 internal fun generateDestructuringBlock(
     moduleData: FirModuleData,
     multiDeclaration: KtDestructuringDeclaration,
@@ -129,7 +132,7 @@ internal fun generateDestructuringBlock(
 ): FirBlock {
     return buildBlock {
         source = multiDeclaration.toKtPsiSourceElement()
-        statements.addDestructuringStatements(
+        statements.addDestructuringVariables(
             moduleData,
             multiDeclaration,
             container,
@@ -139,13 +142,16 @@ internal fun generateDestructuringBlock(
     }
 }
 
-context(DestructuringContext<KtDestructuringDeclarationEntry>)
-internal fun MutableList<FirStatement>.addDestructuringStatements(
+context(AbstractRawFirBuilder<*>, DestructuringContext<KtDestructuringDeclarationEntry>)
+internal fun MutableList<in FirVariable>.addDestructuringVariables(
     moduleData: FirModuleData,
     multiDeclaration: KtDestructuringDeclaration,
     container: FirVariable,
     tmpVariable: Boolean,
     localEntries: Boolean,
+    configure: (FirVariable) -> Unit = {}
 ) {
-    addDestructuringStatements(moduleData, container, multiDeclaration.entries, multiDeclaration.isVar, tmpVariable, localEntries)
+    this@addDestructuringVariables.addDestructuringVariables(
+        moduleData, container, multiDeclaration.entries, multiDeclaration.isVar, tmpVariable, localEntries, configure
+    )
 }

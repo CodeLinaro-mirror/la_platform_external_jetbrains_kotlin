@@ -93,7 +93,7 @@ internal class KtFirMetadataCalculator(override val analysisSession: KtFirAnalys
         for (fir in declarations) {
             if (fir !is FirFunction && fir !is FirProperty && fir !is FirTypeAlias) continue
 
-            fir.symbol.lazyResolveToPhase(FirResolvePhase.ANNOTATIONS_ARGUMENTS_MAPPING)
+            fir.symbol.lazyResolveToPhase(FirResolvePhase.ANNOTATION_ARGUMENTS)
 
             val psiElements = mapping[fir.psi as KtElement]
             val methods = psiElements.filterIsInstance<PsiMethod>()
@@ -155,7 +155,7 @@ internal class KtFirMetadataCalculator(override val analysisSession: KtFirAnalys
             metadataVersion = metadataVersion,
             // Technically we should use JvmDefaultMode.ALL_INCOMPATIBLE because Kapt4 always uses `-Xjvm-default=all`, but it would make
             // the majority of tests fail because metadata of each interface will have a flag set, compared to Kapt3.
-            jvmDefaultMode = JvmDefaultMode.DEFAULT,
+            jvmDefaultMode = JvmDefaultMode.DISABLE,
             stringTable,
             null,
             null

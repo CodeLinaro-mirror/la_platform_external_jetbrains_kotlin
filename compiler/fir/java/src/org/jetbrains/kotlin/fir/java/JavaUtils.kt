@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.java
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.toAnnotationClassId
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
@@ -17,11 +18,10 @@ import org.jetbrains.kotlin.fir.expressions.FirArrayLiteral
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
 import org.jetbrains.kotlin.fir.expressions.builder.buildArrayLiteral
-import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildErrorExpression
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.expectedConeType
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.java.RXJAVA3_ANNOTATIONS
 import org.jetbrains.kotlin.load.java.structure.JavaAnnotation
@@ -77,31 +77,31 @@ internal fun Any?.createConstantOrError(session: FirSession, expectedTypeRef: Fi
 
 internal fun Any?.createConstantIfAny(session: FirSession, unsigned: Boolean = false): FirExpression? {
     return when (this) {
-        is Byte -> buildConstExpression(
+        is Byte -> buildLiteralExpression(
             null, if (unsigned) ConstantValueKind.UnsignedByte else ConstantValueKind.Byte, this, setType = true
         )
-        is Short -> buildConstExpression(
+        is Short -> buildLiteralExpression(
             null, if (unsigned) ConstantValueKind.UnsignedShort else ConstantValueKind.Short, this, setType = true
         )
-        is Int -> buildConstExpression(
+        is Int -> buildLiteralExpression(
             null, if (unsigned) ConstantValueKind.UnsignedInt else ConstantValueKind.Int, this, setType = true
         )
-        is Long -> buildConstExpression(
+        is Long -> buildLiteralExpression(
             null, if (unsigned) ConstantValueKind.UnsignedLong else ConstantValueKind.Long, this, setType = true
         )
-        is Char -> buildConstExpression(
+        is Char -> buildLiteralExpression(
             null, ConstantValueKind.Char, this, setType = true
         )
-        is Float -> buildConstExpression(
+        is Float -> buildLiteralExpression(
             null, ConstantValueKind.Float, this, setType = true
         )
-        is Double -> buildConstExpression(
+        is Double -> buildLiteralExpression(
             null, ConstantValueKind.Double, this, setType = true
         )
-        is Boolean -> buildConstExpression(
+        is Boolean -> buildLiteralExpression(
             null, ConstantValueKind.Boolean, this, setType = true
         )
-        is String -> buildConstExpression(
+        is String -> buildLiteralExpression(
             null, ConstantValueKind.String, this, setType = true
         )
         is ByteArray -> toList().createArrayLiteral(session, ConstantValueKind.Byte)
@@ -112,7 +112,7 @@ internal fun Any?.createConstantIfAny(session: FirSession, unsigned: Boolean = f
         is FloatArray -> toList().createArrayLiteral(session, ConstantValueKind.Float)
         is DoubleArray -> toList().createArrayLiteral(session, ConstantValueKind.Double)
         is BooleanArray -> toList().createArrayLiteral(session, ConstantValueKind.Boolean)
-        null -> buildConstExpression(
+        null -> buildLiteralExpression(
             null, ConstantValueKind.Null, null, setType = true
         )
 
@@ -142,3 +142,12 @@ fun FirProperty.hasJvmFieldAnnotation(session: FirSession): Boolean =
 
 fun FirAnnotation.isJvmFieldAnnotation(session: FirSession): Boolean =
     toAnnotationClassId(session) == JvmStandardClassIds.Annotations.JvmField
+
+fun FirDeclaration.findJvmNameAnnotation(): FirAnnotation? {
+    return annotations.firstOrNull {
+        // Access to type must be through `coneTypeOrNull`.
+        // Even if `JvmName` is in the list of annotations that must be resoled for compilation, we still could try to access some user
+        // annotations that could be not resolved.
+        it.annotationTypeRef.coneTypeOrNull?.classId == JvmStandardClassIds.Annotations.JvmName
+    }
+}

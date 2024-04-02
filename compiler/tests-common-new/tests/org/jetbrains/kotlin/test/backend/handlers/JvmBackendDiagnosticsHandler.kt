@@ -17,13 +17,17 @@ import org.junit.jupiter.api.fail
 class JvmBackendDiagnosticsHandler(testServices: TestServices) : JvmBinaryArtifactHandler(testServices) {
     private val reporter = ClassicDiagnosticReporter(testServices)
 
+    override val additionalServices: List<ServiceRegistrationData>
+        get() = listOf(service(::DiagnosticsService))
+
     override fun processModule(module: TestModule, info: BinaryArtifacts.Jvm) {
         reportDiagnostics(module, info)
         reportKtDiagnostics(module, info)
-        checkFullDiagnosticRender(module)
     }
 
-    override fun processAfterAllModules(someAssertionWasFailed: Boolean) {}
+    override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
+        checkFullDiagnosticRender()
+    }
 
     private fun reportDiagnostics(module: TestModule, info: BinaryArtifacts.Jvm) {
         val testFiles = module.files.associateBy { "/${it.name}" }

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers
 
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fir.collectUpperBounds
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.isPrimitiveType
 import org.jetbrains.kotlin.fir.languageVersionSettings
@@ -241,16 +242,18 @@ object ConeTypeCompatibilityChecker {
             is ConeErrorType -> emptySet() // Ignore error types
             is ConeLookupTagBasedType -> when (this) {
                 is ConeClassLikeType -> setOf(this)
-                is ConeTypeVariableType -> emptySet()
                 is ConeTypeParameterType -> emptySet()
-                else -> throw IllegalStateException("missing branch for ${javaClass.name}")
+                else -> error("missing branch for ${javaClass.name}")
             }
+            is ConeTypeVariableType -> emptySet()
             is ConeDefinitelyNotNullType -> original.collectLowerBounds()
             is ConeIntersectionType -> intersectedTypes.flatMap { it.collectLowerBounds() }.toSet()
             is ConeFlexibleType -> lowerBound.collectLowerBounds()
             is ConeCapturedType -> constructor.supertypes?.flatMap { it.collectLowerBounds() }?.toSet().orEmpty()
             is ConeIntegerConstantOperatorType -> setOf(getApproximatedType())
-            is ConeStubType, is ConeIntegerLiteralConstantType -> throw IllegalStateException("$this should not reach here")
+            is ConeStubType, is ConeIntegerLiteralConstantType -> {
+                error("$this should not reach here")
+            }
         }
     }
 

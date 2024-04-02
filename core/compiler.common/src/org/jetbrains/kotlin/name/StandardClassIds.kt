@@ -173,6 +173,7 @@ object StandardClassIds {
         val RawTypeAnnotation = "RawType".internalIrId()
         val FlexibleNullability = "FlexibleNullability".internalIrId()
         val FlexibleMutability = "FlexibleMutability".internalIrId()
+        val FlexibleArrayElementVariance = "FlexibleArrayElementVariance".internalIrId()
         val EnhancedNullability = "EnhancedNullability".jvmInternalId()
 
         val FunctionN = "FunctionN".jvmFunctionsId()
@@ -189,6 +190,11 @@ object StandardClassIds {
 
         val OptionalExpectation = "OptionalExpectation".baseId()
         val ImplicitlyActualizedByJvmDeclaration = "ImplicitlyActualizedByJvmDeclaration".jvmId()
+
+        val AssociatedObjectKey = "AssociatedObjectKey".reflectId()
+        val ExperimentalAssociatedObjects = "ExperimentalAssociatedObjects".reflectId()
+
+        val associatedObjectAnnotations = hashSetOf(AssociatedObjectKey, ExperimentalAssociatedObjects)
 
         object ParameterNames {
             val value = Name.identifier("value")

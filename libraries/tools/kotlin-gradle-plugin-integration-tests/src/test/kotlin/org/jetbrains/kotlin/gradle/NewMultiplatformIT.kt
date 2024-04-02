@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.gradle.plugin.ProjectLocalConfigurations
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMultiplatformPlugin
 import org.jetbrains.kotlin.gradle.plugin.sources.METADATA_CONFIGURATION_NAME_SUFFIX
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.testbase.MPPNativeTargets
@@ -422,7 +421,9 @@ open class NewMultiplatformIT : BaseGradleIT() {
                         }
                     }
                     
-                    mainClassName = 'com.example.lib.CommonKt'
+                    application {
+                        mainClass = 'com.example.lib.CommonKt'
+                    }
                     
                     dependencies {
                         jvm6MainImplementation("com.google.dagger:dagger:2.24")
@@ -825,7 +826,7 @@ open class NewMultiplatformIT : BaseGradleIT() {
             build("printMetadataFiles") {
                 assertSuccessful()
 
-                val expectedFileName = "sample-lib-${KotlinMultiplatformPlugin.METADATA_TARGET_NAME}-1.0.jar"
+                val expectedFileName = "sample-lib-metadata-1.0.jar"
 
                 val paths = metadataDependencyRegex
                     .findAll(output).map { it.groupValues[1] to it.groupValues[2] }
@@ -1374,46 +1375,6 @@ open class NewMultiplatformIT : BaseGradleIT() {
     }
 
     @Test
-    fun testIncrementalCompilation() = with(Project("new-mpp-jvm-js-ic", gradleVersion)) {
-        setupWorkingDir()
-
-        build("build") {
-            assertSuccessful()
-        }
-
-        val libCommonClassKt = projectDir.getFileByName("LibCommonClass.kt")
-        val libCommonClassJsKt = projectDir.getFileByName("LibCommonClassJs.kt")
-        libCommonClassJsKt.modify { it.checkedReplace("platform = \"js\"", "platform = \"Kotlin/JS\"") }
-
-        val libCommonClassJvmKt = projectDir.getFileByName("LibCommonClassJvm.kt")
-        libCommonClassJvmKt.modify { it.checkedReplace("platform = \"jvm\"", "platform = \"Kotlin/JVM\"") }
-        build("build") {
-            assertSuccessful()
-            assertCompiledKotlinSources(project.relativize(libCommonClassKt, libCommonClassJsKt, libCommonClassJvmKt))
-        }
-
-        val libJvmPlatformUtilKt = projectDir.getFileByName("libJvmPlatformUtil.kt")
-        libJvmPlatformUtilKt.modify {
-            it.checkedReplace("fun libJvmPlatformUtil", "inline fun libJvmPlatformUtil")
-        }
-        build("build") {
-            assertSuccessful()
-            val useLibJvmPlatformUtilKt = projectDir.getFileByName("useLibJvmPlatformUtil.kt")
-            assertCompiledKotlinSources(project.relativize(libJvmPlatformUtilKt, useLibJvmPlatformUtilKt))
-        }
-
-        val libJsPlatformUtilKt = projectDir.getFileByName("libJsPlatformUtil.kt")
-        libJsPlatformUtilKt.modify {
-            it.checkedReplace("fun libJsPlatformUtil", "inline fun libJsPlatformUtil")
-        }
-        build("build") {
-            assertSuccessful()
-            val useLibJsPlatformUtilKt = projectDir.getFileByName("useLibJsPlatformUtil.kt")
-            assertCompiledKotlinSources(project.relativize(libJsPlatformUtilKt, useLibJsPlatformUtilKt))
-        }
-    }
-
-    @Test
     fun testPomRewritingInSinglePlatformProject() = with(Project("kt-27059-pom-rewriting")) {
         setupWorkingDir()
         gradleBuildScript().modify(::transformBuildScriptWithPluginsDsl)
@@ -1708,22 +1669,18 @@ open class NewMultiplatformIT : BaseGradleIT() {
         }
     }
 
-    private fun testWasmTest(engine: String, name: String, useBinaryen: Boolean) = with(
+    private fun testWasmTest(engine: String, name: String) = with(
         Project("new-mpp-wasm-test", gradleVersionRequirement = GradleVersionRequired.AtLeast(TestVersions.Gradle.G_7_0))
     ) {
         setupWorkingDir()
         gradleBuildScript().modify {
             transformBuildScriptWithPluginsDsl(it)
                 .replace("<JsEngine>", engine)
-                .replace("<ApplyBinaryen>", if (useBinaryen) "applyBinaryen()" else "")
         }
         build(":wasmJs${name}Test") {
             assertTasksExecuted(":compileKotlinWasmJs")
-            if (useBinaryen) {
-                assertTasksExecuted(":compileTestDevelopmentExecutableKotlinWasmJsOptimize")
-            } else {
-                assertTasksNotExecuted(":compileTestDevelopmentExecutableKotlinWasmJsOptimize")
-            }
+
+            assertTasksNotExecuted(":compileTestDevelopmentExecutableKotlinWasmJsOptimize")
             assertTasksFailed(":wasmJs${name}Test")
             assertTestResults(
                 "testProject/new-mpp-wasm-test/TEST-${engine}.xml",
@@ -1733,16 +1690,10 @@ open class NewMultiplatformIT : BaseGradleIT() {
     }
 
     @Test
-    fun testWasmNodeTest() = testWasmTest("nodejs", "Node", useBinaryen = false)
+    fun testWasmNodeTest() = testWasmTest("nodejs", "Node")
 
     @Test
-    fun testWasmWithBinaryenNodeTest() = testWasmTest("nodejs", "Node", useBinaryen = true)
-
-    @Test
-    fun testWasmD8Test() = testWasmTest("d8", "D8", useBinaryen = false)
-
-    @Test
-    fun testWasmWithBinaryenD8Test() = testWasmTest("d8", "D8", useBinaryen = true)
+    fun testWasmD8Test() = testWasmTest("d8", "D8")
 
     @Test
     fun testResolveMetadataCompileClasspathKt50925() {

@@ -5,6 +5,9 @@
 
 package org.jetbrains.kotlin.backend.konan
 
+import org.jetbrains.kotlin.backend.common.serialization.FingerprintHash
+import org.jetbrains.kotlin.backend.common.serialization.Hash128Bits
+import org.jetbrains.kotlin.backend.common.serialization.SerializedKlibFingerprint
 import org.jetbrains.kotlin.backend.konan.serialization.*
 import org.jetbrains.kotlin.backend.konan.serialization.ClassFieldsSerializer
 import org.jetbrains.kotlin.backend.konan.serialization.InlineFunctionBodyReferenceSerializer
@@ -12,16 +15,21 @@ import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.KotlinLibrary
+import org.jetbrains.kotlin.library.impl.javaFile
 import org.jetbrains.kotlin.library.uniqueName
-import java.security.MessageDigest
 
-private fun MessageDigest.digestFile(file: File) =
-        if (file.isDirectory) digestDirectory(file) else update(file.readBytes())
+private class LibraryHashComputer {
+    private val hashes = mutableListOf<FingerprintHash>()
 
-private fun MessageDigest.digestDirectory(directory: File): Unit =
-        directory.listFiles.sortedBy { it.name }.forEach { digestFile(it) }
+    fun update(hash: FingerprintHash) {
+        hashes.add(hash)
+    }
 
-private fun MessageDigest.digestLibrary(library: KotlinLibrary) = digestFile(library.libraryFile)
+    fun digest() = FingerprintHash(hashes.fold(Hash128Bits(hashes.size.toULong())) { acc, x -> acc.combineWith(x.hash) })
+}
+
+private fun LibraryHashComputer.digestLibrary(library: KotlinLibrary) =
+        update(SerializedKlibFingerprint(library.libraryFile.javaFile()).klibFingerprint)
 
 private fun getArtifactName(target: KonanTarget, baseName: String, kind: CompilerOutputKind) =
         "${kind.prefix(target)}$baseName${kind.suffix(target)}"
@@ -137,58 +145,58 @@ class CachedLibraries(
         }
     }
 
-    private val cacheDirsContents = mutableMapOf<String, Set<String>>()
-    private val librariesFileDirs = mutableMapOf<KotlinLibrary, List<File>>()
-
-    private fun selectCache(library: KotlinLibrary, cacheDir: File): Cache? {
+    private fun File.trySelectCacheFor(library: KotlinLibrary): Cache? {
         // See Linker.renameOutput why is it ok to have an empty cache directory.
-        val cacheDirContents = cacheDirsContents.getOrPut(cacheDir.absolutePath) {
-            cacheDir.listFilesOrEmpty.map { it.absolutePath }.toSet()
-        }
+        val cacheDirContents = listFilesOrEmpty.map { it.absolutePath }.toSet()
         if (cacheDirContents.isEmpty()) return null
-        val cacheBinaryPartDir = cacheDir.child(PER_FILE_CACHE_BINARY_LEVEL_DIR_NAME)
-        val cacheBinaryPartDirContents = cacheDirsContents.getOrPut(cacheBinaryPartDir.absolutePath) {
-            cacheBinaryPartDir.listFilesOrEmpty.map { it.absolutePath }.toSet()
-        }
+        val cacheBinaryPartDir = child(PER_FILE_CACHE_BINARY_LEVEL_DIR_NAME)
+        val cacheBinaryPartDirContents = cacheBinaryPartDir.listFilesOrEmpty.map { it.absolutePath }.toSet()
         val baseName = getCachedLibraryName(library)
         val dynamicFile = cacheBinaryPartDir.child(getArtifactName(target, baseName, CompilerOutputKind.DYNAMIC_CACHE))
         val staticFile = cacheBinaryPartDir.child(getArtifactName(target, baseName, CompilerOutputKind.STATIC_CACHE))
 
         if (dynamicFile.absolutePath in cacheBinaryPartDirContents && staticFile.absolutePath in cacheBinaryPartDirContents)
             error("Both dynamic and static caches files cannot be in the same directory." +
-                    " Library: ${library.libraryName}, path to cache: ${cacheDir.absolutePath}")
+                    " Library: ${library.libraryName}, path to cache: $absolutePath")
         return when {
             dynamicFile.absolutePath in cacheBinaryPartDirContents -> Cache.Monolithic(target, Kind.DYNAMIC, dynamicFile.absolutePath)
             staticFile.absolutePath in cacheBinaryPartDirContents -> Cache.Monolithic(target, Kind.STATIC, staticFile.absolutePath)
             else -> {
-                val libraryFileDirs = librariesFileDirs.getOrPut(library) {
-                    library.getFilesWithFqNames().map { cacheDir.child(CacheSupport.cacheFileId(it.fqName, it.filePath)) }
+                val libraryFileDirs = library.getFilesWithFqNames().map {
+                    child(CacheSupport.cacheFileId(it.fqName, it.filePath))
                 }
-                Cache.PerFile(target, Kind.STATIC, cacheDir.absolutePath, libraryFileDirs,
+                Cache.PerFile(target, Kind.STATIC, absolutePath, libraryFileDirs,
                         complete = cacheDirContents.containsAll(libraryFileDirs.map { it.absolutePath }))
             }
         }
     }
 
     private val uniqueNameToLibrary = allLibraries.associateBy { it.uniqueName }
+    private val uniqueNameToHash = mutableMapOf<String, FingerprintHash>()
+
+    private val cacheNameToImplicitDirMapping: Map<String, File> =
+            implicitCacheDirectories.flatMap { dir -> dir.listFilesOrEmpty.map { it.name to it } }
+                    .toMap()
+
+    private fun KotlinLibrary.trySelectCacheAt(dirBuilder: (String) -> File?) =
+            sequenceOf(getPerFileCachedLibraryName(this), getCachedLibraryName(this))
+                    .map(dirBuilder)
+                    .mapNotNull { it?.trySelectCacheFor(this) }
+                    .firstOrNull()
 
     private val allCaches: Map<KotlinLibrary, Cache> = allLibraries.mapNotNull { library ->
         val explicitPath = explicitCaches[library]
 
         val cache = if (explicitPath != null) {
-            selectCache(library, File(explicitPath))
+            File(explicitPath).trySelectCacheFor(library)
                     ?: error("No cache found for library ${library.libraryName} at $explicitPath")
         } else {
             val libraryPath = library.libraryFile.absolutePath
-            implicitCacheDirectories.firstNotNullOfOrNull { dir ->
-                selectCache(library, dir.child(getPerFileCachedLibraryName(library)))
-                        ?: selectCache(library, dir.child(getCachedLibraryName(library)))
-            }
+            library.trySelectCacheAt { cacheNameToImplicitDirMapping[it] }
                     ?: autoCacheDirectory.takeIf { autoCacheableFrom.any { libraryPath.startsWith(it.absolutePath) } }
                             ?.let {
-                                val dir = computeVersionedCacheDirectory(it, library, uniqueNameToLibrary)
-                                selectCache(library, dir.child(getPerFileCachedLibraryName(library)))
-                                        ?: selectCache(library, dir.child(getCachedLibraryName(library)))
+                                val dir = computeVersionedCacheDirectory(it, library, uniqueNameToLibrary, uniqueNameToHash)
+                                library.trySelectCacheAt { cacheName -> dir.child(cacheName) }
                             }
         }
 
@@ -220,17 +228,28 @@ class CachedLibraries(
         fun getCachedLibraryName(library: KotlinLibrary): String = getCachedLibraryName(library.uniqueName)
         fun getCachedLibraryName(libraryName: String): String = "$libraryName-cache"
 
-        @OptIn(ExperimentalUnsignedTypes::class)
-        fun computeVersionedCacheDirectory(baseCacheDirectory: File, library: KotlinLibrary, allLibraries: Map<String, KotlinLibrary>): File {
+        private fun computeLibraryHash(library: KotlinLibrary, librariesHashes: MutableMap<String, FingerprintHash>) =
+                librariesHashes.getOrPut(library.uniqueName) {
+                    val hashComputer = LibraryHashComputer()
+                    hashComputer.digestLibrary(library)
+                    hashComputer.digest()
+                }
+
+        fun computeVersionedCacheDirectory(
+                baseCacheDirectory: File,
+                library: KotlinLibrary,
+                allLibraries: Map<String, KotlinLibrary>,
+                librariesHashes: MutableMap<String, FingerprintHash>,
+        ): File {
             val dependencies = library.getAllTransitiveDependencies(allLibraries)
-            val messageDigest = MessageDigest.getInstance("SHA-256")
-            messageDigest.update(compilerMarker)
-            messageDigest.digestLibrary(library)
-            dependencies.sortedBy { it.uniqueName }.forEach { messageDigest.digestLibrary(it) }
+            val hashComputer = LibraryHashComputer()
+            hashComputer.update(computeLibraryHash(library, librariesHashes))
+            dependencies.sortedBy { it.uniqueName }.forEach {
+                hashComputer.update(computeLibraryHash(it, librariesHashes))
+            }
 
             val version = library.versions.libraryVersion ?: "unspecified"
-            val hashString = messageDigest.digest().asUByteArray()
-                    .joinToString("") { it.toString(radix = 16).padStart(2, '0') }
+            val hashString = hashComputer.digest().toString()
             return baseCacheDirectory.child(library.uniqueName).child(version).child(hashString)
         }
 
@@ -242,8 +261,5 @@ class CachedLibraries(
         const val INLINE_FUNCTION_BODIES_FILE_NAME = "inline_bodies"
         const val CLASS_FIELDS_FILE_NAME = "class_fields"
         const val EAGER_INITIALIZED_PROPERTIES_FILE_NAME = "eager_init"
-
-        // TODO: Remove after dropping Gradle cache orchestration.
-        private val compilerMarker = "K/N orchestration".encodeToByteArray()
     }
 }

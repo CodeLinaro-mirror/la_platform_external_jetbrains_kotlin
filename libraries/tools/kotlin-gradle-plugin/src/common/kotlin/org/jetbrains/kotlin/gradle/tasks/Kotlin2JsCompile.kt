@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.gradle.tasks
 
-import org.gradle.api.InvalidUserDataException
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileCollection
@@ -31,24 +30,17 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.Contri
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
-import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService
+import org.jetbrains.kotlin.gradle.plugin.statistics.CompileKotlinJsTaskMetrics
+import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.BuildReportMode
 import org.jetbrains.kotlin.gradle.targets.js.internal.LibraryFilterCachingService
 import org.jetbrains.kotlin.gradle.targets.js.internal.UsesLibraryFilterCachingService
-import org.jetbrains.kotlin.gradle.targets.js.ir.DISABLE_PRE_IR
-import org.jetbrains.kotlin.gradle.targets.js.ir.PRODUCE_JS
-import org.jetbrains.kotlin.gradle.targets.js.ir.PRODUCE_UNZIPPED_KLIB
-import org.jetbrains.kotlin.gradle.targets.js.ir.PRODUCE_ZIPPED_KLIB
 import org.jetbrains.kotlin.gradle.tasks.internal.KotlinJsOptionsCompat
 import org.jetbrains.kotlin.gradle.utils.getFile
-import org.jetbrains.kotlin.gradle.utils.existsCompat
-import org.jetbrains.kotlin.gradle.utils.isParentOf
 import org.jetbrains.kotlin.gradle.utils.newInstance
 import org.jetbrains.kotlin.gradle.utils.toPathsArray
 import org.jetbrains.kotlin.incremental.ClasspathChanges
 import org.jetbrains.kotlin.library.impl.isKotlinLibrary
-import org.jetbrains.kotlin.statistics.metrics.BooleanMetrics
-import org.jetbrains.kotlin.utils.JsLibraryUtils
 import java.io.File
 import javax.inject.Inject
 
@@ -60,6 +52,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
 ) : AbstractKotlinCompile<K2JSCompilerArguments>(objectFactory, workerExecutor),
     KotlinCompilationTask<KotlinJsCompilerOptions>,
     UsesLibraryFilterCachingService,
+    UsesBuildFusService,
     KotlinJsCompile,
     K2MultiplatformCompilationTask {
 
@@ -77,35 +70,22 @@ abstract class Kotlin2JsCompile @Inject constructor(
     internal var incrementalJsKlib: Boolean = true
 
     override fun isIncrementalCompilationEnabled(): Boolean {
-        val freeArgs = enhancedFreeCompilerArgs.get()
-        return when {
-            PRODUCE_JS in freeArgs -> false
-
-            PRODUCE_UNZIPPED_KLIB in freeArgs -> {
-                KotlinBuildStatsService.applyIfInitialised {
-                    it.report(BooleanMetrics.JS_KLIB_INCREMENTAL, incrementalJsKlib)
-                }
-                incrementalJsKlib
-            }
-
-            PRODUCE_ZIPPED_KLIB in freeArgs -> {
-                KotlinBuildStatsService.applyIfInitialised {
-                    it.report(BooleanMetrics.JS_KLIB_INCREMENTAL, incrementalJsKlib)
-                }
-                incrementalJsKlib
-            }
-
-            else -> incremental
-        }
+        return incrementalJsKlib || incremental
     }
 
     // Workaround to be able to use default value and change it later based on external input
     @get:Internal
     internal abstract val defaultDestinationDirectory: DirectoryProperty
 
-    @Deprecated("Use destinationDirectory and moduleName instead")
+    // To be sure that outputFileProperty will be correct on transition period
     @get:Internal
-    abstract val outputFileProperty: Property<File>
+    internal abstract val _outputFileProperty: Property<File>
+
+    // hidden to keep ABI compatiblity, because we have plugins which still use outputFileProperty
+    @Deprecated("Use destinationDirectory and moduleName instead", level = DeprecationLevel.HIDDEN)
+    @get:Internal
+    val outputFileProperty: Property<File>
+        get() = _outputFileProperty
 
     // Workaround to add additional compiler args based on the exising one
     // Currently there is a logic to add additional compiler arguments based on already existing one.
@@ -124,6 +104,13 @@ abstract class Kotlin2JsCompile @Inject constructor(
      */
     @get:Internal
     internal var executionTimeFreeCompilerArgs: List<String>? = null
+
+    @get:Deprecated(
+        message = "Task.moduleName is not used in Kotlin/JS"
+    )
+    @get:Optional
+    @get:Input
+    abstract override val moduleName: Property<String>
 
     @get:Nested
     override val multiplatformStructure: K2MultiplatformStructure = objectFactory.newInstance()
@@ -148,19 +135,8 @@ abstract class Kotlin2JsCompile @Inject constructor(
 
             KotlinJsCompilerOptionsHelper.fillCompilerArguments(compilerOptions, args)
 
-            if (isIrBackendEnabled()) {
-                val outputFilePath: String? = compilerOptions.outputFile.orNull
-                if (outputFilePath != null) {
-                    val outputFile = File(outputFilePath)
-                    args.outputDir = (if (outputFile.extension == "") outputFile else outputFile.parentFile).normalize().absolutePath
-                    args.moduleName = outputFile.nameWithoutExtension
-                } else {
-                    args.outputDir = destinationDirectory.get().asFile.normalize().absolutePath
-                    args.moduleName = compilerOptions.moduleName.get()
-                }
-            } else {
-                args.outputFile = outputFileProperty.get().absoluteFile.normalize().absolutePath
-            }
+            args.outputDir = destinationDirectory.get().asFile.normalize().absolutePath
+            args.moduleName = compilerOptions.moduleName.get()
 
             if (compilerOptions.usesK2.get()) {
                 args.fragments = multiplatformStructure.fragmentsCompilerArgs
@@ -228,58 +204,15 @@ abstract class Kotlin2JsCompile @Inject constructor(
         .directoryProperty()
         .value(project.layout.projectDirectory)
 
-    private fun isHybridKotlinJsLibrary(file: File): Boolean =
-        JsLibraryUtils.isKotlinJavascriptLibrary(file) && isKotlinLibrary(file)
-
-    private val preIrBackendCompilerFlags = listOf(
-        DISABLE_PRE_IR,
-        PRODUCE_JS,
-        PRODUCE_ZIPPED_KLIB
-    )
-
-    private fun isPreIrBackendDisabled(): Boolean = enhancedFreeCompilerArgs
-        .get()
-        .any { preIrBackendCompilerFlags.contains(it) }
-
-    // see also isIncrementalCompilationEnabled
-    private val irBackendCompilerFlags = listOf(
-        PRODUCE_UNZIPPED_KLIB,
-        PRODUCE_JS,
-        PRODUCE_ZIPPED_KLIB
-    )
-
-    private fun isIrBackendEnabled(): Boolean = enhancedFreeCompilerArgs
-        .get()
-        .any { irBackendCompilerFlags.contains(it) }
-
     private val File.asLibraryFilterCacheKey: LibraryFilterCachingService.LibraryFilterCacheKey
         get() = LibraryFilterCachingService.LibraryFilterCacheKey(
-            this,
-            irEnabled = isIrBackendEnabled(),
-            preIrDisabled = isPreIrBackendDisabled()
+            this
         )
-
-    // Kotlin/JS can operate in 3 modes:
-    //  1) purely pre-IR backend
-    //  2) purely IR backend
-    //  3) hybrid pre-IR and IR backend. Can only accept libraries with both JS and IR parts.
-    private val libraryFilterBody: (File) -> Boolean
-        get() = if (isIrBackendEnabled()) {
-            if (isPreIrBackendDisabled()) {
-                //::isKotlinLibrary
-                // Workaround for KT-47797
-                { isKotlinLibrary(it) }
-            } else {
-                ::isHybridKotlinJsLibrary
-            }
-        } else {
-            JsLibraryUtils::isKotlinJavascriptLibrary
-        }
 
     @get:Internal
     protected val libraryFilter: (File) -> Boolean
         get() = { file ->
-            libraryFilterCacheService.get().getOrCompute(file.asLibraryFilterCacheKey, libraryFilterBody)
+            libraryFilterCacheService.get().getOrCompute(file.asLibraryFilterCacheKey, ::isKotlinLibrary)
         }
 
     override val incrementalProps: List<FileCollection>
@@ -287,20 +220,19 @@ abstract class Kotlin2JsCompile @Inject constructor(
 
     protected open fun processArgsBeforeCompile(args: K2JSCompilerArguments) = Unit
 
-    protected open fun contributeAdditionalCompilerArguments(context: ContributeCompilerArgumentsContext<K2JSCompilerArguments>) = Unit
+    protected open fun contributeAdditionalCompilerArguments(context: ContributeCompilerArgumentsContext<K2JSCompilerArguments>) {
+        context.primitive { args ->
+            args.irOnly = true
+            args.irProduceKlibDir = true
+        }
+    }
 
     override fun callCompilerAsync(
         args: K2JSCompilerArguments,
         inputChanges: InputChanges,
-        taskOutputsBackup: TaskOutputsBackup?
+        taskOutputsBackup: TaskOutputsBackup?,
     ) {
         logger.debug("Calling compiler")
-
-        validateOutputDirectory()
-
-        if (isIrBackendEnabled()) {
-            logger.info(USING_JS_IR_BACKEND_MESSAGE)
-        }
 
         val dependencies = libraries
             .filter { it.exists() && libraryFilter(it) }
@@ -331,16 +263,20 @@ abstract class Kotlin2JsCompile @Inject constructor(
                 rootProjectDir = rootProjectDir,
                 buildDir = projectLayout.buildDirectory.getFile(),
                 multiModuleICSettings = multiModuleICSettings,
-                preciseCompilationResultsBackup = preciseCompilationResultsBackup.get(),
-                keepIncrementalCompilationCachesInMemory = keepIncrementalCompilationCachesInMemory.get(),
+                icFeatures = makeIncrementalCompilationFeatures(),
             )
         } else null
+
+        buildFusService.orNull?.reportFusMetrics {
+            CompileKotlinJsTaskMetrics.collectMetrics(icEnv != null, it)
+        }
 
         val environment = GradleCompilerEnvironment(
             defaultCompilerClasspath, gradleMessageCollector, outputItemCollector,
             outputFiles = allOutputFiles(),
             reportingSettings = reportingSettings(),
-            incrementalCompilationEnvironment = icEnv
+            incrementalCompilationEnvironment = icEnv,
+            compilerArgumentsLogLevel = kotlinCompilerArgumentsLogLevel.get()
         )
         processArgsBeforeCompile(args)
         compilerRunner.runJsCompilerAsync(
@@ -348,23 +284,9 @@ abstract class Kotlin2JsCompile @Inject constructor(
             environment,
             taskOutputsBackup
         )
-        compilerRunner.errorsFile?.also { gradleMessageCollector.flush(it) }
+        compilerRunner.errorsFiles?.let { gradleMessageCollector.flush(it) }
 
     }
 
     private val rootProjectDir = project.rootDir
-
-    private fun validateOutputDirectory() {
-        val outputFile = outputFileProperty.get()
-        val outputDir = outputFile.parentFile
-
-        if (outputDir.isParentOf(rootProjectDir)) {
-            throw InvalidUserDataException(
-                "The output directory '$outputDir' (defined by outputFile of ':$name') contains or " +
-                        "matches the project root directory '${rootProjectDir}'.\n" +
-                        "Gradle will not be able to build the project because of the root directory lock.\n" +
-                        "To fix this, consider using the default outputFile location instead of providing it explicitly."
-            )
-        }
-    }
 }

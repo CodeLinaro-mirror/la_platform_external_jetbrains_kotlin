@@ -10,7 +10,17 @@ import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.compilerRunner.OutputItemsCollectorImpl
 import org.jetbrains.kotlin.compilerRunner.processCompilerOutput
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.konan.target.AppleConfigurables
+import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeTargets
+import org.jetbrains.kotlin.native.executors.RunProcessException
+import org.jetbrains.kotlin.native.executors.runProcess
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Settings
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.configurables
+import org.jetbrains.kotlin.native.executors.*
+import org.jetbrains.kotlin.test.KtAssert.fail
+import org.junit.jupiter.api.Assumptions
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -20,7 +30,7 @@ import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 import org.jetbrains.kotlin.konan.file.File as KonanFile
 
-internal data class CompilationToolCallResult(
+data class CompilationToolCallResult(
     val exitCode: ExitCode,
     val toolOutput: String,
     val toolOutputHasErrors: Boolean,
@@ -74,6 +84,12 @@ internal fun callCompiler(compilerArgs: Array<String>, kotlinNativeClassLoader: 
     return CompilationToolCallResult(exitCode, compilerOutput, messageCollector.hasErrors(), duration)
 }
 
+
+fun callCompilerWithoutOutputInterceptor(compilerArgs: Array<String>): CompilationToolCallResult {
+    val compilerClassLoader = NativeTestSupport.computeNativeClassLoader(parent = null).classLoader
+    return callCompilerWithoutOutputInterceptor(compilerArgs, compilerClassLoader)
+}
+
 internal fun callCompilerWithoutOutputInterceptor(
     compilerArgs: Array<String>,
     kotlinNativeClassLoader: ClassLoader
@@ -110,12 +126,9 @@ internal fun callCompilerWithoutOutputInterceptor(
 @OptIn(ExperimentalTime::class)
 internal fun invokeCInterop(
     kotlinNativeClassLoader: ClassLoader,
-    targets: KotlinNativeTargets,
-    inputDef: File,
     outputLib: File,
-    extraArgs: Array<String>
+    args: Array<String>
 ): CompilationToolCallResult {
-    val args = arrayOf("-o", outputLib.canonicalPath, "-def", inputDef.canonicalPath, "-no-default-libs", "-target", targets.testTarget.name)
     val buildDir = KonanFile("${outputLib.canonicalPath}-build")
     val generatedDir = KonanFile(buildDir, "kotlin")
     val nativesDir = KonanFile(buildDir, "natives")
@@ -129,17 +142,17 @@ internal fun invokeCInterop(
         entryPoint.invoke(
             interopClass.getDeclaredConstructor().newInstance(),
             "native",
-            args + extraArgs,
+            args,
             false,
             generatedDir.absolutePath, nativesDir.absolutePath, manifest.path, cstubsName // args for InternalInteropOptions()
         )
     }
     return when {
         // cinterop has failed with a known error that was returned as a result.
-        cinteropResult is Exception -> {
+        cinteropResult is Throwable -> {
             CompilationToolCallResult(
                 exitCode = ExitCode.COMPILATION_ERROR,
-                toolOutput = cinteropResult.message ?: "",
+                toolOutput = cinteropResult.stackTraceToString(),
                 toolOutputHasErrors = true,
                 duration
             )
@@ -158,5 +171,45 @@ internal fun invokeCInterop(
             //      from C-interop tool invocation at the moment. This should be fixed in the future.
             CompilationToolCallResult(exitCode = ExitCode.OK, toolOutput = "", toolOutputHasErrors = false, duration)
         }
+    }
+}
+
+internal fun invokeSwiftC(
+    settings: Settings,
+    args: List<String>,
+): CompilationToolCallResult {
+    val targets = settings.get<KotlinNativeTargets>()
+    Assumptions.assumeTrue(targets.testTarget.family.isAppleFamily)
+    val configs = settings.configurables as AppleConfigurables
+    val swiftCompiler = configs.absoluteTargetToolchain + "/bin/swiftc"
+    val result = try {
+        runProcess(swiftCompiler, *args.toTypedArray()) {
+            timeout = Duration.parse("5m")
+            environment["DYLD_FALLBACK_FRAMEWORK_PATH"] =
+                File(configs.absoluteTargetToolchain).resolveSibling("ExtraFrameworks").absolutePath
+        }
+    } catch (rpe: RunProcessException) {
+        if (rpe.exitCode == null)
+            throw rpe // Treat compiler timeouts as fatal errors
+        return CompilationToolCallResult(
+            exitCode = ExitCode.COMPILATION_ERROR,
+            toolOutput = "ARGS: $args\nSTDOUT: ${rpe.stdout}\nSTDERR: ${rpe.stderr}",
+            toolOutputHasErrors = true,
+            rpe.executionTime
+        )
+    }
+    return CompilationToolCallResult(
+        exitCode = ExitCode.OK,
+        toolOutput = "ARGS: $args\nSTDOUT: ${result.stdout}\nSTDERR=${result.stderr}}",
+        toolOutputHasErrors = false,
+        result.executionTime
+    )
+}
+
+internal fun codesign(path: String) {
+    val executableAbsolutePath = "/usr/bin/codesign"
+    val args = arrayOf("--verbose", "-s", "-", path)
+    runProcess(executableAbsolutePath, *args) {
+        timeout = Duration.parse("30s")
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -44,6 +44,28 @@ public class FirIdeNormalAnalysisScriptSourceModuleSymbolByReferenceTestGenerate
     @Test
     public void testAllFilesPresentInSymbolByReference() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/symbolByReference"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("scriptArgument.kts")
+    public void testScriptArgument() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/scriptArgument.kts");
+    }
+
+    @Test
+    @TestMetadata("scriptResult.kts")
+    public void testScriptResult() throws Exception {
+        runTest("analysis/analysis-api/testData/symbols/symbolByReference/scriptResult.kts");
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/symbols/symbolByReference/js")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Js {
+        @Test
+        public void testAllFilesPresentInJs() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/symbolByReference/js"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
     }
 
     @Nested

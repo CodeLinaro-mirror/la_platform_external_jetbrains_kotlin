@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.parsing.parseBoolean
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
-import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureJsArtifactsHandlersStep
 import org.jetbrains.kotlin.test.builders.jsArtifactsHandlersStep
@@ -24,6 +23,7 @@ import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
+import org.jetbrains.kotlin.utils.bind
 import java.lang.Boolean.getBoolean
 
 abstract class AbstractJsIrTest(
@@ -107,6 +107,16 @@ open class AbstractIrJsTypeScriptExportTest : AbstractJsIrTest(
     }
 }
 
+open class AbstractIrJsES6TypeScriptExportTest : AbstractJsIrES6Test(
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
+    testGroupOutputDirPrefix = "es6-typescript-export/"
+) {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        configureIrJsTypeScriptExportTest(builder)
+    }
+}
+
 private fun configureIrJsTypeScriptExportTest(builder: TestConfigurationBuilder) {
     with(builder) {
         defaultDirectives {
@@ -128,13 +138,23 @@ open class AbstractJsIrLineNumberTest : AbstractJsIrTest(
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        configureJsIrLineNumberTest(builder)
+        with(builder) {
+            defaultDirectives {
+                +JsEnvironmentConfigurationDirectives.KJS_WITH_FULL_RUNTIME
+                +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
+                -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
+                JsEnvironmentConfigurationDirectives.DONT_RUN_GENERATED_CODE.with(listOf("JS", "JS_IR", "JS_IR_ES6"))
+            }
+            configureJsArtifactsHandlersStep {
+                useHandlers(::createIrJsLineNumberHandler)
+            }
+        }
     }
 }
 
 open class AbstractSourceMapGenerationSmokeTest : AbstractJsIrTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/sourcemap/",
-    testGroupOutputDirPrefix = "sourcemap/"
+    testGroupOutputDirPrefix = "irSourcemap/"
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
@@ -149,7 +169,7 @@ open class AbstractSourceMapGenerationSmokeTest : AbstractJsIrTest(
 
 open class AbstractMultiModuleOrderTest : AbstractJsIrTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/multiModuleOrder/",
-    testGroupOutputDirPrefix = "multiModuleOrder/"
+    testGroupOutputDirPrefix = "irMultiModuleOrder/"
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
@@ -183,23 +203,9 @@ open class AbstractWebDemoExamplesTest : AbstractJsIrTest(
     }
 }
 
-private fun configureJsIrLineNumberTest(builder: TestConfigurationBuilder) {
-    with(builder) {
-        defaultDirectives {
-            +JsEnvironmentConfigurationDirectives.KJS_WITH_FULL_RUNTIME
-            +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
-            -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
-            JsEnvironmentConfigurationDirectives.DONT_RUN_GENERATED_CODE.with(listOf("JS", "JS_IR", "JS_IR_ES6"))
-        }
-        configureJsArtifactsHandlersStep {
-            useHandlers(::JsLineNumberHandler)
-        }
-    }
-}
-
 open class AbstractIrJsSteppingTest : AbstractJsIrTest(
     pathToTestDir = "compiler/testData/debug/stepping/",
-    testGroupOutputDirPrefix = "debug/stepping/"
+    testGroupOutputDirPrefix = "debug/irStepping/"
 ) {
     override fun TestConfigurationBuilder.configuration() {
         commonConfigurationForJsBlackBoxCodegenTest()
@@ -234,6 +240,6 @@ open class AbstractIrJsLocalVariableTest : AbstractJsIrTest(
 }
 
 open class AbstractIrCodegenWasmJsInteropJsTest : AbstractJsIrTest(
-    pathToTestDir = "compiler/testData/codegen/wasmJsInterop",
-    testGroupOutputDirPrefix = "codegen/wasmJsInteropJs"
+    pathToTestDir = "compiler/testData/codegen/wasmJsInterop/",
+    testGroupOutputDirPrefix = "codegen/irWasmJsInteropJs/"
 )

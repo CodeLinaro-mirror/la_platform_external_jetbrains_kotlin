@@ -21,7 +21,6 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.*
 import org.gradle.kotlin.dsl.support.serviceOf
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import java.io.File
 import java.lang.Character.isLowerCase
 import java.lang.Character.isUpperCase
@@ -33,6 +32,7 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-assignment",
     ":kotlin-allopen",
     ":kotlin-noarg",
+    ":kotlin-power-assert",
     ":kotlin-sam-with-receiver",
     ":kotlin-lombok",
     ":kotlin-serialization",
@@ -68,6 +68,7 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-assignment-compiler-plugin.embeddable",
     ":kotlin-allopen-compiler-plugin.embeddable",
     ":kotlin-noarg-compiler-plugin.embeddable",
+    ":kotlin-power-assert-compiler-plugin.embeddable",
     ":kotlin-sam-with-receiver-compiler-plugin.embeddable",
     ":kotlin-lombok-compiler-plugin.embeddable",
     ":kotlinx-serialization-compiler-plugin.embeddable",
@@ -80,7 +81,6 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-test-js-runner",
     ":native:kotlin-klib-commonizer-embeddable",
     ":native:kotlin-klib-commonizer-api",
-    ":prepare:kotlin-gradle-plugin-compiler-dependencies",
     ":compiler:build-tools:kotlin-build-statistics",
     ":compiler:build-tools:kotlin-build-tools-api",
     ":compiler:build-tools:kotlin-build-tools-impl",
@@ -118,8 +118,12 @@ fun Project.projectTest(
     minHeapSizeMb: Int? = null,
     reservedCodeCacheSizeMb: Int = 256,
     defineJDKEnvVariables: List<JdkMajorVersion> = emptyList(),
-    body: Test.() -> Unit = {}
+    body: Test.() -> Unit = {},
 ): TaskProvider<Test> {
+    val concurrencyLimitService =
+        project.gradle.sharedServices.registerIfAbsent("concurrencyLimitService", ConcurrencyLimitService::class) {
+            maxParallelUsages = 1
+        }
     val shouldInstrument = project.providers.gradleProperty("kotlin.test.instrumentation.disable")
         .orNull?.toBoolean() != true
     if (shouldInstrument) {
@@ -202,18 +206,19 @@ fun Project.projectTest(
             defaultMaxMemoryPerTestWorkerMb
 
         maxHeapSize = "${memoryPerTestProcessMb}m"
+        usesService(concurrencyLimitService)
 
         if (minHeapSizeMb != null) {
             minHeapSize = "${minHeapSizeMb}m"
         }
 
         systemProperty("idea.is.unit.test", "true")
-        systemProperty("idea.home.path", project.ideaHomePathForTests().canonicalPath)
+        systemProperty("idea.home.path", project.ideaHomePathForTests().get().asFile.canonicalPath)
         systemProperty("idea.use.native.fs.for.win", false)
         systemProperty("java.awt.headless", "true")
         environment("NO_FS_ROOTS_ACCESS_CHECK", "true")
         environment("PROJECT_CLASSES_DIRS", project.testSourceSet.output.classesDirs.asPath)
-        environment("PROJECT_BUILD_DIR", project.buildDir)
+        environment("PROJECT_BUILD_DIR", project.layout.buildDirectory.get().asFile)
         systemProperty("jps.kotlin.home", project.rootProject.extra["distKotlinHomeDir"]!!)
         systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (project.rootProject.hasProperty("skipMutedTests")) "true" else "false")
         systemProperty("cacheRedirectorEnabled", project.rootProject.findProperty("cacheRedirectorEnabled")?.toString() ?: "false")
@@ -229,7 +234,7 @@ fun Project.projectTest(
         val teamcity = project.rootProject.findProperty("teamcity") as? Map<*, *>
         doFirst {
             val systemTempRoot =
-                // TC by default doesn't switch `teamcity.build.tempDir` to 'java.io.tmpdir' so it could cause to wasted disk space
+            // TC by default doesn't switch `teamcity.build.tempDir` to 'java.io.tmpdir' so it could cause to wasted disk space
                 // Should be fixed soon on Teamcity side
                 (teamcity?.get("teamcity.build.tempDir") as? String)
                     ?: System.getProperty("java.io.tmpdir")
@@ -265,6 +270,10 @@ fun Project.projectTest(
             environment(version.envName, jdkHome)
         }
     }.apply { configure(body) }
+}
+
+fun Test.enableJunit5ExtensionsAutodetection() {
+    systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
 }
 
 val defaultMaxMemoryPerTestWorkerMb = 1600
@@ -335,10 +344,13 @@ fun Task.useAndroidJar() {
 }
 
 fun Task.acceptAndroidSdkLicenses() {
-    val separator = System.lineSeparator()
-    with(project) {
-        val androidSdk = configurations["androidSdk"].singleFile
-        val sdkLicensesDir = androidSdk.resolve("licenses").also {
+    val androidSdkConfiguration = project.configurations["androidSdk"]
+    val androidSdk = project.objects.fileProperty().apply { set { androidSdkConfiguration.singleFile } }
+
+    dependsOn(androidSdkConfiguration)
+
+    doFirst {
+        val sdkLicensesDir = androidSdk.get().asFile.resolve("licenses").also {
             if (!it.exists()) it.mkdirs()
         }
 
@@ -353,16 +365,12 @@ fun Task.acceptAndroidSdkLicenses() {
         if (!sdkLicenseFile.exists()) {
             sdkLicenseFile.createNewFile()
             sdkLicenseFile.writeText(
-                sdkLicenses.joinToString(separator = separator)
+                sdkLicenses.joinToString(separator = System.lineSeparator())
             )
         } else {
             sdkLicenses
-                .subtract(
-                    sdkLicenseFile.readText().lines()
-                )
-                .forEach {
-                    sdkLicenseFile.appendText("$it$separator")
-                }
+                .subtract(sdkLicenseFile.readText().lines().toSet())
+                .forEach { sdkLicenseFile.appendText("$it${System.lineSeparator()}") }
         }
 
         val sdkPreviewLicenseFile = sdkLicensesDir.resolve("android-sdk-preview-license")
@@ -381,7 +389,7 @@ fun Project.confugureFirPluginAnnotationsDependency(testTask: TaskProvider<Test>
     val firPluginJsAnnotations: Configuration by configurations.creating {
         attributes {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_RUNTIME))
-            attribute(org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.attribute, org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.js)
+            attribute(KotlinPlatformType.attribute, KotlinPlatformType.js)
         }
     }
 
@@ -413,8 +421,8 @@ fun Project.optInToExperimentalCompilerApi() {
     optInTo("org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi")
 }
 
-fun Project.optInToIrSymbolInternals() {
-    optInTo("org.jetbrains.kotlin.ir.symbols.IrSymbolInternals")
+fun Project.optInToUnsafeDuringIrConstructionAPI() {
+    optInTo("org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI")
 }
 
 fun Project.optInToObsoleteDescriptorBasedAPI() {

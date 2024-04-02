@@ -1,14 +1,7 @@
+// TARGET_BACKEND: JVM
 // WITH_STDLIB
 // FULL_JDK
 // JVM_TARGET: 1.8
-// IGNORE_BACKEND: JS_IR
-// IGNORE_BACKEND: JS_IR_ES6
-
-// MUTE_SIGNATURE_COMPARISON_K2: ANY
-// ^ KT-57788
-
-// KT-61141: ImplicitReceiverStack & PersistentImplicitReceiverStack miss fake overrides `forEach` & `spliterator`
-// IGNORE_BACKEND: NATIVE
 
 interface SymbolOwner<E : SymbolOwner<E>>
 

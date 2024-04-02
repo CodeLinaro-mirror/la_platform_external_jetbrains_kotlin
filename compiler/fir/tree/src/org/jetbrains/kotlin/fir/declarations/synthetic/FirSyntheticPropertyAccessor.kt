@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.declarations.synthetic
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
@@ -14,15 +15,15 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirPropertyAccessorImpl
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirSyntheticPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
-class FirSyntheticPropertyAccessor(
+class FirSyntheticPropertyAccessor @FirImplementationDetail internal constructor(
     val delegate: FirSimpleFunction,
     override val isGetter: Boolean,
     override val propertySymbol: FirPropertySymbol,
@@ -69,7 +70,7 @@ class FirSyntheticPropertyAccessor(
     override val attributes: FirDeclarationAttributes
         get() = delegate.attributes
 
-    override val symbol: FirPropertyAccessorSymbol = FirPropertyAccessorSymbol().apply {
+    override val symbol: FirSyntheticPropertyAccessorSymbol = FirSyntheticPropertyAccessorSymbol().apply {
         bind(this@FirSyntheticPropertyAccessor)
     }
 

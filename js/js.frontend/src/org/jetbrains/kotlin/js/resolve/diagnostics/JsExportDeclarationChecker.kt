@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.js.resolve.diagnostics
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.ClassKind.*
@@ -14,6 +15,7 @@ import org.jetbrains.kotlin.js.common.RESERVED_KEYWORDS
 import org.jetbrains.kotlin.js.common.SPECIAL_KEYWORDS
 import org.jetbrains.kotlin.js.naming.NameSuggestion
 import org.jetbrains.kotlin.js.translate.utils.AnnotationsUtils
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
@@ -33,7 +35,7 @@ import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.isDynamic
 import org.jetbrains.kotlin.types.typeUtil.*
 
-object JsExportDeclarationChecker : DeclarationChecker {
+class JsExportDeclarationChecker(private val includeUnsignedNumbers: Boolean) : DeclarationChecker {
     override fun check(declaration: KtDeclaration, descriptor: DeclarationDescriptor, context: DeclarationCheckerContext) {
         val trace = context.trace
         val bindingContext = trace.bindingContext
@@ -190,8 +192,15 @@ object JsExportDeclarationChecker : DeclarationChecker {
                 KotlinBuiltIns.isString(nonNullable) ||
                 (nonNullable.isPrimitiveNumberOrNullableType() && !nonNullable.isLong()) ||
                 nonNullable.isNothingOrNullableNothing() ||
+                (includeUnsignedNumbers && KotlinBuiltIns.isUnsignedNumber(nonNullable)) ||
                 KotlinBuiltIns.isArray(this) ||
-                KotlinBuiltIns.isPrimitiveArray(this)
+                KotlinBuiltIns.isPrimitiveArray(this) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.list) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.mutableList) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.set) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.mutableSet) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.map) ||
+                KotlinBuiltIns.isConstructedFromGivenClass(this, StandardNames.FqNames.mutableMap)
 
         if (isPrimitiveExportableType) return true
 

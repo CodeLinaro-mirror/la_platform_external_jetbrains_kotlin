@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.correspondingProperty
@@ -26,7 +27,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
 
 // TODO: check why coneTypeSafe is necessary at some points inside
-object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
+object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         when (declaration) {
             is FirAnonymousFunction -> return
@@ -218,9 +219,17 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
 
     private fun ConeKotlinType.findVisibilityExposure(
         context: CheckerContext,
-        base: EffectiveVisibility
+        base: EffectiveVisibility,
+        visitedTypes: MutableSet<ConeKotlinType> = mutableSetOf(),
     ): Pair<FirBasedSymbol<*>, EffectiveVisibility>? {
-        val type = this as? ConeClassLikeType ?: return null
+        if (!visitedTypes.add(this)) return null
+
+        val type = when (this) {
+            is ConeClassLikeType -> this
+            is ConeFlexibleType -> lowerBound as? ConeClassLikeType ?: return null
+            else -> return null
+        }
+
         val classSymbol = type.fullyExpandedType(context.session).lookupTag.toSymbol(context.session) ?: return null
 
         val effectiveVisibility = when (classSymbol) {
@@ -239,9 +248,14 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker() {
             }
         }
 
-        for (it in type.typeArguments) {
-            (it as? ConeClassLikeType)?.findVisibilityExposure(context, base)?.let {
-                return it
+        for ((index, it) in type.typeArguments.withIndex()) {
+            when (it) {
+                is ConeClassLikeType -> it.findVisibilityExposure(context, base, visitedTypes)?.let { return it }
+                is ConeKotlinTypeProjection -> it.type.findVisibilityExposure(context, base, visitedTypes)?.let { return it }
+                is ConeStarProjection -> type.toRegularClassSymbol(context.session)
+                    ?.typeParameterSymbols?.getOrNull(index)
+                    ?.resolvedBounds?.firstNotNullOfOrNull { it.type.findVisibilityExposure(context, base, visitedTypes) }
+                    ?.let { return it }
             }
         }
 

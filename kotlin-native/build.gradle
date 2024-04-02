@@ -17,7 +17,6 @@
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.konan.util.*
 import org.jetbrains.kotlin.CopySamples
-import org.jetbrains.kotlin.CopyCommonSources
 import org.jetbrains.kotlin.PlatformInfo
 import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
 import org.jetbrains.kotlin.cpp.CppUsage
@@ -28,6 +27,7 @@ import org.apache.tools.ant.filters.ReplaceTokens
 import org.jetbrains.kotlin.UtilsKt
 import java.util.concurrent.ConcurrentHashMap
 import plugins.KotlinBuildPublishingPluginKt
+import java.security.MessageDigest
 
 buildscript {
     apply from: "gradle/kotlinGradlePlugin.gradle"
@@ -44,10 +44,8 @@ buildscript {
 
 defaultTasks 'clean', 'dist'
 
-convention.plugins.platformInfo = PlatformInfo
-
-if (isMac()) {
-    checkXcodeVersion(project)
+if (PlatformInfo.isMac()) {
+    PlatformInfo.checkXcodeVersion(project)
 }
 
 apply plugin: "kotlin.native.build-tools-conventions"
@@ -79,10 +77,6 @@ ext {
 }
 
 allprojects {
-    if (path != ":kotlin-native:dependencies") {
-        evaluationDependsOn(":kotlin-native:dependencies")
-    }
-
     repositories {
         mavenCentral()
         maven {
@@ -153,6 +147,11 @@ configurations {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CppUsage.LLVM_BITCODE))
         }
     }
+
+    embeddableJar {
+        canBeConsumed = false
+        canBeResolved = true
+    }
 }
 
 apply plugin: CompilationDatabasePlugin
@@ -164,16 +163,19 @@ dependencies {
     distPack project(':kotlin-native:Interop:StubGenerator')
     distPack project(':kotlin-native:Interop:Skia')
     distPack project(':kotlin-native:backend.native')
+    distPack project(':native:objcexport-header-generator')
+    distPack project(':native:objcexport-header-generator-k1')
+    distPack project(':native:base')
     distPack project(':kotlin-native:utilities:cli-runner')
-    distPack project(':kotlin-native:utilities:basic-utils')
     distPack project(':kotlin-native:klib')
+    distPack project(path: ':kotlin-native:backend.native', configuration: 'cli_bcApiElements')
     distPack project(path: ':kotlin-native:endorsedLibraries:kotlinx.cli', configuration: "jvmRuntimeElements")
-    commonSources project(path: ':kotlin-stdlib-common', configuration: 'sources')
-    commonSources project(path: ':kotlin-test:kotlin-test-common', configuration: 'sources')
-    commonSources project(path: ':kotlin-test:kotlin-test-annotations-common', configuration: 'sources')
+    commonSources project(path: ':kotlin-stdlib', configuration: 'metadataSourcesElements')
+    commonSources project(path: ':kotlin-test', configuration: 'metadataSourcesElements')
     compilationDatabase project(":kotlin-native:common")
     compilationDatabase project(":kotlin-native:runtime")
     runtimeBitcode project(":kotlin-native:runtime")
+    embeddableJar project(path: ':kotlin-native:prepare:kotlin-native-compiler-embeddable', configuration: 'runtimeElements')
 }
 
 apply plugin: GitClangFormatPlugin
@@ -197,30 +199,34 @@ tasks.named("build") {
     dependsOn 'dist', 'distPlatformLibs'
 }
 
-tasks.register("distCommonSources", CopyCommonSources) {
-    outputDir "$distDir/sources"
-    sourcePaths configurations.commonSources
-    zipSources true
-}
-
 tasks.register("distNativeSources", Zip) {
+    dependsOn(configurations.commonSources)
+    duplicatesStrategy = DuplicatesStrategy.FAIL
     destinationDirectory = file("$distDir/sources")
     archiveFileName = "kotlin-stdlib-native-sources.zip"
 
     includeEmptyDirs = false
     include('**/*.kt')
 
-    from(project(':kotlin-native:runtime').file('src/main/kotlin'))
-    from(project(":kotlin-stdlib-common").file('../native-wasm/src/'))
-    from(project(':kotlin-native:Interop:Runtime').file('src/main/kotlin'))
-    from(project(':kotlin-native:Interop:Runtime').file('src/native/kotlin'))
-    from(project(':kotlin-native:Interop:JsRuntime').file('src/main/kotlin')) {
-        into('kotlinx/wasm/jsinterop')
+    from {
+        configurations.commonSources
+                .collect { zipTree(it) }
+                .inject { t1, t2 -> t1 + t2 }
+    }
+    into('nativeWasmMain') {
+        from(project(":kotlin-stdlib").file('native-wasm/src/'))
+    }
+    into('nativeMain') {
+        from(project(':kotlin-native:runtime').file('src/main/kotlin'))
+        from(project(':kotlin-native:Interop:Runtime').file('src/main/kotlin'))
+        from(project(':kotlin-native:Interop:Runtime').file('src/native/kotlin'))
+        from(project(':kotlin-native:Interop:JsRuntime').file('src/main/kotlin')) {
+            into('kotlinx/wasm/jsinterop')
+        }
     }
 }
 
 tasks.register("distSources") {
-    dependsOn(distCommonSources)
     dependsOn(distNativeSources)
 }
 
@@ -249,9 +255,8 @@ tasks.register("distCompiler", Copy) {
     if (!UtilsKt.isDefaultNativeHome(project)) {
         enabled = false
     } else {
-        dependsOn ":kotlin-native:dependencies:update"
         dependsOn ':kotlin-native:shadowJar'
-        dependsOn ":kotlin-native-compiler-embeddable:kotlin-native-compiler-embeddable"
+        dependsOn configurations.embeddableJar
     }
 
     destinationDir distDir
@@ -264,7 +269,10 @@ tasks.register("distCompiler", Copy) {
         into('konan/lib')
     }
 
-    from(project(":kotlin-native-compiler-embeddable").file("build/libs")) {
+    from(configurations.embeddableJar) {
+        rename {
+            "kotlin-native-compiler-embeddable.jar"
+        }
         into("konan/lib")
     }
 
@@ -359,6 +367,15 @@ tasks.register("distStdlibCache") {
 def stdlib = 'klib/common/stdlib'
 def stdlibDefaultComponent = "$stdlib/default"
 
+tasks.register("distStdlib", Copy) {
+    from(project(":kotlin-native:runtime")
+            .tasks
+            .named("nativeStdlib")
+            .map { it.outputs.files }
+    )
+    destinationDir project.file("$distDir/$stdlib")
+}
+
 tasks.register("crossDistRuntime") {
     dependsOn.addAll(targetList.collect { "${it}CrossDistRuntime" })
 }
@@ -367,51 +384,11 @@ tasks.register("crossDistPlatformLibs") {
     dependsOn.addAll(targetList.collect { "${it}PlatformLibs" })
 }
 
-tasks.register("crossDistStdlib") {
-    dependsOn.addAll(targetList.collect { "${it}CrossDistStdlib" })
-}
-
 tasks.register("crossDistStdlibCache") {
     dependsOn.addAll(targetList.findAll { it in cacheableTargetNames }.collect { "${it}StdlibCache" })
 }
 
 targetList.each { target ->
-    tasks.register("${target}CrossDistStdlib", Copy) {
-        dependsOn ":kotlin-native:runtime:${target}Stdlib"
-        // TODO: add explicit dependency on host task with IR klib stdlib parts
-        // As for now it is possibly to build up distribution from the tc-dist to crossdist
-        // by request of tests that need cross-targets or platform libs. It may create undesired
-        // issues with overwriting the file being used by the concurrent build/test.
-        // This building (by request) should be turned off when this to-do is fixed.
-//        if (target != hostName) {
-//            dependsOn ":kotlin-native:${hostName}CrossDistStdlib"
-//        }
-
-        destinationDir project.file("$distDir/$stdlib")
-
-        from(project(':kotlin-native:runtime').file("build/${target}Stdlib")) {
-            if (target == hostName) {
-                include('**')
-            } else {
-                // We don't want to rewrite stdlib parts as they are the same and may be already used
-                // by the other build phases like caching.
-                include('*/targets/**')
-                include('*/manifest')
-            }
-            eachFile {
-                if (name == 'manifest') {
-                    def existingManifest = file("$destinationDir/$path")
-                    if (existingManifest.exists()) {
-                        UtilsKt.mergeManifestsByTargets(project, file, existingManifest)
-                        exclude()
-                    }
-                }
-            }
-        }
-
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    }
-
     tasks.register("${target}CrossDistBitcodeCopy", Copy) {
         def bitcodeFiles = configurations.runtimeBitcode.incoming.artifactView {
             attributes {
@@ -419,17 +396,15 @@ targetList.each { target ->
             }
         }.files
 
-        destinationDir project.file("$distDir/konan/targets/")
+        destinationDir project.file("$distDir/konan/targets/$target/native")
 
         from(bitcodeFiles) {
             include("*.bc")
-            exclude("runtime.bc")
-            into("$target/native")
         }
     }
 
     tasks.register("${target}CrossDistRuntime", Copy) {
-        dependsOn ":kotlin-native:${target}CrossDistStdlib"
+        dependsOn ":kotlin-native:distStdlib"
         dependsOn "${target}CrossDistBitcodeCopy"
 
         destinationDir project.file("$distDir/$stdlibDefaultComponent")
@@ -444,12 +419,12 @@ targetList.each { target ->
 
     if (target in cacheableTargetNames) {
         tasks.register("${target}StdlibCache", Copy) {
-            dependsOn "${target}CrossDistStdlib"
+            dependsOn "distStdlib"
             dependsOn ":kotlin-native:runtime:${target}StdlibCache"
 
             destinationDir project.file("$distDir/klib/cache/")
 
-            from("${project(":kotlin-native:runtime").buildDir}/cache/$target") {
+            from(project(":kotlin-native:runtime").layout.buildDirectory.dir("cache/$target")) {
                 include('**')
             }
         }
@@ -472,6 +447,7 @@ tasks.register("dist") {
     dependsOn "distCompiler",
             "distRuntime",
             "distDef",
+            "distStdlib",
             "distStdlibCache"
 }
 
@@ -479,7 +455,7 @@ tasks.register("crossDist") {
     dependsOn "distCompiler",
             "crossDistRuntime",
             "distDef",
-            "crossDistStdlib",
+            "distStdlib",
             "crossDistStdlibCache"
 }
 
@@ -497,7 +473,7 @@ def sbomBundleRegularForPublish = tasks.register("sbomBundleRegularForPublish", 
     }
 }
 
-tasks.register("bundleRegular", (isWindows()) ? Zip : Tar) {
+tasks.register("bundleRegular", (PlatformInfo.isWindows()) ? Zip : Tar) {
     dependsOn(sbomBundleRegularForPublish)
     def simpleOsName = HostManager.platformName()
     archiveBaseName.set("kotlin-native-$simpleOsName")
@@ -525,7 +501,7 @@ def sbomBundlePrebuiltForPublish = tasks.register("sbomBundlePrebuiltForPublish"
     }
 }
 
-tasks.register("bundlePrebuilt", (isWindows()) ? Zip : Tar) {
+tasks.register("bundlePrebuilt", (PlatformInfo.isWindows()) ? Zip : Tar) {
     dependsOn(sbomBundlePrebuiltForPublish)
     dependsOn("crossDistPlatformLibs")
     def simpleOsName = HostManager.platformName()
@@ -542,7 +518,7 @@ tasks.register("bundlePrebuilt", (isWindows()) ? Zip : Tar) {
 void configurePackingLicensesToBundle(AbstractArchiveTask task, boolean containsPlatformLibraries) {
     task.from(project.projectDir) {
         include 'licenses/**'
-        if (!containsPlatformLibraries || !isMac()) {
+        if (!containsPlatformLibraries || !PlatformInfo.isMac()) {
             exclude '**/xcode_license.pdf'
         }
         if (!containsPlatformLibraries) {
@@ -568,22 +544,49 @@ configure([bundleRegular, bundlePrebuilt]) {
     dependsOn("crossDistStdlibCache")
     dependsOn("distSources")
     dependsOn("distDef")
-    from(project.projectDir) {
-        include 'RELEASE_NOTES.md'
-        into "${archiveBaseName.get()}-${archiveVersion.get()}"
-    }
 
     destinationDirectory.set(file('.'))
 
-    if (isWindows()) {
+    if (PlatformInfo.isWindows()) {
         zip64 true
     } else {
         archiveExtension.set('tar.gz')
         compression = Compression.GZIP
     }
+
+    // Calculating SHA-256 checksums for bundle artifacts
+    def archiveExtension = PlatformInfo.isWindows() ? 'zip' : 'tar.gz'
+    def checksumFile = archiveBaseName.zip(archiveVersion) { name, version -> file("${buildDir}/${name}-${version}.${archiveExtension}.sha256") }
+    outputs.file(checksumFile).withPropertyName("checksumFile")
+
+    doLast {
+        File bundleFile = archiveFile.get().asFile
+        if (bundleFile.exists()) {
+            String checksum = calculateChecksum(bundleFile, "SHA-256")
+            checksumFile.get().write(checksum)
+        }
+    }
 }
 
-tasks.register("tc-dist", (isWindows()) ? Zip : Tar) {
+def calculateChecksum(File file, String algorithm) {
+    MessageDigest digest = MessageDigest.getInstance(algorithm)
+    FileInputStream fis = new FileInputStream(file)
+    byte[] byteArray = new byte[1024]
+    int bytesCount
+    while ((bytesCount = fis.read(byteArray)) != -1) {
+        digest.update(byteArray, 0, bytesCount)
+    }
+    fis.close()
+    byte[] bytes = digest.digest()
+
+    StringBuilder sb = new StringBuilder()
+    for (byte aByte : bytes) {
+        sb.append(Integer.toString((aByte & 0xff) + 0x100, 16).substring(1))
+    }
+    return sb.toString()
+}
+
+tasks.register("tc-dist", (PlatformInfo.isWindows()) ? Zip : Tar) {
     dependsOn('dist')
     dependsOn('distSources')
     def simpleOsName = HostManager.platformName()
@@ -597,7 +600,7 @@ tasks.register("tc-dist", (isWindows()) ? Zip : Tar) {
 
     destinationDirectory.set(file('.'))
 
-    if (isWindows()) {
+    if (PlatformInfo.isWindows()) {
         zip64 true
     } else {
         archiveExtension.set('tar.gz')
@@ -741,7 +744,7 @@ tasks.named("clean", Delete) {
     dependsOn subprojects.collect { it.tasks.matching { it.name == "clean" } }
     doFirst {
         delete distDir
-        delete buildDir
+        delete layout.buildDirectory
         delete bundle.outputs.files
         delete "${projectDir}/compile_commands.json"
     }
@@ -757,12 +760,17 @@ publishing {
 
             if (publishBundlesFromLocation) {
                 def bundleArchives = bundlesLocationFiles
-                        .findAll { it.name.startsWith("kotlin-native") && !it.name.contains("prebuilt") && !it.name.endsWith("spdx.json") }
+                        .findAll {
+                            it.name.startsWith("kotlin-native")
+                                    && !it.name.contains("prebuilt")
+                                    && (it.name.endsWith("zip") || it.name.endsWith("tar.gz"))
+                        }
                 def bundleConfigs = createConfigurations(bundleArchives)
                 bundleConfigs.forEach { target, file ->
+                    def archiveExtension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
                     mvn.artifact(file) {
                         classifier = platformName(target)
-                        extension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
+                        extension = archiveExtension
                     }
                     mvn.artifact("${UtilsKt.getNativeBundlesLocation(project)}/kotlin-native-${platformName(target)}-${kotlinVersion}.spdx.json") {
                         classifier = platformName(target)
@@ -772,7 +780,11 @@ publishing {
             } else {
                 mvn.artifact(bundleRegular) {
                     classifier = HostManager.platformName()
-                    extension = (isWindows()) ? 'zip' : 'tar.gz'
+                    extension = (PlatformInfo.isWindows()) ? 'zip' : 'tar.gz'
+                }
+                mvn.artifact(sbomBundleRegular.map { it.outputDirectory.file("BundleRegular.spdx.json") }) {
+                    classifier = HostManager.platformName()
+                    extension = "spdx.json"
                 }
             }
 
@@ -790,12 +802,16 @@ publishing {
 
             if (publishBundlesFromLocation) {
                 def prebuiltBundleArchives = bundlesLocationFiles
-                        .findAll { it.name.startsWith("kotlin-native-prebuilt") && !it.name.endsWith("spdx.json") }
+                        .findAll {
+                            it.name.startsWith("kotlin-native-prebuilt")
+                                    && (it.name.endsWith("zip") || it.name.endsWith("tar.gz"))
+                        }
                 def bundlePrebuiltConfigs = createConfigurations(prebuiltBundleArchives)
                 bundlePrebuiltConfigs.forEach { target, file ->
+                    def archiveExtension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
                     mvn.artifact(file) {
                         classifier = platformName(target)
-                        extension = (target.family == Family.MINGW) ? 'zip' : 'tar.gz'
+                        extension = archiveExtension
                     }
                     mvn.artifact("${UtilsKt.getNativeBundlesLocation(project)}/kotlin-native-prebuilt-${platformName(target)}-${kotlinVersion}.spdx.json") {
                         classifier = platformName(target)
@@ -805,7 +821,11 @@ publishing {
             } else {
                 mvn.artifact(bundlePrebuilt) {
                     classifier = HostManager.platformName()
-                    extension = (isWindows()) ? 'zip' : 'tar.gz'
+                    extension = (PlatformInfo.isWindows()) ? 'zip' : 'tar.gz'
+                }
+                mvn.artifact(sbomBundlePrebuilt.map { it.outputDirectory.file("BundlePrebuilt.spdx.json") }) {
+                    classifier = HostManager.platformName()
+                    extension = "spdx.json"
                 }
             }
             KotlinBuildPublishingPluginKt.configureKotlinPomAttributes(

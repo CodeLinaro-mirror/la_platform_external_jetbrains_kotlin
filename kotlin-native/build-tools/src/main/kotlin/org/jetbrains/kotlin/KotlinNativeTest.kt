@@ -429,11 +429,6 @@ open class KonanInteropTest : KonanStandaloneTest() {
     var lib: String? = null
 }
 
-open class KonanLinkTest : KonanStandaloneTest() {
-    @Input
-    lateinit var lib: String
-}
-
 /**
  * Test task to check a library built by `-produce dynamic`.
  * C source code should contain `testlib` as a reference to a testing library.
@@ -528,7 +523,6 @@ open class KonanDynamicTest : KonanStandaloneTest() {
                 debug = isDebug,
                 kind = LinkerOutputKind.EXECUTABLE,
                 outputDsymBundle = "",
-                needsProfileLibrary = false,
                 mimallocEnabled = false
         )
         commands.map { cmd ->

@@ -7,20 +7,21 @@ package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.explicitReceiverIsNotSuperReference
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.declarations.getSingleExpectForActualOrNull
+import org.jetbrains.kotlin.fir.declarations.getSingleMatchedExpectForActualOrNull
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.references.toResolvedNamedFunctionSymbol
 
-object FirSuperCallWithDefaultsChecker : FirFunctionCallChecker() {
+object FirSuperCallWithDefaultsChecker : FirFunctionCallChecker(MppCheckerKind.Common) {
     override fun check(expression: FirFunctionCall, context: CheckerContext, reporter: DiagnosticReporter) {
         if (expression.explicitReceiverIsNotSuperReference()) return
 
         val functionSymbol = expression.calleeReference.toResolvedNamedFunctionSymbol() ?: return
-        val relevantFunctionSymbol = functionSymbol.getSingleExpectForActualOrNull() ?: functionSymbol
+        val relevantFunctionSymbol = functionSymbol.getSingleMatchedExpectForActualOrNull() ?: functionSymbol
         if (!relevantFunctionSymbol.valueParameterSymbols.any { it.hasDefaultValue }) return
         val arguments = expression.argumentList as? FirResolvedArgumentList ?: return
         if (arguments.arguments.size < functionSymbol.valueParameterSymbols.size) {

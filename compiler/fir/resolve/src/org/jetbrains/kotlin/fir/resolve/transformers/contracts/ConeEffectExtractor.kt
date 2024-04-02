@@ -124,11 +124,13 @@ class ConeEffectExtractor(
         val isNegated = when (val operation = equalityOperatorCall.operation) {
             FirOperation.EQ -> false
             FirOperation.NOT_EQ -> true
+            FirOperation.IDENTITY -> false
+            FirOperation.NOT_IDENTITY -> true
             else -> return ConeContractDescriptionError.IllegalEqualityOperator(operation).asElement()
         }
 
         val argument = equalityOperatorCall.arguments[1]
-        val const = argument as? FirConstExpression<*> ?: return ConeContractDescriptionError.NotAConstant(argument).asElement()
+        val const = argument as? FirLiteralExpression<*> ?: return ConeContractDescriptionError.NotAConstant(argument).asElement()
         if (const.kind != ConstantValueKind.Null) return ConeContractDescriptionError.IllegalConst(const, onlyNullAllowed = true).asElement()
 
         val arg = equalityOperatorCall.arguments[0].asContractValueExpression()
@@ -201,14 +203,14 @@ class ConeEffectExtractor(
         }
     }
 
-    override fun <T> visitConstExpression(constExpression: FirConstExpression<T>, data: Nothing?): ConeContractDescriptionElement {
-        return when (constExpression.kind) {
+    override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>, data: Nothing?): ConeContractDescriptionElement {
+        return when (literalExpression.kind) {
             ConstantValueKind.Null -> ConeContractConstantValues.NULL
-            ConstantValueKind.Boolean -> when (constExpression.value as Boolean) {
+            ConstantValueKind.Boolean -> when (literalExpression.value as Boolean) {
                 true -> ConeContractConstantValues.TRUE
                 false -> ConeContractConstantValues.FALSE
             }
-            else -> ConeContractDescriptionError.IllegalConst(constExpression, onlyNullAllowed = false).asElement()
+            else -> ConeContractDescriptionError.IllegalConst(literalExpression, onlyNullAllowed = false).asElement()
         }
     }
 
@@ -233,7 +235,7 @@ class ConeEffectExtractor(
 
     private fun FirExpression.parseInvocationKind(): EventOccurrencesRange? {
         if (this !is FirQualifiedAccessExpression) return null
-        val resolvedId = toResolvedCallableSymbol()?.callableId ?: return null
+        val resolvedId = toResolvedCallableSymbol(session)?.callableId ?: return null
         return when (resolvedId) {
             FirContractsDslNames.EXACTLY_ONCE_KIND -> EventOccurrencesRange.EXACTLY_ONCE
             FirContractsDslNames.AT_LEAST_ONCE_KIND -> EventOccurrencesRange.AT_LEAST_ONCE

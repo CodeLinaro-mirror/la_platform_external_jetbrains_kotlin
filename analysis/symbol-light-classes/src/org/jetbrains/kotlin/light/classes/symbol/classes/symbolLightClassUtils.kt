@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -37,10 +37,7 @@ import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.lexer.KtTokens.*
-import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmOverloadsAnnotation
-import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmStaticAnnotation
-import org.jetbrains.kotlin.light.classes.symbol.annotations.isHiddenOrSynthetic
-import org.jetbrains.kotlin.light.classes.symbol.annotations.toOptionalFilter
+import org.jetbrains.kotlin.light.classes.symbol.annotations.*
 import org.jetbrains.kotlin.light.classes.symbol.copy
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForEnumEntry
@@ -215,7 +212,6 @@ internal fun SymbolLightClassBase.createMethods(
     fun KtAnalysisSession.handleDeclaration(declaration: KtCallableSymbol) {
         when (declaration) {
             is KtFunctionSymbol -> {
-                // TODO: check if it has expect modifier
                 if (declaration.hasReifiedParameters || declaration.isHiddenOrSynthetic()) return
                 if (declaration.name.isSpecial) return
 
@@ -325,28 +321,34 @@ internal fun SymbolLightClassBase.createPropertyAccessors(
     }
 
     if (declaration.isJvmField) return
-    val propertyTypeIsValueClass = declaration.hasTypeForValueClassInSignature()
-
-    /*
-     * For top-level properties with value class in return type compiler mangles only setter
-     *
-     *   @JvmInline
-     *   value class Some(val value: String)
-     *
-     *   var topLevelProp: Some = Some("1")
-     *
-     * Compiles to
-     *   public final class FooKt {
-     *     public final static getTopLevelProp()Ljava/lang/String;
-     *
-     *     public final static setTopLevelProp-5lyY9Q4(Ljava/lang/String;)V
-     *
-     *     private static Ljava/lang/String; topLevelProp
-     *  }
-     */
-    if (this !is SymbolLightClassForFacade && propertyTypeIsValueClass) return
+    val propertyTypeIsValueClass = declaration.hasTypeForValueClassInSignature(suppressJvmNameCheck = true)
 
     fun KtPropertyAccessorSymbol.needToCreateAccessor(siteTarget: AnnotationUseSiteTarget): Boolean {
+        when {
+            !propertyTypeIsValueClass -> {}
+            /*
+             * For top-level properties with value class in return type compiler mangles only setter
+             *
+             *   @JvmInline
+             *   value class Some(val value: String)
+             *
+             *   var topLevelProp: Some = Some("1")
+             *
+             * Compiles to
+             *   public final class FooKt {
+             *     public final static getTopLevelProp()Ljava/lang/String;
+             *
+             *     public final static setTopLevelProp-5lyY9Q4(Ljava/lang/String;)V
+             *
+             *     private static Ljava/lang/String; topLevelProp
+             *  }
+             */
+            this is KtPropertyGetterSymbol && this@createPropertyAccessors is SymbolLightClassForFacade -> {}
+            // Accessors with JvmName can be accessible from Java
+            hasJvmNameAnnotation() -> {}
+            else -> return false
+        }
+
         val useSiteTargetFilterForPropertyAccessor = siteTarget.toOptionalFilter()
         if (onlyJvmStatic &&
             !hasJvmStaticAnnotation(useSiteTargetFilterForPropertyAccessor) &&
@@ -388,7 +390,7 @@ internal fun SymbolLightClassBase.createPropertyAccessors(
     }
 
     val setter = declaration.setter?.takeIf {
-        !isAnnotationType && it.needToCreateAccessor(AnnotationUseSiteTarget.PROPERTY_SETTER) && !propertyTypeIsValueClass
+        !isAnnotationType && it.needToCreateAccessor(AnnotationUseSiteTarget.PROPERTY_SETTER)
     }
 
     if (isMutable && setter != null) {
@@ -438,7 +440,7 @@ private fun hasBackingField(property: KtPropertySymbol): Boolean {
     val fieldUseSite = AnnotationUseSiteTarget.FIELD
     if (property.isExpect ||
         property.modality == Modality.ABSTRACT ||
-        property.isHiddenOrSynthetic(fieldUseSite, fieldUseSite.toOptionalFilter())
+        property.hasJvmSyntheticAnnotation(fieldUseSite.toOptionalFilter())
     ) return false
 
     return hasBackingFieldByPsi ?: property.hasBackingField
@@ -542,7 +544,7 @@ internal fun KtSymbolWithMembers.createInnerClasses(
     // we can't prohibit creating light classes with null names either since they can contain members
 
     getStaticDeclaredMemberScope().getClassifierSymbols().filterIsInstance<KtNamedClassOrObjectSymbol>().mapTo(result) {
-        val classOrObjectDeclaration = it.psiSafe<KtClassOrObject>()
+        val classOrObjectDeclaration = it.sourcePsiSafe<KtClassOrObject>()
         if (classOrObjectDeclaration != null) {
             createLightClassNoCache(classOrObjectDeclaration, containingClass.ktModule)
         } else {
@@ -554,11 +556,11 @@ internal fun KtSymbolWithMembers.createInnerClasses(
         ?.let { getModule(it) as? KtSourceModule }
         ?.languageVersionSettings
         ?.getFlag(JvmAnalysisFlags.jvmDefaultMode)
-        ?: JvmDefaultMode.DEFAULT
+        ?: JvmDefaultMode.DISABLE
 
     if (containingClass is SymbolLightClassForInterface &&
         classOrObject?.hasInterfaceDefaultImpls == true &&
-        jvmDefaultMode != JvmDefaultMode.ALL_INCOMPATIBLE
+        jvmDefaultMode != JvmDefaultMode.ALL
     ) {
         result.add(SymbolLightClassForInterfaceDefaultImpls(containingClass))
     }
@@ -651,8 +653,23 @@ internal fun SymbolLightClassBase.addPropertyBackingFields(
     memberProperties.forEach(::addPropertyBackingField)
 }
 
+/**
+ * @param suppressJvmNameCheck **true** if [hasJvmNameAnnotation] should be omitted.
+ * E.g., if [JvmName] is checked manually later
+ */
 context(KtAnalysisSession)
-internal fun KtCallableSymbol.hasTypeForValueClassInSignature(ignoreReturnType: Boolean = false): Boolean {
+internal fun KtCallableSymbol.hasTypeForValueClassInSignature(
+    ignoreReturnType: Boolean = false,
+    suppressJvmNameCheck: Boolean = false,
+): Boolean {
+    // Declarations with JvmName can be accessible from Java
+    when {
+        suppressJvmNameCheck -> {}
+        hasJvmNameAnnotation() -> return false
+        this !is KtKotlinPropertySymbol -> {}
+        getter?.hasJvmNameAnnotation() == true || setter?.hasJvmNameAnnotation() == true -> return false
+    }
+
     if (!ignoreReturnType) {
         val psiDeclaration = sourcePsiSafe<KtCallableDeclaration>()
         if (psiDeclaration?.typeReference != null && returnType.typeForValueClass) return true

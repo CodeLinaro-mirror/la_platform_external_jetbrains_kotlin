@@ -14,31 +14,31 @@ import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory2
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.getDirectOverriddenSymbols
 import org.jetbrains.kotlin.fir.analysis.checkers.inlineCheckerExtension
 import org.jetbrains.kotlin.fir.analysis.checkers.isInlineOnly
-import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFunction
-import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirSuperReference
+import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
-import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenMembers
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
+import org.jetbrains.kotlin.types.model.typeConstructor
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
-object FirInlineDeclarationChecker : FirFunctionChecker() {
+object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirFunction, context: CheckerContext, reporter: DiagnosticReporter) {
         if (!declaration.isInline) {
             checkParametersInNotInline(declaration, context, reporter)
@@ -68,6 +68,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
 
         internal fun checkAccessedDeclaration(
             source: KtSourceElement,
+            accessExpression: FirStatement,
             accessedSymbol: FirBasedSymbol<*>,
             declarationVisibility: Visibility,
             context: CheckerContext,
@@ -79,12 +80,10 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
                 else -> shouldNotBeCalled()
             }
 
-            val accessedDeclarationEffectiveVisibility = recordedEffectiveVisibility.let {
-                if (it == EffectiveVisibility.Local) {
-                    EffectiveVisibility.Public
-                } else {
-                    it
-                }
+            val accessedDeclarationEffectiveVisibility = when {
+                recordedEffectiveVisibility.isReachableDueToLocalDispatchReceiver(accessExpression, context) -> EffectiveVisibility.Public
+                recordedEffectiveVisibility == EffectiveVisibility.Local -> EffectiveVisibility.Public
+                else -> recordedEffectiveVisibility
             }
             val isCalledFunPublicOrPublishedApi = accessedDeclarationEffectiveVisibility.publicApi
             val isInlineFunPublicOrPublishedApi = inlineFunEffectiveVisibility.publicApi
@@ -94,7 +93,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             ) {
                 reporter.reportOn(
                     source,
-                    FirErrors.NON_PUBLIC_CALL_FROM_PUBLIC_INLINE,
+                    getNonPublicCallFromPublicInlineFactory(accessExpression, source, context),
                     inlineFunction.symbol,
                     accessedSymbol,
                     context
@@ -108,6 +107,36 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
                 accessedDeclarationEffectiveVisibility
             )
         }
+
+        private fun getNonPublicCallFromPublicInlineFactory(
+            accessExpression: FirStatement,
+            source: KtSourceElement,
+            context: CheckerContext,
+        ): KtDiagnosticFactory2<FirBasedSymbol<*>, FirBasedSymbol<*>> {
+            if (!context.languageVersionSettings.supportsFeature(LanguageFeature.ProhibitPrivateOperatorCallInInline)) {
+                val isDelegatedPropertyAccessor = source.kind == KtFakeSourceElementKind.DelegatedPropertyAccessor
+                val isForLoopButNotIteratorCall = source.kind == KtFakeSourceElementKind.DesugaredForLoop &&
+                        accessExpression.toReference(context.session)?.symbol?.memberDeclarationNameOrNull != OperatorNameConventions.ITERATOR
+
+                if (isDelegatedPropertyAccessor || isForLoopButNotIteratorCall) {
+                    return FirErrors.NON_PUBLIC_CALL_FROM_PUBLIC_INLINE_DEPRECATION
+                }
+            }
+
+            return FirErrors.NON_PUBLIC_CALL_FROM_PUBLIC_INLINE
+        }
+
+        private fun EffectiveVisibility.isReachableDueToLocalDispatchReceiver(access: FirStatement, context: CheckerContext): Boolean {
+            val receiverType = access.localDispatchReceiver(context) ?: return false
+            val receiverProtected = EffectiveVisibility.Protected(receiverType.typeConstructor(context.session.typeContext))
+            val relation = receiverProtected.relation(this, context.session.typeContext)
+            return relation == EffectiveVisibility.Permissiveness.SAME || relation == EffectiveVisibility.Permissiveness.LESS
+        }
+
+        private fun FirStatement.localDispatchReceiver(context: CheckerContext): ConeKotlinType? =
+            (this as? FirQualifiedAccessExpression)?.dispatchReceiver?.resolvedType?.takeIf {
+                (it.toSymbol(context.session) as? FirClassLikeSymbol<*>)?.effectiveVisibility == EffectiveVisibility.Local
+            }
 
         internal data class AccessedDeclarationVisibilityData(
             val isInlineFunPublicOrPublishedApi: Boolean,
@@ -132,11 +161,11 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             reporter: DiagnosticReporter,
         ) {
             if (context.isContractBody) return
-            val calledFunctionSymbol = targetSymbol as? FirNamedFunctionSymbol ?: return
+            val calledFunctionSymbol = targetSymbol as? FirFunctionSymbol ?: return
             val argumentMapping = functionCall.resolvedArgumentMapping ?: return
             for ((wrappedArgument, valueParameter) in argumentMapping) {
-                val argument = wrappedArgument.unwrapArgument()
-                val resolvedArgumentSymbol = argument.toResolvedCallableSymbol() as? FirVariableSymbol<*> ?: continue
+                val argument = wrappedArgument.unwrapErrorExpression()?.unwrapArgument() ?: continue
+                val resolvedArgumentSymbol = argument.toResolvedCallableSymbol(session) as? FirVariableSymbol<*> ?: continue
 
                 val valueParameterOfOriginalInlineFunction = inlinableParameters.firstOrNull { it == resolvedArgumentSymbol }
                 if (valueParameterOfOriginalInlineFunction != null) {
@@ -145,8 +174,10 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
                             valueParameter.isNoinline -> {
                                 FirErrors.USAGE_IS_NOT_INLINABLE
                             }
-                            valueParameter.isCrossinline && !valueParameterOfOriginalInlineFunction.isCrossinline
-                            -> FirErrors.NON_LOCAL_RETURN_NOT_ALLOWED
+                            !valueParameterOfOriginalInlineFunction.isCrossinline &&
+                                    (valueParameter.isCrossinline || !isNonLocalReturnAllowed(context, inlineFunction)) -> {
+                                FirErrors.NON_LOCAL_RETURN_NOT_ALLOWED
+                            }
                             else -> continue
                         }
                         else -> FirErrors.USAGE_IS_NOT_INLINABLE
@@ -164,7 +195,8 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             reporter: DiagnosticReporter,
         ) {
             if (receiverExpression == null) return
-            val receiverSymbol = receiverExpression.toResolvedCallableSymbol() ?: return
+            val receiverSymbol =
+                receiverExpression.unwrapErrorExpression()?.toResolvedCallableSymbol(session) as? FirValueParameterSymbol ?: return
             if (receiverSymbol in inlinableParameters) {
                 if (!isInvokeOrInlineExtension(targetSymbol)) {
                     reporter.reportOn(
@@ -172,6 +204,13 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
                         FirErrors.USAGE_IS_NOT_INLINABLE,
                         receiverSymbol,
                         context
+                    )
+                } else if (!receiverSymbol.isCrossinline && !isNonLocalReturnAllowed(context, inlineFunction)) {
+                    reporter.reportOn(
+                        receiverExpression.source ?: qualifiedAccessExpression.source,
+                        FirErrors.NON_LOCAL_RETURN_NOT_ALLOWED,
+                        receiverSymbol,
+                        context,
                     )
                 }
             }
@@ -211,9 +250,9 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             val containingQualifiedAccess = context.callsOrAssignments.getOrNull(
                 context.callsOrAssignments.size - 2
             ) ?: return false
-            if (this == (containingQualifiedAccess as? FirQualifiedAccessExpression)?.explicitReceiver) return true
+            if (this == (containingQualifiedAccess as? FirQualifiedAccessExpression)?.explicitReceiver?.unwrapErrorExpression()) return true
             val call = containingQualifiedAccess as? FirCall ?: return false
-            return call.arguments.any { it.unwrapArgument() == this }
+            return call.arguments.any { it.unwrapErrorExpression()?.unwrapArgument() == this }
         }
 
         private fun checkVisibilityAndAccess(
@@ -223,14 +262,16 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
             context: CheckerContext,
             reporter: DiagnosticReporter,
         ) {
-            if (
-                calledDeclaration == null ||
-                calledDeclaration.callableId.callableName == BACKING_FIELD
+            if (calledDeclaration == null ||
+                calledDeclaration.callableId.callableName == BACKING_FIELD ||
+                calledDeclaration is FirPropertySymbol && calledDeclaration.isConst &&
+                context.callsOrAssignments.any { it is FirAnnotationCall }
             ) {
                 return
             }
             val (isInlineFunPublicOrPublishedApi, isCalledFunPublicOrPublishedApi, calledFunEffectiveVisibility) = checkAccessedDeclaration(
                 source,
+                accessExpression,
                 calledDeclaration,
                 calledDeclaration.visibility,
                 context,
@@ -408,16 +449,6 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
         }
     }
 
-    private fun FirCallableDeclaration.getOverriddenSymbols(context: CheckerContext): List<FirCallableSymbol<out FirCallableDeclaration>> {
-        if (!this.isOverride) return emptyList()
-        val classSymbol = this.containingClassLookupTag()?.toSymbol(context.session) as? FirClassSymbol<*> ?: return emptyList()
-        val scope = classSymbol.unsubstitutedScope(context)
-        //this call is needed because AbstractFirUseSiteMemberScope collect overrides in it only,
-        //and not in processDirectOverriddenFunctionsWithBaseScope
-        scope.processFunctionsByName(this.symbol.name) { }
-        return scope.getDirectOverriddenMembers(this.symbol, true)
-    }
-
     private fun checkNothingToInline(function: FirSimpleFunction, context: CheckerContext, reporter: DiagnosticReporter) {
         if (function.isExpect || function.isSuspend) return
         if (function.typeParameters.any { it.symbol.isReified }) return
@@ -459,20 +490,74 @@ object FirInlineDeclarationChecker : FirFunctionChecker() {
                 expression is FirFunctionCall ||
                 expression is FirLambdaArgumentExpression ||
                 expression is FirAnonymousFunctionExpression ||
-                (expression is FirConstExpression<*> && expression.value == null) //this will be reported separately
+                (expression is FirLiteralExpression<*> && expression.value == null) //this will be reported separately
 
     fun checkCallableDeclaration(declaration: FirCallableDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration is FirPropertyAccessor) return
-        val overriddenSymbols = declaration.getOverriddenSymbols(context)
+        val directOverriddenSymbols = declaration.getDirectOverriddenSymbols(context)
         if (declaration is FirSimpleFunction) {
-            checkParameters(declaration, overriddenSymbols, context, reporter)
+            checkParameters(declaration, directOverriddenSymbols, context, reporter)
             checkNothingToInline(declaration, context, reporter)
         }
         val canBeInlined = checkCanBeInlined(declaration, declaration.effectiveVisibility, context, reporter)
 
-        if (canBeInlined && overriddenSymbols.isNotEmpty()) {
+        if (canBeInlined && directOverriddenSymbols.isNotEmpty()) {
             reporter.reportOn(declaration.source, FirErrors.OVERRIDE_BY_INLINE, context)
         }
+    }
+
+    private fun isNonLocalReturnAllowed(context: CheckerContext, inlineFunction: FirFunction): Boolean {
+        val declarations = context.containingDeclarations
+        val inlineFunctionIndex = declarations.indexOf(inlineFunction)
+        if (inlineFunctionIndex == -1) return true
+
+        for (i in (inlineFunctionIndex + 1) until declarations.size) {
+            val declaration = declarations[i]
+
+            // Only consider containers which can change locality.
+            if (declaration !is FirFunction && declaration !is FirClass) continue
+
+            // Anonymous functions are allowed if they are an argument to an inline function call,
+            // and the associated anonymous function parameter allows non-local returns. Everything
+            // else changes locality, and must not be allowed.
+            val anonymousFunction = declaration as? FirAnonymousFunction ?: return false
+            val (call, parameter) = extractCallAndParameter(context, anonymousFunction) ?: return false
+            val callable = call.toResolvedCallableSymbol() as? FirFunctionSymbol<*> ?: return false
+            if (!callable.isInline && !callable.isArrayLambdaConstructor()) return false
+            if (parameter.isNoinline || parameter.isCrossinline) return false
+        }
+
+        return true
+    }
+
+    private fun extractCallAndParameter(
+        context: CheckerContext,
+        anonymousFunction: FirAnonymousFunction,
+    ): Pair<FirFunctionCall, FirValueParameter>? {
+        for (call in context.callsOrAssignments) {
+            if (call is FirFunctionCall) {
+                val mapping = call.resolvedArgumentMapping ?: continue
+                for ((argument, parameter) in mapping) {
+                    if ((argument.unwrapArgument() as? FirAnonymousFunctionExpression)?.anonymousFunction === anonymousFunction) {
+                        return call to parameter
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * @return true if the symbol is the constructor of one of 9 array classes (`Array<T>`,
+     * `IntArray`, `FloatArray`, ...) which takes the size and an initializer lambda as parameters.
+     * Such constructors are marked as `inline` but they are not loaded as such because the `inline`
+     * flag is not stored for constructors in the binary metadata. Therefore, we pretend that they
+     * are inline.
+     */
+    private fun FirFunctionSymbol<*>.isArrayLambdaConstructor(): Boolean {
+        return this is FirConstructorSymbol &&
+                valueParameterSymbols.size == 2 &&
+                resolvedReturnType.isArrayOrPrimitiveArray
     }
 }
 

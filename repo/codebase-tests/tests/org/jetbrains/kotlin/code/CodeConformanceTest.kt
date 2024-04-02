@@ -9,9 +9,7 @@ import com.intellij.openapi.util.io.FileUtil
 import junit.framework.TestCase
 import org.jetbrains.kotlin.config.LanguageFeature
 import java.io.File
-import java.util.*
 import java.util.regex.Pattern
-import kotlin.collections.HashSet
 
 class CodeConformanceTest : TestCase() {
     companion object {
@@ -117,6 +115,7 @@ class CodeConformanceTest : TestCase() {
                 "libraries/tools/gradle/android-test-fixes/build",
                 "libraries/tools/gradle/gradle-warnings-detector/build",
                 "libraries/tools/gradle/kotlin-compiler-args-properties/build",
+                "libraries/tools/gradle/fus-statistics-gradle-plugin/build",
                 "libraries/tools/kotlin-allopen/build",
                 "libraries/tools/kotlin-assignment/build",
                 "libraries/tools/kotlin-gradle-build-metrics/build",
@@ -168,6 +167,7 @@ class CodeConformanceTest : TestCase() {
         }
 
         val atAuthorPattern = Pattern.compile("/\\*.+@author.+\\*/", Pattern.DOTALL)
+        val gradleEagerAttributeMethodRegex = "\\.attribute\\(.+,.+\\)".toRegex()
 
         @Suppress("SpellCheckingInspection") val tests = listOf(
             FileTestCase(
@@ -217,45 +217,31 @@ class CodeConformanceTest : TestCase() {
                 message = "%d source files contain references to package gnu.trove.\n" +
                         "Please avoid using trove library in new use cases. " +
                         "These files are affected:\n%s",
-                allowedFiles = listOf(
-                    "analysis/light-classes-base/src/org/jetbrains/kotlin/asJava/classes/KotlinClassInnerStuffCache.kt",
-                    "build-common/src/org/jetbrains/kotlin/incremental/IncrementalJvmCache.kt",
-                    "compiler/backend/src/org/jetbrains/kotlin/codegen/FrameMap.kt",
-                    "compiler/backend/src/org/jetbrains/kotlin/codegen/inline/SMAP.kt",
-                    "compiler/backend/src/org/jetbrains/kotlin/codegen/optimization/common/ControlFlowGraph.kt",
-                    "compiler/cli/cli-base/src/org/jetbrains/kotlin/cli/jvm/compiler/CliVirtualFileFinder.kt",
-                    "compiler/cli/cli-base/src/org/jetbrains/kotlin/cli/jvm/compiler/KotlinCliJavaFileManagerImpl.kt",
-                    "compiler/cli/cli-base/src/org/jetbrains/kotlin/cli/jvm/index/JvmDependenciesIndexImpl.kt",
-                    "compiler/daemon/src/org/jetbrains/kotlin/daemon/RemoteLookupTrackerClient.kt",
-                    "compiler/frontend/src/org/jetbrains/kotlin/resolve/lazy/FileScopeFactory.kt",
-                    "compiler/frontend/src/org/jetbrains/kotlin/resolve/lazy/LazyImportScope.kt",
-                    "compiler/frontend/src/org/jetbrains/kotlin/types/expressions/PreliminaryLoopVisitor.kt",
-                    "compiler/ir/backend.jvm/lower/src/org/jetbrains/kotlin/backend/jvm/lower/EnumClassLowering.kt",
-                    "compiler/psi/src/org/jetbrains/kotlin/psi/KotlinStringLiteralTextEscaper.kt",
-                    "compiler/resolution.common.jvm/src/org/jetbrains/kotlin/load/java/structure/impl/classFiles/BinaryJavaClass.kt",
-                    "compiler/resolution/src/org/jetbrains/kotlin/resolve/calls/results/OverloadingConflictResolver.kt",
-                    "compiler/tests-common/tests/org/jetbrains/kotlin/test/testFramework/KtUsefulTestCase.java",
-                    "js/js.ast/src/org/jetbrains/kotlin/js/backend/JsReservedIdentifiers.java",
-                    "js/js.ast/src/org/jetbrains/kotlin/js/backend/JsToStringGenerationVisitor.java",
-                    "js/js.sourcemap/src/org/jetbrains/kotlin/js/sourceMap/SourceMap3Builder.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/TargetDependent.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/konan/NativeLibrary.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/AssociatedClassifierIdsResolver.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirClassNode.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirClassifierIndex.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirFictitiousFunctionClassifiers.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirKnownClassifiers.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirModuleNode.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirPackageNode.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirProvidedClassifiersByModules.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirRootNode.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/mergedtree/CirTypeSignature.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/metadata/CirDeserializers.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/metadata/CirTypeResolver.kt",
-                    "native/commonizer/src/org/jetbrains/kotlin/commonizer/utils/misc.kt"
-                )
             ) { _, source ->
                 "gnu.trove" in source
+            },
+            FileTestCase(
+                message = """
+                |KT-60644: Using Gradle 'AttributeContainer.attribute(key, value)' method leads to eager tasks creation in Kotlin
+                |Gradle plugin. Please use instead for KGP code 'HasAttributes.setAttributeProvider' or 'HasAttributes.setAttribute' 
+                |(for simple values) extension methods and for other code 'AttributeContainer.attributeProvider(key, provider { value })'.
+                |
+                |%d files are affected. Please update these files or exclude them in this test:
+                |%s
+                """.trimMargin(),
+                allowedFiles = listOf(
+                    "libraries/tools/kotlin-gradle-plugin/src/common/kotlin/org/jetbrains/kotlin/gradle/utils/gradleAttributesContainerUtils.kt",
+                    "libraries/tools/kotlin-gradle-plugin/src/main/kotlin/org/jetbrains/kotlin/gradle/plugin/internal/AttributesConfigurationHelperG6.kt",
+                    "libraries/tools/kotlin-gradle-plugin/src/gradle71/kotlin/org/jetbrains/kotlin/gradle/plugin/internal/AttributesConfigurationHelperG71.kt",
+                    "libraries/tools/kotlin-gradle-plugin/src/gradle70/kotlin/org/jetbrains/kotlin/gradle/plugin/internal/AttributesConfigurationHelperG70.kt",
+                    "libraries/tools/kotlin-gradle-plugin/src/gradle74/kotlin/org/jetbrains/kotlin/gradle/plugin/internal/AttributesConfigurationHelperG74.kt",
+                    "libraries/tools/kotlin-gradle-plugin-integration-tests/src/test/kotlin/org/jetbrains/kotlin/gradle/native/GeneralNativeIT.kt",
+                    "libraries/tools/kotlin-gradle-plugin-integration-tests/src/test/kotlin/org/jetbrains/kotlin/gradle/KotlinGradlePluginIT.kt",
+                    "libraries/tools/kotlin-gradle-plugin-integration-tests/src/test/kotlin/org/jetbrains/kotlin/gradle/mpp/AndroidAndJavaConsumeMppLibIT.kt",
+                    "repo/gradle-build-conventions/buildsrc-compat/src/main/kotlin/plugins/CustomVariantPublishingDsl.kt",
+                )
+            ) { _, source ->
+                gradleEagerAttributeMethodRegex.containsMatchIn(source)
             }
         )
 

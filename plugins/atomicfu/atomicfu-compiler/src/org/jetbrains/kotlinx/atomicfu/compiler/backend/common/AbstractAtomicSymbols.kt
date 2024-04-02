@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -39,7 +40,8 @@ abstract class AbstractAtomicSymbols(
     abstract val volatileAnnotationClass: IrClass
     val volatileAnnotationConstructorCall: IrConstructorCall
         get() {
-            val volatileAnnotationConstructor = buildAnnotationConstructor(volatileAnnotationClass)
+            val volatileAnnotationConstructor = volatileAnnotationClass.primaryConstructor
+                ?: error("Missing constructor in Volatile annotation class")
             return IrConstructorCallImpl.fromSymbolOwner(volatileAnnotationConstructor.returnType, volatileAnnotationConstructor.symbol)
         }
 
@@ -113,11 +115,13 @@ abstract class AbstractAtomicSymbols(
             annotations = emptyList()
         )
 
-    object ATOMICFU_GENERATED_CLASS : IrDeclarationOriginImpl("ATOMICFU_GENERATED_CLASS", isSynthetic = true)
-    object ATOMICFU_GENERATED_FUNCTION : IrDeclarationOriginImpl("ATOMICFU_GENERATED_FUNCTION", isSynthetic = true)
-    object ATOMICFU_GENERATED_FIELD : IrDeclarationOriginImpl("ATOMICFU_GENERATED_FIELD", isSynthetic = true)
-    object ATOMICFU_GENERATED_PROPERTY : IrDeclarationOriginImpl("ATOMICFU_GENERATED_PROPERTY", isSynthetic = true)
-    object ATOMICFU_GENERATED_PROPERTY_ACCESSOR : IrDeclarationOriginImpl("ATOMICFU_GENERATED_PROPERTY_ACCESSOR", isSynthetic = true)
+    companion object {
+        val ATOMICFU_GENERATED_CLASS by IrDeclarationOriginImpl.Synthetic
+        val ATOMICFU_GENERATED_FUNCTION by IrDeclarationOriginImpl.Synthetic
+        val ATOMICFU_GENERATED_FIELD by IrDeclarationOriginImpl.Synthetic
+        val ATOMICFU_GENERATED_PROPERTY by IrDeclarationOriginImpl.Synthetic
+        val ATOMICFU_GENERATED_PROPERTY_ACCESSOR by IrDeclarationOriginImpl.Synthetic
+    }
 
     protected fun createPackage(packageName: String): IrPackageFragment =
         IrExternalPackageFragmentImpl.createEmptyExternalPackageFragment(
@@ -140,7 +144,4 @@ abstract class AbstractAtomicSymbols(
         parent = irPackage
         createImplicitParameterDeclarationWithWrappedDescriptor()
     }.symbol
-
-    private fun buildAnnotationConstructor(annotationClass: IrClass): IrConstructor =
-        annotationClass.addConstructor { isPrimary = true }
 }

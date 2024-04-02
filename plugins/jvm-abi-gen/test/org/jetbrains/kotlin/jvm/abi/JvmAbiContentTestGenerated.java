@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -55,6 +55,11 @@ public class JvmAbiContentTestGenerated extends AbstractJvmAbiContentTest {
         runTest("plugins/jvm-abi-gen/testData/content/class/");
     }
 
+    @TestMetadata("effectivelyPrivateAnnotation")
+    public void testEffectivelyPrivateAnnotation() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/content/effectivelyPrivateAnnotation/");
+    }
+
     @TestMetadata("innerClasses")
     public void testInnerClasses() throws Exception {
         runTest("plugins/jvm-abi-gen/testData/content/innerClasses/");
@@ -63,6 +68,11 @@ public class JvmAbiContentTestGenerated extends AbstractJvmAbiContentTest {
     @TestMetadata("kt50005")
     public void testKt50005() throws Exception {
         runTest("plugins/jvm-abi-gen/testData/content/kt50005/");
+    }
+
+    @TestMetadata("preserveDeclarationOrderKeepsClassIntact")
+    public void testPreserveDeclarationOrderKeepsClassIntact() throws Exception {
+        runTest("plugins/jvm-abi-gen/testData/content/preserveDeclarationOrderKeepsClassIntact/");
     }
 
     @TestMetadata("whenMapping")

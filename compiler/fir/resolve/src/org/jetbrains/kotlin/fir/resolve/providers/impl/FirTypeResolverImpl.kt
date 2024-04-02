@@ -20,6 +20,8 @@ import org.jetbrains.kotlin.fir.resolve.calls.ResolutionDiagnostic
 import org.jetbrains.kotlin.fir.resolve.diagnostics.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.transformers.ScopeClassDeclaration
+import org.jetbrains.kotlin.fir.scopes.platformClassMapper
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -133,6 +135,8 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             }
         }
 
+        filterOutAmbiguousTypealiases(candidates)
+
         val candidateCount = candidates.size
         return when {
             candidateCount == 1 -> {
@@ -146,6 +150,24 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                 TypeResolutionResult.Unresolved
             }
             else -> error("Unexpected")
+        }
+    }
+
+    private fun filterOutAmbiguousTypealiases(candidates: MutableSet<TypeCandidate>) {
+        if (candidates.size <= 1) return
+
+        val aliasesToRemove = mutableSetOf<ClassId>()
+        val classTypealiasesThatDontCauseAmbiguity = session.platformClassMapper.classTypealiasesThatDontCauseAmbiguity
+        for (candidate in candidates) {
+            val symbol = candidate.symbol
+            if (symbol is FirClassLikeSymbol<*>) {
+                classTypealiasesThatDontCauseAmbiguity[symbol.classId]?.let { aliasesToRemove.add(it) }
+            }
+        }
+        if (aliasesToRemove.isNotEmpty()) {
+            candidates.removeAll {
+                (it.symbol as? FirClassLikeSymbol)?.classId?.let { classId -> aliasesToRemove.contains(classId) } == true
+            }
         }
     }
 
@@ -200,7 +222,6 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         result: TypeResolutionResult,
         areBareTypesAllowed: Boolean,
         topContainer: FirDeclaration?,
-        containerDeclaration: FirDeclaration?,
         isOperandOfIsOperator: Boolean
     ): ConeKotlinType {
         val (symbol, substitutor) = when (result) {
@@ -250,7 +271,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             for (part in typeRef.qualifier) {
                 if (part.typeArgumentList.typeArguments.isNotEmpty()) {
                     return ConeErrorType(
-                        ConeUnexpectedTypeArgumentsError("Type arguments not allowed", part.typeArgumentList.source),
+                        ConeUnexpectedTypeArgumentsError("Type arguments not allowed for type parameters", part.typeArgumentList.source),
                         typeArguments = resultingArguments
                     )
                 }
@@ -260,7 +281,11 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         return symbol.constructType(
             resultingArguments,
             typeRef.isMarkedNullable,
-            typeRef.annotations.computeTypeAttributes(session, containerDeclaration = containerDeclaration, shouldExpandTypeAliases = true)
+            typeRef.annotations.computeTypeAttributes(
+                session,
+                shouldExpandTypeAliases = true,
+                allowExtensionFunctionType = (symbol.toLookupTag() as? ConeClassLikeLookupTag)?.isSomeFunctionType(session) == true,
+            )
         ).also {
             val lookupTag = it.lookupTag
             if (lookupTag is ConeClassLikeLookupTagImpl && symbol is FirClassLikeSymbol<*>) {
@@ -283,7 +308,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             if (currentDeclaration == null) {
                 // It's a package name
                 if (qualifierPartArgsCount > 0) {
-                    return ConeTypeArgumentsNotAllowedError(typeArgumentList.source!!)
+                    return ConeTypeArgumentsNotAllowedOnPackageError(typeArgumentList.source!!)
                 }
                 break
             }
@@ -346,10 +371,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         return null
     }
 
-    private fun createFunctionType(
-        typeRef: FirFunctionTypeRef,
-        containerDeclaration: FirDeclaration? = null
-    ): FirTypeResolutionResult {
+    private fun createFunctionType(typeRef: FirFunctionTypeRef): FirTypeResolutionResult {
         val parameters =
             typeRef.contextReceiverTypeRefs.map { it.coneType } +
                     listOfNotNull(typeRef.receiverTypeRef?.coneType) +
@@ -379,7 +401,6 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     add(CompilerConeAttributes.ContextFunctionTypeParams(typeRef.contextReceiverTypeRefs.size))
                 }
             },
-            containerDeclaration,
             shouldExpandTypeAliases = true
         )
         return FirTypeResolutionResult(
@@ -411,13 +432,18 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     result,
                     areBareTypesAllowed,
                     scopeClassDeclaration.topContainer ?: scopeClassDeclaration.containingDeclarations.lastOrNull(),
-                    scopeClassDeclaration.containerDeclaration,
                     isOperandOfIsOperator,
                 )
                 FirTypeResolutionResult(resolvedType, (result as? TypeResolutionResult.Resolved)?.typeCandidate?.diagnostic)
             }
-            is FirFunctionTypeRef -> createFunctionType(typeRef, scopeClassDeclaration.containerDeclaration)
-            is FirDynamicTypeRef -> FirTypeResolutionResult(ConeDynamicType.create(session), diagnostic = null)
+            is FirFunctionTypeRef -> createFunctionType(typeRef)
+            is FirDynamicTypeRef -> {
+                val attributes = typeRef.annotations.computeTypeAttributes(
+                    session,
+                    shouldExpandTypeAliases = true
+                )
+                FirTypeResolutionResult(ConeDynamicType.create(session, attributes), diagnostic = null)
+            }
             is FirIntersectionTypeRef -> {
                 val leftType = typeRef.leftType.coneType
                 if (leftType is ConeTypeParameterType) {

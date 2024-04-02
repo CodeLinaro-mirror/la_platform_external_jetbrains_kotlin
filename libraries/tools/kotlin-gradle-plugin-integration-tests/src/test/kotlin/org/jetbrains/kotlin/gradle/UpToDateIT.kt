@@ -51,7 +51,7 @@ class UpToDateIT : KGPBaseTest() {
                 emptyMutation,
                 OptionMutation("compileKotlin.kotlinOptions.jvmTarget", "'1.8'", "'11'"),
                 OptionMutation("compileKotlin.kotlinOptions.freeCompilerArgs", "[]", "['-Xallow-kotlin-package']"),
-                OptionMutation("archivesBaseName", "'someName'", "'otherName'"),
+                archivesBaseNameOutputMutation("someName", "otherName"),
                 subpluginOptionMutation,
                 subpluginOptionMutationWithKapt,
                 externalOutputMutation,
@@ -179,11 +179,16 @@ class UpToDateIT : KGPBaseTest() {
 
         override fun initProject(project: TestProject) = with(project) {
             buildGradle.appendText(
-                "\n" + """
-                apply plugin: 'kotlin-kapt'
-                plugins.apply("org.jetbrains.kotlin.plugin.allopen")
-                allOpen { annotation("allopen.Foo"); annotation("allopen.Bar") }
-            """.trimIndent()
+                """
+                |
+                |apply plugin: 'kotlin-kapt'
+                |plugins.apply("org.jetbrains.kotlin.plugin.allopen")
+                |allOpen { annotation("allopen.Foo"); annotation("allopen.Bar") }
+                |
+                |dependencies {
+                |    kapt 'org.jetbrains.kotlin:annotation-processor-example'
+                |}
+                """.trimMargin()
             )
         }
 
@@ -216,6 +221,27 @@ class UpToDateIT : KGPBaseTest() {
             assertTasksExecuted(":compileKotlin")
             assertTrue(helloWorldKtClass.exists())
         }
+    }
+
+    private fun archivesBaseNameOutputMutation(
+        oldName: String,
+        newName: String,
+    ) = object : ProjectMutation {
+        override fun initProject(project: TestProject) {
+            project.addArchivesBaseNameCompat(oldName)
+        }
+
+        override fun mutateProject(project: TestProject) {
+            project.buildGradle.modify {
+                it.replace("archivesBaseName = '$oldName'", "archivesBaseName = '$newName'")
+            }
+        }
+
+        override fun checkAfterRebuild(buildResult: BuildResult) {
+            buildResult.assertTasksExecuted(":compileKotlin")
+        }
+
+        override val name: String = "archiveBaseNameOutputMutation"
     }
 
     private interface ProjectMutation {

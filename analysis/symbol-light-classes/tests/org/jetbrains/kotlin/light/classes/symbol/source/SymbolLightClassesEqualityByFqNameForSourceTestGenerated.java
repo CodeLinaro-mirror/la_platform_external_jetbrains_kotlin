@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -313,6 +313,12 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
     }
 
     @Test
+    @TestMetadata("ValueClassInParametersWithJvmName.kt")
+    public void testValueClassInParametersWithJvmName() throws Exception {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/ValueClassInParametersWithJvmName.kt");
+    }
+
+    @Test
     @TestMetadata("VarArgs.kt")
     public void testVarArgs() throws Exception {
         runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/VarArgs.kt");
@@ -424,6 +430,24 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
         }
 
         @Test
+        @TestMetadata("MultiplatformCommonFacade.kt")
+        public void testMultiplatformCommonFacade() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/MultiplatformCommonFacade.kt");
+        }
+
+        @Test
+        @TestMetadata("MultiplatformIntermediateFacade.kt")
+        public void testMultiplatformIntermediateFacade() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/MultiplatformIntermediateFacade.kt");
+        }
+
+        @Test
+        @TestMetadata("MultiplatformJvmFacade.kt")
+        public void testMultiplatformJvmFacade() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/MultiplatformJvmFacade.kt");
+        }
+
+        @Test
         @TestMetadata("PrivateInTrait.kt")
         public void testPrivateInTrait() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/PrivateInTrait.kt");
@@ -463,6 +487,18 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
         @TestMetadata("TwoOverrides.kt")
         public void testTwoOverrides() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/TwoOverrides.kt");
+        }
+
+        @Test
+        @TestMetadata("typeAliasActualization.kt")
+        public void testTypeAliasActualization() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/typeAliasActualization.kt");
+        }
+
+        @Test
+        @TestMetadata("typeAliasActualization2.kt")
+        public void testTypeAliasActualization2() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/typeAliasActualization2.kt");
         }
 
         @Test
@@ -543,6 +579,12 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
         @TestMetadata("SingleJvmClassName.kt")
         public void testSingleJvmClassName() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/facades/SingleJvmClassName.kt");
+        }
+
+        @Test
+        @TestMetadata("ValueClassInParametersWithJvmName.kt")
+        public void testValueClassInParametersWithJvmName() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/facades/ValueClassInParametersWithJvmName.kt");
         }
     }
 
@@ -716,6 +758,12 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
         }
 
         @Test
+        @TestMetadata("typeAlias.kt")
+        public void testTypeAlias() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/nullabilityAnnotations/typeAlias.kt");
+        }
+
+        @Test
         @TestMetadata("UnitAsGenericArgument.kt")
         public void testUnitAsGenericArgument() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/nullabilityAnnotations/UnitAsGenericArgument.kt");
@@ -757,6 +805,12 @@ public class SymbolLightClassesEqualityByFqNameForSourceTestGenerated extends Ab
         @TestMetadata("allOpen.kt")
         public void testAllOpen() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/withTestCompilerPluginEnabled/allOpen.kt");
+        }
+
+        @Test
+        @TestMetadata("companionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin.kt")
+        public void testCompanionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/withTestCompilerPluginEnabled/companionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin.kt");
         }
     }
 }

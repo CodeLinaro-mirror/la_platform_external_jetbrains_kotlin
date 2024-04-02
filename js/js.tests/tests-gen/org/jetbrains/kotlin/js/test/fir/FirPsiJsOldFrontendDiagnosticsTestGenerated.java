@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,6 +23,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
     @Test
     public void testAllFilesPresentInTestsWithJsStdLib() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLib"), Pattern.compile("^([^_](.+))\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), TargetBackend.JS_IR, true);
+    }
+
+    @Test
+    @TestMetadata("candidateNotSuccessfulButNoContradiction.kt")
+    public void testCandidateNotSuccessfulButNoContradiction() throws Exception {
+        runTest("compiler/testData/diagnostics/testsWithJsStdLib/candidateNotSuccessfulButNoContradiction.kt");
     }
 
     @Test
@@ -429,6 +435,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         }
 
         @Test
+        @TestMetadata("typealiasWithAnnotatedDynamicInAbstractClass.kt")
+        public void testTypealiasWithAnnotatedDynamicInAbstractClass() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/dynamicTypes/typealiasWithAnnotatedDynamicInAbstractClass.kt");
+        }
+
+        @Test
         @TestMetadata("typealiasWithDynamic.kt")
         public void testTypealiasWithDynamic() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/dynamicTypes/typealiasWithDynamic.kt");
@@ -457,6 +469,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         }
 
         @Test
+        @TestMetadata("genericClassWithInner.kt")
+        public void testGenericClassWithInner() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/genericClassWithInner.kt");
+        }
+
+        @Test
         @TestMetadata("jsExportOnNestedDeclarations.kt")
         public void testJsExportOnNestedDeclarations() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/jsExportOnNestedDeclarations.kt");
@@ -472,6 +490,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         @TestMetadata("nonConsumableIdentifiersInExportedFile.kt")
         public void testNonConsumableIdentifiersInExportedFile() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/nonConsumableIdentifiersInExportedFile.kt");
+        }
+
+        @Test
+        @TestMetadata("primitiveNullableTypes.kt")
+        public void testPrimitiveNullableTypes() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/export/primitiveNullableTypes.kt");
         }
 
         @Test
@@ -530,52 +554,6 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         @TestMetadata("Reified.kt")
         public void testReified() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/inline/Reified.kt");
-        }
-    }
-
-    @Nested
-    @TestMetadata("compiler/testData/diagnostics/testsWithJsStdLib/jsCode")
-    @TestDataPath("$PROJECT_ROOT")
-    public class JsCode {
-        @Test
-        public void testAllFilesPresentInJsCode() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLib/jsCode"), Pattern.compile("^([^_](.+))\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), TargetBackend.JS_IR, true);
-        }
-
-        @Test
-        @TestMetadata("argumentIsLiteral.kt")
-        public void testArgumentIsLiteral() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/argumentIsLiteral.kt");
-        }
-
-        @Test
-        @TestMetadata("badAssignment.kt")
-        public void testBadAssignment() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/badAssignment.kt");
-        }
-
-        @Test
-        @TestMetadata("deleteOperation.kt")
-        public void testDeleteOperation() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/deleteOperation.kt");
-        }
-
-        @Test
-        @TestMetadata("error.kt")
-        public void testError() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/error.kt");
-        }
-
-        @Test
-        @TestMetadata("noJavaScriptProduced.kt")
-        public void testNoJavaScriptProduced() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/noJavaScriptProduced.kt");
-        }
-
-        @Test
-        @TestMetadata("warning.kt")
-        public void testWarning() throws Exception {
-            runTest("compiler/testData/diagnostics/testsWithJsStdLib/jsCode/warning.kt");
         }
     }
 
@@ -717,9 +695,21 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         }
 
         @Test
+        @TestMetadata("companionInheritsOwnerClass.kt")
+        public void testCompanionInheritsOwnerClass() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/companionInheritsOwnerClass.kt");
+        }
+
+        @Test
         @TestMetadata("conflictingNamesFromSuperclass.kt")
         public void testConflictingNamesFromSuperclass() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/conflictingNamesFromSuperclass.kt");
+        }
+
+        @Test
+        @TestMetadata("constructorsWithSameJsName.kt")
+        public void testConstructorsWithSameJsName() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/constructorsWithSameJsName.kt");
         }
 
         @Test
@@ -762,6 +752,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         @TestMetadata("illegalPackageName.kt")
         public void testIllegalPackageName() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/illegalPackageName.kt");
+        }
+
+        @Test
+        @TestMetadata("IntersectionInheritance.kt")
+        public void testIntersectionInheritance() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/IntersectionInheritance.kt");
         }
 
         @Test
@@ -831,6 +827,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         }
 
         @Test
+        @TestMetadata("legalPackageName.kt")
+        public void testLegalPackageName() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/legalPackageName.kt");
+        }
+
+        @Test
         @TestMetadata("methodAndMethod.kt")
         public void testMethodAndMethod() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/methodAndMethod.kt");
@@ -840,6 +842,12 @@ public class FirPsiJsOldFrontendDiagnosticsTestGenerated extends AbstractFirPsiJ
         @TestMetadata("nameSwapInOverride.kt")
         public void testNameSwapInOverride() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/nameSwapInOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("nonASCIIName.kt")
+        public void testNonASCIIName() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLib/name/nonASCIIName.kt");
         }
 
         @Test

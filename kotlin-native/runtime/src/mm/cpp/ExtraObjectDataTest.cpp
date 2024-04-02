@@ -10,6 +10,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include "AllocatorTestSupport.hpp"
 #include "ObjectTestSupport.hpp"
 #include "ScopedThread.hpp"
 #include "TestSupport.hpp"
@@ -19,8 +20,7 @@ using namespace kotlin;
 namespace {
 
 struct EmptyPayload {
-    using Field = ObjHeader* EmptyPayload::*;
-    static constexpr std::array<Field, 0> kFields{};
+    static constexpr test_support::NoRefFields<EmptyPayload> kFields{};
 };
 
 class ExtraObjectDataTest : public testing::Test {
@@ -52,8 +52,7 @@ TEST_F(ExtraObjectDataTest, Install) {
     EXPECT_FALSE(extraData.HasRegularWeakReferenceImpl());
     EXPECT_THAT(extraData.GetBaseObject(), object.header());
 
-    extraData.Uninstall();
-    mm::GlobalData::Instance().threadRegistry().CurrentThreadData()->ClearForTests();
+    alloc::test_support::detachAndDestroyExtraObjectData(extraData);
 
     EXPECT_FALSE(object.header()->has_meta_object());
     EXPECT_THAT(object.header()->type_info(), typeInfo);

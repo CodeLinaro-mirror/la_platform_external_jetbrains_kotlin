@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourceLazyBodiesCalculatorTest {
     @Test
     public void testAllFilesPresentInRawBuilder() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
     }
 
     @Nested
@@ -30,7 +30,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
     public class Declarations {
         @Test
         public void testAllFilesPresentInDeclarations() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
         }
 
         @Test
@@ -52,6 +52,18 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("annotationOnSuperType.kt")
+        public void testAnnotationOnSuperType() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnSuperType.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationOnSuperTypeCall.kt")
+        public void testAnnotationOnSuperTypeCall() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnSuperTypeCall.kt");
+        }
+
+        @Test
         @TestMetadata("annotationsOnNullableParenthesizedTypes.kt")
         public void testAnnotationsOnNullableParenthesizedTypes() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationsOnNullableParenthesizedTypes.kt");
@@ -61,6 +73,18 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         @TestMetadata("annotationsOnParenthesizedTypes.kt")
         public void testAnnotationsOnParenthesizedTypes() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationsOnParenthesizedTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("anonymousObjectWithAnnotation.kt")
+        public void testAnonymousObjectWithAnnotation() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/anonymousObjectWithAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("classLevelDestructuringWithAnnotation.kt")
+        public void testClassLevelDestructuringWithAnnotation() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/classLevelDestructuringWithAnnotation.kt");
         }
 
         @Test
@@ -88,6 +112,18 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("constructorWithAnnotations.kt")
+        public void testConstructorWithAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/constructorWithAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("constructorWithLocalDeclarations.kt")
+        public void testConstructorWithLocalDeclarations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/constructorWithLocalDeclarations.kt");
+        }
+
+        @Test
         @TestMetadata("contextReceivers.kt")
         public void testContextReceivers() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contextReceivers.kt");
@@ -106,9 +142,33 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("danglingConstrants.kt")
+        public void testDanglingConstrants() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingConstrants.kt");
+        }
+
+        @Test
+        @TestMetadata("dataClassWithAnnotations.kt")
+        public void testDataClassWithAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/dataClassWithAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("delegatedFieldNestedName.kt")
+        public void testDelegatedFieldNestedName() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/delegatedFieldNestedName.kt");
+        }
+
+        @Test
         @TestMetadata("delegates.kt")
         public void testDelegates() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/delegates.kt");
+        }
+
+        @Test
+        @TestMetadata("delegatesWithAnnotations.kt")
+        public void testDelegatesWithAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/delegatesWithAnnotations.kt");
         }
 
         @Test
@@ -121,6 +181,12 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         @TestMetadata("emptyAnonymousObject.kt")
         public void testEmptyAnonymousObject() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/emptyAnonymousObject.kt");
+        }
+
+        @Test
+        @TestMetadata("enumEntryWithAnnotations.kt")
+        public void testEnumEntryWithAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/enumEntryWithAnnotations.kt");
         }
 
         @Test
@@ -184,9 +250,27 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("fileAnnotations.kt")
+        public void testFileAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/fileAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("fileAnnotationsWithoutPackage.kt")
+        public void testFileAnnotationsWithoutPackage() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/fileAnnotationsWithoutPackage.kt");
+        }
+
+        @Test
         @TestMetadata("functionTypes.kt")
         public void testFunctionTypes() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/functionTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("functionWithAnnotations.kt")
+        public void testFunctionWithAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/functionWithAnnotations.kt");
         }
 
         @Test
@@ -202,15 +286,63 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("incompletePropertyWithDelegate.kt")
+        public void testIncompletePropertyWithDelegate() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/incompletePropertyWithDelegate.kt");
+        }
+
+        @Test
         @TestMetadata("initBlockWithDeclarations.kt")
         public void testInitBlockWithDeclarations() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/initBlockWithDeclarations.kt");
         }
 
         @Test
+        @TestMetadata("initWithLocalDeclarations.kt")
+        public void testInitWithLocalDeclarations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/initWithLocalDeclarations.kt");
+        }
+
+        @Test
         @TestMetadata("invalidDestructing.kt")
         public void testInvalidDestructing() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidDestructing.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinAny.kt")
+        public void testKotlinAny() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/kotlinAny.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinAnyNonTopLevel.kt")
+        public void testKotlinAnyNonTopLevel() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/kotlinAnyNonTopLevel.kt");
+        }
+
+        @Test
+        @TestMetadata("localAnnotations.kt")
+        public void testLocalAnnotations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/localAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("localDeclarationsInEnumEntry.kt")
+        public void testLocalDeclarationsInEnumEntry() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/localDeclarationsInEnumEntry.kt");
+        }
+
+        @Test
+        @TestMetadata("localImplicitType.kt")
+        public void testLocalImplicitType() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/localImplicitType.kt");
+        }
+
+        @Test
+        @TestMetadata("multiDeclarations.kt")
+        public void testMultiDeclarations() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/multiDeclarations.kt");
         }
 
         @Test
@@ -238,6 +370,12 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("primaryConstructorWithoutConstructorKeyword.kt")
+        public void testPrimaryConstructorWithoutConstructorKeyword() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/primaryConstructorWithoutConstructorKeyword.kt");
+        }
+
+        @Test
         @TestMetadata("propertyWithBackingField.kt")
         public void testPropertyWithBackingField() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/propertyWithBackingField.kt");
@@ -247,6 +385,12 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         @TestMetadata("propertyWithBackingFieldDifferentTypes.kt")
         public void testPropertyWithBackingFieldDifferentTypes() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/propertyWithBackingFieldDifferentTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("secondaryConstructor.kt")
+        public void testSecondaryConstructor() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/secondaryConstructor.kt");
         }
 
         @Test
@@ -280,6 +424,12 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("topLevelDestructuringWithAnnotation.kt")
+        public void testTopLevelDestructuringWithAnnotation() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/topLevelDestructuringWithAnnotation.kt");
+        }
+
+        @Test
         @TestMetadata("typeAliasWithGeneric.kt")
         public void testTypeAliasWithGeneric() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/typeAliasWithGeneric.kt");
@@ -298,6 +448,12 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         }
 
         @Test
+        @TestMetadata("userAny.kt")
+        public void testUserAny() throws Exception {
+            runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/userAny.kt");
+        }
+
+        @Test
         @TestMetadata("where.kt")
         public void testWhere() throws Exception {
             runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/where.kt");
@@ -309,7 +465,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         public class Contracts {
             @Test
             public void testAllFilesPresentInContracts() throws Exception {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
             }
 
             @Nested
@@ -318,7 +474,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
             public class NewSyntax {
                 @Test
                 public void testAllFilesPresentInNewSyntax() throws Exception {
-                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts/newSyntax"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts/newSyntax"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
                 }
 
                 @Test
@@ -346,7 +502,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
             public class OldSyntax {
                 @Test
                 public void testAllFilesPresentInOldSyntax() throws Exception {
-                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts/oldSyntax"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contracts/oldSyntax"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
                 }
 
                 @Test
@@ -363,7 +519,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
         public class NoParameterType {
             @Test
             public void testAllFilesPresentInNoParameterType() throws Exception {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/noParameterType"), Pattern.compile("^(.+)\\.kt$"), null, true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/noParameterType"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
             }
 
             @Test
@@ -446,7 +602,7 @@ public class FirSourceLazyBodiesCalculatorTestGenerated extends AbstractFirSourc
     public class Expressions {
         @Test
         public void testAllFilesPresentInExpressions() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions"), Pattern.compile("^(.+)\\.kt$"), null, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
         }
 
         @Test

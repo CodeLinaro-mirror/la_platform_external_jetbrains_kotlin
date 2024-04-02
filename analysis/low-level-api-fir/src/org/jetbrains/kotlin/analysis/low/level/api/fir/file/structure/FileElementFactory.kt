@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,10 +7,11 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDesignationWithFile
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDesignation
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.targets.LLFirClassWithSpecificMembersResolveTarget
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.targets.resolve
+import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.isImplicitConstructor
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
 
 internal object FileElementFactory {
     fun createFileStructureElement(
@@ -19,7 +20,7 @@ internal object FileElementFactory {
         moduleComponents: LLFirModuleResolveComponents,
     ): FileStructureElement = when {
         firDeclaration is FirRegularClass -> {
-            lazyResolveClassWithGeneratedMembers(firDeclaration, moduleComponents)
+            lazyResolveClassWithGeneratedMembers(firDeclaration)
             ClassDeclarationStructureElement(firFile, firDeclaration, moduleComponents)
         }
 
@@ -27,7 +28,7 @@ internal object FileElementFactory {
         else -> DeclarationStructureElement(firFile, firDeclaration, moduleComponents)
     }
 
-    private fun lazyResolveClassWithGeneratedMembers(firClass: FirRegularClass, moduleComponents: LLFirModuleResolveComponents) {
+    private fun lazyResolveClassWithGeneratedMembers(firClass: FirRegularClass) {
         val classMembersToResolve = buildList {
             for (member in firClass.declarations) {
                 when {
@@ -35,11 +36,11 @@ internal object FileElementFactory {
                         add(member)
                     }
 
-                    member is FirPrimaryConstructor && member.source?.kind == KtFakeSourceElementKind.ImplicitConstructor -> {
+                    member.source?.kind == KtFakeSourceElementKind.EnumGeneratedDeclaration -> {
                         add(member)
                     }
 
-                    member is FirProperty && member.source?.kind == KtFakeSourceElementKind.PropertyFromParameter -> {
+                    member.isImplicitConstructor -> {
                         add(member)
                     }
 
@@ -54,18 +55,12 @@ internal object FileElementFactory {
             }
         }
 
-        val firClassDesignation = firClass.collectDesignationWithFile()
+        val firClassDesignation = firClass.collectDesignation()
         val designationWithMembers = LLFirClassWithSpecificMembersResolveTarget(
-            firClassDesignation.firFile,
-            firClassDesignation.path,
-            firClass,
+            firClassDesignation,
             classMembersToResolve,
         )
 
-        moduleComponents.firModuleLazyDeclarationResolver.lazyResolveTarget(
-            designationWithMembers,
-            FirResolvePhase.BODY_RESOLVE,
-            towerDataContextCollector = null
-        )
+        designationWithMembers.resolve(FirResolvePhase.BODY_RESOLVE)
     }
 }

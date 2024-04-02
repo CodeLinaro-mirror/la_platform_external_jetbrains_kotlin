@@ -9,7 +9,6 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties.COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM
 import org.jetbrains.kotlin.gradle.BaseGradleIT
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.NativeCacheKind
@@ -25,7 +24,7 @@ data class BuildOptions(
     val stacktraceMode: String? = StacktraceOption.FULL_STACKTRACE_LONG_OPTION,
     val kotlinVersion: String = TestVersions.Kotlin.CURRENT,
     val warningMode: WarningMode = WarningMode.Fail,
-    val configurationCache: Boolean = false,
+    val configurationCache: Boolean? = false, //null value is only for cases, when project isolation is used without configuration cache. Otherwise Gradle runner will throw exception "The configuration cache cannot be disabled when isolated projects is enabled."
     val projectIsolation: Boolean = false,
     val configurationCacheProblems: BaseGradleIT.ConfigurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL,
     val parallel: Boolean = true,
@@ -38,7 +37,7 @@ data class BuildOptions(
     val buildCacheEnabled: Boolean = false,
     val kaptOptions: KaptOptions? = null,
     val androidVersion: String? = null,
-    val jsOptions: JsOptions? = null,
+    val jsOptions: JsOptions? = JsOptions(),
     val buildReport: List<BuildReportType> = emptyList(),
     val usePreciseJavaTracking: Boolean? = null,
     val languageVersion: String? = null,
@@ -47,6 +46,7 @@ data class BuildOptions(
     val statisticsForceValidation: Boolean = true,
     val usePreciseOutputsBackup: Boolean? = null,
     val keepIncrementalCompilationCachesInMemory: Boolean? = null,
+    val enableUnsafeIncrementalCompilationForMultiplatform: Boolean? = null,
     val useDaemonFallbackStrategy: Boolean = false,
     val useParsableDiagnosticsFormatting: Boolean = true,
     val showDiagnosticsStacktrace: Boolean? = false, // false by default to not clutter the testdata + stacktraces change often
@@ -54,6 +54,8 @@ data class BuildOptions(
     val compilerExecutionStrategy: KotlinCompilerExecutionStrategy? = null,
     val runViaBuildToolsApi: Boolean? = null,
     val konanDataDir: Path? = konanDir, // null can be used only if you are using custom 'kotlin.native.home' or 'org.jetbrains.kotlin.native.home' property instead of konanDir
+    val kotlinUserHome: Path? = testKitDir.resolve(".kotlin"),
+    val compilerArgumentsLogLevel: String? = "info",
 ) {
     val isK2ByDefault
         get() = KotlinVersion.DEFAULT >= KotlinVersion.KOTLIN_2_0
@@ -77,7 +79,8 @@ data class BuildOptions(
     data class JsOptions(
         val incrementalJs: Boolean? = null,
         val incrementalJsKlib: Boolean? = null,
-        val incrementalJsIr: Boolean? = null
+        val incrementalJsIr: Boolean? = null,
+        val yarn: Boolean? = null,
     )
 
     data class NativeOptions(
@@ -87,12 +90,13 @@ data class BuildOptions(
         val cocoapodsConfiguration: String? = null,
         val cocoapodsArchs: String? = null,
         val distributionType: String? = null,
-        val distributionDownloadFromMaven: Boolean? = null,
+        val distributionDownloadFromMaven: Boolean? = true,
         val reinstall: Boolean? = null,
         val restrictedDistribution: Boolean? = null,
         val useXcodeMessageStyle: Boolean? = null,
-        val version: String? = null,
+        val version: String? = System.getProperty("kotlinNativeVersion"),
         val cacheOrchestration: String? = null,
+        val incremental: Boolean? = null,
     )
 
     fun toArguments(
@@ -114,8 +118,10 @@ data class BuildOptions(
             WarningMode.None -> arguments.add("--warning-mode=none")
         }
 
-        arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCache")
-        arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.lowercase(Locale.getDefault())}")
+        if (configurationCache != null) {
+            arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCache")
+            arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.lowercase(Locale.getDefault())}")
+        }
 
         if (gradleVersion >= GradleVersion.version("7.1")) {
             arguments.add("-Dorg.gradle.unsafe.isolated-projects=$projectIsolation")
@@ -131,7 +137,7 @@ data class BuildOptions(
             arguments.add("-Pkotlin.incremental=$incremental")
         }
 
-        useGradleClasspathSnapshot?.let { arguments.add("-P${COMPILE_INCREMENTAL_WITH_ARTIFACT_TRANSFORM.property}=$it") }
+        useGradleClasspathSnapshot?.let { arguments.add("-Pkotlin.incremental.useClasspathSnapshot=$it") }
         useICClasspathSnapshot?.let { arguments.add("-Pkotlin.incremental.classpath.snapshot.enabled=$it") }
 
         if (fileSystemWatchEnabled) {
@@ -157,6 +163,7 @@ data class BuildOptions(
             jsOptions.incrementalJs?.let { arguments.add("-Pkotlin.incremental.js=$it") }
             jsOptions.incrementalJsKlib?.let { arguments.add("-Pkotlin.incremental.js.klib=$it") }
             jsOptions.incrementalJsIr?.let { arguments.add("-Pkotlin.incremental.js.ir=$it") }
+            jsOptions.yarn?.let { arguments.add("-Pkotlin.js.yarn=$it") }
         }
 
         if (androidVersion != null) {
@@ -190,6 +197,10 @@ data class BuildOptions(
             arguments.add("-Pkotlin.compiler.keepIncrementalCompilationCachesInMemory=$keepIncrementalCompilationCachesInMemory")
         }
 
+        if (enableUnsafeIncrementalCompilationForMultiplatform != null) {
+            arguments.add("-Pkotlin.internal.incremental.enableUnsafeOptimizationsForMultiplatform=$enableUnsafeIncrementalCompilationForMultiplatform")
+        }
+
         arguments.add("-Pkotlin.daemon.useFallbackStrategy=$useDaemonFallbackStrategy")
 
         if (useParsableDiagnosticsFormatting) {
@@ -214,6 +225,14 @@ data class BuildOptions(
 
         konanDataDir?.let {
             arguments.add("-Pkonan.data.dir=${konanDataDir.toAbsolutePath().normalize()}")
+        }
+
+        if (kotlinUserHome != null) {
+            arguments.add("-Pkotlin.user.home=${kotlinUserHome.absolutePathString()}")
+        }
+
+        if (compilerArgumentsLogLevel != null) {
+            arguments.add("-Pkotlin.internal.compiler.arguments.log.level=$compilerArgumentsLogLevel")
         }
 
         arguments.addAll(freeArgs)
@@ -263,7 +282,9 @@ data class BuildOptions(
         nativeOptions.cacheOrchestration?.let {
             arguments.add("-Pkotlin.native.cacheOrchestration=${it}")
         }
-
+        nativeOptions.incremental?.let {
+            arguments.add("-Pkotlin.incremental.native=${it}")
+        }
     }
 }
 
@@ -283,3 +304,17 @@ fun BuildOptions.suppressDeprecationWarningsSinceGradleVersion(
 ) = suppressDeprecationWarningsOn(reason) {
     currentGradleVersion >= GradleVersion.version(gradleVersion)
 }
+
+/**
+ * This wrapper erases k/n version from passing parameters,
+ * because we should use Kotlin Native bundled in KGP instead of which built from current branch.
+ *
+ * In this case we will use k/n version, which declared in KGP.
+ *
+ * The most common case is when we override local konan dir for some reason.
+ */
+fun BuildOptions.withBundledKotlinNative() = copy(
+    nativeOptions = nativeOptions.copy(
+        version = null
+    )
+)

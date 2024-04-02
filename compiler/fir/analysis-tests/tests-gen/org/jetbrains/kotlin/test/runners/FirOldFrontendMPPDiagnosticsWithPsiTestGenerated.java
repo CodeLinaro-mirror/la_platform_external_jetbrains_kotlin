@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,51 +21,21 @@ import java.util.regex.Pattern;
 @TestDataPath("$PROJECT_ROOT")
 public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFirPsiWithActualizerDiagnosticsTest {
     @Test
-    @TestMetadata("actualFakeOverride.kt")
-    public void testActualFakeOverride() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride.kt");
+    @TestMetadata("actualClassDelegationWithImplicitType.kt")
+    public void testActualClassDelegationWithImplicitType() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassDelegationWithImplicitType.kt");
     }
 
     @Test
-    @TestMetadata("actualFakeOverrideVirtual.kt")
-    public void testActualFakeOverrideVirtual() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverrideVirtual.kt");
+    @TestMetadata("actualMissingConstructor.kt")
+    public void testActualMissingConstructor() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/actualMissingConstructor.kt");
     }
 
     @Test
-    @TestMetadata("actualFakeOverride_defaultParamsIncompatibility.kt")
-    public void testActualFakeOverride_defaultParamsIncompatibility() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_defaultParamsIncompatibility.kt");
-    }
-
-    @Test
-    @TestMetadata("actualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams.kt")
-    public void testActualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams.kt");
-    }
-
-    @Test
-    @TestMetadata("actualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams.kt")
-    public void testActualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams.kt");
-    }
-
-    @Test
-    @TestMetadata("actualFakeOverride_substitutionFakeOverride.kt")
-    public void testActualFakeOverride_substitutionFakeOverride() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_substitutionFakeOverride.kt");
-    }
-
-    @Test
-    @TestMetadata("actualFakeOverride_transitiveFakeOverrides_compatible.kt")
-    public void testActualFakeOverride_transitiveFakeOverrides_compatible() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_transitiveFakeOverrides_compatible.kt");
-    }
-
-    @Test
-    @TestMetadata("actualFakeOverride_transitiveFakeOverrides_incompatible.kt")
-    public void testActualFakeOverride_transitiveFakeOverrides_incompatible() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/actualFakeOverride_transitiveFakeOverrides_incompatible.kt");
+    @TestMetadata("actualTypealiasForNotExpectClass.kt")
+    public void testActualTypealiasForNotExpectClass() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/actualTypealiasForNotExpectClass.kt");
     }
 
     @Test
@@ -81,14 +51,44 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
+    @TestMetadata("actualTypealiasWithoutExpect.kt")
+    public void testActualTypealiasWithoutExpect() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/actualTypealiasWithoutExpect.kt");
+    }
+
+    @Test
     @TestMetadata("actualTypealias_defaultParamsIncompatibility.kt")
     public void testActualTypealias_defaultParamsIncompatibility() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/actualTypealias_defaultParamsIncompatibility.kt");
     }
 
     @Test
+    @TestMetadata("actualWithoutExpectWhenExpectIsFakeOverride.kt")
+    public void testActualWithoutExpectWhenExpectIsFakeOverride() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/actualWithoutExpectWhenExpectIsFakeOverride.kt");
+    }
+
+    @Test
     public void testAllFilesPresentInMultiplatform() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("annotationArgArrayVsOutArray.kt")
+    public void testAnnotationArgArrayVsOutArray() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/annotationArgArrayVsOutArray.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationArgArrayVsVararg.kt")
+    public void testAnnotationArgArrayVsVararg() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/annotationArgArrayVsVararg.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationArgTypeAliasWithArray.kt")
+    public void testAnnotationArgTypeAliasWithArray() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/annotationArgTypeAliasWithArray.kt");
     }
 
     @Test
@@ -110,21 +110,21 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
+    @TestMetadata("changeModalityFromOpenToFinalInOverride_finalExpectClass_finalActualClass.kt")
+    public void testChangeModalityFromOpenToFinalInOverride_finalExpectClass_finalActualClass() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/changeModalityFromOpenToFinalInOverride_finalExpectClass_finalActualClass.kt");
+    }
+
+    @Test
+    @TestMetadata("changeModalityFromOpenToFinalInOverride_finalExpectClass_openActualClass.kt")
+    public void testChangeModalityFromOpenToFinalInOverride_finalExpectClass_openActualClass() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/changeModalityFromOpenToFinalInOverride_finalExpectClass_openActualClass.kt");
+    }
+
+    @Test
     @TestMetadata("checkNoActualForExpectInLastModule.kt")
     public void testCheckNoActualForExpectInLastModule() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/checkNoActualForExpectInLastModule.kt");
-    }
-
-    @Test
-    @TestMetadata("defaultParams_inheritanceByDelegation_negative.kt")
-    public void testDefaultParams_inheritanceByDelegation_negative() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/defaultParams_inheritanceByDelegation_negative.kt");
-    }
-
-    @Test
-    @TestMetadata("defaultParams_inheritanceByDelegation_positive.kt")
-    public void testDefaultParams_inheritanceByDelegation_positive() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/defaultParams_inheritanceByDelegation_positive.kt");
     }
 
     @Test
@@ -137,6 +137,30 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @TestMetadata("expectActualClassesAreInBetaWarning.kt")
     public void testExpectActualClassesAreInBetaWarning() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/expectActualClassesAreInBetaWarning.kt");
+    }
+
+    @Test
+    @TestMetadata("expectActualClassesAreInBeta_suppressWarningWithLv.kt")
+    public void testExpectActualClassesAreInBeta_suppressWarningWithLv() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/expectActualClassesAreInBeta_suppressWarningWithLv.kt");
+    }
+
+    @Test
+    @TestMetadata("expectActualInTheSameModule.kt")
+    public void testExpectActualInTheSameModule() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/expectActualInTheSameModule.kt");
+    }
+
+    @Test
+    @TestMetadata("expectActualInTheSameModuleDifferentFiles.kt")
+    public void testExpectActualInTheSameModuleDifferentFiles() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/expectActualInTheSameModuleDifferentFiles.kt");
+    }
+
+    @Test
+    @TestMetadata("expectActualMainInTheSameModuleDifferentFiles.kt")
+    public void testExpectActualMainInTheSameModuleDifferentFiles() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/expectActualMainInTheSameModuleDifferentFiles.kt");
     }
 
     @Test
@@ -194,6 +218,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
+    @TestMetadata("extraNestedClassOnActualViaActualTypealias.kt")
+    public void testExtraNestedClassOnActualViaActualTypealias() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/extraNestedClassOnActualViaActualTypealias.kt");
+    }
+
+    @Test
     @TestMetadata("headerFunInNonHeaderClass.kt")
     public void testHeaderFunInNonHeaderClass() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/headerFunInNonHeaderClass.kt");
@@ -215,18 +245,6 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @TestMetadata("implFakeOverride.kt")
     public void testImplFakeOverride() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/implFakeOverride.kt");
-    }
-
-    @Test
-    @TestMetadata("implicitActualFakeOverride_AbstractMap.kt")
-    public void testImplicitActualFakeOverride_AbstractMap() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/implicitActualFakeOverride_AbstractMap.kt");
-    }
-
-    @Test
-    @TestMetadata("implicitActualFakeOverride_simple.kt")
-    public void testImplicitActualFakeOverride_simple() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/implicitActualFakeOverride_simple.kt");
     }
 
     @Test
@@ -260,15 +278,33 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
-    @TestMetadata("manyImplMemberNotImplemented.kt")
-    public void testManyImplMemberNotImplemented() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/manyImplMemberNotImplemented.kt");
+    @TestMetadata("kt63860.kt")
+    public void testKt63860() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/kt63860.kt");
     }
 
     @Test
-    @TestMetadata("manyInterfacesMemberNotImplemented.kt")
-    public void testManyInterfacesMemberNotImplemented() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/manyInterfacesMemberNotImplemented.kt");
+    @TestMetadata("kt63860_2.kt")
+    public void testKt63860_2() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/kt63860_2.kt");
+    }
+
+    @Test
+    @TestMetadata("kt64045.kt")
+    public void testKt64045() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/kt64045.kt");
+    }
+
+    @Test
+    @TestMetadata("kt64045_2.kt")
+    public void testKt64045_2() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/kt64045_2.kt");
+    }
+
+    @Test
+    @TestMetadata("kt64166.kt")
+    public void testKt64166() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/kt64166.kt");
     }
 
     @Test
@@ -278,15 +314,33 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
-    @TestMetadata("multipleExpectInterfacesImplementation.kt")
-    public void testMultipleExpectInterfacesImplementation() throws Exception {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/multipleExpectInterfacesImplementation.kt");
-    }
-
-    @Test
     @TestMetadata("namedArguments.kt")
     public void testNamedArguments() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/namedArguments.kt");
+    }
+
+    @Test
+    @TestMetadata("nestedClassViaActualTypealias.kt")
+    public void testNestedClassViaActualTypealias() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/nestedClassViaActualTypealias.kt");
+    }
+
+    @Test
+    @TestMetadata("nestedClassViaActualTypealiasExpandInTypeParam.kt")
+    public void testNestedClassViaActualTypealiasExpandInTypeParam() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/nestedClassViaActualTypealiasExpandInTypeParam.kt");
+    }
+
+    @Test
+    @TestMetadata("nestedClassViaActualTypealiasIncompatibilities.kt")
+    public void testNestedClassViaActualTypealiasIncompatibilities() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/nestedClassViaActualTypealiasIncompatibilities.kt");
+    }
+
+    @Test
+    @TestMetadata("nestedClassViaActualTypealiasWithTypeParam.kt")
+    public void testNestedClassViaActualTypealiasWithTypeParam() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/nestedClassViaActualTypealiasWithTypeParam.kt");
     }
 
     @Test
@@ -299,6 +353,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @TestMetadata("privateTopLevelDeclarations.kt")
     public void testPrivateTopLevelDeclarations() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/privateTopLevelDeclarations.kt");
+    }
+
+    @Test
+    @TestMetadata("returnTypeVsGenericsUpperBoundIncompatibility.kt")
+    public void testReturnTypeVsGenericsUpperBoundIncompatibility() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/returnTypeVsGenericsUpperBoundIncompatibility.kt");
     }
 
     @Test
@@ -338,6 +398,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Test
+    @TestMetadata("typeResolutionOfNestedClassActualizedViaTypealias.kt")
+    public void testTypeResolutionOfNestedClassActualizedViaTypealias() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/typeResolutionOfNestedClassActualizedViaTypealias.kt");
+    }
+
+    @Test
     @TestMetadata("varSetterVisibility.kt")
     public void testVarSetterVisibility() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/varSetterVisibility.kt");
@@ -347,6 +413,304 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     @TestMetadata("widerVisibilityInActualClassifier.kt")
     public void testWiderVisibilityInActualClassifier() throws Exception {
         runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibilityInActualClassifier.kt");
+    }
+
+    @Test
+    @TestMetadata("widerVisibility_expectIsEffectivelyFinal.kt")
+    public void testWiderVisibility_expectIsEffectivelyFinal() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibility_expectIsEffectivelyFinal.kt");
+    }
+
+    @Test
+    @TestMetadata("widerVisibility_expectIsEffectivelyFinal_fakeOverride.kt")
+    public void testWiderVisibility_expectIsEffectivelyFinal_fakeOverride() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibility_expectIsEffectivelyFinal_fakeOverride.kt");
+    }
+
+    @Test
+    @TestMetadata("widerVisibility_expectIsEffectivelyFinal_oldLanguageVersion.kt")
+    public void testWiderVisibility_expectIsEffectivelyFinal_oldLanguageVersion() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibility_expectIsEffectivelyFinal_oldLanguageVersion.kt");
+    }
+
+    @Test
+    @TestMetadata("widerVisibility_expectSetterIsEffectivelyFinal.kt")
+    public void testWiderVisibility_expectSetterIsEffectivelyFinal() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibility_expectSetterIsEffectivelyFinal.kt");
+    }
+
+    @Test
+    @TestMetadata("widerVisibility_expectSetterIsEffectivelyFinal_fakeOverride.kt")
+    public void testWiderVisibility_expectSetterIsEffectivelyFinal_fakeOverride() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/widerVisibility_expectSetterIsEffectivelyFinal_fakeOverride.kt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ActualAnnotationsNotMatchExpect {
+        @Test
+        @TestMetadata("actualInnerClassMissingMember.kt")
+        public void testActualInnerClassMissingMember() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/actualInnerClassMissingMember.kt");
+        }
+
+        @Test
+        public void testAllFilesPresentInActualAnnotationsNotMatchExpect() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("annotationArgRendering.kt")
+        public void testAnnotationArgRendering() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationArgRendering.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationArgumentsConstExpressions.kt")
+        public void testAnnotationArgumentsConstExpressions() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationArgumentsConstExpressions.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationArgumentsDefaults.kt")
+        public void testAnnotationArgumentsDefaults() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationArgumentsDefaults.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationArgumentsWithLazyResolve.kt")
+        public void testAnnotationArgumentsWithLazyResolve() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationArgumentsWithLazyResolve.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationMatching_oldLanguageVersion.kt")
+        public void testAnnotationMatching_oldLanguageVersion() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationMatching_oldLanguageVersion.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationTarget.kt")
+        public void testAnnotationTarget() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationTarget.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationTypeParameters.kt")
+        public void testAnnotationTypeParameters() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/annotationTypeParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("basicOnDeclaration.kt")
+        public void testBasicOnDeclaration() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/basicOnDeclaration.kt");
+        }
+
+        @Test
+        @TestMetadata("checkDiagnosticFullText.kt")
+        public void testCheckDiagnosticFullText() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/checkDiagnosticFullText.kt");
+        }
+
+        @Test
+        @TestMetadata("classScopeInnerClasses.kt")
+        public void testClassScopeInnerClasses() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/classScopeInnerClasses.kt");
+        }
+
+        @Test
+        @TestMetadata("classScopeViaTypealiasIncompatible.kt")
+        public void testClassScopeViaTypealiasIncompatible() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/classScopeViaTypealiasIncompatible.kt");
+        }
+
+        @Test
+        @TestMetadata("compatibleOverrides.kt")
+        public void testCompatibleOverrides() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/compatibleOverrides.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultValueParametersRendering.kt")
+        public void testDefaultValueParametersRendering() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/defaultValueParametersRendering.kt");
+        }
+
+        @Test
+        @TestMetadata("deprecatedAnnotationOnlyOnActual_useInPlatform.kt")
+        public void testDeprecatedAnnotationOnlyOnActual_useInPlatform() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/deprecatedAnnotationOnlyOnActual_useInPlatform.kt");
+        }
+
+        @Test
+        @TestMetadata("differentOrder.kt")
+        public void testDifferentOrder() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/differentOrder.kt");
+        }
+
+        @Test
+        @TestMetadata("enumEntries.kt")
+        public void testEnumEntries() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/enumEntries.kt");
+        }
+
+        @Test
+        @TestMetadata("fakeOverrides.kt")
+        public void testFakeOverrides() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/fakeOverrides.kt");
+        }
+
+        @Test
+        @TestMetadata("floatNumbersComparison.kt")
+        public void testFloatNumbersComparison() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/floatNumbersComparison.kt");
+        }
+
+        @Test
+        @TestMetadata("gettersAndSetters.kt")
+        public void testGettersAndSetters() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/gettersAndSetters.kt");
+        }
+
+        @Test
+        @TestMetadata("intrinsicConstEvaluation.kt")
+        public void testIntrinsicConstEvaluation() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/intrinsicConstEvaluation.kt");
+        }
+
+        @Test
+        @TestMetadata("kclassArgWithExpectClass.kt")
+        public void testKclassArgWithExpectClass() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/kclassArgWithExpectClass.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinAnaloguesForJavaAnnotations.kt")
+        public void testKotlinAnaloguesForJavaAnnotations() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/kotlinAnaloguesForJavaAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedAnnotationClassViaActualTypeAlias.kt")
+        public void testNestedAnnotationClassViaActualTypeAlias() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/nestedAnnotationClassViaActualTypeAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("repeatableNoArg.kt")
+        public void testRepeatableNoArg() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/repeatableNoArg.kt");
+        }
+
+        @Test
+        @TestMetadata("repeatableWithArg.kt")
+        public void testRepeatableWithArg() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/repeatableWithArg.kt");
+        }
+
+        @Test
+        @TestMetadata("skippedAnnotations.kt")
+        public void testSkippedAnnotations() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/skippedAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("sourceRetentionAnnotationsWhenTypealias.kt")
+        public void testSourceRetentionAnnotationsWhenTypealias() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/sourceRetentionAnnotationsWhenTypealias.kt");
+        }
+
+        @Test
+        @TestMetadata("substitutionOverrideInTwoClasses.kt")
+        public void testSubstitutionOverrideInTwoClasses() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/substitutionOverrideInTwoClasses.kt");
+        }
+
+        @Test
+        @TestMetadata("twoActualTypealiasesToSameClass.kt")
+        public void testTwoActualTypealiasesToSameClass() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/twoActualTypealiasesToSameClass.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParameters.kt")
+        public void testTypeParameters() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typeParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("typeUsage.kt")
+        public void testTypeUsage() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typeUsage.kt");
+        }
+
+        @Test
+        @TestMetadata("typeUsageTypealiasInSuper.kt")
+        public void testTypeUsageTypealiasInSuper() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typeUsageTypealiasInSuper.kt");
+        }
+
+        @Test
+        @TestMetadata("typeUsageWithImplicitType.kt")
+        public void testTypeUsageWithImplicitType() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typeUsageWithImplicitType.kt");
+        }
+
+        @Test
+        @TestMetadata("typeUsageWithUnresolvedReference.kt")
+        public void testTypeUsageWithUnresolvedReference() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typeUsageWithUnresolvedReference.kt");
+        }
+
+        @Test
+        @TestMetadata("typealias.kt")
+        public void testTypealias() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typealias.kt");
+        }
+
+        @Test
+        @TestMetadata("typealiasToJavaLibrary.kt")
+        public void testTypealiasToJavaLibrary() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typealiasToJavaLibrary.kt");
+        }
+
+        @Test
+        @TestMetadata("typealiasToJavaWithAnnotationArgument.kt")
+        public void testTypealiasToJavaWithAnnotationArgument() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typealiasToJavaWithAnnotationArgument.kt");
+        }
+
+        @Test
+        @TestMetadata("typealiasToKtLibrary.kt")
+        public void testTypealiasToKtLibrary() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/typealiasToKtLibrary.kt");
+        }
+
+        @Test
+        @TestMetadata("unresolvedReference.kt")
+        public void testUnresolvedReference() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/unresolvedReference.kt");
+        }
+
+        @Test
+        @TestMetadata("valueParameters.kt")
+        public void testValueParameters() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/valueParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("withAnnotationActualTypealias.kt")
+        public void testWithAnnotationActualTypealias() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/withAnnotationActualTypealias.kt");
+        }
+
+        @Test
+        @TestMetadata("withOtherIncomatibilities.kt")
+        public void testWithOtherIncomatibilities() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualAnnotationsNotMatchExpect/withOtherIncomatibilities.kt");
+        }
     }
 
     @Nested
@@ -380,18 +744,6 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         @Test
         public void testAllFilesPresentInActualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
-        }
-
-        @Test
-        @TestMetadata("allowDifferentMembersInActual_class.kt")
-        public void testAllowDifferentMembersInActual_class() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/allowDifferentMembersInActual_class.kt");
-        }
-
-        @Test
-        @TestMetadata("allowDifferentMembersInActual_typealias.kt")
-        public void testAllowDifferentMembersInActual_typealias() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/allowDifferentMembersInActual_typealias.kt");
         }
 
         @Test
@@ -458,6 +810,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         @TestMetadata("changeSetterVisibilityInOverride.kt")
         public void testChangeSetterVisibilityInOverride() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/changeSetterVisibilityInOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("changeVarargModifierInOverride.kt")
+        public void testChangeVarargModifierInOverride() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/changeVarargModifierInOverride.kt");
         }
 
         @Test
@@ -659,6 +1017,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         }
 
         @Test
+        @TestMetadata("overloadMethodInjectedInSuper.kt")
+        public void testOverloadMethodInjectedInSuper() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/overloadMethodInjectedInSuper.kt");
+        }
+
+        @Test
         @TestMetadata("propertyKindOverride.kt")
         public void testPropertyKindOverride() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/actualClassifierMustHasTheSameMembersAsNonFinalExpectClassifierChecker/propertyKindOverride.kt");
@@ -756,220 +1120,6 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
     }
 
     @Nested
-    @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/annotationMatching")
-    @TestDataPath("$PROJECT_ROOT")
-    public class AnnotationMatching {
-        @Test
-        @TestMetadata("actualInnerClassMissingMember.kt")
-        public void testActualInnerClassMissingMember() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/actualInnerClassMissingMember.kt");
-        }
-
-        @Test
-        public void testAllFilesPresentInAnnotationMatching() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/annotationMatching"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
-        }
-
-        @Test
-        @TestMetadata("annotationArgumentsConstExpressions.kt")
-        public void testAnnotationArgumentsConstExpressions() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/annotationArgumentsConstExpressions.kt");
-        }
-
-        @Test
-        @TestMetadata("annotationArgumentsDefaults.kt")
-        public void testAnnotationArgumentsDefaults() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/annotationArgumentsDefaults.kt");
-        }
-
-        @Test
-        @TestMetadata("annotationMatching_oldLanguageVersion.kt")
-        public void testAnnotationMatching_oldLanguageVersion() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/annotationMatching_oldLanguageVersion.kt");
-        }
-
-        @Test
-        @TestMetadata("annotationTarget.kt")
-        public void testAnnotationTarget() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/annotationTarget.kt");
-        }
-
-        @Test
-        @TestMetadata("annotationTypeParameters.kt")
-        public void testAnnotationTypeParameters() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/annotationTypeParameters.kt");
-        }
-
-        @Test
-        @TestMetadata("basicOnDeclaration.kt")
-        public void testBasicOnDeclaration() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/basicOnDeclaration.kt");
-        }
-
-        @Test
-        @TestMetadata("checkDiagnosticFullText.kt")
-        public void testCheckDiagnosticFullText() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/checkDiagnosticFullText.kt");
-        }
-
-        @Test
-        @TestMetadata("classScopeInnerClasses.kt")
-        public void testClassScopeInnerClasses() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/classScopeInnerClasses.kt");
-        }
-
-        @Test
-        @TestMetadata("classScopeViaTypealiasIncompatible.kt")
-        public void testClassScopeViaTypealiasIncompatible() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/classScopeViaTypealiasIncompatible.kt");
-        }
-
-        @Test
-        @TestMetadata("compatibleOverrides.kt")
-        public void testCompatibleOverrides() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/compatibleOverrides.kt");
-        }
-
-        @Test
-        @TestMetadata("deprecatedAnnotationOnlyOnActual_useInPlatform.kt")
-        public void testDeprecatedAnnotationOnlyOnActual_useInPlatform() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/deprecatedAnnotationOnlyOnActual_useInPlatform.kt");
-        }
-
-        @Test
-        @TestMetadata("differentOrder.kt")
-        public void testDifferentOrder() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/differentOrder.kt");
-        }
-
-        @Test
-        @TestMetadata("enumEntries.kt")
-        public void testEnumEntries() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/enumEntries.kt");
-        }
-
-        @Test
-        @TestMetadata("fakeOverrides.kt")
-        public void testFakeOverrides() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/fakeOverrides.kt");
-        }
-
-        @Test
-        @TestMetadata("floatNumbersComparison.kt")
-        public void testFloatNumbersComparison() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/floatNumbersComparison.kt");
-        }
-
-        @Test
-        @TestMetadata("gettersAndSetters.kt")
-        public void testGettersAndSetters() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/gettersAndSetters.kt");
-        }
-
-        @Test
-        @TestMetadata("intrinsicConstEvaluation.kt")
-        public void testIntrinsicConstEvaluation() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/intrinsicConstEvaluation.kt");
-        }
-
-        @Test
-        @TestMetadata("kclassArgWithExpectClass.kt")
-        public void testKclassArgWithExpectClass() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/kclassArgWithExpectClass.kt");
-        }
-
-        @Test
-        @TestMetadata("kotlinAnaloguesForJavaAnnotations.kt")
-        public void testKotlinAnaloguesForJavaAnnotations() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/kotlinAnaloguesForJavaAnnotations.kt");
-        }
-
-        @Test
-        @TestMetadata("repeatableNoArg.kt")
-        public void testRepeatableNoArg() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/repeatableNoArg.kt");
-        }
-
-        @Test
-        @TestMetadata("repeatableWithArg.kt")
-        public void testRepeatableWithArg() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/repeatableWithArg.kt");
-        }
-
-        @Test
-        @TestMetadata("skippedAnnotations.kt")
-        public void testSkippedAnnotations() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/skippedAnnotations.kt");
-        }
-
-        @Test
-        @TestMetadata("sourceRetentionAnnotationsWhenTypealias.kt")
-        public void testSourceRetentionAnnotationsWhenTypealias() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/sourceRetentionAnnotationsWhenTypealias.kt");
-        }
-
-        @Test
-        @TestMetadata("substitutionOverrideInTwoClasses.kt")
-        public void testSubstitutionOverrideInTwoClasses() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/substitutionOverrideInTwoClasses.kt");
-        }
-
-        @Test
-        @TestMetadata("twoActualTypealiasesToSameClass.kt")
-        public void testTwoActualTypealiasesToSameClass() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/twoActualTypealiasesToSameClass.kt");
-        }
-
-        @Test
-        @TestMetadata("typeParameters.kt")
-        public void testTypeParameters() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/typeParameters.kt");
-        }
-
-        @Test
-        @TestMetadata("typealias.kt")
-        public void testTypealias() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/typealias.kt");
-        }
-
-        @Test
-        @TestMetadata("typealiasToJavaLibrary.kt")
-        public void testTypealiasToJavaLibrary() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/typealiasToJavaLibrary.kt");
-        }
-
-        @Test
-        @TestMetadata("typealiasToKtLibrary.kt")
-        public void testTypealiasToKtLibrary() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/typealiasToKtLibrary.kt");
-        }
-
-        @Test
-        @TestMetadata("unresolvedReference.kt")
-        public void testUnresolvedReference() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/unresolvedReference.kt");
-        }
-
-        @Test
-        @TestMetadata("valueParameters.kt")
-        public void testValueParameters() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/valueParameters.kt");
-        }
-
-        @Test
-        @TestMetadata("withAnnotationActualTypealias.kt")
-        public void testWithAnnotationActualTypealias() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/withAnnotationActualTypealias.kt");
-        }
-
-        @Test
-        @TestMetadata("withOtherIncomatibilities.kt")
-        public void testWithOtherIncomatibilities() throws Exception {
-            runTest("compiler/testData/diagnostics/tests/multiplatform/annotationMatching/withOtherIncomatibilities.kt");
-        }
-    }
-
-    @Nested
     @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/complexMatchings")
     @TestDataPath("$PROJECT_ROOT")
     public class ComplexMatchings {
@@ -1004,6 +1154,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         @TestMetadata("annotationArgumentEquality.kt")
         public void testAnnotationArgumentEquality() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/defaultArguments/annotationArgumentEquality.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationDefaultArgKclassWithNestedClassViaActualTypeAlias.kt")
+        public void testAnnotationDefaultArgKclassWithNestedClassViaActualTypeAlias() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/defaultArguments/annotationDefaultArgKclassWithNestedClassViaActualTypeAlias.kt");
         }
 
         @Test
@@ -1118,6 +1274,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
             }
 
             @Test
+            @TestMetadata("delegation2.kt")
+            public void testDelegation2() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/multiplatform/defaultArguments/methodDefaultArgsViaActualFakeOverride/delegation2.kt");
+            }
+
+            @Test
             @TestMetadata("disabledFeature.kt")
             public void testDisabledFeature() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/multiplatform/defaultArguments/methodDefaultArgsViaActualFakeOverride/disabledFeature.kt");
@@ -1174,6 +1336,22 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         @TestMetadata("header.kt")
         public void testHeader() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/deprecated/header.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/deprecatedAnnotation")
+    @TestDataPath("$PROJECT_ROOT")
+    public class DeprecatedAnnotation {
+        @Test
+        public void testAllFilesPresentInDeprecatedAnnotation() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/deprecatedAnnotation"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("hidden.kt")
+        public void testHidden() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/deprecatedAnnotation/hidden.kt");
         }
     }
 
@@ -1557,6 +1735,12 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         }
 
         @Test
+        @TestMetadata("ambiguousActuals.kt")
+        public void testAmbiguousActuals() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/ambiguousActuals.kt");
+        }
+
+        @Test
         @TestMetadata("intermediateActualHasAdditionalSupertypes.kt")
         public void testIntermediateActualHasAdditionalSupertypes() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/intermediateActualHasAdditionalSupertypes.kt");
@@ -1608,9 +1792,27 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
             }
 
             @Test
+            @TestMetadata("sealedInheritorsCorrectExpect.kt")
+            public void testSealedInheritorsCorrectExpect() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/multiplatformCompositeAnalysis/sealedInheritorsCorrectExpect.kt");
+            }
+
+            @Test
             @TestMetadata("sealedInheritorsInComplexModuleStructure.kt")
             public void testSealedInheritorsInComplexModuleStructure() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/multiplatformCompositeAnalysis/sealedInheritorsInComplexModuleStructure.kt");
+            }
+
+            @Test
+            @TestMetadata("sealedInheritorsIncorrectExpect.kt")
+            public void testSealedInheritorsIncorrectExpect() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/multiplatformCompositeAnalysis/sealedInheritorsIncorrectExpect.kt");
+            }
+
+            @Test
+            @TestMetadata("sealedInheritorsIncorrectNonExpect.kt")
+            public void testSealedInheritorsIncorrectNonExpect() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/multiplatformCompositeAnalysis/sealedInheritorsIncorrectNonExpect.kt");
             }
 
             @Nested
@@ -1720,6 +1922,200 @@ public class FirOldFrontendMPPDiagnosticsWithPsiTestGenerated extends AbstractFi
         @TestMetadata("parameterNames.kt")
         public void testParameterNames() throws Exception {
             runTest("compiler/testData/diagnostics/tests/multiplatform/java/parameterNames.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstFakeOverrideInJava.kt")
+        public void testPropertyAgainstFakeOverrideInJava() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstFakeOverrideInJava.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstFakeOverrideOfJavaField.kt")
+        public void testPropertyAgainstFakeOverrideOfJavaField() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstFakeOverrideOfJavaField.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstJavaMethod.kt")
+        public void testPropertyAgainstJavaMethod() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstJavaMethod.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstJavaPrivateFieldAndPublicMethod.kt")
+        public void testPropertyAgainstJavaPrivateFieldAndPublicMethod() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstJavaPrivateFieldAndPublicMethod.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstJavaPublicFieldAndPublicGetter.kt")
+        public void testPropertyAgainstJavaPublicFieldAndPublicGetter() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstJavaPublicFieldAndPublicGetter.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAgainstValInJavaWithExtraSetter.kt")
+        public void testPropertyAgainstValInJavaWithExtraSetter() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/propertyAgainstValInJavaWithExtraSetter.kt");
+        }
+
+        @Test
+        @TestMetadata("varPropertyAgainstJavaField.kt")
+        public void testVarPropertyAgainstJavaField() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/varPropertyAgainstJavaField.kt");
+        }
+
+        @Test
+        @TestMetadata("varPropertyAgainstJavaGetterAndNonFinalField.kt")
+        public void testVarPropertyAgainstJavaGetterAndNonFinalField() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/java/varPropertyAgainstJavaGetterAndNonFinalField.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/scopes")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Scopes {
+        @Test
+        @TestMetadata("actualAbstractClassWithAdditionalMembers.kt")
+        public void testActualAbstractClassWithAdditionalMembers() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualAbstractClassWithAdditionalMembers.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride.kt")
+        public void testActualFakeOverride() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverrideVirtual.kt")
+        public void testActualFakeOverrideVirtual() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverrideVirtual.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_defaultParamsIncompatibility.kt")
+        public void testActualFakeOverride_defaultParamsIncompatibility() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_defaultParamsIncompatibility.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams.kt")
+        public void testActualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_paramsAreCompatibleViaSharedMethodWithDefaultParams.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams.kt")
+        public void testActualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_paramsAreCompatibleViaTransitiveSharedMethodWithDefaultParams.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_substitutionFakeOverride.kt")
+        public void testActualFakeOverride_substitutionFakeOverride() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_substitutionFakeOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_transitiveFakeOverrides_compatible.kt")
+        public void testActualFakeOverride_transitiveFakeOverrides_compatible() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_transitiveFakeOverrides_compatible.kt");
+        }
+
+        @Test
+        @TestMetadata("actualFakeOverride_transitiveFakeOverrides_incompatible.kt")
+        public void testActualFakeOverride_transitiveFakeOverrides_incompatible() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/actualFakeOverride_transitiveFakeOverrides_incompatible.kt");
+        }
+
+        @Test
+        public void testAllFilesPresentInScopes() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/scopes"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("defaultParams_inheritanceByDelegation_negative.kt")
+        public void testDefaultParams_inheritanceByDelegation_negative() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/defaultParams_inheritanceByDelegation_negative.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultParams_inheritanceByDelegation_positive.kt")
+        public void testDefaultParams_inheritanceByDelegation_positive() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/defaultParams_inheritanceByDelegation_positive.kt");
+        }
+
+        @Test
+        @TestMetadata("implicitActualFakeOverride_AbstractMap.kt")
+        public void testImplicitActualFakeOverride_AbstractMap() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/implicitActualFakeOverride_AbstractMap.kt");
+        }
+
+        @Test
+        @TestMetadata("implicitActualFakeOverride_simple.kt")
+        public void testImplicitActualFakeOverride_simple() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/implicitActualFakeOverride_simple.kt");
+        }
+
+        @Test
+        @TestMetadata("manyImplMemberNotImplemented.kt")
+        public void testManyImplMemberNotImplemented() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/manyImplMemberNotImplemented.kt");
+        }
+
+        @Test
+        @TestMetadata("manyInterfacesMemberNotImplemented.kt")
+        public void testManyInterfacesMemberNotImplemented() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/manyInterfacesMemberNotImplemented.kt");
+        }
+
+        @Test
+        @TestMetadata("mixedFunctionalTypesInSupertypes.kt")
+        public void testMixedFunctionalTypesInSupertypes() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/mixedFunctionalTypesInSupertypes.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleDefaultsInhereted.kt")
+        public void testMultipleDefaultsInhereted() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/multipleDefaultsInhereted.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleExpectInterfacesImplementation.kt")
+        public void testMultipleExpectInterfacesImplementation() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/multipleExpectInterfacesImplementation.kt");
+        }
+
+        @Test
+        @TestMetadata("scopeOfFunInterface.kt")
+        public void testScopeOfFunInterface() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/scopes/scopeOfFunInterface.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/smartCasts")
+    @TestDataPath("$PROJECT_ROOT")
+    public class SmartCasts {
+        @Test
+        public void testAllFilesPresentInSmartCasts() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/tests/multiplatform/smartCasts"), Pattern.compile("^(.*)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("kt61340_commonCode.kt")
+        public void testKt61340_commonCode() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/smartCasts/kt61340_commonCode.kt");
+        }
+
+        @Test
+        @TestMetadata("kt61340_platformCode.kt")
+        public void testKt61340_platformCode() throws Exception {
+            runTest("compiler/testData/diagnostics/tests/multiplatform/smartCasts/kt61340_platformCode.kt");
         }
     }
 

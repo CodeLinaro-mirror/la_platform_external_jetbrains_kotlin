@@ -64,7 +64,6 @@ private fun staticGnuArCommands(ar: String, executable: ExecutableFile,
 abstract class LinkerFlags(val configurables: Configurables) {
 
     protected val llvmBin = "${configurables.absoluteLlvmHome}/bin"
-    protected val llvmLib = "${configurables.absoluteLlvmHome}/lib"
 
     open val useCompilerDriverAsLinker: Boolean get() = false // TODO: refactor.
 
@@ -76,7 +75,7 @@ abstract class LinkerFlags(val configurables: Configurables) {
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind? = null): List<Command>
 
     /**
@@ -97,11 +96,6 @@ abstract class LinkerFlags(val configurables: Configurables) {
     open fun provideCompilerRtLibrary(libraryName: String, isDynamic: Boolean = false): String? {
         System.err.println("Can't provide $libraryName.")
         return null
-    }
-
-    // Code coverage requires this library.
-    protected val profileLibrary: String? by lazy {
-        provideCompilerRtLibrary("profile")
     }
 }
 
@@ -124,7 +118,7 @@ class AndroidLinker(targetProperties: AndroidConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         require(sanitizer == null) {
             "Sanitizers are unsupported"
@@ -169,13 +163,13 @@ class AndroidLinker(targetProperties: AndroidConfigurables)
 class MacOSBasedLinker(targetProperties: AppleConfigurables)
     : LinkerFlags(targetProperties), AppleConfigurables by targetProperties {
 
-    private val libtool = "$absoluteTargetToolchain/usr/bin/libtool"
-    private val linker = "$absoluteTargetToolchain/usr/bin/ld"
-    private val strip = "$absoluteTargetToolchain/usr/bin/strip"
-    private val dsymutil = "$absoluteTargetToolchain/usr/bin/dsymutil"
+    private val libtool = "$absoluteTargetToolchain/bin/libtool"
+    private val linker = "$absoluteTargetToolchain/bin/ld"
+    private val strip = "$absoluteTargetToolchain/bin/strip"
+    private val dsymutil = "$absoluteTargetToolchain/bin/dsymutil"
 
     private val compilerRtDir: String? by lazy {
-        val dir = File("$absoluteTargetToolchain/usr/lib/clang/").listFiles.firstOrNull()?.absolutePath
+        val dir = File("$absoluteTargetToolchain/lib/clang/").listFiles.firstOrNull()?.absolutePath
         if (dir != null) "$dir/lib/darwin/" else null
     }
 
@@ -240,7 +234,7 @@ class MacOSBasedLinker(targetProperties: AppleConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean, kind: LinkerOutputKind,
                                    outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         if (kind == LinkerOutputKind.STATIC_LIBRARY) {
             require(sanitizer == null) {
@@ -269,7 +263,6 @@ class MacOSBasedLinker(targetProperties: AppleConfigurables)
             +linkerKonanFlags
             if (mimallocEnabled) +mimallocLinkerDependencies
             if (compilerRtLibrary != null) +compilerRtLibrary!!
-            if (needsProfileLibrary) +profileLibrary!!
             +libraries
             +linkerArgs
             +rpath(dynamic, sanitizer)
@@ -381,7 +374,7 @@ class GccBasedLinker(targetProperties: GccConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         if (kind == LinkerOutputKind.STATIC_LIBRARY) {
             require(sanitizer == null) {
@@ -420,7 +413,6 @@ class GccBasedLinker(targetProperties: GccConfigurables)
             if (mimallocEnabled) +mimallocLinkerDependencies
             // See explanation about `-u__llvm_profile_runtime` here:
             // https://github.com/llvm/llvm-project/blob/21e270a479a24738d641e641115bce6af6ed360a/llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp#L930
-            if (needsProfileLibrary) +listOf("-u__llvm_profile_runtime", profileLibrary!!)
             +linkerKonanFlags
             +linkerGccFlags
             +if (dynamic) "$libGcc/crtendS.o" else "$libGcc/crtend.o"
@@ -473,7 +465,7 @@ class MingwLinker(targetProperties: MingwConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         require(sanitizer == null) {
             "Sanitizers are unsupported"
@@ -494,7 +486,7 @@ class MingwLinker(targetProperties: MingwConfigurables)
             // --gc-sections flag may affect profiling.
             // See https://clang.llvm.org/docs/SourceBasedCodeCoverage.html#drawbacks-and-limitations.
             // TODO: switching to lld may help.
-            if (optimize && !needsProfileLibrary) {
+            if (optimize) {
                 // TODO: Can be removed after LLD update.
                 //  See KT-48085.
                 if (!dynamic) {
@@ -504,7 +496,6 @@ class MingwLinker(targetProperties: MingwConfigurables)
             if (!debug) +linkerNoDebugFlags
             if (dynamic) +linkerDynamicFlags
             +libraries
-            if (needsProfileLibrary) +profileLibrary!!
             +linkerArgs
             +linkerKonanFlags.filterNot { it in skipDefaultArguments }
             if (mimallocEnabled) +mimallocLinkerDependencies
@@ -526,7 +517,7 @@ class WasmLinker(targetProperties: WasmConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         if (kind != LinkerOutputKind.EXECUTABLE) throw Error("Unsupported linker output kind")
         require(sanitizer == null) {
@@ -582,7 +573,7 @@ open class ZephyrLinker(targetProperties: ZephyrConfigurables)
                                    libraries: List<String>, linkerArgs: List<String>,
                                    optimize: Boolean, debug: Boolean,
                                    kind: LinkerOutputKind, outputDsymBundle: String,
-                                   needsProfileLibrary: Boolean, mimallocEnabled: Boolean,
+                                   mimallocEnabled: Boolean,
                                    sanitizer: SanitizerKind?): List<Command> {
         if (kind != LinkerOutputKind.EXECUTABLE) throw Error("Unsupported linker output kind: $kind")
         require(sanitizer == null) {

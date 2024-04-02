@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.importedFromObjectOrStaticData
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
@@ -187,8 +188,8 @@ fun createKPropertyType(
 
 fun BodyResolveComponents.buildResolvedQualifierForClass(
     regularClass: FirClassLikeSymbol<*>,
-    sourceElement: KtSourceElement? = null,
-    // TODO: Clarify if we actually need type arguments for qualifier?
+    sourceElement: KtSourceElement?,
+    // Note: we need type arguments here, see e.g. testIncompleteConstructorCall in diagnostic group
     typeArgumentsForQualifier: List<FirTypeProjection> = emptyList(),
     diagnostic: ConeDiagnostic? = null,
     nonFatalDiagnostics: List<ConeDiagnostic> = emptyList(),
@@ -365,8 +366,9 @@ private fun BodyResolveComponents.typeFromSymbol(symbol: FirBasedSymbol<*>): Fir
 
 fun BodyResolveComponents.transformQualifiedAccessUsingSmartcastInfo(
     qualifiedAccessExpression: FirQualifiedAccessExpression,
+    ignoreCallArguments: Boolean,
 ): FirExpression {
-    val (stability, typesFromSmartCast) = dataFlowAnalyzer.getTypeUsingSmartcastInfo(qualifiedAccessExpression)
+    val (stability, typesFromSmartCast) = dataFlowAnalyzer.getTypeUsingSmartcastInfo(qualifiedAccessExpression, ignoreCallArguments)
         ?: return qualifiedAccessExpression
 
     return transformExpressionUsingSmartcastInfo(qualifiedAccessExpression, stability, typesFromSmartCast) ?: qualifiedAccessExpression
@@ -375,7 +377,7 @@ fun BodyResolveComponents.transformQualifiedAccessUsingSmartcastInfo(
 fun BodyResolveComponents.transformWhenSubjectExpressionUsingSmartcastInfo(
     whenSubjectExpression: FirWhenSubjectExpression,
 ): FirExpression {
-    val (stability, typesFromSmartCast) = dataFlowAnalyzer.getTypeUsingSmartcastInfo(whenSubjectExpression)
+    val (stability, typesFromSmartCast) = dataFlowAnalyzer.getTypeUsingSmartcastInfo(whenSubjectExpression, ignoreCallArguments = false)
         ?: return whenSubjectExpression
 
     return transformExpressionUsingSmartcastInfo(whenSubjectExpression, stability, typesFromSmartCast) ?: whenSubjectExpression
@@ -384,8 +386,9 @@ fun BodyResolveComponents.transformWhenSubjectExpressionUsingSmartcastInfo(
 fun BodyResolveComponents.transformDesugaredAssignmentValueUsingSmartcastInfo(
     expression: FirDesugaredAssignmentValueReferenceExpression,
 ): FirExpression {
-    val (stability, typesFromSmartCast) = dataFlowAnalyzer.getTypeUsingSmartcastInfo(expression.expressionRef.value)
-        ?: return expression
+    val (stability, typesFromSmartCast) =
+        dataFlowAnalyzer.getTypeUsingSmartcastInfo(expression.expressionRef.value, ignoreCallArguments = false)
+            ?: return expression
 
     return transformExpressionUsingSmartcastInfo(expression, stability, typesFromSmartCast) ?: expression
 }
@@ -406,13 +409,6 @@ private fun <T : FirExpression> BodyResolveComponents.transformExpressionUsingSm
     stability: PropertyStability,
     typesFromSmartCast: MutableList<ConeKotlinType>,
 ): FirSmartCastExpression? {
-    val smartcastStability = stability.impliedSmartcastStability
-        ?: if (dataFlowAnalyzer.isAccessToUnstableLocalVariable(expression)) {
-            SmartcastStability.CAPTURED_VARIABLE
-        } else {
-            SmartcastStability.STABLE_VALUE
-        }
-
     val originalType = expression.resolvedType.fullyExpandedType(session)
     val allTypes = typesFromSmartCast.also {
         if (originalType !is ConeStubType) {
@@ -426,6 +422,13 @@ private fun <T : FirExpression> BodyResolveComponents.transformExpressionUsingSm
         source = expression.source?.fakeElement(KtFakeSourceElementKind.SmartCastedTypeRef)
         type = intersectedType
     }
+
+    val smartcastStability = stability.impliedSmartcastStability
+        ?: if (dataFlowAnalyzer.isAccessToUnstableLocalVariable(expression, intersectedType)) {
+            SmartcastStability.CAPTURED_VARIABLE
+        } else {
+            SmartcastStability.STABLE_VALUE
+        }
 
     // Example (1): if (x is String) { ... }, where x: dynamic
     //   the dynamic type will "consume" all other, erasing information.
@@ -475,10 +478,9 @@ fun FirCheckedSafeCallSubject.propagateTypeFromOriginalReceiver(
         ?.coneTypeSafe<ConeKotlinType>()
         ?: nullableReceiverExpression.resolvedType
 
-    val expandedReceiverType = receiverType.fullyExpandedType(session)
-    val updatedReceiverType = expandedReceiverType.makeConeTypeDefinitelyNotNullOrNotNull(session.typeContext).independentInstance()
-    replaceConeTypeOrNull(updatedReceiverType)
-    session.lookupTracker?.recordTypeResolveAsLookup(updatedReceiverType, source, file.source)
+    val expandedReceiverType = receiverType.fullyExpandedType(session).makeConeTypeDefinitelyNotNullOrNotNull(session.typeContext)
+    replaceConeTypeOrNull(expandedReceiverType)
+    session.lookupTracker?.recordTypeResolveAsLookup(expandedReceiverType, source, file.source)
 }
 
 fun FirSafeCallExpression.propagateTypeFromQualifiedAccessAfterNullCheck(
@@ -499,9 +501,8 @@ fun FirSafeCallExpression.propagateTypeFromQualifiedAccessAfterNullCheck(
         }
     }
 
-    val independentInstance = resultingType.independentInstance()
-    replaceConeTypeOrNull(independentInstance)
-    session.lookupTracker?.recordTypeResolveAsLookup(independentInstance, source, file.source)
+    replaceConeTypeOrNull(resultingType)
+    session.lookupTracker?.recordTypeResolveAsLookup(resultingType, source, file.source)
 }
 
 fun FirAnnotation.getCorrespondingClassSymbolOrNull(session: FirSession): FirRegularClassSymbol? {
@@ -562,7 +563,7 @@ fun FirExpression?.isIntegerLiteralOrOperatorCall(): Boolean {
         returns(true) implies (this@isIntegerLiteralOrOperatorCall != null)
     }
     return when (this) {
-        is FirConstExpression<*> -> kind == ConstantValueKind.Int
+        is FirLiteralExpression<*> -> kind == ConstantValueKind.Int
                 || kind == ConstantValueKind.IntegerLiteral
                 || kind == ConstantValueKind.UnsignedInt
                 || kind == ConstantValueKind.UnsignedIntegerLiteral
@@ -577,11 +578,12 @@ fun createConeDiagnosticForCandidateWithError(
     applicability: CandidateApplicability,
     candidate: Candidate,
 ): ConeDiagnostic {
+    val symbol = candidate.symbol
     return when (applicability) {
         CandidateApplicability.HIDDEN -> ConeHiddenCandidateError(candidate)
         CandidateApplicability.K2_VISIBILITY_ERROR -> {
             val session = candidate.callInfo.session
-            val declaration = candidate.symbol.fir
+            val declaration = symbol.fir
             if (declaration is FirMemberDeclaration &&
                 session.visibilityChecker.isVisible(declaration, candidate, skipCheckForContainingClassVisibility = true)
             ) {
@@ -603,11 +605,21 @@ fun createConeDiagnosticForCandidateWithError(
                         return ConeVisibilityError(it.symbol)
                     }
             }
-            ConeVisibilityError(candidate.symbol)
+            if (symbol is FirPropertySymbol && SetterVisibilityError in candidate.diagnostics) {
+                ConeSetterVisibilityError(symbol)
+            } else {
+                ConeVisibilityError(symbol)
+            }
         }
         CandidateApplicability.INAPPLICABLE_WRONG_RECEIVER -> ConeInapplicableWrongReceiver(listOf(candidate))
         CandidateApplicability.K2_NO_COMPANION_OBJECT -> ConeNoCompanionObject(candidate)
-        else -> ConeInapplicableCandidateError(applicability, candidate)
+        else -> {
+            if (TypeParameterAsExpression in candidate.diagnostics) {
+                ConeTypeParameterInQualifiedAccess(symbol as FirTypeParameterSymbol)
+            } else {
+                ConeInapplicableCandidateError(applicability, candidate)
+            }
+        }
     }
 }
 
@@ -629,3 +641,6 @@ fun FirNamedReferenceWithCandidate.toErrorReference(diagnostic: ConeDiagnostic):
 
 val FirTypeParameterSymbol.defaultType: ConeTypeParameterType
     get() = ConeTypeParameterTypeImpl(toLookupTag(), isNullable = false)
+
+fun ConeClassLikeLookupTag.isRealOwnerOf(declarationSymbol: FirCallableSymbol<*>): Boolean =
+    this == declarationSymbol.dispatchReceiverClassLookupTagOrNull()

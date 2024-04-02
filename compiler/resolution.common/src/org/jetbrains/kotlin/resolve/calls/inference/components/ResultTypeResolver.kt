@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator
 import org.jetbrains.kotlin.resolve.calls.inference.components.TypeVariableDirectionCalculator.ResolveDirection
 import org.jetbrains.kotlin.resolve.calls.inference.extractTypeForGivenRecursiveTypeParameter
+import org.jetbrains.kotlin.resolve.calls.inference.hasRecursiveTypeParametersWithGivenSelfType
 import org.jetbrains.kotlin.resolve.calls.inference.model.*
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.AbstractTypeChecker
@@ -22,6 +23,8 @@ class ResultTypeResolver(
     private val languageVersionSettings: LanguageVersionSettings
 ) {
     interface Context : TypeSystemInferenceExtensionContext {
+        val notFixedTypeVariables: Map<TypeConstructorMarker, VariableWithConstraints>
+        val outerSystemVariablesPrefixSize: Int
         fun isProperType(type: KotlinTypeMarker): Boolean
         fun buildNotFixedVariablesToStubTypesSubstitutor(): TypeSubstitutorMarker
         fun isReified(variable: TypeVariableMarker): Boolean
@@ -66,7 +69,7 @@ class ResultTypeResolver(
     fun findResultTypeOrNull(
         c: Context,
         variableWithConstraints: VariableWithConstraints,
-        direction: ResolveDirection
+        direction: ResolveDirection,
     ): KotlinTypeMarker? {
         val resultTypeFromEqualConstraint = findResultIfThereIsEqualsConstraint(c, variableWithConstraints)
         if (resultTypeFromEqualConstraint != null) {
@@ -211,6 +214,7 @@ class ResultTypeResolver(
 
         if (lowerConstraintTypes.isNotEmpty()) {
             val types = sinkIntegerLiteralTypes(lowerConstraintTypes)
+            // TODO Improve handling of flexible types with recursive captured type arguments to not produce giant multi-level-deep types KT-65704
             var commonSuperType = computeCommonSuperType(types)
 
             if (commonSuperType.contains { it.asSimpleType()?.isStubTypeForVariableInSubtyping() == true }) {
@@ -218,8 +222,19 @@ class ResultTypeResolver(
                     !lowerType.contains { it.asSimpleType()?.isStubTypeForVariableInSubtyping() == true }
                 }
 
-                if (typesWithoutStubs.isNotEmpty()) {
-                    commonSuperType = computeCommonSuperType(typesWithoutStubs)
+                when {
+                    typesWithoutStubs.isNotEmpty() -> {
+                        commonSuperType = computeCommonSuperType(typesWithoutStubs)
+                    }
+                    // `typesWithoutStubs.isEmpty()` means that there are no lower constraints without type variables.
+                    // It's only possible for the PCLA case, because otherwise none of the constraints would be considered as proper.
+                    // So, we just get currently computed `commonSuperType` and substitute all local stub types
+                    // with corresponding type variables.
+                    outerSystemVariablesPrefixSize > 0 -> {
+                        // outerSystemVariablesPrefixSize > 0 only for PCLA (K2)
+                        @OptIn(K2Only::class)
+                        commonSuperType = createSubstitutionFromSubtypingStubTypesToTypeVariables().safeSubstitute(commonSuperType)
+                    }
                 }
             }
 
@@ -263,6 +278,7 @@ class ResultTypeResolver(
             if (constraint.kind != ConstraintKind.LOWER) continue
 
             val type = constraint.type
+
             lowerConstraintTypes.add(type)
 
             if (isProperTypeForFixation(type)) {
@@ -273,6 +289,14 @@ class ResultTypeResolver(
         }
 
         if (!atLeastOneProper) return emptyList()
+
+        // PCLA slow path
+        // We only allow using TVs fixation for nested PCLA calls
+        if (outerSystemVariablesPrefixSize > 0) {
+            val notFixedToStubTypesSubstitutor = buildNotFixedVariablesToStubTypesSubstitutor()
+            return lowerConstraintTypes.map { notFixedToStubTypesSubstitutor.safeSubstitute(it) }
+        }
+
         if (!atLeastOneNonProper) return lowerConstraintTypes
 
         val notFixedToStubTypesSubstitutor = buildNotFixedVariablesToStubTypesSubstitutor()
@@ -326,6 +350,10 @@ class ResultTypeResolver(
         if (upperConstraints.isNotEmpty()) {
             val upperType = computeUpperType(upperConstraints)
 
+            if (isK2 && hasRecursiveTypeParametersWithGivenSelfType(upperType.typeConstructor())) {
+                return upperType
+            }
+
             return typeApproximator.approximateToSubType(
                 upperType,
                 TypeApproximatorConfiguration.InternalTypesApproximation
@@ -336,7 +364,7 @@ class ResultTypeResolver(
     }
 
     private fun Context.isProperTypeForFixation(type: KotlinTypeMarker): Boolean =
-        isProperTypeForFixation(type) { isProperType(it) }
+        isProperTypeForFixation(type, notFixedTypeVariables.keys) { isProperType(it) }
 
     private fun findResultIfThereIsEqualsConstraint(c: Context, variableWithConstraints: VariableWithConstraints): KotlinTypeMarker? =
         with(c) {

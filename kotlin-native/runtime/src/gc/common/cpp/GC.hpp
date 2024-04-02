@@ -11,7 +11,8 @@
 
 #include "ExtraObjectData.hpp"
 #include "GCScheduler.hpp"
-#include "Memory.h"
+#include "ReferenceOps.hpp"
+#include "RunLoopFinalizerProcessor.hpp"
 #include "Utils.hpp"
 
 namespace kotlin {
@@ -72,19 +73,23 @@ public:
 
     static void processObjectInMark(void* state, ObjHeader* object) noexcept;
     static void processArrayInMark(void* state, ArrayHeader* array) noexcept;
-    static void processFieldInMark(void* state, ObjHeader* field) noexcept;
 
     // TODO: These should exist only in the scheduler.
     int64_t Schedule() noexcept;
     void WaitFinished(int64_t epoch) noexcept;
     void WaitFinalizers(int64_t epoch) noexcept;
 
+    void configureMainThreadFinalizerProcessor(std::function<void(alloc::RunLoopFinalizerProcessorConfig&)> f) noexcept;
+    bool mainThreadFinalizerProcessorAvailable() noexcept;
+
 private:
     std::unique_ptr<Impl> impl_;
 };
 
+void beforeHeapRefUpdate(mm::DirectRefAccessor ref, ObjHeader* value) noexcept;
+OBJ_GETTER(weakRefReadBarrier, std::atomic<ObjHeader*>& weakReferee) noexcept;
+
 bool isMarked(ObjHeader* object) noexcept;
-OBJ_GETTER(tryRef, std::atomic<ObjHeader*>& object) noexcept;
 
 // This will drop the mark bit if it was set and return `true`.
 // If the mark bit was unset, this will return `false`.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,7 +23,7 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
     public class Tests {
         @Test
         public void testAllFilesPresentInTests() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/foreignAnnotationsTests/tests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/foreignAnnotationsTests/tests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), true, "externalAnnotations");
         }
 
         @Test
@@ -66,6 +66,18 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
         @TestMetadata("eclipse.kt")
         public void testEclipse() throws Exception {
             runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/eclipse.kt");
+        }
+
+        @Test
+        @TestMetadata("errorArgumentOfWarningAfter.kt")
+        public void testErrorArgumentOfWarningAfter() throws Exception {
+            runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/errorArgumentOfWarningAfter.kt");
+        }
+
+        @Test
+        @TestMetadata("errorArgumentOfWarningBefore.kt")
+        public void testErrorArgumentOfWarningBefore() throws Exception {
+            runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/errorArgumentOfWarningBefore.kt");
         }
 
         @Test
@@ -217,6 +229,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
                 }
 
                 @Test
+                @TestMetadata("expressionBodiedFunction.kt")
+                public void testExpressionBodiedFunction() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/expressionBodiedFunction.kt");
+                }
+
+                @Test
                 @TestMetadata("localInference.kt")
                 public void testLocalInference() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/localInference.kt");
@@ -232,6 +250,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
                 @TestMetadata("nullabilityNicknames.kt")
                 public void testNullabilityNicknames() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/nullabilityNicknames.kt");
+                }
+
+                @Test
+                @TestMetadata("override.kt")
+                public void testOverride() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/override.kt");
                 }
 
                 @Test
@@ -679,6 +703,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
                 }
 
                 @Test
+                @TestMetadata("DerivedAsNullableOrNotNull.kt")
+                public void testDerivedAsNullableOrNotNull() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/strictMode/DerivedAsNullableOrNotNull.kt");
+                }
+
+                @Test
                 @TestMetadata("IgnoreAnnotations.kt")
                 public void testIgnoreAnnotations() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/strictMode/IgnoreAnnotations.kt");
@@ -791,6 +821,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
                 }
 
                 @Test
+                @TestMetadata("DerivedAsNullableOrNotNull.kt")
+                public void testDerivedAsNullableOrNotNull() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/DerivedAsNullableOrNotNull.kt");
+                }
+
+                @Test
                 @TestMetadata("IgnoreAnnotations.kt")
                 public void testIgnoreAnnotations() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/IgnoreAnnotations.kt");
@@ -800,6 +836,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
                 @TestMetadata("kt47899.kt")
                 public void testKt47899() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/kt47899.kt");
+                }
+
+                @Test
+                @TestMetadata("kt65318.kt")
+                public void testKt65318() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/kt65318.kt");
                 }
 
                 @Test
@@ -1181,6 +1223,12 @@ public class FirPsiOldFrontendForeignAnnotationsCompiledJavaTestGenerated extend
             @TestMetadata("methodWithTypeParameter.kt")
             public void testMethodWithTypeParameter() throws Exception {
                 runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/misc/methodWithTypeParameter.kt");
+            }
+
+            @Test
+            @TestMetadata("mutabilityAndNullabilityForWarning.kt")
+            public void testMutabilityAndNullabilityForWarning() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/misc/mutabilityAndNullabilityForWarning.kt");
             }
 
             @Test

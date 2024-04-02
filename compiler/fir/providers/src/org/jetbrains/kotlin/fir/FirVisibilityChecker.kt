@@ -14,9 +14,8 @@ import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticPropertyAcces
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
-import org.jetbrains.kotlin.fir.expressions.toReference
+import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.references.FirSuperReference
-import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.getContainingFile
@@ -24,6 +23,7 @@ import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.name.FqName
@@ -48,8 +48,6 @@ abstract class FirModuleVisibilityChecker : FirSessionComponent {
         }
     }
 }
-
-val FirModuleData.allDependsOnDependencies: List<FirModuleData> get() = topologicalSort(dependsOnDependencies) { it.dependsOnDependencies }
 
 abstract class FirVisibilityChecker : FirSessionComponent {
     @NoMutableState
@@ -162,6 +160,17 @@ abstract class FirVisibilityChecker : FirSessionComponent {
     ): Boolean = isVisibleForOverriding(derivedClassModuleData, symbolFromDerivedClass.packageFqName(), candidateInBaseClass)
 
     fun isVisibleForOverriding(
+        derivedClassModuleData: FirModuleData,
+        packageNameOfDerivedClass: FqName,
+        candidateInBaseClass: FirMemberDeclaration,
+    ): Boolean = isSpecificDeclarationVisibleForOverriding(
+        derivedClassModuleData,
+        packageNameOfDerivedClass,
+        // It is important for package-private visiblity as fake override can be in another package
+        if (candidateInBaseClass is FirCallableDeclaration) candidateInBaseClass.originalOrSelf() else candidateInBaseClass,
+    )
+
+    private fun isSpecificDeclarationVisibleForOverriding(
         derivedClassModuleData: FirModuleData,
         packageNameOfDerivedClass: FqName,
         candidateInBaseClass: FirMemberDeclaration,
@@ -310,9 +319,9 @@ abstract class FirVisibilityChecker : FirSessionComponent {
 
             if (dispatchReceiverParameterClassLookupTag != dispatchReceiverValueOwnerLookupTag) return false
             if (fir.visibility == Visibilities.PrivateToThis) {
-                when (val dispatchReceiverReference = dispatchReceiver.toReference()) {
-                    is FirThisReference -> {
-                        if (dispatchReceiverReference.boundSymbol != dispatchReceiverParameterClassSymbol) {
+                when (dispatchReceiver) {
+                    is FirThisReceiverExpression -> {
+                        if (dispatchReceiver.calleeReference.boundSymbol != dispatchReceiverParameterClassSymbol) {
                             return false
                         }
                     }
@@ -464,14 +473,6 @@ abstract class FirVisibilityChecker : FirSessionComponent {
 
         return false
     }
-
-    protected fun FirBasedSymbol<*>.packageFqName(): FqName {
-        return when (this) {
-            is FirClassLikeSymbol<*> -> classId.packageFqName
-            is FirCallableSymbol<*> -> callableId.packageName
-            else -> error("No package fq name for $this")
-        }
-    }
 }
 
 val FirSession.moduleVisibilityChecker: FirModuleVisibilityChecker? by FirSession.nullableSessionComponentAccessor()
@@ -554,3 +555,12 @@ private fun FirClassLikeDeclaration.containingNonLocalClass(session: FirSession)
         is FirTypeAlias -> null
     }
 }
+
+/**
+ * The returned fir can be passed to the visibility checker, but don't
+ * use it for anything else.
+ */
+val <D, S : FirBasedSymbol<out D>> S.firForVisibilityChecker: D
+    get() = fir.also {
+        lazyResolveToPhase(FirResolvePhase.STATUS)
+    }

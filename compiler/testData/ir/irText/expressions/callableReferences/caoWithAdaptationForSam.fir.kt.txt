@@ -4,7 +4,6 @@ fun interface IFoo {
 }
 
 fun interface IFoo2 : IFoo {
-
 }
 
 object A {
@@ -48,7 +47,7 @@ fun test1() {
     val tmp_0: A = A
     val tmp_1: Function1<Int, Unit> = { // BLOCK
       local fun withVararg(p0: Int) {
-        withVararg(xs = [p0])
+        withVararg(xs = [p0]) /*~> Unit */
       }
 
       ::withVararg
@@ -62,7 +61,7 @@ fun test2() {
     val tmp_2: B = B
     val tmp_3: Function1<Int, Unit> = { // BLOCK
       local fun withVararg(p0: Int) {
-        withVararg(xs = [p0])
+        withVararg(xs = [p0]) /*~> Unit */
       }
 
       ::withVararg
@@ -84,7 +83,7 @@ fun test4(fn: Function1<Int, Unit>) {
     fn is IFoo -> { // BLOCK
       { // BLOCK
         val tmp_6: A = A
-        val tmp_7: IFoo = fn /*as IFoo */
+        val tmp_7: Any = fn
         tmp_6.set(i = tmp_7, newValue = tmp_6.get(i = tmp_7).plus(other = 1))
       }
     }
@@ -105,7 +104,7 @@ fun test6(a: Any) {
   a /*as Function1<Int, Unit> */ as IFoo /*~> Unit */
   { // BLOCK
     val tmp_10: A = A
-    val tmp_11: Function1<Int, Unit> = a /*as Function1<Int, Unit> */
+    val tmp_11: Any = a
     tmp_10.set(i = tmp_11, newValue = tmp_10.get(i = tmp_11).plus(other = 1))
   }
 }

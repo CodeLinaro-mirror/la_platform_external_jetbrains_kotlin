@@ -6,10 +6,10 @@ import org.spdx.sbom.gradle.SpdxSbomExtension
 
 
 /*
- * When called with `--write-verification-metadata` resolves all build dependencies including implicit dependecies for all platforms and
- * dependencies downloaded by plugins. Usefull to populate Gradle dependency cache or update `verification-metadata.xml` properly.
+ * When called with `--write-verification-metadata` resolves all build dependencies including implicit dependencies for all platforms and
+ * dependencies downloaded by plugins. Useful to populate Gradle dependency cache or update `verification-metadata.xml` properly.
  *
- * `./gradlew resolveDependencies --write-verification-metadata md5,sha256`
+ * `./gradlew resolveDependencies --write-verification-metadata md5,sha256 -Pkotlin.native.enabled=true`
  */
 tasks.register("resolveDependencies") {
     doFirst {
@@ -22,6 +22,7 @@ tasks.register("resolveDependencies") {
             }
 
             configurations.findByName("commonCompileClasspath")?.resolve()
+            configurations.findByName("testRuntimeClasspath")?.resolve()
 
             project.extensions.findByType<SpdxSbomExtension>()?.run {
                 targets.forEach { target ->
@@ -59,13 +60,13 @@ tasks.register("resolveDependencies") {
 
         rootProject.extensions.findByType<NodeJsRootExtension>()?.run {
             project.resolveDependencies(
-                "org.nodejs:node:$nodeVersion:linux-x64@tar.gz",
-                "org.nodejs:node:$nodeVersion:win-x64@zip",
-                "org.nodejs:node:$nodeVersion:darwin-x64@tar.gz",
-                "org.nodejs:node:$nodeVersion:darwin-arm64@tar.gz"
+                "org.nodejs:node:$version:linux-x64@tar.gz",
+                "org.nodejs:node:$version:win-x64@zip",
+                "org.nodejs:node:$version:darwin-x64@tar.gz",
+                "org.nodejs:node:$version:darwin-arm64@tar.gz"
             ) {
                 ivy {
-                    url = URI(nodeDownloadBaseUrl)
+                    url = URI(downloadBaseUrl)
                     patternLayout {
                         artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
                     }

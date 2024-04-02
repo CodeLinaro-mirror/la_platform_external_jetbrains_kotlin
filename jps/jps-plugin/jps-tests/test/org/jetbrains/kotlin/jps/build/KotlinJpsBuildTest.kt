@@ -896,7 +896,7 @@ open class KotlinJpsBuildTest : KotlinJpsBuildTestBase() {
             val facet = KotlinFacetSettings()
             facet.useProjectSettings = false
             facet.compilerArguments = K2JVMCompilerArguments()
-            (facet.compilerArguments as K2JVMCompilerArguments).jvmDefault = JvmDefaultMode.DEFAULT.description
+            (facet.compilerArguments as K2JVMCompilerArguments).jvmDefault = JvmDefaultMode.DISABLE.description
 
             it.container.setChild(
                 JpsKotlinFacetModuleExtension.KIND,
@@ -944,6 +944,12 @@ open class KotlinJpsBuildTest : KotlinJpsBuildTestBase() {
         }
 
         checkWhen(emptyArray(), null, packageClasses("kotlinProject", "src/test1.kt", "Test1Kt"))
+    }
+
+    @WorkingDir("KotlinProjectWithSingleKotlinFileAsSourceRoot")
+    fun testBuildProjectWithSingleKotlinFileAsSource() {
+        initProject(JVM_MOCK_RUNTIME)
+        buildAllModules().assertSuccessful()
     }
 
     fun testBuildAfterGdwBuild() {

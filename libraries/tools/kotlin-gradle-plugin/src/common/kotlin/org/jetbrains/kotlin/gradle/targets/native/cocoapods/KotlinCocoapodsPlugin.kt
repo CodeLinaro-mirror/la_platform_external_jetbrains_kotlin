@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.AppleSdk
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.AppleTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.FrameworkCopy.Companion.dsymFile
-import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.native.cocoapods.CocoapodsPluginDiagnostics
 import org.jetbrains.kotlin.gradle.targets.native.cocoapods.KotlinArtifactsPodspecExtension
 import org.jetbrains.kotlin.gradle.targets.native.cocoapods.kotlinArtifactsPodspecExtension
@@ -209,7 +209,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         val fatFrameworkTask = project.registerTask<FatFrameworkTask>("fatFramework") { task ->
             task.group = TASK_GROUP
             task.description = "Creates a fat framework for requested architectures"
-            task.destinationDir = project.layout.cocoapodsBuildDirs.fatFramework(requestedBuildType).getFile()
+            task.destinationDirProperty.set(project.layout.cocoapodsBuildDirs.fatFramework(requestedBuildType))
 
             fatTargets.forEach { (_, targets) ->
                 targets.singleOrNull()?.let {
@@ -310,9 +310,13 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
 
             val defTask = project.registerTask<DefFileTask>(
                 lowerCamelCaseName("generateDef", pod.moduleName).asValidTaskName()
-            ) {
-                it.pod.set(pod)
-                it.description = "Generates a def file for CocoaPods dependencies with module ${pod.moduleName}"
+            ) {task ->
+                task.pod.set(pod)
+                val defFileAbsolutePath = project.layout.cocoapodsBuildDirs.defs.map {
+                    it.asFile.resolve("${task.pod.get().moduleName}.def").absolutePath
+                }
+                task.defFile.set(project.layout.projectDirectory.file(defFileAbsolutePath))
+                task.description = "Generates a def file for CocoaPods dependencies with module ${pod.moduleName}"
                 // This task is an implementation detail so we don't add it in any group
                 // to avoid showing it in the `tasks` output.
             }
@@ -325,14 +329,13 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
 
                     interopTask.onlyIf { HostManager.hostIsMac }
 
-                    interopTask.dependsOn(defTask)
-
                     pod.interopBindingDependencies.forEach { dependencyName ->
                         addPodDependencyToInterop(project, cocoapodsExtension, pod, cinterops, interop, dependencyName)
                     }
 
                     with(interop) {
-                        defFileProperty.set(defTask.flatMap { it.defFile.mapToFile() })
+                        @Suppress("DEPRECATION") // deprecated property is used intentionally during deprecation period
+                        defFileProperty.set(defTask.flatMap { it.defFile.asFile })
                         _packageNameProp.set(project.provider { pod.packageName })
                         _extraOptsProp.addAll(project.provider { pod.extraOpts })
                     }
@@ -387,7 +390,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         val dependencyTaskName = cinterops.getByName(dependencyPod.moduleName).interopProcessingTaskName
         val dependencyTask = project.tasks.named<CInteropProcess>(dependencyTaskName)
 
-        interop.dependencyFiles += project.files(dependencyTask.map { it.outputFile }).builtBy(dependencyTask)
+        interop.dependencyFiles += project.files(dependencyTask.flatMap { it.outputFileProvider }).builtBy(dependencyTask)
 
         dependencyPod.interopBindingDependencies.forEach { transitiveDependency ->
             addPodDependencyToInterop(project, cocoapodsExtension, pod, cinterops, interop, transitiveDependency)
@@ -401,7 +404,6 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         project.registerTask<DummyFrameworkTask>(DUMMY_FRAMEWORK_TASK_NAME) { task ->
             task.frameworkName.convention(cocoapodsExtension.podFrameworkName)
             task.useStaticFramework.convention(cocoapodsExtension.podFrameworkIsStatic)
-            task.outputFramework.convention(project.layout.cocoapodsBuildDirs.framework.map { it.dir(task.frameworkName.get() + ".framework") })
         }
     }
 
@@ -452,7 +454,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             task.description = "Generates a podspec file for '$artifactName' artifact"
             task.specName.set(artifactName)
             task.specVersion.set(project.version.takeIf { it != Project.DEFAULT_VERSION }.toString())
-            task.destinationDir.set(project.buildDir.resolve(artifact.outDir))
+            task.destinationDir.set(project.layout.buildDirectory.dir(artifact.outDir))
             task.attributes.set(podspecExtension.attributes)
             task.rawStatements.set(podspecExtension.rawStatements)
             task.dependencies.set(cocoapodsExtension.pods)
@@ -488,7 +490,10 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         project.registerTask<PodInstallTask>(POD_INSTALL_TASK_NAME) { task ->
             task.group = TASK_GROUP
             task.description = "Invokes `pod install` call within Podfile location directory"
+            task.podExecutablePath
+            task.podExecutablePath.set(project.provider { project.kotlinPropertiesProvider.cocoapodsExecutablePath })
             task.podfile.set(project.provider { cocoapodsExtension.podfile })
+            @Suppress("DEPRECATION") // is set for compatibility reasons
             task.podspec.set(podspecTaskProvider.map { it.outputFile })
             task.useStaticFramework.set(cocoapodsExtension.podFrameworkIsStatic)
             task.frameworkName.set(cocoapodsExtension.podFrameworkName)
@@ -504,7 +509,6 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
     ) {
         val families = mutableSetOf<Family>()
 
-        val podspecTaskProvider = project.tasks.named<PodspecTask>(POD_SPEC_TASK_NAME)
         kotlinExtension.supportedTargets().all { target ->
             val family = target.konanTarget.family
             if (family in families) {
@@ -524,7 +528,6 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
 
             val podGenTask = project.registerTask<PodGenTask>(family.toPodGenTaskName) { task ->
                 task.description = "Сreates a synthetic Xcode project to retrieve CocoaPods dependencies"
-                task.podspec.set(podspecTaskProvider.map { it.outputFile })
                 task.podName.set(project.provider { cocoapodsExtension.name })
                 task.specRepos.set(project.provider { cocoapodsExtension.specRepos })
                 task.family.set(family)
@@ -535,6 +538,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
 
             project.registerTask<PodInstallSyntheticTask>(family.toPodInstallSyntheticTaskName) { task ->
                 task.description = "Invokes `pod install` for synthetic project"
+                task.podExecutablePath.set(project.provider { project.kotlinPropertiesProvider.cocoapodsExecutablePath })
                 task.podfile.set(podGenTask.map { it.podfile.get() })
                 task.family.set(family)
                 task.podName.set(cocoapodsExtension.name)
@@ -768,8 +772,9 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                             lowerCamelCaseName(POD_FRAMEWORK_PREFIX, buildType.getName(), appleTarget.targetName, "FatFramework")
                         val fatFrameworkTask = locateOrRegisterTask<FatFrameworkTask>(fatFrameworkTaskName) { fatTask ->
                             fatTask.baseName = framework.baseName
-                            fatTask.destinationDir =
+                            fatTask.destinationDirProperty.set(
                                 XCFrameworkTask.fatFrameworkDir(this, fatTask.fatFrameworkName, buildType, appleTarget)
+                            )
                             fatTask.onlyIf {
                                 fatTask.frameworks.size > 1
                             }
