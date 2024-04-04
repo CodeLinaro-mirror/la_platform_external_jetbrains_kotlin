@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.cfa.util.PropertyInitializationInfoData
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.hasDiagnosticKind
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirSyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.types.resolvedType
 
-object FirPropertyInitializationAnalyzer : AbstractFirPropertyInitializationChecker() {
+object FirPropertyInitializationAnalyzer : AbstractFirPropertyInitializationChecker(MppCheckerKind.Common) {
     override fun analyze(data: PropertyInitializationInfoData, reporter: DiagnosticReporter, context: CheckerContext) {
         data.checkPropertyAccesses(isForInitialization = false, context, reporter)
     }
@@ -73,7 +74,9 @@ fun PropertyInitializationInfoData.checkPropertyAccesses(
 ) {
     // If a property has an initializer (or does not need one), then any reads are OK while any writes are OK
     // if it's a `var` and bad if it's a `val`. `FirReassignmentAndInvisibleSetterChecker` does this without a CFG.
-    val filtered = properties.filterTo(mutableSetOf()) { it.requiresInitialization(isForInitialization) }
+    val filtered = properties.filterTo(mutableSetOf()) {
+        it.requiresInitialization(isForInitialization) || it in conditionallyInitializedProperties
+    }
     if (filtered.isEmpty()) return
 
     checkPropertyAccesses(
@@ -85,7 +88,6 @@ fun PropertyInitializationInfoData.checkPropertyAccesses(
     )
 }
 
-@OptIn(SymbolInternals::class)
 private fun PropertyInitializationInfoData.checkPropertyAccesses(
     graph: ControlFlowGraph,
     properties: Set<FirPropertySymbol>,
@@ -97,8 +99,11 @@ private fun PropertyInitializationInfoData.checkPropertyAccesses(
     doNotReportConstantUninitialized: Boolean,
     scopes: MutableMap<FirPropertySymbol, FirDeclaration?>,
 ) {
-    fun FirQualifiedAccessExpression.hasCorrectReceiver() =
-        (dispatchReceiver?.unwrapSmartcastExpression() as? FirThisReceiverExpression)?.calleeReference?.boundSymbol == receiver
+    fun FirQualifiedAccessExpression.hasMatchingReceiver(): Boolean {
+        val expression = dispatchReceiver?.unwrapSmartcastExpression()
+        return (expression as? FirThisReceiverExpression)?.calleeReference?.boundSymbol == receiver ||
+                (expression as? FirResolvedQualifier)?.symbol == receiver
+    }
 
     for (node in graph.nodes) {
         when {
@@ -116,7 +121,7 @@ private fun PropertyInitializationInfoData.checkPropertyAccesses(
 
             node is VariableAssignmentNode -> {
                 val symbol = node.fir.calleeReference?.toResolvedPropertySymbol() ?: continue
-                if (!symbol.fir.isVal || node.fir.unwrapLValue()?.hasCorrectReceiver() != true || symbol !in properties) continue
+                if (!symbol.isVal || node.fir.unwrapLValue()?.hasMatchingReceiver() != true || symbol !in properties) continue
 
                 if (getValue(node).values.any { it[symbol]?.canBeRevisited() == true }) {
                     reporter.reportOn(node.fir.lValue.source, FirErrors.VAL_REASSIGNMENT, symbol, context)
@@ -134,7 +139,7 @@ private fun PropertyInitializationInfoData.checkPropertyAccesses(
                 if (node.fir.resolvedType.hasDiagnosticKind(DiagnosticKind.RecursionInImplicitTypes)) continue
                 val symbol = node.fir.calleeReference.toResolvedPropertySymbol() ?: continue
                 if (doNotReportConstantUninitialized && symbol.isConst) continue
-                if (!symbol.isLateInit && !symbol.isExternal && node.fir.hasCorrectReceiver() && symbol in properties &&
+                if (!symbol.isLateInit && !symbol.isExternal && node.fir.hasMatchingReceiver() && symbol in properties &&
                     getValue(node).values.any { it[symbol]?.isDefinitelyVisited() != true }
                 ) {
                     reporter.reportOn(node.fir.source, FirErrors.UNINITIALIZED_VARIABLE, symbol, context)

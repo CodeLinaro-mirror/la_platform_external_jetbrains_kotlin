@@ -3,6 +3,7 @@
 // TARGET_BACKEND: JVM
 // WITH_STDLIB
 // FULL_JDK
+
 // FILE: main.kt
 var result = ""
 

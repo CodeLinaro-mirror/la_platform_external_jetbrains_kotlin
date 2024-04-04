@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.NativeForwardDeclarationKind
 import org.jetbrains.kotlin.name.NativeStandardInteropNames
+import org.jetbrains.kotlin.utils.mapToSetOrEmpty
 
 class NativeForwardDeclarationsSymbolProvider(
     session: FirSession,
@@ -62,11 +63,11 @@ class NativeForwardDeclarationsSymbolProvider(
         }
     }
 
-    private val includedForwardDeclarationsByPackage: Map<FqName, Set<String>> by lazy {
-        buildMap<FqName, MutableSet<String>> {
+    private val includedForwardDeclarationsByPackage: Map<FqName, Set<Name>> by lazy {
+        buildMap<FqName, MutableSet<Name>> {
             for (classId in includedForwardDeclarations) {
                 getOrPut(classId.packageFqName) { mutableSetOf() }
-                    .add(classId.shortClassName.asString())
+                    .add(classId.shortClassName)
             }
         }
     }
@@ -157,7 +158,12 @@ class NativeForwardDeclarationsSymbolProvider(
     }
 
     override val symbolNamesProvider: FirSymbolNamesProvider = object : FirSymbolNamesProviderWithoutCallables() {
-        override fun getTopLevelClassifierNamesInPackage(packageFqName: FqName): Set<String> =
+        override val hasSpecificClassifierPackageNamesComputation: Boolean get() = true
+
+        override fun getPackageNamesWithTopLevelClassifiers(): Set<String>? =
+            includedForwardDeclarationsByPackage.keys.mapToSetOrEmpty(FqName::asString)
+
+        override fun getTopLevelClassifierNamesInPackage(packageFqName: FqName): Set<Name> =
             includedForwardDeclarationsByPackage[packageFqName].orEmpty()
     }
 }

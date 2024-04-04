@@ -31,9 +31,9 @@ import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPro
 import org.jetbrains.kotlin.gradle.plugin.await
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultKotlinUsageContext.PublishOnlyIf
 import org.jetbrains.kotlin.gradle.targets.metadata.*
+import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.gradle.utils.Future
 import org.jetbrains.kotlin.gradle.utils.future
-import org.jetbrains.kotlin.gradle.utils.markResolvable
 import org.jetbrains.kotlin.gradle.utils.setProperty
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 
@@ -136,9 +136,7 @@ abstract class KotlinSoftwareComponent(
         }
     }
 
-    // This property is declared in the parent type to allow the usages to reference it without forcing the subtypes to load,
-    // which is needed for compatibility with older Gradle versions
-    var publicationDelegate: MavenPublication? = null
+    val publicationDelegate: MavenPublication? get() = project.kotlinMultiplatformRootPublication.lenient.getOrNull()
 }
 
 class KotlinSoftwareComponentWithCoordinatesAndPublication(project: Project, name: String, kotlinTargets: Iterable<KotlinTarget>) :
@@ -208,15 +206,13 @@ class DefaultKotlinUsageContext(
          * attributes schema migration, or create proper, non-detached configurations for publishing that are separated from the
          * configurations used for project-to-project dependencies
          */
-        val result = project.configurations.detachedConfiguration().markResolvable().attributes
+        val result = project.configurations.detachedResolvable().attributes
 
-        // Capture type parameter T:
-        fun <T> copyAttribute(attribute: Attribute<T>, from: AttributeContainer, to: AttributeContainer) {
-            to.attribute<T>(attribute, from.getAttribute(attribute)!!)
-        }
-
-        filterOutNonPublishableAttributes(configurationAttributes.keySet())
-            .forEach { copyAttribute(it, configurationAttributes, result) }
+        configurationAttributes.copyAttributesTo(
+            project,
+            dest = result,
+            keys = filterOutNonPublishableAttributes(configurationAttributes.keySet())
+        )
 
         return result
     }

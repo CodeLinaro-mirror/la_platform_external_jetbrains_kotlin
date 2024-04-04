@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.gradle.plugin.AbstractKotlinTargetConfigurator
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
-import org.jetbrains.kotlin.gradle.plugin.whenEvaluated
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlatformTestRun
 import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
 import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.testing.internal.configureConventions
 import org.jetbrains.kotlin.gradle.testing.internal.kotlinTestRegistry
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
-import org.jetbrains.kotlin.gradle.utils.newFileProperty
 
 abstract class KotlinJsIrSubTarget(
     val target: KotlinJsIrTarget,
@@ -124,28 +123,20 @@ abstract class KotlinJsIrSubTarget(
 
             val inputFileProperty = if (target.wasmTargetType != KotlinWasmTargetType.WASI) {
                 testJs.dependsOn(binary.linkSyncTask)
-                binary.linkSyncTask.flatMap { linkSyncTask ->
-                    binary.linkTask.flatMap { linkTask ->
-                        linkTask.outputFileProperty.map { file ->
-                            linkSyncTask.destinationDirectory.get().resolve(file.name)
-                        }
-                    }
-                }
+                binary.mainFileSyncPath
             } else {
                 if (project.locateTask<BinaryenExec>((binary as ExecutableWasm).optimizeTaskName) != null) {
                     testJs.dependsOn(binary.optimizeTask)
                     binary.optimizeTask.flatMap { optimizeTask ->
-                        optimizeTask.outputFileProperty.asFile
+                        optimizeTask.outputFileProperty
                     }
                 } else {
                     testJs.dependsOn(binary.linkTask)
-                    binary.linkTask.flatMap { linkTask ->
-                        linkTask.outputFileProperty
-                    }
+                    binary.mainFile
                 }
             }
 
-            testJs.inputFileProperty.fileProvider(
+            testJs.inputFileProperty.set(
                 inputFileProperty
             )
 
@@ -223,27 +214,16 @@ abstract class KotlinJsIrSubTarget(
 
                 val mode = binary.mode
 
-                val prepareJsLibrary = registerSubTargetTask<Copy>(
-                    disambiguateCamelCased(
-                        binary.name,
-                        PREPARE_JS_LIBRARY_TASK_NAME
-                    )
-                ) {
-                    it.from(project.tasks.named(npmProject.publicPackageJsonTaskName))
-                    it.from(binary.linkSyncTask)
-
-                    it.into(binary.distribution.directory)
-                }
-
-                val distributionTask = registerSubTargetTask<Task>(
+                val distributionTask = registerSubTargetTask<Copy>(
                     disambiguateCamelCased(
                         binary.name,
                         DISTRIBUTION_TASK_NAME
                     )
                 ) {
-                    it.dependsOn(prepareJsLibrary)
+                    it.from(project.tasks.named(npmProject.publicPackageJsonTaskName))
+                    it.from(binary.linkSyncTask)
 
-                    it.outputs.dir(project.newFileProperty { binary.distribution.directory })
+                    it.into(binary.distribution.outputDirectory)
                 }
 
                 if (mode == KotlinJsBinaryMode.PRODUCTION) {
@@ -265,9 +245,6 @@ abstract class KotlinJsIrSubTarget(
     companion object {
         const val RUN_TASK_NAME = "run"
 
-        const val DISTRIBUTE_RESOURCES_TASK_NAME = "distributeResources"
         const val DISTRIBUTION_TASK_NAME = "distribution"
-
-        const val PREPARE_JS_LIBRARY_TASK_NAME = "prepare"
     }
 }

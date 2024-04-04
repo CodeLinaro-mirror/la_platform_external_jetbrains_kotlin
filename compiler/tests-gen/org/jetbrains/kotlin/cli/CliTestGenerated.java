@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -213,6 +213,16 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("apiVersionGreaterThanLanguage.args")
         public void testApiVersionGreaterThanLanguage() throws Exception {
             runTest("compiler/testData/cli/jvm/apiVersionGreaterThanLanguage.args");
+        }
+
+        @TestMetadata("apiVersionGreaterThanLanguageSuppress.args")
+        public void testApiVersionGreaterThanLanguageSuppress() throws Exception {
+            runTest("compiler/testData/cli/jvm/apiVersionGreaterThanLanguageSuppress.args");
+        }
+
+        @TestMetadata("apiVersionGreaterThanLanguageSuppressUseless.args")
+        public void testApiVersionGreaterThanLanguageSuppressUseless() throws Exception {
+            runTest("compiler/testData/cli/jvm/apiVersionGreaterThanLanguageSuppressUseless.args");
         }
 
         @TestMetadata("apiVersionInvalid.args")
@@ -628,11 +638,6 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("firVsClassicAnnotation.args")
         public void testFirVsClassicAnnotation() throws Exception {
             runTest("compiler/testData/cli/jvm/firVsClassicAnnotation.args");
-        }
-
-        @TestMetadata("flagAllowingResultAsReturnType.args")
-        public void testFlagAllowingResultAsReturnType() throws Exception {
-            runTest("compiler/testData/cli/jvm/flagAllowingResultAsReturnType.args");
         }
 
         @TestMetadata("forbidKotlinPackageK1.args")
@@ -1200,11 +1205,6 @@ public class CliTestGenerated extends AbstractCliTest {
             runTest("compiler/testData/cli/jvm/useDeclarationThatWasExperimentalWithoutMarker.args");
         }
 
-        @TestMetadata("useMixedNamedArgumentsFlag.args")
-        public void testUseMixedNamedArgumentsFlag() throws Exception {
-            runTest("compiler/testData/cli/jvm/useMixedNamedArgumentsFlag.args");
-        }
-
         @TestMetadata("warningJdkWithNoJdk.args")
         public void testWarningJdkWithNoJdk() throws Exception {
             runTest("compiler/testData/cli/jvm/warningJdkWithNoJdk.args");
@@ -1326,6 +1326,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("firMppWithKlib.args")
         public void testFirMppWithKlib() throws Exception {
             runTest("compiler/testData/cli/js/firMppWithKlib.args");
+        }
+
+        @TestMetadata("firMultiplatformCompilationWithError.args")
+        public void testFirMultiplatformCompilationWithError() throws Exception {
+            runTest("compiler/testData/cli/js/firMultiplatformCompilationWithError.args");
         }
 
         @TestMetadata("jsExtraHelp.args")
@@ -1542,6 +1547,11 @@ public class CliTestGenerated extends AbstractCliTest {
         @TestMetadata("anonymousObjectType.args")
         public void testAnonymousObjectType() throws Exception {
             runTest("compiler/testData/cli/metadata/anonymousObjectType.args");
+        }
+
+        @TestMetadata("getOrDefault.args")
+        public void testGetOrDefault() throws Exception {
+            runTest("compiler/testData/cli/metadata/getOrDefault.args");
         }
 
         @TestMetadata("hmppModules.args")

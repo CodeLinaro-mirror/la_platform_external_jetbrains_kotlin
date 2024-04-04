@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.impl.IrBlockBodyImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrNull
@@ -112,7 +111,8 @@ class ClassCodegen private constructor(
 
     val reifiedTypeParametersUsages = ReifiedTypeParametersUsages()
 
-    private val jvmSignatureClashDetector = JvmSignatureClashDetector(this)
+    private val jvmMethodSignatureClashDetector = JvmMethodSignatureClashDetector(this)
+    private val jvmFieldSignatureClashDetector = JvmFieldSignatureClashDetector(this)
 
     private val visitor = state.factory.newVisitor(irClass.descriptorOrigin, type, irClass.fileParent.loadSourceFilesInfo()).apply {
         val signature = typeMapper.mapClassSignature(irClass, type, state.classBuilderMode.generateBodies)
@@ -218,7 +218,8 @@ class ClassCodegen private constructor(
         generateInnerAndOuterClasses()
 
         visitor.done(config.generateSmapCopyToAnnotation)
-        jvmSignatureClashDetector.reportErrors()
+        jvmMethodSignatureClashDetector.reportErrorsTo(context.ktDiagnosticReporter)
+        jvmFieldSignatureClashDetector.reportErrorsTo(context.ktDiagnosticReporter)
     }
 
     private fun shouldSkipCodeGenerationAccordingToGenerationFilter(): Boolean {
@@ -257,7 +258,7 @@ class ClassCodegen private constructor(
             name = Name.special("<clinit>")
             returnType = context.irBuiltIns.unitType
         }.apply {
-            body = IrBlockBodyImpl(startOffset, endOffset)
+            body = context.irFactory.createBlockBody(startOffset, endOffset)
         }
         // Should be initialized first in case some inline function call in `<clinit>` also uses assertions.
         (classInitializer.body as IrBlockBody).statements.add(0, init)
@@ -355,7 +356,7 @@ class ClassCodegen private constructor(
             fieldSignature, (field.initializer?.expression as? IrConst<*>)?.value
         )
 
-        jvmSignatureClashDetector.trackField(field, RawSignature(fieldName, fieldType.descriptor, MemberKind.FIELD))
+        jvmFieldSignatureClashDetector.trackDeclaration(field, RawSignature(fieldName, fieldType.descriptor, MemberKind.FIELD))
 
         if (field.origin != JvmLoweredDeclarationOrigin.CONTINUATION_CLASS_RESULT_FIELD) {
             val skipNullabilityAnnotations =
@@ -404,7 +405,7 @@ class ClassCodegen private constructor(
 
     private fun generateMethod(method: IrFunction, classSMAP: SourceMapper) {
         if (method.isFakeOverride) {
-            jvmSignatureClashDetector.trackFakeOverrideMethod(method)
+            jvmMethodSignatureClashDetector.trackFakeOverrideMethod(method)
             return
         }
 
@@ -443,7 +444,7 @@ class ClassCodegen private constructor(
         } else {
             node.accept(smapCopyingVisitor)
         }
-        jvmSignatureClashDetector.trackMethod(method, RawSignature(node.name, node.desc, MemberKind.METHOD))
+        jvmMethodSignatureClashDetector.trackDeclaration(method, RawSignature(node.name, node.desc, MemberKind.METHOD))
 
         when (val metadata = method.metadata) {
             is MetadataSource.Property -> metadataSerializer.bindPropertyMetadata(metadata, Method(node.name, node.desc), method.origin)

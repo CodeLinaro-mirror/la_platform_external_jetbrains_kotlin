@@ -6,12 +6,15 @@
 package org.jetbrains.kotlinx.serialization
 
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
+import org.jetbrains.kotlinx.serialization.matrix.cases.enumsTestMatrix
+import org.jetbrains.kotlinx.serialization.matrix.testMatrix
 import org.jetbrains.kotlinx.serialization.runners.*
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
 
-    val excludedFirTestdataPattern = "^(.+)\\.fir\\.kts?\$"
+    val excludedFirTestdataPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX
 
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup(
@@ -48,16 +51,24 @@ fun main(args: Array<String>) {
                 model("boxIr")
             }
 
-            testClass<AbstractSerializationJdk11IrBoxTest> {
-                model("jdk11BoxIr")
-            }
-
             testClass<AbstractSerializationFirLightTreeBlackBoxTest> {
                 model("boxIr")
                 model("firMembers")
             }
 
+            testClass<AbstractSerializationJdk11IrBoxTest> {
+                model("jdk11BoxIr")
+            }
+
+            testClass<AbstractSerializationJdk11FirLightTreeBoxTest> {
+                model("jdk11BoxIr")
+            }
+
             testClass<AbstractSerializationWithoutRuntimeIrBoxTest> {
+                model("boxWithoutRuntime")
+            }
+
+            testClass<AbstractSerializationWithoutRuntimeFirLightTreeBoxTest> {
                 model("boxWithoutRuntime")
             }
 
@@ -67,6 +78,10 @@ fun main(args: Array<String>) {
 
             testClass<AbstractSerializationFirJsBoxTest> {
                 model("boxIr")
+            }
+
+            testMatrix {
+                add("enums") { enumsTestMatrix() }
             }
         }
     }

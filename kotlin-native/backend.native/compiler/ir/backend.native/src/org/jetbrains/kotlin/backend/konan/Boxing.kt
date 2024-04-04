@@ -5,9 +5,7 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import llvm.LLVMArrayType
-import llvm.LLVMConstInt
-import llvm.LLVMTypeRef
+import llvm.*
 import org.jetbrains.kotlin.backend.common.getOrPut
 import org.jetbrains.kotlin.backend.konan.llvm.ConstValue
 import org.jetbrains.kotlin.backend.konan.llvm.StaticData
@@ -44,7 +42,7 @@ private fun Context.getTypeConversionImpl(
     }.symbol
 }
 
-internal object DECLARATION_ORIGIN_INLINE_CLASS_SPECIAL_FUNCTION : IrDeclarationOriginImpl("INLINE_CLASS_SPECIAL_FUNCTION")
+internal val DECLARATION_ORIGIN_INLINE_CLASS_SPECIAL_FUNCTION = IrDeclarationOriginImpl("INLINE_CLASS_SPECIAL_FUNCTION")
 
 private fun IrClass.defaultOrNullableType(hasQuestionMark: Boolean) =
         if (hasQuestionMark) this.defaultType.makeNullable() else this.defaultType
@@ -183,7 +181,16 @@ internal fun IrConstantPrimitive.toBoxCacheValue(generationState: NativeGenerati
     val (start, end) = generationState.config.target.getBoxCacheRange(cacheType)
     return if (value in start..end) {
         generationState.llvm.let { llvm ->
-            llvm.boxCacheGlobals[cacheType]?.pointer?.getElementPtr(llvm, value.toInt() - start)?.getElementPtr(llvm, 0)
+            val llvmType = llvm.structType(llvm.runtime.objHeaderType, when (cacheType) {
+                BoxCache.BOOLEAN -> llvm.int1Type
+                BoxCache.BYTE -> llvm.int8Type
+                BoxCache.SHORT -> llvm.int16Type
+                BoxCache.CHAR -> llvm.int16Type
+                BoxCache.INT -> llvm.int32Type
+                BoxCache.LONG -> llvm.int64Type
+            })
+            val llvmArrayType = LLVMArrayType(llvmType, end - start + 1)!!
+            llvm.boxCacheGlobals[cacheType]?.pointer?.getElementPtr(llvm, llvmArrayType, value.toInt() - start)?.getElementPtr(llvm, llvmType, 0)
         }
     } else {
         null

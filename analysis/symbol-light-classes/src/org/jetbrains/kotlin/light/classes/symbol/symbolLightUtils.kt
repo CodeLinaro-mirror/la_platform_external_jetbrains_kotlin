@@ -147,8 +147,10 @@ internal fun KtLightElement<*, *>.isOriginEquivalentTo(that: PsiElement?): Boole
     return kotlinOrigin?.isEquivalentTo(that) == true
 }
 
-internal fun KtAnalysisSession.getTypeNullability(ktType: KtType): NullabilityType {
-    if (ktType is KtClassErrorType) return NullabilityType.NotNull
+internal fun KtAnalysisSession.getTypeNullability(type: KtType): NullabilityType {
+    if (type is KtClassErrorType) return NullabilityType.NotNull
+
+    val ktType = type.fullyExpandedType
     if (ktType.nullabilityType != NullabilityType.NotNull) return ktType.nullabilityType
 
     if (ktType.isUnit) return NullabilityType.NotNull
@@ -197,18 +199,18 @@ internal fun KtAnnotationValue.toAnnotationMemberValue(parent: PsiElement): PsiA
             values.mapNotNull { element -> element.toAnnotationMemberValue(arrayLiteralParent) }
         }
 
-    is KtAnnotationApplicationValue ->
+    is KtAnnotationApplicationValue -> {
         SymbolLightSimpleAnnotation(
             fqName = annotationValue.classId?.asFqNameString(),
             parent = parent,
-            arguments = annotationValue.arguments,
+            arguments = annotationValue.normalizedArguments(),
             kotlinOrigin = annotationValue.psi,
         )
-
+    }
     is KtConstantAnnotationValue -> {
         constantValue.createPsiExpression(parent)?.let {
             when (it) {
-                is PsiLiteral -> SymbolPsiLiteral(sourcePsi, parent, it)
+                is PsiLiteralExpression -> SymbolPsiLiteral(sourcePsi, parent, it)
                 else -> SymbolPsiExpression(sourcePsi, parent, it)
             }
         }
@@ -218,6 +220,22 @@ internal fun KtAnnotationValue.toAnnotationMemberValue(parent: PsiElement): PsiA
     is KtKClassAnnotationValue -> toAnnotationMemberValue(parent)
     KtUnsupportedAnnotationValue -> null
 }
+
+internal fun KtAnnotationApplicationWithArgumentsInfo.normalizedArguments(): List<KtNamedAnnotationValue> {
+    val args = arguments
+    val ctorSymbolPointer = constructorSymbolPointer ?: return args
+    val element = psi ?: return args // May work incorrectly. See KT-63568
+
+    return analyzeForLightClasses(element) {
+        val constructorSymbol = ctorSymbolPointer.restoreSymbolOrThrowIfDisposed()
+        val params = constructorSymbol.valueParameters
+        val missingVarargParameterName =
+            params.singleOrNull { it.isVararg && !it.hasDefaultValue }?.name?.takeIf { name -> args.none { it.name == name } }
+        if (missingVarargParameterName == null) args
+        else args + KtNamedAnnotationValue(missingVarargParameterName, KtArrayAnnotationValue(emptyList(), null))
+    }
+}
+
 
 private fun KtEnumEntryAnnotationValue.asPsiReferenceExpression(parent: PsiElement): SymbolPsiReference? {
     val fqName = this.callableId?.asSingleFqName()?.asString() ?: return null

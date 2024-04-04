@@ -43,7 +43,6 @@ sealed class ClangArgs(
                     "WINDOWS".takeIf { target.family == Family.MINGW },
                     "MACOSX".takeIf { target.family == Family.OSX },
 
-                    "NO_MEMMEM".takeUnless { target.suportsMemMem() },
                     "NO_64BIT_ATOMIC".takeUnless { target.supports64BitAtomics() },
                     "NO_UNALIGNED_ACCESS".takeUnless { target.supportsUnalignedAccess() },
                     "FORBID_BUILTIN_MUL_OVERFLOW".takeUnless { target.supports64BitMulOverflow() },
@@ -54,6 +53,7 @@ sealed class ClangArgs(
                     "REPORT_BACKTRACE_TO_IOS_CRASH_LOG".takeIf { target.supportsIosCrashLog() },
                     "NEED_SMALL_BINARY".takeIf { target.needSmallBinary() },
                     "SUPPORTS_GRAND_CENTRAL_DISPATCH".takeIf { target.supportsGrandCentralDispatch },
+                    "SUPPORTS_SIGNPOSTS".takeIf { target.supportsSignposts },
             ).map { "KONAN_$it=1" }
             val otherOptions = listOfNotNull(
                     "USE_ELF_SYMBOLS=1".takeIf { target.binaryFormat() == BinaryFormat.ELF },
@@ -71,13 +71,7 @@ sealed class ClangArgs(
             return (konanOptions + otherOptions).map { "-D$it" }
         }
 
-    private val binDir = when (HostManager.host) {
-        KonanTarget.LINUX_X64 -> "$absoluteTargetToolchain/bin"
-        KonanTarget.MINGW_X64 -> "$absoluteTargetToolchain/bin"
-        KonanTarget.MACOS_X64,
-        KonanTarget.MACOS_ARM64 -> "$absoluteTargetToolchain/usr/bin"
-        else -> throw TargetSupportException("Unexpected host platform")
-    }
+    private val binDir = "$absoluteTargetToolchain/bin"
     // TODO: Use buildList
     private val commonClangArgs: List<String> = mutableListOf<List<String>>().apply {
         // Currently, MinGW toolchain contains old LLVM 8, and -fuse-ld=lld picks linker from there.
@@ -100,15 +94,8 @@ sealed class ClangArgs(
         val targetString: String = when {
             argsForWindowsJni -> "x86_64-pc-windows-msvc"
             configurables is AppleConfigurables -> {
-                val osVersionMin = when (target) {
-                    // Here we workaround Clang 8 limitation: macOS major version should be 10.
-                    // So we compile runtime with version 10.16 and then override version in BitcodeCompiler.
-                    // TODO: Fix with LLVM Update.
-                    KonanTarget.MACOS_ARM64 -> "10.16"
-                    else -> configurables.osVersionMin
-                }
                 targetTriple.copy(
-                        os = "${targetTriple.os}$osVersionMin"
+                        os = "${targetTriple.os}${configurables.osVersionMin}"
                 ).toString()
             }
             else -> configurables.targetTriple.toString()

@@ -15,14 +15,13 @@ import org.jetbrains.kotlin.test.backend.classic.ClassicJvmBackendFacade
 import org.jetbrains.kotlin.test.backend.handlers.IrInlineBodiesHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.backend.ir.JvmIrBackendFacade
-import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureIrHandlersStep
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_K2_MULTI_MODULE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_MULTI_MODULE
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.SERIALIZE_IR
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES_K1
 import org.jetbrains.kotlin.test.directives.configureFirParser
 import org.jetbrains.kotlin.test.directives.model.ValueDirective
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2ClassicBackendConverter
@@ -35,6 +34,7 @@ import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
 import org.jetbrains.kotlin.test.services.SplittingModuleTransformerForBoxTests
+import org.jetbrains.kotlin.utils.bind
 
 
 @OptIn(TestInfrastructureInternals::class)
@@ -91,7 +91,7 @@ open class AbstractIrCompileKotlinAgainstInlineKotlinTest :
 private fun TestConfigurationBuilder.configureForSerialization() {
     defaultDirectives {
         SERIALIZE_IR.with(JvmSerializeIrMode.INLINE)
-        +LINK_VIA_SIGNATURES
+        +LINK_VIA_SIGNATURES_K1
     }
 
     configureIrHandlersStep {

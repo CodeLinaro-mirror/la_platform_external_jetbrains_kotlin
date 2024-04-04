@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.ir.backend.js.utils
 
-import org.jetbrains.kotlin.backend.common.lower.parents
+import org.jetbrains.kotlin.ir.util.parents
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.isClass
 import org.jetbrains.kotlin.descriptors.isInterface
@@ -15,10 +15,7 @@ import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
-import org.jetbrains.kotlin.ir.backend.js.lower.isBoxParameter
-import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
-import org.jetbrains.kotlin.ir.backend.js.lower.isSyntheticConstructorForExport
-import org.jetbrains.kotlin.ir.backend.js.lower.isSyntheticPrimaryConstructor
+import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
@@ -43,8 +40,7 @@ fun IrClass.jsConstructorReference(context: JsIrBackendContext): IrExpression {
 }
 
 fun IrDeclaration.isExportedMember(context: JsIrBackendContext) =
-    (this is IrDeclarationWithVisibility && visibility.isPublicAPI) &&
-            parentClassOrNull?.isExported(context) == true
+    parentClassOrNull != null && isExported(context)
 
 fun IrDeclaration?.isExportedClass(context: JsIrBackendContext) =
     this is IrClass && kind.isClass && isExported(context)
@@ -124,10 +120,6 @@ fun IrSimpleFunction.isObjectInstanceGetter(): Boolean {
     return origin == JsLoweredDeclarationOrigin.OBJECT_GET_INSTANCE_FUNCTION
 }
 
-fun IrDeclaration.isObjectInstanceField(): Boolean {
-    return this is IrField && isObjectInstanceField()
-}
-
 fun IrField.isObjectInstanceField(): Boolean {
     return origin == IrDeclarationOrigin.FIELD_FOR_OBJECT_INSTANCE
 }
@@ -137,3 +129,6 @@ fun JsIrBackendContext.findDefaultConstructorFor(irClass: IrClass): IrFunction? 
         mapping.secondaryConstructorToFactory[it] ?: it
     }
 }
+
+val IrClass.primaryConstructorReplacement: IrSimpleFunction?
+    get() = findDeclaration<IrSimpleFunction> { it.isEs6PrimaryConstructorReplacement }

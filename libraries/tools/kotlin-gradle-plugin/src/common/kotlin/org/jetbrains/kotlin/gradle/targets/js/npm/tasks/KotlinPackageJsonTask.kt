@@ -14,7 +14,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.*
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.CompositeProjectComponentArtifactMetadata
 import org.jetbrains.kotlin.gradle.utils.`is`
+import org.jetbrains.kotlin.gradle.utils.mapToFile
 import java.io.File
 
 @DisableCachingByDefault
@@ -60,6 +61,9 @@ abstract class KotlinPackageJsonTask :
 
     @get:Internal
     abstract val packageJsonHandlers: ListProperty<Action<PackageJson>>
+
+    @get:Input
+    abstract val packageJsonMain: Property<String>
 
     @get:Input
     internal val packageJsonInputHandlers: Provider<PackageJson> by lazy {
@@ -119,11 +123,11 @@ abstract class KotlinPackageJsonTask :
                 logger = logger
             )
 
-        resolution.createPackageJson(preparedResolution, packageJsonHandlers)
+        resolution.createPackageJson(preparedResolution, packageJsonMain, packageJsonHandlers)
     }
 
     companion object {
-        fun create(compilation: KotlinJsCompilation): TaskProvider<KotlinPackageJsonTask> {
+        fun create(compilation: KotlinJsIrCompilation): TaskProvider<KotlinPackageJsonTask> {
             val target = compilation.target
             val project = target.project
             val npmProject = compilation.npmProject
@@ -146,7 +150,9 @@ abstract class KotlinPackageJsonTask :
                 task.gradleNodeModules.value(gradleNodeModules)
                     .disallowChanges()
 
-                task.packageJson.set(compilation.npmProject.packageJsonFile)
+                task.packageJsonMain.set(compilation.npmProject.main)
+
+                task.packageJson.set(compilation.npmProject.packageJsonFile.mapToFile())
 
                 task.onlyIf {
                     it as KotlinPackageJsonTask

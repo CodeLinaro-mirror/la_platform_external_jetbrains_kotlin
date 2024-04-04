@@ -21,7 +21,6 @@ class MacosCapableConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @DisplayName("works with native tasks in complex project")
     @GradleTestVersions(
         minVersion = TestVersions.Gradle.G_7_4,
-        additionalVersions = [TestVersions.Gradle.G_7_6],
     )
     @GradleTest
     fun testNativeTasks(gradleVersion: GradleVersion) {
@@ -81,7 +80,8 @@ class MacosCapableConfigurationCacheIT : AbstractConfigurationCacheIT() {
                 "ARCHS" to "arm64",
                 "EXPANDED_CODE_SIGN_IDENTITY" to "-",
                 "TARGET_BUILD_DIR" to targetBuildDir.toString(),
-                "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir"
+                "FRAMEWORKS_FOLDER_PATH" to "testFrameworksDir",
+                "BUILT_PRODUCTS_DIR" to "builtProductsDir",
             ),
         ) {
             testConfigurationCacheOf(":shared:embedAndSignAppleFrameworkForXcode")

@@ -8,11 +8,13 @@ package org.jetbrains.kotlin.fir.analysis.checkers.expression
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.ApiVersion
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory0
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.ConstantArgumentKind
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.checkConstantArguments
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.collectors.AbstractDiagnosticCollector
@@ -33,7 +35,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.RequireKotlinConstants
 
-object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
+object FirAnnotationExpressionChecker : FirAnnotationCallChecker(MppCheckerKind.Common) {
     private val versionArgumentName = Name.identifier("version")
     private val deprecatedSinceKotlinFqName = FqName("kotlin.DeprecatedSinceKotlin")
     private val sinceKotlinFqName = FqName("kotlin.SinceKotlin")
@@ -58,6 +60,7 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
         checkAnnotationUsedAsAnnotationArgument(expression, context, reporter)
         checkNotAClass(expression, context, reporter)
         checkErrorSuppression(annotationClassId, argumentMapping, reporter, context)
+        checkContextFunctionTypeParams(expression.source, annotationClassId, reporter, context)
     }
 
     private fun checkAnnotationArgumentWithSubElements(
@@ -104,7 +107,7 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
                     ConstantArgumentKind.NOT_KCLASS_LITERAL -> FirErrors.ANNOTATION_ARGUMENT_MUST_BE_KCLASS_LITERAL
                     ConstantArgumentKind.KCLASS_LITERAL_OF_TYPE_PARAMETER_ERROR -> FirErrors.ANNOTATION_ARGUMENT_KCLASS_LITERAL_OF_TYPE_PARAMETER_ERROR
                     ConstantArgumentKind.NOT_CONST_VAL_IN_CONST_EXPRESSION -> FirErrors.NON_CONST_VAL_USED_IN_CONSTANT_EXPRESSION
-                    null ->
+                    ConstantArgumentKind.VALID_CONST ->
                         //try to go deeper if we are not sure about this function call
                         //to report non-constant val in not fully resolved calls
                         if (expression is FirFunctionCall) checkArgumentList(expression.argumentList)
@@ -120,8 +123,8 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
         context: CheckerContext,
         reporter: DiagnosticReporter
     ): ApiVersion? {
-        val constantExpression = (expression as? FirConstExpression<*>)
-            ?: ((expression as? FirNamedArgumentExpression)?.expression as? FirConstExpression<*>) ?: return null
+        val constantExpression = (expression as? FirLiteralExpression<*>)
+            ?: ((expression as? FirNamedArgumentExpression)?.expression as? FirLiteralExpression<*>) ?: return null
         val stringValue = constantExpression.value as? String ?: return null
         if (!stringValue.matches(RequireKotlinConstants.VERSION_REGEX)) {
             reporter.reportOn(expression.source, FirErrors.ILLEGAL_KOTLIN_VERSION_STRING_VALUE, context)
@@ -239,7 +242,7 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
         if (annotationClassId != StandardClassIds.Annotations.Suppress) return
         val nameExpressions = argumentMapping[StandardClassIds.Annotations.ParameterNames.suppressNames]?.unwrapVarargValue() ?: return
         for (nameExpression in nameExpressions) {
-            val name = (nameExpression as? FirConstExpression<*>)?.value as? String ?: continue
+            val name = (nameExpression as? FirLiteralExpression<*>)?.value as? String ?: continue
             val parameter = when (name) {
                 in FIR_NON_SUPPRESSIBLE_ERROR_NAMES -> name
                 AbstractDiagnosticCollector.SUPPRESS_ALL_ERRORS -> "all errors"
@@ -247,5 +250,21 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker() {
             }
             reporter.reportOn(nameExpression.source, FirErrors.ERROR_SUPPRESSION, parameter, context)
         }
+    }
+
+    private fun checkContextFunctionTypeParams(
+        source: KtSourceElement?,
+        annotationClassId: ClassId?,
+        reporter: DiagnosticReporter,
+        context: CheckerContext,
+    ) {
+        if (context.languageVersionSettings.supportsFeature(LanguageFeature.ContextReceivers)) return
+        if (annotationClassId != StandardClassIds.Annotations.ContextFunctionTypeParams) return
+        reporter.reportOn(
+            source,
+            FirErrors.UNSUPPORTED_FEATURE,
+            LanguageFeature.ContextReceivers to context.languageVersionSettings,
+            context
+        )
     }
 }

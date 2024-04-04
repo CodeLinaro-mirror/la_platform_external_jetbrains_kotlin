@@ -12,39 +12,44 @@ import org.jetbrains.kotlin.ir.overrides.IrExternalOverridabilityCondition.Resul
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextWithAdditionalAxioms
 import org.jetbrains.kotlin.ir.types.createIrTypeCheckerState
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.resolve.OverridingUtil.OverrideCompatibilityInfo
 import org.jetbrains.kotlin.resolve.OverridingUtil.OverrideCompatibilityInfo.*
 import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.TypeCheckerState
+
+/**
+ * @param member declaration that should be checked for overridability.
+ * @param original the original, unsubstituted version of the declaration if the declaration is a fake override.
+ */
+class MemberWithOriginal(val member: IrOverridableMember, original: IrOverridableMember? = null) {
+    internal constructor(fakeOverride: IrFakeOverrideBuilder.FakeOverride) : this(fakeOverride.override, fakeOverride.original)
+
+    val original: IrOverridableMember = original ?: member
+
+    override fun toString(): String = member.render()
+}
 
 class IrOverrideChecker(
     private val typeSystem: IrTypeSystemContext,
     private val externalOverridabilityConditions: List<IrExternalOverridabilityCondition>,
 ) {
     fun getBothWaysOverridability(
-        overriderDescriptor: IrOverridableMember,
-        candidateDescriptor: IrOverridableMember,
+        overrider: MemberWithOriginal,
+        candidate: MemberWithOriginal,
     ): Result {
-        val result1 = isOverridableBy(
-            candidateDescriptor,
-            overriderDescriptor,
-            checkIsInlineFlag = false,
-        ).result
-
-        val result2 = isOverridableBy(
-            overriderDescriptor,
-            candidateDescriptor,
-            checkIsInlineFlag = false,
-        ).result
+        val result1 = isOverridableBy(candidate, overrider, checkIsInlineFlag = false).result
+        val result2 = isOverridableBy(overrider, candidate, checkIsInlineFlag = false).result
 
         return if (result1 == result2) result1 else Result.INCOMPATIBLE
     }
 
     fun isOverridableBy(
-        superMember: IrOverridableMember,
-        subMember: IrOverridableMember,
+        superMember: MemberWithOriginal,
+        subMember: MemberWithOriginal,
         checkIsInlineFlag: Boolean,
     ): OverrideCompatibilityInfo {
-        val basicResult = isOverridableByWithoutExternalConditions(superMember, subMember, checkIsInlineFlag)
+        val basicResult = isOverridableByWithoutExternalConditions(superMember.member, subMember.member, checkIsInlineFlag)
 
         return runExternalOverridabilityConditions(superMember, subMember, basicResult)
     }
@@ -100,39 +105,51 @@ class IrOverrideChecker(
             superValueParameters.size != subValueParameters.size -> return incompatible("Value parameter number mismatch")
         }
 
-        // TODO: check the bounds. See OverridingUtil.areTypeParametersEquivalent()
-//        superTypeParameters.forEachIndexed { index, parameter ->
-//            if (!AbstractTypeChecker.areTypeParametersEquivalent(
-//                    typeCheckerContext as AbstractTypeCheckerContext,
-//                    subTypeParameters[index].type,
-//                    parameter.type
-//                )
-//            ) return OverrideCompatibilityInfo.incompatible("Type parameter bounds mismatch")
-//        }
-
         val typeCheckerState = createIrTypeCheckerState(
-            IrTypeSystemContextWithAdditionalAxioms(
-                typeSystem,
-                superTypeParameters,
-                subTypeParameters
-            )
+            IrTypeSystemContextWithAdditionalAxioms(typeSystem, superTypeParameters, subTypeParameters)
         )
 
-        superValueParameters.forEachIndexed { index, parameter ->
-            if (!AbstractTypeChecker.equalTypes(
-                    typeCheckerState,
-                    subValueParameters[index].type,
-                    parameter.type
-                )
-            ) return incompatible("Value parameter type mismatch")
+        for ((index, superTypeParameter) in superTypeParameters.withIndex()) {
+            if (!areTypeParametersEquivalent(superTypeParameter, subTypeParameters[index], typeCheckerState)) {
+                return incompatible("Type parameter bounds mismatch")
+            }
+        }
+
+        for ((index, superValueParameter) in superValueParameters.withIndex()) {
+            if (!AbstractTypeChecker.equalTypes(typeCheckerState, subValueParameters[index].type, superValueParameter.type)) {
+                return incompatible("Value parameter type mismatch")
+            }
         }
 
         return success()
     }
 
+    private fun areTypeParametersEquivalent(
+        superTypeParameter: IrTypeParameter,
+        subTypeParameter: IrTypeParameter,
+        typeCheckerState: TypeCheckerState,
+    ): Boolean {
+        val superBounds = superTypeParameter.superTypes
+        val subBounds = subTypeParameter.superTypes.toMutableList()
+        if (superBounds.size != subBounds.size) return false
+        outer@ for (superBound in superBounds) {
+            val it = subBounds.listIterator()
+            while (it.hasNext()) {
+                val subBound = it.next()
+                if (AbstractTypeChecker.equalTypes(typeCheckerState, superBound, subBound)) {
+                    it.remove()
+                    continue@outer
+                }
+            }
+            return false
+        }
+        return true
+    }
+
+
     private fun runExternalOverridabilityConditions(
-        superMember: IrOverridableMember,
-        subMember: IrOverridableMember,
+        superMember: MemberWithOriginal,
+        subMember: MemberWithOriginal,
         basicResult: OverrideCompatibilityInfo,
     ): OverrideCompatibilityInfo {
         var wasSuccess = basicResult.result == OverrideCompatibilityInfo.Result.OVERRIDABLE
@@ -145,7 +162,6 @@ class IrOverrideChecker(
                 externalCondition.isOverridable(superMember, subMember)
             when (result) {
                 OVERRIDABLE -> wasSuccess = true
-                CONFLICT -> return conflict("External condition failed")
                 INCOMPATIBLE -> return incompatible("External condition")
                 UNKNOWN -> {}
             }
@@ -160,7 +176,6 @@ class IrOverrideChecker(
             val result =
                 externalCondition.isOverridable(superMember, subMember)
             when (result) {
-                CONFLICT -> return conflict("External condition failed")
                 INCOMPATIBLE -> return incompatible("External condition")
                 OVERRIDABLE -> error(
                     "Contract violation in ${externalCondition.javaClass} condition. It's not supposed to end with success"
@@ -175,9 +190,6 @@ class IrOverrideChecker(
 
 private val IrSimpleFunction?.hasExtensionReceiver: Boolean
     get() = this?.extensionReceiverParameter != null
-
-internal val IrSimpleFunction?.hasDispatchReceiver: Boolean
-    get() = this?.dispatchReceiverParameter != null
 
 private val IrSimpleFunction.compiledValueParameters: List<IrValueParameter>
     get() = ArrayList<IrValueParameter>(valueParameters.size + 1).apply {

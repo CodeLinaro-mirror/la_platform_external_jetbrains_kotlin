@@ -1,0 +1,24 @@
+KtLocalVariableSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: null
+  contextReceivers: []
+  isExtension: false
+  isVal: true
+  name: args
+  origin: PLUGIN
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtUsualClassType:
+        annotationsList: []
+        ownTypeArguments: []
+        type: kotlin/String
+    ]
+    type: kotlin/Array<kotlin/String>
+  symbolKind: LOCAL
+  typeParameters: []
+  getContainingFileSymbol: KtFileSymbol(scriptArgument.kts)
+  getContainingJvmClassName: null
+  getContainingModule: KtScriptModule "Script scriptArgument.kts"
+  deprecationStatus: null

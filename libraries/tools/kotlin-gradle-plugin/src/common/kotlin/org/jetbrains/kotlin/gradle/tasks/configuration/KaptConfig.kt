@@ -25,8 +25,9 @@ import org.jetbrains.kotlin.gradle.internal.kapt.incremental.StructureTransformA
 import org.jetbrains.kotlin.gradle.internal.kapt.incremental.StructureTransformLegacyAction
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.tasks.toCompilerPluginOptions
+import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.utils.detachedResolvable
 import org.jetbrains.kotlin.gradle.utils.listProperty
-import org.jetbrains.kotlin.gradle.utils.markResolvable
 import java.io.File
 
 internal open class KaptConfig<TASK : KaptTask>(
@@ -91,7 +92,7 @@ internal open class KaptConfig<TASK : KaptTask>(
         return if (project.isIncrementalKapt()) {
             maybeRegisterTransform(project)
 
-            val classStructureConfiguration = project.configurations.detachedConfiguration().markResolvable()
+            val classStructureConfiguration = project.configurations.detachedResolvable()
 
             // Wrap the `kotlinCompile.classpath` into a file collection, so that, if the classpath is represented by a configuration,
             // the configuration is not extended (via extendsFrom, which normally happens when one configuration is _added_ into another)
@@ -99,7 +100,7 @@ internal open class KaptConfig<TASK : KaptTask>(
             // the attributes that are potentially needed to resolve dependencies on MPP modules, and the classpath configuration does.
             classStructureConfiguration.dependencies.add(project.dependencies.create(project.files(project.provider { taskProvider.get().classpath })))
             classStructureConfiguration.incoming.artifactView { viewConfig ->
-                viewConfig.attributes.attribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
+                viewConfig.attributes.setAttribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
             }.files
         } else null
     }
@@ -112,13 +113,13 @@ internal open class KaptConfig<TASK : KaptTask>(
                 else
                     StructureTransformLegacyAction::class.java
             project.dependencies.registerTransform(transformActionClass) { transformSpec ->
-                transformSpec.from.attribute(artifactType, "jar")
-                transformSpec.to.attribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
+                transformSpec.from.setAttribute(artifactType, "jar")
+                transformSpec.to.setAttribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
             }
 
             project.dependencies.registerTransform(transformActionClass) { transformSpec ->
-                transformSpec.from.attribute(artifactType, "directory")
-                transformSpec.to.attribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
+                transformSpec.from.setAttribute(artifactType, "directory")
+                transformSpec.to.setAttribute(artifactType, CLASS_STRUCTURE_ARTIFACT_TYPE)
             }
 
             project.extensions.extraProperties["KaptStructureTransformAdded"] = true
@@ -196,8 +197,8 @@ internal class KaptWithoutKotlincConfig : KaptConfig<KaptWithoutKotlincTask> {
         kaptGenerateStubsTask: TaskProvider<KaptGenerateStubsTask>,
         ext: KaptExtension
     ) : super(project, kaptGenerateStubsTask, ext) {
-        project.configurations.findByName(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME)
-            ?: project.configurations.create(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME).apply {
+        project.configurations.findResolvable(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME)
+            ?: project.configurations.createResolvable(Kapt3GradleSubplugin.KAPT_WORKER_DEPENDENCIES_CONFIGURATION_NAME).apply {
                 dependencies.addAllLater(project.listProperty {
                     val kaptDependency = "org.jetbrains.kotlin:kotlin-annotation-processing-gradle:${project.getKotlinPluginVersion()}"
                     listOf(

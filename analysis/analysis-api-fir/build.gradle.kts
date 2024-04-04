@@ -44,7 +44,7 @@ dependencies {
     testImplementation(project(":analysis:analysis-api-standalone:analysis-api-fir-standalone-base"))
     testImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(project(":analysis:decompiled:decompiler-to-psi"))
-    testImplementation(project(":kotlin-test:kotlin-test-junit"))
+    testImplementation(kotlinTest("junit"))
     testApi(projectTests(":analysis:analysis-test-framework"))
 
     testImplementation(toolsJar())
@@ -61,6 +61,8 @@ sourceSets {
         generatedTestDir()
     }
 }
+
+optInToUnsafeDuringIrConstructionAPI()
 
 projectTest(jUnitMode = JUnitMode.JUnit5) {
     dependsOn(":dist")

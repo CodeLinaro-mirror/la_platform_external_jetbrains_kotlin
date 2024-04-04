@@ -188,7 +188,9 @@ internal class TestCase(
     val freeCompilerArgs: TestCompilerArgs,
     val nominalPackageName: PackageName,
     val checks: TestRunChecks,
-    val extras: Extras
+    val extras: Extras,
+    val fileCheckStage: String? = null, // KT-62157: TODO move it to extras
+    val expectedFailure: Boolean = false,
 ) {
     sealed interface Extras
     class NoTestRunnerExtras(val entryPoint: String, val inputDataFile: File? = null, val arguments: List<String> = emptyList()) : Extras

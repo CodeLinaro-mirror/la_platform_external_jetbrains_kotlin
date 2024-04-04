@@ -1,4 +1,4 @@
-// IGNORE_BACKEND: WASM
+
 // FILE: test.kt
 
 class A {
@@ -17,7 +17,7 @@ fun box() {
     A.foo()
 }
 
-// EXPECTATIONS JVM JVM_IR
+// EXPECTATIONS JVM_IR
 // test.kt:15 box
 // test.kt:6 <clinit>
 // test.kt:7 <clinit>
@@ -49,3 +49,11 @@ fun box() {
 // test.kt:17 box
 // test.kt:9 foo
 // test.kt:18 box
+
+// EXPECTATIONS WASM
+// test.kt:1 $box
+// test.kt:15 $box
+// test.kt:16 $box
+// test.kt:17 $box (6, 6)
+// test.kt:9 $Companion.foo (19, 27, 19, 12)
+// test.kt:18 $box

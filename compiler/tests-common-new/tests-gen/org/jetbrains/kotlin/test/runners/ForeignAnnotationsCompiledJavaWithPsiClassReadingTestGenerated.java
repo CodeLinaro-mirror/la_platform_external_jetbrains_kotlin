@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -66,6 +66,18 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
         @TestMetadata("eclipse.kt")
         public void testEclipse() throws Exception {
             runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/eclipse.kt");
+        }
+
+        @Test
+        @TestMetadata("errorArgumentOfWarningAfter.kt")
+        public void testErrorArgumentOfWarningAfter() throws Exception {
+            runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/errorArgumentOfWarningAfter.kt");
+        }
+
+        @Test
+        @TestMetadata("errorArgumentOfWarningBefore.kt")
+        public void testErrorArgumentOfWarningBefore() throws Exception {
+            runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/errorArgumentOfWarningBefore.kt");
         }
 
         @Test
@@ -147,6 +159,64 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
         }
 
         @Nested
+        @TestMetadata("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations")
+        @TestDataPath("$PROJECT_ROOT")
+        public class ExternalAnnotations {
+            @Test
+            public void testAllFilesPresentInExternalAnnotations() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), true);
+            }
+
+            @Test
+            @TestMetadata("constructorParameterNotNull.kt")
+            public void testConstructorParameterNotNull() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/constructorParameterNotNull.kt");
+            }
+
+            @Test
+            @TestMetadata("constructorParameterNotNull2.kt")
+            public void testConstructorParameterNotNull2() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/constructorParameterNotNull2.kt");
+            }
+
+            @Test
+            @TestMetadata("fieldNotNull.kt")
+            public void testFieldNotNull() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/fieldNotNull.kt");
+            }
+
+            @Test
+            @TestMetadata("fieldNotNullAnnotationWithPackage.kt")
+            public void testFieldNotNullAnnotationWithPackage() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/fieldNotNullAnnotationWithPackage.kt");
+            }
+
+            @Test
+            @TestMetadata("methodNotNull.kt")
+            public void testMethodNotNull() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/methodNotNull.kt");
+            }
+
+            @Test
+            @TestMetadata("methodNotNullFromAnotherModule.kt")
+            public void testMethodNotNullFromAnotherModule() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/methodNotNullFromAnotherModule.kt");
+            }
+
+            @Test
+            @TestMetadata("methodParameterNotNull.kt")
+            public void testMethodParameterNotNull() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/methodParameterNotNull.kt");
+            }
+
+            @Test
+            @TestMetadata("methodParameterNotNull2.kt")
+            public void testMethodParameterNotNull2() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/externalAnnotations/methodParameterNotNull2.kt");
+            }
+        }
+
+        @Nested
         @TestMetadata("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305")
         @TestDataPath("$PROJECT_ROOT")
         public class Jsr305 {
@@ -217,6 +287,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
                 }
 
                 @Test
+                @TestMetadata("expressionBodiedFunction.kt")
+                public void testExpressionBodiedFunction() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/expressionBodiedFunction.kt");
+                }
+
+                @Test
                 @TestMetadata("localInference.kt")
                 public void testLocalInference() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/localInference.kt");
@@ -232,6 +308,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
                 @TestMetadata("nullabilityNicknames.kt")
                 public void testNullabilityNicknames() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/nullabilityNicknames.kt");
+                }
+
+                @Test
+                @TestMetadata("override.kt")
+                public void testOverride() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jsr305/nullabilityWarnings/override.kt");
                 }
 
                 @Test
@@ -679,6 +761,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
                 }
 
                 @Test
+                @TestMetadata("DerivedAsNullableOrNotNull.kt")
+                public void testDerivedAsNullableOrNotNull() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/strictMode/DerivedAsNullableOrNotNull.kt");
+                }
+
+                @Test
                 @TestMetadata("IgnoreAnnotations.kt")
                 public void testIgnoreAnnotations() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/strictMode/IgnoreAnnotations.kt");
@@ -791,6 +879,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
                 }
 
                 @Test
+                @TestMetadata("DerivedAsNullableOrNotNull.kt")
+                public void testDerivedAsNullableOrNotNull() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/DerivedAsNullableOrNotNull.kt");
+                }
+
+                @Test
                 @TestMetadata("IgnoreAnnotations.kt")
                 public void testIgnoreAnnotations() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/IgnoreAnnotations.kt");
@@ -800,6 +894,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
                 @TestMetadata("kt47899.kt")
                 public void testKt47899() throws Exception {
                     runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/kt47899.kt");
+                }
+
+                @Test
+                @TestMetadata("kt65318.kt")
+                public void testKt65318() throws Exception {
+                    runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/warnMode/kt65318.kt");
                 }
 
                 @Test
@@ -1181,6 +1281,12 @@ public class ForeignAnnotationsCompiledJavaWithPsiClassReadingTestGenerated exte
             @TestMetadata("methodWithTypeParameter.kt")
             public void testMethodWithTypeParameter() throws Exception {
                 runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/misc/methodWithTypeParameter.kt");
+            }
+
+            @Test
+            @TestMetadata("mutabilityAndNullabilityForWarning.kt")
+            public void testMutabilityAndNullabilityForWarning() throws Exception {
+                runTest("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/misc/mutabilityAndNullabilityForWarning.kt");
             }
 
             @Test

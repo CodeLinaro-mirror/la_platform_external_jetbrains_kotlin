@@ -17,9 +17,10 @@
 #include "GCState.hpp"
 #include "GCStatistics.hpp"
 #include "IntrusiveList.hpp"
+#include "MainThreadFinalizerProcessor.hpp"
 #include "MarkAndSweepUtils.hpp"
 #include "ObjectData.hpp"
-#include "ParallelMark.hpp"
+#include "ConcurrentMark.hpp"
 #include "ScopedThread.hpp"
 #include "ThreadData.hpp"
 #include "Types.h"
@@ -28,8 +29,8 @@
 namespace kotlin {
 namespace gc {
 
-// Stop-the-world parallel mark + concurrent sweep. The GC runs in a separate thread, finalizers run in another thread of their own.
-// TODO: Also make marking run concurrently with Kotlin threads.
+// TODO concurrent mark + concurrent sweep. The GC runs in a separate thread, finalizers run in another thread of their own.
+// TODO: Make marking run concurrently with Kotlin threads.
 class ConcurrentMarkAndSweep : private Pinned {
 public:
     class ThreadData : private Pinned {
@@ -43,20 +44,21 @@ public:
 
         void onThreadRegistration() noexcept { barriers_.onThreadRegistration(); }
 
-        BarriersThreadData& barriers() noexcept { return barriers_; }
-
         bool tryLockRootSet();
         void publish();
         bool published() const;
         void clearMarkFlags();
 
-        mm::ThreadData& commonThreadData() const;
+        auto& commonThreadData() const noexcept { return threadData_; }
+        auto& barriers() noexcept { return barriers_; }
+        auto& mark() noexcept { return mark_; }
 
     private:
         friend ConcurrentMarkAndSweep;
         ConcurrentMarkAndSweep& gc_;
         mm::ThreadData& threadData_;
-        BarriersThreadData barriers_;
+        barriers::BarriersThreadData barriers_;
+        mark::ConcurrentMark::ThreadData mark_;
 
         std::atomic<bool> rootSetLocked_ = false;
         std::atomic<bool> published_ = false;
@@ -70,22 +72,23 @@ public:
     void StopFinalizerThreadIfRunning() noexcept;
     bool FinalizersThreadIsRunning() noexcept;
 
-    void reconfigure(std::size_t maxParallelism, bool mutatorsCooperate, size_t auxGCThreads) noexcept;
-
     GCStateHolder& state() noexcept { return state_; }
+    alloc::MainThreadFinalizerProcessor<alloc::FinalizerQueueSingle, alloc::FinalizerQueueTraits>& mainThreadFinalizerProcessor() noexcept {
+        return mainThreadFinalizerProcessor_;
+    }
 
 private:
     void mainGCThreadBody();
-    void auxiliaryGCThreadBody();
     void PerformFullGC(int64_t epoch) noexcept;
 
     alloc::Allocator& allocator_;
     gcScheduler::GCScheduler& gcScheduler_;
 
     GCStateHolder state_;
-    FinalizerProcessor<alloc::FinalizerQueue, alloc::FinalizerQueueTraits> finalizerProcessor_;
+    FinalizerProcessor<alloc::FinalizerQueueSingle, alloc::FinalizerQueueTraits> finalizerProcessor_;
+    alloc::MainThreadFinalizerProcessor<alloc::FinalizerQueueSingle, alloc::FinalizerQueueTraits> mainThreadFinalizerProcessor_;
 
-    mark::ParallelMark markDispatcher_;
+    mark::ConcurrentMark markDispatcher_;
     ScopedThread mainThread_;
     std::vector<ScopedThread> auxThreads_;
 };

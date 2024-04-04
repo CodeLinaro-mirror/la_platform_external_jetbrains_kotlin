@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -73,6 +73,12 @@ public class CodeFragmentCapturingTestGenerated extends AbstractCodeFragmentCapt
     }
 
     @Test
+    @TestMetadata("extensionReceiverSmartCasted.kt")
+    public void testExtensionReceiverSmartCasted() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/extensionReceiverSmartCasted.kt");
+    }
+
+    @Test
     @TestMetadata("initializer.kt")
     public void testInitializer() throws Exception {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/initializer.kt");
@@ -82,6 +88,12 @@ public class CodeFragmentCapturingTestGenerated extends AbstractCodeFragmentCapt
     @TestMetadata("local.kt")
     public void testLocal() throws Exception {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/local.kt");
+    }
+
+    @Test
+    @TestMetadata("localDelegatedProperty.kt")
+    public void testLocalDelegatedProperty() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localDelegatedProperty.kt");
     }
 
     @Test
@@ -136,6 +148,12 @@ public class CodeFragmentCapturingTestGenerated extends AbstractCodeFragmentCapt
     @TestMetadata("localMutated.kt")
     public void testLocalMutated() throws Exception {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localMutated.kt");
+    }
+
+    @Test
+    @TestMetadata("localVariable.kt")
+    public void testLocalVariable() throws Exception {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localVariable.kt");
     }
 
     @Test

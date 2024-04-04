@@ -64,7 +64,7 @@ fun collectSymbolsForType(type: ConeKotlinType, useSiteSession: FirSession): Lis
 }
 
 fun lookupSuperTypes(
-    symbols: List<FirClassifierSymbol<*>>,
+    symbols: List<FirClassSymbol<*>>,
     lookupInterfaces: Boolean,
     deep: Boolean,
     useSiteSession: FirSession,
@@ -161,7 +161,7 @@ fun FirClass.isThereLoopInSupertypes(session: FirSession): Boolean {
 }
 
 fun lookupSuperTypes(
-    symbol: FirClassifierSymbol<*>,
+    symbol: FirClassLikeSymbol<*>,
     lookupInterfaces: Boolean,
     deep: Boolean,
     useSiteSession: FirSession
@@ -175,7 +175,7 @@ inline fun <reified ID : Any, reified FS : FirScope> scopeSessionKey(): ScopeSes
     return object : ScopeSessionKey<ID, FS>() {}
 }
 
-val USE_SITE = scopeSessionKey<FirClassSymbol<*>, FirTypeScope>()
+val USE_SITE = scopeSessionKey<Pair<FirSession, FirClassSymbol<*>>, FirTypeScope>()
 
 /* TODO REMOVE */
 fun createSubstitutionForScope(
@@ -231,7 +231,7 @@ private fun ConeClassLikeType.computePartialExpansion(
     supertypeSupplier: SupertypeSupplier
 ): ConeClassLikeType = fullyExpandedType(useSiteSession) { supertypeSupplier.expansionForTypeAlias(it, useSiteSession) }
 
-private fun FirClassifierSymbol<*>.collectSuperTypes(
+private fun FirClassLikeSymbol<*>.collectSuperTypes(
     list: MutableList<ConeClassLikeType>,
     visitedSymbols: MutableSet<FirClassifierSymbol<*>>,
     deep: Boolean,
@@ -287,7 +287,6 @@ private fun FirClassifierSymbol<*>.collectSuperTypes(
             expansion.lookupTag.toSymbol(useSiteSession)
                 ?.collectSuperTypes(list, visitedSymbols, deep, lookupInterfaces, substituteSuperTypes, useSiteSession, supertypeSupplier)
         }
-        else -> error("?!id:1")
     }
 }
 
@@ -309,4 +308,24 @@ fun createSubstitutionForSupertype(superType: ConeLookupTagBasedType, session: F
     }
     val mapping = klass.typeParameters.map { it.symbol }.zip(arguments).toMap()
     return ConeSubstitutorByMap(mapping, session)
+}
+
+fun FirRegularClassSymbol.getSuperClassSymbolOrAny(session: FirSession): FirRegularClassSymbol {
+    for (superType in resolvedSuperTypes) {
+        val symbol = superType.fullyExpandedType(session).toRegularClassSymbol(session) ?: continue
+        if (symbol.classKind == ClassKind.CLASS) return symbol
+    }
+    return session.builtinTypes.anyType.type.toRegularClassSymbol(session) ?: error("Symbol for Any not found")
+}
+
+fun FirClassLikeSymbol<*>.getSuperTypes(
+    useSiteSession: FirSession,
+    recursive: Boolean = true,
+    lookupInterfaces: Boolean = true,
+    substituteSuperTypes: Boolean = true,
+    supertypeSupplier: SupertypeSupplier = SupertypeSupplier.Default,
+): List<ConeClassLikeType> {
+    return SmartList<ConeClassLikeType>().also {
+        collectSuperTypes(it, SmartSet.create(), recursive, lookupInterfaces, substituteSuperTypes, useSiteSession, supertypeSupplier)
+    }
 }

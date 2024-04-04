@@ -6,18 +6,22 @@
 package org.jetbrains.kotlin.generators.tests
 
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.wasm.test.*
 import org.jetbrains.kotlin.wasm.test.diagnostics.AbstractDiagnosticsWasmTest
+import org.jetbrains.kotlin.wasm.test.diagnostics.AbstractDiagnosticsFirWasmTest
+import org.jetbrains.kotlin.wasm.test.diagnostics.AbstractDiagnosticsFirWasmWasiTest
+import org.jetbrains.kotlin.wasm.test.diagnostics.AbstractDiagnosticsWasmWasiTest
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
 
     // Common configuration shared between K1 and K2 tests:
-    val jvmOnlyBoxTests = listOf(
-        "compileKotlinAgainstKotlin",
-    )
+    val jvmOnlyBoxTests = listOf("compileKotlinAgainstKotlin")
+    val k2BoxTestDir = "multiplatform/k2"
+
     val jsTranslatorTestPattern = "^([^_](.+))\\.kt$"
-    val jsTranslatorReflectionPattern = "^(findAssociatedObject(InSeparatedFile)?)\\.kt$"
+    val jsTranslatorReflectionPattern = "^(findAssociatedObject(InSeparatedFile)?(Lazyness)?)\\.kt$"
     val jsTranslatorEsModulesExcludedDirs = listOf(
         // JsExport is not supported for classes
         "jsExport", "native", "export",
@@ -28,7 +32,19 @@ fun main(args: Array<String>) {
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup("wasm/wasm.tests/tests-gen", "compiler/testData") {
             testClass<AbstractDiagnosticsWasmTest> {
-                model("diagnostics/wasmTests")
+                model("diagnostics/wasmTests", excludedPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX)
+            }
+
+            testClass<AbstractDiagnosticsFirWasmTest> {
+                model("diagnostics/wasmTests", excludedPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX)
+            }
+
+            testClass<AbstractDiagnosticsWasmWasiTest> {
+                model("diagnostics/wasmWasiTests", excludedPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX)
+            }
+
+            testClass<AbstractDiagnosticsFirWasmWasiTest> {
+                model("diagnostics/wasmWasiTests", excludedPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX)
             }
         }
 
@@ -44,19 +60,23 @@ fun main(args: Array<String>) {
         }
 
         testGroup("wasm/wasm.tests/tests-gen", "compiler/testData", testRunnerMethodName = "runTest0") {
-            testClass<AbstractFirWasmCodegenBoxTest> {
+            testClass<AbstractFirWasmJsCodegenBoxTest> {
                 model("codegen/box", pattern = jsTranslatorTestPattern, excludeDirs = jvmOnlyBoxTests)
             }
 
-            testClass<AbstractFirWasmCodegenBoxInlineTest> {
+            testClass<AbstractFirWasmJsCodegenBoxInlineTest> {
                 model("codegen/boxInline")
             }
 
-            testClass<AbstractFirWasmCodegenWasmJsInteropTest> {
+            testClass<AbstractFirWasmJsCodegenInteropTest> {
                 model("codegen/boxWasmJsInterop")
             }
 
-            testClass<AbstractFirWasmSteppingTest> {
+            testClass<AbstractFirWasmWasiCodegenBoxTest> {
+                model("codegen/boxWasmWasi")
+            }
+
+            testClass<AbstractFirWasmJsSteppingTest> {
                 model("debug/stepping")
             }
         }
@@ -74,7 +94,7 @@ fun main(args: Array<String>) {
 
         testGroup("wasm/wasm.tests/tests-gen", "compiler/testData", testRunnerMethodName = "runTest0") {
             testClass<AbstractK1WasmCodegenBoxTest> {
-                model("codegen/box", pattern = jsTranslatorTestPattern, excludeDirs = jvmOnlyBoxTests)
+                model("codegen/box", pattern = jsTranslatorTestPattern, excludeDirs = jvmOnlyBoxTests + k2BoxTestDir)
             }
 
             testClass<AbstractK1WasmCodegenBoxInlineTest> {

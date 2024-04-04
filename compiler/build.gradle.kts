@@ -12,13 +12,12 @@ dependencies {
     testImplementation(intellijCore()) // Should come before compiler, because of "progarded" stuff needed for tests
 
     testApi(project(":kotlin-script-runtime"))
-    testApi(project(":kotlin-test:kotlin-test-jvm"))
-    
+
     testApi(kotlinStdlib())
 
+    testApi(kotlinTest())
+    testCompileOnly(kotlinTest("junit"))
     testImplementation(libs.junit4)
-    testCompileOnly(project(":kotlin-test:kotlin-test-jvm"))
-    testCompileOnly(project(":kotlin-test:kotlin-test-junit"))
     testApi(projectTests(":compiler:tests-common"))
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:fir:raw-fir:psi2fir"))
@@ -55,7 +54,7 @@ projectTest(
     defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_1_8, JdkMajorVersion.JDK_11_0, JdkMajorVersion.JDK_17_0)
 ) {
     dependsOn(":dist")
-    useJsIrBoxTests(version = version, buildDir = "$buildDir/")
+    useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
 
     workingDir = rootDir
     systemProperty("kotlin.test.script.classpath", testSourceSet.output.classesDirs.joinToString(File.pathSeparator))

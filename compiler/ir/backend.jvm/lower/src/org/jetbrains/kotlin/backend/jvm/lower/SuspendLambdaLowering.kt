@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
-import org.jetbrains.kotlin.backend.common.lower.parents
+import org.jetbrains.kotlin.ir.util.parents
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
@@ -94,7 +94,11 @@ internal abstract class SuspendLoweringUtils(protected val context: JvmBackendCo
         val message = "This is a stub representing a copy of a suspend method without the state machine " +
                 "(used by the inliner). Since the difference is at the bytecode level, the body is " +
                 "still on the original function. Use suspendForInlineToOriginal() to retrieve it."
-        body = IrExpressionBodyImpl(startOffset, endOffset, IrErrorExpressionImpl(startOffset, endOffset, returnType, message))
+        body = context.irFactory.createExpressionBody(
+            startOffset,
+            endOffset,
+            IrErrorExpressionImpl(startOffset, endOffset, returnType, message),
+        )
     }
 
     protected fun IrFunction.addCompletionValueParameter(): IrValueParameter =

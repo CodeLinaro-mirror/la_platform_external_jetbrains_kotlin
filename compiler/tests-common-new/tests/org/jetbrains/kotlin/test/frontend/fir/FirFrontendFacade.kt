@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.cli.jvm.compiler.PsiBasedProjectFileSearchScope
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.unregisterFinders
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.cli.jvm.config.jvmModularRoots
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -29,6 +30,7 @@ import org.jetbrains.kotlin.fir.session.*
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.WasmTarget
+import org.jetbrains.kotlin.js.config.wasmTarget
 import org.jetbrains.kotlin.load.kotlin.PackageAndMetadataPartProvider
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
@@ -277,7 +279,7 @@ open class FirFrontendFacade(
 
         val project = compilerConfigurationProvider.getProject(module)
 
-        PsiElementFinder.EP.getPoint(project).unregisterExtension(JavaElementFinder::class.java)
+        PsiElementFinder.EP.getPoint(project).unregisterFinders<JavaElementFinder>()
 
         val parser = module.directives.singleValue(FirDiagnosticsDirectives.FIR_PARSER)
 
@@ -362,7 +364,7 @@ open class FirFrontendFacade(
                     sessionProvider,
                     PsiBasedProjectFileSearchScope(TopDownAnalyzerFacadeForJVM.newModuleSearchScope(project, ktFiles)),
                     projectEnvironment!!,
-                    incrementalCompilationContext = null,
+                    createIncrementalCompilationSymbolProviders = { null },
                     extensionRegistrars,
                     languageVersionSettings,
                     predefinedJavaComponents = predefinedJavaComponents,
@@ -398,6 +400,7 @@ open class FirFrontendFacade(
                     sessionProvider,
                     extensionRegistrars,
                     languageVersionSettings,
+                    testServices.compilerConfigurationProvider.getCompilerConfiguration(module).wasmTarget,
                     null,
                     registerExtraComponents = ::registerExtraComponents,
                     sessionConfigurator,

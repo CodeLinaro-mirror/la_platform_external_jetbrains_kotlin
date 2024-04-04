@@ -5,7 +5,11 @@ import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import java.util.zip.ZipFile
 import kotlin.io.path.*
 
@@ -209,6 +213,9 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
             TestVersions.Gradle.G_7_5,
             TestVersions.Gradle.G_7_6,
             TestVersions.Gradle.G_8_0,
+            TestVersions.Gradle.G_8_1,
+            TestVersions.Gradle.G_8_2,
+            TestVersions.Gradle.G_8_3
         ],
     )
     @GradleTest
@@ -216,7 +223,10 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
         project("kotlinProject", gradleVersion) {
             build("help") {
                 val expectedVariant = when (gradleVersion) {
-                    in GradleVersion.version(TestVersions.Gradle.G_8_1)..GradleVersion.version(TestVersions.Gradle.G_8_2) -> "gradle81"
+                    GradleVersion.version(TestVersions.Gradle.G_8_4) -> "gradle82"
+                    GradleVersion.version(TestVersions.Gradle.G_8_3) -> "gradle82"
+                    GradleVersion.version(TestVersions.Gradle.G_8_2) -> "gradle82"
+                    GradleVersion.version(TestVersions.Gradle.G_8_1) -> "gradle81"
                     GradleVersion.version(TestVersions.Gradle.G_8_0) -> "gradle80"
                     GradleVersion.version(TestVersions.Gradle.G_7_6) -> "gradle76"
                     GradleVersion.version(TestVersions.Gradle.G_7_5) -> "gradle75"
@@ -286,6 +296,57 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
                                 jar.entries().asSequence().map { it.name }.joinToString()
                     }
                 }
+            }
+        }
+    }
+
+    @Disabled("KT-58223: Currently is not used and we should start using it after working on followup issues")
+    @DisplayName("Possible to override kotlin.user.home location")
+    @GradleTest
+    fun overrideKotlinUserHome(
+        gradleVersion: GradleVersion,
+        @TempDir tempDir: Path,
+    ) {
+        project(
+            projectName = "simpleProject",
+            gradleVersion = gradleVersion,
+            buildOptions = defaultBuildOptions.copy(kotlinUserHome = null)
+        ) {
+            gradleProperties.appendText(
+                """
+                |
+                |kotlin.user.home=${tempDir.resolve("kotlin-cache").absolutePathString().normalizePath()}
+                """.trimMargin()
+            )
+
+            build("compileKotlin") {
+                assertTasksExecuted(":compileKotlin")
+
+                val baseProjectsDir = tempDir.resolve("kotlin-cache")
+                assertDirectoryExists(baseProjectsDir)
+            }
+        }
+    }
+
+    @DisplayName("KT-63499: source sets conventions are not registered since Gradle 8.2")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_2)
+    @GradleTest
+    fun sourceSetsConventionsAreNotRegistered(gradleVersion: GradleVersion) {
+        project("simpleProject", gradleVersion) {
+            // project's buildscript has to be in Groovy
+            buildGradle.append(
+                //language=Gradle
+                """
+                sourceSets {
+                    main {
+                        customSourceFilesExtensions // try using a property of KotlinSourceSet through the source set convention
+                    }
+                }
+                """.trimIndent()
+            )
+            KotlinSourceSet::customSourceFilesExtensions // ensure the accessed property is available on KotlinSourceSet
+            buildAndFail("help") {
+                assertOutputContains("Could not get unknown property 'customSourceFilesExtensions' for source set 'main' ")
             }
         }
     }

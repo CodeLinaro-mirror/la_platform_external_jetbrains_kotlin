@@ -8,29 +8,36 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.junit.jupiter.api.DisplayName
-import java.io.File
 
 @DisplayName("Kotlin JS compile execution strategy")
 class ExecutionStrategyJsIT : ExecutionStrategyIT() {
     override fun setupProject(project: TestProject) {
         super.setupProject(project)
 
-        project.subProject("app").buildGradle.modify {
+        // transform the project into a multiplatform project with JS target
+        val appSubProject = project.subProject("app")
+        appSubProject.buildGradle.modify {
             it.replace(
                 "id \"org.jetbrains.kotlin.jvm\"",
-                "id \"org.jetbrains.kotlin.js\""
+                "id \"org.jetbrains.kotlin.multiplatform\""
             ) +
                     """
                     |
                     |kotlin {
                     |    js {
+                    |        nodejs()
+                    |    }
                     |    
+                    |    sourceSets {
+                    |        jsMain {
+                    |           kotlin.srcDir("src/main")
+                    |        }
                     |    }
                     |}
                     |
                     |afterEvaluate {
                     |    tasks.named('compileKotlinJs') {
-                    |        kotlinOptions.outputFile = "${'$'}{project.projectDir}/web/js/"
+                    |        destinationDirectory = new File(project.projectDir, "web/js/")
                     |    }
                     |}
                     |
@@ -69,10 +76,6 @@ class ExecutionStrategyJvmIT : ExecutionStrategyIT() {
 }
 
 abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
-    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copy(
-        logLevel = LogLevel.DEBUG
-    )
-
     @DisplayName("Compilation via Kotlin daemon")
     @GradleTest
     fun testDaemon(gradleVersion: GradleVersion) {
@@ -101,6 +104,7 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
             projectName = "kotlinBuiltins",
             gradleVersion = gradleVersion,
             addHeapDumpOptions = false,
+            enableKotlinDaemonMemoryLimitInMb = null,
             buildOptions = defaultBuildOptions.copy(
                 useDaemonFallbackStrategy = false,
                 compilerExecutionStrategy = KotlinCompilerExecutionStrategy.DAEMON,
@@ -112,7 +116,9 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
                 "build",
                 "-Pkotlin.daemon.jvmargs=-Xmxqwerty",
             ) {
-                assertOutputContains("Failed to compile with Kotlin daemon. Fallback strategy (compiling without Kotlin daemon) is turned off.")
+                assertOutputContains("Invalid maximum heap size: -Xmxqwerty")
+                assertOutputContains("Failed to compile with Kotlin daemon.")
+                assertOutputContains("Fallback strategy (compiling without Kotlin daemon) is turned off.")
             }
         }
     }
@@ -123,6 +129,7 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
         project(
             projectName = "kotlinBuiltins",
             gradleVersion = gradleVersion,
+            enableKotlinDaemonMemoryLimitInMb = null,
             addHeapDumpOptions = false
         ) {
             setupProject(this)
@@ -144,7 +151,9 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
                 "build",
                 "-Pkotlin.daemon.jvmargs=-Xmxqwerty",
             ) {
-                assertOutputContains("Failed to compile with Kotlin daemon. Fallback strategy (compiling without Kotlin daemon) is turned off.")
+                assertOutputContains("Invalid maximum heap size: -Xmxqwerty")
+                assertOutputContains("Failed to compile with Kotlin daemon.")
+                assertOutputContains("Fallback strategy (compiling without Kotlin daemon) is turned off.")
             }
         }
     }
@@ -203,13 +212,20 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
             projectName = "kotlinBuiltins",
             gradleVersion = gradleVersion,
             addHeapDumpOptions = addHeapDumpOptions,
+            enableKotlinDaemonMemoryLimitInMb = if (shouldConfigureStrategyViaGradleProperty) null else 1024,
+            enableGradleDaemonMemoryLimitInMb = null, // We need to make an assertion based on default Gradle Daemon JDK configuration
             buildOptions = defaultBuildOptions.copy(
                 useDaemonFallbackStrategy = testFallbackStrategy,
                 compilerExecutionStrategy = if (shouldConfigureStrategyViaGradleProperty) {
                     executionStrategy
                 } else {
                     null
-                }
+                },
+                logLevel = if (!testFallbackStrategy && executionStrategy == KotlinCompilerExecutionStrategy.DAEMON) {
+                    LogLevel.DEBUG // used daemon JVM options are reported only to the DEBUG logs
+                } else {
+                    defaultBuildOptions.logLevel
+                },
             )
         ) {
             setupProject(this)
@@ -229,12 +245,14 @@ abstract class ExecutionStrategyIT : KGPDaemonsBaseTest() {
                 assertNoBuildWarnings()
 
                 if (testFallbackStrategy) {
+                    assertOutputContains("Invalid maximum heap size: -Xmxqwerty")
                     assertOutputContains("Using fallback strategy: Compile without Kotlin daemon")
                 } else if (executionStrategy == KotlinCompilerExecutionStrategy.DAEMON) {
                     // 256m is the default value for Gradle 5.0+
-                    val defauldJvmSettingsForGivenGradleVersion = if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) "256" else "384"
+                    val defaultJvmSettingsForGivenGradleVersion =
+                        if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) "256" else "384"
                     assertKotlinDaemonJvmOptions(
-                        listOf("-XX:MaxMetaspaceSize=${defauldJvmSettingsForGivenGradleVersion}m", "-ea")
+                        listOf("-XX:MaxMetaspaceSize=${defaultJvmSettingsForGivenGradleVersion}m", "-ea")
                     )
                 }
             }

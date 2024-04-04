@@ -5,11 +5,18 @@
 
 package org.jetbrains.kotlin.gradle.dsl
 
+/**
+ * Compiler options for Kotlin/JVM.
+ */
 interface KotlinJvmOptions : org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions {
+    /**
+     * @suppress
+     */
     override val options: org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 
     /**
-     * Generate metadata for Java 1.8 reflection on method parameters
+     * Generate metadata for Java 1.8 reflection on method parameters.
+     *
      * Default value: false
      */
     var javaParameters: kotlin.Boolean
@@ -21,8 +28,10 @@ interface KotlinJvmOptions : org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
     private val org.jetbrains.kotlin.gradle.dsl.JvmTarget.jvmTargetKotlinOption get() = this.target
 
     /**
-     * Target version of the generated JVM bytecode (1.8, 9, 10, ..., 21), default is 1.8
+     * The target version of the generated JVM bytecode (1.8, 9, 10, ..., 21), with 1.8 as the default.
+     *
      * Possible values: "1.8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21"
+     *
      * Default value: JvmTarget.DEFAULT
      */
     var jvmTarget: kotlin.String
@@ -30,7 +39,8 @@ interface KotlinJvmOptions : org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
         set(value) = options.jvmTarget.set(value.jvmTargetCompilerOption)
 
     /**
-     * Name of the generated .kotlin_module file
+     * Name of the generated '.kotlin_module' file.
+     *
      * Default value: null
      */
     var moduleName: kotlin.String?
@@ -38,7 +48,8 @@ interface KotlinJvmOptions : org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
         set(value) = options.moduleName.set(value)
 
     /**
-     * Don't automatically include the Java runtime into the classpath
+     * Don't automatically include the Java runtime in the classpath.
+     *
      * Default value: false
      */
     var noJdk: kotlin.Boolean

@@ -1,10 +1,9 @@
-// !LANGUAGE: +MultiPlatformProjects
+// LANGUAGE: +MultiPlatformProjects
 // TARGET_BACKEND: JS_IR
 // TARGET_BACKEND: NATIVE
 // TARGET_BACKEND: WASM
 // TARGET_BACKEND: JVM_IR
 
-// IGNORE_BACKEND_K1: ANY
 
 // IllegalArgumentException: arg wrongly != this@Test5: arg=null, this@Test5=[object Object]
 // IGNORE_BACKEND_K2: JS_IR, JS_IR_ES6

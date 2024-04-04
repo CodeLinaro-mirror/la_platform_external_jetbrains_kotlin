@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,6 +22,18 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
     @Test
     public void testAllFilesPresentInGetOrBuildFirBinary() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/getOrBuildFirBinary"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("dataClass.kt")
+    public void testDataClass() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/dataClass.kt");
+    }
+
+    @Test
+    @TestMetadata("delegate.kt")
+    public void testDelegate() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/delegate.kt");
     }
 
     @Test
@@ -82,6 +94,82 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
     @TestMetadata("typeParameter.kt")
     public void testTypeParameter() throws Exception {
         runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/typeParameter.kt");
+    }
+
+    @Nested
+    @TestMetadata("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Js {
+        @Test
+        public void testAllFilesPresentInJs() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("classAnnotation.kt")
+        public void testClassAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/classAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("constructorAnnotation.kt")
+        public void testConstructorAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/constructorAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("dynamic.kt")
+        public void testDynamic() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/dynamic.kt");
+        }
+
+        @Test
+        @TestMetadata("enumAnnotation.kt")
+        public void testEnumAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/enumAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("fileJsModule.kt")
+        public void testFileJsModule() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/fileJsModule.kt");
+        }
+
+        @Test
+        @TestMetadata("functionAnnotation.kt")
+        public void testFunctionAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/functionAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("jQueryExample.kt")
+        public void testJQueryExample() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/jQueryExample.kt");
+        }
+
+        @Test
+        @TestMetadata("parameterAnnotation.kt")
+        public void testParameterAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/parameterAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyAnnotation.kt")
+        public void testPropertyAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/propertyAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("typeAnnotation.kt")
+        public void testTypeAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/typeAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParameterAnnotation.kt")
+        public void testTypeParameterAnnotation() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/js/typeParameterAnnotation.kt");
+        }
     }
 
     @Nested

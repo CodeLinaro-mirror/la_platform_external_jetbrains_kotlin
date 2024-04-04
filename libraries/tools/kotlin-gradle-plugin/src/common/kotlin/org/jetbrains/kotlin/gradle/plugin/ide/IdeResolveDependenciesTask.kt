@@ -13,12 +13,17 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.work.DisableCachingByDefault
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinDependencyCoordinates
+import org.jetbrains.kotlin.gradle.plugin.KotlinProjectSetupAction
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
 import org.jetbrains.kotlin.gradle.utils.appendLine
 import org.jetbrains.kotlin.gradle.utils.notCompatibleWithConfigurationCacheCompat
 import org.jetbrains.kotlin.tooling.core.Extras
 import java.io.File
 import java.lang.reflect.Type
+
+internal val IdeResolveDependenciesTaskSetupAction = KotlinProjectSetupAction {
+    locateOrRegisterIdeResolveDependenciesTask()
+}
 
 internal fun Project.locateOrRegisterIdeResolveDependenciesTask(): TaskProvider<IdeResolveDependenciesTask> {
     return locateOrRegisterTask("resolveIdeDependencies") { task ->
@@ -38,7 +43,7 @@ internal open class IdeResolveDependenciesTask : DefaultTask() {
 
     @TaskAction
     fun resolveDependencies() {
-        val outputDirectory = project.buildDir.resolve("ide/dependencies")
+        val outputDirectory = project.layout.buildDirectory.dir("ide/dependencies").get().asFile
         outputDirectory.deleteRecursively()
         val gson = GsonBuilder().setLenient().setPrettyPrinting()
             .registerTypeHierarchyAdapter(IdeDependencyResolver::class.java, IdeDependencyResolverAdapter)

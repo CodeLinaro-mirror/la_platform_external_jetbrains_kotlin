@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.analysis.extensions.FirAdditionalCheckersExtensi
 import org.jetbrains.kotlin.fir.backend.Fir2IrScriptConfiguratorExtension
 import org.jetbrains.kotlin.fir.builder.FirScriptConfiguratorExtension
 import org.jetbrains.kotlin.fir.resolve.FirSamConversionTransformerExtension
+import org.jetbrains.kotlin.fir.serialization.FirMetadataSerializerPlugin
 import kotlin.reflect.KClass
 
 abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
@@ -34,7 +35,8 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             FirScriptConfiguratorExtension::class,
             Fir2IrScriptConfiguratorExtension::class,
             FirFunctionTypeKindExtension::class,
-            FirDeclarationsForMetadataProviderExtension::class,
+            @OptIn(FirExtensionApiInternals::class)
+            FirMetadataSerializerPlugin::class,
         )
 
         internal val ALLOWED_EXTENSIONS_FOR_LIBRARY_SESSION = listOf(
@@ -108,9 +110,10 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             registerExtension(FirFunctionTypeKindExtension::class, this)
         }
 
-        @JvmName("plusDeclarationForMetadataProviderExtension")
-        operator fun (FirDeclarationsForMetadataProviderExtension.Factory).unaryPlus() {
-            registerExtension(FirDeclarationsForMetadataProviderExtension::class, this)
+        @FirExtensionApiInternals
+        @JvmName("plusMetadataSerializerPlugin")
+        operator fun (FirMetadataSerializerPlugin.Factory).unaryPlus() {
+            registerExtension(FirMetadataSerializerPlugin::class, this)
         }
 
         // ------------------ reference methods ------------------
@@ -175,9 +178,10 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             FirFunctionTypeKindExtension.Factory { this.invoke(it) }.unaryPlus()
         }
 
-        @JvmName("plusDeclarationForMetadataProviderExtension")
-        operator fun ((FirSession) -> FirDeclarationsForMetadataProviderExtension).unaryPlus() {
-            FirDeclarationsForMetadataProviderExtension.Factory { this.invoke(it) }.unaryPlus()
+        @FirExtensionApiInternals
+        @JvmName("plusMetadataSerializerPlugin")
+        operator fun ((FirSession) -> FirMetadataSerializerPlugin).unaryPlus() {
+            FirMetadataSerializerPlugin.Factory { this.invoke(it) }.unaryPlus()
         }
 
         // ------------------ utilities ------------------

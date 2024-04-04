@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationArgumentMapping
-import org.jetbrains.kotlin.fir.expressions.builder.buildConstExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
 import org.jetbrains.kotlin.fir.symbols.*
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
@@ -63,6 +63,7 @@ internal class StubBasedFirTypeDeserializer(
                 val symbol = FirTypeParameterSymbol().also {
                     typeParametersByName[name.asString()] = it
                 }
+
                 builders += FirTypeParameterBuilder().apply {
                     source = KtRealPsiSourceElement(typeParameter)
                     moduleData = this@StubBasedFirTypeDeserializer.moduleData
@@ -70,7 +71,11 @@ internal class StubBasedFirTypeDeserializer(
                     origin = initialOrigin
                     this.name = name
                     this.symbol = symbol
-                    this.containingDeclarationSymbol = containingSymbol ?: error("Top-level type parameter ???")
+                    this.containingDeclarationSymbol = containingSymbol ?: errorWithAttachment("Top-level type parameter ???") {
+                        withPsiEntry("owner", owner)
+                        withPsiEntry("parameter", typeParameter)
+                    }
+
                     variance = typeParameter.variance
                     isReified = typeParameter.hasModifier(KtTokens.REIFIED_KEYWORD)
                     annotations += annotationDeserializer.loadAnnotations(typeParameter)
@@ -108,7 +113,7 @@ internal class StubBasedFirTypeDeserializer(
         val annotations = annotationDeserializer.loadAnnotations(typeReference).toMutableList()
         val parent = (typeReference.stub ?: loadStubByElement(typeReference))?.parentStub
         if (parent is KotlinParameterStubImpl) {
-            (parent as? KotlinParameterStubImpl)?.functionTypeParameterName?.let { paramName ->
+            parent.functionTypeParameterName?.let { paramName ->
                 annotations += buildAnnotation {
                     annotationTypeRef = buildResolvedTypeRef {
                         type = StandardNames.FqNames.parameterNameClassId.toLookupTag()
@@ -116,7 +121,7 @@ internal class StubBasedFirTypeDeserializer(
                     }
                     this.argumentMapping = buildAnnotationArgumentMapping {
                         mapping[StandardNames.NAME] =
-                            buildConstExpression(null, ConstantValueKind.String, paramName, setType = true)
+                            buildLiteralExpression(null, ConstantValueKind.String, paramName, setType = true)
                     }
                 }
             }
@@ -175,20 +180,17 @@ internal class StubBasedFirTypeDeserializer(
     }
 
     private fun type(typeReference: KtTypeReference, attributes: ConeAttributes): ConeKotlinType {
+        if (typeReference.typeElement?.unwrapNullability() is KtDynamicType) {
+            return ConeDynamicType.create(moduleData.session)
+        }
+
         val userType = typeReference.typeElement as? KtUserType
         val upperBoundType = (userType?.let { it.stub ?: loadStubByElement(it) } as? KotlinUserTypeStubImpl)?.upperBound
         if (upperBoundType != null) {
             val lowerBound = simpleType(typeReference, attributes)
             val upperBound = type(upperBoundType)
 
-            val isDynamic = lowerBound == moduleData.session.builtinTypes.nothingType.coneType &&
-                    upperBound == moduleData.session.builtinTypes.nullableAnyType.coneType
-
-            return if (isDynamic) {
-                ConeDynamicType.create(moduleData.session)
-            } else {
-                ConeFlexibleType(lowerBound!!, upperBound as ConeSimpleKotlinType)
-            }
+            return ConeFlexibleType(lowerBound!!, upperBound as ConeSimpleKotlinType)
         }
 
         return simpleType(typeReference, attributes) ?: ConeErrorType(ConeSimpleDiagnostic("?!id:0", DiagnosticKind.DeserializationError))
@@ -204,7 +206,7 @@ internal class StubBasedFirTypeDeserializer(
         val constructor = typeSymbol(typeReference) ?: return null
         val isNullable = typeReference.typeElement is KtNullableType
         if (constructor is ConeTypeParameterLookupTag) {
-            return ConeTypeParameterTypeImpl(constructor, isNullable = isNullable).let {
+            return ConeTypeParameterTypeImpl(constructor, isNullable = isNullable, attributes).let {
                 if (typeReference.typeElement?.unwrapNullability() is KtIntersectionType) {
                     ConeDefinitelyNotNullType.create(it, moduleData.session.typeContext, avoidComprehensiveCheck = true) ?: it
                 } else it

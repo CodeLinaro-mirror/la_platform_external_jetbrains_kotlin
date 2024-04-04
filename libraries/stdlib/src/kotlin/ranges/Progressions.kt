@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -59,7 +59,7 @@ public open class CharProgression
 
     override fun toString(): String = if (step > 0) "$first..$last step $step" else "$first downTo $last step ${-step}"
 
-    companion object {
+    public companion object {
         /**
          * Creates CharProgression within the specified bounds of a closed range.
          *
@@ -121,7 +121,7 @@ public open class IntProgression
 
     override fun toString(): String = if (step > 0) "$first..$last step $step" else "$first downTo $last step ${-step}"
 
-    companion object {
+    public companion object {
         /**
          * Creates IntProgression within the specified bounds of a closed range.
          *
@@ -183,7 +183,7 @@ public open class LongProgression
 
     override fun toString(): String = if (step > 0) "$first..$last step $step" else "$first downTo $last step ${-step}"
 
-    companion object {
+    public companion object {
         /**
          * Creates LongProgression within the specified bounds of a closed range.
          *

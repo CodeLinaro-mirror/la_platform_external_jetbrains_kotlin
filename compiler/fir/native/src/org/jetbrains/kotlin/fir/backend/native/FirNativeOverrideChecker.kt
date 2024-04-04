@@ -7,13 +7,18 @@ package org.jetbrains.kotlin.fir.backend.native
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.native.interop.decodeObjCMethodAnnotation
-import org.jetbrains.kotlin.fir.backend.native.interop.isExternalObjCClassProperty
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.impl.FirStandardOverrideChecker
 
+/**
+ * The same code, as in this class also exists in [org.jetbrains.kotlin.ir.objcinterop.ObjCOverridabilityCondition]
+ * and in [org.jetbrains.kotlin.ir.objcinterop.IrObjCOverridabilityCondition].
+ *
+ * When modifying, all three copies should be synchronized.
+ */
 class FirNativeOverrideChecker(private val session: FirSession) : FirOverrideChecker {
     private val standardOverrideChecker = FirStandardOverrideChecker(session)
 
@@ -22,18 +27,8 @@ class FirNativeOverrideChecker(private val session: FirSession) : FirOverrideChe
                     ?: standardOverrideChecker.isOverriddenFunction(overrideCandidate, baseDeclaration)
 
     override fun isOverriddenProperty(overrideCandidate: FirCallableDeclaration, baseDeclaration: FirProperty): Boolean =
-            overrideCandidate.isPlatformOverriddenProperty(baseDeclaration)
-                    ?: standardOverrideChecker.isOverriddenProperty(overrideCandidate, baseDeclaration)
-
-    // FIXME KT-57640: Revise the necessity of platform-specific property overridability handling
-    private fun FirCallableDeclaration.isPlatformOverriddenProperty(baseDeclaration: FirProperty): Boolean? {
-        if (this !is FirProperty || name != baseDeclaration.name) {
-            return null
-        }
-        if (this.isExternalObjCClassProperty(session) && baseDeclaration.isExternalObjCClassProperty(session))
-            return true
-        return null
-    }
+        // KT-57640: There's no necessity to implement platform-dependent overridability check for properties
+        standardOverrideChecker.isOverriddenProperty(overrideCandidate, baseDeclaration)
 
     /**
      * mimics ObjCOverridabilityCondition.isOverridable
@@ -42,8 +37,8 @@ class FirNativeOverrideChecker(private val session: FirSession) : FirOverrideChe
         if (this.name != baseDeclaration.name) {
             return null
         }
-        val superInfo = baseDeclaration.decodeObjCMethodAnnotation(session) ?: return null
-        val subInfo = decodeObjCMethodAnnotation(session)
+        val superInfo = baseDeclaration.symbol.decodeObjCMethodAnnotation(session) ?: return null
+        val subInfo = symbol.decodeObjCMethodAnnotation(session)
         return if (subInfo != null) {
             // Overriding Objective-C method by Objective-C method in interop stubs.
             // Don't even check method signatures, so this check is weaker than the standard one

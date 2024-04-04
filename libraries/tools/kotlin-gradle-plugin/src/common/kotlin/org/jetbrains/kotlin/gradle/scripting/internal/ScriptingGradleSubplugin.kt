@@ -31,20 +31,24 @@ import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
 import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractKotlinNativeCompilation
 import org.jetbrains.kotlin.gradle.scripting.ScriptingExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.utils.maybeCreateDependencyScope
+import org.jetbrains.kotlin.gradle.utils.maybeCreateResolvable
+import org.jetbrains.kotlin.gradle.utils.setAttribute
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 
 private const val SCRIPTING_LOG_PREFIX = "kotlin scripting plugin:"
+
 
 class ScriptingGradleSubplugin : Plugin<Project> {
     companion object {
         const val MISCONFIGURATION_MESSAGE_SUFFIX = "the plugin is probably applied by a mistake"
 
         fun configureForSourceSet(project: Project, sourceSetName: String) {
-            val discoveryConfiguration = project.configurations.maybeCreate(getDiscoveryClasspathConfigurationName(sourceSetName)).apply {
-                isVisible = false
-                isCanBeConsumed = false
-                description = "Script filename extensions discovery classpath configuration"
-            }
+            val discoveryConfiguration = project.configurations
+                .maybeCreateDependencyScope(getDiscoveryClasspathConfigurationName(sourceSetName)) {
+                    isVisible = false
+                    description = "Script filename extensions discovery classpath configuration"
+                }
             project.logger.info("$SCRIPTING_LOG_PREFIX created the scripting discovery configuration: ${discoveryConfiguration.name}")
 
             configureDiscoveryTransformation(project, discoveryConfiguration, getDiscoveryResultsConfigurationName(sourceSetName))
@@ -89,6 +93,10 @@ class ScriptingGradleSubplugin : Plugin<Project> {
     }
 }
 
+internal val ScriptingGradleSubpluginSetupAction = KotlinProjectSetupAction {
+    project.pluginManager.apply(ScriptingGradleSubplugin::class.java)
+}
+
 private const val MAIN_CONFIGURATION_NAME = "kotlinScriptDef"
 private const val RESULTS_CONFIGURATION_SUFFIX = "Extensions"
 
@@ -106,10 +114,8 @@ private fun configureDiscoveryTransformation(
     discoveryConfiguration: Configuration,
     discoveryResultsConfigurationName: String
 ) {
-    project.configurations.maybeCreate(discoveryResultsConfigurationName).apply {
-        isCanBeConsumed = false
-        isCanBeResolved = true
-        attributes.attribute(artifactType, scriptFilesExtensions)
+    project.configurations.maybeCreateResolvable(discoveryResultsConfigurationName).apply {
+        attributes.setAttribute(artifactType, scriptFilesExtensions)
         extendsFrom(discoveryConfiguration)
     }
     val classLoadersCachingService = ClassLoadersCachingBuildService.registerIfAbsent(project)
@@ -157,14 +163,14 @@ private fun DependencyHandler.registerDiscoverScriptExtensionsTransform(
         parameters.compilerClasspath.from(compilerClasspath)
     }
     registerTransform(DiscoverScriptExtensionsTransformAction::class.java) { transformSpec ->
-        transformSpec.from.attribute(artifactType, "jar")
-        transformSpec.to.attribute(artifactType, scriptFilesExtensions)
+        transformSpec.from.setAttribute(artifactType, "jar")
+        transformSpec.to.setAttribute(artifactType, scriptFilesExtensions)
         transformSpec.configureCommonParameters()
     }
 
     registerTransform(DiscoverScriptExtensionsTransformAction::class.java) { transformSpec ->
-        transformSpec.from.attribute(artifactType, "classes")
-        transformSpec.to.attribute(artifactType, scriptFilesExtensions)
+        transformSpec.from.setAttribute(artifactType, "classes")
+        transformSpec.to.setAttribute(artifactType, scriptFilesExtensions)
         transformSpec.configureCommonParameters()
     }
 }

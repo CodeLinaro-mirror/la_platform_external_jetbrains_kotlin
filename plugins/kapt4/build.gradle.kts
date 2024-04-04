@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 description = "Annotation Processor for Kotlin"
 
 plugins {
@@ -13,7 +11,6 @@ dependencies {
     implementation(project(":kotlin-annotation-processing-compiler"))
     compileOnly(project(":kotlin-annotation-processing-base"))
     compileOnly(project(":analysis:analysis-api-standalone"))
-    compileOnly(toolsJarApi())
 
     embedded(project(":kotlin-annotation-processing-compiler")) { isTransitive = false }
 
@@ -59,6 +56,7 @@ testsJar {}
 kaptTestTask("test", JavaLanguageVersion.of(8))
 kaptTestTask("testJdk11", JavaLanguageVersion.of(11))
 kaptTestTask("testJdk17", JavaLanguageVersion.of(17))
+kaptTestTask("testJdk21", JavaLanguageVersion.of(21))
 
 fun Project.kaptTestTask(name: String, javaLanguageVersion: JavaLanguageVersion) {
     val service = extensions.getByType<JavaToolchainService>()
@@ -78,11 +76,6 @@ runtimeJar()
 sourcesJar()
 javadocJar()
 
-
-allprojects {
-    tasks.withType(KotlinCompile::class).all {
-        kotlinOptions {
-            freeCompilerArgs += "-Xcontext-receivers"
-        }
-    }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
 }

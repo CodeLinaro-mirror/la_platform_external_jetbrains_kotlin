@@ -15,25 +15,21 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.cfa.AbstractFirPropertyInitializationChecker
 import org.jetbrains.kotlin.fir.analysis.cfa.util.*
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.isIterator
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.references.resolved
 import org.jetbrains.kotlin.fir.references.toResolvedPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
-import org.jetbrains.kotlin.fir.symbols.SymbolInternals
-import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
-import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.isBasicFunctionType
 import org.jetbrains.kotlin.name.SpecialNames
 
-object UnusedChecker : AbstractFirPropertyInitializationChecker() {
+object UnusedChecker : AbstractFirPropertyInitializationChecker(MppCheckerKind.Common) {
     override fun analyze(data: PropertyInitializationInfoData, reporter: DiagnosticReporter, context: CheckerContext) {
-        val ownData = ValueWritesWithoutReading(context.session, data.properties).getData(data.graph)
+        val ownData = ValueWritesWithoutReading(data.properties).getData(data.graph)
         data.graph.traverse(CfaVisitor(ownData, reporter, context))
     }
 
@@ -69,9 +65,7 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
             val data = dataPerNode.values.mapNotNull { it[variableSymbol] }.reduceOrNull { acc, it -> acc.merge(it) }
             if (data != null) {
                 variableSymbol.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
-                @OptIn(SymbolInternals::class)
-                val variable = variableSymbol.fir
-                val variableSource = variable.source
+                val variableSource = variableSymbol.source
 
                 if (variableSource?.elementType == KtNodeTypes.DESTRUCTURING_DECLARATION) {
                     return
@@ -88,7 +82,7 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
                         }
                     }
                     data.isRedundantInit -> {
-                        val source = variable.initializer?.source
+                        val source = variableSymbol.initializerSource
                         reporter.reportOn(source, FirErrors.VARIABLE_INITIALIZER_IS_REDUNDANT, context)
                     }
                     data == VariableStatus.ONLY_WRITTEN_NEVER_READ -> {
@@ -122,6 +116,7 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
         }
     }
 
+    @Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE") // K2 warning suppression, TODO: KT-62472
     class VariableStatusInfo(
         map: PersistentMap<FirPropertySymbol, VariableStatus> = persistentMapOf()
     ) : ControlFlowInfo<VariableStatusInfo, FirPropertySymbol, VariableStatus>(map) {
@@ -148,7 +143,6 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
     }
 
     private class ValueWritesWithoutReading(
-        private val session: FirSession,
         private val localProperties: Set<FirPropertySymbol>
     ) : PathAwareControlFlowGraphVisitor<VariableStatusInfo>() {
         companion object {
@@ -273,16 +267,16 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
             data: PathAwareVariableStatusInfo
         ): PathAwareVariableStatusInfo {
             val dataForNode = visitNode(node, data)
-            val reference = node.fir.calleeReference.resolved ?: return dataForNode
-            val functionSymbol = reference.resolvedSymbol as? FirFunctionSymbol<*> ?: return dataForNode
-            val symbol = if (functionSymbol.callableId.callableName.identifier == "invoke") {
-                localProperties.find { it.name == reference.name && it.resolvedReturnTypeRef.coneType.isBasicFunctionType(session) }
-            } else null
-            symbol ?: return dataForNode
 
-            val status = VariableStatus.READ
-            status.isRead = true
-            return update(dataForNode, symbol) { status }
+            val functionCall = node.fir
+            if (functionCall is FirImplicitInvokeCall) {
+                val invokeReceiver = functionCall.explicitReceiver as? FirQualifiedAccessExpression
+                if (invokeReceiver != null) {
+                    return visitQualifiedAccesses(dataForNode, invokeReceiver)
+                }
+            }
+
+            return dataForNode
         }
 
         private fun update(
@@ -301,8 +295,7 @@ object UnusedChecker : AbstractFirPropertyInitializationChecker() {
 
     private val FirPropertySymbol.isLoopIterator: Boolean
         get() {
-            @OptIn(SymbolInternals::class)
-            return fir.initializer?.source?.kind == KtFakeSourceElementKind.DesugaredForLoop
+            return initializerSource?.kind == KtFakeSourceElementKind.DesugaredForLoop
         }
 }
 

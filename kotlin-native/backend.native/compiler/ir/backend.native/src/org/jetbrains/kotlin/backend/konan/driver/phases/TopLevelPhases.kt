@@ -93,7 +93,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Contex
             try {
                 backendEngine.useContext(generationState) { generationStateEngine ->
                     val bitcodeFile = tempFiles.create(generationState.llvmModuleName, ".bc").javaFile()
-                    val cExportFiles = if (config.produce.isNativeLibrary) {
+                    val cExportFiles = if (config.produceCInterface) {
                         CExportFiles(
                                 cppAdapter = tempFiles.create("api", ".cpp").javaFile(),
                                 bitcodeAdapter = tempFiles.create("api", ".bc").javaFile(),
@@ -110,7 +110,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Contex
                         depsFilePath.File().writeLines(DependenciesTrackingResult.serialize(dependenciesTrackingResult))
                     }
                     val moduleCompilationOutput = ModuleCompilationOutput(bitcodeFile, dependenciesTrackingResult)
-                    compileAndLink(moduleCompilationOutput, outputFiles.mainFileName, outputFiles, tempFiles, isCoverageEnabled = false)
+                    compileAndLink(moduleCompilationOutput, outputFiles.mainFileName, outputFiles, tempFiles)
                 }
             } finally {
                 tempFiles.dispose()
@@ -163,7 +163,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBitcodeBackend(context: Bitcod
         bitcodeEngine.runBitcodePostProcessing()
         runPhase(WriteBitcodeFilePhase, WriteBitcodeFileInput(context.llvm.module, bitcodeFile))
         val moduleCompilationOutput = ModuleCompilationOutput(bitcodeFile, dependencies)
-        compileAndLink(moduleCompilationOutput, outputFiles.mainFileName, outputFiles, tempFiles, isCoverageEnabled = false)
+        compileAndLink(moduleCompilationOutput, outputFiles.mainFileName, outputFiles, tempFiles)
     }
 }
 
@@ -249,7 +249,7 @@ internal data class ModuleCompilationOutput(
  */
 internal fun PhaseEngine<NativeGenerationState>.compileModule(module: IrModuleFragment, bitcodeFile: java.io.File, cExportFiles: CExportFiles?) {
     runBackendCodegen(module, cExportFiles)
-    val checkExternalCalls = context.config.configuration.getBoolean(KonanConfigKeys.CHECK_EXTERNAL_CALLS)
+    val checkExternalCalls = context.config.checkStateAtExternalCalls
     if (checkExternalCalls) {
         runPhase(CheckExternalCallsPhase)
     }
@@ -269,7 +269,6 @@ internal fun <C : PhaseContext> PhaseEngine<C>.compileAndLink(
         linkerOutputFile: String,
         outputFiles: OutputFiles,
         temporaryFiles: TempFiles,
-        isCoverageEnabled: Boolean,
 ) {
     val compilationResult = temporaryFiles.create(File(outputFiles.nativeBinaryFile).name, ".o").javaFile()
     runPhase(ObjectFilesPhase, ObjectFilesPhaseInput(moduleCompilationOutput.bitcodeFile, compilationResult))
@@ -298,7 +297,6 @@ internal fun <C : PhaseContext> PhaseEngine<C>.compileAndLink(
             moduleCompilationOutput.dependenciesTrackingResult,
             outputFiles,
             cacheBinaries,
-            isCoverageEnabled = isCoverageEnabled
     )
     runPhase(LinkerPhase, linkerPhaseInput)
     if (context.config.produce.isCache) {
@@ -319,7 +317,7 @@ internal fun PhaseEngine<NativeGenerationState>.lowerModuleWithDependencies(modu
 
 internal fun PhaseEngine<NativeGenerationState>.runBackendCodegen(module: IrModuleFragment, cExportFiles: CExportFiles?) {
     runCodegen(module)
-    val generatedBitcodeFiles = if (context.config.produce.isNativeLibrary) {
+    val generatedBitcodeFiles = if (context.config.produceCInterface) {
         require(cExportFiles != null)
         val input = CExportGenerateApiInput(
                 context.context.cAdapterExportedElements!!,

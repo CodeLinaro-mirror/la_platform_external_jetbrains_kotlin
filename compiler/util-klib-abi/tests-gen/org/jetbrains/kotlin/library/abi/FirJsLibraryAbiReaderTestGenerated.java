@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -95,6 +95,12 @@ public class FirJsLibraryAbiReaderTestGenerated extends AbstractFirJsLibraryAbiR
     @TestMetadata("inheritance.kt")
     public void testInheritance() throws Exception {
         runTest("compiler/testData/klib/dump-abi/content/inheritance.kt");
+    }
+
+    @Test
+    @TestMetadata("kt64082-kt64085.kt")
+    public void testKt64082_kt64085() throws Exception {
+        runTest("compiler/testData/klib/dump-abi/content/kt64082-kt64085.kt");
     }
 
     @Test

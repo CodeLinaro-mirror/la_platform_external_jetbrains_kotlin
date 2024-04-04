@@ -8,54 +8,60 @@ public enum Em /* Em*/ {
   @org.jetbrains.annotations.NotNull()
   public static Em[] values();//  values()
 
+  @org.jetbrains.annotations.NotNull()
+  public static kotlin.enums.EnumEntries<Em> getEntries();//  getEntries()
+
   private  Em();//  .ctor()
 }
 
 public final class Foo /* Foo*/ {
   @org.jetbrains.annotations.NotNull()
-  private final Em em;
+  private final Em em = Em.BAR /* initializer type: Em */;
 
   @org.jetbrains.annotations.NotNull()
-  private final Em[] emarr;
+  private final Em[] emarr = {Em.FOO, Em.BAR} /* initializer type: null */;
 
   @org.jetbrains.annotations.NotNull()
-  private final double[] darr;
+  private final double[] darr = {7.3} /* initializer type: null */;
 
   @org.jetbrains.annotations.NotNull()
-  private final int[] iarr;
+  private final int[] iarr = {1, 2, 3} /* initializer type: null */;
 
   @org.jetbrains.annotations.NotNull()
   private final java.lang.Class<?> cl;
 
   @org.jetbrains.annotations.NotNull()
-  private final java.lang.Class<?>[] clarr;
+  private final java.lang.Class<?>[] clarr = {} /* initializer type: null */;
 
   @org.jetbrains.annotations.NotNull()
-  private final java.lang.String s;
+  private final java.lang.String s = "foo" /* initializer type: java.lang.String */;
 
   @org.jetbrains.annotations.NotNull()
-  private final java.lang.String[] sarr;
+  private final java.lang.String[] empty = {} /* initializer type: null */;
 
   @org.jetbrains.annotations.NotNull()
-  private final long[] larr;
+  private final java.lang.String[] sarr = {"a", "bc"} /* initializer type: null */;
 
-  private final boolean z;
+  @org.jetbrains.annotations.NotNull()
+  private final long[] larr = {-1L, 0L, 1L} /* initializer type: null */;
 
-  private final byte b;
+  private final boolean z = true /* initializer type: boolean */;
 
-  private final char c2;
+  private final byte b = 1 /* initializer type: int */;
 
-  private final char c;
+  private final char c = 'c' /* initializer type: char */;
 
-  private final double d;
+  private final char c2 = '\n' /* initializer type: char */;
 
-  private final float f;
+  private final double d = -1.0 /* initializer type: double */;
 
-  private final int i;
+  private final float f = 1.0f /* initializer type: float */;
 
-  private final long l;
+  private final int i = 10 /* initializer type: int */;
 
-  private final short sh;
+  private final long l = -10L /* initializer type: long */;
+
+  private final short sh = 10 /* initializer type: int */;
 
   @org.jetbrains.annotations.NotNull()
   public final Em getEm();//  getEm()
@@ -79,6 +85,9 @@ public final class Foo /* Foo*/ {
   public final java.lang.String getS();//  getS()
 
   @org.jetbrains.annotations.NotNull()
+  public final java.lang.String[] getEmpty();//  getEmpty()
+
+  @org.jetbrains.annotations.NotNull()
   public final java.lang.String[] getSarr();//  getSarr()
 
   @org.jetbrains.annotations.NotNull()
@@ -86,7 +95,7 @@ public final class Foo /* Foo*/ {
 
   public  Foo();//  .ctor()
 
-  public  Foo(boolean, byte, char, char, short, int, long, float, double, @org.jetbrains.annotations.NotNull() java.lang.String, @org.jetbrains.annotations.NotNull() int[], @org.jetbrains.annotations.NotNull() long[], @org.jetbrains.annotations.NotNull() double[], @org.jetbrains.annotations.NotNull() java.lang.String[], @org.jetbrains.annotations.NotNull() java.lang.Class<?>, @org.jetbrains.annotations.NotNull() java.lang.Class<?>[], @org.jetbrains.annotations.NotNull() Em, @org.jetbrains.annotations.NotNull() Em[]);//  .ctor(boolean, byte, char, char, short, int, long, float, double, java.lang.String, int[], long[], double[], java.lang.String[], java.lang.Class<?>, java.lang.Class<?>[], Em, Em[])
+  public  Foo(boolean, byte, char, char, short, int, long, float, double, @org.jetbrains.annotations.NotNull() java.lang.String, @org.jetbrains.annotations.NotNull() int[], @org.jetbrains.annotations.NotNull() long[], @org.jetbrains.annotations.NotNull() double[], @org.jetbrains.annotations.NotNull() java.lang.String[], @org.jetbrains.annotations.NotNull() java.lang.Class<?>, @org.jetbrains.annotations.NotNull() java.lang.Class<?>[], @org.jetbrains.annotations.NotNull() Em, @org.jetbrains.annotations.NotNull() Em[], @org.jetbrains.annotations.NotNull() java.lang.String[]);//  .ctor(boolean, byte, char, char, short, int, long, float, double, java.lang.String, int[], long[], double[], java.lang.String[], java.lang.Class<?>, java.lang.Class<?>[], Em, Em[], java.lang.String[])
 
   public final boolean getZ();//  getZ()
 
@@ -105,6 +114,8 @@ public final class Foo /* Foo*/ {
   public final long getL();//  getL()
 
   public final short getSh();//  getSh()
+
+  public final void bar(@org.jetbrains.annotations.NotNull() int[]);//  bar(int[])
 
   public final void foo(int);//  foo(int)
 }

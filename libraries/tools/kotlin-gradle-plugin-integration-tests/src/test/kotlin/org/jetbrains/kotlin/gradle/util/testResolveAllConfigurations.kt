@@ -72,7 +72,10 @@ fun TestProject.testResolveAllConfigurations(
 
 private fun generateResolveAllConfigurationsTask(excludes: List<String>) =
     """
-        task $RESOLVE_ALL_CONFIGURATIONS_TASK_NAME {
+        tasks.register("$RESOLVE_ALL_CONFIGURATIONS_TASK_NAME") {
+            if ("commonizeNativeDistribution" in rootProject.tasks.names) {
+                dependsOn(":commonizeNativeDistribution")
+            }
             doFirst {
                 def excludeConfigs = ["default", "archives"]
                 ${computeExcludeConfigurations(excludes)}
@@ -81,17 +84,18 @@ private fun generateResolveAllConfigurationsTask(excludes: List<String>) =
                     .matching { it.canBeResolved }
                     .matching { !excludeConfigs.contains(it.name) }
                     .each { configuration ->
-                        try {
-                            println "Resolving " + configuration.path
-                            configuration.files.each { println '>> ' + configuration.path + ' --> ' + it.name }
-                            println "OK, resolved " + configuration.path + "\n"
+                        def configurationPath = (project.path == ":") ? ":" + configuration.name : project.path + ":" + configuration.name
+                        try {                            
+                            println "Resolving " + configurationPath
+                            configuration.files.each { println '>> ' + configurationPath + ' --> ' + it.name }
+                            println "OK, resolved " + configurationPath + "\n"
                         } catch (e) {
                             def ex = e
                             while (ex != null) {
                                 println ex.message
                                 ex = ex.cause
                             }
-                            println '$UNRESOLVED_MARKER' + configuration.name + "\n"
+                            println '$UNRESOLVED_MARKER' + configurationPath + "\n"
                         }
                     }
             }
@@ -100,7 +104,10 @@ private fun generateResolveAllConfigurationsTask(excludes: List<String>) =
 
 private fun generateResolveAllConfigurationsTaskKts(excludes: List<String>) =
     """
-        tasks.create("$RESOLVE_ALL_CONFIGURATIONS_TASK_NAME") {
+        tasks.register("$RESOLVE_ALL_CONFIGURATIONS_TASK_NAME") {
+            if ("commonizeNativeDistribution" in rootProject.tasks.names) {
+                dependsOn(":commonizeNativeDistribution")
+            }
             doFirst {
                 val excludeConfigs = mutableListOf("default", "archives")
                 ${computeExcludeConfigurations(excludes)}
@@ -109,34 +116,35 @@ private fun generateResolveAllConfigurationsTaskKts(excludes: List<String>) =
                     .filter { it.isCanBeResolved }
                     .filterNot { excludeConfigs.contains(it.name) }
                     .forEach { configuration ->
-                        val path = (configuration as org.gradle.api.internal.artifacts.configurations.ConfigurationInternal).path
+                        val configurationPath = 
+                            if (project.path == ":") ":" + configuration.name
+                            else project.path + ":" + configuration.name
                         try {
-                            println("Resolving ${'$'}path")
-                            configuration.files.forEach { println(">> ${'$'}path --> ${'$'}{it.name}") }
-                            println("OK, resolved ${'$'}path\n")
+                            println("Resolving ${'$'}configurationPath")
+                            configuration.files.forEach { println(">> ${'$'}configurationPath --> ${'$'}{it.name}") }
+                            println("OK, resolved ${'$'}configurationPath\n")
                         } catch (e: Throwable) {
                             var ex = e as Throwable?
                             while (ex != null) {
                                 println(ex.message)
                                 ex = ex.cause
                             }
-                            println("$UNRESOLVED_MARKER ${'$'}{configuration.name}\n")
+                            println("$UNRESOLVED_MARKER ${'$'}configurationPath\n")
                         }
                     }
             }
         }
     """.trimIndent()
-
 private fun computeExcludeConfigurations(excludes: List<String>): String {
-    val deprecatedConfigurations = listOf("compile", "runtime", "compileOnly", "runtimeOnly")
+    val excludingConfigurations = listOf("compile", "runtime", "compileOnly", "runtimeOnly", "dependencySources")
     return """
-        sourceSets.forEach { sourceSet ->
-            "${deprecatedConfigurations.joinToString()}".split(", ").toList().forEach {
+        kotlin.sourceSets.forEach { sourceSet ->
+            "${excludingConfigurations.joinToString()}".split(", ").toList().forEach {
                 excludeConfigs.add(sourceSet.name + it.capitalize())
             }
         }
 
-        "${deprecatedConfigurations.joinToString()}".split(", ").toList().forEach {
+        "${excludingConfigurations.joinToString()}".split(", ").toList().forEach {
             excludeConfigs.add(it)
             excludeConfigs.add("test" + it.capitalize())
         }

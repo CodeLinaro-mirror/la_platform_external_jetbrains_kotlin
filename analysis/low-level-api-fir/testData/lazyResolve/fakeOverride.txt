@@ -1,7 +1,7 @@
 RAW_FIR:
 FILE: [ResolvedTo(RAW_FIR)] fakeOverride.kt
     public? final? [ResolvedTo(RAW_FIR)] fun expression([ResolvedTo(RAW_FIR)] expression: IrConst<*>): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -11,7 +11,7 @@ FILE: [ResolvedTo(RAW_FIR)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -21,7 +21,7 @@ FILE: [ResolvedTo(RAW_FIR)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -39,7 +39,7 @@ FILE: [ResolvedTo(RAW_FIR)] fakeOverride.kt
 IMPORTS:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public? final? [ResolvedTo(RAW_FIR)] fun expression([ResolvedTo(RAW_FIR)] expression: IrConst<*>): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -49,7 +49,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -59,7 +59,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -77,7 +77,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 COMPILER_REQUIRED_ANNOTATIONS:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public? final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] fun expression([ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] expression: IrConst<*>): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -87,7 +87,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -97,7 +97,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -115,7 +115,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 COMPANION_GENERATION:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public? final? [ResolvedTo(COMPANION_GENERATION)] fun expression([ResolvedTo(COMPANION_GENERATION)] expression: IrConst<*>): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -125,7 +125,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -135,7 +135,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -153,7 +153,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 SUPER_TYPES:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public? final? [ResolvedTo(SUPER_TYPES)] fun expression([ResolvedTo(SUPER_TYPES)] expression: IrConst<*>): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -163,7 +163,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -173,7 +173,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -191,7 +191,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 TYPES:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public? final? [ResolvedTo(TYPES)] fun expression([ResolvedTo(TYPES)] expression: R|IrConst<*>|): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -201,7 +201,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -211,7 +211,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -229,7 +229,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 STATUS:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public final [ResolvedTo(STATUS)] fun expression([ResolvedTo(STATUS)] expression: R|IrConst<*>|): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -239,7 +239,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -249,7 +249,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -267,7 +267,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 EXPECT_ACTUAL_MATCHING:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
     public final [ResolvedTo(EXPECT_ACTUAL_MATCHING)] fun expression([ResolvedTo(EXPECT_ACTUAL_MATCHING)] expression: R|IrConst<*>|): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -277,7 +277,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -287,45 +287,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
-        public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
-            LAZY_super<R|kotlin/Any|>
-        }
-
-        public? abstract [ResolvedTo(RAW_FIR)] var kind: Kind<T>
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] get(): Kind<T>
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] set([ResolvedTo(RAW_FIR)] value: Kind<T>): R|kotlin/Unit|
-
-        public? abstract [ResolvedTo(RAW_FIR)] var value: T
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] get(): T
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] set([ResolvedTo(RAW_FIR)] value: T): R|kotlin/Unit|
-
-    }
-
-ARGUMENTS_OF_ANNOTATIONS:
-FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
-    public final [ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] fun expression([ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] expression: R|IrConst<*>|): R|kotlin/Unit| { LAZY_BLOCK }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
-        protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
-            LAZY_super<R|kotlin/Any|>
-        }
-
-        public? final? [ResolvedTo(RAW_FIR)] [IsFromPrimaryConstructor=true] val asString: String = R|<local>/asString|
-            public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] get(): String
-
-        @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
-
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
-            private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
-                LAZY_super<Kind<Nothing?>>
-            }
-
-        }
-
-        public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
-
-    }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -352,7 +314,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         }
 
     }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -362,7 +324,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -372,7 +334,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -399,7 +361,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         }
 
     }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -409,7 +371,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -419,7 +381,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -434,9 +396,9 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
     }
 
-ANNOTATIONS_ARGUMENTS_MAPPING:
+ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
-    public final [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] fun expression([ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] expression: R|IrConst<*>|): R|kotlin/Unit| {
+    public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun expression([ResolvedTo(ANNOTATION_ARGUMENTS)] expression: R|IrConst<*>|): R|kotlin/Unit| {
         when ([ResolvedTo(RAW_FIR)] lval kind: <implicit> = expression#.kind#) {
             ($subj$ is Kind.Null) ->  {
                 kind#.valueOf#(expression#)
@@ -446,7 +408,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         }
 
     }
-    public? sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public sealed [ResolvedTo(RAW_FIR)] class Kind<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         protected [ResolvedTo(RAW_FIR)] [ContainingClassKey=Kind] constructor<[ResolvedTo(RAW_FIR)] T>([ResolvedTo(RAW_FIR)] [CorrespondingProperty=/Kind.asString] asString: String): R|Kind<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -456,7 +418,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
 
         @Suppress[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun valueOf([ResolvedTo(RAW_FIR)] aConst: IrConst<*>): <implicit> { LAZY_BLOCK }
 
-        public? final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
+        public final? [ResolvedTo(RAW_FIR)] object Null : Kind<Nothing?> {
             private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Null] constructor(): R|Kind.Null| {
                 LAZY_super<Kind<Nothing?>>
             }
@@ -466,7 +428,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public? open? override [ResolvedTo(RAW_FIR)] fun toString(): <implicit> { LAZY_BLOCK }
 
     }
-    public? abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
+    public abstract [ResolvedTo(RAW_FIR)] class IrConst<[ResolvedTo(RAW_FIR)] T> : R|kotlin/Any| {
         public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=IrConst] constructor<[ResolvedTo(RAW_FIR)] T>(): R|IrConst<T>| {
             LAZY_super<R|kotlin/Any|>
         }
@@ -501,7 +463,7 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
         public final [ResolvedTo(STATUS)] [IsFromPrimaryConstructor=true] val asString: R|kotlin/String| = R|<local>/asString|
             public [ResolvedTo(STATUS)] [ContainingClassKey=Kind] get(): R|kotlin/String|
 
-        @R|kotlin/Suppress|[Types](String(UNCHECKED_CAST)) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun valueOf([ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] aConst: R|IrConst<*>|): R|T| {
+        @R|kotlin/Suppress|[Types](LAZY_EXPRESSION) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun valueOf([ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] aConst: R|IrConst<*>|): R|T| {
             ^valueOf (R|<local>/aConst| as R|IrConst<T>|).R|SubstitutionOverride</IrConst.value: R|T|>|
         }
 
@@ -520,13 +482,13 @@ FILE: [ResolvedTo(IMPORTS)] fakeOverride.kt
             LAZY_super<R|kotlin/Any|>
         }
 
-        public abstract [ResolvedTo(STATUS)] var kind: R|Kind<T>|
-            public [ResolvedTo(STATUS)] [ContainingClassKey=IrConst] get(): R|Kind<T>|
-            public [ResolvedTo(STATUS)] [ContainingClassKey=IrConst] set([ResolvedTo(STATUS)] value: R|Kind<T>|): R|kotlin/Unit|
+        public abstract [ResolvedTo(CONTRACTS)] var kind: R|Kind<T>|
+            public [ResolvedTo(CONTRACTS)] [ContainingClassKey=IrConst] get(): R|Kind<T>|
+            public [ResolvedTo(CONTRACTS)] [ContainingClassKey=IrConst] set([ResolvedTo(CONTRACTS)] value: R|Kind<T>|): R|kotlin/Unit|
 
-        public abstract [ResolvedTo(STATUS)] var value: R|T|
-            public [ResolvedTo(STATUS)] [ContainingClassKey=IrConst] get(): R|T|
-            public [ResolvedTo(STATUS)] [ContainingClassKey=IrConst] set([ResolvedTo(STATUS)] value: R|T|): R|kotlin/Unit|
+        public abstract [ResolvedTo(CONTRACTS)] var value: R|T|
+            public [ResolvedTo(CONTRACTS)] [ContainingClassKey=IrConst] get(): R|T|
+            public [ResolvedTo(CONTRACTS)] [ContainingClassKey=IrConst] set([ResolvedTo(CONTRACTS)] value: R|T|): R|kotlin/Unit|
 
     }
 

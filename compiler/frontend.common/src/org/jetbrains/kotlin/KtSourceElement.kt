@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -14,6 +14,8 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.tree.IElementType
 import com.intellij.util.diff.FlyweightCapableTreeStructure
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.getElementTextWithContext
 
 sealed class KtSourceElementKind {
@@ -146,16 +148,16 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
 
     // x++ -> x = x.inc()
     // x = x++ -> x = { val <unary> = x; x = <unary>.inc(); <unary> }
-    object DesugaredIncrementOrDecrement : KtFakeSourceElementKind()
+    sealed class DesugaredIncrementOrDecrement : KtFakeSourceElementKind()
+    object DesugaredPrefixInc : DesugaredIncrementOrDecrement()
+    object DesugaredPrefixDec : DesugaredIncrementOrDecrement()
+    object DesugaredPostfixInc : DesugaredIncrementOrDecrement()
+    object DesugaredPostfixDec : DesugaredIncrementOrDecrement()
 
     // In ++a[1], a.get(1) will be called twice. This kind is used for the second call reference.
-    object DesugaredPrefixSecondGetReference : KtFakeSourceElementKind()
-
-    // ++x --> `inc` calleeReference
-    object DesugaredPrefixNameReference : KtFakeSourceElementKind()
-
-    // x++ --> `inc` calleeReference
-    object DesugaredPostfixNameReference : KtFakeSourceElementKind()
+    sealed class DesugaredPrefixSecondGetReference : KtFakeSourceElementKind()
+    object DesugaredPrefixIncSecondGetReference : DesugaredPrefixSecondGetReference()
+    object DesugaredPrefixDecSecondGetReference : DesugaredPrefixSecondGetReference()
 
     // x !in list --> !(x in list) where ! and !(x in list) will have a fake source
     object DesugaredInvertedContains : KtFakeSourceElementKind()
@@ -200,6 +202,16 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     // list[0] -> list.get(0) where name reference will have a fake source element
     object ArrayAccessNameReference : KtFakeSourceElementKind()
 
+    // a[b] += c -> a.set(b, a.get(b) + c) or a.get(b).plusAssign(c)
+    // set, get, '+', and plusAssign will have a fake source element
+    sealed class DesugaredArrayAugmentedAssign : KtFakeSourceElementKind()
+    object DesugaredArrayPlusAssign : DesugaredArrayAugmentedAssign()
+    object DesugaredArrayMinusAssign : DesugaredArrayAugmentedAssign()
+    object DesugaredArrayTimesAssign : DesugaredArrayAugmentedAssign()
+    object DesugaredArrayDivAssign : DesugaredArrayAugmentedAssign()
+    object DesugaredArrayRemAssign : DesugaredArrayAugmentedAssign()
+
+
     // a[b]++
     // b -> val <index0> = b where b will have fake property
     object ArrayIndexExpressionReference : KtFakeSourceElementKind()
@@ -219,6 +231,9 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     // { it + 1} --> { it -> it + 1 }
     // where `it` parameter declaration has fake source
     object ItLambdaParameter : KtFakeSourceElementKind()
+
+    // While it doesn't have an explicit source, it still has a type that might be a ConeErrorType
+    object LambdaReceiver : KtFakeSourceElementKind()
 
     // { (a, b) -> foo() } -> { x -> val (a, b) = x; { foo() } }
     // where the inner block { foo() } has fake source
@@ -284,7 +299,16 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object PropertyTypeFromGetterReturnType : KtFakeSourceElementKind()
 
     // Scripts get implicit imports from their configurations
-    object ImplicitImport : KtFakeSourceElementKind()
+    object ImplicitImport : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
+
+    // For provided parameters inside a script
+    object ScriptParameter : KtFakeSourceElementKind()
+
+    // When a lambda is converted to a SAM type, the expression is wrapped in an extra node
+    object SamConversion : KtFakeSourceElementKind()
+
+    // For it.functionFromAny() calls on a stub type
+    object CastToAnyForStubTypes : KtFakeSourceElementKind()
 }
 
 sealed class AbstractKtSourceElement {
@@ -586,5 +610,19 @@ inline fun LighterASTNode.toKtLightSourceElement(
     tree: FlyweightCapableTreeStructure<LighterASTNode>,
     kind: KtSourceElementKind = KtRealSourceElementKind,
     startOffset: Int = this.startOffset,
-    endOffset: Int = this.endOffset
+    endOffset: Int = this.endOffset,
 ): KtLightSourceElement = KtLightSourceElement(this, startOffset, endOffset, tree, kind)
+
+fun sourceKindForIncOrDec(operation: Name, isPrefix: Boolean) = when (operation) {
+    OperatorNameConventions.INC -> if (isPrefix) {
+        KtFakeSourceElementKind.DesugaredPrefixInc
+    } else {
+        KtFakeSourceElementKind.DesugaredPostfixInc
+    }
+    OperatorNameConventions.DEC -> if (isPrefix) {
+        KtFakeSourceElementKind.DesugaredPrefixDec
+    } else {
+        KtFakeSourceElementKind.DesugaredPostfixDec
+    }
+    else -> error("Unexpected operator: ${operation.identifier}")
+}

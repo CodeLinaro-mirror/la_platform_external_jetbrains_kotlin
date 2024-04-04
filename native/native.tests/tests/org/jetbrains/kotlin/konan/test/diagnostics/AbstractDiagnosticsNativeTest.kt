@@ -5,13 +5,16 @@
 
 package org.jetbrains.kotlin.konan.test.diagnostics
 
+import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.FirParser
+import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.classicFrontendHandlersStep
 import org.jetbrains.kotlin.test.builders.firHandlersStep
 import org.jetbrains.kotlin.test.directives.*
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_PLATFORM_LIBS
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
@@ -29,6 +32,8 @@ import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigu
 import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
+import org.junit.jupiter.api.Assumptions
+import java.io.File
 
 abstract class AbstractDiagnosticsNativeTestBase<R : ResultingArtifact.FrontendOutput<R>> : AbstractKotlinCompilerTest() {
     abstract val targetFrontend: FrontendKind<R>
@@ -41,33 +46,49 @@ abstract class AbstractDiagnosticsNativeTestBase<R : ResultingArtifact.FrontendO
             targetPlatform = NativePlatforms.unspecifiedNativePlatform
             dependencyKind = DependencyKind.Source
         }
-
-        defaultDirectives {
-            +JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
-            +ConfigurationDirectives.WITH_STDLIB
-        }
-
-        enableMetaInfoHandler()
-
-        useConfigurators(
-            ::CommonEnvironmentConfigurator,
-            ::NativeEnvironmentConfigurator,
-        )
-
-        useMetaInfoProcessors(::OldNewInferenceMetaInfoProcessor)
-        useAdditionalSourceProviders(
-            ::AdditionalDiagnosticsSourceFilesProvider,
-            ::CoroutineHelpersSourceFilesProvider,
-        )
-
-        facadeStep(frontend)
-
+        baseNativeDiagnosticTestConfiguration(frontend)
         handlersSetup(this)
+    }
 
-        forTestsMatching("testData/diagnostics/nativeTests/*") {
-            defaultDirectives {
-                +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
-            }
+    override fun runTest(filePath: String) {
+        mutePlatformTestIfNecessary(filePath)
+        super.runTest(filePath)
+    }
+
+    private fun mutePlatformTestIfNecessary(filePath: String) {
+        if(HostManager.hostIsMac) return
+        if (InTextDirectivesUtils.isDirectiveDefined(File(filePath).readText(), WITH_PLATFORM_LIBS.name))
+            Assumptions.abort<Nothing>("Diagnostic tests using platform libs are not supported at non-Mac hosts. Test source: $filePath")
+    }
+}
+
+fun <R : ResultingArtifact.FrontendOutput<R>> TestConfigurationBuilder.baseNativeDiagnosticTestConfiguration(
+    frontendFacade: Constructor<FrontendFacade<R>>,
+) {
+    defaultDirectives {
+        +JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
+        +ConfigurationDirectives.WITH_STDLIB
+    }
+
+    enableMetaInfoHandler()
+
+    useConfigurators(
+        ::CommonEnvironmentConfigurator,
+        ::NativeEnvironmentConfigurator,
+    )
+
+    useMetaInfoProcessors(::OldNewInferenceMetaInfoProcessor)
+    useAdditionalSourceProviders(
+        ::AdditionalDiagnosticsSourceFilesProvider,
+        ::CoroutineHelpersSourceFilesProvider,
+    )
+
+    facadeStep(frontendFacade)
+
+
+    forTestsMatching("testData/diagnostics/nativeTests/*") {
+        defaultDirectives {
+            +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
         }
     }
 }
@@ -98,16 +119,7 @@ abstract class AbstractFirNativeDiagnosticsTestBase(val parser: FirParser) : Abs
         get() = ::FirFrontendFacade
 
     override fun handlersSetup(builder: TestConfigurationBuilder) {
-        builder.firHandlersStep {
-            useHandlers(
-                ::FirDiagnosticsHandler,
-                ::FirDumpHandler,
-                ::FirCfgDumpHandler,
-                ::FirCfgConsistencyHandler,
-                ::FirResolvedTypesVerifier,
-                ::FirScopeDumpHandler,
-            )
-        }
+        builder.baseFirNativeDiagnosticTestConfiguration()
     }
 
     override fun configure(builder: TestConfigurationBuilder) {
@@ -119,9 +131,27 @@ abstract class AbstractFirNativeDiagnosticsTestBase(val parser: FirParser) : Abs
             forTestsMatching("compiler/testData/diagnostics/*") {
                 configurationForClassicAndFirTestsAlongside()
             }
+
+            defaultDirectives {
+                LanguageSettingsDirectives.LANGUAGE + "+EnableDfaWarningsInK2"
+            }
         }
     }
 }
+
+fun TestConfigurationBuilder.baseFirNativeDiagnosticTestConfiguration() {
+    firHandlersStep {
+        useHandlers(
+            ::FirDiagnosticsHandler,
+            ::FirDumpHandler,
+            ::FirCfgDumpHandler,
+            ::FirCfgConsistencyHandler,
+            ::FirResolvedTypesVerifier,
+            ::FirScopeDumpHandler,
+        )
+    }
+}
+
 
 abstract class AbstractFirPsiNativeDiagnosticsTest : AbstractFirNativeDiagnosticsTestBase(FirParser.Psi)
 abstract class AbstractFirLightTreeNativeDiagnosticsTest : AbstractFirNativeDiagnosticsTestBase(FirParser.LightTree)

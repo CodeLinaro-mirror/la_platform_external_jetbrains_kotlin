@@ -1,0 +1,2 @@
+Resolved to:
+PsiMethod:get(p: PsiType:Object): PsiType:V

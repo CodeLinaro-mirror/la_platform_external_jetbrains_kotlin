@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,7 +16,7 @@ import kotlin.jvm.*
 @JvmInline
 public value class UShort @kotlin.internal.IntrinsicConstEvaluation @PublishedApi internal constructor(@PublishedApi internal val data: Short) : Comparable<UShort> {
 
-    companion object {
+    public companion object {
         /**
          * A constant holding the minimum value an instance of UShort can have.
          */
@@ -343,14 +343,14 @@ public value class UShort @kotlin.internal.IntrinsicConstEvaluation @PublishedAp
      * The resulting `Float` value represents the same numerical value as this `UShort`.
      */
     @kotlin.internal.InlineOnly
-    public inline fun toFloat(): Float = this.toInt().toFloat()
+    public inline fun toFloat(): Float = uintToFloat(this.toInt())
     /**
      * Converts this [UShort] value to [Double].
      *
      * The resulting `Double` value represents the same numerical value as this `UShort`.
      */
     @kotlin.internal.InlineOnly
-    public inline fun toDouble(): Double = this.toInt().toDouble()
+    public inline fun toDouble(): Double = uintToDouble(this.toInt())
 
     public override fun toString(): String = toInt().toString()
 

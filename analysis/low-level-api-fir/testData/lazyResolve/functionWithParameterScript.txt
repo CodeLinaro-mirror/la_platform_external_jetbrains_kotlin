@@ -4,7 +4,7 @@ FILE: [ResolvedTo(RAW_FIR)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(RAW_FIR)] fun resolveMe([ResolvedTo(RAW_FIR)] param: I): <implicit> { LAZY_BLOCK }
@@ -16,7 +16,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(RAW_FIR)] fun resolveMe([ResolvedTo(RAW_FIR)] param: I): <implicit> { LAZY_BLOCK }
@@ -28,7 +28,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] fun resolveMe([ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] param: I): <implicit> { LAZY_BLOCK }
@@ -40,7 +40,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(COMPANION_GENERATION)] fun resolveMe([ResolvedTo(COMPANION_GENERATION)] param: I): <implicit> { LAZY_BLOCK }
@@ -52,7 +52,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(SUPER_TYPES)] fun resolveMe([ResolvedTo(SUPER_TYPES)] param: I): <implicit> { LAZY_BLOCK }
@@ -64,7 +64,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public? final? [ResolvedTo(TYPES)] fun resolveMe([ResolvedTo(TYPES)] param: R|I|): <implicit> { LAZY_BLOCK }
@@ -76,7 +76,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public final [ResolvedTo(STATUS)] fun resolveMe([ResolvedTo(STATUS)] param: R|I|): <implicit> { LAZY_BLOCK }
@@ -88,22 +88,10 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public final [ResolvedTo(EXPECT_ACTUAL_MATCHING)] fun resolveMe([ResolvedTo(EXPECT_ACTUAL_MATCHING)] param: R|I|): <implicit> { LAZY_BLOCK }
-
-
-ARGUMENTS_OF_ANNOTATIONS:
-FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
-    context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
-    SCRIPT: [ResolvedTo(TYPES)] <script-functionWithParameterScript.kts>
-        [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
-
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
-        }
-
-        public final [ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] fun resolveMe([ResolvedTo(ARGUMENTS_OF_ANNOTATIONS)] param: R|I|): <implicit> { LAZY_BLOCK }
 
 
 CONTRACTS:
@@ -112,7 +100,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public final [ResolvedTo(CONTRACTS)] fun resolveMe([ResolvedTo(CONTRACTS)] param: R|I|): <implicit> { LAZY_BLOCK }
@@ -124,7 +112,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun resolveMe([ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] param: R|I|): R|kotlin/Unit| {
@@ -132,16 +120,16 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
         }
 
 
-ANNOTATIONS_ARGUMENTS_MAPPING:
+ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
     SCRIPT: [ResolvedTo(TYPES)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
-        public final [ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] fun resolveMe([ResolvedTo(ANNOTATIONS_ARGUMENTS_MAPPING)] param: R|I|): R|kotlin/Unit| {
+        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun resolveMe([ResolvedTo(ANNOTATION_ARGUMENTS)] param: R|I|): R|kotlin/Unit| {
             ^resolveMe Q|kotlin/Unit|
         }
 
@@ -152,7 +140,7 @@ FILE: [ResolvedTo(IMPORTS)] functionWithParameterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-functionWithParameterScript.kts>
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
-        public? final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
+        public final? [ResolvedTo(RAW_FIR)] interface I : R|kotlin/Any| {
         }
 
         public final [ResolvedTo(BODY_RESOLVE)] fun resolveMe([ResolvedTo(BODY_RESOLVE)] param: R|I|): R|kotlin/Unit| {

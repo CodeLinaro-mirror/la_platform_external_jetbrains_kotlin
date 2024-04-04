@@ -11,9 +11,10 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory0
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory1
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.valOrVarKeyword
-import org.jetbrains.kotlin.fir.analysis.diagnostics.*
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.HAS_NEXT_FUNCTION_AMBIGUITY
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.HAS_NEXT_FUNCTION_NONE_APPLICABLE
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors.HAS_NEXT_MISSING
@@ -32,16 +33,13 @@ import org.jetbrains.kotlin.fir.expressions.FirWhileLoop
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.isError
 import org.jetbrains.kotlin.fir.resolve.calls.UnsafeCall
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguityError
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableCandidateError
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableWrongReceiver
-import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
+import org.jetbrains.kotlin.fir.resolve.diagnostics.*
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
-object FirForLoopChecker : FirBlockChecker() {
+object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
     override fun check(expression: FirBlock, context: CheckerContext, reporter: DiagnosticReporter) {
         if (expression.source?.kind != KtFakeSourceElementKind.DesugaredForLoop) return
 
@@ -126,6 +124,10 @@ object FirForLoopChecker : FirBlockChecker() {
                         else -> {
                             error("ConeInapplicableWrongReceiver, but no diagnostic reported")
                         }
+                    }
+                    is ConeConstraintSystemHasContradiction -> {
+                        if (calleeReference.name == OperatorNameConventions.ITERATOR)
+                            reporter.reportOn(reportSource, missingFactory, context)
                     }
                     is ConeInapplicableCandidateError -> {
                         if (unsafeCallFactory != null || noneApplicableFactory != null) {

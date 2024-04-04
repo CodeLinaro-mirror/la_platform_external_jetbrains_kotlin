@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.analysis.cfa.requiresInitialization
 import org.jetbrains.kotlin.fir.analysis.cfa.util.PropertyInitializationInfo
 import org.jetbrains.kotlin.fir.analysis.cfa.util.PropertyInitializationInfoData
 import org.jetbrains.kotlin.fir.analysis.checkers.FirModifierList
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.contains
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
@@ -27,46 +28,55 @@ import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.NormalPath
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeLocalVariableNoTypeOrInitializer
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.FirErrorTypeRef
+import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.lexer.KtTokens
 
 // See old FE's [DeclarationsChecker]
-object FirTopLevelPropertiesChecker : FirFileChecker() {
+object FirTopLevelPropertiesChecker : FirFileChecker(MppCheckerKind.Common) {
     override fun check(declaration: FirFile, context: CheckerContext, reporter: DiagnosticReporter) {
-        val info = declaration.collectionInitializationInfo(context, reporter)
-        for (innerDeclaration in declaration.declarations) {
-            if (innerDeclaration is FirProperty) {
-                val symbol = innerDeclaration.symbol
-                val isDefinitelyAssigned = info?.get(symbol)?.isDefinitelyVisited() == true
-                checkProperty(containingDeclaration = null, innerDeclaration, isDefinitelyAssigned, context, reporter, reachable = true)
-            }
-        }
+        val topLevelProperties = declaration.declarations.filterIsInstance<FirProperty>()
+        checkFileLikeDeclaration(declaration, topLevelProperties, context, reporter)
     }
+}
 
-    private fun FirFile.collectionInitializationInfo(
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
-    ): PropertyInitializationInfo? {
-        val graph = (this as? FirControlFlowGraphOwner)?.controlFlowGraphReference?.controlFlowGraph ?: return null
-
-        // Scripts are nested as a single declaration under FirFiles and contain their own statements. To properly check all "top-level"
-        // properties, script statements need to be unwrapped.
-        val topLevelProperties = when (val script = declarations.singleOrNull()) {
-            is FirScript -> script.statements.filterIsInstance<FirProperty>()
-            else -> declarations.filterIsInstance<FirProperty>()
-        }
-
-        val propertySymbols = topLevelProperties.mapNotNullTo(mutableSetOf()) { declaration ->
-            (declaration.symbol as? FirPropertySymbol)?.takeIf { it.requiresInitialization(isForInitialization = true) }
-        }
-        if (propertySymbols.isEmpty()) return null
-
-        // TODO, KT-59803: merge with `FirPropertyInitializationAnalyzer` for fewer passes.
-        val data = PropertyInitializationInfoData(propertySymbols, receiver = null, graph)
-        data.checkPropertyAccesses(isForInitialization = true, context, reporter)
-        return data.getValue(graph.exitNode)[NormalPath]
+object FirScriptPropertiesChecker : FirScriptChecker(MppCheckerKind.Common) {
+    override fun check(declaration: FirScript, context: CheckerContext, reporter: DiagnosticReporter) {
+        val topLevelProperties = declaration.declarations.filterIsInstance<FirProperty>()
+        checkFileLikeDeclaration(declaration, topLevelProperties, context, reporter)
     }
+}
+
+private fun checkFileLikeDeclaration(
+    declaration: FirDeclaration,
+    topLevelProperties: List<FirProperty>,
+    context: CheckerContext,
+    reporter: DiagnosticReporter,
+) {
+    val info = declaration.collectionInitializationInfo(topLevelProperties, context, reporter)
+    for (topLevelProperty in topLevelProperties) {
+        val symbol = topLevelProperty.symbol
+        val isDefinitelyAssigned = info?.get(symbol)?.isDefinitelyVisited() == true
+        checkProperty(containingDeclaration = null, topLevelProperty, isDefinitelyAssigned, context, reporter, reachable = true)
+    }
+}
+
+private fun FirDeclaration.collectionInitializationInfo(
+    topLevelProperties: List<FirProperty>,
+    context: CheckerContext,
+    reporter: DiagnosticReporter,
+): PropertyInitializationInfo? {
+    val graph = (this as? FirControlFlowGraphOwner)?.controlFlowGraphReference?.controlFlowGraph ?: return null
+
+    val propertySymbols = topLevelProperties.mapNotNullTo(mutableSetOf()) { declaration ->
+        declaration.symbol.takeIf { it.requiresInitialization(isForInitialization = true) }
+    }
+    if (propertySymbols.isEmpty()) return null
+
+    // TODO, KT-59803: merge with `FirPropertyInitializationAnalyzer` for fewer passes.
+    val data = PropertyInitializationInfoData(propertySymbols, conditionallyInitializedProperties = emptySet(), receiver = null, graph)
+    data.checkPropertyAccesses(isForInitialization = true, context, reporter)
+    return data.getValue(graph.exitNode)[NormalPath]
 }
 
 // Matched FE 1.0's [DeclarationsChecker#checkPropertyInitializer].
@@ -86,7 +96,7 @@ internal fun checkPropertyInitializer(
         val returnTypeRef = property.returnTypeRef
         if (property.initializer == null &&
             property.delegate == null &&
-            returnTypeRef is FirErrorTypeRef && returnTypeRef.diagnostic is ConeLocalVariableNoTypeOrInitializer
+            returnTypeRef.noExplicitType()
         ) {
             property.source?.let {
                 reporter.reportOn(it, FirErrors.PROPERTY_WITH_NO_TYPE_NO_INITIALIZER, context)
@@ -140,7 +150,9 @@ internal fun checkPropertyInitializer(
             val isExternal = property.isEffectivelyExternal(containingClass, context)
             val isCorrectlyInitialized =
                 property.initializer != null || isDefinitelyAssigned && !property.hasSetterAccessorImplementation &&
-                        property.getEffectiveModality(containingClass, context.languageVersionSettings) != Modality.OPEN
+                        (property.getEffectiveModality(containingClass, context.languageVersionSettings) != Modality.OPEN ||
+                                // Drop this workaround after KT-64980 is fixed
+                                property.effectiveVisibility == org.jetbrains.kotlin.descriptors.EffectiveVisibility.PrivateInClass)
             if (
                 backingFieldRequired &&
                 !inInterface &&
@@ -172,7 +184,14 @@ internal fun checkPropertyInitializer(
                         )
                     }
                 }
+            } else if (
+                property.returnTypeRef.noExplicitType() &&
+                !property.hasExplicitBackingField &&
+                (property.getter is FirDefaultPropertyAccessor || (property.getter?.hasBody == true && property.getter?.returnTypeRef?.noExplicitType() == true))
+            ) {
+                reporter.reportOn(propertySource, FirErrors.PROPERTY_WITH_NO_TYPE_NO_INITIALIZER, context)
             }
+
             if (property.isLateInit) {
                 if (isExpect) {
                     reporter.reportOn(propertySource, FirErrors.EXPECTED_LATEINIT_PROPERTY, context)
@@ -186,6 +205,10 @@ internal fun checkPropertyInitializer(
             }
         }
     }
+}
+
+private fun FirTypeRef.noExplicitType(): Boolean {
+    return this is FirErrorTypeRef && diagnostic is ConeLocalVariableNoTypeOrInitializer
 }
 
 private fun reportMustBeInitialized(

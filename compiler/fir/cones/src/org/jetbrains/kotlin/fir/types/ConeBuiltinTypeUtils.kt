@@ -35,6 +35,13 @@ val ConeKotlinType.isNullableString: Boolean get() = isBuiltinType(StandardClass
 
 val ConeKotlinType.isEnum: Boolean get() = isBuiltinType(StandardClassIds.Enum, false)
 
+val ConeKotlinType.isList: Boolean get() = isBuiltinType(StandardClassIds.List, false)
+val ConeKotlinType.isMutableList: Boolean get() = isBuiltinType(StandardClassIds.MutableList, false)
+val ConeKotlinType.isSet: Boolean get() = isBuiltinType(StandardClassIds.Set, false)
+val ConeKotlinType.isMutableSet: Boolean get() = isBuiltinType(StandardClassIds.MutableSet, false)
+val ConeKotlinType.isMap: Boolean get() = isBuiltinType(StandardClassIds.Map, false)
+val ConeKotlinType.isMutableMap: Boolean get() = isBuiltinType(StandardClassIds.MutableMap, false)
+
 val ConeKotlinType.isUByte: Boolean get() = isBuiltinType(StandardClassIds.UByte, false)
 val ConeKotlinType.isUShort: Boolean get() = isBuiltinType(StandardClassIds.UShort, false)
 val ConeKotlinType.isUInt: Boolean get() = isBuiltinType(StandardClassIds.UInt, false)
@@ -43,12 +50,9 @@ val ConeKotlinType.isPrimitiveOrNullablePrimitive: Boolean get() = isAnyOfBuilti
 val ConeKotlinType.isPrimitive: Boolean get() = isPrimitiveOrNullablePrimitive && nullability == ConeNullability.NOT_NULL
 val ConeKotlinType.isPrimitiveNumberOrNullableType: Boolean
     get() = isPrimitiveOrNullablePrimitive && !isBooleanOrNullableBoolean && !isCharOrNullableChar
-val ConeKotlinType.isArrayType: Boolean
-    get() {
-        return isBuiltinType(StandardClassIds.Array, false) ||
-                StandardClassIds.primitiveArrayTypeByElementType.values.any { isBuiltinType(it, false) } ||
-                StandardClassIds.unsignedArrayTypeByElementType.values.any { isBuiltinType(it, false) }
-    }
+
+val ConeKotlinType.isArrayType: Boolean get() = isArrayType(isNullable = false)
+val ConeKotlinType.isArrayTypeOrNullableArrayType: Boolean get() = isArrayType(isNullable = null)
 
 // Same as [KotlinBuiltIns#isNonPrimitiveArray]
 val ConeKotlinType.isNonPrimitiveArray: Boolean
@@ -74,4 +78,10 @@ private fun ConeKotlinType.isBuiltinType(classId: ClassId, isNullable: Boolean?)
 private fun ConeKotlinType.isAnyOfBuiltinType(classIds: Set<ClassId>): Boolean {
     if (this !is ConeClassLikeType) return false
     return lookupTag.classId in classIds
+}
+
+private fun ConeKotlinType.isArrayType(isNullable: Boolean?): Boolean {
+    return isBuiltinType(StandardClassIds.Array, isNullable) ||
+            StandardClassIds.primitiveArrayTypeByElementType.values.any { isBuiltinType(it, isNullable) } ||
+            StandardClassIds.unsignedArrayTypeByElementType.values.any { isBuiltinType(it, isNullable) }
 }

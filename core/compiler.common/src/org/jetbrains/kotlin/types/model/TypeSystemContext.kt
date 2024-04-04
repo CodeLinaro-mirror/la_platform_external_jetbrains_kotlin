@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.types.model
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.resolve.checkers.EmptyIntersectionTypeChecker
 import org.jetbrains.kotlin.resolve.checkers.EmptyIntersectionTypeInfo
-import org.jetbrains.kotlin.types.*
+import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.TypeCheckerState
+import org.jetbrains.kotlin.types.Variance
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -87,7 +89,7 @@ interface TypeSystemTypeFactoryContext: TypeSystemBuiltInsContext {
     fun createTypeArgument(type: KotlinTypeMarker, variance: TypeVariance): TypeArgumentMarker
     fun createStarProjection(typeParameter: TypeParameterMarker): TypeArgumentMarker
 
-    fun createErrorType(debugName: String): SimpleTypeMarker
+    fun createErrorType(debugName: String, delegatedType: SimpleTypeMarker?): SimpleTypeMarker
     fun createUninferredType(constructor: TypeConstructorMarker): KotlinTypeMarker
 }
 
@@ -227,6 +229,11 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     fun CapturedTypeMarker.typeParameter(): TypeParameterMarker?
     fun CapturedTypeMarker.withNotNullProjection(): KotlinTypeMarker
 
+    /**
+     * Only for K2.
+     */
+    fun CapturedTypeMarker.hasRawSuperType(): Boolean
+
     fun TypeVariableMarker.defaultType(): SimpleTypeMarker
 
     fun createTypeWithAlternativeForIntersectionResult(
@@ -309,6 +316,9 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
      * It's only relevant for K2 (and is not expected to be implemented properly in other contexts)
      */
     fun KotlinTypeMarker.convertToNonRaw(): KotlinTypeMarker
+
+    @K2Only
+    fun createSubstitutionFromSubtypingStubTypesToTypeVariables(): TypeSubstitutorMarker
 
     fun createCapturedStarProjectionForSelfType(
         typeVariable: TypeVariableTypeConstructorMarker,
@@ -518,6 +528,7 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
 
     fun TypeConstructorMarker.isAnyConstructor(): Boolean
     fun TypeConstructorMarker.isNothingConstructor(): Boolean
+    fun TypeConstructorMarker.isArrayConstructor(): Boolean
 
     /**
      *
@@ -587,3 +598,6 @@ fun requireOrDescribe(condition: Boolean, value: Any?) {
 
 @RequiresOptIn("This kinds of type is obsolete and should not be used until you really need it")
 annotation class ObsoleteTypeKind
+
+@RequiresOptIn
+annotation class K2Only

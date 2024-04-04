@@ -7,12 +7,10 @@ package org.jetbrains.kotlin.ir.backend.js
 
 import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
+import org.jetbrains.kotlin.backend.common.phaser.PhaserState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.backend.js.lower.collectNativeImplementations
-import org.jetbrains.kotlin.ir.backend.js.lower.generateJsTests
-import org.jetbrains.kotlin.ir.backend.js.lower.moveBodilessDeclarationsToSeparatePlace
+import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.CompilationOutputs
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsGenerationGranularity
@@ -133,11 +131,18 @@ fun compileIr(
     }
 
     // TODO should be done incrementally
-    generateJsTests(context, allModules.last())
+    generateJsTests(context, allModules.last(), groupByPackage = false)
 
     (irFactory.stageController as? WholeWorldStageController)?.let {
         lowerPreservingTags(allModules, context, phaseConfig, it)
-    } ?: jsPhases.invokeToplevel(phaseConfig, context, allModules)
+    } ?: run {
+        val phaserState = PhaserState<IrModuleFragment>()
+        loweringList.forEachIndexed { _, lowering ->
+            allModules.forEach { module ->
+                lowering.invoke(phaseConfig, phaserState, context, module)
+            }
+        }
+    }
 
     return LoweredIr(context, moduleFragment, allModules, moduleToName)
 }

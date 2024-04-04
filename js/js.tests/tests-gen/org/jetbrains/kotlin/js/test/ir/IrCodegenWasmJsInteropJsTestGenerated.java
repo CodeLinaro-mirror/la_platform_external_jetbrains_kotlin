@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -107,5 +107,15 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
     @TestMetadata("vararg.kt")
     public void testVararg() throws Exception {
         runTest("compiler/testData/codegen/boxWasmJsInterop/vararg.kt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations")
+    @TestDataPath("$PROJECT_ROOT")
+    public class TypeScriptDeclarations {
+        @Test
+        public void testAllFilesPresentInTypeScriptDeclarations() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
     }
 }

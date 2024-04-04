@@ -32,6 +32,12 @@ import com.sun.tools.javac.util.List as JavacList
 fun KaptContext.doAnnotationProcessing(
     javaSourceFiles: List<File>,
     processors: List<IncrementalProcessor>,
+    binaryTypesToReprocess: List<String> = emptyList()
+) = doAnnotationProcessing(javaSourceFiles, processors, JavacList.nil(), binaryTypesToReprocess)
+
+fun KaptContext.doAnnotationProcessing(
+    javaSourceFiles: List<File>,
+    processors: List<IncrementalProcessor>,
     additionalSources: JavacList<JCTree.JCCompilationUnit> = JavacList.nil(),
     binaryTypesToReprocess: List<String> = emptyList()
 ) {
@@ -298,7 +304,7 @@ fun KaptContext.parseJavaFiles(javaSourceFiles: List<File>): JavacList<JCTree.JC
 }
 
 private fun KaptContext.initModulesIfNeeded(files: JavacList<JCTree.JCCompilationUnit>): JavacList<JCTree.JCCompilationUnit> {
-    if (isJava9OrLater()) {
+    if (files.isNotEmpty() && isJava9OrLater()) {
         val initModulesMethod = compiler.javaClass.getMethod("initModules", JavacList::class.java)
 
         @Suppress("UNCHECKED_CAST")

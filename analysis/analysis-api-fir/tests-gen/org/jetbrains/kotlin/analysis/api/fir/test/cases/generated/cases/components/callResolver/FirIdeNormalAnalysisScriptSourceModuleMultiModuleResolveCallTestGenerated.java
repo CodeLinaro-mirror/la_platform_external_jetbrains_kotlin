@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -44,5 +44,15 @@ public class FirIdeNormalAnalysisScriptSourceModuleMultiModuleResolveCallTestGen
     @Test
     public void testAllFilesPresentInResolveCall() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/multiModuleCallResolver/resolveCall"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/multiModuleCallResolver/resolveCall/withTestCompilerPluginEnabled")
+    @TestDataPath("$PROJECT_ROOT")
+    public class WithTestCompilerPluginEnabled {
+        @Test
+        public void testAllFilesPresentInWithTestCompilerPluginEnabled() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/multiModuleCallResolver/resolveCall/withTestCompilerPluginEnabled"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
     }
 }

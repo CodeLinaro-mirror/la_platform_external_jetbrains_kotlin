@@ -7,11 +7,13 @@
 
 package org.jetbrains.kotlin.analysis.api
 
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeTokenFactory
+import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.analysis.api.session.KtAnalysisSessionProvider
+import org.jetbrains.kotlin.analysis.project.structure.DanglingFileResolutionMode
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.project.structure.KtModuleStructureInternals
+import org.jetbrains.kotlin.analysis.project.structure.withDanglingFileResolutionMode
 import org.jetbrains.kotlin.psi.KtElement
-import org.jetbrains.kotlin.psi.KtFile
 
 /**
  * Executes the given [action] in a [KtAnalysisSession] context.
@@ -44,17 +46,22 @@ public inline fun <R> analyze(
 }
 
 /**
- * Executes the given [action] in the context of a [KtAnalysisSession] that depends on an original analysis session determined by
- * [originalFile]. In addition to the symbols provided by the original analysis session, the dependent analysis session provides its own
- * symbols derived from analyzing [elementToReanalyze]. This allows analyzing some new or copied (and modified) element in the larger
- * context of the original analysis session.
+ * Executes the given [action] in a [KtAnalysisSession] context.
+ * Depending on the passed [resolutionMode], declarations inside a file copy will be treated in a specific way.
  *
- * @see KtAnalysisSession.createContextDependentCopy
+ * Note that the [useSiteKtElement] must be inside a dangling file copy.
+ * Specifically, [PsiFile.getOriginalFile] must point to the copy source.
+ *
+ * The project will be analyzed from the perspective of [useSiteKtElement]'s module, also called the use-site module.
  */
-public inline fun <R> analyzeInDependedAnalysisSession(
-    originalFile: KtFile,
-    elementToReanalyze: KtElement,
-    action: KtAnalysisSession.() -> R
-): R =
-    KtAnalysisSessionProvider.getInstance(originalFile.project)
-        .analyseInDependedAnalysisSession(originalFile, elementToReanalyze, action)
+@OptIn(KtModuleStructureInternals::class)
+public inline fun <R> analyzeCopy(
+    useSiteKtElement: KtElement,
+    resolutionMode: DanglingFileResolutionMode,
+    crossinline action: KtAnalysisSession.() -> R,
+): R {
+    val containingFile = useSiteKtElement.containingKtFile
+    return withDanglingFileResolutionMode(containingFile, resolutionMode) {
+        analyze(containingFile, action)
+    }
+}

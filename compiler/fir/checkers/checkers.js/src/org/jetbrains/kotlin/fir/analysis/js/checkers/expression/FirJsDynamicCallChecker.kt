@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirQualifiedAccessExpressionChecker
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors
@@ -29,7 +31,7 @@ private val nameToOperator = mapOf(
     OperatorNameConventions.RANGE_UNTIL to "..<",
 )
 
-object FirJsDynamicCallChecker : FirQualifiedAccessExpressionChecker() {
+object FirJsDynamicCallChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Common) {
     override fun check(expression: FirQualifiedAccessExpression, context: CheckerContext, reporter: DiagnosticReporter) {
         val callee = expression.calleeReference.resolved ?: return
 
@@ -41,7 +43,7 @@ object FirJsDynamicCallChecker : FirQualifiedAccessExpressionChecker() {
             ?: error("Resolved call callee without a callable symbol")
 
         when {
-            expression is FirCall && expression.isArrayAccessWithMultipleIndices -> reporter.reportOn(
+            expression is FirCall && expression.isArrayAccessWithMultipleIndices(context.session) -> reporter.reportOn(
                 expression.source, FirJsErrors.WRONG_OPERATION_WITH_DYNAMIC, "indexed access with more than one index", context
             )
             expression is FirFunctionCall && expression.isInOperator -> reporter.reportOn(
@@ -61,21 +63,20 @@ object FirJsDynamicCallChecker : FirQualifiedAccessExpressionChecker() {
         }
     }
 
-    private val FirCall.isArrayAccessWithMultipleIndices: Boolean
-        get() {
-            val callee = calleeReference as? FirNamedReference
-                ?: return false
+    private fun FirCall.isArrayAccessWithMultipleIndices(session: FirSession): Boolean {
+        val callee = toReference(session) as? FirNamedReference
+            ?: return false
 
-            if (callee.source?.kind != KtFakeSourceElementKind.ArrayAccessNameReference) {
-                return false
-            }
-
-            val arguments = (arguments.singleOrNull() as? FirVarargArgumentsExpression)?.arguments
-                ?: return false
-
-            return callee.name == OperatorNameConventions.GET && arguments.size >= 2
-                    || callee.name == OperatorNameConventions.SET && arguments.size >= 3
+        if (callee.source?.kind != KtFakeSourceElementKind.ArrayAccessNameReference) {
+            return false
         }
+
+        val arguments = (arguments.singleOrNull() as? FirVarargArgumentsExpression)?.arguments
+            ?: return false
+
+        return callee.name == OperatorNameConventions.GET && arguments.size >= 2
+                || callee.name == OperatorNameConventions.SET && arguments.size >= 3
+    }
 
     private val FirFunctionCall.isInOperator
         get() = calleeReference.resolved?.name == OperatorNameConventions.CONTAINS && origin == FirFunctionCallOrigin.Operator

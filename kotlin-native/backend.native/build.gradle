@@ -3,6 +3,7 @@
  * that can be found in the LICENSE file.
  */
 
+import org.jetbrains.kotlin.PlatformInfo
 import org.jetbrains.kotlin.cpp.CppConsumerPlugin
 import org.jetbrains.kotlin.cpp.CppUsage
 import org.jetbrains.kotlin.cpp.DependencyHandlerExKt
@@ -11,7 +12,6 @@ import org.jetbrains.kotlin.tools.NativePluginKt
 
 buildscript {
     apply from: "../../kotlin-native/gradle/kotlinGradlePlugin.gradle"
-    apply plugin: 'project-report'
 }
 
 apply plugin: 'java'
@@ -38,10 +38,11 @@ compileCompilerKotlin {
             '-opt-in=kotlin.RequiresOptIn',
             "-opt-in=kotlinx.cinterop.BetaInteropApi",
             "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+            "-opt-in=org.jetbrains.kotlin.backend.konan.InternalKotlinNativeApi",
             '-Xskip-prerelease-check']
 }
 
-TasksKt.optInToIrSymbolInternals(project)
+TasksKt.optInToUnsafeDuringIrConstructionAPI(project)
 
 compileCli_bcKotlin {
     kotlinOptions.freeCompilerArgs += ['-Xskip-prerelease-check']
@@ -78,7 +79,7 @@ kotlinNativeInterop {
         dependsOn ":kotlin-native:libllvmext:${NativePluginKt.lib("llvmext")}"
         defFile 'llvm.def'
         compilerOpts "-I$llvmDir/include", "-I${rootProject.project(':kotlin-native:llvmDebugInfoC').projectDir}/src/main/include", "-I${rootProject.project(':kotlin-native:libllvmext').projectDir}/src/main/include"
-        if (isMac()) {
+        if (PlatformInfo.isMac()) {
             // $llvmDir/lib contains libc++.1.dylib too, and it seems to be preferred by the linker
             // over the sysroot-provided one.
             // As a result, libllvmstubs.dylib gets linked with $llvmDir/lib/libc++.1.dylib.
@@ -87,9 +88,9 @@ kotlinNativeInterop {
             // For some reason, this worked fine before macOS 12.3.
             //
             // To enforce linking with proper libc++, pass the default path explicitly:
-            linkerOpts "-L${platformManager.hostPlatform.absoluteTargetSysRoot}/usr/lib"
+            linkerOpts "-L${hostPlatform.absoluteTargetSysRoot}/usr/lib"
         }
-        linkerOpts "-L$llvmDir/lib", "-L${rootProject.project(':kotlin-native:llvmDebugInfoC').buildDir}", "-L${rootProject.project(':kotlin-native:libllvmext').buildDir}"
+        linkerOpts "-L$llvmDir/lib", "-L${rootProject.project(':kotlin-native:llvmDebugInfoC').layout.buildDirectory.get().asFile}", "-L${rootProject.project(':kotlin-native:libllvmext').layout.buildDirectory.get().asFile}"
     }
 
     files {
@@ -119,7 +120,6 @@ kotlinNativeInterop {
         pkg 'org.jetbrains.kotlin.backend.konan.env'
     }
 }
-
 
 configurations {
     compilerApi {
@@ -154,7 +154,9 @@ dependencies {
     }
     kotlin_script_runtime_jar project(":kotlin-script-runtime")
 
-    compilerApi project(":kotlin-native:utilities:basic-utils")
+    compilerApi project(":native:objcexport-header-generator")
+    compilerApi project(":native:objcexport-header-generator-k1")
+    compilerApi project(":native:base")
 
     compilerImplementation project(":kotlin-compiler")
     compilerApi project(":native:kotlin-native-utils")
@@ -184,7 +186,6 @@ dependencies {
 
     cli_bcApiElements sourceSets.cli_bc.output
 }
-
 
 classes.dependsOn 'compilerClasses', 'cli_bcClasses'
 
@@ -238,23 +239,9 @@ tasks.register("debugCompiler", JavaExec) {
     args = findProperty("konan.debug.args").toString().tokenize() ?: []
 }
 
-publishing {
-    repositories {
-        maven { url = "$buildDir/repo" }
-    }
-
-    publications {
-        maven(MavenPublication) {
-            groupId = 'org.jetbrains.kotlin'
-            artifactId = 'backend.native'
-            version = kotlinVersion
-
-            from components.java
-        }
-    }
-}
-
 RepoArtifacts.sourcesJar(project) {
     it.from(sourceSets["cli_bc"].allSource)
     it.from(sourceSets["compiler"].allSource)
 }
+
+RepoArtifacts.javadocJar(project)

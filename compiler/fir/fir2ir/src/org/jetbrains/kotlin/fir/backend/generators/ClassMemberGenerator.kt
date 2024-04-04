@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
+import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.constructedClassType
 import org.jetbrains.kotlin.ir.util.isSetter
@@ -63,7 +64,9 @@ internal class ClassMemberGenerator(
             }
 
             val primaryConstructor = allDeclarations.firstOrNull { it is FirConstructor && it.isPrimary } as FirConstructor?
-            val irPrimaryConstructor = primaryConstructor?.let { declarationStorage.getCachedIrConstructor(it)!! }
+
+            @OptIn(UnsafeDuringIrConstructionAPI::class)
+            val irPrimaryConstructor = primaryConstructor?.let { declarationStorage.getCachedIrConstructorSymbol(it)!!.owner }
             if (irPrimaryConstructor != null) {
                 with(declarationStorage) {
                     enterScope(irPrimaryConstructor.symbol)
@@ -208,7 +211,14 @@ internal class ClassMemberGenerator(
                 declarationStorage.leaveScope(irFunction.symbol)
             }
             if (irFunction is IrSimpleFunction && firFunction is FirSimpleFunction && containingClass != null) {
-                irFunction.overriddenSymbols = firFunction.generateOverriddenFunctionSymbols(containingClass)
+                /**
+                 * In useIrFakeOverrideBuilder it would be dropped anyway, as [org.jetbrains.kotlin.ir.overrides.IrFakeOverrideBuilder.buildFakeOverridesForClass]
+                 * recalculates this value from scratch. Also, it's quite meaningless in non-platform modules anyway.
+                 */
+                if (!configuration.useIrFakeOverrideBuilder) {
+                    @OptIn(FirBasedFakeOverrideGenerator::class)
+                    irFunction.overriddenSymbols = firFunction.generateOverriddenFunctionSymbols(containingClass)
+                }
             }
         }
         return irFunction
@@ -220,7 +230,14 @@ internal class ClassMemberGenerator(
         val propertyType = property.returnTypeRef.toIrType()
         irProperty.initializeBackingField(property, initializerExpression = initializer ?: delegate)
         if (containingClass != null) {
-            irProperty.overriddenSymbols = property.generateOverriddenPropertySymbols(containingClass)
+            /**
+             * In useIrFakeOverrideBuilder it would be dropped anyway, as [org.jetbrains.kotlin.ir.overrides.IrFakeOverrideBuilder.buildFakeOverridesForClass]
+             * recalculates this value from scratch. Also, it's quite meaningless in non-platform modules anyway.
+             */
+            if (!configuration.useIrFakeOverrideBuilder) {
+                @OptIn(FirBasedFakeOverrideGenerator::class) // checked for useIrFakeOverrideBuilder
+                irProperty.overriddenSymbols = property.generateOverriddenPropertySymbols(containingClass)
+            }
         }
         val needGenerateDefaultGetter =
             property.getter is FirDefaultPropertyGetter ||
@@ -276,7 +293,7 @@ internal class ClassMemberGenerator(
                         val irExpression = visitor.convertToIrExpression(initializerExpression, isDelegate = property.delegate != null)
                         if (property.delegate == null) {
                             with(visitor.implicitCastInserter) {
-                                irExpression.cast(
+                                irExpression.insertSpecialCast(
                                     initializerExpression,
                                     initializerExpression.resolvedType,
                                     property.returnTypeRef.coneType
@@ -332,7 +349,8 @@ internal class ClassMemberGenerator(
                     declarationStorage.leaveScope(this.symbol)
                 }
             }
-            if (containingClass != null) {
+            if (containingClass != null && !components.configuration.useIrFakeOverrideBuilder) {
+                @OptIn(FirBasedFakeOverrideGenerator::class) // checked for useIrFakeOverrideBuilder
                 this.overriddenSymbols = property.generateOverriddenAccessorSymbols(containingClass, isGetter)
             }
 

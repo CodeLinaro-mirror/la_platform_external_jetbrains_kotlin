@@ -11,17 +11,17 @@ import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 
-sealed class ResolutionMode(val forceFullCompletion: Boolean) {
-    sealed class ContextDependent : ResolutionMode(forceFullCompletion = false) {
-        companion object Default : ContextDependent() {
-            override fun toString(): String = "ContextDependent"
-        }
-
-        data object Delegate : ContextDependent()
-    }
-
+sealed class ResolutionMode(
+    val forceFullCompletion: Boolean,
+) {
+    data object ContextDependent : ResolutionMode(forceFullCompletion = false)
+    data object Delegate : ResolutionMode(forceFullCompletion = false)
     data object ContextIndependent : ResolutionMode(forceFullCompletion = true)
-    data object ReceiverResolution : ResolutionMode(forceFullCompletion = true)
+
+    sealed class ReceiverResolution(val forCallableReference: Boolean) : ResolutionMode(forceFullCompletion = true) {
+        data object ForCallableReference : ReceiverResolution(forCallableReference = true)
+        companion object : ReceiverResolution(forCallableReference = false)
+    }
 
     class WithExpectedType(
         val expectedTypeRef: FirResolvedTypeRef,

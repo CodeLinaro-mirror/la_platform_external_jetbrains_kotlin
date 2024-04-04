@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -313,6 +313,12 @@ public class SymbolLightClassesByFqNameForLibraryTestGenerated extends AbstractS
     }
 
     @Test
+    @TestMetadata("ValueClassInParametersWithJvmName.kt")
+    public void testValueClassInParametersWithJvmName() throws Exception {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/ValueClassInParametersWithJvmName.kt");
+    }
+
+    @Test
     @TestMetadata("VarArgs.kt")
     public void testVarArgs() throws Exception {
         runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/VarArgs.kt");
@@ -383,6 +389,12 @@ public class SymbolLightClassesByFqNameForLibraryTestGenerated extends AbstractS
         @TestMetadata("SingleJvmClassName.kt")
         public void testSingleJvmClassName() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/facades/SingleJvmClassName.kt");
+        }
+
+        @Test
+        @TestMetadata("ValueClassInParametersWithJvmName.kt")
+        public void testValueClassInParametersWithJvmName() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/facades/ValueClassInParametersWithJvmName.kt");
         }
     }
 
@@ -556,6 +568,12 @@ public class SymbolLightClassesByFqNameForLibraryTestGenerated extends AbstractS
         }
 
         @Test
+        @TestMetadata("typeAlias.kt")
+        public void testTypeAlias() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/nullabilityAnnotations/typeAlias.kt");
+        }
+
+        @Test
         @TestMetadata("UnitAsGenericArgument.kt")
         public void testUnitAsGenericArgument() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/nullabilityAnnotations/UnitAsGenericArgument.kt");
@@ -597,6 +615,12 @@ public class SymbolLightClassesByFqNameForLibraryTestGenerated extends AbstractS
         @TestMetadata("allOpen.kt")
         public void testAllOpen() throws Exception {
             runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/withTestCompilerPluginEnabled/allOpen.kt");
+        }
+
+        @Test
+        @TestMetadata("companionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin.kt")
+        public void testCompanionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin() throws Exception {
+            runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/withTestCompilerPluginEnabled/companionWithFoo_companionTypeUsedInJava_ReferenceFromKotlin.kt");
         }
     }
 }

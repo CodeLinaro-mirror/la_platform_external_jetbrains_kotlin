@@ -14,18 +14,18 @@ import org.jetbrains.kotlin.test.backend.handlers.WasmIrInterpreterDumpHandler
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
-import org.jetbrains.kotlin.test.runners.codegen.actualizersAndPluginsFacadeStepIfNeeded
 import org.jetbrains.kotlin.test.runners.codegen.commonClassicFrontendHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.AdditionalSourceProvider
 import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.LibraryProvider
-import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
+import org.jetbrains.kotlin.wasm.test.handlers.WasmDtsHandler
 
 abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.FrontendOutput<R>, I : ResultingArtifact.BackendInput<I>, A : ResultingArtifact.Binary<A>>(
     private val targetFrontend: FrontendKind<R>,
@@ -89,13 +89,13 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
 
         facadeStep(frontendToBackendConverter)
         irHandlersStep()
-        actualizersAndPluginsFacadeStepIfNeeded(targetFrontend)
         facadeStep(backendFacade)
         klibArtifactsHandlersStep()
         facadeStep(afterBackendFacade)
 
         wasmArtifactsHandlersStep {
             useHandlers(wasmBoxTestRunner)
+            useHandlers(::WasmDtsHandler)
         }
     }
 
@@ -119,6 +119,12 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
             }
             configureWasmArtifactsHandlersStep {
                 useHandlers(::WasmIrInterpreterDumpHandler)
+            }
+        }
+
+        forTestsMatching("compiler/testData/codegen/box/properties/backingField/*") {
+            defaultDirectives {
+                LanguageSettingsDirectives.LANGUAGE with "+ExplicitBackingFields"
             }
         }
     }

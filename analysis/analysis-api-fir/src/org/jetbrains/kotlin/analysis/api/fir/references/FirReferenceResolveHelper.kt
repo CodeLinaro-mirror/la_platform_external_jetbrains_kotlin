@@ -13,9 +13,9 @@ import org.jetbrains.kotlin.analysis.api.fir.KtSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.buildSymbol
 import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirPackageSymbol
+import org.jetbrains.kotlin.analysis.api.fir.unwrapSafeCall
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirSafe
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.fir.FirPackageDirective
@@ -322,9 +322,10 @@ internal object FirReferenceResolveHelper {
     ): Collection<KtSymbol> {
         val parentAsCall = expression.parent as? KtCallExpression
         if (parentAsCall != null) {
-            val firResolvable = parentAsCall.getOrBuildFirSafe<FirResolvable>(analysisSession.firResolveSession)
-            if (firResolvable != null) {
-                return getSymbolsByResolvable(firResolvable, expression, session, symbolBuilder)
+            val firCall = parentAsCall.getOrBuildFir(analysisSession.firResolveSession)?.unwrapSafeCall()
+
+            if (firCall is FirResolvable) {
+                return getSymbolsByResolvable(firCall, expression, session, symbolBuilder)
             }
         }
         return fir.toTargetSymbol(session, symbolBuilder)
@@ -369,7 +370,7 @@ internal object FirReferenceResolveHelper {
         val ktValueArgumentList = ktValueArgument.parent as? KtValueArgumentList ?: return emptyList()
         val ktCallExpression = ktValueArgumentList.parent as? KtCallElement ?: return emptyList()
 
-        val firCall = ktCallExpression.getOrBuildFirSafe<FirCall>(analysisSession.firResolveSession) ?: return emptyList()
+        val firCall = ktCallExpression.getOrBuildFir(analysisSession.firResolveSession)?.unwrapSafeCall() as? FirCall ?: return emptyList()
         val parameter = firCall.findCorrespondingParameter(ktValueArgument) ?: return emptyList()
         return listOfNotNull(parameter.buildSymbol(symbolBuilder))
     }

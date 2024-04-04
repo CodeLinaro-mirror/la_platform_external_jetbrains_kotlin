@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -59,6 +59,18 @@ public class Fe10IdeNormalAnalysisSourceModuleOverriddenDeclarationProviderTestG
     }
 
     @Test
+    @TestMetadata("delegateOverrideWithImplicitTypeInsideAnonymousObject.kt")
+    public void testDelegateOverrideWithImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/delegateOverrideWithImplicitTypeInsideAnonymousObject.kt");
+    }
+
+    @Test
+    @TestMetadata("delegateOverrideWithoutImplicitTypeInsideAnonymousObject.kt")
+    public void testDelegateOverrideWithoutImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/delegateOverrideWithoutImplicitTypeInsideAnonymousObject.kt");
+    }
+
+    @Test
     @TestMetadata("inAnonymousClass.kt")
     public void testInAnonymousClass() throws Exception {
         runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/inAnonymousClass.kt");
@@ -89,6 +101,18 @@ public class Fe10IdeNormalAnalysisSourceModuleOverriddenDeclarationProviderTestG
     }
 
     @Test
+    @TestMetadata("intersectionOverrideWithImplicitTypeInsideAnonymousObject.kt")
+    public void testIntersectionOverrideWithImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/intersectionOverrideWithImplicitTypeInsideAnonymousObject.kt");
+    }
+
+    @Test
+    @TestMetadata("intersectionOverrideWithoutImplicitTypeInsideAnonymousObject.kt")
+    public void testIntersectionOverrideWithoutImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/intersectionOverrideWithoutImplicitTypeInsideAnonymousObject.kt");
+    }
+
+    @Test
     @TestMetadata("javaAccessors.kt")
     public void testJavaAccessors() throws Exception {
         runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/javaAccessors.kt");
@@ -116,5 +140,17 @@ public class Fe10IdeNormalAnalysisSourceModuleOverriddenDeclarationProviderTestG
     @TestMetadata("sequenceOfOverrides.kt")
     public void testSequenceOfOverrides() throws Exception {
         runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/sequenceOfOverrides.kt");
+    }
+
+    @Test
+    @TestMetadata("substitutionOverrideWithImplicitTypeInsideAnonymousObject.kt")
+    public void testSubstitutionOverrideWithImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/substitutionOverrideWithImplicitTypeInsideAnonymousObject.kt");
+    }
+
+    @Test
+    @TestMetadata("substitutionOverrideWithoutImplicitTypeInsideAnonymousObject.kt")
+    public void testSubstitutionOverrideWithoutImplicitTypeInsideAnonymousObject() throws Exception {
+        runTest("analysis/analysis-api/testData/components/symbolDeclarationOverridesProvider/overriddenSymbols/substitutionOverrideWithoutImplicitTypeInsideAnonymousObject.kt");
     }
 }

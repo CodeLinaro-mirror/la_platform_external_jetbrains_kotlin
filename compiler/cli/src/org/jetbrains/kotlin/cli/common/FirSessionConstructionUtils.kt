@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchSco
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.WasmTarget
+import org.jetbrains.kotlin.js.config.wasmTarget
 import org.jetbrains.kotlin.js.resolve.JsPlatformAnalyzerServices
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
@@ -72,6 +73,10 @@ fun <F> prepareJvmSessions(
 ): List<SessionWithSources<F>> {
     val javaSourcesScope = projectEnvironment.getSearchScopeForProjectJavaSources()
     val predefinedJavaComponents = FirSharableJavaComponents(firCachesFactoryForCliMode)
+
+    var firJvmIncrementalCompilationSymbolProviders: FirJvmIncrementalCompilationSymbolProviders? = null
+    var firJvmIncrementalCompilationSymbolProvidersIsInitialized = false
+
     return prepareSessions(
         files, configuration, rootModuleName, JvmPlatforms.unspecifiedJvmPlatform,
         JvmPlatformAnalyzerServices, metadataCompilationMode = false, libraryList, isCommonSource, fileBelongsToModule,
@@ -88,14 +93,28 @@ fun <F> prepareJvmSessions(
                 predefinedJavaComponents = predefinedJavaComponents,
                 registerExtraComponents = {},
             )
-        }
+        },
     ) { moduleFiles, moduleData, sessionProvider, sessionConfigurator ->
         FirJvmSessionFactory.createModuleBasedSession(
             moduleData,
             sessionProvider,
             javaSourcesScope,
             projectEnvironment,
-            createProviderAndScopeForIncrementalCompilation(moduleFiles),
+            createIncrementalCompilationSymbolProviders = { session ->
+                // Temporary solution for KT-61942 - we need to share the provider built on top of previously compiled files,
+                // because we do not distinguish classes generated from common and platform sources, so may end up with the
+                // same type loaded from both. And if providers are not shared, the types will not match on the actualizing.
+                // The proper solution would be to build IC providers only on class files generated for the currently compiled module.
+                // But to solve it we need to have a mapping from module to its class files.
+                // TODO: reimplement with splitted providers after fixing KT-62686
+                if (firJvmIncrementalCompilationSymbolProvidersIsInitialized) firJvmIncrementalCompilationSymbolProviders
+                else {
+                    firJvmIncrementalCompilationSymbolProvidersIsInitialized = true
+                    createProviderAndScopeForIncrementalCompilation(moduleFiles)?.createSymbolProviders(session, moduleData, projectEnvironment)?.also {
+                        firJvmIncrementalCompilationSymbolProviders = it
+                    }
+                }
+            },
             extensionRegistrars,
             configuration.languageVersionSettings,
             configuration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
@@ -243,6 +262,7 @@ fun <F> prepareWasmSessions(
             sessionProvider,
             extensionRegistrars,
             configuration.languageVersionSettings,
+            configuration.wasmTarget,
             lookupTracker,
             icData = icData,
             registerExtraComponents = {},

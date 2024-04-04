@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
@@ -122,18 +123,68 @@ class IncrementalK2JavaChangeDefaultIT : IncrementalJavaChangeDefaultIT() {
     }
 }
 
-@DisplayName("Default incremental compilation with precise compilation outputs backup")
-abstract class IncrementalJavaChangePreciseCompilationBackupIT : IncrementalJavaChangeDefaultIT() {
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = true, keepIncrementalCompilationCachesInMemory = true)
+@DisplayName("Default incremental compilation via Build Tools API")
+class IncrementalK2JavaChangeBuildToolsApiDaemonIT : IncrementalJavaChangeDefaultIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(runViaBuildToolsApi = true, compilerExecutionStrategy = KotlinCompilerExecutionStrategy.DAEMON)
+
+    @Disabled("KT-57147")
+    override fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion) {
+        super.testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion) {
+        super.testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testAbiChangeInLib_changeMethodSignature(gradleVersion: GradleVersion) {
+        super.testAbiChangeInLib_changeMethodSignature(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testNonAbiChangeInLib_changeMethodBody(gradleVersion: GradleVersion) {
+        super.testNonAbiChangeInLib_changeMethodBody(gradleVersion)
+    }
+}
+
+@DisplayName("Incremental compilation via Build Tools API using in-process strategy")
+class IncrementalK2JavaChangeBuildToolsApiInProcessIT : IncrementalJavaChangeDefaultIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(runViaBuildToolsApi = true, compilerExecutionStrategy = KotlinCompilerExecutionStrategy.IN_PROCESS)
+
+    @Disabled("KT-57147")
+    override fun testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion: GradleVersion) {
+        super.testAbiChangeInLib_changeMethodSignature_tracked(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion: GradleVersion) {
+        super.testNonAbiChangeInLib_changeMethodBody_tracked(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testAbiChangeInLib_changeMethodSignature(gradleVersion: GradleVersion) {
+        super.testAbiChangeInLib_changeMethodSignature(gradleVersion)
+    }
+
+    @Disabled("KT-57147")
+    override fun testNonAbiChangeInLib_changeMethodBody(gradleVersion: GradleVersion) {
+        super.testNonAbiChangeInLib_changeMethodBody(gradleVersion)
+    }
+}
+
+@DisplayName("Default incremental compilation with disabled precise compilation outputs backup")
+abstract class IncrementalJavaChangeWithoutPreciseCompilationBackupIT : IncrementalJavaChangeDefaultIT() {
+    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }
 
 @DisplayName("Default incremental compilation with precise compilation outputs backup on K1")
-class IncrementalK1JavaChangePreciseCompilationBackupIT : IncrementalJavaChangePreciseCompilationBackupIT() {
+class IncrementalK1JavaChangeWithoutPreciseCompilationBackupIT : IncrementalJavaChangeWithoutPreciseCompilationBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK1()
 }
 
 @DisplayName("Default incremental compilation with precise compilation outputs backup on K2")
-class IncrementalK2JavaChangePreciseCompilationBackupIT : IncrementalJavaChangePreciseCompilationBackupIT() {
+class IncrementalK2JavaChangeWithoutPreciseCompilationBackupIT : IncrementalJavaChangeWithoutPreciseCompilationBackupIT() {
     override val defaultBuildOptions = super.defaultBuildOptions.copyEnsuringK2()
 
     @Disabled("KT-57147")

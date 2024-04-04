@@ -18,15 +18,7 @@ dependencies {
     compileOnly(intellijCore())
 }
 
-optInToIrSymbolInternals()
-
-sourceSets {
-    "main" {
-        projectDefault()
-        generatedDir()
-    }
-    "test" {}
-}
+optInToUnsafeDuringIrConstructionAPI()
 
 val generatorClasspath by configurations.creating
 
@@ -54,9 +46,13 @@ val generateTree by tasks.registering(NoDebugJavaExec::class) {
     systemProperties["line.separator"] = "\n"
 }
 
-val compileKotlin by tasks
-
-compileKotlin.dependsOn(generateTree)
+sourceSets {
+    "main" {
+        projectDefault()
+        java.srcDirs(generateTree)
+    }
+    "test" {}
+}
 
 tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
     kotlinOptions {

@@ -40,23 +40,27 @@ import org.jetbrains.kotlin.resolve.calls.inference.addEqualityConstraintIfCompa
 import org.jetbrains.kotlin.resolve.calls.inference.addSubtypeConstraintIfCompatible
 import org.jetbrains.kotlin.resolve.calls.inference.buildAbstractResultingSubstitutor
 import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemCompletionMode
+import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
-import org.jetbrains.kotlin.types.model.StubTypeMarker
-import org.jetbrains.kotlin.types.model.TypeVariableMarker
 import org.jetbrains.kotlin.types.model.safeSubstitute
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 class FirCallCompleter(
     private val transformer: FirAbstractBodyResolveTransformerDispatcher,
-    private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents
+    private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents,
 ) {
     private val session = components.session
     private val inferenceSession
         get() = transformer.context.inferenceSession
 
-    val completer = ConstraintSystemCompleter(components, transformer.context)
+    val completer = ConstraintSystemCompleter(components)
 
-    fun <T> completeCall(call: T, resolutionMode: ResolutionMode): T where T : FirResolvable, T : FirStatement {
+    fun <T> completeCall(
+        call: T,
+        resolutionMode: ResolutionMode,
+        // Only expected to be true for resolving different versions of augmented assignments
+        skipEvenPartialCompletion: Boolean = false,
+    ): T where T : FirResolvable, T : FirStatement {
         val typeRef = components.typeFromCallee(call)
 
         val reference = call.calleeReference as? FirNamedReferenceWithCandidate ?: return call
@@ -75,21 +79,16 @@ class FirCallCompleter(
             resolutionMode,
         )
 
+        if (skipEvenPartialCompletion) return call
+
         val completionMode = candidate.computeCompletionMode(
             session.inferenceComponents, resolutionMode, initialType
         ).let {
-            // The difference between `shouldAvoidFullCompletion` and `!shouldRunCompletion` is very subtle:
-            // we don't run even partial completion for `!inferenceSession.shouldRunCompletion(call)`, while actually
-            // do that for `shouldAvoidFullCompletion`
-            //
-            // As for implementations, `shouldRunCompletion` only works for Builder inference, while `shouldAvoidFullCompletion` is for
-            // delegate inference where it's assumed to have partially completed intermediate calls.
-            //
-            // Ideally, we should get rid of `shouldRunCompletion` once Builder inference is rewritten (see KT-61041 for tracking)
-            if (it == ConstraintSystemCompletionMode.FULL && inferenceSession.shouldAvoidFullCompletion(call))
-                ConstraintSystemCompletionMode.PARTIAL
-            else
-                it
+            when {
+                it == ConstraintSystemCompletionMode.FULL ->
+                    inferenceSession.customCompletionModeInsteadOfFull(call) ?: ConstraintSystemCompletionMode.FULL
+                else -> it
+            }
         }
 
         val analyzer = createPostponedArgumentsAnalyzer(transformer.resolutionContext)
@@ -99,35 +98,27 @@ class FirCallCompleter(
 
         return when (completionMode) {
             ConstraintSystemCompletionMode.FULL -> {
-                if (inferenceSession.shouldRunCompletion(call)) {
-                    runCompletionForCall(candidate, completionMode, call, initialType, analyzer)
-                    val finalSubstitutor = candidate.system.asReadOnlyStorage()
-                        .buildAbstractResultingSubstitutor(session.typeContext) as ConeSubstitutor
-                    val completedCall = call.transformSingle(
-                        FirCallCompletionResultsWriterTransformer(
-                            session, components.scopeSession, finalSubstitutor,
-                            components.returnTypeCalculator,
-                            session.typeApproximator,
-                            components.dataFlowAnalyzer,
-                            components.integerLiteralAndOperatorApproximationTransformer,
-                            components.samResolver,
-                            components.context,
-                        ),
-                        null
-                    )
-                    inferenceSession.addCompletedCall(completedCall, candidate)
-                    completedCall
-                } else {
-                    inferenceSession.processPartiallyResolvedCall(call, resolutionMode)
-                    call
-                }
+                runCompletionForCall(candidate, completionMode, call, initialType, analyzer)
+                val finalSubstitutor = candidate.system.asReadOnlyStorage()
+                    .buildAbstractResultingSubstitutor(session.typeContext) as ConeSubstitutor
+                call.transformSingle(
+                    FirCallCompletionResultsWriterTransformer(
+                        session, components.scopeSession, finalSubstitutor,
+                        components.returnTypeCalculator,
+                        session.typeApproximator,
+                        components.dataFlowAnalyzer,
+                        components.integerLiteralAndOperatorApproximationTransformer,
+                        components.samResolver,
+                        components.context,
+                    ),
+                    null
+                )
             }
 
-            ConstraintSystemCompletionMode.PARTIAL -> {
+            ConstraintSystemCompletionMode.PARTIAL, ConstraintSystemCompletionMode.PCLA_POSTPONED_CALL -> {
                 runCompletionForCall(candidate, completionMode, call, initialType, analyzer)
-                if (inferenceSession is FirDelegatedPropertyInferenceSession) {
-                    inferenceSession.processPartiallyResolvedCall(call, resolutionMode)
-                }
+
+                inferenceSession.processPartiallyResolvedCall(call, resolutionMode, completionMode)
 
                 call
             }
@@ -181,8 +172,8 @@ class FirCallCompleter(
         completionMode: ConstraintSystemCompletionMode,
         call: T,
         initialType: ConeKotlinType,
-        analyzer: PostponedArgumentsAnalyzer? = null
-    ) where T : FirResolvable, T : FirStatement {
+        analyzer: PostponedArgumentsAnalyzer? = null,
+    ) where T : FirStatement {
         @Suppress("NAME_SHADOWING")
         val analyzer = analyzer ?: createPostponedArgumentsAnalyzer(transformer.resolutionContext)
         completer.complete(
@@ -191,14 +182,14 @@ class FirCallCompleter(
             listOf(call),
             initialType,
             transformer.resolutionContext
-        ) {
-            analyzer.analyze(candidate.system, it, candidate, completionMode)
+        ) { atom, withPCLASession ->
+            analyzer.analyze(candidate.system, atom, candidate, withPCLASession)
         }
     }
 
     fun prepareLambdaAtomForFactoryPattern(
         atom: ResolvedLambdaAtom,
-        candidate: Candidate
+        candidate: Candidate,
     ) {
         val returnVariable = ConeTypeVariableForLambdaReturnType(atom.atom, "_R")
         val csBuilder = candidate.system.getBuilder()
@@ -219,7 +210,7 @@ class FirCallCompleter(
 
     fun createCompletionResultsWriter(
         substitutor: ConeSubstitutor,
-        mode: FirCallCompletionResultsWriterTransformer.Mode = FirCallCompletionResultsWriterTransformer.Mode.Normal
+        mode: FirCallCompletionResultsWriterTransformer.Mode = FirCallCompletionResultsWriterTransformer.Mode.Normal,
     ): FirCallCompletionResultsWriterTransformer {
         return FirCallCompletionResultsWriterTransformer(
             session, components.scopeSession, substitutor, components.returnTypeCalculator,
@@ -249,8 +240,9 @@ class FirCallCompleter(
             contextReceivers: List<ConeKotlinType>,
             parameters: List<ConeKotlinType>,
             expectedReturnType: ConeKotlinType?,
-            stubsForPostponedVariables: Map<TypeVariableMarker, StubTypeMarker>,
-            candidate: Candidate
+            candidate: Candidate,
+            withPCLASession: Boolean,
+            forOverloadByLambdaReturnType: Boolean,
         ): ReturnArgumentsAnalysisResult {
             val lambdaArgument: FirAnonymousFunction = lambdaAtom.atom
             val needItParam = lambdaArgument.valueParameters.isEmpty() && parameters.size == 1
@@ -279,7 +271,10 @@ class FirCallCompleter(
                         origin = FirDeclarationOrigin.Source
                         this.name = name
                         symbol = FirValueParameterSymbol(name)
-                        returnTypeRef = itType.approximateLambdaInputType(symbol).toFirResolvedTypeRef()
+                        returnTypeRef =
+                            itType.approximateLambdaInputType(symbol, withPCLASession).toFirResolvedTypeRef(
+                                lambdaAtom.atom.source?.fakeElement(KtFakeSourceElementKind.ItLambdaParameter)
+                            )
                         defaultValue = null
                         isCrossinline = false
                         isNoinline = false
@@ -295,8 +290,10 @@ class FirCallCompleter(
                 receiverType == null -> lambdaArgument.replaceReceiverParameter(null)
                 !lambdaAtom.coerceFirstParameterToExtensionReceiver -> {
                     lambdaArgument.receiverParameter?.apply {
-                        val type = receiverType.approximateLambdaInputType(valueParameter = null)
-                        val source = source?.fakeElement(KtFakeSourceElementKind.ImplicitTypeRef)
+                        val type = receiverType.approximateLambdaInputType(valueParameter = null, withPCLASession)
+                        val source =
+                            source?.fakeElement(KtFakeSourceElementKind.LambdaReceiver)
+                                ?: lambdaArgument.source?.fakeElement(KtFakeSourceElementKind.LambdaReceiver)
                         replaceTypeRef(typeRef.resolvedTypeFromPrototype(type, source))
                     }
                 }
@@ -338,7 +335,7 @@ class FirCallCompleter(
                     )
                     return@forEachIndexed
                 }
-                val newReturnType = theParameters[index].approximateLambdaInputType(parameter.symbol)
+                val newReturnType = theParameters[index].approximateLambdaInputType(parameter.symbol, withPCLASession)
                 val newReturnTypeRef = if (parameter.returnTypeRef is FirImplicitTypeRef) {
                     newReturnType.toFirResolvedTypeRef(parameter.source?.fakeElement(KtFakeSourceElementKind.ImplicitReturnTypeOfLambdaValueParameter))
                 } else parameter.returnTypeRef.resolvedTypeFromPrototype(newReturnType)
@@ -353,44 +350,76 @@ class FirCallCompleter(
                 } ?: components.noExpectedType
             )
 
-            val builderInferenceSession = runIf(stubsForPostponedVariables.isNotEmpty()) {
-                @Suppress("UNCHECKED_CAST")
-                FirBuilderInferenceSession(
-                    lambdaArgument,
-                    transformer.resolutionContext,
-                    stubsForPostponedVariables as Map<ConeTypeVariable, ConeStubType>
-                )
-            }
+            var additionalConstraints: ConstraintStorage? = null
 
             transformer.context.withAnonymousFunctionTowerDataContext(lambdaArgument.symbol) {
-                if (builderInferenceSession != null) {
-                    transformer.context.withInferenceSession(builderInferenceSession) {
+                val pclaInferenceSession =
+                    runIf(withPCLASession) {
+                        candidate.lambdasAnalyzedWithPCLA += lambdaArgument
+
+                        FirPCLAInferenceSession(candidate, session.inferenceComponents, transformer.context.returnTypeCalculator)
+                    }
+
+                if (pclaInferenceSession != null) {
+                    transformer.context.withInferenceSession(pclaInferenceSession) {
                         lambdaArgument.transformSingle(transformer, ResolutionMode.LambdaResolution(expectedReturnTypeRef))
+
+                        applyResultsToMainCandidate()
                     }
                 } else {
-                    lambdaArgument.transformSingle(transformer, ResolutionMode.LambdaResolution(expectedReturnTypeRef))
+                    additionalConstraints =
+                        transformer.context.inferenceSession.runLambdaCompletion(candidate, forOverloadByLambdaReturnType) {
+                            lambdaArgument.transformSingle(transformer, ResolutionMode.LambdaResolution(expectedReturnTypeRef))
+                        }
                 }
             }
             transformer.context.dropContextForAnonymousFunction(lambdaArgument)
 
             val returnArguments = components.dataFlowAnalyzer.returnExpressionsOfAnonymousFunction(lambdaArgument).map { it.expression }
 
-            return ReturnArgumentsAnalysisResult(returnArguments, builderInferenceSession)
+            return ReturnArgumentsAnalysisResult(returnArguments, additionalConstraints)
         }
     }
 
-    private fun ConeKotlinType.approximateLambdaInputType(valueParameter: FirValueParameterSymbol?): ConeKotlinType {
+    private fun ConeKotlinType.approximateLambdaInputType(
+        valueParameter: FirValueParameterSymbol?,
+        isRootLambdaForPCLASession: Boolean,
+    ): ConeKotlinType {
         // We only run lambda completion from ConstraintSystemCompletionContext.analyzeRemainingNotAnalyzedPostponedArgument when they are
         // left uninferred.
         // Currently, we use stub types for builder inference, so CANNOT_INFER_PARAMETER_TYPE is the only possible result here.
-        if (this is ConeTypeVariableType) {
+        if (useErrorTypeInsteadOfTypeVariableForParameterType(isReceiver = valueParameter == null, isRootLambdaForPCLASession)) {
             val diagnostic = valueParameter?.let(::ConeCannotInferValueParameterType) ?: ConeCannotInferReceiverParameterType()
             return ConeErrorType(diagnostic)
         }
 
         return session.typeApproximator.approximateToSuperType(
-            this, TypeApproximatorConfiguration.FinalApproximationAfterResolutionAndInference
+            this, TypeApproximatorConfiguration.IntermediateApproximationToSupertypeAfterCompletionInK2
         ) ?: this
+    }
+
+    private fun ConeKotlinType.useErrorTypeInsteadOfTypeVariableForParameterType(
+        isReceiver: Boolean,
+        isRootLambdaForPCLASession: Boolean,
+    ): Boolean {
+        if (this !is ConeTypeVariableType) return false
+
+        // Receivers are expected to be fixed both for PCLA/nonPCLA lambdas, so just build error type
+        if (isReceiver) return true
+
+        // Besides PCLA, all type variables for parameter types should be fixed before lambda analysis
+        // Inside PCLA (or when we start it), we force fixing receivers before lambda analysis, but allow value parameters
+        // to remain unfixed TVs.
+        if (isRootLambdaForPCLASession || inferenceSession is FirPCLAInferenceSession) {
+            // For type variables not based on type parameters (created for lambda parameters with no expected type)
+            // we force them to be fixed before lambda analysis.
+            //
+            // Otherwise, it's a type variable based on a type parameter which resulting type might be inferred from the lambda body,
+            // so in that case leave type variable type
+            return typeConstructor.originalTypeParameter == null
+        }
+
+        return true
     }
 }
 

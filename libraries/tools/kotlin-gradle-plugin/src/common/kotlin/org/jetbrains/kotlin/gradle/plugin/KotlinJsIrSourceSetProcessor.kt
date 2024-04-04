@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
 import org.jetbrains.kotlin.gradle.tasks.configuration.Kotlin2JsCompileConfig
 import org.jetbrains.kotlin.gradle.tasks.configuration.KotlinJsIrLinkConfig
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 import org.jetbrains.kotlin.gradle.utils.filesProvider
 
 internal class KotlinJsIrSourceSetProcessor(
@@ -41,35 +42,6 @@ internal class KotlinJsIrSourceSetProcessor(
         project.tasks.named(compilationInfo.compileAllTaskName).configure {
             it.dependsOn(kotlinTask)
         }
-
-        val compilation = compilationInfo.tcs.compilation as KotlinJsIrCompilation
-
-        compilation.binaries
-            .withType(JsIrBinary::class.java)
-            .all { binary ->
-                val configAction = KotlinJsIrLinkConfig(binary)
-                configAction.configureTask {
-                    it.description = taskDescription
-                    it.libraries.from(project.filesProvider { compilation.runtimeDependencyFiles })
-                }
-                configAction.configureTask { task ->
-                    val targetCompilerOptions = (compilation.target as KotlinJsIrTarget).compilerOptions
-                    KotlinJsCompilerOptionsHelper.syncOptionsAsConvention(
-                        targetCompilerOptions,
-                        task.compilerOptions
-                    )
-
-                    // Restoring already configured module name
-                    task.compilerOptions.moduleName.convention(
-                        project.provider { compilation.npmProject.name }
-                    )
-
-                    task.modeProperty.set(binary.mode)
-                    task.dependsOn(kotlinTask)
-                }
-
-                tasksProvider.registerKotlinJsIrTask(project, binary.linkTaskName, configAction)
-            }
 
         project.whenEvaluated {
             val subpluginEnvironment: SubpluginEnvironment = SubpluginEnvironment.loadSubplugins(project)

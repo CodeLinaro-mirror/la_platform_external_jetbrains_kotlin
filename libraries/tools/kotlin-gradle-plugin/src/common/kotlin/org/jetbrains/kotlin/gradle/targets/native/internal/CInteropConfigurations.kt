@@ -18,10 +18,12 @@ import org.jetbrains.kotlin.gradle.plugin.internal.artifactTypeAttribute
 import org.jetbrains.kotlin.gradle.plugin.launchInStage
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.usesPlatformOf
+import org.jetbrains.kotlin.gradle.targets.KotlinTargetSideEffect
 import org.jetbrains.kotlin.gradle.targets.native.internal.CInteropKlibLibraryElements.cinteropKlibLibraryElements
 import org.jetbrains.kotlin.gradle.tasks.CInteropProcess
-import org.jetbrains.kotlin.gradle.utils.copyAttributes
-import org.jetbrains.kotlin.gradle.utils.markResolvable
+import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.utils.createConsumable
+import org.jetbrains.kotlin.gradle.utils.findConsumable
 
 internal fun createCInteropApiElementsKlibArtifact(
     target: KotlinNativeTarget,
@@ -31,7 +33,7 @@ internal fun createCInteropApiElementsKlibArtifact(
     val project = target.project
     val configurationName = cInteropApiElementsConfigurationName(target)
     val configuration = project.configurations.getByName(configurationName)
-    project.artifacts.add(configuration.name, interopTask.map { it.outputFile }) { artifact ->
+    project.artifacts.add(configuration.name, interopTask.flatMap { it.outputFileProvider }) { artifact ->
         artifact.extension = "klib"
         artifact.type = "klib"
         artifact.classifier = "cinterop-${settings.name}"
@@ -42,23 +44,22 @@ internal fun createCInteropApiElementsKlibArtifact(
 internal fun Project.locateOrCreateCInteropDependencyConfiguration(
     compilation: KotlinNativeCompilation,
 ): Configuration {
-    configurations.findByName(compilation.cInteropDependencyConfigurationName)?.let { return it }
+    configurations.findResolvable(compilation.cInteropDependencyConfigurationName)?.let { return it }
 
     val compileOnlyConfiguration = configurations.getByName(compilation.compileOnlyConfigurationName)
     val implementationConfiguration = configurations.getByName(compilation.implementationConfigurationName)
 
-    return configurations.create(compilation.cInteropDependencyConfigurationName).apply {
+    return configurations.createResolvable(compilation.cInteropDependencyConfigurationName).apply {
         extendsFrom(compileOnlyConfiguration, implementationConfiguration)
         isVisible = false
-        markResolvable()
 
         /* Deferring attributes to wait for compilation.attributes to be configured  by user*/
         launchInStage(AfterFinaliseDsl) {
             usesPlatformOf(compilation.target)
-            copyAttributes(compilation.attributes, attributes)
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, cinteropKlibLibraryElements())
-            attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, KotlinUsages.KOTLIN_CINTEROP))
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
+            compilation.copyAttributesTo(project, dest = attributes)
+            attributes.setAttribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, cinteropKlibLibraryElements())
+            attributes.setAttribute(Usage.USAGE_ATTRIBUTE, objects.named(KotlinUsages.KOTLIN_CINTEROP))
+            attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
             description = "CInterop dependencies for compilation '${compilation.name}')."
         }
     }
@@ -67,22 +68,23 @@ internal fun Project.locateOrCreateCInteropDependencyConfiguration(
 internal val KotlinNativeCompilation.cInteropDependencyConfigurationName: String
     get() = compilation.disambiguateName("CInterop")
 
+internal val SetupCInteropApiElementsConfigurationSideEffect = KotlinTargetSideEffect<KotlinNativeTarget> { target ->
+    target.project.locateOrCreateCInteropApiElementsConfiguration(target)
+}
+
 internal fun Project.locateOrCreateCInteropApiElementsConfiguration(target: KotlinTarget): Configuration {
     val configurationName = cInteropApiElementsConfigurationName(target)
-    configurations.findByName(configurationName)?.let { return it }
+    configurations.findConsumable(configurationName)?.let { return it }
 
-    return configurations.create(configurationName).apply {
-        isCanBeResolved = false
-        isCanBeConsumed = true
-
+    return configurations.createConsumable(configurationName).apply {
         /* Deferring attributes to wait for target.attributes to be configured by user */
         launchInStage(AfterFinaliseDsl) {
             usesPlatformOf(target)
-            copyAttributes(target.attributes, attributes)
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, cinteropKlibLibraryElements())
-            attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, KotlinUsages.KOTLIN_CINTEROP))
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
-            attributes.attribute(artifactTypeAttribute, NativeArtifactFormat.KLIB)
+            target.copyAttributesTo(project, dest = attributes)
+            attributes.setAttribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, cinteropKlibLibraryElements())
+            attributes.setAttribute(Usage.USAGE_ATTRIBUTE, objects.named(KotlinUsages.KOTLIN_CINTEROP))
+            attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
+            attributes.setAttribute(artifactTypeAttribute, NativeArtifactFormat.KLIB)
 
             /* Expose api dependencies */
             target.compilations.findByName(MAIN_COMPILATION_NAME)?.let { compilation ->

@@ -12,7 +12,6 @@ import com.sun.jdi.request.StepRequest
 import com.sun.tools.jdi.SocketAttachingConnector
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.model.FrontendKind
-import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.sourceProviders.MainFunctionForBlackBoxTestsSourceProvider.Companion.BOX_MAIN_FILE_NAME
@@ -21,14 +20,13 @@ import java.io.File
 import java.net.URL
 
 abstract class DebugRunner(testServices: TestServices) : JvmBoxRunner(testServices) {
-
     companion object {
         val BOX_MAIN_FILE_CLASS_NAME = BOX_MAIN_FILE_NAME.replace(".kt", "Kt")
     }
 
-    private var wholeFile = File("")
-    private var backend = TargetBackend.JVM
-    private var frontend: FrontendKind<*> = FrontendKinds.ClassicFrontend
+    private lateinit var wholeFile: File
+    private lateinit var backend: TargetBackend
+    private lateinit var frontend: FrontendKind<*>
 
     abstract fun storeStep(loggedItems: ArrayList<SteppingTestLoggedData>, event: Event)
 
@@ -193,13 +191,16 @@ class SteppingDebugRunner(testServices: TestServices) : DebugRunner(testServices
     override fun storeStep(loggedItems: ArrayList<SteppingTestLoggedData>, event: Event) {
         assert(event is LocatableEvent)
         val location = (event as LocatableEvent).location()
-        loggedItems.add(
-            SteppingTestLoggedData(
+        val data =
+            if (isIndyLambda(location)) {
+                // Invokedynamic lambdas are not synthetic in JDI, and they don't have source information.
+                SteppingTestLoggedData(-1, true, "<lambda>")
+            } else SteppingTestLoggedData(
                 location.lineNumber(),
                 location.method().isSynthetic,
                 location.formatAsExpectation()
             )
-        )
+        loggedItems.add(data)
     }
 }
 
@@ -236,12 +237,18 @@ class LocalVariableDebugRunner(testServices: TestServices) : DebugRunner(testSer
             // Local variable table completely absent - not distinguished from an empty table.
             listOf()
         }
-        loggedItems.add(
-            SteppingTestLoggedData(
+        val data =
+            if (isIndyLambda(location)) {
+                // Invokedynamic lambdas are not synthetic in JDI, and they don't have source information.
+                SteppingTestLoggedData(-1, true, "<lambda>")
+            } else SteppingTestLoggedData(
                 location.lineNumber(),
                 false,
                 location.formatAsExpectation(visibleVars)
             )
-        )
+        loggedItems.add(data)
     }
 }
+
+private fun isIndyLambda(location: Location): Boolean =
+    "$\$Lambda$" in location.declaringType().name()

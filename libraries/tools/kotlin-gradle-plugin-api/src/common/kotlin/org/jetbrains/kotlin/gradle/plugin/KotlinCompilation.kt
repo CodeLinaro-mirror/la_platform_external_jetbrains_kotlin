@@ -15,11 +15,14 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptionsDeprecated
 import org.jetbrains.kotlin.gradle.dsl.KotlinCompileDeprecated
+import org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginDsl
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.tooling.core.HasMutableExtras
 
+@KotlinGradlePluginDsl
 interface KotlinCompilation<out T : KotlinCommonOptionsDeprecated> : Named,
     HasProject,
     HasMutableExtras,
@@ -57,6 +60,21 @@ interface KotlinCompilation<out T : KotlinCommonOptionsDeprecated> : Named,
     val compileKotlinTaskName: String
 
     val compilerOptions: HasCompilerOptions<*>
+
+    @Deprecated(
+        "Kotlin compilation level compiler options DSL is not available in this release!",
+        level = DeprecationLevel.ERROR
+    )
+    fun compilerOptions(configure: KotlinCommonCompilerOptions.() -> Unit) {
+        throw UnsupportedOperationException("Kotlin compilation level compiler options DSL is not available in this release!")
+    }
+    @Deprecated(
+        "Kotlin compilation level compiler options DSL is not available in this release!",
+        level = DeprecationLevel.ERROR
+    )
+    fun compilerOptions(configure: Action<KotlinCommonCompilerOptions>) {
+        throw UnsupportedOperationException("Kotlin compilation level compiler options DSL is not available in this release!")
+    }
 
     @Deprecated(
         message = "Accessing task instance directly is deprecated",
@@ -168,6 +186,9 @@ interface KotlinCompilationToRunnableFiles<T : KotlinCommonOptionsDeprecated> : 
     override var runtimeDependencyFiles: FileCollection
 }
 
+@Suppress("Deprecation")
+typealias DeprecatedKotlinCompilationToRunnableFiles<T> = KotlinCompilationToRunnableFiles<T>
+
 @Deprecated("Scheduled for removal with Kotlin 2.0")
 @Suppress("EXTENSION_SHADOWED_BY_MEMBER", "deprecation") // kept for compatibility
 val <T : KotlinCommonOptionsDeprecated> KotlinCompilation<T>.runtimeDependencyConfigurationName: String?
@@ -177,3 +198,6 @@ val <T : KotlinCommonOptionsDeprecated> KotlinCompilation<T>.runtimeDependencyCo
 interface KotlinCompilationWithResources<T : KotlinCommonOptionsDeprecated> : KotlinCompilation<T> {
     val processResourcesTaskName: String
 }
+
+@Suppress("Deprecation")
+typealias DeprecatedKotlinCompilationWithResources<T> = KotlinCompilationWithResources<T>

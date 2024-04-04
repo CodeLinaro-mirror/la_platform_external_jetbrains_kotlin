@@ -12,10 +12,12 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.CheckersComponent
 import org.jetbrains.kotlin.fir.analysis.FirOverridesBackwardCompatibilityHelper
 import org.jetbrains.kotlin.fir.analysis.checkers.FirInlineCheckerPlatformSpecificComponent
+import org.jetbrains.kotlin.fir.analysis.checkers.FirPlatformUpperBoundsProvider
 import org.jetbrains.kotlin.fir.analysis.checkers.FirPrimaryConstructorSuperTypeCheckerPlatformComponent
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirNameConflictsTracker
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirGenericArrayClassLiteralSupport
 import org.jetbrains.kotlin.fir.analysis.jvm.FirJvmOverridesBackwardCompatibilityHelper
+import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJavaNullabilityWarningUpperBoundsProvider
 import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmAnnotationsPlatformSpecificSupportComponent
 import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmInlineCheckerComponent
 import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmPrimaryConstructorSuperTypeCheckerPlatformComponent
@@ -54,6 +56,7 @@ import org.jetbrains.kotlin.fir.scopes.FirOverrideService
 import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
 import org.jetbrains.kotlin.fir.scopes.PlatformSpecificOverridabilityRules
 import org.jetbrains.kotlin.fir.scopes.impl.*
+import org.jetbrains.kotlin.fir.scopes.jvm.FirJvmDelegatedMembersFilter
 import org.jetbrains.kotlin.fir.scopes.jvm.JvmMappedScope.FirMappedSymbolStorage
 import org.jetbrains.kotlin.fir.serialization.FirProvidedDeclarationsForMetadataService
 import org.jetbrains.kotlin.fir.symbols.FirLazyDeclarationResolver
@@ -91,6 +94,8 @@ fun FirSession.registerCommonComponents(languageVersionSettings: LanguageVersion
     register(FirAnnotationsPlatformSpecificSupportComponent::class, FirAnnotationsPlatformSpecificSupportComponent.Default)
     register(FirPrimaryConstructorSuperTypeCheckerPlatformComponent::class, FirPrimaryConstructorSuperTypeCheckerPlatformComponent.Default)
     register(FirGenericArrayClassLiteralSupport::class, FirGenericArrayClassLiteralSupport.Disabled)
+    register(FirMissingDependencyStorage::class, FirMissingDependencyStorage(this))
+    register(FirPlatformSpecificCastChecker::class, FirPlatformSpecificCastChecker.Default)
 }
 
 @OptIn(SessionConfiguration::class)
@@ -159,6 +164,8 @@ fun FirSession.registerJavaComponents(
     register(FirOverridesBackwardCompatibilityHelper::class, FirJvmOverridesBackwardCompatibilityHelper)
     register(FirInlineCheckerPlatformSpecificComponent::class, FirJvmInlineCheckerComponent())
     register(FirGenericArrayClassLiteralSupport::class, FirGenericArrayClassLiteralSupport.Enabled)
+    register(FirDelegatedMembersFilter::class, FirJvmDelegatedMembersFilter(this))
+    register(FirPlatformUpperBoundsProvider::class, FirJavaNullabilityWarningUpperBoundsProvider(this))
 }
 
 // -------------------------- Resolve components --------------------------

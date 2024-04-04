@@ -6,17 +6,21 @@
 package org.jetbrains.kotlin.gradle.targets.js.npm.tasks
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.Directory
+import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager
+import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
 import org.jetbrains.kotlin.gradle.targets.js.npm.UsesKotlinNpmResolutionManager
-import org.jetbrains.kotlin.gradle.targets.js.npm.asNpmEnvironment
-import org.jetbrains.kotlin.gradle.targets.js.npm.asYarnEnvironment
+import org.jetbrains.kotlin.gradle.targets.js.npm.asNodeJsEnvironment
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinRootNpmResolver
-import org.jetbrains.kotlin.gradle.targets.js.yarn.yarn
+import org.jetbrains.kotlin.gradle.utils.getFile
 import java.io.File
 
 @DisableCachingByDefault
@@ -33,20 +37,20 @@ abstract class KotlinNpmInstallTask :
     private val nodeJs: NodeJsRootExtension
         get() = project.rootProject.kotlinNodeJsExtension
 
-    private val yarn
-        get() = project.rootProject.yarn
-
     private val rootResolver: KotlinRootNpmResolver
         get() = nodeJs.resolver
 
+    private val packagesDir: Provider<Directory>
+        get() = nodeJs.projectPackagesDirectory
+
     // -----
 
-    private val npmEnvironment by lazy {
-        nodeJs.requireConfigured().asNpmEnvironment
+    private val nodsJsEnvironment by lazy {
+        nodeJs.requireConfigured().asNodeJsEnvironment
     }
 
-    private val yarnEnv by lazy {
-        yarn.requireConfigured().asYarnEnvironment
+    private val packageManagerEnv by lazy {
+        nodeJs.packageManagerExtension.get().environment
     }
 
     @Input
@@ -57,31 +61,48 @@ abstract class KotlinNpmInstallTask :
     @get:NormalizeLineEndings
     @get:InputFiles
     val preparedFiles: Collection<File> by lazy {
-        nodeJs.packageManager.preparedFiles(npmEnvironment)
+        nodeJs.packageManagerExtension.get().packageManager.preparedFiles(nodsJsEnvironment)
     }
 
     @get:PathSensitive(PathSensitivity.RELATIVE)
     @get:IgnoreEmptyDirectories
     @get:NormalizeLineEndings
     @get:InputFiles
-    val packageJsonFiles: Collection<File> by lazy {
+    val packageJsonFiles: List<RegularFile> by lazy {
         rootResolver.projectResolvers.values
             .flatMap { it.compilationResolvers }
             .map { it.compilationNpmResolution }
-            .map { it.npmProjectPackageJsonFile }
+            .map { resolution ->
+                val name = resolution.npmProjectName
+                packagesDir.map { it.dir(name).file(NpmProject.PACKAGE_JSON) }.get()
+            }
     }
 
-    @get:OutputFile
-    val yarnLock: File by lazy {
-        nodeJs.rootPackageDir.resolve("yarn.lock")
+    @get:OutputFiles
+    val additionalFiles: FileCollection by lazy {
+        nodeJs.packageManagerExtension.get().additionalInstallOutput
     }
+
+    @Deprecated(
+        "This property is deprecated and will be removed in future. Use additionalFiles instead",
+        replaceWith = ReplaceWith("additionalFiles")
+    )
+    @get:Internal
+    val yarnLockFile: Provider<RegularFile> = nodeJs.rootPackageDirectory.map { it.file("yarn.lock") }
+
+    @Suppress("DEPRECATION")
+    @Deprecated(
+        "This property is deprecated and will be removed in future. Use additionalFiles instead",
+        replaceWith = ReplaceWith("additionalFiles")
+    )
+    @get:Internal
+    val yarnLock: File
+        get() = yarnLockFile.getFile()
 
     // node_modules as OutputDirectory is performance problematic
     // so input will only be existence of its directory
     @get:Internal
-    val nodeModules: File by lazy {
-        nodeJs.rootPackageDir.resolve("node_modules")
-    }
+    val nodeModules: Provider<Directory> = nodeJs.rootPackageDirectory.map { it.dir("node_modules") }
 
     @TaskAction
     fun resolve() {
@@ -90,8 +111,8 @@ abstract class KotlinNpmInstallTask :
                 args = args,
                 services = services,
                 logger = logger,
-                npmEnvironment,
-                yarnEnv
+                nodsJsEnvironment,
+                packageManagerEnv
             ) ?: throw (npmResolutionManager.get().state as KotlinNpmResolutionManager.ResolutionState.Error).wrappedException
     }
 

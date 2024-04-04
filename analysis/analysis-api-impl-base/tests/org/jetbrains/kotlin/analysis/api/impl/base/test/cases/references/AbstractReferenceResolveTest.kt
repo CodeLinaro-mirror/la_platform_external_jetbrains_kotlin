@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,16 +13,16 @@ import org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.callabl
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
 import org.jetbrains.kotlin.analysis.test.framework.AnalysisApiTestDirectives
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
-import org.jetbrains.kotlin.analysis.test.framework.project.structure.ktModuleProvider
+import org.jetbrains.kotlin.analysis.test.framework.services.CaretMarker
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.utils.unwrapMultiReferences
 import org.jetbrains.kotlin.idea.references.KtReference
+import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.model.TestModule
-import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
@@ -46,36 +46,55 @@ abstract class AbstractReferenceResolveTest : AbstractAnalysisApiBasedTest() {
         }
     }
 
-    final override fun doTestByModuleStructure(moduleStructure: TestModuleStructure, testServices: TestServices) {
-        val mainModule = moduleStructure.modules.singleOrNull() ?: findMainModule(moduleStructure)
-        val ktFiles = testServices.ktModuleProvider.getModuleFiles(mainModule).filterIsInstance<KtFile>()
-        doTestByFileStructure(ktFiles, mainModule, testServices)
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+        val caretPositions = testServices.expressionMarkerProvider.getAllCarets(mainFile)
+        doTestByFileStructure(mainFile, caretPositions, mainModule, testServices)
     }
 
-    private fun findMainModule(moduleStructure: TestModuleStructure): TestModule =
-        moduleStructure.modules.find { it.name == "main" } ?: error("There should be a module named 'main' in the multi-module test.")
-
-    fun doTestByFileStructure(ktFiles: List<KtFile>, mainModule: TestModule, testServices: TestServices) {
-        val mainKtFile = ktFiles.singleOrNull() ?: ktFiles.firstOrNull { it.name == "main.kt" } ?: ktFiles.first()
-        val caretPosition = testServices.expressionMarkerProvider.getCaretPosition(mainKtFile)
-        val ktReferences = findReferencesAtCaret(mainKtFile, caretPosition)
-        if (ktReferences.isEmpty()) {
-            testServices.assertions.fail { "No references at caret found" }
+    protected fun doTestByFileStructure(ktFile: KtFile, carets: List<CaretMarker>, mainModule: TestModule, testServices: TestServices) {
+        if (carets.isEmpty()) {
+            testServices.assertions.fail { "No carets were specified for resolve test" }
         }
 
-        val resolvedTo =
-            analyseForTest(ktReferences.first().element) {
-                val symbols = ktReferences.flatMap { it.resolveToSymbols() }
-                checkReferenceResultForValidity(ktReferences, mainModule, testServices, symbols)
-                renderResolvedTo(symbols, renderingOptions) { getAdditionalSymbolInfo(it) }
+        val resolutionAtPositions = carets.map { caret ->
+            caret to renderResolvedReferencesForCaretPosition(ktFile, caret, mainModule, testServices)
+        }
+
+        val actual = if (resolutionAtPositions.size == 1) {
+            val (_, singleResolutionResult) = resolutionAtPositions.single()
+
+            "Resolved to:\n$singleResolutionResult"
+        } else {
+            resolutionAtPositions.joinToString(separator = "\n\n") { (caret, resolutionResult) ->
+                "${caret.fullTag} resolved to:\n$resolutionResult"
             }
-
-        if (Directives.UNRESOLVED_REFERENCE in mainModule.directives) {
-            return
         }
 
-        val actual = "Resolved to:\n$resolvedTo"
         testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+    }
+
+    private fun renderResolvedReferencesForCaretPosition(
+        ktFile: KtFile,
+        caret: CaretMarker,
+        mainModule: TestModule,
+        testServices: TestServices,
+    ): String {
+        val ktReferences = findReferencesAtCaret(ktFile, caret.offset)
+        if (ktReferences.isEmpty()) {
+            testServices.assertions.fail { "No references at caret $caret found" }
+        }
+
+        val resolvedTo = analyzeReferenceElement(ktReferences.first().element, mainModule) {
+            val symbols = ktReferences.flatMap { it.resolveToSymbols() }
+            val renderPsiClassName = Directives.RENDER_PSI_CLASS_NAME in mainModule.directives
+            renderResolvedTo(symbols, renderPsiClassName, renderingOptions) { getAdditionalSymbolInfo(it) }
+        }
+
+        return resolvedTo
+    }
+
+    protected open fun <R> analyzeReferenceElement(element: KtElement, mainModule: TestModule, action: KtAnalysisSession.() -> R): R {
+        return analyseForTest(element) { action() }
     }
 
     open fun KtAnalysisSession.getAdditionalSymbolInfo(symbol: KtSymbol): String? = null
@@ -83,26 +102,9 @@ abstract class AbstractReferenceResolveTest : AbstractAnalysisApiBasedTest() {
     private fun findReferencesAtCaret(mainKtFile: KtFile, caretPosition: Int): List<KtReference> =
         mainKtFile.findReferenceAt(caretPosition)?.unwrapMultiReferences().orEmpty().filterIsInstance<KtReference>()
 
-    private fun KtAnalysisSession.checkReferenceResultForValidity(
-        references: List<KtReference>,
-        module: TestModule,
-        testServices: TestServices,
-        resolvedTo: List<KtSymbol>
-    ) {
-        if (Directives.UNRESOLVED_REFERENCE in module.directives) {
-            testServices.assertions.assertTrue(resolvedTo.isEmpty()) {
-                "Reference should be unresolved, but was resolved to ${renderResolvedTo(resolvedTo)}"
-            }
-        } else {
-            if (resolvedTo.isEmpty()) {
-                testServices.assertions.fail { "Unresolved reference ${references.first().element.text}" }
-            }
-        }
-    }
-
     private object Directives : SimpleDirectivesContainer() {
-        val UNRESOLVED_REFERENCE by directive(
-            "Reference should be unresolved",
+        val RENDER_PSI_CLASS_NAME by directive(
+            "Render also PSI class name for resolved reference"
         )
     }
 

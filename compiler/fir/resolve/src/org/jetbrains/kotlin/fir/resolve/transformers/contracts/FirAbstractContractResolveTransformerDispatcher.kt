@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.transformers.contracts
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.fir.FirFileAnnotationsContainer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.contracts.FirLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.FirRawContractDescription
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveCon
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformerDispatcher
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirDeclarationsResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirResolveContextCollector
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
@@ -40,14 +42,16 @@ import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 abstract class FirAbstractContractResolveTransformerDispatcher(
     session: FirSession,
     scopeSession: ScopeSession,
-    outerBodyResolveContext: BodyResolveContext? = null
+    outerBodyResolveContext: BodyResolveContext? = null,
+    firResolveContextCollector: FirResolveContextCollector? = null,
 ) : FirAbstractBodyResolveTransformerDispatcher(
     session,
     FirResolvePhase.CONTRACTS,
     implicitTypeOnly = false,
     scopeSession,
     returnTypeCalculator = ReturnTypeCalculatorForFullBodyResolve.Contract,
-    outerBodyResolveContext = outerBodyResolveContext
+    outerBodyResolveContext = outerBodyResolveContext,
+    firResolveContextCollector = firResolveContextCollector,
 ) {
     final override val expressionsTransformer: FirExpressionsResolveTransformer =
         FirExpressionsResolveTransformer(this)
@@ -91,10 +95,6 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             }
         }
 
-
-        override fun transformScript(script: FirScript, data: ResolutionMode): FirScript {
-            return script
-        }
 
         override fun transformProperty(property: FirProperty, data: ResolutionMode): FirProperty {
             if (
@@ -193,6 +193,7 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
                     }
                 }
                 this.source = contractDescription.source
+                this.diagnostic = contractDescription.diagnostic
             }
             owner.replaceContractDescription(resolvedContractDescription)
             dataFlowAnalyzer.exitContractDescription()
@@ -278,6 +279,18 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             }
         }
 
+        override fun withScript(script: FirScript, action: () -> FirScript): FirScript {
+            return context.withScript(script, components) {
+                action()
+            }
+        }
+
+        override fun transformScript(script: FirScript, data: ResolutionMode): FirScript {
+            return withScript(script) {
+                transformDeclarationContent(script, data) as FirScript
+            }
+        }
+
         override fun transformAnonymousObject(
             anonymousObject: FirAnonymousObject,
             data: ResolutionMode
@@ -304,6 +317,24 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
                     transformContractDescriptionOwner(constructor)
                 }
             }
+        }
+
+        override fun transformTypeAlias(typeAlias: FirTypeAlias, data: ResolutionMode): FirTypeAlias {
+            return typeAlias
+        }
+
+        override fun transformDanglingModifierList(
+            danglingModifierList: FirDanglingModifierList,
+            data: ResolutionMode
+        ): FirDanglingModifierList {
+            return danglingModifierList
+        }
+
+        override fun transformFileAnnotationsContainer(
+            fileAnnotationsContainer: FirFileAnnotationsContainer,
+            data: ResolutionMode
+        ): FirFileAnnotationsContainer {
+            return fileAnnotationsContainer
         }
 
         override fun transformErrorPrimaryConstructor(

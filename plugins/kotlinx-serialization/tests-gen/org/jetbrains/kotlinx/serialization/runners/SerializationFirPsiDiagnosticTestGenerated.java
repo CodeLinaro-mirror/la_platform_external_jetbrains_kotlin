@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -36,6 +36,12 @@ public class SerializationFirPsiDiagnosticTestGenerated extends AbstractSerializ
         @TestMetadata("companionObjectSerializers.kt")
         public void testCompanionObjectSerializers() throws Exception {
             runTest("plugins/kotlinx-serialization/testData/diagnostics/companionObjectSerializers.kt");
+        }
+
+        @Test
+        @TestMetadata("customSerializers.kt")
+        public void testCustomSerializers() throws Exception {
+            runTest("plugins/kotlinx-serialization/testData/diagnostics/customSerializers.kt");
         }
 
         @Test
@@ -129,6 +135,12 @@ public class SerializationFirPsiDiagnosticTestGenerated extends AbstractSerializ
         }
 
         @Test
+        @TestMetadata("ParametrizedExternalSerializers.kt")
+        public void testParametrizedExternalSerializers() throws Exception {
+            runTest("plugins/kotlinx-serialization/testData/diagnostics/ParametrizedExternalSerializers.kt");
+        }
+
+        @Test
         @TestMetadata("repeatableSerialInfo.kt")
         public void testRepeatableSerialInfo() throws Exception {
             runTest("plugins/kotlinx-serialization/testData/diagnostics/repeatableSerialInfo.kt");
@@ -162,6 +174,12 @@ public class SerializationFirPsiDiagnosticTestGenerated extends AbstractSerializ
         @TestMetadata("SerializerTypeIncompatible.kt")
         public void testSerializerTypeIncompatible() throws Exception {
             runTest("plugins/kotlinx-serialization/testData/diagnostics/SerializerTypeIncompatible.kt");
+        }
+
+        @Test
+        @TestMetadata("SerializerTypeIncompatibleViaTypealias.kt")
+        public void testSerializerTypeIncompatibleViaTypealias() throws Exception {
+            runTest("plugins/kotlinx-serialization/testData/diagnostics/SerializerTypeIncompatibleViaTypealias.kt");
         }
 
         @Test

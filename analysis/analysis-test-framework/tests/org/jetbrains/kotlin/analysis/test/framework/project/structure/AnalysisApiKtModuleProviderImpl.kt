@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,9 +9,11 @@ import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleProjectStructure
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleWithFiles
 import org.jetbrains.kotlin.analysis.project.structure.*
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestService
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.moduleStructure
 
 abstract class AnalysisApiKtModuleProvider : TestService {
     protected abstract val testServices: TestServices
@@ -48,11 +50,16 @@ class AnalysisApiKtModuleProviderImpl(
     override fun getModuleStructure(): KtModuleProjectStructure = modulesStructure
 }
 
+fun AnalysisApiKtModuleProvider.getKtFiles(module: TestModule): List<KtFile> = getModuleFiles(module).filterIsInstance<KtFile>()
+
+fun TestServices.allKtFiles(): List<KtFile> = moduleStructure.modules.flatMap(ktModuleProvider::getKtFiles)
+
 val TestServices.ktModuleProvider: AnalysisApiKtModuleProvider by TestServices.testServiceAccessor()
 
 fun List<KtModuleWithFiles>.associateByName(): Map<String, KtModuleWithFiles> {
     return associateBy { (ktModule, _) ->
         when (ktModule) {
+            is KtModuleByCompilerConfiguration -> ktModule.moduleName
             is KtSourceModule -> ktModule.moduleName
             is KtLibraryModule -> ktModule.libraryName
             is KtLibrarySourceModule -> ktModule.libraryName
@@ -60,6 +67,7 @@ fun List<KtModuleWithFiles>.associateByName(): Map<String, KtModuleWithFiles> {
             is KtBuiltinsModule -> "Builtins for ${ktModule.platform}"
             is KtNotUnderContentRootModule -> ktModule.name
             is KtScriptModule -> ktModule.file.name
+            is KtDanglingFileModule -> ktModule.file.name
             else -> error("Unsupported module type: " + ktModule.javaClass.name)
         }
     }

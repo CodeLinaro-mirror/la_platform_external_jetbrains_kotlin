@@ -26,23 +26,39 @@ import org.junit.jupiter.api.Tag
 
 fun main() {
     System.setProperty("java.awt.headless", "true")
+    val k2BoxTestDir = listOf("multiplatform/k2")
 
     generateTestGroupSuiteWithJUnit5 {
+        // Former konan local tests
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeCodegenBoxTest>(
+                suiteTestClassName = "NativeCodegenLocalTestGenerated",
+                annotations = listOf(
+                    provider<UseExtTestCaseGroupProvider>(),
+                )
+            ) {
+                model("codegen", targetBackend = TargetBackend.NATIVE)
+            }
+            testClass<AbstractNativeCodegenBoxTest>(
+                suiteTestClassName = "FirNativeCodegenLocalTestGenerated",
+                annotations = listOf(
+                    *frontendFir(),
+                    provider<UseExtTestCaseGroupProvider>()
+                )
+            ) {
+                model("codegen", targetBackend = TargetBackend.NATIVE)
+            }
+        }
+
         // Codegen box tests.
         testGroup("native/native.tests/tests-gen", "compiler/testData") {
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "NativeCodegenBoxTestGenerated",
                 annotations = listOf(
                     provider<UseExtTestCaseGroupProvider>(),
-                    disabledInOneStageMode(
-                        "codegen/box/coroutines/featureIntersection/defaultExpect.kt",
-                        "codegen/box/multiplatform/defaultArguments/*.kt",
-                        "codegen/box/multiplatform/migratedOldTests/*.kt",
-                        "codegen/boxInline/multiplatform/defaultArguments/receiversAndParametersInLambda.kt"
-                    )
                 )
             ) {
-                model("codegen/box", targetBackend = TargetBackend.NATIVE)
+                model("codegen/box", targetBackend = TargetBackend.NATIVE, excludeDirs = k2BoxTestDir)
                 model("codegen/boxInline", targetBackend = TargetBackend.NATIVE)
             }
             testClass<AbstractNativeCodegenBoxTest>(
@@ -52,7 +68,7 @@ fun main() {
                     *noPartialLinkage()
                 )
             ) {
-                model("codegen/box", targetBackend = TargetBackend.NATIVE)
+                model("codegen/box", targetBackend = TargetBackend.NATIVE, excludeDirs = k2BoxTestDir)
                 model("codegen/boxInline", targetBackend = TargetBackend.NATIVE)
             }
             testClass<AbstractNativeCodegenBoxTest>(
@@ -77,13 +93,22 @@ fun main() {
                 model("codegen/boxInline", targetBackend = TargetBackend.NATIVE)
             }
             testClass<AbstractClassicNativeIrTextTest> {
-                model("ir/irText")
+                model(
+                    "ir/irText",
+                    excludeDirs = listOf("declarations/multiplatform/k2")
+                )
             }
             testClass<AbstractFirLightTreeNativeIrTextTest> {
-                model("ir/irText")
+                model(
+                    "ir/irText",
+                    excludeDirs = listOf("declarations/multiplatform/k1")
+                )
             }
             testClass<AbstractFirPsiNativeIrTextTest> {
-                model("ir/irText")
+                model(
+                    "ir/irText",
+                    excludeDirs = listOf("declarations/multiplatform/k1")
+                )
             }
         }
 
@@ -240,6 +265,44 @@ fun main() {
             }
         }
 
+        // Dump KLIB IR signatures tests
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeKlibDumpIrSignaturesTest>(
+                suiteTestClassName = "NativeKlibDumpIrSignaturesTestGenerated",
+            ) {
+                model("klib/dump-signatures", pattern = "^([^_](.+)).kt$", recursive = true)
+            }
+        }
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeKlibDumpIrSignaturesTest>(
+                suiteTestClassName = "FirNativeKlibDumpIrSignaturesTestGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                )
+            ) {
+                model("klib/dump-signatures", pattern = "^([^_](.+)).kt$", recursive = true)
+            }
+        }
+
+        // Dump KLIB metadata signatures tests
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeKlibDumpMetadataSignaturesTest>(
+                suiteTestClassName = "NativeKlibDumpMetadataSignaturesTestGenerated",
+            ) {
+                model("klib/dump-signatures", pattern = "^([^_](.+)).(kt|def)$", recursive = true)
+            }
+        }
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeKlibDumpMetadataSignaturesTest>(
+                suiteTestClassName = "FirNativeKlibDumpMetadataSignaturesTestGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                )
+            ) {
+                model("klib/dump-signatures", pattern = "^([^_](.+)).(kt|def)$", recursive = true)
+            }
+        }
+
         // LLDB integration tests.
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
             testClass<AbstractNativeBlackBoxTest>(
@@ -254,11 +317,31 @@ fun main() {
                 model("lldb")
             }
         }
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeBlackBoxTest>(
+                suiteTestClassName = "FirLldbTestGenerated",
+                annotations = listOf(
+                    debugger(),
+                    provider<UseStandardTestCaseGroupProvider>(),
+                    forceDebugMode(),
+                    forceHostTarget(),
+                    *frontendFir()
+                )
+            ) {
+                model("lldb")
+            }
+        }
 
         // New frontend test infrastructure tests
         testGroup(testsRoot = "native/native.tests/tests-gen", testDataRoot = "compiler/testData") {
             testClass<AbstractDiagnosticsNativeTest> {
-                model("diagnostics/nativeTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+                model(
+                    "diagnostics/nativeTests",
+                    excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN,
+                    // There are no special native-specific diagnostics in K1 frontend.
+                    // These checks happen in native backend instead, in SpecialBackendChecks class.
+                    excludeDirs = listOf("specialBackendChecks"),
+                )
             }
 
             testClass<AbstractFirPsiNativeDiagnosticsTest>(
@@ -353,6 +436,84 @@ fun main() {
                 model("klib/header-klibs/compilation", extension = null, recursive = false)
             }
         }
+
+        // Plain executable tests
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeBlackBoxTest>(
+                suiteTestClassName = "NativeStandaloneTestGenerated",
+                annotations = listOf(
+                    *standalone(),
+                    provider<UseStandardTestCaseGroupProvider>(),
+                )
+            ) {
+                model("standalone")
+            }
+            testClass<AbstractNativeBlackBoxTest>(
+                suiteTestClassName = "FirNativeStandaloneTestGenerated",
+                annotations = listOf(
+                    *standalone(),
+                    provider<UseStandardTestCaseGroupProvider>(),
+                    *frontendFir(),
+                )
+            ) {
+                model("standalone")
+            }
+        }
+        // C Export
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeCExportDynamicTest>(
+                suiteTestClassName = "CExportTestDynamicGenerated"
+            ) {
+                model("CExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeCExportDynamicTest>(
+                suiteTestClassName = "FirCExportTestDynamicGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                ),
+            ) {
+                model("CExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeCExportStaticTest>(
+                suiteTestClassName = "CExportTestStaticGenerated"
+            ) {
+                model("CExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeCExportStaticTest>(
+                suiteTestClassName = "FirCExportTestStaticGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                ),
+            ) {
+                model("CExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+        }
+        // Swift Export
+        testGroup(
+            "native/native.tests/tests-gen/",
+            "native/swift/swift-export-standalone/testData"
+        ) {
+            testClass<SwiftTypeCheckBaseTest>(
+                suiteTestClassName = "TypeCheckSwiftExportGoldenData"
+            ) {
+                model("", extension = "swift", recursive = true)
+            }
+        }
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
+            testClass<AbstractNativeSwiftExportTest>(
+                suiteTestClassName = "FirSwiftExportTestGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                ),
+            ) {
+                model("SwiftExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+            testClass<AbstractNativeSwiftExportTest>(
+                suiteTestClassName = "SwiftExportTestGenerated",
+            ) {
+                model("SwiftExport", pattern = "^([^_](.+))$", recursive = false)
+            }
+        }
     }
 }
 
@@ -395,3 +556,11 @@ private fun infrastructure() = annotation(Tag::class.java, "infrastructure")
 private fun k1libContents() = annotation(Tag::class.java, "k1libContents")
 private fun k2libContents() = annotation(Tag::class.java, "k2libContents")
 private fun atomicfuNative() = annotation(Tag::class.java, "atomicfu-native")
+private fun standalone() = arrayOf(
+    annotation(Tag::class.java, "standalone"),
+    annotation(
+        EnforcedProperty::class.java,
+        "property" to ClassLevelProperty.TEST_KIND,
+        "propertyValue" to "STANDALONE_NO_TR"
+    )
+)

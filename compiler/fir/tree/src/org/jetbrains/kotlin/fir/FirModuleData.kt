@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.fir
 
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
+import org.jetbrains.kotlin.container.topologicalSort
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
@@ -47,6 +47,10 @@ abstract class FirModuleData : FirSessionComponent {
     abstract val name: Name
     abstract val dependencies: List<FirModuleData>
     abstract val dependsOnDependencies: List<FirModuleData>
+
+    /** Transitive closure over [dependsOnDependencies] */
+    abstract val allDependsOnDependencies: List<FirModuleData>
+
     abstract val friendDependencies: List<FirModuleData>
     abstract val platform: TargetPlatform
     abstract val isCommon: Boolean
@@ -58,16 +62,16 @@ abstract class FirModuleData : FirSessionComponent {
     open val capabilities: FirModuleCapabilities
         get() = FirModuleCapabilities.Empty
 
-    private var _session: FirSession? = null
-    val session: FirSession
-        get() = _session
-            ?: error("module data ${this::class.simpleName}:${name} not bound to session")
+    protected var boundSession: FirSession? = null
+        private set
+
+    abstract val session: FirSession
 
     fun bindSession(session: FirSession) {
-        if (_session != null) {
+        if (boundSession != null) {
             error("module data already bound to $this")
         }
-        _session = session
+        boundSession = session
     }
 
     override fun toString(): String {
@@ -84,9 +88,14 @@ class FirModuleDataImpl(
     override val analyzerServices: PlatformDependentAnalyzerServices,
     override val capabilities: FirModuleCapabilities = FirModuleCapabilities.Empty,
     override val isCommon: Boolean = platform.isCommon(),
-) : FirModuleData()
+) : FirModuleData() {
+    override val session: FirSession
+        get() = boundSession
+            ?: error("module data ${this::class.simpleName}:${name} not bound to session")
+
+    override val allDependsOnDependencies: List<FirModuleData> = topologicalSort(dependsOnDependencies) { it.dependsOnDependencies }
+}
 
 val FirSession.nullableModuleData: FirModuleData? by FirSession.nullableSessionComponentAccessor()
 val FirSession.moduleData: FirModuleData
     get() = nullableModuleData ?: error("Module data is not registered in $this")
-

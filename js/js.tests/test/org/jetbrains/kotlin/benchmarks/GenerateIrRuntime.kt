@@ -11,7 +11,7 @@ import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.psi.PsiManager
-import org.jetbrains.kotlin.KtPsiSourceFile
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageSupportForLinker
@@ -37,7 +37,6 @@ import org.jetbrains.kotlin.ir.backend.js.*
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrLinker
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsIrModuleSerializer
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
-import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.collectExportedNames
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.TranslationMode
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -96,7 +95,6 @@ class GenerateIrRuntime {
                     "kotlin.Experimental",
                     "kotlin.ExperimentalMultiplatform"
                 ),
-                AnalysisFlags.allowResultReturnType to true
             )
         )
 
@@ -308,7 +306,6 @@ class GenerateIrRuntime {
             irModuleName = "kotlin"
             allowKotlinPackage = true
             optIn = arrayOf("kotlin.contracts.ExperimentalContracts", "kotlin.Experimental", "kotlin.ExperimentalMultiplatform")
-            allowResultReturnType = true
             multiPlatform = true
             languageVersion = "1.4"
             commonSources = filesToCompile.filter { it.isCommonSource == true }.map { it.virtualFilePath }.toTypedArray()
@@ -485,7 +482,6 @@ class GenerateIrRuntime {
         return psi2IrTranslator.generateModuleFragment(psi2IrContext, files, irProviders, emptyList())
     }
 
-    @OptIn(ExperimentalPathApi::class)
     private fun doSerializeModule(
         moduleFragment: IrModuleFragment,
         bindingContext: BindingContext,
@@ -494,13 +490,19 @@ class GenerateIrRuntime {
     ): String {
         val diagnosticReporter = DiagnosticReporterFactory.createPendingReporter()
         val tmpKlibDir = createTempDirectory().also { it.toFile().deleteOnExit() }.toString()
-        val metadataSerializer = KlibMetadataIncrementalSerializer(configuration, project, false)
+        val metadataSerializer = KlibMetadataIncrementalSerializer(
+            files,
+            configuration,
+            project,
+            bindingContext,
+            moduleFragment.descriptor,
+            allowErrorTypes = false,
+        )
         serializeModuleIntoKlib(
             moduleName,
             configuration,
-            IrMessageLogger.None,
             diagnosticReporter,
-            files.map(::KtPsiSourceFile),
+            metadataSerializer,
             tmpKlibDir,
             emptyList(),
             moduleFragment,
@@ -508,10 +510,8 @@ class GenerateIrRuntime {
             true,
             perFile,
             abiVersion = KotlinAbiVersion.CURRENT,
-            jsOutputName = null
-        ) { file ->
-            metadataSerializer.serializeScope(file, bindingContext, moduleFragment.descriptor)
-        }
+            jsOutputName = null,
+        )
 
         return tmpKlibDir
     }
@@ -529,15 +529,17 @@ class GenerateIrRuntime {
 
 
     private fun doSerializeIrModule(module: IrModuleFragment): SerializedIrModule {
-        val serializedIr = JsIrModuleSerializer(
-            IrMessageLogger.None,
+        return JsIrModuleSerializer(
+            KtDiagnosticReporterWithImplicitIrBasedContext(
+                DiagnosticReporterFactory.createPendingReporter(),
+                configuration.languageVersionSettings,
+            ),
             module.irBuiltins,
             CompatibilityMode.CURRENT,
             normalizeAbsolutePaths = false,
             emptyList(),
             configuration.languageVersionSettings,
         ).serializedIrModule(module)
-        return serializedIr
     }
 
     private fun doWriteIrModuleToStorage(serializedIrModule: SerializedIrModule, writer: KotlinLibraryOnlyIrWriter) {
@@ -611,7 +613,7 @@ class GenerateIrRuntime {
 
         ExternalDependenciesGenerator(symbolTable, listOf(jsLinker)).generateUnboundSymbolsAsDependencies()
 
-        jsPhases.invokeToplevel(phaseConfig, context, listOf(module))
+        jsPhases.invokeToplevel(phaseConfig, context, module)
 
         val transformer = IrModuleToJsTransformer(context, shouldReferMainFunction = false)
 

@@ -21,23 +21,27 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.jetbrains.kotlin.gradle.dsl.KotlinSingleJavaTargetExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-import org.jetbrains.kotlin.gradle.internal.customizeKotlinDependencies
 import org.jetbrains.kotlin.gradle.model.builder.KotlinModelBuilder
 import org.jetbrains.kotlin.gradle.plugin.internal.JavaSourceSetsAccessor
 import org.jetbrains.kotlin.gradle.plugin.internal.MavenPluginConfigurator
 import org.jetbrains.kotlin.gradle.plugin.internal.compatibilityConventionRegistrar
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
+import org.jetbrains.kotlin.gradle.plugin.sources.DefaultKotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.sources.KotlinSourceSetFactory
 import org.jetbrains.kotlin.gradle.tasks.InspectClassesForMultiModuleIC
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
 import org.jetbrains.kotlin.gradle.tasks.locateTask
 import org.jetbrains.kotlin.gradle.tasks.registerTask
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 import org.jetbrains.kotlin.gradle.utils.archivePathCompatible
+import org.jetbrains.kotlin.gradle.utils.setAttribute
 
 const val PLUGIN_CLASSPATH_CONFIGURATION_NAME = "kotlinCompilerPluginClasspath"
 const val NATIVE_COMPILER_PLUGIN_CLASSPATH_CONFIGURATION_NAME = "kotlinNativeCompilerPluginClasspath"
 const val COMPILER_CLASSPATH_CONFIGURATION_NAME = "kotlinCompilerClasspath"
 internal const val BUILD_TOOLS_API_CLASSPATH_CONFIGURATION_NAME = "kotlinBuildToolsApiClasspath"
 internal const val KLIB_COMMONIZER_CLASSPATH_CONFIGURATION_NAME = "kotlinKlibCommonizerClasspath"
+internal const val KOTLIN_NATIVE_BUNDLE_CONFIGURATION_NAME = "kotlinNativeBundleConfiguration"
 private const val JAVA_TEST_FIXTURES_PLUGIN_ID = "java-test-fixtures"
 
 internal abstract class AbstractKotlinPlugin(
@@ -61,11 +65,8 @@ internal abstract class AbstractKotlinPlugin(
             { compilation -> buildSourceSetProcessor(project, compilation) }
         )
 
-        applyUserDefinedAttributes(target)
-
         rewriteMppDependenciesInPom(target)
 
-        configureProjectGlobalSettings(project)
         configureClassInspectionForIC(project)
         registry.register(KotlinModelBuilder(kotlinPluginVersion, null))
 
@@ -152,11 +153,6 @@ internal abstract class AbstractKotlinPlugin(
     companion object {
         private const val INSPECT_IC_CLASSES_TASK_NAME = "inspectClassesForKotlinIC"
 
-        fun configureProjectGlobalSettings(project: Project) {
-            customizeKotlinDependencies(project)
-            project.setupGeneralKotlinExtensionParameters()
-        }
-
         fun configureTarget(
             target: KotlinWithJavaTarget<*, *>,
             buildSourceSetProcessor: (KotlinCompilation<*>) -> KotlinSourceSetProcessor<*>
@@ -188,19 +184,24 @@ internal abstract class AbstractKotlinPlugin(
                     val kotlinSourceSet = project.kotlinExtension.sourceSets.maybeCreate(kotlinCompilation.name)
                     kotlinSourceSet.kotlin.source(javaSourceSet.java)
 
-                    // Registering resources from KotlinSourceSet as Java SourceSet resources.
+                    // Registering resources from JavaSourceSet as KotlinSourceSet resources.
                     // In the case of KotlinPlugin Java Sources set will create ProcessResources task to process all resources into output
                     // 'kotlinSourceSet.resources' should contain Java SourceSet default resource directories,
-                    // and to avoid duplication error, we are replacing the already configured default one.
+                    // and to avoid duplication error, we are replacing the already created default one.
+                    with(kotlinSourceSet as DefaultKotlinSourceSet) {
+                        val defaultResources = actualResources
+                        actualResources = javaSourceSet.resources
+                        // Filtering out default resource directory to avoid duplicates error
+                        val defaultResourcesDir = KotlinSourceSetFactory.defaultSourceFolder(
+                            project,
+                            javaSourceSet.name,
+                            javaSourceSet.resources.name
+                        )
+                        resources.srcDir(defaultResources.sourceDirectories.filter {
+                            !it.startsWith(defaultResourcesDir)
+                        })
+                    }
 
-                    // If KGP was applied with delay, it is possible that 'javaSourceSet.resources' may already have some additional
-                    // configuration. So we are syncing it into 'kotlinSourceSet.resources'.
-                    kotlinSourceSet.resources.srcDirs(javaSourceSet.resources.sourceDirectories.files)
-                    javaSourceSet.resources.setSrcDirs(
-                        listOf {
-                            kotlinSourceSet.resources.sourceDirectories
-                        }
-                    )
                     @Suppress("DEPRECATION")
                     kotlinCompilation.addSourceSet(kotlinSourceSet)
                     project.compatibilityConventionRegistrar.addConvention(javaSourceSet, kotlinSourceSetDslName, kotlinSourceSet)
@@ -271,14 +272,14 @@ internal abstract class AbstractKotlinPlugin(
             // platform-specific modules
             if (kotlinTarget.platformType != KotlinPlatformType.common) {
                 project.configurations.getByName(kotlinTarget.apiElementsConfigurationName).run {
-                    attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerApiUsage(kotlinTarget))
-                    attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
+                    attributes.setAttribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerApiUsage(kotlinTarget))
+                    attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
                     usesPlatformOf(kotlinTarget)
                 }
 
                 project.configurations.getByName(kotlinTarget.runtimeElementsConfigurationName).run {
-                    attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerRuntimeUsage(kotlinTarget))
-                    attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
+                    attributes.setAttribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerRuntimeUsage(kotlinTarget))
+                    attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
                     usesPlatformOf(kotlinTarget)
                 }
             }

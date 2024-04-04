@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -47,6 +47,12 @@ public class K1WasmCodegenWasmJsInteropTestGenerated extends AbstractK1WasmCodeg
     @TestMetadata("externals.kt")
     public void testExternals() throws Exception {
         runTest("compiler/testData/codegen/boxWasmJsInterop/externals.kt");
+    }
+
+    @Test
+    @TestMetadata("externalsWithUnsigned.kt")
+    public void testExternalsWithUnsigned() throws Exception {
+        runTest("compiler/testData/codegen/boxWasmJsInterop/externalsWithUnsigned.kt");
     }
 
     @Test
@@ -179,5 +185,63 @@ public class K1WasmCodegenWasmJsInteropTestGenerated extends AbstractK1WasmCodeg
     @TestMetadata("wasmImport.kt")
     public void testWasmImport() throws Exception {
         runTest("compiler/testData/codegen/boxWasmJsInterop/wasmImport.kt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations")
+    @TestDataPath("$PROJECT_ROOT")
+    public class TypeScriptDeclarations {
+        @Test
+        public void testAllFilesPresentInTypeScriptDeclarations() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.WASM, true);
+        }
+
+        @Test
+        @TestMetadata("externalDeclarations.kt")
+        public void testExternalDeclarations() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/externalDeclarations.kt");
+        }
+
+        @Test
+        @TestMetadata("generics.kt")
+        public void testGenerics() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/generics.kt");
+        }
+
+        @Test
+        @TestMetadata("jsPrimitives.kt")
+        public void testJsPrimitives() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/jsPrimitives.kt");
+        }
+
+        @Test
+        @TestMetadata("nullableJsPrimitives.kt")
+        public void testNullableJsPrimitives() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/nullableJsPrimitives.kt");
+        }
+
+        @Test
+        @TestMetadata("nullablePrimitives.kt")
+        public void testNullablePrimitives() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/nullablePrimitives.kt");
+        }
+
+        @Test
+        @TestMetadata("nullableUnisnged.kt")
+        public void testNullableUnisnged() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/nullableUnisnged.kt");
+        }
+
+        @Test
+        @TestMetadata("primitives.kt")
+        public void testPrimitives() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/primitives.kt");
+        }
+
+        @Test
+        @TestMetadata("unisnged.kt")
+        public void testUnisnged() throws Exception {
+            runTest("compiler/testData/codegen/boxWasmJsInterop/typeScriptDeclarations/unisnged.kt");
+        }
     }
 }

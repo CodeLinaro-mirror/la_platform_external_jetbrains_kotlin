@@ -4,7 +4,6 @@ plugins {
     id("java-gradle-plugin")
     id("org.jetbrains.kotlin.jvm")
     id("com.gradle.plugin-publish")
-    id("jps-compatible")
     id("maven-publish")
 }
 
@@ -13,16 +12,10 @@ repositories {
     mavenCentral()
 }
 
-pill {
-    variant = 'FULL'
-}
-
 dependencies {
     api project(':kotlin-gradle-plugin-api')
     // Use this dependency instead when building apart from the other modules:
     // compile "org.jetbrains.kotlin:kotlin-gradle-plugin-api:$kotlin_version"
-
-    api project(':kotlin-test:kotlin-test-junit')
 
     compileOnly RepoDependencies.kotlinStdlib(project)
     compileOnly project(':compiler')

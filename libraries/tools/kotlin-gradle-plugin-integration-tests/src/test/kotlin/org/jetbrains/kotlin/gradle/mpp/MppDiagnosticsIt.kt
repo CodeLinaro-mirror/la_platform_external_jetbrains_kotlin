@@ -15,6 +15,9 @@ import kotlin.io.path.writeText
 
 @MppGradlePluginTests
 class MppDiagnosticsIt : KGPBaseTest() {
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.copy(compilerArgumentsLogLevel = null)
+
     @GradleTest
     fun testDiagnosticsRenderingSmoke(gradleVersion: GradleVersion) {
         project("diagnosticsRenderingSmoke", gradleVersion) {
@@ -111,6 +114,13 @@ class MppDiagnosticsIt : KGPBaseTest() {
     }
 
     @GradleTest
+    fun testKt64121(gradleVersion: GradleVersion) {
+        project("kt64121", gradleVersion) {
+            build("assemble")
+        }
+    }
+
+    @GradleTest
     fun testSuppressGradlePluginWarnings(gradleVersion: GradleVersion) {
         project("suppressGradlePluginWarnings", gradleVersion) {
             build("assemble") {
@@ -123,10 +133,7 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testSuppressGradlePluginFatals(gradleVersion: GradleVersion) {
         project("suppressGradlePluginFatals", gradleVersion) {
             buildAndFail("assemble") {
-                // Gradle 8.0+ for some reason renders exception twice in the build log
-                val testDataSuffixIfAny = if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) "gradle-6.8.3" else null
-
-                assertEqualsToFile(expectedOutputFile(testDataSuffixIfAny), extractProjectsAndTheirDiagnostics())
+                assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
             }
         }
     }
@@ -182,6 +189,15 @@ class MppDiagnosticsIt : KGPBaseTest() {
 
             build("help", "--full-stacktrace", buildOptions = options) {
                 assertEqualsToFile(expectedOutputFile("with-full-stacktrace"), extractProjectsAndTheirDiagnostics())
+            }
+        }
+    }
+
+    @GradleTest
+    fun testErrorDiagnosticUpToDateIfNoErrors(gradleVersion: GradleVersion) {
+        project("errorDiagnosticUpToDateIfNoErrors", gradleVersion) {
+            build("assemble") {
+                assertTasksSkipped(":checkKotlinGradlePluginConfigurationErrors")
             }
         }
     }

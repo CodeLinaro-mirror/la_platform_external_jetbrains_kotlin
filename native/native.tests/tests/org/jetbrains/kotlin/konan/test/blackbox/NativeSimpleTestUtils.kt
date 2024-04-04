@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Binaries
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeTargets
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.PipelineType
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Timeouts
+import org.jetbrains.kotlin.konan.test.blackbox.support.util.DEFAULT_MODULE_NAME
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.LAUNCHER_MODULE_NAME
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.junit.jupiter.api.Assumptions
@@ -146,6 +147,7 @@ internal fun AbstractNativeSimpleTest.cinteropToLibrary(
         targets = targets,
         freeCompilerArgs = freeCompilerArgs,
         defFile = testCase.modules.single().files.single().location,
+        dependencies = emptyList(),
         expectedArtifact = getLibraryArtifact(testCase, outputDir)
     ).result
 }
@@ -201,7 +203,8 @@ internal fun AbstractNativeSimpleTest.compileToStaticCache(
 
 internal fun AbstractNativeSimpleTest.generateTestCaseWithSingleModule(
     moduleDir: File?,
-    freeCompilerArgs: TestCompilerArgs = TestCompilerArgs.EMPTY
+    freeCompilerArgs: TestCompilerArgs = TestCompilerArgs.EMPTY,
+    extras: TestCase.Extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT),
 ): TestCase {
     val moduleName: String = moduleDir?.name ?: LAUNCHER_MODULE_NAME
     val module = TestModule.Exclusive(moduleName, emptySet(), emptySet(), emptySet())
@@ -217,7 +220,7 @@ internal fun AbstractNativeSimpleTest.generateTestCaseWithSingleModule(
         freeCompilerArgs = freeCompilerArgs,
         nominalPackageName = PackageName.EMPTY,
         checks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout),
-        extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT)
+        extras = extras
     ).apply {
         initialize(null, null)
     }
@@ -228,7 +231,8 @@ internal fun AbstractNativeSimpleTest.generateTestCaseWithSingleFile(
     moduleName: String = sourceFile.name,
     freeCompilerArgs: TestCompilerArgs = TestCompilerArgs.EMPTY,
     testKind: TestKind = TestKind.STANDALONE,
-    extras: TestCase.Extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT)
+    extras: TestCase.Extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT),
+    checks: TestRunChecks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout),
 ): TestCase {
     val module = TestModule.Exclusive(moduleName, emptySet(), emptySet(), emptySet())
     module.files += TestFile.createCommitted(sourceFile, module)
@@ -239,7 +243,7 @@ internal fun AbstractNativeSimpleTest.generateTestCaseWithSingleFile(
         modules = setOf(module),
         freeCompilerArgs = freeCompilerArgs,
         nominalPackageName = PackageName.EMPTY,
-        checks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout),
+        checks = checks,
         extras = extras
     ).apply {
         initialize(null, null)
@@ -264,6 +268,31 @@ internal fun AbstractNativeSimpleTest.generateCInteropTestCaseFromSingleDefFile(
         extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT)
     ).apply {
         initialize(null, null)
+    }
+}
+
+internal fun AbstractNativeSimpleTest.generateObjCFrameworkTestCase(
+    kind: TestKind,
+    extras: TestCase.Extras,
+    moduleName: String,
+    sources: List<File>,
+    freeCompilerArgs: TestCompilerArgs = TestCompilerArgs.EMPTY,
+    givenDependencies: Set<TestModule.Given>? = null,
+    checks: TestRunChecks = TestRunChecks.Default(testRunSettings.get<Timeouts>().executionTimeout),
+): TestCase {
+    val module = TestModule.Exclusive(DEFAULT_MODULE_NAME, emptySet(), emptySet(), emptySet())
+    sources.forEach { module.files += TestFile.createCommitted(it, module) }
+
+    return TestCase(
+        id = TestCaseId.Named(moduleName),
+        kind = kind,
+        modules = setOf(module),
+        freeCompilerArgs = freeCompilerArgs,
+        nominalPackageName = PackageName(moduleName),
+        checks = checks,
+        extras = extras,
+    ).apply {
+        initialize(givenDependencies, null)
     }
 }
 

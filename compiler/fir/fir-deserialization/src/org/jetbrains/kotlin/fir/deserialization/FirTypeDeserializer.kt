@@ -164,7 +164,7 @@ class FirTypeDeserializer(
     private fun simpleType(proto: ProtoBuf.Type, attributes: ConeAttributes): ConeSimpleKotlinType? {
         val constructor = typeSymbol(proto) ?: return null
         if (constructor is ConeTypeParameterLookupTag) {
-            return ConeTypeParameterTypeImpl(constructor, isNullable = proto.nullable).let {
+            return ConeTypeParameterTypeImpl(constructor, isNullable = proto.nullable, attributes).let {
                 if (Flags.DEFINITELY_NOT_NULL_TYPE.get(proto.flags))
                     ConeDefinitelyNotNullType.create(it, moduleData.session.typeContext, avoidComprehensiveCheck = true) ?: it
                 else
@@ -221,7 +221,7 @@ class FirTypeDeserializer(
 
         val continuationType = arguments.getOrNull(arguments.lastIndex - 1) as? ConeClassLikeType ?: return null
         if (!continuationType.isContinuation()) return ConeClassLikeTypeImpl(functionTypeConstructor, arguments, isNullable, attributes)
-        val suspendReturnType = continuationType.typeArguments.single() as ConeKotlinTypeProjection
+        val suspendReturnType = continuationType.typeArguments.single()
         val valueParameters = arguments.dropLast(2)
 
         val kind = FunctionTypeKind.SuspendFunction

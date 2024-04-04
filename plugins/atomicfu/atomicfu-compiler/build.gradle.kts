@@ -84,7 +84,7 @@ dependencies {
 
     testImplementation(projectTests(":js:js.tests"))
     testImplementation(libs.junit4)
-    testApi(project(":kotlin-test:kotlin-test-jvm"))
+    testApi(kotlinTest())
 
     // Dependencies for Kotlin/Native test infra:
     if (!kotlinBuildProperties.isInIdeaSync) {
@@ -153,7 +153,7 @@ dependencies {
 }
 
 optInToExperimentalCompilerApi()
-optInToIrSymbolInternals()
+optInToUnsafeDuringIrConstructionAPI()
 
 sourceSets {
     "main" { projectDefault() }
@@ -168,18 +168,12 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
         // Exclude all tests with the "atomicfu-native" tag. They should be launched by another test task.
         excludeTags("atomicfu-native")
     }
-    useJsIrBoxTests(version = version, buildDir = "$buildDir/")
+    useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
 
     workingDir = rootDir
 
     dependsOn(":dist")
     dependsOn(atomicfuJsIrRuntimeForTests)
-
-    // Depend on the test task that launches Native tests so that it will also run together with tests
-    // for all other targets if K/N is enabled
-    if (kotlinBuildProperties.isKotlinNativeEnabled) {
-        dependsOn(nativeTest)
-    }
 
     val localAtomicfuJsIrRuntimeForTests: FileCollection = atomicfuJsIrRuntimeForTests
     val localAtomicfuJsClasspath: FileCollection = atomicfuJsClasspath
@@ -203,3 +197,11 @@ val nativeTest = nativeTest(
     customTestDependencies = listOf(atomicfuNativeKlib),
     compilerPluginDependencies = listOf(atomicfuCompilerPluginForTests)
 )
+
+tasks.named("check") {
+    // Depend on the test task that launches Native tests so that it will also run together with tests
+    // for all other targets if K/N is enabled
+    if (kotlinBuildProperties.isKotlinNativeEnabled) {
+        dependsOn(nativeTest)
+    }
+}

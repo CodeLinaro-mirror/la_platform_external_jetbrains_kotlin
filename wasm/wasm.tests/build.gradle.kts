@@ -11,7 +11,7 @@ repositories {
     ivy {
         url = URI("https://archive.mozilla.org/pub/firefox/nightly/")
         patternLayout {
-            artifact("2023/09/[revision]/[artifact]-[classifier].[ext]")
+            artifact("2023/12/[revision]/[artifact]-[classifier].[ext]")
         }
         metadataSources { artifact() }
         content { includeModule("org.mozilla", "jsshell") }
@@ -44,7 +44,7 @@ val currentOsType = run {
 }
 
 
-val jsShellVersion = "2023-09-20-09-21-12-mozilla-central"
+val jsShellVersion = "2023-12-08-21-57-22-mozilla-central"
 val jsShellSuffix = when (currentOsType) {
     OsType(OsName.LINUX, OsArch.X86_32) -> "linux-i686"
     OsType(OsName.LINUX, OsArch.X86_64) -> "linux-x86_64"
@@ -79,6 +79,7 @@ val generationRoot = projectDir.resolve("tests-gen")
 
 useD8Plugin()
 useNodeJsPlugin()
+useBinaryenPlugin()
 optInToExperimentalCompilerApi()
 
 sourceSets {
@@ -90,10 +91,12 @@ sourceSets {
 }
 
 fun Test.setupWasmStdlib(target: String) {
-    dependsOn(":kotlin-stdlib-wasm-$target:compileKotlinWasm")
-    systemProperty("kotlin.wasm-$target.stdlib.path", "libraries/stdlib/wasm/$target/build/classes/kotlin/wasm/main")
-    dependsOn(":kotlin-test:kotlin-test-wasm-$target:compileKotlinWasm")
-    systemProperty("kotlin.wasm-$target.kotlin.test.path", "libraries/kotlin.test/wasm/$target/build/classes/kotlin/wasm/main")
+    @Suppress("LocalVariableName")
+    val Target = target.capitalize()
+    dependsOn(":kotlin-stdlib:compileKotlinWasm$Target")
+    systemProperty("kotlin.wasm-$target.stdlib.path", "libraries/stdlib/build/classes/kotlin/wasm$Target/main")
+    dependsOn(":kotlin-test:compileKotlinWasm$Target")
+    systemProperty("kotlin.wasm-$target.kotlin.test.path", "libraries/kotlin.test/build/classes/kotlin/wasm$Target/main")
 }
 
 fun Test.setupGradlePropertiesForwarding() {
@@ -113,15 +116,12 @@ fun Test.setupGradlePropertiesForwarding() {
     }
 }
 
-val downloadedTools = File(buildDir, "tools")
-
 val unzipJsShell by task<Copy> {
     dependsOn(jsShell)
     from {
         zipTree(jsShell.singleFile)
     }
-    val unpackedDir = File(downloadedTools, "jsshell-$jsShellSuffix-$jsShellVersion")
-    into(unpackedDir)
+    into(layout.buildDirectory.dir("tools/jsshell-$jsShellSuffix-$jsShellVersion"))
 }
 
 fun Test.setupSpiderMonkey() {
@@ -148,12 +148,13 @@ fun Project.wasmProjectTest(
         workingDir = rootDir
         setupV8()
         setupNodeJs()
+        setupBinaryen()
         setupSpiderMonkey()
         useJUnitPlatform()
         setupWasmStdlib("js")
         setupWasmStdlib("wasi")
         setupGradlePropertiesForwarding()
-        systemProperty("kotlin.wasm.test.root.out.dir", "$buildDir/")
+        systemProperty("kotlin.wasm.test.root.out.dir", "${layout.buildDirectory.get().asFile}/")
         body()
     }
 }

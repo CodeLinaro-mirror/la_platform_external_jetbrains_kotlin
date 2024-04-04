@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
     @Test
     public void testAllFilesPresentInIrText() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true, "declarations/multiplatform/k1");
     }
 
     @Nested
@@ -50,6 +50,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("annotationClasses.kt")
         public void testAnnotationClasses() throws Exception {
             runTest("compiler/testData/ir/irText/classes/annotationClasses.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationsOnDelegatedMembers.kt")
+        public void testAnnotationsOnDelegatedMembers() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/annotationsOnDelegatedMembers.kt");
         }
 
         @Test
@@ -128,6 +134,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("enumClassModality.kt")
         public void testEnumClassModality() throws Exception {
             runTest("compiler/testData/ir/irText/classes/enumClassModality.kt");
+        }
+
+        @Test
+        @TestMetadata("enumEntries.kt")
+        public void testEnumEntries() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/enumEntries.kt");
         }
 
         @Test
@@ -227,6 +239,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
+        @TestMetadata("overriddenEquals.kt")
+        public void testOverriddenEquals() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/overriddenEquals.kt");
+        }
+
+        @Test
         @TestMetadata("primaryConstructor.kt")
         public void testPrimaryConstructor() throws Exception {
             runTest("compiler/testData/ir/irText/classes/primaryConstructor.kt");
@@ -236,6 +254,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("primaryConstructorWithSuperConstructorCall.kt")
         public void testPrimaryConstructorWithSuperConstructorCall() throws Exception {
             runTest("compiler/testData/ir/irText/classes/primaryConstructorWithSuperConstructorCall.kt");
+        }
+
+        @Test
+        @TestMetadata("privateInterface.kt")
+        public void testPrivateInterface() throws Exception {
+            runTest("compiler/testData/ir/irText/classes/privateInterface.kt");
         }
 
         @Test
@@ -351,7 +375,7 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
     public class Declarations {
         @Test
         public void testAllFilesPresentInDeclarations() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true, "multiplatform/k1");
         }
 
         @Test
@@ -427,6 +451,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
+        @TestMetadata("internalStdlibOverride.kt")
+        public void testInternalStdlibOverride() throws Exception {
+            runTest("compiler/testData/ir/irText/declarations/internalStdlibOverride.kt");
+        }
+
+        @Test
         @TestMetadata("kt27005.kt")
         public void testKt27005() throws Exception {
             runTest("compiler/testData/ir/irText/declarations/kt27005.kt");
@@ -439,12 +469,6 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
-        @TestMetadata("kt45308.kt")
-        public void testKt45308() throws Exception {
-            runTest("compiler/testData/ir/irText/declarations/kt45308.kt");
-        }
-
-        @Test
         @TestMetadata("kt47527.kt")
         public void testKt47527() throws Exception {
             runTest("compiler/testData/ir/irText/declarations/kt47527.kt");
@@ -454,6 +478,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("kt52677.kt")
         public void testKt52677() throws Exception {
             runTest("compiler/testData/ir/irText/declarations/kt52677.kt");
+        }
+
+        @Test
+        @TestMetadata("kt65273.kt")
+        public void testKt65273() throws Exception {
+            runTest("compiler/testData/ir/irText/declarations/kt65273.kt");
         }
 
         @Test
@@ -472,6 +502,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("localVarInDoWhile.kt")
         public void testLocalVarInDoWhile() throws Exception {
             runTest("compiler/testData/ir/irText/declarations/localVarInDoWhile.kt");
+        }
+
+        @Test
+        @TestMetadata("mainFunctionMangling.kt")
+        public void testMainFunctionMangling() throws Exception {
+            runTest("compiler/testData/ir/irText/declarations/mainFunctionMangling.kt");
         }
 
         @Test
@@ -932,49 +968,47 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         public class Multiplatform {
             @Test
             public void testAllFilesPresentInMultiplatform() throws Exception {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations/multiplatform"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations/multiplatform"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true, "k1");
             }
 
-            @Test
-            @TestMetadata("expectClassInherited.kt")
-            public void testExpectClassInherited() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectClassInherited.kt");
-            }
+            @Nested
+            @TestMetadata("compiler/testData/ir/irText/declarations/multiplatform/k2")
+            @TestDataPath("$PROJECT_ROOT")
+            public class K2 {
+                @Test
+                public void testAllFilesPresentInK2() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations/multiplatform/k2"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+                }
 
-            @Test
-            @TestMetadata("expectIntersectionOverride.kt")
-            public void testExpectIntersectionOverride() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectIntersectionOverride.kt");
-            }
+                @Test
+                @TestMetadata("expectClassInherited.kt")
+                public void testExpectClassInherited() throws Exception {
+                    runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectClassInherited.kt");
+                }
 
-            @Test
-            @TestMetadata("expectMemberInNotExpectClass.kt")
-            public void testExpectMemberInNotExpectClass() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectMemberInNotExpectClass.kt");
-            }
+                @Test
+                @TestMetadata("expectIntersectionOverride.kt")
+                public void testExpectIntersectionOverride() throws Exception {
+                    runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectIntersectionOverride.kt");
+                }
 
-            @Test
-            @TestMetadata("expectMemberInNotExpectClassFir.kt")
-            public void testExpectMemberInNotExpectClassFir() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectMemberInNotExpectClassFir.kt");
-            }
+                @Test
+                @TestMetadata("expectMemberInNotExpectClass.kt")
+                public void testExpectMemberInNotExpectClass() throws Exception {
+                    runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectMemberInNotExpectClass.kt");
+                }
 
-            @Test
-            @TestMetadata("expectedEnumClass.kt")
-            public void testExpectedEnumClass() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectedEnumClass.kt");
-            }
+                @Test
+                @TestMetadata("expectedEnumClass.kt")
+                public void testExpectedEnumClass() throws Exception {
+                    runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectedEnumClass.kt");
+                }
 
-            @Test
-            @TestMetadata("expectedEnumClass2.kt")
-            public void testExpectedEnumClass2() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectedEnumClass2.kt");
-            }
-
-            @Test
-            @TestMetadata("expectedSealedClass.kt")
-            public void testExpectedSealedClass() throws Exception {
-                runTest("compiler/testData/ir/irText/declarations/multiplatform/expectedSealedClass.kt");
+                @Test
+                @TestMetadata("expectedSealedClass.kt")
+                public void testExpectedSealedClass() throws Exception {
+                    runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectedSealedClass.kt");
+                }
             }
         }
 
@@ -1439,6 +1473,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
+        @TestMetadata("genericReceiverOnExtensionWithSmartcast.kt")
+        public void testGenericReceiverOnExtensionWithSmartcast() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/genericReceiverOnExtensionWithSmartcast.kt");
+        }
+
+        @Test
         @TestMetadata("identity.kt")
         public void testIdentity() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/identity.kt");
@@ -1448,6 +1488,24 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("ifElseIf.kt")
         public void testIfElseIf() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/ifElseIf.kt");
+        }
+
+        @Test
+        @TestMetadata("ifWithArrayOperation.kt")
+        public void testIfWithArrayOperation() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/ifWithArrayOperation.kt");
+        }
+
+        @Test
+        @TestMetadata("ifWithAssignment.kt")
+        public void testIfWithAssignment() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/ifWithAssignment.kt");
+        }
+
+        @Test
+        @TestMetadata("ifWithLoop.kt")
+        public void testIfWithLoop() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/ifWithLoop.kt");
         }
 
         @Test
@@ -1481,9 +1539,21 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
+        @TestMetadata("inlinedBreakContinue.kt")
+        public void testInlinedBreakContinue() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/inlinedBreakContinue.kt");
+        }
+
+        @Test
         @TestMetadata("interfaceThisRef.kt")
         public void testInterfaceThisRef() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/interfaceThisRef.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectedSmartcastForExtensionReceiverWithSameConstructor.kt")
+        public void testIntersectedSmartcastForExtensionReceiverWithSameConstructor() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/intersectedSmartcastForExtensionReceiverWithSameConstructor.kt");
         }
 
         @Test
@@ -1697,6 +1767,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
+        @TestMetadata("posptonedPCLACallInsideStringInterpolation.kt")
+        public void testPosptonedPCLACallInsideStringInterpolation() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/posptonedPCLACallInsideStringInterpolation.kt");
+        }
+
+        @Test
         @TestMetadata("primitiveComparisons.kt")
         public void testPrimitiveComparisons() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/primitiveComparisons.kt");
@@ -1754,6 +1830,18 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("simpleUnaryOperators.kt")
         public void testSimpleUnaryOperators() throws Exception {
             runTest("compiler/testData/ir/irText/expressions/simpleUnaryOperators.kt");
+        }
+
+        @Test
+        @TestMetadata("smartCastAside.kt")
+        public void testSmartCastAside() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/smartCastAside.kt");
+        }
+
+        @Test
+        @TestMetadata("smartCastAside2.kt")
+        public void testSmartCastAside2() throws Exception {
+            runTest("compiler/testData/ir/irText/expressions/smartCastAside2.kt");
         }
 
         @Test
@@ -2254,6 +2342,16 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
     }
 
     @Nested
+    @TestMetadata("compiler/testData/ir/irText/fakeOverrides")
+    @TestDataPath("$PROJECT_ROOT")
+    public class FakeOverrides {
+        @Test
+        public void testAllFilesPresentInFakeOverrides() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/fakeOverrides"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+    }
+
+    @Nested
     @TestMetadata("compiler/testData/ir/irText/firProblems")
     @TestDataPath("$PROJECT_ROOT")
     public class FirProblems {
@@ -2353,12 +2451,6 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         }
 
         @Test
-        @TestMetadata("ImplicitReceiverStack.kt")
-        public void testImplicitReceiverStack() throws Exception {
-            runTest("compiler/testData/ir/irText/firProblems/ImplicitReceiverStack.kt");
-        }
-
-        @Test
         @TestMetadata("inapplicableCollectionSet.kt")
         public void testInapplicableCollectionSet() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/inapplicableCollectionSet.kt");
@@ -2368,6 +2460,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("InnerClassInAnonymous.kt")
         public void testInnerClassInAnonymous() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/InnerClassInAnonymous.kt");
+        }
+
+        @Test
+        @TestMetadata("IntArrayAsVararg.kt")
+        public void testIntArrayAsVararg() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/IntArrayAsVararg.kt");
         }
 
         @Test
@@ -2416,6 +2514,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("LocalSuspendFun.kt")
         public void testLocalSuspendFun() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/LocalSuspendFun.kt");
+        }
+
+        @Test
+        @TestMetadata("noErrorTypeAfterCaptureApproximation.kt")
+        public void testNoErrorTypeAfterCaptureApproximation() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/noErrorTypeAfterCaptureApproximation.kt");
         }
 
         @Test
@@ -2585,6 +2689,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
             @TestMetadata("dynamicExclExclOperator.kt")
             public void testDynamicExclExclOperator() throws Exception {
                 runTest("compiler/testData/ir/irText/js/dynamic/dynamicExclExclOperator.kt");
+            }
+
+            @Test
+            @TestMetadata("dynamicInDataClass.kt")
+            public void testDynamicInDataClass() throws Exception {
+                runTest("compiler/testData/ir/irText/js/dynamic/dynamicInDataClass.kt");
             }
 
             @Test
@@ -2814,6 +2924,12 @@ public class FirPsiJsIrTextTestGenerated extends AbstractFirPsiJsIrTextTest {
         @TestMetadata("newInferenceFixationOrder1.kt")
         public void testNewInferenceFixationOrder1() throws Exception {
             runTest("compiler/testData/ir/irText/regressions/newInferenceFixationOrder1.kt");
+        }
+
+        @Test
+        @TestMetadata("noSyntheticTypeParameterLeftAfterPCLA.kt")
+        public void testNoSyntheticTypeParameterLeftAfterPCLA() throws Exception {
+            runTest("compiler/testData/ir/irText/regressions/noSyntheticTypeParameterLeftAfterPCLA.kt");
         }
 
         @Test

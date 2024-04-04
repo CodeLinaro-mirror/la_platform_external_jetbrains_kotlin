@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.symbols.impl
 
+import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
@@ -26,10 +27,10 @@ open class FirPropertySymbol(callableId: CallableId, ) : FirVariableSymbol<FirPr
     val isLocal: Boolean
         get() = fir.isLocal
 
-    val getterSymbol: FirPropertyAccessorSymbol?
+    open val getterSymbol: FirPropertyAccessorSymbol?
         get() = fir.getter?.symbol
 
-    val setterSymbol: FirPropertyAccessorSymbol?
+    open val setterSymbol: FirPropertyAccessorSymbol?
         get() = fir.setter?.symbol
 
     val backingFieldSymbol: FirBackingFieldSymbol?
@@ -46,6 +47,9 @@ open class FirPropertySymbol(callableId: CallableId, ) : FirVariableSymbol<FirPr
 
     val hasInitializer: Boolean
         get() = fir.initializer != null
+
+    val initializerSource: KtSourceElement?
+        get() = fir.initializer?.source
 
     val resolvedInitializer: FirExpression?
         get() {
@@ -96,6 +100,9 @@ open class FirFieldSymbol(callableId: CallableId) : FirVariableSymbol<FirField>(
     val hasInitializer: Boolean
         get() = fir.initializer != null
 
+    val hasConstantInitializer: Boolean
+        get() = fir.hasConstantInitializer
+
     val isVal: Boolean
         get() = fir.isVal
 
@@ -112,6 +119,9 @@ class FirValueParameterSymbol(name: Name) : FirVariableSymbol<FirValueParameter>
     val hasDefaultValue: Boolean
         get() = fir.defaultValue != null
 
+    val defaultValueSource: KtSourceElement?
+        get() = fir.defaultValue?.source
+
     val isCrossinline: Boolean
         get() = fir.isCrossinline
 
@@ -127,7 +137,7 @@ class FirValueParameterSymbol(name: Name) : FirVariableSymbol<FirValueParameter>
 
 class FirErrorPropertySymbol(
     val diagnostic: ConeDiagnostic
-) : FirVariableSymbol<FirErrorProperty>(CallableId(FqName.ROOT, null, NAME)) {
+) : FirVariableSymbol<FirErrorProperty>(CallableId(FqName.ROOT, NAME)) {
     companion object {
         val NAME: Name = Name.special("<error property>")
     }

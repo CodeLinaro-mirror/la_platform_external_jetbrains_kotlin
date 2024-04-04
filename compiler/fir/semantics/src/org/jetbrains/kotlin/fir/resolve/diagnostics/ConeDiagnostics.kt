@@ -13,11 +13,12 @@ import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithSource
-import org.jetbrains.kotlin.fir.expressions.FirConstExpression
+import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirOperation
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCandidate
+import org.jetbrains.kotlin.fir.resolve.calls.ResolutionDiagnostic
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -110,6 +111,12 @@ open class ConeVisibilityError(
     override val reason: String get() = "HIDDEN: ${describeSymbol(symbol)} is invisible"
 }
 
+open class ConeSetterVisibilityError(
+    override val symbol: FirPropertySymbol
+) : ConeDiagnosticWithSymbol<FirBasedSymbol<*>> {
+    override val reason: String get() = "HIDDEN SETTER: ${describeSymbol(symbol)} is invisible"
+}
+
 class ConeTypeVisibilityError(
     symbol: FirBasedSymbol<*>,
     val smallestUnresolvablePrefix: List<FirQualifierPart>,
@@ -120,6 +127,11 @@ class ConeInapplicableWrongReceiver(override val candidates: Collection<Abstract
         get() = "None of the following candidates is applicable because of receiver type mismatch: ${
             candidateSymbols.map { describeSymbol(it) }
         }"
+
+    val primaryDiagnostic: ResolutionDiagnostic?
+        get() = candidates.singleOrNull()
+            ?.diagnostics
+            ?.singleOrNull { it.applicability == CandidateApplicability.INAPPLICABLE_WRONG_RECEIVER }
 }
 
 class ConeInapplicableCandidateError(
@@ -163,31 +175,31 @@ object ConeVariableExpectedError : ConeDiagnostic {
 sealed class ConeContractDescriptionError : ConeDiagnostic {
     class IllegalElement(val element: FirElement) : ConeContractDescriptionError() {
         override val reason: String
-            get() = "Illegal element in contract description"
+            get() = "illegal element in contract description"
     }
 
     class UnresolvedCall(val name: Name) : ConeContractDescriptionError() {
         override val reason: String
-            get() = "Unresolved call in contract description: ${name.asString()}"
+            get() = "unresolved call in contract description: ${name.asString()}"
     }
 
     class NoReceiver(val name: Name) : ConeContractDescriptionError() {
         override val reason: String
-            get() = "No receiver for call ${name.asString()} found"
+            get() = "no receiver for call '${name.asString()}' found"
     }
 
     class NoArgument(val name: Name) : ConeContractDescriptionError() {
         override val reason: String
-            get() = "No argument for call ${name.asString()} found"
+            get() = "no argument for call '${name.asString()}' found"
     }
 
     class NotAConstant(val element: Any) : ConeContractDescriptionError() {
         override val reason: String
-            get() = "$element is not a constant reference"
+            get() = "'$element' is not a constant reference"
     }
 
     class IllegalConst(
-        val element: FirConstExpression<*>,
+        val element: FirLiteralExpression<*>,
         val onlyNullAllowed: Boolean
     ) : ConeContractDescriptionError() {
         override val reason: String
@@ -264,12 +276,19 @@ class ConeWrongNumberOfTypeArgumentsError(
     override val reason: String get() = "Wrong number of type arguments"
 }
 
-class ConeTypeArgumentsNotAllowedError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
-    override val reason: String get() = "Type parameters cannot be parameterized with type arguments"
+class ConeTypeArgumentsNotAllowedOnPackageError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
+    override val reason: String get() = "Type arguments are not allowed for packages"
 }
 
 class ConeTypeArgumentsForOuterClassWhenNestedReferencedError(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
     override val reason: String get() = "Type arguments for outer class are redundant when nested class is referenced"
+}
+
+class ConeNestedClassAccessedViaInstanceReference(
+    source: KtSourceElement,
+    val symbol: FirClassLikeSymbol<*>,
+) : ConeDiagnosticWithSource(source) {
+    override val reason: String get() = "Nested ${symbol.classId} accessed via instance reference"
 }
 
 class ConeNoTypeArgumentsOnRhsError(
@@ -384,4 +403,9 @@ object ConeResolutionResultOverridesOtherToPreserveCompatibility : ConeDiagnosti
     override val reason: String
         get() = "Resolution result overrides another result to preserve compatibility, result maybe changed in future versions"
 
+}
+
+object ConeCallToDeprecatedOverrideOfHidden : ConeDiagnostic {
+    override val reason: String
+        get() = "Call to deprecated override of hidden"
 }

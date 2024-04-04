@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -40,6 +40,24 @@ public class Kapt4ToolIntegrationTestGenerated extends AbstractKapt4ToolIntegrat
     @TestMetadata("correctErrorTypesOn")
     public void testCorrectErrorTypesOn() throws Exception {
         runTest("plugins/kapt3/kapt3-cli/testData/integration-kapt4/correctErrorTypesOn/");
+    }
+
+    @Test
+    @TestMetadata("defaultMethodsAllCompatibilityNoWarning")
+    public void testDefaultMethodsAllCompatibilityNoWarning() throws Exception {
+        runTest("plugins/kapt3/kapt3-cli/testData/integration-kapt4/defaultMethodsAllCompatibilityNoWarning/");
+    }
+
+    @Test
+    @TestMetadata("defaultMethodsAllNoWarning")
+    public void testDefaultMethodsAllNoWarning() throws Exception {
+        runTest("plugins/kapt3/kapt3-cli/testData/integration-kapt4/defaultMethodsAllNoWarning/");
+    }
+
+    @Test
+    @TestMetadata("defaultMethodsWarning")
+    public void testDefaultMethodsWarning() throws Exception {
+        runTest("plugins/kapt3/kapt3-cli/testData/integration-kapt4/defaultMethodsWarning/");
     }
 
     @Test

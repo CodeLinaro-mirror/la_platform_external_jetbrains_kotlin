@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.incremental
 
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.local.CoreLocalFileSystem
@@ -13,6 +14,7 @@ import com.intellij.psi.SingleRootFileViewProvider
 import com.intellij.testFramework.TestDataFile
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
+import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.codegen.*
@@ -34,6 +36,7 @@ import org.jetbrains.kotlin.js.testOld.V8IrJsTestChecker
 import org.jetbrains.kotlin.konan.file.ZipFileSystemCacheableAccessor
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.TargetBackend
@@ -45,7 +48,11 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.junit.ComparisonFailure
 import org.junit.jupiter.api.AfterEach
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.*
+import java.util.stream.Collectors
 
 abstract class AbstractInvalidationTest(
     private val targetBackend: TargetBackend,
@@ -55,9 +62,11 @@ abstract class AbstractInvalidationTest(
     companion object {
         private val OUT_DIR_PATH = System.getProperty("kotlin.js.test.root.out.dir") ?: error("'kotlin.js.test.root.out.dir' is not set")
         private val STDLIB_KLIB = File(System.getProperty("kotlin.js.stdlib.klib.path") ?: error("Please set stdlib path")).canonicalPath
+        private val KOTLIN_TEST_KLIB = File(System.getProperty("kotlin.js.kotlin.test.klib.path") ?: error("Please set kotlin.test path")).canonicalPath
 
         private const val BOX_FUNCTION_NAME = "box"
         private const val STDLIB_MODULE_NAME = "kotlin-kotlin-stdlib"
+        private const val KOTLIN_TEST_MODULE_NAME = "kotlin-kotlin-test"
 
         private val TEST_FILE_IGNORE_PATTERN = Regex("^.*\\..+\\.\\w\\w$")
 
@@ -73,8 +82,17 @@ abstract class AbstractInvalidationTest(
     }
 
     private val zipAccessor = ZipFileSystemCacheableAccessor(2)
+
+    private val rootDisposable = TestDisposable("${AbstractInvalidationTest::class.simpleName}.rootDisposable")
+
     protected val environment =
-        KotlinCoreEnvironment.createForParallelTests(TestDisposable(), CompilerConfiguration(), EnvironmentConfigFiles.JS_CONFIG_FILES)
+        KotlinCoreEnvironment.createForParallelTests(rootDisposable, CompilerConfiguration(), EnvironmentConfigFiles.JS_CONFIG_FILES)
+
+    @AfterEach
+    protected fun disposeEnvironment() {
+        // The test is run with `Lifecycle.PER_METHOD` (as it's the default), so the disposable needs to be disposed after each test.
+        Disposer.dispose(rootDisposable)
+    }
 
     @AfterEach
     protected fun clearZipAccessor() {
@@ -131,6 +149,7 @@ abstract class AbstractInvalidationTest(
         copy.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, true)
         copy.put(JSConfigurationKeys.SOURCE_MAP, true)
         copy.put(JSConfigurationKeys.USE_ES6_CLASSES, targetBackend == TargetBackend.JS_IR_ES6)
+        copy.put(JSConfigurationKeys.COMPILE_SUSPEND_AS_JS_GENERATOR, targetBackend == TargetBackend.JS_IR_ES6)
 
         copy.languageVersionSettings = with(LanguageVersionSettingsBuilder()) {
             language.forEach {
@@ -148,6 +167,20 @@ abstract class AbstractInvalidationTest(
         zipAccessor.reset()
         copy.put(JSConfigurationKeys.ZIP_FILE_SYSTEM_ACCESSOR, zipAccessor)
         return copy
+    }
+
+    private fun CompilerConfiguration.enableKlibRelativePaths(moduleSourceDir: File) {
+        val bases = mutableListOf<String>()
+        val platformDirs = moduleSourceDir.listFiles() ?: arrayOf()
+        for (platformDir in platformDirs) {
+            if (platformDir.isDirectory) {
+                bases.add(platformDir.absolutePath)
+            }
+        }
+        if (bases.isEmpty()) {
+            bases.add(moduleSourceDir.absolutePath)
+        }
+        put(CommonConfigurationKeys.KLIB_RELATIVE_PATH_BASES, bases)
     }
 
     private inner class ProjectStepsExecutor(
@@ -182,7 +215,7 @@ abstract class AbstractInvalidationTest(
 
             val friends = mutableListOf<File>()
             if (moduleStep.rebuildKlib) {
-                val dependencies = mutableListOf(File(STDLIB_KLIB))
+                val dependencies = mutableListOf(File(STDLIB_KLIB), File(KOTLIN_TEST_KLIB))
                 for (dep in moduleStep.dependencies) {
                     val klibFile = resolveModuleArtifact(dep.moduleName, buildDir)
                     dependencies += klibFile
@@ -191,6 +224,7 @@ abstract class AbstractInvalidationTest(
                     }
                 }
                 val configuration = createConfiguration(module, projStep.language, projectInfo.moduleKind)
+                configuration.enableKlibRelativePaths(moduleSourceDir)
                 outputKlibFile.delete()
                 buildKlib(configuration, module, moduleSourceDir, dependencies, friends, outputKlibFile)
             }
@@ -208,7 +242,7 @@ abstract class AbstractInvalidationTest(
         }
 
         private fun verifyCacheUpdateStats(stepId: Int, stats: KotlinSourceFileMap<EnumSet<DirtyFileState>>, testInfo: List<TestStepInfo>) {
-            val gotStats = stats.filter { it.key.path != STDLIB_KLIB }
+            val gotStats = stats.filter { it.key.path != STDLIB_KLIB && it.key.path != KOTLIN_TEST_KLIB }
 
             val checkedLibs = mutableSetOf<KotlinLibraryFile>()
 
@@ -221,7 +255,7 @@ abstract class AbstractInvalidationTest(
                 for ((srcFile, dirtyStats) in updateStatus) {
                     for (dirtyStat in dirtyStats) {
                         if (dirtyStat != DirtyFileState.NON_MODIFIED_IR) {
-                            got.getOrPut(dirtyStat.str) { mutableSetOf() }.add(File(srcFile.path).name)
+                            got.getOrPut(dirtyStat.str) { mutableSetOf() }.add(srcFile.toString())
                         }
                     }
                 }
@@ -239,7 +273,7 @@ abstract class AbstractInvalidationTest(
         }
 
         private fun verifyJsExecutableProducerBuildModules(stepId: Int, gotRebuilt: List<String>, expectedRebuilt: List<String>) {
-            val got = gotRebuilt.filter { !it.startsWith(STDLIB_MODULE_NAME) }
+            val got = gotRebuilt.filter { !it.startsWith(STDLIB_MODULE_NAME) && !it.startsWith(KOTLIN_TEST_MODULE_NAME) }
             JUnit4Assertions.assertSameElements(got, expectedRebuilt) {
                 "Mismatched rebuilt modules at step $stepId"
             }
@@ -367,7 +401,7 @@ abstract class AbstractInvalidationTest(
 
                 val cacheUpdater = CacheUpdater(
                     mainModule = mainModuleInfo.modulePath,
-                    allModules = testInfo.mapTo(mutableListOf(STDLIB_KLIB)) { it.modulePath },
+                    allModules = testInfo.mapTo(mutableListOf(STDLIB_KLIB, KOTLIN_TEST_KLIB)) { it.modulePath },
                     mainModuleFriends = mainModuleInfo.friends,
                     cacheDir = buildDir.resolve("incremental-cache").absolutePath,
                     compilerConfiguration = configuration,
@@ -412,9 +446,22 @@ abstract class AbstractInvalidationTest(
 
     private fun String.isAllowedJsFile() = (endsWith(".js") || endsWith(".mjs")) && !TEST_FILE_IGNORE_PATTERN.matches(this)
 
-    protected fun File.filteredKtFiles(): Collection<File> {
-        assert(isDirectory && exists())
-        return listFiles { _, name -> name.isAllowedKtFile() }!!.toList()
+    protected fun CompilerConfiguration.addSourcesFromDir(sourceDir: File): List<KtFile> {
+        assert(sourceDir.isDirectory && sourceDir.exists()) { "Cannot find source directory $sourceDir" }
+
+        val sourceFiles = Files.find(sourceDir.toPath(), Integer.MAX_VALUE, { path: Path, fileAttributes: BasicFileAttributes ->
+            fileAttributes.isRegularFile && "${path.fileName}".isAllowedKtFile()
+        }).map { it.toFile() }.collect(Collectors.toList())
+
+        val ktSources = mutableListOf<KtFile>()
+        for (sourceFile in sourceFiles) {
+            val isCommon = sourceFile.parentFile.name == "common"
+            addKotlinSourceRoot(sourceFile.absolutePath, isCommon)
+            val ktFile = environment.createPsiFile(sourceFile)
+            ktFile.isCommonSource = isCommon
+            ktSources.add(ktFile)
+        }
+        return ktSources
     }
 
     private fun initializeWorkingDir(projectInfo: ProjectInfo, testDir: File, sourceDir: File, buildDir: File) {

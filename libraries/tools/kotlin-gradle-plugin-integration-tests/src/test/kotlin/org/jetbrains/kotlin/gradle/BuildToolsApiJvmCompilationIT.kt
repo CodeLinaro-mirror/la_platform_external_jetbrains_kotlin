@@ -9,11 +9,12 @@ import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.internals.asFinishLogMessage
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
-import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.tasks.USING_JVM_INCREMENTAL_COMPILATION_MESSAGE
-import org.junit.jupiter.api.Disabled
+import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
+import kotlin.io.path.deleteExisting
+import kotlin.io.path.writeText
 
 @DisplayName("JVM compilation via the Build Tools API")
 @JvmGradlePluginTests
@@ -27,16 +28,16 @@ class BuildToolsApiJvmCompilationIT : KGPBaseTest() {
             "simpleProject", gradleVersion, buildOptions = defaultBuildOptions.copy(
                 runViaBuildToolsApi = false,
                 incremental = false,
-            )
+            ),
         ) {
             build("assemble") {
                 assertNoDiagnostic(KotlinToolingDiagnostics.BuildToolsApiVersionInconsistency)
             }
-            enableOtherVersionBuildToolsImpl()
+            chooseCompilerVersion(TestVersions.Kotlin.STABLE_RELEASE)
             buildAndFail("assemble") {
                 assertHasDiagnostic(KotlinToolingDiagnostics.BuildToolsApiVersionInconsistency)
                 assertOutputContains("Expected version: ${defaultBuildOptions.kotlinVersion}")
-                assertOutputContains("Actual resolved version: $OTHER_KOTLIN_VERSION")
+                assertOutputContains("Actual resolved version: ${TestVersions.Kotlin.STABLE_RELEASE}")
             }
         }
     }
@@ -49,9 +50,38 @@ class BuildToolsApiJvmCompilationIT : KGPBaseTest() {
                 incremental = false,
             )
         ) {
-            enableOtherVersionBuildToolsImpl()
+            chooseCompilerVersion(TestVersions.Kotlin.STABLE_RELEASE)
             build("assemble") {
                 assertNoDiagnostic(KotlinToolingDiagnostics.BuildToolsApiVersionInconsistency)
+            }
+        }
+    }
+
+    @GradleTest
+    @DisplayName("Gradle side outputs backup works")
+    fun outputsBackupWorks(gradleVersion: GradleVersion) {
+        project(
+            "simpleProject", gradleVersion, buildOptions = defaultBuildOptions.copy(
+                usePreciseOutputsBackup = false,
+                keepIncrementalCompilationCachesInMemory = false,
+            )
+        ) {
+            build("compileKotlin") {
+                assertTasksExecuted(":compileKotlin")
+            }
+            val newBrokenSrc = kotlinSourcesDir().resolve("broken.kt")
+            newBrokenSrc.writeText(
+                //language=kt
+                """
+                broken code
+                """.trimIndent()
+            )
+            buildAndFail("compileKotlin") {
+                assertTasksFailed(":compileKotlin")
+            }
+            newBrokenSrc.deleteExisting()
+            build("compileKotlin") {
+                assertTasksUpToDate(":compileKotlin")
             }
         }
     }
@@ -69,12 +99,11 @@ class BuildToolsApiJvmCompilationIT : KGPBaseTest() {
     }
 
     @GradleTest
-    @Disabled
     @DisplayName("Simple project incremental in-process compilation")
     fun compileJvmInProcessIncremental(gradleVersion: GradleVersion) = testSimpleProject(
         gradleVersion, defaultBuildOptions.copy(
             compilerExecutionStrategy = KotlinCompilerExecutionStrategy.IN_PROCESS,
-            incremental = false,
+            incremental = true,
         )
     ) {
         assertOutputContains(KotlinCompilerExecutionStrategy.IN_PROCESS.asFinishLogMessage)
@@ -116,19 +145,4 @@ class BuildToolsApiJvmCompilationIT : KGPBaseTest() {
             }
         }
     }
-}
-
-private const val OTHER_KOTLIN_VERSION = "1.9.30-dev-460"
-
-private fun TestProject.enableOtherVersionBuildToolsImpl() {
-    buildGradle.append(
-        """
-        repositories {
-            maven { setUrl("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/bootstrap") }
-        }
-        kotlin {
-            useCompilerVersion("$OTHER_KOTLIN_VERSION")
-        }
-        """.trimIndent()
-    )
 }

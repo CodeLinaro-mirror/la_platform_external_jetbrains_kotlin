@@ -17,10 +17,10 @@
 #include "ScopedThread.hpp"
 #include "Utils.hpp"
 #include "Logging.hpp"
+#include "objc_support/AutoreleasePool.hpp"
+#include "objc_support/RunLoopSource.hpp"
 
 #if KONAN_OBJC_INTEROP
-#include "ObjCMMAPI.h"
-#include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRunLoop.h>
 #endif
 
@@ -32,7 +32,7 @@ public:
     // epochDoneCallback could be called on any subset of them.
     // If no new tasks are set, epochDoneCallback will be eventually called on last epoch
     explicit FinalizerProcessor(std::function<void(int64_t)> epochDoneCallback) noexcept :
-        epochDoneCallback_(std::move(epochDoneCallback)), processingLoop_(*this) {}
+        epochDoneCallback_(std::move(epochDoneCallback)), processingLoop_(makeProcessingLoop(*this)) {}
 
     ~FinalizerProcessor() { StopFinalizerThread(); }
 
@@ -46,7 +46,7 @@ public:
         StartFinalizerThreadIfNone();
         FinalizerQueueTraits::add(finalizerQueue_, std::move(tasks));
         finalizerQueueEpoch_ = epoch;
-        processingLoop_.notify();
+        processingLoop_->notify();
     }
 
     void StopFinalizerThread() noexcept {
@@ -54,7 +54,7 @@ public:
             std::unique_lock guard(finalizerQueueMutex_);
             if (!finalizerThread_.joinable()) return;
             shutdownFlag_ = true;
-            processingLoop_.notify();
+            processingLoop_->notify();
         }
         finalizerThread_.join();
         shutdownFlag_ = false;
@@ -71,14 +71,14 @@ public:
         if (finalizerThread_.joinable()) return;
 
         finalizerThread_ = ScopedThread(ScopedThread::attributes().name("GC finalizer processor"), [this] {
-            processingLoop_.initThreadData();
+            processingLoop_->initThreadData();
             Kotlin_initRuntimeIfNeeded();
             {
                 std::unique_lock guard(initializedMutex_);
                 initialized_ = true;
             }
             initializedCondVar_.notify_all();
-            processingLoop_.body();
+            processingLoop_->body();
             {
                 std::unique_lock guard(initializedMutex_);
                 initialized_ = false;
@@ -100,56 +100,50 @@ private:
 
     void processSingle(FinalizerQueue&& queue, int64_t currentEpoch) noexcept {
         if (!FinalizerQueueTraits::isEmpty(queue)) {
-#if KONAN_OBJC_INTEROP
-            konan::AutoreleasePool autoreleasePool;
-#endif
+            objc_support::AutoreleasePool autoreleasePool;
             ThreadStateGuard guard(ThreadState::kRunnable);
             FinalizerQueueTraits::process(std::move(queue));
         }
         epochDoneCallback_(currentEpoch);
     }
 
-#if KONAN_OBJC_INTEROP
-    class ProcessingLoop {
+    class ProcessingLoop : private Pinned {
     public:
-        explicit ProcessingLoop(FinalizerProcessor& owner) :
-                owner_(owner),
-                sourceContext_{
-                        0, this, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-                        [](void* info) {
-                            auto& self = *reinterpret_cast<ProcessingLoop*>(info);
-                            self.handleNewFinalizers();
-                        }},
-                runLoopSource_(CFRunLoopSourceCreate(nullptr, 0, &sourceContext_)) {}
+        virtual ~ProcessingLoop() = default;
 
-        ~ProcessingLoop() {
-            CFRelease(runLoopSource_);
-        }
+        virtual void notify() = 0;
+        virtual void initThreadData() = 0;
+        virtual void body() = 0;
+    };
 
-        void notify() {
+#if KONAN_OBJC_INTEROP
+    class ProcessingLoopWithCFImpl final : public ProcessingLoop {
+    public:
+        explicit ProcessingLoopWithCFImpl(FinalizerProcessor& owner) : owner_(owner), runLoopSource_([this]() noexcept { handleNewFinalizers(); }) {}
+
+        void notify() override {
             // wait until runLoop_ ptr is published
             while (runLoop_.load(std::memory_order_acquire) == nullptr) {
                 std::this_thread::yield();
             }
             // notify
-            CFRunLoopSourceSignal(runLoopSource_);
+            runLoopSource_.signal();
             CFRunLoopWakeUp(runLoop_);
         }
 
-        void initThreadData() {
+        void initThreadData() override {
             runLoop_.store(CFRunLoopGetCurrent(), std::memory_order_release);
         }
 
-        void body() {
-            konan::AutoreleasePool autoreleasePool;
-            auto mode = kCFRunLoopDefaultMode;
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource_, mode);
-
-            CFRunLoopRun();
-
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource_, mode);
+        void body() override {
+            objc_support::AutoreleasePool autoreleasePool;
+            {
+                auto subscription = runLoopSource_.attachToCurrentRunLoop();
+                CFRunLoopRun();
+            }
             runLoop_.store(nullptr, std::memory_order_release);
         }
+
     private:
         void handleNewFinalizers() {
             std::unique_lock lock(owner_.finalizerQueueMutex_);
@@ -168,22 +162,22 @@ private:
 
         FinalizerProcessor& owner_;
         int64_t finishedEpoch_ = 0;
-        CFRunLoopSourceContext sourceContext_;
+        objc_support::RunLoopSource runLoopSource_;
         std::atomic<CFRunLoopRef> runLoop_ = nullptr;
-        CFRunLoopSourceRef runLoopSource_;
     };
-#else
-    class ProcessingLoop {
-    public:
-        explicit ProcessingLoop(FinalizerProcessor& owner) : owner_(owner) {}
+#endif
 
-        void notify() {
+    class ProcessingLoopImpl final : public ProcessingLoop {
+    public:
+        explicit ProcessingLoopImpl(FinalizerProcessor& owner) : owner_(owner) {}
+
+        void notify() override {
             owner_.finalizerQueueCondVar_.notify_all();
         }
 
-        void initThreadData() { /* noop */ }
+        void initThreadData() override { /* noop */ }
 
-        void body() {
+        void body() override {
             int64_t finishedEpoch = 0;
             while (true) {
                 std::unique_lock lock(owner_.finalizerQueueMutex_);
@@ -202,10 +196,19 @@ private:
                 finishedEpoch = currentEpoch;
             }
         }
+
     private:
         FinalizerProcessor& owner_;
     };
+
+    static std::unique_ptr<ProcessingLoop> makeProcessingLoop(FinalizerProcessor& owner) noexcept {
+#if KONAN_OBJC_INTEROP
+        if (compiler::objcDisposeWithRunLoop()) {
+            return std::make_unique<ProcessingLoopWithCFImpl>(owner);
+        }
 #endif
+        return std::make_unique<ProcessingLoopImpl>(owner);
+    }
 
     ScopedThread finalizerThread_;
     FinalizerQueue finalizerQueue_;
@@ -216,7 +219,7 @@ private:
     bool shutdownFlag_ = false;
     bool newTasksAllowed_ = true;
 
-    ProcessingLoop processingLoop_;
+    std::unique_ptr<ProcessingLoop> processingLoop_;
 
     std::mutex initializedMutex_;
     std::condition_variable initializedCondVar_;

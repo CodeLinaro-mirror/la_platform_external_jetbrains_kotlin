@@ -20,6 +20,8 @@ import org.jetbrains.kotlin.KtSourceFile
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
+import org.jetbrains.kotlin.backend.jvm.JvmIrTypeSystemContext
+import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.fir.reportToMessageCollector
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -36,21 +38,18 @@ import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.constant.EvaluatedConstTracker
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
-import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
-import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
-import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
+import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
+import org.jetbrains.kotlin.fir.backend.extractFirDeclarations
+import org.jetbrains.kotlin.fir.backend.jvm.*
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
-import org.jetbrains.kotlin.fir.pipeline.FirResult
-import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirViaLightTree
-import org.jetbrains.kotlin.fir.pipeline.convertToIrAndActualizeForJvm
+import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
@@ -172,25 +171,13 @@ fun convertAnalyzedFirToIr(
 ): ModuleCompilerIrBackendInput {
     val extensions = JvmFir2IrExtensions(input.configuration, JvmIrDeserializerImpl(), JvmIrMangler)
 
-    // fir2ir
     val irGenerationExtensions =
         (environment.projectEnvironment as? VfsBasedProjectEnvironment)?.project?.let {
             IrGenerationExtension.getInstances(it)
         } ?: emptyList()
-    val fir2IrConfiguration = Fir2IrConfiguration(
-        languageVersionSettings = input.configuration.languageVersionSettings,
-        diagnosticReporter = environment.diagnosticsReporter,
-        linkViaSignatures = input.configuration.getBoolean(JVMConfigurationKeys.LINK_VIA_SIGNATURES),
-        evaluatedConstTracker = input.configuration
-            .putIfAbsent(CommonConfigurationKeys.EVALUATED_CONST_TRACKER, EvaluatedConstTracker.create()),
-        inlineConstTracker = input.configuration[CommonConfigurationKeys.INLINE_CONST_TRACKER],
-        expectActualTracker = input.configuration[CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER],
-        allowNonCachedDeclarations = false,
-        useIrFakeOverrideBuilder = input.configuration.getBoolean(CommonConfigurationKeys.USE_IR_FAKE_OVERRIDE_BUILDER),
-    )
     val (moduleFragment, components, pluginContext, irActualizedResult) =
         analysisResults.convertToIrAndActualizeForJvm(
-            extensions, fir2IrConfiguration, irGenerationExtensions,
+            extensions, input.configuration, environment.diagnosticsReporter, irGenerationExtensions,
         )
 
     return ModuleCompilerIrBackendInput(
@@ -201,6 +188,26 @@ fun convertAnalyzedFirToIr(
         components,
         pluginContext,
         irActualizedResult
+    )
+}
+
+fun FirResult.convertToIrAndActualizeForJvm(
+    fir2IrExtensions: Fir2IrExtensions,
+    configuration: CompilerConfiguration,
+    diagnosticsReporter: DiagnosticReporter,
+    irGeneratorExtensions: Collection<IrGenerationExtension>,
+): Fir2IrActualizedResult {
+    val fir2IrConfiguration = Fir2IrConfiguration.forJvmCompilation(configuration, diagnosticsReporter)
+
+    return convertToIrAndActualize(
+        fir2IrExtensions,
+        fir2IrConfiguration,
+        irGeneratorExtensions,
+        JvmIrMangler,
+        FirJvmKotlinMangler(),
+        FirJvmVisibilityConverter,
+        DefaultBuiltIns.Instance,
+        ::JvmIrTypeSystemContext,
     )
 }
 
@@ -243,7 +250,10 @@ fun generateCodeFromIr(
         input.components.symbolTable,
         input.components.irProviders,
         input.extensions,
-        FirJvmBackendExtension(input.components, input.irActualizedResult),
+        FirJvmBackendExtension(
+            input.components,
+            input.irActualizedResult?.actualizedExpectDeclarations?.extractFirDeclarations()
+        ),
         input.pluginContext
     ) {
         performanceManager?.notifyIRLoweringFinished()
@@ -274,9 +284,7 @@ fun compileModuleToAnalyzedFir(
         incrementalExcludesScope
     )?.also { librariesScope -= it }
 
-    val extensionRegistrars = (projectEnvironment as? VfsBasedProjectEnvironment)
-        ?.let { FirExtensionRegistrar.getInstances(it.project) }
-        ?: emptyList()
+    val extensionRegistrars = FirExtensionRegistrar.getInstances(projectEnvironment.project)
 
     val allSources = mutableListOf<KtSourceFile>().apply {
         addAll(input.groupedSources.commonSources)
@@ -306,6 +314,7 @@ fun compileModuleToAnalyzedFir(
     val outputs = sessionWithSources.map { (session, sources) ->
         buildResolveAndCheckFirViaLightTree(session, sources, diagnosticsReporter, countFilesAndLines)
     }
+    outputs.runPlatformCheckers(diagnosticsReporter)
 
     return FirResult(outputs)
 }

@@ -18,17 +18,23 @@ import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.ClassRemapper
 import org.jetbrains.org.objectweb.asm.commons.Method
 import org.jetbrains.org.objectweb.asm.commons.Remapper
+import org.jetbrains.org.objectweb.asm.tree.FieldNode
+import org.jetbrains.org.objectweb.asm.tree.MethodNode
 import java.io.File
 
 class JvmAbiOutputExtension(
     private val outputPath: File,
-    private val abiClassInfos: Map<String, AbiClassInfo>,
+    private val abiClassInfoBuilder: () -> Map<String, AbiClassInfo>,
     private val messageCollector: MessageCollector,
+    private val removeDebugInfo: Boolean,
+    private val removeDataClassCopyIfConstructorIsPrivate: Boolean,
+    private val preserveDeclarationOrder: Boolean,
 ) : ClassFileFactoryFinalizerExtension {
     override fun finalizeClassFactory(factory: ClassFileFactory) {
         // We need to wait until the end to produce any output in order to strip classes
         // from the InnerClasses attributes.
-        val outputFiles = AbiOutputFiles(abiClassInfos, factory)
+        val outputFiles =
+            AbiOutputFiles(abiClassInfoBuilder(), factory, removeDebugInfo, removeDataClassCopyIfConstructorIsPrivate, preserveDeclarationOrder)
         if (outputPath.extension == "jar") {
             // We don't include the runtime or main class in interface jars and always reset time stamps.
             CompileEnvironmentUtil.writeToJar(
@@ -47,8 +53,17 @@ class JvmAbiOutputExtension(
 
     private class InnerClassInfo(val name: String, val outerName: String?, val innerName: String?, val access: Int)
 
-    private class AbiOutputFiles(val abiClassInfos: Map<String, AbiClassInfo>, val outputFiles: OutputFileCollection) :
-        OutputFileCollection {
+    private class AbiOutputFiles(
+        val abiClassInfos: Map<String, AbiClassInfo>,
+        val outputFiles: OutputFileCollection,
+        val removeDebugInfo: Boolean,
+        val removeCopyAlongWithConstructor: Boolean,
+        val preserveDeclarationOrder: Boolean,
+    ) : OutputFileCollection {
+        private val classesToBeDeleted = abiClassInfos.mapNotNullTo(mutableSetOf()) { (className, action) ->
+            className.takeIf { action == AbiClassInfo.Deleted }
+        }
+
         override fun get(relativePath: String): OutputFile? {
             error("AbiOutputFiles does not implement `get`.")
         }
@@ -59,38 +74,40 @@ class JvmAbiOutputExtension(
             }.sortedBy { it.relativePath }
 
             val classFiles = abiClassInfos.keys.sorted().mapNotNull { internalName ->
-                val outputFile = outputFiles.get("$internalName.class")
-                val abiInfo = abiClassInfos.getValue(internalName)
-                when {
-                    // Note that outputFile may be null, e.g., for empty $DefaultImpls classes in the JVM backend.
-                    outputFile == null ->
-                        null
+                // Note that outputFile may be null, e.g., for empty $DefaultImpls classes in the JVM backend.
+                val outputFile = outputFiles.get("$internalName.class") ?: return@mapNotNull null
 
-                    abiInfo is AbiClassInfo.Public ->
-                        // Copy verbatim
-                        outputFile
-
-                    else -> /* abiInfo is AbiClassInfo.Stripped */ {
-                        val methodInfo = (abiInfo as AbiClassInfo.Stripped).methodInfo
-                        val innerClassInfos = mutableMapOf<String, InnerClassInfo>()
+                when (val abiInfo = abiClassInfos.getValue(internalName)) {
+                    is AbiClassInfo.Deleted -> null
+                    is AbiClassInfo.Public -> outputFile // Copy verbatim
+                    is AbiClassInfo.Stripped -> {
+                        val prune = abiInfo.prune
+                        val methodInfo = abiInfo.methodInfo
                         val innerClassesToKeep = mutableSetOf<String>()
+                        val noMethodsKept = methodInfo.values.none { it == AbiMethodInfo.KEEP }
                         val writer = ClassWriter(0)
                         val remapper = ClassRemapper(writer, object : Remapper() {
                             override fun map(internalName: String): String =
                                 internalName.also { innerClassesToKeep.add(it) }
                         })
                         ClassReader(outputFile.asByteArray()).accept(object : ClassVisitor(Opcodes.API_VERSION, remapper) {
+                            private val keptFields = mutableListOf<FieldNode>()
+                            private val keptMethods = mutableListOf<MethodNode>()
+                            private val innerClassInfos = mutableMapOf<String, InnerClassInfo>()
+
                             // Strip private fields.
                             override fun visitField(
                                 access: Int,
                                 name: String?,
                                 descriptor: String?,
                                 signature: String?,
-                                value: Any?
+                                value: Any?,
                             ): FieldVisitor? {
-                                if (access and Opcodes.ACC_PRIVATE != 0)
+                                if (prune || access and Opcodes.ACC_PRIVATE != 0)
                                     return null
-                                return super.visitField(access, name, descriptor, signature, value)
+                                return FieldNode(access, name, descriptor, signature, value).also {
+                                    keptFields += it
+                                }
                             }
 
                             override fun visitMethod(
@@ -100,36 +117,29 @@ class JvmAbiOutputExtension(
                                 signature: String?,
                                 exceptions: Array<out String>?
                             ): MethodVisitor? {
-                                val info = methodInfo[Method(name, descriptor)]
-                                    ?: return null
+                                if (prune) return null
+                                val info = methodInfo[Method(name, descriptor)] ?: return null
 
-                                val visitor = super.visitMethod(access, name, descriptor, signature, exceptions)
-
-                                if (info == AbiMethodInfo.KEEP || access and (Opcodes.ACC_NATIVE or Opcodes.ACC_ABSTRACT) != 0)
-                                    return visitor
-
-                                return object : MethodVisitor(Opcodes.API_VERSION, visitor) {
-                                    override fun visitCode() {
-                                        with(mv) {
-                                            visitCode()
-                                            visitInsn(Opcodes.ACONST_NULL)
-                                            visitInsn(Opcodes.ATHROW)
-                                            visitMaxs(0, 0)
-                                            visitEnd()
-                                        }
-                                        // Only instructions and locals follow after `visitCode`.
-                                        mv = null
-                                    }
+                                val node = MethodNode(access, name, descriptor, signature, exceptions).also {
+                                    keptMethods += it
                                 }
+
+                                if (info == AbiMethodInfo.KEEP || access and (Opcodes.ACC_NATIVE or Opcodes.ACC_ABSTRACT) != 0) {
+                                    return if (removeDebugInfo) DebugInfoRemovingMethodVisitor(node) else node
+                                }
+
+                                return BodyStrippingMethodVisitor(node)
                             }
 
-                            // Strip source debug extensions if there are no inline functions.
                             override fun visitSource(source: String?, debug: String?) {
-                                // TODO Normalize and strip unused line numbers from SourceDebugExtensions
-                                if (methodInfo.values.any { it == AbiMethodInfo.KEEP })
-                                    super.visitSource(source, debug)
-                                else
-                                    super.visitSource(source, null)
+                                when {
+                                    removeDebugInfo -> super.visitSource(null, null)
+                                    prune || noMethodsKept -> {
+                                        // Strip SourceDebugExtension attribute if there are no inline functions.
+                                        super.visitSource(source, null)
+                                    }
+                                    else -> super.visitSource(source, debug)
+                                }
                             }
 
                             // Remove inner classes which are not present in the abi jar.
@@ -139,27 +149,46 @@ class JvmAbiOutputExtension(
                                 innerClassInfos[name] = InnerClassInfo(name, outerName, innerName, access)
                             }
 
-                            // Strip private declarations from the Kotlin Metadata annotation.
-                            override fun visitAnnotation(descriptor: String?, visible: Boolean): AnnotationVisitor {
+                            override fun visitAnnotation(descriptor: String?, visible: Boolean): AnnotationVisitor? {
+                                // Strip @SourceDebugExtension annotation if we're removing debug info.
+                                if (descriptor == JvmAnnotationNames.SOURCE_DEBUG_EXTENSION_DESC) {
+                                    if (removeDebugInfo || noMethodsKept || prune) return null
+                                }
+
                                 val delegate = super.visitAnnotation(descriptor, visible)
                                 if (descriptor != JvmAnnotationNames.METADATA_DESC)
                                     return delegate
-                                return abiMetadataProcessor(delegate)
+                                // Strip private declarations from the Kotlin Metadata annotation.
+                                return abiMetadataProcessor(
+                                    delegate,
+                                    removeCopyAlongWithConstructor,
+                                    preserveDeclarationOrder,
+                                    classesToBeDeleted,
+                                    prune
+                                )
                             }
 
-                            override fun visitEnd() {}
+                            override fun visitEnd() {
+                                // Output class members in sorted order so that changes in original ordering don't affect the ABI JAR.
+
+                                keptFields
+                                    .apply { if (!preserveDeclarationOrder) sortWith(compareBy(FieldNode::name, FieldNode::desc)) }
+                                    .forEach { it.accept(cv) }
+
+                                keptMethods
+                                    .apply { if (!preserveDeclarationOrder) sortWith(compareBy(MethodNode::name, MethodNode::desc)) }
+                                    .forEach { it.accept(cv) }
+
+                                innerClassesToKeep.addInnerClasses(innerClassInfos, internalName)
+                                innerClassesToKeep.addOuterClasses(innerClassInfos)
+
+                                for (name in innerClassesToKeep.sorted()) {
+                                    innerClassInfos[name]?.let { cv.visitInnerClass(it.name, it.outerName, it.innerName, it.access) }
+                                }
+
+                                super.visitEnd()
+                            }
                         }, 0)
-
-                        innerClassesToKeep.addInnerClasses(innerClassInfos, internalName)
-                        innerClassesToKeep.addOuterClasses(innerClassInfos)
-
-                        // Output classes in sorted order so that changes in original ordering due to method bodies, etc.
-                        // don't affect the ABI JAR.
-                        for (name in innerClassesToKeep.sorted()) {
-                            innerClassInfos[name]?.let { writer.visitInnerClass(it.name, it.outerName, it.innerName, it.access) }
-                        }
-
-                        writer.visitEnd()
 
                         SimpleOutputBinaryFile(outputFile.sourceFiles, outputFile.relativePath, writer.toByteArray())
                     }
@@ -178,7 +207,9 @@ class JvmAbiOutputExtension(
                 val next = stack.removeLast()
                 add(next)
                 // Classes form a tree by nesting, so none of the children have been visited yet.
-                innerClassesByOuterName[next]?.mapNotNullTo(stack) { it.name.takeIf(abiClassInfos::contains) }
+                innerClassesByOuterName[next]?.mapNotNullTo(stack) { info ->
+                    info.name.takeUnless { abiClassInfos[it] == AbiClassInfo.Deleted }
+                }
             }
         }
 
@@ -192,4 +223,24 @@ class JvmAbiOutputExtension(
             }
         }
     }
+}
+
+private class BodyStrippingMethodVisitor(visitor: MethodVisitor) : MethodVisitor(Opcodes.API_VERSION, visitor) {
+    override fun visitCode() {
+        with(mv) {
+            visitCode()
+            visitInsn(Opcodes.ACONST_NULL)
+            visitInsn(Opcodes.ATHROW)
+            visitMaxs(0, 0)
+            visitEnd()
+        }
+        // Only instructions and locals follow after `visitCode`.
+        mv = null
+    }
+}
+
+private class DebugInfoRemovingMethodVisitor(visitor: MethodVisitor) : MethodVisitor(Opcodes.API_VERSION, visitor) {
+    override fun visitLineNumber(line: Int, start: Label?) {}
+
+    override fun visitLocalVariable(name: String?, descriptor: String?, signature: String?, start: Label?, end: Label?, index: Int) {}
 }

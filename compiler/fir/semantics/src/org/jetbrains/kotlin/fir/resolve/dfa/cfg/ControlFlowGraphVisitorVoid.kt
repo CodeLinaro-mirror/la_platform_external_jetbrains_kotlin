@@ -219,7 +219,7 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitNode(node)
     }
 
-    open fun visitConstExpressionNode(node: ConstExpressionNode) {
+    open fun visitLiteralExpressionNode(node: LiteralExpressionNode) {
         visitNode(node)
     }
 
@@ -236,6 +236,14 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
     }
 
     open fun visitResolvedQualifierNode(node: ResolvedQualifierNode) {
+        visitNode(node)
+    }
+
+    open fun visitFunctionCallArgumentsEnterNode(node: FunctionCallArgumentsEnterNode) {
+        visitNode(node)
+    }
+
+    open fun visitFunctionCallArgumentsExitNode(node: FunctionCallArgumentsExitNode) {
         visitNode(node)
     }
 
@@ -492,8 +500,8 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
         visitJumpNode(node)
     }
 
-    final override fun visitConstExpressionNode(node: ConstExpressionNode, data: Nothing?) {
-        visitConstExpressionNode(node)
+    final override fun visitLiteralExpressionNode(node: LiteralExpressionNode, data: Nothing?) {
+        visitLiteralExpressionNode(node)
     }
 
     // ----------------------------------- Check not null call -----------------------------------
@@ -510,6 +518,14 @@ abstract class ControlFlowGraphVisitorVoid : ControlFlowGraphVisitor<Unit, Nothi
 
     final override fun visitResolvedQualifierNode(node: ResolvedQualifierNode, data: Nothing?) {
         visitResolvedQualifierNode(node)
+    }
+
+    final override fun visitFunctionCallArgumentsEnterNode(node: FunctionCallArgumentsEnterNode, data: Nothing?) {
+        visitFunctionCallArgumentsEnterNode(node)
+    }
+
+    final override fun visitFunctionCallArgumentsExitNode(node: FunctionCallArgumentsExitNode, data: Nothing?) {
+        visitFunctionCallArgumentsExitNode(node)
     }
 
     final override fun visitFunctionCallNode(node: FunctionCallNode, data: Nothing?) {

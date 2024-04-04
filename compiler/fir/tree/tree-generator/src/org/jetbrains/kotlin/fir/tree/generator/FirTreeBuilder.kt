@@ -65,7 +65,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val backingField by element(Declaration, variable, typeParametersOwner, statement)
     val constructor by element(Declaration, function, typeParameterRefsOwner, contractDescriptionOwner)
     val file by element(Declaration, declaration, controlFlowGraphOwner)
-    val script by element(Declaration, declaration)
+    val script by element(Declaration, declaration, controlFlowGraphOwner)
     val codeFragment by element(Declaration, declaration)
     val packageDirective by element(Other)
 
@@ -79,7 +79,6 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
 
     val import by element(Declaration)
     val resolvedImport by element(Declaration, import)
-    val errorImport by element(Declaration, import, diagnosticHolder)
 
     val loop by sealedElement(Expression, statement, targetElement)
     val errorLoop by element(Expression, loop, diagnosticHolder)
@@ -96,7 +95,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val continueExpression by element(Expression, loopJump)
     val catchClause by element("Catch", Expression)
     val tryExpression by element(Expression, expression, resolvable)
-    val constExpression by element(Expression, expression)
+    val literalExpression by element(Expression, expression)
     val typeProjection by element(TypeRef)
     val starProjection by element(TypeRef, typeProjection)
     val placeholderProjection by element(TypeRef, typeProjection)
@@ -149,6 +148,7 @@ object FirTreeBuilder : AbstractFirTreeBuilder() {
     val spreadArgumentExpression by element(Expression, wrappedArgumentExpression)
     val namedArgumentExpression by element(Expression, wrappedArgumentExpression)
     val varargArgumentsExpression by element(Expression, expression)
+    val samConversionExpression by element(Expression, expression)
 
     val resolvedQualifier by element(Expression, expression)
     val errorResolvedQualifier by element(Expression, resolvedQualifier, diagnosticHolder)

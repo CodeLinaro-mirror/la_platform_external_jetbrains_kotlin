@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.diagnostics.ConeIntermediateDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirCheckNotNullCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
@@ -18,7 +17,6 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildInaccessibleReceiverExp
 import org.jetbrains.kotlin.fir.expressions.builder.buildSmartCastExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildThisReceiverExpression
 import org.jetbrains.kotlin.fir.references.builder.buildImplicitThisReference
-import org.jetbrains.kotlin.fir.renderWithType
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.resolve.smartcastScope
@@ -28,8 +26,10 @@ import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirScriptSymbol
-import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.constructType
+import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.SmartcastStability
 
@@ -89,6 +89,7 @@ sealed class ImplicitReceiverValue<S : FirBasedSymbol<*>>(
 
     abstract val isContextReceiver: Boolean
 
+    // Type before smart cast
     val originalType: ConeKotlinType = type
 
     var implicitScope: FirTypeScope? =
@@ -145,19 +146,6 @@ sealed class ImplicitReceiverValue<S : FirBasedSymbol<*>>(
     @RequiresOptIn
     annotation class ImplicitReceiverInternals
 
-    @Deprecated(level = DeprecationLevel.ERROR, message = "Builder inference should not modify implicit receivers. KT-54708")
-    fun updateTypeInBuilderInference(type: ConeKotlinType) {
-        this.type = type
-        originalReceiverExpression = receiverExpression(boundSymbol, type, contextReceiverNumber, inaccessibleReceiver)
-        _receiverExpression = null
-        implicitScope = type.scope(
-            useSiteSession = useSiteSession,
-            scopeSession = scopeSession,
-            callableCopyTypeCalculator = CallableCopyTypeCalculator.DoNothing,
-            requiredMembersPhase = FirResolvePhase.STATUS,
-        )
-    }
-
     /*
      * Should be called only in ImplicitReceiverStack
      */
@@ -176,7 +164,7 @@ sealed class ImplicitReceiverValue<S : FirBasedSymbol<*>>(
         )
     }
 
-    abstract fun createSnapshot(): ImplicitReceiverValue<S>
+    abstract fun createSnapshot(keepMutable: Boolean): ImplicitReceiverValue<S>
 }
 
 private fun receiverExpression(
@@ -219,8 +207,8 @@ class ImplicitDispatchReceiverValue(
         useSiteSession, scopeSession
     )
 
-    override fun createSnapshot(): ImplicitReceiverValue<FirClassSymbol<*>> {
-        return ImplicitDispatchReceiverValue(boundSymbol, type, useSiteSession, scopeSession, false)
+    override fun createSnapshot(keepMutable: Boolean): ImplicitReceiverValue<FirClassSymbol<*>> {
+        return ImplicitDispatchReceiverValue(boundSymbol, type, useSiteSession, scopeSession, keepMutable)
     }
 
     override val isContextReceiver: Boolean
@@ -234,8 +222,8 @@ class ImplicitExtensionReceiverValue(
     scopeSession: ScopeSession,
     mutable: Boolean = true,
 ) : ImplicitReceiverValue<FirCallableSymbol<*>>(boundSymbol, type, useSiteSession, scopeSession, mutable) {
-    override fun createSnapshot(): ImplicitReceiverValue<FirCallableSymbol<*>> {
-        return ImplicitExtensionReceiverValue(boundSymbol, type, useSiteSession, scopeSession, false)
+    override fun createSnapshot(keepMutable: Boolean): ImplicitReceiverValue<FirCallableSymbol<*>> {
+        return ImplicitExtensionReceiverValue(boundSymbol, type, useSiteSession, scopeSession, keepMutable)
     }
 
     override val isContextReceiver: Boolean
@@ -250,8 +238,8 @@ class InaccessibleImplicitReceiverValue(
     scopeSession: ScopeSession,
     mutable: Boolean = true,
 ) : ImplicitReceiverValue<FirClassSymbol<*>>(boundSymbol, type, useSiteSession, scopeSession, mutable, inaccessibleReceiver = true) {
-    override fun createSnapshot(): ImplicitReceiverValue<FirClassSymbol<*>> {
-        return InaccessibleImplicitReceiverValue(boundSymbol, type, useSiteSession, scopeSession, false)
+    override fun createSnapshot(keepMutable: Boolean): ImplicitReceiverValue<FirClassSymbol<*>> {
+        return InaccessibleImplicitReceiverValue(boundSymbol, type, useSiteSession, scopeSession, keepMutable)
     }
 
     override val isContextReceiver: Boolean
@@ -269,7 +257,7 @@ sealed class ContextReceiverValue<S : FirBasedSymbol<*>>(
 ) : ImplicitReceiverValue<S>(
     boundSymbol, type, useSiteSession, scopeSession, mutable, contextReceiverNumber,
 ) {
-    abstract override fun createSnapshot(): ContextReceiverValue<S>
+    abstract override fun createSnapshot(keepMutable: Boolean): ContextReceiverValue<S>
 
     override val isContextReceiver: Boolean
         get() = true
@@ -286,8 +274,8 @@ class ContextReceiverValueForCallable(
 ) : ContextReceiverValue<FirCallableSymbol<*>>(
     boundSymbol, type, labelName, useSiteSession, scopeSession, mutable, contextReceiverNumber
 ) {
-    override fun createSnapshot(): ContextReceiverValue<FirCallableSymbol<*>> =
-        ContextReceiverValueForCallable(boundSymbol, type, labelName, useSiteSession, scopeSession, mutable = false, contextReceiverNumber)
+    override fun createSnapshot(keepMutable: Boolean): ContextReceiverValue<FirCallableSymbol<*>> =
+        ContextReceiverValueForCallable(boundSymbol, type, labelName, useSiteSession, scopeSession, keepMutable, contextReceiverNumber)
 }
 
 class ContextReceiverValueForClass(
@@ -301,8 +289,8 @@ class ContextReceiverValueForClass(
 ) : ContextReceiverValue<FirClassSymbol<*>>(
     boundSymbol, type, labelName, useSiteSession, scopeSession, mutable, contextReceiverNumber
 ) {
-    override fun createSnapshot(): ContextReceiverValue<FirClassSymbol<*>> =
-        ContextReceiverValueForClass(boundSymbol, type, labelName, useSiteSession, scopeSession, mutable = false, contextReceiverNumber)
+    override fun createSnapshot(keepMutable: Boolean): ContextReceiverValue<FirClassSymbol<*>> =
+        ContextReceiverValueForClass(boundSymbol, type, labelName, useSiteSession, scopeSession, keepMutable, contextReceiverNumber)
 }
 
 class ImplicitReceiverValueForScript(
@@ -316,7 +304,7 @@ class ImplicitReceiverValueForScript(
 ) : ContextReceiverValue<FirScriptSymbol>(
     boundSymbol, type, labelName, useSiteSession, scopeSession, mutable, contextReceiverNumber
 ) {
-    override fun createSnapshot(): ContextReceiverValue<FirScriptSymbol> =
-        ImplicitReceiverValueForScript(boundSymbol, type, labelName, useSiteSession, scopeSession, mutable = false, contextReceiverNumber)
+    override fun createSnapshot(keepMutable: Boolean): ContextReceiverValue<FirScriptSymbol> =
+        ImplicitReceiverValueForScript(boundSymbol, type, labelName, useSiteSession, scopeSession, keepMutable, contextReceiverNumber)
 }
 

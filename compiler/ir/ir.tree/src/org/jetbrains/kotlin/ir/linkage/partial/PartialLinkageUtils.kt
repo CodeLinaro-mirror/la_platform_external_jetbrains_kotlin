@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrContainerExpression
-import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin.PARTIAL_LINKAGE_RUNTIME_ERROR
+import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin.Companion.PARTIAL_LINKAGE_RUNTIME_ERROR
 import org.jetbrains.kotlin.ir.util.IrMessageLogger
 import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.name.Name
@@ -65,12 +65,15 @@ object PartialLinkageUtils {
         data class IrBased(private val file: IrFile) : File {
             override val module = Module.Real(file.module.name)
 
-            override fun computeLocationForOffset(offset: Int) = PartialLinkageLogger.Location(
-                moduleName = module.name,
-                filePath = file.fileEntry.name,
-                lineNumber = if (offset == UNDEFINED_OFFSET) UNDEFINED_LINE_NUMBER else file.fileEntry.getLineNumber(offset) + 1, // since humans count from 1, not 0
-                columnNumber = if (offset == UNDEFINED_OFFSET) UNDEFINED_COLUMN_NUMBER else file.fileEntry.getColumnNumber(offset) + 1
-            )
+            override fun computeLocationForOffset(offset: Int): PartialLinkageLogger.Location {
+                val (line, column) = file.fileEntry.getLineAndColumnNumbers(offset)
+                return PartialLinkageLogger.Location(
+                    moduleName = module.name,
+                    filePath = file.fileEntry.name,
+                    lineNumber = if (offset == UNDEFINED_OFFSET) UNDEFINED_LINE_NUMBER else line + 1, // since humans count from 1, not 0
+                    columnNumber = if (offset == UNDEFINED_OFFSET) UNDEFINED_COLUMN_NUMBER else column + 1
+                )
+            }
         }
 
         class LazyIrBased(packageFragmentDescriptor: PackageFragmentDescriptor) : File {

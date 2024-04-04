@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
 import org.jetbrains.kotlin.fir.session.FirWasmSessionFactory
 import org.jetbrains.kotlin.incremental.components.LookupTracker
-import org.jetbrains.kotlin.ir.backend.js.resolverLogger
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.WasmTarget
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
@@ -57,7 +56,7 @@ object TestFirWasmSessionFactory {
 
     fun createModuleBasedSession(
         mainModuleData: FirModuleData, sessionProvider: FirProjectSessionProvider, extensionRegistrars: List<FirExtensionRegistrar>,
-        languageVersionSettings: LanguageVersionSettings, lookupTracker: LookupTracker?,
+        languageVersionSettings: LanguageVersionSettings, wasmTarget: WasmTarget, lookupTracker: LookupTracker?,
         registerExtraComponents: ((FirSession) -> Unit),
         sessionConfigurator: FirSessionConfigurator.() -> Unit,
     ): FirSession =
@@ -66,6 +65,7 @@ object TestFirWasmSessionFactory {
             sessionProvider,
             extensionRegistrars,
             languageVersionSettings,
+            wasmTarget,
             lookupTracker,
             icData = null,
             registerExtraComponents,

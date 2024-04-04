@@ -11,15 +11,16 @@ import org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategies.DECLA
 import org.jetbrains.kotlin.diagnostics.error0
 import org.jetbrains.kotlin.diagnostics.error1
 import org.jetbrains.kotlin.diagnostics.error2
-import org.jetbrains.kotlin.diagnostics.rendering.*
+import org.jetbrains.kotlin.diagnostics.rendering.BaseDiagnosticRendererFactory
+import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers
 import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.NAME
 import org.jetbrains.kotlin.diagnostics.rendering.CommonRenderers.STRING
+import org.jetbrains.kotlin.diagnostics.rendering.Renderers
+import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.MemberComparator
-import org.jetbrains.kotlin.utils.join
 
 object JvmBackendErrors {
-    // TODO: slightly different errors of this type exist also in fir checkers, consider unifying
     val CONFLICTING_JVM_DECLARATIONS by error1<PsiElement, ConflictingJvmDeclarationsData>(DECLARATION_SIGNATURE_OR_DEFAULT)
     val CONFLICTING_INHERITED_JVM_DECLARATIONS by error1<PsiElement, ConflictingJvmDeclarationsData>(DECLARATION_SIGNATURE_OR_DEFAULT)
     val ACCIDENTAL_OVERRIDE by error1<PsiElement, ConflictingJvmDeclarationsData>(DECLARATION_SIGNATURE_OR_DEFAULT)
@@ -49,17 +50,16 @@ object JvmBackendErrors {
 object KtDefaultJvmErrorMessages : BaseDiagnosticRendererFactory() {
 
     @JvmField
-    val CONFLICTING_JVM_DECLARATIONS_DATA = Renderer<ConflictingJvmDeclarationsData> {
-        val renderedDescriptors = it.signatureDescriptors.sortedWith(MemberComparator.INSTANCE)
-        val renderingContext = RenderingContext.Impl(renderedDescriptors)
-        """
-                The following declarations have the same JVM signature (${it.signature.name}${it.signature.desc}):
-                
-                """.trimIndent() +
-                join(renderedDescriptors.map { descriptor ->
-                    "    " + Renderers.WITHOUT_MODIFIERS.render(descriptor, renderingContext)
-                }, "\n")
-    }
+    val CONFLICTING_JVM_DECLARATIONS_DATA = CommonRenderers.renderConflictingSignatureData(
+        signatureKind = "JVM",
+        sortUsing = MemberComparator.INSTANCE,
+        declarationRenderer = Renderers.WITHOUT_MODIFIERS,
+        renderSignature = {
+            append(it.signature.name)
+            append(it.signature.desc)
+        },
+        declarations = ConflictingJvmDeclarationsData::signatureDescriptors,
+    )
 
     override val MAP = KtDiagnosticFactoryToRendererMap("KT").also { map ->
         map.put(JvmBackendErrors.CONFLICTING_JVM_DECLARATIONS, "Platform declaration clash: {0}", CONFLICTING_JVM_DECLARATIONS_DATA)

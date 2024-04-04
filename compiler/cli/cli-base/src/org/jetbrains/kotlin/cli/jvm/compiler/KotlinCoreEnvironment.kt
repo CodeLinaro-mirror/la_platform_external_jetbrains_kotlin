@@ -16,6 +16,7 @@ import com.intellij.ide.highlighter.JavaFileType
 import com.intellij.lang.java.JavaParserDefinition
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.Application
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.TransactionGuard
 import com.intellij.openapi.application.TransactionGuardImpl
@@ -443,11 +444,13 @@ class KotlinCoreEnvironment private constructor(
 
         @JvmStatic
         fun createForProduction(
-            parentDisposable: Disposable, configuration: CompilerConfiguration, configFiles: EnvironmentConfigFiles
+            projectDisposable: Disposable,
+            configuration: CompilerConfiguration,
+            configFiles: EnvironmentConfigFiles,
         ): KotlinCoreEnvironment {
             setupIdeaStandaloneExecution()
-            val appEnv = getOrCreateApplicationEnvironmentForProduction(parentDisposable, configuration)
-            val projectEnv = ProjectEnvironment(parentDisposable, appEnv, configuration)
+            val appEnv = getOrCreateApplicationEnvironmentForProduction(projectDisposable, configuration)
+            val projectEnv = ProjectEnvironment(projectDisposable, appEnv, configuration)
             val environment = KotlinCoreEnvironment(projectEnv, configuration, configFiles)
 
             return environment
@@ -469,7 +472,9 @@ class KotlinCoreEnvironment private constructor(
             // Tests are supposed to create a single project and dispose it right after use
             val appEnv =
                 createApplicationEnvironment(
-                    parentDisposable, configuration, unitTestMode = true
+                    parentDisposable,
+                    configuration,
+                    KotlinCoreApplicationEnvironmentMode.UnitTest,
                 )
             val projectEnv = ProjectEnvironment(parentDisposable, appEnv, configuration)
             return KotlinCoreEnvironment(projectEnv, configuration, extensionConfigs)
@@ -478,11 +483,13 @@ class KotlinCoreEnvironment private constructor(
         @TestOnly
         @JvmStatic
         fun createForParallelTests(
-            parentDisposable: Disposable, initialConfiguration: CompilerConfiguration, extensionConfigs: EnvironmentConfigFiles
+            projectDisposable: Disposable,
+            initialConfiguration: CompilerConfiguration,
+            extensionConfigs: EnvironmentConfigFiles,
         ): KotlinCoreEnvironment {
             val configuration = initialConfiguration.copy()
-            val appEnv = getOrCreateApplicationEnvironmentForTests(parentDisposable, configuration)
-            val projectEnv = ProjectEnvironment(parentDisposable, appEnv, configuration)
+            val appEnv = getOrCreateApplicationEnvironmentForTests(projectDisposable, configuration)
+            val projectEnv = ProjectEnvironment(projectDisposable, appEnv, configuration)
             return KotlinCoreEnvironment(projectEnv, configuration, extensionConfigs)
         }
 
@@ -495,28 +502,40 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @TestOnly
-        fun createProjectEnvironmentForTests(parentDisposable: Disposable, configuration: CompilerConfiguration): ProjectEnvironment {
+        fun createProjectEnvironmentForTests(projectDisposable: Disposable, configuration: CompilerConfiguration): ProjectEnvironment {
             val appEnv = createApplicationEnvironment(
-                parentDisposable,
+                projectDisposable,
                 configuration,
-                unitTestMode = true
+                KotlinCoreApplicationEnvironmentMode.UnitTest,
             )
-            return ProjectEnvironment(parentDisposable, appEnv, configuration)
+            return ProjectEnvironment(projectDisposable, appEnv, configuration)
         }
 
         // used in the daemon for jar cache cleanup
         val applicationEnvironment: KotlinCoreApplicationEnvironment? get() = ourApplicationEnvironment
 
         fun getOrCreateApplicationEnvironmentForProduction(
-            parentDisposable: Disposable, configuration: CompilerConfiguration
-        ): KotlinCoreApplicationEnvironment = getOrCreateApplicationEnvironment(parentDisposable, configuration, unitTestMode = false)
+            projectDisposable: Disposable,
+            configuration: CompilerConfiguration,
+        ): KotlinCoreApplicationEnvironment = getOrCreateApplicationEnvironment(
+            projectDisposable,
+            configuration,
+            KotlinCoreApplicationEnvironmentMode.Production,
+        )
 
         fun getOrCreateApplicationEnvironmentForTests(
-            parentDisposable: Disposable, configuration: CompilerConfiguration
-        ): KotlinCoreApplicationEnvironment = getOrCreateApplicationEnvironment(parentDisposable, configuration, unitTestMode = true)
+            projectDisposable: Disposable,
+            configuration: CompilerConfiguration,
+        ): KotlinCoreApplicationEnvironment = getOrCreateApplicationEnvironment(
+            projectDisposable,
+            configuration,
+            KotlinCoreApplicationEnvironmentMode.UnitTest,
+        )
 
-        private fun getOrCreateApplicationEnvironment(
-            parentDisposable: Disposable, configuration: CompilerConfiguration, unitTestMode: Boolean
+        fun getOrCreateApplicationEnvironment(
+            projectDisposable: Disposable,
+            configuration: CompilerConfiguration,
+            environmentMode: KotlinCoreApplicationEnvironmentMode,
         ): KotlinCoreApplicationEnvironment {
             synchronized(APPLICATION_LOCK) {
                 if (ourApplicationEnvironment == null) {
@@ -525,7 +544,7 @@ class KotlinCoreEnvironment private constructor(
                         createApplicationEnvironment(
                             disposable,
                             configuration,
-                            unitTestMode
+                            environmentMode,
                         )
                     ourProjectCount = 0
                     Disposer.register(disposable, Disposable {
@@ -540,7 +559,7 @@ class KotlinCoreEnvironment private constructor(
                     // Disposer uses identity of passed object to deduplicate registered disposables
                     // We should everytime pass new instance to avoid un-registering from previous one
                     @Suppress("ObjectLiteralToLambda")
-                    Disposer.register(parentDisposable, object : Disposable {
+                    Disposer.register(projectDisposable, object : Disposable {
                         override fun dispose() {
                             synchronized(APPLICATION_LOCK) {
                                 // Build-systems may run many instances of the compiler in parallel
@@ -576,7 +595,34 @@ class KotlinCoreEnvironment private constructor(
                 val environment = ourApplicationEnvironment ?: return
                 ourApplicationEnvironment = null
                 Disposer.dispose(environment.parentDisposable)
+                resetApplicationManager(environment.application)
                 ZipHandler.clearFileAccessorCache()
+            }
+        }
+
+        /**
+         * Resets the application managed by [ApplicationManager] to `null`. If [applicationToReset] is specified, [resetApplicationManager]
+         * will only reset the application if it's the expected one. Otherwise, the application will already have been changed to another
+         * application. For example, application disposal can trigger one of the disposables registered via
+         * [ApplicationManager.setApplication], which reset the managed application to the previous application.
+         */
+        @JvmStatic
+        fun resetApplicationManager(applicationToReset: Application? = null) {
+            val currentApplication = ApplicationManager.getApplication() ?: return
+            if (applicationToReset != null && applicationToReset != currentApplication) {
+                return
+            }
+
+            try {
+                val ourApplicationField = ApplicationManager::class.java.getDeclaredField("ourApplication")
+                ourApplicationField.isAccessible = true
+                ourApplicationField.set(null, null)
+            } catch (exception: Exception) {
+                // Resetting the application manager is not critical in a production context. If the reflective access fails, we shouldn't
+                // expose the user to the failure.
+                if (currentApplication.isUnitTestMode) {
+                    throw exception
+                }
             }
         }
 
@@ -606,11 +652,11 @@ class KotlinCoreEnvironment private constructor(
         }
 
         private fun createApplicationEnvironment(
-            parentDisposable: Disposable, configuration: CompilerConfiguration, unitTestMode: Boolean
+            parentDisposable: Disposable,
+            configuration: CompilerConfiguration,
+            environmentMode: KotlinCoreApplicationEnvironmentMode,
         ): KotlinCoreApplicationEnvironment {
-            val applicationEnvironment = KotlinCoreApplicationEnvironment.create(
-                parentDisposable, unitTestMode
-            )
+            val applicationEnvironment = KotlinCoreApplicationEnvironment.create(parentDisposable, environmentMode)
 
             registerApplicationExtensionPointsAndExtensionsFrom(configuration, "extensions/compiler.xml")
 
@@ -786,7 +832,7 @@ class KotlinCoreEnvironment private constructor(
                 // exception from `ExtensionPointImpl.doRegisterExtension`, because the registered extension can no longer be found
                 // when the project is being disposed.
                 // For example, see the `unregisterExtension` call in `GenerationUtils.compileFilesUsingFrontendIR`.
-                // TODO: refactor this to avoid registering unneeded extensions in the first place, and avoid using deprecated API.
+                // TODO: refactor this to avoid registering unneeded extensions in the first place, and avoid using deprecated API. (KT-64296)
                 @Suppress("DEPRECATION")
                 PsiElementFinder.EP.getPoint(project).registerExtension(JavaElementFinder(this))
                 @Suppress("DEPRECATION")

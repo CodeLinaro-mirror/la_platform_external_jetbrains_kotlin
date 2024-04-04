@@ -19,10 +19,6 @@ gc::GC::ThreadData::ThreadData(GC& gc, mm::ThreadData& threadData) noexcept : im
 
 gc::GC::ThreadData::~ThreadData() = default;
 
-ALWAYS_INLINE void gc::GC::ThreadData::onAllocation(ObjHeader* object) noexcept {
-    impl().gc().barriers().onAllocation(object);
-}
-
 void gc::GC::ThreadData::OnSuspendForGC() noexcept {
     impl_->gc().OnSuspendForGC();
 }
@@ -33,6 +29,10 @@ void gc::GC::ThreadData::safePoint() noexcept {
 
 void gc::GC::ThreadData::onThreadRegistration() noexcept {
     impl_->gc().onThreadRegistration();
+}
+
+ALWAYS_INLINE void gc::GC::ThreadData::onAllocation(ObjHeader* object) noexcept {
+    impl().gc().barriers().onAllocation(object);
 }
 
 gc::GC::GC(alloc::Allocator& allocator, gcScheduler::GCScheduler& gcScheduler) noexcept :
@@ -59,17 +59,12 @@ bool gc::GC::FinalizersThreadIsRunning() noexcept {
 
 // static
 ALWAYS_INLINE void gc::GC::processObjectInMark(void* state, ObjHeader* object) noexcept {
-    gc::internal::processObjectInMark<gc::mark::ParallelMark::MarkTraits>(state, object);
+    gc::internal::processObjectInMark<gc::mark::ConcurrentMark::MarkTraits>(state, object);
 }
 
 // static
 ALWAYS_INLINE void gc::GC::processArrayInMark(void* state, ArrayHeader* array) noexcept {
-    gc::internal::processArrayInMark<gc::mark::ParallelMark::MarkTraits>(state, array);
-}
-
-// static
-ALWAYS_INLINE void gc::GC::processFieldInMark(void* state, ObjHeader* field) noexcept {
-    gc::internal::processFieldInMark<gc::mark::ParallelMark::MarkTraits>(state, field);
+    gc::internal::processArrayInMark<gc::mark::ConcurrentMark::MarkTraits>(state, array);
 }
 
 int64_t gc::GC::Schedule() noexcept {
@@ -84,12 +79,24 @@ void gc::GC::WaitFinalizers(int64_t epoch) noexcept {
     impl_->gc().state().waitEpochFinalized(epoch);
 }
 
-bool gc::isMarked(ObjHeader* object) noexcept {
-    return alloc::objectDataForObject(object).marked();
+void gc::GC::configureMainThreadFinalizerProcessor(std::function<void(alloc::RunLoopFinalizerProcessorConfig&)> f) noexcept {
+    impl_->gc().mainThreadFinalizerProcessor().withConfig(std::move(f));
 }
 
-ALWAYS_INLINE OBJ_GETTER(gc::tryRef, std::atomic<ObjHeader*>& object) noexcept {
-    RETURN_RESULT_OF(gc::WeakRefRead, object);
+bool gc::GC::mainThreadFinalizerProcessorAvailable() noexcept {
+    return impl_->gc().mainThreadFinalizerProcessor().available();
+}
+
+ALWAYS_INLINE void gc::beforeHeapRefUpdate(mm::DirectRefAccessor ref, ObjHeader* value) noexcept {
+    barriers::beforeHeapRefUpdate(ref, value);
+}
+
+ALWAYS_INLINE OBJ_GETTER(gc::weakRefReadBarrier, std::atomic<ObjHeader*>& weakReferee) noexcept {
+    RETURN_RESULT_OF(gc::barriers::weakRefReadBarrier, weakReferee);
+}
+
+bool gc::isMarked(ObjHeader* object) noexcept {
+    return alloc::objectDataForObject(object).marked();
 }
 
 ALWAYS_INLINE bool gc::tryResetMark(GC::ObjectData& objectData) noexcept {

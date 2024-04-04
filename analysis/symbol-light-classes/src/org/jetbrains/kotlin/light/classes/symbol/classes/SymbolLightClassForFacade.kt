@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.scopes.KtScope
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtAnnotatedSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KtPossibleMultiplatformSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointerOfType
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
@@ -88,7 +89,12 @@ internal class SymbolLightClassForFacade(
                 for (fileSymbol in fileSymbols) {
                     for (callableSymbol in fileSymbol.getFileScope().getCallableSymbols()) {
                         if (callableSymbol !is KtFunctionSymbol && callableSymbol !is KtKotlinPropertySymbol) continue
+                        @Suppress("USELESS_IS_CHECK") // K2 warning suppression, TODO: KT-62472
                         if (callableSymbol !is KtSymbolWithVisibility) continue
+
+                        // We shouldn't materialize expect declarations
+                        @Suppress("USELESS_IS_CHECK") // K2 warning suppression, TODO: KT-62472
+                        if (callableSymbol is KtPossibleMultiplatformSymbol && callableSymbol.isExpect) continue
                         if ((callableSymbol as? KtAnnotatedSymbol)?.hasInlineOnlyAnnotation() == true) continue
                         if (multiFileClass && callableSymbol.toPsiVisibilityForMember() == PsiModifier.PRIVATE) continue
                         if (callableSymbol.hasTypeForValueClassInSignature(ignoreReturnType = true)) continue

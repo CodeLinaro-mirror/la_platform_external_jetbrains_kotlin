@@ -159,7 +159,6 @@ enum class LanguageFeature(
     ProhibitVarargAsArrayAfterSamArgument(KOTLIN_1_5, kind = BUG_FIX),
     CorrectSourceMappingSyntax(KOTLIN_1_5, kind = UNSTABLE_FEATURE),
     ProperArrayConventionSetterWithDefaultCalls(KOTLIN_1_5, kind = OTHER),
-    DisableCompatibilityModeForNewInference(null),
     AdaptedCallableReferenceAgainstReflectiveType(null),
     InferenceCompatibility(KOTLIN_1_5, kind = BUG_FIX),
     RequiredPrimaryConstructorDelegationCallInEnums(KOTLIN_1_5, kind = BUG_FIX),
@@ -303,10 +302,15 @@ enum class LanguageFeature(
     KeepNullabilityWhenApproximatingLocalType(KOTLIN_2_0, kind = BUG_FIX), // KT-53982
     ProhibitAccessToInvisibleSetterFromDerivedClass(KOTLIN_2_0, kind = BUG_FIX), // KT-56662
     ProhibitOpenValDeferredInitialization(KOTLIN_2_0, kind = BUG_FIX), // KT-57553
+    SupportEffectivelyFinalInExpectActualVisibilityCheck(KOTLIN_2_0, kind = BUG_FIX), // KT-61955
     ProhibitMissedMustBeInitializedWhenThereIsNoPrimaryConstructor(KOTLIN_2_0, kind = BUG_FIX), // KT-58472
     MangleCallsToJavaMethodsWithValueClasses(KOTLIN_2_0, kind = OTHER), // KT-55945
     ForbidInferringTypeVariablesIntoEmptyIntersection(KOTLIN_2_0, kind = BUG_FIX), // KT-51221
-    ProhibitDefaultDefaultArgumentsInExpectActualizedByFakeOverride(KOTLIN_2_0, kind = BUG_FIX), // KT-62036
+    ProhibitDefaultArgumentsInExpectActualizedByFakeOverride(KOTLIN_2_0, kind = BUG_FIX), // KT-62036
+    DisableCompatibilityModeForNewInference(KOTLIN_2_0, kind = OTHER), // KT-63558 (umbrella), KT-64306, KT-64307, KT-64308
+    DfaBooleanVariables(KOTLIN_2_0), // KT-25747
+    LightweightLambdas(KOTLIN_2_0, kind = OTHER), // KT-45375
+    ObjCSignatureOverrideAnnotation(KOTLIN_2_0, sinceApiVersion = ApiVersion.KOTLIN_2_0, kind = OTHER), // KT-61323
 
     // 2.1
 
@@ -314,8 +318,15 @@ enum class LanguageFeature(
     ProhibitImplementingVarByInheritedVal(KOTLIN_2_1, kind = BUG_FIX), // KT-56779
     PrioritizedEnumEntries(KOTLIN_2_1, kind = UNSTABLE_FEATURE), // KT-58920
     ProhibitInlineModifierOnPrimaryConstructorParameters(KOTLIN_2_1, kind = BUG_FIX), // KT-59664
+    ProhibitSingleNamedFunctionAsExpression(KOTLIN_2_1, kind = BUG_FIX), // KT-62573
+    ForbidLambdaParameterWithMissingDependencyType(KOTLIN_2_1, kind = BUG_FIX), // KT-64266
+    JsAllowInvalidCharsIdentifiersEscaping(KOTLIN_2_1, kind = OTHER), // KT-31799
+    SupportJavaErrorEnhancementOfArgumentsOfWarningLevelEnhanced(KOTLIN_2_1, kind = BUG_FIX), // KT-63209
+    ProhibitPrivateOperatorCallInInline(KOTLIN_2_1, kind = BUG_FIX), // KT-65494
 
     // End of 2.* language features --------------------------------------------------
+
+    ExpectActualClasses(sinceVersion = null), // KT-62885
 
     // Disabled for indefinite time. See KT-53751
     IgnoreNullabilityForErasedValueParameters(sinceVersion = null, kind = BUG_FIX),
@@ -346,7 +357,6 @@ enum class LanguageFeature(
     // Experimental features
 
     BreakContinueInInlineLambdas(null), // KT-1436
-    LightweightLambdas(null),
     JsEnableExtensionFunctionInExternals(null, kind = OTHER),
     PackagePrivateFileClassesWithAllPrivateMembers(null), // Disabled until the breaking change is approved by the committee, see KT-10884.
     BooleanElvisBoundSmartCasts(null), // see KT-26357 for details
@@ -357,7 +367,6 @@ enum class LanguageFeature(
     ProhibitAllMultipleDefaultsInheritedFromSupertypes(sinceVersion = null, kind = BUG_FIX),
     ExplicitBackingFields(sinceVersion = null, kind = UNSTABLE_FEATURE),
     FunctionalTypeWithExtensionAsSupertype(sinceVersion = null),
-    JsAllowInvalidCharsIdentifiersEscaping(sinceVersion = null, kind = UNSTABLE_FEATURE),
     JsAllowValueClassesInExternals(sinceVersion = null, kind = OTHER),
     ContextReceivers(sinceVersion = null),
     ValueClasses(sinceVersion = null, kind = UNSTABLE_FEATURE),
@@ -372,6 +381,7 @@ enum class LanguageFeature(
     IntrinsicConstEvaluation(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-49303
     DisableCheckingChangedProgressionsResolve(sinceVersion = null, kind = OTHER), // KT-49276
     ContextSensitiveEnumResolutionInWhen(sinceVersion = null, kind = UNSTABLE_FEATURE), // KT-52774
+    ForbidSyntheticPropertiesWithoutBaseJavaGetter(sinceVersion = null, kind = OTHER), // KT-64358
     ;
 
     init {
@@ -393,6 +403,13 @@ enum class LanguageFeature(
     }
 
     /**
+     * If 'true', then this feature will be automatically enabled under '-progressive' mode.
+     *
+     * Please, see `canBeEnabledInProgressiveMode` in [Kind] for more details.
+     */
+    val enabledInProgressiveMode: Boolean get() = kind.canBeEnabledInProgressiveMode && sinceVersion != null
+
+    /**
      * # [forcesPreReleaseBinaries]
      * If 'true', then enabling this feature (e.g. by '-XXLanguage:', or dedicated '-X'-flag)
      * will force generation of pre-release binaries (given that [sinceVersion] > [LanguageVersion.LATEST_STABLE]).
@@ -404,8 +421,8 @@ enum class LanguageFeature(
      * generate 'kotlin-compiler' as pre-release.
      *
      *
-     * # [enabledInProgressiveMode]
-     * If 'true', then this feature will be automatically enabled under '-progressive' mode.
+     * # [canBeEnabledInProgressiveMode]
+     * If 'true', then this feature will be automatically enabled under '-progressive' mode if `sinceKotlin` is set.
      *
      * Restrictions for using this flag for particular feature follow from restrictions of the progressive mode:
      * - enabling it *must not* break compatibility with non-progressive compiler, i.e. code written under progressive
@@ -418,9 +435,9 @@ enum class LanguageFeature(
      *   Example: silently changing semantics of generated low-level code is not fine, but deprecating some language
      *   construction immediately instead of a going through complete deprecation cycle is fine.
      *
-     * NB: Currently, [enabledInProgressiveMode] makes sense only for features with [sinceVersion] > [LanguageVersion.LATEST_STABLE]
+     * NB: Currently, [canBeEnabledInProgressiveMode] makes sense only for features with [sinceVersion] > [LanguageVersion.LATEST_STABLE]
      */
-    enum class Kind(val enabledInProgressiveMode: Boolean, val forcesPreReleaseBinaries: Boolean) {
+    enum class Kind(val canBeEnabledInProgressiveMode: Boolean, val forcesPreReleaseBinaries: Boolean) {
         /**
          * Simple bug fix which just forbids some language constructions.
          * Rule of thumb: it turns "green code" into "red".

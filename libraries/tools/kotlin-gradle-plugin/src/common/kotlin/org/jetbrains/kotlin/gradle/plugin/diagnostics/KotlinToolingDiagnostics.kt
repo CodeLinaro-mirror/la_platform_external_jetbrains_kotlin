@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLI
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.*
 import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV1
 import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV2
+import java.io.File
 
 @InternalKotlinGradlePluginApi // used in integration tests
 object KotlinToolingDiagnostics {
@@ -82,9 +83,9 @@ object KotlinToolingDiagnostics {
             val cause = if (sourceSetNames.size == 1) {
                 "The Kotlin source set ${sourceSetNames.single()} was configured but not added to any Kotlin compilation.\n"
             } else {
-                val sourceSetNames = sourceSetNames.joinToString("\n") { " * $it" }
+                val sourceSetNamesString = sourceSetNames.joinToString("\n") { " * $it" }
                 "The following Kotlin source sets were configured but not added to any Kotlin compilation:\n" +
-                        sourceSetNames
+                        sourceSetNamesString
             }
 
             val details =
@@ -345,10 +346,10 @@ object KotlinToolingDiagnostics {
         )
     }
 
-    object ExperimentalK2Warning : ToolingDiagnosticFactory(WARNING) {
+    object ExperimentalTryNextWarning : ToolingDiagnosticFactory(WARNING) {
         operator fun invoke() = build(
             """
-            ATTENTION: 'kotlin.experimental.tryK2' is an experimental option enabled in the project for trying out the new Kotlin K2 compiler only.
+            ATTENTION: 'kotlin.experimental.tryNext' is an experimental option enabled in the project for trying out the next Kotlin compiler language version only.
             Please refrain from using it in production code and provide feedback to the Kotlin team for any issues encountered via https://kotl.in/issue
             """.trimIndent()
         )
@@ -662,6 +663,52 @@ object KotlinToolingDiagnostics {
                 In order to migrate you might want to replace: 
                 val wasmMain by getting -> val wasmJsMain by getting
                 val wasmTest by getting -> val wasmJsTest by getting
+            """.trimIndent()
+        )
+    }
+
+    object DuplicateSourceSetsError : ToolingDiagnosticFactory(FATAL) {
+        operator fun invoke(duplicatedSourceSets: Map<String, List<String>>): ToolingDiagnostic {
+            val duplicatesGroupsString = duplicatedSourceSets
+                .map { entry -> entry.value.joinToString(", ") }
+                .joinToString("], [", "[", "]")
+            return build(
+                "Duplicate Kotlin source sets have been detected: $duplicatesGroupsString." +
+                        " Keep in mind that source set names are case-insensitive," +
+                        " which means that `srcMain` and `sRcMain` are considered the same source set."
+            )
+        }
+    }
+
+    object CInteropRequiredParametersNotSpecifiedError : ToolingDiagnosticFactory(ERROR) {
+        operator fun invoke(): ToolingDiagnostic {
+            return build(
+                """
+                |For the Cinterop task, either the `definitionFile` or `packageName` parameter must be specified, however, neither has been provided.
+                |
+                |More info here: https://kotlinlang.org/docs/multiplatform-dsl-reference.html#cinterops 
+                """.trimMargin()
+            )
+        }
+    }
+
+    object IncorrectNativeDependenciesWarning : ToolingDiagnosticFactory(WARNING) {
+        operator fun invoke(targetName: String, compilationName: String, dependencies: List<String>) = build(
+            """
+                A compileOnly dependency is used in the Kotlin/Native target '${targetName}':
+                Compilation: $compilationName
+                
+                Dependencies:
+                ${dependencies.joinToString(separator = "\n")}
+            """.trimIndent()
+        )
+    }
+
+    object DependencyDoesNotPhysicallyExist : ToolingDiagnosticFactory(WARNING) {
+        operator fun invoke(dependency: File) = build(
+            """
+               Unable to find the dependency at the location '${dependency.absolutePath}'.
+               Please make sure that the dependency exists at the specified location or ensure that dependency declarations are correct in your project.
             """.trimIndent()
         )
     }

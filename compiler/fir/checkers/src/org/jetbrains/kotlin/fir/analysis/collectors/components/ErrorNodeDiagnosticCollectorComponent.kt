@@ -60,7 +60,7 @@ class ErrorNodeDiagnosticCollectorComponent(
         var source = reference.source
         val callOrAssignment = context.callsOrAssignments.lastOrNull()?.takeIf {
             // Use the source of the enclosing FirQualifiedAccess if it is exactly the call to the erroneous callee.
-            it.calleeReference == reference
+            it.toReference(session) == reference
         }
         // Don't report duplicated unresolved reference on annotation entry (already reported on its type)
         if (source?.elementType == KtNodeTypes.ANNOTATION_ENTRY && diagnostic is ConeUnresolvedNameError) return
@@ -122,11 +122,6 @@ class ErrorNodeDiagnosticCollectorComponent(
         reportFirDiagnostic(errorResolvedQualifier.diagnostic, source, data)
     }
 
-    override fun visitErrorImport(errorImport: FirErrorImport, data: CheckerContext) {
-        val source = errorImport.source
-        reportFirDiagnostic(errorImport.diagnostic, source, data)
-    }
-
     override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: CheckerContext) {
         reportFirDiagnostic(errorPrimaryConstructor.diagnostic, errorPrimaryConstructor.source, data)
     }
@@ -134,6 +129,13 @@ class ErrorNodeDiagnosticCollectorComponent(
     override fun visitThisReference(thisReference: FirThisReference, data: CheckerContext) {
         val diagnostic = thisReference.diagnostic ?: return
         reportFirDiagnostic(diagnostic, thisReference.source, data)
+    }
+
+    override fun visitVarargArgumentsExpression(varargArgumentsExpression: FirVarargArgumentsExpression, data: CheckerContext) {
+        val elementType = varargArgumentsExpression.coneElementTypeOrNull ?: return
+        if (elementType is ConeErrorType) {
+            reportFirDiagnostic(elementType.diagnostic, varargArgumentsExpression.source, data)
+        }
     }
 
     private fun reportFirDiagnostic(
@@ -160,7 +162,7 @@ class ErrorNodeDiagnosticCollectorComponent(
         }
 
         // Prefix inc/dec on array access will have two calls to .get(...), don't report for the second one.
-        if (source?.kind == KtFakeSourceElementKind.DesugaredPrefixSecondGetReference) {
+        if (source?.kind is KtFakeSourceElementKind.DesugaredPrefixSecondGetReference) {
             return
         }
 

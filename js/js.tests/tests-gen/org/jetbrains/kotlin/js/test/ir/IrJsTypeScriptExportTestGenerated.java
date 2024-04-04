@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -54,6 +54,38 @@ public class IrJsTypeScriptExportTestGenerated extends AbstractIrJsTypeScriptExp
         @Test
         public void testAllFilesPresentInAbstract_classes_in_exported_file() throws Exception {
             KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/typescript-export/abstract-classes-in-exported-file"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+    }
+
+    @Nested
+    @TestMetadata("js/js.translator/testData/typescript-export/collections")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Collections {
+        @Test
+        public void testAllFilesPresentInCollections() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/typescript-export/collections"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+
+        @Test
+        @TestMetadata("collections.kt")
+        public void testCollections() throws Exception {
+            runTest("js/js.translator/testData/typescript-export/collections/collections.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("js/js.translator/testData/typescript-export/collections-in-exported-file")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Collections_in_exported_file {
+        @Test
+        public void testAllFilesPresentInCollections_in_exported_file() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/typescript-export/collections-in-exported-file"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR, true);
+        }
+
+        @Test
+        @TestMetadata("collections.kt")
+        public void testCollections() throws Exception {
+            runTest("js/js.translator/testData/typescript-export/collections-in-exported-file/collections.kt");
         }
     }
 

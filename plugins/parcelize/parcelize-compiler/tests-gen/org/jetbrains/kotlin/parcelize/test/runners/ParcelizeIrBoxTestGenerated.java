@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -125,6 +125,12 @@ public class ParcelizeIrBoxTestGenerated extends AbstractParcelizeIrBoxTest {
     @TestMetadata("customSimple.kt")
     public void testCustomSimple() throws Exception {
         runTest("plugins/parcelize/parcelize-compiler/testData/box/customSimple.kt");
+    }
+
+    @Test
+    @TestMetadata("duration.kt")
+    public void testDuration() throws Exception {
+        runTest("plugins/parcelize/parcelize-compiler/testData/box/duration.kt");
     }
 
     @Test

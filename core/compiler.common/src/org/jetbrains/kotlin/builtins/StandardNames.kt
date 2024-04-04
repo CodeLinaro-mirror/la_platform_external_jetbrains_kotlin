@@ -151,6 +151,8 @@ object StandardNames {
         @JvmField val unsafeVariance: FqName = fqName("UnsafeVariance")
         @JvmField val publishedApi: FqName = fqName("PublishedApi")
         @JvmField val accessibleLateinitPropertyLiteral: FqName = internalName("AccessibleLateinitPropertyLiteral")
+        @JvmField val platformDependent: FqName = FqName("kotlin.internal.PlatformDependent")
+        @JvmField val platformDependentClassId: ClassId = ClassId.topLevel(platformDependent)
 
         @JvmField val iterator: FqName = collectionsFqName("Iterator")
         @JvmField val iterable: FqName = collectionsFqName("Iterable")
@@ -182,6 +184,7 @@ object StandardNames {
         @JvmField val kMutablePropertyFqName: FqNameUnsafe = reflect("KMutableProperty")
         @JvmField val kProperty: ClassId = ClassId.topLevel(kPropertyFqName.toSafe())
         @JvmField val kDeclarationContainer: FqNameUnsafe = reflect("KDeclarationContainer")
+        @JvmField val findAssociatedObject: FqNameUnsafe = reflect("findAssociatedObject")
 
         @JvmField val uByteFqName: FqName = fqName("UByte")
         @JvmField val uShortFqName: FqName = fqName("UShort")

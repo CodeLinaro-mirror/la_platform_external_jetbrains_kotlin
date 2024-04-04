@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants
 import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants.RUNTIME_DIAGNOSTIC_EXCEPTION
 import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants.RUNTIME_DIAGNOSTIC_LOG
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
-import org.jetbrains.kotlin.cli.common.fir.reportToMessageCollector
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
@@ -35,6 +34,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
@@ -209,7 +209,12 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
         configurationJs.put(JSConfigurationKeys.PROPERTY_LAZY_INITIALIZATION, arguments.irPropertyLazyInitialization)
         configurationJs.put(JSConfigurationKeys.GENERATE_POLYFILLS, arguments.generatePolyfills)
         configurationJs.put(JSConfigurationKeys.GENERATE_DTS, arguments.generateDts)
+        configurationJs.put(JSConfigurationKeys.COMPILE_SUSPEND_AS_JS_GENERATOR, arguments.useEsGenerators)
         configurationJs.put(JSConfigurationKeys.GENERATE_INLINE_ANONYMOUS_FUNCTIONS, arguments.irGenerateInlineAnonymousFunctions)
+
+        arguments.platformArgumentsProviderJsExpression?.let {
+            configurationJs.put(JSConfigurationKeys.DEFINE_PLATFORM_MAIN_FUNCTION_ARGUMENTS, it)
+        }
 
         val zipAccessor = DisposableZipFileSystemAccessor(64)
         Disposer.register(rootDisposable, zipAccessor)
@@ -349,11 +354,15 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
             }
 
             if (arguments.wasm) {
-                val (allModules, backendContext) = compileToLoweredIr(
+                val generateDts = configuration.getBoolean(JSConfigurationKeys.GENERATE_DTS)
+                val generateSourceMaps = configuration.getBoolean(JSConfigurationKeys.SOURCE_MAP)
+
+                val (allModules, backendContext, typeScriptFragment) = compileToLoweredIr(
                     depsDescriptors = module,
                     phaseConfig = createPhaseConfig(wasmPhases, arguments, messageCollector),
                     irFactory = IrFactoryImpl,
                     exportedDeclarations = setOf(FqName("main")),
+                    generateTypeScriptFragment = generateDts,
                     propertyLazyInitialization = arguments.irPropertyLazyInitialization,
                 )
                 val dceDumpNameCache = DceDumpNameCache()
@@ -363,16 +372,15 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
 
                 dumpDeclarationIrSizesIfNeed(arguments.irDceDumpDeclarationIrSizesToFile, allModules, dceDumpNameCache)
 
-                val generateSourceMaps = configuration.getBoolean(JSConfigurationKeys.SOURCE_MAP)
-
                 val res = compileWasm(
                     allModules = allModules,
                     backendContext = backendContext,
+                    typeScriptFragment = typeScriptFragment,
                     baseFileName = outputName,
                     emitNameSection = arguments.wasmDebug,
                     allowIncompleteImplementations = arguments.irDce,
                     generateWat = configuration.get(JSConfigurationKeys.WASM_GENERATE_WAT, false),
-                    generateSourceMaps = generateSourceMaps
+                    generateSourceMaps = generateSourceMaps,
                 )
 
                 writeCompilationResult(
@@ -463,13 +471,6 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
                 sourceModule.getModuleDescriptor(it)
             }
 
-            val metadataSerializer =
-                KlibMetadataIncrementalSerializer(
-                    environmentForJS.configuration,
-                    sourceModule.project,
-                    sourceModule.jsFrontEndResult.hasErrors
-                )
-
             val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
             generateKLib(
                 sourceModule,
@@ -479,10 +480,8 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
                 icData = icData,
                 moduleFragment = moduleFragment,
                 diagnosticReporter = diagnosticsReporter,
-                builtInsPlatform = if (arguments.wasm) BuiltInsPlatform.WASM else BuiltInsPlatform.JS
-            ) { file ->
-                metadataSerializer.serializeScope(file, sourceModule.jsFrontEndResult.bindingContext, moduleFragment.descriptor)
-            }
+                builtInsPlatform = if (arguments.wasm) BuiltInsPlatform.WASM else BuiltInsPlatform.JS,
+            )
 
             val messageCollector = environmentForJS.configuration.getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
             reportCollectedDiagnostics(environmentForJS.configuration, diagnosticsReporter, messageCollector)
@@ -555,7 +554,16 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
             //  This happens because we check the next round before compilation errors.
             //  Test reproducer:  testFileWithConstantRemoved
             //  Issue: https://youtrack.jetbrains.com/issue/KT-58824/
-            if (shouldGoToNextIcRound(moduleStructure, analyzedOutput.output, fir2IrActualizedResult)) {
+            val shouldGoToNextIcRound = shouldGoToNextIcRound(moduleStructure.compilerConfiguration) {
+                Fir2KlibMetadataSerializer(
+                    moduleStructure.compilerConfiguration,
+                    analyzedOutput.output,
+                    fir2IrActualizedResult,
+                    exportKDoc = false,
+                    produceHeaderKlib = false,
+                )
+            }
+            if (shouldGoToNextIcRound) {
                 throw IncrementalNextRoundException()
             }
         }
@@ -701,10 +709,6 @@ class K2JsIrCompiler : CLICompiler<K2JSCompilerArguments>() {
             if (arguments.sourceMapBaseDirs != null) {
                 messageCollector.report(WARNING, "source-map-source-root argument has no effect without source map", null)
             }
-        }
-
-        if (arguments.metaInfo) {
-            configuration.put(JSConfigurationKeys.META_INFO, true)
         }
 
         configuration.put(JSConfigurationKeys.TYPED_ARRAYS_ENABLED, arguments.typedArrays)

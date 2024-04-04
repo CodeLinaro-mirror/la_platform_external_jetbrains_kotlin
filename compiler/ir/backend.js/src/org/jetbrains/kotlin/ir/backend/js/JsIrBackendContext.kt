@@ -105,6 +105,7 @@ class JsIrBackendContext(
     val devMode = configuration[JSConfigurationKeys.DEVELOPER_MODE] ?: false
     val errorPolicy = configuration[JSConfigurationKeys.ERROR_TOLERANCE_POLICY] ?: ErrorTolerancePolicy.DEFAULT
     override val es6mode = configuration[JSConfigurationKeys.USE_ES6_CLASSES] ?: false
+    val platformArgumentsProviderJsExpression = configuration[JSConfigurationKeys.DEFINE_PLATFORM_MAIN_FUNCTION_ARGUMENTS]
 
     val externalPackageFragment = mutableMapOf<IrFileSymbol, IrFile>()
 
@@ -120,14 +121,17 @@ class JsIrBackendContext(
 
     val testFunsPerFile = hashMapOf<IrFile, IrSimpleFunction>()
 
-    override fun createTestContainerFun(irFile: IrFile): IrSimpleFunction {
-        return testFunsPerFile.getOrPut(irFile) {
-            irFactory.addFunction(irFile) {
-                name = Name.identifier("test fun")
-                returnType = irBuiltIns.unitType
-                origin = JsIrBuilder.SYNTHESIZED_DECLARATION
-            }.apply {
-                body = irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+    override fun createTestContainerFun(container: IrDeclaration): IrSimpleFunction {
+        val irFile = container.file
+        return irFactory.stageController.restrictTo(container) {
+            testFunsPerFile.getOrPut(irFile) {
+                irFactory.addFunction(irFile) {
+                    name = Name.identifier("test fun")
+                    returnType = irBuiltIns.unitType
+                    origin = JsIrBuilder.SYNTHESIZED_DECLARATION
+                }.apply {
+                    body = irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+                }
             }
         }
     }
@@ -191,6 +195,9 @@ class JsIrBackendContext(
 
     override val coroutineSymbols =
         JsCommonCoroutineSymbols(symbolTable, module, this)
+
+    override val jsPromiseSymbol: IrClassSymbol?
+        get() = intrinsics.promiseClassSymbol
 
     override val enumEntries = getIrClass(ENUMS_PACKAGE_FQNAME.child(Name.identifier("EnumEntries")))
     override val createEnumEntries = getFunctions(ENUMS_PACKAGE_FQNAME.child(Name.identifier("enumEntries")))

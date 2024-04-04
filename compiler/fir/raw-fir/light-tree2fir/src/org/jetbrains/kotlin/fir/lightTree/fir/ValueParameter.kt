@@ -10,11 +10,7 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.*
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.builder.Context
-import org.jetbrains.kotlin.fir.builder.appliesToPrimaryConstructorParameter
-import org.jetbrains.kotlin.fir.builder.filterUseSiteTarget
-import org.jetbrains.kotlin.fir.builder.initContainingClassAttr
-import org.jetbrains.kotlin.fir.builder.wrapIntoArray
+import org.jetbrains.kotlin.fir.builder.*
 import org.jetbrains.kotlin.fir.copy
 import org.jetbrains.kotlin.fir.copyWithNewSourceKind
 import org.jetbrains.kotlin.fir.correspondingProperty
@@ -31,7 +27,9 @@ import org.jetbrains.kotlin.fir.declarations.utils.fromPrimaryConstructor
 import org.jetbrains.kotlin.fir.declarations.utils.isFromVararg
 import org.jetbrains.kotlin.fir.diagnostics.ConeSyntaxDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationCallCopy
 import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
 import org.jetbrains.kotlin.fir.lightTree.fir.modifier.Modifier
 import org.jetbrains.kotlin.fir.references.builder.buildPropertyFromParameterResolvedNamedReference
@@ -47,9 +45,11 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 
 class ValueParameter(
+    private val valueParameterSymbol: FirValueParameterSymbol,
     private val isVal: Boolean,
     private val isVar: Boolean,
     private val modifiers: Modifier,
+    private val valueParameterAnnotations: List<FirAnnotationCall>,
     val returnTypeRef: FirTypeRef,
     val source: KtSourceElement,
     private val moduleData: FirModuleData,
@@ -67,9 +67,9 @@ class ValueParameter(
     val annotations: List<FirAnnotation> by lazy(LazyThreadSafetyMode.NONE) {
         buildList {
             if (!isFromPrimaryConstructor)
-                addAll(modifiers.annotations)
+                addAll(valueParameterAnnotations)
             else
-                modifiers.annotations.filterTo(this) { it.useSiteTarget.appliesToPrimaryConstructorParameter() }
+                valueParameterAnnotations.filterTo(this) { it.useSiteTarget.appliesToPrimaryConstructorParameter() }
             addAll(additionalAnnotations)
         }
     }
@@ -87,7 +87,7 @@ class ValueParameter(
             }
 
             this.name = this@ValueParameter.name
-            symbol = FirValueParameterSymbol(name)
+            symbol = valueParameterSymbol
             defaultValue = this@ValueParameter.defaultValue
             isCrossinline = modifiers.hasCrossinline()
             isNoinline = modifiers.hasNoinline()
@@ -128,8 +128,16 @@ class ValueParameter(
                     source = propertySource
                 }
             }
+
             isVar = this@ValueParameter.isVar
-            symbol = FirPropertySymbol(callableId)
+            val propertySymbol = FirPropertySymbol(callableId)
+            val remappedAnnotations = valueParameterAnnotations.map {
+                buildAnnotationCallCopy(it) {
+                    containingDeclarationSymbol = propertySymbol
+                }
+            }
+
+            symbol = propertySymbol
             dispatchReceiverType = currentDispatchReceiver
             isLocal = false
             status = FirDeclarationStatusImpl(modifiers.getVisibility(), modifiers.getModality(isClassOrObject = false)).apply {
@@ -137,6 +145,7 @@ class ValueParameter(
                 isActual = modifiers.hasActual()
                 isOverride = modifiers.hasOverride()
                 isConst = modifiers.hasConst()
+                isLateInit = modifiers.hasLateinit()
             }
 
             val defaultAccessorSource = propertySource?.fakeElement(KtFakeSourceElementKind.DefaultAccessor)
@@ -144,18 +153,16 @@ class ValueParameter(
                 moduleData = moduleData,
                 origin = FirDeclarationOrigin.Source,
                 source = defaultAccessorSource,
-                annotations = modifiers.annotations.filter {
+                annotations = remappedAnnotations.filter {
                     it.useSiteTarget == FIELD || it.useSiteTarget == PROPERTY_DELEGATE_FIELD
                 }.toMutableList(),
                 returnTypeRef = returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DefaultAccessor),
                 isVar = isVar,
                 propertySymbol = symbol,
-                status = status.copy(),
+                status = status.copy(isLateInit = false),
             )
 
-            annotations += modifiers.annotations.filter {
-                it.useSiteTarget == null || it.useSiteTarget == PROPERTY
-            }
+            annotations += remappedAnnotations.filterConstructorPropertyRelevantAnnotations(this.isVar)
 
             getter = FirDefaultPropertyGetter(
                 defaultAccessorSource,
@@ -167,7 +174,7 @@ class ValueParameter(
                 isInline = modifiers.hasInline(),
             ).also {
                 it.initContainingClassAttr(context)
-                it.replaceAnnotations(modifiers.annotations.filterUseSiteTarget(PROPERTY_GETTER))
+                it.replaceAnnotations(remappedAnnotations.filterUseSiteTarget(PROPERTY_GETTER))
             }
             setter = if (this.isVar) FirDefaultPropertySetter(
                 defaultAccessorSource,
@@ -176,11 +183,11 @@ class ValueParameter(
                 type.copyWithNewSourceKind(KtFakeSourceElementKind.DefaultAccessor),
                 modifiers.getVisibility(),
                 symbol,
-                parameterAnnotations = modifiers.annotations.filterUseSiteTarget(SETTER_PARAMETER),
+                parameterAnnotations = remappedAnnotations.filterUseSiteTarget(SETTER_PARAMETER),
                 isInline = modifiers.hasInline(),
             ).also {
                 it.initContainingClassAttr(context)
-                it.replaceAnnotations(modifiers.annotations.filterUseSiteTarget(PROPERTY_SETTER))
+                it.replaceAnnotations(remappedAnnotations.filterUseSiteTarget(PROPERTY_SETTER))
             } else null
         }.apply {
             if (firValueParameter.isVararg) {

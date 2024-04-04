@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -181,6 +181,18 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     }
 
     @Test
+    @TestMetadata("delegatedFieldNestedNameClashScript.kts")
+    public void testDelegatedFieldNestedNameClashScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatedFieldNestedNameClashScript.kts");
+    }
+
+    @Test
+    @TestMetadata("delegatedFieldNestedNameClashWithNestedTypesScript.kts")
+    public void testDelegatedFieldNestedNameClashWithNestedTypesScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatedFieldNestedNameClashWithNestedTypesScript.kts");
+    }
+
+    @Test
     @TestMetadata("delegatedFieldScript.kts")
     public void testDelegatedFieldScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatedFieldScript.kts");
@@ -190,6 +202,24 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     @TestMetadata("delegatesScript.kts")
     public void testDelegatesScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatesScript.kts");
+    }
+
+    @Test
+    @TestMetadata("destructuring.kts")
+    public void testDestructuring() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/destructuring.kts");
+    }
+
+    @Test
+    @TestMetadata("destructuringFirstEntry.kts")
+    public void testDestructuringFirstEntry() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/destructuringFirstEntry.kts");
+    }
+
+    @Test
+    @TestMetadata("destructuringSecondEntry.kts")
+    public void testDestructuringSecondEntry() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/destructuringSecondEntry.kts");
     }
 
     @Test
@@ -214,6 +244,12 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     @TestMetadata("enumValuesScript.kts")
     public void testEnumValuesScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/enumValuesScript.kts");
+    }
+
+    @Test
+    @TestMetadata("explicitSubstitutionOverridePropertyScript.kts")
+    public void testExplicitSubstitutionOverridePropertyScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/explicitSubstitutionOverridePropertyScript.kts");
     }
 
     @Test
@@ -259,9 +295,21 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     }
 
     @Test
+    @TestMetadata("implicitSubstitutionOverridePropertyScript.kts")
+    public void testImplicitSubstitutionOverridePropertyScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/implicitSubstitutionOverridePropertyScript.kts");
+    }
+
+    @Test
     @TestMetadata("lambdaAsSAMInterfaceScript.kts")
     public void testLambdaAsSAMInterfaceScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/lambdaAsSAMInterfaceScript.kts");
+    }
+
+    @Test
+    @TestMetadata("lastStatementWithDestructuringDeclarationReference.kts")
+    public void testLastStatementWithDestructuringDeclarationReference() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/lastStatementWithDestructuringDeclarationReference.kts");
     }
 
     @Test
@@ -385,6 +433,12 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     }
 
     @Test
+    @TestMetadata("propertyDelegateWithImplicitTypeScript.kts")
+    public void testPropertyDelegateWithImplicitTypeScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/propertyDelegateWithImplicitTypeScript.kts");
+    }
+
+    @Test
     @TestMetadata("propertyWithGetterAndSetterScript.kts")
     public void testPropertyWithGetterAndSetterScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/propertyWithGetterAndSetterScript.kts");
@@ -499,9 +553,33 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
     }
 
     @Test
+    @TestMetadata("substitutionFakeOverrideConstructorScript.kts")
+    public void testSubstitutionFakeOverrideConstructorScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/substitutionFakeOverrideConstructorScript.kts");
+    }
+
+    @Test
+    @TestMetadata("substitutionFakeOverrideFunctionScript.kts")
+    public void testSubstitutionFakeOverrideFunctionScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/substitutionFakeOverrideFunctionScript.kts");
+    }
+
+    @Test
+    @TestMetadata("substitutionFakeOverrideFunctionWithImplicitTypeScript.kts")
+    public void testSubstitutionFakeOverrideFunctionWithImplicitTypeScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/substitutionFakeOverrideFunctionWithImplicitTypeScript.kts");
+    }
+
+    @Test
     @TestMetadata("substitutionFakeOverrideScript.kts")
     public void testSubstitutionFakeOverrideScript() throws Exception {
         runTest("analysis/low-level-api-fir/testData/lazyResolve/substitutionFakeOverrideScript.kts");
+    }
+
+    @Test
+    @TestMetadata("substitutionFakeOverrideWithImplicitTypeAndReceiverScript.kts")
+    public void testSubstitutionFakeOverrideWithImplicitTypeAndReceiverScript() throws Exception {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/substitutionFakeOverrideWithImplicitTypeAndReceiverScript.kts");
     }
 
     @Test
@@ -674,6 +752,64 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
         public void testSimpleLoopInOverrideScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/simpleLoopInOverrideScript.kts");
         }
+
+        @Test
+        @TestMetadata("superTypeCallNameClashImplicitConstructorScript.kts")
+        public void testSuperTypeCallNameClashImplicitConstructorScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/superTypeCallNameClashImplicitConstructorScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNameClashScript.kts")
+        public void testSuperTypeCallNameClashScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/superTypeCallNameClashScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNestedNameClashImplicitConstructorScript.kts")
+        public void testSuperTypeCallNestedNameClashImplicitConstructorScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/superTypeCallNestedNameClashImplicitConstructorScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNestedNameClashScript.kts")
+        public void testSuperTypeCallNestedNameClashScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/superTypeCallNestedNameClashScript.kts");
+        }
+
+        @Nested
+        @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass")
+        @TestDataPath("$PROJECT_ROOT")
+        public class DataClass {
+            @Test
+            public void testAllFilesPresentInDataClass() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass"), Pattern.compile("^(.+)\\.(kts)$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("component1TypeCollisionScript.kts")
+            public void testComponent1TypeCollisionScript() throws Exception {
+                runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass/component1TypeCollisionScript.kts");
+            }
+
+            @Test
+            @TestMetadata("copyTypeCollisionScript.kts")
+            public void testCopyTypeCollisionScript() throws Exception {
+                runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass/copyTypeCollisionScript.kts");
+            }
+
+            @Test
+            @TestMetadata("parameterTypeCollisionScript.kts")
+            public void testParameterTypeCollisionScript() throws Exception {
+                runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass/parameterTypeCollisionScript.kts");
+            }
+
+            @Test
+            @TestMetadata("propertyTypeCollisionScript.kts")
+            public void testPropertyTypeCollisionScript() throws Exception {
+                runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/dataClass/propertyTypeCollisionScript.kts");
+            }
+        }
     }
 
     @Nested
@@ -766,6 +902,30 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
         public void testSimpleLoopInOverrideScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/simpleLoopInOverrideScript.kts");
         }
+
+        @Test
+        @TestMetadata("superTypeCallNameClashImplicitConstructorScript.kts")
+        public void testSuperTypeCallNameClashImplicitConstructorScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/superTypeCallNameClashImplicitConstructorScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNameClashScript.kts")
+        public void testSuperTypeCallNameClashScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/superTypeCallNameClashScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNestedNameClashImplicitConstructorScript.kts")
+        public void testSuperTypeCallNestedNameClashImplicitConstructorScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/superTypeCallNestedNameClashImplicitConstructorScript.kts");
+        }
+
+        @Test
+        @TestMetadata("superTypeCallNestedNameClashScript.kts")
+        public void testSuperTypeCallNestedNameClashScript() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/superTypeCallNestedNameClashScript.kts");
+        }
     }
 
     @Nested
@@ -854,6 +1014,24 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
         }
 
         @Test
+        @TestMetadata("resultWithPropagatedType.kts")
+        public void testResultWithPropagatedType() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/resultWithPropagatedType.kts");
+        }
+
+        @Test
+        @TestMetadata("scriptWithResultWithPropagatedType.kts")
+        public void testScriptWithResultWithPropagatedType() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/scriptWithResultWithPropagatedType.kts");
+        }
+
+        @Test
+        @TestMetadata("scriptWithTypeAnnotationsOnDeclaration.kts")
+        public void testScriptWithTypeAnnotationsOnDeclaration() throws Exception {
+            runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/scriptWithTypeAnnotationsOnDeclaration.kts");
+        }
+
+        @Test
         @TestMetadata("simpleLoopInOverride2Script.kts")
         public void testSimpleLoopInOverride2Script() throws Exception {
             runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/simpleLoopInOverride2Script.kts");
@@ -863,6 +1041,16 @@ public class FirScriptLazyDeclarationResolveTestGenerated extends AbstractFirScr
         @TestMetadata("simpleLoopInOverrideScript.kts")
         public void testSimpleLoopInOverrideScript() throws Exception {
             runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/simpleLoopInOverrideScript.kts");
+        }
+    }
+
+    @Nested
+    @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/syntheticProperties")
+    @TestDataPath("$PROJECT_ROOT")
+    public class SyntheticProperties {
+        @Test
+        public void testAllFilesPresentInSyntheticProperties() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/syntheticProperties"), Pattern.compile("^(.+)\\.(kts)$"), null, true);
         }
     }
 

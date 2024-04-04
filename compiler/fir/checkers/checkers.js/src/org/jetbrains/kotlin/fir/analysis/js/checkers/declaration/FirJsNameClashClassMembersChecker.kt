@@ -7,27 +7,48 @@ package org.jetbrains.kotlin.fir.analysis.js.checkers.declaration
 
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.unsubstitutedScope
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors
-import org.jetbrains.kotlin.fir.analysis.js.checkers.*
 import org.jetbrains.kotlin.fir.analysis.js.checkers.FirJsStableName
+import org.jetbrains.kotlin.fir.analysis.js.checkers.collectNameClashesWith
+import org.jetbrains.kotlin.fir.analysis.js.checkers.isPresentInGeneratedCode
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.getNonSubsumedOverriddenSymbols
+import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.isFinal
+import org.jetbrains.kotlin.fir.originalForSubstitutionOverride
+import org.jetbrains.kotlin.fir.resolve.SessionHolder
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirIntersectionCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.unwrapFakeOverridesOrDelegated
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.addToStdlib.popLast
 
-object FirJsNameClashClassMembersChecker : FirClassChecker() {
+sealed class FirJsNameClashClassMembersChecker(mppKind: MppCheckerKind) : FirClassChecker(mppKind) {
+    object Regular : FirJsNameClashClassMembersChecker(MppCheckerKind.Platform) {
+        override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
+            if (declaration.isExpect) return
+            super.check(declaration, context, reporter)
+        }
+    }
+
+    object ForExpectClass : FirJsNameClashClassMembersChecker(MppCheckerKind.Common) {
+        override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
+            if (!declaration.isExpect) return
+            super.check(declaration, context, reporter)
+        }
+    }
+
     private class StableNamesCollector {
         val jsStableNames = mutableSetOf<FirJsStableName>()
         val overrideIntersections = hashMapOf<FirCallableSymbol<*>, HashSet<FirCallableSymbol<*>>>()
@@ -35,15 +56,16 @@ object FirJsNameClashClassMembersChecker : FirClassChecker() {
         private val allSymbols = mutableSetOf<FirCallableSymbol<*>>()
 
         private fun FirTypeScope.collectOverriddenLeaves(classMemberSymbol: FirCallableSymbol<*>): Set<FirCallableSymbol<*>> {
-            val visitedSymbols = hashSetOf(classMemberSymbol)
-            val symbolsToProcess = mutableListOf(classMemberSymbol)
+            val startMemberWithScope = MemberWithBaseScope(classMemberSymbol, this)
+            val visitedSymbols = hashSetOf(startMemberWithScope)
+            val symbolsToProcess = mutableListOf(startMemberWithScope)
             val leaves = mutableSetOf<FirCallableSymbol<*>>()
             while (symbolsToProcess.isNotEmpty()) {
-                val processingSymbol = symbolsToProcess.popLast()
-                val overriddenMembers = getDirectOverriddenMembers(processingSymbol, true)
-                for (overriddenMember in overriddenMembers) {
-                    if (visitedSymbols.add(overriddenMember)) {
-                        symbolsToProcess.add(overriddenMember)
+                val (processingSymbol, scope) = symbolsToProcess.popLast()
+                val overriddenMembers = scope.getDirectOverriddenMembersWithBaseScope(processingSymbol)
+                for (overriddenMemberWithScope in overriddenMembers) {
+                    if (visitedSymbols.add(overriddenMemberWithScope)) {
+                        symbolsToProcess.add(overriddenMemberWithScope)
                     }
                 }
                 if (overriddenMembers.isEmpty()) {
@@ -93,13 +115,18 @@ object FirJsNameClashClassMembersChecker : FirClassChecker() {
             }
         }
 
-        fun addAllSymbolsFrom(symbols: Collection<FirCallableSymbol<*>>) {
+        fun addAllSymbolsFrom(symbols: Collection<FirCallableSymbol<*>>, sessionHolder: SessionHolder) {
             for (symbol in symbols) {
                 when (symbol) {
                     is FirIntersectionCallableSymbol -> {
-                        addAllSymbolsFrom(symbol.intersections)
-                        for (intersectedSymbol in symbol.intersections) {
-                            overrideIntersections.getOrPut(intersectedSymbol) { hashSetOf() }.addAll(symbol.intersections)
+                        val nonSubsumedOverriddenSymbols = symbol.getNonSubsumedOverriddenSymbols(
+                            sessionHolder.session,
+                            sessionHolder.scopeSession
+                        )
+                        val overriddenSymbols = nonSubsumedOverriddenSymbols.map { it.originalForSubstitutionOverride ?: it }
+                        addAllSymbolsFrom(overriddenSymbols, sessionHolder)
+                        for (intersectedSymbol in overriddenSymbols) {
+                            overrideIntersections.getOrPut(intersectedSymbol) { hashSetOf() }.addAll(overriddenSymbols)
                         }
                     }
                     else -> allSymbols.add(symbol)
@@ -116,8 +143,9 @@ object FirJsNameClashClassMembersChecker : FirClassChecker() {
 
             val scope = declaration.symbol.unsubstitutedScope(context)
 
-            addAllSymbolsFrom(scope.collectAllFunctions())
-            addAllSymbolsFrom(scope.collectAllProperties())
+            scope.processDeclaredConstructors(allSymbols::add)
+            addAllSymbolsFrom(scope.collectAllFunctions(), context.sessionHolder)
+            addAllSymbolsFrom(scope.collectAllProperties(), context.sessionHolder)
 
             for (callableMemberSymbol in allSymbols) {
                 val overriddenLeaves = scope.collectOverriddenLeaves(callableMemberSymbol)
@@ -179,7 +207,11 @@ object FirJsNameClashClassMembersChecker : FirClassChecker() {
 
             val nonFakeOverrideClashes = stableNames.collectNonFakeOverrideClashes { it in fakeOverrideStableNames }
             for ((symbol, clashedWith) in nonFakeOverrideClashes) {
-                reporter.reportOn(symbol.source ?: declaration.source, FirJsErrors.JS_NAME_CLASH, name, clashedWith, context)
+                val source = when (symbol) {
+                    is FirCallableSymbol<*> -> symbol.unwrapFakeOverridesOrDelegated().source
+                    else -> symbol.source
+                } ?: declaration.source
+                reporter.reportOn(source, FirJsErrors.JS_NAME_CLASH, name, clashedWith, context)
             }
 
             fakeOverrideStableNames.findFirstFakeOverrideClash(stableNameCollector)?.let { (fakeOverrideSymbol, clashedWith) ->

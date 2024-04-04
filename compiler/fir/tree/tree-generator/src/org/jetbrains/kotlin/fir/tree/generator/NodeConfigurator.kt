@@ -23,7 +23,8 @@ import org.jetbrains.kotlin.fir.tree.generator.FieldSets.smartcastStability
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.status
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.superTypeRefs
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.symbol
-import org.jetbrains.kotlin.fir.tree.generator.FieldSets.symbolWithPackage
+import org.jetbrains.kotlin.fir.tree.generator.FieldSets.symbolWithArgument
+import org.jetbrains.kotlin.fir.tree.generator.FieldSets.symbolWithPackageWithArgument
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.typeArguments
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.typeParameterRefs
 import org.jetbrains.kotlin.fir.tree.generator.FieldSets.typeParameters
@@ -33,7 +34,9 @@ import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFieldConfigurator
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder.Companion.baseFirElement
 import org.jetbrains.kotlin.fir.tree.generator.context.type
 import org.jetbrains.kotlin.fir.tree.generator.model.*
-import org.jetbrains.kotlin.generators.tree.SimpleTypeArgument
+import org.jetbrains.kotlin.generators.tree.StandardTypes
+import org.jetbrains.kotlin.generators.tree.TypeRef
+import org.jetbrains.kotlin.generators.tree.withArgs
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
 object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuilder) {
@@ -47,7 +50,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         typeParameterRef.configure {
-            +symbol(typeParameterSymbolType.type)
+            +symbol(typeParameterSymbolType.typeName)
         }
 
         typeParametersOwner.configure {
@@ -82,7 +85,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
                 isMutable = true; isVolatile = true; isFinal = true; isLateinit = true
                 customInitializationCall = "resolvePhase.asResolveState()"
                 arbitraryImportables += phaseAsResolveStateExtentionImport
-                optInAnnotation = resolveStateAccessImport
+                optInAnnotation = resolveStateAccessAnnotation
             }
 
             +field("moduleData", firModuleDataType)
@@ -90,11 +93,11 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         fileAnnotationsContainer.configure {
-            +field("containingFileSymbol", type("fir.symbols.impl", "FirFileSymbol"), argument = null)
+            +field("containingFileSymbol", type("fir.symbols.impl", "FirFileSymbol"))
         }
 
         declaration.configure {
-            +symbolWithPackage("fir.symbols", "FirBasedSymbol", "out FirDeclaration")
+            +symbolWithPackageWithArgument("fir.symbols", "FirBasedSymbol")
             +field("moduleData", firModuleDataType)
             +field("origin", declarationOriginType)
             +field("attributes", declarationAttributesType)
@@ -105,16 +108,16 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +field("returnTypeRef", typeRef, withReplace = true).withTransform()
             +field("receiverParameter", receiverParameter, nullable = true, withReplace = true).withTransform()
             +field("deprecationsProvider", deprecationsProviderType).withReplace().apply { isMutable = true }
-            +symbol("FirCallableSymbol", "out FirCallableDeclaration")
+            +symbolWithArgument("FirCallableSymbol")
 
-            +field("containerSource", type(DeserializedContainerSource::class), nullable = true)
+            +field("containerSource", type<DeserializedContainerSource>(), nullable = true)
             +field("dispatchReceiverType", coneSimpleKotlinTypeType, nullable = true)
 
             +fieldList(contextReceiver, useMutableOrEmpty = true, withReplace = true)
         }
 
         function.configure {
-            +symbol("FirFunctionSymbol", "out FirFunction")
+            +symbolWithArgument("FirFunctionSymbol")
             +fieldList(valueParameter, withReplace = true).withTransform()
             +body(nullable = true, withReplace = true).withTransform()
         }
@@ -134,7 +137,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         expression.configure {
             +field("coneTypeOrNull", coneKotlinTypeType, nullable = true, withReplace = true).apply {
-                optInAnnotation = unresolvedExpressionTypeAccessImport
+                optInAnnotation = unresolvedExpressionTypeAccessAnnotation
             }
             +annotations
         }
@@ -160,16 +163,16 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         jump.configure {
-            withArg("E", targetElement)
-            +field("target", jumpTargetType.withArgs("E"))
+            val e = withArg("E", targetElement)
+            +field("target", jumpTargetType.withArgs(e))
         }
 
         loopJump.configure {
-            parentArg(jump, "E", loop)
+            parentArgs(jump, "E" to loop)
         }
 
         returnExpression.configure {
-            parentArg(jump, "E", function.withArgs("E" to "*"))
+            parentArgs(jump, "E" to function)
             +field("result", expression).withTransform()
             needTransformOtherChildren()
         }
@@ -224,10 +227,10 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +field("receiver", expression)
         }
 
-        constExpression.configure {
-            withArg("T")
-            +field("kind", constKindType.withArgs("T"), withReplace = true)
-            +field("value", "T", null)
+        literalExpression.configure {
+            val t = withArg("T")
+            +field("kind", constKindType.withArgs(t), withReplace = true)
+            +field("value", t)
         }
 
         functionCall.configure {
@@ -277,12 +280,12 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         classLikeDeclaration.configure {
-            +symbol("FirClassLikeSymbol", "out FirClassLikeDeclaration")
+            +symbolWithArgument("FirClassLikeSymbol")
             +field("deprecationsProvider", deprecationsProviderType).withReplace().apply { isMutable = true }
         }
 
         klass.configure {
-            +symbol("FirClassSymbol", "out FirClass")
+            +symbolWithArgument("FirClassSymbol")
             +classKind
             +superTypeRefs(withReplace = true).withTransform()
             +declarations.withTransform()
@@ -337,12 +340,13 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         typeParameter.configure {
             +name
             +symbol("FirTypeParameterSymbol")
-            +field("containingDeclarationSymbol", firBasedSymbolType, "*").apply {
+            +field("containingDeclarationSymbol", firBasedSymbolType.withArgs(TypeRef.Star)).apply {
                 withBindThis = false
             }
             +field(varianceType)
             +booleanField("isReified")
-            +fieldList("bounds", typeRef, withReplace = true)
+            // TODO: `useMutableOrEmpty = true` is a workaround for KT-60324 until KT-60445 has been fixed.
+            +fieldList("bounds", typeRef, withReplace = true, useMutableOrEmpty = true)
             +annotations
         }
 
@@ -404,6 +408,10 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             shouldBeAnInterface()
         }
 
+        implicitInvokeCall.configure {
+            +booleanField("isCallWithExplicitReceiver")
+        }
+
         constructor.configure {
             +annotations
             +symbol("FirConstructorSymbol")
@@ -426,7 +434,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         valueParameter.configure {
             +symbol("FirValueParameterSymbol")
             +field("defaultValue", expression, nullable = true, withReplace = true)
-            +field("containingFunctionSymbol", functionSymbolType, "*").apply {
+            +field("containingFunctionSymbol", functionSymbolType.withArgs(TypeRef.Star)).apply {
                 withBindThis = false
             }
             generateBooleanFields("crossinline", "noinline", "vararg")
@@ -439,7 +447,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         variable.configure {
             +name
-            +symbol("FirVariableSymbol", "out FirVariable")
+            +symbolWithArgument("FirVariableSymbol")
             +initializer.withTransform().withReplace()
             +field("delegate", expression, nullable = true, withReplace = true).withTransform()
             generateBooleanFields("var", "val")
@@ -465,12 +473,17 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         field.configure {
             +symbol("FirFieldSymbol")
+            generateBooleanFields("hasConstantInitializer")
         }
 
         anonymousInitializer.configure {
             +body(nullable = true, withReplace = true)
             +symbol("FirAnonymousInitializerSymbol")
-            +field("dispatchReceiverType", coneClassLikeTypeType, nullable = true)
+            // the containing declaration is nullable, because it is not immediately clear how to obtain it in all places in the fir builder
+            // TODO: review and consider making not-nullable (KT-64195)
+            +field("containingDeclarationSymbol", firBasedSymbolType.withArgs(TypeRef.Star), nullable = true).apply {
+                withBindThis = false
+            }
         }
 
         danglingModifierList.configure {
@@ -490,10 +503,10 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         script.configure {
             +name
-            +fieldList(statement, withReplace = true, useMutableOrEmpty = true).withTransform()
+            +declarations.withTransform().withReplace()
             +symbol("FirScriptSymbol")
-            +fieldList("parameters", variable, withReplace = false)
-            +fieldList(contextReceiver, useMutableOrEmpty = true)
+            +fieldList("parameters", property).withTransform()
+            +fieldList(contextReceiver, useMutableOrEmpty = true).withTransform()
             +field("resultPropertyName", nameType, nullable = true)
         }
 
@@ -526,10 +539,6 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             )
         }
 
-        errorImport.configure {
-            +field("delegate", import)
-        }
-
         annotation.configure {
             +field("useSiteTarget", annotationUseSiteTargetType, nullable = true, withReplace = true)
             +field("annotationTypeRef", typeRef, withReplace = true).withTransform()
@@ -540,6 +549,9 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         annotationCall.configure {
             +field("argumentMapping", annotationArgumentMapping, withReplace = true)
             +field("annotationResolvePhase", annotationResolvePhaseType, withReplace = true)
+            +field("containingDeclarationSymbol", firBasedSymbolType.withArgs(TypeRef.Star)).apply {
+                withBindThis = false
+            }
         }
 
         errorAnnotationCall.configure {
@@ -547,7 +559,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         annotationArgumentMapping.configure {
-            +field("mapping", type("Map") to listOf(nameType, expression))
+            +field("mapping", StandardTypes.map.withArgs(nameType, expression))
         }
 
         augmentedArraySetCall.configure {
@@ -570,7 +582,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         smartCastExpression.configure {
             +field("originalExpression", expression, withReplace = true).withTransform()
-            +field("typesFromSmartCast", "Collection<ConeKotlinType>", null, customType = coneKotlinTypeType)
+            +field("typesFromSmartCast", StandardTypes.collection.withArgs(coneKotlinTypeType))
             +field("smartcastType", typeRef)
             +field("smartcastTypeWithoutNullableNothing", typeRef, nullable = true)
             +booleanField("isStable")
@@ -608,7 +620,11 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         varargArgumentsExpression.configure {
             +fieldList("arguments", expression)
-            +field("varargElementType", typeRef)
+            +field("coneElementTypeOrNull", coneKotlinTypeType, nullable = true)
+        }
+
+        samConversionExpression.configure {
+            +field("expression", expression)
         }
 
         resolvedQualifier.configure {
@@ -653,7 +669,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         wrappedDelegateExpression.configure {
-            +field("delegateProvider", expression)
+            +field("provideDelegateCall", functionCall)
         }
 
         enumEntryDeserializedAccessExpression.configure {
@@ -666,11 +682,11 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         }
 
         namedReferenceWithCandidateBase.configure {
-            +field("candidateSymbol", firBasedSymbolType, "*")
+            +field("candidateSymbol", firBasedSymbolType.withArgs(TypeRef.Star))
         }
 
         resolvedNamedReference.configure {
-            +field("resolvedSymbol", firBasedSymbolType, "*")
+            +field("resolvedSymbol", firBasedSymbolType.withArgs(TypeRef.Star))
         }
 
         resolvedCallableReference.configure {
@@ -693,7 +709,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         thisReference.configure {
             +stringField("labelName", nullable = true)
-            +field("boundSymbol", firBasedSymbolType, "*", nullable = true, withReplace = true)
+            +field("boundSymbol", firBasedSymbolType.withArgs(TypeRef.Star), nullable = true, withReplace = true)
             +intField("contextReceiverNumber", withReplace = true)
             +booleanField("isImplicit")
             +field("diagnostic", coneDiagnosticType, nullable = true, withReplace = true)
@@ -706,6 +722,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         resolvedTypeRef.configure {
             +field("type", coneKotlinTypeType)
             +field("delegatedTypeRef", typeRef, nullable = true)
+            element.otherParents.add(typeRefMarkerType)
         }
 
         typeRefWithNullability.configure {
@@ -730,6 +747,10 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
             +field("partiallyResolvedTypeRef", typeRef, nullable = true).withTransform()
         }
 
+        resolvedErrorReference.configure {
+            element.customParentInVisitor = resolvedNamedReference
+        }
+
         intersectionTypeRef.configure {
             +field("leftType", typeRef)
             +field("rightType", typeRef)
@@ -746,7 +767,7 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
 
         whenExpression.configure {
             +field("subject", expression, nullable = true).withTransform()
-            +field("subjectVariable", variable.withArgs("E" to "*"), nullable = true)
+            +field("subjectVariable", variable, nullable = true)
             +fieldList("branches", whenBranch).withTransform()
             +field("exhaustivenessStatus", exhaustivenessStatusType, nullable = true, withReplace = true)
             +booleanField("usedAsExpression")
@@ -773,18 +794,12 @@ object NodeConfigurator : AbstractFieldConfigurator<FirTreeBuilder>(FirTreeBuild
         resolvedContractDescription.configure {
             +fieldList("effects", effectDeclaration)
             +fieldList("unresolvedEffects", contractElementDeclaration)
+            +field("diagnostic", coneDiagnosticType, nullable = true)
         }
 
         legacyRawContractDescription.configure {
             +field("contractCall", functionCall)
+            +field("diagnostic", coneDiagnosticType, nullable = true)
         }
     }
-}
-
-fun Element.withArgs(vararg replacements: Pair<String, String>): AbstractElement {
-    val replaceMap = replacements.toMap()
-    val newArguments = typeArguments.map { typeArgument ->
-        replaceMap[typeArgument.name]?.let { SimpleTypeArgument(it, null) } ?: typeArgument
-    }
-    return ElementWithArguments(this, newArguments)
 }

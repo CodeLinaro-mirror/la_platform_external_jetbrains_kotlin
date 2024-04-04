@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -358,6 +358,70 @@ public class FirWasmJsTranslatorTestGenerated extends AbstractFirWasmJsTranslato
         }
 
         @Nested
+        @TestMetadata("js/js.translator/testData/box/esModules/kotlin.test")
+        @TestDataPath("$PROJECT_ROOT")
+        public class Kotlin_test {
+            @Test
+            public void testAllFilesPresentInKotlin_test() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/esModules/kotlin.test"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.WASM, true);
+            }
+
+            @Test
+            @TestMetadata("beforeAfter.kt")
+            public void testBeforeAfter() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/beforeAfter.kt");
+            }
+
+            @Test
+            @TestMetadata("ignore.kt")
+            public void testIgnore() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/ignore.kt");
+            }
+
+            @Test
+            @TestMetadata("illegalParameters.kt")
+            public void testIllegalParameters() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/illegalParameters.kt");
+            }
+
+            @Test
+            @TestMetadata("incremental.kt")
+            public void testIncremental() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/incremental.kt");
+            }
+
+            @Test
+            @TestMetadata("inherited.kt")
+            public void testInherited() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/inherited.kt");
+            }
+
+            @Test
+            @TestMetadata("mpp.kt")
+            public void testMpp() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/mpp.kt");
+            }
+
+            @Test
+            @TestMetadata("nested.kt")
+            public void testNested() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/nested.kt");
+            }
+
+            @Test
+            @TestMetadata("returnTestResult.kt")
+            public void testReturnTestResult() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/returnTestResult.kt");
+            }
+
+            @Test
+            @TestMetadata("simple.kt")
+            public void testSimple() throws Exception {
+                runTest("js/js.translator/testData/box/esModules/kotlin.test/simple.kt");
+            }
+        }
+
+        @Nested
         @TestMetadata("js/js.translator/testData/box/esModules/main")
         @TestDataPath("$PROJECT_ROOT")
         public class Main {
@@ -450,7 +514,7 @@ public class FirWasmJsTranslatorTestGenerated extends AbstractFirWasmJsTranslato
     public class Reflection {
         @Test
         public void testAllFilesPresentInReflection() throws Exception {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/reflection"), Pattern.compile("^(findAssociatedObject(InSeparatedFile)?)\\.kt$"), null, TargetBackend.WASM, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/reflection"), Pattern.compile("^(findAssociatedObject(InSeparatedFile)?(Lazyness)?)\\.kt$"), null, TargetBackend.WASM, true);
         }
 
         @Test
@@ -463,6 +527,12 @@ public class FirWasmJsTranslatorTestGenerated extends AbstractFirWasmJsTranslato
         @TestMetadata("findAssociatedObjectInSeparatedFile.kt")
         public void testFindAssociatedObjectInSeparatedFile() throws Exception {
             runTest("js/js.translator/testData/box/reflection/findAssociatedObjectInSeparatedFile.kt");
+        }
+
+        @Test
+        @TestMetadata("findAssociatedObjectLazyness.kt")
+        public void testFindAssociatedObjectLazyness() throws Exception {
+            runTest("js/js.translator/testData/box/reflection/findAssociatedObjectLazyness.kt");
         }
     }
 

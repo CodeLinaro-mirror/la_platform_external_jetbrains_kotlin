@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.cfa.util.*
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.cfa.FirControlFlowChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
@@ -31,12 +32,14 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.isInvoke
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
-import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.isSomeFunctionType
 import org.jetbrains.kotlin.utils.addIfNotNull
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
-object FirCallsEffectAnalyzer : FirControlFlowChecker() {
+object FirCallsEffectAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
 
     override fun analyze(graph: ControlFlowGraph, reporter: DiagnosticReporter, context: CheckerContext) {
         // TODO, KT-59816: this is quadratic due to `graph.traverse`, surely there is a better way?
@@ -87,12 +90,8 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker() {
             graph.exitNode.previousCfgNodes.forEach { node ->
                 val requiredRange = effectDeclaration.kind
                 val pathAwareInfo = invocationData.getValue(node)
-                for (info in pathAwareInfo.values) {
-                    if (investigate(info, symbol, requiredRange, function, reporter, context)) {
-                        // To avoid duplicate reports, stop investigating remaining paths once reported.
-                        break
-                    }
-                }
+                val info = pathAwareInfo[NormalPath] ?: return@forEach
+                investigate(info, symbol, requiredRange, function, reporter, context)
             }
         }
     }
@@ -104,7 +103,7 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker() {
         function: FirContractDescriptionOwner,
         reporter: DiagnosticReporter,
         context: CheckerContext
-    ): Boolean {
+    ) {
         val foundRange = info[symbol] ?: EventOccurrencesRange.ZERO
         if (foundRange !in requiredRange) {
             reporter.reportOn(
@@ -115,9 +114,7 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker() {
                 foundRange,
                 context
             )
-            return true
         }
-        return false
     }
 
     private class IllegalScopeContext(
@@ -200,13 +197,15 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker() {
             }
 
             for (arg in node.fir.argumentList.arguments) {
-                data.checkExpressionForLeakedSymbols(arg) {
+                val unwrappedArg = arg.unwrapArgument()
+                data.checkExpressionForLeakedSymbols(unwrappedArg) {
                     node.fir.getArgumentCallsEffect(arg) == null
                 }
             }
         }
     }
 
+    @Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE") // K2 warning suppression, TODO: KT-62472
     class LambdaInvocationInfo(
         map: PersistentMap<FirBasedSymbol<*>, EventOccurrencesRange> = persistentMapOf(),
     ) : EventOccurrencesRangeInfo<LambdaInvocationInfo, FirBasedSymbol<*>>(map) {
@@ -306,7 +305,9 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker() {
         return this is FirAnonymousFunction && this.isLambda && this.invocationKind != null
     }
 
-    private fun FirExpression?.toQualifiedReference(): FirReference? = (this as? FirQualifiedAccessExpression)?.calleeReference
+    private fun FirExpression?.toQualifiedReference(): FirReference? {
+        return (this?.unwrapArgument() as? FirQualifiedAccessExpression)?.calleeReference
+    }
 
     private fun referenceToSymbol(reference: FirReference?): FirBasedSymbol<*>? = when (reference) {
         is FirResolvedNamedReference -> reference.resolvedSymbol

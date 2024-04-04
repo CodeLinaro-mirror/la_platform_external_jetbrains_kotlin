@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.collectAndFilterRealOverrides
 import org.jetbrains.kotlin.ir.util.fileOrNull
+import org.jetbrains.kotlin.ir.util.isClass
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.resolve.OverridingUtil.OverrideCompatibilityInfo
 import org.jetbrains.kotlin.types.AbstractTypeChecker
@@ -30,7 +31,9 @@ class IrFakeOverrideBuilder(
 ) {
     private val overrideChecker = IrOverrideChecker(typeSystem, externalOverridabilityConditions)
 
-    private data class FakeOverride(val override: IrOverridableMember, val original: IrOverridableMember)
+    internal data class FakeOverride(val override: IrOverridableMember, val original: IrOverridableMember) {
+        override fun toString(): String = override.render()
+    }
 
     private var IrOverridableMember.overriddenSymbols: List<IrSymbol>
         get() = when (this) {
@@ -43,9 +46,11 @@ class IrFakeOverrideBuilder(
                 is IrSimpleFunction -> this.overriddenSymbols =
                     value.memoryOptimizedMap { it as? IrSimpleFunctionSymbol ?: error("Unexpected function overridden symbol: $it") }
                 is IrProperty -> {
-                    val overriddenProperties = value.memoryOptimizedMap { it as? IrPropertySymbol ?: error("Unexpected property overridden symbol: $it") }
-                    val getter = this.getter ?: error("Property has no getter: ${render()}")
-                    getter.overriddenSymbols = overriddenProperties.memoryOptimizedMap { it.owner.getter!!.symbol }
+                    val overriddenProperties =
+                        value.memoryOptimizedMap { it as? IrPropertySymbol ?: error("Unexpected property overridden symbol: $it") }
+                    this.getter?.let { getter ->
+                        getter.overriddenSymbols = overriddenProperties.memoryOptimizedMapNotNull { it.owner.getter?.symbol }
+                    }
                     this.setter?.let { setter ->
                         setter.overriddenSymbols = overriddenProperties.memoryOptimizedMapNotNull { it.owner.setter?.symbol }
                     }
@@ -60,32 +65,54 @@ class IrFakeOverrideBuilder(
      */
     fun buildFakeOverridesForClass(clazz: IrClass, oldSignatures: Boolean) {
         strategy.inFile(clazz.fileOrNull) {
-            val superTypes = clazz.superTypes
+            val (staticMembers, instanceMembers) =
+                clazz.declarations.filterIsInstance<IrOverridableMember>().partition { it.isStaticMember }
 
-            val fromCurrent = clazz.declarations.filterIsInstance<IrOverridableMember>()
+            buildFakeOverridesForClassImpl(clazz, instanceMembers, oldSignatures, clazz.superTypes) { !it.isStaticMember }
 
-            val allFromSuper = superTypes.flatMap { superType ->
-                val superClass = superType.getClass() ?: error("Unexpected super type: $superType")
-                superClass.declarations
-                    .filter { it.isOverridableMemberOrAccessor() }
-                    .map {
-                        val overriddenMember = it as IrOverridableMember
-                        val fakeOverride = strategy.fakeOverrideMember(superType, overriddenMember, clazz)
-                        FakeOverride(fakeOverride, overriddenMember)
-                    }
-            }
-
-            val allFromSuperByName = allFromSuper.groupBy { it.override.name }
-
-            allFromSuperByName.forEach { group ->
-                generateOverridesInFunctionGroup(
-                    group.value,
-                    fromCurrent.filter { it.name == group.key && !it.isStaticMember },
-                    clazz,
-                    oldSignatures
-                )
-            }
+            // Static Java members from the superclass need fake overrides in the subclass, to support the case when the static member is
+            // declared in an inaccessible grandparent class but is exposed as public in the parent. For example:
+            //
+            //     class A { public static void f() {} }
+            //     public class B extends A {}
+            //
+            // `A.f` is inaccessible from another package, but `B.f` is accessible from everywhere because Java doesn't have the
+            // "exposed visibility" error. Accessing the method via the class A would result in an IllegalAccessError at runtime, thus
+            // we need to generate a fake override in class B. This is only possible in case of superclasses, as static _interface_ members
+            // are not inherited (see JLS 8.4.8 and 9.4.1).
+            val superClass = clazz.superTypes.filter { it.classOrFail.owner.isClass }
+            buildFakeOverridesForClassImpl(clazz, staticMembers, oldSignatures, superClass) { it.isStaticMember }
         }
+    }
+
+    private fun buildFakeOverridesForClassImpl(
+        clazz: IrClass,
+        allFromCurrent: List<IrOverridableMember>,
+        oldSignatures: Boolean,
+        supertypes: List<IrType>,
+        declarationFilter: (IrOverridableMember) -> Boolean,
+    ) {
+        val allFromSuper = supertypes.flatMap { superType ->
+            superType.classOrFail.owner.declarations
+                .filterIsInstanceAnd<IrOverridableMember>(declarationFilter)
+                .mapNotNull {
+                    val fakeOverride = strategy.fakeOverrideMember(superType, it, clazz) ?: return@mapNotNull null
+                    FakeOverride(fakeOverride, it)
+                }
+        }
+
+        val allFromSuperByName = allFromSuper.groupBy { it.override.name }
+        val allFromCurrentByName = allFromCurrent.groupBy { it.name }
+
+        allFromSuperByName.forEach { (name, superMembers) ->
+            generateOverridesInFunctionGroup(
+                superMembers,
+                allFromCurrentByName[name] ?: emptyList(),
+                clazz,
+                oldSignatures
+            )
+        }
+
     }
 
     /**
@@ -108,10 +135,10 @@ class IrFakeOverrideBuilder(
             val superClass = superType.getClass() ?: error("Unexpected super type: $superType")
             superClass.declarations
                 .filterIsInstanceAnd<IrOverridableMember> {
-                    it !in overriddenMembers && it.symbol !in ignoredParentSymbols && !it.isStaticMember && !DescriptorVisibilities.isPrivate(it.visibility)
+                    it !in overriddenMembers && it.symbol !in ignoredParentSymbols && !it.isStaticMember
                 }
-                .map { overriddenMember ->
-                    val fakeOverride = strategy.fakeOverrideMember(superType, overriddenMember, clazz)
+                .mapNotNull { overriddenMember ->
+                    val fakeOverride = strategy.fakeOverrideMember(superType, overriddenMember, clazz) ?: return@mapNotNull null
                     FakeOverride(fakeOverride, overriddenMember)
                 }
         }
@@ -161,12 +188,14 @@ class IrFakeOverrideBuilder(
 
         for (fromSupertype in membersFromSuper) {
             // Note: We do allow overriding multiple FOs at once one of which is `isInline=true`.
-            when (overrideChecker.isOverridableBy(fromSupertype.override, fromCurrent, checkIsInlineFlag = true).result) {
+            val overridability = overrideChecker.isOverridableBy(
+                MemberWithOriginal(fromSupertype),
+                MemberWithOriginal(fromCurrent),
+                checkIsInlineFlag = true,
+            )
+            when (overridability.result) {
                 OverrideCompatibilityInfo.Result.OVERRIDABLE -> {
-                    val isVisibleFake = fromSupertype.override.visibility != DescriptorVisibilities.INVISIBLE_FAKE
-                    if (isVisibleFake && isVisibleForOverride(fromCurrent, fromSupertype.original)) {
-                        overridden += fromSupertype
-                    }
+                    overridden += fromSupertype
                     bound += fromSupertype
                 }
                 OverrideCompatibilityInfo.Result.CONFLICT -> {
@@ -176,7 +205,11 @@ class IrFakeOverrideBuilder(
             }
         }
 
-        fromCurrent.overriddenSymbols = overridden.memoryOptimizedMap { it.original.symbol }
+        // because of binary incompatible changes, it's possible to have private member colliding with fake override
+        // In that case we shouldn't generate fake override, but also shouldn't mark them as overridden
+        if (!DescriptorVisibilities.isPrivate(fromCurrent.visibility)) {
+            fromCurrent.overriddenSymbols = overridden.memoryOptimizedMap { it.original.symbol }
+        }
 
         return bound
     }
@@ -290,7 +323,7 @@ class IrFakeOverrideBuilder(
             "Unexpected fake override accessor kind: $this"
         }
         // For descriptors it gets INVISIBLE_FAKE.
-        if (this.visibility == DescriptorVisibilities.PRIVATE) return null
+        if (DescriptorVisibilities.isPrivate(this.visibility)) return null
 
         this.visibility = newVisibility
         this.modality = newModality
@@ -303,15 +336,9 @@ class IrFakeOverrideBuilder(
         addedFakeOverrides: MutableList<IrOverridableMember>,
         compatibilityMode: Boolean
     ) {
-        val effectiveOverridden = overridables.filter { it.override.isVisibleInClass(currentClass) }
-
-        // The descriptor based algorithm goes further building invisible fakes here,
-        // but we don't use invisible fakes in IR
-        if (effectiveOverridden.isEmpty()) return
-
-        val modality = determineModalityForFakeOverride(effectiveOverridden, currentClass)
-        val visibility = findMemberWithMaxVisibility(effectiveOverridden).override.visibility
-        val mostSpecific = selectMostSpecificMember(effectiveOverridden)
+        val modality = determineModalityForFakeOverride(overridables, currentClass)
+        val visibility = findMemberWithMaxVisibility(overridables).override.visibility
+        val mostSpecific = selectMostSpecificMember(overridables)
 
         val fakeOverride = mostSpecific.override.apply {
             when (this) {
@@ -329,7 +356,7 @@ class IrFakeOverrideBuilder(
             }
         }
 
-        fakeOverride.overriddenSymbols = effectiveOverridden.memoryOptimizedMap { it.original.symbol }
+        fakeOverride.overriddenSymbols = overridables.memoryOptimizedMap { it.original.symbol }
 
         require(
             fakeOverride.overriddenSymbols.isNotEmpty()
@@ -478,7 +505,7 @@ class IrFakeOverrideBuilder(
                 iterator.remove()
                 continue
             }
-            val finalResult = overrideChecker.getBothWaysOverridability(overrider.override, candidate.override)
+            val finalResult = overrideChecker.getBothWaysOverridability(MemberWithOriginal(overrider), MemberWithOriginal(candidate))
             if (finalResult == OverrideCompatibilityInfo.Result.OVERRIDABLE) {
                 overridable.add(candidate)
                 iterator.remove()
@@ -503,15 +530,3 @@ private val IrOverridableMember.returnType: IrType
         is IrProperty -> getter!!.returnType
         else -> error("Unexpected type of declaration: ${this::class.java}, $this")
     }
-
-fun IrSimpleFunction.isOverridableFunction(): Boolean =
-    visibility != DescriptorVisibilities.PRIVATE && hasDispatchReceiver
-
-fun IrProperty.isOverridableProperty(): Boolean =
-    visibility != DescriptorVisibilities.PRIVATE && (getter.hasDispatchReceiver || setter.hasDispatchReceiver)
-
-fun IrDeclaration.isOverridableMemberOrAccessor(): Boolean = when (this) {
-    is IrSimpleFunction -> isOverridableFunction()
-    is IrProperty -> isOverridableProperty()
-    else -> false
-}

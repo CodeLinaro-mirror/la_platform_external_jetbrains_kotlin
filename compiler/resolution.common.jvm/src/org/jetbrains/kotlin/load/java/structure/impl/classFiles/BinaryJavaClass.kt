@@ -18,7 +18,7 @@ package org.jetbrains.kotlin.load.java.structure.impl.classFiles
 
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.SearchScope
-import gnu.trove.THashMap
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.load.java.structure.*
 import org.jetbrains.kotlin.load.java.structure.impl.VirtualFileBoundJavaClass
@@ -64,7 +64,7 @@ class BinaryJavaClass(
 
     // Short name of a nested class of this class -> access flags as seen in the InnerClasses attribute value.
     // Note that it doesn't include classes mentioned in other InnerClasses attribute values (those which are not nested in this class).
-    private val ownInnerClassNameToAccess: MutableMap<Name, Int> = THashMap()
+    private val ownInnerClassNameToAccess: MutableMap<Name, Int> = Object2ObjectOpenHashMap()
 
     override val innerClassNames get() = ownInnerClassNameToAccess.keys
 
@@ -79,8 +79,10 @@ class BinaryJavaClass(
 
     override val lightClassOriginKind: LightClassOriginKind? get() = null
 
-    override val isSealed: Boolean get() = permittedTypes.isNotEmpty()
-    override val permittedTypes = arrayListOf<JavaClassifierType>()
+    private val permittedTypesList: ArrayList<JavaClassifierType> = arrayListOf()
+    override val isSealed: Boolean get() = permittedTypesList.isNotEmpty()
+    override val permittedTypes: Sequence<JavaClassifierType>
+        get() = permittedTypesList.asSequence()
 
     override fun isFromSourceCodeInScope(scope: SearchScope): Boolean = false
 
@@ -258,6 +260,6 @@ class BinaryJavaClass(
     }
 
     override fun visitPermittedSubclass(permittedSubclass: String?) {
-        permittedTypes.addIfNotNull(permittedSubclass?.convertInternalNameToClassifierType())
+        permittedTypesList.addIfNotNull(permittedSubclass?.convertInternalNameToClassifierType())
     }
 }

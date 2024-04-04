@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -28,6 +28,24 @@ public class DiagnosticUsingJavacTestGenerated extends AbstractDiagnosticUsingJa
     @TestMetadata("Annotations.kt")
     public void testAnnotations() throws Exception {
         runTest("compiler/testData/diagnostics/tests/javac/Annotations.kt");
+    }
+
+    @Test
+    @TestMetadata("Lambda.kt")
+    public void testLambda() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/javac/Lambda.kt");
+    }
+
+    @Test
+    @TestMetadata("LambdaNonGeneric.kt")
+    public void testLambdaNonGeneric() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/javac/LambdaNonGeneric.kt");
+    }
+
+    @Test
+    @TestMetadata("LambdaNonGenericForbidden.kt")
+    public void testLambdaNonGenericForbidden() throws Exception {
+        runTest("compiler/testData/diagnostics/tests/javac/LambdaNonGenericForbidden.kt");
     }
 
     @Nested

@@ -1,13 +1,12 @@
 package org.jetbrains.kotlin.backend.konan.llvm
 
-import kotlinx.cinterop.cValuesOf
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.KonanFqNames
 import org.jetbrains.kotlin.backend.konan.MemoryModel
 import org.jetbrains.kotlin.backend.konan.RuntimeNames
+import org.jetbrains.kotlin.backend.konan.ir.isConstantConstructorIntrinsic
+import org.jetbrains.kotlin.backend.konan.ir.isTypedIntrinsic
 import org.jetbrains.kotlin.ir.util.getAnnotationStringValue
-import org.jetbrains.kotlin.backend.konan.descriptors.isConstantConstructorIntrinsic
-import org.jetbrains.kotlin.backend.konan.descriptors.isTypedIntrinsic
 import org.jetbrains.kotlin.backend.konan.llvm.objc.genObjCSelector
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
 import org.jetbrains.kotlin.ir.IrElement
@@ -75,6 +74,8 @@ internal enum class IntrinsicType {
     // Coroutines
     GET_CONTINUATION,
     RETURN_IF_SUSPENDED,
+    SAVE_COROUTINE_STATE,
+    RESTORE_COROUTINE_STATE,
     // Interop
     INTEROP_READ_BITS,
     INTEROP_WRITE_BITS,
@@ -280,6 +281,8 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
                 IntrinsicType.GET_AND_ADD_ARRAY_ELEMENT -> emitGetAndAddArrayElement(callSite, args)
                 IntrinsicType.GET_CONTINUATION,
                 IntrinsicType.RETURN_IF_SUSPENDED,
+                IntrinsicType.SAVE_COROUTINE_STATE,
+                IntrinsicType.RESTORE_COROUTINE_STATE,
                 IntrinsicType.INTEROP_BITS_TO_FLOAT,
                 IntrinsicType.INTEROP_BITS_TO_DOUBLE,
                 IntrinsicType.INTEROP_SIGN_EXTEND,
@@ -419,7 +422,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
     private fun FunctionGenerationContext.emitAtomicGetArrayElement(callSite: IrCall, args: List<LLVMValueRef>, resultSlot: LLVMValueRef?): LLVMValueRef {
         require(args.size == 2) { "The call to ${callSite.symbol.owner.name.asString()} expects 2 value arguments." }
         val address = arrayGetElementAddress(callSite, args[0], args[1])
-        return loadSlot(address, isVar = true, resultSlot, memoryOrder = LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent)
+        return loadSlot(callSite.llvmReturnType, address, isVar = true, resultSlot, memoryOrder = LLVMAtomicOrdering.LLVMAtomicOrderingSequentiallyConsistent)
     }
 
     private fun FunctionGenerationContext.transformArgsForAtomicArray(callSite: IrCall, args: List<LLVMValueRef>): List<LLVMValueRef> {
@@ -447,7 +450,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
             llvm.kNullInt8Ptr
 
     private fun FunctionGenerationContext.emitNativePtrPlusLong(args: List<LLVMValueRef>): LLVMValueRef =
-        gep(args[0], args[1])
+        gep(llvm.int8Type, args[0], args[1])
 
     private fun FunctionGenerationContext.emitNativePtrToLong(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
         val intPtrValue = ptrToInt(args.single(), codegen.intPtrType)
@@ -480,7 +483,7 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         val pointerType = pointerType(callSite.llvmReturnType)
         val rawPointer = args.last()
         val pointer = bitcast(pointerType, rawPointer)
-        return load(pointer)
+        return load(callSite.llvmReturnType, pointer)
     }
 
     private fun FunctionGenerationContext.emitWritePrimitive(callSite: IrCall, args: List<LLVMValueRef>): LLVMValueRef {
@@ -508,8 +511,8 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
         val bitsWithPaddingNum = prefixBitsNum + size + suffixBitsNum
         val bitsWithPaddingType = LLVMIntTypeInContext(llvm.llvmContext, bitsWithPaddingNum)!!
 
-        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(ptr, llvm.int64(offset / 8)))
-        val bitsWithPadding = load(bitsWithPaddingPtr).setUnaligned()
+        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(llvm.int8Type, ptr, llvm.int64(offset / 8)))
+        val bitsWithPadding = load(bitsWithPaddingType, bitsWithPaddingPtr).setUnaligned()
 
         val bits = shr(
                 shl(bitsWithPadding, suffixBitsNum),
@@ -551,14 +554,14 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
         val preservedBitsMask = LLVMConstNot(discardBitsMask)!!
 
-        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(ptr, llvm.int64(offset / 8)))
+        val bitsWithPaddingPtr = bitcast(pointerType(bitsWithPaddingType), gep(llvm.int8Type, ptr, llvm.int64(offset / 8)))
 
         val bits = trunc(value, bitsType)
 
         val bitsToStore = if (prefixBitsNum == 0 && suffixBitsNum == 0) {
             bits
         } else {
-            val previousValue = load(bitsWithPaddingPtr).setUnaligned()
+            val previousValue = load(bitsWithPaddingType, bitsWithPaddingPtr).setUnaligned()
             val preservedBits = and(previousValue, preservedBitsMask)
             val bitsWithPadding = shl(zext(bits, bitsWithPaddingType), prefixBitsNum)
 
@@ -581,8 +584,8 @@ internal class IntrinsicGenerator(private val environment: IntrinsicGeneratorEnv
 
         val structType = llvm.structType(llvm.int8PtrType, llvm.int8PtrType)
         val ptr = alloca(structType)
-        store(receiver, LLVMBuildGEP(builder, ptr, cValuesOf(llvm.kImmInt32Zero, llvm.kImmInt32Zero), 2, "")!!)
-        store(superClass, LLVMBuildGEP(builder, ptr, cValuesOf(llvm.kImmInt32Zero, llvm.kImmInt32One), 2, "")!!)
+        store(receiver, structGep(structType, ptr, 0, ""))
+        store(superClass, structGep(structType, ptr, 1, ""))
         return bitcast(llvm.int8PtrType, ptr)
     }
 

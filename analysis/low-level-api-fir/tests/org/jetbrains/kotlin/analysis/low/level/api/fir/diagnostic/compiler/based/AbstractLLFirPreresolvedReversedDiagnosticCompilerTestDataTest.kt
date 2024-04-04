@@ -5,23 +5,19 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based
 
+import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirOnlyReversedTestSuppressor
 import java.io.File
 import org.jetbrains.kotlin.analysis.low.level.api.fir.compiler.based.AbstractCompilerBasedTestForFir
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.facades.LLFirAnalyzerFacadeFactoryWithPreresolveInReversedOrder
-import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.runners.baseFirDiagnosticTestConfiguration
 import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.WrappedException
-import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
-import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.frontend.fir.handlers.AbstractFirIdenticalChecker
-import org.jetbrains.kotlin.test.model.AfterAnalysisChecker
 import org.jetbrains.kotlin.test.services.MetaTestConfigurator
 import org.jetbrains.kotlin.test.services.assertions
-import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.firTestDataFile
 import org.jetbrains.kotlin.test.utils.llFirTestDataFile
+import org.jetbrains.kotlin.utils.bind
 
 abstract class AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest : AbstractCompilerBasedTestForFir() {
     override fun TestConfigurationBuilder.configureTest() {
@@ -30,7 +26,7 @@ abstract class AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest : 
             testDataConsistencyHandler = ::ReversedFirIdenticalChecker,
         )
 
-        useAfterAnalysisCheckers(::FirReversedSuppressor)
+        useAfterAnalysisCheckers(::LLFirOnlyReversedTestSuppressor)
         useMetaTestConfigurators(::ReversedDiagnosticsConfigurator)
     }
 }
@@ -42,31 +38,6 @@ internal class ReversedDiagnosticsConfigurator(testServices: TestServices) : Met
     }
 }
 
-internal class FirReversedSuppressor(testServices: TestServices) : AfterAnalysisChecker(testServices) {
-    override val directiveContainers: List<DirectivesContainer> get() = listOf(Companion)
-
-    override fun suppressIfNeeded(failedAssertions: List<WrappedException>): List<WrappedException> {
-        if (!isDisabled()) {
-            return failedAssertions
-        }
-
-        return if (failedAssertions.isEmpty()) {
-            listOf(
-                AssertionError(
-                    "Test contains $IGNORE_REVERSED_RESOLVE directive but no errors was reported. Please remove directive",
-                ).wrap()
-            )
-        } else {
-            emptyList()
-        }
-    }
-
-    private fun isDisabled(): Boolean = IGNORE_REVERSED_RESOLVE in testServices.moduleStructure.allDirectives
-
-    companion object : SimpleDirectivesContainer() {
-        val IGNORE_REVERSED_RESOLVE by directive("Temporary disables reversed resolve checks until the issue is fixed")
-    }
-}
 
 class ReversedFirIdenticalChecker(testServices: TestServices) : AbstractFirIdenticalChecker(testServices) {
     override fun checkTestDataFile(testDataFile: File) {

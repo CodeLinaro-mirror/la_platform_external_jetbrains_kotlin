@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
-import org.jetbrains.kotlin.ir.expressions.impl.IrBlockBodyImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
@@ -51,7 +50,7 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
     }
 
     override fun visitCall(expression: IrCall): IrExpression {
-        val simpleFunction = (expression.symbol.owner as? IrSimpleFunction) ?: return super.visitCall(expression)
+        val simpleFunction = expression.symbol.owner
         val property = simpleFunction.correspondingPropertySymbol?.owner ?: return super.visitCall(expression)
         expression.transformChildrenVoid()
 
@@ -83,13 +82,13 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
         // to get the backing field which would no longer exist.
         val inInlineFunctionScope = allScopes.any { scope -> (scope.irElement as? IrFunction)?.isInline ?: false }
         if (inInlineFunctionScope) return false
-        val backingField = property.resolveFakeOverride()!!.backingField
+        val backingField = property.resolveFakeOverrideOrFail().backingField
         return backingField?.parent == currentClass?.irElement &&
                 backingField?.origin == JvmLoweredDeclarationOrigin.COMPANION_PROPERTY_BACKING_FIELD
     }
 
     private fun IrBuilderWithScope.substituteSetter(irProperty: IrProperty, expression: IrCall): IrExpression {
-        val backingField = irProperty.resolveFakeOverride()!!.backingField!!
+        val backingField = irProperty.resolveFakeOverrideOrFail().backingField!!
         return patchReceiver(
             irSetField(
                 patchFieldAccessReceiver(expression, irProperty),
@@ -100,7 +99,7 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
     }
 
     private fun IrBuilderWithScope.substituteGetter(irProperty: IrProperty, expression: IrCall): IrExpression {
-        val backingField = irProperty.resolveFakeOverride()!!.backingField!!
+        val backingField = irProperty.resolveFakeOverrideOrFail().backingField!!
         val patchedReceiver = patchFieldAccessReceiver(expression, irProperty)
         return if (irProperty.isLateinit) {
             irBlock {
@@ -174,7 +173,7 @@ class JvmPropertiesLowering(private val backendContext: JvmBackendContext) : IrE
             //   generate two properties like that; should this be the getter's return type instead?
             isStatic = true, returnType = backendContext.irBuiltIns.unitType, visibility = declaration.visibility
         ).apply {
-            body = IrBlockBodyImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
+            body = backendContext.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
             annotations = declaration.annotations
         }
 

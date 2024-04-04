@@ -1,4 +1,4 @@
-// IGNORE_BACKEND: WASM
+
 // WITH_STDLIB
 
 // FILE: test.kt
@@ -17,7 +17,7 @@ suspend fun box() {
 // That means that we never step into the lambda as that is only
 // called via code in the kotlin package.
 
-// EXPECTATIONS JVM JVM_IR
+// EXPECTATIONS JVM_IR
 // test.kt:10 box
 // test.kt:6 foo
 // test.kt:10 box
@@ -31,3 +31,5 @@ suspend fun box() {
 // test.kt:6 foo
 // test.kt:11 doResume
 // test.kt:13 doResume
+
+// EXPECTATIONS WASM

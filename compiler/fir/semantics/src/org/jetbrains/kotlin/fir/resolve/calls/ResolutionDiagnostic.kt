@@ -7,12 +7,15 @@ package org.jetbrains.kotlin.fir.resolve.calls
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeTypeVariable
 import org.jetbrains.kotlin.resolve.ForbiddenNamedArgumentsTarget
@@ -49,8 +52,7 @@ class NamedArgumentNotAllowed(
 ) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
 
 class ArgumentPassedTwice(
-    override val argument: FirExpression,
-    val valueParameter: FirValueParameter
+    override val argument: FirNamedArgumentExpression,
 ) : InapplicableArgumentDiagnostic()
 
 class VarargArgumentOutsideParentheses(
@@ -84,6 +86,8 @@ object HiddenCandidate : ResolutionDiagnostic(HIDDEN)
 
 object VisibilityError : ResolutionDiagnostic(K2_VISIBILITY_ERROR)
 
+object SetterVisibilityError : ResolutionDiagnostic(K2_VISIBILITY_ERROR)
+
 object ResolvedWithLowPriority : ResolutionDiagnostic(RESOLVED_LOW_PRIORITY)
 
 object ResolvedWithSynthetic : ResolutionDiagnostic(K2_SYNTHETIC_RESOLVED)
@@ -91,6 +95,10 @@ object ResolvedWithSynthetic : ResolutionDiagnostic(K2_SYNTHETIC_RESOLVED)
 class InapplicableWrongReceiver(
     val expectedType: ConeKotlinType? = null,
     val actualType: ConeKotlinType? = null,
+) : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
+
+class DynamicReceiverExpectedButWasNonDynamic(
+    val actualType: ConeKotlinType,
 ) : ResolutionDiagnostic(INAPPLICABLE_WRONG_RECEIVER)
 
 object NoCompanionObject : ResolutionDiagnostic(K2_NO_COMPANION_OBJECT)
@@ -123,15 +131,18 @@ class ManyLambdaExpressionArguments(
 
 class InfixCallOfNonInfixFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(CONVENTION_ERROR)
 class OperatorCallOfNonOperatorFunction(val function: FirNamedFunctionSymbol) : ResolutionDiagnostic(CONVENTION_ERROR)
+class OperatorCallOfConstructor(val constructor: FirConstructorSymbol) : ResolutionDiagnostic(CONVENTION_ERROR)
 
 class InferenceError(val constraintError: ConstraintSystemError) : ResolutionDiagnostic(constraintError.applicability)
 class Unsupported(val message: String, val source: KtSourceElement?) : ResolutionDiagnostic(K2_UNSUPPORTED)
 
-object PropertyAsOperator : ResolutionDiagnostic(K2_PROPERTY_AS_OPERATOR)
+class PropertyAsOperator(val propertySymbol: FirPropertySymbol) : ResolutionDiagnostic(K2_PROPERTY_AS_OPERATOR)
 
 class DslScopeViolation(val calleeSymbol: FirBasedSymbol<*>) : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
 
 class MultipleContextReceiversApplicableForExtensionReceivers : ResolutionDiagnostic(INAPPLICABLE)
+
+object NoReceiverAllowed : ResolutionDiagnostic(INAPPLICABLE)
 
 class NoApplicableValueForContextReceiver(
     val expectedContextReceiverType: ConeKotlinType
@@ -144,3 +155,14 @@ class AmbiguousValuesForContextReceiverParameter(
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
 object ResolutionResultOverridesOtherToPreserveCompatibility : ResolutionDiagnostic(RESOLVED)
+
+object AdaptedCallableReferenceIsUsedWithReflection : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
+
+object TypeParameterAsExpression : ResolutionDiagnostic(INAPPLICABLE)
+
+class TypeVariableAsExplicitReceiver(
+    val explicitReceiver: FirExpression,
+    val typeParameter: FirTypeParameter,
+) : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
+
+object CallToDeprecatedOverrideOfHidden : ResolutionDiagnostic(RESOLVED)

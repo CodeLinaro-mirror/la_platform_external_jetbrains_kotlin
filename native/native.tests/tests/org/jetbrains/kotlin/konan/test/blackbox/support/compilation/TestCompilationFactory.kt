@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.konan.test.blackbox.support.compilation
 
 import org.jetbrains.kotlin.container.topologicalSort
+import org.jetbrains.kotlin.konan.test.blackbox.muteCInteropTestIfNecessary
+import org.jetbrains.kotlin.konan.test.blackbox.support.CINTEROP_SOURCE_EXTENSIONS
 import org.jetbrains.kotlin.konan.test.blackbox.support.PackageName
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.*
@@ -26,10 +28,12 @@ internal class TestCompilationFactory {
     private val cachedKlibCompilations = ThreadSafeCache<KlibCacheKey, KlibCompilations>()
     private val cachedExecutableCompilations = ThreadSafeCache<ExecutableCacheKey, TestCompilation<Executable>>()
     private val cachedObjCFrameworkCompilations = ThreadSafeCache<ObjCFrameworkCacheKey, ObjCFrameworkCompilation>()
+    private val cachedBinaryLibraryCompilations = ThreadSafeCache<BinaryLibraryCacheKey, BinaryLibraryCompilation>()
 
     private data class KlibCacheKey(val sourceModules: Set<TestModule>, val freeCompilerArgs: TestCompilerArgs)
     private data class ExecutableCacheKey(val sourceModules: Set<TestModule>)
     private data class ObjCFrameworkCacheKey(val sourceModules: Set<TestModule>)
+    private data class BinaryLibraryCacheKey(val sourceModules: Set<TestModule>, val kind: BinaryLibrary.Kind)
 
     // A pair of compilations for a KLIB itself and for its static cache that are created together.
     private data class KlibCompilations(val klib: TestCompilation<KLIB>, val staticCache: TestCompilation<KLIBStaticCache>?)
@@ -82,7 +86,34 @@ internal class TestCompilationFactory {
         }
     }
 
-    fun testCaseToObjCFrameworkCompilation(testCase: TestCase, settings: Settings): ObjCFrameworkCompilation {
+    fun testCaseToBinaryLibrary(testCase: TestCase, settings: Settings, kind: BinaryLibrary.Kind): BinaryLibraryCompilation {
+        val rootModules = testCase.rootModules
+        val cacheKey = BinaryLibraryCacheKey(testCase.rootModules, kind)
+        cachedBinaryLibraryCompilations[cacheKey]?.let { return it }
+
+        val (
+            dependencies: Iterable<CompiledDependency<*>>,
+            sourceModules: Set<TestModule.Exclusive>
+        ) = getDependenciesAndSourceModules(settings, testCase.rootModules, testCase.freeCompilerArgs) {
+            ProduceStaticCache.No
+        }
+        val expectedArtifact = BinaryLibrary(settings.artifactFileForBinaryLibrary(rootModules, kind), kind = kind)
+        return cachedBinaryLibraryCompilations.computeIfAbsent(cacheKey) {
+            BinaryLibraryCompilation(
+                settings = settings,
+                freeCompilerArgs = testCase.freeCompilerArgs,
+                sourceModules = sourceModules,
+                dependencies = dependencies,
+                expectedArtifact = expectedArtifact
+            )
+        }
+    }
+
+    fun testCaseToObjCFrameworkCompilation(
+        testCase: TestCase,
+        settings: Settings,
+        exportedLibraries: Iterable<KLIB> = emptyList(),
+    ): ObjCFrameworkCompilation {
         val cacheKey = ObjCFrameworkCacheKey(testCase.rootModules)
         cachedObjCFrameworkCompilations[cacheKey]?.let { return it }
 
@@ -99,8 +130,9 @@ internal class TestCompilationFactory {
                 freeCompilerArgs = testCase.freeCompilerArgs,
                 sourceModules = sourceModules,
                 dependencies = dependencies,
+                exportedLibraries = exportedLibraries,
                 expectedArtifact = ObjCFramework(
-                    settings.artifactDirForPackageName(testCase.nominalPackageName),
+                    settings.get<Binaries>().testBinariesDir,
                     testCase.nominalPackageName.compressedPackageName
                 )
             )
@@ -117,7 +149,10 @@ internal class TestCompilationFactory {
         // Long pass.
         val freeCompilerArgs = rootModules.first().testCase.freeCompilerArgs // Should be identical inside the same test case group.
         val extras = testCases.first().extras // Should be identical inside the same test case group.
-        val executableArtifact = Executable(settings.artifactFileForExecutable(rootModules))
+        val fileCheckStage = testCases.map { it.fileCheckStage }.singleOrNull()
+        if (fileCheckStage != null)
+            require(testCases.size == 1) { "FILECHECK-enabled test must be standalone" }
+        val executableArtifact = Executable(settings.artifactFileForExecutable(rootModules), fileCheckStage)
 
         val (
             dependenciesToCompileExecutable: Iterable<CompiledDependency<*>>,
@@ -154,7 +189,8 @@ internal class TestCompilationFactory {
             }
             TestMode.TWO_STAGE_MULTI_MODULE -> {
                 // Compile root modules to KLIB. Pass this KLIB as included dependency to executable compilation.
-                val klibCompilations = modulesToKlib(rootModules, freeCompilerArgs, produceStaticCache(), settings)
+                val klibCompilations =
+                    modulesToKlib(rootModules, freeCompilerArgs, produceStaticCache(), settings)
 
                 Pair(
                     // Include just compiled KLIB as -Xinclude dependency.
@@ -193,16 +229,42 @@ internal class TestCompilationFactory {
         }
 
         return cachedKlibCompilations.computeIfAbsent(cacheKey) {
-            val klibCompilation = if (isGivenKlibArtifact)
-                GivenLibraryCompilation(klibArtifact)
-            else
-                LibraryCompilation(
-                    settings = settings,
-                    freeCompilerArgs = freeCompilerArgs,
-                    sourceModules = sourceModules.flatMapToSet { sortDependsOnTopologically(it) },
-                    dependencies = dependencies.forKlib(),
-                    expectedArtifact = klibArtifact
-                )
+            val (klibCompilation, makePerFileCacheOverride) = if (isGivenKlibArtifact)
+                GivenLibraryCompilation(klibArtifact) to false // Don't make per-file-cache from given dependencies(usually, cinterop)
+            else {
+                val filesByExtension = sourceModules.first().files
+                    .map { it.location }
+                    .groupBy { it.name.split(".").last() }
+                when {
+                    filesByExtension.contains("kt") -> LibraryCompilation(
+                        settings = settings,
+                        freeCompilerArgs = freeCompilerArgs,
+                        sourceModules = sourceModules.flatMapToSet { sortDependsOnTopologically(it) },
+                        dependencies = dependencies.forKlib(),
+                        expectedArtifact = klibArtifact
+                    ) to null
+                    filesByExtension.contains("def") -> {
+                        val defFile = filesByExtension["def"]!!.single()
+                        muteCInteropTestIfNecessary(defFile, settings.get<KotlinNativeTargets>().testTarget)
+
+                        val cSourceFiles = buildList {
+                            for (ext in CINTEROP_SOURCE_EXTENSIONS) {
+                                filesByExtension[ext]?.let { addAll(it) }
+                            }
+                        }
+                        CInteropCompilation(
+                            classLoader = settings.get(),
+                            targets = settings.get(),
+                            freeCompilerArgs = freeCompilerArgs,
+                            defFile = defFile,
+                            sources = cSourceFiles,
+                            dependencies = dependencies.forKlib(),
+                            expectedArtifact = klibArtifact
+                        ) to false // CInterop klib cannot be compiled into per-file cache
+                    }
+                    else -> error("Test module must contain either KT or DEF file")
+                }
+            }
 
             val staticCacheCompilation: StaticCacheCompilation? =
                 staticCacheArtifactAndOptions?.let { (staticCacheArtifact, staticCacheOptions) ->
@@ -212,7 +274,8 @@ internal class TestCompilationFactory {
                         options = staticCacheOptions,
                         pipelineType = settings.get(),
                         dependencies = dependencies.forStaticCache(klibCompilation.asKlibDependency(type = /* does not matter in fact*/ Library)),
-                        expectedArtifact = staticCacheArtifact
+                        expectedArtifact = staticCacheArtifact,
+                        makePerFileCacheOverride = makePerFileCacheOverride,
                     )
                 }
 
@@ -266,6 +329,19 @@ internal class TestCompilationFactory {
 
         private fun Settings.artifactFileForExecutable(module: TestModule.Exclusive) =
             singleModuleArtifactFile(module, get<KotlinNativeTargets>().testTarget.family.exeSuffix)
+
+        private fun Settings.pickBinaryLibrarySuffix(kind: BinaryLibrary.Kind) = when (kind) {
+            BinaryLibrary.Kind.STATIC -> get<KotlinNativeTargets>().testTarget.family.staticSuffix
+            BinaryLibrary.Kind.DYNAMIC -> get<KotlinNativeTargets>().testTarget.family.dynamicSuffix
+        }
+
+        private fun Settings.artifactFileForBinaryLibrary(modules: Set<TestModule.Exclusive>, kind: BinaryLibrary.Kind) = when (modules.size) {
+            1 -> artifactFileForBinaryLibrary(modules.first(), kind)
+            else -> multiModuleArtifactFile(modules, pickBinaryLibrarySuffix(kind))
+        }
+
+        private fun Settings.artifactFileForBinaryLibrary(module: TestModule.Exclusive, kind: BinaryLibrary.Kind) =
+            singleModuleArtifactFile(module, pickBinaryLibrarySuffix(kind))
 
         private fun Settings.artifactFileForKlib(modules: Set<TestModule>, freeCompilerArgs: TestCompilerArgs): File =
             when (modules.size) {

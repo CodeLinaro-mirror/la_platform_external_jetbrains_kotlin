@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.fir.lightTree.fir.ValueParameter
 import org.jetbrains.kotlin.fir.lightTree.fir.WhenEntry
 import org.jetbrains.kotlin.fir.lightTree.fir.addDestructuringStatements
 import org.jetbrains.kotlin.fir.references.FirNamedReference
+import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitSuperReference
 import org.jetbrains.kotlin.fir.references.builder.buildExplicitThisReference
@@ -78,7 +79,7 @@ class LightTreeRawFirExpressionBuilder(
                 )
             }
             else -> buildErrorExpression(
-                converted?.source?.withForcedKindFrom(context) ?: expression?.toFirSourceElement(),
+                converted?.source?.realElement() ?: expression?.toFirSourceElement(),
                 if (expression == null) ConeSyntaxDiagnostic(errorReason)
                 else ConeSimpleDiagnostic(errorReason, DiagnosticKind.ExpressionExpected),
                 converted,
@@ -135,7 +136,7 @@ class LightTreeRawFirExpressionBuilder(
                 getAsFirExpression(content, "Empty parentheses")
             }
             PROPERTY_DELEGATE, INDICES, CONDITION, LOOP_RANGE ->
-                getAsFirExpression(expression.getExpressionInParentheses(), errorReason)
+                getAsFirExpression(expression.getChildExpression(), errorReason)
             THIS_EXPRESSION -> convertThisExpression(expression)
             SUPER_EXPRESSION -> convertSuperExpression(expression)
 
@@ -396,19 +397,19 @@ class LightTreeRawFirExpressionBuilder(
      */
     private fun convertLabeledExpression(labeledExpression: LighterASTNode): FirElement {
         var firExpression: FirElement? = null
-        var errorLabelSource: KtSourceElement? = null
+        var labelSource: KtSourceElement? = null
+        var forbiddenLabelKind: ForbiddenLabelKind? = null
+
+        val isRepetitiveLabel = labeledExpression.getLabeledExpression()?.tokenType == LABELED_EXPRESSION
 
         labeledExpression.forEachChildren {
             context.setNewLabelUserNode(it)
             when (it.tokenType) {
                 LABEL_QUALIFIER -> {
-                    val rawName = it.toString()
-                    val pair = buildLabelAndErrorSource(
-                        rawName.substring(0, rawName.length - 1),
-                        it.getChildNodesByType(LABEL).single().toFirSourceElement()
-                    )
-                    context.addNewLabel(pair.first)
-                    errorLabelSource = pair.second
+                    val name = it.asText.dropLast(1)
+                    labelSource = it.getChildNodesByType(LABEL).single().toFirSourceElement()
+                    context.addNewLabel(buildLabel(name, labelSource!!))
+                    forbiddenLabelKind = getForbiddenLabelKind(name, isRepetitiveLabel)
                 }
                 BLOCK -> firExpression = declarationBuilder.convertBlock(it)
                 PROPERTY -> firExpression = declarationBuilder.convertPropertyDeclaration(it)
@@ -418,7 +419,7 @@ class LightTreeRawFirExpressionBuilder(
 
         context.dropLastLabel()
 
-        return buildExpressionWithErrorLabel(firExpression, errorLabelSource, labeledExpression.toFirSourceElement())
+        return buildExpressionHandlingErrors(firExpression, labeledExpression.toFirSourceElement(), forbiddenLabelKind, labelSource)
     }
 
     /**
@@ -651,8 +652,8 @@ class LightTreeRawFirExpressionBuilder(
                     SUPER_EXPRESSION -> {
                         superNode = node
                     }
-                    PARENTHESIZED -> node.getExpressionInParentheses()?.let { process(it) } ?: run {
-                        additionalArgument = getAsFirExpression(node, "Incorrect invoke receiver")
+                    PARENTHESIZED -> if (node.tokenType != TokenType.ERROR_ELEMENT) {
+                        additionalArgument = getAsFirExpression(node.getExpressionInParentheses(), "Incorrect invoke receiver")
                     }
                     TYPE_ARGUMENT_LIST -> {
                         firTypeArguments += declarationBuilder.convertTypeArguments(node, allowedUnderscoredTypeArgument = true)
@@ -680,6 +681,15 @@ class LightTreeRawFirExpressionBuilder(
                 }
             )
 
+            superNode != null || (additionalArgument as? FirResolvable)?.calleeReference is FirSuperReference -> {
+                CalleeAndReceiver(
+                    buildErrorNamedReference {
+                        this.source = superNode?.toFirSourceElement() ?: (additionalArgument as? FirResolvable)?.calleeReference?.source
+                        diagnostic = ConeSimpleDiagnostic("Super cannot be a callee", DiagnosticKind.SuperNotAllowed)
+                    }
+                )
+            }
+
             additionalArgument != null -> {
                 CalleeAndReceiver(
                     buildSimpleNamedReference {
@@ -688,16 +698,6 @@ class LightTreeRawFirExpressionBuilder(
                     },
                     additionalArgument!!,
                     isImplicitInvoke = true
-                )
-            }
-
-            superNode != null -> {
-                CalleeAndReceiver(
-                    buildErrorNamedReference {
-                        val node = superNode!!
-                        this.source = node.toFirSourceElement()
-                        diagnostic = ConeSimpleDiagnostic("Super cannot be a callee", DiagnosticKind.SuperNotAllowed)
-                    }
                 )
             }
 
@@ -1156,7 +1156,7 @@ class LightTreeRawFirExpressionBuilder(
         val calculatedRangeExpression =
             rangeExpression ?: buildErrorExpression(null, ConeSyntaxDiagnostic("No range in for loop"))
         val fakeSource = forLoop.toFirSourceElement(KtFakeSourceElementKind.DesugaredForLoop)
-        val rangeSource = calculatedRangeExpression.source?.fakeElement(KtFakeSourceElementKind.DesugaredForLoop)
+        val rangeSource = calculatedRangeExpression.source?.fakeElement(KtFakeSourceElementKind.DesugaredForLoop) ?: fakeSource
         val target: FirLoopTarget
         // NB: FirForLoopChecker relies on this block existence and structure
         return buildBlock {
@@ -1168,7 +1168,7 @@ class LightTreeRawFirExpressionBuilder(
                 buildFunctionCall {
                     source = rangeSource
                     calleeReference = buildSimpleNamedReference {
-                        source = rangeSource ?: fakeSource
+                        source = rangeSource
                         name = OperatorNameConventions.ITERATOR
                     }
                     explicitReceiver = calculatedRangeExpression
@@ -1180,7 +1180,7 @@ class LightTreeRawFirExpressionBuilder(
                 condition = buildFunctionCall {
                     source = rangeSource
                     calleeReference = buildSimpleNamedReference {
-                        source = rangeSource ?: fakeSource
+                        source = rangeSource
                         name = OperatorNameConventions.HAS_NEXT
                     }
                     explicitReceiver = generateResolvedAccessExpression(rangeSource, iteratorVal)
@@ -1200,12 +1200,13 @@ class LightTreeRawFirExpressionBuilder(
                         buildFunctionCall {
                             source = rangeSource
                             calleeReference = buildSimpleNamedReference {
-                                source = rangeSource ?: fakeSource
+                                source = rangeSource
                                 name = OperatorNameConventions.NEXT
                             }
                             explicitReceiver = generateResolvedAccessExpression(rangeSource, iteratorVal)
                         },
-                        valueParameter.returnTypeRef
+                        valueParameter.returnTypeRef,
+                        extractedAnnotations = valueParameter.annotations
                     )
                     if (multiDeclaration != null) {
                         statements.addDestructuringStatements(
@@ -1339,7 +1340,7 @@ class LightTreeRawFirExpressionBuilder(
                 with(components) {
                     val trueBranch = convertLoopBody(thenBlock)
                     branches += buildWhenBranch {
-                        source = thenBlock?.toFirSourceElement()
+                        source = firCondition?.source
                         condition = firCondition ?: buildErrorExpression(
                             null,
                             ConeSyntaxDiagnostic("If statement should have condition")

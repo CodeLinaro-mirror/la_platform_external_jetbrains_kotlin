@@ -10,21 +10,26 @@ import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirTypeIntersectionScopeContext.ResultOfIntersection
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
-import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 
 abstract class AbstractFirUseSiteMemberScope(
-    val classId: ClassId,
+    val ownerClassLookupTag: ConeClassLikeLookupTag,
     session: FirSession,
-    overrideChecker: FirOverrideChecker,
+    overrideCheckerForBaseClass: FirOverrideChecker,
+    // null means "use overrideCheckerForBaseClass"
+    overrideCheckerForIntersection: FirOverrideChecker?,
     protected val superTypeScopes: List<FirTypeScope>,
     dispatchReceiverType: ConeSimpleKotlinType,
     protected val declaredMemberScope: FirContainingNamesAwareScope
-) : AbstractFirOverrideScope(session, overrideChecker) {
-    protected val supertypeScopeContext =
-        FirTypeIntersectionScopeContext(session, overrideChecker, superTypeScopes, dispatchReceiverType, forClassUseSiteScope = true)
+) : AbstractFirOverrideScope(session, overrideCheckerForBaseClass) {
+    protected val supertypeScopeContext = FirTypeIntersectionScopeContext(
+        session,
+        overrideCheckerForIntersection ?: overrideCheckerForBaseClass,
+        superTypeScopes, dispatchReceiverType, forClassUseSiteScope = true
+    )
 
     private val functions: MutableMap<Name, Collection<FirNamedFunctionSymbol>> = hashMapOf()
 
@@ -75,7 +80,7 @@ abstract class AbstractFirUseSiteMemberScope(
             if (!symbol.isVisibleInCurrentClass()) return@processFunctionsByName
             val directOverridden = computeDirectOverriddenForDeclaredFunction(symbol)
             directOverriddenFunctions[symbol] = directOverridden
-            destination += symbol
+            destination += symbol.replaceWithWrapperSymbolIfNeeded()
         }
     }
 
@@ -148,8 +153,7 @@ abstract class AbstractFirUseSiteMemberScope(
             directOverriddenFunctions,
             functionsFromSupertypes,
             functionSymbol,
-            processor,
-            FirTypeScope::processDirectOverriddenFunctionsWithBaseScope
+            processor
         )
     }
 
@@ -161,8 +165,7 @@ abstract class AbstractFirUseSiteMemberScope(
             directOverriddenProperties,
             propertiesFromSupertypes,
             propertySymbol,
-            processor,
-            FirTypeScope::processDirectOverriddenPropertiesWithBaseScope
+            processor
         )
     }
 
@@ -170,24 +173,17 @@ abstract class AbstractFirUseSiteMemberScope(
         directOverriddenMap: Map<D, List<ResultOfIntersection<D>>>,
         callablesFromSupertypes: Map<Name, List<ResultOfIntersection<D>>>,
         callableSymbol: D,
-        processor: (D, FirTypeScope) -> ProcessorAction,
-        processDirectOverriddenCallables: FirTypeScope.(D, (D, FirTypeScope) -> ProcessorAction) -> ProcessorAction
+        processor: (D, FirTypeScope) -> ProcessorAction
     ): ProcessorAction {
         when (val directOverridden = directOverriddenMap[callableSymbol]) {
             null -> {
                 val resultOfIntersection = callablesFromSupertypes[callableSymbol.name]
                     ?.firstOrNull { it.chosenSymbol == callableSymbol }
                     ?: return ProcessorAction.NONE
-                if (resultOfIntersection.isIntersectionOverride()) {
-                    for ((overridden, baseScope) in resultOfIntersection.overriddenMembers) {
-                        if (!processor(overridden, baseScope)) return ProcessorAction.STOP
-                    }
-                    return ProcessorAction.NONE
-                } else {
-                    return resultOfIntersection.containingScope
-                        ?.processDirectOverriddenCallables(callableSymbol, processor)
-                        ?: ProcessorAction.NONE
+                for ((overridden, baseScope) in resultOfIntersection.overriddenMembers) {
+                    if (!processor(overridden, baseScope)) return ProcessorAction.STOP
                 }
+                return ProcessorAction.NONE
             }
             else -> {
                 for (resultOfIntersection in directOverridden) {
@@ -224,5 +220,12 @@ abstract class AbstractFirUseSiteMemberScope(
 
     override fun getClassifierNames(): Set<Name> {
         return classifierNamesCached
+    }
+
+    /**
+     * This function is currently used only for creating suspend views in Java.
+     */
+    protected open fun FirNamedFunctionSymbol.replaceWithWrapperSymbolIfNeeded(): FirNamedFunctionSymbol {
+        return this
     }
 }

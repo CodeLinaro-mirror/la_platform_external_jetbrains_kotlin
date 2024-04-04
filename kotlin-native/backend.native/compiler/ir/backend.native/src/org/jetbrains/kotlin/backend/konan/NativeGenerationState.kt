@@ -13,12 +13,12 @@ import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.backend.konan.driver.utilities.BackendContextHolder
 import org.jetbrains.kotlin.backend.konan.driver.utilities.LlvmIrHolder
 import org.jetbrains.kotlin.backend.konan.llvm.*
-import org.jetbrains.kotlin.backend.konan.llvm.coverage.CoverageManager
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExport
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedClassFields
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedEagerInitializedFile
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedInlineFunctionReference
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.expressions.IrSuspensionPoint
 
 internal class InlineFunctionOriginInfo(val irFunction: IrFunction, val irFile: IrFile, val startOffset: Int, val endOffset: Int)
 
@@ -74,6 +74,8 @@ internal class NativeGenerationState(
     val calledFromExportedInlineFunctions = mutableSetOf<IrFunction>()
     val constructedFromExportedInlineFunctions = mutableSetOf<IrClass>()
     val inlineFunctionOrigins = mutableMapOf<IrFunction, InlineFunctionOriginInfo>()
+    val liveVariablesAtSuspensionPoints = mutableMapOf<IrSuspensionPoint, List<IrVariable>>()
+    val visibleVariablesAtSuspensionPoints = mutableMapOf<IrSuspensionPoint, List<IrVariable>>()
 
     private val localClassNames = mutableMapOf<IrAttributeContainer, String>()
     fun getLocalClassName(container: IrAttributeContainer): String? = localClassNames[container.attributeOwnerId]
@@ -100,8 +102,6 @@ internal class NativeGenerationState(
     lateinit var llvmDeclarations: LlvmDeclarations
 
     val virtualFunctionTrampolines = mutableMapOf<IrSimpleFunction, LlvmCallable>()
-
-    val coverage by lazy { CoverageManager(this) }
 
     lateinit var objCExport: ObjCExport
 

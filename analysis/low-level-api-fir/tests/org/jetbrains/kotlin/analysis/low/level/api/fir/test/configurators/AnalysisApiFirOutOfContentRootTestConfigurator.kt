@@ -9,9 +9,9 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
+import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleProjectStructure
 import org.jetbrains.kotlin.analysis.api.standalone.base.project.structure.KtModuleWithFiles
 import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.LLFirBuiltinsSessionFactory
-import org.jetbrains.kotlin.analysis.project.structure.KtBuiltinsModule
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.analysis.project.structure.KtNotUnderContentRootModule
 import org.jetbrains.kotlin.analysis.test.framework.project.structure.KtModuleFactory
@@ -24,7 +24,9 @@ import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.getAnalyzerServices
 import org.jetbrains.kotlin.test.model.TestModule
+import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
+import java.nio.file.Path
 
 object AnalysisApiFirOutOfContentRootTestConfigurator : AnalysisApiFirSourceLikeTestConfigurator(false) {
     override val testPrefix: String
@@ -35,16 +37,20 @@ object AnalysisApiFirOutOfContentRootTestConfigurator : AnalysisApiFirSourceLike
 
         builder.apply {
             useDirectives(Directives)
-            useAdditionalService<KtModuleFactory> { KtOutOfContentRootModuleFactory() }
+            useAdditionalService<KtModuleFactory> { KtOutOfContentRootModuleFactory }
         }
     }
 
-    override fun prepareFilesInModule(files: List<PsiFile>, module: TestModule, testServices: TestServices) {
-        if (Directives.SKIP_WHEN_OUT_OF_CONTENT_ROOT in module.directives) {
+    override fun createModules(
+        moduleStructure: TestModuleStructure,
+        testServices: TestServices,
+        project: Project
+    ): KtModuleProjectStructure {
+        if (Directives.SKIP_WHEN_OUT_OF_CONTENT_ROOT in moduleStructure.allDirectives) {
             throw SkipWhenOutOfContentRootException()
         }
 
-        super.prepareFilesInModule(files, module, testServices)
+        return super.createModules(moduleStructure, testServices, project)
     }
 
     object Directives : SimpleDirectivesContainer() {
@@ -57,8 +63,14 @@ object AnalysisApiFirOutOfContentRootTestConfigurator : AnalysisApiFirSourceLike
 
 private class SkipWhenOutOfContentRootException : SkipTestException()
 
-private class KtOutOfContentRootModuleFactory : KtModuleFactory {
-    override fun createModule(testModule: TestModule, testServices: TestServices, project: Project): KtModuleWithFiles {
+private object KtOutOfContentRootModuleFactory : KtModuleFactory {
+    override fun createModule(
+        testModule: TestModule,
+        contextModule: KtModuleWithFiles?,
+        testServices: TestServices,
+        project: Project,
+        dependencyPaths: Collection<Path>,
+    ): KtModuleWithFiles {
         val psiFiles = TestModuleStructureFactory.createSourcePsiFiles(testModule, testServices, project)
         val platform = testModule.targetPlatform
         val module = KtNotUnderContentRootModuleForTest(testModule.name, psiFiles.first(), platform)
@@ -66,7 +78,7 @@ private class KtOutOfContentRootModuleFactory : KtModuleFactory {
     }
 }
 
-private class KtNotUnderContentRootModuleForTest(
+internal class KtNotUnderContentRootModuleForTest(
     override val name: String,
     override val file: PsiFile,
     override val platform: TargetPlatform

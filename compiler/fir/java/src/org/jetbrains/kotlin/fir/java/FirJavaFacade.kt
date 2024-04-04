@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.java
 
-import com.intellij.psi.impl.light.LightRecordCanonicalConstructor
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.util.JavaPsiRecordUtil
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -42,9 +43,6 @@ import org.jetbrains.kotlin.load.java.JavaClassFinder
 import org.jetbrains.kotlin.load.java.structure.*
 import org.jetbrains.kotlin.load.java.structure.impl.JavaElementImpl
 import org.jetbrains.kotlin.load.java.structure.impl.classFiles.BinaryJavaClass
-import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
-import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
-import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.types.Variance.INVARIANT
 
@@ -78,13 +76,12 @@ abstract class FirJavaFacade(
     }
     private val knownClassNamesInPackage = session.firCachesFactory.createCache(classFinder::knownClassNamesInPackage)
 
-    private val parentClassTypeParameterStackCache = mutableMapOf<FirRegularClassSymbol, JavaTypeParameterStack>()
+    private val parentClassTypeParameterStackCache = mutableMapOf<FirRegularClassSymbol, MutableJavaTypeParameterStack>()
     private val parentClassEffectiveVisibilityCache = mutableMapOf<FirRegularClassSymbol, EffectiveVisibility>()
     private val statusExtensions = session.extensionService.statusTransformerExtensions
 
     fun findClass(classId: ClassId, knownContent: ByteArray? = null): JavaClass? =
-        classFinder.findClass(JavaClassFinder.Request(classId, knownContent))
-            ?.takeIf { it.classId == classId && !it.hasMetadataAnnotation() }
+        classFinder.findClass(JavaClassFinder.Request(classId, knownContent))?.takeUnless(JavaClass::hasMetadataAnnotation)
 
     fun getPackage(fqName: FqName): FqName? =
         packageCache.getValue(fqName)?.fqName
@@ -103,7 +100,7 @@ abstract class FirJavaFacade(
     abstract fun getModuleDataForClass(javaClass: JavaClass): FirModuleData
 
     private fun JavaTypeParameter.toFirTypeParameter(
-        javaTypeParameterStack: JavaTypeParameterStack,
+        javaTypeParameterStack: MutableJavaTypeParameterStack,
         containingDeclarationSymbol: FirBasedSymbol<*>,
         moduleData: FirModuleData,
     ): FirTypeParameter {
@@ -132,7 +129,7 @@ abstract class FirJavaFacade(
     }
 
     private fun List<JavaTypeParameter>.convertTypeParameters(
-        stack: JavaTypeParameterStack,
+        stack: MutableJavaTypeParameterStack,
         containingDeclarationSymbol: FirBasedSymbol<*>,
         moduleData: FirModuleData,
     ): List<FirTypeParameter> {
@@ -155,7 +152,7 @@ abstract class FirJavaFacade(
         javaClass: JavaClass,
     ): FirJavaClass {
         val classId = classSymbol.classId
-        val javaTypeParameterStack = JavaTypeParameterStack()
+        val javaTypeParameterStack = MutableJavaTypeParameterStack()
 
         if (parentClassSymbol != null) {
             val parentStack = parentClassTypeParameterStackCache[parentClassSymbol]
@@ -236,7 +233,7 @@ abstract class FirJavaFacade(
         classSymbol: FirRegularClassSymbol,
         parentClassSymbol: FirRegularClassSymbol?,
         classId: ClassId,
-        javaTypeParameterStack: JavaTypeParameterStack,
+        javaTypeParameterStack: MutableJavaTypeParameterStack,
     ): FirJavaClass {
         val valueParametersForAnnotationConstructor = ValueParametersForAnnotationConstructor()
         val classIsAnnotation = javaClass.classKind == ClassKind.ANNOTATION_CLASS
@@ -244,9 +241,7 @@ abstract class FirJavaFacade(
         return buildJavaClass {
             resolvePhase = FirResolvePhase.BODY_RESOLVE
             javaAnnotations += javaClass.annotations
-            if (javaClass.isDeprecatedInJavaDoc && javaAnnotations.none { it.isJavaDeprecatedAnnotation() }) {
-                javaAnnotations += DeprecatedInJavaDocAnnotation
-            }
+            isDeprecatedInJavaDoc = javaClass.isDeprecatedInJavaDoc
             source = javaClass.toSourceElement()
             this.moduleData = moduleData
             symbol = classSymbol
@@ -392,7 +387,7 @@ abstract class FirJavaFacade(
             if (modality == Modality.SEALED) {
                 val permittedTypes = javaClass.permittedTypes
                 setSealedClassInheritors {
-                    permittedTypes.mapNotNull { classifierType ->
+                    permittedTypes.mapNotNullTo(mutableListOf()) { classifierType ->
                         val classifier = classifierType.classifier as? JavaClass
                         classifier?.let { JavaToKotlinClassMap.mapJavaToKotlin(it.fqName!!) ?: it.classId }
                     }
@@ -400,11 +395,13 @@ abstract class FirJavaFacade(
             }
 
             if (classIsAnnotation) {
+                val javaTypeParameterStackSnapshot = javaTypeParameterStack.snapshot()
                 // Cannot load these until the symbol is bound because they may be self-referential.
                 valueParametersForAnnotationConstructor.forEach { javaMethod, firValueParameter ->
                     javaMethod.annotationParameterDefaultValue?.let { javaDefaultValue ->
-                        firValueParameter.defaultValue =
-                            javaDefaultValue.toFirExpression(session, javaTypeParameterStack, firValueParameter.returnTypeRef)
+                        firValueParameter.lazyDefaultValue = lazy {
+                            javaDefaultValue.toFirExpression(session, javaTypeParameterStackSnapshot, firValueParameter.returnTypeRef)
+                        }
                     }
                 }
             }
@@ -454,7 +451,8 @@ abstract class FirJavaFacade(
         }
 
         /**
-         * It is possible that JavaClass already has a synthetic primary constructor ([LightRecordCanonicalConstructor])
+         * It is possible that JavaClass already has a synthetic primary constructor ([LightRecordCanonicalConstructor]) or a
+         * canonical constructor ([JavaPsiRecordUtil.isCanonicalConstructor]).
          * Such behavior depends on a platform version and psi providers
          * (e.g., in IntelliJ plugin Java class can have additional declarations)
          */
@@ -471,7 +469,6 @@ abstract class FirJavaFacade(
                     Modality.FINAL,
                     EffectiveVisibility.Public
                 )
-                visibility = Visibilities.Public
                 isPrimary = true
                 returnTypeRef = classType.toFirResolvedTypeRef()
                 dispatchReceiverType = null
@@ -499,7 +496,7 @@ abstract class FirJavaFacade(
     private fun convertJavaFieldToFir(
         javaField: JavaField,
         classId: ClassId,
-        javaTypeParameterStack: JavaTypeParameterStack,
+        javaTypeParameterStack: MutableJavaTypeParameterStack,
         dispatchReceiver: ConeClassLikeType,
         moduleData: FirModuleData,
     ): FirDeclaration {
@@ -545,12 +542,15 @@ abstract class FirJavaFacade(
                 modality = javaField.modality
                 returnTypeRef = returnType.toFirJavaTypeRef(session)
                 isVar = !javaField.isFinal
-                isStatic = javaField.isStatic
                 annotationBuilder = { javaField.convertAnnotationsToFir(session) }
 
                 lazyInitializer = lazy {
                     // NB: null should be converted to null
                     javaField.initializerValue?.createConstantIfAny(session)
+                }
+
+                lazyHasConstantInitializer = lazy {
+                    javaField.hasConstantNotNullInitializer
                 }
 
                 if (!javaField.isStatic) {
@@ -568,7 +568,7 @@ abstract class FirJavaFacade(
         containingClass: JavaClass,
         javaMethod: JavaMethod,
         classId: ClassId,
-        javaTypeParameterStack: JavaTypeParameterStack,
+        javaTypeParameterStack: MutableJavaTypeParameterStack,
         dispatchReceiver: ConeClassLikeType,
         moduleData: FirModuleData,
     ): FirJavaMethod {
@@ -633,7 +633,7 @@ abstract class FirJavaFacade(
         javaClass: JavaClass,
         ownerClassBuilder: FirJavaClassBuilder,
         classTypeParameters: List<FirTypeParameter>,
-        javaTypeParameterStack: JavaTypeParameterStack,
+        javaTypeParameterStack: MutableJavaTypeParameterStack,
         outerClassSymbol: FirRegularClassSymbol?,
         moduleData: FirModuleData,
     ): FirJavaConstructor {
@@ -654,8 +654,8 @@ abstract class FirJavaFacade(
                 isInner = isThisInner
                 hasStableParameterNames = false
             }
-            this.visibility = visibility
-            isPrimary = javaConstructor == null || source?.psi is LightRecordCanonicalConstructor
+            // TODO get rid of dependency on PSI KT-63046
+            isPrimary = javaConstructor == null || source?.psi.let { it is PsiMethod && JavaPsiRecordUtil.isCanonicalConstructor(it) }
             returnTypeRef = buildResolvedTypeRef {
                 type = ownerClassBuilder.buildSelfTypeRef()
             }
@@ -693,7 +693,6 @@ abstract class FirJavaFacade(
                 type = ownerClassBuilder.buildSelfTypeRef()
             }
             valueParametersForAnnotationConstructor.forEach { _, firValueParameter -> valueParameters += firValueParameter }
-            visibility = Visibilities.Public
             isInner = false
             isPrimary = true
             annotationBuilder = { emptyList() }

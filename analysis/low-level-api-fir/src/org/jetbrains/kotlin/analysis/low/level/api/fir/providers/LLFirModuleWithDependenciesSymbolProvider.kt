@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
-import org.jetbrains.kotlin.load.kotlin.FacadeClassSource
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -168,7 +167,7 @@ internal class LLFirDependenciesSymbolProvider(
         if (newSymbols.isEmpty()) return
         val newFacades = SmartSet.create<JvmClassName>()
         for (symbol in newSymbols) {
-            val facade = symbol.jvmClassName()
+            val facade = symbol.jvmClassNameIfDeserialized()
             if (facade != null) {
                 newFacades += facade
                 if (facade !in facades) {
@@ -179,10 +178,5 @@ internal class LLFirDependenciesSymbolProvider(
             }
         }
         facades += newFacades
-    }
-
-    private fun FirCallableSymbol<*>.jvmClassName(): JvmClassName? {
-        val jvmPackagePartSource = fir.containerSource as? FacadeClassSource ?: return null
-        return jvmPackagePartSource.facadeClassName ?: jvmPackagePartSource.className
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -886,6 +886,11 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
             runTest("jps/jps-plugin/testData/incremental/pureKotlin/dependencyClassReferenced/");
         }
 
+        @TestMetadata("entriesMappings")
+        public void testEntriesMappings() throws Exception {
+            runTest("jps/jps-plugin/testData/incremental/pureKotlin/entriesMappings/");
+        }
+
         @TestMetadata("fileWithConstantRemoved")
         public void testFileWithConstantRemoved() throws Exception {
             runTest("jps/jps-plugin/testData/incremental/pureKotlin/fileWithConstantRemoved/");
@@ -919,6 +924,11 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         @TestMetadata("functionReferencingClass")
         public void testFunctionReferencingClass() throws Exception {
             runTest("jps/jps-plugin/testData/incremental/pureKotlin/functionReferencingClass/");
+        }
+
+        @TestMetadata("genericContextReceiver")
+        public void testGenericContextReceiver() throws Exception {
+            runTest("jps/jps-plugin/testData/incremental/pureKotlin/genericContextReceiver/");
         }
 
         @TestMetadata("independentClasses")
@@ -1576,6 +1586,11 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
                 runTest("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/notChangeSignature/");
             }
 
+            @TestMetadata("potentialSamAdapter")
+            public void testPotentialSamAdapter() throws Exception {
+                runTest("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/potentialSamAdapter/");
+            }
+
             @TestMetadata("rawErrorTypeDuringSerialization")
             public void testRawErrorTypeDuringSerialization() throws Exception {
                 runTest("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/rawErrorTypeDuringSerialization/");
@@ -1843,6 +1858,19 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
 
                 public void testAllFilesPresentInNotChangeSignature() throws Exception {
                     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/notChangeSignature"), Pattern.compile("^([^\\.]+)$"), null, TargetBackend.JVM_IR, true);
+                }
+            }
+
+            @TestMetadata("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/potentialSamAdapter")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class PotentialSamAdapter extends AbstractIncrementalK1JvmJpsTest {
+                private void runTest(String testDataFilePath) throws Exception {
+                    KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
+                }
+
+                public void testAllFilesPresentInPotentialSamAdapter() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/potentialSamAdapter"), Pattern.compile("^([^\\.]+)$"), null, TargetBackend.JVM_IR, true);
                 }
             }
 

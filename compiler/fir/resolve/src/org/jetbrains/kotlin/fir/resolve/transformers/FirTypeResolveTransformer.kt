@@ -82,6 +82,9 @@ open class FirTypeResolveTransformer(
     @set:PrivateForInline
     var scopesBefore: PersistentList<FirScope>? = null
 
+    @set:PrivateForInline
+    var staticScopesBefore: PersistentList<FirScope>? = null
+
     private var currentDeclaration: FirDeclaration? = null
 
     private inline fun <T> withDeclaration(declaration: FirDeclaration, crossinline action: () -> T): T {
@@ -161,6 +164,12 @@ open class FirTypeResolveTransformer(
             }
 
             result
+        }
+    }
+
+    override fun transformAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: Any?): FirAnonymousInitializer {
+        return withScopeCleanup {
+            transformDeclaration(anonymousInitializer, data) as FirAnonymousInitializer
         }
     }
 
@@ -355,6 +364,7 @@ open class FirTypeResolveTransformer(
                         else -> shouldNotBeCalled()
                     }
                     FirAnnotationResolvePhase.CompilerRequiredAnnotations -> {
+                        annotationCall.transformTypeArguments(this, data)
                         annotationCall.replaceAnnotationResolvePhase(FirAnnotationResolvePhase.Types)
                         val alternativeResolvedTypeRef =
                             originalTypeRef.delegatedTypeRef?.transformSingle(this, data) ?: return annotationCall
@@ -364,6 +374,7 @@ open class FirTypeResolveTransformer(
                             val errorTypeRef = buildErrorTypeRef {
                                 source = originalTypeRef.source
                                 type = coneTypeFromCompilerRequiredPhase
+                                annotations += originalTypeRef.annotations
                                 delegatedTypeRef = originalTypeRef.delegatedTypeRef
                                 diagnostic = ConeAmbiguouslyResolvedAnnotationFromPlugin(
                                     coneTypeFromCompilerRequiredPhase,
@@ -378,6 +389,7 @@ open class FirTypeResolveTransformer(
             }
             else -> {
                 val transformedTypeRef = originalTypeRef.transformSingle(this, data)
+                annotationCall.transformTypeArguments(this, data)
                 annotationCall.replaceAnnotationResolvePhase(FirAnnotationResolvePhase.Types)
                 annotationCall.replaceAnnotationTypeRef(transformedTypeRef)
             }
@@ -388,16 +400,21 @@ open class FirTypeResolveTransformer(
 
     inline fun <T> withScopeCleanup(crossinline l: () -> T): T {
         val scopesBeforeSnapshot = scopes
+        val scopesBeforeBeforeSnapshot = scopesBefore
         scopesBefore = scopesBeforeSnapshot
 
-        val staticScopesBefore = staticScopes
+        val staticScopesBeforeSnapshot = staticScopes
+        val staticScopesBeforeBeforeSnapshot = staticScopesBefore
+        staticScopesBefore = staticScopesBeforeSnapshot
 
-        val result = l()
-
-        scopes = scopesBeforeSnapshot
-        staticScopes = staticScopesBefore
-
-        return result
+        return try {
+            l()
+        } finally {
+            scopes = scopesBeforeSnapshot
+            scopesBefore = scopesBeforeBeforeSnapshot
+            staticScopes = staticScopesBeforeSnapshot
+            staticScopesBefore = staticScopesBeforeBeforeSnapshot
+        }
     }
 
     private fun resolveClassContent(
@@ -414,8 +431,17 @@ open class FirTypeResolveTransformer(
                 }
 
                 // ConstructedTypeRef should be resolved only with type parameters, but not with nested classes and classes from supertypes
-                for (constructor in firClass.declarations.filterIsInstance<FirConstructor>()) {
-                    transformDelegatedConstructorCall(constructor)
+                for (declaration in firClass.declarations) {
+                    when (declaration) {
+                        is FirConstructor -> transformDelegatedConstructorCall(declaration)
+                        is FirField -> {
+                            if (declaration.origin == FirDeclarationOrigin.Synthetic.DelegateField) {
+                                transformDelegateField(declaration)
+                            }
+                        }
+
+                        else -> {}
+                    }
                 }
             }
         }
@@ -429,8 +455,17 @@ open class FirTypeResolveTransformer(
         constructor.delegatedConstructor?.let(this::resolveConstructedTypeRefForDelegatedConstructorCall)
     }
 
+    fun transformDelegateField(field: FirField) {
+        field.transformReturnTypeRef(this, null)
+    }
+
     fun removeOuterTypeParameterScope(firClass: FirClass): Boolean = !firClass.isInner && !firClass.isLocal
 
+    /**
+     * Changes to the order of scopes should also be reflected in
+     * [org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveContext.withScopesForClass].
+     * Otherwise, we get different behavior between type resolve and body resolve phases.
+     */
     inline fun <R> withClassScopes(
         firClass: FirClass,
         crossinline actionInsideStaticScope: () -> Unit = {},
@@ -461,16 +496,21 @@ open class FirTypeResolveTransformer(
             }
         }
 
-        session.nestedClassifierScope(firClass)?.let(scopesToAdd::add)
         if (firClass is FirRegularClass) {
-            val companionObject = firClass.companionObjectSymbol?.fir
-            if (companionObject != null) {
-                session.nestedClassifierScope(companionObject)?.let(scopesToAdd::add)
-            }
+            // Companion scope is added before static scope,
+            // i.e., static scope is checked first during resolution (scopes are in reverse order).
+            // This is because we can qualify companion scope using `Companion.` if we want to explicitly refer to a declaration in the
+            // companion.
+            firClass.companionObjectSymbol?.fir
+                ?.let(session::nestedClassifierScope)
+                ?.let(scopesToAdd::add)
+
+            session.nestedClassifierScope(firClass)?.let(scopesToAdd::add)
 
             addScopes(scopesToAdd)
             addTypeParametersScope(firClass)
         } else {
+            session.nestedClassifierScope(firClass)?.let(scopesToAdd::add)
             addScopes(scopesToAdd)
         }
 
@@ -538,20 +578,3 @@ open class FirTypeResolveTransformer(
     private fun annotationShouldBeMovedToField(allowedTargets: Set<AnnotationUseSiteTarget>): Boolean =
         (FIELD in allowedTargets || PROPERTY_DELEGATE_FIELD in allowedTargets) && PROPERTY !in allowedTargets
 }
-
-annotation class NoTarget
-
-@Target(AnnotationTarget.VALUE_PARAMETER)
-annotation class Param
-
-@Target(AnnotationTarget.PROPERTY)
-annotation class Prop
-
-@Target(AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER)
-annotation class Both
-
-data class Foo(
-    @NoTarget @Param @Prop @Both val p1: Int,
-    @param:NoTarget @param:Both val p2: String,
-    @property:NoTarget @property:Both val p3: Boolean,
-)

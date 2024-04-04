@@ -32,16 +32,6 @@ fun KonanTarget.pointerBits() = when (architecture) {
     Architecture.WASM32 -> 32
 }
 
-
-fun KonanTarget.supportsCodeCoverage(): Boolean =
-        // TODO: Disabled for now, because we don't support
-        //  coverage format from LLVM 11.
-        false
-//        this == KonanTarget.MINGW_X64 ||
-//        this == KonanTarget.LINUX_X64 ||
-//        this == KonanTarget.MACOS_X64 ||
-//        this == KonanTarget.IOS_X64
-
 fun KonanTarget.supportsMimallocAllocator(): Boolean =
      when(this) {
         is KonanTarget.LINUX_X64 -> true
@@ -95,14 +85,6 @@ fun KonanTarget.supportsThreads(): Boolean = when(this) {
 
 fun KonanTarget.supportsExceptions(): Boolean = when(this) {
     is KonanTarget.WASM32 -> false
-    is KonanTarget.ZEPHYR -> false
-    else -> true
-}
-
-fun KonanTarget.suportsMemMem(): Boolean = when (this) {
-    is KonanTarget.WASM32 -> false
-    is KonanTarget.MINGW_X86 -> false
-    is KonanTarget.MINGW_X64 -> false
     is KonanTarget.ZEPHYR -> false
     else -> true
 }
@@ -173,7 +155,7 @@ fun KonanTarget.hasAddressDependencyInMemoryModel(): Boolean =
      }
 
 val KonanTarget.supportsGrandCentralDispatch
-    get() = when(family) {
-        Family.WATCHOS, Family.IOS, Family.TVOS, Family.OSX -> true
-        else -> false
-    }
+    get() = family.isAppleFamily
+
+val KonanTarget.supportsSignposts
+    get() = family.isAppleFamily

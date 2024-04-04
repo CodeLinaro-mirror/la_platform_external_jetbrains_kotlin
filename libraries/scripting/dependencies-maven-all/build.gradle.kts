@@ -5,7 +5,7 @@ import org.gradle.kotlin.dsl.support.serviceOf
 
 description = "Shaded Maven dependencies resolver"
 
-val jarBaseName = property("archivesBaseName") as String
+val jarBaseName = the<BasePluginExtension>().archivesName
 
 val embedded by configurations
 
@@ -68,7 +68,7 @@ val mavenPackagesToRelocate = listOf(
 val relocatedJar by task<ShadowJar> {
     configurations = listOf(embedded)
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
-    destinationDirectory.set(File(buildDir, "libs"))
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
     archiveClassifier.set("relocated")
 
     transform(ComponentsXmlResourceTransformer())
@@ -82,9 +82,8 @@ val relocatedJar by task<ShadowJar> {
 
 val normalizeComponentsXmlEndings by tasks.registering {
     dependsOn(relocatedJar)
-    val outputDirectory = buildDir.resolve(name)
-    val outputFile = outputDirectory.resolve(ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH)
-    val relocatedJarFile = project.provider { relocatedJar.get().singleOutputFile() }
+    val outputFile = layout.buildDirectory.file("$name/${ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH}")
+    val relocatedJarFile = relocatedJar.map { it.singleOutputFile(layout) }
     val archiveOperations = serviceOf<ArchiveOperations>()
     outputs.file(outputFile)
 
@@ -93,8 +92,9 @@ val normalizeComponentsXmlEndings by tasks.registering {
             include { it.path == ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH }
         }.single().readText()
         val processedComponentsXml = componentsXml.replace("\r\n", "\n")
-        outputDirectory.mkdirs()
-        outputFile.writeText(processedComponentsXml)
+        val outputAsFile = outputFile.get().asFile
+        outputAsFile.parentFile.mkdirs()
+        outputAsFile.writeText(processedComponentsXml)
     }
 }
 
@@ -105,14 +105,14 @@ val normalizedJar by task<Jar> {
     archiveClassifier.set("normalized")
 
     from {
-        zipTree(relocatedJar.get().singleOutputFile()).matching {
+        zipTree(relocatedJar.get().singleOutputFile(layout)).matching {
             exclude(ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH)
         }
     }
 
     into(ComponentsXmlResourceTransformer.COMPONENTS_XML_PATH.substringBeforeLast("/")) {
         from {
-            normalizeComponentsXmlEndings.get().singleOutputFile()
+            normalizeComponentsXmlEndings.map { it.singleOutputFile(layout) }
         }
     }
 }
@@ -123,7 +123,7 @@ val proguard by task<CacheableProguardTask> {
 
     injars(mapOf("filter" to "!META-INF/versions/**,!kotlinx/coroutines/debug/**"), normalizedJar.get().outputs.files)
 
-    outjars(fileFrom(buildDir, "libs", "$jarBaseName-$version-after-proguard.jar"))
+    outjars(layout.buildDirectory.file(jarBaseName.map { "libs/$it-$version-after-proguard.jar" }))
 
     javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_1_8))
 
@@ -156,7 +156,7 @@ val resultJar by task<Jar> {
     dependsOn(pack)
     setupPublicJar(jarBaseName)
     from {
-        zipTree(pack.get().singleOutputFile())
+        zipTree(pack.map { it.singleOutputFile(layout) })
     }
 }
 

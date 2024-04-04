@@ -7,26 +7,26 @@ package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.analysis.checkers.classKind
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.containingClassForStaticMemberAttr
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isEnumClass
+import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.toResolvedBaseSymbol
 import org.jetbrains.kotlin.fir.references.toResolvedNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
-import org.jetbrains.kotlin.fir.types.toSymbol
 import org.jetbrains.kotlin.utils.addToStdlib.flatAssociateBy
 
-object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
+object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Common) {
     // Initialization order: member property initializers, enum entries, companion object (including members in it).
     //
     // When JVM loads a class, the corresponding class initializer, a.k.a. <clinit>, is executed first.
@@ -78,6 +78,12 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
         val enumClassSymbol = calleeSymbol.getContainingClassSymbol(context.session) as? FirRegularClassSymbol ?: return
         // We're looking for members/entries/companion object in an enum class or members in companion object of an enum class.
         if (!enumClassSymbol.isEnumClass) return
+
+        // Local enum class are prohibited
+        // So report error on access of local enum entry
+        if (enumClassSymbol.visibility == Visibilities.Local) {
+            reporter.reportOn(source, FirErrors.UNINITIALIZED_ENUM_ENTRY, calleeSymbol as FirEnumEntrySymbol, context)
+        }
 
         // An accessed context within the enum class of interest. We should look up until either enum members or enum entries are found,
         // not just last containing declaration. For example,
@@ -142,7 +148,7 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
         //       fun foo() = ...
         //     }
         //   }
-        if (accessedContext in enumEntries && containingDeclarationForAccess?.isEnumEntryInitializer(context.session) != true) {
+        if (accessedContext in enumEntries && containingDeclarationForAccess?.isEnumEntryInitializer() != true) {
             return
         }
 
@@ -234,14 +240,14 @@ object FirUninitializedEnumChecker : FirQualifiedAccessExpressionChecker() {
             return (lazyCallArgument.expression as? FirAnonymousFunctionExpression)?.anonymousFunction
         }
 
-    private fun FirDeclaration.isEnumEntryInitializer(session: FirSession): Boolean {
+    private fun FirDeclaration.isEnumEntryInitializer(): Boolean {
         val containingClassSymbol = when (this) {
             is FirConstructor -> {
                 if (!isPrimary) return false
                 (containingClassForStaticMemberAttr as? ConeClassLookupTagWithFixedSymbol)?.symbol
             }
             is FirAnonymousInitializer -> {
-                dispatchReceiverType?.toSymbol(session)
+                containingDeclarationSymbol as? FirClassSymbol
             }
             else -> null
         } ?: return false

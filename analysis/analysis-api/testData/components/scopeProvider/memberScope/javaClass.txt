@@ -31,6 +31,72 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: JavaClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
+  getContainingModule: KtSourceModule "Sources of main"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: /JavaClass.method
+  contextReceivers: []
+  contractEffects: []
+  hasStableParameterNames: false
+  isActual: false
+  isBuiltinFunctionInvoke: false
+  isExpect: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: false
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: OPEN
+  name: method
+  origin: JAVA
+  receiverParameter: null
+  returnType: KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: kotlin/Unit
+  symbolKind: CLASS_MEMBER
+  typeParameters: [
+    KtTypeParameterSymbol(T)
+  ]
+  valueParameters: [
+    KtValueParameterSymbol:
+      annotationsList: []
+      callableIdIfNonLocal: null
+      contextReceivers: []
+      generatedPrimaryConstructorProperty: null
+      hasDefaultValue: false
+      isCrossinline: false
+      isExtension: false
+      isImplicitLambdaParameter: false
+      isNoinline: false
+      isVararg: true
+      name: classes
+      origin: JAVA
+      receiverParameter: null
+      returnType: KtFlexibleType:
+        annotationsList: []
+        type: ft<java/lang/Class<out ft<T & Any, T?>>, java/lang/Class<out ft<T & Any, T?>>?>
+      symbolKind: LOCAL
+      typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: JavaClass
+      getContainingModule: KtSourceModule "Sources of main"
+      deprecationStatus: null
+  ]
+  visibility: Public
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: []
+    type: JavaClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -70,6 +136,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: SuperClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: SuperClass
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -121,6 +189,8 @@ KtFunctionSymbol:
         type: kotlin/Any?
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.Any
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -129,6 +199,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -165,6 +237,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -201,6 +275,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -229,6 +305,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
+  getContainingFileSymbol: null
   getContainingModule: KtSourceModule "Sources of main"
   annotationApplicableTargets: null
   deprecationStatus: null
@@ -258,6 +335,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
+  getContainingFileSymbol: null
   getContainingModule: KtSourceModule "Sources of main"
   annotationApplicableTargets: null
   deprecationStatus: null
@@ -287,6 +365,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
+  getContainingFileSymbol: null
   getContainingModule: KtSourceModule "Sources of main"
   annotationApplicableTargets: null
   deprecationStatus: null
@@ -316,6 +395,7 @@ KtNamedClassOrObjectSymbol:
   symbolKind: CLASS_MEMBER
   typeParameters: []
   visibility: Public
+  getContainingFileSymbol: null
   getContainingModule: KtSourceModule "Sources of main"
   annotationApplicableTargets: null
   deprecationStatus: null
@@ -340,5 +420,7 @@ KtConstructorSymbol:
   typeParameters: []
   valueParameters: []
   visibility: Public
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
   getContainingModule: KtSourceModule "Sources of main"
   deprecationStatus: null

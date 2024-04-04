@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -53,6 +53,12 @@ public class KotlinKapt4ContextTestGenerated extends AbstractKotlinKapt4ContextT
     @TestMetadata("annotationWithFqNames.kt")
     public void testAnnotationWithFqNames() throws Exception {
         runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/annotationWithFqNames.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationWithVaragArguments.kt")
+    public void testAnnotationWithVaragArguments() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/annotationWithVaragArguments.kt");
     }
 
     @Test
@@ -308,6 +314,12 @@ public class KotlinKapt4ContextTestGenerated extends AbstractKotlinKapt4ContextT
     }
 
     @Test
+    @TestMetadata("importsWithUnresolvedAnnotations.kt")
+    public void testImportsWithUnresolvedAnnotations() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/importsWithUnresolvedAnnotations.kt");
+    }
+
+    @Test
     @TestMetadata("incorrectDelegate.kt")
     public void testIncorrectDelegate() throws Exception {
         runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/incorrectDelegate.kt");
@@ -500,6 +512,18 @@ public class KotlinKapt4ContextTestGenerated extends AbstractKotlinKapt4ContextT
     }
 
     @Test
+    @TestMetadata("kt65399.kt")
+    public void testKt65399() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/kt65399.kt");
+    }
+
+    @Test
+    @TestMetadata("kt65453.kt")
+    public void testKt65453() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/kt65453.kt");
+    }
+
+    @Test
     @TestMetadata("lazyProperty.kt")
     public void testLazyProperty() throws Exception {
         runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/lazyProperty.kt");
@@ -557,6 +581,12 @@ public class KotlinKapt4ContextTestGenerated extends AbstractKotlinKapt4ContextT
     @TestMetadata("multifileClassDefaultPackage.kt")
     public void testMultifileClassDefaultPackage() throws Exception {
         runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/multifileClassDefaultPackage.kt");
+    }
+
+    @Test
+    @TestMetadata("multipleTypeConstraints.kt")
+    public void testMultipleTypeConstraints() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/multipleTypeConstraints.kt");
     }
 
     @Test
@@ -695,6 +725,12 @@ public class KotlinKapt4ContextTestGenerated extends AbstractKotlinKapt4ContextT
     @TestMetadata("topLevel.kt")
     public void testTopLevel() throws Exception {
         runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/topLevel.kt");
+    }
+
+    @Test
+    @TestMetadata("typeAnnotations.kt")
+    public void testTypeAnnotations() throws Exception {
+        runTest("plugins/kapt4/../kapt3/kapt3-compiler/testData/converter/typeAnnotations.kt");
     }
 
     @Test

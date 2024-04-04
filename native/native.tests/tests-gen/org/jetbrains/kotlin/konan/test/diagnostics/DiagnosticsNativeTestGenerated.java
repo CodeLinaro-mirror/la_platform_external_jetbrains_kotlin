@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTest {
     @Test
     public void testAllFilesPresentInNativeTests() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll)\\.kts?$"), true, "specialBackendChecks");
     }
 
     @Test
@@ -67,9 +67,45 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
     }
 
     @Test
+    @TestMetadata("noObjcOverrideConflictingOverloadsDisabled.kt")
+    public void testNoObjcOverrideConflictingOverloadsDisabled() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/noObjcOverrideConflictingOverloadsDisabled.kt");
+    }
+
+    @Test
+    @TestMetadata("noObjcOverrideConflictingOverloadsEnabled.kt")
+    public void testNoObjcOverrideConflictingOverloadsEnabled() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/noObjcOverrideConflictingOverloadsEnabled.kt");
+    }
+
+    @Test
     @TestMetadata("objCName.kt")
     public void testObjCName() throws Exception {
         runTest("compiler/testData/diagnostics/nativeTests/objCName.kt");
+    }
+
+    @Test
+    @TestMetadata("objCName2.kt")
+    public void testObjCName2() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/objCName2.kt");
+    }
+
+    @Test
+    @TestMetadata("objCName3.kt")
+    public void testObjCName3() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/objCName3.kt");
+    }
+
+    @Test
+    @TestMetadata("objCName4.kt")
+    public void testObjCName4() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/objCName4.kt");
+    }
+
+    @Test
+    @TestMetadata("objCName5.kt")
+    public void testObjCName5() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/objCName5.kt");
     }
 
     @Test
@@ -79,9 +115,27 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
     }
 
     @Test
+    @TestMetadata("objcOverrideApplicability.kt")
+    public void testObjcOverrideApplicability() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/objcOverrideApplicability.kt");
+    }
+
+    @Test
+    @TestMetadata("resolveToDelegatedProperty.kt")
+    public void testResolveToDelegatedProperty() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/resolveToDelegatedProperty.kt");
+    }
+
+    @Test
     @TestMetadata("sharedImmutable.kt")
     public void testSharedImmutable() throws Exception {
         runTest("compiler/testData/diagnostics/nativeTests/sharedImmutable.kt");
+    }
+
+    @Test
+    @TestMetadata("stdClassAndTypealiasAmbiguity.kt")
+    public void testStdClassAndTypealiasAmbiguity() throws Exception {
+        runTest("compiler/testData/diagnostics/nativeTests/stdClassAndTypealiasAmbiguity.kt");
     }
 
     @Test

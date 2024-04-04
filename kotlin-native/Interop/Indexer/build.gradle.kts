@@ -17,14 +17,13 @@ plugins {
     id("kotlin.native.build-tools-conventions")
     id("native-interop-plugin")
     id("native")
+    id("native-dependencies")
 }
-
 
 val libclangextProject = project(":kotlin-native:libclangext")
 val libclangextTask = libclangextProject.path + ":build"
-val libclangextDir = libclangextProject.buildDir
+val libclangextDir = libclangextProject.layout.buildDirectory.get().asFile
 val libclangextIsEnabled = libclangextProject.findProperty("isEnabled")!! as Boolean
-val llvmDir = project.findProperty("llvmDir")
 
 
 val libclang =
@@ -34,11 +33,11 @@ val libclang =
         "lib/${System.mapLibraryName("clang")}"
     }
 
-val cflags = mutableListOf( "-I$llvmDir/include",
+val cflags = mutableListOf( "-I${nativeDependencies.llvmPath}/include",
         "-I${project(":kotlin-native:libclangext").projectDir.absolutePath}/src/main/include",
                             *platformManager.hostPlatform.clangForJni.hostCompilerArgsForJni)
 
-val ldflags = mutableListOf("$llvmDir/$libclang", "-L${libclangextDir.absolutePath}", "-lclangext")
+val ldflags = mutableListOf("${nativeDependencies.llvmPath}/$libclang", "-L${libclangextDir.absolutePath}", "-lclangext")
 
 if (libclangextIsEnabled) {
     assert(HostManager.hostIsMac)
@@ -74,7 +73,7 @@ if (libclangextIsEnabled) {
             "clangTooling", "clangFormat", "LLVMTarget", "LLVMMC", "LLVMLinker", "LLVMTransformUtils",
             "LLVMBitWriter", "LLVMBitReader", "LLVMAnalysis", "LLVMProfileData", "LLVMCore",
             "LLVMSupport", "LLVMBinaryFormat", "LLVMDemangle"
-    ).map { "$llvmDir/lib/lib${it}.a" }
+    ).map { "${nativeDependencies.llvmPath}/lib/lib${it}.a" }
 
     ldflags.addAll(llvmLibs)
     ldflags.addAll(listOf("-lpthread", "-lz", "-lm", "-lcurses"))
@@ -93,12 +92,12 @@ native {
     val cxxflags = listOf("-std=c++11", *cflags.toTypedArray())
     suffixes {
         (".c" to ".$obj") {
-            tool(*platformManager.hostPlatform.clangForJni.clangC("").toTypedArray())
+            tool(*hostPlatform.clangForJni.clangC("").toTypedArray())
             flags(*cflags.toTypedArray(),
                   "-c", "-o", ruleOut(), ruleInFirst())
         }
         (".cpp" to ".$obj") {
-            tool(*platformManager.hostPlatform.clangForJni.clangCXX("").toTypedArray())
+            tool(*hostPlatform.clangForJni.clangCXX("").toTypedArray())
             flags(*cxxflags.toTypedArray(), "-c", "-o", ruleOut(), ruleInFirst())
         }
 
@@ -115,7 +114,7 @@ native {
                          sourceSets["main-cpp"]!!.transform(".cpp" to ".$obj"))
 
     target(solib("clangstubs"), *objSet) {
-        tool(*platformManager.hostPlatform.clangForJni.clangCXX("").toTypedArray())
+        tool(*hostPlatform.clangForJni.clangCXX("").toTypedArray())
         flags(
             "-shared",
             "-o", ruleOut(), *ruleInAll(),
@@ -140,17 +139,17 @@ sourceSets {
 dependencies {
     api(project(":kotlin-stdlib"))
     api(project(":kotlin-native:Interop:Runtime"))
-    api(project(":kotlin-native:utilities:basic-utils"))
 
     testImplementation(kotlin("test-junit"))
+    testImplementation(project(":compiler:util"))
 }
 
 val nativelibs = project.tasks.register<Copy>("nativelibs") {
     val clangstubsSolib = solib("clangstubs")
     dependsOn(clangstubsSolib)
 
-    from("$buildDir/$clangstubsSolib")
-    into("$buildDir/nativelibs/")
+    from(layout.buildDirectory.dir(clangstubsSolib))
+    into(layout.buildDirectory.dir("nativelibs"))
 }
 
 kotlinNativeInterop {
@@ -182,17 +181,18 @@ tasks.withType<Test>().configureEach {
             project(":kotlin-native:Interop:Runtime")
     )
     dependsOn(projectsWithNativeLibs.map { "${it.path}:nativelibs" })
+    dependsOn(nativeDependencies.llvmDependency)
     systemProperty("java.library.path", projectsWithNativeLibs.joinToString(File.pathSeparator) {
-        File(it.buildDir, "nativelibs").absolutePath
+        it.layout.buildDirectory.dir("nativelibs").get().asFile.absolutePath
     })
 
-    systemProperty("kotlin.native.llvm.libclang", "$llvmDir/" + if (HostManager.hostIsMingw) {
+    systemProperty("kotlin.native.llvm.libclang", "${nativeDependencies.llvmPath}/" + if (HostManager.hostIsMingw) {
         "bin/libclang.dll"
     } else {
         "lib/${System.mapLibraryName("clang")}"
     })
 
-    systemProperty("kotlin.native.interop.indexer.temp", File(buildDir, "testTemp"))
+    systemProperty("kotlin.native.interop.indexer.temp", layout.buildDirectory.dir("testTemp").get().asFile)
 }
 
 // Please note that list of headers should be fixed manually.
@@ -202,14 +202,14 @@ tasks.register("updatePrebuilt") {
 
     doLast {
         copy {
-            from("$buildDir/nativeInteropStubs/clang/kotlin") {
+            from(layout.buildDirectory.dir("nativeInteropStubs/clang/kotlin")) {
                 include("clang/clang.kt")
             }
             into("prebuilt/nativeInteropStubs/kotlin")
         }
 
         copy {
-            from("$buildDir/interopTemp") {
+            from(layout.buildDirectory.dir("interopTemp")) {
                 include("clangstubs.c")
             }
             into("prebuilt/nativeInteropStubs/c")

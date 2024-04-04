@@ -17,14 +17,16 @@ import org.jetbrains.kotlin.gradle.plugin.sources.DefaultKotlinSourceSet
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.jetbrains.kotlin.gradle.util.modify
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 import java.util.zip.ZipFile
-import kotlin.io.path.*
+import kotlin.io.path.appendText
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -283,7 +285,9 @@ open class HierarchicalMppIT : KGPBaseTest() {
                         "kotlin-stdlib-${buildOptions.kotlinVersion}-all.jar",
                         "kotlin-dom-api-compat-${buildOptions.kotlinVersion}.klib",
                         "kotlin-stdlib-js-${buildOptions.kotlinVersion}.klib",
+                        "kotlin-test-${buildOptions.kotlinVersion}-all.jar",
                         "kotlin-test-js-${buildOptions.kotlinVersion}.klib",
+                        "kotlin-test-junit-${buildOptions.kotlinVersion}.jar",
                     ).toSortedSet(),
                     transformedArtifacts().toSortedSet()
                 )
@@ -382,7 +386,7 @@ open class HierarchicalMppIT : KGPBaseTest() {
         ) {
             build("assemble") {
                 assertFileExists(projectPath.resolve("build/libs/test-project-jvm.jar"))
-                assertFileExists(projectPath.resolve("build/classes/kotlin/metadata/nativeMain/klib/test-project_nativeMain.klib"))
+                assertDirectoryExists(projectPath.resolve("build/classes/kotlin/metadata/nativeMain/klib/test-project_nativeMain"))
             }
         }
     }
@@ -720,7 +724,7 @@ open class HierarchicalMppIT : KGPBaseTest() {
             publishThirdPartyLib(withGranularMetadata = true, gradleVersion = gradleVersion, localRepoDir = tempDir)
 
             subProject("my-lib-foo").buildGradleKts
-                .appendText("\ndependencies { \"jvmAndJsMainCompileOnly\"(kotlin(\"test-annotations-common\")) }")
+                .appendText("\ndependencies { \"jvmAndJsMainCompileOnly\"(kotlin(\"test\")) }")
             projectPath.resolve("my-lib-foo/src/jvmAndJsMain/kotlin/UseCompileOnlyDependency.kt").writeText(
                 """
             import kotlin.test.Test
@@ -735,22 +739,23 @@ open class HierarchicalMppIT : KGPBaseTest() {
             build(":my-lib-foo:compileJvmAndJsMainKotlinMetadata")
         }
 
+    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
     @GradleTest
     @DisplayName("HMPP dependencies in js tests")
     fun testHmppDependenciesInJsTests(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
-        // For some reason Gradle 6.* fails with message about using deprecated API which will fail in 7.0
-        // But for Gradle 7.* everything works, so seems false positive
-        if (gradleVersion.baseVersion.version.substringBefore(".").toInt() < 7) {
-            return
-        }
+
         publishThirdPartyLib(
             withGranularMetadata = true,
             gradleVersion = gradleVersion,
             localRepoDir = tempDir
         )
-        with(project("hierarchical-mpp-js-test", gradleVersion)) {
+        project(
+            "hierarchical-mpp-js-test",
+            gradleVersion,
+            localRepoDir = tempDir
+        ) {
             val taskToExecute = ":jsNodeTest"
-            build(taskToExecute, "-PthirdPartyRepo=${tempDir.absolutePathString()}") {
+            build(taskToExecute) {
                 assertTasksExecuted(taskToExecute)
             }
         }
@@ -1066,7 +1071,11 @@ open class HierarchicalMppIT : KGPBaseTest() {
     @GradleTest
     @DisplayName("KT-52216: [TYPE_MISMATCH] Caused by unexpected metadata dependencies of leaf source sets")
     fun `test default platform compilation source set has no metadata dependencies`(gradleVersion: GradleVersion) {
-        with(project("kt-52216", gradleVersion = gradleVersion)) {
+        project(
+            "kt-52216",
+            gradleVersion = gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build(":lib:publish")
             testDependencyTransformations("p1") { reports ->
                 for (leafSourceSetName in listOf("jvmMain", "jsMain", "linuxX64Main")) {
@@ -1136,7 +1145,11 @@ open class HierarchicalMppIT : KGPBaseTest() {
     @GradleTest
     @DisplayName("KT-55071: Shared Native Compilations: Use default parameters declared in dependsOn source set")
     fun `test shared native compilation with default parameters declared in dependsOn source set`(gradleVersion: GradleVersion) {
-        with(project("kt-55071-compileSharedNative-withDefaultParameters", gradleVersion = gradleVersion)) {
+        project(
+            "kt-55071-compileSharedNative-withDefaultParameters",
+            gradleVersion = gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build(":producer:publish") {
                 assertTasksExecuted(":producer:compileCommonMainKotlinMetadata")
                 assertTasksExecuted(":producer:compileSecondCommonMainKotlinMetadata")
@@ -1175,7 +1188,11 @@ open class HierarchicalMppIT : KGPBaseTest() {
     @GradleTest
     @DisplayName("KT-57531: Kotlin Native Link with cycle in dependency constraints")
     fun `test Kotlin Native Link with cycle in dependency constraints`(gradleVersion: GradleVersion) {
-        project("kt-57531-KotlinNativeLink-with-cycle-in-dependency-constraints", gradleVersion) {
+        project(
+            "kt-57531-KotlinNativeLink-with-cycle-in-dependency-constraints",
+            gradleVersion,
+            localRepoDir = defaultLocalRepo(gradleVersion)
+        ) {
             build("publish")
             build("assemble") {
                 assertTasksExecuted(":consumer:linkDebugExecutableLinuxX64")

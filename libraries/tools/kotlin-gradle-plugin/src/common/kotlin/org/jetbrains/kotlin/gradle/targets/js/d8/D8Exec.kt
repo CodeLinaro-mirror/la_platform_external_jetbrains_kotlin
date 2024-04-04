@@ -10,15 +10,15 @@ import org.gradle.api.tasks.*
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.targets.js.addWasmExperimentalArguments
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 
 @DisableCachingByDefault
 open class D8Exec : AbstractExecTask<D8Exec>(D8Exec::class.java) {
     init {
-        onlyIf {
+        this.onlyIf {
             !inputFileProperty.isPresent || inputFileProperty.asFile.map { it.exists() }.get()
         }
     }
@@ -53,7 +53,7 @@ open class D8Exec : AbstractExecTask<D8Exec>(D8Exec::class.java) {
 
     companion object {
         fun create(
-            compilation: KotlinJsCompilation,
+            compilation: KotlinJsIrCompilation,
             name: String,
             configuration: D8Exec.() -> Unit = {}
         ): TaskProvider<D8Exec> {
@@ -63,9 +63,9 @@ open class D8Exec : AbstractExecTask<D8Exec>(D8Exec::class.java) {
             return project.registerTask(
                 name
             ) {
-                it.executable = d8.requireConfigured().executablePath.absolutePath
+                it.executable = d8.requireConfigured().executable
                 it.dependsOn(d8.setupTaskProvider)
-                it.dependsOn(compilation.compileKotlinTaskProvider)
+                it.dependsOn(compilation.compileTaskProvider)
                 if (compilation.platformType == KotlinPlatformType.wasm) {
                     it.d8Args.addWasmExperimentalArguments()
                 }

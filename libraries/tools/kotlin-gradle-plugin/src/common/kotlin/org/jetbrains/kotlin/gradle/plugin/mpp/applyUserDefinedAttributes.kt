@@ -5,10 +5,14 @@
 
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
+import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinPluginLifecycle.Stage.AfterEvaluateBuildscript
-import org.jetbrains.kotlin.gradle.plugin.launchInStage
-import org.jetbrains.kotlin.gradle.utils.copyAttributes
+import org.jetbrains.kotlin.gradle.plugin.KotlinProjectSetupCoroutine
+import org.jetbrains.kotlin.gradle.plugin.await
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
+import org.jetbrains.kotlin.gradle.utils.copyAttributesTo
+import org.jetbrains.kotlin.gradle.utils.forAllTargets
 
 
 /**
@@ -16,26 +20,36 @@ import org.jetbrains.kotlin.gradle.utils.copyAttributes
  * 1. Output configurations of each target need the corresponding compilation's attributes (and, indirectly, the target's attributes)
  * 2. Resolvable configurations of each compilation need the compilation's attributes
  */
-internal fun applyUserDefinedAttributes(target: InternalKotlinTarget) {
-    target.project.launchInStage(AfterEvaluateBuildscript) {
-        target.kotlinComponents.flatMap { it.internal.usages }.forEach { usage ->
+internal val UserDefinedAttributesSetupAction = KotlinProjectSetupCoroutine {
+    AfterEvaluateBuildscript.await()
+    kotlinExtension.forAllTargets { target ->
+        target.internal.kotlinComponents.flatMap { it.internal.usages }.forEach { usage ->
             val dependencyConfiguration = target.project.configurations.findByName(usage.dependencyConfigurationName) ?: return@forEach
-            copyAttributes(usage.compilation.attributes, dependencyConfiguration.attributes)
+            usage.compilation.copyAttributesTo(
+                this@KotlinProjectSetupCoroutine,
+                dest = dependencyConfiguration.attributes
+            )
         }
 
         target.compilations.all { compilation ->
-            val compilationAttributes = compilation.attributes
-
             compilation.allOwnedConfigurationsNames
                 .mapNotNull { configurationName -> project.configurations.findByName(configurationName) }
-                .forEach { configuration -> copyAttributes(compilationAttributes, configuration.attributes) }
+                .forEach { configuration ->
+                    compilation.copyAttributesTo(
+                        this@KotlinProjectSetupCoroutine,
+                        dest = configuration
+                    )
+                }
         }
 
         // Copy to host-specific metadata elements configurations
         if (target is KotlinNativeTarget) {
             val hostSpecificMetadataElements = project.configurations.findByName(target.hostSpecificMetadataElementsConfigurationName)
             if (hostSpecificMetadataElements != null) {
-                copyAttributes(from = target.attributes, to = hostSpecificMetadataElements.attributes)
+                target.copyAttributesTo(
+                    this@KotlinProjectSetupCoroutine,
+                    dest = hostSpecificMetadataElements
+                )
             }
         }
     }
@@ -60,7 +74,7 @@ private val KotlinCompilation<*>.allOwnedConfigurationsNames
                 androidVariant.compileConfiguration.name,
                 androidVariant.runtimeConfiguration.name
             )
-            is KotlinJsCompilation -> listOfNotNull(npmAggregatedConfigurationName, publicPackageJsonConfigurationName)
+            is KotlinJsIrCompilation -> listOfNotNull(npmAggregatedConfigurationName, publicPackageJsonConfigurationName)
             else -> emptyList()
         }
 

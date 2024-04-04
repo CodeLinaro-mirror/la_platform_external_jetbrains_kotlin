@@ -7,26 +7,28 @@ package org.jetbrains.kotlin.gradle.targets.js.nodejs
 
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.file.Directory
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
-import org.jetbrains.kotlin.gradle.internal.ConfigurationPhaseAware
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
+import org.jetbrains.kotlin.gradle.targets.js.AbstractSettings
 import org.jetbrains.kotlin.gradle.targets.js.NpmVersions
-import org.jetbrains.kotlin.gradle.targets.js.npm.NpmApi
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.KotlinRootNpmResolver
 import org.jetbrains.kotlin.gradle.targets.js.npm.resolver.PACKAGE_JSON_UMBRELLA_TASK_NAME
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmCachesSetup
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonTask
-import org.jetbrains.kotlin.gradle.targets.js.yarn.Yarn
-import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockCopyTask
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockStoreTask
+import org.jetbrains.kotlin.gradle.targets.js.yarn.yarn
 import org.jetbrains.kotlin.gradle.tasks.internal.CleanableStore
+import org.jetbrains.kotlin.gradle.utils.getFile
 import org.jetbrains.kotlin.gradle.utils.property
 import java.io.File
 
 open class NodeJsRootExtension(
     val project: Project,
-) : ConfigurationPhaseAware<NodeJsEnv>() {
+) : AbstractSettings<NodeJsEnv>() {
 
     init {
         check(project.rootProject == project)
@@ -54,33 +56,75 @@ open class NodeJsRootExtension(
         project.logger.kotlinInfo("Storing cached files in $it")
     }
 
-    var installationDir by Property(gradleHome.resolve("nodejs"))
+    override var installationDir by Property(gradleHome.resolve("nodejs"))
 
-    var download by Property(true)
+    override var download by Property(true)
 
-    var nodeDownloadBaseUrl by Property("https://nodejs.org/dist")
+    @Deprecated("Use downloadBaseUrl instead", ReplaceWith("downloadBaseUrl"))
+    var nodeDownloadBaseUrl
+        get() = downloadBaseUrl
+        set(value) {
+            downloadBaseUrl = value
+        }
+
+    override var downloadBaseUrl: String? by Property("https://nodejs.org/dist")
+
+    @Deprecated("Use version instead", ReplaceWith("version"))
+    var nodeVersion
+        get() = version
+        set(value) {
+            version = value
+        }
 
     // Release schedule: https://github.com/nodejs/Release
     // Actual LTS and Current versions: https://nodejs.org/en/download/
     // Older versions and more information, e.g. V8 version inside: https://nodejs.org/en/download/releases/
-    var nodeVersion by Property("18.12.1")
+    override var version by Property("20.10.0")
 
-    var nodeCommand by Property("node")
+    override var command by Property("node")
 
-    var packageManager: NpmApi by Property(Yarn())
+    @Deprecated("Use command instead", ReplaceWith("command"))
+    var nodeCommand
+        get() = command
+        set(value) {
+            command = value
+        }
+
+    val packageManagerExtension: org.gradle.api.provider.Property<NpmApiExt> = project.objects.property()
 
     val taskRequirements: TasksRequirements
         get() = resolver.tasksRequirements
 
     lateinit var resolver: KotlinRootNpmResolver
 
-    val rootPackageDir: File = project.buildDir.resolve("js")
+    val rootPackageDirectory: Provider<Directory> = project.layout.buildDirectory.dir("js")
 
+    @Deprecated(
+        "This property is deprecated and will be removed in future. Use rootPackageDirectory instead",
+        replaceWith = ReplaceWith("rootPackageDirectory")
+    )
+    val rootPackageDir: File
+        get() = rootPackageDirectory.getFile()
+
+    val projectPackagesDirectory: Provider<Directory>
+        get() = rootPackageDirectory.map { it.dir("packages") }
+
+    @Deprecated(
+        "This property is deprecated and will be removed in future. Use projectPackagesDirectory instead",
+        replaceWith = ReplaceWith("projectPackagesDirectory")
+    )
     val projectPackagesDir: File
-        get() = rootPackageDir.resolve("packages")
+        get() = projectPackagesDirectory.getFile()
 
+    val nodeModulesGradleCacheDirectory: Provider<Directory>
+        get() = rootPackageDirectory.map { it.dir("packages_imported") }
+
+    @Deprecated(
+        "This property is deprecated and will be removed in future. Use nodeModulesGradleCacheDirectory instead",
+        replaceWith = ReplaceWith("nodeModulesGradleCacheDirectory")
+    )
     val nodeModulesGradleCacheDir: File
-        get() = rootPackageDir.resolve("packages_imported")
+        get() = nodeModulesGradleCacheDirectory.getFile()
 
     internal val platform: org.gradle.api.provider.Property<Platform> = project.objects.property<Platform>()
 
@@ -90,7 +134,7 @@ open class NodeJsRootExtension(
         val name = platform.get().name
         val architecture = platform.get().arch
 
-        val nodeDirName = "node-v$nodeVersion-$name-$architecture"
+        val nodeDirName = "node-v$version-$name-$architecture"
         val cleanableStore = CleanableStore[installationDir.absolutePath]
         val nodeDir = cleanableStore[nodeDirName].use()
         val isWindows = platform.get().isWindows()
@@ -103,20 +147,23 @@ open class NodeJsRootExtension(
 
         fun getIvyDependency(): String {
             val type = if (isWindows) "zip" else "tar.gz"
-            return "org.nodejs:node:$nodeVersion:$name-$architecture@$type"
+            return "org.nodejs:node:$version:$name-$architecture@$type"
         }
 
+        packageManagerExtension.disallowChanges()
+
         return NodeJsEnv(
+            download = download,
             cleanableStore = cleanableStore,
-            rootPackageDir = rootPackageDir,
-            nodeDir = nodeDir,
+            rootPackageDir = rootPackageDirectory.getFile(),
+            dir = nodeDir,
             nodeBinDir = nodeBinDir,
-            nodeExecutable = getExecutable("node", nodeCommand, "exe"),
+            executable = getExecutable("node", command, "exe"),
             platformName = name,
             architectureName = architecture,
             ivyDependency = getIvyDependency(),
-            downloadBaseUrl = nodeDownloadBaseUrl,
-            packageManager = packageManager
+            downloadBaseUrl = downloadBaseUrl,
+            packageManager = packageManagerExtension.get().packageManager
         )
     }
 
@@ -135,8 +182,9 @@ open class NodeJsRootExtension(
     val npmCachesSetupTaskProvider: TaskProvider<out KotlinNpmCachesSetup>
         get() = project.tasks.withType(KotlinNpmCachesSetup::class.java).named(KotlinNpmCachesSetup.NAME)
 
-    val storeYarnLockTaskProvider: TaskProvider<out YarnLockCopyTask>
-        get() = project.tasks.withType(YarnLockCopyTask::class.java).named(YarnLockCopyTask.STORE_YARN_LOCK_NAME)
+    @Deprecated("This is deprecated and will be removed. Use corresponding property from YarnRootExtension")
+    val storeYarnLockTaskProvider: TaskProvider<YarnLockStoreTask>
+        get() = project.yarn.storeYarnLockTaskProvider
 
     companion object {
         const val EXTENSION_NAME: String = "kotlinNodeJs"

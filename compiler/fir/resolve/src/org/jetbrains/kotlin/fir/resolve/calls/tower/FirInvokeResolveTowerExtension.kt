@@ -20,8 +20,11 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.coneTypeUnsafe
 import org.jetbrains.kotlin.fir.types.isExtensionFunctionType
+import org.jetbrains.kotlin.fir.types.typeApproximator
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
+import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 internal class FirInvokeResolveTowerExtension(
@@ -221,7 +224,16 @@ internal class FirInvokeResolveTowerExtension(
             }
         } else {
             if (useImplicitReceiverAsBuiltinInvokeArgument) {
-                require(explicitReceiver.type.fullyExpandedType(context.session).isExtensionFunctionType)
+                if (AbstractTypeChecker.RUN_SLOW_ASSERTIONS) {
+                    val session = context.session
+                    val fullyExpandedType = explicitReceiver.type.fullyExpandedType(session)
+                    require(
+                        (session.typeApproximator.approximateToSuperType(
+                            fullyExpandedType,
+                            TypeApproximatorConfiguration.FinalApproximationAfterResolutionAndInference
+                        ) ?: fullyExpandedType).isExtensionFunctionType
+                    )
+                }
                 manager.enqueueResolverTask {
                     task.runResolverForBuiltinInvokeExtensionWithImplicitArgument(
                         invokeFunctionInfo, explicitReceiver,
@@ -305,11 +317,13 @@ private fun BodyResolveComponents.createExplicitReceiverForInvokeByCallable(
 ): FirExpression {
     return FirPropertyAccessExpressionBuilder().apply {
         val fakeSource = info.fakeSourceForImplicitInvokeCallReceiver
-        calleeReference = FirNamedReferenceWithCandidate(
-            fakeSource,
-            symbol.callableId.callableName,
-            candidate
-        )
+        calleeReference = when {
+            candidate.isSuccessful -> FirNamedReferenceWithCandidate(fakeSource, symbol.callableId.callableName, candidate)
+            else -> FirErrorReferenceWithCandidate(
+                fakeSource, symbol.callableId.callableName, candidate,
+                createConeDiagnosticForCandidateWithError(candidate.applicability, candidate),
+            )
+        }
         dispatchReceiver = candidate.dispatchReceiverExpression()
         coneTypeOrNull = returnTypeCalculator.tryCalculateReturnType(symbol.fir).type
 
@@ -326,7 +340,7 @@ private fun BodyResolveComponents.createExplicitReceiverForInvokeByCallable(
     }.build().let {
         callCompleter.completeCall(it, ResolutionMode.ReceiverResolution)
     }.let {
-        transformQualifiedAccessUsingSmartcastInfo(it)
+        transformQualifiedAccessUsingSmartcastInfo(it, ignoreCallArguments = true)
     }
 }
 
@@ -442,6 +456,22 @@ private class InvokeFunctionResolveTask(
                 info.withReceiverAsArgument(implicitReceiverValue.receiverExpression), towerGroup,
                 ExplicitReceiverKind.DISPATCH_RECEIVER
             )
+        }
+        for ((depth, contextReceiverGroup) in towerDataElementsForName.contextReceiverGroups) {
+            val towerGroup =
+                TowerGroup
+                    .ContextReceiverGroup(depth)
+                    .InvokeExtensionWithImplicitReceiver
+                    .withGivenInvokeReceiverGroup(InvokeResolvePriority.INVOKE_EXTENSION)
+            val towerLevel = invokeReceiverValue.toMemberScopeTowerLevel()
+            // TODO: resolve for all receivers in the group, but implement the ambiguity diagnostics first. See KT-62712 and KT-69709
+            contextReceiverGroup.singleOrNull()?.let { contextReceiverValue ->
+                processLevel(
+                    towerLevel,
+                    info.withReceiverAsArgument(contextReceiverValue.receiverExpression), towerGroup,
+                    ExplicitReceiverKind.EXTENSION_RECEIVER
+                )
+            }
         }
     }
 

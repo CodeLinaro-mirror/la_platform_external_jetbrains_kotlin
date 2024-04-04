@@ -5,31 +5,70 @@
 
 package org.jetbrains.kotlin.generators.tree
 
-abstract class AbstractField : Importable {
+abstract class AbstractField<Field : AbstractField<Field>> {
 
     abstract val name: String
 
-    open val arguments = mutableListOf<Importable>()
+    abstract val typeRef: TypeRefWithNullability
 
-    abstract val nullable: Boolean
+    val nullable: Boolean
+        get() = typeRef.nullable
 
-    abstract var isVolatile: Boolean
+    var kDoc: String? = null
 
-    abstract var isFinal: Boolean
+    abstract val isVolatile: Boolean
 
-    abstract var isLateinit: Boolean
+    abstract val isFinal: Boolean
 
-    abstract var isParameter: Boolean
+    open var isLateinit: Boolean = false
+
+    abstract val isParameter: Boolean
 
     open val arbitraryImportables: MutableList<Importable> = mutableListOf()
 
-    open var optInAnnotation: ArbitraryImportable? = null
+    open var optInAnnotation: ClassRef<*>? = null
 
     abstract var isMutable: Boolean
     open val withGetter: Boolean get() = false
     open val customSetter: String? get() = null
 
+    open var customInitializationCall: String? = null
+
+    val invisibleField: Boolean
+        get() = customInitializationCall != null
+
+    var deprecation: Deprecated? = null
+
+    var visibility: Visibility = Visibility.PUBLIC
+
     var fromParent: Boolean = false
+
+    /**
+     * Whether this field can contain an element either directly or e.g. in a list.
+     */
+    open val containsElement: Boolean
+        get() = typeRef is ElementOrRef<*> || this is ListField && baseType is ElementOrRef<*>
+
+    open val defaultValueInImplementation: String? get() = null
+
+    /**
+     * @see org.jetbrains.kotlin.generators.tree.detectBaseTransformerTypes
+     */
+    var useInBaseTransformerDetection = true
+
+    /**
+     * Whether this field semantically represents a reference to a child node of the tree.
+     *
+     * This may have the effect of including or excluding this field from visiting it by visitors in the generated
+     * `acceptChildren` and `transformChildren` methods (child fields are always visited in those methods).
+     *
+     * Only has effect if [containsElement] is `true`.
+     */
+    var isChild: Boolean = true
+
+    open val overriddenTypes: MutableSet<TypeRefWithNullability> = mutableSetOf()
+
+    open fun updatePropertiesFromOverriddenField(parentField: Field, haveSameClass: Boolean) {}
 
     override fun toString(): String {
         return name
@@ -39,11 +78,35 @@ abstract class AbstractField : Importable {
         if (this === other) return true
         if (other == null) return false
         if (javaClass != other.javaClass) return false
-        other as AbstractField
+        other as AbstractField<*>
         return name == other.name
     }
 
     override fun hashCode(): Int {
         return name.hashCode()
+    }
+
+    /**
+     * Returns a copy of this field with its [typeRef] set to [newType] (if it's possible).
+     */
+    abstract fun replaceType(newType: TypeRefWithNullability): Field
+
+    /**
+     * Returns a copy of this field.
+     */
+    abstract fun copy(): Field
+
+    protected open fun updateFieldsInCopy(copy: Field) {
+        copy.kDoc = kDoc
+        copy.isLateinit = isLateinit
+        copy.arbitraryImportables += arbitraryImportables
+        copy.optInAnnotation = optInAnnotation
+        copy.isMutable = isMutable
+        copy.deprecation = deprecation
+        copy.visibility = visibility
+        copy.fromParent = fromParent
+        copy.useInBaseTransformerDetection = useInBaseTransformerDetection
+        copy.isChild = isChild
+        copy.overriddenTypes += overriddenTypes
     }
 }

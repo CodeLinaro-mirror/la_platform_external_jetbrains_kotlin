@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 description = "Kotlin Mock Runtime for Tests"
 
 plugins {
@@ -22,15 +20,6 @@ dependencies {
     builtins(project(":core:builtins"))
 }
 
-sourceSets {
-    "main" {
-        java.apply {
-            srcDir(File(buildDir, "src"))
-        }
-    }
-    "test" {}
-}
-
 val copySources by task<Sync> {
     val stdlibProjectDir = file("$rootDir/libraries/stdlib/jvm")
 
@@ -50,10 +39,15 @@ val copySources by task<Sync> {
                  "kotlin/enums/EnumEntries.kt",
                  "kotlin/collections/AbstractList.kt",
                  "kotlin/io/Serializable.kt")
-    into(File(buildDir, "src"))
+    into(layout.buildDirectory.dir("src"))
 }
 
-
+sourceSets {
+    "main" {
+        java.srcDir(copySources)
+    }
+    "test" {}
+}
 
 tasks.compileKotlin {
     dependsOn(copySources)
@@ -91,6 +85,6 @@ publishing {
     }
 
     repositories {
-        maven("${rootProject.buildDir}/internal/repo")
+        maven(rootProject.layout.buildDirectory.dir("internal/repo"))
     }
 }

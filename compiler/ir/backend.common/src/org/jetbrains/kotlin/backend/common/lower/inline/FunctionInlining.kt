@@ -42,28 +42,23 @@ fun IrExpression.isAdaptedFunctionReference() =
     this is IrBlock && this.origin == IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE
 
 interface InlineFunctionResolver {
-    fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction
-    fun getFunctionSymbol(irFunction: IrFunction): IrFunctionSymbol
+    fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction = symbol.owner
     fun shouldExcludeFunctionFromInlining(symbol: IrFunctionSymbol): Boolean {
         return Symbols.isLateinitIsInitializedPropertyGetter(symbol) || Symbols.isTypeOfIntrinsic(symbol)
     }
-}
 
-fun IrFunction.isTopLevelInPackage(name: String, packageName: String): Boolean {
-    if (name != this.name.asString()) return false
-
-    val containingDeclaration = parent as? IrPackageFragment ?: return false
-    val packageFqName = containingDeclaration.packageFqName.asString()
-    return packageName == packageFqName
+    companion object {
+        val TRIVIAL = object : InlineFunctionResolver {}
+    }
 }
 
 fun IrFunction.isBuiltInSuspendCoroutineUninterceptedOrReturn(): Boolean =
     isTopLevelInPackage(
         "suspendCoroutineUninterceptedOrReturn",
-        StandardNames.COROUTINES_INTRINSICS_PACKAGE_FQ_NAME.asString()
+        StandardNames.COROUTINES_INTRINSICS_PACKAGE_FQ_NAME
     )
 
-open class DefaultInlineFunctionResolver(open val context: CommonBackendContext) : InlineFunctionResolver {
+open class InlineFunctionResolverReplacingCoroutineIntrinsics(open val context: CommonBackendContext) : InlineFunctionResolver {
     override fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction {
         val function = symbol.owner
         // TODO: Remove these hacks when coroutine intrinsics are fixed.
@@ -74,25 +69,20 @@ open class DefaultInlineFunctionResolver(open val context: CommonBackendContext)
             symbol == context.ir.symbols.coroutineContextGetter ->
                 context.ir.symbols.coroutineGetContext.owner
 
-            else -> (symbol.owner as? IrSimpleFunction)?.resolveFakeOverride() ?: symbol.owner
+            else -> function
         }
-    }
-
-    override fun getFunctionSymbol(irFunction: IrFunction): IrFunctionSymbol {
-        return irFunction.symbol
     }
 }
 
 class FunctionInlining(
     val context: CommonBackendContext,
-    private val inlineFunctionResolver: InlineFunctionResolver = DefaultInlineFunctionResolver(context),
+    private val inlineFunctionResolver: InlineFunctionResolver = InlineFunctionResolver.TRIVIAL,
     private val innerClassesSupport: InnerClassesSupport? = null,
     private val insertAdditionalImplicitCasts: Boolean = false,
     private val alwaysCreateTemporaryVariablesForArguments: Boolean = false,
     private val regenerateInlinedAnonymousObjects: Boolean = false,
-    private val inlineArgumentsWithTheirOriginalTypeAndOffset: Boolean = false,
+    private val inlineArgumentsWithOriginalOffset: Boolean = false,
     private val allowExternalInlining: Boolean = false,
-    private val useTypeParameterUpperBound: Boolean = false
 ) : IrElementTransformerVoidWithContext(), BodyLoweringPass {
     private var containerScope: ScopeWithIr? = null
 
@@ -117,7 +107,8 @@ class FunctionInlining(
         if (!callee.needsInlining || inlineFunctionResolver.shouldExcludeFunctionFromInlining(callee.symbol))
             return expression
 
-        val actualCallee = inlineFunctionResolver.getFunctionDeclaration(callee.symbol)
+        val target = (callee as? IrSimpleFunction)?.resolveFakeOverride() ?: callee
+        val actualCallee = inlineFunctionResolver.getFunctionDeclaration(target.symbol)
         if (actualCallee.body == null) {
             return expression
         }
@@ -131,7 +122,7 @@ class FunctionInlining(
             ?: containerScope?.irElement as? IrDeclarationParent
             ?: (containerScope?.irElement as? IrDeclaration)?.parent
 
-        val inliner = Inliner(expression, actualCallee, currentScope ?: containerScope!!, parent, context)
+        val inliner = Inliner(expression, actualCallee, target, currentScope ?: containerScope!!, parent, context)
         return inliner.inline().markAsRegenerated()
     }
 
@@ -157,6 +148,7 @@ class FunctionInlining(
     private inner class Inliner(
         val callSite: IrFunctionAccessExpression,
         val callee: IrFunction,
+        val originalCallee: IrFunction,
         val currentScope: ScopeWithIr,
         val parent: IrDeclarationParent?,
         val context: CommonBackendContext
@@ -171,12 +163,12 @@ class FunctionInlining(
                 (0 until callSite.typeArgumentsCount).associate {
                     typeParameters[it].symbol to callSite.getTypeArgument(it)
                 }
-            DeepCopyIrTreeWithSymbolsForInliner(typeArguments, parent)
+            DeepCopyIrTreeWithSymbolsForInliner(typeArguments, parent, NonReifiedTypeParameterRemappingMode.ERASE)
         }
 
         val substituteMap = mutableMapOf<IrValueParameter, IrExpression>()
 
-        fun inline() = inlineFunction(callSite, callee, inlineFunctionResolver.getFunctionSymbol(callee).owner, true)
+        fun inline() = inlineFunction(callSite, callee, originalCallee, true)
 
         private fun <E : IrElement> E.copy(): E {
             @Suppress("UNCHECKED_CAST")
@@ -284,7 +276,7 @@ class FunctionInlining(
 
                 return when {
                     functionArgument is IrFunctionReference ->
-                        inlineFunctionReference(expression, functionArgument, functionArgument.symbol.owner)
+                        inlineFunctionReference(expression, functionArgument, functionArgument.symbol)
 
                     functionArgument is IrPropertyReference && functionArgument.field != null -> inlineField(expression, functionArgument)
 
@@ -316,7 +308,7 @@ class FunctionInlining(
 
             private fun inlinePropertyReference(expression: IrCall, propertyReference: IrPropertyReference): IrExpression {
                 val getterCall = IrCallImpl.fromSymbolOwner(
-                    expression.startOffset, expression.endOffset, expression.type, propertyReference.getter!!,
+                    expression.startOffset, expression.endOffset, propertyReference.getter!!.owner.returnType, propertyReference.getter!!,
                     origin = INLINED_FUNCTION_REFERENCE
                 )
 
@@ -326,14 +318,16 @@ class FunctionInlining(
                 }
 
                 val receiverFromField = propertyReference.dispatchReceiver ?: propertyReference.extensionReceiver
-                getterCall.dispatchReceiver = getterCall.symbol.owner.dispatchReceiverParameter?.let {
-                    receiverFromField ?: tryToGetArg(0)
+                getterCall.dispatchReceiver = getterCall.symbol.owner.dispatchReceiverParameter?.let { dispatchReceiverParam ->
+                    val dispatchReceiverArgument = receiverFromField ?: tryToGetArg(0)
+                    dispatchReceiverArgument?.doImplicitCastIfNeededTo(dispatchReceiverParam.type)
                 }
-                getterCall.extensionReceiver = getterCall.symbol.owner.extensionReceiverParameter?.let {
-                    when (getterCall.symbol.owner.dispatchReceiverParameter) {
+                getterCall.extensionReceiver = getterCall.symbol.owner.extensionReceiverParameter?.let { extensionReceiverParam ->
+                    val extensionReceiverArgument = when (getterCall.symbol.owner.dispatchReceiverParameter) {
                         null -> receiverFromField ?: tryToGetArg(0)
                         else -> tryToGetArg(if (receiverFromField != null) 0 else 1)
                     }
+                    extensionReceiverArgument?.doImplicitCastIfNeededTo(extensionReceiverParam.type)
                 }
 
                 return wrapInStubFunction(super.visitExpression(getterCall), expression, propertyReference)
@@ -385,6 +379,20 @@ class FunctionInlining(
             fun inlineFunctionReference(
                 irCall: IrCall,
                 irFunctionReference: IrFunctionReference,
+                inlinedFunctionSymbol: IrFunctionSymbol,
+            ): IrExpression {
+                val inlinedFunction = inlinedFunctionSymbol.owner
+                return inlineFunctionReference(
+                    irCall, irFunctionReference,
+                    if (inlinedFunction.needsInlining)
+                        inlineFunctionResolver.getFunctionDeclaration(inlinedFunction.symbol)
+                    else inlinedFunction
+                )
+            }
+
+            fun inlineFunctionReference(
+                irCall: IrCall,
+                irFunctionReference: IrFunctionReference,
                 inlinedFunction: IrFunction
             ): IrExpression {
                 irFunctionReference.transformChildrenVoid(this)
@@ -412,8 +420,8 @@ class FunctionInlining(
                     is IrConstructor -> {
                         val classTypeParametersCount = inlinedFunction.parentAsClass.typeParameters.size
                         IrConstructorCallImpl.fromSymbolOwner(
-                            if (inlineArgumentsWithTheirOriginalTypeAndOffset) irFunctionReference.startOffset else irCall.startOffset,
-                            if (inlineArgumentsWithTheirOriginalTypeAndOffset) irFunctionReference.endOffset else irCall.endOffset,
+                            if (inlineArgumentsWithOriginalOffset) irFunctionReference.startOffset else irCall.startOffset,
+                            if (inlineArgumentsWithOriginalOffset) irFunctionReference.endOffset else irCall.endOffset,
                             functionReferenceReturnType,
                             inlinedFunction.symbol,
                             classTypeParametersCount,
@@ -422,8 +430,8 @@ class FunctionInlining(
                     }
                     is IrSimpleFunction ->
                         IrCallImpl(
-                            if (inlineArgumentsWithTheirOriginalTypeAndOffset) irFunctionReference.startOffset else irCall.startOffset,
-                            if (inlineArgumentsWithTheirOriginalTypeAndOffset) irFunctionReference.endOffset else irCall.endOffset,
+                            if (inlineArgumentsWithOriginalOffset) irFunctionReference.startOffset else irCall.startOffset,
+                            if (inlineArgumentsWithOriginalOffset) irFunctionReference.endOffset else irCall.endOffset,
                             functionReferenceReturnType,
                             inlinedFunction.symbol,
                             inlinedFunction.typeParameters.size,
@@ -674,7 +682,9 @@ class FunctionInlining(
                             startOffset = if (it.isDefaultArg) irExpression.startOffset else UNDEFINED_OFFSET,
                             endOffset = if (it.isDefaultArg) irExpression.startOffset else UNDEFINED_OFFSET,
                             irExpression = irExpression,
-                            irType = if (inlineArgumentsWithTheirOriginalTypeAndOffset) it.parameter.getOriginalType() else irExpression.type,
+                            // If original type of parameter is T, then `it.parameter.type` is T after substitution or erasure,
+                            // depending on whether T reified or not.
+                            irType = it.parameter.type,
                             nameHint = callee.symbol.owner.name.asStringStripSpecialMarkers() + "_" + it.parameter.name.asStringStripSpecialMarkers(),
                             isMutable = false
                         )
@@ -718,50 +728,6 @@ class FunctionInlining(
             if (this.parent !is IrFunction) return this
             val original = (this.parent as IrFunction).originalFunction
             return original.allParameters.singleOrNull { it.name == this.name && it.startOffset == this.startOffset } ?: this
-        }
-
-        // In short this is needed for `kt44429` test. We need to get original generic type to trick type system on JVM backend.
-        // Probably this it is relevant only for numeric types in JVM.
-        private fun IrValueParameter.getOriginalType(): IrType {
-            if (this.parent !is IrFunction) return type
-            val copy = this.parent as IrFunction // contains substituted type parameters with corresponding type arguments
-            val original = copy.originalFunction // contains original unsubstituted type parameters
-
-            // Note 1: the following method will replace super types fow the owner type parameter. So in every other IrSimpleType that
-            // refers this type parameter we will see substituted values. This should not be a problem because earlier we replace all type
-            // parameters with corresponding type arguments.
-            // Note 2: this substitution can be dropped if we will learn how to copy IR function and leave its type parameters as they are.
-            // But this sounds a little complicated.
-            fun IrType.substituteSuperTypes(): IrType {
-                val typeClassifier = this.classifierOrNull?.owner as? IrTypeParameter ?: return this
-                typeClassifier.superTypes = original.typeParameters[typeClassifier.index].superTypes.map {
-                    val superTypeClassifier = it.classifierOrNull?.owner as? IrTypeParameter ?: return@map it
-                    copy.typeParameters[superTypeClassifier.index].defaultType.substituteSuperTypes()
-                }
-                return this
-            }
-
-            fun IrValueParameter?.getTypeIfFromTypeParameter(): IrType? {
-                val typeClassifier = this?.type?.classifierOrNull?.owner as? IrTypeParameter ?: return null
-                if (typeClassifier.parent != this.parent) return null
-
-                // We take type parameter from copied callee and not from original because we need an actual copy. Without this copy,
-                // in case of recursive call, we can get a situation there the same type parameter will be mapped on different type arguments.
-                // (see compiler/testData/codegen/boxInline/complex/use.kt test file)
-                val newTypeParameter = copy.typeParameters[typeClassifier.index].defaultType.substituteSuperTypes()
-                return if (useTypeParameterUpperBound) typeClassifier.firstRealUpperBound() else newTypeParameter
-            }
-
-            return when (this) {
-                copy.dispatchReceiverParameter -> original.dispatchReceiverParameter?.getTypeIfFromTypeParameter()
-                    ?: copy.dispatchReceiverParameter!!.type
-                copy.extensionReceiverParameter -> original.extensionReceiverParameter?.getTypeIfFromTypeParameter()
-                    ?: copy.extensionReceiverParameter!!.type
-                else -> copy.valueParameters.first { it == this }.let { valueParameter ->
-                    original.valueParameters.getOrNull(valueParameter.index)?.getTypeIfFromTypeParameter()
-                        ?: valueParameter.type
-                }
-            }
         }
 
         private fun IrTypeParameter?.firstRealUpperBound(): IrType {
@@ -861,7 +827,9 @@ class FunctionInlining(
                 irExpression = IrBlockImpl(
                     if (isDefaultArg) variableInitializer.startOffset else UNDEFINED_OFFSET,
                     if (isDefaultArg) variableInitializer.endOffset else UNDEFINED_OFFSET,
-                    if (inlineArgumentsWithTheirOriginalTypeAndOffset) parameter.getOriginalType() else variableInitializer.type,
+                    // If original type of parameter is T, then `parameter.type` is T after substitution or erasure,
+                    // depending on whether T reified or not.
+                    parameter.type
                 ).apply {
                     statements.add(variableInitializer)
                 },
@@ -903,6 +871,10 @@ class FunctionInlining(
     }
 }
 
-object INLINED_FUNCTION_REFERENCE : IrStatementOriginImpl("INLINED_FUNCTION_REFERENCE")
-object INLINED_FUNCTION_ARGUMENTS : IrStatementOriginImpl("INLINED_FUNCTION_ARGUMENTS")
-object INLINED_FUNCTION_DEFAULT_ARGUMENTS : IrStatementOriginImpl("INLINED_FUNCTION_DEFAULT_ARGUMENTS")
+val INLINED_FUNCTION_REFERENCE by IrStatementOriginImpl
+val INLINED_FUNCTION_ARGUMENTS by IrStatementOriginImpl
+val INLINED_FUNCTION_DEFAULT_ARGUMENTS by IrStatementOriginImpl
+
+enum class NonReifiedTypeParameterRemappingMode {
+    LEAVE_AS_IS, SUBSTITUTE, ERASE
+}

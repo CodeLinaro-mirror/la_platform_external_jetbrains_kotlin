@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.cgen.*
-import org.jetbrains.kotlin.backend.konan.descriptors.allOverriddenFunctions
 import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.backend.konan.ir.getSuperClassNotAny
@@ -34,6 +33,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.NativeStandardInteropNames.objCActionClassId
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.fileUtils.descendantRelativeTo
 import java.io.File
@@ -151,7 +151,7 @@ private class BackendChecker(
                     }
 
     private fun checkCanGenerateActionImp(function: IrSimpleFunction) {
-        val action = "@${InteropFqNames.objCAction}"
+        val action = "@${objCActionClassId.asFqNameString()}"
 
         function.extensionReceiverParameter?.let {
             reportError(it, "$action method must not have extension receiver")
@@ -208,7 +208,7 @@ private class BackendChecker(
 
     private fun checkKotlinObjCClass(irClass: IrClass) {
         for (declaration in irClass.declarations) {
-            if (declaration is IrSimpleFunction && declaration.annotations.hasAnnotation(InteropFqNames.objCAction))
+            if (declaration is IrSimpleFunction && declaration.annotations.hasAnnotation(objCActionClassId.asSingleFqName()))
                 checkCanGenerateActionImp(declaration)
             if (declaration is IrProperty && declaration.annotations.hasAnnotation(InteropFqNames.objCOutlet))
                 checkCanGenerateOutletSetterImp(declaration)
@@ -301,16 +301,17 @@ private class BackendChecker(
                 delegatingCallConstructingClass.isExternalObjCClass()) {
             // Calling super constructor from Kotlin Objective-C class.
 
-            val initMethod = expression.symbol.owner.getObjCInitMethod()!!
+            expression.symbol.owner.getObjCInitMethod()?.let { initMethod ->
 
-            if (!expression.symbol.owner.objCConstructorIsDesignated())
-                reportError(expression, "Unable to call non-designated initializer as super constructor")
+                if (!expression.symbol.owner.objCConstructorIsDesignated())
+                    reportError(expression, "Unable to call non-designated initializer as super constructor")
 
-            checkCanGenerateObjCCall(
-                    method = initMethod,
-                    call = expression,
-                    arguments = initMethod.valueParameters.map { expression.getValueArgument(it.index) }
-            )
+                checkCanGenerateObjCCall(
+                        method = initMethod,
+                        call = expression,
+                        arguments = initMethod.valueParameters.map { expression.getValueArgument(it.index) }
+                )
+            }
         }
     }
 
@@ -335,6 +336,7 @@ private class BackendChecker(
     }
 
     override fun visitField(declaration: IrField) {
+        super.visitField(declaration)
         if (declaration.isFakeOverride) return // Can't happen now, just trying to be future-proof here.
 
         val parent = declaration.parent

@@ -17,7 +17,7 @@ dependencies {
 
     compileOnly(intellijCore())
     compileOnly(libs.guava)
-    compileOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
+    compileOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
 
     jflexPath(commonDependency("org.jetbrains.intellij.deps.jflex", "jflex"))
 }
@@ -31,7 +31,7 @@ sourceSets {
 
 ant.importBuild("buildLexer.xml")
 
-ant.properties["builddir"] = buildDir.absolutePath
+ant.properties["builddir"] = layout.buildDirectory.get().asFile.absolutePath
 
 tasks.findByName("lexer")!!.apply {
     doFirst {

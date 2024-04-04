@@ -29,6 +29,7 @@ dependencies {
     testApi(project(":compiler:fir:checkers:checkers.jvm"))
     testApi(project(":compiler:fir:checkers:checkers.js"))
     testApi(project(":compiler:fir:checkers:checkers.native"))
+    testApi(project(":compiler:fir:checkers:checkers.wasm"))
     testApi(project(":compiler:fir:java"))
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:ir.ir2cfg"))
@@ -50,7 +51,7 @@ dependencies {
     testCompileOnly(project(":plugins:android-extensions-compiler"))
     testApi(projectTests(":generators:test-generator"))
     testApi(projectTests(":compiler:tests-compiler-utils"))
-    testApi(project(":kotlin-test:kotlin-test-jvm"))
+    testApi(kotlinTest())
     testApi(project(":kotlin-scripting-compiler-impl"))
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(libs.junit4) // for ComparisonFailure
@@ -76,7 +77,6 @@ dependencies {
     testApi(intellijJavaRt()) // for FileComparisonFailure
 
     testImplementation(libs.guava)
-    testImplementation(commonDependency("org.jetbrains.intellij.deps:trove4j"))
     testImplementation(commonDependency("org.jetbrains.intellij.deps:asm-all"))
     testImplementation(commonDependency("org.jetbrains.intellij.deps:log4j"))
     testImplementation(commonDependency("org.jetbrains.intellij.deps:jdom"))
@@ -87,7 +87,7 @@ dependencies {
 }
 
 optInToExperimentalCompilerApi()
-optInToIrSymbolInternals()
+optInToUnsafeDuringIrConstructionAPI()
 
 sourceSets {
     "main" { }

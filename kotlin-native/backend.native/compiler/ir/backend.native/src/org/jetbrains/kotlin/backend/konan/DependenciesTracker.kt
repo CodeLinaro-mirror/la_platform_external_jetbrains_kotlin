@@ -6,12 +6,10 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.utils.atMostOne
-import org.jetbrains.kotlin.backend.konan.descriptors.isInteropLibrary
 import org.jetbrains.kotlin.backend.konan.ir.isFromInteropLibrary
 import org.jetbrains.kotlin.backend.konan.llvm.FunctionOrigin
 import org.jetbrains.kotlin.backend.konan.llvm.llvmSymbolOrigin
 import org.jetbrains.kotlin.backend.konan.llvm.standardLlvmSymbolsOrigin
-import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.konan.library.KonanLibrary
@@ -21,6 +19,7 @@ import org.jetbrains.kotlin.library.metadata.CurrentKlibModuleOrigin
 import org.jetbrains.kotlin.library.metadata.DeserializedKlibModuleOrigin
 import org.jetbrains.kotlin.library.metadata.resolver.TopologicalLibraryOrder
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.library.metadata.isInteropLibrary
 
 interface DependenciesTracker {
     sealed class DependencyKind {
@@ -194,7 +193,7 @@ internal class DependenciesTrackerImpl(
                         }
                     }
 
-                    if (filesUsed.isEmpty()) {
+                    if (filesUsed.isEmpty() || library in config.resolve.includedLibraries) {
                         // This is the case when we depend on the whole module rather than on a number of files.
                         moduleDependencies.add(library)
                         addAllDependencies(cache)

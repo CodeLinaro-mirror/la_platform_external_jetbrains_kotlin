@@ -53,15 +53,9 @@ interface VisibilityPolicy {
     }
 }
 
-val IrDeclaration.parentsWithSelf: Sequence<IrDeclarationParent>
-    get() = generateSequence(this as? IrDeclarationParent) { (it as? IrDeclaration)?.parent }
+val BOUND_VALUE_PARAMETER by IrDeclarationOriginImpl
 
-val IrDeclaration.parents: Sequence<IrDeclarationParent>
-    get() = generateSequence(parent) { (it as? IrDeclaration)?.parent }
-
-object BOUND_VALUE_PARAMETER : IrDeclarationOriginImpl("BOUND_VALUE_PARAMETER")
-
-object BOUND_RECEIVER_PARAMETER : IrDeclarationOriginImpl("BOUND_RECEIVER_PARAMETER")
+val BOUND_RECEIVER_PARAMETER by IrDeclarationOriginImpl
 
 /*
   Local functions raised in LocalDeclarationLowering continue to refer to
@@ -78,7 +72,8 @@ class LocalDeclarationsLowering(
     val suggestUniqueNames: Boolean = true, // When `true` appends a `$#index` suffix to lifted declaration names
     val compatibilityModeForInlinedLocalDelegatedPropertyAccessors: Boolean = false, // Keep old names because of KT-49030
     val forceFieldsForInlineCaptures: Boolean = false, // See `LocalClassContext`
-    private val postLocalDeclarationLoweringCallback: ((IntermediateDatastructures) -> Unit)? = null
+    private val postLocalDeclarationLoweringCallback: ((IntermediateDatastructures) -> Unit)? = null,
+    private val getConstructorsThatCouldCaptureParamsWithoutFieldCreating: IrClass.() -> Iterable<IrConstructor> = { listOfNotNull(primaryConstructor) }
 ) :
     BodyLoweringPass {
 
@@ -86,11 +81,13 @@ class LocalDeclarationsLowering(
         runOnFilePostfix(irFile)
     }
 
-    object DECLARATION_ORIGIN_FIELD_FOR_CAPTURED_VALUE :
-        IrDeclarationOriginImpl("FIELD_FOR_CAPTURED_VALUE", isSynthetic = true)
+    companion object {
+        val DECLARATION_ORIGIN_FIELD_FOR_CAPTURED_VALUE =
+            IrDeclarationOriginImpl("FIELD_FOR_CAPTURED_VALUE", isSynthetic = true)
 
-    object DECLARATION_ORIGIN_FIELD_FOR_CROSSINLINE_CAPTURED_VALUE :
-        IrDeclarationOriginImpl("FIELD_FOR_CROSSINLINE_CAPTURED_VALUE", isSynthetic = true)
+        val DECLARATION_ORIGIN_FIELD_FOR_CROSSINLINE_CAPTURED_VALUE =
+            IrDeclarationOriginImpl("FIELD_FOR_CROSSINLINE_CAPTURED_VALUE", isSynthetic = true)
+    }
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
         LocalDeclarationsTransformer(irBody, container).lowerLocalDeclarations()
@@ -342,6 +339,16 @@ class LocalDeclarationsLowering(
                     visitMember(declaration) ?: super.visitFunction(declaration)
                 }
 
+            override fun visitAnonymousInitializer(declaration: IrAnonymousInitializer): IrStatement =
+                visitWithTheSingleConstructorContext(declaration)
+                    ?: visitMember(declaration)
+                    ?: super.visitAnonymousInitializer(declaration)
+
+            override fun visitField(declaration: IrField): IrStatement =
+                visitWithTheSingleConstructorContext(declaration)
+                    ?: visitMember(declaration)
+                    ?: super.visitField(declaration)
+
             private fun visitMember(declaration: IrDeclaration): IrStatement? =
                 if (localContext is LocalClassContext && declaration.parent == localContext.declaration) {
                     val classMemberLocalContext = LocalClassMemberContext(declaration, localContext)
@@ -349,6 +356,15 @@ class LocalDeclarationsLowering(
                 } else {
                     null
                 }
+
+            private fun visitWithTheSingleConstructorContext(declaration: IrDeclaration): IrStatement? {
+                return if (localContext is LocalClassContext && declaration.parent == localContext.declaration) {
+                    val constructorContext = localContext.constructorContext ?: return null
+                    declaration.apply { transformChildrenVoid(FunctionBodiesRewriter(constructorContext)) }
+                } else {
+                    null
+                }
+            }
 
             override fun visitConstructor(declaration: IrConstructor): IrStatement {
                 // Body is transformed separately. See loop over constructors in rewriteDeclarations().
@@ -583,8 +599,14 @@ class LocalDeclarationsLowering(
                 rewriteFunctionBody(it.declaration, it)
             }
 
-            localClassConstructors.values.forEach {
-                rewriteFunctionBody(it.declaration, it)
+            localClassConstructors.values.forEach { constructorContext ->
+                rewriteFunctionBody(constructorContext.declaration, constructorContext)
+
+                if (!constructorContext.declaration.isPrimary) return@forEach
+
+                constructorContext.declaration.constructedClass.declarations
+                    .filterIsInstance<IrAnonymousInitializer>()
+                    .forEach { rewriteFunctionBody(it, constructorContext) }
             }
 
             localClasses.values.forEach {
@@ -1055,8 +1077,10 @@ class LocalDeclarationsLowering(
                     // TODO: this should ideally run after initializers are added to constructors, but that'd place
                     //   other restrictions on IR (e.g. after the initializers are moved you can no longer create fields
                     //   with initializers) which makes that hard to implement.
-                    val constructorContext = declaration.constructors.mapNotNull { localClassConstructors[it] }
-                        .singleOrNull { it.declaration.delegationKind(context.irBuiltIns) == ConstructorDelegationKind.CALLS_SUPER }
+                    val constructorContext = declaration.getConstructorsThatCouldCaptureParamsWithoutFieldCreating()
+                        .mapNotNull { localClassConstructors[it] }
+                        .singleOrNull()
+
                     localClasses[declaration] = LocalClassContext(declaration, data.inInlineFunctionScope, constructorContext)
                 }
 
@@ -1076,3 +1100,8 @@ class LocalDeclarationsLowering(
 
 // Local inner classes capture anything through outer
 internal fun IrClass.isLocalNotInner(): Boolean = visibility == DescriptorVisibilities.LOCAL && !isInner
+
+// FIXME: This is used by Anvil compiler plugin, remove after Anvil update
+@Deprecated("Moved to IR Utils", level = DeprecationLevel.HIDDEN)
+val IrDeclaration.parents: Sequence<IrDeclarationParent>
+    get() = generateSequence(parent) { (it as? IrDeclaration)?.parent }

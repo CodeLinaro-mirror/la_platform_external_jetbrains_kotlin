@@ -20,20 +20,26 @@ object CommonKLibResolver {
     fun resolve(
         libraries: Collection<String>,
         logger: Logger,
-        zipAccessor: ZipFileSystemAccessor? = null
+        zipAccessor: ZipFileSystemAccessor? = null,
+        lenient: Boolean = false,
+        knownIrProviders: List<String> = listOf(),
     ): KotlinLibraryResolveResult =
         resolveWithoutDependencies(
             libraries,
             logger,
-            zipAccessor
+            zipAccessor,
+            lenient,
+            knownIrProviders,
         ).resolveWithDependencies()
 
     fun resolveWithoutDependencies(
         libraries: Collection<String>,
         logger: Logger,
-        zipAccessor: ZipFileSystemAccessor?
+        zipAccessor: ZipFileSystemAccessor?,
+        lenient: Boolean = false,
+        knownIrProviders: List<String> = listOf(),
     ): KLibResolution {
-        val unresolvedLibraries = libraries.map { UnresolvedLibrary(it, null) }
+        val unresolvedLibraries = libraries.map { UnresolvedLibrary(it, null, lenient) }
         val libraryAbsolutePaths = libraries.map { File(it).absolutePath }
         // Configure the resolver to only work with absolute paths for now.
         val libraryResolver = KLibResolverHelper(
@@ -43,7 +49,8 @@ object CommonKLibResolver {
             localKotlinDir = null,
             skipCurrentDir = false,
             logger = logger,
-            zipAccessor = zipAccessor
+            zipAccessor = zipAccessor,
+            knownIrProviders = knownIrProviders,
         ).libraryResolver()
 
         return KLibResolution(
@@ -76,7 +83,8 @@ private class KLibResolverHelper(
     localKotlinDir: String?,
     skipCurrentDir: Boolean,
     logger: Logger,
-    private val zipAccessor: ZipFileSystemAccessor?
+    private val zipAccessor: ZipFileSystemAccessor?,
+    knownIrProviders: List<String>,
 ) : KotlinLibraryProperResolverWithAttributes<KotlinLibrary>(
     repositories,
     directLibs,
@@ -84,7 +92,7 @@ private class KLibResolverHelper(
     localKotlinDir,
     skipCurrentDir,
     logger,
-    emptyList()
+    knownIrProviders,
 ) {
     // Stick with the default KotlinLibrary for now.
     override fun libraryComponentBuilder(file: File, isDefault: Boolean) = createKotlinLibraryComponents(file, isDefault, zipAccessor)

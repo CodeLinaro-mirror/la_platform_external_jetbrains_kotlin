@@ -65,7 +65,15 @@ the Kotlin IntelliJ IDEA plugin:
       - License: Apache 2 ([license/third_party/gwt_license.txt][gwt])
       - Origin: Derived from GWT, (C) 2007-08 Google Inc.
 
- - Path: libraries/stdlib/unsigned/src/kotlin/UnsignedUtils.kt
+ - Path: libraries/stdlib/js/src/kotlin/UnsignedJs.kt
+      - License: Apache 2 ([license/third_party/guava_license.txt][guava])
+      - Origin: Derived from Guava's UnsignedLongs, (C) 2011 The Guava Authors
+
+ - Path: libraries/stdlib/jvm/src/kotlin/util/UnsignedJVM.kt
+      - License: Apache 2 ([license/third_party/guava_license.txt][guava])
+      - Origin: Derived from Guava's UnsignedLongs, (C) 2011 The Guava Authors
+
+ - Path: kotlin-native/runtime/src/main/kotlin/kotlin/Unsigned.kt
       - License: Apache 2 ([license/third_party/guava_license.txt][guava])
       - Origin: Derived from Guava's UnsignedLongs, (C) 2011 The Guava Authors
 
@@ -81,13 +89,9 @@ the Kotlin IntelliJ IDEA plugin:
       - License: Apache 2 ([license/third_party/gwt_license.txt][gwt])
       - Origin: Derived from GWT, (C) 2007-08 Google Inc.
 
- - Path: libraries/stdlib/js-v1/src/js/long.js
+ - Path: libraries/stdlib/js/runtime/longJs.kt
       - License: Apache 2 ([license/third_party/closure-compiler_LICENSE.txt][closure-compiler])
       - Origin: Google Closure Library, Copyright 2009 The Closure Library Authors
-
- - Path: libraries/stdlib/js-v1/src/js/polyfills.js
-      - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
-      - Origin: Derived from boost special math functions, Copyright Eric Ford & Hubert Holin 2001.
 
  - Path: libraries/stdlib/js/src/kotlin/js/math.polyfills.kt
       - License: Boost Software License 1.0 ([license/third_party/boost_LICENSE.txt][boost])
@@ -96,6 +100,10 @@ the Kotlin IntelliJ IDEA plugin:
  - Path: libraries/stdlib/wasm/internal/kotlin/wasm/internal/Number2String.kt
       - License: Apache 2 ([license/third_party/assemblyscript_license.txt][assemblyscript])
       - Origin: Derived from assemblyscript standard library
+
+ - Path: libraries/tools/kotlin-power-assert
+      - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
+      - Origin: Copyright (C) 2020-2023 Brian Norman
 
  - Path: plugins/lint/android-annotations
       - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
@@ -112,6 +120,10 @@ the Kotlin IntelliJ IDEA plugin:
  - Path: plugins/lint/lint-idea
       - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
       - Origin: Copyright (C) 2011-15 The Android Open Source Project
+
+ - Path: plugins/power-assert
+      - License: Apache 2 ([license/third_party/aosp_license.txt][aosp])
+      - Origin: Copyright (C) 2020-2023 Brian Norman
           
  - Path: wasm/ir/src/org/jetbrains/kotlin/wasm/ir/convertors
       - License: MIT ([license/third_party/asmble_license.txt][asmble])

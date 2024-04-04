@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCallOrigin
 import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
 import org.jetbrains.kotlin.fir.resolve.DoubleColonLHS
+import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.name.Name
@@ -28,6 +29,7 @@ data class CallInfo(
     override val explicitReceiver: FirExpression?,
     override val argumentList: FirArgumentList,
     override val isImplicitInvoke: Boolean,
+    val isUsedAsGetClassReceiver: Boolean,
 
     val typeArguments: List<FirTypeProjection>,
     val session: FirSession,
@@ -36,10 +38,13 @@ data class CallInfo(
 
     val candidateForCommonInvokeReceiver: Candidate? = null,
 
-    // Four properties for callable references only
+    val resolutionMode: ResolutionMode,
+
+    // Five properties for callable references only
     val expectedType: ConeKotlinType? = null,
     val outerCSBuilder: ConstraintSystemBuilder? = null,
     val lhs: DoubleColonLHS? = null,
+    val hasSyntheticOuterCall: Boolean = false,
     val origin: FirFunctionCallOrigin = FirFunctionCallOrigin.Regular,
 ) : AbstractCallInfo() {
     val arguments: List<FirExpression> get() = argumentList.arguments

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.kapt3.test.runners;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
-import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
@@ -20,7 +19,6 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("plugins/kapt3/kapt3-compiler/testData/kotlinRunner")
 @TestDataPath("$PROJECT_ROOT")
-@Tag("IgnoreJDK11")
 public class IrKotlinKaptContextTestGenerated extends AbstractIrKotlinKaptContextTest {
     @Test
     public void testAllFilesPresentInKotlinRunner() throws Exception {

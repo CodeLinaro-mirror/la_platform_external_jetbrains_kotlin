@@ -85,7 +85,7 @@ val FirTypeRef.isArrayType: Boolean
                 || StandardClassIds.unsignedArrayTypeByElementType.values.any { isBuiltinType(it, false) }
 
 val FirExpression.isNullLiteral: Boolean
-    get() = this is FirConstExpression<*> &&
+    get() = this is FirLiteralExpression<*> &&
             this.kind == ConstantValueKind.Null &&
             this.value == null &&
             this.source != null
@@ -155,25 +155,3 @@ fun FirTypeProjection.toConeTypeProjection(): ConeTypeProjection = when (this) {
     }
     else -> errorWithAttachment("Unexpected ${this::class.simpleName}") { withFirEntry("projection", this@toConeTypeProjection) }
 }
-
-val FirTypeRef.canBeNull: Boolean
-    get() = coneType.canBeNull
-
-val ConeKotlinType.canBeNull: Boolean
-    get() {
-        if (isMarkedNullable) {
-            return true
-        }
-        return when (this) {
-            is ConeFlexibleType -> upperBound.canBeNull
-            is ConeDefinitelyNotNullType -> false
-            is ConeTypeParameterType -> this.lookupTag.typeParameterSymbol.resolvedBounds.all { it.coneType.canBeNull }
-            is ConeIntersectionType -> intersectedTypes.all { it.canBeNull }
-            else -> isNullable
-        }
-    }
-
-val FirIntersectionTypeRef.isLeftValidForDefinitelyNotNullable
-    get() = leftType.coneType.let { it is ConeTypeParameterType && it.canBeNull && !it.isMarkedNullable }
-
-val FirIntersectionTypeRef.isRightValidForDefinitelyNotNullable get() = rightType.coneType.isAny

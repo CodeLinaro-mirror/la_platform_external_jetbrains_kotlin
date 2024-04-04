@@ -19,7 +19,9 @@ import org.gradle.api.tasks.AbstractExecTask
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
+import org.jetbrains.kotlin.gradle.utils.attributeOf
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
+import org.jetbrains.kotlin.gradle.utils.maybeCreateResolvable
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toUpperCaseAsciiOnly
 import java.io.File
@@ -213,9 +215,9 @@ abstract class AbstractNativeLibrary(
      */
     @ExperimentalKotlinGradlePluginApi
     var transitiveExport: Boolean
-        get() = project.configurations.maybeCreate(exportConfigurationName).isTransitive
+        get() = project.configurations.maybeCreateResolvable(exportConfigurationName).isTransitive
         set(value) {
-            project.configurations.maybeCreate(exportConfigurationName).isTransitive = value
+            project.configurations.maybeCreateResolvable(exportConfigurationName).isTransitive = value
         }
 
     /**
@@ -320,9 +322,8 @@ class Framework(
     }
 
     companion object {
-        val frameworkTargets: Attribute<Set<*>> = Attribute.of(
-            "org.jetbrains.kotlin.native.framework.targets",
-            Set::class.java
+        val frameworkTargets: Attribute<Set<String>> = attributeOf<Set<String>>(
+            "org.jetbrains.kotlin.native.framework.targets"
         )
     }
 }

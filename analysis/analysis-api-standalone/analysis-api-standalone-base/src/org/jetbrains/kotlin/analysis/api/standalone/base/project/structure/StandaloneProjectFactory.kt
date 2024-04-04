@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -14,6 +14,7 @@ import com.intellij.ide.highlighter.JavaFileType
 import com.intellij.mock.MockProject
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.extensions.PluginDescriptor
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.PackageIndex
 import com.intellij.openapi.util.io.FileUtil
@@ -33,6 +34,7 @@ import org.jetbrains.kotlin.analysis.api.impl.base.java.source.JavaElementSource
 import org.jetbrains.kotlin.analysis.api.impl.base.references.HLApiReferenceProviderService
 import org.jetbrains.kotlin.analysis.api.impl.base.util.LibraryUtils
 import org.jetbrains.kotlin.analysis.api.resolve.extensions.KtResolveExtensionProvider
+import org.jetbrains.kotlin.analysis.api.symbols.AdditionalKDocResolutionProvider
 import org.jetbrains.kotlin.analysis.decompiler.psi.BuiltInsVirtualFileProvider
 import org.jetbrains.kotlin.analysis.decompiler.psi.BuiltInsVirtualFileProviderCliImpl
 import org.jetbrains.kotlin.analysis.decompiler.stub.file.ClsKotlinBinaryClassCache
@@ -51,6 +53,7 @@ import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
 import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.cli.jvm.modules.JavaModuleGraph
 import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementSourceFactory
 import org.jetbrains.kotlin.load.kotlin.MetadataFinderFactory
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
@@ -67,17 +70,17 @@ import java.nio.file.Paths
 object StandaloneProjectFactory {
     fun createProjectEnvironment(
         projectDisposable: Disposable,
-        applicationDisposable: Disposable,
-        unitTestMode: Boolean = false,
+        applicationEnvironmentMode: KotlinCoreApplicationEnvironmentMode,
         compilerConfiguration: CompilerConfiguration = CompilerConfiguration(),
         classLoader: ClassLoader = MockProject::class.java.classLoader,
     ): KotlinCoreProjectEnvironment {
-        val applicationEnvironment = if (unitTestMode)
-            KotlinCoreEnvironment.getOrCreateApplicationEnvironmentForTests(applicationDisposable, compilerConfiguration)
-        else
-            KotlinCoreEnvironment.getOrCreateApplicationEnvironmentForProduction(applicationDisposable, compilerConfiguration)
+        val applicationEnvironment = KotlinCoreEnvironment.getOrCreateApplicationEnvironment(
+            projectDisposable = projectDisposable,
+            compilerConfiguration,
+            applicationEnvironmentMode,
+        )
 
-        registerApplicationExtensionPoints(applicationEnvironment, applicationDisposable)
+        registerApplicationExtensionPoints(applicationEnvironment)
 
         registerApplicationServices(applicationEnvironment)
 
@@ -135,21 +138,29 @@ object StandaloneProjectFactory {
         }
     }
 
-    private fun registerApplicationExtensionPoints(
-        applicationEnvironment: KotlinCoreApplicationEnvironment,
-        applicationDisposable: Disposable,
-    ) {
+    private fun registerApplicationExtensionPoints(applicationEnvironment: KotlinCoreApplicationEnvironment) {
         val applicationArea = applicationEnvironment.application.extensionArea
 
-        if (applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) return
-        KotlinCoreEnvironment.underApplicationLock {
-            if (applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) return@underApplicationLock
-            CoreApplicationEnvironment.registerApplicationExtensionPoint(
-                ClassTypePointerFactory.EP_NAME,
-                ClassTypePointerFactory::class.java
-            )
-            applicationArea.getExtensionPoint(ClassTypePointerFactory.EP_NAME)
-                .registerExtension(PsiClassReferenceTypePointerFactory(), applicationDisposable)
+        if (!applicationArea.hasExtensionPoint(AdditionalKDocResolutionProvider.EP_NAME)) {
+            KotlinCoreEnvironment.underApplicationLock {
+                if (applicationArea.hasExtensionPoint(AdditionalKDocResolutionProvider.EP_NAME)) return@underApplicationLock
+                CoreApplicationEnvironment.registerApplicationExtensionPoint(
+                    AdditionalKDocResolutionProvider.EP_NAME,
+                    AdditionalKDocResolutionProvider::class.java
+                )
+            }
+        }
+
+        if (!applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) {
+            KotlinCoreEnvironment.underApplicationLock {
+                if (applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) return@underApplicationLock
+                CoreApplicationEnvironment.registerApplicationExtensionPoint(
+                    ClassTypePointerFactory.EP_NAME,
+                    ClassTypePointerFactory::class.java
+                )
+                applicationArea.getExtensionPoint(ClassTypePointerFactory.EP_NAME)
+                    .registerExtension(PsiClassReferenceTypePointerFactory(), applicationEnvironment.application)
+            }
         }
     }
 
@@ -333,21 +344,29 @@ object StandaloneProjectFactory {
         roots: Collection<Path>,
         environment: KotlinCoreProjectEnvironment,
     ): GlobalSearchScope {
-        if (roots.isEmpty()) return GlobalSearchScope.EMPTY_SCOPE
-        val virtualFiles = getVirtualFilesForLibraryRootsRecursively(roots, environment)
-        return GlobalSearchScope.filesScope(environment.project, virtualFiles)
-    }
+        val virtualFileUrls = getVirtualFileUrlsForLibraryRootsRecursively(roots, environment)
 
-    fun getVirtualFilesForLibraryRootsRecursively(
-        roots: Collection<Path>,
-        environment: KotlinCoreProjectEnvironment,
-    ): Collection<VirtualFile> {
-        val virtualFilesByRoots = getVirtualFilesForLibraryRoots(roots, environment)
-        return buildList {
-            addAll(virtualFilesByRoots)
-            virtualFilesByRoots.flatMapTo(this) { LibraryUtils.getAllVirtualFilesFromRoot(it, includeRoot = true) }
+        return object : GlobalSearchScope(environment.project) {
+            override fun contains(file: VirtualFile): Boolean = file.url in virtualFileUrls
+
+            override fun isSearchInModuleContent(aModule: Module): Boolean = false
+
+            override fun isSearchInLibraries(): Boolean = true
+
+            override fun toString(): String = virtualFileUrls.toString()
         }
     }
+
+    private fun getVirtualFileUrlsForLibraryRootsRecursively(
+        roots: Collection<Path>,
+        environment: KotlinCoreProjectEnvironment,
+    ): Set<String> =
+        buildSet {
+            for (root in getVirtualFilesForLibraryRoots(roots, environment)) {
+                LibraryUtils.getAllVirtualFilesFromRoot(root, includeRoot = true)
+                    .mapTo(this) { it.url }
+            }
+        }
 
     fun getVirtualFilesForLibraryRoots(
         roots: Collection<Path>,
@@ -356,7 +375,7 @@ object StandaloneProjectFactory {
         return roots.mapNotNull { path ->
             val pathString = FileUtil.toSystemIndependentName(path.toAbsolutePath().toString())
             when {
-                pathString.endsWith(JAR_PROTOCOL) -> {
+                pathString.endsWith(JAR_PROTOCOL) || pathString.endsWith(KLIB_FILE_EXTENSION) -> {
                     environment.environment.jarFileSystem.findFileByPath(pathString + JAR_SEPARATOR)
                 }
 

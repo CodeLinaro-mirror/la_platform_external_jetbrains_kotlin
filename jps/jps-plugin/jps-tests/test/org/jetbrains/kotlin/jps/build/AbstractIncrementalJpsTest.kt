@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.incremental.LookupSymbol
 import org.jetbrains.kotlin.incremental.testingUtils.*
 import org.jetbrains.kotlin.incremental.utils.TestLookupTracker
+import org.jetbrains.kotlin.jps.build.KotlinBuilder.Companion.useDependencyGraph
 import org.jetbrains.kotlin.jps.build.dependeciestxt.ModulesTxt
 import org.jetbrains.kotlin.jps.build.dependeciestxt.ModulesTxtBuilder
 import org.jetbrains.kotlin.jps.build.fixtures.EnableICFixture
@@ -336,11 +337,13 @@ abstract class AbstractIncrementalJpsTest(
 
         buildLogFile?.let {
             val logs = createBuildLog(otherMakeResults)
-            val expected = excludeCompilerErrorMessagesFromLog(File(buildLogFile.absolutePath).readText())
+            val buildLog = File(buildLogFile.absolutePath).readText()
+            val expected = excludeCompilerErrorMessagesFromLog(buildLog)
             val actual = excludeCompilerErrorMessagesFromLog(logs)
 
-            UsefulTestCase.assertEquals(expected.trimEnd(), actual.trimEnd())
-
+            if(expected.trimEnd() != actual.trimEnd()) {
+                UsefulTestCase.assertEquals(buildLog, logs)
+            }
             val lastMakeResult = otherMakeResults.last()
             clearCachesRebuildAndCheckOutput(lastMakeResult)
         }
@@ -616,10 +619,11 @@ abstract class AbstractIncrementalJpsTest(
 private fun createMappingsDump(
     project: ProjectDescriptor,
     kotlinContext: KotlinCompileContext,
-    lookupsDuringTest: Set<LookupSymbol>
-) = createKotlinCachesDump(project, kotlinContext, lookupsDuringTest) + "\n\n\n" +
-        createCommonMappingsDump(project) + "\n\n\n" +
-        createJavaMappingsDump(project)
+    lookupsDuringTest: Set<LookupSymbol>,
+) = if (useDependencyGraph) "" else
+    createKotlinCachesDump(project, kotlinContext, lookupsDuringTest) + "\n\n\n" +
+            createCommonMappingsDump(project) + "\n\n\n" +
+            createJavaMappingsDump(project)
 
 internal fun createKotlinCachesDump(
     project: ProjectDescriptor,

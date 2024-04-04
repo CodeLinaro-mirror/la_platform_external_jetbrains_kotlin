@@ -11,10 +11,13 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 import groovy.lang.Closure
 import org.gradle.api.Action
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.dsl.JsModuleKind
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsOptions
-import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationImpl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsSubTargetContainerDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.JsBinary
@@ -23,9 +26,11 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.PackageJson
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 import javax.inject.Inject
 
+@Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
 open class KotlinJsCompilation @Inject internal constructor(
-    compilation: KotlinCompilationImpl
-) : AbstractKotlinCompilationToRunnableFiles<KotlinJsOptions>(compilation) {
+    compilation: KotlinCompilationImpl,
+) : DeprecatedAbstractKotlinCompilationToRunnableFiles<KotlinJsOptions>(compilation),
+    HasBinaries<KotlinJsBinaryContainer> {
 
     @Suppress("UNCHECKED_CAST")
     final override val compilerOptions: HasCompilerOptions<KotlinJsCompilerOptions>
@@ -39,7 +44,7 @@ open class KotlinJsCompilation @Inject internal constructor(
         configure.execute(compilerOptions.options)
     }
 
-    val binaries: KotlinJsBinaryContainer =
+    override val binaries: KotlinJsBinaryContainer =
         compilation.target.project.objects.newInstance(
             KotlinJsBinaryContainer::class.java,
             compilation.target,
@@ -99,3 +104,15 @@ open class KotlinJsCompilation @Inject internal constructor(
         }
     }
 }
+
+val KotlinJsCompilation.fileExtension: Provider<String>
+    get() {
+        val isWasm = platformType == KotlinPlatformType.wasm
+        return compilerOptions.options.moduleKind.map { moduleKind ->
+            if (isWasm || moduleKind == JsModuleKind.MODULE_ES) {
+                "mjs"
+            } else {
+                "js"
+            }
+        }
+    }

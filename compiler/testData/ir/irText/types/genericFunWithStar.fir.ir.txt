@@ -76,10 +76,10 @@ FILE fqName:<root> fileName:/genericFunWithStar.kt
       VALUE_PARAMETER name:serializers index:0 type:kotlin.Array<out <root>.I<*>> varargElementType:<root>.I<*> [vararg]
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun bar (vararg serializers: <root>.I<*>): <root>.I<*> declared in <root>.Box'
-          CALL 'public abstract fun foo <F> (tSerializer: <root>.I<F of <root>.Box.foo>): <root>.I<<root>.Box<F of <root>.Box.foo>> declared in <root>.Box' type=<root>.I<out <root>.Box<*>> origin=null
-            <F>: <root>.IFoo
+          CALL 'public abstract fun foo <F> (tSerializer: <root>.I<F of <root>.Box.foo>): <root>.I<<root>.Box<F of <root>.Box.foo>> declared in <root>.Box' type=<root>.I<out <root>.Box<out <root>.IBase>> origin=null
+            <F>: <root>.IBase
             $this: GET_VAR '<this>: <root>.Box<T of <root>.Box> declared in <root>.Box.bar' type=<root>.Box<T of <root>.Box> origin=null
-            tSerializer: CALL 'public final fun get (index: kotlin.Int): T of kotlin.Array declared in kotlin.Array' type=<root>.I<*> origin=null
+            tSerializer: CALL 'public final fun get (index: kotlin.Int): T of kotlin.Array declared in kotlin.Array' type=<root>.I<*> origin=GET_ARRAY_ELEMENT
               $this: GET_VAR 'serializers: kotlin.Array<out <root>.I<*>> declared in <root>.Box.bar' type=kotlin.Array<out <root>.I<*>> origin=null
               index: CONST Int type=kotlin.Int value=0
     FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN <> ($this:kotlin.Any, other:kotlin.Any?) returnType:kotlin.Boolean [fake_override,operator]

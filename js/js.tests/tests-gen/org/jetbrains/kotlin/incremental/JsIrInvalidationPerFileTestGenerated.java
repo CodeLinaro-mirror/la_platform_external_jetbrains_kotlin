@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -20,6 +20,12 @@ import java.util.regex.Pattern;
 @TestMetadata("js/js.translator/testData/incremental/invalidation")
 @TestDataPath("$PROJECT_ROOT")
 public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidationPerFileTest {
+    @Test
+    @TestMetadata("abstractClassWithJsExport")
+    public void testAbstractClassWithJsExport() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/abstractClassWithJsExport/");
+    }
+
     @Test
     @TestMetadata("addUpdateRemoveDependentFile")
     public void testAddUpdateRemoveDependentFile() throws Exception {
@@ -59,6 +65,18 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     @TestMetadata("classFunctionsAndFields")
     public void testClassFunctionsAndFields() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/classFunctionsAndFields/");
+    }
+
+    @Test
+    @TestMetadata("classWithJsExport")
+    public void testClassWithJsExport() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/classWithJsExport/");
+    }
+
+    @Test
+    @TestMetadata("companionConstVal")
+    public void testCompanionConstVal() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/companionConstVal/");
     }
 
     @Test
@@ -296,6 +314,12 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     }
 
     @Test
+    @TestMetadata("interfaceWithJsExport")
+    public void testInterfaceWithJsExport() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/interfaceWithJsExport/");
+    }
+
+    @Test
     @TestMetadata("jsCode")
     public void testJsCode() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/jsCode/");
@@ -308,9 +332,21 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     }
 
     @Test
+    @TestMetadata("jsCodeWithConstStringFromOtherModule")
+    public void testJsCodeWithConstStringFromOtherModule() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/jsCodeWithConstStringFromOtherModule/");
+    }
+
+    @Test
     @TestMetadata("jsExport")
     public void testJsExport() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/jsExport/");
+    }
+
+    @Test
+    @TestMetadata("jsExportReexport")
+    public void testJsExportReexport() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/jsExportReexport/");
     }
 
     @Test
@@ -323,6 +359,24 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     @TestMetadata("jsModuleAnnotation")
     public void testJsModuleAnnotation() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/jsModuleAnnotation/");
+    }
+
+    @Test
+    @TestMetadata("jsModuleAnnotationOnObjectWithUsage")
+    public void testJsModuleAnnotationOnObjectWithUsage() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/jsModuleAnnotationOnObjectWithUsage/");
+    }
+
+    @Test
+    @TestMetadata("jsName")
+    public void testJsName() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/jsName/");
+    }
+
+    @Test
+    @TestMetadata("kotlinTest")
+    public void testKotlinTest() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/kotlinTest/");
     }
 
     @Test
@@ -383,6 +437,18 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     @TestMetadata("moveInlineFunctionBetweenModules")
     public void testMoveInlineFunctionBetweenModules() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/moveInlineFunctionBetweenModules/");
+    }
+
+    @Test
+    @TestMetadata("multiPlatformClashFileNames")
+    public void testMultiPlatformClashFileNames() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/multiPlatformClashFileNames/");
+    }
+
+    @Test
+    @TestMetadata("multiPlatformSimple")
+    public void testMultiPlatformSimple() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/multiPlatformSimple/");
     }
 
     @Test
@@ -467,6 +533,12 @@ public class JsIrInvalidationPerFileTestGenerated extends AbstractJsIrInvalidati
     @TestMetadata("suspendFunctions")
     public void testSuspendFunctions() throws Exception {
         runTest("js/js.translator/testData/incremental/invalidation/suspendFunctions/");
+    }
+
+    @Test
+    @TestMetadata("suspendGenerator")
+    public void testSuspendGenerator() throws Exception {
+        runTest("js/js.translator/testData/incremental/invalidation/suspendGenerator/");
     }
 
     @Test

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -120,6 +120,112 @@ public class DiagnosticsWithJsStdLibAndBackendTestGenerated extends AbstractDiag
         @TestMetadata("recursionCycleWithStdlibCall.kt")
         public void testRecursionCycleWithStdlibCall() throws Exception {
             runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/inline/recursionCycleWithStdlibCall.kt");
+        }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode")
+    @TestDataPath("$PROJECT_ROOT")
+    public class JsCode {
+        @Test
+        public void testAllFilesPresentInJsCode() throws Exception {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode"), Pattern.compile("^([^_](.+))\\.kt$"), Pattern.compile("^(.+)\\.fir\\.kts?$"), TargetBackend.JS_IR, true);
+        }
+
+        @Test
+        @TestMetadata("argumentIsLiteral.kt")
+        public void testArgumentIsLiteral() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/argumentIsLiteral.kt");
+        }
+
+        @Test
+        @TestMetadata("badAssignment.kt")
+        public void testBadAssignment() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/badAssignment.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeString.kt")
+        public void testCompileTimeString() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeString.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithCompanionVal.kt")
+        public void testCompileTimeStringWithCompanionVal() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithCompanionVal.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithConstVal.kt")
+        public void testCompileTimeStringWithConstVal() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithConstVal.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithFunCall.kt")
+        public void testCompileTimeStringWithFunCall() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithFunCall.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithIntrinConstCall.kt")
+        public void testCompileTimeStringWithIntrinConstCall() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithIntrinConstCall.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithTopLevelVal.kt")
+        public void testCompileTimeStringWithTopLevelVal() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithTopLevelVal.kt");
+        }
+
+        @Test
+        @TestMetadata("compileTimeStringWithVal.kt")
+        public void testCompileTimeStringWithVal() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/compileTimeStringWithVal.kt");
+        }
+
+        @Test
+        @TestMetadata("deleteOperation.kt")
+        public void testDeleteOperation() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/deleteOperation.kt");
+        }
+
+        @Test
+        @TestMetadata("error.kt")
+        public void testError() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/error.kt");
+        }
+
+        @Test
+        @TestMetadata("javaScriptEmpty.kt")
+        public void testJavaScriptEmpty() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/javaScriptEmpty.kt");
+        }
+
+        @Test
+        @TestMetadata("javaScriptError.kt")
+        public void testJavaScriptError() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/javaScriptError.kt");
+        }
+
+        @Test
+        @TestMetadata("javaScriptWarning.kt")
+        public void testJavaScriptWarning() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/javaScriptWarning.kt");
+        }
+
+        @Test
+        @TestMetadata("noJavaScriptProduced.kt")
+        public void testNoJavaScriptProduced() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/noJavaScriptProduced.kt");
+        }
+
+        @Test
+        @TestMetadata("warning.kt")
+        public void testWarning() throws Exception {
+            runTest("compiler/testData/diagnostics/testsWithJsStdLibAndBackendCompilation/jsCode/warning.kt");
         }
     }
 

@@ -5,9 +5,7 @@
 
 // WITH_STDLIB
 // !LANGUAGE: +MultiPlatformProjects
-
 // TARGET_BACKEND: JVM
-
 // MODULE: common
 // TARGET_PLATFORM: Common
 
@@ -26,8 +24,6 @@ fun getB(): B = B()
 
 // MODULE: main()()(intermediate)
 // FILE: main.kt
-@OptIn(ExperimentalMultiplatform::class)
-@AllowDifferentMembersInActual
 actual open class A actual constructor() {
     fun bar(): String = "K"
 }

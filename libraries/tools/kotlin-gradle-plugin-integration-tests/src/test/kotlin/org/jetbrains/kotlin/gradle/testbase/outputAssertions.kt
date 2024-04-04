@@ -10,6 +10,7 @@ import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import java.util.*
+import kotlin.test.assertEquals
 
 /**
  * Asserts Gradle output contains [expectedSubString] string.
@@ -158,9 +159,12 @@ fun BuildResult.assertOutputContainsExactlyTimes(
  * Assert build contains no warnings.
  */
 fun BuildResult.assertNoBuildWarnings(
-    expectedWarnings: Set<String> = emptySet(),
+    additionalExpectedWarnings: Set<String> = emptySet(),
 ) {
-    val cleanedOutput = expectedWarnings.fold(output) { acc, s ->
+    val expectedWarnings = setOf(
+        "w: [InternalKotlinGradlePluginPropertiesUsed | WARNING] ATTENTION! This build uses the following Kotlin Gradle Plugin properties:"
+    )
+    val cleanedOutput = (expectedWarnings + additionalExpectedWarnings).fold(output) { acc, s ->
         acc.replace(s, "")
     }
     val warnings = cleanedOutput
@@ -176,7 +180,6 @@ fun BuildResult.assertNoBuildWarnings(
 }
 
 val expectedK2KaptWarnings = setOf(
-    "w: [InternalKotlinGradlePluginPropertiesUsed | WARNING] ATTENTION! This build uses the following Kotlin Gradle Plugin properties:",
     "w: Kapt currently doesn't support language version 2.0+. Falling back to 1.9."
 )
 
@@ -249,8 +252,9 @@ fun findParameterInOutput(name: String, output: String): String? =
 fun BuildResult.assertCompilerArgument(
     taskPath: String,
     expectedArgument: String,
+    logLevel: LogLevel = LogLevel.DEBUG
 ) {
-    val taskOutput = getOutputForTask(taskPath)
+    val taskOutput = getOutputForTask(taskPath, logLevel)
     val compilerArguments = taskOutput.lines().first {
         it.contains("Kotlin compiler args:")
     }.substringAfter("Kotlin compiler args:")
@@ -280,8 +284,9 @@ fun BuildResult.assertNativeTasksClasspath(
 fun BuildResult.assertCompilerArguments(
     taskPath: String,
     vararg expectedArguments: String,
+    logLevel: LogLevel = LogLevel.DEBUG,
 ) {
-    val taskOutput = getOutputForTask(taskPath)
+    val taskOutput = getOutputForTask(taskPath, logLevel)
     val compilerArguments = taskOutput.lines().first {
         it.contains("Kotlin compiler args:")
     }.substringAfter("Kotlin compiler args:")
@@ -301,8 +306,9 @@ fun BuildResult.assertCompilerArguments(
 fun BuildResult.assertNoCompilerArgument(
     taskPath: String,
     notExpectedArgument: String,
+    logLevel: LogLevel = LogLevel.DEBUG,
 ) {
-    val taskOutput = getOutputForTask(taskPath)
+    val taskOutput = getOutputForTask(taskPath, logLevel)
     val compilerArguments = taskOutput.lines().first {
         it.contains("Kotlin compiler args:")
     }.substringAfter("Kotlin compiler args:")
@@ -417,12 +423,15 @@ fun BuildResult.assertOutputContainsNativeFrameworkVariant(variantName: String, 
  * Asserts that the command line arguments do not contain any duplicates.
  */
 fun CommandLineArguments.assertNoDuplicates() {
-    assert(args.size == args.toSet().size) {
-        buildResult.printBuildOutput()
-        "Link task has duplicated arguments: ${args.joinToString()}"
-    }
-}
+    // -library can be duplicated as it represent compile dependencies
+    val argsWithoutLibraries = args.filter { it != "-library" }
 
+    assertEquals(
+        argsWithoutLibraries.joinToString("\n"),
+        argsWithoutLibraries.toSet().joinToString("\n"),
+        "Link task has duplicated arguments"
+    )
+}
 
 private fun BuildResult.extractNativeCustomEnvironment(taskPath: String, toolName: NativeToolKind): Map<String, String> =
     extractNativeToolSettings(getOutputForTask(taskPath, LogLevel.INFO), toolName, NativeToolSettingsKind.CUSTOM_ENV_VARIABLES).map {

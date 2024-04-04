@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.commonizer.identityString
 import org.jetbrains.kotlin.gradle.dsl.metadataTarget
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
+import org.jetbrains.kotlin.gradle.plugin.KotlinProjectSetupCoroutine
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.categoryByName
 import org.jetbrains.kotlin.gradle.plugin.launch
@@ -20,15 +21,17 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.resolvableMetadataConfiguration
 import org.jetbrains.kotlin.gradle.plugin.sources.internal
 import org.jetbrains.kotlin.gradle.targets.metadata.awaitMetadataCompilationsCreated
 import org.jetbrains.kotlin.gradle.targets.metadata.findMetadataCompilation
-import org.jetbrains.kotlin.gradle.utils.markConsumable
-import org.jetbrains.kotlin.gradle.utils.markResolvable
+import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.utils.createConsumable
+import org.jetbrains.kotlin.gradle.utils.createResolvable
+import org.jetbrains.kotlin.gradle.utils.setAttribute
 import org.jetbrains.kotlin.tooling.core.UnsafeApi
 
 /* Elements configuration */
 
-internal suspend fun Project.setupCInteropCommonizedCInteropApiElementsConfigurations() {
-    val extension = multiplatformExtensionOrNull ?: return
-    val cinteropCommonizerTask = commonizeCInteropTask() ?: return
+internal val CInteropCommonizedCInteropApiElementsConfigurationsSetupAction = KotlinProjectSetupCoroutine setup@{
+    val extension = multiplatformExtensionOrNull ?: return@setup
+    val cinteropCommonizerTask = commonizeCInteropTask() ?: return@setup
 
     /*
     Expose api dependencies from Source Sets to the elements configuration
@@ -63,8 +66,7 @@ internal fun Project.locateOrCreateCommonizedCInteropApiElementsConfiguration(co
     val configurationName = commonizerTarget.identityString + "CInteropApiElements"
     configurations.findByName(configurationName)?.let { return it }
 
-    return configurations.create(configurationName) { configuration ->
-        configuration.markConsumable()
+    return configurations.createConsumable(configurationName).also { configuration ->
         setupBasicCommonizedCInteropConfigurationAttributes(configuration, commonizerTarget)
 
         launch {
@@ -98,12 +100,11 @@ internal suspend fun Project.locateOrCreateCommonizedCInteropDependencyConfigura
     val commonizerTarget = sourceSet.commonizerTarget.await() ?: return null
     if (commonizerTarget !is SharedCommonizerTarget) return null
 
-    val configurationName = commonizerTarget.identityString + "CInterop"
+    val configurationName = sourceSet.name + "CInterop"
     configurations.findByName(configurationName)?.let { return it }
 
-    val configuration = configurations.create(configurationName) { configuration ->
+    val configuration = configurations.createResolvable(configurationName).also { configuration ->
         configuration.isVisible = false
-        configuration.markResolvable()
 
         // Extends from Metadata Configuration associated with given source set to ensure matching
         configuration.extendsFrom(sourceSet.internal.resolvableMetadataConfiguration)
@@ -114,8 +115,11 @@ internal suspend fun Project.locateOrCreateCommonizedCInteropDependencyConfigura
          * If artifacts are added using [CInteropCommonizerArtifactTypeAttribute.KLIB_COLLECTION_DIR] then a transformation
          * has to happen that will resolve the exact list of klibs.
          */
-        configuration.attributes.attribute(CInteropCommonizerArtifactTypeAttribute.attribute, CInteropCommonizerArtifactTypeAttribute.KLIB)
-        description = "Commonized CInterop dependencies for targets: '$commonizerTarget'."
+        configuration.attributes.setAttribute(
+            CInteropCommonizerArtifactTypeAttribute.attribute,
+            CInteropCommonizerArtifactTypeAttribute.KLIB
+        )
+        configuration.description = "Commonized CInterop dependencies for $sourceSet with targets: '$commonizerTarget'."
     }
 
     return configuration
@@ -125,7 +129,7 @@ private fun Project.setupBasicCommonizedCInteropConfigurationAttributes(
     configuration: Configuration,
     commonizerTarget: SharedCommonizerTarget,
 ) {
-    configuration.attributes.attribute(CommonizerTargetAttribute.attribute, commonizerTarget.identityString)
-    configuration.attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, KotlinUsages.KOTLIN_COMMONIZED_CINTEROP))
-    configuration.attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
+    configuration.attributes.setAttribute(CommonizerTargetAttribute.attribute, commonizerTarget.identityString)
+    configuration.attributes.setAttribute(Usage.USAGE_ATTRIBUTE, objects.named(KotlinUsages.KOTLIN_COMMONIZED_CINTEROP))
+    configuration.attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
 }

@@ -46,6 +46,15 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     put(INCLUDED_BINARY_FILES, arguments.includeBinaries.toNonNullList())
     put(NATIVE_LIBRARY_FILES, arguments.nativeLibraries.toNonNullList())
+
+    if (arguments.repositories != null) {
+        // Show the warning also if `-repo` was really specified.
+        report(
+                WARNING,
+                "'-repo' ('-r') compiler option is deprecated and will be removed in one of the future releases. " +
+                        "Please use library paths instead of library names in all compiler options such as '-library' ('-l')."
+        )
+    }
     put(REPOSITORIES, arguments.repositories.toNonNullList())
 
     // TODO: Collect all the explicit file names into an object
@@ -99,7 +108,6 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     put(PRINT_IR, arguments.printIr)
     put(PRINT_BITCODE, arguments.printBitCode)
-    put(CHECK_EXTERNAL_CALLS, arguments.checkExternalCalls)
     put(PRINT_FILES, arguments.printFiles)
 
     put(PURGE_USER_LIBS, arguments.purgeUserLibs)
@@ -163,9 +171,6 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     put(BITCODE_EMBEDDING_MODE, selectBitcodeEmbeddingMode(this@setupFromArguments, arguments))
     put(DEBUG_INFO_VERSION, arguments.debugInfoFormatVersion.toInt())
-    put(COVERAGE, arguments.coverage)
-    put(LIBRARIES_TO_COVER, arguments.coveredLibraries.toNonNullList())
-    arguments.coverageFile?.let { put(PROFRAW_PATH, it) }
     put(OBJC_GENERICS, !arguments.noObjcGenerics)
     put(DEBUG_PREFIX_MAP, parseDebugPrefixMap(arguments, this@setupFromArguments))
 
@@ -234,6 +239,14 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     // TODO: revise priority and/or report conflicting values.
     if (get(BinaryOptions.gc) == null) {
         putIfNotNull(BinaryOptions.gc, gcFromArgument)
+    }
+
+    if (arguments.checkExternalCalls != null) {
+        report(WARNING, "-Xcheck-state-at-external-calls compiler argument is deprecated. Use -Xbinary=checkStateAtExternalCalls=true instead")
+    }
+    // TODO: revise priority and/or report conflicting values.
+    if (get(BinaryOptions.checkStateAtExternalCalls) == null) {
+        putIfNotNull(BinaryOptions.checkStateAtExternalCalls, arguments.checkExternalCalls)
     }
 
     putIfNotNull(PROPERTY_LAZY_INITIALIZATION, when (arguments.propertyLazyInitialization) {

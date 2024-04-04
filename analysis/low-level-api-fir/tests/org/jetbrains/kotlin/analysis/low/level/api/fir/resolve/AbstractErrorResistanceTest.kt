@@ -1,12 +1,11 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.resolve
 
 import com.intellij.lang.java.JavaLanguage
-import com.intellij.mock.MockApplication
 import com.intellij.mock.MockProject
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
@@ -19,25 +18,25 @@ import com.intellij.psi.search.PsiSearchScopeUtil
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDiagnosticsForFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolveWithClearCaches
-import org.jetbrains.kotlin.analysis.low.level.api.fir.test.base.AbstractLowLevelApiSingleFileTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
+import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.impl.testConfiguration
-import org.jetbrains.kotlin.test.services.TestModuleStructure
+import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import kotlin.test.fail
 
-abstract class AbstractErrorResistanceTest : AbstractLowLevelApiSingleFileTest() {
+abstract class AbstractErrorResistanceTest : AbstractAnalysisApiBasedTest() {
     override val configurator: AnalysisApiFirSourceTestConfigurator = ErrorResistanceConfigurator
 
-    override fun doTestByFileStructure(ktFile: KtFile, moduleStructure: TestModuleStructure, testServices: TestServices) {
-        resolveWithClearCaches(ktFile) { firResolveSession ->
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+        resolveWithClearCaches(mainFile) { firResolveSession ->
             ENABLE_INTERRUPTION.set(true)
 
             try {
-                ktFile.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_COMMON_CHECKERS)
+                mainFile.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_COMMON_CHECKERS)
                 fail("Analysis should be interrupted")
             } catch (e: Throwable) {
                 val errors = generateSequence(e) { it.cause }
@@ -48,7 +47,7 @@ abstract class AbstractErrorResistanceTest : AbstractLowLevelApiSingleFileTest()
 
             ENABLE_INTERRUPTION.set(false)
 
-            val diagnostics = ktFile.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_COMMON_CHECKERS)
+            val diagnostics = mainFile.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_COMMON_CHECKERS)
             assert(diagnostics.isEmpty()) {
                 val messages = diagnostics.map { it.factoryName }
                 "There should be no diagnostics, found:\n" + messages.joinToString("\n")
@@ -66,10 +65,6 @@ private object ErrorResistanceConfigurator : AnalysisApiFirSourceTestConfigurato
 }
 
 private object ErrorResistanceServiceRegistrar : AnalysisApiTestServiceRegistrar() {
-    override fun registerApplicationServices(application: MockApplication, testServices: TestServices) {}
-    override fun registerProjectExtensionPoints(project: MockProject, testServices: TestServices) {}
-    override fun registerProjectServices(project: MockProject, testServices: TestServices) {}
-
     @OptIn(TestInfrastructureInternals::class)
     override fun registerProjectModelServices(project: MockProject, testServices: TestServices) {
         with(PsiElementFinder.EP.getPoint(project)) {
@@ -122,7 +117,7 @@ private class BrokenPackage(packageName: String, manager: PsiManager) : PsiPacka
 private class BrokenClass(
     private val packageName: String,
     name: String,
-    manager: PsiManager
+    manager: PsiManager,
 ) : LightPsiClassBase(manager, JavaLanguage.INSTANCE, name) {
     private val modifierList: PsiModifierList = LightModifierList(manager, JavaLanguage.INSTANCE, PsiModifier.PUBLIC)
     private val methods: Array<PsiMethod> = arrayOf(ConstructorMethod(this), GetterMethod(this))

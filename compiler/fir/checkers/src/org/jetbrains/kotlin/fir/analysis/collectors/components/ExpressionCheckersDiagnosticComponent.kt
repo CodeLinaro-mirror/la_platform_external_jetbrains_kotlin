@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.CheckersComponentInternal
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.ExpressionCheckers
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirExpressionChecker
@@ -19,8 +20,18 @@ import org.jetbrains.kotlin.fir.expressions.*
 class ExpressionCheckersDiagnosticComponent(
     session: FirSession,
     reporter: DiagnosticReporter,
-    private val checkers: ExpressionCheckers = session.checkersComponent.expressionCheckers,
+    private val checkers: ExpressionCheckers,
 ) : AbstractDiagnosticCollectorComponent(session, reporter) {
+    constructor(session: FirSession, reporter: DiagnosticReporter, mppKind: MppCheckerKind) : this(
+        session,
+        reporter,
+        when (mppKind) {
+            MppCheckerKind.Common -> session.checkersComponent.commonExpressionCheckers
+            MppCheckerKind.Platform -> session.checkersComponent.platformExpressionCheckers
+        }
+    )
+
+
     override fun visitElement(element: FirElement, data: CheckerContext) {
         if (element is FirExpression) {
             error("${element::class.simpleName} should call parent checkers inside ${this::class.simpleName}")
@@ -35,8 +46,8 @@ class ExpressionCheckersDiagnosticComponent(
         checkers.allTypeOperatorCallCheckers.check(typeOperatorCall, data)
     }
 
-    override fun <T> visitConstExpression(constExpression: FirConstExpression<T>, data: CheckerContext) {
-        checkers.allConstExpressionCheckers.check(constExpression, data)
+    override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>, data: CheckerContext) {
+        checkers.allLiteralExpressionCheckers.check(literalExpression, data)
     }
 
     override fun visitAnnotation(annotation: FirAnnotation, data: CheckerContext) {
@@ -184,6 +195,10 @@ class ExpressionCheckersDiagnosticComponent(
 
     override fun visitVarargArgumentsExpression(varargArgumentsExpression: FirVarargArgumentsExpression, data: CheckerContext) {
         checkers.allBasicExpressionCheckers.check(varargArgumentsExpression, data)
+    }
+
+    override fun visitSamConversionExpression(samConversionExpression: FirSamConversionExpression, data: CheckerContext) {
+        checkers.allBasicExpressionCheckers.check(samConversionExpression, data)
     }
 
     override fun visitWrappedExpression(wrappedExpression: FirWrappedExpression, data: CheckerContext) {

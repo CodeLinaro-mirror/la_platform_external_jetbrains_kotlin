@@ -6,11 +6,11 @@
 package org.jetbrains.kotlin.js.test.converters
 
 import org.jetbrains.kotlin.backend.common.CommonKLibResolver
+import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.ir.util.irMessageLogger
 import org.jetbrains.kotlin.js.test.utils.JsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.library.KotlinAbiVersion
@@ -50,9 +50,8 @@ class JsKlibBackendFacade(
             serializeModuleIntoKlib(
                 configuration[CommonConfigurationKeys.MODULE_NAME]!!,
                 configuration,
-                configuration.irMessageLogger,
                 inputArtifact.diagnosticReporter,
-                inputArtifact.sourceFiles,
+                inputArtifact.metadataSerializer,
                 klibPath = outputFile,
                 JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices).keys.toList(),
                 inputArtifact.irModuleFragment,
@@ -62,15 +61,13 @@ class JsKlibBackendFacade(
                 containsErrorCode = inputArtifact.hasErrors,
                 abiVersion = KotlinAbiVersion.CURRENT, // TODO get from test file data
                 jsOutputName = null
-            ) {
-                inputArtifact.serializeSingleFile(it, inputArtifact.irActualizerResult)
-            }
+            )
         }
 
         val dependencies = JsEnvironmentConfigurator.getAllRecursiveDependenciesFor(module, testServices).toList()
         val lib = CommonKLibResolver.resolve(
             dependencies.map { testServices.libraryProvider.getPathByDescriptor(it) } + listOf(outputFile),
-            configuration.resolverLogger
+            configuration.getLogger(treatWarningsAsErrors = true)
         ).getFullResolvedList().last().library
 
         val moduleDescriptor = JsFactories.DefaultDeserializedDescriptorFactory.createDescriptorOptionalBuiltIns(

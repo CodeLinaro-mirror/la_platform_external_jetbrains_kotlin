@@ -5,6 +5,8 @@
 
 package kotlin.native.internal
 
+import kotlin.experimental.ExperimentalNativeApi
+
 /**
  * Makes this function to be possible to call by given name from C++ part of runtime using C ABI.
  * The parameters are mapped in an implementation-dependent manner.
@@ -168,7 +170,7 @@ internal annotation class HasFreezeHook
 @Target(AnnotationTarget.FUNCTION)
 @Retention(value = AnnotationRetention.BINARY)
 @InternalForKotlinNative
-annotation class GCUnsafeCall(val callee: String)
+public annotation class GCUnsafeCall(val callee: String)
 
 /**
  * Marks a declaration that is internal for Kotlin/Native tests and shouldn't be used externally.
@@ -180,3 +182,13 @@ internal annotation class InternalForKotlinNativeTests
 @InternalForKotlinNativeTests
 @Target(AnnotationTarget.FILE)
 public annotation class ReflectionPackageName(val name: String)
+
+/**
+ * Indicates that the marked function is an exported bridge between Kotlin and the platform.
+ * This annotation prevents the function from being removed by DCE
+ * and specifies a stable [bridgeName] for the function symbol.
+ */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(value = AnnotationRetention.BINARY)
+@ExperimentalNativeApi
+public annotation class ExportedBridge(val bridgeName: String)

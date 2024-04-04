@@ -121,7 +121,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
             when (compiler) {
                 is K2JSCompiler -> compileJsLibrary(
                     libraryName,
-                    additionalOptions = libraryOptions + "-Xforce-deprecated-legacy-compiler-usage"
+                    additionalOptions = libraryOptions
                 )
                 is K2JVMCompiler -> compileLibrary(libraryName, additionalOptions = libraryOptions)
                 else -> throw UnsupportedOperationException(compiler.toString())
@@ -149,7 +149,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         compileKotlin("source.kt", tmpdir, listOf(compileLibrary("library-1"), compileLibrary("library-2")))
     }
 
-    // KT-60778 K2: implement MISSING_DEPENDENCY_CLASS(_SUPERCLASS) errors
+    // KT-62900 K2: Expected expression to be resolved during Fir2Ir
     fun testMissingEnumReferencedInAnnotationArgument() = muteForK2 {
         doTestBrokenLibrary("library", "a/E.class")
     }
@@ -178,7 +178,6 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         doTestBrokenLibrary("library", "test/Super.class")
     }
 
-    // KT-60778 K2: implement MISSING_DEPENDENCY_CLASS(_SUPERCLASS) errors
     fun testIncompleteHierarchyWithExtendedCompilerChecks() {
         doTestBrokenLibrary(
             "library",
@@ -387,8 +386,12 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
             val moduleFile = File(tmpdir.absolutePath, "META-INF/main.kotlin_module").readBytes()
             val versionNumber = ModuleMapping.readVersionNumber(DataInputStream(ByteArrayInputStream(moduleFile)))!!
             val moduleVersion = JvmMetadataVersion(*versionNumber)
-            assertEquals("Actual version: $moduleVersion", expectedMajor, moduleVersion.major)
-            assertEquals("Actual version: $moduleVersion", expectedMinor, moduleVersion.minor)
+            if (languageVersion == LanguageVersion.KOTLIN_2_0) {
+                assertEquals("Actual version: $moduleVersion", JvmMetadataVersion(1, 9, 9999), moduleVersion)
+            } else {
+                assertEquals("Actual version: $moduleVersion", expectedMajor, moduleVersion.major)
+                assertEquals("Actual version: $moduleVersion", expectedMinor, moduleVersion.minor)
+            }
         }
     }
 
@@ -469,8 +472,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         compileKotlin("source.kt", tmpdir, listOf(File(tmpdir, "library.jar")))
     }
 
-    // KT-60792 K2 can resolve FQ type name to a nested classifier even in presence of a parent package
-    fun testInnerClassPackageConflict2() = muteForK2 {
+    fun testInnerClassPackageConflict2() {
         val library1 = compileLibrary("library1", destination = File(tmpdir, "library1"))
         val library2 = compileLibrary("library2", destination = File(tmpdir, "library2"))
 
@@ -706,6 +708,14 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
      */
     fun testAnonymousObjectTypeMetadataKlibWithOldCLIKey() = doTestAnonymousObjectTypeMetadata(listOf("-Xexpect-actual-linker")) { output ->
         output.lines().filterNot { "argument -Xexpect-actual-linker is deprecated" in it }.joinToString("\n")
+    }
+
+    fun testConstEvaluationWithDifferentLV() {
+        val library = compileJsLibrary("library", additionalOptions = listOf("-language-version", "1.9"))
+        compileKotlin(
+            "src", File(tmpdir, "usage.js"), emptyList(), K2JSCompiler(),
+            additionalOptions = listOf("-Xinclude=${library.absolutePath}", "-Xir-produce-js"),
+        )
     }
 
     private fun doTestAnonymousObjectTypeMetadata(

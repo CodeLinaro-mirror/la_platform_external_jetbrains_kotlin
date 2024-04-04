@@ -45,6 +45,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -57,6 +59,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -108,6 +112,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
     KtValueParameterSymbol:
@@ -129,6 +135,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -141,6 +149,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -192,6 +202,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
     KtValueParameterSymbol:
@@ -218,6 +230,8 @@ KtFunctionSymbol:
         type: kotlin/collections/Collection<E>
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -230,6 +244,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -285,6 +301,8 @@ KtFunctionSymbol:
         type: kotlin/collections/Collection<E>
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -297,6 +315,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -337,6 +357,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -381,6 +403,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -436,6 +460,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -448,6 +474,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -498,6 +526,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -510,6 +540,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -565,6 +597,8 @@ KtFunctionSymbol:
         type: kotlin/collections/Collection<E>
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -577,6 +611,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -627,6 +663,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -639,6 +677,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -694,6 +734,8 @@ KtFunctionSymbol:
         type: kotlin/collections/Collection<E>
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -706,6 +748,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -756,6 +800,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
     KtValueParameterSymbol:
@@ -777,6 +823,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -789,6 +837,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -844,6 +894,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
     KtValueParameterSymbol:
@@ -866,6 +918,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -878,29 +932,15 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
 KtKotlinPropertySymbol:
   annotationsList: []
-  backingFieldSymbol: KtBackingFieldSymbol:
-    annotationsList: []
-    callableIdIfNonLocal: null
-    contextReceivers: []
-    isExtension: false
-    name: field
-    origin: PROPERTY_BACKING_FIELD
-    owningProperty: KtKotlinPropertySymbol(kotlin/collections/List.size)
-    receiverParameter: null
-    returnType: KtUsualClassType:
-      annotationsList: []
-      ownTypeArguments: []
-      type: kotlin/Int
-    symbolKind: LOCAL
-    typeParameters: []
-    getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
-    deprecationStatus: null
-  callableIdIfNonLocal: kotlin/collections/List.size
+  backingFieldSymbol: null
+  callableIdIfNonLocal: kotlin/collections/MutableList.size
   contextReceivers: []
   getter: null
   hasBackingField: false
@@ -919,7 +959,7 @@ KtKotlinPropertySymbol:
   isVal: true
   modality: ABSTRACT
   name: size
-  origin: LIBRARY
+  origin: INTERSECTION_OVERRIDE
   receiverParameter: null
   returnType: KtUsualClassType:
     annotationsList: []
@@ -936,7 +976,9 @@ KtKotlinPropertySymbol:
         annotationsList: []
         type: E
     ]
-    type: kotlin/collections/List<E>
+    type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
   getterDeprecationStatus: null
@@ -946,7 +988,7 @@ KtKotlinPropertySymbol:
 
 KtFunctionSymbol:
   annotationsList: []
-  callableIdIfNonLocal: kotlin/collections/List.isEmpty
+  callableIdIfNonLocal: kotlin/collections/MutableList.isEmpty
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -963,7 +1005,7 @@ KtFunctionSymbol:
   isSuspend: false
   modality: ABSTRACT
   name: isEmpty
-  origin: LIBRARY
+  origin: INTERSECTION_OVERRIDE
   receiverParameter: null
   returnType: KtUsualClassType:
     annotationsList: []
@@ -980,7 +1022,9 @@ KtFunctionSymbol:
         annotationsList: []
         type: E
     ]
-    type: kotlin/collections/List<E>
+    type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1003,7 +1047,7 @@ KtFunctionSymbol:
   isSuspend: false
   modality: ABSTRACT
   name: contains
-  origin: SUBSTITUTION_OVERRIDE
+  origin: INTERSECTION_OVERRIDE
   receiverParameter: null
   returnType: KtUsualClassType:
     annotationsList: []
@@ -1024,13 +1068,15 @@ KtFunctionSymbol:
       isNoinline: false
       isVararg: false
       name: element
-      origin: SUBSTITUTION_OVERRIDE
+      origin: INTERSECTION_OVERRIDE
       receiverParameter: null
       returnType: KtTypeParameterType:
         annotationsList: []
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1043,6 +1089,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1087,6 +1135,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1109,7 +1159,7 @@ KtFunctionSymbol:
   isSuspend: false
   modality: ABSTRACT
   name: containsAll
-  origin: SUBSTITUTION_OVERRIDE
+  origin: INTERSECTION_OVERRIDE
   receiverParameter: null
   returnType: KtUsualClassType:
     annotationsList: []
@@ -1130,7 +1180,7 @@ KtFunctionSymbol:
       isNoinline: false
       isVararg: false
       name: elements
-      origin: SUBSTITUTION_OVERRIDE
+      origin: INTERSECTION_OVERRIDE
       receiverParameter: null
       returnType: KtUsualClassType:
         annotationsList: []
@@ -1142,6 +1192,8 @@ KtFunctionSymbol:
         type: kotlin/collections/Collection<E>
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1154,6 +1206,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1204,6 +1258,8 @@ KtFunctionSymbol:
         type: kotlin/Int
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1216,6 +1272,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1266,6 +1324,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1278,6 +1338,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1328,6 +1390,8 @@ KtFunctionSymbol:
         type: E
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1340,6 +1404,8 @@ KtFunctionSymbol:
         type: E
     ]
     type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1391,6 +1457,8 @@ KtFunctionSymbol:
         type: kotlin/Any?
       symbolKind: LOCAL
       typeParameters: []
+      getContainingFileSymbol: null
+      getContainingJvmClassName: kotlin.Any
       getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
       deprecationStatus: null
   ]
@@ -1399,6 +1467,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1435,6 +1505,8 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1471,5 +1543,89 @@ KtFunctionSymbol:
     annotationsList: []
     ownTypeArguments: []
     type: kotlin/Any
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.Any
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: kotlin/collections/MutableList.getFirst
+  contextReceivers: []
+  contractEffects: []
+  hasStableParameterNames: true
+  isActual: false
+  isBuiltinFunctionInvoke: false
+  isExpect: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: false
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: OPEN
+  name: getFirst
+  origin: SUBSTITUTION_OVERRIDE
+  receiverParameter: null
+  returnType: KtTypeParameterType:
+    annotationsList: []
+    type: E
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: []
+  visibility: Public
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
+  getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
+  deprecationStatus: null
+
+KtFunctionSymbol:
+  annotationsList: []
+  callableIdIfNonLocal: kotlin/collections/MutableList.getLast
+  contextReceivers: []
+  contractEffects: []
+  hasStableParameterNames: true
+  isActual: false
+  isBuiltinFunctionInvoke: false
+  isExpect: false
+  isExtension: false
+  isExternal: false
+  isInfix: false
+  isInline: false
+  isOperator: false
+  isOverride: false
+  isStatic: false
+  isSuspend: false
+  modality: OPEN
+  name: getLast
+  origin: SUBSTITUTION_OVERRIDE
+  receiverParameter: null
+  returnType: KtTypeParameterType:
+    annotationsList: []
+    type: E
+  symbolKind: CLASS_MEMBER
+  typeParameters: []
+  valueParameters: []
+  visibility: Public
+  getDispatchReceiver(): KtUsualClassType:
+    annotationsList: []
+    ownTypeArguments: [
+      KtTypeParameterType:
+        annotationsList: []
+        type: E
+    ]
+    type: kotlin/collections/MutableList<E>
+  getContainingFileSymbol: null
+  getContainingJvmClassName: kotlin.collections.MutableList
   getContainingModule: KtBinaryModule "Builtins for JVM (1.8)"
   deprecationStatus: null

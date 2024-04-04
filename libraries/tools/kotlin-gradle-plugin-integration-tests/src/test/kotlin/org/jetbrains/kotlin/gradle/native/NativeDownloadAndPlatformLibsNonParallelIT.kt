@@ -26,6 +26,9 @@ class NativeDownloadAndPlatformLibsNonParallelIT : KGPDaemonsBaseTest() {
     private val platformName: String = HostManager.platformName()
     private val currentCompilerVersion = NativeCompilerDownloader.DEFAULT_KONAN_VERSION
 
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.withBundledKotlinNative().copy()
+
 
     @DisplayName("Downloading K/N distribution in default .konan dir")
     @GradleTest
@@ -35,8 +38,11 @@ class NativeDownloadAndPlatformLibsNonParallelIT : KGPDaemonsBaseTest() {
 
         val userHomeDir = System.getProperty("user.home")
         platformLibrariesProject("linuxX64", gradleVersion = gradleVersion) {
-            build("assemble", buildOptions = defaultBuildOptions.copy(konanDataDir = null)) {
-                assertOutputContains("Kotlin/Native distribution: .*kotlin-native-prebuilt-$platformName".toRegex())
+            build(
+                "assemble",
+                buildOptions = defaultBuildOptions.copy(konanDataDir = null) // we need to download konan bundle to default dir
+            ) {
+                assertOutputContains("Moved Kotlin/Native bundle from .* to $userHomeDir/.konan/kotlin-native-prebuilt-$platformName-$currentCompilerVersion".toRegex())
                 assertOutputDoesNotContain("Generate platform libraries for ")
 
                 // checking that konan was downloaded and native dependencies were not downloaded into ~/.konan dir

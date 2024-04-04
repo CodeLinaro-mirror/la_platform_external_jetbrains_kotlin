@@ -97,7 +97,7 @@ private class JsIrAstSerializer {
     }
 
     fun append(fragment: JsIrProgramFragment): JsIrAstSerializer {
-        importedNames += fragment.imports.map { fragment.nameBindings[it.key]!! }
+        importedNames += fragment.imports.map { fragment.nameBindings[it.key] ?: error("No binding for tag ${it.key}") }
         fragmentSerializer.writeFragment(fragment)
         return this
     }
@@ -151,20 +151,17 @@ private class JsIrAstSerializer {
             writeIrIcModel(model)
         }
 
-        ifNotNull(fragment.testFunInvocation) {
-            writeStatement(it)
+        ifNotNull(fragment.mainFunctionTag) {
+            writeString(it)
         }
 
-        ifNotNull(fragment.mainFunction) {
-            writeString(it)
+        ifNotNull(fragment.testEnvironment) {
+            writeInt(internalizeString(it.testFunctionTag))
+            writeInt(internalizeString(it.suiteFunctionTag))
         }
 
         ifNotNull(fragment.dts) {
             writeString(it.raw)
-        }
-
-        ifNotNull(fragment.suiteFn) {
-            writeInt(internalizeName(it))
         }
 
         writeCollection(fragment.definitions) {
@@ -540,6 +537,11 @@ private class JsIrAstSerializer {
                 writeExpression(x.constructorExpression)
                 writeCollection(x.arguments) { writeExpression(it) }
             }
+
+            override fun visitYield(x: JsYield) {
+                writeByte(ExpressionIds.YIELD)
+                ifNotNull(x.expression) { writeExpression(it) }
+            }
         }
 
         withComments(expression) {
@@ -603,6 +605,7 @@ private class JsIrAstSerializer {
             writeBoolean(name.isTemporary)
             ifNotNull(name.localAlias) { writeLocalAlias(it) }
             writeBoolean(name.imported && name !in importedNames)
+            writeBoolean(name.constant)
             ifNotNull(name.specialFunction) { writeByte(it.ordinal) }
         }
         nameMap.size

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -1356,7 +1356,7 @@ public class Int private constructor(private val value: Int) : Number(), Compara
 
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun toString(): String =
-        itoa32(this, 10)
+        itoa32(this)
 
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun equals(other: Any?): Boolean =
@@ -1865,7 +1865,7 @@ public class Long private constructor(private val value: Long) : Number(), Compa
 
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun toString(): String =
-        itoa64(this, 10)
+        itoa64(this)
 
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun equals(other: Any?): Boolean =
@@ -2155,7 +2155,7 @@ public class Float private constructor(private val value: Float) : Number(), Com
     @SinceKotlin("1.1")
     @kotlin.internal.IntrinsicConstEvaluation
     public operator fun rem(other: Float): Float =
-        this - (wasm_f32_truncate(this / other) * other)
+        wasm_f32_copysign(this - (wasm_f32_truncate(this / other) * other), this)
 
     /**
      * Calculates the remainder of truncating division of this value (dividend) by the other value (divisor).
@@ -2565,7 +2565,7 @@ public class Double private constructor(private val value: Double) : Number(), C
     @SinceKotlin("1.1")
     @kotlin.internal.IntrinsicConstEvaluation
     public operator fun rem(other: Double): Double =
-        this - (wasm_f64_truncate(this / other) * other)
+        wasm_f64_copysign(this - (wasm_f64_truncate(this / other) * other), this)
 
     /**
      * Returns this value incremented by one.

@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.ir.builders.IrGeneratorContextBase
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
@@ -101,12 +102,17 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
 
             override fun getProperty(irValueParameter: IrValueParameter?): IrProperty =
                 irValueParameter?.let {
+                    // `irClass` is a source class and definitely is not a lazy class
+                    @OptIn(UnsafeDuringIrConstructionAPI::class)
                     irClass.properties.single { irProperty ->
                         irProperty.name == irValueParameter.name && irProperty.backingField?.type == irValueParameter.type
                     }
                 } ?: error("Property for parameter $irValueParameter")
 
-            inner class Fir2IrHashCodeFunctionInfo(override val symbol: IrSimpleFunctionSymbol) : HashCodeFunctionInfo {
+            inner class Fir2IrHashCodeFunctionInfo(
+                override val symbol: IrSimpleFunctionSymbol,
+                override val hasDispatchReceiver: Boolean,
+            ) : HashCodeFunctionInfo {
                 override fun commitSubstituted(irMemberAccessExpression: IrMemberAccessExpression<*>) {
                     // TODO
                 }
@@ -129,7 +135,7 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                 get() {
                     // Pick the (necessarily unique) non-interface upper bound if it exists
                     for (type in bounds) {
-                        val klass = type.coneType.nothingToAny().toRegularClassSymbol(session)?.fir ?: continue
+                        val klass = type.coneType.coerceToAny().toRegularClassSymbol(session)?.fir ?: continue
                         val kind = klass.classKind
                         if (kind != ClassKind.INTERFACE && kind != ClassKind.ANNOTATION_CLASS) return klass
                     }
@@ -137,7 +143,7 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                     // Otherwise, choose either the first IrClass supertype or recurse.
                     // In the first case, all supertypes are interface types and the choice was arbitrary.
                     // In the second case, there is only a single supertype.
-                    val firstBoundType = bounds.first().coneType.fullyExpandedType(session).nothingToAny()
+                    val firstBoundType = bounds.first().coneType.fullyExpandedType(session).coerceToAny()
                     return when (val firstSuper = firstBoundType.toSymbol(session)?.fir) {
                         is FirRegularClass -> firstSuper
                         is FirTypeParameter -> firstSuper.erasedUpperBound
@@ -155,29 +161,30 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                     .first { (it as FirPropertySymbol).fromPrimaryConstructor } as FirPropertySymbol
 
                 val type = firProperty.resolvedReturnType.fullyExpandedType(session)
-                val symbol = when {
-                    type.isArrayOrPrimitiveArray(checkUnsignedArrays = false) -> context.irBuiltIns.dataClassArrayMemberHashCodeSymbol
+                val (symbol, hasDispatchReceiver) = when {
+                    type.isArrayOrPrimitiveArray(checkUnsignedArrays = false) -> context.irBuiltIns.dataClassArrayMemberHashCodeSymbol to false
                     else -> {
-                        val classForType = when (val classifier = type.nothingToAny().toSymbol(session)?.fir) {
+                        val classForType = when (val classifier = type.coerceToAny().toSymbol(session)?.fir) {
                             is FirRegularClass -> classifier
                             is FirTypeParameter -> classifier.erasedUpperBound
                             else -> error("Unknown classifier kind $classifier")
                         }
                         val firHashCode = getHashCodeFunction(classForType)
                         val lookupTag = classForType.symbol.toLookupTag()
-                        declarationStorage.getIrFunctionSymbol(firHashCode, lookupTag) as IrSimpleFunctionSymbol
+                        declarationStorage.getIrFunctionSymbol(firHashCode, lookupTag) as IrSimpleFunctionSymbol to (firHashCode.dispatchReceiverType != null)
                     }
                 }
-                return Fir2IrHashCodeFunctionInfo(symbol)
+                return Fir2IrHashCodeFunctionInfo(symbol, hasDispatchReceiver)
             }
         }
 
         /**
-         * kotlin.Nothing has no members, so any function on property of type Nothing should be actually taken from kotlin.Any
+         * Convert types which do not have members - kotlin.Nothing and `dynamic` - to kotlin.Any.
          */
-        private fun ConeKotlinType.nothingToAny(): ConeKotlinType {
+        private fun ConeKotlinType.coerceToAny(): ConeKotlinType {
             return when {
                 this.isNothingOrNullableNothing -> session.builtinTypes.anyType.type
+                this is ConeDynamicType -> session.builtinTypes.anyType.type
                 else -> this
             }
         }
@@ -202,7 +209,6 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                     toStringContributedFunction,
                     components.irBuiltIns.stringType,
                 )
-                irClass.declarations.add(toStringFunction)
                 declarationStorage.cacheGeneratedFunction(toStringContributedFunction, toStringFunction)
             }
 
@@ -214,7 +220,6 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                     hashcodeNameContributedFunction,
                     components.irBuiltIns.intType,
                 )
-                irClass.declarations.add(hashCodeFunction)
                 declarationStorage.cacheGeneratedFunction(hashcodeNameContributedFunction, hashCodeFunction)
             }
 
@@ -228,13 +233,14 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
                     otherParameterNeeded = true,
                     isOperator = true
                 )
-                irClass.declarations.add(equalsFunction)
                 declarationStorage.cacheGeneratedFunction(equalsContributedFunction, equalsFunction)
             }
 
             return result
         }
 
+        // `irClass` is a source class and definitely is not a lazy class
+        @OptIn(UnsafeDuringIrConstructionAPI::class)
         fun generateBodies() {
             val propertyParametersCount = irClass.primaryConstructor?.explicitParameters?.size ?: 0
             val properties = irClass.properties.filter { it.backingField != null }.take(propertyParametersCount).toList()
@@ -283,6 +289,8 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
         fun generateComponentBody(irFunction: IrFunction) {
             irFunction.origin = origin
             val index = DataClassResolver.getComponentIndex(irFunction.name.asString())
+            // `irClass` is a source class and definitely is not a lazy class
+            @OptIn(UnsafeDuringIrConstructionAPI::class)
             val valueParameter = irClass.primaryConstructor!!.valueParameters[index - 1]
             val irProperty = irDataClassMembersGenerator.getProperty(valueParameter)
             irDataClassMembersGenerator.generateComponentFunction(irFunction, irProperty)
@@ -290,6 +298,8 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
 
         fun generateCopyBody(irFunction: IrFunction) {
             irFunction.origin = origin
+            // `irClass` is a source class and definitely is not a lazy class
+            @OptIn(UnsafeDuringIrConstructionAPI::class)
             irDataClassMembersGenerator.generateCopyFunction(irFunction, irClass.primaryConstructor!!.symbol)
         }
 
@@ -301,35 +311,34 @@ class DataClassMembersGenerator(val components: Fir2IrComponents) : Fir2IrCompon
             isOperator: Boolean = false,
         ): IrSimpleFunction {
             val signature = if (klass.symbol.classId.isLocal) null else components.signatureComposer.composeSignature(syntheticCounterpart)
-            return components.callablesGenerator.declareIrSimpleFunction(signature) { symbol ->
-                components.irFactory.createSimpleFunction(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = origin,
-                    name = name,
-                    visibility = DescriptorVisibilities.PUBLIC,
-                    isInline = false,
-                    isExpect = false,
-                    returnType = returnType,
-                    modality = Modality.OPEN,
-                    symbol = symbol,
-                    isTailrec = false,
-                    isSuspend = false,
-                    isOperator = isOperator,
-                    isInfix = false,
-                    isExternal = false,
-                    isFakeOverride = false,
-                ).apply {
-                    if (otherParameterNeeded) {
-                        val irValueParameter = createSyntheticIrParameter(
-                            this, syntheticCounterpart.valueParameters.first().name, components.irBuiltIns.anyNType
-                        )
-                        this.valueParameters = listOf(irValueParameter)
-                    }
-                    metadata = FirMetadataSource.Function(syntheticCounterpart)
+            val symbol = components.declarationStorage.createFunctionSymbol(signature)
+            return components.irFactory.createSimpleFunction(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = origin,
+                name = name,
+                visibility = DescriptorVisibilities.PUBLIC,
+                isInline = false,
+                isExpect = false,
+                returnType = returnType,
+                modality = Modality.OPEN,
+                symbol = symbol,
+                isTailrec = false,
+                isSuspend = false,
+                isOperator = isOperator,
+                isInfix = false,
+                isExternal = false,
+                isFakeOverride = false,
+            ).apply {
+                if (otherParameterNeeded) {
+                    val irValueParameter = createSyntheticIrParameter(
+                        this, syntheticCounterpart.valueParameters.first().name, components.irBuiltIns.anyNType
+                    )
+                    this.valueParameters = listOf(irValueParameter)
                 }
-            }.apply {
-                parent = irClass
+                metadata = FirMetadataSource.Function(syntheticCounterpart)
+                setParent(irClass)
+                addDeclarationToParent(this, irClass)
                 dispatchReceiverParameter = generateDispatchReceiverParameter(this)
                 components.irBuiltIns.findBuiltInClassMemberFunctions(
                     components.irBuiltIns.anyClass,

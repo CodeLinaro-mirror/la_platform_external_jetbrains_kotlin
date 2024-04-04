@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.lexer.KtToken
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.KtPsiUtil.unquoteIdentifier
 
 abstract class AbstractLightTreeRawFirBuilder(
     baseSession: FirSession,
@@ -31,7 +32,7 @@ abstract class AbstractLightTreeRawFirBuilder(
     override fun LighterASTNode.toFirSourceElement(kind: KtFakeSourceElementKind?): KtLightSourceElement {
         val startOffset = tree.getStartOffset(this)
         val endOffset = tree.getEndOffset(this)
-        return toKtLightSourceElement(tree, kind ?: context.forcedElementSourceKind ?: KtRealSourceElementKind, startOffset, endOffset)
+        return toKtLightSourceElement(tree, kind ?: KtRealSourceElementKind, startOffset, endOffset)
     }
 
     override val LighterASTNode.elementType: IElementType
@@ -57,7 +58,7 @@ abstract class AbstractLightTreeRawFirBuilder(
         }
         this.forEachChildren {
             when (it.tokenType) {
-                KtNodeTypes.LABEL_QUALIFIER -> return it.asText.replaceFirst("@", "")
+                KtNodeTypes.LABEL_QUALIFIER -> return it.asText.replaceFirst("@", "").let(::unquoteIdentifier)
             }
         }
 
@@ -69,6 +70,8 @@ abstract class AbstractLightTreeRawFirBuilder(
     override fun LighterASTNode.getAnnotatedExpression() = getFirstChildExpression()
 
     override fun LighterASTNode.getLabeledExpression() = getLastChildExpression()
+
+    fun LighterASTNode.getChildExpression() = getFirstChildExpression()
 
     private fun LighterASTNode.getFirstChildExpression(): LighterASTNode? {
         forEachChildren {

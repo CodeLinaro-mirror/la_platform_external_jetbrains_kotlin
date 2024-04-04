@@ -5,11 +5,18 @@
 
 package org.jetbrains.kotlin.gradle.dsl
 
+/**
+ * Common options for all Kotlin platforms' compilations and tools.
+ */
 interface KotlinCommonToolOptions {
+    /**
+     * @suppress
+     */
     val options: org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerToolOptions
 
     /**
-     * Report an error if there are any warnings
+     * Report an error if there are any warnings.
+     *
      * Default value: false
      */
     var allWarningsAsErrors: kotlin.Boolean
@@ -17,7 +24,8 @@ interface KotlinCommonToolOptions {
         set(value) = options.allWarningsAsErrors.set(value)
 
     /**
-     * Generate no warnings
+     * Don't generate any warnings.
+     *
      * Default value: false
      */
     var suppressWarnings: kotlin.Boolean
@@ -25,7 +33,8 @@ interface KotlinCommonToolOptions {
         set(value) = options.suppressWarnings.set(value)
 
     /**
-     * Enable verbose logging output
+     * Enable verbose logging output.
+     *
      * Default value: false
      */
     var verbose: kotlin.Boolean
@@ -34,6 +43,7 @@ interface KotlinCommonToolOptions {
 
     /**
      * A list of additional compiler arguments
+     *
      * Default value: emptyList<String>()
      */
     var freeCompilerArgs: kotlin.collections.List<kotlin.String>

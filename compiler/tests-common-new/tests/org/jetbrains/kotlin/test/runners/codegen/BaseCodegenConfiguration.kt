@@ -11,9 +11,7 @@ import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.HandlersStepBuilder
 import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.backend.handlers.*
-import org.jetbrains.kotlin.test.backend.ir.IrActualizerAndPluginsFacade
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
-import org.jetbrains.kotlin.test.bind
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_SMAP
@@ -41,13 +39,12 @@ fun <F : ResultingArtifact.FrontendOutput<F>, B : ResultingArtifact.BackendInput
     classicFrontendHandlersStep()
     firHandlersStep()
     facadeStep(frontendToBackendConverter)
-    actualizersAndPluginsFacadeStepIfNeeded(targetFrontend)
     irHandlersStep(init = {})
     facadeStep(backendFacade)
     jvmArtifactsHandlersStep(init = {})
 }
 
-private fun TestConfigurationBuilder.commonServicesConfigurationForCodegenAndDebugTest(targetFrontend: FrontendKind<*>) {
+fun TestConfigurationBuilder.commonServicesConfigurationForCodegenAndDebugTest(targetFrontend: FrontendKind<*>) {
     globalDefaults {
         frontend = targetFrontend
         targetPlatform = JvmPlatforms.defaultJvmPlatform
@@ -111,6 +108,7 @@ fun TestConfigurationBuilder.applyDumpSmapDirective() {
 fun TestConfigurationBuilder.configureDumpHandlersForCodegenTest() {
     configureIrHandlersStep {
         dumpHandlersForConverterStep()
+        useAfterAnalysisCheckers(::FirIrDumpIdenticalChecker)
     }
     configureJvmArtifactsHandlersStep {
         dumpHandlersForBackendStep()
@@ -121,20 +119,6 @@ fun TestConfigurationBuilder.configureCommonHandlersForBoxTest() {
     commonHandlersForCodegenTest()
     configureJvmArtifactsHandlersStep {
         boxHandlersForBackendStep()
-    }
-}
-
-fun TestConfigurationBuilder.configureCommonHandlersForSteppingTest() {
-    commonHandlersForCodegenTest()
-    configureJvmArtifactsHandlersStep {
-        steppingHandlersForBackendStep()
-    }
-}
-
-fun TestConfigurationBuilder.configureCommonHandlersForLocalVariableTest() {
-    commonHandlersForCodegenTest()
-    configureJvmArtifactsHandlersStep {
-        localVariableHandlersForBackendStep()
     }
 }
 
@@ -170,14 +154,6 @@ fun HandlersStepBuilder<BinaryArtifacts.Jvm, ArtifactKinds.Jvm>.boxHandlersForBa
     )
 }
 
-fun HandlersStepBuilder<BinaryArtifacts.Jvm, ArtifactKinds.Jvm>.steppingHandlersForBackendStep() {
-    useHandlers(::SteppingDebugRunner)
-}
-
-fun HandlersStepBuilder<BinaryArtifacts.Jvm, ArtifactKinds.Jvm>.localVariableHandlersForBackendStep() {
-    useHandlers(::LocalVariableDebugRunner)
-}
-
 fun HandlersStepBuilder<ClassicFrontendOutputArtifact, FrontendKinds.ClassicFrontend>.commonClassicFrontendHandlersForCodegenTest() {
     useHandlers(
         ::NoCompilationErrorsHandler,
@@ -203,12 +179,6 @@ fun HandlersStepBuilder<BinaryArtifacts.Jvm, ArtifactKinds.Jvm>.inlineHandlers()
         ::BytecodeInliningHandler,
         ::SMAPDumpHandler
     )
-}
-
-fun TestConfigurationBuilder.actualizersAndPluginsFacadeStepIfNeeded(targetFrontend: FrontendKind<*>) {
-    if (targetFrontend == FrontendKinds.FIR) {
-        facadeStep(::IrActualizerAndPluginsFacade)
-    }
 }
 
 fun TestConfigurationBuilder.configureModernJavaTest(jdkKind: TestJdkKind, jvmTarget: JvmTarget) {

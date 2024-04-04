@@ -46,6 +46,14 @@ class MutableVariableWithConstraints private constructor(
 
     private val mutableConstraints = if (constraints == null) SmartList() else SmartList(constraints)
 
+    /**
+     * The contract for mutating this list is that the only allowed mutation is appending items.
+     * In any other case, it must be set to `null`, so that it will be recomputed when [constraints] is called.
+     *
+     * The reason is that the list might be mutated while it's being iterated.
+     * For this reason, we use an index loop in
+     * [org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintIncorporator.forEachConstraint].
+     */
     private var simplifiedConstraints: SmartList<Constraint>? = mutableConstraints
 
     val rawConstraintsCount get() = mutableConstraints.size
@@ -213,6 +221,14 @@ class MutableVariableWithConstraints private constructor(
         }
     }
 
+    fun runConstraintsSimplification() {
+        val currentState = constraints.toList()
+        mutableConstraints.apply {
+            clear()
+            addAll(currentState)
+        }
+    }
+
     private fun isUsefulConstraint(constraint: Constraint, equalityConstraints: Map<Int, List<Constraint>>): Boolean {
         if (constraint.kind == ConstraintKind.EQUALITY) return true
         return equalityConstraints[constraint.typeHashCode]?.none { it.type == constraint.type } ?: true
@@ -243,4 +259,15 @@ internal class MutableConstraintStorage : ConstraintStorage {
     override val constraintsFromAllForkPoints: MutableList<Pair<IncorporationConstraintPosition, ForkPointData>> = SmartList()
 
     override var outerSystemVariablesPrefixSize: Int = 0
+
+    override var usesOuterCs: Boolean = false
+
+    @AssertionsOnly
+    internal var outerCS: ConstraintStorage? = null
 }
+
+/**
+ * Annotated member is used only for assertion purposes and does not affect semantics
+ */
+@RequiresOptIn
+annotation class AssertionsOnly

@@ -13,7 +13,7 @@ fun test_1() {
 
 fun test_2() {
     <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>sequence<!> {
-        yield(materialize())
+        yield(<!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>materialize<!>())
     }
 }
 

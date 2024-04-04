@@ -16,6 +16,8 @@ import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.ValueDirective
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
+import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.moduleStructure
 
 object CodegenTestDirectives : SimpleDirectivesContainer() {
     val IGNORE_BACKEND by enumDirective<TargetBackend>(
@@ -162,12 +164,13 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val DUMP_LOCAL_DECLARATION_SIGNATURES by directive(
-        description = "For tests with $DUMP_SIGNATURES, also dumps signatures and mangled names for local functions and classes"
-    )
-
-    val SKIP_SIGNATURE_DUMP by directive(
-        description = "Disables dumping signatures and mangled names of declarations to the ${IrMangledNameAndSignatureDumpHandler.DUMP_EXTENSION} file"
+    val SEPARATE_SIGNATURE_DUMP_FOR_K2 by directive(
+        description = """
+            Usually the signature dump must not differ between K1 and K2.
+            There are rare cases, however, when there is legitimate difference (for example, if the set of fake overrides is different).
+            Please always document the usage of this directive and carefully verify that the difference between K1 and K2 does
+            not affect IR linkage.
+            """.trimIndent()
     )
 
     val MUTE_SIGNATURE_COMPARISON_K2 by enumDirective<TargetBackend>(
@@ -249,7 +252,7 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
 
     val ENABLE_IR_FAKE_OVERRIDE_GENERATION by directive(
         description = """
-            Enables fake-override generation in FIR2IR using IR f/o generator. KT-61514
+            Enables fake-override generation in FIR2IR using IR f/o generator on JVM. KT-61514
         """.trimIndent()
     )
 
@@ -259,12 +262,17 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
             Suppresses test if $ENABLE_IR_FAKE_OVERRIDE_GENERATION directive enabled
         """.trimIndent()
     )
+
+    val JVM_ABI_K1_K2_DIFF by stringDirective(
+        description = "Expect difference in JVM ABI between K1 and K2",
+        applicability = Global
+    )
 }
 
 fun extractIgnoredDirectiveForTargetBackend(
     module: TestModule,
     targetBackend: TargetBackend,
-    customIgnoreDirective: ValueDirective<TargetBackend>? = null
+    customIgnoreDirective: ValueDirective<TargetBackend>? = null,
 ): ValueDirective<TargetBackend>? =
     when (module.frontendKind) {
         FrontendKinds.ClassicFrontend -> CodegenTestDirectives.IGNORE_BACKEND_K1
@@ -284,3 +292,12 @@ fun extractIgnoredDirectiveForTargetBackend(
             }
         }
     }
+
+fun TestServices.tryRetrieveIgnoredInliner(directive: ValueDirective<TargetInliner>): TargetInliner? {
+    val directiveName = directive.name
+    val ignoreDirectives = moduleStructure.allDirectives[directive]
+    if (ignoreDirectives.size > 1) {
+        throw IllegalArgumentException("Directive $directiveName should contains only one value")
+    }
+    return ignoreDirectives.singleOrNull()
+}

@@ -21,9 +21,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtPsiBasedSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.UnsupportedSymbolKind
-import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointerOfType
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.containingClassLookupTag
@@ -37,7 +35,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.isExtension
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.psi.KtFile
 
 internal class KtFirKotlinPropertySymbol(
     override val firSymbol: FirPropertySymbol,
@@ -63,10 +60,13 @@ internal class KtFirKotlinPropertySymbol(
     override val contextReceivers: List<KtContextReceiver> by cached { firSymbol.createContextReceivers(builder) }
 
     override val isExtension: Boolean get() = withValidityAssertion { firSymbol.isExtension }
-    override val initializer: KtInitializerValue? by cached { firSymbol.getKtConstantInitializer(analysisSession.firResolveSession) }
+    override val initializer: KtInitializerValue? by cached { firSymbol.getKtConstantInitializer(builder) }
 
     override val symbolKind: KtSymbolKind
         get() = withValidityAssertion {
+            if (firSymbol.origin == FirDeclarationOrigin.DynamicScope) {
+                return@withValidityAssertion KtSymbolKind.CLASS_MEMBER
+            }
             when (firSymbol.containingClassLookupTag()?.classId) {
                 null -> KtSymbolKind.TOP_LEVEL
                 else -> KtSymbolKind.CLASS_MEMBER
@@ -77,11 +77,7 @@ internal class KtFirKotlinPropertySymbol(
     override val visibility: Visibility get() = withValidityAssertion { firSymbol.visibility }
 
     override val annotationsList by cached {
-        KtFirAnnotationListForDeclaration.create(
-            firSymbol,
-            analysisSession.useSiteSession,
-            token
-        )
+        KtFirAnnotationListForDeclaration.create(firSymbol, builder)
     }
 
     override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { firSymbol.getCallableIdIfNonLocal() }
@@ -136,16 +132,7 @@ internal class KtFirKotlinPropertySymbol(
         return when (val kind = symbolKind) {
             KtSymbolKind.TOP_LEVEL -> {
                 if (firSymbol.fir.origin is FirDeclarationOrigin.ScriptCustomization.ResultProperty) {
-                    val file = psi?.containingFile as? KtFile
-                    if (file == null) {
-                        errorWithFirSpecificEntries(
-                            "ResultProperty restoring supported only for psi-based symbols yet",
-                            fir = firSymbol.fir,
-                            psi = psi,
-                        )
-                    }
-
-                    KtFirResultPropertySymbolPointer(file.symbolPointerOfType<KtFirFileSymbol>())
+                    KtFirResultPropertySymbolPointer(requireOwnerPointer())
                 } else {
                     KtFirTopLevelPropertySymbolPointer(
                         firSymbol.callableId,

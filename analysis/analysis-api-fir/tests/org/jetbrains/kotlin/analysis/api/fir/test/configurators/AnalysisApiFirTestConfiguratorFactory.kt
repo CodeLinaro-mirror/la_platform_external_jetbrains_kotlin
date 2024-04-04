@@ -5,8 +5,9 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.test.configurators
 
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirCodeFragmentTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirLibraryBinaryTestConfigurator
-import org.jetbrains.kotlin.analysis.api.fir.test.configurators.library.AnalysisApiFirLibrarySourceTestConfigurator
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirLibrarySourceTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirScriptTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.*
@@ -35,6 +36,11 @@ object AnalysisApiFirTestConfiguratorFactory : AnalysisApiTestConfiguratorFactor
                 require(data.analysisSessionMode == AnalysisSessionMode.Normal)
                 AnalysisApiFirLibrarySourceTestConfigurator
             }
+
+            TestModuleKind.CodeFragment -> when (data.analysisSessionMode) {
+                AnalysisSessionMode.Normal -> AnalysisApiFirCodeFragmentTestConfigurator(analyseInDependentSession = false)
+                AnalysisSessionMode.Dependent -> AnalysisApiFirCodeFragmentTestConfigurator(analyseInDependentSession = true)
+            }
         }
     }
 
@@ -43,10 +49,16 @@ object AnalysisApiFirTestConfiguratorFactory : AnalysisApiTestConfiguratorFactor
             data.frontend != FrontendKind.Fir -> false
             data.analysisApiMode != AnalysisApiMode.Ide -> false
             else -> when (data.moduleKind) {
-                TestModuleKind.Source, TestModuleKind.ScriptSource -> true
+                TestModuleKind.Source,
+                TestModuleKind.ScriptSource -> {
+                    true
+                }
+
                 TestModuleKind.LibraryBinary,
-                TestModuleKind.LibrarySource ->
+                TestModuleKind.LibrarySource,
+                TestModuleKind.CodeFragment -> {
                     data.analysisSessionMode == AnalysisSessionMode.Normal
+                }
             }
         }
     }

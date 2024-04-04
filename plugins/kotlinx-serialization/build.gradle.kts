@@ -50,11 +50,11 @@ dependencies {
     testImplementation(project(":kotlinx-serialization-compiler-plugin.backend"))
     testImplementation(project(":kotlinx-serialization-compiler-plugin.cli"))
 
-    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.4.1")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
-    coreJsIrRuntimeForTests("org.jetbrains.kotlinx:kotlinx-serialization-core:1.4.1") { isTransitive = false }
-    jsonJsIrRuntimeForTests("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1") { isTransitive = false }
+    coreJsIrRuntimeForTests("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.0") { isTransitive = false }
+    jsonJsIrRuntimeForTests("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0") { isTransitive = false }
 
     testRuntimeOnly(intellijCore())
     testRuntimeOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
@@ -78,9 +78,13 @@ publish {
     artifactId = artifactId.replace("kotlinx-", "kotlin-")
 }
 
+val archiveName = "kotlin-serialization-compiler-plugin"
+val archiveCompatName = "kotlinx-serialization-compiler-plugin"
+
 val runtimeJar = runtimeJar {
-    archiveBaseName.set("kotlin-serialization-compiler-plugin")
+    archiveBaseName.set(archiveName)
 }
+
 sourcesJar()
 javadocJar()
 testsJar()
@@ -100,7 +104,7 @@ val compatJar = tasks.register<Copy>("compatJar") {
 }
 
 artifacts {
-    add(distCompat.name, compatJar) {
+    add(distCompat.name, layout.buildDirectory.dir("libsCompat").map { it.file("$archiveCompatName-$version.jar") }) {
         builtBy(runtimeJar, compatJar)
     }
 }
@@ -114,7 +118,7 @@ projectTest(parallel = true, jUnitMode = JUnitMode.JUnit5) {
 val generateTests by generator("org.jetbrains.kotlinx.serialization.TestGeneratorKt")
 
 fun Test.setUpJsIrBoxTests() {
-    useJsIrBoxTests(version = version, buildDir = "$buildDir/")
+    useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
 
     val localJsCoreRuntimeForTests: FileCollection = coreJsIrRuntimeForTests
     val localJsJsonRuntimeForTests: FileCollection = jsonJsIrRuntimeForTests

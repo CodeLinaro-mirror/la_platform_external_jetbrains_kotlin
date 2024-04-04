@@ -6,17 +6,21 @@
 package org.jetbrains.kotlin.fir.session
 
 import org.jetbrains.kotlin.config.LanguageVersionSettings
-import org.jetbrains.kotlin.fir.BinaryModuleData
-import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.PlatformConflictDeclarationsDiagnosticDispatcher
+import org.jetbrains.kotlin.fir.analysis.native.checkers.FirNativeCastChecker
+import org.jetbrains.kotlin.fir.analysis.native.checkers.NativeConflictDeclarationsDiagnosticDispatcher
+import org.jetbrains.kotlin.fir.backend.native.FirNativeClassMapper
+import org.jetbrains.kotlin.fir.backend.native.FirNativeOverrideChecker
 import org.jetbrains.kotlin.fir.checkers.registerNativeCheckers
 import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirBuiltinSyntheticFunctionInterfaceProvider
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
+import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
+import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
 import org.jetbrains.kotlin.fir.session.FirSessionFactoryHelper.registerDefaultComponents
-import org.jetbrains.kotlin.library.isNativeStdlib
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
 import org.jetbrains.kotlin.name.Name
@@ -39,6 +43,7 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
             extensionRegistrars,
             registerExtraComponents = { session ->
                 session.registerDefaultComponents()
+                session.registerNativeComponents()
                 registerExtraComponents(session)
             },
             createKotlinScopeProvider = { FirKotlinScopeProvider() },
@@ -51,13 +56,9 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
                     bindSession(session)
                 }
                 val resolvedKotlinLibraries = resolvedLibraries.map { it.library }
-                // KT-61645: stdlib-native must appear before stdlib-common metadata in the dependency list
-                // TODO: Consider not reordering libraries after KT-61430 is fixed, and Gradle plugin determines full order of dependencies.
-                val (stdlib, otherDeps) = resolvedKotlinLibraries.partition { it.isNativeStdlib }
-                val kotlinLibraries = stdlib + otherDeps
                 listOfNotNull(
-                    KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, kotlinLibraries),
-                    NativeForwardDeclarationsSymbolProvider(session, forwardDeclarationsModuleData, kotlinScopeProvider, kotlinLibraries),
+                    KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, resolvedKotlinLibraries),
+                    NativeForwardDeclarationsSymbolProvider(session, forwardDeclarationsModuleData, kotlinScopeProvider, resolvedKotlinLibraries),
                     FirBuiltinSyntheticFunctionInterfaceProvider(session, builtinsModuleData, kotlinScopeProvider),
                     syntheticFunctionInterfaceProvider,
                 )
@@ -83,6 +84,7 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
             init,
             registerExtraComponents = {
                 it.registerDefaultComponents()
+                it.registerNativeComponents()
                 registerExtraComponents(it)
             },
             registerExtraCheckers = { it.registerNativeCheckers() },
@@ -95,5 +97,13 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
                 )
             }
         )
+    }
+
+    @OptIn(SessionConfiguration::class)
+    fun FirSession.registerNativeComponents() {
+        register(FirPlatformClassMapper::class, FirNativeClassMapper())
+        register(FirPlatformSpecificCastChecker::class, FirNativeCastChecker)
+        register(PlatformConflictDeclarationsDiagnosticDispatcher::class, NativeConflictDeclarationsDiagnosticDispatcher)
+        register(FirOverrideChecker::class, FirNativeOverrideChecker(this))
     }
 }

@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.jvm.JvmBuiltIns
 import org.jetbrains.kotlin.builtins.konan.KonanBuiltIns
+import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.cli.js.klib.TopDownAnalyzerFacadeForJSIR
 import org.jetbrains.kotlin.cli.js.klib.TopDownAnalyzerFacadeForWasm
 import org.jetbrains.kotlin.cli.jvm.compiler.JvmPackagePartProvider
@@ -44,7 +45,6 @@ import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
-import org.jetbrains.kotlin.ir.backend.js.resolverLogger
 import org.jetbrains.kotlin.js.analyze.TopDownAnalyzerFacadeForJS
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.WasmTarget
@@ -281,14 +281,15 @@ class ClassicFrontendFacade(
     ): List<ModuleDescriptor> {
         val resolvedLibraries = CommonKLibResolver.resolve(
             names,
-            configuration.resolverLogger
+            configuration.getLogger(treatWarningsAsErrors = true),
+            knownIrProviders = listOf("kotlin.native.cinterop"), // FIXME use KonanLibraryProperResolver instead, as in production.
         ).getFullResolvedList()
 
         var builtInsModule: KotlinBuiltIns? = null
         val dependencies = mutableListOf<ModuleDescriptorImpl>()
 
         return resolvedLibraries.map { resolvedLibrary ->
-            testServices.libraryProvider.getOrCreateStdlibByPath(resolvedLibrary.library.libraryName) {
+            testServices.libraryProvider.getOrCreateStdlibByPath(resolvedLibrary.library.libraryFile.absolutePath) {
                 val storageManager = LockBasedStorageManager("ModulesStructure")
                 val isBuiltIns = resolvedLibrary.library.unresolvedDependencies.isEmpty()
 

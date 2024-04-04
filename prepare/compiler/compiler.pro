@@ -79,6 +79,8 @@
 #-libraryjars '<bootstrap.script.runtime>'
 #-libraryjars '<tools.jar>'
 
+-dontprocesskotlinmetadata
+-keep class kotlin.Metadata
 -dontoptimize
 -dontobfuscate
 
@@ -240,6 +242,13 @@
     public static java.lang.String getJarPathForClass(java.lang.Class);
 }
 
+-keep class com.intellij.openapi.roots.ContentIterator  { *; }
+
+-keepclassmembers class com.intellij.openapi.vfs.VfsUtilCore {
+    public static boolean iterateChildrenRecursively(com.intellij.openapi.vfs.VirtualFile,com.intellij.openapi.vfs.VirtualFileFilter,com.intellij.openapi.roots.ContentIterator);
+}
+
+
 -keepclassmembers class com.intellij.util.PathUtil {
     public static java.lang.String getJarPathForClass(java.lang.Class);
 }
@@ -317,6 +326,7 @@
 }
 -keepclassmembers class kotlinx.collections.immutable.ExtensionsKt {
     kotlinx.collections.immutable.PersistentMap toPersistentHashMap(java.util.Map);
+    kotlinx.collections.immutable.PersistentMap persistentHashMapOf(kotlin.Pair[]);
     kotlinx.collections.immutable.PersistentSet persistentHashSetOf(java.lang.Object[]);
 }
 -keepclassmembers class com.intellij.lang.jvm.JvmParameter {

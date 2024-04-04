@@ -17,6 +17,7 @@ import org.jetbrains.annotations.NonNls
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassOrObjectSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.sourcePsiSafe
@@ -157,21 +158,37 @@ abstract class SymbolLightClassForClassLike<SType : KtClassOrObjectSymbol> prote
 
     override val originKind: LightClassOriginKind get() = LightClassOriginKind.SOURCE
 
-    override fun getQualifiedName(): String? = classOrObjectDeclaration?.fqName?.asString()
+    override fun getQualifiedName(): String? {
+        val classOrObjectFqName = classOrObjectDeclaration?.fqName
+            ?: withClassOrObjectSymbol { s -> s.classIdIfNonLocal?.asSingleFqName() }
+
+        return classOrObjectFqName?.toString()
+    }
 
     override fun getInterfaces(): Array<PsiClass> = PsiClassImplUtil.getInterfaces(this)
     override fun getSuperClass(): PsiClass? = PsiClassImplUtil.getSuperClass(this)
     override fun getSupers(): Array<PsiClass> = PsiClassImplUtil.getSupers(this)
     override fun getSuperTypes(): Array<PsiClassType> = PsiClassImplUtil.getSuperTypes(this)
 
-    override fun getContainingClass(): PsiClass? {
+    private val _containingClass: PsiClass? by lazyPub {
         val containingBody = classOrObjectDeclaration?.parent
-        return when (val parent = containingBody?.parent) {
+        when (val parent = containingBody?.parent) {
             is KtClassOrObject -> parent.toLightClass()
             is KtScript -> parent.toLightClass()
+            null -> withClassOrObjectSymbol { s ->
+                (s.getContainingSymbol() as? KtNamedClassOrObjectSymbol)?.let { createLightClassNoCache(it, ktModule, manager) }
+            }
             else -> null
         }
     }
+
+    override fun getContainingClass(): PsiClass? = _containingClass
+
+    private val _containingFile: PsiFile? by lazyPub {
+        super.getContainingFile() ?: containingClass?.containingFile
+    }
+
+    override fun getContainingFile(): PsiFile? = _containingFile
 
     abstract override fun getParent(): PsiElement?
     override fun getScope(): PsiElement? = parent

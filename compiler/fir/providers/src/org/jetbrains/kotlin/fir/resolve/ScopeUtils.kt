@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeRawScopeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirScopeWithCallableCopyReturnTypeUpdater
@@ -57,9 +58,23 @@ fun FirSmartCastExpression.smartcastScope(
 fun ConeClassLikeType.delegatingConstructorScope(
     useSiteSession: FirSession,
     scopeSession: ScopeSession,
-    derivedClassLookupTag: ConeClassLikeLookupTag
+    derivedClassLookupTag: ConeClassLikeLookupTag,
+    outerType: ConeClassLikeType?
 ): FirTypeScope? {
-    return classScope(useSiteSession, scopeSession, FirResolvePhase.DECLARATIONS, derivedClassLookupTag)
+    val fir = fullyExpandedType(useSiteSession).lookupTag.toSymbol(useSiteSession)?.fir as? FirClass ?: return null
+
+    val substitutor = when {
+        outerType != null -> {
+            val outerFir = outerType.lookupTag.toSymbol(useSiteSession)?.fir as? FirClass ?: return null
+            substitutorByMap(
+                createSubstitutionForScope(outerFir.typeParameters, outerType, useSiteSession),
+                useSiteSession,
+            )
+        }
+        else -> ConeSubstitutor.Empty
+    }
+
+    return fir.scopeForClass(substitutor, useSiteSession, scopeSession, derivedClassLookupTag, FirResolvePhase.DECLARATIONS)
 }
 
 fun ConeKotlinType.scope(
@@ -91,7 +106,25 @@ private fun ConeKotlinType.scope(
             intersectionType.scope(useSiteSession, scopeSession, requiredMembersPhase) ?: FirTypeScope.Empty
         }
     }
-
+    is ConeStubTypeForChainInference -> {
+        // Actually, it should be the intersection of bounds, but K1 doesn't think so.
+        // interface ABC {
+        //     fun foo()
+        // }
+        //
+        // class Buildee<out U : ABC> {
+        //     fun get(): U = null!!
+        // }
+        //
+        // fun <F: ABC> buildsome(l: Buildee<F>.() -> Unit) {}
+        //
+        // fun test() {
+        //    buildsome {
+        //        this.get().foo()
+        //    }
+        // }
+        useSiteSession.builtinTypes.anyType.type.scope(useSiteSession, scopeSession, requiredMembersPhase)
+    }
     is ConeRawType -> lowerBound.scope(useSiteSession, scopeSession, requiredMembersPhase)
     is ConeDynamicType -> useSiteSession.dynamicMembersStorage.getDynamicScopeFor(scopeSession)
     is ConeFlexibleType -> lowerBound.scope(useSiteSession, scopeSession, requiredMembersPhase)
@@ -107,6 +140,13 @@ private fun ConeKotlinType.scope(
     is ConeDefinitelyNotNullType -> original.scope(useSiteSession, scopeSession, requiredMembersPhase)
     is ConeIntegerConstantOperatorType -> scopeSession.getOrBuildScopeForIntegerConstantOperatorType(useSiteSession, this)
     is ConeIntegerLiteralConstantType -> error("ILT should not be in receiver position")
+    // See testData/diagnostics/tests/inference/builderInference/memberScopeOfCapturedTypeForPostponedCall.kt
+    is ConeCapturedType -> {
+        val supertypes =
+            constructor.supertypes?.takeIf { it.isNotEmpty() }
+                ?: listOf(useSiteSession.builtinTypes.anyType.type)
+        useSiteSession.typeContext.intersectTypes(supertypes).scope(useSiteSession, scopeSession, requiredMembersPhase)
+    }
     else -> null
 }
 

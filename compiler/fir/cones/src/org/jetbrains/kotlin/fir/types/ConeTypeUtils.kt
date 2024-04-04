@@ -53,6 +53,14 @@ private fun ConeKotlinType.contains(predicate: (ConeKotlinType) -> Boolean, visi
 
 // ----------------------------------- Transformations -----------------------------------
 
+fun ConeKotlinType.unwrapLowerBound(): ConeSimpleKotlinType {
+    return when(this) {
+        is ConeDefinitelyNotNullType -> original.unwrapLowerBound()
+        is ConeFlexibleType -> lowerBound.unwrapLowerBound()
+        is ConeSimpleKotlinType -> this
+    }
+}
+
 fun ConeKotlinType.upperBoundIfFlexible(): ConeSimpleKotlinType {
     return when (this) {
         is ConeSimpleKotlinType -> this
@@ -67,7 +75,7 @@ fun ConeKotlinType.lowerBoundIfFlexible(): ConeSimpleKotlinType {
     }
 }
 
-fun ConeKotlinType.originalIfDefinitelyNotNullable(): ConeKotlinType {
+fun ConeSimpleKotlinType.originalIfDefinitelyNotNullable(): ConeSimpleKotlinType {
     return when (this) {
         is ConeDefinitelyNotNullType -> original
         else -> this
@@ -129,3 +137,5 @@ fun ConeKotlinType.renderReadableWithFqNames(): String {
 }
 
 fun ConeKotlinType.hasError(): Boolean = contains { it is ConeErrorType }
+
+fun ConeKotlinType.hasCapture(): Boolean = contains { it is ConeCapturedType }

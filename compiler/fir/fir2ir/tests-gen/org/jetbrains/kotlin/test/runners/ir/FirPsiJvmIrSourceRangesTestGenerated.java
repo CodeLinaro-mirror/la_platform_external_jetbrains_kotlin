@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -50,6 +50,12 @@ public class FirPsiJvmIrSourceRangesTestGenerated extends AbstractFirPsiJvmIrSou
     }
 
     @Test
+    @TestMetadata("extensionLambdaCall.kt")
+    public void testExtensionLambdaCall() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/extensionLambdaCall.kt");
+    }
+
+    @Test
     @TestMetadata("kt17108.kt")
     public void testKt17108() throws Exception {
         runTest("compiler/testData/ir/sourceRanges/kt17108.kt");
@@ -62,9 +68,39 @@ public class FirPsiJvmIrSourceRangesTestGenerated extends AbstractFirPsiJvmIrSou
     }
 
     @Test
+    @TestMetadata("kt63779.kt")
+    public void testKt63779() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/kt63779.kt");
+    }
+
+    @Test
+    @TestMetadata("kt63779_2.kt")
+    public void testKt63779_2() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/kt63779_2.kt");
+    }
+
+    @Test
+    @TestMetadata("multiLineCall.kt")
+    public void testMultiLineCall() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/multiLineCall.kt");
+    }
+
+    @Test
+    @TestMetadata("operators.kt")
+    public void testOperators() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/operators.kt");
+    }
+
+    @Test
     @TestMetadata("postfixIncrementDecrement.kt")
     public void testPostfixIncrementDecrement() throws Exception {
         runTest("compiler/testData/ir/sourceRanges/postfixIncrementDecrement.kt");
+    }
+
+    @Test
+    @TestMetadata("this.kt")
+    public void testThis() throws Exception {
+        runTest("compiler/testData/ir/sourceRanges/this.kt");
     }
 
     @Nested
@@ -104,6 +140,12 @@ public class FirPsiJvmIrSourceRangesTestGenerated extends AbstractFirPsiJvmIrSou
         @TestMetadata("fakeOverrides.kt")
         public void testFakeOverrides() throws Exception {
             runTest("compiler/testData/ir/sourceRanges/declarations/fakeOverrides.kt");
+        }
+
+        @Test
+        @TestMetadata("fakeOverrides2.kt")
+        public void testFakeOverrides2() throws Exception {
+            runTest("compiler/testData/ir/sourceRanges/declarations/fakeOverrides2.kt");
         }
 
         @Test

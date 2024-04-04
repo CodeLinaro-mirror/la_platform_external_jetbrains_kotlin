@@ -1,4 +1,4 @@
-// IGNORE_BACKEND: WASM
+
 
 // FILE: test.kt
 
@@ -17,7 +17,7 @@ inline fun foo(f: () -> Unit) {
     f()
 }
 
-// EXPECTATIONS JVM JVM_IR
+// EXPECTATIONS JVM_IR
 // test.kt:6 box
 // test.kt:16 box
 // test.kt:17 box
@@ -40,3 +40,13 @@ inline fun foo(f: () -> Unit) {
 // test.kt:16 box
 // test.kt:11 box
 // test.kt:13 box
+
+// EXPECTATIONS WASM
+// test.kt:1 $box
+// test.kt:6 $box (4, 4)
+// test.kt:16 $box (12, 4, 12, 4)
+// test.kt:17 $box (4, 4)
+// test.kt:7 $box (20, 12)
+// test.kt:10 $box
+// test.kt:11 $box (16, 8)
+// test.kt:13 $box

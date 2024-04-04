@@ -22,13 +22,16 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.util.addChild
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.ir.util.file
+import org.jetbrains.kotlin.js.config.WasmTarget
+import org.jetbrains.kotlin.js.config.wasmTarget
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
@@ -45,6 +48,8 @@ class WasmBackendContext(
     override var inVerbosePhase: Boolean = false
     override val scriptMode = false
     override val irFactory: IrFactory = symbolTable.irFactory
+
+    val isWasmJsTarget: Boolean = configuration.wasmTarget == WasmTarget.JS
 
     // Place to store declarations excluded from code generation
     private val excludedDeclarations = mutableMapOf<FqName, IrPackageFragment>()
@@ -68,6 +73,9 @@ class WasmBackendContext(
 
     override val coroutineSymbols =
         JsCommonCoroutineSymbols(symbolTable, module,this)
+
+    override val jsPromiseSymbol: IrClassSymbol?
+        get() = if (isWasmJsTarget) wasmSymbols.jsRelatedSymbols.jsPromise else null
 
     val innerClassesSupport = JsInnerClassesSupport(mapping, irFactory)
 
@@ -95,6 +103,9 @@ class WasmBackendContext(
 
             override fun getLineNumber(offset: Int) = UNDEFINED_LINE_NUMBER
             override fun getColumnNumber(offset: Int) = UNDEFINED_COLUMN_NUMBER
+            override fun getLineAndColumnNumbers(offset: Int): LineAndColumn {
+                return LineAndColumn(UNDEFINED_LINE_NUMBER, UNDEFINED_COLUMN_NUMBER)
+            }
         }, internalPackageFragmentDescriptor, irModuleFragment).also {
             irModuleFragment.files += it
         }
@@ -167,6 +178,9 @@ class WasmBackendContext(
 
             override fun getLineNumber(offset: Int) = UNDEFINED_LINE_NUMBER
             override fun getColumnNumber(offset: Int) = UNDEFINED_COLUMN_NUMBER
+            override fun getLineAndColumnNumbers(offset: Int): LineAndColumn {
+                return LineAndColumn(UNDEFINED_LINE_NUMBER, UNDEFINED_COLUMN_NUMBER)
+            }
         }, internalPackageFragmentDescriptor, module).also {
             module.files += it
         }
@@ -177,7 +191,8 @@ class WasmBackendContext(
     val testEntryPoints: Collection<IrSimpleFunction>
         get() = testContainerFuns.values
 
-    override fun createTestContainerFun(irFile: IrFile): IrSimpleFunction {
+    override fun createTestContainerFun(container: IrDeclaration): IrSimpleFunction {
+        val irFile = container.file
         val module = irFile.module
         return testContainerFuns.getOrPut(module) {
             val file = syntheticFile("tests", module)

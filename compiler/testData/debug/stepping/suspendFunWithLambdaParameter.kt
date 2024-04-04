@@ -1,4 +1,4 @@
-// IGNORE_BACKEND: WASM
+
 // WITH_STDLIB
 // FILE: test.kt
 suspend fun foo(block: Long.() -> String): String {
@@ -11,10 +11,14 @@ suspend fun box() {
     }
 }
 
-// EXPECTATIONS JVM JVM_IR
+// EXPECTATIONS JVM_IR
 // test.kt:9 box
 // test.kt:5 foo
+// EXPECTATIONS ClassicFrontend JVM_IR
 // test.kt:10 invoke
+// EXPECTATIONS FIR JVM_IR
+// test.kt:10 box$lambda$0
+// EXPECTATIONS JVM_IR
 // test.kt:5 foo
 // test.kt:9 box
 // test.kt:12 box
@@ -25,3 +29,5 @@ suspend fun box() {
 // test.kt:5 foo
 // test.kt:10 box$lambda
 // test.kt:12 doResume
+
+// EXPECTATIONS WASM
